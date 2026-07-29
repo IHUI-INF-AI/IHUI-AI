@@ -33,7 +33,7 @@ function subagentStatusToTimelineStatus(s: string): TimelineEventStatus {
 /** 类型过滤 id('all' 是虚拟值,表示不过滤) */
 type TypeFilter = 'all' | TimelineEventType
 
-/** 类型过滤 chip 配置(i18n key + 英文 fallback,i18n 5 语言补完不在本任务) */
+/** 类型过滤 chip 配置(Phase 22,2026-07-29:5 项 all/plan/subagent/tool/thinking) */
 const TYPE_FILTERS: ReadonlyArray<{
   id: TypeFilter
   key: string
@@ -43,7 +43,7 @@ const TYPE_FILTERS: ReadonlyArray<{
   { id: 'plan', key: 'timelineFilterPlan', fallback: 'Plan' },
   { id: 'subagent', key: 'timelineFilterSubagent', fallback: 'Subagent' },
   { id: 'tool', key: 'timelineFilterTool', fallback: 'Tool' },
-  { id: 'question', key: 'timelineFilterQuestion', fallback: 'Question' },
+  { id: 'thinking', key: 'timelineFilterThinking', fallback: 'Thinking' },
 ]
 
 // ─── i18n 动态 key 包装(2026-07-28 立) ─────────────────────────────
@@ -68,7 +68,7 @@ function safeT(
   if (v === key || !v) {
     if (!warnedTimelineKeys.has(key)) {
       warnedTimelineKeys.add(key)
-      // eslint-disable-next-line no-console
+       
       console.warn(
         `[timeline-tab] i18n key 'ai.pane.${key}' missing, using fallback: "${fallback}"`,
       )
@@ -200,26 +200,28 @@ export const TimelineTab = React.memo(function TimelineTab({
   const activeTab = useTimelineStore((s) => s.activeTab)
   const setActiveTab = useTimelineStore((s) => s.setActiveTab)
   const events = useTimelineStore((s) => s.events)
+  // Phase 22(2026-07-29):类型筛选 state 移到 store(多组件共享 + 单测响应式)
+  const filterType = useTimelineStore((s) => s.filterType)
+  const setFilterType = useTimelineStore((s) => s.setFilterType)
 
-  // 类型过滤 + 搜索 state(showTabs=false 时 UI 不展示,但 state 仍初始化,保持单一渲染路径)
-  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all')
+  // 搜索 state 仍保留本地(仅本组件使用)
   const [searchQuery, setSearchQuery] = React.useState<string>('')
   // Phase 20 P1-3: 导出按钮"已复制"反馈状态
   const [exported, setExported] = React.useState<boolean>(false)
 
-  // 派生数据(过滤是派生计算,不放进 store,避免污染全局)
+  // 派生数据(类型过滤用 store filterType,搜索叠加本地)
   const typeCounts = React.useMemo(() => countByType(events), [events])
   const statusCounts = React.useMemo(() => countByStatus(events), [events])
   const filteredEvents = React.useMemo(
-    () => filterBySearch(filterByType(events, typeFilter), searchQuery),
-    [events, typeFilter, searchQuery],
+    () => filterBySearch(filterByType(events, filterType), searchQuery),
+    [events, filterType, searchQuery],
   )
 
-  const hasFilterActive = typeFilter !== 'all' || searchQuery.length > 0
+  const hasFilterActive = filterType !== 'all' || searchQuery.length > 0
   const clearFilters = React.useCallback(() => {
-    setTypeFilter('all')
+    setFilterType('all')
     setSearchQuery('')
-  }, [])
+  }, [setFilterType])
 
   // Phase 20 P1-3: 导出当前过滤后的事件为 Markdown 到剪贴板(2026-07-28 立)
   const onExportMarkdown = React.useCallback(async () => {
@@ -309,28 +311,29 @@ export const TimelineTab = React.memo(function TimelineTab({
           data-testid="timeline-filter-row"
         >
           {TYPE_FILTERS.map((f) => {
-            const active = typeFilter === f.id
+            const active = filterType === f.id
             const count = f.id === 'all' ? events.length : (typeCounts[f.id] ?? 0)
             return (
               <button
                 key={f.id}
                 type="button"
                 aria-pressed={active}
-                onClick={() => setTypeFilter(f.id)}
+                onClick={() => setFilterType(f.id)}
                 className={cn(
-                  'inline-flex shrink-0 items-center gap-0.5 rounded-sm border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors',
+                  'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-[10px] tabular-nums transition-colors',
                   active
-                    ? 'border-primary/40 bg-primary/10 text-foreground'
-                    : 'border-transparent text-muted-foreground/70 hover:border-border/60 hover:bg-accent/30 hover:text-foreground',
+                    ? 'border-border bg-accent/30 text-foreground'
+                    : 'border-transparent text-muted-foreground/70 hover:border-border/60 hover:bg-accent/20 hover:text-foreground',
                 )}
                 data-testid={`timeline-filter-${f.id}`}
+                data-active={active ? 'true' : undefined}
               >
                 <span>{safeT(t, f.key, f.fallback)}</span>
                 <span
                   className={cn(
                     'shrink-0 rounded-sm px-0.5 text-[9px]',
                     active
-                      ? 'bg-primary/20 text-foreground/80'
+                      ? 'bg-accent/40 text-foreground/80'
                       : 'bg-muted text-muted-foreground/70',
                   )}
                 >
