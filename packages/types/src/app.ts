@@ -2975,3 +2975,472 @@ export interface SecuritySettingsScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
+
+/** Agent 统计数据 */
+export interface AgentStatData {
+  conversations: number
+  messages: number
+  tokens: number
+  avgRating: number
+}
+
+/** AgentStatScreen props */
+export interface AgentStatScreenProps {
+  t: TFunction
+  stat: AgentStatData | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 设置数据 */
+export interface AgentSettingData {
+  name: string
+  model: string
+  temperature: number
+  enabled: boolean
+}
+
+/** AgentSettingScreen props */
+export interface AgentSettingScreenProps {
+  t: TFunction
+  setting: AgentSettingData | null
+  loading: boolean
+  saving: boolean
+  error: string
+  toast: string
+  onChange: (patch: Partial<AgentSettingData>) => void
+  onSave: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AgentCreateScreen props */
+export interface AgentCreateScreenProps {
+  t: TFunction
+  name: string
+  description: string
+  systemPrompt: string
+  category: string
+  isPublic: boolean
+  saving: boolean
+  error: string
+  onNameChange: (v: string) => void
+  onDescriptionChange: (v: string) => void
+  onSystemPromptChange: (v: string) => void
+  onCategoryChange: (v: string) => void
+  onTogglePublic: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 聊天消息 */
+export interface AgentChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** AgentChatScreen props */
+export interface AgentChatScreenProps {
+  t: TFunction
+  title: string
+  messages: AgentChatMessage[]
+  loading: boolean
+  error: string
+  input: string
+  sending: boolean
+  onInputChange: (v: string) => void
+  onSend: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程列表项 */
+export interface CourseScreenItem {
+  id: string
+  title: string
+  description?: string
+  instructor: string
+  studentCount: number
+  price: number
+  isFree: boolean
+  level: 'beginner' | 'intermediate' | 'advanced'
+  cover?: string
+}
+
+/** CourseScreen props */
+export interface CourseScreenProps {
+  t: TFunction
+  items: CourseScreenItem[]
+  keyword: string
+  loading: boolean
+  error: string
+  page: number
+  totalPages: number
+  onKeywordChange: (v: string) => void
+  onPageChange: (page: number) => void
+  onPressItem: (id: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程详情数据 */
+export interface CourseDetailItem {
+  id: string
+  title: string
+  description: string
+  categoryName: string
+  level: string
+  instructor: string
+  studentCount: number
+  rating: number
+  price: number
+  isFree: boolean
+  isEnrolled: boolean
+}
+
+/** 课程章节 */
+export interface CourseDetailLesson {
+  lessonId: string
+  title: string
+  isCompleted: boolean
+}
+
+/** CourseDetailScreen props */
+export interface CourseDetailScreenProps {
+  t: TFunction
+  item: CourseDetailItem | null
+  lessons: CourseDetailLesson[]
+  loading: boolean
+  error: string
+  enrolling: boolean
+  onEnroll: () => void
+  onPlayLesson: (lessonId: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程筛选项 */
+export interface CourseFilterItem {
+  id: string
+  title: string
+  instructor: string
+  level: 'all' | 'beginner' | 'intermediate' | 'advanced'
+  price: number
+}
+
+/** CourseFilterScreen props */
+export interface CourseFilterScreenProps {
+  t: TFunction
+  items: CourseFilterItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  category: 'all' | 'tech' | 'design' | 'business' | 'language'
+  level: 'all' | 'beginner' | 'intermediate' | 'advanced'
+  priceTab: 'all' | 'free' | 'paid'
+  onCategoryChange: (c: CourseFilterScreenProps['category']) => void
+  onLevelChange: (l: CourseFilterScreenProps['level']) => void
+  onPriceTabChange: (p: CourseFilterScreenProps['priceTab']) => void
+  onApply: () => void
+  onReset: () => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程评论项 */
+export interface CourseCommentItem {
+  id: string
+  user: string
+  content: string
+  rating: number
+  createdAt: string
+}
+
+/** CourseCommentScreen props */
+export interface CourseCommentScreenProps {
+  t: TFunction
+  items: CourseCommentItem[]
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 17(2026-07-29):混合类屏(API 设置/创客名片/课程附件/课程问答/课程资源/客服/讲师详情/笔记/订阅/任务中心,10 屏迁移自 mobile-rn) */
+
+/** Coze API 配置(ApiSettingsScreen) */
+export interface ApiSettingsConfig {
+  token: string
+  baseUrl: string
+  botId: string
+  timeout: number
+}
+
+/** 连通性测试状态 */
+export type ApiSettingsTestState = 'idle' | 'testing' | 'success' | 'failed'
+
+/** ApiSettingsScreen props */
+export interface ApiSettingsScreenProps {
+  t: TFunction
+  config: ApiSettingsConfig
+  showToken: boolean
+  saving: boolean
+  testing: ApiSettingsTestState
+  testMsg: string
+  toast: string
+  loading: boolean
+  defaultBaseUrl: string
+  defaultTimeout: number
+  onConfigChange: (patch: Partial<ApiSettingsConfig>) => void
+  onToggleShowToken: () => void
+  onSave: () => void
+  onReset: () => void
+  onTest: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 创客资料(CarteScreen) */
+export interface CarteCreator {
+  name: string
+  title: string
+  bio: string
+  projects: number
+  skills: number
+  rating: number
+}
+
+/** 创客作品 */
+export interface CarteWork {
+  id: string
+  title: string
+  category: string
+  desc: string
+  tags: string[]
+  likes: number
+}
+
+/** CarteScreen props */
+export interface CarteScreenProps {
+  t: TFunction
+  creator: CarteCreator | null
+  works: CarteWork[]
+  skills: string[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onRetry: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程附件项(CourseAnnexScreen) */
+export interface CourseAnnexItem {
+  id: string
+  name: string
+  size: number
+  url: string
+}
+
+/** CourseAnnexScreen props */
+export interface CourseAnnexScreenProps {
+  t: TFunction
+  items: CourseAnnexItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** CourseQAAskScreen props */
+export interface CourseQAAskScreenProps {
+  t: TFunction
+  question: string
+  submitting: boolean
+  error: string
+  success: boolean
+  onQuestionChange: (v: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程资源项(CourseResourceScreen) */
+export interface CourseResourceItem {
+  id: string
+  name: string
+  size: number
+  type: string
+}
+
+/** CourseResourceScreen props */
+export interface CourseResourceScreenProps {
+  t: TFunction
+  items: CourseResourceItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 客服信息(CustomerServiceScreen) */
+export interface CustomerServiceInfo {
+  online: boolean
+  phone: string
+  email: string
+  workingHours: string
+  working: boolean
+}
+
+/** CustomerServiceScreen props */
+export interface CustomerServiceScreenProps {
+  t: TFunction
+  info: CustomerServiceInfo | null
+  loading: boolean
+  error: string
+  onCall: () => void
+  onEmail: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 讲师信息(LecturerDetailScreen) */
+export interface LecturerDetailInfo {
+  id: string
+  nickname: string
+  avatar: string | null
+  bio: string
+  followers: number
+  following: number
+  isFollowing: boolean
+  courseCount: number
+  studentCount: number
+}
+
+/** 讲师课程 */
+export interface LecturerDetailCourse {
+  id: string
+  title: string
+  level: string
+  price: number
+  studentCount: number
+}
+
+/** LecturerDetailScreen props */
+export interface LecturerDetailScreenProps {
+  t: TFunction
+  info: LecturerDetailInfo | null
+  courses: LecturerDetailCourse[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  followLoading: boolean
+  onRefresh: () => void
+  onFollow: () => void
+  onRetry: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 笔记项(NoteScreen) */
+export interface NoteItem {
+  id: string
+  title: string
+  content: string
+  updatedAt: string
+}
+
+/** NoteScreen props(含编辑 Modal) */
+export interface NoteScreenProps {
+  t: TFunction
+  userLabel: string
+  notes: NoteItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  toast: string
+  modalVisible: boolean
+  editing: NoteItem | null
+  title: string
+  content: string
+  saving: boolean
+  onRefresh: () => void
+  onBack: () => void
+  onOpenCreate: () => void
+  onOpenEdit: (note: NoteItem) => void
+  onTitleChange: (v: string) => void
+  onContentChange: (v: string) => void
+  onSave: () => void
+  onDelete: (note: NoteItem) => void
+  onCloseModal: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 订阅项(SubscriptionsScreen) */
+export interface SubscriptionsItem {
+  id: string
+  targetType: string
+  targetId: string
+  createdAt: string
+}
+
+/** SubscriptionsScreen props */
+export interface SubscriptionsScreenProps {
+  t: TFunction
+  items: SubscriptionsItem[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  onRefresh: () => void
+  onLoadMore: () => void
+  onCancel: (item: SubscriptionsItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 任务中心任务项(TaskCenterScreen) */
+export interface TaskCenterItem {
+  id: string
+  title: string
+  description: string
+  type: 'daily' | 'weekly' | 'newbie'
+  reward: number
+  progress: number
+  target: number
+  completed: boolean
+  claimed: boolean
+  actionUrl: string | null
+}
+
+/** 任务中心 tab */
+export type TaskCenterTab = 'daily' | 'weekly' | 'newbie'
+
+/** TaskCenterScreen props */
+export interface TaskCenterScreenProps {
+  t: TFunction
+  tasks: TaskCenterItem[]
+  activeTab: TaskCenterTab
+  loading: boolean
+  refreshing: boolean
+  error: string
+  claimingId: string | null
+  onTabChange: (tab: TaskCenterTab) => void
+  onRefresh: () => void
+  onRetry: () => void
+  onClaim: (task: TaskCenterItem) => void
+  onAction: (task: TaskCenterItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
