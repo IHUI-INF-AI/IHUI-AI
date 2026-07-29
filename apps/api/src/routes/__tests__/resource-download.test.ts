@@ -75,6 +75,7 @@ function makeResource(overrides: Record<string, unknown> = {}) {
     sort: 0,
     status: 1,
     type: null,
+    price: null,
     productId: null,
     tagIdList: null,
     image: null,
