@@ -42,7 +42,11 @@ export function AigcListScreen({
   const renderItem = ({ item }: { item: AigcListItem }) => {
     if (item.fileType === 4) {
       return (
-        <TouchableOpacity style={styles.textCard} onPress={() => onPressItem(item)} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.textCard}
+          onPress={() => onPressItem(item)}
+          activeOpacity={0.7}
+        >
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.title}
@@ -64,7 +68,11 @@ export function AigcListScreen({
     }
     if (item.fileType === 3) {
       return (
-        <TouchableOpacity style={styles.audioCard} onPress={() => onPressItem(item)} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.audioCard}
+          onPress={() => onPressItem(item)}
+          activeOpacity={0.7}
+        >
           <Image source={{ uri: item.coverUrl }} style={styles.audioCover} />
           <View style={styles.audioInfo}>
             <Text style={styles.cardTitle} numberOfLines={1}>
@@ -79,7 +87,11 @@ export function AigcListScreen({
       )
     }
     return (
-      <TouchableOpacity style={styles.mediaCard} onPress={() => onPressItem(item)} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.mediaCard}
+        onPress={() => onPressItem(item)}
+        activeOpacity={0.7}
+      >
         <Image source={{ uri: item.coverUrl }} style={styles.mediaCover} resizeMode="cover" />
         {item.fileType === 1 ? (
           <View style={styles.videoBadge}>
@@ -122,7 +134,9 @@ export function AigcListScreen({
             style={[styles.categoryChip, category === c.key && styles.categoryChipActive]}
             onPress={() => onSelectCategory(c.key)}
           >
-            <Text style={[styles.categoryText, category === c.key && styles.categoryTextActive]}>{c.label}</Text>
+            <Text style={[styles.categoryText, category === c.key && styles.categoryTextActive]}>
+              {c.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -142,7 +156,9 @@ export function AigcListScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>{loading ? t('common.loading') : t('aigcList.empty')}</Text>
+            <Text style={styles.emptyText}>
+              {loading ? t('common.loading') : t('aigcList.empty')}
+            </Text>
           </View>
         }
         renderItem={renderItem}
@@ -209,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     audioCard: {
       flex: 2,
       flexDirection: 'row',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
       marginBottom: 12,

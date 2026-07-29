@@ -10,11 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  ModelIncomeItem,
-  ModelIncomeScreenProps,
-  ModelIncomeTab,
-} from '../../types'
+import type { ModelIncomeItem, ModelIncomeScreenProps, ModelIncomeTab } from '../../types'
 
 /** ModelIncome 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelIncomeItem, ModelIncomeScreenProps, ModelIncomeTab }
@@ -54,7 +50,11 @@ export function ModelIncomeScreen({
   const filteredItems = useMemo(
     () =>
       items.filter((i) =>
-        activeTab === 'all' ? true : activeTab === 'pending' ? !isSettled(i.status) : isSettled(i.status),
+        activeTab === 'all'
+          ? true
+          : activeTab === 'pending'
+            ? !isSettled(i.status)
+            : isSettled(i.status),
       ),
     [items, activeTab],
   )
@@ -91,14 +91,9 @@ export function ModelIncomeScreen({
         <View style={styles.sumTop}>
           <Text style={styles.sumLabel}>
             {t('modelIncome.accumulated')}{' '}
-            <Text style={styles.sumAmount}>{accumulated.toFixed(2)}</Text>{' '}
-            {t('modelIncome.yuan')}
+            <Text style={styles.sumAmount}>{accumulated.toFixed(2)}</Text> {t('modelIncome.yuan')}
           </Text>
-          <TouchableOpacity
-            style={styles.withdrawBtn}
-            onPress={onOpenWithdraw}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.withdrawBtn} onPress={onOpenWithdraw} activeOpacity={0.8}>
             <Text style={styles.withdrawBtnText}>{t('modelIncome.withdrawBtn')}</Text>
           </TouchableOpacity>
         </View>
@@ -163,7 +158,9 @@ export function ModelIncomeScreen({
                 <Text style={styles.cardOrder} numberOfLines={1}>
                   {t('modelIncome.orderLabel')} {item.orderId}
                 </Text>
-                <Text style={[styles.cardStatus, settled ? styles.statusSettled : styles.statusPending]}>
+                <Text
+                  style={[styles.cardStatus, settled ? styles.statusSettled : styles.statusPending]}
+                >
                   {t(`modelIncome.tab.${settled ? 'settled' : 'pending'}`)}
                 </Text>
               </View>
@@ -198,7 +195,10 @@ export function ModelIncomeScreen({
           <View style={styles.modalBody}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>{t('modelIncome.withdrawModal.title')}</Text>
-              <TouchableOpacity onPress={onCloseWithdraw} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity
+                onPress={onCloseWithdraw}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.modalClose}>{t('modelIncome.withdrawModal.close')}</Text>
               </TouchableOpacity>
             </View>
@@ -215,7 +215,11 @@ export function ModelIncomeScreen({
               <View style={styles.payRadio} />
             </TouchableOpacity>
             <Text style={styles.modalNote}>{t('modelIncome.withdrawModal.moreMethods')}</Text>
-            <TouchableOpacity style={styles.modalBtn} onPress={onConfirmWithdraw} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={onConfirmWithdraw}
+              activeOpacity={0.8}
+            >
               <Text style={styles.modalBtnText}>{t('modelIncome.withdrawModal.confirm')}</Text>
             </TouchableOpacity>
           </View>
@@ -237,7 +241,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     backText: { fontSize: 14, color: tk.text.medium },
     headerTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    centerLoad: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tk.surface.bg },
+    centerLoad: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+    },
     centerErr: {
       flex: 1,
       alignItems: 'center',
@@ -315,7 +324,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
