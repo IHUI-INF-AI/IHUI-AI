@@ -593,7 +593,15 @@
     }
   },
   "live": {
-    "empty": "ライブなし"
+    "title": "ライブ",
+    "loadFailed": "ライブの読み込みに失敗しました",
+    "empty": "ライブなし",
+    "ongoing": "配信中",
+    "upcoming": "開始予定",
+    "ended": "終了",
+    "lecturer": "講師",
+    "startAt": "開始時間",
+    "viewerCount": "{count} 視聴"
   },
   "course": {
     "free": "無料",
@@ -872,5 +880,75 @@
     "code": "共有コード",
     "expireAt": "有効期限",
     "shareNow": "今すぐ共有"
+  },
+  "agentMarket": {
+    "title": "Agent マーケット",
+    "loadFailed": "Agent の読み込みに失敗しました",
+    "searchPlaceholder": "Agent を検索",
+    "empty": "Agent がありません",
+    "uses": "回使用",
+    "free": "無料",
+    "paid": "有料"
+  },
+  "agentReviewList": {
+    "title": "Agent レビュー",
+    "loadFailed": "レビューの読み込みに失敗しました",
+    "empty": "レビューがありません",
+    "author": "投稿者"
+  },
+  "following": {
+    "title": "フォロー中",
+    "loadFailed": "フォローの読み込みに失敗しました",
+    "empty": "フォローがありません",
+    "unfollowTitle": "フォロー解除",
+    "unfollow": "フォロー解除"
+  },
+  "activity": {
+    "title": "アクティビティ",
+    "loadFailed": "アクティビティの読み込みに失敗しました",
+    "empty": "アクティビティがありません",
+    "startTime": "開始時間",
+    "endTime": "終了時間",
+    "participants": "参加者数",
+    "joinNow": "今すぐ参加",
+    "status_upcoming": "開始予定",
+    "status_ongoing": "進行中",
+    "status_ended": "終了"
+  },
+  "favorites": {
+    "title": "お気に入り",
+    "loadFailed": "お気に入りの読み込みに失敗しました",
+    "empty": "お気に入りがありません",
+    "deleteTitle": "お気に入り削除"
+  },
+  "checkIn": {
+    "title": "毎日チェックイン",
+    "subtitle": "毎日チェックインしてポイント獲得",
+    "loadFailed": "チェックイン情報の読み込みに失敗しました",
+    "retry": "再試行",
+    "empty": "チェックイン記録がありません",
+    "streak": "連続日数",
+    "monthlyDays": "今月",
+    "totalDays": "累計日数",
+    "todayReward": "本日のポイント",
+    "checkInBtn": "チェックイン",
+    "checkedIn": "チェックイン済み",
+    "calendar": "カレンダー",
+    "signSuccess": "チェックイン成功",
+    "signFailed": "チェックイン失敗"
+  },
+  "pointsMall": {
+    "title": "ポイントモール",
+    "subtitle": "ポイントで報酬を交換",
+    "loadFailed": "商品の読み込みに失敗しました",
+    "retry": "再試行",
+    "empty": "商品がありません",
+    "balance": "マイポイント",
+    "pointsUnit": "pt",
+    "stock": "在庫 {count}",
+    "redeem": "交換",
+    "redeemSuccess": "交換成功",
+    "redeemFailed": "交換失敗",
+    "insufficient": "ポイント不足"
   }
 }
