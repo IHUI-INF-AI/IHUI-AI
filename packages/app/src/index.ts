@@ -34,6 +34,14 @@ export { PostDetailScreen } from './features/post-detail/PostDetailScreen'
 export { AnnouncementDetailScreen } from './features/announcement-detail/AnnouncementDetailScreen'
 export { LegalDocScreen } from './features/legal-doc/LegalDocScreen'
 export { HelpScreen } from './features/help/HelpScreen'
+export { AgentDetailScreen } from './features/agent-detail/AgentDetailScreen'
+export { AskDetailScreen } from './features/ask-detail/AskDetailScreen'
+export { AskListScreen } from './features/ask-list/AskListScreen'
+export { CertListScreen } from './features/cert-list/CertListScreen'
+export { CertVerifyScreen } from './features/cert-verify/CertVerifyScreen'
+export { WithdrawScreen } from './features/withdraw/WithdrawScreen'
+export { VipCompareScreen } from './features/vip-compare/VipCompareScreen'
+export { ShareScreen } from './features/share/ShareScreen'
 export { SearchScreen } from './features/search/SearchScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
@@ -138,4 +146,23 @@ export type {
   LegalDocScreenProps,
   HelpListItem,
   HelpScreenProps,
+  SearchScreenItem,
+  SearchScreenProps,
+  /** 批次 9(2026-07-29):Agent/问答/证书/提现/VIP 对比/分享 */
+  AgentDetailItem,
+  AgentDetailScreenProps,
+  AskAnswerItem,
+  AskDetailItem,
+  AskDetailScreenProps,
+  AskListItem,
+  AskListScreenProps,
+  CertListItem,
+  CertListScreenProps,
+  CertVerifyResult,
+  CertVerifyScreenProps,
+  WithdrawScreenProps,
+  VipCompareRow,
+  VipCompareScreenProps,
+  ShareResultItem,
+  ShareScreenProps,
 } from './types'
