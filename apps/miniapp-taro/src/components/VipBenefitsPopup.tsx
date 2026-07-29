@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 /**
  * 会员权益介绍弹窗 — 对齐原项目 introduce-popup 4 个变体
@@ -196,8 +196,7 @@ export default function VipBenefitsPopup({
   onConsult,
   onClose,
 }: VipBenefitsPopupProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [servicePopupVisible, setServicePopupVisible] = useState(false)
   // iOS 检测(level variant 用,对齐原项目 uni.getSystemInfoSync().osName == 'ios')
   // iOS 隐藏"去开通"按钮(App Store 支付合规)。useState 必须在所有条件 return 之前调用。

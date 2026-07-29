@@ -2,7 +2,7 @@ import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
 import './index.css'
 
@@ -12,8 +12,7 @@ type StoredData = {
 } & Record<string, unknown>
 
 export default function BusinessCardIndex() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [card, setCard] = useState('')
   const [isShow, setIsShow] = useState(false)
   const [uploading, setUploading] = useState(false)

@@ -49,7 +49,7 @@ export default function PayResult() {
       }
     }, 2000)
     return () => clearInterval(id)
-  }, [router.params.orderNo])
+  }, [router.params.orderNo, t])
 
   async function check(): Promise<PayStatus> {
     if (!orderNoRef.current) return 'pending'

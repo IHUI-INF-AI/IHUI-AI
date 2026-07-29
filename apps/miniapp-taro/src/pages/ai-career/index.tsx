@@ -3,7 +3,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 /** 从智能体描述中提取前 2 个关键词作为标签 */
 function extractTags(name: string, desc: string): string[] {
@@ -34,12 +34,7 @@ function extractTags(name: string, desc: string): string[] {
 
 export default function AiCareer() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
   const [list, setList] = useState<Array<Record<string, unknown>>>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)

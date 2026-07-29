@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface InvitePosterProps {
   inviteCode?: string
@@ -20,8 +20,7 @@ export default function InvitePoster({
   onSave,
   onShare,
 }: InvitePosterProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View

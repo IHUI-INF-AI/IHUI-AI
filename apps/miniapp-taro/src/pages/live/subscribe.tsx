@@ -3,7 +3,7 @@ import { View, Text, Image, Switch } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getLiveList, del, type Live } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 const REMINDER_KEY = 'live_reminder_enabled'
 
@@ -20,8 +20,7 @@ const STATUS_LABEL: Record<Live['status'], { key: string; fb: string }> = {
 }
 
 export default function LiveSubscribe() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
