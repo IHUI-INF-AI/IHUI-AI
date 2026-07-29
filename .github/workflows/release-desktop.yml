@@ -63,6 +63,10 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build web (static export to apps/web/out)
+        env:
+          # 生产 API 基址:在 GitHub repo Settings → Secrets 配置 DESKTOP_API_URL
+          # 例如 https://api.ihui.ai(不带尾部斜杠)
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.DESKTOP_API_URL }}
         run: pnpm --filter @ihui/web build
 
       - name: Verify web output exists
@@ -98,3 +102,31 @@ jobs:
           echo "平台: ${{ matrix.label }}" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "产物: .msi/.exe(Windows)、.dmg(macOS)、.deb/.AppImage(Linux)+ updater 签名包" >> $GITHUB_STEP_SUMMARY
+
+  # 聚合多平台 .sig 文件,生成包含全部平台的统一 latest.json
+  # 解决:tauri-action 矩阵构建时每个 job 只生成当前平台的 latest.json,后上传覆盖先上传
+  publish-updater-json:
+    name: Publish Updater JSON
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Generate & upload latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/generate-latest-json.mjs
+
+      - name: Summary
+        run: |
+          echo "### Updater JSON 发布完成" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "latest.json 已聚合所有平台签名,上传到 Release assets" >> $GITHUB_STEP_SUMMARY
