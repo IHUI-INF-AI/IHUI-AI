@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
-use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent, TrayIconId};
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
@@ -327,7 +327,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .default_window_icon()
         .cloned()
         .ok_or_else(|| "no default window icon".to_string())?;
-    TrayIconBuilder::new()
+    TrayIconBuilder::with_id(TrayIconId::new("main"))
         .icon(icon)
         .tooltip(localized_app_name())
         .menu(&menu)
@@ -955,6 +955,72 @@ fn reset_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<Ok
     Ok(OkResult { ok: true })
 }
 
+/// 清理 WebView2 缓存(Windows)。
+/// 2026-07-29 #6:prod 模式 EBWebView 目录会无限增长(几个月可达数百 MB),
+/// 供前端设置项"清理缓存"调用。清理后建议重启应用。
+#[tauri::command]
+fn clear_webview_cache() -> Result<OkResult, String> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+            let webview_cache = std::path::Path::new(&local_app_data)
+                .join("com.ihui.desktop")
+                .join("EBWebView");
+            if webview_cache.exists() {
+                std::fs::remove_dir_all(&webview_cache).map_err(|e| e.to_string())?;
+                log::info!("[desktop] WebView2 cache cleared by user: {}", webview_cache.display());
+            }
+        }
+    }
+    Ok(OkResult { ok: true })
+}
+
+/// 根据状态返回本地化托盘 tooltip(2026-07-29 #10)。
+/// status: "idle" | "new_message" | "thinking"
+fn tray_status_tooltip(status: &str) -> String {
+    let base = localized_app_name();
+    match get_system_locale() {
+        AppLocale::ZhCn => match status {
+            "new_message" => format!("{} · 有新消息", base),
+            "thinking" => format!("{} · AI 思考中…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::ZhTw => match status {
+            "new_message" => format!("{} · 有新訊息", base),
+            "thinking" => format!("{} · AI 思考中…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::Ko => match status {
+            "new_message" => format!("{} · 새 메시지", base),
+            "thinking" => format!("{} · AI 생각 중…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::Ja => match status {
+            "new_message" => format!("{} · 新着メッセージ", base),
+            "thinking" => format!("{} · AI 思考中…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::En => match status {
+            "new_message" => format!("{} · New message", base),
+            "thinking" => format!("{} · AI thinking…", base),
+            _ => base.to_string(),
+        },
+    }
+}
+
+/// 设置托盘状态(2026-07-29 #10):切换 tooltip 表示新消息/AI 思考中。
+/// status: "idle" | "new_message" | "thinking"
+#[tauri::command]
+fn set_tray_status(app: tauri::AppHandle, status: String) -> Result<(), String> {
+    let tray = app
+        .tray_by_id("main")
+        .ok_or_else(|| "tray icon not found".to_string())?;
+    let tooltip = tray_status_tooltip(&status);
+    tray.set_tooltip(Some(&tooltip))
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -1072,6 +1138,10 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if label == "main" {
                     api.prevent_close();
+                    // 2026-07-29 #12:emit before-close 事件给前端,前端保存正在编辑的消息
+                    // emit 是同步派发,前端 listen 异步处理;前端保存完不需要回调 Rust,
+                    // 窗口立即隐藏(保存仍在进行,可接受)
+                    let _ = window.emit("desktop-before-close", ());
                     let _ = window.hide();
                     // 隐藏到托盘时持久化窗口状态
                     let app = window.app_handle().clone();
@@ -1184,7 +1254,9 @@ pub fn run() {
             stat_file,
             save_window_state,
             restore_window_state,
-            reset_window_state
+            reset_window_state,
+            clear_webview_cache,
+            set_tray_status
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

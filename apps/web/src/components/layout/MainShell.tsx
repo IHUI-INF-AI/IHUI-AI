@@ -4,7 +4,9 @@
 import * as React from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
-import { useDesktop, useSystemTheme, useDesktopEvents } from '@/hooks/use-desktop'
+import { useChatStore } from '@/stores/chat'
+import { useNotificationStore } from '@/stores/notification'
+import { useDesktop, useSystemTheme, useDesktopEvents, useTrayStatus } from '@/hooks/use-desktop'
 import { useTheme } from '@/hooks/use-theme'
 import {
   minimizeWindow,
@@ -61,6 +63,11 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const systemTheme = useSystemTheme()
   // 监听 Rust 端托盘菜单 + 系统级快捷键事件(2026-07-29)
   useDesktopEvents()
+
+  // 2026-07-29 #10:根据聊天状态自动切换托盘 tooltip(新消息/AI 思考中)
+  const isStreaming = useChatStore((s) => s.isStreaming)
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  useTrayStatus(isStreaming, unreadCount)
 
   // 最大化状态:用 onMaximizeChange 监听 Tauri onResized 事件
   // 不再使用 useDesktop().isMaximized(它走浏览器 resize 事件,比 Tauri 事件慢一帧)

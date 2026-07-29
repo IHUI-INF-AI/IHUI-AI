@@ -49,9 +49,9 @@ const ADMIN_ENTRIES: PathLabelEntry[] = ADMIN_NAV.map((item) => ({
  */
 const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   // ===== 原有 21 条独立页面路由 =====
-  { href: '/about', spec: { ns: 'about', key: 'aboutUs' } },
+  { href: '/about', spec: { ns: 'nav', key: 'about' } },
   { href: '/articles', spec: { ns: 'articles', key: 'title' } },
-  { href: '/business-card', spec: { ns: 'businessCard', key: 'title' } },
+  { href: '/business-card', spec: { ns: 'nav', key: 'businessCard' } },
   { href: '/pricing', spec: { ns: 'nav', key: 'pricing' } },
   { href: '/support', spec: { ns: 'nav', key: 'support' } },
   { href: '/ai-generation', spec: { ns: 'nav', key: 'aiGeneration' } },
