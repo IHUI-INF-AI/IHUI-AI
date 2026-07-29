@@ -17,6 +17,10 @@ import { useAuthStore } from '@/stores/auth'
  * 性能修复(2026-07-25):原 useAuth() 返回 user 对象全订阅,导致任何 setUser 调用
  * (登录 / profile 刷新 / auth bootstrap / persist hydration)都触发整个 /admin/* 子树重渲染
  * + useEffect 依赖 user 引用变化重新执行权限校验 + 视觉闪烁。改为单字段 selector。
+ *
+ * hydration 修复(2026-07-29):zustand persist 在 SSR 时用 noopStorage(isAuthenticated=false),
+ * 客户端 hydration 后才从 localStorage 读取。原逻辑在 hydration 完成前就触发重定向,导致
+ * 已登录用户访问 /admin/* 被错误重定向到 /sso/login。改为等 hasHydrated()=true 后再判断。
  */
 const ADMIN_ROLE_THRESHOLD = 1
 
@@ -25,8 +29,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const userRoleId = useAuthStore((s) => s.user?.roleId)
   const router = useRouter()
   const [checked, setChecked] = React.useState(false)
+  const [hydrated, setHydrated] = React.useState(false)
+
+  // 等 zustand persist hydration 完成(SSR 时 isAuthenticated=false,需等客户端 hydration)
+  React.useEffect(() => {
+    if (useAuthStore.persist.hasHydrated()) {
+      setHydrated(true)
+      return
+    }
+    const unsub = useAuthStore.persist.onFinishHydration(() => setHydrated(true))
+    return unsub
+  }, [])
 
   React.useEffect(() => {
+    if (!hydrated) return // 等 hydration 完成后再判断,避免 SSR 初始值导致的误重定向
     // 未登录:middleware 应已拦截,这里作为客户端兜底
     if (!isAuthenticated) {
       router.replace('/sso/login?redirect=' + encodeURIComponent(window.location.pathname))
@@ -38,7 +54,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return
     }
     setChecked(true)
-  }, [isAuthenticated, userRoleId, router])
+  }, [hydrated, isAuthenticated, userRoleId, router])
 
   if (!checked) {
     return (
