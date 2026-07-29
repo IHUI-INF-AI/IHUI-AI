@@ -35,6 +35,7 @@
     "notification:default",
     "os:default",
     "store:default",
-    "updater:default"
+    "updater:default",
+    "log:default"
   ]
 }
