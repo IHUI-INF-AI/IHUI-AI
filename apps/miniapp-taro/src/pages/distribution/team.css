@@ -1,76 +1,81 @@
 .team-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
+  padding: 20rpx;
   padding-bottom: 60rpx;
   box-sizing: border-box;
 }
 
-/* ===== 搜索栏 ===== */
+/* ===== 搜索栏(对齐原项目 rgba(206,203,241,0.25) + #B7B5CA) ===== */
 .team-search {
   display: flex;
   align-items: center;
-  height: 72rpx;
-  padding: 0 20rpx;
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  height: 85rpx;
+  padding: 0 24rpx;
+  background: rgba(206, 203, 241, 0.25);
+  border: 2rpx solid #b7b5ca;
+  border-radius: 15rpx;
+  margin-bottom: 18rpx;
 }
 .team-search-icon {
-  margin-right: 12rpx;
-  font-size: 30rpx;
+  margin-right: 16rpx;
+  font-size: 32rpx;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
 .team-search-input {
   flex: 1;
-  font-size: 28rpx;
-  color: var(--color-foreground);
+  font-size: 30rpx;
+  color: #444;
 }
 
-/* ===== 团队总人数 ===== */
+/* ===== 团队总人数(对齐原项目 #3D3D3D + 36rpx) ===== */
 .team-total {
-  margin-top: 20rpx;
-  font-size: 28rpx;
-  color: var(--color-foreground);
+  margin-top: 27rpx;
+  font-size: 36rpx;
+  color: #3d3d3d;
 }
 .team-total-num {
-  font-weight: 700;
-  margin-left: 8rpx;
+  font-weight: bold;
+  margin-left: 10rpx;
   color: var(--color-primary);
 }
 
-/* ===== 排序 tab ===== */
+/* ===== 排序 tab(对齐原项目 function_button:白底 + 15rpx + #d1d1d1/#000) ===== */
 .team-sort {
   display: flex;
-  gap: 16rpx;
+  gap: 20rpx;
   margin-top: 20rpx;
+  padding-top: 20rpx;
 }
 .team-sort-btn {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 64rpx;
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  height: 70rpx;
+  padding: 10rpx;
+  box-sizing: border-box;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #d1d1d1;
+  background: #fff;
+  border: 2rpx solid #d1d1d1;
+  border-radius: 15rpx;
+  min-width: 0;
 }
 .team-sort-btn-active {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  font-weight: 600;
+  color: #000;
+  border-color: #000;
 }
 .team-sort-arrow {
   margin-left: 8rpx;
   font-size: 22rpx;
 }
 
-/* ===== 成员卡片 ===== */
+/* ===== 成员卡片(对齐原项目渐变 + 30rpx + 双阴影) ===== */
 .team-list {
-  margin-top: 24rpx;
+  margin-top: 30rpx;
   display: flex;
   flex-direction: column;
   gap: 16rpx;
@@ -78,28 +83,32 @@
 .team-card {
   position: relative;
   display: flex;
-  padding: 24rpx;
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  align-items: flex-start;
+  padding: 40rpx 15rpx;
+  /* TODO: custom color: 原项目 person-card 渐变(紫蓝→米黄),无对应 token,保留原值 */
+  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  border-radius: 30rpx;
+  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3), 0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
 }
 .team-card-left {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-right: 24rpx;
+  margin-right: 33rpx;
   flex-shrink: 0;
 }
 .team-avatar-wrap {
   position: relative;
-  width: 96rpx;
-  height: 96rpx;
+  width: 170rpx;
+  height: 170rpx;
 }
 .team-avatar {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 10rpx;
+  width: 170rpx;
+  height: 170rpx;
+  border-radius: 50%;
   background: var(--color-muted);
+  border: 4rpx solid #fff;
+  box-shadow: 0 0 8rpx rgba(0, 0, 0, 0.08);
 }
 .team-avatar-fallback {
   display: flex;
@@ -107,21 +116,21 @@
   justify-content: center;
 }
 .team-avatar-text {
-  font-size: 32rpx;
+  font-size: 48rpx;
   font-weight: 600;
   color: var(--color-primary);
 }
 .team-medal {
   position: absolute;
-  top: -10rpx;
-  left: -10rpx;
-  min-width: 36rpx;
-  height: 36rpx;
-  padding: 0 8rpx;
+  left: 0;
+  top: -7rpx;
+  min-width: 70rpx;
+  width: 70rpx;
+  height: 70rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20rpx;
+  font-size: 22rpx;
   font-weight: 700;
   border-radius: 8rpx;
   z-index: 2;
@@ -145,22 +154,25 @@
 }
 .team-nickname {
   margin-top: 12rpx;
-  font-size: 26rpx;
-  color: var(--color-foreground);
-  max-width: 140rpx;
+  font-size: 30rpx;
+  color: #333;
+  max-width: 170rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
 }
 
-/* ===== 卡片右侧信息 ===== */
+/* ===== 卡片右侧信息(对齐原项目 person-info:28rpx + #3D3D3D) ===== */
 .team-info {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: 8rpx;
+  margin-top: 4rpx;
+  font-size: 28rpx;
+  color: #3d3d3d;
 }
 .team-info-row {
   display: flex;
@@ -173,17 +185,21 @@
   gap: 8rpx;
 }
 .team-info-label {
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+  color: #3d3d3d;
 }
 .team-info-value {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: var(--color-brand-orange);
+  /* TODO: custom color: 原项目 highlight #ff9800 + 42rpx,无对应 token,保留原值 */
+  font-size: 42rpx;
+  font-weight: bold;
+  color: #ff9800;
 }
 .team-info-time {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  /* 对齐原项目 .bold(邀请时间):30rpx + bold + #222 */
+  margin-top: 10rpx;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #222;
 }
 .team-sub-btn {
   padding: 8rpx 20rpx;
@@ -200,9 +216,9 @@
 .team-no-more {
   display: block;
   text-align: center;
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
-  padding: 80rpx 0;
+  font-size: 28rpx;
+  color: #999;
+  padding: 100rpx 0;
 }
 .team-error {
   display: flex;
@@ -211,11 +227,11 @@
   padding: 60rpx 0;
 }
 .team-error-text {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-destructive);
 }
 .team-error-retry {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-primary);
   margin-top: 12rpx;
 }
