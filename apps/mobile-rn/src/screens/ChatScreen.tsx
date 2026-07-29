@@ -1,16 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  Alert,
-  Share,
-  Modal,
-  TouchableOpacity,
-} from 'react-native'
+import { Alert, Share, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
-import { Button, Input } from '@ihui/ui-native'
 import {
   streamChat,
   fetchModels,
@@ -20,6 +10,12 @@ import {
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
 import type { ChatMessage } from '@ihui/shared'
+import {
+  ChatScreen as SharedChatScreen,
+  type ChatScreenMessage,
+  type ChatScreenModel,
+  type ChatScreenNavItem,
+} from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
 import { useI18n } from '../i18n'
@@ -120,6 +116,20 @@ const FALLBACK_MODELS: LlmModel[] = [
   },
 ]
 
+function toChatScreenModel(m: LlmModel): ChatScreenModel {
+  return {
+    id: m.id,
+    name: m.name,
+    provider: m.provider,
+    context_length: m.context_length,
+    input_price: m.input_price,
+  }
+}
+
+function toChatScreenMessage(m: ChatMessage): ChatScreenMessage {
+  return { id: m.id, role: m.role, content: m.content }
+}
+
 export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
   const { logout } = useAuth()
   const { t } = useI18n()
@@ -174,7 +184,6 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       model,
       messages: apiMessages,
       signal: controller.signal,
-      // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
       contextLimit: getModelContextCapacity(model),
       onCompaction: (info) => {
         Alert.alert(
@@ -228,166 +237,68 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   // 长按消息气泡:截图并弹出分享/保存菜单
   const messageRefs = useRef<Map<string, View | null>>(new Map())
   const { capture, busy: capturing } = useScreenshot()
-  const setMessageRef = (id: string) => (el: View | null) => {
-    if (el) messageRefs.current.set(id, el)
-    else messageRefs.current.delete(id)
-  }
-  const handleLongPress = async (item: ChatMessage) => {
+  const handleLongPress = async (item: ChatScreenMessage) => {
+    const original = messages.find((m) => m.id === item.id)
+    if (!original) return
     const el = messageRefs.current.get(item.id)
     if (!el || capturing) return
     const uri = await capture({ current: el } as React.RefObject<View>)
     if (!uri) return
-    Alert.alert(item.role === 'user' ? t('chatAlert.longPress.myTitle') : t('chatAlert.longPress.aiTitle'), t('chatAlert.longPress.message'), [
-      { text: t('chatAlert.longPress.shareBtn'), onPress: () => Share.share({ url: uri, message: item.content }) },
-      { text: t('common.cancel'), style: 'cancel' },
-    ])
-  }
-
-  const renderItem = ({ item, index }: { item: ChatMessage; index: number }) => {
-    const isUser = item.role === 'user'
-    const isLastAi = item.role === 'assistant' && isStreaming && index === messages.length - 1
-    return (
-      <View className={isUser ? 'items-end' : 'items-start'}>
-        <Pressable
-          ref={setMessageRef(item.id)}
-          onLongPress={() => handleLongPress(item)}
-          delayLongPress={500}
-          className={
-            isUser
-              ? 'max-w-[80%] rounded-lg bg-gray-100 px-3 py-2'
-              : 'max-w-[80%] rounded-lg border border-gray-100 bg-white px-3 py-2'
-          }
-        >
-          <Text className="text-sm text-gray-900">
-            {item.content || (isLastAi ? '思考中...' : '')}
-          </Text>
-        </Pressable>
-      </View>
+    Alert.alert(
+      original.role === 'user' ? t('chatAlert.longPress.myTitle') : t('chatAlert.longPress.aiTitle'),
+      t('chatAlert.longPress.message'),
+      [
+        {
+          text: t('chatAlert.longPress.shareBtn'),
+          onPress: () => Share.share({ url: uri, message: original.content }),
+        },
+        { text: t('common.cancel'), style: 'cancel' },
+      ],
     )
   }
 
-  const currentModelName = models.find((m) => m.id === model)?.name || model
+  const onMessageRef = (id: string, el: unknown) => {
+    const node = el as View | null
+    if (node) messageRefs.current.set(id, node)
+    else messageRefs.current.delete(id)
+  }
+
+  const navItems: ChatScreenNavItem[] = [
+    { key: 'agent', label: t('chat.navAgent'), onPress: () => navigation.navigate('Agent') },
+    { key: 'wallet', label: t('chat.navWallet'), onPress: () => navigation.navigate('Wallet') },
+    {
+      key: 'course',
+      label: t('chat.navCourse'),
+      onPress: () => navigation.getParent()?.navigate('Tabs'),
+    },
+    { key: 'order', label: t('chat.navOrder'), onPress: () => navigation.navigate('Order') },
+    {
+      key: 'profile',
+      label: t('chat.navProfile'),
+      onPress: () => navigation.getParent()?.navigate('Tabs'),
+    },
+    { key: 'settings', label: t('chat.navSettings'), onPress: () => navigation.navigate('Settings') },
+    { key: 'logout', label: t('chat.navLogout'), onPress: logout },
+  ]
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
-        <Text className="text-lg font-semibold text-gray-900">IHUI AI</Text>
-        <View className="flex-row gap-3">
-          <Pressable onPress={() => navigation.navigate('Agent')} hitSlop={8}>
-            <Text className="text-sm text-gray-500">智能体</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('Wallet')} hitSlop={8}>
-            <Text className="text-sm text-gray-500">钱包</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => navigation.getParent()?.navigate('Tabs')}
-            hitSlop={8}
-          >
-            <Text className="text-sm text-gray-500">课程</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('Order')} hitSlop={8}>
-            <Text className="text-sm text-gray-500">订单</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => navigation.getParent()?.navigate('Tabs')}
-            hitSlop={8}
-          >
-            <Text className="text-sm text-gray-500">我的</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={8}>
-            <Text className="text-sm text-gray-500">设置</Text>
-          </Pressable>
-          <Pressable onPress={logout} hitSlop={8}>
-            <Text className="text-sm text-gray-500">退出</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <Pressable
-        onPress={() => setPickerOpen(true)}
-        className="border-b border-gray-100 px-4 py-2"
-        hitSlop={4}
-      >
-        <Text className="text-xs text-gray-500">模型: {currentModelName} ▾</Text>
-      </Pressable>
-
-      <Modal
-        visible={pickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPickerOpen(false)}
-      >
-        <TouchableOpacity
-          className="flex-1 bg-black/20"
-          activeOpacity={1}
-          onPress={() => setPickerOpen(false)}
-        >
-          <View className="mt-auto bg-white">
-            <View className="border-b border-gray-100 px-4 py-3">
-              <Text className="text-sm font-semibold text-gray-900">选择模型</Text>
-            </View>
-            <FlatList
-              data={models}
-              keyExtractor={(m) => m.id}
-              renderItem={({ item }) => {
-                const active = item.id === model
-                return (
-                  <Pressable
-                    onPress={() => {
-                      setModel(item.id)
-                      setPickerOpen(false)
-                    }}
-                    className="px-4 py-3"
-                  >
-                    <Text
-                      className={
-                        active ? 'text-sm font-medium text-gray-900' : 'text-sm text-gray-700'
-                      }
-                    >
-                      {item.name || item.id}
-                    </Text>
-                    <Text className="text-xs text-gray-400">{item.provider}</Text>
-                  </Pressable>
-                )
-              }}
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <FlatList
-        className="flex-1 px-4"
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View className="h-2" />}
-        contentContainerStyle={{ paddingVertical: 12 }}
-        keyboardShouldPersistTaps="handled"
-      />
-
-      {error ? (
-        <View className="px-4 pb-2">
-          <Text className="text-sm text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      <View className="flex-row items-center border-t border-gray-100 px-4 py-2">
-        <Input
-          value={inputText}
-          onChangeText={setInputText}
-          placeholder="输入消息..."
-          className="mr-2 flex-1"
-        />
-        {isStreaming ? (
-          <Button variant="outline" onPress={stop}>
-            停止
-          </Button>
-        ) : (
-          <Button onPress={send} disabled={!inputText.trim()}>
-            发送
-          </Button>
-        )}
-      </View>
-    </View>
+    <SharedChatScreen
+      t={t}
+      messages={messages.map(toChatScreenMessage)}
+      inputText={inputText}
+      isStreaming={isStreaming}
+      error={error}
+      models={models.map(toChatScreenModel)}
+      model={model}
+      pickerOpen={pickerOpen}
+      navItems={navItems}
+      onInputTextChange={setInputText}
+      onSend={send}
+      onStop={stop}
+      onModelChange={setModel}
+      onPickerOpenChange={setPickerOpen}
+      onLongPressMessage={handleLongPress}
+      onMessageRef={onMessageRef}
+    />
   )
 }
