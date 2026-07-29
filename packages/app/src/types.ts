@@ -96,4 +96,6 @@ export type {
   HelpScreenProps,
   SearchScreenItem,
   SearchScreenProps,
+  ShareResultItem,
+  ShareScreenProps,
 } from '@ihui/types'
