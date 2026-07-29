@@ -13,9 +13,9 @@ const DEFAULT_TABS: TitleSwitchTypeBarItem[] = [
 ]
 
 /**
- * 类型栏标题切换(对标旧项目 title-switch/type_bar.vue)
- * - 横向滚动多选标签(可选"全部"开关 + "自定义"添加弹窗)
- * - 选中项触发 onChange(ids[])
+ * 类型栏标题切换(对标旧项目 title-switch/type_bar.vue + single.vue)
+ * - mode='multi'(默认,对齐 'tab' 行为):横向滚动多选标签(可选"全部"开关 + "自定义"添加弹窗),onChange(ids[])
+ * - mode='single'(对齐 'single' 行为):单选模式,选中项触发 onChange([id]),value 可受控
  *
  * 注:旧项目 mounted 时调用 `category('0')` 拉取后端分类。
  * 新项目无等价 API,这里保留默认列表 + 占位 fetchCategory 钩子,
@@ -24,27 +24,57 @@ const DEFAULT_TABS: TitleSwitchTypeBarItem[] = [
 export default function TitleSwitchTypeBar({
   showAll = false,
   customize = false,
+  mode = 'multi',
+  value,
+  mainList,
   onChange,
 }: TitleSwitchTypeBarProps) {
-  const [tabList, setTabList] = useState<TitleSwitchTypeBarItem[]>(DEFAULT_TABS)
+  const [tabList, setTabList] = useState<TitleSwitchTypeBarItem[]>(mainList ?? DEFAULT_TABS)
   const [tabValue, setTabValue] = useState<TitleSwitchTypeBarItem[]>([])
   const [all, setAll] = useState(true)
   const [addType, setAddType] = useState(false)
-  const [value, setValue] = useState('')
+  const [customValue, setCustomValue] = useState('')
+
+  // mainList 变化时同步
+  useEffect(() => {
+    if (mainList && mainList.length > 0) setTabList(mainList)
+  }, [mainList])
+
+  // single 模式:value 变化时同步选中项
+  useEffect(() => {
+    if (mode !== 'single' || !value) return
+    const found = tabList.find((it) => it.id === value)
+    if (found) {
+      setTabValue([found])
+      onChange?.([found.id])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, mode])
 
   useEffect(() => {
+    if (mode === 'single') {
+      // single 模式不显示"全部"按钮逻辑
+      onChange?.(tabValue.map((i) => i.id))
+      return
+    }
     if (tabValue.length > 0 && showAll) setAll(false)
     if (tabValue.length === 0) setAll(true)
     onChange?.(tabValue.map((i) => i.id))
-  }, [tabValue, showAll, onChange])
+  }, [tabValue, showAll, onChange, mode])
 
   const select = useCallback((item: TitleSwitchTypeBarItem) => {
     setTabValue((prev) => {
       const idx = prev.findIndex((it) => it.id === item.id)
+      if (mode === 'single') {
+        // 单选模式:点击已选中项不变,点击新项替换
+        if (idx >= 0) return prev
+        return [item]
+      }
+      // 多选模式:toggle
       if (idx >= 0) return prev.filter((_, i) => i !== idx)
       return [...prev, item]
     })
-  }, [])
+  }, [mode])
 
   const selectAllTab = useCallback(() => {
     setAll((a) => {
@@ -55,25 +85,26 @@ export default function TitleSwitchTypeBar({
   }, [])
 
   const add = useCallback(() => {
-    if (value) {
+    if (customValue) {
       const item: TitleSwitchTypeBarItem = {
-        id: value,
-        name: value,
+        id: customValue,
+        name: customValue,
         type: 'type',
         field1: '/static/images/qzdy_20250816161419A289.png',
         butUrl: '/static/images/szdy_20250816161421A290.png',
       }
       setTabList((prev) => [item, ...prev])
-      setTabValue((prev) => [...prev, item])
+      setTabValue((prev) => mode === 'single' ? [item] : [...prev, item])
     }
     setAddType(false)
-    setValue('')
-  }, [value])
+    setCustomValue('')
+  }, [customValue, mode])
 
   return (
     <ScrollView scrollX className="w-full">
       <View className="flex items-center box-border w-full py-[36rpx] pl-[20rpx]">
-        {showAll ? (
+        {/* "全部"按钮:仅 multi 模式 + showAll 显示 */}
+        {showAll && mode === 'multi' ? (
           <View
             className={`flex items-center justify-center h-[88rpx] px-[16rpx] rounded-[16rpx] font-bold text-[52rpx] mr-[32rpx] whitespace-nowrap ${
               all
@@ -115,7 +146,8 @@ export default function TitleSwitchTypeBar({
             </View>
           )
         })}
-        {customize ? (
+        {/* "自定义"按钮:仅 multi 模式 + customize 显示 */}
+        {customize && mode === 'multi' ? (
           <View
             className={`flex items-center justify-center h-[88rpx] px-[16rpx] rounded-[16rpx] font-bold text-[52rpx] mr-[32rpx] whitespace-nowrap ${
               addType
@@ -148,8 +180,8 @@ export default function TitleSwitchTypeBar({
             type="text"
             maxlength={4}
             placeholder="请输入种类"
-            value={value}
-            onInput={(e) => setValue(e.detail.value)}
+            value={customValue}
+            onInput={(e) => setCustomValue(e.detail.value)}
           />
           <View
             className="w-[200rpx] h-[96rpx] flex items-center justify-center text-[48rpx] font-bold text-black bg-[rgba(205,208,255,0.6)] rounded-[16rpx]"
