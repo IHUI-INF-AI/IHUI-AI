@@ -6256,6 +6256,7 @@
       "allCapabilities": "全部能力",
       "resultCount": "共 {count} / {total} 个模型",
       "empty": "未找到匹配的模型",
+      "relayAvailable": "中转站可用",
       "inputPrice": "输入价",
       "outputPrice": "输出价",
       "defaultDescription": "厂商提供的 AI 模型服务",

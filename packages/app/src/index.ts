@@ -85,6 +85,11 @@ export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'
 export { N8nModelScreen } from './features/n8n-model/N8nModelScreen'
 export { ModelEditScreen } from './features/model-edit/ModelEditScreen'
 export { AigcListScreen } from './features/aigc-list/AigcListScreen'
+/** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
+export { AssistantScreen } from './features/assistant/AssistantScreen'
+export { AiGroupScreen } from './features/ai-group/AiGroupScreen'
+export { AigcCoverScreen } from './features/aigc-cover/AigcCoverScreen'
+export { AigcPublishScreen } from './features/aigc-publish/AigcPublishScreen'
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
 export { ExamResultScreen } from './features/exam-result/ExamResultScreen'
@@ -333,4 +338,32 @@ export type {
   AigcListItem,
   AigcCategoryOption,
   AigcListScreenProps,
+  /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
+  AssistantStatus,
+  AssistantTab,
+  AssistantSubTab,
+  AssistantItem,
+  AssistantScreenProps,
+  AiGroupTab,
+  AiGroupMember,
+  AiGroupItem,
+  AiGroupScreenProps,
+  AigcCoverFilter,
+  AigcCoverOption,
+  AigcCoverScreenProps,
+  AigcPublishWorkType,
+  AigcPublishFile,
+  AigcPublishScreenProps,
+  /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态) */
+  AgentScreenItem,
+  AgentScreenProps,
+  AiAssistantCategory,
+  AiAssistantItem,
+  AiAssistantScreenProps,
+  AiCareerTrend,
+  AiCareerMatchItem,
+  AiCareerScreenProps,
+  AiMultimodalMode,
+  AiMultimodalMessage,
+  AIMultimodalScreenProps,
 } from './types'
