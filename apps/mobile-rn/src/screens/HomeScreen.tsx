@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card, Loading } from '@ihui/ui-native'
 import {
   getAllStudyProgress,
   getCourses,
@@ -11,6 +9,13 @@ import {
   type Live,
   type StudyProgress,
 } from '@ihui/api-client'
+import {
+  HomeScreen as SharedHomeScreen,
+  type HomeLiveItem,
+  type HomeMenuItem,
+  type HomeProgressItem,
+  type HomeRecommendItem,
+} from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
@@ -19,13 +24,48 @@ import { formatShortDateTime } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList>
 
-function greetingKey():
-  'home.greetingMorning' | 'home.greetingNoon' | 'home.greetingAfternoon' | 'home.greetingEvening' {
-  const h = new Date().getHours()
-  if (h < 11) return 'home.greetingMorning'
-  if (h < 13) return 'home.greetingNoon'
-  if (h < 18) return 'home.greetingAfternoon'
-  return 'home.greetingEvening'
+const MENU_ITEMS: HomeMenuItem[] = [
+  { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
+  { key: 'History', labelKey: 'menu.history', icon: '🕘' },
+  { key: 'Bookmark', labelKey: 'menu.bookmark', icon: '🔖' },
+  { key: 'CourseFilter', labelKey: 'menu.courseFilter', icon: '🎯' },
+  { key: 'LiveList', labelKey: 'menu.liveList', icon: '📡' },
+  { key: 'LivePlaybackList', labelKey: 'menu.livePlaybackList', icon: '🎬' },
+  { key: 'CourseAnnex', labelKey: 'menu.courseAnnex', icon: '📎' },
+  { key: 'CourseResource', labelKey: 'menu.courseResource', icon: '📚' },
+  { key: 'CourseQAList', labelKey: 'menu.courseQAList', icon: '❓' },
+]
+
+function toRecommend(courses: Course[]): HomeRecommendItem[] {
+  return courses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    instructor: c.instructor,
+    level: c.level,
+    studentCount: c.studentCount,
+    price: c.price,
+    isFree: c.isFree,
+  }))
+}
+
+function toLiveItem(lives: Live[]): HomeLiveItem[] {
+  return lives.map((l) => ({
+    id: l.id,
+    title: l.title,
+    lecturerName: l.lecturerName,
+    isLive: l.isLive,
+    startTimeText: formatShortDateTime(l.startTime),
+  }))
+}
+
+function toProgressItem(items: StudyProgress[]): HomeProgressItem[] {
+  return items.map((p) => ({
+    courseId: p.courseId,
+    courseTitle: p.courseTitle,
+    progress: p.progress,
+    completedLessons: p.completedLessons,
+    totalLessons: p.totalLessons,
+  }))
 }
 
 export function HomeScreen() {
@@ -33,9 +73,9 @@ export function HomeScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
   const { connected, unreadCount, setVisible } = useNotificationStore()
-  const [recommends, setRecommends] = useState<Course[]>([])
-  const [lives, setLives] = useState<Live[]>([])
-  const [progress, setProgress] = useState<StudyProgress[]>([])
+  const [recommends, setRecommends] = useState<HomeRecommendItem[]>([])
+  const [lives, setLives] = useState<HomeLiveItem[]>([])
+  const [progress, setProgress] = useState<HomeProgressItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -49,9 +89,9 @@ export function HomeScreen() {
       getLiveList({ page: 1, pageSize: 3 }),
       getAllStudyProgress({ page: 1, pageSize: 3 }),
     ])
-    if (courseRes.success) setRecommends(courseRes.data.list)
-    if (liveRes.success) setLives(liveRes.data.list)
-    if (progressRes.success) setProgress(progressRes.data.list)
+    if (courseRes.success) setRecommends(toRecommend(courseRes.data.list))
+    if (liveRes.success) setLives(toLiveItem(liveRes.data.list))
+    if (progressRes.success) setProgress(toProgressItem(progressRes.data.list))
     if (!courseRes.success && !liveRes.success && !progressRes.success) {
       setError(courseRes.error || liveRes.error || progressRes.error || t('common.networkError'))
     }
@@ -63,221 +103,27 @@ export function HomeScreen() {
     void load()
   }, [])
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Loading />
-      </View>
-    )
-  }
-
-  const firstProgress = progress[0]
-
   return (
-    <ScrollView
-      className="flex-1 bg-white dark:bg-black"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-      contentContainerStyle={{ paddingBottom: 32 }}
-    >
-      <View className="flex-row items-center justify-between px-4 pt-12">
-        <View className="flex-1">
-          <Text className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-            {t(greetingKey())},{user?.nickname || user?.phone || '访客'}
-          </Text>
-          <Text className="mt-1 text-xs text-neutral-500">{t('home.welcome')}</Text>
-        </View>
-        <View className="flex-row items-center">
-          <View
-            className={`mr-2 h-2 w-2 rounded-md ${connected ? 'bg-emerald-500' : 'bg-neutral-400'}`}
-            accessibilityLabel={connected ? 'connected' : 'disconnected'}
-          />
-          <TouchableOpacity onPress={() => setVisible(true)} className="p-1">
-            <Text className="text-lg">🔔</Text>
-            {unreadCount > 0 ? (
-              <View className="absolute -right-1 -top-1 min-w-[16px] items-center justify-center rounded-md bg-red-500 px-1 h-4">
-                <Text className="text-[10px] font-bold text-white">{unreadCount}</Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {error ? (
-        <View className="px-4 py-2">
-          <Text className="text-sm text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      <View className="px-4 mt-4">
-        <Text className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('home.learningProgress')}
-        </Text>
-        {firstProgress ? (
-          <TouchableOpacity
-            onPress={() => navigation.navigate('CourseDetail', { id: firstProgress.courseId })}
-            activeOpacity={0.7}
-          >
-            <Card>
-              <Text
-                className="text-base font-semibold text-neutral-900 dark:text-neutral-50"
-                numberOfLines={1}
-              >
-                {firstProgress.courseTitle || firstProgress.courseId}
-              </Text>
-              <View className="mt-2 h-2 overflow-hidden rounded-md bg-neutral-200">
-                <View
-                  className="h-2 bg-emerald-500"
-                  style={{ width: `${Math.round((firstProgress.progress ?? 0) * 100)}%` }}
-                />
-              </View>
-              <Text className="mt-1 text-xs text-neutral-500">
-                {t('home.progressLessons', {
-                  completed: firstProgress.completedLessons,
-                  total: firstProgress.totalLessons,
-                })}
-              </Text>
-            </Card>
-          </TouchableOpacity>
-        ) : (
-          <Card>
-            <Text className="text-sm text-neutral-500">{t('home.progressEmpty')}</Text>
-            <Button
-              className="mt-3"
-              variant="outline"
-              onPress={() => navigation.getParent()?.navigate('CourseTab')}
-            >
-              {t('nav.courses')}
-            </Button>
-          </Card>
-        )}
-      </View>
-
-      <View className="px-4 mt-4">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-            {t('home.livePreview')}
-          </Text>
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('LiveTab')}>
-            <Text className="text-xs text-emerald-600">{t('home.livePreviewMore')}</Text>
-          </TouchableOpacity>
-        </View>
-        {lives.length === 0 ? (
-          <Card className="mt-2">
-            <Text className="text-sm text-neutral-500">{t('live.empty')}</Text>
-          </Card>
-        ) : (
-          lives.map((l) => (
-            <TouchableOpacity
-              key={l.id}
-              onPress={() => navigation.navigate('LiveDetail', { id: l.id })}
-              className="mt-2"
-              activeOpacity={0.7}
-            >
-              <Card>
-                <View className="flex-row items-center justify-between">
-                  <Text
-                    className="flex-1 text-base font-semibold text-neutral-900 dark:text-neutral-50"
-                    numberOfLines={1}
-                  >
-                    {l.title}
-                  </Text>
-                  <View
-                    className={`rounded-md px-2 py-0.5 ${l.isLive ? 'bg-red-500' : 'bg-amber-500'}`}
-                  >
-                    <Text className="text-xs text-white">
-                      {l.isLive ? t('live.ongoing') : t('live.upcoming')}
-                    </Text>
-                  </View>
-                </View>
-                {l.lecturerName ? (
-                  <Text className="mt-1 text-xs text-neutral-500">
-                    {t('live.lecturer')}:{l.lecturerName}
-                  </Text>
-                ) : null}
-                <Text className="mt-1 text-xs text-neutral-400">
-                  {t('live.startAt')}:{formatShortDateTime(l.startTime)}
-                </Text>
-              </Card>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      <View className="px-4 mt-4">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-            {t('home.recommend')}
-          </Text>
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('CourseTab')}>
-            <Text className="text-xs text-emerald-600">{t('home.livePreviewMore')}</Text>
-          </TouchableOpacity>
-        </View>
-        {recommends.length === 0 ? (
-          <Card className="mt-2">
-            <Text className="text-sm text-neutral-500">{t('course.empty')}</Text>
-          </Card>
-        ) : (
-          recommends.map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              onPress={() => navigation.navigate('CourseDetail', { id: c.id })}
-              className="mt-2"
-              activeOpacity={0.7}
-            >
-              <Card>
-                <View className="flex-row items-center justify-between">
-                  <Text
-                    className="flex-1 text-base font-semibold text-neutral-900 dark:text-neutral-50"
-                    numberOfLines={1}
-                  >
-                    {c.title}
-                  </Text>
-                  <Text className="text-sm font-semibold text-emerald-600">
-                    {c.isFree ? t('course.free') : `¥${c.price.toFixed(2)}`}
-                  </Text>
-                </View>
-                <Text className="mt-1 text-xs text-neutral-500">
-                  {c.instructor} · {c.level} · {t('course.studentCount', { count: c.studentCount })}
-                </Text>
-              </Card>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      <View className="px-4 mt-4">
-        <Text className="mb-2 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('menu.sectionDiscover')}
-        </Text>
-        <View className="rounded-lg bg-neutral-50 dark:bg-neutral-900 p-1">
-          {[
-            { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
-            { key: 'History', labelKey: 'menu.history', icon: '🕘' },
-            { key: 'Bookmark', labelKey: 'menu.bookmark', icon: '🔖' },
-            { key: 'CourseFilter', labelKey: 'menu.courseFilter', icon: '🎯' },
-            { key: 'LiveList', labelKey: 'menu.liveList', icon: '📡' },
-            { key: 'LivePlaybackList', labelKey: 'menu.livePlaybackList', icon: '🎬' },
-            { key: 'CourseAnnex', labelKey: 'menu.courseAnnex', icon: '📎' },
-            { key: 'CourseResource', labelKey: 'menu.courseResource', icon: '📚' },
-            { key: 'CourseQAList', labelKey: 'menu.courseQAList', icon: '❓' },
-          ].map((m) => (
-            <TouchableOpacity
-              key={m.key}
-              onPress={() => navigation.getParent()?.navigate(m.key)}
-              activeOpacity={0.7}
-              className="p-3"
-            >
-              <View className="flex-row items-center">
-                <Text className="text-lg">{m.icon}</Text>
-                <Text className="ml-3 flex-1 text-sm text-neutral-900 dark:text-neutral-50">
-                  {t(m.labelKey)}
-                </Text>
-                <Text className="text-neutral-400">›</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </ScrollView>
+    <SharedHomeScreen
+      t={t}
+      userNickname={user?.nickname || user?.phone || ''}
+      connected={connected}
+      unreadCount={unreadCount}
+      recommends={recommends}
+      lives={lives}
+      progress={progress}
+      menuItems={MENU_ITEMS}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => load(true)}
+      onOpenNotifications={() => setVisible(true)}
+      onPressProgress={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
+      onPressLive={(id) => navigation.navigate('LiveDetail', { id })}
+      onPressCourse={(id) => navigation.navigate('CourseDetail', { id })}
+      onPressMenu={(key) => navigation.getParent()?.navigate(key as never)}
+      onNavigateCourses={() => navigation.getParent()?.navigate('CourseTab' as never)}
+      onNavigateLives={() => navigation.getParent()?.navigate('LiveTab' as never)}
+    />
   )
 }
