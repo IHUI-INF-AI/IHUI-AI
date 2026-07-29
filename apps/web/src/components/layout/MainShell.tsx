@@ -2,10 +2,12 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions -- 桌面端窗口控制(拖拽/resize/双击最大化)是鼠标专用交互,不适用于键盘/屏幕阅读器 */
 
 import * as React from 'react'
-import { Minus, Square, X } from 'lucide-react'
+import { Globe, Minus, Square, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { useNotificationStore } from '@/stores/notification'
+import { useWorkPanelStore } from '@/stores/work-panel'
 import { useDesktop, useSystemTheme, useDesktopEvents, useTrayStatus } from '@/hooks/use-desktop'
 import { useTheme } from '@/hooks/use-theme'
 import {
@@ -18,6 +20,7 @@ import {
 } from '@/lib/tauri-bridge'
 import { cn } from '@/lib/utils'
 import { TagsView } from '@/components/layout/TagsView'
+import { Tooltip } from '@/components/feedback'
 
 /**
  * MainShell — (main) 路由组的工作区面板容器
@@ -68,6 +71,11 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const isStreaming = useChatStore((s) => s.isStreaming)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   useTrayStatus(isStreaming, unreadCount)
+
+  // 2026-07-29:顶栏内置浏览器入口按钮,显式开关 WorkPanel 面板(不只是 AI 对话触发)
+  const t = useTranslations('nav')
+  const workPanelOpen = useWorkPanelStore((s) => s.open)
+  const toggleWorkPanel = useWorkPanelStore((s) => s.toggle)
 
   // 最大化状态:用 onMaximizeChange 监听 Tauri onResized 事件
   // 不再使用 useDesktop().isMaximized(它走浏览器 resize 事件,比 Tauri 事件慢一帧)
@@ -279,6 +287,28 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           </div>
         </React.Suspense>
 
+        {/* 内置浏览器入口按钮(2026-07-29):点击切换右侧 WorkPanel 面板开关
+            - 视觉风格与右侧窗口控制按钮一致(h-6 w-6 / rounded-sm / hover bg-accent)
+            - open=true 时图标高亮 text-primary;否则 text-foreground/80
+            - Tooltip 由 app/layout.tsx 的 TooltipProvider 提供,直接使用
+            - 显式订阅 workPanelOpen 用于高亮态,与 useWorkPanelStore toggle 解耦 */}
+        <Tooltip content={t('openBrowser')} side="bottom">
+          <button
+            type="button"
+            onClick={toggleWorkPanel}
+            aria-label={t('openBrowser')}
+            aria-pressed={workPanelOpen}
+            className={cn(
+              'inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm',
+              'transition-colors hover:bg-accent',
+              'focus:outline-none focus-visible:bg-accent',
+              workPanelOpen ? 'text-primary' : 'text-foreground/80',
+            )}
+          >
+            <Globe className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+
         {/* 右侧:窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop 显示
             z-[10001]:高于 8 方向 resize 区域(z-9999/10000),防止按钮被透明 resize 遮挡 */}
         {isDesktop && (
@@ -316,7 +346,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           - bg-shell-panel rounded-xl 保持卡片视觉
           - flex-1 + min-h-0 填充剩余高度
           - overflow-hidden 裁剪子元素溢出 + 保持圆角不被覆盖
-          - cursor-default:覆盖外层(工作区内是默认光标) */}
+          - cursor-default:覆盖外层(工作区内是默认光标)
+          - AISidePanel 避让由 GlobalShell 的 work-area-portal-root padding-left 统一处理,
+            顶栏(TagsView)和工作区卡片一起避让,不再出现顶栏被 AISidePanel 覆盖的问题。 */}
       <div
         className="bg-shell-panel relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl mt-2 cursor-default"
         data-workspace-card
