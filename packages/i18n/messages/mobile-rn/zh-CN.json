@@ -87,7 +87,21 @@
     "runtimeSend": "发送"
   },
   "chat": {
-    "voice": "语音"
+    "voice": "语音",
+    "title": "IHUI AI",
+    "modelLabel": "模型",
+    "selectModel": "选择模型",
+    "thinking": "思考中...",
+    "inputPlaceholder": "输入消息...",
+    "stop": "停止",
+    "send": "发送",
+    "navAgent": "智能体",
+    "navWallet": "钱包",
+    "navCourse": "课程",
+    "navOrder": "订单",
+    "navProfile": "我的",
+    "navSettings": "设置",
+    "navLogout": "退出"
   },
   "settings": {
     "about": "关于智汇 AI",
@@ -211,6 +225,15 @@
       "message": "截图已生成",
       "shareBtn": "分享"
     }
+  },
+  "developer": {
+    "title": "开发者入口",
+    "becomeDeveloper": "成为开发者",
+    "subtitle": "发布智能体,获取收益",
+    "selectService": "请选择所需要的服务",
+    "processing": "处理中...",
+    "openNow": "一键开通",
+    "agreementHint": "开通即表示同意《开发者服务协议》"
   },
   "devEnter": {
     "error": {
