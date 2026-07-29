@@ -53,6 +53,22 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   - **测试文件豁免**:`**/*.test.ts` / `**/*.spec.ts` / `**/tests/**` / `**/test/**` / `**/e2e/**` 路径下的 mock/stub 代码允许 `any`(mock 类型断言必需),启用 typed-linting 后通过 `files` overrides 关闭上述规则。
   - CI `pnpm typecheck` 全绿方可合并。
 
+### 共享层优先(强制)
+
+- **写新代码前必须先查共享层**,确认是否已有现成实现。禁止在端内(apps/*)重新实现 `packages/` 已提供的功能。
+- **检查清单(按顺序)**:
+  1. **hooks**: `packages/shared/src/hooks/` — 基础 hook(clipboard/debounce/countdown/form/mounted/pagination 等)和业务 hook(auth/chat/agents/articles/agent-runtime/confirm-dialog 等)共 16 个。各端 `hooks/` 目录应只做 re-export wrapper + 平台 adapter,不得独立实现。
+  2. **utils**: `packages/shared/src/utils/` — 工具函数(date-utils/dangerous-command-detector/format/file-helpers/error-messages/jwt-utils/ai-skill-variables 等)。各端 `lib/` 目录应只做 re-export wrapper。
+  3. **types**: `packages/types/src/` — 所有跨端类型(ChatMessage/MessageInputFile/WorkspacePermissionMode/User/ApiRequest 等)。禁止在端内重新声明同名类型。
+  4. **api-client**: `packages/api-client/src/` — 所有 API 调用。禁止在端内直接用 `fetch`/`axios`/`Taro.request` 调后端,必须走 `@ihui/api-client`。端内可保留 re-export + 平台 adapter(如 AsyncStorage 持久化)。
+  5. **stores**: `packages/shared/src/stores/` — 共享 store 工厂(createAuthStore/createThemeStore)。各端 store 应调工厂 + 注入平台 transport,不得重新定义 state shape。
+  6. **constants**: `packages/shared/src/constants/` — 跨端常量(storage key/URL/locale key 等)。禁止在端内硬编码同名常量。
+- **如果共享层没有**:
+  - 评估是否跨端可用 → 如果是,先提取到 `packages/shared/` 再在端内 import,不得直接在端内写。
+  - 如果确认平台特有(依赖 DOM/RN API/Taro API)→ 可在端内实现,但必须在文件头注释说明 `// 平台特有:依赖 [DOM/RN/Taro] API,不适合共享`。
+- **工厂模式优先**:跨端 hook/util 用工厂函数 + 依赖注入(参考 `createUseClipboard` / `createAuthStore`),各端传入平台 adapter。不得用 `if (Platform.OS === 'web')` 条件分支在共享层处理平台差异。
+- **守门**:PR review 时检查是否有端内文件重新实现了共享层已有功能。发现重复 → 要求改为 import 共享层。
+
 ---
 
 ## 4. 前端 UI 约束
@@ -584,6 +600,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **Python 类型**(35):mypy 检查(阻塞,防 ai-service Python 类型回退)
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
+- **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth)
 - **条件**(16/16b):apps/web staged → typecheck;packages/database/src staged → build
 
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
