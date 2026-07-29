@@ -3,14 +3,18 @@
 import * as React from 'react'
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   Clipboard,
   Copy,
   FileText,
   MessageSquareWarning,
   RefreshCw,
+  Search,
   Share2,
   Trash2,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { ContextMenuAction, ContextMenuItem } from '@/hooks/use-context-menu'
 
@@ -59,6 +63,8 @@ function buildIcon(action?: ContextMenuAction): React.ReactNode {
       return <Trash2 className="h-3 w-3" aria-hidden />
     case 'collapseToPlan':
       return <Clipboard className="h-3 w-3" aria-hidden />
+    case 'search':
+      return <Search className="h-3 w-3" aria-hidden />
     default:
       return null
   }
@@ -222,6 +228,164 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
 })
 
 export default MessageContextMenu
+
+/**
+ * MessageSearchBar(2026-07-29 立,Phase 23)
+ *
+ * 消息搜索栏,固定在消息列表顶部(sticky top-0),深度对标 Trae Work / Codex 右键菜单搜索体验。
+ * - 输入关键词 → onSearch 回调(由父组件执行搜索 + 更新结果)
+ * - 结果计数 "3/12" 在输入框右侧
+ * - 上一个/下一个按钮(ChevronUp / ChevronDown)切换 currentIndex
+ * - Esc 关闭;Ctrl+Enter 下一个,Shift+Ctrl+Enter 上一个
+ * - 样式:rounded-md 输入框(非 rounded-full),stroke 用 muted-foreground/20(无蓝色发光)
+ */
+export interface MessageSearchBarProps {
+  visible: boolean
+  onClose: () => void
+  onSearch: (query: string) => void
+  resultCount: number
+  currentIndex: number
+  onNavigate: (direction: 'prev' | 'next') => void
+}
+
+export const MessageSearchBar = React.memo(function MessageSearchBar({
+  visible,
+  onClose,
+  onSearch,
+  resultCount,
+  currentIndex,
+  onNavigate,
+}: MessageSearchBarProps) {
+  const t = useTranslations('chat')
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const [query, setQuery] = React.useState('')
+
+  // visible 变 true 时自动聚焦输入框
+  React.useEffect(() => {
+    if (visible) {
+      // 延迟一帧聚焦,确保 DOM 已渲染
+      const id = window.requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+      return () => window.cancelAnimationFrame(id)
+    }
+    // 关闭时清空查询
+    setQuery('')
+  }, [visible])
+
+  // 键盘快捷键:Esc 关闭 / Ctrl+Enter 下一个 / Shift+Ctrl+Enter 上一个
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        onNavigate(e.shiftKey ? 'prev' : 'next')
+      }
+    },
+    [onClose, onNavigate],
+  )
+
+  const handleChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value
+      setQuery(val)
+      onSearch(val)
+    },
+    [onSearch],
+  )
+
+  const handlePrev = React.useCallback(() => onNavigate('prev'), [onNavigate])
+  const handleNext = React.useCallback(() => onNavigate('next'), [onNavigate])
+
+  if (!visible) return null
+
+  const hasResult = resultCount > 0
+  const resultLabel = hasResult
+    ? t('searchResult', { current: currentIndex + 1, total: resultCount })
+    : t('searchNoResult')
+  const prevDisabled = !hasResult || resultCount <= 1
+  const nextDisabled = !hasResult || resultCount <= 1
+
+  return (
+    <div
+      className="sticky top-0 z-20 flex shrink-0 items-center gap-1.5 border-b border-border/40 bg-background/95 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      data-testid="message-search-bar"
+      role="search"
+      aria-label={t('search')}
+    >
+      <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder={t('searchPlaceholder')}
+        aria-label={t('search')}
+        data-testid="message-search-input"
+        className={cn(
+          'h-7 w-44 rounded-md border border-muted-foreground/20 bg-transparent px-2 text-xs text-foreground',
+          'placeholder:text-muted-foreground/50 focus:outline-none focus:border-muted-foreground/40',
+        )}
+      />
+      <span
+        className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70"
+        data-testid="message-search-result-count"
+        aria-live="polite"
+      >
+        {resultLabel}
+      </span>
+      <button
+        type="button"
+        onClick={handlePrev}
+        disabled={prevDisabled}
+        aria-label={t('searchPrev')}
+        title={t('searchPrev')}
+        data-testid="message-search-prev"
+        className={cn(
+          'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+          prevDisabled && 'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
+        )}
+      >
+        <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={handleNext}
+        disabled={nextDisabled}
+        aria-label={t('searchNext')}
+        title={t('searchNext')}
+        data-testid="message-search-next"
+        className={cn(
+          'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+          nextDisabled && 'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
+        )}
+      >
+        <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={t('searchClose')}
+        title={t('searchClose')}
+        data-testid="message-search-close"
+        className={cn(
+          'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+        )}
+      >
+        ×
+      </button>
+    </div>
+  )
+})
 
 /**
  * 工具函数:规范化 markdown 文本的空白字符(行尾符 + 连续空行 + 首尾空白),

@@ -1,10 +1,12 @@
 'use client'
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import {
   Pin,
   PinOff,
   Minimize2,
+  Maximize2,
   Circle,
   Loader2,
   Check,
@@ -53,9 +55,19 @@ import { TimelineTab, flattenToTimelineEvents } from './progress-sections/timeli
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 /**
- * AgentTaskProgressPane — 消息区右上角的小 popover(2026-07-28 v14)
+ * AgentTaskProgressPane — 消息区右上角的小 popover(2026-07-29 v15)
  *
- * v14 改动(定位修复):
+ * v15 改动(用户规则:`div` 应该超出 AI 对话框容器显示,而不是被边框裁切):
+ * - 根容器改用 React Portal 渲染到 document.body + `position: fixed`,
+ *   完全脱离 aside(`overflow-hidden rounded-xl`)的 overflow 限制,
+ *   Pane 可以悬浮在 AI 对话框外(超出 aside 边界显示),不再被边框裁切。
+ * - 拖拽 clamp 改回 viewport 坐标系(不再基于 offsetParent 父容器),
+ *   Pane 可在视口范围内自由拖动,不受 aside 边界约束。
+ * - POSITION_STORAGE_KEY 升 v3,作废旧 v2 absolute 时代的父容器坐标
+ *   (absolute 坐标基于父容器,fixed 坐标基于视口,二者不能互换)。
+ * - 默认位置:相对视口右上角 `right: 16, top: 16`(留 16px 边距,避免贴边)。
+ *
+ * v14 改动(已被 v15 替代,保留历史):
  * - 根容器 `fixed` → `absolute`:父容器已是 `<div className="relative min-h-0 flex-1">`,
  *   用 absolute 后 popover 锚定到消息区右上角,而不是浏览器视口右上角
  * - 拖拽 bounds 从 viewport 改为父容器(offsetParent),拖不出消息区
@@ -87,8 +99,8 @@ const TOOL_TIME_WINDOW_LEADING_MS = 1000
 /** 每 step 默认预览的工具调用条数上限 */
 const PREVIEW_TOOL_LIMIT = 4
 
-/** Pane 拖拽位置 localStorage key(v14 升 v2,作废旧 fixed 时代视口坐标) */
-const POSITION_STORAGE_KEY = 'agent-progress-pane-position-v2'
+/** Pane 拖拽位置 localStorage key(v15 升 v3,作废旧 v2 absolute 时代父容器坐标,改用 fixed 视口坐标) */
+const POSITION_STORAGE_KEY = 'agent-progress-pane-position-v3'
 
 /** 键盘单步移动像素(P1-1 深度对标,2026-07-28 立) */
 const KEYBOARD_STEP_PX = 5
@@ -177,20 +189,22 @@ const TAB_BUTTONS: ReadonlyArray<{
   { id: 'timeline', i18nKey: 'tabTimeline', Icon: ListTree },
 ]
 
-// ─── 拖拽位置工具(localStorage 持久化 + 父容器 clamp) ─────────────
+// ─── 拖拽位置工具(localStorage 持久化 + viewport clamp) ─────────────
 interface PanePosition {
   x: number
   y: number
 }
 
-/** 解析父容器尺寸:有父容器且尺寸 > 0 用父容器,否则 fallback 到 viewport(SSR/jsdom) */
-function resolveParentBounds(parentRect: DOMRect | null | undefined): {
+/**
+ * 返回视口尺寸(v15 改用 fixed 定位后,clamp 基于 viewport,不再需要父容器 bounds)。
+ * SSR / jsdom 环境下 fallback 到 1024x768(确保单测稳定)。
+ *
+ * 保留 parentRect 参数仅为向后兼容(v14 时代签名),v15 起该参数被忽略。
+ */
+function resolveParentBounds(_parentRect?: DOMRect | null): {
   width: number
   height: number
 } {
-  if (parentRect && parentRect.width > 0 && parentRect.height > 0) {
-    return { width: parentRect.width, height: parentRect.height }
-  }
   if (typeof window !== 'undefined') {
     return { width: window.innerWidth, height: window.innerHeight }
   }
@@ -220,9 +234,12 @@ function savePanePosition(pos: PanePosition): void {
   }
 }
 
-/** 父容器坐标 clamp(absolute 定位下,x/y 是相对 offsetParent 的);无父容器时 fallback viewport */
-function clampPanePosition(x: number, y: number, parentRect?: DOMRect | null): PanePosition {
-  const { width, height } = resolveParentBounds(parentRect)
+/**
+ * 视口坐标 clamp(v15 改用 fixed 定位,x/y 是相对视口的)。
+ * parentRect 参数保留仅为向后兼容,v15 起被忽略。
+ */
+function clampPanePosition(x: number, y: number, _parentRect?: DOMRect | null): PanePosition {
+  const { width, height } = resolveParentBounds()
   const maxX = Math.max(DRAG_EDGE_MARGIN, width - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN)
   const maxY = Math.max(DRAG_EDGE_MARGIN, height - PANE_ESTIMATED_HEIGHT - DRAG_EDGE_MARGIN)
   return {
@@ -481,6 +498,72 @@ const PlanStepItem = React.memo(function PlanStepItem({
   )
 })
 
+// ─── MinimizedSummaryBar:最小化模式摘要条(Phase 23,2026-07-29 立) ───
+// 点击 minimize 按钮后,pane 不完全隐藏,而是显示 1-2 行摘要条:
+// [AI 执行中 · 3 工具调用 · 2 子智能体 · 45% [展开]]
+interface MinimizedSummaryBarProps {
+  progress: number
+  toolCallCount: number
+  subagentCount: number
+  onExpand: () => void
+}
+
+function MinimizedSummaryBar({
+  progress,
+  toolCallCount,
+  subagentCount,
+  onExpand,
+}: MinimizedSummaryBarProps) {
+  const t = useTranslations('ai.pane')
+  return (
+    <div
+      className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs shadow-md"
+      data-testid="pane-minimized-bar"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="h-3 w-3 animate-spin text-primary" aria-hidden />
+      <span className="font-medium text-foreground">{t('minimizedRunning')}</span>
+      <span className="text-muted-foreground">·</span>
+      <span className="text-muted-foreground">
+        {toolCallCount} {t('minimizedTools')}
+      </span>
+      {subagentCount > 0 && (
+        <>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">
+            {subagentCount} {t('minimizedSubagents')}
+          </span>
+        </>
+      )}
+      <span className="text-muted-foreground">·</span>
+      <span className="font-medium text-primary">{Math.round(progress)}%</span>
+      {/* 迷你进度条 */}
+      <div
+        className="h-1 w-16 overflow-hidden rounded-sm bg-muted/40"
+        aria-hidden
+        data-testid="pane-minimized-progress-track"
+      >
+        <div
+          className="h-full rounded-sm bg-primary transition-all duration-300"
+          style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          data-testid="pane-minimized-progress-fill"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onExpand}
+        className="ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+        aria-label={t('expand')}
+        title={t('expand')}
+        data-testid="pane-expand"
+      >
+        <Maximize2 className="h-3 w-3" aria-hidden />
+      </button>
+    </div>
+  )
+}
+
 // ─── 主组件(v13:Phase 20 全量集成) ─────────────────────────────────
 export function AgentTaskProgressPane() {
   const t = useTranslations('ai.pane')
@@ -489,7 +572,6 @@ export function AgentTaskProgressPane() {
   const setThreadId = useAgentProgressPaneStore((s) => s.setThreadId)
   const pinned = useAgentProgressPaneStore((s) => s.pinned)
   const togglePin = useAgentProgressPaneStore((s) => s.togglePin)
-  const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const closePane = useAgentProgressPaneStore((s) => s.closePane)
   const setProgress = useAgentProgressPaneStore((s) => s.setProgress)
 
@@ -507,9 +589,18 @@ export function AgentTaskProgressPane() {
   // v13: 快捷键帮助面板开关(pane 打开时按 ? 弹出,Esc 或点关闭按钮收起)
   const [showHelp, setShowHelp] = React.useState<boolean>(false)
 
+  // Phase 23(2026-07-29):最小化模式 — pane 不完全隐藏,显示 1-2 行摘要条
+  const [isMinimized, setIsMinimized] = React.useState<boolean>(false)
+
   // v15: 实时计时器 tick(state-only,每 1000ms 递增,触发 Pane 内部重渲染)
   // 仅在 isStreaming / sessionStart 存在时启用,避免空闲 tick 浪费
   const [elapsedTick, setElapsedTick] = React.useState<number>(0)
+
+  // v15: mounted 标志(SSR 安全 — createPortal 需要 document.body,SSR 时不存在)
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 从 useChatStore 同步 conversationId + 读取 messages(用于 planStep↔message 关联)
   const conversationId = useChatStore((s) => s.conversationId)
@@ -616,6 +707,14 @@ export function AgentTaskProgressPane() {
     }
     return undefined
   }, [planSteps, progressPct])
+
+  // Phase 23(2026-07-29):idle 状态自动展开最小化面板
+  // 当 AI 不在执行时(progressPct=0 且无工具调用),自动退出最小化模式
+  React.useEffect(() => {
+    if (isMinimized && progressPct === 0 && tools.length === 0) {
+      setIsMinimized(false)
+    }
+  }, [isMinimized, progressPct, tools.length])
 
   // Phase 16: 进度环状态推导
   const ringState: 'idle' | 'in_progress' | 'completed' = React.useMemo(() => {
@@ -959,12 +1058,10 @@ export function AgentTaskProgressPane() {
     if (target.closest('button, [role="tab"], input, [data-no-drag]')) return
 
     e.preventDefault()
-    // 起始位置:无保存位置时,使用父容器右上角估算(offsetParent 坐标系)
-    const parentEl = paneRef.current?.offsetParent
-    const parentRect = parentEl instanceof HTMLElement ? parentEl.getBoundingClientRect() : null
-    const { width: parentW } = resolveParentBounds(parentRect)
+    // v15: 起始位置基于视口(fixed 定位)— 无保存位置时,使用视口右上角估算
+    const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024
     const fallback = {
-      x: Math.max(DRAG_EDGE_MARGIN, parentW - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN),
+      x: Math.max(DRAG_EDGE_MARGIN, viewportW - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN),
       y: DRAG_EDGE_MARGIN,
     }
     const current = positionRef.current ?? fallback
@@ -981,11 +1078,8 @@ export function AgentTaskProgressPane() {
       if (!state) return
       const dx = ev.clientX - state.startX
       const dy = ev.clientY - state.startY
-      // 每次重读父容器 bounds(窗口大小可能变化)
-      const liveParentEl = paneRef.current?.offsetParent
-      const liveParentRect =
-        liveParentEl instanceof HTMLElement ? liveParentEl.getBoundingClientRect() : null
-      const next = clampPanePosition(state.originX + dx, state.originY + dy, liveParentRect)
+      // v15: clamp 基于 viewport(不再读 offsetParent,因为 Portal 后 offsetParent 是 body)
+      const next = clampPanePosition(state.originX + dx, state.originY + dy)
       // v14: 同步写入 live ref,避免 mouseup 早于 render flush 时丢保存
       livePositionRef.current = next
       setPanePosition(next)
@@ -1031,29 +1125,51 @@ export function AgentTaskProgressPane() {
     const step = KEYBOARD_STEP_PX * (e.shiftKey ? KEYBOARD_SHIFT_MULTIPLIER : 1)
     const baseX = positionRef.current?.x ?? 0
     const baseY = positionRef.current?.y ?? 0
-    const liveParentEl = paneRef.current?.offsetParent
-    const liveParentRect =
-      liveParentEl instanceof HTMLElement ? liveParentEl.getBoundingClientRect() : null
-    const next = clampPanePosition(baseX + dx * step, baseY + dy * step, liveParentRect)
+    // v15: clamp 基于 viewport(不再读 offsetParent)
+    const next = clampPanePosition(baseX + dx * step, baseY + dy * step)
     livePositionRef.current = next
     setPanePosition(next)
     savePanePosition(next)
   }, [])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
-  // v14: 计算 pane 根容器的位置样式(absolute 相对父容器 `relative` 的消息区)
-  // - 有保存位置 → left/top(父容器坐标)
-  // - 无保存位置 → 默认 right-2 top-2(锚到父容器右上角,等效 absolute 默认行为)
+  // v15: 计算 pane 根容器的位置样式(fixed 相对视口)
+  // - 有保存位置 → left/top(视口坐标)
+  // - 无保存位置 → 默认 right: 16, top: 16(锚到视口右上角,留 16px 边距)
+  //   v15 之前用 right: 8, top: 8 锚到消息区(absolute),v15 改用 fixed 后用视口坐标,
+  //   多留 8px 让 Pane 与视口边缘有更明显的间距(避免贴边视觉差)
   const positionStyle: React.CSSProperties = panePosition
     ? { left: panePosition.x, top: panePosition.y, right: 'auto' }
-    : { right: 8, top: 8 }
+    : { right: 16, top: 16 }
 
-  return (
+  // Phase 23(2026-07-29):最小化模式 — 渲染摘要条替代完整面板
+  // 摘要条用同一 positionStyle + Portal 保持位置一致性,用户可点击展开按钮恢复
+  if (isMinimized) {
+    return createPortal(
+      <div
+        className="fixed z-50"
+        style={positionStyle}
+        data-testid="pane-minimized-container"
+      >
+        <MinimizedSummaryBar
+          progress={progressPct}
+          toolCallCount={tools.length}
+          subagentCount={subagents.length}
+          onExpand={() => setIsMinimized(false)}
+        />
+      </div>,
+      document.body,
+    )
+  }
+
+  // v15: 用 React Portal 渲染到 document.body,脱离 aside(overflow-hidden rounded-xl)
+  // 的 overflow 限制,Pane 可以悬浮在 AI 对话框外(超出 aside 边界显示),不被边框裁切。
+  return createPortal(
     <div
       ref={paneRef}
       className={cn(
-        'absolute z-50',
+        'fixed z-50',
         'flex w-[280px] max-h-[60vh] flex-col',
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
         isDragging && 'shadow-lg',
@@ -1228,7 +1344,7 @@ export function AgentTaskProgressPane() {
         </button>
         <button
           type="button"
-          onClick={toggle}
+          onClick={() => setIsMinimized(true)}
           aria-label={t('minimize')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           title={`${t('minimize')}(${t('minimizeHint')})`}
@@ -1528,7 +1644,8 @@ export function AgentTaskProgressPane() {
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
