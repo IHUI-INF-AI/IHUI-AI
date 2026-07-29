@@ -194,7 +194,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           <div
             id="work-area-portal-root"
             className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-200 ease-out"
-            style={{ paddingLeft: 'var(--ai-panel-occupy, 408px)' }}
+            style={{ paddingLeft: 'var(--ai-panel-occupy, 0px)' }}
           >
             {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
             <Button
