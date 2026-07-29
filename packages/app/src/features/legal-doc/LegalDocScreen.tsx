@@ -35,7 +35,9 @@ export function LegalDocScreen({
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.card}>
           <Text style={styles.subtitle}>{subtitle}</Text>
-          <Text style={styles.updatedAt}>{t('legalDoc.updatedAt')}: {updatedAt}</Text>
+          <Text style={styles.updatedAt}>
+            {t('legalDoc.updatedAt')}: {updatedAt}
+          </Text>
         </View>
         {sections.map((section: LegalDocSection) => (
           <View key={section.title} style={styles.card}>
@@ -62,7 +64,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     body: { padding: 16, paddingBottom: 32 },
     card: {
-      padding: 12,
+      padding: 16,
       marginBottom: 12,
       borderRadius: 8,
       borderWidth: 1,
