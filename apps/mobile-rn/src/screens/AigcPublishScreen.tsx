@@ -31,7 +31,7 @@ export default function AigcPublishScreen() {
   const addFileByUrl = () => {
     const url = urlInput.trim()
     if (!url) {
-      setError(t('aigcPublish.errorNoUrl'))
+      setError(t('aigcPublish.errorUrlRequired'))
       return
     }
     if (files.length >= 5) {
@@ -39,7 +39,7 @@ export default function AigcPublishScreen() {
       return
     }
     setError('')
-    setFiles((prev) => [...prev, { id: `file-${Date.now()}`, url }])
+    setFiles((prev) => [...prev, { id: `file-${Date.now()}`, url, type: workType }])
     setUrlInput('')
   }
 
@@ -68,7 +68,7 @@ export default function AigcPublishScreen() {
       })
       if (res.success && res.data) {
         const url = resolveFileUrl(res.data.path)
-        setFiles((prev) => [...prev, { id: res.data!.id, url }])
+        setFiles((prev) => [...prev, { id: res.data!.id, url, type: workType }])
       } else {
         setError(res.error || t('aigcPublish.errorUploadFailed'))
       }
@@ -85,23 +85,23 @@ export default function AigcPublishScreen() {
   const validate = (): boolean => {
     if (workType === 'text') {
       if (!textContent.trim()) {
-        setError(t('aigcPublish.errorNoText'))
+        setError(t('aigcPublish.errorTextRequired'))
         return false
       }
     } else if (files.length === 0) {
-      setError(t('aigcPublish.errorNoFile'))
+      setError(t('aigcPublish.errorFileRequired'))
       return false
     }
     if (!title.trim()) {
-      setError(t('aigcPublish.errorNoTitle'))
+      setError(t('aigcPublish.errorTitleRequired'))
       return false
     }
     if (!description.trim()) {
-      setError(t('aigcPublish.errorNoDescription'))
+      setError(t('aigcPublish.errorDescriptionRequired'))
       return false
     }
     if (!prompt.trim()) {
-      setError(t('aigcPublish.errorNoPrompt'))
+      setError(t('aigcPublish.errorPromptRequired'))
       return false
     }
     setError('')

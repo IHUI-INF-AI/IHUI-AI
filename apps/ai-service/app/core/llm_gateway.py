@@ -240,13 +240,33 @@ async def _resolve_from_db(
     """从 ai_model_config 表查询配置,返回 (api_key, api_base, litellm_model) 或 None。
 
     优先 owner_uuid 匹配的用户私有配置,兜底 owner_uuid IS NULL 的全局配置。
+
+    P0-5 修复(2026-07-29):API 端直接传 model_id(无 stepfun/ 前缀),先按
+    ai_model_config_models.model_id 查 provider_code,再查 api_key。
     """
-    provider_code = _model_to_provider_code(model)
     try:
         pool = await _get_pool()
         async with pool.acquire() as conn:
+            # 1. 先按 model_id 精确查 ai_model_config_models 拿 provider_code
+            #    (无前缀 model_id 也能命中,如 step-3.7-flash → stepfun)
+            model_row = await conn.fetchrow(
+                """SELECT m.config_id, c.provider_code, c.api_key_enc, c.base_url, c.api_format
+                   FROM ai_model_config_models m
+                   JOIN ai_model_config c ON c.id = m.config_id
+                   WHERE m.model_id = $1 AND m.enabled = true AND c.enabled = true
+                   ORDER BY c.sort_order ASC, c.id ASC
+                   LIMIT 1""",
+                model,
+            )
+            if model_row:
+                provider_code = model_row["provider_code"]
+            else:
+                # 2. 兜底:按前缀推 provider_code
+                provider_code = _model_to_provider_code(model)
+
+            # 3. 查 provider 配置
             if owner_uuid:
-                row = await conn.fetchrow(
+                cfg_row = await conn.fetchrow(
                     """SELECT api_key_enc, base_url, api_format
                        FROM ai_model_config
                        WHERE enabled = true AND provider_code = $1
@@ -257,7 +277,7 @@ async def _resolve_from_db(
                     owner_uuid,
                 )
             else:
-                row = await conn.fetchrow(
+                cfg_row = await conn.fetchrow(
                     """SELECT api_key_enc, base_url, api_format
                        FROM ai_model_config
                        WHERE enabled = true AND provider_code = $1 AND owner_uuid IS NULL
@@ -265,13 +285,13 @@ async def _resolve_from_db(
                        LIMIT 1""",
                     provider_code,
                 )
-        if not row:
+        if not cfg_row:
             return None
-        api_key = _decrypt_api_key(row["api_key_enc"])
+        api_key = _decrypt_api_key(cfg_row["api_key_enc"])
         if not api_key:
             return None
-        base_url = row["base_url"] or None
-        api_format = row["api_format"] or "openai_chat"
+        base_url = cfg_row["base_url"] or None
+        api_format = cfg_row["api_format"] or "openai_chat"
         real_model = model.split("/", 1)[1] if "/" in model else model
         if api_format == "anthropic_messages":
             litellm_model = model if "/" in model else f"anthropic/{model}"
@@ -279,7 +299,7 @@ async def _resolve_from_db(
             litellm_model = f"openai/{real_model}"
         return api_key, base_url, litellm_model
     except Exception as e:
-        logger.warning("从 ai_model_config 查询失败(provider=%s): %s", provider_code, e)
+        logger.warning("从 ai_model_config 查询失败(model=%s): %s", model, e)
         return None
 
 

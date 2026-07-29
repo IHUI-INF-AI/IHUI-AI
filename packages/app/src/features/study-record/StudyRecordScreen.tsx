@@ -1,5 +1,12 @@
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   StudyRecordItem,
@@ -101,7 +108,9 @@ export function StudyRecordScreen({
         </TouchableOpacity>
         <View style={styles.titleBox}>
           <Text style={styles.title}>{t('studyRecord.title')}</Text>
-          <Text style={styles.subtitle}>{t('studyRecord.subtitle', { name: userNickname })}</Text>
+          <Text style={styles.subtitle}>
+            {t('studyRecord.subtitle', { name: userNickname })}
+          </Text>
         </View>
       </View>
 
