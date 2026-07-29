@@ -1,5 +1,13 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+// 抽屉静态资源(SVG 走 Vite base64 内联,PNG 走 Taro copy.patterns 静态拷贝)
+import choutilogoH from '@/static/images/choutilogo_h.png'
+import closeDrawerSvg from '@/static/images/close_drawer.svg'
+import newchatSvg from '@/static/images/newchat.svg'
+import drawerMenu1Png from '@/static/images/drawer_menu1.png'
+import drawerMenu2Png from '@/static/images/drawer_menu2.png'
+import drawerMenu4Png from '@/static/images/drawer_menu4.png'
+import drawerMenu5Png from '@/static/images/drawer_menu5.png'
 
 /**
  * DrawerComponent 抽屉组件
@@ -84,17 +92,17 @@ export interface DrawerComponentProps {
 }
 
 const DEFAULT_MENU_ITEMS: DrawerMenuItem[] = [
-  { key: 'appStore', label: '应用商店', icon: '🏪' },
-  { key: 'demand', label: '需求广场', icon: '📋' },
-  { key: 'inspiration', label: '灵感', icon: '💡' },
-  { key: 'dynamic', label: '动态', icon: '📰' },
-  { key: 'course', label: '课程', icon: '📚' },
+  { key: 'appStore', label: '应用商店', icon: drawerMenu1Png },
+  { key: 'demand', label: '需求广场', icon: drawerMenu2Png },
+  { key: 'inspiration', label: '灵感', icon: drawerMenu4Png },
+  { key: 'dynamic', label: '动态', icon: drawerMenu5Png },
+  { key: 'course', label: '课程', icon: drawerMenu4Png },
 ]
 
 const DEFAULT_LABEL_ITEMS: DrawerMenuItem[] = [
   { key: 'company', label: '我的一人公司' },
   { key: 'freebie', label: '领取免费资料' },
-  { key: 'newChat', label: '创建新对话' },
+  { key: 'newChat', label: '创建新对话', icon: newchatSvg },
 ]
 
 export default function DrawerComponent(props: DrawerComponentProps) {
@@ -158,18 +166,15 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               {logoUrl ? (
                 <Image src={logoUrl} style={{ height: '66rpx' }} mode="heightFix" />
               ) : (
-                <Text className="text-[28rpx] font-bold" style={{ color: 'var(--color-foreground)' }}>
-                  智汇AI
-                </Text>
+                <Image src={choutilogoH} style={{ height: '66rpx' }} mode="heightFix" />
               )}
             </View>
-            <Text
-              className="text-[40rpx] leading-none"
-              style={{ color: 'var(--color-foreground)' }}
+            <Image
+              src={closeDrawerSvg}
+              style={{ width: '40rpx', height: '40rpx' }}
+              mode="aspectFit"
               onClick={onClose}
-            >
-              ×
-            </Text>
+            />
           </View>
 
           {/* 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)*/}
@@ -183,9 +188,15 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 className="flex flex-col items-center justify-center"
                 onClick={() => onMenuItemClick?.(item)}
               >
-                <Text style={{ width: '60rpx', height: '60rpx', fontSize: '36rpx' }}>
-                  {item.icon || '•'}
-                </Text>
+                {item.icon ? (
+                  <Image
+                    src={item.icon}
+                    style={{ width: '60rpx', height: '60rpx' }}
+                    mode="aspectFit"
+                  />
+                ) : (
+                  <Text style={{ width: '60rpx', height: '60rpx', fontSize: '36rpx' }}>•</Text>
+                )}
                 <Text
                   className="mt-[8rpx]"
                   style={{ fontSize: '24rpx', color: 'var(--color-foreground)' }}
@@ -201,6 +212,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             {labelItems.map((item) => (
               <View
                 key={item.key}
+                className="flex items-center"
                 style={{
                   fontSize: '28rpx',
                   lineHeight: '56rpx',
@@ -215,6 +227,13 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   }
                 }}
               >
+                {item.icon ? (
+                  <Image
+                    src={item.icon}
+                    style={{ width: '36rpx', height: '36rpx', marginRight: '12rpx' }}
+                    mode="aspectFit"
+                  />
+                ) : null}
                 <Text>{item.label}</Text>
               </View>
             ))}
