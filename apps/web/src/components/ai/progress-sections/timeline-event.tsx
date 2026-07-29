@@ -12,6 +12,7 @@ import {
   FileText,
   Circle,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import {
   useTimelineStore,
@@ -52,6 +53,61 @@ const STATUS_ICON: Record<TimelineEventStatus, React.ComponentType<{ className?:
   failed: AlertCircle,
 }
 
+// ─── i18n 渲染(Phase 22,2026-07-29 立) ──────────────────────────
+
+/** i18n key 命名空间前缀(strip 后传给 useTranslations('ai.pane')) */
+const I18N_NS_PREFIX = 'ai.pane.'
+
+/** next-intl 字面量联合类型绕过:动态 key 调用需要 loose 签名 */
+type LooseTranslator = (key: string, params?: Record<string, string | number>) => string
+
+/** 从 event.meta 中安全提取 i18nKey + i18nParams(类型守卫,避免 as 断言) */
+function extractI18nMeta(meta: unknown): {
+  i18nKey: string
+  i18nParams?: Record<string, string | number>
+} | null {
+  if (typeof meta !== 'object' || meta === null) return null
+  const m = meta as Record<string, unknown>
+  const rawKey = m['i18nKey']
+  if (typeof rawKey !== 'string') return null
+  const rawParams = m['i18nParams']
+  if (rawParams === undefined) return { i18nKey: rawKey }
+  if (typeof rawParams !== 'object' || rawParams === null) return null
+  return {
+    i18nKey: rawKey,
+    i18nParams: rawParams as Record<string, string | number>,
+  }
+}
+
+/**
+ * 用 next-intl t() 翻译 i18n key,失败时返回 fallback。
+ *
+ * - meta.i18nKey 不存在 → 返回 fallback
+ * - t() 抛错 / 返回 key 本身(key 未定义)→ 返回 fallback
+ * - 否则返回翻译后的文本
+ */
+function translateWithFallback(
+  t: ReturnType<typeof useTranslations<'ai.pane'>>,
+  meta: unknown,
+  fallback: string | undefined,
+): string | undefined {
+  const i18nMeta = extractI18nMeta(meta)
+  if (!i18nMeta) return fallback
+  try {
+    const key = i18nMeta.i18nKey.startsWith(I18N_NS_PREFIX)
+      ? i18nMeta.i18nKey.slice(I18N_NS_PREFIX.length)
+      : i18nMeta.i18nKey
+    const looseT = t as unknown as LooseTranslator
+    const translated = i18nMeta.i18nParams
+      ? looseT(key, i18nMeta.i18nParams)
+      : looseT(key)
+    if (!translated || translated === key) return fallback
+    return translated
+  } catch {
+    return fallback
+  }
+}
+
 function formatRelativeTime(timestamp: string): string {
   const ms = Date.parse(timestamp)
   if (Number.isNaN(ms)) return ''
@@ -81,6 +137,18 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
   const StatusIcon = STATUS_ICON[event.status]
   const typeCls = TYPE_CLS[event.type]
   const hasChildren = !!event.children && event.children.length > 0
+
+  // Phase 22 i18n(2026-07-29):meta.i18nKey 存在时用 t() 翻译,失败 fallback 到 description
+  const t = useTranslations('ai.pane')
+  const description = React.useMemo(
+    () => translateWithFallback(t, event.meta, event.description),
+    [t, event.meta, event.description],
+  )
+  // 暴露 i18n key 到 DOM(便于单测验证渲染来源)
+  const renderedI18nKey = React.useMemo(() => {
+    const meta = extractI18nMeta(event.meta)
+    return meta?.i18nKey
+  }, [event.meta])
 
   const onClick = () => {
     if (hasChildren) {
@@ -119,6 +187,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
       data-event-id={event.id}
       data-event-type={event.type}
       data-event-status={event.status}
+      data-i18n-key={renderedI18nKey}
     >
       {depth === 0 && (
         <div
@@ -152,10 +221,10 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/90">
           {event.title}
         </span>
-        {event.description && !isExpanded && (
+        {description && !isExpanded && (
           <span className="hidden truncate text-[10px] text-muted-foreground/60 lg:inline">
-            {event.description.slice(0, 60)}
-            {event.description.length > 60 ? '…' : ''}
+            {description.slice(0, 60)}
+            {description.length > 60 ? '…' : ''}
           </span>
         )}
         <StatusIcon
@@ -172,8 +241,8 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
       </button>
       {hasChildren && isExpanded && (
         <div className="border-t border-border/30 px-2 py-1">
-          {event.description && (
-            <div className="mb-1.5 text-[10px] text-muted-foreground/70">{event.description}</div>
+          {description && (
+            <div className="mb-1.5 text-[10px] text-muted-foreground/70">{description}</div>
           )}
           <div className="space-y-0.5">
             {event.children!.map((child) => (
