@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import {
@@ -8,34 +8,18 @@ import {
   Square,
   SquareSlash,
   FileText,
-  Hammer,
-  BookOpen,
-  Search,
   Plus,
   AtSign,
   Sparkles,
   Package,
   X,
   Info,
-  Target,
-  Repeat,
-  Shield,
-  ShieldCheck,
-  ShieldAlert,
-  Power,
-  Timer,
-  Bug,
-  Wand2,
-  TestTube,
-  BookMarked,
-  Code,
-  RefreshCw,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@ihui/shared/utils/format'
-import { SlashCommandPalette, type ArgSuggestion } from '@/components/ai/slash-command-palette'
+import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
@@ -46,24 +30,19 @@ import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
-import { useModeStore } from '@/stores/mode'
-import type { ChatMode } from '@ihui/types'
-import {
-  PermissionModePopover,
-  isHighRiskPermissionMode,
-  switchPermissionMode,
-} from '@/components/ai/permission-mode-popover'
+import { CurrentModeBadge } from '@/components/chat/current-mode-badge'
+import { PermissionModePopover, isHighRiskPermissionMode } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
-import {
-  FullAccessConfirmDialog,
-  isFullAccessConfirmSuppressed,
-} from '@/components/ai/full-access-confirm-dialog'
+import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
-import { recordModeChange, updateLatestRecordSource } from '@/lib/permission-mode-history'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
+import { useSlashCommands } from '@/hooks/use-slash-commands'
+import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
+import { useSlashAction } from '@/hooks/use-slash-action'
+import { useMessageReferences, type ReferenceItem } from '@/hooks/use-message-references'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -77,176 +56,10 @@ const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
 const MIN_HEIGHT_PX = 96 // rows=3 基础高度,与 hook threeLinePx 阈值一致
 
-/** 模式循环顺序(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环切换)
- * default(请求批准) → accept-edits(替我审批) → bypass-permissions(完全访问) → default
- * 注意:bypass-permissions 是高风险,放在最后便于"按 3 次回正" */
-const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
-  'default',
-  'accept-edits',
-  'bypass-permissions',
-]
-
-/** localStorage 键(2026-07-25 深化,跨刷新记忆用户上次主动选择的权限模式)
- * 仅记忆非默认模式;首次绑定工作区时如果 store 没指定,优先用这个值 */
-const PERMISSION_MEMORY_KEY = 'ihui:preferred-permission-mode'
-
-type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
-
-interface ReferenceItem {
-  id: string
-  type: ReferenceType
-  label: string
-  preview?: string
-  /** 图片/视频缩略图 URL(objectURL),用于在引用面板中显示视觉缩略图 */
-  thumbnail?: string
-  /** 原始文件大小(字节),用于在 label 中显示尺寸信息 */
-  size?: number
-}
-
-const SLASH_COMMAND_IDS = [
-  'summary',
-  'translate',
-  'explain',
-  'code',
-  'polish',
-  'wechat-article',
-  'koubo-script',
-] as const
-
-/** /goal 命令参数候选模板(2026-07-29 二次深化,内置常见 goal 目标条件)
- * 参考 AGENTS.md §8 goal 模式工作流示例 + AI 编程主流场景
- * label:候选标签(简短)
- * description:候选描述(详细说明目标条件)
- * insertText:选中后填充到 textarea 的完整文本(含 /goal 前缀)
- * icon:候选图标(覆盖默认 Sparkles) */
-const GOAL_ARG_TEMPLATES: ArgSuggestion[] = [
-  {
-    label: '修复所有 TypeScript 错误',
-    description: '运行 pnpm typecheck,修复所有报错直到全绿(命令退出码 0)',
-    insertText: '/goal 运行 pnpm typecheck 修复所有 TypeScript 错误,直到命令退出码为 0',
-    icon: <Bug className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '通过所有单元测试',
-    description: '运行 pnpm test,修复失败用例直到全部通过',
-    insertText: '/goal 运行 pnpm test,修复所有失败的单元测试用例直到全部通过',
-    icon: <TestTube className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '重构模块消除重复',
-    description: '识别重复代码,抽取共享工具函数,保持行为不变',
-    insertText: '/goal 识别项目中的重复代码,抽取共享工具函数,保持行为不变',
-    icon: <RefreshCw className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '完成 lint 全绿',
-    description: '运行 pnpm lint,修复所有 lint 错误和警告',
-    insertText: '/goal 运行 pnpm lint,修复所有 lint 错误和警告直到全绿',
-    icon: <Wand2 className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '迁移功能到共享层',
-    description: '把端独占组件上提到 packages/app,多端复用,保持行为一致',
-    insertText: '/goal 把端独占组件上提到 packages/app 共享层,多端复用,保持行为一致',
-    icon: <Package className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '深度对标某产品交互',
-    description: '参考目标产品交互细节,逐项对齐实现,自验 4 状态',
-    insertText:
-      '/goal 深度对标目标产品的交互细节,逐项对齐实现,自验默认/hover/active/dark mode 4 状态',
-    icon: <BookMarked className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '清理死代码',
-    description: '扫描未引用的导出/组件/工具函数,确认无依赖后删除',
-    insertText: '/goal 扫描项目中未引用的导出/组件/工具函数,确认无依赖后删除',
-    icon: <X className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '补全 E2E 测试',
-    description: '为关键路径补全 E2E 测试,覆盖率提升到 80%+',
-    insertText: '/goal 为关键路径补全 E2E 测试,覆盖率提升到 80% 以上',
-    icon: <Code className="h-3.5 w-3.5" />,
-  },
-]
-
-/** /loop 命令参数候选(2026-07-29 二次深化,on/off/N 三选项 + 常用迭代次数) */
-const LOOP_ARG_OPTIONS: ArgSuggestion[] = [
-  {
-    label: '开启循环',
-    description: '开启循环执行模式,AI 将持续迭代直到目标达成',
-    insertText: '/loop on',
-    icon: <Power className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '关闭循环',
-    description: '关闭循环执行模式,恢复单次执行',
-    insertText: '/loop off',
-    icon: <Power className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '循环 5 次',
-    description: '设置最大迭代次数为 5',
-    insertText: '/loop 5',
-    icon: <Timer className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '循环 10 次',
-    description: '设置最大迭代次数为 10',
-    insertText: '/loop 10',
-    icon: <Timer className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '循环 20 次',
-    description: '设置最大迭代次数为 20(高风险,需人工监督)',
-    insertText: '/loop 20',
-    icon: <Timer className="h-3.5 w-3.5" />,
-  },
-]
-
-// ChatMode 4 态元信息(2026-07-28 立,移除 4 按钮后改用小徽章显示)
-// - icon: 当前模式徽章图标(lucide-react)
-// - i18nKey: 模式名 i18n key(从 chat.modeBuild/modePlan/modeReview/modeSpec 取)
-// - slashCmd: 对应 / 命令(供 tooltip 提示用户)
-const CHAT_MODE_META: Record<
-  ChatMode,
-  { icon: React.ComponentType<{ className?: string }>; i18nKey: string; slashCmd: string }
-> = {
-  build: { icon: Hammer, i18nKey: 'modeBuild', slashCmd: '/build' },
-  plan: { icon: BookOpen, i18nKey: 'modePlan', slashCmd: '/plan' },
-  review: { icon: Search, i18nKey: 'modeReview', slashCmd: '/review' },
-  spec: { icon: FileText, i18nKey: 'modeSpec', slashCmd: '/spec' },
-}
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
-const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
-
-const SLASH_CMD_KEY_MAP: Record<string, string> = {
-  summary: 'slashCmd.summary',
-  translate: 'slashCmd.translate',
-  explain: 'slashCmd.explain',
-  code: 'slashCmd.code',
-  polish: 'slashCmd.polish',
-  'wechat-article': 'slashCmd.wechat-article',
-  'koubo-script': 'slashCmd.koubo-script',
-}
-
-const TPL_NAME_KEY_MAP: Record<string, string> = {
-  summary: 'tplSummary',
-  translate: 'tplTranslate',
-  explain: 'tplExplain',
-  code: 'tplCode',
-  polish: 'tplPolish',
-}
-
-const TPL_CONTENT_KEY_MAP: Record<string, string> = {
-  summary: 'tplSummaryContent',
-  translate: 'tplTranslateContent',
-  explain: 'tplExplainContent',
-  code: 'tplCodeContent',
-  polish: 'tplPolishContent',
-}
+// PROMPT_TEMPLATE_IDS / TPL_NAME_KEY_MAP / TPL_CONTENT_KEY_MAP / promptTemplates
+// 已提取到 useSlashAction hook(2026-07-29),组件内不再持有模板常量。
 
 /**
  * i18n 静态映射表 — 用于消除 `t(`permission.dangerousPattern.${pattern}`)` 单变量动态拼接。
@@ -292,48 +105,126 @@ interface MessageInputProps {
   modelLabel: string
 }
 
-/**
- * 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示)。
- *
- * 视觉:h-6 px-2 text-xs、bg-muted 圆角 6px、icon + label 同行,subtle 风格。
- * 切换入口(全部在 Tooltip 提示):
- * - /build /plan /review /spec 斜杠命令
- * - Ctrl+1/2/3/4 全局快捷键
- * - AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
- *
- * 不再提供按钮交互(2026-07-28 立,移除 4 按钮,纯视觉指示):
- * - 4 按钮占据顶部空间大、与其他 AI 工具(Cursor/Claude Code/Copilot/Windsurf)设计不符
- * - 用户可显式 /命令 或 Ctrl+1-4 切换,AI 也能自动判断
- * - 当前模式必须保留视觉反馈(用户需知道 AI 当前在哪个模式工作)
- */
-function CurrentModeBadge() {
-  const t = useTranslations('chat')
-  const currentMode = useModeStore((s) => s.currentMode)
-  const meta = CHAT_MODE_META[currentMode]
-  const ModeIcon = meta.icon
-  return (
-    <Tooltip
-      content={
-        <div className="space-y-0.5 text-[11px]">
-          <div className="font-medium">{t('modeBadgeTooltip', { mode: t(meta.i18nKey) })}</div>
-          <div className="text-muted-foreground">{t('modeBadgeSwitchHint')}</div>
-        </div>
-      }
-      side="bottom"
-    >
-      <span
-        className={cn(
-          'inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground',
-        )}
-        data-testid="chat-mode-badge"
-        data-mode={currentMode}
-      >
-        <ModeIcon className="h-3 w-3" aria-hidden="true" />
-        <span>{t(meta.i18nKey)}</span>
-      </span>
-    </Tooltip>
-  )
+/** WebInputCore 句柄 — 与原 textareaRef 等价(主组件通过 inputCoreRef.current 访问) */
+interface WebInputCoreHandle {
+  focus: () => void
+  setSelectionRange: (start: number, end: number) => void
+  resize: () => void
 }
+
+/** WebInputCore props(契约对齐 packages/types MessageInputProps 核心字段)
+ * 共享层 `<MessageInput>`(rn/taro)用相同 props 名,本组件是 web 端实现(react-native-web 未配置,
+ * 不能直接 import @ihui/app;详细论证见 2026-07-29 方案 A)。
+ * 职责:渲染 textarea + 字符计数 + 清除按钮 + 发送/停止按钮
+ * 不包含:slash 触发按钮、@ 文件提及、模型选择、语音输入(由主组件工具栏承担) */
+interface WebInputCoreProps {
+  text: string
+  placeholder: string
+  isStreaming: boolean
+  onTextChange: (v: string) => void
+  onSend: () => void
+  onStop: () => void
+  onClear: () => void
+  /** 错误提示(可选,空字符串/null/undefined 时不渲染) */
+  error?: string
+  /** 翻译函数(主组件已 useTranslations('chat'),传入 t 即可) */
+  t: (key: string) => string
+  /** 原生 change 事件(用于触发 slash/mention 面板) */
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  /** 原生 keydown 事件(用于 Shift+Tab 切换权限模式) */
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+  /** 原生 paste 事件(用于图片粘贴) */
+  onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
+  /** 发送按钮 tooltip(主组件传入对齐 aria-label) */
+  sendLabel?: string
+  /** 停止按钮 tooltip */
+  stopLabel?: string
+}
+
+/** Web 端 MessageInput 实现(forwardRef,契约对齐 SharedMessageInputProps)
+ * 渲染 textarea + 字符计数(2026-07-29 简化,清除/发送/停止按钮已挪到外层 toolbar)。
+ * 内部托管 textarea ref + 自动高度,主组件通过 forwarded ref 调用 focus/setSelectionRange/resize。 */
+const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(function WebInputCore(
+  {
+    text,
+    placeholder,
+    onTextChange,
+    onSend,
+    error,
+    onChange,
+    onKeyDown,
+    onPaste,
+    // 2026-07-29 简化:以下 props 在 web 端不再使用(发送/停止/清除按钮已挪到外层 toolbar),
+    // 保留在 props 契约里是为了和 packages/types SharedMessageInputProps 对齐(rn/taro 端仍用)。
+    isStreaming: _isStreaming,
+    onStop: _onStop,
+    onClear: _onClear,
+    t: _t,
+    sendLabel: _sendLabel,
+    stopLabel: _stopLabel,
+  },
+  ref,
+) {
+  const innerRef = React.useRef<HTMLTextAreaElement>(null)
+  const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
+    threeLinePx: MIN_HEIGHT_PX,
+    maxHeightPx: MAX_HEIGHT_PX,
+  })
+  React.useImperativeHandle(
+    ref,
+    (): WebInputCoreHandle => ({
+      focus: () => innerRef.current?.focus(),
+      setSelectionRange: (s, e) => innerRef.current?.setSelectionRange(s, e),
+      resize,
+    }),
+    [resize],
+  )
+  // 发送/停止/清除按钮已挪到外层 MessageInput 底部 toolbar 与其他动作按钮同行(2026-07-29 用户规则),
+  // 本组件只负责 textarea + 字符计数;onSend/onStop/onClear 仍由 props 透传供 Enter 触发等场景使用。
+  return (
+    <div className="relative px-3 pt-2 pb-2">
+      <textarea
+        ref={innerRef}
+        value={text}
+        onChange={(e) => {
+          const v = e.target.value.slice(0, MAX_LENGTH)
+          onTextChange(v)
+          onChange?.(e)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault()
+            onSend()
+          } else {
+            onKeyDown?.(e)
+          }
+        }}
+        onPaste={onPaste}
+        placeholder={placeholder}
+        rows={3}
+        aria-label={placeholder}
+        style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
+        className={cn(
+          'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
+          'placeholder:text-muted-foreground/70',
+          'pb-6',
+        )}
+      />
+      <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center">
+        <span
+          aria-live="polite"
+          className={cn(
+            'text-[10px] tabular-nums text-muted-foreground/60',
+            text.length >= MAX_LENGTH && 'text-destructive',
+          )}
+        >
+          {text.length}/{MAX_LENGTH}
+        </span>
+      </div>
+      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+    </div>
+  )
+})
 
 export function MessageInput({
   onSend,
@@ -349,10 +240,14 @@ export function MessageInput({
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
   const tNav = useTranslations('nav')
+  // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
+  // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
+  // - cyclePermissionMode: Shift+Tab 在 3 个模式间循环切(default → accept-edits → bypass-permissions)
+  // hook 同时暴露 openShortcuts(供外部按钮触发),本组件未消费故不解构
+  // 详见 apps/web/src/hooks/use-permission-mode-cycle.ts
+  const { shortcutsOpen, closeShortcuts, cyclePermissionMode } = usePermissionModeCycle()
   // 当前工作区权限模式(2026-07-25 深化,高风险模式持久化视觉警告)
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
-  const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
-  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
   const activeWorkspaceMode = activeWorkspace?.mode
   const isHighRisk = isHighRiskPermissionMode(activeWorkspaceMode)
   // 高风险模式自动撤销倒计时(2026-07-25 深化,深度对标 Codex CLI 安全护栏):
@@ -378,7 +273,17 @@ export function MessageInput({
   }, [value])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
-  const [references, setReferences] = React.useState<ReferenceItem[]>([])
+  // references 状态管理(2026-07-29 提取到 useMessageReferences hook):
+  // - addFileReference / addTextReference / addCodeReference 三种类型添加
+  // - removeReference 移除 + 释放 objectURL
+  // - resetReferences 发送后清空
+  const {
+    references,
+    addFileReference,
+    addTextReference,
+    removeReference,
+    resetReferences,
+  } = useMessageReferences()
   const [isDragOver, setIsDragOver] = React.useState(false)
   // AI Skills 列表(2026-07-29 二次深化,从 /api/ai-skills 拉取,接入斜杠命令弹窗 skill 分组)
   // 懒加载:首次打开弹窗时拉取,成功后缓存到 state,关闭再打开不重新拉
@@ -391,33 +296,9 @@ export function MessageInput({
   >([])
   const mentionLoadedRef = React.useRef(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-  // /permission 切换 toast 首弹记录(2026-07-25 深化):每个子命令模式只 toast 一次,
-  // 持久化到 localStorage(跨刷新/跨标签页也只弹一次)。
-  // 用 set 序列化存,key 形如 "ask,auto,full" 表示已提示过的模式集合
-  // React.useRef 不支持 lazy initializer(那是 useState 才有的),改用空 set + useEffect mount 填充
-  const PERMISSION_TOAST_KEY = 'ihui:permission-toast-shown'
-  const permissionToastShownRef = React.useRef<Set<string>>(new Set())
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const raw = window.localStorage.getItem(PERMISSION_TOAST_KEY)
-      if (!raw) return
-      permissionToastShownRef.current = new Set(raw.split(',').filter(Boolean))
-    } catch {
-      // 静默
-    }
-  }, [])
-  const markPermissionToastShown = React.useCallback((mode: string) => {
-    if (typeof window === 'undefined') return
-    try {
-      window.localStorage.setItem(
-        PERMISSION_TOAST_KEY,
-        [...permissionToastShownRef.current, mode].join(','),
-      )
-    } catch {
-      // 静默
-    }
-  }, [])
+  // /permission 切换 toast 首弹记录(2026-07-29 提取到 useSlashAction hook):
+  // - permissionToastShownRef / markPermissionToastShown / localStorage 持久化
+  // - 已在 hook 内部管理,组件不再持有
   // "添加"下拉菜单状态(2026-07-25 合并):收纳"提示词模板 / 添加引用 / Skill 库 / 添加附件 / 插件市场"5 类动作
   // addMenuMode 决定 Popover content:
   // - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
@@ -425,16 +306,17 @@ export function MessageInput({
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
   const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
-  const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value, {
-    threeLinePx: MIN_HEIGHT_PX,
-    maxHeightPx: MAX_HEIGHT_PX,
-  })
+  // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
+  const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
+  // 发送/清除按钮可用态(2026-07-29 用户规则:与外层 toolbar 同行显示,沿用 WebInputCore 旧逻辑)
+  const canSend = !isStreaming && value.trim().length > 0
+  const canClear = !isStreaming && value.length > 0
   // 把 pluginId 解析成 chip 展示所需的 SelectedToolItem(name + integration 标记)
   const selectedToolItems: SelectedToolItem[] = React.useMemo(() => {
     const all = [...PROJECT_PLUGINS, ...MARKET_PLUGINS]
@@ -452,9 +334,9 @@ export function MessageInput({
     if (draftInput) {
       setValue(draftInput)
       clearDraftInput()
-      requestAnimationFrame(() => textareaRef.current?.focus())
+      requestAnimationFrame(() => inputCoreRef.current?.focus())
     }
-  }, [draftInput, clearDraftInput, textareaRef])
+  }, [draftInput, clearDraftInput])
 
   // 首次打开 @ 提及面板时拉取最近文件列表;失败静默(留空数组,Popover 显示"无匹配文件")
   React.useEffect(() => {
@@ -526,274 +408,25 @@ export function MessageInput({
   }, [slashOpen])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
-  // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
   // - infoMode: 标题栏 ⓘ 按钮点击后展示该模式的详细说明 modal
-  const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
+  // shortcutsOpen / cyclePermissionMode 已提取到 usePermissionModeCycle hook(2026-07-29)
   const [infoMode, setInfoMode] = React.useState<WorkspacePermissionMode | null>(null)
 
-  // 全局 ? 键监听(2026-07-25 深化,Codex CLI 风格):
-  // - Shift+/ 也算,避免不同键盘布局下 ? 在不同位置
-  // - 排除 textarea/input/contenteditable 内,用户打字时不应该误触
-  // - 再按一次关闭(toggle),与常见 ? 文档快捷键行为一致
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)
-      ) {
-        return
-      }
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault()
-        setShortcutsOpen((v) => !v)
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [])
+  // 斜杠命令列表(2026-07-29 提取到 useSlashCommands,运行时构造逻辑下沉到 hooks/ 目录)
+  const slashCommands = useSlashCommands(aiSkills, skillsLoading)
 
-  // 权限模式快捷切换(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环):
-  // - 模式改变时同步到 localStorage(只记忆非默认,避免污染用户)
-  // - Shift+Tab 在 3 个模式间循环切,跳过斜杠面板/提及面板打开时
-  // - 切到 bypass-permissions 复用 PermissionModePopover 同一撤销 toast
-  // 监听 mode 变化 → localStorage
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      if (activeWorkspaceMode) {
-        window.localStorage.setItem(PERMISSION_MEMORY_KEY, activeWorkspaceMode)
-      } else {
-        // 解除绑定时清掉记忆(避免下次自动套用过时模式)
-        window.localStorage.removeItem(PERMISSION_MEMORY_KEY)
-      }
-    } catch {
-      // 隐私模式/localStorage 不可用静默
-    }
-  }, [activeWorkspaceMode])
-
-  // 权限模式切换历史记录(2026-07-25 立,深度对标 Codex CLI 审计能力):
-  // - activeWorkspaceMode 变化时追加 1 条记录到 localStorage
-  // - source 暂用 'popover' 作为默认,具体来源由调用方通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖
-  // - 不在 message-input 内做来源判断(避免 popover/Shift+Tab/slash 三处分别改 1 个 if)
-  // - 主动撤销 1h 计时器归零 → auto-revert 来源,由 use-permission-auto-revert 内 hook 句柄写入
-  React.useEffect(() => {
-    if (!activeWorkspaceMode) return
-    // 首次 mount 时不记录(用户可能刚打开页面看到默认 default,记录无意义)
-    // 只在 mode 真正变化时记录 —— 通过 ref 缓存上次值判断
-    const w = window as unknown as {
-      __IHUI_LAST_RECORDED_MODE__?: WorkspacePermissionMode | null
-    }
-    const last = w.__IHUI_LAST_RECORDED_MODE__
-    if (last === activeWorkspaceMode) return
-    w.__IHUI_LAST_RECORDED_MODE__ = activeWorkspaceMode
-    recordModeChange({
-      mode: activeWorkspaceMode,
-      workspacePath: activeWorkspace?.path ?? '',
-      timestamp: Date.now(),
-      // 默认识别为 popover 来源;popover/shift-tab/slash 各自的代码路径在切完模式后会
-      // 通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖最近一条的 source(见下)
-      source: 'popover',
-    })
-  }, [activeWorkspaceMode, activeWorkspace?.path])
-
-  // 切到下一个模式(Shift+Tab 循环)
-  const cyclePermissionMode = React.useCallback(async () => {
-    const current = (activeWorkspaceMode ?? 'default') as WorkspacePermissionMode
-    const idx = PERMISSION_CYCLE.indexOf(current)
-    const next = PERMISSION_CYCLE[(idx + 1) % PERMISSION_CYCLE.length] ?? 'default'
-    if (next === current) return
-    // 切到 bypass-permissions + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化)
-    // 与 popover 走同一条 FullAccessConfirmDialog(共享 store.pendingFullAccess)
-    if (next === 'bypass-permissions' && !isFullAccessConfirmSuppressed()) {
-      setPendingFullAccess(true)
-      return
-    }
-    const previousMode = current
-    // 乐观更新 store
-    if (activeWorkspace) {
-      setActiveWorkspace({ ...activeWorkspace, mode: next })
-    }
-    const result = await switchPermissionMode(next)
-    if (!result.ok) {
-      // 回滚
-      if (activeWorkspace && previousMode) {
-        setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
-      }
-      toast.error(t('permission.cycleError', { error: result.error ?? '未知错误' }))
-      return
-    }
-    // 切完模式 → 把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
-    // 避免在 useEffect 内的 source 写死 'popover' 让历史面板误把 Shift+Tab 记成 popover
-    updateLatestRecordSource('shift-tab', (e) => e.mode === next)
-    // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
-    if (next === 'bypass-permissions') {
-      toast(t('permission.switchedToFull'), {
-        description: t('permission.switchedToFullDesc', { prev: previousMode }),
-        duration: 5000,
-        action: {
-          label: t('permission.undo'),
-          onClick: () => void cyclePermissionMode(),
-        },
-      })
-    } else {
-      // default / accept-edits → 短提示
-      const labelKey = next === 'default' ? 'permission.mode.ask' : 'permission.mode.auto'
-      toast.success(t('permission.cycledTo', { mode: t(labelKey) }), {
-        duration: 2000,
-      })
-    }
-  }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
-
-  const slashCommands = [
-    // 🎯 目标与循环(2026-07-29 立,置顶重点:AI 编程最主流的命令)
-    // 2026-07-29 二次深化:加 argsSuggestions,点击后进入参数补全模式
-    // /goal <目标条件>:设定当前会话目标,AI 围绕目标执行(对标 AGENTS.md §8 goal 模式工作流)
-    // /loop on|off|N:设置循环执行模式(对标 ai-service slash_commands.py _loop_handler)
-    {
-      id: 'goal',
-      label: '/goal',
-      description: t('slashCmd.goal'),
-      usage: '/goal <目标>',
-      kind: 'template' as const,
-      category: 'goal' as const,
-      icon: <Target className="h-4 w-4" />,
-      hasArgs: true,
-      argsTitle: t('slashCmd.goalArgTitle'),
-      argsSuggestions: GOAL_ARG_TEMPLATES,
-    },
-    {
-      id: 'loop',
-      label: '/loop',
-      description: t('slashCmd.loop'),
-      usage: '/loop on|off|N',
-      kind: 'template' as const,
-      category: 'goal' as const,
-      icon: <Repeat className="h-4 w-4" />,
-      hasArgs: true,
-      argsTitle: t('slashCmd.loopArgTitle'),
-      argsSuggestions: LOOP_ARG_OPTIONS,
-    },
-    // ⚡ 模式切换(2026-07-25 立,对标 Trae SOLO Plan 模式):切换 plan/act 模式
-    {
-      id: 'plan',
-      label: '/plan',
-      description: t('slashCmd.plan'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <BookOpen className="h-4 w-4" />,
-    },
-    {
-      id: 'act',
-      label: '/act',
-      description: t('slashCmd.act'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <Hammer className="h-4 w-4" />,
-    },
-    // 对话模式动作型命令(2026-07-28 立,补全 ChatMode 4态三通道):
-    // /build /review /spec 切换 ChatMode,/plan /act 同时联动 ChatMode 和 Plan/Act
-    {
-      id: 'build',
-      label: '/build',
-      description: t('slashCmd.build'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <Hammer className="h-4 w-4" />,
-    },
-    {
-      id: 'review',
-      label: '/review',
-      description: t('slashCmd.review'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <Search className="h-4 w-4" />,
-    },
-    {
-      id: 'spec',
-      label: '/spec',
-      description: t('slashCmd.spec'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <FileText className="h-4 w-4" />,
-    },
-    // 🔐 权限管理(2026-07-25 深化,深度对标 Codex approvalMode CLI):
-    // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
-    // description 用 \n 拼接短描述 + 用法提示(2026-07-25 深化,提示用户支持的 3 个子命令)
-    {
-      id: 'permission-ask',
-      label: '/permission ask',
-      description: `${t('slashCmd.permissionAsk')}\n${t('permission.usageHint')}`,
-      kind: 'action' as const,
-      category: 'permission' as const,
-      icon: <Shield className="h-4 w-4" />,
-    },
-    {
-      id: 'permission-auto',
-      label: '/permission auto',
-      description: `${t('slashCmd.permissionAuto')}\n${t('permission.usageHint')}`,
-      kind: 'action' as const,
-      category: 'permission' as const,
-      icon: <ShieldCheck className="h-4 w-4" />,
-    },
-    {
-      id: 'permission-full',
-      label: '/permission full',
-      description: `${t('slashCmd.permissionFull')}\n${t('permission.usageHint')}`,
-      kind: 'action' as const,
-      category: 'permission' as const,
-      icon: <ShieldAlert className="h-4 w-4" />,
-    },
-    // ✨ AI 技能(2026-07-29 二次深化,从 /api/ai-skills 异步拉取,接入斜杠命令弹窗)
-    // 每个 skill 一项,点击后填充 /skill <name> 到 textarea,后端 _skill_handler 处理
-    // loading 状态:skillsLoading=true 时所有 skill 项标记 loading,弹窗分组标题显示 spinner
-    ...aiSkills.map((skill) => ({
-      id: `skill-${skill.id}`,
-      label: `/skill ${skill.name}`,
-      description: skill.description,
-      usage: `/skill ${skill.name}`,
-      kind: 'template' as const,
-      category: 'skill' as const,
-      icon: <Sparkles className="h-4 w-4" />,
-      hasArgs: false,
-      loading: skillsLoading,
-    })),
-    // 📝 内容模板:选命令后填充模板到 textarea
-    ...SLASH_COMMAND_IDS.map((id) => ({
-      id,
-      label: `/${id}`,
-      description: t(SLASH_CMD_KEY_MAP[id] ?? id),
-      kind: 'template' as const,
-      category: 'template' as const,
-      icon: <Sparkles className="h-4 w-4" />,
-    })),
-  ]
-
-  const commandTemplates: Record<string, string> = {
-    // /goal /loop 命令(2026-07-29 立,重点命令:填充命令到 textarea 让用户继续输入参数)
-    // 点击后 textarea 内容为 "/goal " 或 "/loop ",光标在末尾,用户输入参数后 Enter 发送
-    // 后端 ai-service slash_commands.py 的 _goal_handler / _loop_handler 负责实际处理
-    goal: '/goal ',
-    loop: '/loop ',
-    summary: t('cmdSummary'),
-    translate: t('cmdTranslate'),
-    explain: t('cmdExplain'),
-    code: t('cmdCode'),
-    polish: t('cmdPolish'),
-    'wechat-article': t('cmdWechatArticle'),
-    'koubo-script': t('cmdKouboScript'),
-  }
-
-  // i18n key 为扁平结构(tplSummary / tplSummaryContent),与 message-list 空状态共用同一组 key,
-  // 保证附加栏弹窗与空状态 chips 显示的模板内容完全一致。
-  const promptTemplates = PROMPT_TEMPLATE_IDS.map((id) => {
-    return {
-      id,
-      name: t(TPL_NAME_KEY_MAP[id] ?? id),
-      content: t(TPL_CONTENT_KEY_MAP[id] ?? id),
-    }
-  })
+  // 斜杠命令动作 hook(2026-07-29 提取自 message-input.tsx)
+  // - promptTemplates:供 <PromptTemplates templates={...} /> 使用
+  // - handleCommandSelect / handleCommandArgsSelect:供 <SlashCommandPalette> 的 onSelect / onSelectArgs 使用
+  // 内部封装了 commandTemplates 静态映射 + fillInput 行为 + 动作型命令 onSend 拦截 + /permission toast
+  // 注意:fillInput 仍由本组件持有(handleTemplateSelect + SkillLibrary onSelect 复用),
+  // hook 内部有独立的 fillInput(不导出),两者职责清晰分离
+  const { promptTemplates, handleCommandSelect, handleCommandArgsSelect } = useSlashAction(
+    setValue,
+    aiSkills,
+    inputCoreRef,
+    onSend,
+  )
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value.slice(0, MAX_LENGTH)
@@ -814,80 +447,18 @@ export function MessageInput({
     setValue((prev) => prev.replace(/@$/, `\`${file.path}\` `).slice(0, MAX_LENGTH))
     setMentionOpen(false)
     requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-      resize()
+      inputCoreRef.current?.focus()
+      inputCoreRef.current?.resize()
     })
   }
 
   const fillInput = (text: string) => {
     setValue(text)
     requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-      const el = textareaRef.current
-      if (el) {
-        el.setSelectionRange(text.length, text.length)
-        resize()
-      }
+      inputCoreRef.current?.focus()
+      inputCoreRef.current?.setSelectionRange(text.length, text.length)
+      inputCoreRef.current?.resize()
     })
-  }
-
-  const handleCommandSelect = (id: string) => {
-    // 动作型命令(2026-07-25 立):直接走 onSend 流程,由 use-chat.ts 的 tryHandlePlanModeSlash 拦截。
-    // 不填充 textarea,避免用户看到 "/plan" 文字再手动按发送(多余操作)。
-    if (
-      id === 'plan' ||
-      id === 'act' ||
-      // ChatMode 4态动作型命令(2026-07-28 立,补全三通道):
-      // /build /review /spec 走 onSend,由 use-chat.ts 的 tryHandleChatModeSlash 拦截
-      id === 'build' ||
-      id === 'review' ||
-      id === 'spec' ||
-      // 权限模式动作型命令(2026-07-25 深化):/permission ask|auto|full 走 onSend
-      // 由 use-chat.ts 的 tryHandlePermissionSlash 拦截(纯本地 UI 状态切换,无 LLM)
-      id === 'permission-ask' ||
-      id === 'permission-auto' ||
-      id === 'permission-full'
-    ) {
-      // /permission 切换 toast(2026-07-25 深化):仅每个模式首次弹一次,
-      // 提醒用户已切换并显示完整模式名,避免反复刷屏。用 useRef 跨渲染持久,
-      // 用户后续再用同一子命令不再弹(避免噪音)。
-      if (id.startsWith('permission-')) {
-        const mode = id.replace('permission-', '')
-        if (!permissionToastShownRef.current.has(mode)) {
-          permissionToastShownRef.current.add(mode)
-          // 持久化到 localStorage(2026-07-25 二次深化):跨刷新/跨标签页也只弹一次
-          markPermissionToastShown(mode)
-          const key =
-            mode === 'ask'
-              ? 'permission.switchedToModeAsk'
-              : mode === 'auto'
-                ? 'permission.switchedToModeAuto'
-                : 'permission.switchedToModeFull'
-          toast.success(t(key), { duration: 2500 })
-        }
-      }
-      // 清空当前 textarea 内容再发送,避免与已有内容拼接
-      setValue('')
-      requestAnimationFrame(resize)
-      void onSend(`/${id.replace('-', ' ')}`)
-      return
-    }
-    // skill 命令(2026-07-29 二次深化):id 形如 "skill-<skillId>",
-    // 填充 "/skill <skillName> " 到 textarea 让用户确认或追加参数
-    if (id.startsWith('skill-')) {
-      const skillName = id.slice('skill-'.length)
-      fillInput(`/skill ${skillName} `)
-      return
-    }
-    fillInput(commandTemplates[id] ?? '')
-  }
-
-  /** 参数补全模式选择回调(2026-07-29 二次深化)
-   * 用户在参数补全模式下选中候选项时触发,直接填充 insertText 到 textarea
-   * 不自动发送,让用户确认后按 Enter 发送(避免误触)
-   * commandId 参数保留以匹配 SlashCommandPalette onSelectArgs 签名,当前实现不使用 */
-  const handleCommandArgsSelect = (_commandId: string, insertText: string) => {
-    fillInput(insertText)
   }
 
   const handleTemplateSelect = (content: string) => {
@@ -899,37 +470,7 @@ export function MessageInput({
       const merged = prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`
       return merged.slice(0, MAX_LENGTH)
     })
-    requestAnimationFrame(resize)
-  }
-
-  const addTextReference = () => {
-    const text = value.trim()
-    if (!text) return
-    const ref: ReferenceItem = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type: 'text',
-      label: text.length > 30 ? `${text.slice(0, 30)}...` : text,
-      preview: text,
-    }
-    setReferences((prev) => [...prev, ref])
-    setValue('')
-    requestAnimationFrame(resize)
-  }
-
-  const addFileReference = (file: File) => {
-    const isImage = file.type.startsWith('image/')
-    const isVideo = file.type.startsWith('video/')
-    if (!isImage && !isVideo) return
-    const objectUrl = URL.createObjectURL(file)
-    const ref: ReferenceItem = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type: isImage ? 'image' : 'video',
-      label: file.name,
-      preview: `${file.name} · ${formatFileSize(file.size)}`,
-      thumbnail: objectUrl,
-      size: file.size,
-    }
-    setReferences((prev) => [...prev, ref])
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -962,7 +503,7 @@ export function MessageInput({
     e.preventDefault()
     setIsDragOver(false)
     Array.from(e.dataTransfer.files).forEach(addFileReference)
-    requestAnimationFrame(() => textareaRef.current?.focus())
+    requestAnimationFrame(() => inputCoreRef.current?.focus())
   }
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -981,15 +522,6 @@ export function MessageInput({
         const renamed = new File([file], `pasted-${Date.now()}.png`, { type: file.type })
         addFileReference(renamed)
       }
-    })
-  }
-
-  const removeReference = (id: string) => {
-    setReferences((prev) => {
-      const removed = prev.find((r) => r.id === id)
-      // 释放 objectURL 避免内存泄漏
-      if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail)
-      return prev.filter((r) => r.id !== id)
     })
   }
 
@@ -1071,8 +603,8 @@ export function MessageInput({
     })
     setValue('')
     if (typeof window !== 'undefined') localStorage.removeItem(DRAFT_KEY)
-    setReferences([])
-    requestAnimationFrame(resize)
+    resetReferences()
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1091,25 +623,10 @@ export function MessageInput({
     }
   }
 
-  const canSend = value.trim().length > 0 && !isStreaming
-  const count = value.length
-  // #18 流式中输入框保持可输入(2026-07-25 立):
-  // 流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
-  // 发送按钮仍由 !isStreaming 守门(流式中显示 Stop 按钮),Enter 提交由 submit() 内 isStreaming 检查兜底,不会误发。
-  // 2026-07-25 修复:占位符从硬编码中文改走 i18n chat.streamingIndicatorHint
-  // (已在 zh-CN/en/ja/ko/zh-TW 5 语言文件中齐备,末尾省略号统一加 "…" 提示持续生成)。
-  // try/catch 兜底:next-intl 缺失 key 时返回带 namespace 前缀的路径(非空字符串),
-  // 这里额外检查路径后缀避免误用,fallback 字符串保证 placeholder 永不为 undefined。
-  let streamingHint: string
-  try {
-    const v = t('streamingIndicatorHint')
-    streamingHint =
-      v === 'streamingIndicatorHint' || v.endsWith('.streamingIndicatorHint')
-        ? 'AI 正在生成中,可输入下一条消息草稿'
-        : v
-  } catch {
-    streamingHint = 'AI 正在生成中,可输入下一条消息草稿'
-  }
+  // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
+  // 发送按钮已移入 WebInputCore(由 !isStreaming 守门,流式中显示 Stop 按钮)。
+  // 流式占位符(2026-07-25 立,2026-07-29 简化):直接读 i18n key,5 语言文件齐备;末尾省略号统一加 "…" 提示持续生成。
+  const streamingHint = t('streamingIndicatorHint')
   const effectivePlaceholder = isStreaming ? `${streamingHint}…` : placeholder
 
   return (
@@ -1288,9 +805,13 @@ export function MessageInput({
                         role="menuitem"
                         disabled={isStreaming || !value.trim()}
                         onClick={() => {
+                          const text = value.trim()
+                          if (!text) return
                           setAddMenuOpen(false)
                           setAddMenuMode('menu')
-                          addTextReference()
+                          addTextReference(text)
+                          setValue('')
+                          requestAnimationFrame(() => inputCoreRef.current?.resize())
                         }}
                         className={cn(
                           'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
@@ -1452,47 +973,29 @@ export function MessageInput({
                 )}
               </div>
             </div>
-            {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉
-                (2026-07-28 加 relative,承载右下角字符数浮层) */}
-            <div className="relative px-3 pt-2 pb-2">
-              {/* #18 流式中不 disabled,允许用户输入下一条消息草稿;发送按钮由 !isStreaming 守门 */}
-              <textarea
-                ref={textareaRef}
-                value={value}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                placeholder={effectivePlaceholder}
-                rows={3}
-                aria-label={effectivePlaceholder}
-                style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
-                className={cn(
-                  'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
-                  'placeholder:text-muted-foreground/70',
-                  'pr-14', // 给右下角字符数浮层留位,长文本自动避开
-                )}
-              />
-              {/* 字符数(2026-07-28 从外层 hint 行迁移至输入框内右下角):
-                  - 绝对定位浮在 textarea 右下角,小字 + 半透明,默认不抢戏
-                  - 接近上限时切到 text-destructive 提示
-                  - 父容器 relative + textarea pr-14,确保最末字符也不与字符数重叠
-                  - pointer-events-none 避免遮挡用户拖选/点击 */}
-              <span
-                aria-live="polite"
-                className={cn(
-                  'pointer-events-none absolute bottom-3 right-3 text-[10px] tabular-nums text-muted-foreground/60',
-                  count >= MAX_LENGTH && 'text-destructive',
-                )}
-              >
-                {count}/{MAX_LENGTH}
-              </span>
-            </div>
-            {/* 底部工具栏:左侧功能按钮,右侧模型/语音/发送(挨着)
-                提示词模板按钮已上移至附加栏(与添加引用并列),此处不再保留
+            {/* 共享层 WebInputCore(textarea + 字符计数 + 清除 + 发送/停止),契约对齐 packages/types MessageInputProps */}
+            <WebInputCore
+              ref={inputCoreRef}
+              text={value}
+              placeholder={effectivePlaceholder}
+              isStreaming={isStreaming}
+              onTextChange={setValue}
+              onSend={submit}
+              onStop={onStop}
+              onClear={() => setValue('')}
+              t={t}
+              sendLabel={sendLabel}
+              stopLabel={stopLabel}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+            />
+            {/* 底部工具栏:左侧 / @ 触发按钮,右侧 ContextUsageRing + ModelSelector + VoiceInput
+                + 流式指示(发送/停止按钮已上移至 WebInputCore)
                 ai-input-toolbar + globals.css 原生 CSS container query:
                 面板宽度 320-720px(默认 400px),容器内容宽 288-688px;
                 容器 <= 359px(面板 <= 391px)时隐藏 ModelSelector 文字 + 徽章只显示图标,
-                防止左侧 3 按钮 + ModelSelector + VoiceInput + Send 总宽超过容器右边界。
+                防止左侧 2 按钮 + ModelSelector + VoiceInput 总宽超过容器右边界。
                 用原生 CSS 不依赖 Tailwind v4 container variant 编译(实测 Tailwind v4
                 仅编译 .@container 类不编译 @sm: 断点规则)。 */}
             <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
@@ -1527,18 +1030,16 @@ export function MessageInput({
                   type="button"
                   onClick={() => {
                     if (isStreaming) return
-                    const el = textareaRef.current
-                    if (!el) return
                     const next = (
                       value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
                     ).slice(0, MAX_LENGTH)
                     setValue(next)
                     setMentionOpen(true)
                     requestAnimationFrame(() => {
-                      el.focus()
+                      inputCoreRef.current?.focus()
                       const pos = next.length
-                      el.setSelectionRange(pos, pos)
-                      resize()
+                      inputCoreRef.current?.setSelectionRange(pos, pos)
+                      inputCoreRef.current?.resize()
                     })
                   }}
                   disabled={isStreaming}
@@ -1572,60 +1073,74 @@ export function MessageInput({
                 />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
+                {/* 清除 + 发送/停止按钮(2026-07-29 用户规则:与 toolbar 其他动作按钮同一行,
+                    修复原 WebInputCore 内部 absolute 浮层把发送按钮挤到 textarea 右下角的问题)
+                    - 清除:有输入时显示(灰底 hover)
+                    - 发送/停止:流式中切 Stop(红底),否则 Send(主色,空输入/流式中禁用) */}
+                {canClear && (
+                  <Tooltip content={t('clear')}>
+                    <button
+                      type="button"
+                      aria-label={t('clear')}
+                      onClick={() => {
+                        setValue('')
+                        requestAnimationFrame(() => inputCoreRef.current?.resize())
+                      }}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                )}
                 {isStreaming ? (
-                  <>
-                    {/* 流式生成状态指示(2026-07-25 补回,深度对标 Cursor/ChatGPT):
-                        - 圆角矩形容器(rounded-md,避免纯圆形违反圆角守门)
-                        - 左侧 1.5x1.5 脉冲点 + 右侧中文小字,紧凑不抢戏
-                        - 用 Tooltip 包裹提供详细提示,aria-live=polite 让屏幕阅读器感知
-                        - 仅 isStreaming=true 时渲染,否则零开销 */}
-                    <Tooltip content={t('streamingIndicatorHint')}>
-                      <div
-                        role="status"
-                        aria-live="polite"
-                        className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-sm bg-primary"
-                        />
-                        <span
-                          className="whitespace-nowrap text-xs font-medium text-primary"
-                          style={{ transform: 'translateY(0.7px)' }}
-                        >
-                          {t('streamingIndicator')}
-                        </span>
-                      </div>
-                    </Tooltip>
-                    <Tooltip content={stopLabel}>
-                      <button
-                        type="button"
-                        onClick={onStop}
-                        aria-label={stopLabel}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
-                      >
-                        <Square className="h-4 w-4" fill="currentColor" />
-                      </button>
-                    </Tooltip>
-                  </>
+                  <Tooltip content={stopLabel ?? t('stop')}>
+                    <button
+                      type="button"
+                      onClick={onStop}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      aria-label={stopLabel ?? t('stop')}
+                    >
+                      <Square className="h-3.5 w-3.5" fill="currentColor" />
+                    </button>
+                  </Tooltip>
                 ) : (
-                  <Tooltip content={sendLabel}>
+                  <Tooltip content={sendLabel ?? t('send')}>
                     <button
                       type="button"
                       onClick={submit}
                       disabled={!canSend}
-                      aria-label={sendLabel}
                       className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                        'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
                         canSend
                           ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                           : 'cursor-not-allowed bg-muted text-muted-foreground/50',
                       )}
+                      aria-label={sendLabel ?? t('send')}
                     >
-                      <Send className="h-4 w-4" />
+                      <Send className="h-3.5 w-3.5" />
                     </button>
                   </Tooltip>
                 )}
+                {isStreaming ? (
+                  <Tooltip content={t('streamingIndicatorHint')}>
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-sm bg-primary"
+                      />
+                      <span
+                        className="whitespace-nowrap text-xs font-medium text-primary"
+                        style={{ transform: 'translateY(0.7px)' }}
+                      >
+                        {t('streamingIndicator')}
+                      </span>
+                    </div>
+                  </Tooltip>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1643,70 +1158,12 @@ export function MessageInput({
           - ? 键(Shift+/)全局唤起/关闭,由本组件内 useEffect 监听
           - 排除 textarea/input/contenteditable 内,用户打字不误触
           - 3 分组:模式切换 / 高风险护栏 / 撤销与审计 */}
-      <PermissionShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <PermissionShortcutsModal open={shortcutsOpen} onClose={closeShortcuts} />
       {/* 权限模式详细说明 modal(2026-07-25 深化,可解释性增强):
           - 只在高风险模式(bypass-permissions)显示 ⓘ 按钮时唤起
           - 4 条该模式详细行为 bullet,底部"知道了"关闭 */}
       <PermissionModeInfoModal mode={infoMode} onClose={() => setInfoMode(null)} />
     </div>
-  )
-}
-
-/** 首次启用高风险模式确认弹窗桥接组件(2026-07-25 深化,深度对标 Codex CLI safety guard)
- *  - 监听 ai-panel store.pendingFullAccess 控制 Dialog open
- *  - confirm:FullAccessConfirmDialog 内部已写 localStorage(suppressed 或 acknowledged),
- *    此处只关弹窗 + 触发实际切模式 + 弹 5s 撤销 toast
- *  - cancel:只 setPendingFullAccess(false),不动 activeWorkspace.mode
- * 单独抽组件是避免污染主组件 useEffect deps + 减少主函数重渲染 */
-function FullAccessConfirmBridge() {
-  const t = useTranslations('chat.permission')
-  const pendingFullAccess = useAiPanelStore((s) => s.pendingFullAccess)
-  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
-  const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
-  const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
-
-  const handleConfirm = React.useCallback(() => {
-    setPendingFullAccess(false)
-    if (!activeWorkspace) return
-    const previousMode = activeWorkspace.mode
-    // 乐观更新 + 落库(动态 import 避免循环依赖)
-    setActiveWorkspace({ ...activeWorkspace, mode: 'bypass-permissions' })
-    void (async () => {
-      const { switchPermissionMode } = await import('@/components/ai/permission-mode-popover')
-      const { toast } = await import('sonner')
-      const result = await switchPermissionMode('bypass-permissions')
-      if (!result.ok) {
-        if (previousMode !== undefined) {
-          setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
-        }
-        return
-      }
-      // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
-      toast(t('switchedToFull'), {
-        description: t('switchedToFullDesc', {
-          prev: previousMode ?? 'default',
-        }),
-        duration: 5000,
-        action: {
-          label: t('undo'),
-          onClick: async () => {
-            await switchPermissionMode(previousMode ?? 'default')
-          },
-        },
-      })
-    })()
-  }, [activeWorkspace, setActiveWorkspace, setPendingFullAccess, t])
-
-  const handleCancel = React.useCallback(() => {
-    setPendingFullAccess(false)
-  }, [setPendingFullAccess])
-
-  return (
-    <FullAccessConfirmDialog
-      open={pendingFullAccess}
-      onConfirm={handleConfirm}
-      onCancel={handleCancel}
-    />
   )
 }
 
