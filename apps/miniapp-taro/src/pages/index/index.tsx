@@ -1,133 +1,136 @@
-import { View, Text, Image, Swiper, SwiperItem, ScrollView } from '@tarojs/components'
+/**
+ * 首页 AI 对话主页布局
+ *
+ * 对齐原项目:`D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\aiIndex\ai_index.vue`
+ * 视觉规则:`.trae-cn/tmp/miniapp-taro-style-align/home-spec.md`
+ *
+ * 结构:7 层嵌套(根 → 容器 → 输入区 → 定位 → 滚动 → 按钮组 → 按钮内容)
+ * - DrawerComponent(side='left',500rpx 宽抽屉 + 历史对话 + 用户信息)
+ * - NavBar(variant='ai-home',sticky + 标题"智汇AI社区" + 菜单 + 加入社区群)
+ * - top_box(顶部 72vh 区域,share-image 140rpx×140rpx,pulse 动画)
+ * - input_box_content(position: fixed bottom)
+ *   - ModelList(variant='popup',分类弹出列表 + Agent 模式)
+ *   - ModelTypeButtonGroup(variant='wide',8 个 200rpx×60rpx 横向滚动)
+ *   - BottomActionBar(variant='ai-home',ToggleButtonGroup + InputArea + icon-button-group)
+ *
+ * TODO: 原教育门户业务功能(轮播/课程/直播/社区)已迁移至其他 tab 页
+ * (智汇社区/课程/直播/我的),首页保持纯 AI 对话布局对齐原项目 ai_index.vue
+ */
+import { View, Image, Text } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import {
-  getHomePage,
-  getCourseList,
-  getLiveList,
-  getStudyInfo,
-  getBannerList,
-  getCircleList,
-  getKnowledgePlanetInfo,
-  type Banner,
-  type Course,
-  type Live,
-} from '@/api'
 import { useI18n } from '@/i18n'
+import NavBar from '@/components/NavBar'
+import DrawerComponent, {
+  type DrawerModelGroup,
+  type DrawerUserInfo,
+  type DrawerMenuItem,
+  type DrawerChatItem,
+} from '@/components/DrawerComponent'
+import ModelList, { type ModelItem } from '@/components/ModelList'
+import ModelTypeButtonGroup from '@/components/ModelTypeButtonGroup'
+import type { ModelType } from '@/components/ModelTypeButton'
+import BottomActionBar, {
+  type ToggleButtonItem,
+} from '@/components/BottomActionBar'
+import './index.css'
 
-const defaultAvatar =
+const DEFAULT_AVATAR =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
-// 教育快捷入口
-const entries = [
-  { icon: '📚', key: 'home.entry.course', path: '/pages/course/list' },
-  { icon: '📺', key: 'home.entry.live', path: '/pages/live/list' },
-  { icon: '🤖', key: 'home.entry.ai', path: '/pages/ai/chat' },
-  { icon: '📋', key: 'home.entry.order', path: '/pages/user/orders' },
-  { icon: '⚙️', key: 'home.entry.setting', path: '/pages/user/settings' },
+// 模拟历史对话分组数据(对齐原项目 groupedData 结构,TODO: 接入真实 API)
+const MOCK_GROUPED_DATA: DrawerModelGroup[] = [
+  {
+    modelName: 'GPT-4',
+    dateGroups: [
+      {
+        date: '今天',
+        chats: [
+          { id: 1, title: '如何使用 React Hooks?', date: '今天' },
+          { id: 2, title: 'TypeScript 类型推断', date: '今天' },
+        ],
+      },
+    ],
+  },
+  {
+    modelName: 'Claude',
+    dateGroups: [
+      {
+        date: '昨天',
+        chats: [
+          { id: 3, title: '设计模式讨论', date: '昨天' },
+        ],
+      },
+    ],
+  },
 ]
 
-// AI 应用入口(融合原项目 AI 应用商店概念)
-const aiEntries = [
-  { icon: '💬', key: 'home.aiEntries.aiChat', path: '/pages/ai/chat' },
-  { icon: '🎨', key: 'home.aiEntries.aiImage', path: '/pages/ai/image' },
-  { icon: '🎙️', key: 'home.aiEntries.aiVoice', path: '/pages/ai/voice' },
-  { icon: '🎬', key: 'home.aiEntries.aiVideo', path: '/pages/ai/video' },
-  { icon: '⚡', key: 'home.aiEntries.agent', path: '/pages/ai/agent' },
-  { icon: '🏛️', key: 'home.aiEntries.modelPlaza', path: '/pages/model-plaza/index' },
+// 本地 mock 模型列表(对齐原项目 modelList 数据源,TODO: 接入真实 API /api/llm/models)
+const MOCK_MODELS: ModelItem[] = [
+  { id: 'step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 128000, input_price: 0 },
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_length: 128000, input_price: 0 },
+  { id: 'claude-3.5', name: 'Claude 3.5', provider: 'anthropic', context_length: 200000, input_price: 0 },
 ]
 
-interface StudyStats {
-  todayMinutes: number
-  totalMinutes: number
-  continuousDays: number
-  courses: number
+interface AiHomeState {
+  drawerVisible: boolean
+  showModelList: boolean
+  currentModelType: ModelType | ''
+  selectedModelId: string | number | undefined
+  agentModeActive: boolean
+  isLogin: boolean
+  userInfo: UserInfo | null
+  modelName: string
+  showSharePointsPopup: boolean
+  showQrCodeModal: boolean
+  showIconButtons: boolean
+  toggleButtons: ToggleButtonItem[]
+  groupedData: DrawerModelGroup[]
 }
 
 export default function Index() {
   const { t } = useI18n()
-  const [isLogin, setIsLogin] = useState(false)
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
-  const [bannerList, setBannerList] = useState<Banner[]>([])
-  const [courseList, setCourseList] = useState<Course[]>([])
-  const [livePreview, setLivePreview] = useState<Live[]>([])
-  const [study, setStudy] = useState<StudyStats | null>(null)
-  const [circlePreview, setCirclePreview] = useState<Record<string, unknown>[]>([])
-  const [planetInfo, setPlanetInfo] = useState<Record<string, unknown> | null>(null)
-
-  function refreshUser() {
-    setIsLogin(isLoggedIn())
-    setUserInfo(getUserInfo())
-  }
-
-  function goLogin() {
-    Taro.navigateTo({ url: '/pages/login/login' })
-  }
-
-  function goPage(path: string) {
-    Taro.switchTab({ url: path, fail: () => Taro.navigateTo({ url: path }) })
-  }
-
-  function goCourseDetail(id: string | number) {
-    Taro.navigateTo({ url: `/pages/course/detail?id=${id}` })
-  }
-
-  function goLiveDetail(id: string | number) {
-    Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
-  }
-
-  function onBannerClick(item: Banner) {
-    if (item.link) Taro.navigateTo({ url: item.link })
-  }
-
-  const loadData = useCallback(async () => {
-    try {
-      const [banners, courses, lives, studyRes, home, circles, planet] = await Promise.all([
-        // 运营 banner 独立接口优先(支持精细化运营配置)
-        getBannerList({ position: 'home', status: 1 })
-          .then((res) => res.list || [])
-          .catch(() => null),
-        getCourseList({ page: 1, pageSize: 6 }).catch(() => ({ list: [] as Course[], total: 0 })),
-        getLiveList({ page: 1, pageSize: 4, status: 'upcoming' }).catch(() => ({
-          list: [] as Live[],
-          total: 0,
-        })),
-        getStudyInfo().catch(() => ({
-          todayMinutes: 0,
-          totalMinutes: 0,
-          continuousDays: 0,
-          courses: 0,
-        })),
-        // 兜底:home 聚合接口里的 banner
-        getHomePage().catch(() => null),
-        // 智汇社区动态预览
-        getCircleList({ page: 1, pageSize: 3 })
-          .then((res) => (res?.list as unknown as Record<string, unknown>[]) || [])
-          .catch(() => [] as Record<string, unknown>[]),
-        // 知识星球信息预览
-        getKnowledgePlanetInfo().catch(() => null),
-      ])
-      const list = banners ?? (home?.banner as Banner[] | undefined) ?? []
-      setBannerList(list)
-      setCourseList(courses.list || [])
-      setLivePreview(lives.list || [])
-      setStudy(studyRes as StudyStats)
-      setCirclePreview(circles)
-      setPlanetInfo(planet as Record<string, unknown> | null)
-    } catch {
-      // 静默处理,首页可离线展示
-    }
-  }, [])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-  useDidShow(() => {
-    refreshUser()
+  const [state, setState] = useState<AiHomeState>({
+    drawerVisible: false,
+    showModelList: false,
+    currentModelType: '',
+    selectedModelId: undefined,
+    agentModeActive: false,
+    isLogin: false,
+    userInfo: null,
+    modelName: '',
+    showSharePointsPopup: false,
+    showQrCodeModal: false,
+    showIconButtons: false,
+    toggleButtons: [
+      { key: 'superAgent', label: '深度思考', active: false },
+      { key: 'mcp', label: '联网', active: false },
+      { key: 'knowledgeBase', label: '知识库', active: false },
+      { key: 'permanentMemory', label: '永久记忆', active: false },
+    ],
+    groupedData: MOCK_GROUPED_DATA,
   })
 
-  // 微信分享配置(转发给好友/朋友圈)
+  const [models] = useState<ModelItem[]>(MOCK_MODELS)
+
+  const systemInfo = Taro.getSystemInfoSync()
+  const statusBarHeight = systemInfo.statusBarHeight || 20
+
+  useDidShow(() => {
+    const logged = isLoggedIn()
+    const info = getUserInfo()
+    setState((s) => ({
+      ...s,
+      isLogin: logged,
+      userInfo: info,
+      // 初始化默认选中第一个模型(对齐原项目默认模型)
+      modelName: s.modelName || (MOCK_MODELS[0]?.name ?? ''),
+      selectedModelId: s.selectedModelId ?? MOCK_MODELS[0]?.id,
+    }))
+  })
+
+  // 微信分享配置
   useShareAppMessage(() => ({
     title: t('share.appTitle'),
     path: '/pages/index/index',
@@ -138,288 +141,268 @@ export default function Index() {
     query: '',
   }))
 
-  const showLearningSection = isLogin && study && study.courses > 0
+  // ===== 事件处理 =====
+  const handleMenuClick = () => setState((s) => ({ ...s, drawerVisible: true }))
+  const handleDrawerClose = () => setState((s) => ({ ...s, drawerVisible: false }))
+  const handleJoinClick = () => setState((s) => ({ ...s, showQrCodeModal: true }))
+  const handleQrCodeClose = () => setState((s) => ({ ...s, showQrCodeModal: false }))
+  const handleSharePointsClose = () => setState((s) => ({ ...s, showSharePointsPopup: false }))
+
+  const handleModelTypeClick = (type: ModelType) => {
+    setState((s) => ({
+      ...s,
+      currentModelType: s.currentModelType === type ? '' : type,
+      showModelList: s.currentModelType !== type,
+    }))
+  }
+
+  const handleModelSelect = (model: ModelItem) => {
+    setState((s) => ({
+      ...s,
+      selectedModelId: model.id,
+      modelName: model.name,
+      showModelList: false,
+      currentModelType: '',
+    }))
+  }
+
+  const handleAgentToggle = () => {
+    setState((s) => ({
+      ...s,
+      agentModeActive: !s.agentModeActive,
+      selectedModelId: undefined,
+      showModelList: false,
+    }))
+  }
+
+  const handleCreateNewChat = () => {
+    setState((s) => ({ ...s, drawerVisible: false }))
+    Taro.navigateTo({ url: '/pages/ai/chat' }).catch(() => {
+      // 路径不存在时静默
+    })
+  }
+
+  const handleMenuItemClick = (item: DrawerMenuItem) => {
+    setState((s) => ({ ...s, drawerVisible: false }))
+    const pathMap: Record<string, string> = {
+      appStore: '/pages/model-plaza/index',
+      demand: '/pages/community/index',
+      inspiration: '/pages/ai/agent',
+      dynamic: '/pages/community/index',
+      course: '/pages/course/list',
+    }
+    const path = pathMap[item.key]
+    if (path) {
+      Taro.switchTab({ url: path, fail: () => Taro.navigateTo({ url: path }) })
+    }
+  }
+
+  const handleChatItemClick = (chat: DrawerChatItem) => {
+    setState((s) => ({ ...s, drawerVisible: false }))
+    Taro.navigateTo({ url: `/pages/ai/chat?id=${chat.id}` }).catch(() => {
+      // 路径不存在时静默
+    })
+  }
+
+  const handleToggleButtonClick = (item: ToggleButtonItem) => {
+    setState((s) => ({
+      ...s,
+      toggleButtons: s.toggleButtons.map((btn) =>
+        btn.key === item.key ? { ...btn, active: !btn.active } : btn,
+      ),
+    }))
+  }
+
+  const handleSend = (text: string) => {
+    if (!state.isLogin) {
+      Taro.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    Taro.navigateTo({ url: `/pages/ai/chat?prompt=${encodeURIComponent(text)}` }).catch(() => {
+      Taro.showToast({ title: '对话页未配置', icon: 'none' })
+    })
+  }
+
+  // ===== 用户信息(传给 Drawer)=====
+  const drawerUserinfo: DrawerUserInfo | undefined = state.userInfo
+    ? {
+        avatar: state.userInfo.avatar || DEFAULT_AVATAR,
+        nickname: state.userInfo.userName || state.userInfo.nickname,
+      }
+    : undefined
+
+  // ===== 计算底部偏移(对齐原项目 computedContainerBottom,简化为 0 由键盘自适应)=====
+  const computedContainerBottom = '0'
+
+  // ===== 当前类型模型列表(对齐原项目根据 currentModelType 过滤)=====
+  const filteredModels = useMemo(() => {
+    if (!state.currentModelType || state.currentModelType === 'skills' || state.currentModelType === 'sck') {
+      return models
+    }
+    return models
+  }, [models, state.currentModelType])
 
   return (
-    <View className="min-h-screen pb-[40rpx]">
-      {/* 顶部用户信息条 — primary 实色背景 */}
+    <View className="ai-home-page min-h-screen" style={{ background: 'var(--color-background)' }}>
+      {/* ===== DrawerComponent (左侧抽屉,500rpx) ===== */}
+      <DrawerComponent
+        side="left"
+        visible={state.drawerVisible}
+        onClose={handleDrawerClose}
+        statusBarHeight={statusBarHeight}
+        groupedData={state.groupedData}
+        userinfo={drawerUserinfo}
+        activeChatId={state.selectedModelId}
+        onMenuItemClick={handleMenuItemClick}
+        onChatItemClick={handleChatItemClick}
+        onCreateChat={handleCreateNewChat}
+      />
+
+      {/* ===== container 主容器 ===== */}
       <View
-        className="flex items-center pt-[120rpx] px-[32rpx] pb-[32rpx]"
-        style={{ background: 'var(--color-primary)' }}
+        className="flex flex-col"
+        style={{ minHeight: '100vh', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}
       >
-        <Image
-          className="w-[80rpx] h-[80rpx] rounded-md border-[2rpx] border-solid border-primary-foreground"
-          src={userInfo?.avatar || defaultAvatar}
-          mode="aspectFill"
+        {/* ===== NavBar(粘性 + 标题"智汇AI社区" + 菜单 + 加入社区群)===== */}
+        <NavBar
+          variant="ai-home"
+          title="智汇AI社区"
+          bgColor="var(--color-nav-bg, #E9F0FD)"
+          textColor="var(--color-nav-title, #171717)"
+          onMenuClick={handleMenuClick}
+          onJoinClick={handleJoinClick}
         />
-        <View className="ml-[20rpx] flex flex-col">
-          <View className="flex items-center">
-            <Text className="text-primary-foreground text-[30rpx] font-semibold">
-              {userInfo?.userName ||
-                userInfo?.nickname ||
-                (isLogin ? t('common.user') : t('home.tapLogin'))}
-            </Text>
-            {userInfo?.isVip ? (
-              <Text className="ml-[12rpx] px-[12rpx] py-[2rpx] bg-warning text-white text-[20rpx] rounded-[6rpx] font-semibold">
-                VIP
-              </Text>
-            ) : null}
-          </View>
-          {isLogin ? (
-            <Text className="text-primary-foreground text-[22rpx] opacity-90">
-              {study
-                ? `${t('home.todayMinutes', { n: study.todayMinutes })} · ${t('home.continuousDays', { n: study.continuousDays })}`
-                : t('home.slogan')}
-            </Text>
-          ) : (
-            <Text className="text-primary-foreground text-[22rpx] opacity-90" onClick={goLogin}>
-              {t('home.slogan')}
-            </Text>
-          )}
-        </View>
-      </View>
 
-      {/* 轮播图 */}
-      <View className="mx-[32rpx] my-[24rpx]">
-        <Swiper
-          className="h-[280rpx]"
-          indicatorDots
-          autoplay
-          interval={4000}
-          circular
+        {/* ===== top_box(顶部 72vh 区域,share-image 140rpx×140rpx,pulse 动画)===== */}
+        <View
+          className="relative flex flex-col"
+          style={{ padding: '0 20rpx', height: 'calc(72vh)' }}
         >
-          {bannerList.map((item) => (
-            <SwiperItem key={item.id} onClick={() => onBannerClick(item)}>
-              <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
-            </SwiperItem>
-          ))}
-          {bannerList.length === 0 ? (
-            <SwiperItem>
-              <View className="w-full h-full flex items-center justify-center text-[30rpx]">
-                <Text className="text-primary">{t('home.slogan')}</Text>
-              </View>
-            </SwiperItem>
-          ) : null}
-        </Swiper>
-      </View>
-
-      {/* 学习进度(登录后)— 玻璃拟态卡片 */}
-      {showLearningSection && study ? (
-        <View className="mx-[32rpx] mb-[24rpx] bg-card px-[24rpx] py-[24rpx]">
-          <View className="flex justify-between items-center">
-            <Text className="text-[30rpx] text-foreground font-semibold">
-              {t('home.learningProgress')}
-            </Text>
-            <Text
-              className="text-[24rpx] text-muted-foreground"
-              onClick={() => Taro.navigateTo({ url: '/pages/study/my-study/index' })}
-            >
-              {t('home.more')} {'>'}
-            </Text>
-          </View>
-          <View className="flex mt-[20rpx]">
-            <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-primary font-bold">{study.todayMinutes}</Text>
-              <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
-                {t('home.todayMinutes', { n: '' })}
-              </Text>
-            </View>
-            <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-primary font-bold">{study.totalMinutes}</Text>
-              <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
-                {t('home.totalMinutes', { n: '' })}
-              </Text>
-            </View>
-            <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-primary font-bold">{study.continuousDays}</Text>
-              <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
-                {t('home.continuousDays', { n: '' })}
-              </Text>
-            </View>
-            <View className="flex-1 text-center">
-              <Text className="block text-[36rpx] text-primary font-bold">{study.courses}</Text>
-              <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
-                {t('home.coursesCount', { n: '' })}
-              </Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      {/* AI 应用入口 */}
-      <View className="mx-[32rpx] my-[24rpx] p-[24rpx]">
-        <View className="flex justify-between items-center mb-[20rpx]">
-          <Text className="text-[30rpx] font-semibold text-primary">{t('home.aiAppTitle')}</Text>
-          <Text
-            className="text-[24rpx] text-muted-foreground"
-            onClick={() => goPage('/pages/ai/agent')}
-          >
-            {t('home.more')} {'>'}
-          </Text>
-        </View>
-        <View className="flex flex-wrap">
-          {aiEntries.map((entry) => (
+          <View className="flex flex-col items-end relative">
             <View
-              key={entry.path}
-              className="w-1/3 flex flex-col items-center py-[20rpx]"
-              onClick={() => goPage(entry.path)}
+              className="flex flex-col items-end relative"
+              style={{ gap: '6rpx', marginTop: '10rpx' }}
             >
-              <View className="w-[88rpx] h-[88rpx] rounded-[20rpx] bg-primary flex items-center justify-center mb-[8rpx]">
-                <Text className="text-[44rpx]">{entry.icon}</Text>
-              </View>
-              <Text className="text-[22rpx] text-foreground">{t(entry.key)}</Text>
+              {/* share-image:140rpx×140rpx + pulse 动画 + 点击跳转"我的" */}
+              <Image
+                className="ai-pulse"
+                src={DEFAULT_AVATAR}
+                style={{ width: '140rpx', height: '140rpx', zIndex: 10 }}
+                mode="aspectFit"
+                onClick={() => Taro.switchTab({ url: '/pages/user/index' })}
+              />
             </View>
-          ))}
-        </View>
-      </View>
-
-      {/* 智汇社区动态预览 — 点击进入智汇社区 tab */}
-      {circlePreview.length > 0 ? (
-        <View className="mx-[32rpx] my-[24rpx]">
-          <View className="flex justify-between items-center mb-[20rpx]">
-            <Text className="text-[30rpx] font-semibold text-primary">{t('community.title')}</Text>
-            <Text
-              className="text-[24rpx] text-muted-foreground"
-              onClick={() => Taro.switchTab({ url: '/pages/community/index' })}
-            >
-              {t('home.more')} {'>'}
-            </Text>
           </View>
-          {circlePreview.map((item) => (
-            <View
-              key={item.id as string}
-              className="px-[24rpx] py-[20rpx] mb-[16rpx]"
-              onClick={() => Taro.navigateTo({ url: `/pages/circle/detail?id=${item.id}` })}
-            >
-              <View className="flex items-center mb-[8rpx]">
-                <Image
-                  className="w-[40rpx] h-[40rpx] rounded-md bg-muted"
-                  src={(item.authorAvatar as string) || defaultAvatar}
-                  mode="aspectFill"
+        </View>
+
+        {/* ===== input_box_content(底部输入区,position fixed)===== */}
+        <View
+          className="left-0 right-0"
+          style={{
+            position: 'fixed',
+            bottom: computedContainerBottom,
+            background: 'var(--color-card)',
+            paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
+            transition: 'bottom 0.3s ease',
+            zIndex: 1000,
+          }}
+        >
+          {/* ===== posi_angeetlis(相对定位容器)===== */}
+          <View className="relative">
+            {/* ModelList 弹出层 */}
+            <View style={{ padding: '0 20rpx' }}>
+              {state.showModelList && state.currentModelType && state.currentModelType !== 'skills' && state.currentModelType !== 'sck' ? (
+                <ModelList
+                  variant="popup"
+                  models={filteredModels}
+                  selectedId={state.selectedModelId}
+                  onSelect={handleModelSelect}
+                  currentType={state.currentModelType}
+                  agentActive={state.agentModeActive}
+                  onAgentSelect={handleAgentToggle}
                 />
-                <Text className="ml-[12rpx] text-[22rpx] text-muted-foreground">
-                  {(item.authorName as string) || t('common.user')}
-                </Text>
-              </View>
-              <Text className="block text-[26rpx] text-foreground font-semibold truncate">
-                {(item.title as string) || t('aiCircle.post')}
-              </Text>
+              ) : null}
             </View>
-          ))}
-        </View>
-      ) : null}
 
-      {/* 知识星球预览(对标原项目 KnowledgePlanet) */}
-      {planetInfo ? (
-        <View className="mx-[32rpx] my-[24rpx] px-[24rpx] py-[24rpx]">
-          <View className="flex justify-between items-center">
-            <Text className="text-[30rpx] text-primary font-semibold">
-              {t('home.knowledgePlanet')}
-            </Text>
-            <Text
-              className="text-[24rpx] text-muted-foreground"
-              onClick={() => Taro.navigateTo({ url: '/pages/circle/index' })}
-            >
-              {t('home.more')} {'>'}
-            </Text>
+            {/* 8 个 model-type-btn 横向滚动 */}
+            <ModelTypeButtonGroup
+              variant="wide"
+              activeType={state.currentModelType}
+              onSelect={handleModelTypeClick}
+            />
           </View>
-          <View className="flex items-center mt-[16rpx]">
-            <Text className="flex-1 text-[24rpx] text-muted-foreground truncate">
-              {(planetInfo.desc as string) ||
-                (planetInfo.name as string) ||
-                t('home.knowledgePlanetDesc')}
-            </Text>
-            <Text className="ml-[16rpx] text-[24rpx] text-primary font-semibold">
-              {(planetInfo.members as number) || 0} {t('home.planetMembers')}
-            </Text>
-          </View>
-        </View>
-      ) : null}
 
-      {/* 直播预告 */}
-      {livePreview.length > 0 ? (
-        <View className="mx-[32rpx] my-[24rpx] px-[24rpx] py-[24rpx]">
-          <View className="flex justify-between items-center">
-            <Text className="text-[30rpx] text-foreground font-semibold">{t('home.livePreview')}</Text>
-            <Text
-              className="text-[24rpx] text-muted-foreground"
-              onClick={() => goPage('/pages/live/list')}
-            >
-              {t('home.more')} {'>'}
-            </Text>
-          </View>
-          <ScrollView scrollX className="mt-[20rpx]">
-            <View className="flex">
-              {livePreview.map((live) => (
-                <View
-                  key={live.id}
-                  className="inline-block w-[320rpx] mr-[20rpx] flex-shrink-0"
-                  onClick={() => goLiveDetail(live.id)}
-                >
-                  <View className="relative w-[320rpx] h-[180rpx] rounded-[16rpx] overflow-hidden">
-                    <Image className="w-full h-full" src={live.coverUrl} mode="aspectFill" />
-                    <View className="absolute top-1 right-1 px-[8rpx] py-[2rpx] bg-warning text-white text-[20rpx] rounded-[6rpx]">
-                      <Text>{t('live.preview')}</Text>
-                    </View>
-                  </View>
-                  <Text className="block mt-[12rpx] text-[24rpx] text-foreground truncate">
-                    {live.title}
-                  </Text>
-                  <Text className="block text-[20rpx] text-muted-foreground truncate">
-                    {live.startTime ? `${t('home.startTime')}: ${live.startTime}` : ''}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
+          {/* ===== BottomActionBar(ToggleButtonGroup + InputArea + icon-button-group)===== */}
+          <BottomActionBar
+            variant="ai-home"
+            modelName={state.modelName}
+            showIconButtons={state.showIconButtons}
+            toggleButtons={state.toggleButtons}
+            onToggle={handleToggleButtonClick}
+            inputAreaProps={{
+              onSend: handleSend,
+              disabled: !state.isLogin,
+              placeholder: state.isLogin ? '输入消息...' : '请先登录',
+            }}
+          />
         </View>
-      ) : null}
+      </View>
 
-      {/* 教育快捷入口 */}
-      <View className="flex flex-wrap px-[32rpx] py-[20rpx] mx-[32rpx] rounded-[24rpx]">
-        {entries.map((entry) => (
+      {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if)===== */}
+      {state.showSharePointsPopup ? (
+        <View
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={handleSharePointsClose}
+        >
+          <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.5)' }} />
           <View
-            key={entry.path}
-            className="w-1/5 flex flex-col items-center py-[16rpx]"
-            onClick={() => goPage(entry.path)}
+            className="ai-flip-in relative z-10"
+            onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
           >
-            <Text className="text-[44rpx]">{entry.icon}</Text>
-            <Text className="mt-[6rpx] text-[22rpx] text-foreground">{t(entry.key)}</Text>
+            <Image
+              src={DEFAULT_AVATAR}
+              style={{ width: '440rpx' }}
+              mode="widthFix"
+            />
           </View>
-        ))}
-      </View>
-
-      {/* 推荐课程 */}
-      <View className="mx-[32rpx] my-[24rpx]">
-        <View className="flex justify-between items-center mb-[20rpx]">
-          <Text className="text-[30rpx] font-semibold text-primary">{t('home.hotCourses')}</Text>
-          <Text
-            className="text-[24rpx] text-muted-foreground"
-            onClick={() => goPage('/pages/course/list')}
-          >
-            {t('home.more')} {'>'}
-          </Text>
         </View>
-        <ScrollView scrollX>
-          <View className="flex">
-            {courseList.map((c) => (
-              <View
-                key={c.id}
-                className="inline-block w-[280rpx] mr-[20rpx] rounded-[24rpx] overflow-hidden flex-shrink-0"
-                onClick={() => goCourseDetail(c.id)}
-              >
-                <Image className="w-full h-[160rpx]" src={c.coverUrl} mode="aspectFill" />
-                <Text className="block px-[12rpx] pt-[12rpx] text-[24rpx] text-foreground truncate">
-                  {c.title}
-                </Text>
-                <Text className="block px-[12rpx] pb-[12rpx] text-[26rpx] text-primary font-semibold">
-                  ¥{c.price ?? 0}
-                </Text>
-              </View>
-            ))}
+      ) : null}
+
+      {/* ===== qr-code-modal(二维码弹窗)===== */}
+      {state.showQrCodeModal ? (
+        <View
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={handleQrCodeClose}
+          style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+        >
+          <View
+            className="ai-popup-fade-in flex flex-col items-center"
+            style={{
+              background: 'var(--color-card)',
+              borderRadius: '20rpx',
+              padding: '50rpx 40rpx 20rpx',
+            }}
+            onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+          >
+            <Image
+              src={DEFAULT_AVATAR}
+              style={{ width: '600rpx', height: '600rpx' }}
+              mode="aspectFit"
+            />
+            <Text style={{ fontSize: '32rpx', color: 'var(--color-foreground)', marginTop: '20rpx' }}>
+              扫描二维码加入社区
+            </Text>
+            {/* 关闭按钮(对齐原项目 .qr-code-close:60rpx×60rpx,圆形,AGENTS 豁免)*/}
+            <View
+              className="ai-close-btn"
+              style={{ top: '10rpx', right: '10rpx', width: '60rpx', height: '60rpx', border: '1px solid #000' }}
+              onClick={handleQrCodeClose}
+            >
+              <Text style={{ fontSize: '60rpx', lineHeight: '60rpx', color: 'var(--color-foreground)' }}>×</Text>
+            </View>
           </View>
-        </ScrollView>
-      </View>
+        </View>
+      ) : null}
     </View>
   )
 }
