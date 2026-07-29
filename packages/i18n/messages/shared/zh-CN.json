@@ -269,6 +269,22 @@
       "system": "系统"
     }
   },
+  "messageDirect": {
+    "title": "私信",
+    "empty": "暂无私信",
+    "loadFailed": "加载私信失败",
+    "from": "来自"
+  },
+  "messageGroup": {
+    "title": "群聊",
+    "empty": "暂无群聊",
+    "loadFailed": "加载群聊失败"
+  },
+  "messageSystem": {
+    "title": "系统消息",
+    "empty": "暂无系统消息",
+    "loadFailed": "加载系统消息失败"
+  },
   "history": {
     "empty": "暂无浏览历史",
     "loadFailed": "加载历史失败",
@@ -1086,5 +1102,259 @@
     "sendFailed": "验证码发送失败,请稍后重试",
     "bindFailed": "绑定失败",
     "networkError": "网络异常,请稍后重试"
+  },
+  "modelPlaza": {
+    "title": "模型广场",
+    "compareBtn": "对比",
+    "providerTotal": "共 {{count}} 个模型",
+    "loadFailed": "加载失败,下拉刷新重试",
+    "emptyType": "暂无该类型模型",
+    "input": "Input",
+    "output": "Output",
+    "priceUnit": "¥{{price}}/M",
+    "perCall": "(按次计费)",
+    "typeAll": "全部",
+    "typeText": "文本",
+    "typeImage": "图像",
+    "typeAv": "音视频",
+    "compare": {
+      "title": "模型对比",
+      "message": "请选择 2-3 个模型加入对比"
+    },
+    "detail": {
+      "title": "模型详情",
+      "message": "查看「{{name}}」完整参数与定价"
+    }
+  },
+  "n8nModel": {
+    "title": "n8n 模型管理",
+    "create": "+ 新建",
+    "searchPlaceholder": "搜索工作流名称或描述",
+    "tabAll": "全部",
+    "tabRunning": "运行中",
+    "tabStopped": "已停止",
+    "loadFailed": "加载失败",
+    "empty": "暂无 n8n 工作流",
+    "running": "运行中",
+    "stopped": "已停止",
+    "calls": "调用 {{count}}",
+    "params": "入参 {{in}} · 出参 {{out}}",
+    "actionStart": "启动",
+    "actionStop": "停止",
+    "actionEdit": "编辑",
+    "toggle": {
+      "stopTitle": "停止工作流",
+      "startTitle": "启动工作流",
+      "stopMessage": "确定停止「{{name}}」吗?",
+      "startMessage": "确定启动「{{name}}」吗?",
+      "success": "操作成功"
+    }
+  },
+  "modelEdit": {
+    "headerTitle": "设置智能体",
+    "labelCategory": "内容种类(多选)",
+    "labelDept": "部门",
+    "labelSaleType": "售卖方式",
+    "labelCycle": "收费周期",
+    "labelPrice": "价格(元 / {{cycle}})",
+    "labelFreeDur": "限时免费时限",
+    "labelDiscount": "是否参与折扣",
+    "labelAudience": "面向群体",
+    "cycleMonth": "月",
+    "cycleYear": "年",
+    "cyclePermanent": "永久",
+    "saleFree": "免费",
+    "saleLimited": "限时免费",
+    "salePaid": "收费",
+    "audienceAll": "全部用户",
+    "audienceMember": "会员",
+    "pricePlaceholder": "请输入价格",
+    "submit": "提交审核",
+    "submitting": "提交中...",
+    "error": {
+      "categoryRequired": "请选择内容种类",
+      "priceRequired": "请输入价格"
+    },
+    "success": {
+      "title": "提交成功",
+      "message": "配置已提交审核"
+    }
+  },
+  "aigcList": {
+    "title": "灵感",
+    "subtitle": "AI 生成的图文/视频/音频作品",
+    "empty": "暂无作品",
+    "publish": "+ 发布作品",
+    "playAudio": "▶ 播放",
+    "videoBadge": "▶ 视频",
+    "promptLabel": "提示词:"
+  },
+  "examHistory": {
+    "title": "考试历史",
+    "loadFailed": "加载考试历史失败",
+    "empty": "暂无考试记录",
+    "passed": "通过",
+    "failed": "未通过"
+  },
+  "examResult": {
+    "title": "考试结果",
+    "loadFailed": "加载考试结果失败",
+    "passed": "通过",
+    "failed": "未通过",
+    "correct": "答对 {count}/{total}",
+    "duration": "用时 {min} 分钟",
+    "wrongQuestions": "错题",
+    "yourAnswer": "你的答案",
+    "correctAnswer": "正确答案"
+  },
+  "modelIncome": {
+    "title": "模型收益",
+    "loadFailed": "加载失败",
+    "loadOverviewFailed": "加载概要失败",
+    "loadListFailed": "加载明细失败",
+    "networkError": "网络异常,请稍后重试",
+    "retry": "重试",
+    "empty": "暂无收益记录",
+    "accumulated": "累计收益",
+    "withdrawBtn": "提现",
+    "withdrawable": "可提现(元)",
+    "withdrawn": "已提现(元)",
+    "today": "今日收益",
+    "pending": "待结算",
+    "yuan": "元",
+    "tip": "平台限时不收取任何服务费",
+    "tab": {
+      "all": "全部",
+      "pending": "待结算",
+      "settled": "已结算"
+    },
+    "orderLabel": "订单",
+    "rateLabel": "费率",
+    "withdrawModal": {
+      "title": "选择提现方式",
+      "subtitle": "可提现金额",
+      "wechat": "微信",
+      "moreMethods": "更多提现方式请使用官方 APP",
+      "confirm": "确认提现",
+      "close": "关闭"
+    }
+  },
+  "tokenValue": {
+    "title": "算力充值",
+    "balanceLabel": "可用算力(Token)",
+    "frozen": "冻结",
+    "totalCost": "累计消耗",
+    "packagesTitle": "充值套餐",
+    "tokenUnit": "Token",
+    "bonus": "赠",
+    "popular": "热门",
+    "recordsTitle": "消耗记录",
+    "loadFailed": "加载失败",
+    "empty": "暂无记录",
+    "rechargeLabel": "充值",
+    "tab": {
+      "all": "全部",
+      "cost": "消耗",
+      "recharge": "充值"
+    },
+    "recharge": {
+      "title": "充值确认",
+      "message": "确认充值 {tokens} Token,支付 ¥{price}?",
+      "payBtn": "确认支付",
+      "success": {
+        "title": "充值成功",
+        "message": "已充值 {tokens} Token"
+      }
+    }
+  },
+  "liveDetail": {
+    "title": "直播详情",
+    "loadFailed": "加载直播详情失败",
+    "empty": "直播不存在",
+    "ongoing": "直播中",
+    "upcoming": "即将开始",
+    "lecturer": "讲师",
+    "viewerCount": "{count} 观看",
+    "intro": "简介",
+    "subscribe": "订阅",
+    "subscribed": "已订阅",
+    "subscribing": "订阅中...",
+    "chat": "聊天互动",
+    "chatEmpty": "暂无消息",
+    "chatPlaceholder": "输入消息",
+    "chatSend": "发送",
+    "chatNotReady": "聊天未就绪",
+    "chatConnecting": "连接中",
+    "chatConnected": "已连接",
+    "chatReconnecting": "重连中",
+    "chatDisconnected": "已断开",
+    "chatError": "聊天错误"
+  },
+  "liveHost": {
+    "title": "主播端",
+    "loadFailed": "加载失败",
+    "empty": "暂无数据",
+    "statusIdle": "未开始",
+    "statusActive": "直播中",
+    "statusInactive": "已结束",
+    "streamTitle": "直播标题",
+    "streamTitlePlaceholder": "请输入直播标题",
+    "pushUrl": "推流地址",
+    "streamKey": "流密钥",
+    "copyHint": "点击查看",
+    "startLive": "开始直播",
+    "starting": "开启中...",
+    "endLive": "结束直播",
+    "ending": "结束中...",
+    "previewActive": "直播推流中(摄像头预览占位)",
+    "previewIdle": "摄像头预览(占位)",
+    "stats": "直播数据",
+    "statDuration": "直播时长",
+    "statViewers": "观众数",
+    "statRecvBytes": "收到字节",
+    "statSendBytes": "发送字节",
+    "productManage": "商品管理",
+    "productAddBtn": "+ 添加商品",
+    "productLoading": "加载中...",
+    "productLoadFailed": "加载商品失败",
+    "productEmpty": "暂无商品",
+    "error": {
+      "titleRequired": "请输入直播标题",
+      "startFailed": "开始直播失败",
+      "endFailed": "结束直播失败"
+    },
+    "ended": {
+      "title": "直播已结束",
+      "message": "直播时长 {duration}"
+    },
+    "productAdd": {
+      "message": "添加商品功能开发中"
+    }
+  },
+  "livePreview": {
+    "title": "直播预告",
+    "loadFailed": "加载预告失败",
+    "empty": "暂无预告",
+    "lecturer": "讲师",
+    "startAt": "开始时间",
+    "intro": "简介",
+    "subscribe": "订阅",
+    "subscribed": "已订阅",
+    "subscribing": "订阅中..."
+  },
+  "livePlayback": {
+    "title": "直播回放",
+    "subtitle": "回看错过的直播",
+    "loadFailed": "加载回放失败",
+    "empty": "暂无回放",
+    "retry": "重试",
+    "ended": "已结束",
+    "lecturer": "讲师",
+    "startAt": "开始时间",
+    "duration": "时长",
+    "viewerCount": "{count} 观看",
+    "play": "播放",
+    "noReplay": "无回放",
+    "replayTitle": "回放播放器"
   }
 }

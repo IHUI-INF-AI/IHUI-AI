@@ -1,25 +1,19 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { useCallback, useEffect, useState } from 'react'
-import {
-  FlatList,
-  Modal,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
+import {
+  LivePlaybackScreen as SharedLivePlaybackScreen,
+  type LivePlaybackScreenItem,
+} from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
 
-import { Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+/** 计算直播时长文本:start~end 的分钟数(<60m 显示 Nm,≥60m 显示 Nh Mm) */
 function durationText(start: string, end: string | null): string {
   if (!end) return '—'
   try {
@@ -29,6 +23,19 @@ function durationText(start: string, end: string | null): string {
     return `${Math.floor(mins / 60)}h ${mins % 60}m`
   } catch {
     return '—'
+  }
+}
+
+/** 把后端 Live 映射为共享层 LivePlaybackScreenItem(已格式化时间/时长) */
+function mapLive(l: Live): LivePlaybackScreenItem {
+  return {
+    id: l.id,
+    title: l.title,
+    lecturerName: l.lecturerName ?? undefined,
+    startTimeText: formatDateByTemplate(l.startTime, 'YYYY-MM-DD HH:mm') || '—',
+    durationText: durationText(l.startTime, l.endTime),
+    viewCount: l.viewCount,
+    playUrl: l.playUrl,
   }
 }
 
@@ -70,207 +77,26 @@ export function LivePlaybackScreen() {
     void load()
   }, [load])
 
-  const handlePlay = (live: Live) => {
-    setActive(live)
-  }
-
-  const closePlayer = () => setActive(null)
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Loading />
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
-  if (error && lives.length === 0) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryText}>{t('livePlayback.retry')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
+  const items = useMemo(() => lives.map(mapLive), [lives])
+  const activeItem = useMemo(() => (active ? mapLive(active) : null), [active])
+  const userName = user?.nickname ?? user?.username ?? ''
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('livePlayback.title')}</Text>
-        <Text style={styles.subtitle}>{t('livePlayback.subtitle')}</Text>
-        <Text style={styles.userText}>{user?.nickname ?? user?.username ?? ''}</Text>
-      </View>
-
-      <FlatList
-        style={styles.list}
-        data={lives}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('livePlayback.empty')}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <View style={styles.badgeEnded}>
-                <Text style={styles.badgeText}>{t('livePlayback.ended')}</Text>
-              </View>
-            </View>
-            {item.lecturerName ? (
-              <Text style={styles.cardMeta}>
-                {t('livePlayback.lecturer')}:{item.lecturerName}
-              </Text>
-            ) : null}
-            <Text style={styles.cardMeta}>
-              {t('livePlayback.startAt')}:
-              {formatDateByTemplate(item.startTime, 'YYYY-MM-DD HH:mm') || '—'}
-            </Text>
-            <View style={styles.cardMetaRow}>
-              <Text style={styles.cardMetaText}>
-                {t('livePlayback.duration')}:{durationText(item.startTime, item.endTime)}
-              </Text>
-              <Text style={styles.cardMetaText}>
-                {t('livePlayback.viewerCount', { count: item.viewCount })}
-              </Text>
-            </View>
-            <View style={styles.cardFooter}>
-              <TouchableOpacity
-                style={[styles.playBtn, !item.playUrl && styles.playBtnDisabled]}
-                onPress={() => handlePlay(item)}
-                disabled={!item.playUrl}
-              >
-                <Text style={styles.playBtnText}>
-                  {item.playUrl ? t('livePlayback.play') : t('livePlayback.noReplay')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-      />
-
-      <Modal visible={!!active} animationType="slide" transparent onRequestClose={closePlayer}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{active?.title}</Text>
-            <View style={styles.playerArea}>
-              <Text style={styles.playerIcon}>▶</Text>
-              <Text style={styles.playerHint}>{t('livePlayback.replayTitle')}</Text>
-              {active?.playUrl ? (
-                <Text style={styles.playerUrl} numberOfLines={1}>
-                  {active.playUrl}
-                </Text>
-              ) : null}
-            </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={closePlayer}>
-              <Text style={styles.closeBtnText}>{t('common.back')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
+    <SharedLivePlaybackScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      activeItem={activeItem}
+      userName={userName}
+      onRefresh={() => load(true)}
+      onPressItem={(item) => {
+        const target = lives.find((l) => l.id === item.id)
+        if (target) setActive(target)
+      }}
+      onClosePlayer={() => setActive(null)}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const PRIMARY = tokens.brand.DEFAULT
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.light },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: tokens.surface.light,
-    paddingHorizontal: 16,
-  },
-  loadingText: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
-  header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: tokens.text.secondary },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
-  subtitle: { marginTop: 4, fontSize: 13, color: tokens.text.secondary },
-  userText: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
-  list: { flex: 1, paddingHorizontal: 16 },
-  empty: { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: tokens.text.tertiary },
-  card: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    marginBottom: 10,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginRight: 8,
-  },
-  badgeEnded: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.card,
-  },
-  badgeText: { fontSize: 11, color: tokens.text.secondary },
-  cardMeta: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
-  cardMetaRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  cardMetaText: { fontSize: 12, color: tokens.text.secondary },
-  cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
-  playBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  playBtnDisabled: { backgroundColor: tokens.border.medium },
-  playBtnText: { color: tokens.surface.light, fontSize: 13, fontWeight: '600' },
-  retryBtn: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: PRIMARY,
-  },
-  retryText: { color: tokens.surface.light, fontSize: 14 },
-  errorText: { fontSize: 13, color: tokens.error.text, textAlign: 'center' },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: tokens.surface.light,
-    borderRadius: 8,
-    padding: 16,
-  },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary, marginBottom: 12 },
-  playerArea: {
-    aspectRatio: 16 / 9,
-    backgroundColor: tokens.gray.black,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playerIcon: { fontSize: 36, color: tokens.surface.light },
-  playerHint: { marginTop: 8, fontSize: 13, color: tokens.text.tertiary },
-  playerUrl: { marginTop: 4, fontSize: 10, color: tokens.text.secondary, paddingHorizontal: 16 },
-  closeBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: PRIMARY,
-    alignItems: 'center',
-  },
-  closeBtnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
-})

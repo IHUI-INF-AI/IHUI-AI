@@ -69,6 +69,32 @@ export { LiveScreen } from './features/live/LiveScreen'
 export { ActivityScreen } from './features/activity/ActivityScreen'
 export { FavoritesScreen } from './features/favorites/FavoritesScreen'
 export { CheckInScreen } from './features/check-in/CheckInScreen'
+/** 批次 15:消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */
+export { MessageDirectScreen } from './features/message-direct/MessageDirectScreen'
+export { MessageGroupScreen } from './features/message-group/MessageGroupScreen'
+export { MessageSystemScreen } from './features/message-system/MessageSystemScreen'
+export { MessageDetailScreen } from './features/message-detail/MessageDetailScreen'
+export { PointsRecordScreen } from './features/points-record/PointsRecordScreen'
+export { StudyRecordScreen } from './features/study-record/StudyRecordScreen'
+export { IncomeScreen } from './features/income/IncomeScreen'
+export { InviteScreen } from './features/invite/InviteScreen'
+export { FollowScreen } from './features/follow/FollowScreen'
+export { FavoriteScreen } from './features/favorite/FavoriteScreen'
+/** 批次 18(2026-07-29):模型/AIGC 屏(模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
+export { ModelPlazaScreen } from './features/model-plaza/ModelPlazaScreen'
+export { N8nModelScreen } from './features/n8n-model/N8nModelScreen'
+export { ModelEditScreen } from './features/model-edit/ModelEditScreen'
+export { AigcListScreen } from './features/aigc-list/AigcListScreen'
+/** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
+export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
+export { ExamResultScreen } from './features/exam-result/ExamResultScreen'
+export { ModelIncomeScreen } from './features/model-income/ModelIncomeScreen'
+export { TokenValueScreen } from './features/token-value/TokenValueScreen'
+/** 批次 17(2026-07-29):直播详情/主播端/预告/回放(单条直播深 4 屏) */
+export { LiveDetailScreen } from './features/live-detail/LiveDetailScreen'
+export { LiveHostScreen } from './features/live-host/LiveHostScreen'
+export { LivePreviewScreen } from './features/live-preview/LivePreviewScreen'
+export { LivePlaybackScreen } from './features/live-playback-screen/LivePlaybackScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -250,4 +276,61 @@ export type {
   CheckInScreenProps,
   LiveScreenItem,
   LiveScreenProps,
+  /** 批次 15(2026-07-29):消息/记录类(私聊/群聊/系统) */
+  MessageDirectItem,
+  MessageDirectScreenProps,
+  MessageGroupItem,
+  MessageGroupScreenProps,
+  MessageSystemItem,
+  MessageSystemScreenProps,
+  /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
+  ExamHistoryItem,
+  ExamHistoryScreenProps,
+  ExamResultWrongQuestion,
+  ExamResultItem,
+  ExamResultScreenProps,
+  ModelIncomeTab,
+  ModelIncomeItem,
+  ModelIncomeSummary,
+  ModelIncomeScreenProps,
+  TokenRecordType,
+  TokenValueBalance,
+  TokenValueRecord,
+  TokenValuePackage,
+  TokenValueScreenProps,
+  /** 批次 17(2026-07-29):直播详情/主播端/预告/回放(单条直播深 4 屏) */
+  LiveDetailChatStatus,
+  LiveDetailChatMessage,
+  LiveDetailItem,
+  LiveDetailScreenProps,
+  LiveHostStatus,
+  LiveHostStreamData,
+  LiveHostProduct,
+  LiveHostScreenProps,
+  LivePreviewItem,
+  LivePreviewScreenProps,
+  LivePlaybackScreenItem,
+  LivePlaybackScreenProps,
+  /** 批次 18(2026-07-29):模型/AIGC 屏(模型广场/n8n 模型管理/模型编辑/AIGC 作品列表) */
+  ModelPlazaModelType,
+  ModelPlazaTypeFilter,
+  ModelPlazaProvider,
+  ModelPlazaItem,
+  ModelPlazaScreenProps,
+  N8nModelStatus,
+  N8nModelTab,
+  N8nModelItem,
+  N8nModelScreenProps,
+  ModelEditSaleType,
+  ModelEditPayCycle,
+  ModelEditAudience,
+  ModelEditOption,
+  ModelEditBaseInfo,
+  ModelEditFieldValues,
+  ModelEditScreenProps,
+  AigcFileType,
+  AigcCategory,
+  AigcListItem,
+  AigcCategoryOption,
+  AigcListScreenProps,
 } from './types'
