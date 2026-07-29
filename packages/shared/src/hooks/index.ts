@@ -13,3 +13,6 @@ export * from './use-paginated-list'
 // 跨端组件共享 hooks(2026-07-28 立,mobile-rn + miniapp-taro 同名组件业务逻辑去重)
 export * from './use-auto-play'
 export * from './use-agent-runtime'
+// 纯 React hooks 下沉(2026-07-29,apps/web → @ihui/shared)
+export * from './use-confirm-dialog'
+export * from './use-form'
