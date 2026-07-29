@@ -9233,6 +9233,9 @@
   },
   "aiChat": {
     "title": "AIChat",
+    "templates": "Templates",
+    "settings": "Settings",
+    "share": "Share",
     "history": "HistoryChat",
     "newConversation": "New Chat",
     "noHistory": "No history chat",
