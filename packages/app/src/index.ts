@@ -43,6 +43,10 @@ export { WithdrawScreen } from './features/withdraw/WithdrawScreen'
 export { VipCompareScreen } from './features/vip-compare/VipCompareScreen'
 export { ShareScreen } from './features/share/ShareScreen'
 export { SearchScreen } from './features/search/SearchScreen'
+export { OrderLogScreen } from './features/order-log/OrderLogScreen'
+export { OrderTrackScreen } from './features/order-track/OrderTrackScreen'
+export { CourseChapterScreen } from './features/course-chapter/CourseChapterScreen'
+export { StudyProgressScreen } from './features/study-progress/StudyProgressScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -165,4 +169,14 @@ export type {
   VipCompareScreenProps,
   ShareResultItem,
   ShareScreenProps,
+  /** 批次 10 */
+  OrderLogItem,
+  OrderLogScreenProps,
+  OrderTrackItem,
+  OrderTrackScreenProps,
+  CourseChapterItem,
+  CourseChapterScreenProps,
+  StudyProgressCourse,
+  StudyProgressData,
+  StudyProgressScreenProps,
 } from './types'
