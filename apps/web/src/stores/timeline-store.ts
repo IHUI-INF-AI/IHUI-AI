@@ -9,6 +9,9 @@ import { create } from 'zustand'
 export type TimelineEventType = 'plan' | 'subagent' | 'question' | 'tool' | 'thinking' | 'reference'
 export type TimelineEventStatus = 'pending' | 'running' | 'done' | 'failed'
 
+/** Timeline 事件类型筛选值(2026-07-29 立,Phase 22);'all' 表示不过滤 */
+export type TimelineFilterType = 'all' | TimelineEventType
+
 export interface TimelineEvent {
   id: string
   type: TimelineEventType
@@ -29,6 +32,8 @@ interface TimelineState {
   activeTab: TimelineTabName
   events: TimelineEvent[]
   expandedEventIds: string[]
+  /** 当前类型筛选(2026-07-29 立,Phase 22);'all' = 不过滤 */
+  filterType: TimelineFilterType
 
   setActiveTab: (tab: TimelineTabName) => void
   setEvents: (events: TimelineEvent[]) => void
@@ -42,6 +47,10 @@ interface TimelineState {
   toggleExpanded: (id: string) => void
   setExpanded: (id: string, expanded: boolean) => void
   isExpanded: (id: string) => boolean
+  /** 设置类型筛选(2026-07-29 立,Phase 22) */
+  setFilterType: (type: TimelineFilterType) => void
+  /** 按 filterType 过滤后的事件(2026-07-29 立,Phase 22);'all' 返回原引用 */
+  filteredEvents: () => TimelineEvent[]
   reset: () => void
 }
 
@@ -49,6 +58,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   activeTab: 'inline',
   events: [],
   expandedEventIds: [],
+  filterType: 'all',
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -95,5 +105,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   isExpanded: (id) => get().expandedEventIds.includes(id),
 
-  reset: () => set({ activeTab: 'inline', events: [], expandedEventIds: [] }),
+  setFilterType: (type) => set({ filterType: type }),
+
+  filteredEvents: () => {
+    const { events, filterType } = get()
+    if (filterType === 'all') return events
+    return events.filter((e) => e.type === filterType)
+  },
+
+  reset: () => set({ activeTab: 'inline', events: [], expandedEventIds: [], filterType: 'all' }),
 }))
