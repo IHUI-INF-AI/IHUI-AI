@@ -1117,6 +1117,34 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ---
 
+## Phase 23 Trae Work 深度对标 v4 — 消息搜索 + 最小化模式 + 空状态(2026-07-29,2 subagent 并行,36 test case)
+
+### [x] ✅(2026-07-29) Phase 23 完整收尾(2 subagent 并行,36 新单测,2+ commit)
+
+用户要求:"继续"。基于 Phase 22 交付建议(MessageContextMenu 搜索消息快捷项)+ Phase 20 探索清单未实现项(h 最小化模式),2 subagent 文件不冲突并行。
+
+- [x] **Subagent 1:MessageContextMenu 搜索 + 消息高亮**(commit `747f66c4c3`,21 test):ContextMenuAction 新增 'search';message-context-menu.tsx 新增 MessageSearchBar 组件(sticky 顶部 + rounded-md 输入框 + 结果计数 + 上/下一个按钮 + Esc/Ctrl+Enter);message-list.tsx 接入搜索(ring-1 ring-yellow-400/40 高亮 + 滚动到匹配 + Ctrl+F 全局快捷键);message-search.ts 纯函数(searchMessages 大小写不敏感 + highlightMatch XSS 转义 + escapeRegExp);i18n chat.search* 7 key × 5 语言
+- [x] **Subagent 2:Pane 最小化 + Timeline 空状态**(commit `ec54e5afab`,15 test):MinimizedSummaryBar 组件(Loader2 + 工具调用数 + 子智能体数 + 进度百分比 + 迷你进度条 + 展开按钮;role=status + aria-live=polite);idle 状态自动展开;Timeline 空状态优化(Inbox 图标 + 标题 + 提示文本 + 筛选空状态 FilterX + 清空筛选按钮);i18n ai.pane.minimized*/timelineEmpty* 7 key × 5 语言
+- [x] **类型零技术债**:全程无 any,searchMessages 用泛型,highlightMatch HTML 转义防 XSS
+- [x] **守门全过**:typecheck exit 0;eslint exit 0;check-rounded-full exit 0;check-i18n-keys 5 语言 parity exit 0(11562 键)
+
+关键设计:
+
+- 消息搜索:Ctrl+F 全局快捷键 + 右键菜单搜索项,搜索栏 sticky 顶部,匹配消息 ring 高亮 + 当前匹配 ring-2,上一个/下一个导航
+- 最小化模式:不完全隐藏 pane,而是显示 1 行摘要条(AI 执行中 · 3 工具调用 · 2 子智能体 · 45% + 迷你进度条),idle 时自动展开
+- Timeline 空状态:区分"无事件"(Inbox + CTA 提示)和"筛选无结果"(FilterX + 清空筛选按钮)两种状态
+
+Git 同步证据(§20 硬定义 5 条全绿):
+
+- `747f66c4c3` feat(web): Phase 23 MessageContextMenu 搜索消息 + 消息高亮 + Ctrl+F 快捷键
+- `ec54e5afab` feat(web): Phase 23 AgentTaskProgressPane 最小化模式 + Timeline 空状态优化
+- local HEAD == origin HEAD: `7869ef745b` ✅
+- `node scripts/git-push-guard.mjs` exit 0 ✅
+
+影响文件统计:2 commit / 2 新测试文件 36 test / 修改 5 源码 + 1 新建源码 + 5 i18n × 2 commit;ContextMenuAction +1 类型 / MessageSearchBar 1 组件 / MinimizedSummaryBar 1 组件 / 空状态 2 种 / i18n 14 key × 5 语言。
+
+---
+
 ## P3 极限目标:全端共享率最大化(2026-07-29 立,/goal 模式,目标 2.9x → ≤1.7x)
 
 > **触发**:用户要求"真维护倍数降至最低极限为止"。
