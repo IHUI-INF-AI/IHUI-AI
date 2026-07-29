@@ -1,0 +1,161 @@
+.ol-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 顶部 Tab(对齐原项目 order-tab-bar:渐变背景 + active 高亮) ===== */
+.ol-tabs {
+  display: flex;
+  /* TODO: custom color: 原项目 order-tab-bar 渐变(紫蓝→米黄),无对应 token,保留原值 */
+  background: linear-gradient(111deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  border-radius: 15rpx;
+  margin: 20rpx 20rpx 16rpx;
+  overflow: hidden;
+}
+.ol-tab {
+  flex: 1;
+  text-align: center;
+  font-size: 36rpx;
+  color: #333;
+  padding: 20rpx 10rpx;
+  position: relative;
+}
+.ol-tab-active {
+  /* TODO: custom color: 原项目 active 渐变(黄→蓝),无对应 token,保留原值 */
+  background: linear-gradient(311deg, #fff59e -13%, #dee2ff 47%, #acb4ff 115%);
+  font-weight: bold;
+  color: #000;
+}
+
+/* ===== 总数行(对齐原项目 .team-total) ===== */
+.ol-total {
+  color: #3d3d3d;
+  margin: 16rpx 20rpx;
+  font-size: 30rpx;
+}
+
+/* ===== 订单列表 ===== */
+.ol-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 0 20rpx;
+}
+
+/* ===== 订单卡(对齐原项目 order-card:渐变 + 30rpx + 阴影) ===== */
+.ol-card {
+  position: relative;
+  padding: 24rpx;
+  /* TODO: custom color: 原项目 order-card 渐变(浅紫→浅黄),无对应 token,保留原值 */
+  background: linear-gradient(114deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 104%);
+  box-shadow: 0 0 2rpx 0 rgba(0, 0, 0, 0.3);
+  border-radius: 30rpx;
+  overflow: hidden;
+  font-size: 28rpx;
+}
+.ol-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.ol-label {
+  color: #3d3d3d;
+  font-size: 28rpx;
+}
+.ol-order-no {
+  color: #3d3d3d;
+  font-size: 28rpx;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ol-status {
+  font-size: 26rpx;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+  padding: 4rpx 20rpx;
+  border-radius: 8rpx;
+}
+.ol-status-pending {
+  /* TODO: custom color: 原项目 #FF0B0B(待结算红),无对应 token,保留原值 */
+  color: #ff0b0b;
+}
+.ol-status-settled {
+  /* TODO: custom color: 原项目 #00B578(已结算绿),无对应 token,保留原值 */
+  color: #00b578;
+}
+.ol-card-user {
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  color: #888;
+}
+.ol-card-main {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+}
+.ol-product-img {
+  width: 130rpx;
+  height: 130rpx;
+  border-radius: 15rpx;
+  background: #f0f0f0;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+.ol-product-title {
+  font-size: 32rpx;
+  color: #333;
+  font-weight: 500;
+}
+.ol-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24rpx;
+}
+.ol-time {
+  font-size: 28rpx;
+  color: #3d3d3d;
+}
+.ol-commission {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.ol-commission-amount {
+  /* TODO: custom color: 原项目 #e94d3a(佣金红),无对应 token,保留原值 */
+  color: #e94d3a;
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-left: 8rpx;
+}
+
+/* ===== 状态文案 ===== */
+.ol-empty,
+.ol-loading,
+.ol-no-more {
+  display: block;
+  text-align: center;
+  font-size: 28rpx;
+  color: #999;
+  padding: 80rpx 0;
+}
+.ol-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 0;
+}
+.ol-error-text {
+  font-size: 28rpx;
+  color: var(--color-destructive);
+}
+.ol-error-retry {
+  font-size: 28rpx;
+  color: var(--color-primary);
+  margin-top: 12rpx;
+}
