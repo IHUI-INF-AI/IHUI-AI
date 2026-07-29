@@ -110,8 +110,8 @@ export function AISidePanel() {
   // 父组件通过 setWorkspaceName callback 接收项目名,不订阅 pathname。
 
   // 同步 AISidePanel 占据宽度(含右侧 8px 视觉间距)到 :root 的 --ai-panel-width CSS 变量。
-  // 注:2026-07-20 已迁移到 GlobalShell 直接订阅 store 计算 padding-left(单一来源),
-  // 本 effect 仅作为兼容回退(防止其他组件未来误读 --ai-panel-width)。
+  // 2026-07-30:AI 面板已移入 flex 流,不再需要 padding-left 避让。
+  // --ai-panel-width 仍保留供 ScrollDownButton(marketing 页面)计算居中偏移。
   // - open=true:占位 = width + 8px(面板宽度 + 右侧间距)
   // - open=false:占位 = 0(仅渲染 width:0 的拖拽手柄,不占视觉空间)
   React.useEffect(() => {
@@ -585,15 +585,15 @@ export function AISidePanel() {
   const workspaceNameSync = <WorkspaceNameSync onNameChange={setWorkspaceName} />
 
   // 关闭态:仅渲染拖拽手柄(可拖拽打开),不渲染整个面板内容。
-  // 容器 fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 由 Sidebar 同步到 :root),
-  // width:0 使容器自身不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
-  // z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)。
+  // 2026-07-30 彻底根治:容器从 fixed 改为 flex 子元素(relative + shrink-0),
+  // width:0 使容器在 flex 流中不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
+  // py-2 与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)。
   if (!open) {
     return (
       <>
         {workspaceNameSync}
         <div
-          className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] z-sticky"
+          className="relative h-full shrink-0 py-2"
           style={{ width: 0 }}
         >
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
@@ -640,17 +640,13 @@ export function AISidePanel() {
     <>
       {workspaceNameSync}
       <div
-        // 全局 fixed 面板(与 Sidebar 同性质,作为 MainShell 的兄弟节点而非 flex 子元素):
-        // - fixed 定位紧贴 Sidebar 右侧(left:var(--sidebar-width) 跟随 Sidebar 折叠/展开/拖拽)
-        // - top-2(8px)所有端统一:AI 面板不需要 TagsView(标签栏在 MainShell 工作区顶部),
-        //   顶部 8px 与 Sidebar 顶部对齐,简洁不抢空间。
-        //   历史教训:2026-07-26 曾用 top-[52px] 避开桌面端 title bar,但导致 web 端 AI 面板
-        //   顶部比工作区低 44px;用户反馈"间距不对",改为所有端统一 top-2,TagsView 移到 MainShell。
-        // - bottom-2 与 work-area 的 my-2 垂直对齐(底部留出 8px 间距)
-        // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
-        // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
-        // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
-        className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
+        // AI 面板容器(2026-07-30 彻底根治:从 fixed 改为 flex 流内布局)
+        // - 不再 fixed 定位,改为 flex 子元素(relative + shrink-0),自然占据空间
+        // - py-2:与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)
+        // - mr-4:与 work-area 内容间形成 16px 视觉间距(2026-07-30 用户反馈 8px 太小)
+        // - 不需要 z-sticky(flex 布局保证不重叠,z-sticky 已移除)
+        // - width 由 useAiPanelStore.width 控制(320-720px);flex 布局自动收缩 work-area
+        className="relative h-full shrink-0 py-2 mr-4"
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <aside
@@ -658,9 +654,8 @@ export function AISidePanel() {
           // Pane 默认锚点(2026-07-29 立):AgentTaskProgressPane 用这个 data-testid 找到 AI 面板容器
           // 作为 Pane 默认位置的视口坐标系锚点,空消息时也能定位(不再依赖 message-list-inline-panel)
           data-testid="ai-side-panel-aside"
-          // AI 面板必须有独立 bg-shell-panel 背景(2026-07-21 修复):
-          // 1) 卡片感:AI 面板 position: fixed 跨在 work-area 之外,无法"继承" work-area 背景,
-          //    透明 aside 在 top-2/bottom-2/mr-2 间距处无背景,看到 body 底色,没有"卡片"视觉边界;
+          // AI 面板必须有独立 bg-shell-panel 背景:
+          // 1) 卡片感:AI 面板作为独立 flex 子元素,需要自己的背景色形成卡片视觉边界;
           // 2) 暗色模式下的遮罩一致性:登录/SSO/认证授权弹窗打开时,z-modal=2000 遮罩(z-50 Dialog 也会盖)叠加在 AI 面板之上,
           //    若 AI 面板透明,内容透到变暗的 work-area 上,视觉上像"AI 面板高亮"未被遮罩盖住;有 bg-shell-panel 后,
           //    AI 面板背景独立变暗,真正"暗下去到背景里"。
