@@ -46,6 +46,9 @@
     "userAgreement": "利用規約",
     "version": "バージョン"
   },
+  "legalDoc": {
+    "updatedAt": "更新日"
+  },
   "auth": {
     "account": "アカウント",
     "accountHistory": "アカウント履歴",
@@ -722,5 +725,74 @@
     "content": "内容",
     "reply": "返信",
     "createdAt": "送信日時"
+  },
+  "privacy": {
+    "title": "プライバシーポリシー",
+    "subtitle": "プライバシーを尊重します",
+    "updatedAt": "更新日",
+    "sectionData": "データ収集",
+    "sectionDataBody": "より良いサービスを提供するため、ご提供いただいた情報を収集します。",
+    "sectionCookie": "Cookieの使用",
+    "sectionCookieBody": "ログイン状態と設定を保存するためCookieを使用します。",
+    "sectionThirdParty": "第三者共有",
+    "sectionThirdPartyBody": "お客様の同意なく、第三者に個人情報を共有することはありません。"
+  },
+  "pointRule": {
+    "title": "ポイントルール",
+    "empty": "ポイントルールがありません",
+    "loadFailed": "ポイントルールの読み込みに失敗しました"
+  },
+  "vipLevel": {
+    "title": "VIPレベル",
+    "loadFailed": "読み込みに失敗しました",
+    "empty": "レベルが見つかりません",
+    "price": "価格",
+    "duration": "有効期間",
+    "days": "日",
+    "benefits": "特典内容"
+  },
+  "refundDetail": {
+    "title": "返金詳細",
+    "loadFailed": "読み込みに失敗しました",
+    "empty": "返金記録が見つかりません",
+    "orderNo": "注文番号",
+    "amount": "返金金額",
+    "status": "返金ステータス",
+    "reason": "理由",
+    "createdAt": "申請日時"
+  },
+  "orderDetail": {
+    "title": "注文詳細",
+    "loadFailed": "注文の読み込みに失敗しました",
+    "orderNo": "注文番号",
+    "product": "商品",
+    "amount": "金額",
+    "status": "ステータス",
+    "createdAt": "注文日時",
+    "paidAt": "支払日時"
+  },
+  "certDetail": {
+    "title": "証明書詳細",
+    "loadFailed": "証明書の読み込みに失敗しました",
+    "certNo": "証明書番号",
+    "holder": "所有者",
+    "issuer": "発行機関",
+    "score": "スコア",
+    "issuedAt": "発行日",
+    "expiredAt": "有効期限",
+    "verify": "証明書を検証"
+  },
+  "postDetail": {
+    "title": "投稿詳細",
+    "loadFailed": "投稿の読み込みに失敗しました"
+  },
+  "agreementSections": {
+    "updatedAt": "更新日",
+    "sectionTerms": "利用規約",
+    "sectionTermsBody": "本プラットフォームのサービスを利用することで、本規約の全条項に同意したことになります。",
+    "sectionRights": "ユーザーの権利",
+    "sectionRightsBody": "いつでも個人情報の閲覧、変更、削除を行う権利があります。",
+    "sectionObligations": "ユーザーの義務",
+    "sectionObligationsBody": "本プラットフォームを違法または権利侵害の活動に使用してはなりません。"
   }
 }

@@ -46,6 +46,9 @@
     "userAgreement": "사용자 약관",
     "version": "버전"
   },
+  "legalDoc": {
+    "updatedAt": "업데이트됨"
+  },
   "auth": {
     "account": "계정",
     "accountHistory": "계정 기록",
@@ -722,5 +725,74 @@
     "content": "내용",
     "reply": "답글",
     "createdAt": "제출 시간"
+  },
+  "privacy": {
+    "title": "개인정보 처리방침",
+    "subtitle": "개인정보를 존중합니다",
+    "updatedAt": "업데이트",
+    "sectionData": "데이터 수집",
+    "sectionDataBody": "더 나은 서비스를 제공하기 위해 귀하가 제공한 정보를 수집합니다.",
+    "sectionCookie": "Cookie 사용",
+    "sectionCookieBody": "로그인 상태와 환경설정을 저장하기 위해 Cookie를 사용합니다.",
+    "sectionThirdParty": "제3자 공유",
+    "sectionThirdPartyBody": "귀하의 동의 없이 제3자에게 개인정보를 공유하지 않습니다."
+  },
+  "pointRule": {
+    "title": "포인트 규정",
+    "empty": "포인트 규정 없음",
+    "loadFailed": "포인트 규정 로드 실패"
+  },
+  "vipLevel": {
+    "title": "VIP 등급",
+    "loadFailed": "로드 실패",
+    "empty": "등급을 찾을 수 없습니다",
+    "price": "가격",
+    "duration": "유효기간",
+    "days": "일",
+    "benefits": "혜택 내용"
+  },
+  "refundDetail": {
+    "title": "환불 상세",
+    "loadFailed": "로드 실패",
+    "empty": "환불 기록을 찾을 수 없습니다",
+    "orderNo": "주문 번호",
+    "amount": "환불 금액",
+    "status": "환불 상태",
+    "reason": "사유",
+    "createdAt": "신청 시간"
+  },
+  "orderDetail": {
+    "title": "주문 상세",
+    "loadFailed": "주문 로드 실패",
+    "orderNo": "주문 번호",
+    "product": "상품",
+    "amount": "금액",
+    "status": "상태",
+    "createdAt": "주문 시간",
+    "paidAt": "결제 시간"
+  },
+  "certDetail": {
+    "title": "증명서 상세",
+    "loadFailed": "증명서 로드 실패",
+    "certNo": "증명서 번호",
+    "holder": "소유자",
+    "issuer": "발급 기관",
+    "score": "점수",
+    "issuedAt": "발급일",
+    "expiredAt": "만료일",
+    "verify": "증명서 검증"
+  },
+  "postDetail": {
+    "title": "게시물 상세",
+    "loadFailed": "게시물 로드 실패"
+  },
+  "agreementSections": {
+    "updatedAt": "업데이트",
+    "sectionTerms": "서비스 약관",
+    "sectionTermsBody": "본 플랫폼 서비스를 이용하면 본 약관의 모든 조항에 동의하는 것으로 간주됩니다.",
+    "sectionRights": "사용자 권리",
+    "sectionRightsBody": "언제든지 개인정보를 조회, 수정, 삭제할 권리가 있습니다.",
+    "sectionObligations": "사용자 의무",
+    "sectionObligationsBody": "본 플랫폼을 불법적이거나 권리 침해 활동에 사용해서는 안 됩니다."
   }
 }
