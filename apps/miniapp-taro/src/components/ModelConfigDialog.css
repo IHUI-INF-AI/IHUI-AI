@@ -1,0 +1,32 @@
+/* ModelConfigDialog 组件样式 — 对齐原项目 indexa.vue 视觉特征,使用 CSS 变量 */
+
+/* 上传按钮容器(对齐原项目 .icon-button:虚线边框 + 浅紫底) */
+.mcd-upload-btn {
+  border: 2px dashed var(--color-border);
+  background: var(--color-muted);
+  border-radius: 15rpx;
+}
+
+/* 删除按钮(对齐原项目 .delete-button:右上角关闭按钮,用规范圆角 rounded-2xl 等价) */
+.mcd-delete-btn {
+  position: absolute;
+  top: -8rpx;
+  right: -16rpx;
+  width: 32rpx;
+  height: 32rpx;
+  background-color: var(--color-card);
+  border-radius: 16rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+/* 音色菜单弹窗(对齐原项目 .audio-menu-content:卡片阴影) */
+.mcd-audio-menu {
+  background-color: var(--color-card);
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.15);
+}
