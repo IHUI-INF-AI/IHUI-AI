@@ -411,6 +411,23 @@ const checks = [
     ].join('\n'),
   },
   {
+    id: '40',
+    label: '🔗 共享层重复检测(blocking,防端内重新实现 shared hook/util)',
+    script: 'check-shared-layer-duplication.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 发现端内(apps/*)独立实现了 packages/shared 已提供的 hook/util。',
+      '     AGENTS.md §3 "共享层优先" 要求:能共用的一定共用,禁止端内重新实现。',
+      '     修复:',
+      '       A. 删除端内实现,改为 import { xxx } from "@ihui/shared"',
+      '       B. 若确属平台特有(依赖 DOM/RN/Taro API),在脚本 whitelist 登记并附理由',
+      '     详见: node scripts/check-shared-layer-duplication.mjs',
+      '',
+    ].join('\n'),
+  },
+  {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
     script: 'scan-i18n-zh-residue.mjs',
