@@ -269,6 +269,22 @@
       "system": "System"
     }
   },
+  "messageDirect": {
+    "title": "Direct Messages",
+    "empty": "No direct messages",
+    "loadFailed": "Failed to load direct messages",
+    "from": "From"
+  },
+  "messageGroup": {
+    "title": "Group Chats",
+    "empty": "No group chats",
+    "loadFailed": "Failed to load group chats"
+  },
+  "messageSystem": {
+    "title": "System Messages",
+    "empty": "No system messages",
+    "loadFailed": "Failed to load system messages"
+  },
   "history": {
     "empty": "No browsing history",
     "loadFailed": "Failed to load history",
@@ -1086,5 +1102,259 @@
     "sendFailed": "Failed to send code",
     "bindFailed": "Binding failed",
     "networkError": "Network error"
+  },
+  "modelPlaza": {
+    "title": "Model Plaza",
+    "compareBtn": "Compare",
+    "providerTotal": "{{count}} models",
+    "loadFailed": "Load failed, pull to refresh",
+    "emptyType": "No models of this type",
+    "input": "Input",
+    "output": "Output",
+    "priceUnit": "¥{{price}}/M",
+    "perCall": "(per call)",
+    "typeAll": "All",
+    "typeText": "Text",
+    "typeImage": "Image",
+    "typeAv": "Audio/Video",
+    "compare": {
+      "title": "Compare Models",
+      "message": "Please select 2-3 models to compare"
+    },
+    "detail": {
+      "title": "Model Details",
+      "message": "View full specs and pricing for \"{{name}}\""
+    }
+  },
+  "n8nModel": {
+    "title": "n8n Model Management",
+    "create": "+ New",
+    "searchPlaceholder": "Search workflow name or description",
+    "tabAll": "All",
+    "tabRunning": "Running",
+    "tabStopped": "Stopped",
+    "loadFailed": "Load failed",
+    "empty": "No n8n workflows",
+    "running": "Running",
+    "stopped": "Stopped",
+    "calls": "Calls {{count}}",
+    "params": "In {{in}} · Out {{out}}",
+    "actionStart": "Start",
+    "actionStop": "Stop",
+    "actionEdit": "Edit",
+    "toggle": {
+      "stopTitle": "Stop Workflow",
+      "startTitle": "Start Workflow",
+      "stopMessage": "Are you sure you want to stop \"{{name}}\"?",
+      "startMessage": "Are you sure you want to start \"{{name}}\"?",
+      "success": "Operation successful"
+    }
+  },
+  "modelEdit": {
+    "headerTitle": "Configure Agent",
+    "labelCategory": "Content categories (multi)",
+    "labelDept": "Department",
+    "labelSaleType": "Sale type",
+    "labelCycle": "Billing cycle",
+    "labelPrice": "Price (CNY / {{cycle}})",
+    "labelFreeDur": "Limited free duration",
+    "labelDiscount": "Discount",
+    "labelAudience": "Audience",
+    "cycleMonth": "month",
+    "cycleYear": "year",
+    "cyclePermanent": "permanent",
+    "saleFree": "Free",
+    "saleLimited": "Limited free",
+    "salePaid": "Paid",
+    "audienceAll": "All users",
+    "audienceMember": "Members",
+    "pricePlaceholder": "Enter price",
+    "submit": "Submit for review",
+    "submitting": "Submitting...",
+    "error": {
+      "categoryRequired": "Please select a content category",
+      "priceRequired": "Please enter a price"
+    },
+    "success": {
+      "title": "Submitted Successfully",
+      "message": "Configuration submitted for review"
+    }
+  },
+  "aigcList": {
+    "title": "Inspiration",
+    "subtitle": "AI-generated image/video/audio works",
+    "empty": "No works yet",
+    "publish": "+ Publish",
+    "playAudio": "▶ Play",
+    "videoBadge": "▶ Video",
+    "promptLabel": "Prompt:"
+  },
+  "examHistory": {
+    "title": "Exam History",
+    "loadFailed": "Failed to load exam history",
+    "empty": "No exam records",
+    "passed": "Passed",
+    "failed": "Failed"
+  },
+  "examResult": {
+    "title": "Exam Result",
+    "loadFailed": "Failed to load exam result",
+    "passed": "Passed",
+    "failed": "Failed",
+    "correct": "Correct {count}/{total}",
+    "duration": "{min} min",
+    "wrongQuestions": "Wrong Questions",
+    "yourAnswer": "Your Answer",
+    "correctAnswer": "Correct Answer"
+  },
+  "modelIncome": {
+    "title": "Model Income",
+    "loadFailed": "Failed to load",
+    "loadOverviewFailed": "Failed to load overview",
+    "loadListFailed": "Failed to load records",
+    "networkError": "Network error, please retry",
+    "retry": "Retry",
+    "empty": "No income records",
+    "accumulated": "Accumulated",
+    "withdrawBtn": "Withdraw",
+    "withdrawable": "Withdrawable (CNY)",
+    "withdrawn": "Withdrawn (CNY)",
+    "today": "Today",
+    "pending": "Pending",
+    "yuan": "CNY",
+    "tip": "No service fee during the limited period",
+    "tab": {
+      "all": "All",
+      "pending": "Pending",
+      "settled": "Settled"
+    },
+    "orderLabel": "Order",
+    "rateLabel": "Rate",
+    "withdrawModal": {
+      "title": "Select withdrawal method",
+      "subtitle": "Withdrawable amount",
+      "wechat": "WeChat",
+      "moreMethods": "Use the official app for more withdrawal methods",
+      "confirm": "Confirm",
+      "close": "Close"
+    }
+  },
+  "tokenValue": {
+    "title": "Token Recharge",
+    "balanceLabel": "Available Tokens",
+    "frozen": "Frozen",
+    "totalCost": "Total Used",
+    "packagesTitle": "Recharge Packages",
+    "tokenUnit": "Token",
+    "bonus": "Bonus",
+    "popular": "Popular",
+    "recordsTitle": "Records",
+    "loadFailed": "Failed to load",
+    "empty": "No records",
+    "rechargeLabel": "Recharge",
+    "tab": {
+      "all": "All",
+      "cost": "Cost",
+      "recharge": "Recharge"
+    },
+    "recharge": {
+      "title": "Recharge Confirmation",
+      "message": "Confirm recharge {tokens} Tokens for ¥{price}?",
+      "payBtn": "Confirm Payment",
+      "success": {
+        "title": "Recharge Successful",
+        "message": "Recharged {tokens} Tokens"
+      }
+    }
+  },
+  "liveDetail": {
+    "title": "Live Details",
+    "loadFailed": "Failed to load live details",
+    "empty": "Live not found",
+    "ongoing": "Live",
+    "upcoming": "Upcoming",
+    "lecturer": "Lecturer",
+    "viewerCount": "{count} watching",
+    "intro": "Intro",
+    "subscribe": "Subscribe",
+    "subscribed": "Subscribed",
+    "subscribing": "Subscribing...",
+    "chat": "Chat",
+    "chatEmpty": "No messages yet",
+    "chatPlaceholder": "Type a message",
+    "chatSend": "Send",
+    "chatNotReady": "Chat not ready",
+    "chatConnecting": "Connecting",
+    "chatConnected": "Connected",
+    "chatReconnecting": "Reconnecting",
+    "chatDisconnected": "Disconnected",
+    "chatError": "Chat error"
+  },
+  "liveHost": {
+    "title": "Host",
+    "loadFailed": "Failed to load",
+    "empty": "No data",
+    "statusIdle": "Not started",
+    "statusActive": "Live",
+    "statusInactive": "Ended",
+    "streamTitle": "Stream title",
+    "streamTitlePlaceholder": "Enter stream title",
+    "pushUrl": "Push URL",
+    "streamKey": "Stream key",
+    "copyHint": "Tap to view",
+    "startLive": "Start live",
+    "starting": "Starting...",
+    "endLive": "End live",
+    "ending": "Ending...",
+    "previewActive": "Streaming (camera preview placeholder)",
+    "previewIdle": "Camera preview (placeholder)",
+    "stats": "Stream stats",
+    "statDuration": "Duration",
+    "statViewers": "Viewers",
+    "statRecvBytes": "Bytes received",
+    "statSendBytes": "Bytes sent",
+    "productManage": "Products",
+    "productAddBtn": "+ Add product",
+    "productLoading": "Loading...",
+    "productLoadFailed": "Failed to load products",
+    "productEmpty": "No products",
+    "error": {
+      "titleRequired": "Stream title is required",
+      "startFailed": "Failed to start live",
+      "endFailed": "Failed to end live"
+    },
+    "ended": {
+      "title": "Live ended",
+      "message": "Duration {duration}"
+    },
+    "productAdd": {
+      "message": "Add product feature is under development"
+    }
+  },
+  "livePreview": {
+    "title": "Live Preview",
+    "loadFailed": "Failed to load preview",
+    "empty": "No preview available",
+    "lecturer": "Lecturer",
+    "startAt": "Starts at",
+    "intro": "Intro",
+    "subscribe": "Subscribe",
+    "subscribed": "Subscribed",
+    "subscribing": "Subscribing..."
+  },
+  "livePlayback": {
+    "title": "Live Playback",
+    "subtitle": "Catch up on missed lives",
+    "loadFailed": "Failed to load playback",
+    "empty": "No playback available",
+    "retry": "Retry",
+    "ended": "Ended",
+    "lecturer": "Lecturer",
+    "startAt": "Started at",
+    "duration": "Duration",
+    "viewerCount": "{count} watched",
+    "play": "Play",
+    "noReplay": "No replay",
+    "replayTitle": "Replay player"
   }
 }
