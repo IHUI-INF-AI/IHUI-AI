@@ -30,7 +30,6 @@ import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
-import { CurrentModeBadge } from '@/components/chat/current-mode-badge'
 import { PermissionModePopover, isHighRiskPermissionMode } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
@@ -915,9 +914,9 @@ export function MessageInput({
                 视觉风格对齐右侧权限模式徽章:compact (h-6 px-2 text-xs)、subtle bg-muted、
                 圆角 6px(rounded-md),与 4 按钮时代风格统一。
                 权限模式徽章(2026-07-25 深化):在模式徽章右侧持续显示当前权限模式,
-                高风险时附倒计时(与顶部高风险警告横幅同步),透明性 + 时效性双指标。 */}
+                高风险时附倒计时(与顶部高风险警告横幅同步),透明性 + 时效性双指标。
+                CurrentModeBadge 已整合到 AgentProgressTrigger 按钮前部(2026-07-29)。 */}
             <div className="flex items-center gap-2 px-3 pt-2">
-              <CurrentModeBadge />
               <div
                 className="ml-auto flex items-center gap-1.5"
                 data-testid="titlebar-permission-mode"
