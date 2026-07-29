@@ -1,44 +1,20 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
-import {
-  FlatList,
-  RefreshControl,
-  Share,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Share } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card } from '@ihui/ui-native'
-import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
+import { InviteScreen as SharedInviteScreen } from '@ihui/rn-app'
+import type { InviteInfo, InviteRecordItem } from '@ihui/types'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { formatShortDateWithYear } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-interface InviteInfo {
-  inviteCode: string
-  inviteUrl: string
-  totalInvited: number
-  totalReward: number
-}
-
-interface InviteRecord {
-  id: string
-  nickname: string
-  invitedAt: string
-  reward: number
-  status: 'pending' | 'completed'
-}
 
 export function InviteScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const [info, setInfo] = useState<InviteInfo | null>(null)
-  const [records, setRecords] = useState<InviteRecord[]>([])
+  const [records, setRecords] = useState<InviteRecordItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -48,7 +24,7 @@ export function InviteScreen() {
     try {
       const [infoRes, listRes] = await Promise.all([
         fetchApi<InviteInfo>('/distribution/overview'),
-        fetchApi<InviteRecord[]>('/distribution/invited-users'),
+        fetchApi<InviteRecordItem[]>('/distribution/invited-users'),
       ])
       if (!infoRes.success || !listRes.success) throw new Error()
       setInfo(infoRes.data ?? null)
@@ -65,11 +41,6 @@ export function InviteScreen() {
     void load()
   }, [load])
 
-  const onRefresh = () => {
-    setRefreshing(true)
-    void load()
-  }
-
   const onShare = async () => {
     if (!info) return
     try {
@@ -79,112 +50,20 @@ export function InviteScreen() {
     }
   }
 
-  if (loading && !info) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('invite.title')}</Text>
-      </View>
-      <FlatList
-        data={records}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16 }}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListHeaderComponent={
-          info ? (
-            <View>
-              <Card style={styles.card}>
-                <Text style={styles.label}>{t('invite.myCode')}</Text>
-                <Text style={styles.codeText}>{info.inviteCode}</Text>
-                <View style={styles.statsRow}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{info.totalInvited}</Text>
-                    <Text style={styles.statLabel}>{t('invite.totalInvited')}</Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>¥{info.totalReward}</Text>
-                    <Text style={styles.statLabel}>{t('invite.totalReward')}</Text>
-                  </View>
-                </View>
-                <TouchableOpacity onPress={onShare} style={styles.shareBtn}>
-                  <Text style={styles.shareText}>{t('invite.share')}</Text>
-                </TouchableOpacity>
-              </Card>
-              <Text style={styles.sectionTitle}>{t('invite.records')}</Text>
-            </View>
-          ) : null
-        }
-        ListEmptyComponent={
-          error ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.muted}>{t('invite.empty')}</Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.name} numberOfLines={1}>
-                {item.nickname}
-              </Text>
-              <Text style={styles.reward}>+¥{item.reward}</Text>
-            </View>
-            <Text style={styles.date}>{formatShortDateWithYear(item.invitedAt)}</Text>
-          </Card>
-        )}
-      />
-    </View>
+    <SharedInviteScreen
+      t={t}
+      info={info}
+      records={records}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onShare={onShare}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: tokens.text.secondary },
-  codeText: { marginTop: 4, fontSize: 22, fontWeight: '700', color: tokens.success.DEFAULT, letterSpacing: 1 },
-  statsRow: { flexDirection: 'row', marginTop: 12, gap: 12 },
-  statBox: { flex: 1, padding: 8, backgroundColor: tokens.surface.muted, borderRadius: 8 },
-  statValue: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
-  statLabel: { marginTop: 2, fontSize: 11, color: tokens.text.secondary },
-  shareBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: tokens.success.DEFAULT,
-    alignItems: 'center',
-  },
-  shareText: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: tokens.text.medium, marginVertical: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  name: { flex: 1, fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-  reward: { fontSize: 13, color: tokens.success.DEFAULT, fontWeight: '600' },
-  date: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
-  emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: tokens.text.secondary },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
-})
