@@ -94,15 +94,19 @@ export default function AboutIndexPage() {
         </View>
       ) : null}
 
-      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[12rpx]">
         <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">{info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}</Text>
       </View>
 
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+      <View className="m-[24rpx] bg-card rounded-[12rpx] overflow-hidden">
         {menus.map((m, idx) => (
-          <View key={m.key} className={`flex justify-between items-center p-[32rpx]${idx > 0 ? ' mt-[16rpx]' : ''}`} onClick={() => navigate(m.url)}>
-            <Text className="text-[28rpx] text-foreground">{m.label}</Text>
-            <Text className="text-[32rpx] text-muted-foreground">›</Text>
+          <View
+            key={m.key}
+            className={`flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted${idx < menus.length - 1 ? ' mb-[12rpx]' : ''}`}
+            onClick={() => navigate(m.url)}
+          >
+            <Text className="text-[28rpx] text-foreground flex-1">{m.label}</Text>
+            <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
           </View>
         ))}
       </View>
