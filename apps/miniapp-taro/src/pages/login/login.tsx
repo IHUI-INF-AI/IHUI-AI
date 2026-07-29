@@ -1,19 +1,23 @@
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useUserStore } from '@/stores/user'
 import { sendSmsCode, loginBySms, loginByPassword } from '@/api'
 import { getSsoLoginUrl } from '@/utils/sso'
 import { useI18n } from '@/i18n'
+import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/hooks'
+import { credentialStorage } from '@/lib/credential-storage'
+import type { UserInfo } from '@/utils/auth'
 
 export default function Login() {
   const { t } = useI18n()
   const { setAuth } = useUserStore()
   const [loginType, setLoginType] = useState<'phone' | 'password'>('phone')
+
+  // ===== 短信验证码登录状态(保持现状,未接入 useLoginForm) =====
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
-  const [password, setPassword] = useState('')
-  const [isLogging, setIsLogging] = useState(false)
+  const [isSmsLogging, setIsSmsLogging] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -49,32 +53,100 @@ export default function Login() {
     }
   }
 
-  async function handleLogin() {
-    if (isLogging) return
+  // ===== 短信验证码登录(逻辑保持不变,仅从原 handleLogin 拆出 phone 分支) =====
+  async function handleSmsLogin() {
+    if (isSmsLogging) return
     if (phone.length !== 11) {
       Taro.showToast({ title: t('login.phoneInvalid'), icon: 'none' })
       return
     }
-    setIsLogging(true)
+    setIsSmsLogging(true)
     try {
-      const res =
-        loginType === 'phone'
-          ? await loginBySms(phone, code)
-          : await loginByPassword(phone, password)
+      const res = await loginBySms(phone, code)
       setAuth(res.accessToken, res.user, res.refreshToken)
       Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
     } catch {
       // 错误已统一提示
     } finally {
-      setIsLogging(false)
+      setIsSmsLogging(false)
+    }
+  }
+
+  // ===== 密码登录:用 @ihui/shared useLoginForm 替代本地 useState + handleLogin =====
+  // loginByPassword 返回完整 UserInfo(含 phone/uuid/roleId 等扩展字段),
+  // 通过 ref 暂存,onLoginSuccess 时优先使用完整 UserInfo 而非 hook 精简版 LoginUser。
+  const lastLoginUserRef = useRef<UserInfo | undefined>(undefined)
+
+  const loginApi = useCallback(async (account: string, password: string): Promise<LoginApiResult> => {
+    try {
+      const res = await loginByPassword(account, password)
+      lastLoginUserRef.current = res.user
+      const user: LoginUser | undefined = res.user
+        ? {
+            id: String(res.user.id ?? ''),
+            nickname: res.user.nickname ?? '',
+            avatar: res.user.avatar,
+          }
+        : undefined
+      return {
+        success: true,
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        user,
+      }
+    } catch {
+      // 错误已由 request 统一提示,返回空 error 避免重复 toast
+      return { success: false, error: '' }
+    }
+  }, [])
+
+  const handlePasswordLoginSuccess = useCallback(
+    (accessToken: string, refreshToken: string, user?: LoginUser) => {
+      // 优先使用 API 返回的完整 UserInfo(含 phone/uuid/roleId 等扩展字段)
+      const fullUser: UserInfo | undefined = lastLoginUserRef.current ?? user
+      if (fullUser) {
+        setAuth(accessToken, fullUser, refreshToken)
+      }
+    },
+    [setAuth],
+  )
+
+  const handlePasswordSuccess = useCallback(() => {
+    Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
+    setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
+  }, [t])
+
+  const form = useLoginForm({
+    loginApi,
+    storage: credentialStorage,
+    onLoginSuccess: handlePasswordLoginSuccess,
+    onSuccess: handlePasswordSuccess,
+  })
+
+  // 密码登录本地校验错误(auth.invalidAccount / auth.invalidPassword)以 toast 提示
+  useEffect(() => {
+    if (form.error) {
+      Taro.showToast({ title: t(form.error), icon: 'none' })
+    }
+  }, [form.error, t])
+
+  // 登录按钮 loading 状态:phone 模式用短信登录 loading,password 模式用 form.loading
+  const isLogging = loginType === 'phone' ? isSmsLogging : form.loading
+
+  function handleLoginClick() {
+    if (isLogging) return
+    if (loginType === 'phone') {
+      void handleSmsLogin()
+    } else {
+      void form.login()
     }
   }
 
   function handleWechatLogin() {
     // 跨端小程序登录:微信用 Taro.login,支付宝用 Taro.getAuthCode(由 miniAppLogin 自动适配)
     if (process.env.TARO_ENV === 'weapp' || process.env.TARO_ENV === 'alipay') {
-      setIsLogging(true)
+      setIsSmsLogging(true)
       useUserStore
         .getState()
         .loginByMiniApp({ withProfile: false })
@@ -85,7 +157,7 @@ export default function Login() {
         .catch(() => {
           Taro.showToast({ title: t('login.wechatFailed'), icon: 'none' })
         })
-        .finally(() => setIsLogging(false))
+        .finally(() => setIsSmsLogging(false))
     } else {
       Taro.showToast({ title: t('login.wechatOnly'), icon: 'none' })
     }
@@ -108,6 +180,11 @@ export default function Login() {
     const encoded = encodeURIComponent(ssoUrl)
     Taro.navigateTo({ url: `/pages/webview/index?url=${encoded}` })
   }
+
+  // phone 输入框:phone 模式绑定本地 state,password 模式绑定 form.account
+  const accountValue = loginType === 'phone' ? phone : form.account
+  const onAccountInput = (e: { detail: { value: string } }) =>
+    loginType === 'phone' ? setPhone(e.detail.value) : form.setAccount(e.detail.value)
 
   return (
     <View className="min-h-screen px-[48rpx] bg-card">
@@ -145,8 +222,8 @@ export default function Login() {
           type="number"
           maxlength={11}
           placeholder={t('login.phonePlaceholder')}
-          value={phone}
-          onInput={(e) => setPhone(e.detail.value)}
+          value={accountValue}
+          onInput={onAccountInput}
         />
       </View>
 
@@ -175,8 +252,8 @@ export default function Login() {
             className="flex-1 h-[96rpx] text-[30rpx]"
             password
             placeholder={t('login.passwordPlaceholder')}
-            value={password}
-            onInput={(e) => setPassword(e.detail.value)}
+            value={form.password}
+            onInput={(e) => form.setPassword(e.detail.value)}
           />
         </View>
       ) : null}
@@ -194,7 +271,7 @@ export default function Login() {
         className={`h-[96rpx] mt-[24rpx] rounded-[48rpx] flex items-center justify-center text-white text-[32rpx] bg-primary ${
           isLogging ? 'opacity-60' : ''
         }`}
-        onClick={handleLogin}
+        onClick={handleLoginClick}
       >
         <Text>{isLogging ? t('login.logging') : t('login.login')}</Text>
       </View>
