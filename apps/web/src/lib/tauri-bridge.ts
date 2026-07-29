@@ -16,20 +16,16 @@ export { formatFileSize } from '@ihui/shared/utils/format'
 
 /** 判断当前是否在 Tauri 客户端运行(非浏览器环境)。
  *
- * 2026-07-26 用户反馈(第七次):标题栏和 3 个按钮不显示。
- * 根因:Tauri 2.x 的 `withGlobalTauri: true` 注入到 window 的是 `window.__TAURI__`
- *   (v1 兼容命名空间,@tauri-apps/api 全部 exports),**不**是 `window.__TAURI_INTERNALS__`。
- *   原 `isTauri()` 只检查 `__TAURI_INTERNALS__`,在静态导出 SSR/CSR 注入时机下永远返回 false,
- *   导致 MainShell 标题栏 `isDesktop && (...)` 永不渲染。
+ * Tauri 2.x 的 IPC 桥 `window.__TAURI_INTERNALS__` 在 webview 加载后注入(通常 100-500ms),
+ * 是 `@tauri-apps/api` 的 `invoke` 实际依赖的内部通道,与 `withGlobalTauri` 配置无关。
  *
- * 修复:同时检查两个标识符,任一存在即视为 Tauri 环境。
- * - `__TAURI__`:Tauri 2.x `withGlobalTauri: true` 注入的 v1 兼容命名空间(已验证)
- * - `__TAURI_INTERNALS__`:Tauri 2.x 内部 IPC 桥(无 `withGlobalTauri` 也存在,但暴露时机滞后)
- * 浏览器环境两者均不存在,isTauri() 稳定返回 false,无 hydration mismatch。
+ * 2026-07-29 安全加固:`withGlobalTauri` 已关闭(避免 XSS 直接调原生能力),
+ * `window.__TAURI__` 不再注入,只检查 `__TAURI_INTERNALS__` 即可。
+ * use-desktop.ts 用 50ms 轮询 + 3 秒超时兜底注入时机,不依赖 `__TAURI__` 早注入。
  */
 export function isTauri(): boolean {
   if (typeof window === 'undefined') return false
-  return '__TAURI__' in window || '__TAURI_INTERNALS__' in window
+  return '__TAURI_INTERNALS__' in window
 }
 
 /**
@@ -537,78 +533,29 @@ export async function resetWindowState(): Promise<void> {
   }
 }
 
-// ================== 会话历史持久化 ==================
-
-/** 持久化的消息记录(与 Rust StoredMessage 对齐)。 */
-export interface StoredMessage {
-  id: string
-  role: string
-  content: string
-}
-
-/** 会话摘要(列表项,不含消息内容)。 */
-export interface ConversationSummary {
-  id: string
-  title: string
-  createdAt: number
-  updatedAt: number
-  messageCount: number
-}
-
-/** 完整会话(含消息列表)。 */
-export interface Conversation {
-  id: string
-  title: string
-  createdAt: number
-  updatedAt: number
-  messages: StoredMessage[]
-}
-
-export interface ConversationListResult {
-  conversations: ConversationSummary[]
-  activeId: string | null
-}
-
-export interface ConversationLoadResult {
-  conversation: Conversation | null
-}
-
-/** 列出所有会话摘要 + 当前活跃会话 ID(按 updatedAt 倒序)。非 Tauri 环境返回空列表。 */
-export async function listConversations(): Promise<ConversationListResult> {
-  if (!isTauri()) return { conversations: [], activeId: null }
-  return await invoke<ConversationListResult>('list_conversations')
-}
-
-/** 加载指定会话完整消息列表(不存在返回 conversation=null)。非 Tauri 环境返回 null。 */
-export async function loadConversation(id: string): Promise<ConversationLoadResult> {
-  if (!isTauri()) return { conversation: null }
-  return await invoke<ConversationLoadResult>('load_conversation', { id })
+/**
+ * 清理 WebView2 缓存(Windows:EBWebView 目录,2026-07-29 #6 立)。
+ * prod 模式下该目录会无限增长(可达数百 MB),供前端设置项"清理缓存"调用。
+ * 清理后建议重启应用。
+ * @returns { ok: boolean } 非桌面端静默返回 { ok: false }
+ */
+export async function clearWebViewCache(): Promise<OkResult> {
+  if (!isTauri()) return { ok: false }
+  return await invoke<OkResult>('clear_webview_cache')
 }
 
 /**
- * 保存/更新会话(id 已存在则覆盖,否则新增)。
- * 自动设为活跃会话。最多保留 50 条(超限时按 updatedAt 截断最早的)。
- * 非 Tauri 环境静默忽略(无法持久化)。
+ * 设置托盘状态(2026-07-29 #10):切换 tooltip 表示新消息/AI 思考中。
+ * @param status 'idle' | 'new_message' | 'thinking'
+ * 非桌面端静默忽略。
  */
-export async function saveConversation(
-  id: string,
-  title: string,
-  messages: StoredMessage[],
-): Promise<void> {
+export async function setTrayStatus(status: 'idle' | 'new_message' | 'thinking'): Promise<void> {
   if (!isTauri()) return
-  await invoke('save_conversation', { id, title, messages })
-}
-
-/** 删除指定会话。若被删的是活跃会话,activeId 也一并清除。 */
-export async function deleteConversation(id: string): Promise<void> {
-  if (!isTauri()) return
-  await invoke('delete_conversation', { id })
-}
-
-/** 设置当前活跃会话 ID(null 表示清除活跃会话)。 */
-export async function setActiveConversation(id: string | null): Promise<void> {
-  if (!isTauri()) return
-  await invoke('set_active_conversation', { id })
+  try {
+    await invoke('set_tray_status', { status })
+  } catch {
+    // 非桌面端或 tray 未初始化,静默忽略
+  }
 }
 
 // ================== Computer Control ==================
