@@ -1286,7 +1286,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ### 阶段 4:极限收尾(长期 2-3 月,预期 2.0x → 1.7x)
 
 - [ ] P3-4.1 Tauri 2 替代 Electron 评估 PoC — 最小功能集 PoC(shell ≤ 10MB),或附不可行性报告保留 Electron
-- [ ] P3-4.2 packages/shared 抽离所有跨端业务逻辑 — hooks / utils / types 全部下沉,各端 re-export(进行中:批次 1-3 已完成 20 文件 ~2100 行下沉,5.43x→5.32x,commit 5ffaf02a8;剩余 18 文件部分可下沉 ~1590 行 + web 端共享组件化改造待后续批次)
+- [ ] P3-4.2 packages/shared 抽离所有跨端业务逻辑 — hooks / utils / types 全部下沉,各端 re-export(进行中:批次 1-3 已完成 20 文件 ~2100 行下沉,5.43x→5.32x,commit 5ffaf02a8;批次 4 登录场景跨端共享已完成 — 新增 `useLoginForm` hook 依赖注入式设计,web/mobile-rn/miniapp-taro 三端接入消除登录逻辑冗余,commit d8d0abdcb1;剩余 18 文件部分可下沉 ~1590 行 + web 端共享组件化改造待后续批次)
 - [ ] P3-4.3 Server-Driven UI 用于营销页/首页 feed — 局部增强,JSON schema 驱动,不作整体架构
 - [ ] P3-4.4 阶段 4 全端验证 — 跨端共享代码行占比 ≥ 65% + Desktop Tauri 2 shell ≤ 10MB + 全端全绿 + cloc 降本至 ≤ 1.7x
 
