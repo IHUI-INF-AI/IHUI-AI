@@ -1,10 +1,26 @@
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import { useState, useEffect, useCallback } from 'react'
 import type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps } from '@ihui/types'
+import './TitleSwitchTypeBar.css'
 
 // 共享类型 TitleSwitchTypeBarItem / TitleSwitchTypeBarProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
 export type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps }
+
+/**
+ * 扩展 props:在共享 TitleSwitchTypeBarProps 基础上新增 multi/single 模式专用受控值与回调。
+ * 不修改 packages/types(共享层),仅在本端局部扩展。
+ */
+export interface TitleSwitchTypeBarExtendedProps extends TitleSwitchTypeBarProps {
+  /** multi 模式当前选中的 id 列表(受控) */
+  selectedItems?: string[]
+  /** multi 模式选中变化回调 */
+  onMultiChange?: (ids: string[]) => void
+  /** single 模式当前选中 id(受控,与 value 等价,优先级高于 value) */
+  selectedValue?: string
+  /** single 模式选中变化回调 */
+  onSingleChange?: (id: string) => void
+}
 
 const DEFAULT_TABS: TitleSwitchTypeBarItem[] = [
   { id: '1', name: '文案' },
@@ -14,24 +30,32 @@ const DEFAULT_TABS: TitleSwitchTypeBarItem[] = [
 
 /**
  * 类型栏标题切换(对标旧项目 title-switch/type_bar.vue + single.vue)
- * - mode='multi'(默认,对齐 'tab' 行为):横向滚动多选标签(可选"全部"开关 + "自定义"添加弹窗),onChange(ids[])
- * - mode='single'(对齐 'single' 行为):单选模式,选中项触发 onChange([id]),value 可受控
  *
- * 注:旧项目 mounted 时调用 `category('0')` 拉取后端分类。
- * 新项目无等价 API,这里保留默认列表 + 占位 fetchCategory 钩子,
- * 父组件可通过 props.mainList 注入(本组件未对外暴露以免超出范围)。
+ * 双模式:
+ * - mode='single'(默认,对齐 single.vue):单选,点击新项替换选中,点击已选项不变。
+ *   受控值:selectedValue(优先)或 value(兼容);回调:onSingleChange + onChange。
+ * - mode='multi'(对齐 tab.vue):多选 toggle,可选"全部"开关 + "自定义"添加弹窗。
+ *   受控值:selectedItems;回调:onMultiChange + onChange。
+ *
+ * 视觉对齐:
+ * - 间距/圆角/字体大小:height 44rpx、padding 0 8rpx、margin-right 6rpx、radius 8rpx、font-weight bold。
+ * - 颜色:用 CSS 变量 var(--color-*),选中项主色高亮,未选中灰底。
+ * - multi 选中态额外显示勾选图标。
  */
 export default function TitleSwitchTypeBar({
   showAll = false,
   customize = false,
-  mode = 'multi',
+  mode = 'single',
   value,
+  selectedValue,
+  selectedItems,
   mainList,
   onChange,
-}: TitleSwitchTypeBarProps) {
+  onMultiChange,
+  onSingleChange,
+}: TitleSwitchTypeBarExtendedProps) {
   const [tabList, setTabList] = useState<TitleSwitchTypeBarItem[]>(mainList ?? DEFAULT_TABS)
   const [tabValue, setTabValue] = useState<TitleSwitchTypeBarItem[]>([])
-  const [all, setAll] = useState(true)
   const [addType, setAddType] = useState(false)
   const [customValue, setCustomValue] = useState('')
 
@@ -40,49 +64,69 @@ export default function TitleSwitchTypeBar({
     if (mainList && mainList.length > 0) setTabList(mainList)
   }, [mainList])
 
-  // single 模式:value 变化时同步选中项
+  // single 模式:selectedValue 或 value 变化时同步选中项(不触发回调,避免循环)
   useEffect(() => {
-    if (mode !== 'single' || !value) return
-    const found = tabList.find((it) => it.id === value)
+    if (mode !== 'single') return
+    const id = selectedValue ?? value
+    if (!id) return
+    const found = tabList.find((it) => it.id === id)
     if (found) {
-      setTabValue([found])
-      onChange?.([found.id])
+      setTabValue((prev) => (prev.length === 1 && prev[0]?.id === found.id ? prev : [found]))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, mode])
+  }, [selectedValue, value, mode])
 
+  // multi 模式:selectedItems 变化时同步选中项(不触发回调,避免循环)
   useEffect(() => {
-    if (mode === 'single') {
-      // single 模式不显示"全部"按钮逻辑
-      onChange?.(tabValue.map((i) => i.id))
-      return
-    }
-    if (tabValue.length > 0 && showAll) setAll(false)
-    if (tabValue.length === 0) setAll(true)
-    onChange?.(tabValue.map((i) => i.id))
-  }, [tabValue, showAll, onChange, mode])
-
-  const select = useCallback((item: TitleSwitchTypeBarItem) => {
+    if (mode !== 'multi' || !selectedItems) return
+    const items = selectedItems
+      .map((id) => tabList.find((it) => it.id === id))
+      .filter((it): it is TitleSwitchTypeBarItem => Boolean(it))
     setTabValue((prev) => {
-      const idx = prev.findIndex((it) => it.id === item.id)
-      if (mode === 'single') {
-        // 单选模式:点击已选中项不变,点击新项替换
-        if (idx >= 0) return prev
-        return [item]
-      }
-      // 多选模式:toggle
-      if (idx >= 0) return prev.filter((_, i) => i !== idx)
-      return [...prev, item]
+      const sameIds = prev.length === items.length && prev.every((it, i) => it.id === items[i]?.id)
+      return sameIds ? prev : items
     })
-  }, [mode])
+  }, [selectedItems, mode])
 
+  // 派发选中变化回调(仅在用户交互时调用,不在外部同步时调用)
+  const dispatchChange = useCallback(
+    (next: TitleSwitchTypeBarItem[]) => {
+      const ids = next.map((i) => i.id)
+      if (mode === 'single') {
+        onSingleChange?.(ids[0] ?? '')
+        onChange?.(ids)
+      } else {
+        onMultiChange?.(ids)
+        onChange?.(ids)
+      }
+    },
+    [mode, onChange, onMultiChange, onSingleChange],
+  )
+
+  const select = useCallback(
+    (item: TitleSwitchTypeBarItem) => {
+      const idx = tabValue.findIndex((it) => it.id === item.id)
+      let next: TitleSwitchTypeBarItem[]
+      if (mode === 'single') {
+        // 单选模式:点击已选中项不变(对齐 single.vue),点击新项替换
+        if (idx >= 0) return
+        next = [item]
+      } else {
+        // 多选模式:toggle(对齐 tab.vue)
+        if (idx >= 0) next = tabValue.filter((_, i) => i !== idx)
+        else next = [...tabValue, item]
+      }
+      setTabValue(next)
+      dispatchChange(next)
+    },
+    [tabValue, mode, dispatchChange],
+  )
+
+  // "全部"按钮:仅 multi 模式,点击清空选中
   const selectAllTab = useCallback(() => {
-    setAll((a) => {
-      const next = !a
-      if (next) setTabValue([])
-      return next
-    })
-  }, [])
+    if (tabValue.length === 0) return
+    setTabValue([])
+    dispatchChange([])
+  }, [tabValue, dispatchChange])
 
   const add = useCallback(() => {
     if (customValue) {
@@ -94,27 +138,29 @@ export default function TitleSwitchTypeBar({
         butUrl: '/static/images/szdy_20250816161421A290.png',
       }
       setTabList((prev) => [item, ...prev])
-      setTabValue((prev) => mode === 'single' ? [item] : [...prev, item])
+      const next: TitleSwitchTypeBarItem[] = mode === 'single' ? [item] : [...tabValue, item]
+      setTabValue(next)
+      dispatchChange(next)
     }
     setAddType(false)
     setCustomValue('')
-  }, [customValue, mode])
+  }, [customValue, tabValue, mode, dispatchChange])
+
+  // "全部"按钮激活态:multi 模式 + 无选中项
+  const all = showAll && mode === 'multi' && tabValue.length === 0
+  const isActive = (id: string): boolean => tabValue.some((it) => it.id === id)
 
   return (
     <ScrollView scrollX className="w-full">
-      <View className="flex items-center box-border w-full py-[36rpx] pl-[20rpx]">
+      <View className="title-switch-type-bar__list">
         {/* "全部"按钮:仅 multi 模式 + showAll 显示 */}
         {showAll && mode === 'multi' ? (
           <View
-            className={`flex items-center justify-center h-[88rpx] px-[16rpx] rounded-[16rpx] font-bold text-[52rpx] mr-[32rpx] whitespace-nowrap ${
-              all
-                ? 'text-black bg-[rgba(205,208,255,0.6)] shadow-[0_0_2px_0_rgba(0,0,0,0.3)]'
-                : 'text-[rgba(0,0,0,0.3)]'
-            }`}
+            className={`title-switch-type-bar__item${all ? ' title-switch-type-bar__item--active' : ''}`}
             onClick={selectAllTab}
           >
             <Image
-              className="w-[92rpx] h-[92rpx] mr-[8rpx]"
+              className="title-switch-type-bar__icon"
               src={
                 all
                   ? '/static/images/sqb_20250816161049A277.png'
@@ -124,69 +170,62 @@ export default function TitleSwitchTypeBar({
             <Text>全部</Text>
           </View>
         ) : null}
-        {/* TODO: custom color: #e0e8ff 选中标签浅蓝边框,无对应 token,保留原值 */}
+
         {tabList.map((item) => {
-          const selected = tabValue.some((it) => it.id === item.id)
+          const selected = isActive(item.id)
           return (
             <View
               key={item.id}
-              className={`flex items-center justify-center h-[88rpx] px-[16rpx] rounded-[16rpx] font-bold text-[52rpx] mr-[32rpx] whitespace-nowrap ${
-                selected
-                  ? 'text-black bg-[rgba(248,249,252,0.65)] border border-[#e0e8ff] shadow-[0_1px_3px_rgba(0,0,0,0.06)]'
-                  : 'text-[rgba(0,0,0,0.3)]'
-              }`}
+              className={`title-switch-type-bar__item${selected ? ' title-switch-type-bar__item--active' : ''}`}
               onClick={() => select(item)}
             >
               {selected && item.butUrl ? (
-                <Image className="w-[92rpx] h-[92rpx] mr-[8rpx]" src={item.butUrl} />
+                <Image className="title-switch-type-bar__icon" src={item.butUrl} />
               ) : item.field1 ? (
-                <Image className="w-[92rpx] h-[92rpx] mr-[8rpx]" src={item.field1} />
+                <Image className="title-switch-type-bar__icon" src={item.field1} />
               ) : null}
               <Text>{item.name}</Text>
+              {/* multi 模式选中态:勾选图标 */}
+              {mode === 'multi' && selected ? (
+                <Text className="title-switch-type-bar__check">✓</Text>
+              ) : null}
             </View>
           )
         })}
+
         {/* "自定义"按钮:仅 multi 模式 + customize 显示 */}
         {customize && mode === 'multi' ? (
           <View
-            className={`flex items-center justify-center h-[88rpx] px-[16rpx] rounded-[16rpx] font-bold text-[52rpx] mr-[32rpx] whitespace-nowrap ${
-              addType
-                ? 'text-black bg-[rgba(205,208,255,0.6)] shadow-[0_0_2px_0_rgba(0,0,0,0.3)]'
-                : 'text-[rgba(0,0,0,0.3)]'
-            }`}
+            className={`title-switch-type-bar__item${addType ? ' title-switch-type-bar__item--active' : ''}`}
             onClick={() => setAddType(true)}
           >
             <Image
-              className="w-[92rpx] h-[92rpx] mr-[8rpx]"
+              className="title-switch-type-bar__icon"
               src="/static/images/szdy_20250816161421A290.png"
             />
             <Text>自定义</Text>
           </View>
         ) : null}
       </View>
+
+      {/* 自定义弹窗遮罩 */}
       {addType ? (
-        <View
-          className="fixed inset-0 z-[990] bg-[rgba(0,0,0,0.3)]"
-          onClick={() => setAddType(false)}
-        />
+        <View className="title-switch-type-bar__mask" onClick={() => setAddType(false)} />
       ) : null}
+
+      {/* 自定义弹窗 */}
       {addType ? (
-        <View className="fixed inset-0 m-auto z-[996] w-[854rpx] h-[606rpx] rounded-[40rpx] bg-white border border-border box-border flex flex-col items-center justify-center">
-          <Text className="text-[48rpx] font-bold text-foreground mb-[100rpx]">
-            请设置自定义种类
-          </Text>
+        <View className="title-switch-type-bar__modal">
+          <Text className="title-switch-type-bar__modal-title">请设置自定义种类</Text>
           <Input
-            className="w-[642rpx] h-[98rpx] border border-border rounded-[16rpx] mb-[100rpx] text-[40rpx] text-muted-foreground px-[24rpx]"
+            className="title-switch-type-bar__modal-input"
             type="text"
             maxlength={4}
             placeholder="请输入种类"
             value={customValue}
             onInput={(e) => setCustomValue(e.detail.value)}
           />
-          <View
-            className="w-[200rpx] h-[96rpx] flex items-center justify-center text-[48rpx] font-bold text-black bg-[rgba(205,208,255,0.6)] rounded-[16rpx]"
-            onClick={add}
-          >
+          <View className="title-switch-type-bar__modal-btn" onClick={add}>
             <Text>确定</Text>
           </View>
         </View>
