@@ -275,6 +275,11 @@ async def _resolve_from_db(
         real_model = model.split("/", 1)[1] if "/" in model else model
         if api_format == "anthropic_messages":
             litellm_model = model if "/" in model else f"anthropic/{model}"
+        elif provider_code == "openrouter":
+            # P0-5m(2026-07-30):OpenRouter 需要走 LiteLLM 原生 openrouter/ 路由,
+            # 不能转成 openai/(否则 LiteLLM 走 OpenAI 路由不传 Auth header)。
+            # model 已含 openrouter/ 前缀(如 openrouter/deepseek/deepseek-v4-pro),原样返回。
+            litellm_model = model
         else:
             litellm_model = f"openai/{real_model}"
         return api_key, base_url, litellm_model
