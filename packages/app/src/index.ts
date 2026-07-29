@@ -23,6 +23,9 @@ export { RefundHistoryScreen } from './features/refund-history/RefundHistoryScre
 export { CourseQAListScreen } from './features/course-qa-list/CourseQAListScreen'
 export { HelpDetailScreen } from './features/help-detail/HelpDetailScreen'
 export { ArticleDetailScreen } from './features/article-detail/ArticleDetailScreen'
+export { AnnouncementDetailScreen } from './features/announcement-detail/AnnouncementDetailScreen'
+export { LegalDocScreen } from './features/legal-doc/LegalDocScreen'
+export { HelpScreen } from './features/help/HelpScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -106,4 +109,10 @@ export type {
   HelpDetailScreenProps,
   ArticleDetailItem,
   ArticleDetailScreenProps,
+  AnnouncementDetailItem,
+  AnnouncementDetailScreenProps,
+  LegalDocSection,
+  LegalDocScreenProps,
+  HelpListItem,
+  HelpScreenProps,
 } from './types'
