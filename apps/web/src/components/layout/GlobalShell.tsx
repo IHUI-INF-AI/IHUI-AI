@@ -56,15 +56,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // Sidebar 内部会再派生 desktop/mobile 两个 nav id,确保两个 <nav> 元素不会共享同一 id。
   const sidebarId = 'main-sidebar'
 
-  // AI 面板占位宽度(通过 CSS 变量 --ai-panel-occupy 控制,彻底消除首屏闪烁)。
-  // 链路:
-  // 1. layout.tsx 的 inline bootstrap script 在 React hydrate 前从 localStorage 读 ai-panel width,
-  //    预设 --ai-panel-occupy 到 documentElement,首帧 HTML 的 paddingLeft 就是持久化值
-  // 2. 下面的 useEffect 在组件 mount 后继续同步该 CSS 变量,跟随运行时 store 变化(用户拖拽/关闭)
-  // 3. work-area-portal-root 的 paddingLeft 用 var(--ai-panel-occupy, 408px),
-  //    React inline style 只声明 CSS 变量引用,不接管具体数值 → 无 hydration mismatch
-  // 之前方案:首帧用 store 默认值(408px),rehydrate 后跳到持久化值 → "先宽后窄"闪烁
-  // 本方案(2026-07-22):首帧就用持久化值(由 bootstrap script 预设),无跳变
+  // --ai-panel-occupy CSS 变量(2026-07-30 修订:不再用于 paddingLeft,仅供 WebWorkPanel 计算最大宽度)。
+  // 旧架构(已废弃):work-area-portal-root 用 padding-left:var(--ai-panel-occupy) 避让 fixed AISidePanel,
+  //   但 padding-left 压缩整个 work-area(包括 TagsView)→ 标签栏反复消失。
+  // 新架构:AISidePanel 移入 flex 流,自然占据空间,work-area-portal-root 无 padding-left。
+  //   --ai-panel-occupy 仍同步到 :root,供 WebWorkPanel 读取计算自身最大可用宽度。
   const mounted = useMounted()
   // 性能修复(2026-07-25):拆分为单字段 selector,避免订阅 isResizing/activeWorkspace
   // 等高频变化字段触发整棵路由树重渲染(原 `{ open, width } = useAiPanelStore()` 等价于全订阅)。
@@ -84,8 +80,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   useNativeShortcuts((id) => void dispatchMenuAction(id))
 
   // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
+  // +16:AI 面板右边缘与工作区卡片之间保留 16px 视觉间距(2026-07-30 用户反馈间距不足)
   React.useEffect(() => {
-    const occupy = aiOpen ? aiWidth + 8 : 0
+    const occupy = aiOpen ? aiWidth + 16 : 0
     document.documentElement.style.setProperty('--ai-panel-occupy', `${occupy}px`)
   }, [aiOpen, aiWidth])
 
@@ -145,16 +142,14 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* 2026-07-25 用户反馈重构布局:
-          - 旧版:NativeTopBar 全宽在顶 + 下方 row(Sidebar + Content + WebWorkPanel)
-            → Sidebar 上方留 40px 空(顶栏占的),视觉割裂
-          - 2026-07-26 用户反馈再次重构:
-              左列 = <Sidebar />                       全高(填满左上角空余)
-              右列 = <work-area-portal-root>           占据右列(包含 children = MainShell)
-                      + <WebWorkPanel />             右侧固定面板
-            NativeTopBar 已删除,TagsView + 窗口控制按钮由 MainShell 内部渲染,
-            严格匹配 main 同宽容器(rounded-xl my-2 mr-2),不会横跨到 WebWorkPanel。
-            桌面端快捷键(useNativeShortcuts)由 GlobalShell 全局监听,不依赖 NativeTopBar。 */}
+      {/* 布局结构(2026-07-30 彻底根治:AI 面板从 fixed 改为 flex 流内布局):
+          左列 = <Sidebar />                          全高侧边栏
+          右列 = <flex-row>                           横向排列
+                   <AISidePanel />                    AI 面板(flex item,open 时占 width px)
+                   <work-area-portal-root>            内容区(flex-1,含 MainShell = TagsView + 工作区卡片)
+                   <WebWorkPanel />                   右侧内置浏览器面板
+          TagsView + 窗口控制按钮由 MainShell 内部渲染,严格匹配 main 同宽容器。
+          AISidePanel 不再用 fixed 定位,改为 flex 子元素自然占空间,彻底消除 padding-left 压缩问题。 */}
       <div className="flex h-screen overflow-hidden">
         {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
         <React.Suspense fallback={null}>
@@ -167,34 +162,32 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           />
         </React.Suspense>
 
-        {/* 右列:内容区(work-area + WebWorkPanel 横向并列)
-            2026-07-26 修订:NativeTopBar 已删除,TagsView + 窗口控制按钮由 MainShell 内部渲染,
-            严格匹配 main 同宽容器(rounded-xl my-2 mr-2),不会横跨到 WebWorkPanel。
-            ⚠ 2026-07-26 用户反馈(第九次):此处必须用 flex-row,不能用 flex-col。
-              flex-col 会让 work-area-portal-root 和 WebWorkPanel 纵向堆叠,
-              由于 WebWorkPanel 没有 flex-1 限制,会展开到全部高度,把工作区完全覆盖,
-              表现:工作区高度塌缩为 0,WebWorkPanel 从上到下覆盖整个右列。
-              flex-row 才能让两者横向并列(work-area 在左,WebWorkPanel 在右),
-              工作区通过 flex-1 占满剩余宽度,WebWorkPanel 固定宽度在右。 */}
+        {/* 右列:flex-row 横向排列(AISidePanel + work-area + WebWorkPanel)
+            2026-07-30 彻底根治:AISidePanel 从 fixed 改为 flex 子元素,
+            不再需要 padding-left 避让,TagsView 永不被压缩。
+            flex-row 保证三者横向并列:AISidePanel(左,可折叠)→ work-area(flex-1)→ WebWorkPanel(右)。 */}
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
           {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
           {/*
+            AISidePanel(2026-07-30 彻底根治:从 fixed 改为 flex 流内布局)
+            - 旧架构根因:AISidePanel 用 fixed 定位 + work-area-portal-root 用 padding-left 避让,
+              padding-left 压缩整个 work-area(包括 TagsView),导致标签栏反复消失
+            - 新架构:AISidePanel 作为 flex-row 第一个子元素,open 时占 width px,close 时 width:0
+            - flex 布局保证 AISidePanel 与 work-area-portal-root 永不重叠,TagsView 永不被压缩
+            - --ai-panel-occupy CSS 变量仍同步到 :root(供 WebWorkPanel 计算最大可用宽度)
+          */}
+          <React.Suspense fallback={null}>
+            <AISidePanel />
+          </React.Suspense>
+          {/*
             work-area-portal-root:作为 TagsView 搜索弹层(TagsViewSearchButton) 的 portal 目标。
-            原本只在 MainShell 中存在(仅 (main) 路由可用),现在提升到 GlobalShell,
-            让所有路由都能正确渲染搜索弹层。
-            overflow-hidden 用于裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%),
-            形成从顶部边缘"向下滑出"的视觉效果。
+            overflow-hidden 裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%)。
             flex-1 min-h-0 让内容区在 flex 容器中正确填充并允许子元素滚动。
-            padding-left 由本组件直接计算(见上方 aiPanelOccupy),避让 fixed 定位的 AISidePanel,
-            避免 AISidePanel(紧贴 Sidebar 右侧)覆盖内容区(2026-07-20 修复"重叠"问题)。
-            占位规则:
-            - AI 面板展开:occupy = width + 8(面板宽度 + 右侧 8px 间距)
-            - AI 面板收起:occupy = 0(仅渲染 width:0 的拖拽手柄,不占视觉空间)
+            不再有 padding-left(AISidePanel 已移入 flex 流,自然占据空间)。
           */}
           <div
             id="work-area-portal-root"
-            className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-200 ease-out"
-            style={{ paddingLeft: 'var(--ai-panel-occupy, 0px)' }}
+            className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
           >
             {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
             <Button
@@ -214,13 +207,6 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           <WebWorkPanel />
         </div>
       </div>
-      {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压内容区宽度。
-          定位样式 left:var(--sidebar-width) 由 Sidebar 同步到 :root,紧贴 Sidebar 右侧。
-          z-sticky(990, 引用 --z-sticky):高于内容层,低于 modal/PWA 提示层(z-modal 2000)。
-          若 AI 面板 z-index 调到 ≥ 1000,登录/客服等弹框会被 AI 面板遮住。 */}
-      <React.Suspense fallback={null}>
-        <AISidePanel />
-      </React.Suspense>
       {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
         <div className="pointer-events-auto">
