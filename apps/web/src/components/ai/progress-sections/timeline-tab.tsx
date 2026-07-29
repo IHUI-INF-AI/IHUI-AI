@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { MessageSquare, ListTree, Search, X, Download, Check } from 'lucide-react'
+import { MessageSquare, ListTree, Search, X, Download, Check, Inbox, FilterX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import {
@@ -244,13 +244,21 @@ export const TimelineTab = React.memo(function TimelineTab({
     if (events.length === 0) {
       return (
         <div
-          className={cn(
-            'flex items-center justify-center py-4 text-[10px] text-muted-foreground/60',
-            className,
-          )}
+          className={cn('flex flex-col items-center gap-2 py-8 text-center', className)}
           data-testid={testId ?? 'timeline-events'}
         >
-          {emptyText}
+          <div
+            className="flex flex-col items-center gap-2"
+            data-testid="timeline-empty-state"
+          >
+            <div className="rounded-md bg-muted/30 p-3">
+              <Inbox className="h-6 w-6 text-muted-foreground/40" aria-hidden />
+            </div>
+            <p className="text-xs text-muted-foreground">{emptyText}</p>
+            <p className="text-[10px] text-muted-foreground/60">
+              {safeT(t, 'timelineEmptyHint', '发送消息后,Timeline 将显示 AI 执行事件')}
+            </p>
+          </div>
         </div>
       )
     }
@@ -447,19 +455,38 @@ export const TimelineTab = React.memo(function TimelineTab({
           </div>
         ) : events.length === 0 ? (
           <div
-            className="flex items-center justify-center py-4 text-[10px] text-muted-foreground/60"
+            className="flex flex-col items-center gap-2 py-8 text-center"
             data-testid="timeline-empty"
           >
-            {emptyText}
+            <div
+              className="flex flex-col items-center gap-2"
+              data-testid="timeline-empty-state"
+            >
+              <div className="rounded-md bg-muted/30 p-3">
+                <Inbox className="h-6 w-6 text-muted-foreground/40" aria-hidden />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {safeT(t, 'timelineEmptyTitle', emptyText)}
+              </p>
+              <p className="text-[10px] text-muted-foreground/60">
+                {safeT(t, 'timelineEmptyHint', '发送消息后,Timeline 将显示 AI 执行事件')}
+              </p>
+            </div>
           </div>
         ) : filteredEvents.length === 0 ? (
           <div
-            className="flex flex-col items-center gap-1 px-2 py-4 text-center"
+            className="flex flex-col items-center gap-2 px-2 py-8 text-center"
             data-testid="timeline-no-match"
           >
-            <span className="text-[10px] text-muted-foreground/60">
-              {safeT(t, 'timelineNoMatch', 'No events match the current filter')}
-            </span>
+            <div
+              className="flex flex-col items-center gap-1"
+              data-testid="timeline-filter-empty"
+            >
+              <FilterX className="h-5 w-5 text-muted-foreground/40" aria-hidden />
+              <p className="text-xs text-muted-foreground">
+                {safeT(t, 'timelineFilterEmpty', '该类型暂无事件')}
+              </p>
+            </div>
             {hasFilterActive && (
               <button
                 type="button"
