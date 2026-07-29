@@ -5,7 +5,13 @@
  * - ihui-remember-credentials: 记住密码(账号+密码)
  * - ihui-auto-login: 自动登录标志
  * - ihui-login-history: 账号历史列表(最多 5 个,不含密码)
+ *
+ * 跨端契约对齐(2026-07-29):新增 `credentialStorage` 对象实现
+ * `@ihui/shared/hooks` 的 `CredentialStorage` 接口,供 useLoginForm 注入使用。
+ * 保留所有现有函数式 API 以向后兼容 web 端既有调用方。
  */
+
+import type { CredentialStorage } from '@ihui/shared/hooks'
 
 const CREDENTIALS_KEY = 'ihui-remember-credentials'
 const AUTO_LOGIN_KEY = 'ihui-auto-login'
@@ -130,4 +136,22 @@ export function removeFromLoginHistory(account: string): string[] {
   } catch {
     return loadLoginHistory()
   }
+}
+
+/* ========== 跨端共享 storage 接口实现(2026-07-29) ========== */
+//
+// 包装现有函数式 API 为 `CredentialStorage` 接口对象,供
+// `@ihui/shared/hooks` 的 `useLoginForm({ storage })` 注入使用。
+// 接口仅覆盖登录流程需要的 7 个方法(loadLoginHistory /
+// clearLoginHistory / removeFromLoginHistory 仍走原函数式 API,
+// AccountHistoryInput 等组件继续直接调用,不受影响)。
+
+export const credentialStorage: CredentialStorage = {
+  loadRemembered: loadRememberedCredentials,
+  saveRemembered: saveRememberedCredentials,
+  clearRemembered: clearRememberedCredentials,
+  loadAutoLogin,
+  saveAutoLogin,
+  clearAutoLogin,
+  saveLoginHistory,
 }

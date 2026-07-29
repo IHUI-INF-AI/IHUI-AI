@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
-use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent, TrayIconId};
+use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
 use base64::Engine;
@@ -57,29 +57,68 @@ struct ClipboardResult {
 }
 
 /// 检测系统 UI 语言是否为中文(Windows: GetUserDefaultUILanguage)。
+/// 支持的语言代码(与 web 端 i18n 5 语言对齐:zh-CN/zh-TW/ko/ja/en)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AppLocale {
+    ZhCn,
+    ZhTw,
+    Ko,
+    Ja,
+    En,
+}
+
 #[cfg(windows)]
-fn is_chinese_locale() -> bool {
-    use winapi::um::winnls::GetUserDefaultUILanguage;
-    let lang_id = unsafe { GetUserDefaultUILanguage() };
-    // 中文主语言 ID = 0x04(涵盖 zh-CN/zh-TW/zh-HK/zh-SG/zh-MO)
-    let primary_lang = lang_id & 0x3FF;
-    primary_lang == 0x04
-}
-
-/// 检测系统 UI 语言是否为中文(非 Windows: LANG 环境变量)。
-#[cfg(not(windows))]
-fn is_chinese_locale() -> bool {
-    std::env::var("LANG")
-        .map(|lang| lang.to_lowercase().starts_with("zh"))
-        .unwrap_or(false)
-}
-
-/// 根据系统 UI 语言返回本地化应用名称:中文 → 智汇AI,其他 → IHUI AI。
-fn localized_app_name() -> &'static str {
-    if is_chinese_locale() {
-        "智汇AI"
+fn get_system_locale() -> AppLocale {
+    use winapi::um::winnls::GetUserDefaultLocaleName;
+    let mut buf = [0u16; 85]; // LOCALE_NAME_MAX_LENGTH
+    let len = unsafe { GetUserDefaultLocaleName(buf.as_mut_ptr(), buf.len() as i32) };
+    if len <= 0 {
+        return AppLocale::En;
+    }
+    let locale: String = String::from_utf16_lossy(&buf[..len as usize - 1])
+        .to_lowercase()
+        .replace('-', "-");
+    // 精确匹配 5 语言,其他降级为 En
+    if locale.starts_with("zh-cn") || locale.starts_with("zh-sg") || locale.starts_with("zh-hans") {
+        AppLocale::ZhCn
+    } else if locale.starts_with("zh-tw") || locale.starts_with("zh-hk") || locale.starts_with("zh-mo") || locale.starts_with("zh-hant") {
+        AppLocale::ZhTw
+    } else if locale.starts_with("ko") {
+        AppLocale::Ko
+    } else if locale.starts_with("ja") {
+        AppLocale::Ja
     } else {
-        "IHUI AI"
+        AppLocale::En
+    }
+}
+
+/// 检测系统 UI 语言(非 Windows: LANG 环境变量)。
+#[cfg(not(windows))]
+fn get_system_locale() -> AppLocale {
+    let locale = std::env::var("LANG")
+        .unwrap_or_default()
+        .to_lowercase()
+        .replace('_', "-");
+    if locale.starts_with("zh-cn") || locale.starts_with("zh-sg") || locale.starts_with("zh-hans") {
+        AppLocale::ZhCn
+    } else if locale.starts_with("zh-tw") || locale.starts_with("zh-hk") || locale.starts_with("zh-hant") {
+        AppLocale::ZhTw
+    } else if locale.starts_with("ko") {
+        AppLocale::Ko
+    } else if locale.starts_with("ja") {
+        AppLocale::Ja
+    } else {
+        AppLocale::En
+    }
+}
+
+/// 根据系统 UI 语言返回本地化应用名称:中文(简/繁)→ 智汇AI,其他 → IHUI AI。
+fn localized_app_name() -> &'static str {
+    match get_system_locale() {
+        AppLocale::ZhCn | AppLocale::ZhTw => "智汇AI",
+        AppLocale::Ko => "IHUI AI",
+        AppLocale::Ja => "IHUI AI",
+        AppLocale::En => "IHUI AI",
     }
 }
 
@@ -223,31 +262,62 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// 返回托盘菜单三项的本地化文案(中文系统 → 中文,其他 → 英文)。
-/// 2026-07-27 立:配合 AGENTS.md §19 i18n 约束,避免 ko/ja/en 用户看到中文菜单。
-fn tray_menu_labels() -> (&'static str, &'static str, &'static str) {
-    if is_chinese_locale() {
-        ("显示主窗口", "隐藏主窗口", "退出")
-    } else {
-        ("Show Main Window", "Hide Main Window", "Quit")
+/// 返回托盘菜单 7 项的本地化文案(5 语言全配,与 web 端 i18n 对齐)。
+/// 2026-07-29 扩充:新增对话/切换主题/打开设置/检查更新,emit 事件给前端处理。
+fn tray_menu_labels() -> [&'static str; 7] {
+    match get_system_locale() {
+        AppLocale::ZhCn => [
+            "新建对话", "显示主窗口", "隐藏主窗口", "切换主题", "打开设置", "检查更新", "退出",
+        ],
+        AppLocale::ZhTw => [
+            "新建對話", "顯示主視窗", "隱藏主視窗", "切換主題", "開啟設定", "檢查更新", "結束",
+        ],
+        AppLocale::Ko => [
+            "새 대화", "메인 창 표시", "메인 창 숨기기", "테마 전환", "설정 열기", "업데이트 확인", "종료",
+        ],
+        AppLocale::Ja => [
+            "新規会話", "メインウィンドウを表示", "メインウィンドウを隠す", "テーマ切替", "設定を開く", "更新確認", "終了",
+        ],
+        AppLocale::En => [
+            "New Chat", "Show Main Window", "Hide Main Window", "Toggle Theme", "Open Settings", "Check for Updates", "Quit",
+        ],
     }
 }
 
-/// 构建系统托盘(显示主窗口 / 隐藏主窗口 / 退出)+ 双击托盘唤起。
+/// 构建系统托盘(7 项菜单:新建对话/显示/隐藏/切换主题/设置/检查更新/退出)+ 双击托盘唤起。
+/// 2026-07-29 扩充:emit 事件给前端处理业务逻辑(新建对话/主题/设置),检查更新调 updater。
 fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
-    let (show_text, hide_text, quit_text) = tray_menu_labels();
-    let show_item = MenuItemBuilder::with_id("tray.show", show_text)
+    let labels = tray_menu_labels();
+    let new_chat_item = MenuItemBuilder::with_id("tray.new_chat", labels[0])
         .build(app)
         .map_err(|e| e.to_string())?;
-    let hide_item = MenuItemBuilder::with_id("tray.hide", hide_text)
+    let show_item = MenuItemBuilder::with_id("tray.show", labels[1])
         .build(app)
         .map_err(|e| e.to_string())?;
-    let quit_item = MenuItemBuilder::with_id("tray.quit", quit_text)
+    let hide_item = MenuItemBuilder::with_id("tray.hide", labels[2])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let theme_item = MenuItemBuilder::with_id("tray.theme", labels[3])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let settings_item = MenuItemBuilder::with_id("tray.settings", labels[4])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let update_item = MenuItemBuilder::with_id("tray.update", labels[5])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let quit_item = MenuItemBuilder::with_id("tray.quit", labels[6])
         .build(app)
         .map_err(|e| e.to_string())?;
     let menu = MenuBuilder::new(app)
+        .item(&new_chat_item)
+        .separator()
         .item(&show_item)
         .item(&hide_item)
+        .separator()
+        .item(&theme_item)
+        .item(&settings_item)
+        .item(&update_item)
         .separator()
         .item(&quit_item)
         .build()
@@ -257,11 +327,19 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .default_window_icon()
         .cloned()
         .ok_or_else(|| "no default window icon".to_string())?;
-    TrayIconBuilder::new()
+    TrayIconBuilder::with_id(TrayIconId::new("main"))
         .icon(icon)
         .tooltip(localized_app_name())
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray.new_chat" => {
+                // emit 事件给前端,前端处理新建对话(切到 /agents + 重置 chat store)
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "new_chat");
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
             "tray.show" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
@@ -271,6 +349,30 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.hide" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
+                }
+            }
+            "tray.theme" => {
+                // emit 事件给前端,前端切换主题(light/dark)
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "toggle_theme");
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "tray.settings" => {
+                // emit 事件给前端,前端跳转 /settings
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "open_settings");
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "tray.update" => {
+                // emit 事件给前端,前端调 updater plugin 检查更新(带 UI 反馈)
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "check_update");
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
             }
             "tray.quit" => {
@@ -853,164 +955,70 @@ fn reset_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<Ok
     Ok(OkResult { ok: true })
 }
 
-// ================== 会话历史持久化 ==================
-
-const CONVERSATION_STORE_FILE: &str = "conversations.json";
-const KEY_CONVERSATIONS: &str = "conversations";
-const KEY_ACTIVE_CONV: &str = "activeConversationId";
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct StoredMessage {
-    id: String,
-    role: String,
-    content: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct ConversationSummary {
-    id: String,
-    title: String,
-    created_at: i64,
-    updated_at: i64,
-    message_count: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Conversation {
-    id: String,
-    title: String,
-    created_at: i64,
-    updated_at: i64,
-    messages: Vec<StoredMessage>,
-}
-
-#[derive(Serialize)]
-struct ConversationListResult {
-    conversations: Vec<ConversationSummary>,
-    active_id: Option<String>,
-}
-
-#[derive(Serialize)]
-struct ConversationLoadResult {
-    conversation: Option<Conversation>,
-}
-
-/// 列出所有会话摘要 + 当前活跃会话 ID(按 updated_at 倒序)。
+/// 清理 WebView2 缓存(Windows)。
+/// 2026-07-29 #6:prod 模式 EBWebView 目录会无限增长(几个月可达数百 MB),
+/// 供前端设置项"清理缓存"调用。清理后建议重启应用。
 #[tauri::command]
-fn list_conversations(app: tauri::AppHandle) -> Result<ConversationListResult, String> {
-    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
-    let active_id = store
-        .get(KEY_ACTIVE_CONV)
-        .and_then(|v| v.as_str().map(|s| s.to_string()));
-    let conversations: Vec<Conversation> = store
-        .get(KEY_CONVERSATIONS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
-    let mut summaries: Vec<ConversationSummary> = conversations
-        .iter()
-        .map(|c| ConversationSummary {
-            id: c.id.clone(),
-            title: c.title.clone(),
-            created_at: c.created_at,
-            updated_at: c.updated_at,
-            message_count: c.messages.len(),
-        })
-        .collect();
-    summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-    Ok(ConversationListResult {
-        conversations: summaries,
-        active_id,
-    })
-}
-
-/// 加载指定会话的完整消息列表。
-#[tauri::command]
-fn load_conversation(app: tauri::AppHandle, id: String) -> Result<ConversationLoadResult, String> {
-    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
-    let conversations: Vec<Conversation> = store
-        .get(KEY_CONVERSATIONS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
-    let conversation = conversations.into_iter().find(|c| c.id == id);
-    Ok(ConversationLoadResult { conversation })
-}
-
-/// 保存/更新会话(id 已存在则覆盖,否则新增)。限制最多 50 个会话。
-#[tauri::command]
-fn save_conversation(
-    app: tauri::AppHandle,
-    id: String,
-    title: String,
-    messages: Vec<StoredMessage>,
-) -> Result<OkResult, String> {
-    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
-    let mut conversations: Vec<Conversation> = store
-        .get(KEY_CONVERSATIONS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    if let Some(existing) = conversations.iter_mut().find(|c| c.id == id) {
-        existing.title = title;
-        existing.updated_at = now;
-        existing.messages = messages;
-    } else {
-        conversations.push(Conversation {
-            id: id.clone(),
-            title,
-            created_at: now,
-            updated_at: now,
-            messages,
-        });
-    }
-    if conversations.len() > 50 {
-        conversations.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-        conversations.truncate(50);
-    }
-    let json = serde_json::to_value(&conversations).map_err(|e| e.to_string())?;
-    store.set(KEY_CONVERSATIONS, json);
-    store.set(KEY_ACTIVE_CONV, id);
-    store.save().map_err(|e| e.to_string())?;
-    Ok(OkResult { ok: true })
-}
-
-/// 删除指定会话。
-#[tauri::command]
-fn delete_conversation(app: tauri::AppHandle, id: String) -> Result<OkResult, String> {
-    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
-    let mut conversations: Vec<Conversation> = store
-        .get(KEY_CONVERSATIONS)
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default();
-    conversations.retain(|c| c.id != id);
-    let json = serde_json::to_value(&conversations).map_err(|e| e.to_string())?;
-    store.set(KEY_CONVERSATIONS, json);
-    if let Some(active) = store
-        .get(KEY_ACTIVE_CONV)
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
+fn clear_webview_cache() -> Result<OkResult, String> {
+    #[cfg(target_os = "windows")]
     {
-        if active == id {
-            store.delete(KEY_ACTIVE_CONV);
+        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+            let webview_cache = std::path::Path::new(&local_app_data)
+                .join("com.ihui.desktop")
+                .join("EBWebView");
+            if webview_cache.exists() {
+                std::fs::remove_dir_all(&webview_cache).map_err(|e| e.to_string())?;
+                log::info!("[desktop] WebView2 cache cleared by user: {}", webview_cache.display());
+            }
         }
     }
-    store.save().map_err(|e| e.to_string())?;
     Ok(OkResult { ok: true })
 }
 
-/// 设置当前活跃会话 ID(用于下次启动时恢复)。
-#[tauri::command]
-fn set_active_conversation(app: tauri::AppHandle, id: Option<String>) -> Result<OkResult, String> {
-    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
-    match id {
-        Some(id) => store.set(KEY_ACTIVE_CONV, id),
-        None => {
-            store.delete(KEY_ACTIVE_CONV);
-        }
+/// 根据状态返回本地化托盘 tooltip(2026-07-29 #10)。
+/// status: "idle" | "new_message" | "thinking"
+fn tray_status_tooltip(status: &str) -> String {
+    let base = localized_app_name();
+    match get_system_locale() {
+        AppLocale::ZhCn => match status {
+            "new_message" => format!("{} · 有新消息", base),
+            "thinking" => format!("{} · AI 思考中…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::ZhTw => match status {
+            "new_message" => format!("{} · 有新訊息", base),
+            "thinking" => format!("{} · AI 思考中…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::Ko => match status {
+            "new_message" => format!("{} · 새 메시지", base),
+            "thinking" => format!("{} · AI 생각 중…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::Ja => match status {
+            "new_message" => format!("{} · 新着メッセージ", base),
+            "thinking" => format!("{} · AI 思考中…", base),
+            _ => base.to_string(),
+        },
+        AppLocale::En => match status {
+            "new_message" => format!("{} · New message", base),
+            "thinking" => format!("{} · AI thinking…", base),
+            _ => base.to_string(),
+        },
     }
-    store.save().map_err(|e| e.to_string())?;
-    Ok(OkResult { ok: true })
+}
+
+/// 设置托盘状态(2026-07-29 #10):切换 tooltip 表示新消息/AI 思考中。
+/// status: "idle" | "new_message" | "thinking"
+#[tauri::command]
+fn set_tray_status(app: tauri::AppHandle, status: String) -> Result<(), String> {
+    let tray = app
+        .tray_by_id("main")
+        .ok_or_else(|| "tray icon not found".to_string())?;
+    let tooltip = tray_status_tooltip(&status);
+    tray.set_tooltip(Some(&tooltip))
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1088,11 +1096,18 @@ pub fn run() {
                 .join("EBWebView");
             if webview_cache.exists() {
                 let _ = std::fs::remove_dir_all(&webview_cache);
-                println!("[desktop] WebView2 cache cleared: {}", webview_cache.display());
+                log::info!("[desktop] WebView2 cache cleared: {}", webview_cache.display());
             }
         }
     }
     tauri::Builder::default()
+        // 结构化日志(写文件 $APPDATA/com.ihui.ai/logs/ + 控制台)
+        // 2026-07-29: 替代裸 println!/eprintln!,线上问题可追溯 + 设置项可一键导出
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -1123,6 +1138,10 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if label == "main" {
                     api.prevent_close();
+                    // 2026-07-29 #12:emit before-close 事件给前端,前端保存正在编辑的消息
+                    // emit 是同步派发,前端 listen 异步处理;前端保存完不需要回调 Rust,
+                    // 窗口立即隐藏(保存仍在进行,可接受)
+                    let _ = window.emit("desktop-before-close", ());
                     let _ = window.hide();
                     // 隐藏到托盘时持久化窗口状态
                     let app = window.app_handle().clone();
@@ -1161,17 +1180,19 @@ pub fn run() {
             // let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
             // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
+            // admin 窗口已改为 lazy create(2026-07-29),启动时不存在,
+            // 标题在 open_admin_window 中通过 WebviewWindowBuilder::title 设置
             let app_name = localized_app_name();
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_title(app_name);
             }
-            if let Some(window) = app.get_webview_window("admin") {
-                let _ = window.set_title(&format!("{} 管理后台", app_name));
-            }
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
-            // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
+            // 注册全局快捷键(2026-07-29 扩充:3 个系统级快捷键)
+            // 系统级 = 窗口失焦也能触发(与浏览器内 keydown 互补)
+            // Ctrl+K 不注册(浏览器内 use-global-shortcuts.ts 已处理,窗口聚焦时用)
+            // Ctrl+Shift+I:唤起/隐藏主窗口(原有,浏览器内无法监听)
             let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+I", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Some(window) = app.get_webview_window("main") {
@@ -1181,6 +1202,26 @@ pub fn run() {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
+                    }
+                }
+            });
+            // Ctrl+Shift+N:新建对话(系统级,窗口失焦也能触发;窗口聚焦时浏览器内也会触发,前端去重)
+            let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+N", |app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.emit("desktop-shortcut", "new_chat");
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            });
+            // Ctrl+Shift+S:快速截图(复用 Computer Control 的 capture_screen,emit 给前端)
+            let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+S", |app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.emit("desktop-shortcut", "quick_screenshot");
+                        let _ = window.show();
+                        let _ = window.set_focus();
                     }
                 }
             });
@@ -1214,11 +1255,8 @@ pub fn run() {
             save_window_state,
             restore_window_state,
             reset_window_state,
-            list_conversations,
-            load_conversation,
-            save_conversation,
-            delete_conversation,
-            set_active_conversation
+            clear_webview_cache,
+            set_tray_status
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
@@ -1245,6 +1283,8 @@ pub fn run() {
                 Some(log_path)
             })();
             match &written {
+                // crash handler 在 tauri_plugin_log 初始化之前触发,log::error! 会丢失,
+                // 用 eprintln! 保证 stderr 至少有输出(父进程可捕获),crash log 文件已落盘
                 Some(p) => eprintln!("[crash] IHUI Desktop error log written to: {:?}", p),
                 None => eprintln!("[crash] IHUI Desktop error (log write failed): {}", log_content),
             }

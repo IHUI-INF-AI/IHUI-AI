@@ -300,5 +300,17 @@
         "message": "{{tokens}} Token がチャージされました"
       }
     }
+  },
+  "messageInput": {
+    "placeholder": "メッセージを入力...",
+    "send": "送信",
+    "stop": "停止",
+    "fullscreenBack": "戻る",
+    "fullscreenHint": "フルスクリーン編集モード",
+    "recording": "離して送信、上にスワイプでキャンセル",
+    "voiceHint": "長押しで話す",
+    "document": "ドキュメント",
+    "video": "動画",
+    "addFile": "添付ファイルを追加"
   }
 }
