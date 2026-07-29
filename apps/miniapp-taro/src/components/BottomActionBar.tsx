@@ -1,6 +1,12 @@
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text, Input, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import InputArea, { type InputAreaProps } from './InputArea'
+// 4 个图标按钮 + 选中勾 PNG(Taro copy.patterns 把 src/static/* 复制到 dist/static/*)
+import cammerInputPng from '@/static/images/cammer_input.png'
+import picterInputPng from '@/static/images/picter_input.png'
+import floderInputPng from '@/static/images/floder_input.png'
+import wechatFilePng from '@/static/images/wechat_file.png'
+import selectedModelPng from '@/static/images/selected_model.png'
 
 /**
  * BottomActionBar 底部操作栏
@@ -68,10 +74,10 @@ const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
 ]
 
 const DEFAULT_ICON_BUTTONS: IconButtonItem[] = [
-  { key: 'camera', label: '相机', icon: '📷' },
-  { key: 'album', label: '相册', icon: '🖼️' },
-  { key: 'file', label: '本地文件', icon: '📁' },
-  { key: 'wxfile', label: '微信文件', icon: '💬' },
+  { key: 'camera', label: '相机', icon: cammerInputPng },
+  { key: 'album', label: '相册', icon: picterInputPng },
+  { key: 'file', label: '本地文件', icon: floderInputPng },
+  { key: 'wxfile', label: '微信文件', icon: wechatFilePng },
 ]
 
 export default function BottomActionBar(props: BottomActionBarProps) {
@@ -163,9 +169,11 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 }}
                 onClick={() => onIconButtonClick?.(btn)}
               >
-                <Text style={{ width: '70rpx', height: '70rpx', fontSize: '40rpx', marginBottom: '12rpx' }}>
-                  {btn.icon}
-                </Text>
+                <Image
+                  src={btn.icon}
+                  style={{ width: '70rpx', height: '70rpx', marginBottom: '12rpx' }}
+                  mode="aspectFit"
+                />
                 <Text style={{ fontSize: '20rpx', color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))' }}>
                   {btn.label}
                 </Text>
@@ -177,14 +185,19 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         {/* button-group-box:已选模型提示(对齐原项目 .button-group-box)*/}
         {modelName ? (
           <View
-            className="flex justify-between"
+            className="flex justify-between items-center"
             style={{
               width: 'calc(100% - 100rpx)',
               gap: '16rpx',
               padding: '0 20rpx 10rpx',
             }}
           >
-            <View style={{ color: 'var(--color-foreground)', fontSize: '20rpx' }}>
+            <View className="flex items-center" style={{ color: 'var(--color-foreground)', fontSize: '20rpx' }}>
+              <Image
+                src={selectedModelPng}
+                style={{ width: '24rpx', height: '24rpx', marginRight: '8rpx' }}
+                mode="aspectFit"
+              />
               <Text>已默认自动切换深度思考</Text>
             </View>
             <View style={{ color: 'var(--color-accent-blue, #5a85ff)', fontSize: '20rpx' }}>
