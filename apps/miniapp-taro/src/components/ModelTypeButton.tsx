@@ -1,5 +1,9 @@
 import { View, Image, Text } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+// wide 模式按钮背景 + 箭头 SVG(Vite 编译时内联为 base64)
+import activeBackSvg from '@/static/images/add/active_back.svg'
+import backDefaultSvg from '@/static/images/add/back_default.svg'
+import jiantouSvg from '@/static/images/add/jiantou.svg'
 
 export type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
 
@@ -45,19 +49,12 @@ export default function ModelTypeButton({
         className="ai-model-type-btn"
         onClick={() => onClick?.(type)}
       >
-        {/* btn-bg 背景层(absolute 填充,选中态切换颜色)*/}
-        <View
+        {/* btn-bg 背景层(absolute 填充,选中态切换 SVG)*/}
+        <Image
           className="absolute top-0 left-0"
-          style={{
-            width: '100%',
-            height: '100%',
-            zIndex: 1,
-            background: active
-              ? 'var(--color-brand-cyan, #93d2f3)'
-              : 'var(--color-brand-cyan-bg, #ade0f0)',
-            borderRadius: '12rpx',
-            opacity: active ? 1 : 0.6,
-          }}
+          src={active ? activeBackSvg : backDefaultSvg}
+          style={{ width: '100%', height: '100%', zIndex: 1, opacity: active ? 1 : 0.6 }}
+          mode="aspectFill"
         />
         {/* btn-content-wrapper 内容层(z-index 3,横向布局)*/}
         <View
@@ -71,21 +68,12 @@ export default function ModelTypeButton({
             mode="aspectFit"
           />
           {/* btn-arrow 箭头 20rpx×20rpx(选中时 rotate 180deg)*/}
-          {arrowIcon ? (
-            <Image
-              src={arrowIcon}
-              className={cn('ai-btn-arrow ml-[6rpx]', active && 'ai-btn-arrow-rotate')}
-              style={{ width: '20rpx', height: '20rpx', position: 'relative', zIndex: 3 }}
-              mode="aspectFit"
-            />
-          ) : (
-            <Text
-              className={cn('ai-btn-arrow ml-[6rpx]', active && 'ai-btn-arrow-rotate')}
-              style={{ fontSize: '20rpx', color: 'var(--color-foreground)', position: 'relative', zIndex: 3 }}
-            >
-              ▼
-            </Text>
-          )}
+          <Image
+            src={arrowIcon || jiantouSvg}
+            className={cn('ai-btn-arrow ml-[6rpx]', active && 'ai-btn-arrow-rotate')}
+            style={{ width: '20rpx', height: '20rpx', position: 'relative', zIndex: 3 }}
+            mode="aspectFit"
+          />
         </View>
       </View>
     )
