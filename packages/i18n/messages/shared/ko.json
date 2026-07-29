@@ -1279,6 +1279,62 @@
     "noReplay": "다시보기 없음",
     "replayTitle": "다시보기 플레이어"
   },
+  "agentScreen": {
+    "title": "에이전트",
+    "loadFailed": "로드 실패",
+    "useCount": "사용 {count}",
+    "rating": "평점 {score}"
+  },
+  "aiAssistant": {
+    "title": "AI 어시스턴트",
+    "subtitle": "스마트 어시스턴트를 선택하여 대화를 시작하세요",
+    "searchPlaceholder": "어시스턴트 이름 또는 기능 검색",
+    "empty": "일치하는 어시스턴트가 없습니다",
+    "loadFailed": "로드 실패, 새로고침하려면 아래로 당겨주세요",
+    "useCount": "사용 {count}",
+    "favoriteCount": "좋아요 {count}",
+    "startChat": "대화 시작",
+    "catAll": "전체",
+    "catWriting": "작문",
+    "catCoding": "코딩",
+    "catOffice": "오피스",
+    "catStudy": "학습",
+    "chat": {
+      "title": "대화 시작",
+      "message": "\"{name}\"와(과) 대화를 시작합니다"
+    }
+  },
+  "aiCareer": {
+    "title": "AI 커리어 계획",
+    "subtitle": "역량 평가 기반 스마트 커리어 매칭 및 성장 조언",
+    "sectionTitle": "커리어 매칭 추천",
+    "matchLabel": "매칭",
+    "reasonTitle": "매칭 사유",
+    "noReason": "매칭 사유가 없습니다",
+    "planBtn": "성장 계획 생성",
+    "trendUp": "급상승",
+    "trendNew": "신규 직무",
+    "trendStable": "안정적 수요",
+    "loadFailed": "로드 실패, 새로고침하려면 아래로 당겨주세요",
+    "plan": {
+      "title": "계획 생성",
+      "message": "\"{name}\"의 90일 성장 계획을 생성 중"
+    }
+  },
+  "aiMultimodal": {
+    "title": "AI 멀티모달 대화",
+    "subtitle": "모드와 모델을 선택하여 스마트 대화를 시작하세요",
+    "textMode": "텍스트",
+    "imageMode": "이미지",
+    "audioMode": "오디오",
+    "switchModel": "모델 전환",
+    "noModels": "사용 가능한 모델이 없습니다",
+    "empty": "첫 대화를 시작해 보세요",
+    "inputPlaceholder": "메시지 입력...",
+    "send": "전송",
+    "clear": "삭제",
+    "error": "전송 실패, 다시 시도해 주세요"
+  },
   "examHistory": {
     "title": "시험 이력",
     "loadFailed": "시험 이력 로드 실패",
@@ -1355,6 +1411,135 @@
         "title": "충전 성공",
         "message": "{tokens} 토큰이 충전되었습니다"
       }
+    }
+  },
+  "assistant": {
+    "title": "내 어시스턴트",
+    "searchPlaceholder": "어시스턴트 이름 검색",
+    "tabDraft": "임시 저장",
+    "tabReviewing": "심사 중",
+    "tabPublished": "게시됨",
+    "subTabAll": "전체",
+    "subTabRejected": "심사 탈락",
+    "subTabOffline": "비공개",
+    "loadFailed": "불러오기 실패, 새로고침해 보세요",
+    "empty": "어시스턴트가 없습니다",
+    "loading": "불러오는 중...",
+    "badgePublished": "게시됨",
+    "badgeReviewing": "심사 중",
+    "badgeRejected": "심사 탈락",
+    "badgeOffline": "비공개",
+    "badgeDraft": "임시 저장",
+    "metaCategory": "카테고리",
+    "metaCycleForever": "영구",
+    "metaAudience": "대상",
+    "metaPublishTime": "게시",
+    "audienceVip": "회원",
+    "audienceAll": "전체 사용자",
+    "actionSettings": "설정",
+    "actionOffline": "비공개",
+    "actionReedit": "다시 편집",
+    "edit": {
+      "title": "작업",
+      "message": "「{{name}}」의 판매 설정"
+    },
+    "offline": {
+      "title": "비공개 확인",
+      "message": "「{{name}}」을(를) 비공개로 전환하시겠습니까?",
+      "confirmBtn": "비공개 전환",
+      "done": "비공개로 전환됨"
+    }
+  },
+  "aiGroup": {
+    "title": "AI 그룹",
+    "subtitle": "멀티 AI 협업, 집단 지성",
+    "tabMine": "내 그룹",
+    "tabDiscover": "발견",
+    "empty": "그룹이 없습니다",
+    "loadFailed": "불러오기 실패",
+    "back": "뒤로",
+    "detailMembers": "멤버 ({{count}})",
+    "detailRecent": "최근 대화",
+    "detailEnter": "그룹 채팅 입장",
+    "metaActive": "활동 {{time}}",
+    "metaMessages": "메시지 {{count}}",
+    "cardMembers": "{{count}} 멤버 · {{messages}} 메시지",
+    "enterMine": "입장",
+    "enterDiscover": "참여",
+    "previewHello": "안녕하세요, 이번 협업을 시작하겠습니다. 먼저 목표와 역할 분담을 확인해요.",
+    "previewMine": "알겠습니다. 저는 조사를 시작하겠습니다.",
+    "memberRole": "역할: {{role}}",
+    "join": {
+      "title": "그룹 참여",
+      "message": "「{{name}}」 참여를 신청했습니다"
+    }
+  },
+  "aigcCover": {
+    "loading": "불러오는 중...",
+    "title": "표지 선택",
+    "subtitle": "작품: {{title}}",
+    "workTitleDefault": "제목 없는 작품",
+    "back": "뒤로",
+    "filterAll": "전체",
+    "filterWork": "원본",
+    "filterAi": "AI 템플릿",
+    "empty": "표지가 없습니다. 먼저 생성해 주세요",
+    "aiGenBtn": "✨ AI로 새 표지 생성",
+    "confirmBtn": "이 표지 적용",
+    "labelDefault": "작품",
+    "loadFailed": "불러오기 실패",
+    "applied": {
+      "title": "표지 적용됨",
+      "message": "「{{title}}」에 표지를 적용했습니다: {{label}}"
+    },
+    "aiGen": {
+      "title": "AI 표지 생성",
+      "message": "기능 개발 중"
+    }
+  },
+  "aigcPublish": {
+    "back": "뒤로",
+    "title": "작품 게시",
+    "subtitle": "유형 선택 → 업로드 → 정보 입력 → 게시",
+    "labelType": "작품 유형",
+    "labelTextContent": "텍스트 내용",
+    "labelUpload": "소재 업로드 ({{count}}/5)",
+    "labelTitle": "작품 제목",
+    "labelDescription": "작품 소개",
+    "labelPrompt": "프롬프트",
+    "typeImage": "이미지",
+    "typeVideo": "비디오",
+    "typeAudio": "오디오",
+    "typeText": "텍스트",
+    "typeImageDesc": "AI 생성 이미지",
+    "typeVideoDesc": "AI 생성 비디오",
+    "typeAudioDesc": "AI 생성 오디오",
+    "typeTextDesc": "AI 생성 텍스트",
+    "placeholderTextContent": "텍스트 내용을 입력하세요",
+    "placeholderUrl": "소재 URL을 입력하세요",
+    "placeholderTitle": "작품 제목을 입력하세요",
+    "placeholderDescription": "작품 소개를 입력하세요",
+    "placeholderPrompt": "AI 생성 시 사용한 프롬프트를 입력하세요",
+    "urlAddBtn": "추가",
+    "pickFromAlbum": "앨범에서 선택",
+    "uploading": "업로드 중...",
+    "uploadingShort": "업로드 중",
+    "fileAddText": "앨범에서",
+    "submitBtn": "작품 게시",
+    "errorNoUrl": "파일 URL을 입력하세요",
+    "errorMaxFiles": "최대 5개까지 업로드 가능",
+    "errorNoText": "텍스트 내용을 입력하세요",
+    "errorNoFile": "최소 1개의 소재를 업로드하세요",
+    "errorNoTitle": "작품 제목을 입력하세요",
+    "errorNoDescription": "작품 소개를 입력하세요",
+    "errorNoPrompt": "프롬프트를 입력하세요",
+    "errorPickFailed": "파일 선택 실패",
+    "errorUploadFailed": "업로드 실패",
+    "errorPublishFailed": "게시 실패",
+    "errorPublishRetry": "게시 실패, 나중에 다시 시도하세요",
+    "success": {
+      "title": "게시 성공",
+      "message": "작품이 심사에 제출되었습니다"
     }
   }
 }
