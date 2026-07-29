@@ -106,16 +106,36 @@ function translateWithFallback(
   }
 }
 
-function formatRelativeTime(timestamp: string): string {
+function formatRelativeTime(timestamp: string, now: number | null): string {
   const ms = Date.parse(timestamp)
   if (Number.isNaN(ms)) return ''
-  const diff = Date.now() - ms
+  // Phase 24(2026-07-29):SSR 安全 — 传入 now=null(SSR)时返回空字符串,
+  // 避免 Date.now() 在 SSR/CSR 之间时间不同导致 React Hydration 错误。
+  // 调用方在 useEffect 内 setNow(Date.now()) 后,会触发重渲染并填入相对时间。
+  if (now === null) return ''
+  const diff = now - ms
   if (diff < 0) return '刚刚'
   if (diff < 10_000) return '刚刚'
   if (diff < 60_000) return `${Math.floor(diff / 1000)}s 前`
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m 前`
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h 前`
   return `${Math.floor(diff / 86_400_000)}d 前`
+}
+
+/**
+ * Phase 24(2026-07-29 立,SSR 修复):在客户端 mount 后才把 Date.now() 注入 state,
+ * 首次 render(now=null)渲染空字符串 → useEffect 触发 setNow → 二次 render 显示相对时间。
+ * 这样 SSR/CSR 首次 render 的 HTML 完全一致,避免 hydration mismatch。
+ */
+function useNowMs(): number | null {
+  const [now, setNow] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    setNow(Date.now())
+    // 每 60s 重新计算一次,让 "Ns 前" 数字保持新鲜
+    const id = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+  return now
 }
 
 interface TimelineEventRowProps {
@@ -147,6 +167,9 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
     const meta = extractI18nMeta(event.meta)
     return meta?.i18nKey
   }, [event.meta])
+
+  // Phase 24(2026-07-29):SSR 安全 — 相对时间用 useNowMs() 派生,SSR 时返回空字符串
+  const nowMs = useNowMs()
 
   const onClick = () => {
     if (hasChildren) {
@@ -234,7 +257,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
           aria-hidden
         />
         <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground/50">
-          {formatRelativeTime(event.timestamp)}
+          {formatRelativeTime(event.timestamp, nowMs)}
         </span>
       </button>
       {hasChildren && isExpanded && (
