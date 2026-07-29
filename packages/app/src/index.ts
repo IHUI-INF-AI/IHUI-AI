@@ -534,6 +534,14 @@ export type {
   VideoPlayerScreenProps,
   VipBenefitItem,
   VipBenefitScreenProps,
+  ChatScreenMessage,
+  ChatScreenModel,
+  ChatScreenNavItem,
+  ChatScreenProps,
+  DeveloperPlanType,
+  DeveloperPlan,
+  DeveloperFeature,
+  DeveloperScreenProps,
 } from './types'
 
 /** 批次 25-26 剩余:直播聊天/消息聊天/订单退款/支付 + VIP 操盘手类型(inline 定义在组件文件) */
@@ -559,3 +567,6 @@ export type {
   VipTraderFeature,
   VipTraderScreenProps,
 } from './features/vip-trader/VipTraderScreen'
+/** 批次 29(2026-07-29):AI 主聊天 + 开发者入口(2 屏迁移自 mobile-rn) */
+export { ChatScreen } from './features/chat/ChatScreen'
+export { DeveloperScreen } from './features/developer/DeveloperScreen'

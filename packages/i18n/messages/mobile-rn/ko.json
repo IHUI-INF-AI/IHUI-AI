@@ -87,7 +87,21 @@
     "runtimeSend": "전송"
   },
   "chat": {
-    "voice": "음성"
+    "voice": "음성",
+    "title": "IHUI AI",
+    "modelLabel": "모델",
+    "selectModel": "모델 선택",
+    "thinking": "생각 중...",
+    "inputPlaceholder": "메시지 입력...",
+    "stop": "중지",
+    "send": "전송",
+    "navAgent": "에이전트",
+    "navWallet": "지갑",
+    "navCourse": "강의",
+    "navOrder": "주문",
+    "navProfile": "내 정보",
+    "navSettings": "설정",
+    "navLogout": "로그아웃"
   },
   "settings": {
     "about": "IHUI AI 정보",
@@ -211,6 +225,15 @@
       "message": "스크린샷이 생성되었습니다",
       "shareBtn": "공유"
     }
+  },
+  "developer": {
+    "title": "개발자 포털",
+    "becomeDeveloper": "개발자 되기",
+    "subtitle": "에이전트를 게시하고 수익 창출",
+    "selectService": "서비스 플랜을 선택하세요",
+    "processing": "처리 중...",
+    "openNow": "지금 활성화",
+    "agreementHint": "활성화하면 《개발자 서비스 약관》에 동의한 것으로 간주됩니다"
   },
   "devEnter": {
     "error": {
