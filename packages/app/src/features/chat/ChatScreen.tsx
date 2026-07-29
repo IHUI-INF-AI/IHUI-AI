@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import {
   FlatList,
   Modal,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -16,6 +15,7 @@ import type {
   ChatScreenNavItem,
   ChatScreenProps,
 } from '../../types'
+import { MessageInput } from './MessageInput'
 
 export type { ChatScreenMessage, ChatScreenModel, ChatScreenNavItem, ChatScreenProps }
 
@@ -36,6 +36,14 @@ export function ChatScreen({
   model,
   pickerOpen,
   navItems,
+  inputFiles = [],
+  agentVariables,
+  isInputFocused = false,
+  isInputFullscreen = false,
+  isVoiceMode = false,
+  isRecording = false,
+  isSending = false,
+  inputError = '',
   onInputTextChange,
   onSend,
   onStop,
@@ -43,20 +51,22 @@ export function ChatScreen({
   onPickerOpenChange,
   onLongPressMessage,
   onMessageRef,
+  onInputFocus,
+  onInputBlur,
+  onInputFullscreenToggle,
+  onInputVoiceToggle,
+  onInputAddImage,
+  onInputAddFile,
+  onInputRemoveFile,
+  onInputClear,
+  onInputVoiceStart,
+  onInputVoiceEnd,
+  onInputAgentVariableTextChange,
+  onInputAgentVariableImageChange,
   colorScheme = 'light',
 }: ChatScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const listRef = useRef<FlatList<ChatScreenMessage> | null>(null)
-
-  // 消息列表变化时自动滚动到底部(对齐 AgentChatScreen/LiveChatScreen 共享层模式)
-  useEffect(() => {
-    if (messages.length > 0) {
-      const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80)
-      return () => clearTimeout(timer)
-    }
-    return undefined
-  }, [messages.length])
 
   const currentModelName = models.find((m) => m.id === model)?.name || model
 
@@ -147,9 +157,6 @@ export function ChatScreen({
       </Modal>
 
       <FlatList
-        ref={(r) => {
-          listRef.current = r
-        }}
         style={styles.list}
         data={messages}
         keyExtractor={(item) => item.id}
@@ -165,34 +172,42 @@ export function ChatScreen({
         </View>
       ) : null}
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={inputText}
-          onChangeText={onInputTextChange}
-          placeholder={t('chat.inputPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
-        />
-        {isStreaming ? (
-          <TouchableOpacity style={[styles.sendBtn, styles.sendBtnStop]} onPress={onStop}>
-            <Text style={styles.sendBtnText}>{t('chat.stop')}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-            onPress={onSend}
-            disabled={!inputText.trim()}
-          >
-            <Text style={styles.sendBtnText}>{t('chat.send')}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <MessageInput
+        t={t}
+        text={inputText}
+        isStreaming={isStreaming}
+        isSending={isSending}
+        disabled={false}
+        files={inputFiles}
+        agentVariables={agentVariables}
+        showAddFileBtn={true}
+        isFocused={isInputFocused}
+        isFullscreen={isInputFullscreen}
+        isVoiceMode={isVoiceMode}
+        isRecording={isRecording}
+        error={inputError}
+        onTextChange={onInputTextChange}
+        onSend={onSend}
+        onStop={onStop}
+        onFocus={onInputFocus ?? (() => undefined)}
+        onBlur={onInputBlur ?? (() => undefined)}
+        onFullscreenToggle={onInputFullscreenToggle ?? (() => undefined)}
+        onVoiceToggle={onInputVoiceToggle ?? (() => undefined)}
+        onAddImage={onInputAddImage ?? (() => undefined)}
+        onAddFile={onInputAddFile ?? (() => undefined)}
+        onRemoveFile={onInputRemoveFile ?? (() => undefined)}
+        onClear={onInputClear ?? (() => undefined)}
+        onVoiceStart={onInputVoiceStart ?? (() => undefined)}
+        onVoiceEnd={onInputVoiceEnd ?? (() => undefined)}
+        onAgentVariableTextChange={onInputAgentVariableTextChange}
+        onAgentVariableImageChange={onInputAgentVariableImageChange}
+        colorScheme={colorScheme}
+      />
     </View>
   )
 }
 
 function createStyles(tk: AppThemeTokens) {
-  const primary = tk.brand.DEFAULT
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: {
@@ -234,39 +249,6 @@ function createStyles(tk: AppThemeTokens) {
     bubbleText: { fontSize: 14, color: tk.text.primary },
     errorWrap: { paddingHorizontal: 16, paddingBottom: 8 },
     errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    inputRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderTopWidth: 1,
-      borderTopColor: tk.border.light,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      gap: 8,
-    },
-    input: {
-      flex: 1,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      fontSize: 14,
-      color: tk.text.primary,
-      backgroundColor: tk.surface.light,
-    },
-    sendBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 8,
-      backgroundColor: primary,
-    },
-    sendBtnStop: {
-      backgroundColor: tk.surface.muted,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-    },
-    sendBtnDisabled: { backgroundColor: tk.text.tertiary },
-    sendBtnText: { color: tk.surface.light, fontSize: 13, fontWeight: '600' },
     pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
     pickerSheet: {
       marginTop: 'auto',
