@@ -255,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
     featureItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: tk.border.light,

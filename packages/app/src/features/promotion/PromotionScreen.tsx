@@ -9,11 +9,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  PromotionCouponStatus,
-  PromotionCoupon,
-  PromotionScreenProps,
-} from '../../types'
+import type { PromotionCouponStatus, PromotionCoupon, PromotionScreenProps } from '../../types'
 
 export type { PromotionCouponStatus, PromotionCoupon, PromotionScreenProps }
 
@@ -130,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 16, paddingBottom: 32 },
     separator: { height: 12 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
