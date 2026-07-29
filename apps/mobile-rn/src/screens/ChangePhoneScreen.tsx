@@ -1,29 +1,14 @@
-/**
- * ChangePhoneScreen — APP 改手机号页面(changePhone.vue 迁移)
- * 流程:输入新手机号 → 获取验证码(60s 倒计时)→ 提交绑定。
- * 路由参数:uuid(必填,用户标识)。
- */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { ChangePhoneScreen as SharedChangePhoneScreen, type NationOption } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface Route {
-  params?: { uuid?: string }
-}
-
-interface Nation {
-  title: string
-  content: string
-  id: number
-}
-
-const NATIONS: Nation[] = [
+const NATIONS: NationOption[] = [
   { title: '美国', content: '+1', id: 1 },
   { title: '台湾', content: '+886', id: 2 },
   { title: '香港', content: '+852', id: 3 },
@@ -31,10 +16,10 @@ const NATIONS: Nation[] = [
   { title: '日本', content: '+81', id: 5 },
 ]
 
-export function ChangePhoneScreen({ route }: { route?: Route }) {
+export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: string } } }) {
+  const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const uuid = route?.params?.uuid ?? ''
-
   const [phoneNumber, setPhoneNumber] = useState('')
   const [codeValue, setCodeValue] = useState('')
   const [phoneHead, setPhoneHead] = useState('+86')
@@ -111,8 +96,8 @@ export function ChangePhoneScreen({ route }: { route?: Route }) {
         return
       }
       setTip('绑定成功!')
-      const t = setTimeout(() => {
-        clearTimeout(t)
+      const tm = setTimeout(() => {
+        clearTimeout(tm)
         navigation.goBack()
       }, 1000)
     } catch {
@@ -123,149 +108,27 @@ export function ChangePhoneScreen({ route }: { route?: Route }) {
   }
 
   return (
-    <ScrollView
-      style={s.container}
-      contentContainerStyle={s.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={s.title}>绑定手机号</Text>
-
-      <View style={s.inputWbox}>
-        <View style={s.inputBox}>
-          <Pressable
-            style={s.areaBox}
-            onPress={() => setNationShow((v) => !v)}
-            accessibilityLabel="选择区号"
-          >
-            <Text style={s.areaText}>{phoneHead}</Text>
-            <Text style={s.areaArrow}>▾</Text>
-          </Pressable>
-          <TextInput
-            style={s.input}
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            placeholder="手机号码"
-            placeholderTextColor={tokens.text.tertiary}
-            keyboardType="phone-pad"
-            maxLength={11}
-          />
-        </View>
-        {nationShow ? (
-          <View style={s.nationBox}>
-            {NATIONS.map((n) => (
-              <Pressable
-                key={n.id}
-                style={s.nationItem}
-                onPress={() => {
-                  setPhoneHead(n.content)
-                  setNationShow(false)
-                }}
-                accessibilityLabel={`${n.title} ${n.content}`}
-              >
-                <Text style={s.nationTitle}>{n.title}</Text>
-                <Text style={s.nationCode}>{n.content}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-      </View>
-
-      <View style={s.inputWbox}>
-        <View style={s.inputBox}>
-          <TextInput
-            style={s.input}
-            value={codeValue}
-            onChangeText={setCodeValue}
-            placeholder="验证码"
-            placeholderTextColor={tokens.text.tertiary}
-            keyboardType="number-pad"
-            maxLength={6}
-          />
-          {sendCodeShow ? (
-            <Pressable style={s.sendBtn} onPress={sendCode} accessibilityLabel="发送验证码">
-              <Text style={s.sendText}>发送验证码</Text>
-            </Pressable>
-          ) : codeMin > 0 ? (
-            <Text style={s.countdownText}>{codeMin}秒后重新获取</Text>
-          ) : (
-            <Pressable style={s.sendBtn} onPress={sendCode} accessibilityLabel="重新获取验证码">
-              <Text style={s.sendText}>获取验证码</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      {tip ? <Text style={s.tipText}>{tip}</Text> : null}
-
-      <Pressable
-        style={[s.submitBtn, submitting && s.submitBtnDisabled]}
-        onPress={handleSubmit}
-        disabled={submitting}
-        accessibilityLabel="确定"
-      >
-        <Text style={s.submitText}>{submitting ? '提交中...' : '确定'}</Text>
-      </Pressable>
-    </ScrollView>
+    <SharedChangePhoneScreen
+      t={t}
+      phoneNumber={phoneNumber}
+      codeValue={codeValue}
+      phoneHead={phoneHead}
+      nationShow={nationShow}
+      codeMin={codeMin}
+      sendCodeShow={sendCodeShow}
+      tip={tip}
+      submitting={submitting}
+      nations={NATIONS}
+      onPhoneChange={setPhoneNumber}
+      onCodeChange={setCodeValue}
+      onToggleNationShow={() => setNationShow((v) => !v)}
+      onSelectNation={(n) => {
+        setPhoneHead(n.content)
+        setNationShow(false)
+      }}
+      onSendCode={sendCode}
+      onSubmit={handleSubmit}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  content: { padding: 24 },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: tokens.purple.DEFAULT, // TODO: custom color (#8D80E5)
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  inputWbox: { width: '100%', marginBottom: 16 },
-  inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 48,
-    backgroundColor: tokens.surface.muted,
-  },
-  areaBox: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, marginRight: 12 },
-  areaText: { fontSize: 14, color: tokens.text.medium },
-  areaArrow: { fontSize: 10, color: tokens.text.tertiary, marginLeft: 4 },
-  input: { flex: 1, fontSize: 14, color: tokens.text.primary, padding: 0 },
-  sendBtn: { paddingLeft: 12 },
-  sendText: { fontSize: 13, fontWeight: '700', color: tokens.purple.DEFAULT }, // TODO: custom color (#847CFF)
-  countdownText: { fontSize: 12, color: tokens.text.secondary, paddingLeft: 12 },
-  nationBox: {
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    borderRadius: 12,
-    backgroundColor: tokens.purple.light, // TODO: custom color (#F7F8FF)
-    overflow: 'hidden',
-  },
-  nationItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 12,
-  },
-  nationTitle: { fontSize: 13, color: tokens.text.primary }, // TODO: custom color (#3D3D3D)
-  nationCode: { fontSize: 13, color: tokens.text.tertiary }, // TODO: custom color (#979797)
-  tipText: { fontSize: 12, color: tokens.danger.DEFAULT, marginBottom: 12 },
-  submitBtn: {
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: tokens.purple.DEFAULT, // TODO: custom color (#847CFF)
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  submitBtnDisabled: { opacity: 0.6 },
-  submitText: { fontSize: 15, fontWeight: '700', color: tokens.surface.light },
-})
-
-export default ChangePhoneScreen
