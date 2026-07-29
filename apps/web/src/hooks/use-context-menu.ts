@@ -3,7 +3,7 @@
 import * as React from 'react'
 
 export type ContextMenuAction =
-  'copy' | 'copyMarkdown' | 'regenerate' | 'feedback' | 'share' | 'collapseToPlan' | 'delete'
+  | 'copy' | 'copyMarkdown' | 'regenerate' | 'feedback' | 'share' | 'collapseToPlan' | 'delete' | 'search'
 
 export interface ContextMenuItem {
   id: string

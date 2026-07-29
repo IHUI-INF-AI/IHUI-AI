@@ -16,6 +16,7 @@ import {
   Check,
   RefreshCw,
   ArrowDown,
+  Search,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -29,6 +30,7 @@ import { CompressionDivider } from '@/components/ai/progress-sections/compressio
 import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
 import {
   MessageContextMenu,
+  MessageSearchBar,
   plainTextForClipboard,
   normalizeMarkdown,
 } from '@/components/ai/progress-sections/message-context-menu'
@@ -37,6 +39,7 @@ import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
 import { useChatStore } from '@/stores/chat'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
+import { searchMessages } from '@/lib/message-search'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
 
@@ -164,6 +167,10 @@ interface MessageItemProps {
   onContextMenu?: (e: React.MouseEvent) => void
   linkedPlanStepId?: string | null
   onMessageHover?: (messageId: string, planStepId: string | null) => void
+  /** Phase 23: 搜索匹配的消息(ring-1 ring-yellow-400/40) */
+  isSearchMatch?: boolean
+  /** Phase 23: 搜索当前定位的消息(ring-2 ring-yellow-400) */
+  isSearchCurrent?: boolean
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -179,6 +186,8 @@ const MessageItem = React.memo(function MessageItem({
   onContextMenu,
   linkedPlanStepId = null,
   onMessageHover,
+  isSearchMatch = false,
+  isSearchCurrent = false,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   const isUser = m.role === 'user'
@@ -312,9 +321,14 @@ const MessageItem = React.memo(function MessageItem({
         isHighlighted && 'bg-primary/5 ring-1 ring-primary/30',
         isHovered && !isHighlighted && 'bg-accent/20',
         isFocused && 'ring-1 ring-primary/40',
+        // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1)
+        isSearchMatch && !isSearchCurrent && 'ring-1 ring-yellow-400/40',
+        isSearchCurrent && 'ring-2 ring-yellow-400',
       )}
       data-message-id={m.id}
       data-message-focused={isFocused ? 'true' : 'false'}
+      data-search-match={isSearchMatch ? 'true' : 'false'}
+      data-search-current={isSearchCurrent ? 'true' : 'false'}
       onContextMenu={onContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -1083,6 +1097,96 @@ export function MessageList({
     }))
   }, [lastAssistantMessageId, subAgentActivities])
 
+  // ── Phase 23 消息搜索(2026-07-29 立)──────────────────────────────────
+  // 右键菜单"搜索消息" + Ctrl+F 快捷键 → 弹出搜索栏 → 高亮匹配 + 滚动到第一个匹配
+  // 注:查询文本由 MessageSearchBar 内部 state 管理,本组件只追踪结果 ID 列表
+  const [searchResultIds, setSearchResultIds] = React.useState<string[]>([])
+  const [searchCurrentIndex, setSearchCurrentIndex] = React.useState(0)
+  const [searchBarVisible, setSearchBarVisible] = React.useState(false)
+  // searchResultIds 的 Set 镜像,用于 O(1) 判断某消息是否匹配(避免每条消息 includes O(n))
+  const searchResultSet = React.useMemo<Set<string>>(
+    () => new Set(searchResultIds),
+    [searchResultIds],
+  )
+  // 当前匹配的消息 ID(用于 MessageItem 的 isSearchCurrent prop)
+  const searchCurrentId = searchResultIds[searchCurrentIndex] ?? null
+
+  // 搜索输入回调:执行搜索 + 重置索引 + 滚动到第一个匹配
+  const handleSearch = React.useCallback(
+    (query: string) => {
+      const ids = searchMessages(messages, query)
+      setSearchResultIds(ids)
+      setSearchCurrentIndex(0)
+      // 第一个匹配自动滚动到视野
+      if (ids.length > 0 && ids[0]) {
+        const firstId = ids[0]
+        requestAnimationFrame(() => {
+          const el = containerRef.current?.querySelector(
+            `[data-message-id="${firstId}"]`,
+          ) as HTMLElement | null
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        })
+      }
+    },
+    [messages],
+  )
+
+  // 上一个/下一个导航:切换 currentIndex + 滚动到对应消息
+  const handleSearchNavigate = React.useCallback(
+    (direction: 'prev' | 'next') => {
+      setSearchResultIds((currentIds) => {
+        if (currentIds.length === 0) return currentIds
+        setSearchCurrentIndex((prevIdx) => {
+          let nextIdx: number
+          if (direction === 'next') {
+            nextIdx = (prevIdx + 1) % currentIds.length
+          } else {
+            nextIdx = (prevIdx - 1 + currentIds.length) % currentIds.length
+          }
+          const targetId = currentIds[nextIdx]
+          if (targetId) {
+            requestAnimationFrame(() => {
+              const el = containerRef.current?.querySelector(
+                `[data-message-id="${targetId}"]`,
+              ) as HTMLElement | null
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            })
+          }
+          return nextIdx
+        })
+        return currentIds
+      })
+    },
+    [],
+  )
+
+  // 关闭搜索栏:清空所有搜索状态
+  const handleSearchClose = React.useCallback(() => {
+    setSearchBarVisible(false)
+    setSearchResultIds([])
+    setSearchCurrentIndex(0)
+  }, [])
+
+  // 全局快捷键:Ctrl+F 打开搜索栏 / Esc 关闭搜索栏
+  // 注:与已有键盘导航监听器共存 —— 已有监听器对 Ctrl/Meta 修饰键 return,不拦截 Ctrl+F
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F / Cmd+F → 打开搜索栏(阻止浏览器原生 find)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        setSearchBarVisible(true)
+        return
+      }
+      // Esc → 关闭搜索栏(搜索栏可见时)
+      if (e.key === 'Escape' && searchBarVisible) {
+        e.preventDefault()
+        setSearchBarVisible(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [searchBarVisible])
+
   // 右键菜单(2026-07-28 立,深度对标 Trae Work)
   const contextMenu = useContextMenu<ChatMessage>({
     buildItems: (msg) => {
@@ -1098,6 +1202,13 @@ export function MessageList({
           label: '复制为 Markdown',
           action: 'copyMarkdown',
           disabled: !isAssistant,
+        },
+        {
+          id: 'search',
+          label: t('search'),
+          action: 'search',
+          shortcut: 'Ctrl+F',
+          icon: <Search className="h-3 w-3" aria-hidden />,
         },
         { id: 'sep-1', label: '', separator: true },
         {
@@ -1151,6 +1262,9 @@ export function MessageList({
         } else if (action === 'feedback') {
           // 反馈:简单 toast 兜底(深度反馈系统不在本任务范围)
           toast.success('已记录反馈,感谢支持')
+        } else if (action === 'search') {
+          // Phase 23:打开搜索栏(等同于 Ctrl+F)
+          setSearchBarVisible(true)
         } else if (action === 'delete') {
           // 删除:本地过滤 store(单端,服务端持久化由 message-input 流式回收)
           const store = useChatStore.getState()
@@ -1358,6 +1472,16 @@ export function MessageList({
   return (
     <div className="flex h-full flex-col">
       {tablistNode}
+      {activeTab === 'inline' && (
+        <MessageSearchBar
+          visible={searchBarVisible}
+          onClose={handleSearchClose}
+          onSearch={handleSearch}
+          resultCount={searchResultIds.length}
+          currentIndex={searchCurrentIndex}
+          onNavigate={handleSearchNavigate}
+        />
+      )}
       {activeTab === 'inline' ? (
         // 2026-07-21 AI 面板滚动条:加 hover-scroll 完全隐藏滚动条(不占布局空间),
         // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
@@ -1433,6 +1557,8 @@ export function MessageList({
                       isFocused={focusedIndex === realIdx}
                       linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
                       onMessageHover={handleMessageHover}
+                      isSearchMatch={searchResultSet.has(m.id)}
+                      isSearchCurrent={searchCurrentId === m.id}
                       onContextMenu={(e) => {
                         contextMenu.setData(m)
                         contextMenu.contextMenuHandlers.onContextMenu(e)
