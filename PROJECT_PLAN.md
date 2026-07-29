@@ -96,6 +96,7 @@
 - [x] ✅(2026-07-30) H4:P1 支付组件扩展(新建 PayButton.tsx:5 type 变体 freevip/1/2/3/4 + 购买弹窗 + 数量选择,对齐原项目 pay_btn.vue)
 - [x] ✅(2026-07-30) H5:P1 通用选择器扩展(TitleSwitchTypeBar 添加 mode='multi'|'single' + value/mainList props,类型下沉 packages/types;对齐 type-bar/tab.vue + single.vue)
 - [x] ✅(2026-07-30) H6:typecheck + lint + taro build 全绿(token 同步不漂移)(typecheck 0 errors / lint 0 errors 51 warnings / weapp build 37.16s / h5 build 8.2s / check-miniapp-tokens-sync exit 0;修复 VipBenefitsPopup.tsx 3 处错误:spanStyle undefined 2 处 + useState 条件调用违反 hooks 规则 1 处)
+- [x] ✅(2026-07-30) H7:lint warnings 清零 — useTt 共享 hook 迁移(i18n/index.tsx 新增 useTt() useCallback,97 文件内联 tt → const tt = useTt() 替换,消除 41 个 exhaustive-deps 警告)+ 15 个残余 warnings 修复(Selecter/TitleSwitchTypeBar/ai-chat-detail/ai-voice/model-plaza/vip/wallet-recharge/developer-subscribe/pay-result/setting-notification/subscription-contracts/webview:deps 补全 + useCallback 包裹 + console.log→logger.info);最终 typecheck 0 error + lint 0 warning 0 error
 
 ### P2 低优先级(单页面业务专用,按需推进)
 
@@ -112,6 +113,7 @@
 ### 进度记录
 
 - 轮次 1:启动 + 原项目 69 组件复制到 `.trae-cn/tmp/zhs-app-ref/components/` + 全量对齐矩阵建立(37/14/9/9 分布)
+- 轮次 2:H1-H6 全部达成 + P2-1~P2-8 补建 + lint warnings 清零(useTt 迁移 + 15 warnings 修复,typecheck 0 error + lint 0 warning 0 error,commit 25570954b)
 
 ---
 
