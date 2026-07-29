@@ -176,7 +176,12 @@ export interface V1ChatCompletionRequest {
   maxTokens?: number
 }
 
-/** /v1/chat/completions 响应体(OpenAI 兼容格式)。 */
+/**
+ * /v1/chat/completions 响应体(OpenAI 兼容格式)。
+ *
+ * P0-5m(2026-07-30):字段名严格遵循 OpenAI 协议(snake_case),
+ * 确保 openai-python / openai-node SDK 可直接消费。
+ */
 export interface V1ChatCompletionResponse {
   id: string
   object: 'chat.completion'
@@ -185,19 +190,19 @@ export interface V1ChatCompletionResponse {
   choices: Array<{
     index: number
     message: { role: 'assistant'; content: string }
-    finishReason: 'stop' | 'length'
+    finish_reason: 'stop' | 'length'
   }>
-  usage: { promptTokens: number; completionTokens: number; totalTokens: number }
+  usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }
 }
 
-/** /v1/models 响应体(OpenAI 兼容格式)。 */
+/** /v1/models 响应体(OpenAI 兼容格式,字段名 snake_case)。 */
 export interface V1ModelsResponse {
   object: 'list'
   data: Array<{
     id: string
     object: 'model'
     created: number
-    ownedBy: string
+    owned_by: string
   }>
 }
 
