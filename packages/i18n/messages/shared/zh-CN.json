@@ -1541,5 +1541,31 @@
       "title": "发布成功",
       "message": "作品已提交审核"
     }
+  },
+  "circleMember": {
+    "title": "圈子成员",
+    "empty": "暂无成员"
+  },
+  "circleDetail": {
+    "loadFailed": "加载圈子失败",
+    "members": "{count} 成员",
+    "posts": "{count} 帖子",
+    "membersAction": "成员列表",
+    "post": "发帖",
+    "leave": "退出圈子",
+    "join": "加入圈子"
+  },
+  "circleCreate": {
+    "title": "创建圈子",
+    "name": "圈子名称",
+    "namePlaceholder": "请输入圈子名称",
+    "description": "圈子描述",
+    "descPlaceholder": "请输入圈子描述",
+    "submit": "创建"
+  },
+  "circleChat": {
+    "empty": "暂无消息",
+    "placeholder": "输入消息",
+    "send": "发送"
   }
 }
