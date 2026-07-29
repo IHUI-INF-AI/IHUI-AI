@@ -16,20 +16,16 @@ export { formatFileSize } from '@ihui/shared/utils/format'
 
 /** 判断当前是否在 Tauri 客户端运行(非浏览器环境)。
  *
- * 2026-07-26 用户反馈(第七次):标题栏和 3 个按钮不显示。
- * 根因:Tauri 2.x 的 `withGlobalTauri: true` 注入到 window 的是 `window.__TAURI__`
- *   (v1 兼容命名空间,@tauri-apps/api 全部 exports),**不**是 `window.__TAURI_INTERNALS__`。
- *   原 `isTauri()` 只检查 `__TAURI_INTERNALS__`,在静态导出 SSR/CSR 注入时机下永远返回 false,
- *   导致 MainShell 标题栏 `isDesktop && (...)` 永不渲染。
+ * Tauri 2.x 的 IPC 桥 `window.__TAURI_INTERNALS__` 在 webview 加载后注入(通常 100-500ms),
+ * 是 `@tauri-apps/api` 的 `invoke` 实际依赖的内部通道,与 `withGlobalTauri` 配置无关。
  *
- * 修复:同时检查两个标识符,任一存在即视为 Tauri 环境。
- * - `__TAURI__`:Tauri 2.x `withGlobalTauri: true` 注入的 v1 兼容命名空间(已验证)
- * - `__TAURI_INTERNALS__`:Tauri 2.x 内部 IPC 桥(无 `withGlobalTauri` 也存在,但暴露时机滞后)
- * 浏览器环境两者均不存在,isTauri() 稳定返回 false,无 hydration mismatch。
+ * 2026-07-29 安全加固:`withGlobalTauri` 已关闭(避免 XSS 直接调原生能力),
+ * `window.__TAURI__` 不再注入,只检查 `__TAURI_INTERNALS__` 即可。
+ * use-desktop.ts 用 50ms 轮询 + 3 秒超时兜底注入时机,不依赖 `__TAURI__` 早注入。
  */
 export function isTauri(): boolean {
   if (typeof window === 'undefined') return false
-  return '__TAURI__' in window || '__TAURI_INTERNALS__' in window
+  return '__TAURI_INTERNALS__' in window
 }
 
 /**
