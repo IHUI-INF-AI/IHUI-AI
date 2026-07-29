@@ -11,6 +11,11 @@ import { subscribeWithSelector } from 'zustand/middleware'
  * - 新增 pinned 状态(钉住/取消置顶切换)
  *
  * 持久化:open / pinned(localStorage)
+ *
+ * Phase 24(2026-07-29):SSR 安全 — 之前在模块加载时同步读 localStorage,
+ * 导致 SSR/CSR 初始 state 不一致,触发 React Hydration 错误。
+ * 修复:store 初始化用 SSR 安全的默认 open=false / pinned=true,
+ * 客户端 mount 后通过 hydrateAgentProgressPaneFromStorage() 同步 localStorage 真实值。
  */
 interface AgentProgressPaneState {
   /** Pane 是否展开 */
@@ -56,10 +61,8 @@ function loadPersisted(): Partial<PersistedState> {
   }
 }
 
-const persisted = loadPersisted()
-
 let persistTimer: ReturnType<typeof setTimeout> | null = null
-function schedulePersistWrite(state: PersistedState) {
+function schedulePersistWrite(state: PersistedState): void {
   if (typeof window === 'undefined') return
   if (persistTimer) clearTimeout(persistTimer)
   persistTimer = setTimeout(() => {
@@ -71,11 +74,13 @@ function schedulePersistWrite(state: PersistedState) {
   }, 200)
 }
 
+// Phase 24 修复:模块加载时不再读取 localStorage,直接用 SSR 安全默认值
+// (open=false, pinned=true),客户端 mount 后通过 hydrateAgentProgressPaneFromStorage() 注入真实值
 export const useAgentProgressPaneStore = create<AgentProgressPaneState>()(
   subscribeWithSelector((set) => ({
-    open: persisted.open ?? false,
+    open: false,
     threadId: null,
-    pinned: persisted.pinned ?? true,
+    pinned: true,
     progressCurrent: 0,
     progressTotal: 0,
 
@@ -112,4 +117,33 @@ if (typeof window !== 'undefined') {
     (persistedState) => schedulePersistWrite(persistedState),
     { fireImmediately: false },
   )
+}
+
+/**
+ * Phase 24(2026-07-29 立,SSR 修复):客户端 mount 后调用,同步 localStorage 中的
+ * 持久化值到 store。仅 patch 已存在的字段,避免用 false 覆盖 SSR 默认值。
+ *
+ * 使用方式(在应用根组件挂载后调用一次):
+ * ```tsx
+ * function App() {
+ *   useEffect(() => {
+ *     hydrateAgentProgressPaneFromStorage()
+ *   }, [])
+ *   return <Root />
+ * }
+ * ```
+ */
+let hydrationApplied = false
+export function hydrateAgentProgressPaneFromStorage(): void {
+  if (hydrationApplied) return
+  if (typeof window === 'undefined') return
+  hydrationApplied = true
+  const persisted = loadPersisted()
+  if (Object.keys(persisted).length === 0) return
+  useAgentProgressPaneStore.setState((prev) => {
+    const next = { ...prev }
+    if (typeof persisted.open === 'boolean') next.open = persisted.open
+    if (typeof persisted.pinned === 'boolean') next.pinned = persisted.pinned
+    return next
+  })
 }
