@@ -51,6 +51,26 @@ export { AskCreateScreen } from './features/ask-create/AskCreateScreen'
 export { NoteCreateScreen } from './features/note-create/NoteCreateScreen'
 export { CertApplyScreen } from './features/cert-apply/CertApplyScreen'
 export { SettingsAccountScreen } from './features/settings-account/SettingsAccountScreen'
+// 批次 12 待实现:live-list/coupon/ranking/exam/vip 组件文件未创建,暂注释导出避免编译错误
+// export { LiveListScreen } from './features/live-list/LiveListScreen'
+// export { CouponScreen } from './features/coupon/CouponScreen'
+export { FollowingScreen } from './features/following/FollowingScreen'
+// export { RankingScreen } from './features/ranking/RankingScreen'
+export { PointsMallScreen } from './features/points-mall/PointsMallScreen'
+// export { ExamScreen } from './features/exam/ExamScreen'
+// export { VipScreen } from './features/vip/VipScreen'
+// 批次 13 待实现:login/register/profile-edit/change-phone 组件文件未创建
+// export { LoginScreen } from './features/login/LoginScreen'
+// export { RegisterScreen } from './features/register/RegisterScreen'
+// export { ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
+// export { ChangePhoneScreen } from './features/change-phone/ChangePhoneScreen'
+/** 批次 14(P3-3.3):Agent 市场/Agent 评价/直播/活动/收藏/签到 */
+export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
+export { AgentReviewListScreen } from './features/agent-review-list/AgentReviewListScreen'
+export { LiveScreen } from './features/live/LiveScreen'
+export { ActivityScreen } from './features/activity/ActivityScreen'
+export { FavoritesScreen } from './features/favorites/FavoritesScreen'
+export { CheckInScreen } from './features/check-in/CheckInScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -189,4 +209,47 @@ export type {
   CertApplyScreenProps,
   SettingsAccountItem,
   SettingsAccountScreenProps,
+  /** 批次 12 */
+  LiveStatus,
+  LiveListTab,
+  LiveListItem,
+  LiveListScreenProps,
+  CouponStatus,
+  CouponItem,
+  CouponScreenProps,
+  FollowingItem,
+  FollowingScreenProps,
+  RankingRange,
+  RankingItem,
+  RankingScreenProps,
+  PointsMallItem,
+  PointsMallScreenProps,
+  ExamStatus,
+  ExamItem,
+  ExamScreenProps,
+  VipLevelItem2,
+  VipMembershipInfo,
+  VipScreenProps,
+  /** 批次 13 */
+  LoginScreenProps,
+  RegisterScreenProps,
+  Gender,
+  ProfileEditScreenProps,
+  NationOption,
+  ChangePhoneScreenProps,
+  /** 批次 14(P3-3.3):Agent 市场/Agent 评价/活动/收藏/签到/直播 */
+  AgentMarketItem,
+  AgentMarketScreenProps,
+  AgentReviewListItem,
+  AgentReviewListScreenProps,
+  ActivityStatus,
+  ActivityItem,
+  ActivityScreenProps,
+  FavoritesItem,
+  FavoritesScreenProps,
+  CheckInDay,
+  CheckInInfo,
+  CheckInScreenProps,
+  LiveScreenItem,
+  LiveScreenProps,
 } from './types'

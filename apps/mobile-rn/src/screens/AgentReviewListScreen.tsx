@@ -1,26 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
+import { AgentReviewListScreen as SharedAgentReviewListScreen, type AgentReviewListItem } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { Card, Loading } from '@ihui/ui-native'
 
-type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item {
-  id: string
-  agentName: string
-  author: string
-  rating: number
-  content: string
-  createdAt: string
-}
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function AgentReviewListScreen() {
   const { t } = useI18n()
-  const navigation = useNavigation<Nav>()
-  const [items, setItems] = useState<Item[]>([])
+  const navigation = useNavigation<NavigationProp>()
+  const [items, setItems] = useState<AgentReviewListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -28,7 +19,7 @@ export function AgentReviewListScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<Item[]>('/agent-reviews')
+      const res = await fetchApi<AgentReviewListItem[]>('/agent-reviews')
       if (!res.success) throw new Error()
       setItems(res.data ?? [])
     } catch {
@@ -44,62 +35,17 @@ export function AgentReviewListScreen() {
   }, [load])
 
   return (
-    <View className="flex-1 bg-card">
-      <View className="flex-row items-center gap-3 px-4 py-3">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-sm text-foreground">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-lg font-semibold text-foreground">{t('agentReviewList.title')}</Text>
-      </View>
-      {error ? <Text className="px-4 text-xs text-destructive">{error}</Text> : null}
-      {loading && items.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <Loading />
-          <Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: 16 }}
-          ItemSeparatorComponent={() => <View className="h-2" />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true)
-                void load()
-              }}
-            />
-          }
-          ListEmptyComponent={
-            <View className="items-center py-12">
-              <Text className="text-xs text-muted-foreground">{t('agentReviewList.empty')}</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <Card className="p-3">
-              <View className="flex-row items-center justify-between">
-                <Text
-                  className="mr-2 flex-1 text-sm font-semibold text-foreground"
-                  numberOfLines={1}
-                >
-                  {item.agentName}
-                </Text>
-                <Text className="text-xs text-amber-500">
-                  {'★'.repeat(Math.max(1, Math.min(5, item.rating || 0)))}
-                </Text>
-              </View>
-              <Text className="mt-1 text-xs text-muted-foreground" numberOfLines={2}>
-                {item.content}
-              </Text>
-              <Text className="mt-1.5 text-[11px] text-muted-foreground">
-                {t('agentReviewList.author')}: {item.author} · {item.createdAt}
-              </Text>
-            </Card>
-          )}
-        />
-      )}
-    </View>
+    <SharedAgentReviewListScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
