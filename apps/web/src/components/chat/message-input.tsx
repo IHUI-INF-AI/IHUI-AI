@@ -8,35 +8,18 @@ import {
   Square,
   SquareSlash,
   FileText,
-  Hammer,
-  BookOpen,
-  Search,
   Plus,
   AtSign,
   Sparkles,
   Package,
   X,
   Info,
-  Target,
-  Repeat,
-  Shield,
-  ShieldCheck,
-  ShieldAlert,
-  Power,
-  Timer,
-  Bug,
-  Wand2,
-  TestTube,
-  BookMarked,
-  Code,
-  RefreshCw,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@ihui/shared/utils/format'
-import { SlashCommandPalette, type ArgSuggestion } from '@/components/ai/slash-command-palette'
-import { SLASH_COMMAND_IDS } from '@/components/chat/slash-command-data'
+import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
@@ -48,20 +31,16 @@ import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
 import { CurrentModeBadge } from '@/components/chat/current-mode-badge'
-import {
-  PermissionModePopover,
-  isHighRiskPermissionMode,
-  switchPermissionMode,
-} from '@/components/ai/permission-mode-popover'
+import { PermissionModePopover, isHighRiskPermissionMode } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
-import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
-import { recordModeChange, updateLatestRecordSource } from '@/lib/permission-mode-history'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
+import { useSlashCommands } from '@/hooks/use-slash-commands'
+import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -74,19 +53,6 @@ import { toast } from 'sonner'
 const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
 const MIN_HEIGHT_PX = 96 // rows=3 基础高度,与 hook threeLinePx 阈值一致
-
-/** 模式循环顺序(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环切换)
- * default(请求批准) → accept-edits(替我审批) → bypass-permissions(完全访问) → default
- * 注意:bypass-permissions 是高风险,放在最后便于"按 3 次回正" */
-const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
-  'default',
-  'accept-edits',
-  'bypass-permissions',
-]
-
-/** localStorage 键(2026-07-25 深化,跨刷新记忆用户上次主动选择的权限模式)
- * 仅记忆非默认模式;首次绑定工作区时如果 store 没指定,优先用这个值 */
-const PERMISSION_MEMORY_KEY = 'ihui:preferred-permission-mode'
 
 type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
 
@@ -101,111 +67,9 @@ interface ReferenceItem {
   size?: number
 }
 
-/** /goal 命令参数候选模板(2026-07-29 二次深化,内置常见 goal 目标条件)
- * 参考 AGENTS.md §8 goal 模式工作流示例 + AI 编程主流场景
- * label:候选标签(简短)
- * description:候选描述(详细说明目标条件)
- * insertText:选中后填充到 textarea 的完整文本(含 /goal 前缀)
- * icon:候选图标(覆盖默认 Sparkles) */
-const GOAL_ARG_TEMPLATES: ArgSuggestion[] = [
-  {
-    label: '修复所有 TypeScript 错误',
-    description: '运行 pnpm typecheck,修复所有报错直到全绿(命令退出码 0)',
-    insertText: '/goal 运行 pnpm typecheck 修复所有 TypeScript 错误,直到命令退出码为 0',
-    icon: <Bug className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '通过所有单元测试',
-    description: '运行 pnpm test,修复失败用例直到全部通过',
-    insertText: '/goal 运行 pnpm test,修复所有失败的单元测试用例直到全部通过',
-    icon: <TestTube className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '重构模块消除重复',
-    description: '识别重复代码,抽取共享工具函数,保持行为不变',
-    insertText: '/goal 识别项目中的重复代码,抽取共享工具函数,保持行为不变',
-    icon: <RefreshCw className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '完成 lint 全绿',
-    description: '运行 pnpm lint,修复所有 lint 错误和警告',
-    insertText: '/goal 运行 pnpm lint,修复所有 lint 错误和警告直到全绿',
-    icon: <Wand2 className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '迁移功能到共享层',
-    description: '把端独占组件上提到 packages/app,多端复用,保持行为一致',
-    insertText: '/goal 把端独占组件上提到 packages/app 共享层,多端复用,保持行为一致',
-    icon: <Package className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '深度对标某产品交互',
-    description: '参考目标产品交互细节,逐项对齐实现,自验 4 状态',
-    insertText:
-      '/goal 深度对标目标产品的交互细节,逐项对齐实现,自验默认/hover/active/dark mode 4 状态',
-    icon: <BookMarked className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '清理死代码',
-    description: '扫描未引用的导出/组件/工具函数,确认无依赖后删除',
-    insertText: '/goal 扫描项目中未引用的导出/组件/工具函数,确认无依赖后删除',
-    icon: <X className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '补全 E2E 测试',
-    description: '为关键路径补全 E2E 测试,覆盖率提升到 80%+',
-    insertText: '/goal 为关键路径补全 E2E 测试,覆盖率提升到 80% 以上',
-    icon: <Code className="h-3.5 w-3.5" />,
-  },
-]
-
-/** /loop 命令参数候选(2026-07-29 二次深化,on/off/N 三选项 + 常用迭代次数) */
-const LOOP_ARG_OPTIONS: ArgSuggestion[] = [
-  {
-    label: '开启循环',
-    description: '开启循环执行模式,AI 将持续迭代直到目标达成',
-    insertText: '/loop on',
-    icon: <Power className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '关闭循环',
-    description: '关闭循环执行模式,恢复单次执行',
-    insertText: '/loop off',
-    icon: <Power className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '循环 5 次',
-    description: '设置最大迭代次数为 5',
-    insertText: '/loop 5',
-    icon: <Timer className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '循环 10 次',
-    description: '设置最大迭代次数为 10',
-    insertText: '/loop 10',
-    icon: <Timer className="h-3.5 w-3.5" />,
-  },
-  {
-    label: '循环 20 次',
-    description: '设置最大迭代次数为 20(高风险,需人工监督)',
-    insertText: '/loop 20',
-    icon: <Timer className="h-3.5 w-3.5" />,
-  },
-]
-
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
 const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
-
-const SLASH_CMD_KEY_MAP: Record<string, string> = {
-  summary: 'slashCmd.summary',
-  translate: 'slashCmd.translate',
-  explain: 'slashCmd.explain',
-  code: 'slashCmd.code',
-  polish: 'slashCmd.polish',
-  'wechat-article': 'slashCmd.wechat-article',
-  'koubo-script': 'slashCmd.koubo-script',
-}
 
 const TPL_NAME_KEY_MAP: Record<string, string> = {
   summary: 'tplSummary',
@@ -402,10 +266,14 @@ export function MessageInput({
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
   const tNav = useTranslations('nav')
+  // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
+  // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
+  // - cyclePermissionMode: Shift+Tab 在 3 个模式间循环切(default → accept-edits → bypass-permissions)
+  // hook 同时暴露 openShortcuts(供外部按钮触发),本组件未消费故不解构
+  // 详见 apps/web/src/hooks/use-permission-mode-cycle.ts
+  const { shortcutsOpen, closeShortcuts, cyclePermissionMode } = usePermissionModeCycle()
   // 当前工作区权限模式(2026-07-25 深化,高风险模式持久化视觉警告)
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
-  const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
-  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
   const activeWorkspaceMode = activeWorkspace?.mode
   const isHighRisk = isHighRiskPermissionMode(activeWorkspaceMode)
   // 高风险模式自动撤销倒计时(2026-07-25 深化,深度对标 Codex CLI 安全护栏):
@@ -580,249 +448,12 @@ export function MessageInput({
   }, [slashOpen])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
-  // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
   // - infoMode: 标题栏 ⓘ 按钮点击后展示该模式的详细说明 modal
-  const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
+  // shortcutsOpen / cyclePermissionMode 已提取到 usePermissionModeCycle hook(2026-07-29)
   const [infoMode, setInfoMode] = React.useState<WorkspacePermissionMode | null>(null)
 
-  // 全局 ? 键监听(2026-07-25 深化,Codex CLI 风格):
-  // - Shift+/ 也算,避免不同键盘布局下 ? 在不同位置
-  // - 排除 textarea/input/contenteditable 内,用户打字时不应该误触
-  // - 再按一次关闭(toggle),与常见 ? 文档快捷键行为一致
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)
-      ) {
-        return
-      }
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault()
-        setShortcutsOpen((v) => !v)
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [])
-
-  // 权限模式快捷切换(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环):
-  // - 模式改变时同步到 localStorage(只记忆非默认,避免污染用户)
-  // - Shift+Tab 在 3 个模式间循环切,跳过斜杠面板/提及面板打开时
-  // - 切到 bypass-permissions 复用 PermissionModePopover 同一撤销 toast
-  // 监听 mode 变化 → localStorage
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      if (activeWorkspaceMode) {
-        window.localStorage.setItem(PERMISSION_MEMORY_KEY, activeWorkspaceMode)
-      } else {
-        // 解除绑定时清掉记忆(避免下次自动套用过时模式)
-        window.localStorage.removeItem(PERMISSION_MEMORY_KEY)
-      }
-    } catch {
-      // 隐私模式/localStorage 不可用静默
-    }
-  }, [activeWorkspaceMode])
-
-  // 权限模式切换历史记录(2026-07-25 立,深度对标 Codex CLI 审计能力):
-  // - activeWorkspaceMode 变化时追加 1 条记录到 localStorage
-  // - source 暂用 'popover' 作为默认,具体来源由调用方通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖
-  // - 不在 message-input 内做来源判断(避免 popover/Shift+Tab/slash 三处分别改 1 个 if)
-  // - 主动撤销 1h 计时器归零 → auto-revert 来源,由 use-permission-auto-revert 内 hook 句柄写入
-  React.useEffect(() => {
-    if (!activeWorkspaceMode) return
-    // 首次 mount 时不记录(用户可能刚打开页面看到默认 default,记录无意义)
-    // 只在 mode 真正变化时记录 —— 通过 ref 缓存上次值判断
-    const w = window as unknown as {
-      __IHUI_LAST_RECORDED_MODE__?: WorkspacePermissionMode | null
-    }
-    const last = w.__IHUI_LAST_RECORDED_MODE__
-    if (last === activeWorkspaceMode) return
-    w.__IHUI_LAST_RECORDED_MODE__ = activeWorkspaceMode
-    recordModeChange({
-      mode: activeWorkspaceMode,
-      workspacePath: activeWorkspace?.path ?? '',
-      timestamp: Date.now(),
-      // 默认识别为 popover 来源;popover/shift-tab/slash 各自的代码路径在切完模式后会
-      // 通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖最近一条的 source(见下)
-      source: 'popover',
-    })
-  }, [activeWorkspaceMode, activeWorkspace?.path])
-
-  // 切到下一个模式(Shift+Tab 循环)
-  const cyclePermissionMode = React.useCallback(async () => {
-    const current = (activeWorkspaceMode ?? 'default') as WorkspacePermissionMode
-    const idx = PERMISSION_CYCLE.indexOf(current)
-    const next = PERMISSION_CYCLE[(idx + 1) % PERMISSION_CYCLE.length] ?? 'default'
-    if (next === current) return
-    // 切到 bypass-permissions + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化)
-    // 与 popover 走同一条 FullAccessConfirmDialog(共享 store.pendingFullAccess)
-    if (next === 'bypass-permissions' && !isFullAccessConfirmSuppressed()) {
-      setPendingFullAccess(true)
-      return
-    }
-    const previousMode = current
-    // 乐观更新 store
-    if (activeWorkspace) {
-      setActiveWorkspace({ ...activeWorkspace, mode: next })
-    }
-    const result = await switchPermissionMode(next)
-    if (!result.ok) {
-      // 回滚
-      if (activeWorkspace && previousMode) {
-        setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
-      }
-      toast.error(t('permission.cycleError', { error: result.error ?? '未知错误' }))
-      return
-    }
-    // 切完模式 → 把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
-    // 避免在 useEffect 内的 source 写死 'popover' 让历史面板误把 Shift+Tab 记成 popover
-    updateLatestRecordSource('shift-tab', (e) => e.mode === next)
-    // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
-    if (next === 'bypass-permissions') {
-      toast(t('permission.switchedToFull'), {
-        description: t('permission.switchedToFullDesc', { prev: previousMode }),
-        duration: 5000,
-        action: {
-          label: t('permission.undo'),
-          onClick: () => void cyclePermissionMode(),
-        },
-      })
-    } else {
-      // default / accept-edits → 短提示
-      const labelKey = next === 'default' ? 'permission.mode.ask' : 'permission.mode.auto'
-      toast.success(t('permission.cycledTo', { mode: t(labelKey) }), {
-        duration: 2000,
-      })
-    }
-  }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
-
-  const slashCommands = [
-    // 🎯 目标与循环(2026-07-29 立,置顶重点:AI 编程最主流的命令)
-    // 2026-07-29 二次深化:加 argsSuggestions,点击后进入参数补全模式
-    // /goal <目标条件>:设定当前会话目标,AI 围绕目标执行(对标 AGENTS.md §8 goal 模式工作流)
-    // /loop on|off|N:设置循环执行模式(对标 ai-service slash_commands.py _loop_handler)
-    {
-      id: 'goal',
-      label: '/goal',
-      description: t('slashCmd.goal'),
-      usage: '/goal <目标>',
-      kind: 'template' as const,
-      category: 'goal' as const,
-      icon: <Target className="h-4 w-4" />,
-      hasArgs: true,
-      argsTitle: t('slashCmd.goalArgTitle'),
-      argsSuggestions: GOAL_ARG_TEMPLATES,
-    },
-    {
-      id: 'loop',
-      label: '/loop',
-      description: t('slashCmd.loop'),
-      usage: '/loop on|off|N',
-      kind: 'template' as const,
-      category: 'goal' as const,
-      icon: <Repeat className="h-4 w-4" />,
-      hasArgs: true,
-      argsTitle: t('slashCmd.loopArgTitle'),
-      argsSuggestions: LOOP_ARG_OPTIONS,
-    },
-    // ⚡ 模式切换(2026-07-25 立,对标 Trae SOLO Plan 模式):切换 plan/act 模式
-    {
-      id: 'plan',
-      label: '/plan',
-      description: t('slashCmd.plan'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <BookOpen className="h-4 w-4" />,
-    },
-    {
-      id: 'act',
-      label: '/act',
-      description: t('slashCmd.act'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <Hammer className="h-4 w-4" />,
-    },
-    // 对话模式动作型命令(2026-07-28 立,补全 ChatMode 4态三通道):
-    // /build /review /spec 切换 ChatMode,/plan /act 同时联动 ChatMode 和 Plan/Act
-    {
-      id: 'build',
-      label: '/build',
-      description: t('slashCmd.build'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <Hammer className="h-4 w-4" />,
-    },
-    {
-      id: 'review',
-      label: '/review',
-      description: t('slashCmd.review'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <Search className="h-4 w-4" />,
-    },
-    {
-      id: 'spec',
-      label: '/spec',
-      description: t('slashCmd.spec'),
-      kind: 'action' as const,
-      category: 'mode' as const,
-      icon: <FileText className="h-4 w-4" />,
-    },
-    // 🔐 权限管理(2026-07-25 深化,深度对标 Codex approvalMode CLI):
-    // /permission ask|auto|full 切换工作区权限模式(不进入 LLM 流,纯本地 UI 状态)
-    // description 用 \n 拼接短描述 + 用法提示(2026-07-25 深化,提示用户支持的 3 个子命令)
-    {
-      id: 'permission-ask',
-      label: '/permission ask',
-      description: `${t('slashCmd.permissionAsk')}\n${t('permission.usageHint')}`,
-      kind: 'action' as const,
-      category: 'permission' as const,
-      icon: <Shield className="h-4 w-4" />,
-    },
-    {
-      id: 'permission-auto',
-      label: '/permission auto',
-      description: `${t('slashCmd.permissionAuto')}\n${t('permission.usageHint')}`,
-      kind: 'action' as const,
-      category: 'permission' as const,
-      icon: <ShieldCheck className="h-4 w-4" />,
-    },
-    {
-      id: 'permission-full',
-      label: '/permission full',
-      description: `${t('slashCmd.permissionFull')}\n${t('permission.usageHint')}`,
-      kind: 'action' as const,
-      category: 'permission' as const,
-      icon: <ShieldAlert className="h-4 w-4" />,
-    },
-    // ✨ AI 技能(2026-07-29 二次深化,从 /api/ai-skills 异步拉取,接入斜杠命令弹窗)
-    // 每个 skill 一项,点击后填充 /skill <name> 到 textarea,后端 _skill_handler 处理
-    // loading 状态:skillsLoading=true 时所有 skill 项标记 loading,弹窗分组标题显示 spinner
-    ...aiSkills.map((skill) => ({
-      id: `skill-${skill.id}`,
-      label: `/skill ${skill.name}`,
-      description: skill.description,
-      usage: `/skill ${skill.name}`,
-      kind: 'template' as const,
-      category: 'skill' as const,
-      icon: <Sparkles className="h-4 w-4" />,
-      hasArgs: false,
-      loading: skillsLoading,
-    })),
-    // 📝 内容模板:选命令后填充模板到 textarea
-    ...SLASH_COMMAND_IDS.map((id) => ({
-      id,
-      label: `/${id}`,
-      description: t(SLASH_CMD_KEY_MAP[id] ?? id),
-      kind: 'template' as const,
-      category: 'template' as const,
-      icon: <Sparkles className="h-4 w-4" />,
-    })),
-  ]
+  // 斜杠命令列表(2026-07-29 提取到 useSlashCommands,运行时构造逻辑下沉到 hooks/ 目录)
+  const slashCommands = useSlashCommands(aiSkills, skillsLoading)
 
   const commandTemplates: Record<string, string> = {
     // /goal /loop 命令(2026-07-29 立,重点命令:填充命令到 textarea 让用户继续输入参数)
@@ -1673,7 +1304,7 @@ export function MessageInput({
           - ? 键(Shift+/)全局唤起/关闭,由本组件内 useEffect 监听
           - 排除 textarea/input/contenteditable 内,用户打字不误触
           - 3 分组:模式切换 / 高风险护栏 / 撤销与审计 */}
-      <PermissionShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <PermissionShortcutsModal open={shortcutsOpen} onClose={closeShortcuts} />
       {/* 权限模式详细说明 modal(2026-07-25 深化,可解释性增强):
           - 只在高风险模式(bypass-permissions)显示 ⓘ 按钮时唤起
           - 4 条该模式详细行为 bullet,底部"知道了"关闭 */}
