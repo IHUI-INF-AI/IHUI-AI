@@ -39,6 +39,11 @@ import './index.css'
 const DEFAULT_AVATAR =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
+// 首页静态资源(Taro config copy.patterns 把 src/static/* 复制到 dist/static/*)
+const SHARE_ZHUANMI_IMG = '/static/images/share_zhuanmi.png'
+const SHARE_ZHZ_IMG = '/static/images/share_zhz.png'
+const QRCODE_IMG = '/static/images/qewm.png'
+
 // 模拟历史对话分组数据(对齐原项目 groupedData 结构,TODO: 接入真实 API)
 const MOCK_GROUPED_DATA: DrawerModelGroup[] = [
   {
@@ -286,7 +291,7 @@ export default function Index() {
               {/* share-image:140rpx×140rpx + pulse 动画 + 点击跳转"我的" */}
               <Image
                 className="ai-pulse"
-                src={DEFAULT_AVATAR}
+                src={SHARE_ZHUANMI_IMG}
                 style={{ width: '140rpx', height: '140rpx', zIndex: 10 }}
                 mode="aspectFit"
                 onClick={() => Taro.switchTab({ url: '/pages/user/index' })}
@@ -360,7 +365,7 @@ export default function Index() {
             onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
           >
             <Image
-              src={DEFAULT_AVATAR}
+              src={SHARE_ZHZ_IMG}
               style={{ width: '440rpx' }}
               mode="widthFix"
             />
@@ -385,7 +390,7 @@ export default function Index() {
             onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
           >
             <Image
-              src={DEFAULT_AVATAR}
+              src={QRCODE_IMG}
               style={{ width: '600rpx', height: '600rpx' }}
               mode="aspectFit"
             />
