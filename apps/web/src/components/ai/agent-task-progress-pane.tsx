@@ -239,10 +239,24 @@ function savePanePosition(pos: PanePosition): void {
 }
 
 /**
- * 视口坐标 clamp(v15 改用 fixed 定位,x/y 是相对视口的)。
- * parentRect 参数保留仅为向后兼容,v15 起被忽略。
+ * Pane 位置 clamp。
+ * - 默认(viewport 模式):x/y 限制在视口内,留 DRAG_EDGE_MARGIN 边距
+ * - bounds 模式(xv15+):传入消息区 rect 时,x/y 限制在消息区内,
+ *   避免 Pane 拖出消息区到 viewport 边缘(视觉脱离消息区)
  */
-function clampPanePosition(x: number, y: number, _parentRect?: DOMRect | null): PanePosition {
+function clampPanePosition(
+  x: number,
+  y: number,
+  bounds?: DOMRect | null,
+): PanePosition {
+  if (bounds) {
+    const maxX = Math.max(bounds.left, bounds.right - PANE_ESTIMATED_WIDTH)
+    const maxY = Math.max(bounds.top, bounds.bottom - PANE_ESTIMATED_HEIGHT)
+    return {
+      x: Math.min(Math.max(bounds.left, x), maxX),
+      y: Math.min(Math.max(bounds.top, y), maxY),
+    }
+  }
   const { width, height } = resolveParentBounds()
   const maxX = Math.max(DRAG_EDGE_MARGIN, width - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN)
   const maxY = Math.max(DRAG_EDGE_MARGIN, height - PANE_ESTIMATED_HEIGHT - DRAG_EDGE_MARGIN)
@@ -621,6 +635,29 @@ export function AgentTaskProgressPane() {
     if (saved) setPanePosition(clampPanePosition(saved.x, saved.y))
   }, [])
 
+  // xv15+ 锚点 rect(用于把 Pane 默认锚到 AI 面板右上角,而非视口右上角)
+  // 选择器用 aside[data-testid="ai-side-panel-aside"](2026-07-29 立),
+  // 它在空消息/有消息状态下都在 DOM,不再依赖 message-list-inline-panel(空消息时不挂载)。
+  // 监听 3 类变化:window resize(窗口变)/ MutationObserver(aside DOM 出现/消失,例如 AI 面板开关)
+  // / 兜底 interval 500ms 重读(空消息 → 发消息的 inline panel 出现场景,即便 effect 没触发也兜底)。
+  const [paneAnchorRect, setPaneAnchorRect] = React.useState<DOMRect | null>(null)
+  React.useEffect(() => {
+    const update = () => {
+      const el = document.querySelector(
+        'aside[data-testid="ai-side-panel-aside"]',
+      ) as HTMLElement | null
+      if (el) setPaneAnchorRect(el.getBoundingClientRect())
+    }
+    update()
+    window.addEventListener('resize', update)
+    // 兜底:500ms 重读一次,捕获 AI 面板开关 / inline panel 挂载等 DOM 变化
+    const interval = window.setInterval(update, 500)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.clearInterval(interval)
+    }
+  }, [])
+
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
 
@@ -711,14 +748,6 @@ export function AgentTaskProgressPane() {
     }
     return undefined
   }, [planSteps, progressPct])
-
-  // Phase 23(2026-07-29):idle 状态自动展开最小化面板
-  // 当 AI 不在执行时(progressPct=0 且无工具调用),自动退出最小化模式
-  React.useEffect(() => {
-    if (isMinimized && progressPct === 0 && tools.length === 0) {
-      setIsMinimized(false)
-    }
-  }, [isMinimized, progressPct, tools.length])
 
   // Phase 16: 进度环状态推导
   const ringState: 'idle' | 'in_progress' | 'completed' = React.useMemo(() => {
@@ -1138,20 +1167,26 @@ export function AgentTaskProgressPane() {
 
   if (!open || !mounted) return null
 
-  // v15: 计算 pane 根容器的位置样式(fixed 相对视口)
+  // xv15+ 计算 pane 根容器的位置样式(fixed 相对视口)
   // - 有保存位置 → left/top(视口坐标)
-  // - 无保存位置 → 默认 right: 16, top: 16(锚到视口右上角,留 16px 边距)
-  //   v15 之前用 right: 8, top: 8 锚到消息区(absolute),v15 改用 fixed 后用视口坐标,
-  //   多留 8px 让 Pane 与视口边缘有更明显的间距(避免贴边视觉差)
+  // - 无保存位置 → 默认锚到"AI 面板右上角" viewport 坐标(用户规则:Pane 应该浮在 AI 面板右上角而不是浏览器视口右上角)
+  //   视口不可用(paneAnchorRect 还没拿到)时 → fallback 到视口右上角 {right: 16, top: 16} 避免初次渲染跳动
   const positionStyle: React.CSSProperties = panePosition
     ? { left: panePosition.x, top: panePosition.y, right: 'auto' }
-    : { right: 16, top: 16 }
+    : paneAnchorRect
+      ? {
+          left: Math.max(DRAG_EDGE_MARGIN, paneAnchorRect.right - PANE_ESTIMATED_WIDTH - 16),
+          top: paneAnchorRect.top + 16,
+          right: 'auto',
+        }
+      : { right: 16, top: 16 }
 
   // Phase 23(2026-07-29):最小化模式 — 渲染摘要条替代完整面板
   // 摘要条用同一 positionStyle + Portal 保持位置一致性,用户可点击展开按钮恢复
+  // xv15+:z-popover(2001,globals.css 定义)而非 z-50,防止 Pane 锚到 AI 面板区域时被 AISidePanel(z-sticky=990)遮住
   if (isMinimized) {
     return createPortal(
-      <div className="fixed z-50" style={positionStyle} data-testid="pane-minimized-container">
+      <div className="fixed z-popover" style={positionStyle} data-testid="pane-minimized-container">
         <MinimizedSummaryBar
           progress={progressPct}
           toolCallCount={tools.length}
@@ -1165,11 +1200,12 @@ export function AgentTaskProgressPane() {
 
   // v15: 用 React Portal 渲染到 document.body,脱离 aside(overflow-hidden rounded-xl)
   // 的 overflow 限制,Pane 可以悬浮在 AI 对话框外(超出 aside 边界显示),不被边框裁切。
+  // xv15+:z-popover(2001)而非 z-50,防止 Pane 锚到 AI 面板区域时被 AISidePanel(z-sticky=990)遮住
   return createPortal(
     <div
       ref={paneRef}
       className={cn(
-        'fixed z-50',
+        'fixed z-popover',
         'flex w-[280px] max-h-[60vh] flex-col',
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
         isDragging && 'shadow-lg',
