@@ -16,3 +16,5 @@ export * from './use-agent-runtime'
 // 纯 React hooks 下沉(2026-07-29,apps/web → @ihui/shared)
 export * from './use-confirm-dialog'
 export * from './use-form'
+// 跨端共享登录表单(2026-07-29 立,web/RN/Taro 三端登录逻辑去重)
+export * from './use-login-form'
