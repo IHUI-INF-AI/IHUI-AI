@@ -9266,6 +9266,9 @@
   },
   "aiChat": {
     "title": "aiチャット",
+    "templates": "テンプレート",
+    "settings": "設定",
+    "share": "共有",
     "history": "チャット",
     "newConversation": "チャット",
     "noHistory": "なしチャット",
