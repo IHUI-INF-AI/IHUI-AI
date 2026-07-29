@@ -37,6 +37,10 @@ export function encryptJSON(data: unknown): EncryptedPayload {
 
 /**
  * 解密 { iv, ciphertext, tag } 结构，返回原始值。
+ *
+ * P0-5m(2026-07-30):兼容裸字符串格式(非 JSON.stringify 包裹)。
+ * 旧格式:encryptJSON("key") → 加密 JSON.stringify("key")='"key"' → JSON.parse → "key"
+ * 新格式:直接加密 "key" → JSON.parse("key") 会失败 → 回退返回裸字符串
  */
 export function decryptJSON(payload: EncryptedPayload): unknown {
   const key = getKey();
@@ -46,7 +50,13 @@ export function decryptJSON(payload: EncryptedPayload): unknown {
   const decipher = createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(tag);
   const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  return JSON.parse(plaintext.toString('utf8'));
+  const text = plaintext.toString('utf8');
+  try {
+    return JSON.parse(text);
+  } catch {
+    // 非 JSON 格式(裸字符串),直接返回
+    return text;
+  }
 }
 
 /**

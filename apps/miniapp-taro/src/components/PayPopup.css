@@ -1,0 +1,91 @@
+/* PayPopup 组件样式 — 对齐历史项目 ConfirmPurchasePopUp.vue / pay_btn.vue 视觉特征
+ *
+ * 设计原则:
+ * - 所有颜色用 CSS 变量 var(--color-*) / var(--chart-*),不硬编码 hex
+ * - 5 种按钮变体:default/vip/discount/subscription/gift,各自对应原项目不同视觉语义
+ * - 渐变用作背景色(非 mask-image 遮罩),不违反"禁止渐变遮罩"规则
+ * - 圆角用项目 token:rounded-md(6px)/ rounded-lg(8px),不使用 rounded-full
+ */
+
+/* ===== 权益列表(对齐原项目 ConfirmPurchasePopUp .product-desc) ===== */
+.pp-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+  background: var(--color-muted);
+  border-radius: 12rpx;
+}
+
+.pp-benefit-item {
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--color-foreground);
+}
+
+/* 高亮权益(对齐原项目 .benefit-item.highlight:红色加粗) */
+.pp-benefit-item--highlight {
+  color: var(--color-destructive);
+  font-weight: bold;
+}
+
+/* ===== 支付按钮基础(对齐原项目 .pay-button:全宽圆角按钮) ===== */
+.pp-pay-button {
+  position: relative;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.pp-pay-button:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+/* loading 状态:半透明 + 禁用点击反馈 */
+.pp-pay-button--loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ===== 5 种按钮变体(对齐原项目视觉特征) ===== */
+
+/* default 默认 - 普通支付按钮
+ * 对齐 ConfirmPurchasePopUp .pay-button:linear-gradient(135deg, #0550d0, #057aff) 蓝色渐变
+ * 用 var(--color-info) 蓝色作为主色调 */
+.pp-pay-button--default {
+  background: linear-gradient(135deg, var(--color-info), var(--color-info));
+  box-shadow: 0 4rpx 12rpx rgba(0, 122, 255, 0.3);
+}
+
+/* vip VIP 专属 - 金色渐变
+ * 对齐 VipPayConfirm 金色渐变(#fbbf24 → warning)
+ * 用 var(--color-warning) 金色 */
+.pp-pay-button--vip {
+  background: linear-gradient(135deg, var(--color-warning), var(--color-warning));
+  box-shadow: 0 4rpx 12rpx rgba(245, 158, 11, 0.4);
+}
+
+/* discount 折扣 - 红色促销
+ * 对齐 ConfirmPurchasePopUp .benefit-item.highlight #ff5722 红色
+ * 用 var(--color-destructive) 红色 */
+.pp-pay-button--discount {
+  background: linear-gradient(135deg, var(--color-destructive), var(--color-destructive));
+  box-shadow: 0 4rpx 12rpx rgba(239, 68, 68, 0.3);
+}
+
+/* subscription 订阅 - 紫色
+ * 对齐 pay_btn .title #517BFF 紫色 + .discount #8B91FF 紫调
+ * 用 var(--color-brand) 紫色(#6366f1) */
+.pp-pay-button--subscription {
+  background: linear-gradient(135deg, var(--color-brand), var(--color-brand));
+  box-shadow: 0 4rpx 12rpx rgba(99, 102, 241, 0.3);
+}
+
+/* gift 礼物 - 粉色
+ * 对齐 chart-6 #ec4899 粉色(项目内唯一粉色 CSS 变量) */
+.pp-pay-button--gift {
+  background: linear-gradient(135deg, var(--chart-6), var(--chart-6));
+  box-shadow: 0 4rpx 12rpx rgba(236, 72, 153, 0.3);
+}
+
+/* ===== Dark mode 适配(自动通过 CSS 变量 .dark 块覆盖) ===== */

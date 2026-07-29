@@ -75,7 +75,6 @@ export default function Selecter({
       const first = options[0]
       onChange?.(isObject(first) ? first.value : first, 0)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, type])
 
   // defaultVal 变化时同步选中
@@ -273,8 +272,7 @@ export default function Selecter({
                 <Text className="text-[29rpx] leading-[50rpx] text-muted-foreground">← 返回</Text>
               </View>
               <View
-                className={`${ITEM_BASE}`}
-                style={{ background: 'rgba(81, 141, 253, 0.2)', borderColor: 'var(--color-primary)' }}
+                className={`${ITEM_BASE} selecter-size-label`}
               >
                 <Text
                   className="text-[29rpx] leading-[50rpx] font-bold"
@@ -308,8 +306,7 @@ export default function Selecter({
         </ScrollView>
         {selectedRatio && (
           <View
-            className="w-full px-[21rpx] py-[13rpx] mt-[21rpx] rounded-[10rpx]"
-            style={{ background: 'rgba(81, 141, 253, 0.1)', border: '1px solid var(--color-primary)' }}
+            className="w-full px-[21rpx] py-[13rpx] mt-[21rpx] rounded-[10rpx] selecter-selected-value"
           >
             <Text className="text-[31rpx] font-bold" style={{ color: 'var(--color-primary)' }}>
               已选择: {firstKey(selectedSize)} - {firstKey(selectedRatio)} (
