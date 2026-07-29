@@ -2,95 +2,53 @@
 
 import * as React from 'react'
 import {
-  AlertTriangle,
-  Clock3,
   Send,
   Square,
   SquareSlash,
-  FileText,
-  Plus,
   AtSign,
-  Sparkles,
-  Package,
   X,
   Info,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { formatFileSize } from '@ihui/shared/utils/format'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
-import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
-import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
-import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
 import { CurrentModeBadge } from '@/components/chat/current-mode-badge'
+import { WebInputCore, MAX_LENGTH, type WebInputCoreHandle } from './web-input-core'
 import { PermissionModePopover, isHighRiskPermissionMode } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
-import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
+import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
+import { AddMenuPopover } from '@/components/chat/add-menu-popover'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
-import { useMessageReferences, type ReferenceItem } from '@/hooks/use-message-references'
+import { useMessageReferences } from '@/hooks/use-message-references'
+import { useMessageSend } from '@/hooks/use-message-send'
+import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-import { Popover, Tooltip } from '@/components/feedback'
-import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
-import { getRecentFilesForMention } from '@ihui/api-client'
+import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
-import { toast } from 'sonner'
-
-const MAX_LENGTH = 10000
-const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
-const MIN_HEIGHT_PX = 96 // rows=3 基础高度,与 hook threeLinePx 阈值一致
 
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
 // PROMPT_TEMPLATE_IDS / TPL_NAME_KEY_MAP / TPL_CONTENT_KEY_MAP / promptTemplates
 // 已提取到 useSlashAction hook(2026-07-29),组件内不再持有模板常量。
-
-/**
- * i18n 静态映射表 — 用于消除 `t(`permission.dangerousPattern.${pattern}`)` 单变量动态拼接。
- * key 集合与 apps/web/src/lib/dangerous-command-detector.ts 的 DANGEROUS_PATTERNS[].id 一一对应;
- * 若 detector 新增 pattern 而本表漏改,运行时回退到 'permission.dangerousPattern.unknown'。
- */
-const DANGEROUS_PATTERN_KEY: Record<string, string> = {
-  rmRrfRoot: 'permission.dangerousPattern.rmRrfRoot',
-  ddToDisk: 'permission.dangerousPattern.ddToDisk',
-  mkfsDisk: 'permission.dangerousPattern.mkfsDisk',
-  redirectToDevice: 'permission.dangerousPattern.redirectToDevice',
-  chmodRoot: 'permission.dangerousPattern.chmodRoot',
-  sudoAny: 'permission.dangerousPattern.sudoAny',
-  curlPipeSh: 'permission.dangerousPattern.curlPipeSh',
-  forkBomb: 'permission.dangerousPattern.forkBomb',
-  mvRootToNull: 'permission.dangerousPattern.mvRootToNull',
-  rmEnv: 'permission.dangerousPattern.rmEnv',
-  rmGit: 'permission.dangerousPattern.rmGit',
-  forcePushMain: 'permission.dangerousPattern.forcePushMain',
-}
-
-/**
- * 把后端返回的 mimeType 转换为短标签(image/png → PNG,application/pdf → PDF)。
- * 没有 mimeType 时回退为 "FILE"。
- */
-function mimeToLabel(mimeType: string): string {
-  if (!mimeType) return 'FILE'
-  const sep = mimeType.indexOf('/')
-  if (sep < 0) return mimeType.toUpperCase()
-  return mimeType.slice(sep + 1).toUpperCase()
-}
+// DANGEROUS_PATTERN_KEY 已提取到 useMessageSend hook(2026-07-30)。
+// mimeToLabel / useMentionFiles / useAiSkills 已提取到 use-lazy-resource-hooks(2026-07-30)。
 
 interface MessageInputProps {
   /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
@@ -105,127 +63,6 @@ interface MessageInputProps {
   modelLabel: string
 }
 
-/** WebInputCore 句柄 — 与原 textareaRef 等价(主组件通过 inputCoreRef.current 访问) */
-interface WebInputCoreHandle {
-  focus: () => void
-  setSelectionRange: (start: number, end: number) => void
-  resize: () => void
-}
-
-/** WebInputCore props(契约对齐 packages/types MessageInputProps 核心字段)
- * 共享层 `<MessageInput>`(rn/taro)用相同 props 名,本组件是 web 端实现(react-native-web 未配置,
- * 不能直接 import @ihui/app;详细论证见 2026-07-29 方案 A)。
- * 职责:渲染 textarea + 字符计数 + 清除按钮 + 发送/停止按钮
- * 不包含:slash 触发按钮、@ 文件提及、模型选择、语音输入(由主组件工具栏承担) */
-interface WebInputCoreProps {
-  text: string
-  placeholder: string
-  isStreaming: boolean
-  onTextChange: (v: string) => void
-  onSend: () => void
-  onStop: () => void
-  onClear: () => void
-  /** 错误提示(可选,空字符串/null/undefined 时不渲染) */
-  error?: string
-  /** 翻译函数(主组件已 useTranslations('chat'),传入 t 即可) */
-  t: (key: string) => string
-  /** 原生 change 事件(用于触发 slash/mention 面板) */
-  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  /** 原生 keydown 事件(用于 Shift+Tab 切换权限模式) */
-  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
-  /** 原生 paste 事件(用于图片粘贴) */
-  onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
-  /** 发送按钮 tooltip(主组件传入对齐 aria-label) */
-  sendLabel?: string
-  /** 停止按钮 tooltip */
-  stopLabel?: string
-}
-
-/** Web 端 MessageInput 实现(forwardRef,契约对齐 SharedMessageInputProps)
- * 渲染 textarea + 字符计数(2026-07-29 简化,清除/发送/停止按钮已挪到外层 toolbar)。
- * 内部托管 textarea ref + 自动高度,主组件通过 forwarded ref 调用 focus/setSelectionRange/resize。 */
-const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(function WebInputCore(
-  {
-    text,
-    placeholder,
-    onTextChange,
-    onSend,
-    error,
-    onChange,
-    onKeyDown,
-    onPaste,
-    // 2026-07-29 简化:以下 props 在 web 端不再使用(发送/停止/清除按钮已挪到外层 toolbar),
-    // 保留在 props 契约里是为了和 packages/types SharedMessageInputProps 对齐(rn/taro 端仍用)。
-    isStreaming: _isStreaming,
-    onStop: _onStop,
-    onClear: _onClear,
-    t: _t,
-    sendLabel: _sendLabel,
-    stopLabel: _stopLabel,
-  },
-  ref,
-) {
-  const innerRef = React.useRef<HTMLTextAreaElement>(null)
-  const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
-    threeLinePx: MIN_HEIGHT_PX,
-    maxHeightPx: MAX_HEIGHT_PX,
-  })
-  React.useImperativeHandle(
-    ref,
-    (): WebInputCoreHandle => ({
-      focus: () => innerRef.current?.focus(),
-      setSelectionRange: (s, e) => innerRef.current?.setSelectionRange(s, e),
-      resize,
-    }),
-    [resize],
-  )
-  // 发送/停止/清除按钮已挪到外层 MessageInput 底部 toolbar 与其他动作按钮同行(2026-07-29 用户规则),
-  // 本组件只负责 textarea + 字符计数;onSend/onStop/onClear 仍由 props 透传供 Enter 触发等场景使用。
-  return (
-    <div className="relative px-3 pt-2 pb-2">
-      <textarea
-        ref={innerRef}
-        value={text}
-        onChange={(e) => {
-          const v = e.target.value.slice(0, MAX_LENGTH)
-          onTextChange(v)
-          onChange?.(e)
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault()
-            onSend()
-          } else {
-            onKeyDown?.(e)
-          }
-        }}
-        onPaste={onPaste}
-        placeholder={placeholder}
-        rows={3}
-        aria-label={placeholder}
-        style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
-        className={cn(
-          'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
-          'placeholder:text-muted-foreground/70',
-          'pb-6',
-        )}
-      />
-      <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center">
-        <span
-          aria-live="polite"
-          className={cn(
-            'text-[10px] tabular-nums text-muted-foreground/60',
-            text.length >= MAX_LENGTH && 'text-destructive',
-          )}
-        >
-          {text.length}/{MAX_LENGTH}
-        </span>
-      </div>
-      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
-    </div>
-  )
-})
-
 export function MessageInput({
   onSend,
   onStop,
@@ -239,7 +76,6 @@ export function MessageInput({
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
-  const tNav = useTranslations('nav')
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
   // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
   // - cyclePermissionMode: Shift+Tab 在 3 个模式间循环切(default → accept-edits → bypass-permissions)
@@ -284,17 +120,36 @@ export function MessageInput({
     removeReference,
     resetReferences,
   } = useMessageReferences()
-  const [isDragOver, setIsDragOver] = React.useState(false)
-  // AI Skills 列表(2026-07-29 二次深化,从 /api/ai-skills 拉取,接入斜杠命令弹窗 skill 分组)
-  // 懒加载:首次打开弹窗时拉取,成功后缓存到 state,关闭再打开不重新拉
-  const [aiSkills, setAiSkills] = React.useState<AiSkillMeta[]>([])
-  const [skillsLoading, setSkillsLoading] = React.useState(false)
-  const skillsLoadedRef = React.useRef(false)
-  // @ 提及面板文件列表:首次打开时从 /api/files/recent 懒加载,避免无谓请求
-  const [mentionFiles, setMentionFiles] = React.useState<
-    { id: string; name: string; path: string }[]
-  >([])
-  const mentionLoadedRef = React.useRef(false)
+  // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
+  const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
+  // 发送 / 拖拽 / 粘贴 / 文件输入 handler(2026-07-30 提取到 useMessageSend hook):
+  // - isDragOver 状态由 hook 内部管理(原 React.useState(false))
+  // - submit / doSend(内部)/ handleDragOver / handleDragLeave / handleDrop / handlePaste
+  //   / handleFileInputChange 全部内聚到 hook,主组件只消费返回值
+  // - 危险命令检测(DANGEROUS_PATTERN_KEY)随同迁移,主组件不再持有
+  const {
+    isDragOver,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    handlePaste,
+    handleFileInputChange,
+    submit,
+  } = useMessageSend({
+    value,
+    setValue,
+    isStreaming,
+    isHighRisk,
+    references,
+    resetReferences,
+    addFileReference,
+    onSend,
+    inputCoreRef,
+    draftKey: DRAFT_KEY,
+  })
+  // AI Skills 列表 + @ 提及文件列表:懒加载逻辑已提取到 use-lazy-resource-hooks(2026-07-30)
+  const { aiSkills, skillsLoading } = useAiSkills(slashOpen)
+  const { mentionFiles } = useMentionFiles(mentionOpen)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   // /permission 切换 toast 首弹记录(2026-07-29 提取到 useSlashAction hook):
   // - permissionToastShownRef / markPermissionToastShown / localStorage 持久化
@@ -306,8 +161,6 @@ export function MessageInput({
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
   const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
-  // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
-  const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
@@ -337,75 +190,6 @@ export function MessageInput({
       requestAnimationFrame(() => inputCoreRef.current?.focus())
     }
   }, [draftInput, clearDraftInput])
-
-  // 首次打开 @ 提及面板时拉取最近文件列表;失败静默(留空数组,Popover 显示"无匹配文件")
-  React.useEffect(() => {
-    if (!mentionOpen || mentionLoadedRef.current) return
-    mentionLoadedRef.current = true
-    getRecentFilesForMention(30)
-      .then((res) => {
-        if (res.success && res.data?.files) {
-          setMentionFiles(
-            res.data.files.map((f) => ({
-              id: f.id,
-              name: f.name,
-              // API 不返回 path,用 mimeType · size 作为次要展示文本
-              path: `${mimeToLabel(f.mimeType)} · ${formatFileSize(f.size)}`,
-            })),
-          )
-        }
-      })
-      .catch(() => {
-        // 静默失败:未登录/网络错误时保持空数组,Popover 显示"无匹配文件"
-      })
-  }, [mentionOpen])
-
-  // 首次打开斜杠命令弹窗时拉取 AI Skills 列表(2026-07-29 二次深化,接入 skill 分组)
-  // 2026-07-29 三次深化:兼容后端两种响应结构 + 控制台错误日志便于调试
-  // 2026-07-29 四次深化:失败时重置 skillsLoadedRef 允许下次重试
-  // (根因:首次打开时若 8803 未启动,fetch 失败但 ref 已锁 true,后续永不重试 → skill 分组永远空)
-  // - 结构A(标准):{ code: 0, data: AiSkillMeta[] } → res.data 是数组
-  // - 结构B(兼容):{ code: 0, data: { skills: AiSkillMeta[], count: N } } → res.data.skills 是数组
-  // 失败静默 UI(保持空数组),但 console.error 输出错误便于排查
-  React.useEffect(() => {
-    if (!slashOpen || skillsLoadedRef.current) return
-    skillsLoadedRef.current = true
-    setSkillsLoading(true)
-    listAiSkills()
-      .then((res) => {
-        if (!res.success) {
-          // 失败:重置 ref 允许下次打开时重试(避免一次性失败永久锁死)
-          skillsLoadedRef.current = false
-           
-          console.warn('[slash-cmd] listAiSkills failed:', res.error, res.status)
-          return
-        }
-        // 兼容两种响应结构(后端标准是数组,但防御性处理嵌套结构)
-        const skills = Array.isArray(res.data)
-          ? res.data
-          : res.data && Array.isArray((res.data as { skills?: unknown[] }).skills)
-            ? (res.data as { skills: AiSkillMeta[] }).skills
-            : []
-        if (skills.length > 0) {
-          setAiSkills(skills)
-        } else {
-          // 空响应:重置 ref 允许下次重试(后端可能临时返回空)
-          skillsLoadedRef.current = false
-           
-          console.warn('[slash-cmd] listAiSkills returned empty or unexpected shape:', res.data)
-        }
-      })
-      .catch((err) => {
-        // 网络错误:重置 ref 允许下次重试
-        skillsLoadedRef.current = false
-        // 静默失败 UI,但记录错误便于排查(生产环境不影响用户体验)
-         
-        console.error('[slash-cmd] listAiSkills network error:', err)
-      })
-      .finally(() => {
-        setSkillsLoading(false)
-      })
-  }, [slashOpen])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
   // - infoMode: 标题栏 ⓘ 按钮点击后展示该模式的详细说明 modal
@@ -473,140 +257,6 @@ export function MessageInput({
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    files.forEach(addFileReference)
-    // 重置 value,允许重复选择同一文件
-    e.target.value = ''
-  }
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    if (isStreaming) return
-    // 仅在拖入文件时阻止默认行为(否则浏览器会打开文件)
-    if (e.dataTransfer.types.includes('Files')) {
-      e.preventDefault()
-      e.dataTransfer.dropEffect = 'copy'
-      if (!isDragOver) setIsDragOver(true)
-    }
-  }
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    // 仅当离开外层容器时才清除高亮(避免子元素 dragenter/dragleave 抖动)
-    if (e.currentTarget === e.target) {
-      setIsDragOver(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    if (isStreaming) return
-    if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return
-    e.preventDefault()
-    setIsDragOver(false)
-    Array.from(e.dataTransfer.files).forEach(addFileReference)
-    requestAnimationFrame(() => inputCoreRef.current?.focus())
-  }
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    if (isStreaming) return
-    const items = e.clipboardData?.items
-    if (!items) return
-    const imageItems = Array.from(items).filter(
-      (item) => item.kind === 'file' && item.type.startsWith('image/'),
-    )
-    if (imageItems.length === 0) return
-    e.preventDefault()
-    imageItems.forEach((item) => {
-      const file = item.getAsFile()
-      if (file) {
-        // 粘贴的图片无文件名,用时间戳生成
-        const renamed = new File([file], `pasted-${Date.now()}.png`, { type: file.type })
-        addFileReference(renamed)
-      }
-    })
-  }
-
-  const submit = async () => {
-    const text = value.trim()
-    if (!text || isStreaming) return
-    // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
-    // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
-    // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
-    // - medium → 普通 toast 警告(不阻断,只提醒)
-    if (isHighRisk) {
-      const detection = detectDangerousCommands(text)
-      if (detection.hasDangerous) {
-        // 找出最严重的 critical/high 命中的 pattern + reason 展示
-        const top = detection.matches.find(
-          (m) => m.severity === 'critical' || m.severity === 'high',
-        )
-        if (top) {
-          const patternLabel = t(
-            DANGEROUS_PATTERN_KEY[top.pattern] ?? 'permission.dangerousPattern.unknown',
-          )
-          toast(t('permission.dangerousCommandTitle'), {
-            description: t('permission.dangerousCommandDesc', {
-              pattern: patternLabel,
-              reason: top.reason,
-            }),
-            duration: 10_000,
-            action: {
-              label: t('permission.dangerousCommandProceed'),
-              onClick: () => {
-                void doSend(text, references)
-              },
-            },
-            cancel: {
-              label: t('permission.dangerousCommandCancel'),
-              onClick: () => {
-                // 仅关闭 toast,保留输入内容
-              },
-            },
-          })
-          return
-        }
-      }
-      // 仅 medium → 警告但不阻断
-      if (detection.matches.length > 0) {
-        const medium = detection.matches[0]!
-        const patternLabel = t(
-          DANGEROUS_PATTERN_KEY[medium.pattern] ?? 'permission.dangerousPattern.unknown',
-        )
-        toast.warning(t('permission.dangerousCommandWarningOnly', { pattern: patternLabel }), {
-          duration: 5_000,
-        })
-      }
-    }
-    await doSend(text, references)
-  }
-
-  /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
-  const doSend = async (text: string, refs: ReferenceItem[]) => {
-    // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频/其他文件用引用块
-    const attachmentMarkdown = refs
-      .map((r) => {
-        if (r.type === 'image' && r.thumbnail) {
-          return `![${r.label}](${r.thumbnail})`
-        }
-        if (r.type === 'video' && r.thumbnail) {
-          return `<video src="${r.thumbnail}" controls></video>`
-        }
-        return `> 📎 ${r.label}`
-      })
-      .join('\n')
-    const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
-    // onSend 返回 false 表示未发送(如未登录/创建会话失败),保留输入内容不清空
-    const ok = await onSend(finalContent)
-    if (!ok) return
-    // 释放所有 objectURL
-    refs.forEach((r) => {
-      if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)
-    })
-    setValue('')
-    if (typeof window !== 'undefined') localStorage.removeItem(DRAFT_KEY)
-    resetReferences()
-    requestAnimationFrame(() => inputCoreRef.current?.resize())
-  }
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
@@ -633,52 +283,10 @@ export function MessageInput({
     <div>
       <div className="mx-auto max-w-3xl px-4 py-3">
         {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
-            - bypass-permissions 模式时,输入框上方加琥珀色横幅
-            - 提醒用户 AI 当前可执行任何操作(无法撤回的破坏性操作的预防)
-            - 倒计时(2026-07-25 深化):显示"X 分钟后自动切回请求批准",可手动取消
-            - 非高风险模式时不渲染(零开销) */}
-        {isHighRisk && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300 animate-pulse-soft"
-          >
-            <AlertTriangle
-              className="mt-px h-3.5 w-3.5 shrink-0 text-amber-500"
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1 leading-snug">
-              <div>{t('permission.inputWarning')}</div>
-              {autoRevert.isActive ? (
-                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
-                  <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
-                  <span>
-                    {t('permission.autoRevertIn', {
-                      time: formatRemaining(autoRevert.remainingMs),
-                    })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={autoRevert.cancelRevert}
-                    className="ml-1 inline-flex items-center gap-0.5 rounded-sm border border-amber-500/30 px-1.5 py-px text-[10px] font-medium transition-colors hover:bg-amber-500/10"
-                    aria-label={t('permission.cancelAutoRevert')}
-                  >
-                    <X className="h-2.5 w-2.5" aria-hidden="true" />
-                    {t('permission.cancelAutoRevert')}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => autoRevert.extendRevert()}
-                  className="mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
-                >
-                  {t('permission.reEnableAutoRevert')}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+            - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
+            - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
+            - autoRevert 由主组件透传(标题栏倒计时与横幅倒计时共享同一份 tick) */}
+        <HighRiskWarningBanner autoRevert={autoRevert} />
         {references.length > 0 && (
           <div className="mb-2">
             <ContextReferencePanel references={references} onRemove={removeReference} />
@@ -740,167 +348,52 @@ export function MessageInput({
                   - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
                   - 通过 window.__IHUI_OPEN_HISTORY__?.() 由外部组件触发,自身不渲染任何重复入口 */}
               <PermissionHistoryPanel />
-              {/* "添加"下拉菜单(2026-07-25 终极整合):唯一附加栏功能入口
-                  收纳 5 类动作,内部按 addMenuMode 切换 content:
-                  - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
-                  - prompt:PromptTemplates 弹层
-                  - skill:SkillLibrary 弹层
-                  避免嵌套弹层,trigger 始终是"添加"按钮,焦点/坐标/ESC 行为统一 */}
-              <Popover
+              {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
+                  收纳 5 类动作,内部按 mode 切换 content(menu/prompt/skill 三态)
+                  行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
+              <AddMenuPopover
                 open={addMenuOpen}
-                onOpenChange={(next) => {
-                  setAddMenuOpen(next)
-                  // 关闭时重置为菜单态,下次打开从 menu 开始
-                  if (!next) setAddMenuMode('menu')
+                onOpenChange={setAddMenuOpen}
+                mode={addMenuMode}
+                onModeChange={setAddMenuMode}
+                isStreaming={isStreaming}
+                inputValue={value}
+                promptTemplates={promptTemplates}
+                onTemplateSelect={(content) => {
+                  handleTemplateSelect(content)
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
                 }}
-                content={
-                  addMenuMode === 'prompt' ? (
-                    <div className="w-72">
-                      <PromptTemplates
-                        templates={promptTemplates}
-                        onSelect={(content) => {
-                          handleTemplateSelect(content)
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                        }}
-                      />
-                    </div>
-                  ) : addMenuMode === 'skill' ? (
-                    <SkillLibrary
-                      onSelect={(template) => {
-                        fillInput(template)
-                        setAddMenuOpen(false)
-                        setAddMenuMode('menu')
-                      }}
-                      onClose={() => {
-                        setAddMenuOpen(false)
-                        setAddMenuMode('menu')
-                      }}
-                    />
-                  ) : (
-                    <div
-                      role="menu"
-                      aria-label={t('addMenuDesc')}
-                      className="flex w-60 flex-col gap-0.5"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          setAddMenuMode('prompt')
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('promptTemplate')}</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming || !value.trim()}
-                        onClick={() => {
-                          const text = value.trim()
-                          if (!text) return
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                          addTextReference(text)
-                          setValue('')
-                          requestAnimationFrame(() => inputCoreRef.current?.resize())
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('addContextReference')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          setAddMenuMode('skill')
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{t('skillLibrary.title')}</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                          fileInputRef.current?.click()
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{tA11y('addAttachment')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        disabled={isStreaming}
-                        onClick={() => {
-                          setAddMenuOpen(false)
-                          setAddMenuMode('menu')
-                          // 插件/MCP 入口:跳转到 /plugins 页面
-                          window.location.href = '/plugins'
-                        }}
-                        className={cn(
-                          'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
-                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                          'disabled:cursor-not-allowed disabled:opacity-50',
-                        )}
-                      >
-                        <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
-                      </button>
-                    </div>
-                  )
-                }
-                position="bottom"
-                trigger="click"
-                portal
-                align="start"
-                tooltip={addMenuOpen ? undefined : t('addMenuLabel')}
-              >
-                <button
-                  type="button"
-                  aria-label={t('addMenuLabel')}
-                  aria-haspopup="menu"
-                  aria-expanded={addMenuOpen}
-                  disabled={isStreaming}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
-                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>{t('addMenuLabel')}</span>
-                </button>
-              </Popover>
+                onSkillSelect={(template) => {
+                  fillInput(template)
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
+                }}
+                onSkillClose={() => {
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
+                }}
+                onAddFile={() => {
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
+                  fileInputRef.current?.click()
+                }}
+                onAddTextReference={() => {
+                  const text = value.trim()
+                  if (!text) return
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
+                  addTextReference(text)
+                  setValue('')
+                  requestAnimationFrame(() => inputCoreRef.current?.resize())
+                }}
+                onOpenPluginMarket={() => {
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
+                  // 插件/MCP 入口:跳转到 /plugins 页面
+                  window.location.href = '/plugins'
+                }}
+              />
               {references.length > 0 && (
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {references.length} 个引用
