@@ -833,6 +833,20 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const promptTokens = data.usage?.prompt_tokens ?? 0
         const completionTokens = data.usage?.completion_tokens ?? 0
         const totalTokens = data.usage?.total_tokens ?? 0
+        // P0-5 防御:ai-service 偶发把 usage 序列化为 '***' 字符串(LLMMetrics 中间件脱敏),
+        // 此时按字符数估算(1 token ≈ 4 字符,中英文混合),避免 recordCall 写库失败。
+        const safeInt = (v: unknown, fallbackChars: number): number => {
+          if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return Math.floor(v)
+          if (typeof v === 'string') {
+            const n = Number(v)
+            if (Number.isFinite(n) && n >= 0) return Math.floor(n)
+            return Math.max(1, Math.ceil(fallbackChars / 4))
+          }
+          return Math.max(1, Math.ceil(fallbackChars / 4))
+        }
+        const safePrompt = safeInt(promptTokens, promptText.length)
+        const safeCompletion = safeInt(completionTokens, (data.content ?? '').length)
+        const safeTotal = safeInt(totalTokens, promptText.length + (data.content ?? '').length)
 
         const result: V1ChatCompletionResponse = {
           id: `chatcmpl-${randomUUID()}`,
@@ -847,26 +861,28 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             },
           ],
           usage: {
-            promptTokens,
-            completionTokens,
-            totalTokens,
+            promptTokens: safePrompt,
+            completionTokens: safeCompletion,
+            totalTokens: safeTotal,
           },
         }
 
         // P0-5 中转站计费:调用成功,记录流水 + 扣减余额
         if (apiKey) {
-          void recordCall({
+          recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
             model,
             prompt: promptText,
             response: data.content ?? '',
-            promptTokens,
-            completionTokens,
-            totalTokens,
+            promptTokens: safePrompt,
+            completionTokens: safeCompletion,
+            totalTokens: safeTotal,
             latencyMs: Date.now() - startTime,
             status: 'success',
-          }).catch(() => {})
+          }).catch((e) => {
+            console.error('[v1/chat] recordCall FAIL', e?.message || e)
+          })
         }
 
         return reply.send(result)
