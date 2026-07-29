@@ -348,8 +348,16 @@ import traderStatsRoutes from './trader-stats.js'
 import { subagentsExtendedRoutes } from './subagents-extended-routes.js'
 // AI 助教路由代理(把 /api/ai-tutor/* 透传到 ai-service,避免前端直连 CORS)
 import { aiTutorRoutes } from './ai-tutor-routes.js'
-// Newsletter 订阅路由(定价页转化率优化配套,lead capture)
+// Newsletter 订阅(定价页转化率优化配套,lead capture)
 import newsletterRoutes from './newsletter.js'
+// P0-5 模型 API 中转站(2026-07-29 立,对标 OneAPI/NewAPI)
+// admin 后台:模型上下架/Key 池/动态发现审批(绝对路径 /admin/relay/*)
+import relayModelsRoutes from './admin/relay-models.js'
+import relayKeyPoolRoutes from './admin/relay-key-pool.js'
+import relayDiscoveryRoutes from './admin/relay-discovery.js'
+import relayLogsRoutes from './admin/relay-logs.js'
+// 用户侧:API Key 列表/用量/日志/充值(绝对路径 /developer/relay/*)
+import developerRelayRoutes from './developer-relay.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -949,4 +957,13 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiTutorRoutes, { prefix: '/api' })
   // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
   server.register(newsletterRoutes, { prefix: '/api/newsletter' })
+
+  // P0-5 模型 API 中转站(2026-07-29 立,对标 OneAPI/NewAPI)
+  // admin 后台:模型上下架 + Key 池 + 动态发现审批 + 调用日志(绝对路径 /admin/relay/*)
+  server.register(relayModelsRoutes, { prefix: '/api' })
+  server.register(relayKeyPoolRoutes, { prefix: '/api' })
+  server.register(relayDiscoveryRoutes, { prefix: '/api' })
+  server.register(relayLogsRoutes, { prefix: '/api' })
+  // 用户侧:API Key 列表 + 用量明细 + 调用日志 + 充值(绝对路径 /developer/relay/*)
+  server.register(developerRelayRoutes, { prefix: '/api' })
 }

@@ -1757,3 +1757,405 @@ export interface LiveScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 15(2026-07-29):消息/记录/关系类(私聊/群聊/系统/详情/积分/学习/收益/邀请/关注/收藏) */
+
+/** 私信列表项(对齐 mobile-rn MessageDirectScreen Item) */
+export interface MessageDirectItem {
+  memberId: string
+  nickname: string
+  lastMessage: string
+  lastMessageTime: string
+  unreadCount: number
+}
+export interface MessageDirectScreenProps {
+  t: TFunction
+  items: MessageDirectItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (item: MessageDirectItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 群聊列表项(对齐 mobile-rn MessageGroupScreen Item) */
+export interface MessageGroupItem {
+  groupId: string
+  groupName: string
+  lastMessage: string
+  lastMessageTime: string
+  unreadCount: number
+}
+export interface MessageGroupScreenProps {
+  t: TFunction
+  items: MessageGroupItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (item: MessageGroupItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 系统消息列表项(对齐 mobile-rn MessageSystemScreen Item) */
+export interface MessageSystemItem {
+  id: string
+  title: string
+  content: string
+  time: string
+  read: boolean
+}
+export interface MessageSystemScreenProps {
+  t: TFunction
+  items: MessageSystemItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (item: MessageSystemItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 消息详情(对齐 mobile-rn MessageDetailScreen Message) */
+export interface MessageDetailData {
+  id: string
+  subject: string
+  content: string
+  fromUser: string
+  createdAt: string
+  read: boolean
+}
+export interface MessageDetailScreenProps {
+  t: TFunction
+  message: MessageDetailData | null
+  loading: boolean
+  error: string
+  onReply: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */
+export type PointsRecordType = 'all' | 'earn' | 'spend'
+export interface PointsRecordItem {
+  id: string
+  type: 'earn' | 'spend'
+  source: string
+  amount: number
+  balanceAfter: number
+  createdAt: string
+}
+export interface PointsRecordScreenProps {
+  t: TFunction
+  items: PointsRecordItem[]
+  balance: number
+  activeTab: PointsRecordType
+  onSelectTab: (tab: PointsRecordType) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 学习记录统计(对齐 mobile-rn StudyRecordScreen StudyStats) */
+export interface StudyRecordStats {
+  totalDuration: number
+  totalCourses: number
+  completedCourses: number
+  totalLessons: number
+  completedLessons: number
+  continuousDays: number
+}
+export type StudyRecordStatus = 'in_progress' | 'paused' | 'completed'
+export interface StudyRecordItem {
+  id: string
+  courseTitle: string | null
+  lessonTitle: string | null
+  status: StudyRecordStatus
+  duration?: number
+  progress?: number
+  lastStudyAt: string
+}
+export interface StudyRecordScreenProps {
+  t: TFunction
+  records: StudyRecordItem[]
+  stats: StudyRecordStats | null
+  userNickname: string
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 收益记录项(对齐 mobile-rn IncomeScreen CommissionItem) */
+export interface IncomeCommissionItem {
+  id: string
+  title: string
+  amount: number
+  time: string
+  settled: boolean
+}
+export interface IncomeData {
+  totalEarnings: number
+  todayCommission: number
+  balance: number
+  list: IncomeCommissionItem[]
+}
+export interface IncomeScreenProps {
+  t: TFunction
+  data: IncomeData
+  loading: boolean
+  error: string
+  onWithdraw: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 邀请信息(对齐 mobile-rn InviteScreen InviteInfo) */
+export interface InviteInfo {
+  inviteCode: string
+  inviteUrl: string
+  totalInvited: number
+  totalReward: number
+}
+export interface InviteRecordItem {
+  id: string
+  nickname: string
+  invitedAt: string
+  reward: number
+  status: 'pending' | 'completed'
+}
+export interface InviteScreenProps {
+  t: TFunction
+  info: InviteInfo | null
+  records: InviteRecordItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onShare: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 关注/粉丝项(对齐 mobile-rn FollowScreen FollowUser) */
+export type FollowTab = 'following' | 'fans'
+export interface FollowUserItem {
+  id: string
+  nickname: string | null
+  username: string
+  avatar: string | null
+  bio: string | null
+  followedAt: string
+}
+export interface FollowScreenProps {
+  t: TFunction
+  items: FollowUserItem[]
+  activeTab: FollowTab
+  onSelectTab: (tab: FollowTab) => void
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  onRefresh: () => void
+  onLoadMore: () => void
+  onUnfollow: (item: FollowUserItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 收藏项(对齐 mobile-rn FavoriteScreen FavoriteItem) */
+export type FavoriteFilterTab = 'all' | 'course' | 'live' | 'article'
+export interface FavoriteItemRow {
+  id: string
+  targetType: string
+  targetId: string
+  title: string
+  cover: string | null
+  createdAt: string
+}
+export interface FavoriteScreenProps {
+  t: TFunction
+  items: FavoriteItemRow[]
+  activeTab: FavoriteFilterTab
+  onSelectTab: (tab: FavoriteFilterTab) => void
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  onRefresh: () => void
+  onLoadMore: () => void
+  onDelete: (item: FavoriteItemRow) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
+
+/** 考试历史列表项(平台注入,字段对齐 mobile-rn ExamHistoryScreen ExamHistory) */
+export interface ExamHistoryItem {
+  id: string
+  examTitle: string
+  score: number
+  totalScore: number
+  passed: boolean
+  /** 提交时间(ISO 或格式化字符串) */
+  submittedAt: string
+}
+
+/** ExamHistoryScreen props */
+export interface ExamHistoryScreenProps {
+  t: TFunction
+  items: ExamHistoryItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  /** 点击历史记录回调,平台注入导航跳转(如 navigate('ExamResult', { id })) */
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 考试错题项(平台注入,字段对齐 mobile-rn ExamResultScreen wrongQuestions) */
+export interface ExamResultWrongQuestion {
+  /** 题目序号(0-based) */
+  index: number
+  question: string
+  yourAnswer: string
+  correctAnswer: string
+}
+
+/** 考试结果详情(平台注入,字段对齐 mobile-rn ExamResultScreen ExamResult) */
+export interface ExamResultItem {
+  id: string
+  examTitle: string
+  score: number
+  totalScore: number
+  passed: boolean
+  correctCount: number
+  totalCount: number
+  /** 答题时长(分钟) */
+  duration: number
+  submittedAt: string
+  wrongQuestions: ExamResultWrongQuestion[]
+}
+
+/** ExamResultScreen props */
+export interface ExamResultScreenProps {
+  t: TFunction
+  item: ExamResultItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 模型收益 Tab key(全部/待结算/已结算) */
+export type ModelIncomeTab = 'all' | 'pending' | 'settled' | string
+
+/** 模型收益列表项(平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord) */
+export interface ModelIncomeItem {
+  id: string
+  orderId: string
+  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算) */
+  status: string
+  createdAt: string
+  userNickname: string
+  orderAmount: number
+  /** 佣金费率(百分比) */
+  rate: number
+  commissionAmount: number
+}
+
+/** 模型收益概要(平台注入,字段对齐 @ihui/api-client CommissionOverview + DayMonthSummary) */
+export interface ModelIncomeSummary {
+  /** 累计收益 */
+  totalCommission: number
+  /** 可提现 */
+  availableCommission: number
+  /** 已提现 */
+  withdrawnCommission: number
+  /** 待结算 */
+  pendingCommission: number
+  /** 今日收益 */
+  day: number
+}
+
+/** ModelIncomeScreen props */
+export interface ModelIncomeScreenProps {
+  t: TFunction
+  items: ModelIncomeItem[]
+  summary: ModelIncomeSummary | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  activeTab: ModelIncomeTab
+  onSelectTab: (tab: ModelIncomeTab) => void
+  onRefresh: () => void
+  /** 提现弹窗可见性(wrapper 控制) */
+  showWithdrawModal: boolean
+  onOpenWithdraw: () => void
+  onCloseWithdraw: () => void
+  onConfirmWithdraw: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Token 记录 Tab key(全部/消耗/充值) */
+export type TokenRecordType = 'all' | 'cost' | 'recharge' | string
+
+/** Token 余额(平台注入,字段对齐 @ihui/api-client TokenBalance,补充 frozen 占位) */
+export interface TokenValueBalance {
+  /** 可用算力 */
+  balance: number
+  /** 冻结(TokenBalance API 不返回,占位 0) */
+  frozen: number
+  /** 累计消耗 */
+  totalUsed: number
+}
+
+/** Token 流水记录项(平台注入,合并消耗 + 充值,字段对齐 mobile-rn TokenValueScreen Record) */
+export interface TokenValueRecord {
+  id: string
+  type: 'cost' | 'recharge'
+  title: string
+  /** 金额(消耗为负,充值为正) */
+  amount: number
+  /** 已格式化的时间文本 */
+  time: string
+}
+
+/** Token 充值套餐(产品配置,静态前端数据,字段对齐 mobile-rn TokenValueScreen Package) */
+export interface TokenValuePackage {
+  id: string
+  tokens: number
+  price: number
+  bonus: number
+  popular?: boolean
+}
+
+/** TokenValueScreen props */
+export interface TokenValueScreenProps {
+  t: TFunction
+  balance: TokenValueBalance | null
+  records: TokenValueRecord[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  activeTab: TokenRecordType
+  onSelectTab: (tab: TokenRecordType) => void
+  onRefresh: () => void
+  /** 点击充值套餐回调,平台注入支付确认(Alert/弹窗/导航) */
+  onRecharge: (pkg: TokenValuePackage) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}

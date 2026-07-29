@@ -69,6 +69,10 @@ export { LiveScreen } from './features/live/LiveScreen'
 export { ActivityScreen } from './features/activity/ActivityScreen'
 export { FavoritesScreen } from './features/favorites/FavoritesScreen'
 export { CheckInScreen } from './features/check-in/CheckInScreen'
+/** 批次 15:消息列表(私聊/群聊/系统) */
+export { MessageDirectScreen } from './features/message-direct/MessageDirectScreen'
+export { MessageGroupScreen } from './features/message-group/MessageGroupScreen'
+export { MessageSystemScreen } from './features/message-system/MessageSystemScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -250,4 +254,11 @@ export type {
   CheckInScreenProps,
   LiveScreenItem,
   LiveScreenProps,
+  /** 批次 15(2026-07-29):消息/记录类(私聊/群聊/系统) */
+  MessageDirectItem,
+  MessageDirectScreenProps,
+  MessageGroupItem,
+  MessageGroupScreenProps,
+  MessageSystemItem,
+  MessageSystemScreenProps,
 } from './types'
