@@ -8,11 +8,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  ExamQuestionItem,
-  ExamQuestionPaper,
-  ExamQuestionScreenProps,
-} from '../../types'
+import type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps } from '../../types'
 
 export type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps }
 
@@ -156,7 +152,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 16,
     },
     option: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

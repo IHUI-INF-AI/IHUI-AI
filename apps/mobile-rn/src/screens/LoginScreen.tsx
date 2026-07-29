@@ -3,6 +3,7 @@ import { loginByAccount, type AuthUser } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { rnAuthStore } from '../stores/auth-store'
@@ -25,6 +26,7 @@ const LOGO_SOURCE = require('../../assets/images/logo.png')
  */
 export function LoginScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const fullUserRef = useRef<AuthUser | null>(null)
 
   const form = useLoginForm({
@@ -94,6 +96,7 @@ export function LoginScreen() {
       onPasswordChange={form.setPassword}
       onLogin={form.login}
       onSsoLogin={form.ssoLoginAction}
+      colorScheme={resolvedTheme}
       logoSource={LOGO_SOURCE}
     />
   )

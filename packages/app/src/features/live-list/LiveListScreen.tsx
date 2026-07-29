@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus } from '../../types'
 
@@ -53,7 +46,11 @@ export function LiveListScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('liveList.title')}</Text>
@@ -110,7 +107,9 @@ export function LiveListScreen({
                     {item.title}
                   </Text>
                   <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
-                    <Text style={styles.statusText}>{t(TAB_KEYS[item.status as LiveListTab]!)}</Text>
+                    <Text style={styles.statusText}>
+                      {t(TAB_KEYS[item.status as LiveListTab]!)}
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.cardMeta}>
@@ -142,7 +141,12 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
     tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
-    tab: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tk.surface.card },
+    tab: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: tk.surface.card,
+    },
     tabActive: { backgroundColor: tk.success.DEFAULT },
     tabText: { fontSize: 12, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
@@ -160,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 16, paddingBottom: 32 },
     separator: { height: 10 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
