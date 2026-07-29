@@ -90,8 +90,10 @@ export default function DistributionPlan() {
         <View className="flex flex-col gap-[16rpx]">
           {rules.map((r, i) => (
             <View key={i} className="flex items-start">
-              <Text className="text-[26rpx] text-primary font-semibold mr-[12rpx] flex-shrink-0 leading-[1.6]">{i + 1}.</Text>
-              <Text className="flex-1 text-[26rpx] text-foreground leading-[1.6]">{r}</Text>
+              <View className="w-[40rpx] h-[40rpx] rounded-md bg-primary text-primary-foreground text-[24rpx] font-bold flex items-center justify-center mr-[20rpx] flex-shrink-0">
+                <Text>{i + 1}</Text>
+              </View>
+              <Text className="flex-1 text-[26rpx] text-foreground leading-[1.6] pt-[2rpx]">{r}</Text>
             </View>
           ))}
         </View>

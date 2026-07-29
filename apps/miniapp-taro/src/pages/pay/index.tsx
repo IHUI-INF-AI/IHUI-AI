@@ -308,7 +308,7 @@ export default function PayIndex() {
       </View>
 
       <Button
-        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-xl text-[32rpx] font-bold${payDisabled ? ' opacity-50' : ''}`}
+        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-2xl text-[32rpx] font-bold${payDisabled ? ' opacity-50' : ''}`}
         loading={submitting}
         disabled={payDisabled}
         onClick={onPay}
