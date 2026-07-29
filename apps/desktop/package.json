@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "powershell -ExecutionPolicy Bypass -File ./scripts/with-rust.ps1 dev",
-    "build": "powershell -ExecutionPolicy Bypass -File ./scripts/with-rust.ps1 build",
-    "build:debug": "powershell -ExecutionPolicy Bypass -File ./scripts/with-rust.ps1 build --debug",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:debug": "tauri build --debug",
     "icons:regen": "powershell -ExecutionPolicy Bypass -File ./scripts/regen-icons.ps1",
     "clean": "rimraf dist node_modules .turbo src-tauri/target"
   },

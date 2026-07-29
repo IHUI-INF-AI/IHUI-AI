@@ -3,10 +3,13 @@
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor, Globe, Languages, Check } from 'lucide-react'
+import { Sun, Moon, Monitor, Globe, Languages, Check, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
-import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
+import { Card, CardHeader, CardTitle, CardContent, Switch, Button } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
+import { useDesktop } from '@/hooks/use-desktop'
+import { clearWebViewCache } from '@/lib/tauri-bridge'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -17,6 +20,8 @@ export default function PreferencesPage() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [collapsed, setCollapsed] = React.useState(false)
+  const [cacheCleaning, setCacheCleaning] = React.useState(false)
+  const { isDesktop } = useDesktop()
 
   React.useEffect(() => {
     setMounted(true)
@@ -32,6 +37,22 @@ export default function PreferencesPage() {
     if (l === locale) return
     document.cookie = `locale=${l};path=/;max-age=31536000`
     window.location.reload()
+  }
+
+  const handleClearCache = async () => {
+    setCacheCleaning(true)
+    try {
+      const result = await clearWebViewCache()
+      if (result.ok) {
+        toast.success(t('cacheCleanSuccess'))
+      } else {
+        toast.error(t('cacheCleanFailed'))
+      }
+    } catch {
+      toast.error(t('cacheCleanFailed'))
+    } finally {
+      setCacheCleaning(false)
+    }
   }
 
   const themes = [
@@ -132,6 +153,32 @@ export default function PreferencesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {isDesktop && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Trash2 className="h-4 w-4" />
+              {t('cacheCleanTitle')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-muted-foreground">
+                {t('cacheCleanDesc')}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearCache}
+                disabled={cacheCleaning}
+              >
+                {t('cacheCleanButton')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </Container>
   )
 }
