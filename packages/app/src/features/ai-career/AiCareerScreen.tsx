@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     careerCard: {
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,

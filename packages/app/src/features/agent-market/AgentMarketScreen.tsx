@@ -118,7 +118,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     btnText: { color: tk.surface.light, fontSize: 14 },
     back: { fontSize: 14, color: tk.text.secondary },
-    title: { marginTop: 8, marginBottom: 12, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: 8,
+      marginBottom: 12,
+      fontSize: 22,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     input: {
       flex: 1,
@@ -138,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

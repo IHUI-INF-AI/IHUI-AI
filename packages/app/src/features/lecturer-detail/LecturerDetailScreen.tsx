@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LecturerDetailCourse,
@@ -46,7 +39,11 @@ export function LecturerDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRetry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={onRetry}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.retryBtnText}>{t('lecturerDetail.retry')}</Text>
         </TouchableOpacity>
       </View>
@@ -74,9 +71,7 @@ export function LecturerDetailScreen({
           {info ? (
             <View style={styles.profileCard}>
               <Text style={styles.name}>{info.nickname}</Text>
-              <Text style={styles.bio}>
-                {info.bio || t('lecturerDetail.empty')}
-              </Text>
+              <Text style={styles.bio}>{info.bio || t('lecturerDetail.empty')}</Text>
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
                   <Text style={styles.statValue}>{info.courseCount}</Text>
@@ -97,12 +92,7 @@ export function LecturerDetailScreen({
                 disabled={followLoading}
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               >
-                <Text
-                  style={[
-                    styles.followBtnText,
-                    info.isFollowing && styles.followingBtnText,
-                  ]}
-                >
+                <Text style={[styles.followBtnText, info.isFollowing && styles.followingBtnText]}>
                   {info.isFollowing
                     ? t('lecturerDetail.unfollowBtn')
                     : t('lecturerDetail.followBtn')}
@@ -200,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
       marginVertical: 8,
     },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

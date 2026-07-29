@@ -111,7 +111,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     body: { padding: 16 },
     card: {
-      padding: 12,
+      padding: 16,
       marginBottom: 12,
       borderRadius: 8,
       borderWidth: 1,

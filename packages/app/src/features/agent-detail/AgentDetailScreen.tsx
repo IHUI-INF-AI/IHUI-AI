@@ -97,7 +97,7 @@ function createStyles(tk: AppThemeTokens) {
     head: { marginTop: 8, marginBottom: 12 },
     name: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     category: { marginTop: 4, fontSize: 12, color: tk.brand.DEFAULT },
-    card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
+    card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
     label: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
     value: { marginTop: 2, fontSize: 14, color: tk.text.primary },
     price: { marginTop: 2, fontSize: 18, fontWeight: '600', color: tk.brand.DEFAULT },

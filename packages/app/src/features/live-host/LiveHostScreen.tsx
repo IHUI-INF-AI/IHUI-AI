@@ -96,9 +96,7 @@ export function LiveHostScreen({
 
       <View style={styles.previewArea}>
         <Text style={styles.previewText}>
-          {status === 'active'
-            ? t('liveHost.previewActive')
-            : t('liveHost.previewIdle')}
+          {status === 'active' ? t('liveHost.previewActive') : t('liveHost.previewIdle')}
         </Text>
       </View>
 
@@ -132,7 +130,11 @@ export function LiveHostScreen({
 
       <View style={styles.actionRow}>
         <TouchableOpacity
-          style={[styles.actionBtn, styles.btnSuccess, (loading || status !== 'idle') && styles.btnDisabled]}
+          style={[
+            styles.actionBtn,
+            styles.btnSuccess,
+            (loading || status !== 'idle') && styles.btnDisabled,
+          ]}
           onPress={onStartLive}
           disabled={loading || status !== 'idle'}
         >
@@ -141,7 +143,11 @@ export function LiveHostScreen({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionBtn, styles.btnDanger, (loading || status !== 'active') && styles.btnDisabled]}
+          style={[
+            styles.actionBtn,
+            styles.btnDanger,
+            (loading || status !== 'active') && styles.btnDisabled,
+          ]}
           onPress={onEndLive}
           disabled={loading || status !== 'active'}
         >
@@ -173,16 +179,12 @@ export function LiveHostScreen({
         {productsLoading ? (
           <Text style={styles.productHint}>{t('liveHost.productLoading')}</Text>
         ) : null}
-        {productsError ? (
-          <Text style={styles.productError}>{productsError}</Text>
-        ) : null}
+        {productsError ? <Text style={styles.productError}>{productsError}</Text> : null}
         <FlatList<LiveHostProduct>
           data={products}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
-          ListEmptyComponent={
-            <Text style={styles.productHint}>{t('liveHost.productEmpty')}</Text>
-          }
+          ListEmptyComponent={<Text style={styles.productHint}>{t('liveHost.productEmpty')}</Text>}
           renderItem={({ item }) => (
             <View style={styles.productItem}>
               <Text style={styles.productName} numberOfLines={1}>
@@ -227,7 +229,7 @@ function createStyles(tk: AppThemeTokens) {
     sectionBox: {
       marginHorizontal: 16,
       marginTop: 12,
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -280,7 +282,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     productAddText: { fontSize: 12, color: tk.success.DEFAULT },
     productHint: { fontSize: 12, color: tk.text.tertiary, paddingVertical: 8, textAlign: 'center' },
-    productError: { fontSize: 12, color: tk.danger.DEFAULT, paddingVertical: 8, textAlign: 'center' },
+    productError: {
+      fontSize: 12,
+      color: tk.danger.DEFAULT,
+      paddingVertical: 8,
+      textAlign: 'center',
+    },
     productItem: {
       flexDirection: 'row',
       alignItems: 'center',

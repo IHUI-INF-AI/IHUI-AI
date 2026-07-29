@@ -72,7 +72,11 @@ export function PromoteScreen({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('promote.title')}</Text>
@@ -151,9 +155,7 @@ export function PromoteScreen({
                     <View
                       style={[styles.recordStatus, item.status === 'active' && styles.statusActive]}
                     >
-                      <Text style={styles.recordStatusText}>
-                        {t(STATUS_KEYS[item.status])}
-                      </Text>
+                      <Text style={styles.recordStatusText}>{t(STATUS_KEYS[item.status])}</Text>
                     </View>
                   </View>
                 </View>
@@ -179,7 +181,12 @@ function createStyles(tk: AppThemeTokens) {
     backText: { fontSize: 14, color: tk.text.secondary },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
-    statsCard: { marginHorizontal: 16, padding: 16, borderRadius: 8, backgroundColor: tk.success.light },
+    statsCard: {
+      marginHorizontal: 16,
+      padding: 16,
+      borderRadius: 8,
+      backgroundColor: tk.success.light,
+    },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
     statItem: { alignItems: 'center', flex: 1 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
@@ -210,7 +217,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rulesCard: {
       marginHorizontal: 16,
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -221,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
