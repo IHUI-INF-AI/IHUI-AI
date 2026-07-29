@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 /**
  * 支付按钮 — 对齐原项目 components/pay_btn.vue
@@ -91,8 +91,7 @@ export default function PayButton({
   disabled = false,
   onClick,
 }: PayButtonProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [popupVisible, setPopupVisible] = useState(false)
   const [count, setCount] = useState(1)
   // 默认单价 0.01 元(1 分),实际由后端 getChargeInfoById 返回

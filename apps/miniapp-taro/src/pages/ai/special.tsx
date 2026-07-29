@@ -3,7 +3,7 @@ import Taro, { usePullDownRefresh, useReachBottom, useDidShow } from '@tarojs/ta
 import { useState, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { getAgentList } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 type CategoryKey = 'chat' | 'image' | 'video' | 'voice' | 'agent' | 'plaza'
 
@@ -90,13 +90,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
 ]
 
 export default function SpecialModelsPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
 
   const [models, setModels] = useState<ModelEntry[]>(DEFAULT_MODELS)
   const [activeCategory, setActiveCategory] = useState<CategoryKey | 'all'>('all')

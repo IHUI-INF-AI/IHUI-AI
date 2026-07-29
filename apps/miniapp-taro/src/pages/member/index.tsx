@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import './index.css'
 
@@ -53,8 +53,7 @@ const readStr = (obj: Record<string, unknown>, key: string): string | undefined 
 }
 
 export default function MemberIndexPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [info, setInfo] = useState<MemberInfo>({} as MemberInfo)
   const [profile, setProfile] = useState<{
