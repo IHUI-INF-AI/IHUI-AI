@@ -1,13 +1,28 @@
 'use client'
 
 import * as React from 'react'
+import { BookOpen, FileText, Hammer, Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import {
   useAgentProgressPaneStore,
   hydrateAgentProgressPaneFromStorage,
 } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
+import { useModeStore } from '@/stores/mode'
+import type { ChatMode } from '@ihui/types'
 import { ConnectionStatusDot, deriveConnectionState } from './progress-sections/connection-status'
+
+// ChatMode 4 态元信息(从 current-mode-badge.tsx 整合而来)
+const CHAT_MODE_META: Record<
+  ChatMode,
+  { icon: React.ComponentType<{ className?: string }>; i18nKey: string }
+> = {
+  build: { icon: Hammer, i18nKey: 'modeBuild' },
+  plan: { icon: BookOpen, i18nKey: 'modePlan' },
+  review: { icon: Search, i18nKey: 'modeReview' },
+  spec: { icon: FileText, i18nKey: 'modeSpec' },
+}
 
 /**
  * AgentProgressTrigger — Agent 任务进度触发按钮(2026-07-28 v8 零窜位版)
@@ -31,6 +46,7 @@ import { ConnectionStatusDot, deriveConnectionState } from './progress-sections/
  * (由 AgentTaskProgressPane 组件同步,避免 trigger 启动第二个 SSE 流)
  */
 export function AgentProgressTrigger() {
+  const t = useTranslations('chat')
   const open = useAgentProgressPaneStore((s) => s.open)
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
   const progressCurrent = useAgentProgressPaneStore((s) => s.progressCurrent)
@@ -38,6 +54,11 @@ export function AgentProgressTrigger() {
 
   // Phase 16: 从 useChatStore 获取 conversationId 用于推导连接状态
   const conversationId = useChatStore((s) => s.conversationId)
+
+  // 当前 ChatMode(从 current-mode-badge 整合)
+  const currentMode = useModeStore((s) => s.currentMode)
+  const modeMeta = CHAT_MODE_META[currentMode]
+  const ModeIcon = modeMeta.icon
 
   // Phase 16: 推导连接状态(未打开 popover 时显示基础状态)
   // 注:trigger 不直接启动 SSE,这里仅做静态状态指示
@@ -120,6 +141,15 @@ export function AgentProgressTrigger() {
       )}
       data-testid="agent-progress-trigger"
     >
+      {/* 当前 ChatMode 徽章(从 current-mode-badge 整合到按钮前部) */}
+      <span
+        className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground"
+        data-testid="chat-mode-badge"
+        data-mode={currentMode}
+      >
+        <ModeIcon className="h-3 w-3" aria-hidden="true" />
+        <span>{t(modeMeta.i18nKey)}</span>
+      </span>
       {/* Phase 16: 连接状态点 */}
       <ConnectionStatusDot state={connectionState} />
       <span className="whitespace-nowrap tabular-nums">{display}</span>
