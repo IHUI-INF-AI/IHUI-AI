@@ -570,3 +570,5 @@ export type {
 /** 批次 29(2026-07-29):AI 主聊天 + 开发者入口(2 屏迁移自 mobile-rn) */
 export { ChatScreen } from './features/chat/ChatScreen'
 export { DeveloperScreen } from './features/developer/DeveloperScreen'
+/** 批次 30(2026-07-29):MessageInput 消息输入框(对标 D 盘 Ai-WXMiniVue InputArea.vue 全量能力) */
+export { MessageInput } from './features/chat/MessageInput'
