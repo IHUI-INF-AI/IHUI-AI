@@ -928,11 +928,18 @@ pub fn run() {
                 .join("EBWebView");
             if webview_cache.exists() {
                 let _ = std::fs::remove_dir_all(&webview_cache);
-                println!("[desktop] WebView2 cache cleared: {}", webview_cache.display());
+                log::info!("[desktop] WebView2 cache cleared: {}", webview_cache.display());
             }
         }
     }
     tauri::Builder::default()
+        // 结构化日志(写文件 $APPDATA/com.ihui.ai/logs/ + 控制台)
+        // 2026-07-29: 替代裸 println!/eprintln!,线上问题可追溯 + 设置项可一键导出
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -1079,6 +1086,8 @@ pub fn run() {
                 Some(log_path)
             })();
             match &written {
+                // crash handler 在 tauri_plugin_log 初始化之前触发,log::error! 会丢失,
+                // 用 eprintln! 保证 stderr 至少有输出(父进程可捕获),crash log 文件已落盘
                 Some(p) => eprintln!("[crash] IHUI Desktop error log written to: {:?}", p),
                 None => eprintln!("[crash] IHUI Desktop error (log write failed): {}", log_content),
             }
