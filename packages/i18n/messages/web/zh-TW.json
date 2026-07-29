@@ -9720,6 +9720,7 @@
       "previewTokenK": "{k}k tokens",
       "previewToolCalls": "{n} 次工具呼叫",
       "previewRelatedMessage": "關聯訊息:",
+      "hoverPreviewLabel": "步驟預覽卡片",
       "stepBudgetLabel": "步驟預算",
       "executing": "執行中",
       "subagentBatch": "子代理批次",
