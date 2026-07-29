@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     statsCell: {
       width: '31%',
       flexGrow: 1,
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',

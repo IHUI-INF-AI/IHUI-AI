@@ -99,7 +99,7 @@ function createStyles(tk: AppThemeTokens) {
     back: { fontSize: 14, color: tk.text.medium },
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

@@ -136,7 +136,9 @@ export function ModelEditScreen({
                 onPress={() => onChange('saleType', opt.id)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(opt.labelKey)}</Text>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {t(opt.labelKey)}
+                </Text>
               </TouchableOpacity>
             )
           })}
@@ -155,12 +157,16 @@ export function ModelEditScreen({
                     onPress={() => onChange('cycle', c.id)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(c.labelKey)}</Text>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {t(c.labelKey)}
+                    </Text>
                   </TouchableOpacity>
                 )
               })}
             </View>
-            <Text style={styles.label}>{t('modelEdit.labelPrice', { cycle: t(cycleLabelKey) })}</Text>
+            <Text style={styles.label}>
+              {t('modelEdit.labelPrice', { cycle: t(cycleLabelKey) })}
+            </Text>
             <View style={styles.priceRow}>
               <Text style={styles.priceUnit}>¥</Text>
               <TextInput
@@ -203,7 +209,9 @@ export function ModelEditScreen({
                     onPress={() => onChange('discount', active ? '' : d.id)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{d.label}</Text>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {d.label}
+                    </Text>
                   </TouchableOpacity>
                 )
               })}
@@ -222,7 +230,9 @@ export function ModelEditScreen({
                 onPress={() => onChange('audience', a.id)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(a.labelKey)}</Text>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {t(a.labelKey)}
+                </Text>
               </TouchableOpacity>
             )
           })}
@@ -234,7 +244,9 @@ export function ModelEditScreen({
           disabled={submitting}
           activeOpacity={0.8}
         >
-          <Text style={styles.btnText}>{submitting ? t('modelEdit.submitting') : t('modelEdit.submit')}</Text>
+          <Text style={styles.btnText}>
+            {submitting ? t('modelEdit.submitting') : t('modelEdit.submit')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -269,7 +281,13 @@ function createStyles(tk: AppThemeTokens) {
     baseMain: { flex: 1 },
     baseName: { fontSize: 15, fontWeight: '600', color: tk.indigo.DEFAULT },
     baseSub: { marginTop: 4, fontSize: 12, color: tk.text.secondary },
-    label: { fontSize: 13, fontWeight: '600', color: tk.text.medium, marginTop: 16, marginBottom: 8 },
+    label: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: tk.text.medium,
+      marginTop: 16,
+      marginBottom: 8,
+    },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     chip: {
       paddingHorizontal: 14,
@@ -284,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
     chipActive: { borderColor: tk.purple.DEFAULT, backgroundColor: tk.purple.light },
     chipText: { fontSize: 13, color: tk.text.medium },
     chipTextActive: { color: tk.purple.DEFAULT, fontWeight: '600' },
-    paidCard: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: tk.purple.light },
+    paidCard: { marginTop: 12, padding: 16, borderRadius: 12, backgroundColor: tk.purple.light },
     priceRow: {
       flexDirection: 'row',
       alignItems: 'center',
