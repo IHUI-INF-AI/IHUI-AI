@@ -205,15 +205,15 @@ export default function TokenBalance() {
             const tokenNum = Number(it.token ?? it.amount ?? 0)
             return (
               <View key={it.id || idx} className="record-item">
-                <View className="record-info">
-                  <Text className="record-title">{title}</Text>
+                <Text className="record-title">{title}</Text>
+                <View className="record-content">
                   <Text className="record-time">
                     {tt('token.balance.costTime', '花费时间:')}{time}
                   </Text>
+                  <Text className="record-count">
+                    {tokenNum > 0 ? `-${tokenNum}` : tokenNum}
+                  </Text>
                 </View>
-                <Text className="record-count">
-                  {tokenNum > 0 ? `-${tokenNum}` : tokenNum}
-                </Text>
               </View>
             )
           })
