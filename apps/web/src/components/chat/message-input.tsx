@@ -304,24 +304,26 @@ interface WebInputCoreProps {
 }
 
 /** Web 端 MessageInput 实现(forwardRef,契约对齐 SharedMessageInputProps)
- * 渲染 textarea + 字符计数 + 清除按钮 + 发送/停止按钮。
+ * 渲染 textarea + 字符计数(2026-07-29 简化,清除/发送/停止按钮已挪到外层 toolbar)。
  * 内部托管 textarea ref + 自动高度,主组件通过 forwarded ref 调用 focus/setSelectionRange/resize。 */
 const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(function WebInputCore(
   {
     text,
     placeholder,
-    isStreaming,
     onTextChange,
     onSend,
-    onStop,
-    onClear,
     error,
-    t,
     onChange,
     onKeyDown,
     onPaste,
-    sendLabel,
-    stopLabel,
+    // 2026-07-29 简化:以下 props 在 web 端不再使用(发送/停止/清除按钮已挪到外层 toolbar),
+    // 保留在 props 契约里是为了和 packages/types SharedMessageInputProps 对齐(rn/taro 端仍用)。
+    isStreaming: _isStreaming,
+    onStop: _onStop,
+    onClear: _onClear,
+    t: _t,
+    sendLabel: _sendLabel,
+    stopLabel: _stopLabel,
   },
   ref,
 ) {
@@ -339,8 +341,8 @@ const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(fun
     }),
     [resize],
   )
-  const canSend = !isStreaming && text.trim().length > 0
-  const canClear = !isStreaming && text.length > 0
+  // 发送/停止/清除按钮已挪到外层 MessageInput 底部 toolbar 与其他动作按钮同行(2026-07-29 用户规则),
+  // 本组件只负责 textarea + 字符计数;onSend/onStop/onClear 仍由 props 透传供 Enter 触发等场景使用。
   return (
     <div className="relative px-3 pt-2 pb-2">
       <textarea
@@ -367,10 +369,10 @@ const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(fun
         className={cn(
           'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
           'placeholder:text-muted-foreground/70',
-          'pb-7',
+          'pb-6',
         )}
       />
-      <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-between">
+      <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center">
         <span
           aria-live="polite"
           className={cn(
@@ -380,49 +382,6 @@ const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(fun
         >
           {text.length}/{MAX_LENGTH}
         </span>
-        <div className="pointer-events-auto flex items-center gap-1">
-          {canClear && (
-            <Tooltip content={t('clear')}>
-              <button
-                type="button"
-                aria-label={t('clear')}
-                onClick={onClear}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-              >
-                ×
-              </button>
-            </Tooltip>
-          )}
-          {isStreaming ? (
-            <Tooltip content={stopLabel ?? t('stop')}>
-              <button
-                type="button"
-                onClick={onStop}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                aria-label={stopLabel ?? t('stop')}
-              >
-                <Square className="h-3.5 w-3.5" fill="currentColor" />
-              </button>
-            </Tooltip>
-          ) : (
-            <Tooltip content={sendLabel ?? t('send')}>
-              <button
-                type="button"
-                onClick={onSend}
-                disabled={!canSend}
-                className={cn(
-                  'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-                  canSend
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'cursor-not-allowed bg-muted text-muted-foreground/50',
-                )}
-                aria-label={sendLabel ?? t('send')}
-              >
-                <Send className="h-3.5 w-3.5" />
-              </button>
-            </Tooltip>
-          )}
-        </div>
       </div>
       {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
     </div>
@@ -527,6 +486,9 @@ export function MessageInput({
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
+  // 发送/清除按钮可用态(2026-07-29 用户规则:与外层 toolbar 同行显示,沿用 WebInputCore 旧逻辑)
+  const canSend = !isStreaming && value.trim().length > 0
+  const canClear = !isStreaming && value.length > 0
   // 把 pluginId 解析成 chip 展示所需的 SelectedToolItem(name + integration 标记)
   const selectedToolItems: SelectedToolItem[] = React.useMemo(() => {
     const all = [...PROJECT_PLUGINS, ...MARKET_PLUGINS]
@@ -1624,8 +1586,56 @@ export function MessageInput({
                   disabled={isStreaming}
                   label={modelLabel}
                 />
-                {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键(发送键已移入 WebInputCore) */}
+                {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
+                {/* 清除 + 发送/停止按钮(2026-07-29 用户规则:与 toolbar 其他动作按钮同一行,
+                    修复原 WebInputCore 内部 absolute 浮层把发送按钮挤到 textarea 右下角的问题)
+                    - 清除:有输入时显示(灰底 hover)
+                    - 发送/停止:流式中切 Stop(红底),否则 Send(主色,空输入/流式中禁用) */}
+                {canClear && (
+                  <Tooltip content={t('clear')}>
+                    <button
+                      type="button"
+                      aria-label={t('clear')}
+                      onClick={() => {
+                        setValue('')
+                        requestAnimationFrame(() => inputCoreRef.current?.resize())
+                      }}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                )}
+                {isStreaming ? (
+                  <Tooltip content={stopLabel ?? t('stop')}>
+                    <button
+                      type="button"
+                      onClick={onStop}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      aria-label={stopLabel ?? t('stop')}
+                    >
+                      <Square className="h-3.5 w-3.5" fill="currentColor" />
+                    </button>
+                  </Tooltip>
+                ) : (
+                  <Tooltip content={sendLabel ?? t('send')}>
+                    <button
+                      type="button"
+                      onClick={submit}
+                      disabled={!canSend}
+                      className={cn(
+                        'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                        canSend
+                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                          : 'cursor-not-allowed bg-muted text-muted-foreground/50',
+                      )}
+                      aria-label={sendLabel ?? t('send')}
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                )}
                 {isStreaming ? (
                   <Tooltip content={t('streamingIndicatorHint')}>
                     <div
