@@ -113,4 +113,14 @@ export type {
   VipCompareScreenProps,
   ShareResultItem,
   ShareScreenProps,
+  /** 批次 10(2026-07-29):订单日志/订单跟踪/课程章节/学习进度 */
+  OrderLogItem,
+  OrderLogScreenProps,
+  OrderTrackItem,
+  OrderTrackScreenProps,
+  CourseChapterItem,
+  CourseChapterScreenProps,
+  StudyProgressCourse,
+  StudyProgressData,
+  StudyProgressScreenProps,
 } from '@ihui/types'
