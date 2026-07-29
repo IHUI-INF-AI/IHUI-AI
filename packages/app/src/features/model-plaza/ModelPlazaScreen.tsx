@@ -34,12 +34,22 @@ function typeBadge(
   tk: AppThemeTokens,
 ): { text: string; color: string; bg: string; labelKey: string } {
   if (type === 'image') {
-    return { text: '', color: tk.purple.DEFAULT, bg: tk.purple.light, labelKey: 'modelPlaza.typeImage' }
+    return {
+      text: '',
+      color: tk.purple.DEFAULT,
+      bg: tk.purple.light,
+      labelKey: 'modelPlaza.typeImage',
+    }
   }
   if (type === 'av') {
     return { text: '', color: tk.success.deep, bg: tk.success.light, labelKey: 'modelPlaza.typeAv' }
   }
-  return { text: '', color: tk.indigo.DEFAULT, bg: tk.indigo.light, labelKey: 'modelPlaza.typeText' }
+  return {
+    text: '',
+    color: tk.indigo.DEFAULT,
+    bg: tk.indigo.light,
+    labelKey: 'modelPlaza.typeText',
+  }
 }
 
 export function ModelPlazaScreen({
@@ -64,7 +74,8 @@ export function ModelPlazaScreen({
 
   const currentProvider = providers.find((p) => p.id === providerId) ?? null
   const listByProvider = items.filter((m) => m.providerId === providerId)
-  const filteredList = typeFilter === 'all' ? listByProvider : listByProvider.filter((m) => m.type === typeFilter)
+  const filteredList =
+    typeFilter === 'all' ? listByProvider : listByProvider.filter((m) => m.type === typeFilter)
 
   return (
     <View style={styles.container}>
@@ -93,7 +104,9 @@ export function ModelPlazaScreen({
               onPress={() => onSelectProvider(p.id)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.providerText, active && styles.providerTextActive]}>{p.name}</Text>
+              <Text style={[styles.providerText, active && styles.providerTextActive]}>
+                {p.name}
+              </Text>
             </TouchableOpacity>
           )
         })}
@@ -102,8 +115,12 @@ export function ModelPlazaScreen({
       {currentProvider ? (
         <View style={styles.providerHeader}>
           <Text style={styles.providerName}>{currentProvider.name}</Text>
-          <Text style={styles.providerMeta}>{t('modelPlaza.providerTotal', { count: currentProvider.total })}</Text>
-          {currentProvider.desc ? <Text style={styles.providerDesc}>{currentProvider.desc}</Text> : null}
+          <Text style={styles.providerMeta}>
+            {t('modelPlaza.providerTotal', { count: currentProvider.total })}
+          </Text>
+          {currentProvider.desc ? (
+            <Text style={styles.providerDesc}>{currentProvider.desc}</Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -123,7 +140,9 @@ export function ModelPlazaScreen({
               onPress={() => onSelectType(tab.id)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.typeTabText, active && styles.typeTabTextActive]}>{t(tab.labelKey)}</Text>
+              <Text style={[styles.typeTabText, active && styles.typeTabTextActive]}>
+                {t(tab.labelKey)}
+              </Text>
             </TouchableOpacity>
           )
         })}
@@ -138,14 +157,22 @@ export function ModelPlazaScreen({
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>
-              {loading ? t('common.loading') : error ? t('modelPlaza.loadFailed') : t('modelPlaza.emptyType')}
+              {loading
+                ? t('common.loading')
+                : error
+                  ? t('modelPlaza.loadFailed')
+                  : t('modelPlaza.emptyType')}
             </Text>
           </View>
         }
         renderItem={({ item }) => {
           const tb = typeBadge(item.type, tk)
           return (
-            <TouchableOpacity style={styles.modelCard} onPress={() => onPressItem(item)} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.modelCard}
+              onPress={() => onPressItem(item)}
+              activeOpacity={0.85}
+            >
               <View style={styles.cardTop}>
                 <Text style={styles.modelName} numberOfLines={1}>
                   {item.name}
@@ -157,13 +184,17 @@ export function ModelPlazaScreen({
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>{t('modelPlaza.input')}</Text>
                 <Text style={styles.priceValue}>
-                  {item.inputPrice !== null ? t('modelPlaza.priceUnit', { price: item.inputPrice }) : '-'}
+                  {item.inputPrice !== null
+                    ? t('modelPlaza.priceUnit', { price: item.inputPrice })
+                    : '-'}
                 </Text>
                 {item.outputPrice !== null ? (
                   <>
                     <Text style={styles.priceDivider}>|</Text>
                     <Text style={styles.priceLabel}>{t('modelPlaza.output')}</Text>
-                    <Text style={styles.priceValue}>{t('modelPlaza.priceUnit', { price: item.outputPrice })}</Text>
+                    <Text style={styles.priceValue}>
+                      {t('modelPlaza.priceUnit', { price: item.outputPrice })}
+                    </Text>
                   </>
                 ) : (
                   <Text style={styles.priceExtra}>{t('modelPlaza.perCall')}</Text>
@@ -255,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 10 },
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
-    modelCard: { padding: 12, borderRadius: 12, backgroundColor: tk.surface.bg },
+    modelCard: { padding: 16, borderRadius: 12, backgroundColor: tk.surface.bg },
     cardTop: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -265,14 +296,25 @@ function createStyles(tk: AppThemeTokens) {
     modelName: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
     typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginLeft: 8 },
     typeBadgeText: { fontSize: 11, fontWeight: '600' },
-    priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' },
+    priceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 8,
+      flexWrap: 'wrap',
+    },
     priceLabel: { fontSize: 11, color: tk.text.tertiary },
     priceValue: { fontSize: 12, color: tk.indigo.DEFAULT, fontWeight: '600' },
     priceDivider: { fontSize: 11, color: tk.border.medium, marginHorizontal: 4 },
     priceExtra: { fontSize: 11, color: tk.text.tertiary },
     cardDesc: { fontSize: 12, color: tk.text.secondary, lineHeight: 18, marginBottom: 8 },
     cardTagRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-    cardTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: tk.surface.card },
+    cardTag: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+      backgroundColor: tk.surface.card,
+    },
     cardTagText: { fontSize: 11, color: tk.text.secondary },
     payMode: { marginLeft: 'auto', fontSize: 11, color: tk.text.tertiary },
   })

@@ -60,12 +60,7 @@ export function ExamHistoryScreen({
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item.examTitle}
                 </Text>
-                <View
-                  style={[
-                    styles.badge,
-                    item.passed ? styles.badgePassed : styles.badgeFailed,
-                  ]}
-                >
+                <View style={[styles.badge, item.passed ? styles.badgePassed : styles.badgeFailed]}>
                   <Text style={item.passed ? styles.badgePassedText : styles.badgeFailedText}>
                     {item.passed ? t('examHistory.passed') : t('examHistory.failed')}
                   </Text>
@@ -120,7 +115,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

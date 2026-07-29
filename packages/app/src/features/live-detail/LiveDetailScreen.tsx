@@ -213,7 +213,11 @@ export function LiveDetailScreen({
           onSubmitEditing={onSend}
         />
         <TouchableOpacity
-          style={[styles.btnPrimary, styles.sendBtn, (!input.trim() || !chatEnabled) && styles.btnDisabled]}
+          style={[
+            styles.btnPrimary,
+            styles.sendBtn,
+            (!input.trim() || !chatEnabled) && styles.btnDisabled,
+          ]}
           onPress={onSend}
           disabled={!input.trim() || !chatEnabled}
         >
@@ -271,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
     videoUrl: { marginTop: 2, fontSize: 10, color: tk.text.secondary, paddingHorizontal: 16 },
     subscribeSection: { paddingHorizontal: 16, paddingVertical: 12 },
     subscribedBox: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.success.lighter,
     },

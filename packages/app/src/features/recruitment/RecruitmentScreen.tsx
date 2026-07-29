@@ -10,11 +10,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  RecruitmentCategory,
-  RecruitmentJob,
-  RecruitmentScreenProps,
-} from '../../types'
+import type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps } from '../../types'
 
 export type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps }
 
@@ -75,13 +71,15 @@ export function RecruitmentScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.backText}>{t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('recruitment.title')}</Text>
-        <Text style={styles.subtitle}>
-          {t('recruitment.count', { count: filtered.length })}
-        </Text>
+        <Text style={styles.subtitle}>{t('recruitment.count', { count: filtered.length })}</Text>
       </View>
 
       <View style={styles.tabs}>
@@ -155,7 +153,10 @@ export function RecruitmentScreen({
                   <Text style={styles.modalTitle} numberOfLines={1}>
                     {selected.position}
                   </Text>
-                  <TouchableOpacity onPress={() => onSelectJob(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => onSelectJob(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
                     <Text style={styles.modalClose}>{t('recruitment.close')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -218,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
     jobCard: {
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
