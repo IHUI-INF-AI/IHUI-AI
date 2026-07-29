@@ -47,6 +47,10 @@ export { OrderLogScreen } from './features/order-log/OrderLogScreen'
 export { OrderTrackScreen } from './features/order-track/OrderTrackScreen'
 export { CourseChapterScreen } from './features/course-chapter/CourseChapterScreen'
 export { StudyProgressScreen } from './features/study-progress/StudyProgressScreen'
+export { AskCreateScreen } from './features/ask-create/AskCreateScreen'
+export { NoteCreateScreen } from './features/note-create/NoteCreateScreen'
+export { CertApplyScreen } from './features/cert-apply/CertApplyScreen'
+export { SettingsAccountScreen } from './features/settings-account/SettingsAccountScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -179,4 +183,10 @@ export type {
   StudyProgressCourse,
   StudyProgressData,
   StudyProgressScreenProps,
+  /** 批次 11 */
+  AskCreateScreenProps,
+  NoteCreateScreenProps,
+  CertApplyScreenProps,
+  SettingsAccountItem,
+  SettingsAccountScreenProps,
 } from './types'
