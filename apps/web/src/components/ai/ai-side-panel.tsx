@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, Minus, Move, PanelLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -61,6 +61,14 @@ export function AISidePanel() {
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
   const pendingPermissionSetup = useAiPanelStore((s) => s.pendingPermissionSetup)
   const setPendingPermissionSetup = useAiPanelStore((s) => s.setPendingPermissionSetup)
+  // 浮窗模式状态(2026-07-30)
+  const floatMode = useAiPanelStore((s) => s.floatMode)
+  const floatMinimized = useAiPanelStore((s) => s.floatMinimized)
+  const floatPosition = useAiPanelStore((s) => s.floatPosition)
+  const setFloatMode = useAiPanelStore((s) => s.setFloatMode)
+  const setFloatMinimized = useAiPanelStore((s) => s.setFloatMinimized)
+  const setFloatPosition = useAiPanelStore((s) => s.setFloatPosition)
+  const openPanel = useAiPanelStore((s) => s.openPanel)
   const {
     messages,
     currentModel,
@@ -579,10 +587,71 @@ export function AISidePanel() {
     [setResizing, setWidth],
   )
 
+  // ==================== 浮窗拖拽逻辑(2026-07-30)====================
+  // 浮窗模式下面板 position:fixed,通过 header 拖拽改变 floatPosition。
+  // 使用 ref 记录拖拽起始坐标,pointermove 更新 store,pointerup 清理监听。
+  const floatDragStart = React.useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+
+  const handleFloatDragStart = React.useCallback(
+    (e: React.PointerEvent) => {
+      if (!floatMode || floatMinimized) return
+      // 只响应左键 + header 区域(不是按钮)
+      const target = e.target as HTMLElement
+      if (target.closest('button, a, input, textarea, select')) return
+
+      e.preventDefault()
+      const startX = floatPosition.x < 0 ? window.innerWidth - width - 24 : floatPosition.x
+      const startY = floatPosition.y < 0 ? 80 : floatPosition.y
+      floatDragStart.current = { x: startX, y: startY, px: e.clientX, py: e.clientY }
+
+      const onMove = (ev: PointerEvent) => {
+        if (!floatDragStart.current) return
+        const dx = ev.clientX - floatDragStart.current.px
+        const dy = ev.clientY - floatDragStart.current.py
+        const newX = Math.max(8, Math.min(window.innerWidth - width - 8, floatDragStart.current.x + dx))
+        const newY = Math.max(8, Math.min(window.innerHeight - 120, floatDragStart.current.y + dy))
+        setFloatPosition({ x: newX, y: newY })
+      }
+      const onUp = () => {
+        floatDragStart.current = null
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [floatMode, floatMinimized, floatPosition, width, setFloatPosition],
+  )
+
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
   // 把项目名通过 onNameChange callback 回传给父组件(setWorkspaceName)。
   // pathname 变化只触发子组件重渲染,不触发 AISidePanel 根重渲染。
   const workspaceNameSync = <WorkspaceNameSync onNameChange={setWorkspaceName} />
+
+  // 浮窗最小化态(或浮窗模式 + 面板关闭):渲染 FAB 按钮
+  if (floatMode && (floatMinimized || !open)) {
+    return (
+      <>
+        {workspaceNameSync}
+        <button
+          type="button"
+          onClick={() => {
+            setFloatMinimized(false)
+            openPanel()
+          }}
+          aria-label={tc('title')}
+          className="fixed z-sticky flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-card shadow-lg transition-all hover:scale-105 hover:shadow-xl"
+          style={{
+            left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
+            right: floatPosition.x < 0 ? '24px' : 'auto',
+            top: floatPosition.y < 0 ? '80px' : `${floatPosition.y}px`,
+          }}
+        >
+          <BrandIcon vendor={inferVendor(currentModel)} size={22} className="text-primary" />
+        </button>
+      </>
+    )
+  }
 
   // 关闭态:仅渲染拖拽手柄(可拖拽打开),不渲染整个面板内容。
   // 2026-07-30 彻底根治:容器从 fixed 改为 flex 子元素(relative + shrink-0),
@@ -640,14 +709,27 @@ export function AISidePanel() {
     <>
       {workspaceNameSync}
       <div
-        // AI 面板容器(2026-07-30 彻底根治:从 fixed 改为 flex 流内布局)
-        // - 不再 fixed 定位,改为 flex 子元素(relative + shrink-0),自然占据空间
-        // - py-2:与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)
-        // - mr-1.5:与 work-area 内容间固定 6px 间距(用户强制要求,不可更改)
-        // - 不需要 z-sticky(flex 布局保证不重叠,z-sticky 已移除)
-        // - width 由 useAiPanelStore.width 控制(320-720px);flex 布局自动收缩 work-area
-        className="relative h-full shrink-0 py-2 mr-1.5"
-        style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
+        // AI 面板容器
+        // - docked 模式:relative + shrink-0,flex 流内布局,mr-1.5 固定 6px 间距
+        // - float 模式:fixed 定位,z-sticky,可拖拽,shadow-lg 浮窗视觉
+        className={cn(
+          'py-2',
+          floatMode
+            ? 'fixed z-sticky shadow-2xl'
+            : 'relative h-full shrink-0 mr-1.5',
+        )}
+        style={
+          floatMode
+            ? {
+                width,
+                left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
+                right: floatPosition.x < 0 ? '24px' : 'auto',
+                top: floatPosition.y < 0 ? '80px' : `${floatPosition.y}px`,
+                height: 'min(600px, calc(100vh - 100px))',
+                transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
+              }
+            : { width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
+        }
       >
         <aside
           aria-label={tc('title')}
@@ -664,12 +746,15 @@ export function AISidePanel() {
           // 恢复 bg-shell-panel 安全。
           className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
         >
-          {/* 标题栏 */}
+          {/* 标题栏(浮窗模式下可拖拽) */}
           <header
+            onPointerDown={floatMode ? handleFloatDragStart : undefined}
             className={cn(
               'flex h-14 shrink-0 items-center gap-2 px-3',
               // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
               '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
+              // 浮窗模式:header 可拖拽,非交互区域 cursor-move
+              floatMode && 'cursor-move',
             )}
           >
             {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
@@ -714,11 +799,55 @@ export function AISidePanel() {
               subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
-            <Tooltip content={tcommon('close')}>
+            {/* 浮窗模式切换按钮(2026-07-30):
+                - docked 模式:显示 Move 图标,点击切换到浮窗模式 + 最小化为 FAB(默认只显示小按钮)
+                - float 模式:显示 PanelLeft(停靠) + Minus(最小化)两个按钮 */}
+            {floatMode ? (
+              <>
+                <Tooltip content={tc('dockPanel')}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFloatMode(false)
+                      setFloatMinimized(false)
+                    }}
+                    aria-label={tc('dockPanel')}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <PanelLeft className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+                <Tooltip content={tc('minimize')}>
+                  <button
+                    type="button"
+                    onClick={() => setFloatMinimized(true)}
+                    aria-label={tc('minimize')}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              </>
+            ) : (
+              <Tooltip content={tc('floatMode')}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFloatMode(true)
+                    setFloatMinimized(true)
+                  }}
+                  aria-label={tc('floatMode')}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Move className="h-4 w-4" />
+                </button>
+              </Tooltip>
+            )}
+            <Tooltip content={floatMode ? tc('minimize') : tcommon('close')}>
               <button
                 type="button"
-                onClick={closePanel}
-                aria-label={tcommon('close')}
+                onClick={floatMode ? () => setFloatMinimized(true) : closePanel}
+                aria-label={floatMode ? tc('minimize') : tcommon('close')}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <X className="h-4 w-4" />
