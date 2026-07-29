@@ -479,19 +479,46 @@ export function MessageInput({
   }, [mentionOpen])
 
   // 首次打开斜杠命令弹窗时拉取 AI Skills 列表(2026-07-29 二次深化,接入 skill 分组)
-  // 失败静默:留空数组,弹窗 skill 分组显示"加载失败"提示
+  // 2026-07-29 三次深化:兼容后端两种响应结构 + 控制台错误日志便于调试
+  // 2026-07-29 四次深化:失败时重置 skillsLoadedRef 允许下次重试
+  // (根因:首次打开时若 8803 未启动,fetch 失败但 ref 已锁 true,后续永不重试 → skill 分组永远空)
+  // - 结构A(标准):{ code: 0, data: AiSkillMeta[] } → res.data 是数组
+  // - 结构B(兼容):{ code: 0, data: { skills: AiSkillMeta[], count: N } } → res.data.skills 是数组
+  // 失败静默 UI(保持空数组),但 console.error 输出错误便于排查
   React.useEffect(() => {
     if (!slashOpen || skillsLoadedRef.current) return
     skillsLoadedRef.current = true
     setSkillsLoading(true)
     listAiSkills()
       .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          setAiSkills(res.data)
+        if (!res.success) {
+          // 失败:重置 ref 允许下次打开时重试(避免一次性失败永久锁死)
+          skillsLoadedRef.current = false
+          // eslint-disable-next-line no-console -- 调试用,生产环境 console 会被 tree-shake
+          console.warn('[slash-cmd] listAiSkills failed:', res.error, res.status)
+          return
+        }
+        // 兼容两种响应结构(后端标准是数组,但防御性处理嵌套结构)
+        const skills = Array.isArray(res.data)
+          ? res.data
+          : res.data && Array.isArray((res.data as { skills?: unknown[] }).skills)
+            ? ((res.data as { skills: AiSkillMeta[] }).skills)
+            : []
+        if (skills.length > 0) {
+          setAiSkills(skills)
+        } else {
+          // 空响应:重置 ref 允许下次重试(后端可能临时返回空)
+          skillsLoadedRef.current = false
+          // eslint-disable-next-line no-console -- 调试用
+          console.warn('[slash-cmd] listAiSkills returned empty or unexpected shape:', res.data)
         }
       })
-      .catch(() => {
-        // 静默失败:保持空数组,弹窗 skill 分组显示空状态
+      .catch((err) => {
+        // 网络错误:重置 ref 允许下次重试
+        skillsLoadedRef.current = false
+        // 静默失败 UI,但记录错误便于排查(生产环境不影响用户体验)
+        // eslint-disable-next-line no-console -- 调试用
+        console.error('[slash-cmd] listAiSkills network error:', err)
       })
       .finally(() => {
         setSkillsLoading(false)
