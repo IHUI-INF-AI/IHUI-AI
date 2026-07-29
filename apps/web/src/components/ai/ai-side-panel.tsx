@@ -650,6 +650,14 @@ export function AISidePanel() {
         // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
         // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
         // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
+        // - 2026-07-29 v17:必须加 data-testid="ai-side-panel-container" — AgentTaskProgressPane
+        //   通过 querySelector('[data-testid="ai-side-panel-container"]') 找到本 div 作为
+        //   Pane 的 containing block(本 div 是 position: fixed,Pane absolute 内部锚定)。
+        //   之前漏加导致 Pane 永远渲染不出来 — 这是 "都消失了 啥都没了" bug 的根因。
+        //   ⚠️ 严禁删除/重命名此 data-testid — 与 agent-task-progress-pane.tsx
+        //     PANE_ANCHOR_SELECTOR 强绑定,改一个地方必须同步另一个地方。
+        //   ⚠️ 改本 div 的 className(含 fixed/relative)前,需确认 Pane 仍能正确锚定。
+        data-testid="ai-side-panel-container"
         className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
