@@ -10,7 +10,7 @@
     "frontendDist": "../../web/out"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",
