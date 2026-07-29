@@ -1,10 +1,8 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card, Input } from '@ihui/ui-native'
 import { fetchApi } from '@ihui/api-client'
+import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -49,53 +47,17 @@ export function WithdrawScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('withdraw.title')}</Text>
-      </View>
-      <View style={styles.body}>
-        <Card style={styles.card}>
-          <Text style={styles.label}>{t('withdraw.amount')}</Text>
-          <Input
-            value={amount}
-            onChangeText={setAmount}
-            placeholder={t('withdraw.amountPlaceholder')}
-            keyboardType="decimal-pad"
-            style={styles.input}
-          />
-          <Text style={styles.label}>{t('withdraw.bankCard')}</Text>
-          <Input
-            value={bankCardId}
-            onChangeText={setBankCardId}
-            placeholder={t('withdraw.bankCardPlaceholder')}
-            style={styles.input}
-          />
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {success ? <Text style={styles.successText}>{success}</Text> : null}
-          <Button loading={loading} disabled={loading} onPress={handleSubmit} style={styles.submitBtn}>
-            {loading ? t('withdraw.submitting') : t('withdraw.submit')}
-          </Button>
-          <Text style={styles.hint}>{t('withdraw.feeHint')}</Text>
-        </Card>
-      </View>
-    </View>
+    <SharedWithdrawScreen
+      t={t}
+      amount={amount}
+      bankCardId={bankCardId}
+      loading={loading}
+      error={error}
+      success={success}
+      onAmountChange={setAmount}
+      onBankCardIdChange={setBankCardId}
+      onSubmit={handleSubmit}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  body: { padding: 16 },
-  card: { padding: 12, borderRadius: 8 },
-  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
-  input: { marginTop: 4 },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
-  successText: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
-  submitBtn: { marginTop: 12, borderRadius: 8 },
-  hint: { fontSize: 11, color: tokens.text.tertiary, marginTop: 8 },
-})
