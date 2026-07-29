@@ -1166,7 +1166,7 @@ Git 同步证据(§20 硬定义 5 条全绿):
 
 ### [x] ✅(2026-07-29) Phase 24 终态收尾(用户要求"直到没有任何后续建议可给到我为止,完整收尾关闭对话")
 
-用户要求:"timeline现在接入好了吗  继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏  直到没有任何后续建议可给到我为止 完整收尾 关闭对话"。Advisor 明确:先修 Hydration 错误 → 全量验证 → 写入终态记录。
+用户要求:"timeline现在接入好了吗 继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止 完整收尾 关闭对话"。Advisor 明确:先修 Hydration 错误 → 全量验证 → 写入终态记录。
 
 - [x] **Hydration 错误诊断与修复**(commit `384ed84773`,16 单测,4 状态截图):新建 `apps/web/src/components/common/ClientOnly.tsx`(SSR 安全 wrapper);store 改用 `hydrationApplied` flag 幂等 hydrate 模式(agent-progress-pane.ts);agent-progress-trigger.tsx + agent-task-progress-pane.tsx 在 useEffect 调用 hydrate;timeline-event.tsx `formatRelativeTime` 接受 `now` 参数 + `useNowMs()` hook(SSR 返回空字符串,CSR mount 后 setInterval 更新);permission-history-panel.tsx `now` 初始化 null + suppressHydrationWarning;浏览器实测 0 hydration errors(Playwright 验证)
 - [x] **pane-minimize 无限重渲染 regression 修复**(commit `01f54e456f`):Phase 23 的 `idle 自动展开 useEffect` 在 idle 状态下触发 `setIsMinimized(false)`,再次触发 effect,无限循环;删除该 effect(最小化完全由用户控制),更新 test 8 断言;15/15 全过
@@ -1175,15 +1175,15 @@ Git 同步证据(§20 硬定义 5 条全绿):
 
 ### Phase 19-24 终态累计成果
 
-| Phase | 主题 | commit | 新 test | 状态 |
-| --- | --- | --- | --- | --- |
-| 19 | Trae Work 深度对标收尾 | 5 | 132 | ✅ |
-| 20 | 深度对标 v2(键盘/复制/导出/右键) | 1 | 50+9 E2E | ✅ |
-| 21 | Timeline SSE 实时响应 | 2 | 51+17 E2E | ✅ |
-| 22 | i18n + 筛选 + tooltip + 记忆 + a11y | 3 | 73 | ✅ |
-| 23 | 消息搜索 + 最小化 + 空状态 | 2 | 36 | ✅ |
-| 24 | Hydration 修复 + 浏览器验证 + 回归 | 3 | 16+15+59=90 | ✅ |
-| **合计** | **6 轮** | **16** | **399+ test** | **✅** |
+| Phase    | 主题                                | commit | 新 test       | 状态   |
+| -------- | ----------------------------------- | ------ | ------------- | ------ |
+| 19       | Trae Work 深度对标收尾              | 5      | 132           | ✅     |
+| 20       | 深度对标 v2(键盘/复制/导出/右键)    | 1      | 50+9 E2E      | ✅     |
+| 21       | Timeline SSE 实时响应               | 2      | 51+17 E2E     | ✅     |
+| 22       | i18n + 筛选 + tooltip + 记忆 + a11y | 3      | 73            | ✅     |
+| 23       | 消息搜索 + 最小化 + 空状态          | 2      | 36            | ✅     |
+| 24       | Hydration 修复 + 浏览器验证 + 回归  | 3      | 16+15+59=90   | ✅     |
+| **合计** | **6 轮**                            | **16** | **399+ test** | **✅** |
 
 ### 19 个 progress-sections 组件全部对齐 Trae Work
 
@@ -1286,7 +1286,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ### 阶段 4:极限收尾(长期 2-3 月,预期 2.0x → 1.7x)
 
 - [ ] P3-4.1 Tauri 2 替代 Electron 评估 PoC — 最小功能集 PoC(shell ≤ 10MB),或附不可行性报告保留 Electron
-- [ ] P3-4.2 packages/shared 抽离所有跨端业务逻辑 — hooks / utils / types 全部下沉,各端 re-export(进行中:批次 1-3 已完成 20 文件 ~2100 行下沉,5.43x→5.32x,commit 5ffaf02a8;批次 4 登录场景跨端共享已完成 — 新增 `useLoginForm` hook 依赖注入式设计,web/mobile-rn/miniapp-taro 三端接入消除登录逻辑冗余,commit d8d0abdcb1;剩余 18 文件部分可下沉 ~1590 行 + web 端共享组件化改造待后续批次)
+- [ ] P3-4.2 packages/shared 抽离所有跨端业务逻辑 — hooks / utils / types 全部下沉,各端 re-export(进行中:批次 1-3 已完成 20 文件 ~2100 行下沉,5.43x→5.32x,commit 5ffaf02a8;批次 4 登录场景跨端共享已完成 — 新增 `useLoginForm` hook 依赖注入式设计,web/mobile-rn/miniapp-taro 三端接入消除登录逻辑冗余,commit d8d0abdcb1;批次 4 续 注册场景跨端共享已完成 — 新增 `useRegisterForm` hook 依赖注入式设计(registerApi/sendCodeApi/onRegisterSuccess),支持 account/email/phone 三类型+验证码倒计时+确认密码+协议勾选+自动登录,web(Email/Phone Register Form 接入共享类型,RHF 保留)+mobile-rn(账号注册,无验证码+确认密码+自动登录)+miniapp-taro(手机注册,验证码+协议勾选)三端接入,commit 8a61ee6364;剩余 18 文件部分可下沉 ~1590 行 + web 端共享组件化改造待后续批次)
 - [ ] P3-4.3 Server-Driven UI 用于营销页/首页 feed — 局部增强,JSON schema 驱动,不作整体架构
 - [ ] P3-4.4 阶段 4 全端验证 — 跨端共享代码行占比 ≥ 65% + Desktop Tauri 2 shell ≤ 10MB + 全端全绿 + cloc 降本至 ≤ 1.7x
 
