@@ -269,6 +269,22 @@
       "system": "시스템"
     }
   },
+  "messageDirect": {
+    "title": "다이렉트 메시지",
+    "empty": "다이렉트 메시지가 없습니다",
+    "loadFailed": "다이렉트 메시지 로드에 실패했습니다",
+    "from": "보낸 사람"
+  },
+  "messageGroup": {
+    "title": "그룹 채팅",
+    "empty": "그룹 채팅이 없습니다",
+    "loadFailed": "그룹 채팅 로드에 실패했습니다"
+  },
+  "messageSystem": {
+    "title": "시스템 메시지",
+    "empty": "시스템 메시지가 없습니다",
+    "loadFailed": "시스템 메시지 로드에 실패했습니다"
+  },
   "history": {
     "empty": "검색 기록이 없습니다",
     "loadFailed": "기록 로드에 실패했습니다",
@@ -1086,5 +1102,259 @@
     "sendFailed": "코드 전송 실패",
     "bindFailed": "바인딩 실패",
     "networkError": "네트워크 오류"
+  },
+  "modelPlaza": {
+    "title": "모델 광장",
+    "compareBtn": "비교",
+    "providerTotal": "총 {{count}}개 모델",
+    "loadFailed": "로드 실패, 새로고침",
+    "emptyType": "해당 유형의 모델 없음",
+    "input": "입력",
+    "output": "출력",
+    "priceUnit": "¥{{price}}/M",
+    "perCall": "(건당 과금)",
+    "typeAll": "전체",
+    "typeText": "텍스트",
+    "typeImage": "이미지",
+    "typeAv": "오디오/비디오",
+    "compare": {
+      "title": "모델 비교",
+      "message": "비교할 모델 2-3개를 선택하세요"
+    },
+    "detail": {
+      "title": "모델 상세",
+      "message": "「{{name}}」의 전체 사양과 가격 보기"
+    }
+  },
+  "n8nModel": {
+    "title": "n8n 모델 관리",
+    "create": "+ 신규",
+    "searchPlaceholder": "워크플로우 이름 또는 설명 검색",
+    "tabAll": "전체",
+    "tabRunning": "실행 중",
+    "tabStopped": "중지됨",
+    "loadFailed": "로드 실패",
+    "empty": "n8n 워크플로우 없음",
+    "running": "실행 중",
+    "stopped": "중지됨",
+    "calls": "호출 {{count}}",
+    "params": "입력 {{in}} · 출력 {{out}}",
+    "actionStart": "시작",
+    "actionStop": "중지",
+    "actionEdit": "편집",
+    "toggle": {
+      "stopTitle": "워크플로우 중지",
+      "startTitle": "워크플로우 시작",
+      "stopMessage": "「{{name}}」을(를) 중지하시겠습니까?",
+      "startMessage": "「{{name}}」을(를) 시작하시겠습니까?",
+      "success": "작업 성공"
+    }
+  },
+  "modelEdit": {
+    "headerTitle": "에이전트 설정",
+    "labelCategory": "콘텐츠 유형(다중 선택)",
+    "labelDept": "부서",
+    "labelSaleType": "판매 방식",
+    "labelCycle": "청구 주기",
+    "labelPrice": "가격(위안 / {{cycle}})",
+    "labelFreeDur": "기간 한정 무료",
+    "labelDiscount": "할인",
+    "labelAudience": "대상",
+    "cycleMonth": "월",
+    "cycleYear": "년",
+    "cyclePermanent": "영구",
+    "saleFree": "무료",
+    "saleLimited": "기간 한정 무료",
+    "salePaid": "유료",
+    "audienceAll": "전체 사용자",
+    "audienceMember": "회원",
+    "pricePlaceholder": "가격 입력",
+    "submit": "심사 제출",
+    "submitting": "제출 중...",
+    "error": {
+      "categoryRequired": "콘텐츠 유형을 선택하세요",
+      "priceRequired": "가격을 입력하세요"
+    },
+    "success": {
+      "title": "제출 성공",
+      "message": "설정이 심사에 제출되었습니다"
+    }
+  },
+  "aigcList": {
+    "title": "인스피레이션",
+    "subtitle": "AI 생성 이미지/비디오/오디오 작품",
+    "empty": "작품 없음",
+    "publish": "+ 게시",
+    "playAudio": "▶ 재생",
+    "videoBadge": "▶ 비디오",
+    "promptLabel": "프롬프트:"
+  },
+  "liveDetail": {
+    "title": "라이브 상세",
+    "loadFailed": "라이브 상세 로드 실패",
+    "empty": "라이브가 존재하지 않습니다",
+    "ongoing": "진행 중",
+    "upcoming": "예정",
+    "lecturer": "강사",
+    "viewerCount": "{count}명 시청",
+    "intro": "소개",
+    "subscribe": "구독",
+    "subscribed": "구독 완료",
+    "subscribing": "구독 중...",
+    "chat": "채팅",
+    "chatEmpty": "메시지가 없습니다",
+    "chatPlaceholder": "메시지 입력",
+    "chatSend": "전송",
+    "chatNotReady": "채팅 준비 안 됨",
+    "chatConnecting": "연결 중",
+    "chatConnected": "연결됨",
+    "chatReconnecting": "재연결 중",
+    "chatDisconnected": "연결 끊김",
+    "chatError": "채팅 오류"
+  },
+  "liveHost": {
+    "title": "호스트",
+    "loadFailed": "로드 실패",
+    "empty": "데이터 없음",
+    "statusIdle": "시작 전",
+    "statusActive": "진행 중",
+    "statusInactive": "종료",
+    "streamTitle": "스트림 제목",
+    "streamTitlePlaceholder": "스트림 제목을 입력하세요",
+    "pushUrl": "푸시 URL",
+    "streamKey": "스트림 키",
+    "copyHint": "탭하여 보기",
+    "startLive": "라이브 시작",
+    "starting": "시작 중...",
+    "endLive": "라이브 종료",
+    "ending": "종료 중...",
+    "previewActive": "스트리밍 중(카메라 미리보기 자리 표시자)",
+    "previewIdle": "카메라 미리보기(자리 표시자)",
+    "stats": "스트림 데이터",
+    "statDuration": "방송 시간",
+    "statViewers": "시청자 수",
+    "statRecvBytes": "수신 바이트",
+    "statSendBytes": "송신 바이트",
+    "productManage": "상품 관리",
+    "productAddBtn": "+ 상품 추가",
+    "productLoading": "로드 중...",
+    "productLoadFailed": "상품 로드 실패",
+    "productEmpty": "상품이 없습니다",
+    "error": {
+      "titleRequired": "스트림 제목을 입력하세요",
+      "startFailed": "라이브 시작 실패",
+      "endFailed": "라이브 종료 실패"
+    },
+    "ended": {
+      "title": "라이브가 종료되었습니다",
+      "message": "방송 시간 {duration}"
+    },
+    "productAdd": {
+      "message": "상품 추가 기능 개발 중"
+    }
+  },
+  "livePreview": {
+    "title": "라이브 예고",
+    "loadFailed": "예고 로드 실패",
+    "empty": "예고가 없습니다",
+    "lecturer": "강사",
+    "startAt": "시작 시간",
+    "intro": "소개",
+    "subscribe": "구독",
+    "subscribed": "구독 완료",
+    "subscribing": "구독 중..."
+  },
+  "livePlayback": {
+    "title": "라이브 다시보기",
+    "subtitle": "놓친 라이브를 다시 보세요",
+    "loadFailed": "다시보기 로드 실패",
+    "empty": "다시보기가 없습니다",
+    "retry": "재시도",
+    "ended": "종료",
+    "lecturer": "강사",
+    "startAt": "시작 시간",
+    "duration": "시간",
+    "viewerCount": "{count}명 시청",
+    "play": "재생",
+    "noReplay": "다시보기 없음",
+    "replayTitle": "다시보기 플레이어"
+  },
+  "examHistory": {
+    "title": "시험 이력",
+    "loadFailed": "시험 이력 로드 실패",
+    "empty": "시험 기록이 없습니다",
+    "passed": "합격",
+    "failed": "불합격"
+  },
+  "examResult": {
+    "title": "시험 결과",
+    "loadFailed": "시험 결과 로드 실패",
+    "passed": "합격",
+    "failed": "불합격",
+    "correct": "정답 {count}/{total}",
+    "duration": "소요 시간 {min}분",
+    "wrongQuestions": "오답",
+    "yourAnswer": "당신의 답변",
+    "correctAnswer": "정답"
+  },
+  "modelIncome": {
+    "title": "모델 수익",
+    "loadFailed": "로드 실패",
+    "loadOverviewFailed": "개요 로드 실패",
+    "loadListFailed": "내역 로드 실패",
+    "networkError": "네트워크 오류, 잠시 후 재시도해주세요",
+    "retry": "재시도",
+    "empty": "수익 기록이 없습니다",
+    "accumulated": "누적 수익",
+    "withdrawBtn": "출금",
+    "withdrawable": "출금 가능(위안)",
+    "withdrawn": "출금 완료(위안)",
+    "today": "오늘 수익",
+    "pending": "정산 대기",
+    "yuan": "위안",
+    "tip": "기간 중 서비스 수수료 무료",
+    "tab": {
+      "all": "전체",
+      "pending": "정산 대기",
+      "settled": "정산 완료"
+    },
+    "orderLabel": "주문",
+    "rateLabel": "수수료율",
+    "withdrawModal": {
+      "title": "출금 방법 선택",
+      "subtitle": "출금 가능 금액",
+      "wechat": "위챗",
+      "moreMethods": "더 많은 출금 방법은 공식 앱을 사용하세요",
+      "confirm": "확인",
+      "close": "닫기"
+    }
+  },
+  "tokenValue": {
+    "title": "토큰 충전",
+    "balanceLabel": "사용 가능 토큰",
+    "frozen": "동결",
+    "totalCost": "누적 사용",
+    "packagesTitle": "충전 패키지",
+    "tokenUnit": "토큰",
+    "bonus": "보너스",
+    "popular": "인기",
+    "recordsTitle": "사용 기록",
+    "loadFailed": "로드 실패",
+    "empty": "기록이 없습니다",
+    "rechargeLabel": "충전",
+    "tab": {
+      "all": "전체",
+      "cost": "소모",
+      "recharge": "충전"
+    },
+    "recharge": {
+      "title": "충전 확인",
+      "message": "{tokens} 토큰을 ¥{price}에 충전하시겠습니까?",
+      "payBtn": "결제 확인",
+      "success": {
+        "title": "충전 성공",
+        "message": "{tokens} 토큰이 충전되었습니다"
+      }
+    }
   }
 }
