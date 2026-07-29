@@ -121,7 +121,7 @@ const upstreamResolveRequest = config.resolver.resolveRequest
 const fs = require('fs')
 const path = require('path')
 
-function tryResolveWithExts(basePath, originDir) {
+function tryResolveWithExts(basePath, originDir, platform) {
   // 0. 如果是目录,先尝试读 package.json 的 main/browser/react-native 字段
   if (fs.existsSync(basePath) && fs.statSync(basePath).isDirectory()) {
     const pkgPath = path.join(basePath, 'package.json')
@@ -137,7 +137,7 @@ function tryResolveWithExts(basePath, originDir) {
           pkg['main'] ||
           'index'
         const mainPath = path.resolve(basePath, mainField)
-        const resolved = tryResolveWithExts(mainPath, originDir)
+        const resolved = tryResolveWithExts(mainPath, originDir, platform)
         if (resolved) return resolved
       } catch {}
     }
@@ -146,22 +146,36 @@ function tryResolveWithExts(basePath, originDir) {
   if (fs.existsSync(basePath) && fs.statSync(basePath).isFile()) {
     return basePath
   }
-  // 2. 尝试 sourceExts(.ts/.tsx/.js/.jsx/.json/.mjs/.cjs)
   const exts = ['ts', 'tsx', 'js', 'jsx', 'json', 'mjs', 'cjs']
+  // 2. 优先尝试平台扩展(.native/.ios/.android/.web)— 与 Metro 默认解析器行为对齐
+  //    2026-07-29 修复:原顺序是先 .js 后 .native.js,导致 doctor.js(web 版)被
+  //    错误加载而非 doctor.native.js。平台扩展必须在普通扩展之前,确保 .native.js 优先。
+  const platformOrder = []
+  if (platform) {
+    platformOrder.push(platform) // 精确平台优先(android/ios)
+  }
+  if (!platformOrder.includes('native')) platformOrder.push('native') // 再 native
+  if (!platformOrder.includes('web')) platformOrder.push('web') // 最后 web
+  for (const plat of platformOrder) {
+    for (const ext of exts) {
+      if (fs.existsSync(`${basePath}.${plat}.${ext}`)) return `${basePath}.${plat}.${ext}`
+    }
+  }
+  // 3. 再尝试普通扩展(.ts/.tsx/.js/.jsx/.json/.mjs/.cjs)
   for (const ext of exts) {
     if (fs.existsSync(`${basePath}.${ext}`)) return `${basePath}.${ext}`
   }
-  // 3. 尝试 /index.<ext>
+  // 4. 尝试 /index.<ext>(含平台扩展优先)
+  for (const plat of platformOrder) {
+    for (const ext of exts) {
+      if (fs.existsSync(path.join(basePath, `index.${plat}.${ext}`))) {
+        return path.join(basePath, `index.${plat}.${ext}`)
+      }
+    }
+  }
   for (const ext of exts) {
     if (fs.existsSync(path.join(basePath, `index.${ext}`))) {
       return path.join(basePath, `index.${ext}`)
-    }
-  }
-  // 4. 尝试平台扩展(.ios/.android/.native/.web)
-  const platforms = ['ios', 'android', 'native', 'web']
-  for (const plat of platforms) {
-    for (const ext of exts) {
-      if (fs.existsSync(`${basePath}.${plat}.${ext}`)) return `${basePath}.${plat}.${ext}`
     }
   }
   return null
@@ -227,14 +241,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
  * 手动解析模块名:支持 npm 包名(含 scoped 子路径如 @ihui/shared/auth) + 相对路径 + 扩展名
  * 用于 Metro 默认解析 + require.resolve 都失败时的最终 fallback。
  */
-function resolveManual(moduleName, originDir, _platform) {
+function resolveManual(moduleName, originDir, platform) {
   let basePath
   if (path.isAbsolute(moduleName)) {
     basePath = moduleName
-    return tryResolveWithExts(basePath, originDir)
+    return tryResolveWithExts(basePath, originDir, platform)
   } else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
     basePath = path.resolve(originDir, moduleName)
-    return tryResolveWithExts(basePath, originDir)
+    return tryResolveWithExts(basePath, originDir, platform)
   } else {
     // npm 包名,可能在 node_modules 层级查找
     // 分割包名和子路径:@ihui/shared/auth → pkg=@ihui/shared, subPath=auth
@@ -326,7 +340,7 @@ function resolveManual(moduleName, originDir, _platform) {
           typeof entry === 'string' ? entry : entry.import || entry.require || entry.default
         if (target) {
           const targetPath = path.resolve(pkgDir, target)
-          const resolved = tryResolveWithExts(targetPath, originDir)
+          const resolved = tryResolveWithExts(targetPath, originDir, platform)
           if (resolved) return resolved
         }
       }
@@ -335,11 +349,11 @@ function resolveManual(moduleName, originDir, _platform) {
     if (!subPath) {
       const mainField = pkgJson['react-native'] || pkgJson['browser'] || pkgJson['main'] || 'index'
       const mainPath = path.resolve(pkgDir, mainField)
-      return tryResolveWithExts(mainPath, originDir)
+      return tryResolveWithExts(mainPath, originDir, platform)
     }
     // 子路径直接解析
     basePath = path.resolve(pkgDir, subPath)
-    return tryResolveWithExts(basePath, originDir)
+    return tryResolveWithExts(basePath, originDir, platform)
   }
 }
 
