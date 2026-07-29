@@ -14,6 +14,9 @@ import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { emailSchema } from '@/components/login/login-schemas'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+// 跨端类型契约对齐(2026-07-29):仅引入共享类型,不替换 RHF 集成
+// 详见 packages/shared/src/hooks/use-register-form.ts;mobile-rn / miniapp-taro 用 useRegisterForm,web 保留 RHF
+import type { RegisterApiResult, SendCodeApiResult } from '@ihui/shared/hooks'
 
 const emailRegisterSchema = z
   .object({
@@ -93,11 +96,15 @@ export function EmailRegisterForm({
     setSendingCode(true)
     try {
       const r = await sendEmailCode(email, 'register')
-      if (r.success) {
+      // 类型契约对齐:把 api-client 的 ApiResult<{ sent: boolean }> 映射为 @ihui/shared 的 SendCodeApiResult
+      const sendCodeResult: SendCodeApiResult = r.success
+        ? { success: true }
+        : { success: false, error: r.error }
+      if (sendCodeResult.success) {
         setServerInfo(t('codeSent'))
         setCountdown(60)
       } else {
-        setServerError(r.error || t('registerFailed'))
+        setServerError(sendCodeResult.error || t('registerFailed'))
       }
     } catch {
       setServerError(t('registerFailed'))
@@ -116,8 +123,21 @@ export function EmailRegisterForm({
     setSubmitting(true)
     try {
       const r = await registerByEmail(values.email, values.code, values.password)
-      if (!r.success) {
-        setServerError(r.error || t('registerFailed'))
+      // 类型契约对齐:把 api-client 的 ApiResult<LoginResult> 映射为 @ihui/shared 的 RegisterApiResult
+      const registerResult: RegisterApiResult = r.success
+        ? {
+            success: true,
+            accessToken: r.data.accessToken,
+            refreshToken: r.data.refreshToken,
+            user: {
+              id: r.data.user.id,
+              nickname: r.data.user.nickname ?? '',
+              avatar: r.data.user.avatar,
+            },
+          }
+        : { success: false, error: r.error }
+      if (!registerResult.success) {
+        setServerError(registerResult.error || t('registerFailed'))
         return
       }
       setServerInfo(t('registerSuccess'))
