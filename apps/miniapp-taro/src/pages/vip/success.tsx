@@ -1,7 +1,7 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
 import { formatDateByTemplate } from '@ihui/shared'
 import './success.css'
@@ -26,8 +26,7 @@ const resolveDuration = (plan: string, days?: string): string => {
 }
 
 export default function VipSuccessPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const router = useRouter()
 
   const orderNo = router.params.orderNo || ''

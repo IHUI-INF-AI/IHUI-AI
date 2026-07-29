@@ -3,7 +3,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getLiveHistory, type Live } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 interface HistoryItem extends Live {
   watchDuration?: number
@@ -28,8 +28,7 @@ const toMs = (v: string | undefined): number => {
 }
 
 export default function LiveHistory() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [rawList, setRawList] = useState<HistoryItem[]>([])
   const [filter, setFilter] = useState<FilterTab>('today')

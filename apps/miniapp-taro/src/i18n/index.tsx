@@ -75,3 +75,24 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 export function useI18n() {
   return useContext(I18nContext)
 }
+
+/**
+ * 带回退的翻译 hook(替代各页面/组件内联的 tt 函数)
+ *
+ * - 若 key 存在翻译,返回翻译值(支持 {placeholder} 参数替换)
+ * - 若 key 不存在,返回 fb 回退文案(支持 {placeholder} 参数替换)
+ *
+ * 用 useCallback 包装避免每次渲染重建,消除 react-hooks/exhaustive-deps 警告
+ */
+export function useTt() {
+  const { t } = useI18n()
+  return useCallback(
+    (k: string, fb: string, params?: Record<string, string | number>) => {
+      const v = params ? t(k, params) : t(k)
+      if (v !== k) return v
+      if (!params) return fb
+      return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
+    },
+    [t],
+  )
+}
