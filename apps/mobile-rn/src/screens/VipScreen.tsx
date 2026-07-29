@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react'
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card, Loading } from '@ihui/ui-native'
 import {
   createOrder,
   getMembershipInfo,
@@ -10,182 +8,95 @@ import {
   type MembershipInfo,
   type VipLevel,
 } from '@ihui/api-client'
-import { useI18n } from '../i18n'
+import {
+  VipScreen as SharedVipScreen,
+  type VipLevelItem2,
+  type VipMembershipInfo,
+} from '@ihui/rn-app'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
-import { formatAmount } from '@ihui/shared/utils'
+import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+function toVipLevel(l: VipLevel): VipLevelItem2 {
+  return {
+    id: l.id,
+    levelName: l.levelName,
+    levelValue: l.levelValue,
+    price: l.price,
+    durationDays: l.durationDays,
+    status: l.status,
+    benefits: l.benefits ?? undefined,
+  }
+}
+
+function toVipMembership(m: MembershipInfo): VipMembershipInfo {
+  return {
+    isActive: m.isActive,
+    level: m.level,
+    levelName: m.levelName,
+    expireTime: formatDateOnly(m.expireTime ?? ''),
+    daysRemaining: m.daysRemaining,
+  }
+}
 
 export function VipScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [levels, setLevels] = useState<VipLevel[]>([])
-  const [membership, setMembership] = useState<MembershipInfo | null>(null)
+  const [levels, setLevels] = useState<VipLevelItem2[]>([])
+  const [membership, setMembership] = useState<VipMembershipInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [purchasingId, setPurchasingId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
 
-  const load = async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const [levelsRes, membershipRes] = await Promise.all([getVipLevels(), getMembershipInfo()])
-    if (levelsRes.success) {
-      setLevels(levelsRes.data)
-    } else {
-      setError(levelsRes.error || t('vip.loadFailed'))
-    }
-    if (membershipRes.success) {
-      setMembership(membershipRes.data)
-    }
-    setLoading(false)
-    setRefreshing(false)
-  }
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const [levelsRes, membershipRes] = await Promise.all([getVipLevels(), getMembershipInfo()])
+      if (levelsRes.success) setLevels(levelsRes.data.map(toVipLevel))
+      else setError(levelsRes.error || t('vip.loadFailed'))
+      if (membershipRes.success && membershipRes.data)
+        setMembership(toVipMembership(membershipRes.data))
+      setLoading(false)
+      setRefreshing(false)
+    },
+    [t],
+  )
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
-  const handlePurchase = async (level: VipLevel) => {
+  const onPurchase = async (level: VipLevelItem2) => {
     setPurchasingId(level.id)
     setToast('')
     const res = await createOrder({ type: 'vip', targetId: level.id })
     setPurchasingId(null)
-    if (res.success) {
-      setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
-    } else {
-      setToast(res.error || t('vip.purchaseFailed'))
-    }
-  }
-
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-black">
-        <Loading />
-        <Text className="mt-2 text-sm text-neutral-500">{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
-  if (error && levels.length === 0) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white px-4 dark:bg-black">
-        <Text className="text-red-600">{error}</Text>
-        <Button className="mt-4" variant="outline" onPress={() => load()}>
-          {t('vip.retry')}
-        </Button>
-      </View>
-    )
+    if (res.success) setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
+    else setToast(res.error || t('vip.purchaseFailed'))
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-white dark:bg-black"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-    >
-      <View className="px-4 pt-12 pb-2">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-base text-neutral-700 dark:text-neutral-300">
-            {t('common.back')}
-          </Text>
-        </TouchableOpacity>
-        <Text className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('vip.title')}
-        </Text>
-        <Text className="mt-1 text-sm text-neutral-500">{t('vip.subtitle')}</Text>
-      </View>
-
-      {error ? (
-        <View className="px-4 py-2">
-          <Text className="text-sm text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      {toast ? (
-        <View className="px-4 py-2">
-          <Text className="text-sm text-emerald-600">{toast}</Text>
-        </View>
-      ) : null}
-
-      {membership && membership.isActive ? (
-        <View className="px-4 mt-4">
-          <Card className="bg-emerald-50 dark:bg-emerald-900/20">
-            <Text className="text-sm text-emerald-700 dark:text-emerald-300">
-              {t('vip.currentLevel')}
-            </Text>
-            <Text className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300">
-              {membership.levelName}
-            </Text>
-            <View className="mt-2 flex-row items-center justify-between">
-              <Text className="text-xs text-emerald-700 dark:text-emerald-300">
-                {t('vip.expireAt')}:{formatDateOnly(membership.expireTime)}
-              </Text>
-              <Text className="text-xs text-emerald-700 dark:text-emerald-300">
-                {t('vip.daysRemaining', { count: membership.daysRemaining })}
-              </Text>
-            </View>
-          </Card>
-        </View>
-      ) : null}
-
-      <View className="px-4 mt-4 pb-8">
-        <Text className="mb-3 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('vip.levelsTitle')}
-        </Text>
-        {levels.length === 0 ? (
-          <Card>
-            <Text className="text-sm text-neutral-500">{t('vip.empty')}</Text>
-          </Card>
-        ) : (
-          levels.map((level) => {
-            const isCurrent = membership?.level === level.levelValue
-            return (
-              <View key={level.id} className="mb-3">
-                <Card>
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
-                      {level.levelName}
-                    </Text>
-                    {isCurrent ? (
-                      <View className="rounded-md bg-emerald-100 px-2 py-0.5">
-                        <Text className="text-xs text-emerald-700">{t('vip.currentBadge')}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View className="mt-2 flex-row items-end justify-between">
-                    <Text className="text-xs text-neutral-500">
-                      {t('vip.duration', { days: level.durationDays })}
-                    </Text>
-                    <Text className="text-lg font-semibold text-emerald-600">
-                      ¥ {formatAmount(level.price)}
-                    </Text>
-                  </View>
-                  {level.benefits && Object.keys(level.benefits).length > 0 ? (
-                    <Text className="mt-2 text-xs text-neutral-500">
-                      {t('vip.benefitsCount', { count: Object.keys(level.benefits).length })}
-                    </Text>
-                  ) : null}
-                  {!isCurrent && level.status === 1 ? (
-                    <View className="mt-3">
-                      <Button
-                        loading={purchasingId === level.id}
-                        disabled={purchasingId === level.id}
-                        onPress={() => handlePurchase(level)}
-                      >
-                        {t('vip.purchase')}
-                      </Button>
-                    </View>
-                  ) : null}
-                </Card>
-              </View>
-            )
-          })
-        )}
-      </View>
-    </ScrollView>
+    <SharedVipScreen
+      t={t}
+      levels={levels}
+      membership={membership}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      toast={toast}
+      purchasingId={purchasingId}
+      onRefresh={() => load(true)}
+      onPurchase={onPurchase}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
