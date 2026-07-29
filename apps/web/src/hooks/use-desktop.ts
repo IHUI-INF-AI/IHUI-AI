@@ -37,6 +37,8 @@ export function useDesktop() {
   //   MainShell 标题栏 `isDesktop && (...)` 永不渲染。
   // 修复:用 useState(false) 初始值 + useEffect 异步检测,避免 hydration mismatch。
   // 浏览器端 useEffect 永远检测不到,稳定返回 false,不影响 SSR/CSR 一致性。
+  // 2026-07-29:withGlobalTauri 关闭后,__TAURI__ 不再注入,isTauri() 只检查
+  //   __TAURI_INTERNALS__,轮询逻辑不变(本就依赖此标识的注入时机)。
   const [isDesktop, setIsDesktop] = React.useState(false)
   const [appInfo, setAppInfo] = React.useState<DesktopAppInfo | null>(null)
   const [isMaximized, setIsMaximized] = React.useState(false)

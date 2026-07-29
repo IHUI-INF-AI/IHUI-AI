@@ -17,7 +17,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 function detectApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+    if ('__TAURI_INTERNALS__' in window) {
       return 'http://127.0.0.1:8802'
     }
   }
