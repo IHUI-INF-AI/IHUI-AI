@@ -172,6 +172,7 @@
     "teams": "团队",
     "docs": "文档",
     "search": "搜索",
+    "openBrowser": "打开浏览器",
     "tags": "标签",
     "oauthPlatform": "开放平台",
     "selfMediaWechat": "微信公众号",
@@ -10105,40 +10106,40 @@
       }
     },
     "features": {
-      "title": "8 大核心能力 · 全栈覆盖",
+      "title": "核心能力 · 全栈覆盖",
       "titleEn": "POWERFUL FEATURES",
       "subtitle": "8 端全覆盖 · 100+ 大模型 · 自研 CLI · 工业级工程严谨",
       "modelIntegration": {
         "title": "8 端全覆盖",
-        "benefit": "1 账号通用 8 端 · 省 8 倍重复购买"
+        "benefit": "1 账号 8 端"
       },
       "appStore": {
         "title": "100+ LLM",
-        "benefit": "综合省 ¥18 万/年"
+        "benefit": "省 ¥18 万/年"
       },
       "contentCreation": {
         "title": "自研 CLI",
-        "benefit": "效率提升 10× · 省 ¥17000/年"
+        "benefit": "10× 效率"
       },
       "edu": {
         "title": "AI 教育",
-        "benefit": "省 ¥10 万/年培训费"
+        "benefit": "省 ¥10 万/年"
       },
       "navigation": {
         "title": "企业安全",
-        "benefit": "99.9% SLA · 数据零泄露"
+        "benefit": "99.9% SLA"
       },
       "agentSquare": {
         "title": "智能体广场",
-        "benefit": "替代 5+ 人工 · 省 ¥30 万/年"
+        "benefit": "省 ¥30 万/年"
       },
       "workflow": {
         "title": "工作流引擎",
-        "benefit": "替代 5+ SaaS 工具"
+        "benefit": "替代 5+ SaaS"
       },
       "multimodal": {
         "title": "多模态 AI",
-        "benefit": "5 大模态 · 省 ¥5 万/年"
+        "benefit": "5 大模态"
       }
     },
     "advantages": {
@@ -10147,57 +10148,57 @@
       "subtitle": "工程严谨 · 智能降本 · 企业安全 · 三栈合一",
       "professional": {
         "title": "工程严谨",
-        "description": "17 项守门 · 122+ migrations · 12 packages",
-        "evidence": "代码质量超 95% 同类项目"
+        "description": "17 守门 · 122 migrations",
+        "evidence": "超 95% 同类项目"
       },
       "efficient": {
         "title": "智能降本",
-        "description": "100+ 模型智能路由 · 60% 缓存命中",
-        "evidence": "单次 ¥0.3 → ¥0.024 · 省 60%"
+        "description": "60% 缓存命中",
+        "evidence": "省 60%"
       },
       "reliable": {
         "title": "企业安全",
-        "description": "AES-256-GCM · RBAC 按钮级 · 99.9% SLA",
-        "evidence": "银行级加密 · 停机 < 8.76h/年"
+        "description": "AES-256 · RBAC",
+        "evidence": "停机 < 8.76h/年"
       },
       "innovative": {
         "title": "三栈合一",
-        "description": "LangGraph + MCP + A2A + ACP 四协议",
-        "evidence": "Cursor/Claude Code 仅 MCP 单栈"
+        "description": "4 协议合一",
+        "evidence": "竞品仅 MCP 单栈"
       }
     },
     "scenarios": {
-      "title": "5 大决策者场景 · 痛点 → 解决 → 收益",
+      "title": "决策者场景 · 痛点 → 收益",
       "titleEn": "DECISION-MAKER SCENARIOS",
-      "subtitle": "痛点 → 解决 → 收益 · 让 AI 真正落地产生 ROI",
+      "subtitle": "痛点 → 收益 · 让 AI 真正落地产生 ROI",
       "costReduction": {
         "benefit": "省 ¥18-30 万/年",
         "description": "100+ 模型智能路由 · 替代多项订阅",
-        "painPoint": "工具分散采购 · 年费数万元",
+        "painPoint": "年费数万",
         "title": "智能降本"
       },
       "decision": {
-        "benefit": "决策效率提升 5×",
+        "benefit": "提升 5×",
         "description": "AI 数据分析 · 实时决策报告",
-        "painPoint": "靠经验决策 · 缺数据支撑",
+        "painPoint": "缺数据",
         "title": "智能决策"
       },
       "efficiency": {
-        "benefit": "效率提升 10×",
+        "benefit": "提升 10×",
         "description": "自研 CLI + 工作流自动化",
-        "painPoint": "重复工作占人力 · 效率低",
+        "painPoint": "效率低",
         "title": "极速提效"
       },
       "innovation": {
-        "benefit": "三栈合一 · 对标 Claude Code",
+        "benefit": "三栈合一",
         "description": "LangGraph + MCP + A2A + ACP",
-        "painPoint": "开发门槛高 · 缺编排能力",
+        "painPoint": "门槛高",
         "title": "技术创新"
       },
       "learning": {
         "benefit": "省 ¥10 万/年",
         "description": "6 大模块 · 全年课程免费",
-        "painPoint": "团队能力参差 · 培训贵",
+        "painPoint": "培训贵",
         "title": "全员学习"
       }
     },
