@@ -269,6 +269,22 @@
       "system": "システム"
     }
   },
+  "messageDirect": {
+    "title": "ダイレクトメッセージ",
+    "empty": "ダイレクトメッセージがありません",
+    "loadFailed": "ダイレクトメッセージの読み込みに失敗しました",
+    "from": "差出人"
+  },
+  "messageGroup": {
+    "title": "グループチャット",
+    "empty": "グループチャットがありません",
+    "loadFailed": "グループチャットの読み込みに失敗しました"
+  },
+  "messageSystem": {
+    "title": "システムメッセージ",
+    "empty": "システムメッセージがありません",
+    "loadFailed": "システムメッセージの読み込みに失敗しました"
+  },
   "history": {
     "empty": "閲覧履歴がありません",
     "loadFailed": "履歴の読み込みに失敗しました",
@@ -1086,5 +1102,259 @@
     "sendFailed": "コード送信失敗",
     "bindFailed": "绑定失敗",
     "networkError": "ネットワークエラー"
+  },
+  "modelPlaza": {
+    "title": "モデル広場",
+    "compareBtn": "比較",
+    "providerTotal": "全 {{count}} モデル",
+    "loadFailed": "読み込み失敗、プルして更新",
+    "emptyType": "このタイプのモデルはありません",
+    "input": "入力",
+    "output": "出力",
+    "priceUnit": "¥{{price}}/M",
+    "perCall": "(回数課金)",
+    "typeAll": "すべて",
+    "typeText": "テキスト",
+    "typeImage": "画像",
+    "typeAv": "音声/動画",
+    "compare": {
+      "title": "モデル比較",
+      "message": "比較するモデルを 2〜3 個選択してください"
+    },
+    "detail": {
+      "title": "モデル詳細",
+      "message": "「{{name}}」の完全な仕様と価格を見る"
+    }
+  },
+  "n8nModel": {
+    "title": "n8n モデル管理",
+    "create": "+ 新規",
+    "searchPlaceholder": "ワークフロー名または説明を検索",
+    "tabAll": "すべて",
+    "tabRunning": "実行中",
+    "tabStopped": "停止済み",
+    "loadFailed": "読み込み失敗",
+    "empty": "n8n ワークフローはありません",
+    "running": "実行中",
+    "stopped": "停止済み",
+    "calls": "呼び出し {{count}}",
+    "params": "入力 {{in}} · 出力 {{out}}",
+    "actionStart": "開始",
+    "actionStop": "停止",
+    "actionEdit": "編集",
+    "toggle": {
+      "stopTitle": "ワークフローを停止",
+      "startTitle": "ワークフローを開始",
+      "stopMessage": "「{{name}}」を停止しますか?",
+      "startMessage": "「{{name}}」を開始しますか?",
+      "success": "操作成功"
+    }
+  },
+  "modelEdit": {
+    "headerTitle": "エージェント設定",
+    "labelCategory": "コンテンツ種別(複数選択)",
+    "labelDept": "部門",
+    "labelSaleType": "販売方式",
+    "labelCycle": "課金サイクル",
+    "labelPrice": "価格(元 / {{cycle}})",
+    "labelFreeDur": "期間限定無料",
+    "labelDiscount": "割引",
+    "labelAudience": "対象",
+    "cycleMonth": "月",
+    "cycleYear": "年",
+    "cyclePermanent": "永久",
+    "saleFree": "無料",
+    "saleLimited": "期間限定無料",
+    "salePaid": "有料",
+    "audienceAll": "全ユーザー",
+    "audienceMember": "会員",
+    "pricePlaceholder": "価格を入力",
+    "submit": "審査に提出",
+    "submitting": "送信中...",
+    "error": {
+      "categoryRequired": "コンテンツ種別を選択してください",
+      "priceRequired": "価格を入力してください"
+    },
+    "success": {
+      "title": "送信成功",
+      "message": "設定を審査に提出しました"
+    }
+  },
+  "aigcList": {
+    "title": "インスピレーション",
+    "subtitle": "AI生成の画像/動画/音声作品",
+    "empty": "作品はまだありません",
+    "publish": "+ 公開",
+    "playAudio": "▶ 再生",
+    "videoBadge": "▶ 動画",
+    "promptLabel": "プロンプト:"
+  },
+  "liveDetail": {
+    "title": "ライブ詳細",
+    "loadFailed": "ライブ詳細の読み込みに失敗しました",
+    "empty": "ライブが存在しません",
+    "ongoing": "配信中",
+    "upcoming": "開始予定",
+    "lecturer": "講師",
+    "viewerCount": "{count} 視聴",
+    "intro": "紹介",
+    "subscribe": "購読",
+    "subscribed": "購読済み",
+    "subscribing": "購読中...",
+    "chat": "チャット",
+    "chatEmpty": "メッセージがありません",
+    "chatPlaceholder": "メッセージを入力",
+    "chatSend": "送信",
+    "chatNotReady": "チャットの準備ができていません",
+    "chatConnecting": "接続中",
+    "chatConnected": "接続済み",
+    "chatReconnecting": "再接続中",
+    "chatDisconnected": "切断済み",
+    "chatError": "チャットエラー"
+  },
+  "liveHost": {
+    "title": "配信者",
+    "loadFailed": "読み込みに失敗しました",
+    "empty": "データがありません",
+    "statusIdle": "未開始",
+    "statusActive": "配信中",
+    "statusInactive": "終了",
+    "streamTitle": "配信タイトル",
+    "streamTitlePlaceholder": "配信タイトルを入力",
+    "pushUrl": "配信 URL",
+    "streamKey": "ストリームキー",
+    "copyHint": "タップして表示",
+    "startLive": "配信開始",
+    "starting": "開始中...",
+    "endLive": "配信終了",
+    "ending": "終了中...",
+    "previewActive": "配信中(カメラプレビュープレースホルダー)",
+    "previewIdle": "カメラプレビュー(プレースホルダー)",
+    "stats": "配信データ",
+    "statDuration": "配信時間",
+    "statViewers": "視聴者数",
+    "statRecvBytes": "受信バイト",
+    "statSendBytes": "送信バイト",
+    "productManage": "商品管理",
+    "productAddBtn": "+ 商品追加",
+    "productLoading": "読み込み中...",
+    "productLoadFailed": "商品の読み込みに失敗しました",
+    "productEmpty": "商品がありません",
+    "error": {
+      "titleRequired": "配信タイトルを入力してください",
+      "startFailed": "配信の開始に失敗しました",
+      "endFailed": "配信の終了に失敗しました"
+    },
+    "ended": {
+      "title": "配信が終了しました",
+      "message": "配信時間 {duration}"
+    },
+    "productAdd": {
+      "message": "商品追加機能は開発中です"
+    }
+  },
+  "livePreview": {
+    "title": "ライブ予告",
+    "loadFailed": "予告の読み込みに失敗しました",
+    "empty": "予告がありません",
+    "lecturer": "講師",
+    "startAt": "開始時間",
+    "intro": "紹介",
+    "subscribe": "購読",
+    "subscribed": "購読済み",
+    "subscribing": "購読中..."
+  },
+  "livePlayback": {
+    "title": "ライブ録画",
+    "subtitle": "見逃したライブを振り返る",
+    "loadFailed": "録画の読み込みに失敗しました",
+    "empty": "録画がありません",
+    "retry": "再試行",
+    "ended": "終了",
+    "lecturer": "講師",
+    "startAt": "開始時間",
+    "duration": "時間",
+    "viewerCount": "{count} 視聴",
+    "play": "再生",
+    "noReplay": "録画なし",
+    "replayTitle": "録画プレーヤー"
+  },
+  "examHistory": {
+    "title": "試験履歴",
+    "loadFailed": "試験履歴の読み込みに失敗しました",
+    "empty": "試験記録がありません",
+    "passed": "合格",
+    "failed": "不合格"
+  },
+  "examResult": {
+    "title": "試験結果",
+    "loadFailed": "試験結果の読み込みに失敗しました",
+    "passed": "合格",
+    "failed": "不合格",
+    "correct": "正解 {count}/{total}",
+    "duration": "所要時間 {min} 分",
+    "wrongQuestions": "間違い問題",
+    "yourAnswer": "あなたの回答",
+    "correctAnswer": "正解"
+  },
+  "modelIncome": {
+    "title": "モデル収益",
+    "loadFailed": "読み込みに失敗しました",
+    "loadOverviewFailed": "概要の読み込みに失敗しました",
+    "loadListFailed": "明細の読み込みに失敗しました",
+    "networkError": "ネットワークエラー、後でもう一度お試しください",
+    "retry": "再試行",
+    "empty": "収益記録がありません",
+    "accumulated": "累計収益",
+    "withdrawBtn": "引き出す",
+    "withdrawable": "引き出し可能(元)",
+    "withdrawn": "引き出し済み(元)",
+    "today": "今日の収益",
+    "pending": "未清算",
+    "yuan": "元",
+    "tip": "期間中はサービス手数料無料",
+    "tab": {
+      "all": "全て",
+      "pending": "未清算",
+      "settled": "清算済み"
+    },
+    "orderLabel": "注文",
+    "rateLabel": "手数料率",
+    "withdrawModal": {
+      "title": "引き出し方法を選択",
+      "subtitle": "引き出し可能金額",
+      "wechat": "WeChat",
+      "moreMethods": "その他の引き出し方法は公式アプリをご利用ください",
+      "confirm": "確認",
+      "close": "閉じる"
+    }
+  },
+  "tokenValue": {
+    "title": "トークンチャージ",
+    "balanceLabel": "利用可能トークン",
+    "frozen": "凍結",
+    "totalCost": "累計消費",
+    "packagesTitle": "チャージパッケージ",
+    "tokenUnit": "Token",
+    "bonus": "ボーナス",
+    "popular": "人気",
+    "recordsTitle": "利用履歴",
+    "loadFailed": "読み込みに失敗しました",
+    "empty": "記録がありません",
+    "rechargeLabel": "チャージ",
+    "tab": {
+      "all": "全て",
+      "cost": "消費",
+      "recharge": "チャージ"
+    },
+    "recharge": {
+      "title": "チャージ確認",
+      "message": "{tokens}トークンを¥{price}でチャージしますか?",
+      "payBtn": "支払いを確認",
+      "success": {
+        "title": "チャージ成功",
+        "message": "{tokens}トークンをチャージしました"
+      }
+    }
   }
 }
