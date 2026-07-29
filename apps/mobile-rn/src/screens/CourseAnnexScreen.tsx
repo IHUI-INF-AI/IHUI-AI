@@ -1,24 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
+import {
+  CourseAnnexScreen as SharedCourseAnnexScreen,
+  type CourseAnnexItem,
+} from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { Card, Loading } from '@ihui/ui-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item {
-  id: string
-  name: string
-  size: number
-  url: string
-}
 
 export function CourseAnnexScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<Nav>()
-  const [items, setItems] = useState<Item[]>([])
+  const [items, setItems] = useState<CourseAnnexItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -26,7 +22,7 @@ export function CourseAnnexScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<Item[]>('/course-annex')
+      const res = await fetchApi<CourseAnnexItem[]>('/course-annex')
       if (!res.success) throw new Error()
       setItems(res.data ?? [])
     } catch {
@@ -41,64 +37,18 @@ export function CourseAnnexScreen() {
     void load()
   }, [load])
 
-  const fmtSize = (bytes: number) =>
-    bytes < 1024
-      ? `${bytes}B`
-      : bytes < 1048576
-        ? `${(bytes / 1024).toFixed(1)}KB`
-        : `${(bytes / 1048576).toFixed(1)}MB`
-
   return (
-    <View className="flex-1 bg-card">
-      <View className="flex-row items-center gap-3 px-4 py-3">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-sm text-foreground">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-lg font-semibold text-foreground">{t('courseAnnex.title')}</Text>
-      </View>
-      {error ? <Text className="px-4 text-xs text-destructive">{error}</Text> : null}
-      {loading && items.length === 0 ? (
-        <View className="items-center py-12">
-          <Loading />
-          <Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: 16 }}
-          ItemSeparatorComponent={() => <View className="h-2" />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true)
-                void load()
-              }}
-            />
-          }
-          ListEmptyComponent={
-            <View className="items-center py-12">
-              <Text className="text-xs text-muted-foreground">{t('courseAnnex.empty')}</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <Card className="p-3">
-              <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-                {item.name}
-              </Text>
-              <View className="mt-2 flex-row items-center justify-between">
-                <Text className="text-[11px] text-muted-foreground">
-                  {t('courseAnnex.size')}: {fmtSize(item.size)}
-                </Text>
-                <Text className="text-xs font-semibold text-primary">
-                  {t('courseAnnex.download')}
-                </Text>
-              </View>
-            </Card>
-          )}
-        />
-      )}
-    </View>
+    <SharedCourseAnnexScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
