@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getResources, type Resource } from '@ihui/api-client'
+import {
+  LiveHostScreen as SharedLiveHostScreen,
+  type LiveHostProduct,
+  type LiveHostStatus,
+  type LiveHostStreamData,
+} from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDuration, formatFileSize } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
-type StreamStatus = 'idle' | 'active' | 'inactive'
 
 interface StreamData {
   id: string
@@ -20,35 +24,34 @@ interface StreamData {
   sendBytes: number | null
 }
 
-interface Product {
-  id: string
-  name: string
-  price: number
-}
-
-function mapResource(r: Resource): Product | null {
+function mapResource(r: Resource): LiveHostProduct | null {
   if (!r.title) return null
   const price = typeof r.price === 'number' ? r.price : Number(r.price) || 0
   return { id: r.id, name: r.title, price }
 }
 
-const BADGE_STYLE: Record<StreamStatus, { cls: string; text: string }> = {
-  idle: { cls: 'bg-neutral-300', text: '未开始' },
-  active: { cls: 'bg-emerald-500', text: '直播中' },
-  inactive: { cls: 'bg-neutral-400', text: '已结束' },
+function mapStream(s: StreamData): LiveHostStreamData {
+  return {
+    id: s.id,
+    streamKey: s.streamKey,
+    title: s.title,
+    pushUrl: s.pushUrl,
+    recvBytes: s.recvBytes,
+    sendBytes: s.sendBytes,
+  }
 }
 
 export function LiveHostScreen() {
   const navigation = useNavigation<Nav>()
   const { t } = useI18n()
-    const [streamTitle, setStreamTitle] = useState('')
-  const [status, setStatus] = useState<StreamStatus>('idle')
+  const [streamTitle, setStreamTitle] = useState('')
+  const [status, setStatus] = useState<LiveHostStatus>('idle')
   const [stream, setStream] = useState<StreamData | null>(null)
   const [duration, setDuration] = useState(0)
   const [viewers, setViewers] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<LiveHostProduct[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [productsError, setProductsError] = useState('')
 
@@ -71,15 +74,15 @@ export function LiveHostScreen() {
         if (res.success) {
           const mapped = res.data.list
             .map(mapResource)
-            .filter((p): p is Product => p !== null)
+            .filter((p): p is LiveHostProduct => p !== null)
           setProducts(mapped)
         } else {
-          setProductsError(res.error || '加载商品失败')
+          setProductsError(res.error || t('liveHost.productLoadFailed'))
         }
       })
       .catch((e) => {
         if (cancelled) return
-        const msg = e instanceof Error ? e.message : '加载商品失败'
+        const msg = e instanceof Error ? e.message : t('liveHost.productLoadFailed')
         setProductsError(msg)
       })
       .finally(() => {
@@ -88,15 +91,15 @@ export function LiveHostScreen() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const callApi = useCallback(
     async (path: string, method: string, body?: unknown) => {
       const res = await fetchApi(path, { method, body: body ? JSON.stringify(body) : undefined })
-      if (!res.success) throw new Error(res.error || '请求失败')
+      if (!res.success) throw new Error(res.error || t('common.failed'))
       return res.data
     },
-    [],
+    [t],
   )
 
   const startLive = async () => {
@@ -126,7 +129,10 @@ export function LiveHostScreen() {
     try {
       await callApi(`/api/srs/streams/${stream.id}`, 'PUT', { status: 'inactive' })
       setStatus('inactive')
-      Alert.alert(t('liveHost.ended.title'), t('liveHost.ended.message', { duration: formatDuration(duration) }))
+      Alert.alert(
+        t('liveHost.ended.title'),
+        t('liveHost.ended.message', { duration: formatDuration(duration) }),
+      )
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('liveHost.error.endFailed')
       setError(msg)
@@ -136,132 +142,41 @@ export function LiveHostScreen() {
     }
   }
 
-  const copyText = (text: string, label: string) => Alert.alert(label, text, [{ text: t('common.close') }])
-  const badge = BADGE_STYLE[status]
+  const copyText = (text: string, label: string) =>
+    Alert.alert(label, text, [{ text: t('common.close') }])
 
-  const stats: { label: string; value: string; cls?: string }[] = [
-    { label: '直播时长', value: formatDuration(duration) },
-    { label: '观众数', value: String(viewers), cls: 'text-emerald-600' },
-    { label: '收到字节', value: formatFileSize(stream?.recvBytes ?? 0) },
-    { label: '发送字节', value: formatFileSize(stream?.sendBytes ?? 0) },
-  ]
+  const sharedStream = useMemo(() => (stream ? mapStream(stream) : null), [stream])
+  const durationText = useMemo(() => formatDuration(duration), [duration])
+  const recvBytesText = useMemo(
+    () => formatFileSize(stream?.recvBytes ?? 0),
+    [stream?.recvBytes],
+  )
+  const sendBytesText = useMemo(
+    () => formatFileSize(stream?.sendBytes ?? 0),
+    [stream?.sendBytes],
+  )
 
   return (
-    <ScrollView className="flex-1 bg-white dark:bg-black">
-      <View className="flex-row items-center px-4 pt-12 pb-2 gap-3">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-sm text-neutral-500">返回</Text>
-        </TouchableOpacity>
-        <Text className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">主播端</Text>
-        <View className={`rounded-md px-2 py-0.5 ${badge.cls}`}>
-          <Text className="text-xs text-white">{badge.text}</Text>
-        </View>
-      </View>
-
-      {error ? (
-        <View className="px-4 py-1">
-          <Text className="text-xs text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      <View className="mx-4 mt-2 h-44 rounded-xl bg-neutral-900 items-center justify-center">
-        <Text className="text-sm text-neutral-400">
-          {status === 'active' ? '直播推流中(摄像头预览占位)' : '摄像头预览(占位)'}
-        </Text>
-      </View>
-
-      <View className="mx-4 mt-3 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700">
-        <Text className="text-xs text-neutral-500 mb-1">直播标题</Text>
-        <TextInput
-          className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-50"
-          value={streamTitle}
-          onChangeText={setStreamTitle}
-          placeholder="请输入直播标题"
-          placeholderTextColor={tokens.text.tertiary}
-          editable={status === 'idle'}
-        />
-        {stream ? (
-          <View className="mt-2">
-            <TouchableOpacity onPress={() => stream.pushUrl && copyText(stream.pushUrl, '推流地址')}>
-              <Text className="text-xs text-neutral-500" numberOfLines={1}>
-                推流地址:{stream.pushUrl || '—'}(点击查看)
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => copyText(stream.streamKey, '流密钥')}>
-              <Text className="text-xs text-neutral-500 mt-1" numberOfLines={1}>
-                流密钥:{stream.streamKey}(点击查看)
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-      </View>
-
-      <View className="mx-4 mt-3 flex-row gap-3">
-        <TouchableOpacity
-          className="flex-1 rounded-lg bg-emerald-500 py-3 items-center"
-          onPress={startLive}
-          disabled={loading || status !== 'idle'}
-        >
-          <Text className="text-sm font-semibold text-white">
-            {loading && status === 'idle' ? '开启中...' : '开始直播'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="flex-1 rounded-lg bg-red-500 py-3 items-center"
-          onPress={endLive}
-          disabled={loading || status !== 'active'}
-        >
-          <Text className="text-sm font-semibold text-white">
-            {loading && status === 'active' ? '结束中...' : '结束直播'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View className="mx-4 mt-3 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700">
-        <Text className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 mb-2">
-          直播数据
-        </Text>
-        <View className="flex-row flex-wrap">
-          {stats.map((s) => (
-            <View key={s.label} className="w-1/2 mb-2">
-              <Text className="text-xs text-neutral-500">{s.label}</Text>
-              <Text className={`text-sm font-semibold text-neutral-900 dark:text-neutral-50 ${s.cls || ''}`}>{s.value}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <View className="mx-4 mt-3 mb-8 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700">
-        <View className="flex-row items-center justify-between mb-2">
-          <Text className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">商品管理</Text>
-          <TouchableOpacity
-            onPress={() => Alert.alert(t('common.hint'), t('liveHost.productAdd.message'))}
-            className="rounded-lg bg-neutral-100 dark:bg-neutral-800 px-2 py-1"
-          >
-            <Text className="text-xs text-emerald-600">+ 添加商品</Text>
-          </TouchableOpacity>
-        </View>
-        {productsLoading ? (
-          <Text className="text-xs text-neutral-500 py-2 text-center">加载中...</Text>
-        ) : null}
-        {productsError ? (
-          <Text className="text-xs text-red-600 py-2 text-center">{productsError}</Text>
-        ) : null}
-        <FlatList
-          data={products}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          ListEmptyComponent={
-            <Text className="text-xs text-neutral-500 py-2 text-center">暂无商品</Text>
-          }
-          renderItem={({ item }) => (
-            <View className="flex-row items-center justify-between py-2">
-              <Text className="flex-1 text-sm text-neutral-900 dark:text-neutral-50" numberOfLines={1}>{item.name}</Text>
-              <Text className="text-sm font-semibold text-red-500">¥{item.price}</Text>
-            </View>
-          )}
-        />
-      </View>
-    </ScrollView>
+    <SharedLiveHostScreen
+      t={t}
+      status={status}
+      streamTitle={streamTitle}
+      onStreamTitleChange={setStreamTitle}
+      stream={sharedStream}
+      viewers={viewers}
+      durationText={durationText}
+      recvBytesText={recvBytesText}
+      sendBytesText={sendBytesText}
+      loading={loading}
+      error={error}
+      products={products}
+      productsLoading={productsLoading}
+      productsError={productsError}
+      onStartLive={startLive}
+      onEndLive={endLive}
+      onAddProduct={() => Alert.alert(t('common.hint'), t('liveHost.productAdd.message'))}
+      onCopyText={copyText}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
