@@ -237,7 +237,7 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white px-2 text-foreground transition-colors hover:bg-gray-100 dark:bg-black dark:hover:bg-gray-900"
+        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white px-2 text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
       >
         <Search className="h-4 w-4" />
       </button>
@@ -488,7 +488,7 @@ export function TagsView() {
           trigger={
             <button
               type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
               aria-label={tCommon('moreActions')}
             >
               <ChevronDown className="h-4 w-4" />
