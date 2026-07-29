@@ -155,6 +155,11 @@ function toLiteLLMModelId(
 ): string {
   if (providerCode === 'stepfun') return `stepfun/${modelId}`
   if (baseUrl && baseUrl.includes('agnes-ai.com')) return `agnes/${modelId}`
+  // P0-5m(2026-07-30):OpenRouter 模型加 openrouter/ 前缀,
+  // ai-service _resolve_provider 识别 openrouter/ 前缀后走 LiteLLM 原生 OpenRouter 路由。
+  // OpenRouter 上游模型 ID 已含厂商前缀(如 deepseek/deepseek-v4-pro),
+  // 加 openrouter/ 后变成 openrouter/deepseek/deepseek-v4-pro(LiteLLM 原生格式)。
+  if (providerCode === 'openrouter') return `openrouter/${modelId}`
   // 其他 provider(openai/groq/gemini 等)若已带前缀则原样返回,否则不加前缀
   return modelId
 }
