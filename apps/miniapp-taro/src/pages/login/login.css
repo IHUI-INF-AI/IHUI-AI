@@ -1,8 +1,8 @@
-/* forgot-password/index.css — 对齐 zhs_app-ZZ 视觉风格(与 login/register 同一套设计语言)
- * 输入框:conic-gradient 紫蓝渐变描边 + bg #fff + box-shadow(与 register 一致)
- * 按钮:zcbutton.png + border-radius 30rpx + color #fff(AuthButton variant=login)
- * 强调色:#847CFF 紫色(send-code/back-link)
- * 步骤指示器:#6B6980 灰色文案
+/* login.css — 对齐 zhs_app-ZZ login.vue 样式(完整视觉迁移)
+ * 原项目硬编码颜色直接保留(#847CFF/#409EFF/#f5f5f5/#979797 等)
+ * 背景:loginbackk.png(Image 组件作背景层,兼容微信小程序)
+ * 按钮:zcbutton.png(AuthButton 组件 Image 背景层)
+ * 强调色:#847CFF 紫色(send-code/forgot-pwd-btn)
  */
 
 /* ===== 容器与背景 ===== */
@@ -18,7 +18,6 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
 .bg-image {
@@ -34,18 +33,23 @@
   position: relative;
   z-index: 1;
   height: 100vh;
-  padding: 50rpx 30rpx 0;
+  max-height: 100vh;
+  padding: 0 30rpx 0 30rpx;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 /* ===== 顶部 logo + 标题 ===== */
 .top_box {
-  height: calc(45% - 177rpx);
+  height: calc(40% - 177rpx);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
+  padding-top: 100rpx;
+  box-sizing: border-box;
 }
 
 .logobox {
@@ -53,6 +57,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  margin-top: -60rpx;
 }
 
 .logo {
@@ -81,56 +86,102 @@
 
 /* ===== 中部内容 ===== */
 .center_box {
-  flex: 1;
+  height: 354rpx;
+}
+
+/* ===== tab 切换 ===== */
+.select-box-above-input {
+  position: relative;
+  z-index: 10;
+  margin-top: -108rpx;
+  margin-bottom: 24rpx;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
 }
 
-/* ===== 步骤指示器 ===== */
-.step-indicator {
-  width: 100%;
+.login-type-tabs {
+  width: 650rpx;
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  background: #f5f5f5;
+  border-radius: 25rpx;
+  padding: 6rpx;
+}
+
+.login-type-tab {
+  flex: 1;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  margin-bottom: 10rpx;
-}
-
-.step-text {
-  font-size: 26rpx;
-  font-weight: normal;
+  border-radius: 20rpx;
+  font-size: 28rpx;
   color: #6B6980;
-  letter-spacing: 0rpx;
+  font-weight: bold;
+  transition: all 0.2s ease;
 }
 
-/* ===== 输入框容器(conic-gradient 紫蓝渐变描边) ===== */
+.login-type-tab-active {
+  background: #fff;
+  color: #000;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+}
+
+/* ===== 输入框容器 ===== */
 .input-wbox {
   width: 100%;
   display: flex;
   justify-content: center;
+  margin-bottom: 20rpx;
+}
+
+.input-wbox-column {
+  flex-direction: column;
+  align-items: center;
 }
 
 .input-nbox {
   padding: 2rpx;
-  width: 532rpx;
-  height: 79rpx;
+  width: 650rpx;
+  height: 99rpx;
   margin-top: 30rpx;
   border-radius: 25rpx;
-  background: conic-gradient(from 180deg at 50% 50%, #CCDAF4 -8deg, #E6CBF9 0deg, #CCDAF4 352deg, #E6CBF9 360deg);
+  background: #f5f5f5;
+  border: 1px solid #eaeaea;
+  transition: background 0.15s ease-out;
   position: relative;
 }
 
 .input-nbox-focused {
-  background: conic-gradient(from 180deg at 50% 50%, #847CFF -8deg, #B59CFF 0deg, #847CFF 352deg, #B59CFF 360deg);
+  background: #FFFFFF;
+  border-color: transparent;
+}
+
+.input-nbox-focused::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 25rpx;
+  border: 1.5px solid #000;
+  pointer-events: none;
 }
 
 .input-box {
   width: 100%;
   height: 100%;
-  background: #fff;
+  background: #f5f5f5;
   border-radius: 25rpx;
   display: flex;
   align-items: center;
-  box-shadow: 0 0 6rpx 0 rgba(0, 0, 0, 0.3);
+}
+
+.input-nbox-focused .input-box {
+  background: #FFFFFF;
 }
 
 .input-icon {
@@ -146,7 +197,7 @@
 .input-area-code {
   letter-spacing: 0rpx;
   color: #979797;
-  font-size: 26rpx;
+  font-size: 36rpx;
   font-weight: normal;
 }
 
@@ -159,7 +210,7 @@
 }
 
 .input-text {
-  font-size: 24rpx;
+  font-size: 36rpx;
   font-weight: 300;
   letter-spacing: 0rpx;
   color: #000;
@@ -169,15 +220,16 @@
   margin-left: 20rpx;
 }
 
-/* ===== 区号选择器(PhoneAreaCodePicker 组件用,60rpx height) ===== */
+/* ===== 区号选择器(PhoneAreaCodePicker 组件用) ===== */
 .xiaicc {
   padding-right: 20rpx;
   padding-left: 20rpx;
-  height: 60rpx;
+  height: 39.5rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-right: 1px solid #979797;
+  transition: border-color 0.15s ease-out;
 }
 
 .xiaicc-focused {
@@ -215,15 +267,16 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 5px 5px;
-  border-bottom: 1rpx solid #D8D8D8;
+  border-bottom: 1rpx solid #F0F0F0;
 }
 
 .nation-info1 {
-  width: 100%;
+  width: 90%;
   display: flex;
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
+  padding: 24rpx 0;
 }
 
 .nation-name {
@@ -242,16 +295,13 @@
 
 /* ===== 验证码发送按钮 ===== */
 .send-code {
-  font-size: 24rpx;
+  font-size: 32rpx;
   font-weight: bold;
   line-height: 25rpx;
   color: #847CFF;
+  margin-left: -15px;
   padding-right: 16rpx;
   white-space: nowrap;
-}
-
-.send-code-disabled {
-  opacity: 0.5;
 }
 
 /* ===== 密码切换(PasswordVisibilityToggle 组件用) ===== */
@@ -270,16 +320,36 @@
   height: 40rpx;
 }
 
+/* ===== 忘记密码 ===== */
+.forgot-pwd-row {
+  margin-top: 16rpx;
+  width: 650rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.forgot-pwd-btn {
+  font-size: 26rpx;
+  color: #6B6980;
+}
+
 /* ===== 底部 ===== */
+.bottom-section {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 30rpx 0;
+  box-sizing: border-box;
+}
+
 .bottom_box {
-  height: calc(55% - 177rpx);
+  min-height: auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
+  flex-shrink: 0;
 }
 
-/* ===== 主按钮(AuthButton 组件用,532rpx width,login variant) ===== */
+/* ===== 登录按钮(AuthButton 组件用) ===== */
 .login-btn {
   width: 532rpx;
   height: 100rpx;
@@ -333,16 +403,120 @@
   opacity: 0.6;
 }
 
-/* ===== 返回链接 ===== */
-.back-row {
+/* ===== 快捷登录分割线(三段式,用背景色块非 hr) ===== */
+.switch-login {
+  width: 100%;
+  text-align: center;
+  margin-top: 40rpx;
+  font-size: 22rpx;
+  color: #757171;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.switch-login-line {
+  flex: 1;
+  height: 1rpx;
+  background: #979797;
+  margin: 0 20rpx;
+  max-width: 150rpx;
+}
+
+.switch-login-text {
+  font-size: 28rpx;
+  color: #757171;
+}
+
+/* ===== 第三方登录图标 ===== */
+.icon-all {
   width: 100%;
   display: flex;
   justify-content: center;
-  margin-top: 30rpx;
+  align-items: center;
+  margin-top: 10rpx;
 }
 
-.back-link {
+.icon-all-box {
+  width: 100rpx;
+  height: 100rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 15rpx;
+}
+
+.third-icon {
+  width: 62.505rpx;
+  height: 58.505rpx;
+}
+
+/* ===== 协议勾选 ===== */
+.bottom-agreement {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 24rpx;
+  flex-shrink: 0;
+}
+
+.bottom-agreement .yiyue-box {
+  width: 550rpx;
+  display: flex;
+  align-items: flex-start;
+  margin-top: -2rpx;
+}
+
+.yiyue-box {
+  display: flex;
+  align-items: flex-start;
+}
+
+.custom-checkbox {
+  align-self: flex-start;
+  margin-top: 6rpx;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 10rpx;
+}
+
+.checkmark {
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid #000;
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  transition: all 0.3s ease-in-out;
+}
+
+.checkmark::before {
+  content: '✓';
+  font-size: 14rpx;
+  color: #fff;
+  opacity: 0;
+}
+
+.checkmark.checked {
+  background-color: #000;
+  border-color: #000;
+  transform: scale(1.1) rotateZ(360deg);
+}
+
+.checkmark.checked::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.arge {
   font-size: 26rpx;
   font-weight: normal;
-  color: #847CFF;
+  line-height: 36rpx;
+  color: #979797;
+}
+
+.textItem {
+  color: #409EFF;
 }

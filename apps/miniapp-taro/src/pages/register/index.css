@@ -1,8 +1,8 @@
-/* forgot-password/index.css — 对齐 zhs_app-ZZ 视觉风格(与 login/register 同一套设计语言)
- * 输入框:conic-gradient 紫蓝渐变描边 + bg #fff + box-shadow(与 register 一致)
- * 按钮:zcbutton.png + border-radius 30rpx + color #fff(AuthButton variant=login)
- * 强调色:#847CFF 紫色(send-code/back-link)
- * 步骤指示器:#6B6980 灰色文案
+/* register/index.css — 对齐 zhs_app-ZZ register.vue 样式(完整视觉迁移)
+ * 输入框:conic-gradient 紫蓝渐变描边 + bg #fff + box-shadow
+ * 协议勾选:check-circle 16.5rpx 圆形(装饰点豁免)
+ * 注册按钮:zcbutton.png + border-radius 15rpx + color rgba(0,0,0,0.5)
+ * 强调色:#847CFF 紫色(send-code/已有账户登录链接)、#409EFF 蓝色(协议链接)
  */
 
 /* ===== 容器与背景 ===== */
@@ -42,7 +42,7 @@
 
 /* ===== 顶部 logo + 标题 ===== */
 .top_box {
-  height: calc(45% - 177rpx);
+  height: calc(50% - 177rpx);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -81,25 +81,7 @@
 
 /* ===== 中部内容 ===== */
 .center_box {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* ===== 步骤指示器 ===== */
-.step-indicator {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10rpx;
-}
-
-.step-text {
-  font-size: 26rpx;
-  font-weight: normal;
-  color: #6B6980;
-  letter-spacing: 0rpx;
+  height: 354rpx;
 }
 
 /* ===== 输入框容器(conic-gradient 紫蓝渐变描边) ===== */
@@ -250,10 +232,6 @@
   white-space: nowrap;
 }
 
-.send-code-disabled {
-  opacity: 0.5;
-}
-
 /* ===== 密码切换(PasswordVisibilityToggle 组件用) ===== */
 .password-toggle {
   position: relative;
@@ -270,18 +248,71 @@
   height: 40rpx;
 }
 
+/* ===== 协议勾选:check-circle 16.5rpx 圆形(装饰点豁免) ===== */
+.row-between {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 10rpx;
+}
+
+.yiyue-box {
+  margin-top: 5rpx;
+  width: 50%;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.check-circle {
+  width: 16.5rpx;
+  height: 16.5rpx;
+  border: 2rpx solid #bbb;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: #fff;
+  background: #fff;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-top: 6rpx;
+  margin-right: 10rpx;
+}
+
+.check-circle.checked {
+  border-color: #847CFF;
+  background: #847CFF;
+}
+
+.check-icon {
+  color: #fff;
+  font-size: 14.5rpx;
+}
+
+.arge {
+  font-size: 18rpx;
+  font-weight: normal;
+  line-height: 30rpx;
+  color: #979797;
+}
+
+.textItem {
+  color: #409EFF;
+}
+
 /* ===== 底部 ===== */
 .bottom_box {
-  height: calc(55% - 177rpx);
+  height: calc(50% - 277rpx);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
 }
 
-/* ===== 主按钮(AuthButton 组件用,532rpx width,login variant) ===== */
+/* ===== 注册按钮(AuthButton 组件用,250rpx width) ===== */
 .login-btn {
-  width: 532rpx;
+  width: 250rpx;
   height: 100rpx;
   margin: 10rpx auto 0 auto;
   position: relative;
@@ -333,16 +364,61 @@
   opacity: 0.6;
 }
 
-/* ===== 返回链接 ===== */
-.back-row {
+/* ===== 第三方快捷绑定 ===== */
+.switch-login {
+  width: 100%;
+  text-align: center;
+  margin-top: 5rpx;
+  font-size: 22rpx;
+  color: #757171;
+}
+
+.icon-all {
   width: 100%;
   display: flex;
   justify-content: center;
-  margin-top: 30rpx;
+  align-items: center;
+  margin-top: 10rpx;
 }
 
-.back-link {
-  font-size: 26rpx;
+.icon-all-box {
+  width: 100rpx;
+  height: 100rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.bind-icon {
+  width: 50rpx;
+  height: 50rpx;
+}
+
+/* ===== 已有账户?登录 ===== */
+.logintext {
+  margin-top: 20rpx;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.textoo {
+  width: 250rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.has-account {
+  font-size: 24rpx;
   font-weight: normal;
+  color: #6B6980;
+}
+
+.to-login {
+  font-size: 36rpx;
+  font-weight: bold;
   color: #847CFF;
+  margin-left: 8rpx;
 }
