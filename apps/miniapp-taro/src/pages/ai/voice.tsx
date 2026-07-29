@@ -56,6 +56,22 @@ export default function VoicePage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const durationRef = useRef(0)
 
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const startTimer = useCallback(() => {
+    durationRef.current = 0
+    setDisplayDuration(0)
+    timerRef.current = setInterval(() => {
+      durationRef.current += 1
+      setDisplayDuration(durationRef.current)
+    }, 1000)
+  }, [])
+
   useEffect(() => {
     const recorder = Taro.getRecorderManager()
     recorderRef.current = recorder
@@ -124,27 +140,11 @@ export default function VoicePage() {
       stopTimer()
       recorderRef.current = null
     }
-  }, [tt])
+  }, [tt, stopTimer])
 
   useEffect(() => {
     setScrollTop((s) => s + 100000)
   }, [messages.length, loading])
-
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-  }, [])
-
-  const startTimer = useCallback(() => {
-    durationRef.current = 0
-    setDisplayDuration(0)
-    timerRef.current = setInterval(() => {
-      durationRef.current += 1
-      setDisplayDuration(durationRef.current)
-    }, 1000)
-  }, [])
 
   const onStartRecord = useCallback(() => {
     const recorder = recorderRef.current

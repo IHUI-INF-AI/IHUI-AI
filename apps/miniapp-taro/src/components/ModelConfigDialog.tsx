@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View, Text, Input, Switch } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import type { ModelConfigType } from '@ihui/types'
 import Selecter from './Selecter'
 import './ModelConfigDialog.css'
@@ -111,8 +111,7 @@ export default function ModelConfigDialog({
   isVip = 0,
   systemVoices = SYSTEM_VOICES,
 }: ModelConfigDialogProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   // aigc variant 内部状态
   const [configParamsObj, setConfigParamsObj] = useState<Record<string, unknown>>({})
   const [setVariables, setSetVariables] = useState<
