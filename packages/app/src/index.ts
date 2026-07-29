@@ -154,6 +154,12 @@ export { ReferrerScreen } from './features/referrer/ReferrerScreen'
 export { TeamScreen } from './features/team/TeamScreen'
 export { VideoPlayerScreen } from './features/video-player/VideoPlayerScreen'
 export { VipBenefitScreen } from './features/vip-benefit/VipBenefitScreen'
+/** 批次 25 剩余(2026-07-29):直播聊天/消息聊天/订单退款/支付 + VIP 操盘手 */
+export { LiveChatScreen } from './features/live-chat/LiveChatScreen'
+export { MessageChatScreen } from './features/message-chat/MessageChatScreen'
+export { OrderRefundScreen } from './features/order-refund/OrderRefundScreen'
+export { PaymentScreen } from './features/payment/PaymentScreen'
+export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -529,3 +535,27 @@ export type {
   VipBenefitItem,
   VipBenefitScreenProps,
 } from './types'
+
+/** 批次 25-26 剩余:直播聊天/消息聊天/订单退款/支付 + VIP 操盘手类型(inline 定义在组件文件) */
+export type {
+  LiveChatMessage,
+  LiveChatScreenProps,
+} from './features/live-chat/LiveChatScreen'
+export type {
+  MessageChatMessage,
+  MessageChatScreenProps,
+} from './features/message-chat/MessageChatScreen'
+export type {
+  OrderRefundItem,
+  OrderRefundScreenProps,
+} from './features/order-refund/OrderRefundScreen'
+export type {
+  PaymentOrderStatus,
+  PaymentOrderItem,
+  PaymentScreenProps,
+} from './features/payment/PaymentScreen'
+export type {
+  VipTraderStat,
+  VipTraderFeature,
+  VipTraderScreenProps,
+} from './features/vip-trader/VipTraderScreen'
