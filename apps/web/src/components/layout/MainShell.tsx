@@ -4,7 +4,7 @@
 import * as React from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
-import { useDesktop, useSystemTheme } from '@/hooks/use-desktop'
+import { useDesktop, useSystemTheme, useDesktopEvents } from '@/hooks/use-desktop'
 import { useTheme } from '@/hooks/use-theme'
 import {
   minimizeWindow,
@@ -59,6 +59,8 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   const { isDesktop } = useDesktop()
   const { setTheme } = useTheme()
   const systemTheme = useSystemTheme()
+  // 监听 Rust 端托盘菜单 + 系统级快捷键事件(2026-07-29)
+  useDesktopEvents()
 
   // 最大化状态:用 onMaximizeChange 监听 Tauri onResized 事件
   // 不再使用 useDesktop().isMaximized(它走浏览器 resize 事件,比 Tauri 事件慢一帧)
@@ -90,6 +92,26 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     if (!isDesktop || !systemTheme) return
     setTheme(systemTheme)
   }, [isDesktop, systemTheme, setTheme])
+
+  // 2026-07-29:监听 Rust 端托盘菜单 + 系统级快捷键转发的 CustomEvent
+  // useDesktopEvents 已把 Rust emit 转为 CustomEvent,这里统一处理业务逻辑
+  React.useEffect(() => {
+    if (!isDesktop) return
+    const onThemeToggle = () => setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark')
+    const onOpenSettings = () => window.location.assign('/settings')
+    const onCheckUpdate = () => window.dispatchEvent(new CustomEvent('global-shortcut:check-update'))
+    const onQuickScreenshot = () => window.dispatchEvent(new CustomEvent('global-shortcut:quick-screenshot'))
+    window.addEventListener('desktop-theme-toggle', onThemeToggle)
+    window.addEventListener('desktop-open-settings', onOpenSettings)
+    window.addEventListener('desktop-check-update', onCheckUpdate)
+    window.addEventListener('desktop-quick-screenshot', onQuickScreenshot)
+    return () => {
+      window.removeEventListener('desktop-theme-toggle', onThemeToggle)
+      window.removeEventListener('desktop-open-settings', onOpenSettings)
+      window.removeEventListener('desktop-check-update', onCheckUpdate)
+      window.removeEventListener('desktop-quick-screenshot', onQuickScreenshot)
+    }
+  }, [isDesktop, setTheme])
 
   // 清理拖拽 timer(组件卸载时)
   React.useEffect(() => {
