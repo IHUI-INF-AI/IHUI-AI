@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { Text, TouchableOpacity, View } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Input, Loading } from '@ihui/ui-native'
-import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
+import { CertApplyScreen as SharedCertApplyScreen } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -19,7 +17,7 @@ export function CertApplyScreen() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  const submit = async () => {
+  const onSubmit = async () => {
     if (!name.trim() || !idCard.trim()) {
       setError(t('certApply.placeholder'))
       return
@@ -44,46 +42,17 @@ export function CertApplyScreen() {
   }
 
   return (
-    <View className="flex-1 bg-card">
-      <View className="flex-row items-center gap-3 px-4 py-3">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-sm text-foreground">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-lg font-semibold text-foreground">{t('certApply.title')}</Text>
-      </View>
-      <View className="p-4">
-        <Text className="mt-2 text-xs text-muted-foreground">{t('certApply.name')}</Text>
-        <Input
-          className="mt-1"
-          value={name}
-          onChangeText={setName}
-          placeholder={t('certApply.placeholder')}
-        />
-        <Text className="mt-2 text-xs text-muted-foreground">{t('certApply.idCard')}</Text>
-        <Input
-          className="mt-1"
-          value={idCard}
-          onChangeText={setIdCard}
-          placeholder={t('certApply.placeholder')}
-        />
-        {error ? <Text className="mt-2 text-xs text-destructive">{error}</Text> : null}
-        {success ? (
-          <Text className="mt-2 text-xs text-primary">{t('certApply.success')}</Text>
-        ) : null}
-        <TouchableOpacity
-          className={`mt-4 items-center rounded-md bg-primary py-3 ${submitting ? 'opacity-60' : ''}`}
-          onPress={submit}
-          disabled={submitting}
-        >
-          {submitting ? (
-            <Loading color={tokens.surface.light} size="sm" />
-          ) : (
-            <Text className="text-sm font-semibold text-primary-foreground">
-              {t('certApply.submit')}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+    <SharedCertApplyScreen
+      t={t}
+      name={name}
+      idCard={idCard}
+      submitting={submitting}
+      error={error}
+      success={success}
+      onNameChange={setName}
+      onIdCardChange={setIdCard}
+      onSubmit={onSubmit}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
