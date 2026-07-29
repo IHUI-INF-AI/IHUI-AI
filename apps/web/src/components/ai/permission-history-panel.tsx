@@ -84,7 +84,9 @@ function shortenPath(path: string): string {
 
 interface HistoryListProps {
   entries: ModeChangeEntry[]
-  now: number
+  /** Phase 24(2026-07-29):允许 null(SSR 时 panel 未打开,now 尚未注入 Date.now()),
+   *  列表渲染时 null 会 fallback 到 entries.timestamp(0 相对时间) */
+  now: number | null
 }
 
 function HistoryList({ entries, now }: HistoryListProps) {
@@ -133,14 +135,14 @@ function HistoryList({ entries, now }: HistoryListProps) {
                 </span>
               </div>
               <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <span>{formatRelativeTime(entry.timestamp, now)}</span>
+                <span suppressHydrationWarning>
+                  {formatRelativeTime(entry.timestamp, now ?? entry.timestamp)}
+                </span>
                 {entry.workspacePath && (
                   <>
                     <span aria-hidden="true">·</span>
                     <Tooltip content={entry.workspacePath}>
-                      <span className="truncate font-mono">
-                        {shortenPath(entry.workspacePath)}
-                      </span>
+                      <span className="truncate font-mono">{shortenPath(entry.workspacePath)}</span>
                     </Tooltip>
                   </>
                 )}
@@ -191,7 +193,7 @@ export function PermissionHistoryPanel() {
   const t = useTranslations('chat.permission')
   const [open, setOpen] = React.useState(false)
   const [entries, setEntries] = React.useState<ModeChangeEntry[]>([])
-  const [now, setNow] = React.useState<number>(() => Date.now())
+  const [now, setNow] = React.useState<number | null>(null)
   /** 是否已"不再提醒"静默(仅 mount + 打开时读,不实时监听;用户主动重置后联动隐藏按钮) */
   const [isSuppressed, setIsSuppressed] = React.useState(false)
   /** Popover 触发器按钮 ref(2026-07-25 立):供 window.__IHUI_OPEN_HISTORY__ 编程式触发 */
@@ -254,7 +256,9 @@ export function PermissionHistoryPanel() {
   // 重新启用高风险确认弹窗(用户此前勾了"不再提醒",此处清除静默标志恢复提醒)
   const handleResetSuppressed = () => {
     if (typeof window === 'undefined') return
-    const ok = window.confirm(`${t('resetSuppressedConfirmTitle')}\n\n${t('resetSuppressedConfirmDesc')}`)
+    const ok = window.confirm(
+      `${t('resetSuppressedConfirmTitle')}\n\n${t('resetSuppressedConfirmDesc')}`,
+    )
     if (!ok) return
     resetFullAccessAcknowledgement()
     setIsSuppressed(false)
