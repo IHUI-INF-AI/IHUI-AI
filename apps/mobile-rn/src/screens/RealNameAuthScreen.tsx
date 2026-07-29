@@ -1,33 +1,20 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { useEffect, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card, Input } from '@ihui/ui-native'
 import { fetchApi } from '@ihui/api-client'
+import {
+  RealNameAuthScreen as SharedRealNameAuthScreen,
+  type RealNameAuthItem,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-interface AuthStatus {
-  status: 'unverified' | 'pending' | 'verified' | 'rejected'
-  name?: string
-  idNumber?: string
-  reason?: string
-}
-
-const REAL_NAME_STATUS_KEYS: Record<AuthStatus['status'], string> = {
-  unverified: 'realNameAuth.status_unverified',
-  pending: 'realNameAuth.status_pending',
-  verified: 'realNameAuth.status_verified',
-  rejected: 'realNameAuth.status_rejected',
-}
-
 export function RealNameAuthScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const [status, setStatus] = useState<AuthStatus | null>(null)
+  const [status, setStatus] = useState<RealNameAuthItem | null>(null)
   const [name, setName] = useState('')
   const [idNumber, setIdNumber] = useState('')
   const [loading, setLoading] = useState(true)
@@ -38,7 +25,7 @@ export function RealNameAuthScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const resp = await fetchApi<AuthStatus>('/user/real-name')
+        const resp = await fetchApi<RealNameAuthItem>('/user/real-name')
         if (cancelled) return
         if (!resp.success) throw new Error('http')
         setStatus(resp.data ?? { status: 'unverified' })
@@ -53,7 +40,7 @@ export function RealNameAuthScreen() {
     }
   }, [t])
 
-  const handleSubmit = async () => {
+  const onSubmit = useCallback(async () => {
     if (!name || !idNumber) {
       setError(t('realNameAuth.fieldsRequired'))
       return
@@ -72,92 +59,21 @@ export function RealNameAuthScreen() {
     } finally {
       setSubmitting(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
+  }, [name, idNumber, t])
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('realNameAuth.title')}</Text>
-      </View>
-      <View style={styles.body}>
-        <Card style={styles.card}>
-          <Text style={styles.statusLabel}>{t('realNameAuth.status')}</Text>
-          <Text
-            style={[styles.statusValue, status?.status === 'verified' && styles.statusVerified]}
-          >
-            {t(REAL_NAME_STATUS_KEYS[status?.status ?? 'unverified'])}
-          </Text>
-          {status?.status === 'verified' ? (
-            <Text style={styles.hint}>{t('realNameAuth.verifiedDesc')}</Text>
-          ) : (
-            <Text style={styles.hint}>{t('realNameAuth.unverifiedDesc')}</Text>
-          )}
-          {status?.reason ? <Text style={styles.errorText}>{status.reason}</Text> : null}
-        </Card>
-        {status?.status !== 'verified' && status?.status !== 'pending' ? (
-          <Card style={styles.card}>
-            <Text style={styles.label}>{t('realNameAuth.name')}</Text>
-            <Input
-              value={name}
-              onChangeText={setName}
-              placeholder={t('realNameAuth.namePlaceholder')}
-              style={styles.input}
-            />
-            <Text style={styles.label}>{t('realNameAuth.idNumber')}</Text>
-            <Input
-              value={idNumber}
-              onChangeText={setIdNumber}
-              placeholder={t('realNameAuth.idNumberPlaceholder')}
-              style={styles.input}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <Button
-              loading={submitting}
-              disabled={submitting}
-              onPress={handleSubmit}
-              style={styles.submitBtn}
-            >
-              {submitting ? t('realNameAuth.submitting') : t('realNameAuth.submit')}
-            </Button>
-          </Card>
-        ) : null}
-      </View>
-    </View>
+    <SharedRealNameAuthScreen
+      t={t}
+      status={status}
+      name={name}
+      idNumber={idNumber}
+      loading={loading}
+      submitting={submitting}
+      error={error}
+      onNameChange={setName}
+      onIdNumberChange={setIdNumber}
+      onSubmit={onSubmit}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  body: { padding: 16 },
-  card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  statusLabel: { fontSize: 12, color: tokens.text.secondary },
-  statusValue: { marginTop: 4, fontSize: 16, fontWeight: '600', color: tokens.danger.DEFAULT },
-  statusVerified: { color: tokens.success.DEFAULT },
-  hint: { marginTop: 8, fontSize: 12, color: tokens.text.tertiary },
-  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
-  input: { marginTop: 4 },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
-  submitBtn: { marginTop: 12, borderRadius: 8 },
-  muted: { fontSize: 13, color: tokens.text.secondary },
-})
