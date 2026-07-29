@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
-import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
+import { useAgentProgressPaneStore, hydrateAgentProgressPaneFromStorage } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore, type TimelineTabName } from '@/stores/timeline-store'
@@ -614,6 +614,13 @@ export function AgentTaskProgressPane() {
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => {
     setMounted(true)
+  }, [])
+
+  // Phase 24(2026-07-29):客户端 mount 后同步 localStorage 中的 open/pinned 状态,
+  // 避免 SSR 用默认值 false/true,CSR 却是 true 触发 hydration 错误
+  // (与 agent-progress-trigger.tsx 的 hydrate 互为冗余 — hydrationApplied flag 保证幂等)
+  React.useEffect(() => {
+    hydrateAgentProgressPaneFromStorage()
   }, [])
 
   // 从 useChatStore 同步 conversationId + 读取 messages(用于 planStep↔message 关联)
