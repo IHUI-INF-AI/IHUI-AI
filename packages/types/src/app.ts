@@ -1230,3 +1230,77 @@ export interface StudyProgressScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 11(2026-07-29):表单型(问答创建/笔记创建/证书申请/账号设置) */
+
+/** AskCreateScreen props(表单屏,状态由 wrapper 管理) */
+export interface AskCreateScreenProps {
+  t: TFunction
+  title: string
+  content: string
+  tags: string
+  saving: boolean
+  error: string
+  onTitleChange: (text: string) => void
+  onContentChange: (text: string) => void
+  onTagsChange: (text: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** NoteCreateScreen props(表单屏,状态由 wrapper 管理) */
+export interface NoteCreateScreenProps {
+  t: TFunction
+  title: string
+  content: string
+  tags: string
+  isPublic: boolean
+  saving: boolean
+  error: string
+  onTitleChange: (text: string) => void
+  onContentChange: (text: string) => void
+  onTagsChange: (text: string) => void
+  onTogglePublic: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** CertApplyScreen props(表单屏,状态由 wrapper 管理) */
+export interface CertApplyScreenProps {
+  t: TFunction
+  name: string
+  idCard: string
+  submitting: boolean
+  error: string
+  success: boolean
+  onNameChange: (text: string) => void
+  onIdCardChange: (text: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 账号信息(平台注入,字段对齐 mobile-rn SettingsAccountScreen Account) */
+export interface SettingsAccountItem {
+  name: string
+  email: string
+  phone: string
+}
+
+/** SettingsAccountScreen props(表单屏,状态由 wrapper 管理) */
+export interface SettingsAccountScreenProps {
+  t: TFunction
+  account: SettingsAccountItem | null
+  loading: boolean
+  saving: boolean
+  error: string
+  toast: string
+  onNameChange: (text: string) => void
+  onEmailChange: (text: string) => void
+  onPhoneChange: (text: string) => void
+  onSave: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
