@@ -90,7 +90,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 16 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
