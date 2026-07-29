@@ -155,7 +155,7 @@ export function WebWorkPanel() {
     //   中部与 main 的 8px 视觉间距由 MainShell 自己的 mr-2 自然形成
     // - WebWorkPanel 关闭时 return null,不影响布局
     // - WorkPanel 高度从 900 变成 884(缩 16px),内部 flex-1 内容区自动适应,不影响视觉
-    <div className="my-2 mr-2 h-[calc(100%-16px)]">
+    <div className="my-2 mr-2 h-[calc(100%-16px)] shrink-0">
       <WorkPanel
         open={effectiveOpen}
         width={effectiveWidth}
