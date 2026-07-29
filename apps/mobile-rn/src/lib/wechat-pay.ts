@@ -8,8 +8,19 @@
  * 字段映射:后端返回 lowercase(appid/partnerid/prepayid/noncestr/timestamp),
  * react-native-wechat-lib 接受 camelCase(appId/partnerId/prepayId/nonceStr/timeStamp)。
  */
-import * as WeChat from 'react-native-wechat-lib'
 import type { WechatAppPaySignData } from '@ihui/api-client'
+import type * as WeChatMod from 'react-native-wechat-lib'
+
+// 动态 require + try-catch:react-native-wechat-lib 入口顶层执行
+// `wrapRegisterApp(WeChat.registerApp)`,Expo Go 中 NativeModules.WeChat 为 undefined,
+ // 顶层访问即抛 TypeError,导致整个 bundle 红屏。用 try-catch 降级为 null,运行时再判断。
+let WeChat: typeof WeChatMod | null = null
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  WeChat = require('react-native-wechat-lib')
+} catch (e) {
+  console.warn('[wechat-pay] react-native-wechat-lib 不可用(Expo Go,需 EAS Build):', e)
+}
 
 // 微信开放平台移动应用 AppID(从历史项目复用,application.yml wx.app.appid)
 const APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID || ''
@@ -21,6 +32,7 @@ let registered = false
 /** 注册微信开放平台移动应用(应用启动时调用一次,lazy 自动注册) */
 export async function registerWeChat(): Promise<void> {
   if (registered) return
+  if (!WeChat) throw new Error('WECHAT_NATIVE_UNAVAILABLE')
   if (!APP_ID) {
     throw new Error('EXPO_PUBLIC_WECHAT_APP_ID 未配置,请在 apps/mobile-rn/.env 设置')
   }
@@ -36,6 +48,7 @@ export async function registerWeChat(): Promise<void> {
 
 /** 检查微信客户端是否已安装 */
 export async function isWeChatInstalled(): Promise<boolean> {
+  if (!WeChat) return false
   try {
     return await WeChat.isWXAppInstalled()
   } catch {
@@ -54,6 +67,7 @@ export async function openWeChatPayment(prepayData: WechatAppPaySignData): Promi
   await registerWeChat()
   const installed = await isWeChatInstalled()
   if (!installed) throw new Error('WECHAT_NOT_INSTALLED')
+  if (!WeChat) throw new Error('WECHAT_NATIVE_UNAVAILABLE')
   const res = await WeChat.pay({
     partnerId: prepayData.partnerid,
     prepayId: prepayData.prepayid,

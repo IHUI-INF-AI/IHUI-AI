@@ -1,0 +1,424 @@
+/* register/index.css — 对齐 zhs_app-ZZ register.vue 样式(完整视觉迁移)
+ * 输入框:conic-gradient 紫蓝渐变描边 + bg #fff + box-shadow
+ * 协议勾选:check-circle 16.5rpx 圆形(装饰点豁免)
+ * 注册按钮:zcbutton.png + border-radius 15rpx + color rgba(0,0,0,0.5)
+ * 强调色:#847CFF 紫色(send-code/已有账户登录链接)、#409EFF 蓝色(协议链接)
+ */
+
+/* ===== 容器与背景 ===== */
+.container-ali {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #fff;
+}
+
+.container1 {
+  width: 100%;
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.bg-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.container-box {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  padding: 50rpx 30rpx 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* ===== 顶部 logo + 标题 ===== */
+.top_box {
+  height: calc(50% - 177rpx);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.logobox {
+  padding-top: 20rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.logo {
+  width: 55%;
+  height: 245rpx;
+}
+
+.titlebox {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+.titlebox-image {
+  margin-top: 10rpx;
+  width: 310rpx;
+  height: 37rpx;
+}
+
+.titlebox-image1 {
+  margin-top: 18rpx;
+  width: 312rpx;
+  height: 66rpx;
+}
+
+/* ===== 中部内容 ===== */
+.center_box {
+  height: 354rpx;
+}
+
+/* ===== 输入框容器(conic-gradient 紫蓝渐变描边) ===== */
+.input-wbox {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.input-nbox {
+  padding: 2rpx;
+  width: 532rpx;
+  height: 79rpx;
+  margin-top: 30rpx;
+  border-radius: 25rpx;
+  background: conic-gradient(from 180deg at 50% 50%, #CCDAF4 -8deg, #E6CBF9 0deg, #CCDAF4 352deg, #E6CBF9 360deg);
+  position: relative;
+}
+
+.input-nbox-focused {
+  background: conic-gradient(from 180deg at 50% 50%, #847CFF -8deg, #B59CFF 0deg, #847CFF 352deg, #B59CFF 360deg);
+}
+
+.input-box {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  border-radius: 25rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 0 6rpx 0 rgba(0, 0, 0, 0.3);
+}
+
+.input-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 10rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: 21.69rpx;
+}
+
+.input-area-code {
+  letter-spacing: 0rpx;
+  color: #979797;
+  font-size: 26rpx;
+  font-weight: normal;
+}
+
+.input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  height: 79rpx;
+}
+
+.input-text {
+  font-size: 24rpx;
+  font-weight: 300;
+  letter-spacing: 0rpx;
+  color: #000;
+}
+
+.iponeinput {
+  margin-left: 20rpx;
+}
+
+/* ===== 区号选择器(PhoneAreaCodePicker 组件用,60rpx height) ===== */
+.xiaicc {
+  padding-right: 20rpx;
+  padding-left: 20rpx;
+  height: 60rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-right: 1px solid #979797;
+}
+
+.xiaicc-focused {
+  border-right: 1px solid #000;
+}
+
+.xiaicc-img {
+  width: 0;
+  height: 0;
+  border-left: 5rpx solid transparent;
+  border-right: 5rpx solid transparent;
+  border-top: 9rpx solid #979797;
+  margin-left: 3rpx;
+}
+
+.nation-box {
+  position: absolute;
+  width: 95%;
+  bottom: 72rpx;
+  right: 0;
+  border-radius: 0 0 20rpx 20rpx;
+  padding: 1rpx;
+  background: linear-gradient(180deg, #EEF4FF 0%, #409EFF 100%);
+  z-index: 100;
+}
+
+.nation-boo {
+  width: 100%;
+  height: 100%;
+  background: #F7F8FF;
+  border-radius: 0 0 20rpx 20rpx;
+}
+
+.nationInfo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 5px 5px;
+  border-bottom: 1rpx solid #D8D8D8;
+}
+
+.nation-info1 {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nation-name {
+  font-size: 28rpx;
+  color: #3D3D3D;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+.nation-code {
+  font-size: 28rpx;
+  color: #6B6980;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+/* ===== 验证码发送按钮 ===== */
+.send-code {
+  font-size: 24rpx;
+  font-weight: bold;
+  line-height: 25rpx;
+  color: #847CFF;
+  padding-right: 16rpx;
+  white-space: nowrap;
+}
+
+/* ===== 密码切换(PasswordVisibilityToggle 组件用) ===== */
+.password-toggle {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-right: 26rpx;
+  width: 50rpx;
+  height: 50rpx;
+}
+
+.eye-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* ===== 协议勾选:check-circle 16.5rpx 圆形(装饰点豁免) ===== */
+.row-between {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 10rpx;
+}
+
+.yiyue-box {
+  margin-top: 5rpx;
+  width: 50%;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.check-circle {
+  width: 16.5rpx;
+  height: 16.5rpx;
+  border: 2rpx solid #bbb;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: #fff;
+  background: #fff;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-top: 6rpx;
+  margin-right: 10rpx;
+}
+
+.check-circle.checked {
+  border-color: #847CFF;
+  background: #847CFF;
+}
+
+.check-icon {
+  color: #fff;
+  font-size: 14.5rpx;
+}
+
+.arge {
+  font-size: 18rpx;
+  font-weight: normal;
+  line-height: 30rpx;
+  color: #979797;
+}
+
+.textItem {
+  color: #409EFF;
+}
+
+/* ===== 底部 ===== */
+.bottom_box {
+  height: calc(50% - 277rpx);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ===== 注册按钮(AuthButton 组件用,250rpx width) ===== */
+.login-btn {
+  width: 250rpx;
+  height: 100rpx;
+  margin: 10rpx auto 0 auto;
+  position: relative;
+}
+
+.btn {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-login {
+  border-radius: 30rpx;
+  background-color: #000;
+  font-size: 60rpx;
+  color: #fff;
+  font-weight: 500;
+  text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+}
+
+.btn-register {
+  border-radius: 15rpx;
+  background-color: transparent;
+  font-size: 60rpx;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 500;
+  text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+}
+
+.btn-disabled {
+  opacity: 0.6;
+}
+
+/* ===== 第三方快捷绑定 ===== */
+.switch-login {
+  width: 100%;
+  text-align: center;
+  margin-top: 5rpx;
+  font-size: 22rpx;
+  color: #757171;
+}
+
+.icon-all {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10rpx;
+}
+
+.icon-all-box {
+  width: 100rpx;
+  height: 100rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.bind-icon {
+  width: 50rpx;
+  height: 50rpx;
+}
+
+/* ===== 已有账户?登录 ===== */
+.logintext {
+  margin-top: 20rpx;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.textoo {
+  width: 250rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.has-account {
+  font-size: 24rpx;
+  font-weight: normal;
+  color: #6B6980;
+}
+
+.to-login {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #847CFF;
+  margin-left: 8rpx;
+}

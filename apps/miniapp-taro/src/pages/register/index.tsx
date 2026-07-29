@@ -1,6 +1,6 @@
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { register, sendSmsCode } from '@/api'
 import { useI18n } from '@/i18n'
 import {
@@ -9,21 +9,22 @@ import {
   type RegisterFormValues,
   type SendCodeApiResult,
 } from '@ihui/shared/hooks'
+import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
+import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
+import AuthButton from '@/components/AuthButton'
+import './index.css'
 
 export default function RegisterIndex() {
   const { t } = useI18n()
-  const [showPwd, setShowPwd] = useState(false)
 
-  const tt = useCallback(
-    (k: string, fb: string) => {
-      const v = t(k)
-      return v === k ? fb : v
-    },
-    [t],
-  )
+  // 视觉状态:区号 / 密码可见性 / 输入框聚焦(对齐 register.vue)
+  const [phoneHead, setPhoneHead] = useState('+86')
+  const [showPwd, setShowPwd] = useState(false)
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false)
+  const [isCodeFocused, setIsCodeFocused] = useState(false)
+  const [isPwdFocused, setIsPwdFocused] = useState(false)
 
   // 用 @ihui/shared useRegisterForm 替代本地 useState + onSendCode + onSubmit
-  // type='phone' + enableCode + enableAgreement + 无确认密码字段,密码长度限制 6-20
   const form = useRegisterForm({
     type: 'phone',
     enableCode: true,
@@ -36,7 +37,6 @@ export default function RegisterIndex() {
         await register({ phone: v.phone.trim(), code: v.code.trim(), password: v.password })
         return { success: true }
       } catch {
-        // 错误已由 request 统一提示,返回空 error 避免重复 toast
         return { success: false, error: '' }
       }
     },
@@ -53,14 +53,12 @@ export default function RegisterIndex() {
     },
   })
 
-  // hook 校验/调用错误以 toast 提示(与 login.tsx 适配模式一致)
   useEffect(() => {
     if (form.error) {
       Taro.showToast({ title: t(form.error), icon: 'none' })
     }
   }, [form.error, t])
 
-  // hook 成功提示(注册成功 / 验证码已发送)以 success toast 显示
   useEffect(() => {
     if (form.info) {
       Taro.showToast({ title: t(form.info), icon: 'success' })
@@ -71,7 +69,7 @@ export default function RegisterIndex() {
     const url = type === 'user' ? '/pages/about/protocol' : '/pages/about/privacy'
     Taro.navigateTo({
       url,
-      fail: () => Taro.showToast({ title: tt('register.pageMissing', '页面未注册'), icon: 'none' }),
+      fail: () => Taro.showToast({ title: '页面未注册', icon: 'none' }),
     })
   }
 
@@ -79,101 +77,162 @@ export default function RegisterIndex() {
     Taro.redirectTo({ url: '/pages/login/login' })
   }
 
+  const codeBtnText = form.countdown > 0 ? `${form.countdown}秒后重新获取` : '发送验证码'
+
   return (
-    <View className="min-h-screen bg-background">
-      <View className="py-[20rpx] px-[30rpx] bg-card">
-        <Text className="text-[36rpx] font-bold text-foreground">
-          {tt('register.title', '注册账号')}
-        </Text>
-      </View>
-      <View className="p-[20rpx]">
-        <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
-          <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
-            {tt('register.phone', '手机号')}
-          </Text>
-          <Input
-            className="h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx]"
-            type="number"
-            maxlength={11}
-            placeholder={tt('register.phonePlaceholder', '请输入手机号')}
-            value={form.values.phone}
-            onInput={(e) => form.setPhone(e.detail.value)}
-          />
-        </View>
-        <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx] relative">
-          <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
-            {tt('register.code', '验证码')}
-          </Text>
-          <Input
-            className="h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] pr-[200rpx]"
-            type="number"
-            maxlength={6}
-            placeholder={tt('register.codePlaceholder', '请输入验证码')}
-            value={form.values.code}
-            onInput={(e) => form.setCode(e.detail.value)}
-          />
-          <Text
-            className={`absolute right-[40rpx] bottom-[40rpx] text-[26rpx] ${form.countdown > 0 ? 'text-muted-foreground' : 'text-primary'}`}
-            onClick={form.sendCode}
-          >
-            {form.countdown > 0 ? `${form.countdown}s` : tt('register.getCode', '获取验证码')}
-          </Text>
-        </View>
-        <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
-          <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
-            {tt('register.password', '密码')}
-          </Text>
-          <View className="relative">
-            <Input
-              className="h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] pr-[120rpx]"
-              password={!showPwd}
-              maxlength={20}
-              placeholder={tt('register.passwordPlaceholder', '请设置密码')}
-              value={form.values.password}
-              onInput={(e) => form.setPassword(e.detail.value)}
-            />
-            <Text
-              className="absolute right-[20rpx] top-1/2 -translate-y-1/2 text-[24rpx] text-primary"
-              onClick={() => setShowPwd((v) => !v)}
-            >
-              {showPwd ? tt('register.hide', '隐藏') : tt('register.show', '显示')}
-            </Text>
-          </View>
-          <Text className="block mt-[12rpx] text-[22rpx] text-muted-foreground">
-            {tt('register.pwdHint', '6-20 位,建议字母数字组合')}
-          </Text>
-        </View>
-        <View
-          className={`w-full bg-primary text-foreground text-[30rpx] rounded-[8rpx] mt-[20rpx] py-[24rpx] text-center ${form.submitting ? 'opacity-60' : ''}`}
-          onClick={form.register}
-        >
-          <Text>
-            {form.submitting ? tt('register.submitting', '注册中…') : tt('register.submit', '注册')}
-          </Text>
-        </View>
-        <View className="flex items-start mt-[24rpx] px-[8rpx]">
-          <View className="py-[4rpx] pr-[12rpx]" onClick={() => form.setAgreed(!form.agreed)}>
-            <View
-              className={`w-[32rpx] h-[32rpx] border-[2rpx] rounded-[6rpx] bg-card flex items-center justify-center ${form.agreed ? 'border-primary bg-primary' : 'border-muted-foreground'}`}
-            >
-              {form.agreed ? <Text className="text-foreground text-[22rpx] leading-none">✓</Text> : null}
+    <View className="container-ali">
+      <View className="container1">
+        <Image className="bg-image" src="/static/images/loginbackk.png" mode="aspectFill" />
+        <View className="container-box">
+          {/* 顶部 logo + 标题图 */}
+          <View className="top_box">
+            <View className="logobox">
+              <Image className="logo" src="/static/images/sqlogo.svg" mode="aspectFit" />
+            </View>
+            <View className="titlebox">
+              <Image className="titlebox-image" src="/static/images/loginengtexta.png" mode="aspectFit" />
+              <Image className="titlebox-image1" src="/static/images/loginzhtext.png" mode="aspectFit" />
             </View>
           </View>
-          <Text className="flex-1 text-[24rpx] text-muted-foreground leading-[1.5]">
-            {tt('register.agreePrefix', '我已阅读并同意')}
-            <Text className="text-primary" onClick={() => openAgreement('user')}>
-              {tt('register.userAgreement', '《用户协议》')}
-            </Text>
-            <Text className="text-primary" onClick={() => openAgreement('privacy')}>
-              {tt('register.privacyPolicy', '《隐私协议》')}
-            </Text>
-          </Text>
-        </View>
-        <View className="flex items-center justify-center mt-[30rpx] text-[26rpx]">
-          <Text className="text-muted-foreground">{tt('register.hasAccount', '已有账号?')}</Text>
-          <Text className="text-primary ml-[8rpx]" onClick={toLogin}>
-            {tt('register.toLogin', '去登录')}
-          </Text>
+
+          <View className="center_box">
+            {/* 手机号输入框 + 区号 */}
+            <View className="input-wbox">
+              <View className={`input-nbox ${isPhoneFocused ? 'input-nbox-focused' : ''}`}>
+                <View className="input-box">
+                  <View className="input-icon" />
+                  <PhoneAreaCodePicker
+                    value={phoneHead}
+                    onChange={setPhoneHead}
+                    focused={isPhoneFocused}
+                  />
+                  <Input
+                    className="input iponeinput input-text"
+                    type="number"
+                    maxlength={11}
+                    placeholder="手机号码"
+                    placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
+                    value={form.values.phone}
+                    onInput={(e) => form.setPhone(e.detail.value)}
+                    onFocus={() => setIsPhoneFocused(true)}
+                    onBlur={() => setIsPhoneFocused(false)}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* 验证码输入框 */}
+            <View className="input-wbox">
+              <View
+                className={`input-nbox ${isCodeFocused ? 'input-nbox-focused' : ''}`}
+                style={{ marginTop: '18rpx' }}
+              >
+                <View className="input-box">
+                  <View className="input-icon" />
+                  <Input
+                    className="input input-text"
+                    type="number"
+                    maxlength={6}
+                    placeholder="验证码"
+                    placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
+                    value={form.values.code}
+                    onInput={(e) => form.setCode(e.detail.value)}
+                    onFocus={() => setIsCodeFocused(true)}
+                    onBlur={() => setIsCodeFocused(false)}
+                  />
+                  <View className="send-code" onClick={form.sendCode}>
+                    <Text>{codeBtnText}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* 密码输入框 + 可见性切换 */}
+            <View className="input-wbox">
+              <View
+                className={`input-nbox ${isPwdFocused ? 'input-nbox-focused' : ''}`}
+                style={{ marginTop: '18rpx' }}
+              >
+                <View className="input-box">
+                  <View className="input-icon" />
+                  <Input
+                    className="input input-text"
+                    password={!showPwd}
+                    maxlength={20}
+                    placeholder="密码"
+                    placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
+                    value={form.values.password}
+                    onInput={(e) => form.setPassword(e.detail.value)}
+                    onFocus={() => setIsPwdFocused(true)}
+                    onBlur={() => setIsPwdFocused(false)}
+                  />
+                  <PasswordVisibilityToggle
+                    visible={showPwd}
+                    onToggle={() => setShowPwd((v) => !v)}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* 底部:注册按钮 + 协议 + 第三方绑定 + 登录链接 */}
+          <View className="bottom_box">
+            <AuthButton onClick={form.register} disabled={form.submitting} variant="register">
+              {form.submitting ? '注册中…' : '注册'}
+            </AuthButton>
+
+            {/* 协议勾选:check-circle 16.5rpx 圆形 + #847CFF checked */}
+            <View className="row-between">
+              <View className="yiyue-box" onClick={() => form.setAgreed(!form.agreed)}>
+                <View className={`check-circle ${form.agreed ? 'checked' : ''}`}>
+                  {form.agreed ? <Text className="check-icon">✓</Text> : null}
+                </View>
+                <Text className="arge">
+                  我已阅读并同意
+                  <Text className="textItem" onClick={() => openAgreement('user')}>《用户协议》</Text>
+                  <Text className="textItem" onClick={() => openAgreement('privacy')}>《隐私协议》</Text>
+                  <Text className="textItem" onClick={() => openAgreement('privacy')}>《个人隐私》</Text>
+                  <Text className="textItem" onClick={() => openAgreement('user')}>《软件使用协议》</Text>
+                </Text>
+              </View>
+            </View>
+
+            {/* 第三方快捷绑定(7 图标,wx + google 已有,其他占位) */}
+            <View className="switch-login">
+              <Text>第三方快捷绑定</Text>
+            </View>
+            <View className="icon-all">
+              <View className="icon-all-box">
+                <Image className="bind-icon" src="/static/images/wx.svg" mode="aspectFit" />
+              </View>
+              <View className="icon-all-box">
+                <View className="bind-icon" />
+              </View>
+              <View className="icon-all-box">
+                <View className="bind-icon" />
+              </View>
+              <View className="icon-all-box">
+                <View className="bind-icon" />
+              </View>
+              <View className="icon-all-box">
+                <View className="bind-icon" />
+              </View>
+              <View className="icon-all-box">
+                <Image className="bind-icon" src="/static/images/google.svg" mode="aspectFit" />
+              </View>
+              <View className="icon-all-box">
+                <View className="bind-icon" />
+              </View>
+            </View>
+
+            {/* 已有账户?登录 */}
+            <View className="logintext">
+              <View className="textoo">
+                <Text className="has-account">已有账户?</Text>
+                <Text className="to-login" onClick={toLogin}>登录</Text>
+              </View>
+            </View>
+          </View>
         </View>
       </View>
     </View>
