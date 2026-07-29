@@ -1,14 +1,11 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useState } from 'react'
-import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Share as RnShare } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { ShareScreen as SharedShareScreen, type ShareResultItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
-import { Input, Loading } from '@ihui/ui-native'
-interface ShareResp { shareUrl: string; shareCode: string; expireAt: string }
 
 type Route = RouteProp<RootStackParamList, 'Share'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -18,14 +15,17 @@ export function ShareScreen() {
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const { targetType, targetId, title } = route.params
-  const [result, setResult] = useState<ShareResp | null>(null)
+  const [result, setResult] = useState<ShareResultItem | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [remark, setRemark] = useState('')
 
   const onCreate = async () => {
     setLoading(true); setError('')
-    const res = await fetchApi<ShareResp>('/api/shares', { method: 'POST', body: JSON.stringify({ targetType, targetId, remark: remark.trim() }) })
+    const res = await fetchApi<ShareResultItem>('/api/shares', {
+      method: 'POST',
+      body: JSON.stringify({ targetType, targetId, remark: remark.trim() }),
+    })
     setLoading(false)
     if (res.success && res.data) setResult(res.data)
     else if (!res.success) setError(res.error || t('share.createFailed'))
@@ -33,52 +33,21 @@ export function ShareScreen() {
 
   const onShare = async () => {
     if (!result) return
-    try { await Share.share({ message: `${title}\n${result.shareUrl}` }) } catch { /* user cancelled */ }
+    try { await RnShare.share({ message: `${title}\n${result.shareUrl}` }) } catch { /* user cancelled */ }
   }
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
-      <Text style={styles.title}>{t('share.title')}</Text>
-      <Text style={styles.targetTitle}>{title}</Text>
-      <Text style={styles.label}>{t('share.remark')}</Text>
-      <Input style={styles.input} value={remark} onChangeText={setRemark} placeholder={t('share.remarkPlaceholder')} placeholderTextColor={tokens.text.tertiary} />
-      <TouchableOpacity style={[styles.createBtn, loading && styles.btnDisabled]} onPress={onCreate} disabled={loading}>
-        <Text style={styles.createText}>{loading ? t('common.loading') : t('share.create')}</Text>
-      </TouchableOpacity>
-      {loading ? <Loading style={{ marginTop: 16 }} /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {result ? (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>{t('share.url')}</Text>
-          <Text style={styles.cardValue} numberOfLines={1} selectable>{result.shareUrl}</Text>
-          <Text style={styles.cardLabel}>{t('share.code')}</Text>
-          <Text style={styles.cardValue} selectable>{result.shareCode}</Text>
-          <Text style={styles.cardLabel}>{t('share.expireAt')}</Text>
-          <Text style={styles.cardValue}>{result.expireAt}</Text>
-          <TouchableOpacity style={styles.shareBtn} onPress={onShare}>
-            <Text style={styles.shareText}>{t('share.shareNow')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-    </ScrollView>
+    <SharedShareScreen
+      t={t}
+      targetTitle={title}
+      remark={remark}
+      result={result}
+      loading={loading}
+      error={error}
+      onRemarkChange={setRemark}
+      onCreate={onCreate}
+      onShare={onShare}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
-  back: { fontSize: 14, color: tokens.text.secondary },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary, marginBottom: 4 },
-  targetTitle: { fontSize: 14, color: tokens.success.DEFAULT, marginBottom: 12 },
-  label: { marginTop: 12, fontSize: 12, color: tokens.text.secondary },
-  input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, fontSize: 14, color: tokens.text.primary },
-  createBtn: { marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: tokens.success.DEFAULT, alignItems: 'center' },
-  btnDisabled: { backgroundColor: tokens.text.tertiary },
-  createText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
-  error: { marginTop: 12, fontSize: 13, color: tokens.danger.DEFAULT },
-  card: { marginTop: 16, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light },
-  cardLabel: { marginTop: 8, fontSize: 11, color: tokens.text.tertiary },
-  cardValue: { marginTop: 2, fontSize: 14, color: tokens.text.primary },
-  shareBtn: { marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: tokens.success.DEFAULT, alignItems: 'center' },
-  shareText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
-})
