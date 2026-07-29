@@ -41,6 +41,8 @@ import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
+import { useSlashAction } from '@/hooks/use-slash-action'
+import { useMessageReferences, type ReferenceItem } from '@/hooks/use-message-references'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -54,38 +56,10 @@ const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
 const MIN_HEIGHT_PX = 96 // rows=3 基础高度,与 hook threeLinePx 阈值一致
 
-type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
-
-interface ReferenceItem {
-  id: string
-  type: ReferenceType
-  label: string
-  preview?: string
-  /** 图片/视频缩略图 URL(objectURL),用于在引用面板中显示视觉缩略图 */
-  thumbnail?: string
-  /** 原始文件大小(字节),用于在 label 中显示尺寸信息 */
-  size?: number
-}
-
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
-const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
-
-const TPL_NAME_KEY_MAP: Record<string, string> = {
-  summary: 'tplSummary',
-  translate: 'tplTranslate',
-  explain: 'tplExplain',
-  code: 'tplCode',
-  polish: 'tplPolish',
-}
-
-const TPL_CONTENT_KEY_MAP: Record<string, string> = {
-  summary: 'tplSummaryContent',
-  translate: 'tplTranslateContent',
-  explain: 'tplExplainContent',
-  code: 'tplCodeContent',
-  polish: 'tplPolishContent',
-}
+// PROMPT_TEMPLATE_IDS / TPL_NAME_KEY_MAP / TPL_CONTENT_KEY_MAP / promptTemplates
+// 已提取到 useSlashAction hook(2026-07-29),组件内不再持有模板常量。
 
 /**
  * i18n 静态映射表 — 用于消除 `t(`permission.dangerousPattern.${pattern}`)` 单变量动态拼接。
@@ -299,7 +273,17 @@ export function MessageInput({
   }, [value])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
-  const [references, setReferences] = React.useState<ReferenceItem[]>([])
+  // references 状态管理(2026-07-29 提取到 useMessageReferences hook):
+  // - addFileReference / addTextReference / addCodeReference 三种类型添加
+  // - removeReference 移除 + 释放 objectURL
+  // - resetReferences 发送后清空
+  const {
+    references,
+    addFileReference,
+    addTextReference,
+    removeReference,
+    resetReferences,
+  } = useMessageReferences()
   const [isDragOver, setIsDragOver] = React.useState(false)
   // AI Skills 列表(2026-07-29 二次深化,从 /api/ai-skills 拉取,接入斜杠命令弹窗 skill 分组)
   // 懒加载:首次打开弹窗时拉取,成功后缓存到 state,关闭再打开不重新拉
@@ -312,33 +296,9 @@ export function MessageInput({
   >([])
   const mentionLoadedRef = React.useRef(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-  // /permission 切换 toast 首弹记录(2026-07-25 深化):每个子命令模式只 toast 一次,
-  // 持久化到 localStorage(跨刷新/跨标签页也只弹一次)。
-  // 用 set 序列化存,key 形如 "ask,auto,full" 表示已提示过的模式集合
-  // React.useRef 不支持 lazy initializer(那是 useState 才有的),改用空 set + useEffect mount 填充
-  const PERMISSION_TOAST_KEY = 'ihui:permission-toast-shown'
-  const permissionToastShownRef = React.useRef<Set<string>>(new Set())
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const raw = window.localStorage.getItem(PERMISSION_TOAST_KEY)
-      if (!raw) return
-      permissionToastShownRef.current = new Set(raw.split(',').filter(Boolean))
-    } catch {
-      // 静默
-    }
-  }, [])
-  const markPermissionToastShown = React.useCallback((mode: string) => {
-    if (typeof window === 'undefined') return
-    try {
-      window.localStorage.setItem(
-        PERMISSION_TOAST_KEY,
-        [...permissionToastShownRef.current, mode].join(','),
-      )
-    } catch {
-      // 静默
-    }
-  }, [])
+  // /permission 切换 toast 首弹记录(2026-07-29 提取到 useSlashAction hook):
+  // - permissionToastShownRef / markPermissionToastShown / localStorage 持久化
+  // - 已在 hook 内部管理,组件不再持有
   // "添加"下拉菜单状态(2026-07-25 合并):收纳"提示词模板 / 添加引用 / Skill 库 / 添加附件 / 插件市场"5 类动作
   // addMenuMode 决定 Popover content:
   // - menu:5 项主菜单(模板/引用/Skill 库/附件/插件)
@@ -455,30 +415,18 @@ export function MessageInput({
   // 斜杠命令列表(2026-07-29 提取到 useSlashCommands,运行时构造逻辑下沉到 hooks/ 目录)
   const slashCommands = useSlashCommands(aiSkills, skillsLoading)
 
-  const commandTemplates: Record<string, string> = {
-    // /goal /loop 命令(2026-07-29 立,重点命令:填充命令到 textarea 让用户继续输入参数)
-    // 点击后 textarea 内容为 "/goal " 或 "/loop ",光标在末尾,用户输入参数后 Enter 发送
-    // 后端 ai-service slash_commands.py 的 _goal_handler / _loop_handler 负责实际处理
-    goal: '/goal ',
-    loop: '/loop ',
-    summary: t('cmdSummary'),
-    translate: t('cmdTranslate'),
-    explain: t('cmdExplain'),
-    code: t('cmdCode'),
-    polish: t('cmdPolish'),
-    'wechat-article': t('cmdWechatArticle'),
-    'koubo-script': t('cmdKouboScript'),
-  }
-
-  // i18n key 为扁平结构(tplSummary / tplSummaryContent),与 message-list 空状态共用同一组 key,
-  // 保证附加栏弹窗与空状态 chips 显示的模板内容完全一致。
-  const promptTemplates = PROMPT_TEMPLATE_IDS.map((id) => {
-    return {
-      id,
-      name: t(TPL_NAME_KEY_MAP[id] ?? id),
-      content: t(TPL_CONTENT_KEY_MAP[id] ?? id),
-    }
-  })
+  // 斜杠命令动作 hook(2026-07-29 提取自 message-input.tsx)
+  // - promptTemplates:供 <PromptTemplates templates={...} /> 使用
+  // - handleCommandSelect / handleCommandArgsSelect:供 <SlashCommandPalette> 的 onSelect / onSelectArgs 使用
+  // 内部封装了 commandTemplates 静态映射 + fillInput 行为 + 动作型命令 onSend 拦截 + /permission toast
+  // 注意:fillInput 仍由本组件持有(handleTemplateSelect + SkillLibrary onSelect 复用),
+  // hook 内部有独立的 fillInput(不导出),两者职责清晰分离
+  const { promptTemplates, handleCommandSelect, handleCommandArgsSelect } = useSlashAction(
+    setValue,
+    aiSkills,
+    inputCoreRef,
+    onSend,
+  )
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value.slice(0, MAX_LENGTH)
@@ -513,65 +461,6 @@ export function MessageInput({
     })
   }
 
-  const handleCommandSelect = (id: string) => {
-    // 动作型命令(2026-07-25 立):直接走 onSend 流程,由 use-chat.ts 的 tryHandlePlanModeSlash 拦截。
-    // 不填充 textarea,避免用户看到 "/plan" 文字再手动按发送(多余操作)。
-    if (
-      id === 'plan' ||
-      id === 'act' ||
-      // ChatMode 4态动作型命令(2026-07-28 立,补全三通道):
-      // /build /review /spec 走 onSend,由 use-chat.ts 的 tryHandleChatModeSlash 拦截
-      id === 'build' ||
-      id === 'review' ||
-      id === 'spec' ||
-      // 权限模式动作型命令(2026-07-25 深化):/permission ask|auto|full 走 onSend
-      // 由 use-chat.ts 的 tryHandlePermissionSlash 拦截(纯本地 UI 状态切换,无 LLM)
-      id === 'permission-ask' ||
-      id === 'permission-auto' ||
-      id === 'permission-full'
-    ) {
-      // /permission 切换 toast(2026-07-25 深化):仅每个模式首次弹一次,
-      // 提醒用户已切换并显示完整模式名,避免反复刷屏。用 useRef 跨渲染持久,
-      // 用户后续再用同一子命令不再弹(避免噪音)。
-      if (id.startsWith('permission-')) {
-        const mode = id.replace('permission-', '')
-        if (!permissionToastShownRef.current.has(mode)) {
-          permissionToastShownRef.current.add(mode)
-          // 持久化到 localStorage(2026-07-25 二次深化):跨刷新/跨标签页也只弹一次
-          markPermissionToastShown(mode)
-          const key =
-            mode === 'ask'
-              ? 'permission.switchedToModeAsk'
-              : mode === 'auto'
-                ? 'permission.switchedToModeAuto'
-                : 'permission.switchedToModeFull'
-          toast.success(t(key), { duration: 2500 })
-        }
-      }
-      // 清空当前 textarea 内容再发送,避免与已有内容拼接
-      setValue('')
-      requestAnimationFrame(() => inputCoreRef.current?.resize())
-      void onSend(`/${id.replace('-', ' ')}`)
-      return
-    }
-    // skill 命令(2026-07-29 二次深化):id 形如 "skill-<skillId>",
-    // 填充 "/skill <skillName> " 到 textarea 让用户确认或追加参数
-    if (id.startsWith('skill-')) {
-      const skillName = id.slice('skill-'.length)
-      fillInput(`/skill ${skillName} `)
-      return
-    }
-    fillInput(commandTemplates[id] ?? '')
-  }
-
-  /** 参数补全模式选择回调(2026-07-29 二次深化)
-   * 用户在参数补全模式下选中候选项时触发,直接填充 insertText 到 textarea
-   * 不自动发送,让用户确认后按 Enter 发送(避免误触)
-   * commandId 参数保留以匹配 SlashCommandPalette onSelectArgs 签名,当前实现不使用 */
-  const handleCommandArgsSelect = (_commandId: string, insertText: string) => {
-    fillInput(insertText)
-  }
-
   const handleTemplateSelect = (content: string) => {
     fillInput(content)
   }
@@ -582,36 +471,6 @@ export function MessageInput({
       return merged.slice(0, MAX_LENGTH)
     })
     requestAnimationFrame(() => inputCoreRef.current?.resize())
-  }
-
-  const addTextReference = () => {
-    const text = value.trim()
-    if (!text) return
-    const ref: ReferenceItem = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type: 'text',
-      label: text.length > 30 ? `${text.slice(0, 30)}...` : text,
-      preview: text,
-    }
-    setReferences((prev) => [...prev, ref])
-    setValue('')
-    requestAnimationFrame(() => inputCoreRef.current?.resize())
-  }
-
-  const addFileReference = (file: File) => {
-    const isImage = file.type.startsWith('image/')
-    const isVideo = file.type.startsWith('video/')
-    if (!isImage && !isVideo) return
-    const objectUrl = URL.createObjectURL(file)
-    const ref: ReferenceItem = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type: isImage ? 'image' : 'video',
-      label: file.name,
-      preview: `${file.name} · ${formatFileSize(file.size)}`,
-      thumbnail: objectUrl,
-      size: file.size,
-    }
-    setReferences((prev) => [...prev, ref])
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -663,15 +522,6 @@ export function MessageInput({
         const renamed = new File([file], `pasted-${Date.now()}.png`, { type: file.type })
         addFileReference(renamed)
       }
-    })
-  }
-
-  const removeReference = (id: string) => {
-    setReferences((prev) => {
-      const removed = prev.find((r) => r.id === id)
-      // 释放 objectURL 避免内存泄漏
-      if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail)
-      return prev.filter((r) => r.id !== id)
     })
   }
 
@@ -753,7 +603,7 @@ export function MessageInput({
     })
     setValue('')
     if (typeof window !== 'undefined') localStorage.removeItem(DRAFT_KEY)
-    setReferences([])
+    resetReferences()
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
@@ -955,9 +805,13 @@ export function MessageInput({
                         role="menuitem"
                         disabled={isStreaming || !value.trim()}
                         onClick={() => {
+                          const text = value.trim()
+                          if (!text) return
                           setAddMenuOpen(false)
                           setAddMenuMode('menu')
-                          addTextReference()
+                          addTextReference(text)
+                          setValue('')
+                          requestAnimationFrame(() => inputCoreRef.current?.resize())
                         }}
                         className={cn(
                           'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
