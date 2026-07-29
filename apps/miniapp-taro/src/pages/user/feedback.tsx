@@ -88,7 +88,7 @@ export default function Feedback() {
           {types.map((item) => (
             <View
               key={item.key}
-              className={`px-[32rpx] py-[12rpx] rounded-[32rpx] text-[26rpx] ${
+              className={`px-[32rpx] py-[12rpx] rounded-[8rpx] text-[26rpx] ${
                 activeType === item.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
               }`}
               onClick={() => setActiveType(item.key)}
@@ -166,7 +166,7 @@ export default function Feedback() {
         />
       </View>
       <Button
-        className={`mx-[32rpx] mt-[60rpx] rounded-[40rpx] text-[32rpx] ${
+        className={`mx-[32rpx] mt-[60rpx] rounded-[12rpx] text-[32rpx] ${
           content.trim() ? 'bg-primary text-white' : 'bg-muted text-white'
         }`}
         disabled={!content.trim()}
