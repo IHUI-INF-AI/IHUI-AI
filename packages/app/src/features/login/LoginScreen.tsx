@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LoginScreenProps } from '../../types'
 
@@ -33,6 +33,7 @@ export function LoginScreen({
   onLogin,
   onSsoLogin,
   colorScheme = 'light',
+  logoSource,
 }: LoginScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -43,9 +44,17 @@ export function LoginScreen({
       <View style={styles.card}>
         {/* 顶部 logo + welcome(对齐 web AuthShell 顶部区) */}
         <View style={styles.header}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoText}>IHUI</Text>
-          </View>
+          {logoSource ? (
+            <Image
+              source={logoSource}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={styles.logoBox}>
+              <Text style={styles.logoText}>IHUI</Text>
+            </View>
+          )}
           <Text style={styles.welcomeText}>IHUI AI</Text>
         </View>
 
@@ -155,6 +164,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    logoImage: {
+      width: 31,
+      height: 31,
+      borderRadius: 6,
     },
     logoText: {
       color: tk.surface.light,
