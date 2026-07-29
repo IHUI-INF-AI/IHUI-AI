@@ -2306,5 +2306,19 @@
   },
   "notification": {
     "settings": "Notification Settings"
+  },
+  "messageInput": {
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "stop": "Stop",
+    "fullscreenBack": "Back",
+    "fullscreenHint": "Fullscreen editing mode",
+    "recording": "Release to send, slide up to cancel",
+    "voiceHint": "Long press to speak",
+    "document": "Document",
+    "video": "Video",
+    "addFile": "Add file",
+    "releaseToSend": "Release to send",
+    "holdToSpeak": "Hold to speak"
   }
 }

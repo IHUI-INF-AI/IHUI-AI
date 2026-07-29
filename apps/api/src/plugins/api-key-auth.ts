@@ -110,7 +110,15 @@ export function requireApiKeyPermission(perm: ApiKeyPermission): preHandlerAsync
     if (!request.apiKey) {
       return reply.status(401).send({ code: 401, message: 'API key authentication required' })
     }
-    if (!request.apiKey.permissions.includes(perm)) {
+    const perms = request.apiKey.permissions
+    // 兼容三种格式:数组(正常) / 对象(老 seed-raw.mjs 误用 {permissions:[...]}) / null
+    const permList: string[] = Array.isArray(perms)
+      ? (perms as string[])
+      : Array.isArray((perms as { permissions?: string[] })?.permissions)
+        ? ((perms as { permissions: string[] }).permissions)
+        : []
+    // 通配符 * 表示拥有所有权限
+    if (!permList.includes(perm) && !permList.includes('*')) {
       return reply.status(403).send({ code: 403, message: `Missing permission: ${perm}` })
     }
   }
