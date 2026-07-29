@@ -1001,12 +1001,11 @@ pub fn run() {
             // let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
             // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
+            // admin 窗口已改为 lazy create(2026-07-29),启动时不存在,
+            // 标题在 open_admin_window 中通过 WebviewWindowBuilder::title 设置
             let app_name = localized_app_name();
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_title(app_name);
-            }
-            if let Some(window) = app.get_webview_window("admin") {
-                let _ = window.set_title(&format!("{} 管理后台", app_name));
             }
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
