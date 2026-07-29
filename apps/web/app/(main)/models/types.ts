@@ -121,6 +121,13 @@ export interface Model {
   releasedAt?: string
   /** 是否首页"推荐位"展示(顶部精选) */
   highlight?: boolean
+  // --- P0-5 中转站字段(2026-07-29 立)---
+  /** 是否在中转站公开上架(/v1/models 返回此模型,用户可用 API Key 调用) */
+  relayPublic?: boolean
+  /** 中转站定价倍率(1.0 = 按上游原价,1.2 = 加价 20%) */
+  relayPriceMultiplier?: number
+  /** 中转站展示名(为空时用 name/id) */
+  relayDisplayName?: string
 }
 
 /**

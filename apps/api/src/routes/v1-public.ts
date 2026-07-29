@@ -22,7 +22,14 @@ import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
-import { agents, files, projects, chatConversations } from '@ihui/database'
+import {
+  agents,
+  files,
+  projects,
+  chatConversations,
+  aiModelConfigModels,
+  aiModelConfig,
+} from '@ihui/database'
 import type {
   V1AgentInfo,
   V1AgentsListResponse,
@@ -36,6 +43,8 @@ import {
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
+// P0-5 中转站计费(2026-07-29 立)
+import { checkQuota, recordCall } from '../services/relay-billing-service.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -112,12 +121,61 @@ interface ModelsCacheEntry {
 let modelsCache: ModelsCacheEntry | null = null
 
 /**
- * 拉取模型列表(优先 live → cache → fallback)。
+ * 拉取模型列表(P0-5 中转站:优先 DB 驱动 → live → cache → fallback)。
  * 返回响应体 + 来源标识,由调用方写入 X-Model-Source 响应头。
+ *
+ * 来源优先级:
+ * 1. 'db' — 从 ai_model_config_models WHERE is_relay_public=true 查询中转站已上架模型(admin 控制)
+ * 2. 'live' — 从 ai-service /api/llm/models 实时拉取
+ * 3. 'cache' — 命中 5min 缓存
+ * 4. 'fallback' — 静态兜底清单
  */
-async function fetchModels(): Promise<{ body: V1ModelsResponse; source: 'live' | 'cache' | 'fallback' }> {
+async function fetchModels(): Promise<{
+  body: V1ModelsResponse
+  source: 'db' | 'live' | 'cache' | 'fallback'
+}> {
   const now = Date.now()
-  // 缓存未过期 → 直接命中
+
+  // 1. 优先 DB 驱动:查中转站已上架模型(admin 控制可见性)
+  try {
+    const dbModels = await dbRead
+      .select({
+        id: aiModelConfigModels.modelId,
+        relayDisplayName: aiModelConfigModels.relayDisplayName,
+        displayName: aiModelConfigModels.displayName,
+        sortOrder: aiModelConfigModels.relaySortOrder,
+        providerCode: aiModelConfig.providerCode,
+        configName: aiModelConfig.name,
+      })
+      .from(aiModelConfigModels)
+      .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+      .where(
+        and(
+          eq(aiModelConfigModels.isRelayPublic, true),
+          eq(aiModelConfigModels.enabled, true),
+          eq(aiModelConfig.enabled, true),
+        ),
+      )
+      .orderBy(aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)
+
+    if (dbModels.length > 0) {
+      const mapped: V1ModelsResponse = {
+        object: 'list',
+        data: dbModels.map((m) => ({
+          id: m.id,
+          object: 'model' as const,
+          created: Math.floor(now / 1000),
+          ownedBy: m.providerCode || m.configName || 'ihui',
+        })),
+      }
+      modelsCache = { data: mapped, fetchedAt: now }
+      return { body: mapped, source: 'db' }
+    }
+  } catch {
+    // DB 查询失败,降级 live
+  }
+
+  // 2. 缓存未过期 → 直接命中
   if (modelsCache && now - modelsCache.fetchedAt < MODELS_CACHE_TTL_MS) {
     return { body: modelsCache.data, source: 'cache' }
   }
@@ -276,6 +334,11 @@ async function streamChatCompletion(
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
     temperature?: number
     maxTokens?: number
+    /** P0-5 中转站计费:API Key id + 用户 id + prompt 文本 + 调用起始时间 */
+    apiKeyId?: string
+    userId?: string
+    promptText?: string
+    startTime?: number
   },
 ): Promise<void> {
   reply.hijack()
@@ -290,6 +353,9 @@ async function streamChatCompletion(
   const id = `chatcmpl-${randomUUID()}`
   const created = Math.floor(Date.now() / 1000)
   const { model, messages, temperature, maxTokens } = opts
+  /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
+  let responseText = ''
+  let streamError: string | null = null
 
   const writeChunk = (delta: Record<string, unknown>, finishReason: string | null) => {
     raw.write(
@@ -327,10 +393,8 @@ async function streamChatCompletion(
 
     if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '')
-      writeChunk(
-        { content: `[error] upstream ${resp.status}: ${errText.slice(0, 200)}` },
-        'stop',
-      )
+      streamError = `upstream ${resp.status}: ${errText.slice(0, 200)}`
+      writeChunk({ content: `[error] ${streamError}` }, 'stop')
       raw.write('data: [DONE]\n\n')
       return
     }
@@ -348,12 +412,18 @@ async function streamChatCompletion(
         const line = buffer.slice(0, nl).replace(/\r$/, '')
         buffer = buffer.slice(nl + 1)
         const text = extractStreamText(line)
-        if (text) writeChunk({ content: text }, null)
+        if (text) {
+          responseText += text
+          writeChunk({ content: text }, null)
+        }
       }
     }
     if (buffer.trim()) {
       const text = extractStreamText(buffer)
-      if (text) writeChunk({ content: text }, null)
+      if (text) {
+        responseText += text
+        writeChunk({ content: text }, null)
+      }
     }
 
     // 结束 chunk
@@ -361,11 +431,33 @@ async function streamChatCompletion(
     raw.write('data: [DONE]\n\n')
   } catch (e) {
     const msg = (e as Error).name === 'AbortError' ? 'client disconnected' : (e as Error).message
+    streamError = msg
     writeChunk({ content: `[error] ${msg}` }, 'stop')
     raw.write('data: [DONE]\n\n')
   } finally {
     request.raw.off('close', onClose)
     raw.end()
+
+    // P0-5 中转站计费:流式结束后聚合 token 用量写入计费
+    if (opts.apiKeyId && opts.userId) {
+      const promptTokens = Math.ceil((opts.promptText ?? '').length / 4)
+      const completionTokens = Math.ceil(responseText.length / 4)
+      const totalTokens = promptTokens + completionTokens
+      void recordCall({
+        apiKeyId: opts.apiKeyId,
+        userId: opts.userId,
+        model,
+        prompt: opts.promptText ?? '',
+        response: responseText,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        latencyMs: Date.now() - (opts.startTime ?? Date.now()),
+        status: streamError ? 'error' : 'success',
+        errorMessage: streamError,
+        metadata: { stream: true },
+      }).catch(() => {})
+    }
   }
 }
 
@@ -625,6 +717,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           },
           400: errorResponseSchema,
           401: errorResponseSchema,
+          402: errorResponseSchema,
           502: errorResponseSchema,
           503: errorResponseSchema,
         },
@@ -642,8 +735,41 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       }
       const { model, messages, stream, temperature, maxTokens } = parsed.data
 
+      // P0-5 中转站计费:调用前检查 API Key 余额
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      const startTime = Date.now()
+      const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
+      if (apiKey) {
+        const estimatedTokens = messages.reduce(
+          (sum, m) => sum + Math.ceil(m.content.length / 4),
+          0,
+        )
+        const quotaCheck = await checkQuota(apiKey.id, estimatedTokens)
+        if (!quotaCheck.allowed) {
+          const reasonMap: Record<string, string> = {
+            no_balance_token: 'Token 余额不足,请充值或联系管理员',
+            no_balance_cost: '成本余额不足,请充值或联系管理员',
+            key_not_found: 'API Key 不存在',
+            key_revoked: 'API Key 已被吊销',
+          }
+          const statusCode = quotaCheck.reason === 'key_not_found' ? 401 : 402
+          return reply
+            .status(statusCode)
+            .send(error(statusCode, reasonMap[quotaCheck.reason ?? ''] ?? '额度不足'))
+        }
+      }
+
       if (stream) {
-        return streamChatCompletion(request, reply, { model, messages, temperature, maxTokens })
+        return streamChatCompletion(request, reply, {
+          model,
+          messages,
+          temperature,
+          maxTokens,
+          apiKeyId: apiKey?.id,
+          userId: apiKey?.userId,
+          promptText,
+          startTime,
+        })
       }
 
       // 非流式:转发到 ai-service /api/llm/complete
@@ -659,6 +785,21 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         })
 
         if (!resp.ok) {
+          if (apiKey) {
+            void recordCall({
+              apiKeyId: apiKey.id,
+              userId: apiKey.userId,
+              model,
+              prompt: promptText,
+              response: null,
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              latencyMs: Date.now() - startTime,
+              status: 'error',
+              errorMessage: `AI service unavailable (${resp.status})`,
+            }).catch(() => {})
+          }
           return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
         }
 
@@ -671,8 +812,27 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
 
         if (data.error) {
+          if (apiKey) {
+            void recordCall({
+              apiKeyId: apiKey.id,
+              userId: apiKey.userId,
+              model,
+              prompt: promptText,
+              response: null,
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              latencyMs: Date.now() - startTime,
+              status: 'error',
+              errorMessage: data.error_message ?? 'AI service error',
+            }).catch(() => {})
+          }
           return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
         }
+
+        const promptTokens = data.usage?.prompt_tokens ?? 0
+        const completionTokens = data.usage?.completion_tokens ?? 0
+        const totalTokens = data.usage?.total_tokens ?? 0
 
         const result: V1ChatCompletionResponse = {
           id: `chatcmpl-${randomUUID()}`,
@@ -687,13 +847,45 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             },
           ],
           usage: {
-            promptTokens: data.usage?.prompt_tokens ?? 0,
-            completionTokens: data.usage?.completion_tokens ?? 0,
-            totalTokens: data.usage?.total_tokens ?? 0,
+            promptTokens,
+            completionTokens,
+            totalTokens,
           },
         }
+
+        // P0-5 中转站计费:调用成功,记录流水 + 扣减余额
+        if (apiKey) {
+          void recordCall({
+            apiKeyId: apiKey.id,
+            userId: apiKey.userId,
+            model,
+            prompt: promptText,
+            response: data.content ?? '',
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            latencyMs: Date.now() - startTime,
+            status: 'success',
+          }).catch(() => {})
+        }
+
         return reply.send(result)
       } catch (e) {
+        if (apiKey) {
+          void recordCall({
+            apiKeyId: apiKey.id,
+            userId: apiKey.userId,
+            model,
+            prompt: promptText,
+            response: null,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: Date.now() - startTime,
+            status: 'error',
+            errorMessage: (e as Error).message || 'AI service unavailable',
+          }).catch(() => {})
+        }
         return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
       }
     },
