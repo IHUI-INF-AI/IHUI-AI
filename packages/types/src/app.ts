@@ -935,3 +935,27 @@ export interface HelpScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 搜索结果项(平台注入,字段对齐 mobile-rn SearchScreen) */
+export interface SearchScreenItem {
+  id: string
+  title: string
+  summary: string
+  type: 'course' | 'article' | 'post' | 'note' | 'agent'
+  cover?: string
+}
+
+/** SearchScreen props */
+export interface SearchScreenProps {
+  t: TFunction
+  keyword: string
+  results: SearchScreenItem[]
+  loading: boolean
+  error: string
+  searched: boolean
+  onKeywordChange: (text: string) => void
+  onSearch: () => void
+  onPressItem: (item: SearchScreenItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
