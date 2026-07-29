@@ -167,7 +167,7 @@ function createStyles(tk: AppThemeTokens) {
     tagText: { fontSize: 12, color: tk.text.medium },
     body: { paddingHorizontal: 16 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -194,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
     sectionTitle: { marginBottom: 8, fontSize: 18, fontWeight: '600', color: tk.text.primary },
     lessonItem: {
       marginBottom: 8,
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

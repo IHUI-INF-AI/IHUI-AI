@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import type { BookmarkItem, BookmarkScreenProps, BookmarkTargetType } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -121,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
