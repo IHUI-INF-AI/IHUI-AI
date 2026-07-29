@@ -7,7 +7,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 const STATUS_KEY: Record<Live['status'], string> = {
   living: 'live.liveNow',
@@ -17,7 +17,7 @@ const STATUS_KEY: Record<Live['status'], string> = {
 
 export default function LiveList() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')

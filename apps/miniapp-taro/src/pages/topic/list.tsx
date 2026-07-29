@@ -5,7 +5,7 @@ import { useState, useCallback, useRef } from 'react'
 import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import { NavBar } from '@/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 interface TopicItem {
   id: string
@@ -21,13 +21,7 @@ type TabKey = 'recommend' | 'hot' | 'all'
 const PAGE_SIZE = 20
 
 export default function TopicListPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
   const [list, setList] = useState<TopicItem[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)

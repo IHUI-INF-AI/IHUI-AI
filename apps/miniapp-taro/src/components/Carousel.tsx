@@ -2,7 +2,7 @@ import { View, ScrollView, Image, Text } from '@tarojs/components'
 import { useCallback } from 'react'
 import { cn } from '@ihui/design-tokens'
 import { useAutoPlay } from '@ihui/shared'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import type { CarouselItem } from '@ihui/types'
 
 // 共享类型 CarouselItem + 共享 hook useAutoPlay 已下沉到 packages,
@@ -49,8 +49,7 @@ export default function Carousel({
   variant = 'default',
   courseMeta = [],
 }: CarouselProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const { current, setCurrent } = useAutoPlay(items.length, interval, autoplay)
   const total = items.length
 

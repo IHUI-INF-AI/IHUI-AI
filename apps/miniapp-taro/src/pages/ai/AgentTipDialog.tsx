@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface AgentTipDialogProps {
   visible: boolean
@@ -8,8 +8,7 @@ export interface AgentTipDialogProps {
 
 /** 智能体提示说明弹窗(对标原 ai_index.vue 智能体使用说明弹窗,首次进入或点击 "?" 触发) */
 export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   if (!visible) return null
 

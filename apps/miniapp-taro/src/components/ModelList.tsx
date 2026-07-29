@@ -1,6 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
 
@@ -52,8 +52,7 @@ export default function ModelList({
   agentActive = false,
   onAgentSelect,
 }: ModelListProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   if (variant === 'popup') {
     // ===== popup 模式:对齐原项目 ModelList.vue(分类弹出列表 + slideUp 动画)=====

@@ -2,7 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
 
@@ -31,8 +31,7 @@ const deriveStatus = (progress: number): FilterTab => {
 }
 
 export default function StudyRecord() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [info, setInfo] = useState<StudyInfo | null>(null)
   const [rawList, setRawList] = useState<StudyRecordRow[]>([])

@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface PriceOption {
   id: string
@@ -36,8 +36,7 @@ export default function VipPriceSelector({
   selectedId = '2',
   onSelect,
 }: VipPriceSelectorProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="flex space-x-2 px-4 py-3">
       {options.map((opt) => {

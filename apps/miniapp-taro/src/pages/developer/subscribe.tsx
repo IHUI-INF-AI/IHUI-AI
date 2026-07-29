@@ -3,7 +3,7 @@ import { View, Text, Image, Button, Switch } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 interface DevInfo {
   id: string
@@ -37,7 +37,7 @@ const toNum = (v: unknown) => Number(v) || 0
 
 export default function DeveloperSubscribePage() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const router = useRouter()
   const devId = toStr(router.params.id || router.params.developerId, '')
 
@@ -135,7 +135,7 @@ export default function DeveloperSubscribePage() {
     } finally {
       setSubscribing(false)
     }
-  }, [subscribing, dev.subscribed, devId, t])
+  }, [subscribing, dev.subscribed, devId, tt])
 
   const handleUseModel = (m: DevModel) => {
     Taro.navigateTo({ url: `/pages/ai/agent-detail?id=${m.id}` })

@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface PrivateMessageItem {
   id: string
@@ -18,8 +18,7 @@ export interface PrivateMessageListProps {
 }
 
 export default function PrivateMessageList({ list, onClick }: PrivateMessageListProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (!list.length) {
     return (
       <View className="flex items-center justify-center py-16">
