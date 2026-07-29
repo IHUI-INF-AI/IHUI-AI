@@ -1,6 +1,6 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow, useShareAppMessage } from '@tarojs/taro'
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import {
   chatStream,
   type ChatMessage,
@@ -641,8 +641,16 @@ export default function ChatPage() {
   }, [])
 
   return (
-    <View className="page">
-      <View className="nav-bar safe-area-bottom">
+    <View
+      className="page"
+      style={
+        {
+          '--ai-chat-bg': 'linear-gradient(180deg, #93D2F3, #93D2E2, #9bd1d1)',
+          background: 'var(--ai-chat-bg)',
+        } as CSSProperties
+      }
+    >
+      <View className="nav-bar safe-area-bottom" style={{ background: 'transparent' }}>
         <View className="nav-left" onClick={openModelDrawer}>
           <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
           <Text className="nav-arrow">▾</Text>
