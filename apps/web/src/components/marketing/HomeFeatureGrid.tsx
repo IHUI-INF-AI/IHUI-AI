@@ -2,120 +2,88 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import {
-  Award,
-  Bot,
-  Boxes,
-  FileImage,
-  GraduationCap,
-  Laptop,
-  Lightbulb,
-  ShieldCheck,
-  Terminal,
-  Workflow,
-  Zap,
-  type LucideIcon,
-} from 'lucide-react'
+import { Boxes, FileImage, Laptop, ShieldCheck, Terminal, Workflow, type LucideIcon } from 'lucide-react'
 import { RevealOnView } from '@/components/common'
 
-interface FeatureItem {
+/**
+ * 第 2 页:核心能力 — Bento 数字网格
+ * v4 重构:8 features + 4 advantages(12 项)→ 6 个 Bento 大数字卡片
+ * 极简:每卡只有 icon + title(大号 gradient) + benefit(一行小字)
+ */
+
+interface BentoItem {
   icon: LucideIcon
   title: string
   benefit: string
 }
 
-interface AdvantageItem {
-  icon: LucideIcon
-  title: string
-  description: string
-  evidence: string
-}
+const BENTO_KEYS = [
+  { key: 'modelIntegration', icon: Laptop },
+  { key: 'appStore', icon: Boxes },
+  { key: 'contentCreation', icon: Terminal },
+  { key: 'navigation', icon: ShieldCheck },
+  { key: 'workflow', icon: Workflow },
+  { key: 'multimodal', icon: FileImage },
+] as const
 
 export function HomeFeatureGrid() {
   const t = useTranslations('marketing.features')
-  const ta = useTranslations('marketing.advantages')
 
-  const features: FeatureItem[] = [
-    { icon: Laptop, title: t('modelIntegration.title'), benefit: t('modelIntegration.benefit') },
-    { icon: Boxes, title: t('appStore.title'), benefit: t('appStore.benefit') },
-    { icon: Terminal, title: t('contentCreation.title'), benefit: t('contentCreation.benefit') },
-    { icon: GraduationCap, title: t('edu.title'), benefit: t('edu.benefit') },
-    { icon: ShieldCheck, title: t('navigation.title'), benefit: t('navigation.benefit') },
-    { icon: Bot, title: t('agentSquare.title'), benefit: t('agentSquare.benefit') },
-    { icon: Workflow, title: t('workflow.title'), benefit: t('workflow.benefit') },
-    { icon: FileImage, title: t('multimodal.title'), benefit: t('multimodal.benefit') },
-  ]
-
-  const advantages: AdvantageItem[] = [
-    { icon: Award, title: ta('professional.title'), description: ta('professional.description'), evidence: ta('professional.evidence') },
-    { icon: Zap, title: ta('efficient.title'), description: ta('efficient.description'), evidence: ta('efficient.evidence') },
-    { icon: ShieldCheck, title: ta('reliable.title'), description: ta('reliable.description'), evidence: ta('reliable.evidence') },
-    { icon: Lightbulb, title: ta('innovative.title'), description: ta('innovative.description'), evidence: ta('innovative.evidence') },
-  ]
+  const items: BentoItem[] = BENTO_KEYS.map(({ key, icon }) => ({
+    icon,
+    title: t(`${key}.title`),
+    benefit: t(`${key}.benefit`),
+  }))
 
   return (
-    <section className="space-y-8">
-      {/* === 核心能力 === */}
-      <RevealOnView as="div" className="space-y-2">
-        <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
-          <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {t('titleEn')}
-          </h3>
-          <p className="mx-auto max-w-2xl text-xs text-muted-foreground sm:text-sm">
-            {t('subtitle')}
-          </p>
+    <section className="relative space-y-8">
+      {/* 编辑式标题 */}
+      <RevealOnView as="div" className="relative space-y-1.5 text-center">
+        <div
+          className="font-edix pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 select-none text-[120px] font-bold leading-none tracking-tighter text-foreground animate-mag-section-breathe sm:text-[160px]"
+          aria-hidden="true"
+        >
+          02
         </div>
+        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
+        <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          {t('titleEn')}
+        </h3>
       </RevealOnView>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        {features.map(({ icon: Icon, title, benefit }, i) => (
+      {/* Bento 3×2 网格 — 大数字 + 极简标签 */}
+      <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+        {items.map(({ icon: Icon, title, benefit }, i) => (
           <RevealOnView
             key={title}
-            delay={0.05 * (i + 1)}
-            className="group relative flex flex-col items-center gap-3 overflow-hidden rounded-lg border bg-card p-5 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 sm:p-6"
+            delay={0.08 * (i + 1)}
+            className="group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border bg-card p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 sm:p-8"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/12 text-primary transition-transform duration-300 group-hover:scale-110">
+            {/* Ghost 编号 */}
+            <span
+              className="font-edix pointer-events-none absolute right-3 top-1 text-4xl font-bold leading-none text-foreground/5 transition-opacity duration-300 group-hover:text-foreground/10"
+              aria-hidden="true"
+            >
+              {String(i + 1).padStart(2, '0')}
+            </span>
+
+            {/* 光泽扫过 */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+            </div>
+
+            {/* 图标 */}
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-primary/12 text-primary transition-all duration-300 group-hover:scale-110 group-hover:bg-primary/18">
               <Icon className="h-5 w-5" aria-hidden="true" />
             </div>
-            <h3 className="text-sm font-semibold leading-tight">{title}</h3>
-            <p className="text-[11px] font-medium leading-relaxed text-primary/80">
-              {benefit}
-            </p>
-          </RevealOnView>
-        ))}
-      </div>
 
-      {/* === 核心优势 === */}
-      <RevealOnView as="div" delay={0.1} className="space-y-2">
-        <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{ta('title')}</h2>
-          <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {ta('titleEn')}
-          </h3>
-          <p className="mx-auto max-w-2xl text-xs text-muted-foreground sm:text-sm">
-            {ta('subtitle')}
-          </p>
-        </div>
-      </RevealOnView>
+            {/* 大号标题 — gradient text */}
+            <span className="animate-mag-value-glow bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-xl font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 sm:text-2xl">
+              {title}
+            </span>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        {advantages.map(({ icon: Icon, title, description, evidence }, i) => (
-          <RevealOnView
-            key={title}
-            delay={0.15 + 0.05 * (i + 1)}
-            className="group relative flex flex-col items-center gap-3 overflow-hidden rounded-lg border bg-card p-5 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 sm:p-6"
-          >
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/12 text-primary transition-transform duration-300 group-hover:scale-110">
-              <Icon className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <h3 className="text-sm font-semibold leading-tight">{title}</h3>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              {description}
-            </p>
-            <p className="text-[10px] font-medium italic text-primary/60">
-              {evidence}
-            </p>
+            {/* 收益标签 */}
+            <span className="text-[11px] font-medium text-muted-foreground sm:text-xs">{benefit}</span>
           </RevealOnView>
         ))}
       </div>
