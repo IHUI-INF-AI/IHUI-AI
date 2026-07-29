@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import {
@@ -22,13 +22,24 @@ import {
 import { useI18n } from '@/i18n'
 import './index.css'
 
-// TODO: custom color: #f8d486 VIP 品牌金色渐变起始色,无对应 token,保留原值
-const gradient = 'linear-gradient(135deg, #f8d486, var(--color-warning))'
-
 const DEFAULT_PLANS: PriceOption[] = [
   { id: 'monthly', name: '月度会员', price: 30, period: '30天' },
   { id: 'quarterly', name: '季度会员', price: 88, period: '90天' },
   { id: 'yearly', name: '年度会员', price: 299, period: '365天' },
+]
+
+// 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
+interface VipFeature {
+  id: string
+  icon: string
+  title: string
+  desc: string
+}
+const FEATURES: ReadonlyArray<VipFeature> = [
+  { id: 'ai_copywriting', icon: '✍️', title: 'AI营销文案', desc: '智能生成各类营销文案' },
+  { id: 'ai_chat', icon: '💬', title: 'AI智能对话', desc: '智能助手解答各类问题' },
+  { id: 'ai_analysis', icon: '📊', title: 'AI数据分析', desc: '智能分析各类数据报表' },
+  { id: 'ai_design', icon: '🎨', title: 'AI智能设计', desc: '智能生成图片和设计' },
 ]
 
 export default function VipIndexPage() {
@@ -177,28 +188,43 @@ export default function VipIndexPage() {
 
   useDidShow(load)
 
+  const currentPrice = selectedPlan?.price ?? 0
+
   return (
-    <View className="page">
-      <View className="header" style={{ background: info.level ? gradient : 'var(--color-muted)' }}>
-        <Text className="brand-title">{tt('vip.index.brandTitle', 'AI智汇社 会员')}</Text>
-        <View className="level-row">
-          <View className="level">{info.level ? info.name : t('vip.notOpened')}</View>
-          <Text className="intro-link" onClick={onIntroduceClick}>{t('vip.index.introduce')}</Text>
+    <View className="vip-page">
+      {/* 头部 400rpx + vip_back.png 背景 */}
+      <View className="header">
+        <Image className="bg-image" src="/static/images/vip_back.png" mode="aspectFill" />
+        <View className="content">
+          <View className="title">{tt('vip.index.brandTitle', 'AI智汇社 VIP会员')}</View>
+          <View className="subtitle">{t('vip.openHint')}</View>
+          <View className="price-box">
+            <Text className="current-price">¥{currentPrice}</Text>
+          </View>
         </View>
-        {info.expireTime ? (
-          <View className="expire">{t('vip.expireTime', { time: info.expireTime })}</View>
-        ) : (
-          <View className="expire">{t('vip.openHint')}</View>
-        )}
       </View>
 
-      <View className="card">
-        <View className="card-title">{t('vip.privileges')}</View>
-        <View className="grid">
-          {benefits.slice(0, 8).map((p) => (
-            <View key={p.id} className="grid-item" onClick={onBenefitsClick}>
-              <View className="gicon">★</View>
-              <Text className="gtext">{p.title}</Text>
+      {/* 状态行:等级 + 等级介绍入口 */}
+      <View className="status-bar">
+        <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
+        <Text className="intro-link" onClick={onIntroduceClick}>{t('vip.index.introduce')}</Text>
+      </View>
+      {info.expireTime ? (
+        <View className="expire-row">{t('vip.expireTime', { time: info.expireTime })}</View>
+      ) : null}
+
+      {/* 特权列表(垂直 4 项) */}
+      <View className="features">
+        <View className="section-title">{t('vip.privileges')}</View>
+        <View className="feature-list">
+          {FEATURES.map((f) => (
+            <View key={f.id} className="feature-item">
+              <Text className="feature-icon">{f.icon}</Text>
+              <View className="feature-info">
+                <Text className="feature-title">{f.title}</Text>
+                <Text className="feature-desc">{f.desc}</Text>
+              </View>
+              <Text className="feature-tag">VIP</Text>
             </View>
           ))}
         </View>
@@ -207,39 +233,41 @@ export default function VipIndexPage() {
         </View>
       </View>
 
-      <View className="card">
-        <View className="card-title">{t('vip.plans')}</View>
+      {/* 套餐选择 + 自动续费 + 会员说明(深色卡片) */}
+      <View className="plans-card">
+        <View className="section-title">{t('vip.plans')}</View>
         <VipPriceSelector
           options={priceOptions}
           selectedId={selectedPlan?.id || ''}
           onSelect={onSelectPlan}
         />
-        <View
-          className="flex items-center mt-[24rpx] py-[8rpx]"
-          onClick={() => setAutoRenew((v) => !v)}
-        >
-          <View
-            className={`w-[36rpx] h-[36rpx] mr-[16rpx] flex items-center justify-center border-[2rpx] rounded-[8rpx] ${autoRenew ? 'bg-[var(--color-warning)] border-[var(--color-warning)]' : 'border-border bg-card'}`}
-          >
-            {autoRenew && <Text className="text-white text-[24rpx] leading-none">✓</Text>}
+        <View className="auto-renew" onClick={() => setAutoRenew((v) => !v)}>
+          <View className={`auto-check ${autoRenew ? 'checked' : ''}`}>
+            {autoRenew ? <Text className="auto-mark">✓</Text> : null}
           </View>
-          <Text className="text-[24rpx] text-muted-foreground">{t('vip.index.autoRenew')}</Text>
+          <Text className="auto-text">{t('vip.index.autoRenew')}</Text>
         </View>
         <View
-          className="mt-[12rpx] text-[22rpx] text-primary"
+          className="manage-link"
           onClick={() => Taro.navigateTo({ url: '/pages/subscription/contracts/index' })}
         >
           <Text>{t('vip.index.manageAutoRenew')}</Text>
         </View>
-        <Button className="btn" onClick={onUpgradeClick}>
-          {t('vip.subscribe')}
-          {selectedPlan ? ` ¥${selectedPlan.price}` : ''}
-        </Button>
+        <View className="member-desc">
+          <View className="section-title small">{t('vip.memberDesc')}</View>
+          <Text className="desc-text">{t('vip.memberDescText')}</Text>
+        </View>
       </View>
 
-      <View className="card">
-        <View className="card-title">{t('vip.memberDesc')}</View>
-        <Text className="desc-text">{t('vip.memberDescText')}</Text>
+      {/* 底部购买区 fixed */}
+      <View className="buy-section">
+        <View className="price-info">
+          <View className="price">
+            <Text className="symbol">¥</Text>
+            <Text className="number">{currentPrice}</Text>
+          </View>
+        </View>
+        <Button className="buy-btn" onClick={onUpgradeClick}>{t('vip.subscribe')}</Button>
       </View>
 
       <VipBenefitsPopup
@@ -264,7 +292,7 @@ export default function VipIndexPage() {
       />
 
       {/* 弹窗1: 等级介绍 */}
-      {showIntroduce && (
+      {showIntroduce ? (
         <View className="pp-mask" onClick={() => setShowIntroduce(false)}>
           <View className="pp-card" onClick={(e) => e.stopPropagation()}>
             <View className="pp-title">{t('vip.index.introduceTitle')}</View>
@@ -274,10 +302,10 @@ export default function VipIndexPage() {
             <Button className="pp-btn" onClick={onIntroduceSubscribe}>{t('vip.subscribe')}</Button>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* 弹窗2: 确认购买 */}
-      {showConfirm && selectedPlan && (
+      {showConfirm && selectedPlan ? (
         <View className="pp-mask" onClick={() => setShowConfirm(false)}>
           <View className="pp-card" onClick={(e) => e.stopPropagation()}>
             <View className="pp-title">{t('vip.index.confirmTitle')}</View>
@@ -293,10 +321,10 @@ export default function VipIndexPage() {
             </Button>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* 弹窗3: 购买须知 */}
-      {showNotice && (
+      {showNotice ? (
         <View className="pp-mask" onClick={() => setShowNotice(false)}>
           <View className="pp-card" onClick={(e) => e.stopPropagation()}>
             <View className="pp-title">{t('vip.index.noticeTitle')}</View>
@@ -307,7 +335,7 @@ export default function VipIndexPage() {
               <Text className="pp-text">{t('vip.index.noticeRule4')}</Text>
               <View className="pp-check" onClick={() => setNoticeAgreed(!noticeAgreed)}>
                 <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
-                  {noticeAgreed && <Text className="pp-check-mark">✓</Text>}
+                  {noticeAgreed ? <Text className="pp-check-mark">✓</Text> : null}
                 </View>
                 <Text className="pp-check-text">{t('vip.index.noticeAgree')}</Text>
               </View>
@@ -315,10 +343,10 @@ export default function VipIndexPage() {
             <Button className="pp-btn" onClick={onNoticeAgree}>{t('vip.index.continuePay')}</Button>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* 弹窗4: 支付方式选择 */}
-      {showPayMethod && (
+      {showPayMethod ? (
         <View className="pp-mask" onClick={() => setShowPayMethod(false)}>
           <View className="pp-card" onClick={(e) => e.stopPropagation()}>
             <View className="pp-title">{t('vip.index.payMethodTitle')}</View>
@@ -343,10 +371,10 @@ export default function VipIndexPage() {
             <Button className="pp-btn" onClick={onPayMethodConfirm}>{t('vip.index.confirmPay')}</Button>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* 弹窗5: 开通成功 */}
-      {showSuccess && (
+      {showSuccess ? (
         <View className="pp-mask">
           <View className="pp-card">
             <View className="pp-success-icon">✓</View>
@@ -357,7 +385,7 @@ export default function VipIndexPage() {
             <Button className="pp-btn" onClick={onSuccessViewBenefits}>{t('vip.index.viewBenefits')}</Button>
           </View>
         </View>
-      )}
+      ) : null}
     </View>
   )
 }
