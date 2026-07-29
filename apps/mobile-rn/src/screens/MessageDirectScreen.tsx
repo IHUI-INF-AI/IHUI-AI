@@ -1,25 +1,17 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { MessageDirectScreen as SharedMessageDirectScreen, type MessageDirectItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Loading } from '@ihui/ui-native'
-import type { LetterMember } from '@ihui/types'
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Item extends Pick<LetterMember, 'memberId' | 'nickname'> {
-  lastMessage: string
-  lastMessageTime: string
-  unreadCount: number
-}
 
 export function MessageDirectScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<Nav>()
-  const [items, setItems] = useState<Item[]>([])
+  const [items, setItems] = useState<MessageDirectItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -27,60 +19,34 @@ export function MessageDirectScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<Item[]>('/message/direct')
+      const res = await fetchApi<MessageDirectItem[]>('/message/direct')
       if (!res.success) throw new Error()
       setItems(res.data ?? [])
-    } catch { setError(t('messageDirect.loadFailed')) } finally { setLoading(false); setRefreshing(false) }
+    } catch {
+      setError(t('messageDirect.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [t])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   return (
-    <View style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={s.title}>{t('messageDirect.title')}</Text>
-      </View>
-      {error ? <Text style={s.error}>{error}</Text> : null}
-      {loading && items.length === 0 ? (
-        <View style={s.center}><Loading /><Text style={s.muted}>{t('common.loading')}</Text></View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(i) => i.memberId}
-          contentContainerStyle={{ padding: 16 }}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
-          ListEmptyComponent={<View style={s.center}><Text style={s.muted}>{t('messageDirect.empty')}</Text></View>}
-          renderItem={({ item }) => (
-            <View style={s.card}>
-              <View style={s.titleRow}>
-                <Text style={s.cardTitle} numberOfLines={1}>{t('messageDirect.from')}: {item.nickname}</Text>
-                {item.unreadCount > 0 ? <View style={s.badge}><Text style={s.badgeText}>{item.unreadCount}</Text></View> : null}
-              </View>
-              <Text style={s.cardPreview} numberOfLines={2}>{item.lastMessage}</Text>
-              <Text style={s.cardTime}>{item.lastMessageTime}</Text>
-            </View>
-          )}
-        />
-      )}
-    </View>
+    <SharedMessageDirectScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onPressItem={(item) => navigation.navigate('MessageDetail', { id: item.memberId })}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  back: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  error: { paddingHorizontal: 16, fontSize: 12, color: tokens.danger.DEFAULT },
-  center: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-  badge: { minWidth: 18, height: 18, paddingHorizontal: 6, borderRadius: 9, backgroundColor: tokens.danger.DEFAULT, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  badgeText: { color: tokens.surface.light, fontSize: 10, fontWeight: '600' },
-  cardPreview: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
-  cardTime: { marginTop: 4, fontSize: 11, color: tokens.text.tertiary },
-})
