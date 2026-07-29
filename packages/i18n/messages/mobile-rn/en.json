@@ -87,7 +87,21 @@
     "runtimeSend": "Send"
   },
   "chat": {
-    "voice": "Voice"
+    "voice": "Voice",
+    "title": "IHUI AI",
+    "modelLabel": "Model",
+    "selectModel": "Select Model",
+    "thinking": "Thinking...",
+    "inputPlaceholder": "Type a message...",
+    "stop": "Stop",
+    "send": "Send",
+    "navAgent": "Agents",
+    "navWallet": "Wallet",
+    "navCourse": "Courses",
+    "navOrder": "Orders",
+    "navProfile": "Me",
+    "navSettings": "Settings",
+    "navLogout": "Logout"
   },
   "settings": {
     "about": "About IHUI AI",
@@ -211,6 +225,15 @@
       "message": "Screenshot generated",
       "shareBtn": "Share"
     }
+  },
+  "developer": {
+    "title": "Developer Portal",
+    "becomeDeveloper": "Become a Developer",
+    "subtitle": "Publish agents and earn revenue",
+    "selectService": "Select a service plan",
+    "processing": "Processing...",
+    "openNow": "Activate Now",
+    "agreementHint": "By activating, you agree to the Developer Service Agreement"
   },
   "devEnter": {
     "error": {
