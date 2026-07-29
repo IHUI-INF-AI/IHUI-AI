@@ -41,7 +41,9 @@ winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase
 
 [profile.release]
 panic = "abort"
-# 2026-07-25: Windows rustc panic in ar_archive_writer with codegen-units=1 + lto
-# Relax to defaults to avoid compiler ICE (internal compiler error)
+# 2026-07-25: Windows rustc panic in ar_archive_writer with codegen-units=1 + lto(fat)
+# 2026-07-29: 试 lto = "thin"(不跨 module 内联,不触发 ar_archive_writer ICE)
+#   预计包体降 15-20%。如再触发 ICE 回滚到无 lto 配置(opt-level="s" + strip)。
+lto = "thin"
 opt-level = "s"
 strip = true

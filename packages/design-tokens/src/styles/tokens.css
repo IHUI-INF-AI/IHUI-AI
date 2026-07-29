@@ -125,6 +125,22 @@
   --color-notification-bg: #fff8e1;
   --color-notification-text: #7c5e1e;
 
+  /* ============ 原项目 zhs_app-ZZ 主品牌青色系(2026-07-29 立,miniapp-taro 样式对齐 P0 阻塞项) ============
+   * 源: D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue 原项目主品牌色 #93d2f3 系列(87 颜色映射表中 49 需新增之一)
+   * 用途: 小程序端样式对齐原项目,按钮/图标/选中态/背景/禁用态/渐变
+   * 暗色覆盖见下方 .dark 块 */
+  --color-brand-cyan: #93d2f3;
+  --color-brand-cyan-light: #b3e5fc;
+  --color-brand-cyan-active: #4baae0;
+  --color-brand-cyan-bg: #ade0f0;
+  --color-brand-cyan-disabled: #bef7fc;
+  --color-brand-cyan-teal: #9bd1d1;
+  --color-brand-cyan-pale: #81d8e5;
+  --color-brand-cyan-opacity-10: rgba(0, 242, 255, 0.1);
+  --color-brand-cyan-opacity-30: rgba(0, 242, 255, 0.3);
+  --color-brand-cyan-opacity-50: rgba(0, 242, 255, 0.5);
+  --color-brand-cyan-opacity-90: rgba(147, 210, 243, 0.9);
+
   /* ============ 图表色板(2026-07-27 立,统一 web 端图表硬编码色) ============
    * 8 色主色板对应 Tailwind blue/emerald/amber/red/violet/pink/cyan/lime-500
    * 用于 SVG fill/stroke / inline style / className;ECharts option 因 canvas 不支持 CSS var(),
@@ -331,6 +347,20 @@
   --color-brand: #818cf8;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
   --color-notification-text: hsl(38 85% 70%);
+
+  /* 原项目青色系暗色覆盖(2026-07-29,提高亮度保证暗色背景可读性)
+   * bg/disabled 在暗色下用深色变体(避免浅色背景刺眼) */
+  --color-brand-cyan: #a8e0f8;
+  --color-brand-cyan-light: #c4ecfd;
+  --color-brand-cyan-active: #6fc4eb;
+  --color-brand-cyan-bg: #1f2d36;
+  --color-brand-cyan-disabled: #3a4a54;
+  --color-brand-cyan-teal: #a8dada;
+  --color-brand-cyan-pale: #9ee0ec;
+  --color-brand-cyan-opacity-10: rgba(0, 242, 255, 0.15);
+  --color-brand-cyan-opacity-30: rgba(0, 242, 255, 0.4);
+  --color-brand-cyan-opacity-50: rgba(0, 242, 255, 0.6);
+  --color-brand-cyan-opacity-90: rgba(168, 224, 248, 0.95);
 }
 
 /* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============

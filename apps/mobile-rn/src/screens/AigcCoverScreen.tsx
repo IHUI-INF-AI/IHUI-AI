@@ -47,7 +47,7 @@ export default function AigcCoverScreen() {
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const { t } = useI18n()
-  const workTitle = (route.params?.title as string) ?? t('aigcCover.workTitleDefault')
+  const workTitle = (route.params?.title as string) ?? t('aigcCover.defaultTitle')
   const [covers, setCovers] = useState<AigcCoverOption[]>([])
   const [selectedId, setSelectedId] = useState<string>('')
   const [filter, setFilter] = useState<AigcCoverFilter>('all')
@@ -69,7 +69,7 @@ export default function AigcCoverScreen() {
           setError(res.error || t('aigcCover.loadFailed'))
         }
       } catch {
-        if (!cancelled) setError(t('aigcCover.loadFailed'))
+        if (!cancelled) setError(t('aigcCover.loadFailedRetry'))
       } finally {
         if (!cancelled) setLoading(false)
       }
