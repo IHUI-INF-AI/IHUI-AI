@@ -14,6 +14,10 @@ declare module 'fastify' {
  * 敏感字段脱敏规则（响应脱敏与日志脱敏共用）。
  * - 字段名匹配大小写不敏感，子串包含即命中（如 passwordHash / refreshToken 均命中）。
  * - 默认覆盖：password / phone / idCard / bankCard / email / token / secret / apiKey
+ *
+ * P0-5m(2026-07-30):增加 SAFE_KEYS 白名单,保护 LLM usage 计量字段(prompt_tokens /
+ * completion_tokens / total_tokens)不被 "token" 子串规则误伤。这些字段是 OpenAI
+ * 兼容协议必需的计费数据,脱敏会导致 /v1/chat/completions 响应 usage 为空。
  */
 export const DEFAULT_SENSITIVE_KEYS = [
   'password',
@@ -25,6 +29,16 @@ export const DEFAULT_SENSITIVE_KEYS = [
   'secret',
   'apikey', // 2026-07-24 安全加固:补 apiKey/api_key 脱敏,防 LLM provider key 泄露
 ] as const
+
+/**
+ * 白名单:即便命中敏感规则也不脱敏(LLM usage 计量字段,调用方必需)。
+ * P0-5m(2026-07-30):prompt_tokens 等含 "token" 子串会被误伤,导致 usage 返回 ***
+ */
+export const SAFE_KEYS: ReadonlySet<string> = new Set([
+  'prompt_tokens',
+  'completion_tokens',
+  'total_tokens',
+])
 
 const MASK = '***'
 
@@ -42,9 +56,15 @@ export function buildSensitiveKeySet(extra?: readonly string[]): Set<string> {
   return new Set([...DEFAULT_SENSITIVE_KEYS, ...(extra ?? [])].map((k) => k.toLowerCase()))
 }
 
-/** 判断字段名是否命中敏感规则（包含匹配，大小写不敏感）。 */
+/**
+ * 判断字段名是否命中敏感规则（包含匹配，大小写不敏感）。
+ *
+ * P0-5m(2026-07-30):白名单优先,SAFE_KEYS 中的字段名即便命中敏感规则也不脱敏。
+ */
 export function isSensitiveKey(key: string, keys: Set<string>): boolean {
   const lower = key.toLowerCase()
+  // 白名单优先(LLM usage 计量字段)
+  if (SAFE_KEYS.has(lower)) return false
   for (const k of keys) {
     if (lower.includes(k)) return true
   }
