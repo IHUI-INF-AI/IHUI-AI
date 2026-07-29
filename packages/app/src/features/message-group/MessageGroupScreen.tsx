@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageGroupItem, MessageGroupScreenProps } from '@ihui/types'
 
@@ -113,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 16, paddingBottom: 32 },
     separator: { height: 8 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

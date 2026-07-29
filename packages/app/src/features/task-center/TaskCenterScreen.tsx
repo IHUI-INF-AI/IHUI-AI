@@ -1,18 +1,7 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  TaskCenterItem,
-  TaskCenterScreenProps,
-  TaskCenterTab,
-} from '../../types'
+import type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab } from '../../types'
 
 /** 任务中心共享屏 — props 注入式跨端组件 */
 export type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab }
@@ -99,9 +88,7 @@ export function TaskCenterScreen({
         ) : (
           filtered.map((task) => {
             const progressPct =
-              task.target > 0
-                ? Math.min(100, Math.round((task.progress / task.target) * 100))
-                : 0
+              task.target > 0 ? Math.min(100, Math.round((task.progress / task.target) * 100)) : 0
             return (
               <View key={task.id} style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -115,9 +102,7 @@ export function TaskCenterScreen({
                 <Text style={styles.taskDesc}>{task.description}</Text>
                 <View style={styles.progressRow}>
                   <View style={styles.progressBarBg}>
-                    <View
-                      style={[styles.progressBarFill, { width: `${progressPct}%` }]}
-                    />
+                    <View style={[styles.progressBarFill, { width: `${progressPct}%` }]} />
                   </View>
                   <Text style={styles.progressText}>
                     {t('taskCenter.progress', {
@@ -128,9 +113,7 @@ export function TaskCenterScreen({
                 </View>
                 {task.claimed ? (
                   <View style={[styles.actionBtn, styles.claimedBtn]}>
-                    <Text style={styles.claimedBtnText}>
-                      {t('taskCenter.claimed')}
-                    </Text>
+                    <Text style={styles.claimedBtnText}>{t('taskCenter.claimed')}</Text>
                   </View>
                 ) : task.completed ? (
                   <TouchableOpacity
@@ -140,9 +123,7 @@ export function TaskCenterScreen({
                     hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                   >
                     <Text style={styles.actionBtnText}>
-                      {claimingId === task.id
-                        ? t('common.loading')
-                        : t('taskCenter.claim')}
+                      {claimingId === task.id ? t('common.loading') : t('taskCenter.claim')}
                     </Text>
                   </TouchableOpacity>
                 ) : (
@@ -151,9 +132,7 @@ export function TaskCenterScreen({
                     onPress={() => onAction(task)}
                     hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                   >
-                    <Text style={styles.actionBtnText}>
-                      {t('taskCenter.goToDo')}
-                    </Text>
+                    <Text style={styles.actionBtnText}>{t('taskCenter.goToDo')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -200,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
     retryText: { fontSize: 12, color: tk.success.DEFAULT },
     list: { padding: 16, paddingBottom: 32 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

@@ -1,11 +1,7 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  RealNameAuthStatus,
-  RealNameAuthItem,
-  RealNameAuthScreenProps,
-} from '../../types'
+import type { RealNameAuthStatus, RealNameAuthItem, RealNameAuthScreenProps } from '../../types'
 
 /** 实名认证共享屏 — props 注入式跨端组件 */
 export type { RealNameAuthStatus, RealNameAuthItem, RealNameAuthScreenProps }
@@ -64,9 +60,7 @@ export function RealNameAuthScreen({
       <View style={styles.body}>
         <View style={styles.card}>
           <Text style={styles.statusLabel}>{t('realNameAuth.status')}</Text>
-          <Text
-            style={[styles.statusValue, currentStatus === 'verified' && styles.statusVerified]}
-          >
+          <Text style={[styles.statusValue, currentStatus === 'verified' && styles.statusVerified]}>
             {t(REAL_NAME_STATUS_KEYS[currentStatus])}
           </Text>
           {currentStatus === 'verified' ? (
@@ -126,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     body: { padding: 16 },
     card: {
-      padding: 12,
+      padding: 16,
       marginBottom: 12,
       borderRadius: 8,
       backgroundColor: tk.surface.light,

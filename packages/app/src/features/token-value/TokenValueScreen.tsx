@@ -170,9 +170,7 @@ export function TokenValueScreen({
               ]}
             >
               <Text style={styles.recordIconText}>
-                {item.type === 'recharge'
-                  ? t('tokenValue.tab.recharge')
-                  : t('tokenValue.tab.cost')}
+                {item.type === 'recharge' ? t('tokenValue.tab.recharge') : t('tokenValue.tab.cost')}
               </Text>
             </View>
             <View style={styles.recordMain}>
@@ -181,7 +179,9 @@ export function TokenValueScreen({
               </Text>
               <Text style={styles.recordTime}>{item.time}</Text>
             </View>
-            <Text style={[styles.recordAmount, item.amount > 0 ? styles.amountGreen : styles.amountRed]}>
+            <Text
+              style={[styles.recordAmount, item.amount > 0 ? styles.amountGreen : styles.amountRed]}
+            >
               {item.amount > 0 ? '+' : ''}
               {formatToken(item.amount)}
             </Text>
@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
     pkgScroll: { gap: 10, paddingVertical: 4 },
     pkgCard: {
       width: 130,
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1.5,
       borderColor: tk.border.light,
@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
     recordItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: tk.border.light,
