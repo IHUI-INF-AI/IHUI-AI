@@ -14,7 +14,10 @@ import { linking } from './src/navigation/linking'
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
   return (
-    <NavigationContainer linking={linking} theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <NavigationContainer
+      linking={linking}
+      theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}
+    >
       <RootNavigator />
     </NavigationContainer>
   )

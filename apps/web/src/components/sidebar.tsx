@@ -91,6 +91,7 @@ import {
   Network,
   Database,
   Activity,
+  Zap,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -313,6 +314,10 @@ const DEVELOPER_ITEMS: NavItem[] = [
   { href: '/developer', labelKey: 'developer', icon: Terminal },
   { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
   { href: '/developer/keys', labelKey: 'developerKeys', icon: Key },
+  // P0-5 模型 API 中转站(2026-07-29 立)
+  { href: '/developer/relay', labelKey: 'developerRelay', icon: Zap },
+  { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
+  { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
   { href: '/developer/webhooks', labelKey: 'developerWebhooks', icon: Webhook },
   { href: '/developer/sandbox', labelKey: 'developerSandbox', icon: FlaskConical },
   { href: '/developer/limits', labelKey: 'developerLimits', icon: Gauge },

@@ -1356,5 +1356,100 @@
         "message": "{tokens}トークンをチャージしました"
       }
     }
+  },
+  "agentStat": {
+    "title": "Agent 統計",
+    "loadFailed": "統計の読み込みに失敗",
+    "conversations": "会話数",
+    "messages": "メッセージ数",
+    "tokens": "トークン消費",
+    "avgRating": "平均評価"
+  },
+  "agentSetting": {
+    "title": "Agent 設定",
+    "loadFailed": "設定の読み込みに失敗",
+    "name": "名前",
+    "model": "モデル",
+    "temperature": "温度",
+    "enabled": "有効",
+    "saved": "保存しました",
+    "save": "保存"
+  },
+  "agentCreate": {
+    "title": "Agent 作成",
+    "nameRequired": "名前を入力してください",
+    "saveFailed": "作成に失敗",
+    "name": "名前",
+    "namePlaceholder": "名前を入力",
+    "category": "カテゴリー",
+    "categoryPlaceholder": "カテゴリーを入力(デフォルト general)",
+    "description": "説明",
+    "descPlaceholder": "説明を入力",
+    "systemPrompt": "システムプロンプト",
+    "promptPlaceholder": "システムプロンプトを入力",
+    "isPublic": "公開",
+    "public": "公開",
+    "private": "非公開",
+    "submit": "送信"
+  },
+  "agentChat": {
+    "loadFailed": "メッセージの読み込みに失敗",
+    "sendFailed": "送信に失敗",
+    "empty": "メッセージなし",
+    "placeholder": "メッセージを入力",
+    "send": "送信"
+  },
+  "courseScreen": {
+    "title": "コース",
+    "searchPlaceholder": "コースを検索",
+    "loadFailed": "コースの読み込みに失敗しました",
+    "empty": "コースがありません",
+    "free": "無料",
+    "studentCount": "{{count}}人が学習済み",
+    "nextPage": "次へ"
+  },
+  "courseDetail": {
+    "loadFailed": "コースの読み込みに失敗しました",
+    "instructor": "講師",
+    "rating": "評価",
+    "free": "無料",
+    "studentCount": "{{count}}人が学習済み",
+    "enrolled": "受講済み",
+    "enroll": "今すぐ受講",
+    "pay": "¥{{amount}}を支払う",
+    "lessons": "レッスン",
+    "completed": "完了"
+  },
+  "courseFilter": {
+    "title": "コース絞り込み",
+    "subtitle": "カテゴリー、難易度、価格で絞り込み",
+    "category": "カテゴリー",
+    "level": "難易度",
+    "priceRange": "価格",
+    "reset": "リセット",
+    "apply": "適用",
+    "retry": "再試行",
+    "loadFailed": "コースの読み込みに失敗しました",
+    "empty": "コースがありません",
+    "instructor": "講師",
+    "level_label": "難易度",
+    "free": "無料",
+    "cat_all": "すべて",
+    "cat_tech": "技術",
+    "cat_design": "デザイン",
+    "cat_business": "ビジネス",
+    "cat_language": "語学",
+    "level_all": "すべて",
+    "level_beginner": "初級",
+    "level_intermediate": "中級",
+    "level_advanced": "上級",
+    "price_all": "すべて",
+    "price_free": "無料",
+    "price_paid": "有料"
+  },
+  "courseComment": {
+    "title": "コースレビュー",
+    "loadFailed": "レビューの読み込みに失敗しました",
+    "empty": "レビューがありません"
   }
 }
