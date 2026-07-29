@@ -103,7 +103,7 @@ function createStyles(tk: AppThemeTokens) {
     logoText: { fontSize: 18, fontWeight: '700', color: tk.surface.light },
     appName: { marginTop: 12, fontSize: 16, fontWeight: '600', color: tk.text.primary },
     appTagline: { marginTop: 4, fontSize: 12, color: tk.text.secondary, textAlign: 'center' },
-    infoCard: { padding: 12, borderRadius: 8, backgroundColor: tk.surface.muted },
+    infoCard: { padding: 16, borderRadius: 8, backgroundColor: tk.surface.muted },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
