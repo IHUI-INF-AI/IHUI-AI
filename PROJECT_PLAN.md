@@ -1086,6 +1086,37 @@ Git 同步证据(§20 硬定义 5 条全绿,2 个 commit):
 
 ---
 
+## Phase 22 Trae Work 深度对标 v3 — i18n 化 + 筛选 + hover tooltip + 记忆 + a11y(2026-07-29,3 subagent 并行,73 test case)
+
+### [x] ✅(2026-07-29) Phase 22 完整收尾(3 subagent 并行,73 新单测,3 commit)
+
+用户要求:"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。基于 Phase 21 交付建议(映射层 i18n 化)+ Phase 20 探索清单未实现项,3 subagent 文件不冲突最大化并行。
+
+- [x] **Subagent 1:Timeline i18n 化 + 事件快捷筛选**(commit `ef704bf84e`,22 test):映射层 meta 新增 i18nKey + i18nParams(4 phase 映射:thinking/tool_call/tool_result±ok/output_ready);timeline-event.tsx 用 `extractI18nMeta` 类型守卫 + `translateWithFallback` try/catch fallback;timeline-store 新增 filterType(all/plan/subagent/tool/thinking)+ filteredEvents getter;timeline-tab.tsx 5 个筛选按钮(data-active + aria-pressed);i18n 5 语言 5 key 带 ICU 占位符
+- [x] **Subagent 2:ResourceBudget hover tooltip + Thinking 折叠全局记忆**(commit `9bc86d4498`,33 test):block variant 进度条 `group/budget` hover 显示 tooltip(pointer-events-none + role=tooltip + rounded-md + Intl.NumberFormat 格式化大数字);thinking-section.tsx localStorage 持久化(ihui:thinking-expanded key,SSR 安全 useEffect 读取,try-catch 隐私模式兜底,受控/非受控模式兼容)
+- [x] **Subagent 3:HoverPreviewCard Esc 关闭 + 焦点陷阱**(commit `a6d62b48bd`,18 test):Esc 关闭(preventDefault + stopPropagation,只在 visible 时监听);焦点陷阱(Tab/Shift+Tab 在 FOCUSABLE_SELECTOR 元素间循环,自动聚焦首个元素,role=dialog + aria-modal=false + aria-label + tabIndex=-1)
+- [x] **类型零技术债**:全程无 any,extractI18nMeta 用类型守卫不用 as 断言,focusable 元素非空判断
+- [x] **守门全过**:typecheck exit 0;eslint exit 0;check-rounded-full exit 0;check-i18n-keys 5 语言 parity exit 0(11549 键)
+
+关键设计:
+
+- i18n 化向后兼容:映射层保留中文 description 作为 fallback,meta 中新增 i18nKey + i18nParams,渲染层优先用 t() 翻译,失败时 fallback
+- ResourceBudget tooltip 用 `group/budget` CSS group hover(无需 JS state),subtle 透明度变化(opacity-0 → group-hover:opacity-100)
+- Thinking 记忆 SSR 安全:useState 初始 false,useEffect 中读 localStorage(不在 render 阶段),避免 hydration mismatch
+- HoverPreviewCard 焦点陷阱:无可聚焦元素时聚焦卡片本身(tabIndex=-1),Tab 不被拦截
+
+Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
+
+- `9bc86d4498` feat(web): Phase 22 ResourceBudget hover tooltip + Thinking localStorage memory
+- `a6d62b48bd` feat(web): Phase 22 HoverPreviewCard Esc 关闭 + 焦点陷阱 a11y
+- `ef704bf84e` feat(web): Phase 22 Timeline i18n 化 + 事件快捷筛选(type 过滤)
+- local HEAD == origin HEAD: `ef704bf84e` ✅
+- `node scripts/git-push-guard.mjs` exit 0 ✅
+
+影响文件统计:3 commit / 4 新测试文件 73 test / 修改 6 源码 + 5 i18n × 3 commit;i18n 化 4 phase 映射 / filterType 5 种 / hover tooltip 1 个 / localStorage 1 key / Esc + 焦点陷阱 1 套 a11y。
+
+---
+
 ## P3 极限目标:全端共享率最大化(2026-07-29 立,/goal 模式,目标 2.9x → ≤1.7x)
 
 > **触发**:用户要求"真维护倍数降至最低极限为止"。
