@@ -300,5 +300,17 @@
         "message": "已到账 {{tokens}} Token"
       }
     }
+  },
+  "messageInput": {
+    "placeholder": "请输入内容...",
+    "send": "发送",
+    "stop": "停止",
+    "fullscreenBack": "收起",
+    "fullscreenHint": "全屏编辑模式",
+    "recording": "松开发送,上滑取消",
+    "voiceHint": "长按说话",
+    "document": "文档",
+    "video": "视频",
+    "addFile": "添加附件"
   }
 }

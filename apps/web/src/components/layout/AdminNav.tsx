@@ -86,6 +86,7 @@ import {
   Settings,
   ChevronDown,
   Layers,
+  Zap,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -218,6 +219,11 @@ interface AdminNavItem {
     | 'saasMetrics'
     | 'pluginsStats'
     | 'aiCost'
+    | 'adminRelayOverview'
+    | 'adminRelayModels'
+    | 'adminRelayKeyPool'
+    | 'adminRelayDiscovery'
+    | 'adminRelayLogs'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -785,6 +791,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: SlidersHorizontal,
         dynamicLabel: 'LLM Config',
       },
+      // P0-5 模型 API 中转站(2026-07-29 立,5 个入口)
+      { href: '/admin/relay', labelKey: 'adminRelayOverview', icon: Zap },
+      { href: '/admin/relay/models', labelKey: 'adminRelayModels', icon: Package },
+      { href: '/admin/relay/key-pool', labelKey: 'adminRelayKeyPool', icon: KeyRound },
+      { href: '/admin/relay/discovery', labelKey: 'adminRelayDiscovery', icon: Activity },
+      { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
     ],
   },
   // 营销直播
@@ -1208,6 +1220,11 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   saasMetrics: 'nav.saasMetrics',
   pluginsStats: 'nav.pluginsStats',
   aiCost: 'nav.aiCost',
+  adminRelayOverview: 'nav.adminRelayOverview',
+  adminRelayModels: 'nav.adminRelayModels',
+  adminRelayKeyPool: 'nav.adminRelayKeyPool',
+  adminRelayDiscovery: 'nav.adminRelayDiscovery',
+  adminRelayLogs: 'nav.adminRelayLogs',
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */
