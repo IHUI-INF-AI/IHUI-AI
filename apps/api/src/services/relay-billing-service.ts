@@ -178,6 +178,23 @@ export async function checkQuota(
 // =============================================================================
 
 /**
+ * 去 LiteLLM 自定义前缀(stepfun/agnes),返回 DB 中存储的原始 model_id。
+ * 用于 calculateCost 查 ai_model_config_models.modelId 时去前缀。
+ *
+ * 注意:仅去除 stepfun/agnes 两个自定义前缀,保留 openai/ 等 LiteLLM 原生前缀。
+ */
+function stripLiteLLMPrefix(model: string): string {
+  const slashIdx = model.indexOf('/')
+  if (slashIdx > 0) {
+    const prefix = model.slice(0, slashIdx)
+    if (prefix === 'stepfun' || prefix === 'agnes') {
+      return model.slice(slashIdx + 1)
+    }
+  }
+  return model
+}
+
+/**
  * 计算单次调用成本(分)。
  *
  * 查找顺序:
@@ -192,6 +209,10 @@ export async function calculateCost(
   promptTokens: number,
   completionTokens: number,
 ): Promise<CalculateCostResult> {
+  // P0-5 修复(2026-07-30):去 LiteLLM 前缀(stepfun/agnes)再查 DB,
+  // 因为 DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名。
+  const dbModelId = stripLiteLLMPrefix(model)
+
   // 1. 查 aiModelConfigModels 获取中转站倍率 + 兜底定价
   const [modelRow] = await dbRead
     .select({
@@ -202,7 +223,7 @@ export async function calculateCost(
       isRelayPublic: aiModelConfigModels.isRelayPublic,
     })
     .from(aiModelConfigModels)
-    .where(eq(aiModelConfigModels.modelId, model))
+    .where(eq(aiModelConfigModels.modelId, dbModelId))
     .limit(1)
 
   // 2. 查 aiPricing 获取全局定价(优先)
@@ -214,7 +235,7 @@ export async function calculateCost(
     .from(aiPricing)
     .where(
       and(
-        eq(aiPricing.modelId, model),
+        eq(aiPricing.modelId, dbModelId),
         sql`${aiPricing.effectiveAt} <= now()`,
         sql`(${aiPricing.expiresAt} IS NULL OR ${aiPricing.expiresAt} > now())`,
       ),
