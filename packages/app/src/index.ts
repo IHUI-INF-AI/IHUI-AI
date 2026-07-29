@@ -116,6 +116,15 @@ export { PostCreateScreen } from './features/post-create/PostCreateScreen'
 export { QrCodeScreen } from './features/qr-code/QrCodeScreen'
 export { RealNameAuthScreen } from './features/real-name-auth/RealNameAuthScreen'
 export { SecuritySettingsScreen } from './features/security-settings/SecuritySettingsScreen'
+/** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
+export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
+export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
+export { AgentCreateScreen } from './features/agent-create/AgentCreateScreen'
+export { AgentChatScreen } from './features/agent-chat/AgentChatScreen'
+export { CourseScreen } from './features/course-screen/CourseScreen'
+export { CourseFilterScreen } from './features/course-filter/CourseFilterScreen'
+export { CourseDetailScreen } from './features/course-detail/CourseDetailScreen'
+export { CourseCommentScreen } from './features/course-comment/CourseCommentScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -403,4 +412,21 @@ export type {
   RealNameAuthScreenProps,
   SecuritySettingsItem,
   SecuritySettingsScreenProps,
+  /** 批次 23(2026-07-29):Agent 系深屏 + 课程系深屏 */
+  AgentStatData,
+  AgentStatScreenProps,
+  AgentSettingData,
+  AgentSettingScreenProps,
+  AgentCreateScreenProps,
+  AgentChatMessage,
+  AgentChatScreenProps,
+  CourseScreenItem,
+  CourseScreenProps,
+  CourseDetailItem,
+  CourseDetailLesson,
+  CourseDetailScreenProps,
+  CourseFilterItem,
+  CourseFilterScreenProps,
+  CourseCommentItem,
+  CourseCommentScreenProps,
 } from './types'
