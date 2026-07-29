@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { MessageDirectScreen as SharedMessageDirectScreen, type MessageDirectItem } from '@ihui/rn-app'
+import {
+  MessageDirectScreen as SharedMessageDirectScreen,
+  type MessageDirectItem,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -45,7 +48,9 @@ export function MessageDirectScreen() {
         setRefreshing(true)
         void load()
       }}
-      onPressItem={(item) => navigation.navigate('MessageDetail', { id: item.memberId })}
+      onPressItem={(item) =>
+        navigation.navigate('MessageChat', { peerId: item.memberId, name: item.nickname })
+      }
       onBack={() => navigation.goBack()}
     />
   )
