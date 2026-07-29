@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import {
@@ -292,6 +292,42 @@ interface MessageInputProps {
   modelLabel: string
 }
 
+/** WebInputCore 句柄 — 与原 textareaRef 等价(主组件通过 inputCoreRef.current 访问) */
+interface WebInputCoreHandle {
+  focus: () => void
+  setSelectionRange: (start: number, end: number) => void
+  resize: () => void
+}
+
+/** WebInputCore props(契约对齐 packages/types MessageInputProps 核心字段)
+ * 共享层 `<MessageInput>`(rn/taro)用相同 props 名,本组件是 web 端实现(react-native-web 未配置,
+ * 不能直接 import @ihui/app;详细论证见 2026-07-29 方案 A)。
+ * 职责:渲染 textarea + 字符计数 + 清除按钮 + 发送/停止按钮
+ * 不包含:slash 触发按钮、@ 文件提及、模型选择、语音输入(由主组件工具栏承担) */
+interface WebInputCoreProps {
+  text: string
+  placeholder: string
+  isStreaming: boolean
+  onTextChange: (v: string) => void
+  onSend: () => void
+  onStop: () => void
+  onClear: () => void
+  /** 错误提示(可选,空字符串/null/undefined 时不渲染) */
+  error?: string
+  /** 翻译函数(主组件已 useTranslations('chat'),传入 t 即可) */
+  t: (key: string) => string
+  /** 原生 change 事件(用于触发 slash/mention 面板) */
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  /** 原生 keydown 事件(用于 Shift+Tab 切换权限模式) */
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+  /** 原生 paste 事件(用于图片粘贴) */
+  onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
+  /** 发送按钮 tooltip(主组件传入对齐 aria-label) */
+  sendLabel?: string
+  /** 停止按钮 tooltip */
+  stopLabel?: string
+}
+
 /**
  * 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示)。
  *
@@ -334,6 +370,132 @@ function CurrentModeBadge() {
     </Tooltip>
   )
 }
+
+/** Web 端 MessageInput 实现(forwardRef,契约对齐 SharedMessageInputProps)
+ * 渲染 textarea + 字符计数 + 清除按钮 + 发送/停止按钮。
+ * 内部托管 textarea ref + 自动高度,主组件通过 forwarded ref 调用 focus/setSelectionRange/resize。 */
+const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(function WebInputCore(
+  {
+    text,
+    placeholder,
+    isStreaming,
+    onTextChange,
+    onSend,
+    onStop,
+    onClear,
+    error,
+    t,
+    onChange,
+    onKeyDown,
+    onPaste,
+    sendLabel,
+    stopLabel,
+  },
+  ref,
+) {
+  const innerRef = React.useRef<HTMLTextAreaElement>(null)
+  const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
+    threeLinePx: MIN_HEIGHT_PX,
+    maxHeightPx: MAX_HEIGHT_PX,
+  })
+  React.useImperativeHandle(
+    ref,
+    (): WebInputCoreHandle => ({
+      focus: () => innerRef.current?.focus(),
+      setSelectionRange: (s, e) => innerRef.current?.setSelectionRange(s, e),
+      resize,
+    }),
+    [resize],
+  )
+  const canSend = !isStreaming && text.trim().length > 0
+  const canClear = !isStreaming && text.length > 0
+  return (
+    <div className="relative px-3 pt-2 pb-2">
+      <textarea
+        ref={innerRef}
+        value={text}
+        onChange={(e) => {
+          const v = e.target.value.slice(0, MAX_LENGTH)
+          onTextChange(v)
+          onChange?.(e)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault()
+            onSend()
+          } else {
+            onKeyDown?.(e)
+          }
+        }}
+        onPaste={onPaste}
+        placeholder={placeholder}
+        rows={3}
+        aria-label={placeholder}
+        style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
+        className={cn(
+          'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
+          'placeholder:text-muted-foreground/70',
+          'pb-7',
+        )}
+      />
+      <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-between">
+        <span
+          aria-live="polite"
+          className={cn(
+            'text-[10px] tabular-nums text-muted-foreground/60',
+            text.length >= MAX_LENGTH && 'text-destructive',
+          )}
+        >
+          {text.length}/{MAX_LENGTH}
+        </span>
+        <div className="pointer-events-auto flex items-center gap-1">
+          {canClear && (
+            <Tooltip content={t('clear')}>
+              <button
+                type="button"
+                aria-label={t('clear')}
+                onClick={onClear}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+              >
+                ×
+              </button>
+            </Tooltip>
+          )}
+          {isStreaming ? (
+            <Tooltip content={stopLabel ?? t('stop')}>
+              <button
+                type="button"
+                onClick={onStop}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                aria-label={stopLabel ?? t('stop')}
+              >
+                <Square className="h-3.5 w-3.5" fill="currentColor" />
+              </button>
+            </Tooltip>
+          ) : (
+            <Tooltip content={sendLabel ?? t('send')}>
+              <button
+                type="button"
+                onClick={onSend}
+                disabled={!canSend}
+                className={cn(
+                  'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                  canSend
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'cursor-not-allowed bg-muted text-muted-foreground/50',
+                )}
+                aria-label={sendLabel ?? t('send')}
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+    </div>
+  )
+})
 
 export function MessageInput({
   onSend,
@@ -425,10 +587,8 @@ export function MessageInput({
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
   const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
-  const { ref: textareaRef, resize } = useTextareaAutoHeight<HTMLTextAreaElement>(value, {
-    threeLinePx: MIN_HEIGHT_PX,
-    maxHeightPx: MAX_HEIGHT_PX,
-  })
+  // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
+  const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
@@ -452,9 +612,9 @@ export function MessageInput({
     if (draftInput) {
       setValue(draftInput)
       clearDraftInput()
-      requestAnimationFrame(() => textareaRef.current?.focus())
+      requestAnimationFrame(() => inputCoreRef.current?.focus())
     }
-  }, [draftInput, clearDraftInput, textareaRef])
+  }, [draftInput, clearDraftInput])
 
   // 首次打开 @ 提及面板时拉取最近文件列表;失败静默(留空数组,Popover 显示"无匹配文件")
   React.useEffect(() => {
@@ -814,20 +974,17 @@ export function MessageInput({
     setValue((prev) => prev.replace(/@$/, `\`${file.path}\` `).slice(0, MAX_LENGTH))
     setMentionOpen(false)
     requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-      resize()
+      inputCoreRef.current?.focus()
+      inputCoreRef.current?.resize()
     })
   }
 
   const fillInput = (text: string) => {
     setValue(text)
     requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-      const el = textareaRef.current
-      if (el) {
-        el.setSelectionRange(text.length, text.length)
-        resize()
-      }
+      inputCoreRef.current?.focus()
+      inputCoreRef.current?.setSelectionRange(text.length, text.length)
+      inputCoreRef.current?.resize()
     })
   }
 
@@ -868,7 +1025,7 @@ export function MessageInput({
       }
       // 清空当前 textarea 内容再发送,避免与已有内容拼接
       setValue('')
-      requestAnimationFrame(resize)
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
       void onSend(`/${id.replace('-', ' ')}`)
       return
     }
@@ -899,7 +1056,7 @@ export function MessageInput({
       const merged = prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`
       return merged.slice(0, MAX_LENGTH)
     })
-    requestAnimationFrame(resize)
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
   const addTextReference = () => {
@@ -913,7 +1070,7 @@ export function MessageInput({
     }
     setReferences((prev) => [...prev, ref])
     setValue('')
-    requestAnimationFrame(resize)
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
   const addFileReference = (file: File) => {
@@ -962,7 +1119,7 @@ export function MessageInput({
     e.preventDefault()
     setIsDragOver(false)
     Array.from(e.dataTransfer.files).forEach(addFileReference)
-    requestAnimationFrame(() => textareaRef.current?.focus())
+    requestAnimationFrame(() => inputCoreRef.current?.focus())
   }
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1072,7 +1229,7 @@ export function MessageInput({
     setValue('')
     if (typeof window !== 'undefined') localStorage.removeItem(DRAFT_KEY)
     setReferences([])
-    requestAnimationFrame(resize)
+    requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1091,25 +1248,10 @@ export function MessageInput({
     }
   }
 
-  const canSend = value.trim().length > 0 && !isStreaming
-  const count = value.length
-  // #18 流式中输入框保持可输入(2026-07-25 立):
-  // 流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
-  // 发送按钮仍由 !isStreaming 守门(流式中显示 Stop 按钮),Enter 提交由 submit() 内 isStreaming 检查兜底,不会误发。
-  // 2026-07-25 修复:占位符从硬编码中文改走 i18n chat.streamingIndicatorHint
-  // (已在 zh-CN/en/ja/ko/zh-TW 5 语言文件中齐备,末尾省略号统一加 "…" 提示持续生成)。
-  // try/catch 兜底:next-intl 缺失 key 时返回带 namespace 前缀的路径(非空字符串),
-  // 这里额外检查路径后缀避免误用,fallback 字符串保证 placeholder 永不为 undefined。
-  let streamingHint: string
-  try {
-    const v = t('streamingIndicatorHint')
-    streamingHint =
-      v === 'streamingIndicatorHint' || v.endsWith('.streamingIndicatorHint')
-        ? 'AI 正在生成中,可输入下一条消息草稿'
-        : v
-  } catch {
-    streamingHint = 'AI 正在生成中,可输入下一条消息草稿'
-  }
+  // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
+  // 发送按钮已移入 WebInputCore(由 !isStreaming 守门,流式中显示 Stop 按钮)。
+  // 流式占位符(2026-07-25 立,2026-07-29 简化):直接读 i18n key,5 语言文件齐备;末尾省略号统一加 "…" 提示持续生成。
+  const streamingHint = t('streamingIndicatorHint')
   const effectivePlaceholder = isStreaming ? `${streamingHint}…` : placeholder
 
   return (
@@ -1452,47 +1594,29 @@ export function MessageInput({
                 )}
               </div>
             </div>
-            {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉
-                (2026-07-28 加 relative,承载右下角字符数浮层) */}
-            <div className="relative px-3 pt-2 pb-2">
-              {/* #18 流式中不 disabled,允许用户输入下一条消息草稿;发送按钮由 !isStreaming 守门 */}
-              <textarea
-                ref={textareaRef}
-                value={value}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                placeholder={effectivePlaceholder}
-                rows={3}
-                aria-label={effectivePlaceholder}
-                style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
-                className={cn(
-                  'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
-                  'placeholder:text-muted-foreground/70',
-                  'pr-14', // 给右下角字符数浮层留位,长文本自动避开
-                )}
-              />
-              {/* 字符数(2026-07-28 从外层 hint 行迁移至输入框内右下角):
-                  - 绝对定位浮在 textarea 右下角,小字 + 半透明,默认不抢戏
-                  - 接近上限时切到 text-destructive 提示
-                  - 父容器 relative + textarea pr-14,确保最末字符也不与字符数重叠
-                  - pointer-events-none 避免遮挡用户拖选/点击 */}
-              <span
-                aria-live="polite"
-                className={cn(
-                  'pointer-events-none absolute bottom-3 right-3 text-[10px] tabular-nums text-muted-foreground/60',
-                  count >= MAX_LENGTH && 'text-destructive',
-                )}
-              >
-                {count}/{MAX_LENGTH}
-              </span>
-            </div>
-            {/* 底部工具栏:左侧功能按钮,右侧模型/语音/发送(挨着)
-                提示词模板按钮已上移至附加栏(与添加引用并列),此处不再保留
+            {/* 共享层 WebInputCore(textarea + 字符计数 + 清除 + 发送/停止),契约对齐 packages/types MessageInputProps */}
+            <WebInputCore
+              ref={inputCoreRef}
+              text={value}
+              placeholder={effectivePlaceholder}
+              isStreaming={isStreaming}
+              onTextChange={setValue}
+              onSend={submit}
+              onStop={onStop}
+              onClear={() => setValue('')}
+              t={t}
+              sendLabel={sendLabel}
+              stopLabel={stopLabel}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+            />
+            {/* 底部工具栏:左侧 / @ 触发按钮,右侧 ContextUsageRing + ModelSelector + VoiceInput
+                + 流式指示(发送/停止按钮已上移至 WebInputCore)
                 ai-input-toolbar + globals.css 原生 CSS container query:
                 面板宽度 320-720px(默认 400px),容器内容宽 288-688px;
                 容器 <= 359px(面板 <= 391px)时隐藏 ModelSelector 文字 + 徽章只显示图标,
-                防止左侧 3 按钮 + ModelSelector + VoiceInput + Send 总宽超过容器右边界。
+                防止左侧 2 按钮 + ModelSelector + VoiceInput 总宽超过容器右边界。
                 用原生 CSS 不依赖 Tailwind v4 container variant 编译(实测 Tailwind v4
                 仅编译 .@container 类不编译 @sm: 断点规则)。 */}
             <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
@@ -1527,18 +1651,16 @@ export function MessageInput({
                   type="button"
                   onClick={() => {
                     if (isStreaming) return
-                    const el = textareaRef.current
-                    if (!el) return
                     const next = (
                       value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
                     ).slice(0, MAX_LENGTH)
                     setValue(next)
                     setMentionOpen(true)
                     requestAnimationFrame(() => {
-                      el.focus()
+                      inputCoreRef.current?.focus()
                       const pos = next.length
-                      el.setSelectionRange(pos, pos)
-                      resize()
+                      inputCoreRef.current?.setSelectionRange(pos, pos)
+                      inputCoreRef.current?.resize()
                     })
                   }}
                   disabled={isStreaming}
@@ -1570,62 +1692,28 @@ export function MessageInput({
                   disabled={isStreaming}
                   label={modelLabel}
                 />
-                {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
+                {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键(发送键已移入 WebInputCore) */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
                 {isStreaming ? (
-                  <>
-                    {/* 流式生成状态指示(2026-07-25 补回,深度对标 Cursor/ChatGPT):
-                        - 圆角矩形容器(rounded-md,避免纯圆形违反圆角守门)
-                        - 左侧 1.5x1.5 脉冲点 + 右侧中文小字,紧凑不抢戏
-                        - 用 Tooltip 包裹提供详细提示,aria-live=polite 让屏幕阅读器感知
-                        - 仅 isStreaming=true 时渲染,否则零开销 */}
-                    <Tooltip content={t('streamingIndicatorHint')}>
-                      <div
-                        role="status"
-                        aria-live="polite"
-                        className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-sm bg-primary"
-                        />
-                        <span
-                          className="whitespace-nowrap text-xs font-medium text-primary"
-                          style={{ transform: 'translateY(0.7px)' }}
-                        >
-                          {t('streamingIndicator')}
-                        </span>
-                      </div>
-                    </Tooltip>
-                    <Tooltip content={stopLabel}>
-                      <button
-                        type="button"
-                        onClick={onStop}
-                        aria-label={stopLabel}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90"
-                      >
-                        <Square className="h-4 w-4" fill="currentColor" />
-                      </button>
-                    </Tooltip>
-                  </>
-                ) : (
-                  <Tooltip content={sendLabel}>
-                    <button
-                      type="button"
-                      onClick={submit}
-                      disabled={!canSend}
-                      aria-label={sendLabel}
-                      className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                        canSend
-                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                          : 'cursor-not-allowed bg-muted text-muted-foreground/50',
-                      )}
+                  <Tooltip content={t('streamingIndicatorHint')}>
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2"
                     >
-                      <Send className="h-4 w-4" />
-                    </button>
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-sm bg-primary"
+                      />
+                      <span
+                        className="whitespace-nowrap text-xs font-medium text-primary"
+                        style={{ transform: 'translateY(0.7px)' }}
+                      >
+                        {t('streamingIndicator')}
+                      </span>
+                    </div>
                   </Tooltip>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
