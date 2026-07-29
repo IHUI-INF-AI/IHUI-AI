@@ -10107,105 +10107,97 @@
     "features": {
       "title": "8 大核心能力 · 全栈覆盖",
       "titleEn": "POWERFUL FEATURES",
-      "subtitle": "8 端全覆盖的企业级 AI 平台 · 100+ 大模型 · 自研 CLI · 工业级工程严谨 · 让决策者一站式拿到所有 AI 能力",
+      "subtitle": "8 端全覆盖 · 100+ 大模型 · 自研 CLI · 工业级工程严谨",
       "modelIntegration": {
-        "title": "8 端全覆盖架构",
-        "description": "Web/桌面/移动/小程序/CLI/扩展 6 端 + API/AI-Service 2 端,覆盖范围较广的全栈,统一账号无缝切换",
-        "benefit": "省 8 倍重复购买成本 · 1 个账号通用 8 端 · 数据零迁移"
+        "title": "8 端全覆盖",
+        "benefit": "1 账号通用 8 端 · 省 8 倍重复购买"
       },
       "appStore": {
-        "title": "100+ LLM 大模型",
-        "description": "国际 30+ (OpenAI/Claude/Gemini/Llama) + 国产 15+ (Qwen/GLM/DeepSeek) + 云 40+ 提供商,一个 API Key 全访问",
-        "benefit": "综合省 ¥18 万/年 · 替代 Claude Pro + GPT Plus + Cursor + 多模型 API"
+        "title": "100+ LLM",
+        "benefit": "综合省 ¥18 万/年"
       },
       "contentCreation": {
-        "title": "自研 CLI 对标 Claude Code",
-        "description": "ACP Server 嵌入 Zed/VSCode/Cursor + 6 私有扩展方法(session 修复/rewind 回溯/MCP 调用) + 6 来源配置一键导入",
-        "benefit": "省 Claude Pro ¥17000/年 · 开发效率提升 10× · 6 来源配置一键导入"
+        "title": "自研 CLI",
+        "benefit": "效率提升 10× · 省 ¥17000/年"
       },
       "edu": {
-        "title": "AI 教育全栈",
-        "description": "课程/直播/考试/证书/讲师/班级 6 大模块,全年所有课程免费参加,从 AI 新工具到企业 AI 文化三阶段循序渐进",
-        "benefit": "省 ¥10 万/年培训费 · 全员 AI 化 · 三阶段循序渐进"
+        "title": "AI 教育",
+        "benefit": "省 ¥10 万/年培训费"
       },
       "navigation": {
-        "title": "企业级工作空间",
-        "description": "3 权限模式 + 7 端点运行时拦截 + 60s 超时拒绝 + RBAC 细粒度权限管控 + 99.9% SLA",
-        "benefit": "数据零泄露 · 审计全程可追溯 · 99.9% SLA 企业级零风险"
+        "title": "企业安全",
+        "benefit": "99.9% SLA · 数据零泄露"
       },
       "agentSquare": {
         "title": "智能体广场",
-        "description": "通用/行业/职能三大类智能体,覆盖客服/营销/运营/HR/财务 5+ 职能,即开即用,支持自定义",
-        "benefit": "替代 5+ 人工岗位 · 7×24 不间断 · 综合省 ¥30 万/年人力成本"
+        "benefit": "替代 5+ 人工 · 省 ¥30 万/年"
       },
       "workflow": {
-        "title": "LangGraph 工作流",
-        "description": "2 个 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一较为少见",
-        "benefit": "复杂任务自动化 · 替代 5+ SaaS 工具 · 三栈合一较为少见"
+        "title": "工作流引擎",
+        "benefit": "替代 5+ SaaS 工具"
       },
       "multimodal": {
-        "title": "多模态 AI 输入",
-        "description": "图像生成/语音合成/视频生成/文件解析/数字人 5 大模态,一个 API Key 全访问",
-        "benefit": "省 ¥5 万/年设计费 · 5 大模态全打通 · 内容生产 10× 加速"
+        "title": "多模态 AI",
+        "benefit": "5 大模态 · 省 ¥5 万/年"
       }
     },
     "advantages": {
       "title": "核心优势 · 对标行业标杆",
       "titleEn": "CORE ADVANTAGES",
-      "subtitle": "为什么选择智汇 AI · 工程严谨 · 智能降本 · 企业安全 · 三栈合一 · 多维对标 Claude Code",
+      "subtitle": "工程严谨 · 智能降本 · 企业安全 · 三栈合一",
       "professional": {
-        "title": "工程严谨 · 行业标杆",
-        "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations + 12 共享 packages,代码质量超 95% 同类项目",
-        "evidence": "证据:17 守门 > 行业平均 3 项 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% 不出错"
+        "title": "工程严谨",
+        "description": "17 项守门 · 122+ migrations · 12 packages",
+        "evidence": "代码质量超 95% 同类项目"
       },
       "efficient": {
-        "title": "智能路由 · 显著降本",
-        "description": "LiteLLM 100+ 模型智能路由(便宜模型兜底+旗舰模型关键任务)+ 60% 缓存命中降本 + LangGraph 图调度",
-        "evidence": "实测:Claude API 单次 ¥0.3 → 智能路由 ¥0.06(便宜模型兜底)→ 60% 缓存命中后 ¥0.024 = 综合省 60%"
+        "title": "智能降本",
+        "description": "100+ 模型智能路由 · 60% 缓存命中",
+        "evidence": "单次 ¥0.3 → ¥0.024 · 省 60%"
       },
       "reliable": {
-        "title": "企业级安全 · 零风险",
-        "description": "99.9% SLA + AES-256-GCM 加密 + RBAC 按钮级权限 + 5 语言 i18n parity + 不满意全额退款",
-        "evidence": "AES-256-GCM = 银行级加密 / RBAC 颗粒到按钮级 = 超金融行业 / 99.9% SLA = 全年停机 < 8.76 小时"
+        "title": "企业安全",
+        "description": "AES-256-GCM · RBAC 按钮级 · 99.9% SLA",
+        "evidence": "银行级加密 · 停机 < 8.76h/年"
       },
       "innovative": {
-        "title": "三栈合一 · 较为少见",
-        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一较为少见,在多个维度可对标 Claude Code",
-        "evidence": "覆盖 LangGraph + MCP + A2A + ACP 四协议;Cursor/Claude Code 主要支持 MCP 单栈"
+        "title": "三栈合一",
+        "description": "LangGraph + MCP + A2A + ACP 四协议",
+        "evidence": "Cursor/Claude Code 仅 MCP 单栈"
       }
     },
     "scenarios": {
       "title": "5 大决策者场景 · 痛点 → 解决 → 收益",
       "titleEn": "DECISION-MAKER SCENARIOS",
-      "subtitle": "智汇 AI 社区覆盖企业决策者最关心的 5 大场景 · 痛点共鸣 → 解决方案 → 可量化收益 · 让 AI 真正落地产生 ROI",
+      "subtitle": "痛点 → 解决 → 收益 · 让 AI 真正落地产生 ROI",
       "costReduction": {
-        "benefit": "综合省 ¥18-30 万/年 · 替代 5+ SaaS 订阅",
-        "description": "100+ 大模型智能路由 + 60% 缓存命中降本,替代 Claude Pro + GPT Plus + Cursor + 多模型 API 等多项订阅",
-        "painPoint": "AI 工具分散采购,Claude Pro + GPT Plus + Cursor + 各类 API 每年花费数万元,成本难以控制",
+        "benefit": "省 ¥18-30 万/年",
+        "description": "100+ 模型智能路由 · 替代多项订阅",
+        "painPoint": "工具分散采购 · 年费数万元",
         "title": "智能降本"
       },
       "decision": {
-        "benefit": "决策效率提升 5× · 数据驱动而非经验驱动",
-        "description": "AI 辅助数据分析与可视化,实时生成决策报告,从数据到结论全链路加速",
-        "painPoint": "决策依赖经验直觉,缺少数据支撑,报告周期长,错过最佳时机",
+        "benefit": "决策效率提升 5×",
+        "description": "AI 数据分析 · 实时决策报告",
+        "painPoint": "靠经验决策 · 缺数据支撑",
         "title": "智能决策"
       },
       "efficiency": {
-        "benefit": "开发效率提升 10× · 端到端交付周期缩短 60%",
-        "description": "自研 CLI 对标 Claude Code + LangGraph 工作流自动化 + 6 来源配置一键导入,复杂任务一键完成",
-        "painPoint": "重复性工作占用大量人力,开发效率低,代码质量参差不齐",
+        "benefit": "效率提升 10×",
+        "description": "自研 CLI + 工作流自动化",
+        "painPoint": "重复工作占人力 · 效率低",
         "title": "极速提效"
       },
       "innovation": {
-        "benefit": "三栈合一较为少见 · 覆盖 Claude Code 不具备的 A2A + ACP 协议",
-        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一构建复杂 AI 自动化",
-        "painPoint": "AI 应用开发门槛高,缺少工作流编排能力,难以实现复杂自动化场景",
+        "benefit": "三栈合一 · 对标 Claude Code",
+        "description": "LangGraph + MCP + A2A + ACP",
+        "painPoint": "开发门槛高 · 缺编排能力",
         "title": "技术创新"
       },
       "learning": {
-        "benefit": "省 ¥10 万/年培训费 · 全员 AI 化 · 三阶段循序渐进",
-        "description": "课程/直播/考试/证书/讲师/班级 6 大模块,全年课程免费参加,从 AI 新工具到企业 AI 文化三阶段",
-        "painPoint": "团队 AI 能力参差不齐,培训成本高,缺少体系化学习路径",
+        "benefit": "省 ¥10 万/年",
+        "description": "6 大模块 · 全年课程免费",
+        "painPoint": "团队能力参差 · 培训贵",
         "title": "全员学习"
       }
     },
