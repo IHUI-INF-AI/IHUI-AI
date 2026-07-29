@@ -18,6 +18,7 @@ import {
 } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useScreenshot } from '../hooks/use-screenshot'
+import { useChatInput } from '../hooks/useChatInput'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -144,6 +145,27 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
   const idCounter = useRef(0)
   const nextId = () => `${++idCounter.current}`
 
+  // MessageInput 平台能力:图片/语音/全屏/焦点/Agent 变量(集中 useChatInput 封装)
+  const {
+    inputFiles,
+    isVoiceMode,
+    isRecording,
+    isInputFullscreen,
+    isInputFocused,
+    agentVariables,
+    onInputAddImage,
+    onInputAddFile,
+    onInputRemoveFile,
+    onInputVoiceToggle,
+    onInputFullscreenToggle,
+    onInputFocus,
+    onInputBlur,
+    onInputVoiceStart,
+    onInputVoiceEnd,
+    onInputAgentVariableTextChange,
+    onInputAgentVariableImageChange,
+  } = useChatInput()
+
   useEffect(() => {
     let cancelled = false
     fetchModels()
@@ -234,6 +256,10 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     setIsStreaming(false)
   }
 
+  const handleClear = () => {
+    setInputText('')
+  }
+
   // 长按消息气泡:截图并弹出分享/保存菜单
   const messageRefs = useRef<Map<string, View | null>>(new Map())
   const { capture, busy: capturing } = useScreenshot()
@@ -292,6 +318,14 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       model={model}
       pickerOpen={pickerOpen}
       navItems={navItems}
+      // MessageInput 平台能力(由 useChatInput 注入)
+      inputFiles={inputFiles}
+      agentVariables={agentVariables}
+      isInputFocused={isInputFocused}
+      isInputFullscreen={isInputFullscreen}
+      isVoiceMode={isVoiceMode}
+      isRecording={isRecording}
+      isSending={isStreaming}
       onInputTextChange={setInputText}
       onSend={send}
       onStop={stop}
@@ -299,6 +333,18 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       onPickerOpenChange={setPickerOpen}
       onLongPressMessage={handleLongPress}
       onMessageRef={onMessageRef}
+      onInputFocus={onInputFocus}
+      onInputBlur={onInputBlur}
+      onInputFullscreenToggle={onInputFullscreenToggle}
+      onInputVoiceToggle={onInputVoiceToggle}
+      onInputAddImage={onInputAddImage}
+      onInputAddFile={onInputAddFile}
+      onInputRemoveFile={onInputRemoveFile}
+      onInputClear={handleClear}
+      onInputVoiceStart={onInputVoiceStart}
+      onInputVoiceEnd={onInputVoiceEnd}
+      onInputAgentVariableTextChange={onInputAgentVariableTextChange}
+      onInputAgentVariableImageChange={onInputAgentVariableImageChange}
     />
   )
 }
