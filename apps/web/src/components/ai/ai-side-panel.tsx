@@ -655,6 +655,9 @@ export function AISidePanel() {
       >
         <aside
           aria-label={tc('title')}
+          // Pane 默认锚点(2026-07-29 立):AgentTaskProgressPane 用这个 data-testid 找到 AI 面板容器
+          // 作为 Pane 默认位置的视口坐标系锚点,空消息时也能定位(不再依赖 message-list-inline-panel)
+          data-testid="ai-side-panel-aside"
           // AI 面板必须有独立 bg-shell-panel 背景(2026-07-21 修复):
           // 1) 卡片感:AI 面板 position: fixed 跨在 work-area 之外,无法"继承" work-area 背景,
           //    透明 aside 在 top-2/bottom-2/mr-2 间距处无背景,看到 body 底色,没有"卡片"视觉边界;
