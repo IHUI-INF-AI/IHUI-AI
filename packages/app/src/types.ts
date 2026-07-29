@@ -390,6 +390,11 @@ export type {
   ChatScreenModel,
   ChatScreenNavItem,
   ChatScreenProps,
+  /** 批次 30(2026-07-29):MessageInput 消息输入框共享组件 */
+  MessageInputFile,
+  MessageInputFileType,
+  MessageInputAgentVariable,
+  MessageInputProps,
   DeveloperPlanType,
   DeveloperPlan,
   DeveloperFeature,

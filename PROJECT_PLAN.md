@@ -19,6 +19,42 @@
 
 ---
 
+## 当前活跃任务:miniapp-taro 样式完整对齐 zhs_app-ZZ(2026-07-29 立,/goal 模式,平台独占:仅 apps/miniapp-taro)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/miniapp-taro`,不参与 web/api/ai-service 跨端契约同步。
+> /goal 运行时:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(目标结束后删除)
+> 对齐基础设施:`.trae-cn/tmp/miniapp-taro-style-align/`(page-list.md / color-map.md / workflow.md / home-spec.md)
+
+### 目标条件(五要素契约)
+将 `apps/miniapp-taro` 100+ 页面样式完整对齐历史项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue`(uni-app + Vue + SCSS),做到"一模一样":布局/颜色/间距/字号/圆角/交互视觉全对齐。验证:browser_use 截图 + DOM 验证 + typecheck/lint/build 全绿。约束:保留 design-tokens 映射原项目颜色,允许重写页面+子组件,禁止引入新依赖。20 轮耗尽输出剩余清单。
+
+### 硬性指标(H1-H10)
+- [ ] H1:tabbar 5 tab 页面对齐(首页/智汇社区/课程/直播/我的)
+- [ ] H2:高频 10 页面对齐(登录/注册/AI 对话/VIP/支付/订单/用户中心/搜索/消息)
+- [ ] H3:长尾页面按轮次推进
+- [x] ✅(2026-07-29) H4:typecheck exit 0(轮次 3 验证)
+- [x] ✅(2026-07-29) H5:lint exit 0(轮次 3 验证,0 errors)
+- [ ] H6:taro build 无 error(dev server 已编译过,待正式 build 验证)
+- [x] ✅(2026-07-29) H7:token 同步不漂移(sync-design-tokens --check exit 0)
+- [x] ✅(2026-07-29) H8:颜色映射表建立(color-map.md,87 颜色/29 字号/38 间距/31 圆角)
+- [x] ✅(2026-07-29) H9:对齐清单建立(page-list.md,159 条目)
+- [x] ✅(2026-07-29) H10:工作流模板建立(workflow.md,7 步流程 + 4 快速查询 + 验证清单)
+
+### 进度记录
+- 轮次 1:启动 + 建立 goal-runtime STATE.md + loop-run-log.md
+- 轮次 2:建立对齐基础设施(page-list.md / color-map.md / workflow.md,3 subagent 并行)
+- 轮次 3:新增青色 token 到 tokens.css(8 青色 + 4 透明度)+ 同步到 app.css + H4/H5/H7 达成
+- 轮次 4:提取首页规格书 home-spec.md(42114 字节,7 层结构 + 45 样式类 + 4 子组件 + 30 颜色映射)
+- 轮次 5+:首页重写 + 子组件重写 + 浏览器验证 + 其他页面对齐(进行中)
+
+### 关键发现
+- 原项目首页 `pages/table/aiIndex/ai_index.vue` 是 AI 对话主页(6186 行:template 182 + script 3772 + style 2229),与 miniapp-taro 现有首页(教育门户)完全不同,需整体重写
+- 原项目主品牌色 #93d2f3 青色系在 design-tokens 缺失,轮次 3 已新增 8 青色 token + 4 透明度变体解除阻塞
+- model-type-btn 选中态用 SVG 背景图(非纯色),8 个按钮统一结构可抽成 ModelTypeButton 组件
+- 159 页清单:P0 未对齐 2 项(首页+智汇社区),P1 未对齐若干,P2 长尾 144 项,无对应 74 项
+
+---
+
 ## §1 后续任务建议(2026-07-26 维护成本优化批次)
 
 > 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。
@@ -1280,13 +1316,13 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - 跨端契约: 全部类型上提到 @ihui/types 单一真相源 + packages/app re-export(批次 6 新增 AppRefundStatus 避免 admin RefundStatus 命名冲突;批次 8 新增 10 组 Item + ScreenProps 类型;批次 9 新增 8 组 Item + ScreenProps 类型;批次 10 新增 8 组 Item + ScreenProps 类型,共 16 个新类型 AgentMarketItem/AgentReviewListItem/ActivityItem/FavoritesItem/CheckInDay/CheckInInfo/LiveScreenItem/PointsMallItem 等)
   - 共享层模式: props 注入式(t/items/loading/onPressItem/onBack/colorScheme/onVerify)+ getTokens(colorScheme) 双主题 + react-native-web alias web 渲染 + 静态屏 sections 内化(Privacy/Agreement)
   - 验证: pnpm --filter @ihui/types + @ihui/rn-app + @ihui/mobile-rn typecheck 全绿(批次 6: +1524/-658 行;批次 7: +732/-344 行;批次 8: +1332/-325 行,6 mobile-rn wrapper 60-100 行→20-50 行薄 wrapper,8 subagent 并行派发;批次 9: +2094/-422 行,7 共享组件 + 7 wrapper + 5 语言 i18n 78 键;批次 10: +2460/-727 行,8 共享组件 + 8 wrapper + 5 语言 i18n 80 键,commit b9f24740c)
-- [ ] P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme(进行中:48 wrapper/153 total,独立 105,真维护倍数 1.72x,继续推进功能屏/特殊屏迁移)
+- [x] ✅(2026-07-29) P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme(完成:151 wrapper/153 total,独立 2 豁免 Debug/DevEnter,真维护倍数 1.72x,守门 scripts/check-rn-app-migration.mjs 已落地 guardian-runner 第 39 项 blocking,commit 6ba6f3064c)
 - [ ] P3-3.4 阶段 3 全端验证 — mobile-rn 独立 screen 实现 = 0 + packages/app 覆盖 ≥ 7 features + 全端全绿 + cloc 降本至 ≤ 2.0x
 
 ### 阶段 4:极限收尾(长期 2-3 月,预期 2.0x → 1.7x)
 
 - [ ] P3-4.1 Tauri 2 替代 Electron 评估 PoC — 最小功能集 PoC(shell ≤ 10MB),或附不可行性报告保留 Electron
-- [ ] P3-4.2 packages/shared 抽离所有跨端业务逻辑 — hooks / utils / types 全部下沉,各端 re-export
+- [ ] P3-4.2 packages/shared 抽离所有跨端业务逻辑 — hooks / utils / types 全部下沉,各端 re-export(进行中:批次 1-3 已完成 20 文件 ~2100 行下沉,5.43x→5.32x,commit 5ffaf02a8;批次 4 登录场景跨端共享已完成 — 新增 `useLoginForm` hook 依赖注入式设计,web/mobile-rn/miniapp-taro 三端接入消除登录逻辑冗余,commit d8d0abdcb1;批次 4 续 注册场景跨端共享已完成 — 新增 `useRegisterForm` hook 依赖注入式设计(registerApi/sendCodeApi/onRegisterSuccess),支持 account/email/phone 三类型+验证码倒计时+确认密码+协议勾选+自动登录,web(Email/Phone Register Form 接入共享类型,RHF 保留)+mobile-rn(账号注册,无验证码+确认密码+自动登录)+miniapp-taro(手机注册,验证码+协议勾选)三端接入,commit 8a61ee6364;剩余 18 文件部分可下沉 ~1590 行 + web 端共享组件化改造待后续批次)
 - [ ] P3-4.3 Server-Driven UI 用于营销页/首页 feed — 局部增强,JSON schema 驱动,不作整体架构
 - [ ] P3-4.4 阶段 4 全端验证 — 跨端共享代码行占比 ≥ 65% + Desktop Tauri 2 shell ≤ 10MB + 全端全绿 + cloc 降本至 ≤ 1.7x
 

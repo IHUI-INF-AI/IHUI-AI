@@ -583,6 +583,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **防提交丢失**(30a):reflog reset 检测 + fsck 悬空 commit 检测 + lost-commit/* tag 备份清单(AGENTS.md §22 配套,blocking)
 - **Python 类型**(35):mypy 检查(阻塞,防 ai-service Python 类型回退)
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
+- **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
 - **条件**(16/16b):apps/web staged → typecheck;packages/database/src staged → build
 
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
