@@ -1,33 +1,25 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card } from '@ihui/ui-native'
-import { useI18n } from '../i18n'
 import { fetchApi } from '@ihui/api-client'
+import {
+  IdentityVerifyScreen as SharedIdentityVerifyScreen,
+  type IdentityVerifyStatus,
+} from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-type VerifyStatus = 'unverified' | 'pending' | 'verified' | 'rejected'
-
-const IDENTITY_STATUS_KEYS: Record<VerifyStatus, string> = {
-  unverified: 'identityVerify.status_unverified',
-  pending: 'identityVerify.status_pending',
-  verified: 'identityVerify.status_verified',
-  rejected: 'identityVerify.status_rejected',
-}
-
 interface VerifyResult {
-  status: VerifyStatus
+  status: IdentityVerifyStatus
   reason?: string
 }
 
 export function IdentityVerifyScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
-  const [status, setStatus] = useState<VerifyStatus>('unverified')
+  const [status, setStatus] = useState<IdentityVerifyStatus>('unverified')
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -70,96 +62,16 @@ export function IdentityVerifyScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
-  const items: Array<{ key: string; desc: string }> = [
-    { key: 'front', desc: t('identityVerify.uploadFront') },
-    { key: 'back', desc: t('identityVerify.uploadBack') },
-    { key: 'selfie', desc: t('identityVerify.uploadSelfie') },
-  ]
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('identityVerify.title')}</Text>
-      </View>
-      <View style={styles.body}>
-        <Card style={styles.card}>
-          <Text style={styles.subtitle}>{t('identityVerify.subtitle')}</Text>
-          <Text style={[styles.status, status === 'verified' && styles.statusOk]}>
-            {t(IDENTITY_STATUS_KEYS[status])}
-          </Text>
-          {reason ? <Text style={styles.errorText}>{reason}</Text> : null}
-        </Card>
-        {status !== 'verified' && status !== 'pending' ? (
-          <Card style={styles.card}>
-            {items.map((item) => (
-              <View key={item.key} style={styles.uploadItem}>
-                <Text style={styles.label}>{item.desc}</Text>
-                <TouchableOpacity style={styles.uploadBtn}>
-                  <Text style={styles.uploadBtnText}>+</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <Button
-              loading={submitting}
-              disabled={submitting}
-              onPress={handleSubmit}
-              style={styles.submitBtn}
-            >
-              {submitting ? t('identityVerify.submitting') : t('identityVerify.submit')}
-            </Button>
-          </Card>
-        ) : null}
-      </View>
-    </View>
+    <SharedIdentityVerifyScreen
+      t={t}
+      status={status}
+      reason={reason}
+      loading={loading}
+      submitting={submitting}
+      error={error}
+      onSubmit={handleSubmit}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  center: { flex: 1, backgroundColor: tokens.surface.bg, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  backText: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  body: { padding: 16 },
-  card: { padding: 12, marginBottom: 12, borderRadius: 8 },
-  subtitle: { fontSize: 12, color: tokens.text.secondary },
-  status: { marginTop: 6, fontSize: 14, fontWeight: '600', color: tokens.danger.DEFAULT },
-  statusOk: { color: tokens.success.DEFAULT },
-  uploadItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  label: { fontSize: 12, color: tokens.text.medium },
-  uploadBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadBtnText: { fontSize: 24, color: tokens.text.tertiary },
-  errorText: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
-  submitBtn: { marginTop: 12, borderRadius: 8 },
-  muted: { fontSize: 13, color: tokens.text.secondary },
-})
