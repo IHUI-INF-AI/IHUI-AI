@@ -71,6 +71,17 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/recruitment', spec: { ns: 'nav', key: 'recruitment' } },
   { href: '/blog', spec: { ns: 'blog', key: 'title' } },
 
+  // ===== 2026-07-29 补:/chat 系列路由(用户反馈"中文界面还显示 chat")=====
+  // /chat 路由未注册 i18n 规格 → TagsView 走 deriveTitle 兜底返回英文 "Chat"
+  // 复用 aiChat 命名空间(zh-CN="AI任务" / en="AIChat" / ja="aiチャット" / ko="ai채팅" / zh-TW="AI對話")
+  // /chat/history 已通过 NAV_ENTRIES(nav.chatHistory="对话历史")注册,此处不重复
+  // /chat/favorites 复用 chatHistory.favoritesTitle(5 语言均有)
+  { href: '/chat', spec: { ns: 'aiChat', key: 'title' } },
+  { href: '/chat/templates', spec: { ns: 'aiChat', key: 'templates' } },
+  { href: '/chat/settings', spec: { ns: 'aiChat', key: 'settings' } },
+  { href: '/chat/favorites', spec: { ns: 'chatHistory', key: 'favoritesTitle' } },
+  { href: '/chat/share/[id]', spec: { ns: 'aiChat', key: 'share' } },
+
   // ===== 2026-07-28 自动扩展(用户反馈"标签栏卡片文本没做好 i18n")=====
   // admin 子路由 - 走 admin 命名空间已有 key
   { href: '/admin/agreements', spec: { ns: 'admin', key: 'agreements' } },
