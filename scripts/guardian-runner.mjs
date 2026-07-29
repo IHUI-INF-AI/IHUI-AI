@@ -32,7 +32,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// === 检查配置(54 项,顺序与原 pre-commit 一致) ===
+// === 检查配置(60 项,顺序与原 pre-commit 一致) ===
 
 const checks = [
   // --- blocking (36 项) ---
@@ -382,6 +382,31 @@ const checks = [
       '     packages/app 已改用纯 props 注入式跨端共享组件(无外部导航库依赖)。',
       '     修复:从 package.json 删除 solito 依赖,从 pnpm-workspace.yaml 删除 *solito* hoist,',
       '     删除 patches/solito@*.patch,删除 packages/app 源码中 import from "solito/..." 语句。',
+      '',
+    ].join('\n'),
+  },
+  // --- 39 (2026-07-29 新增,mobile-rn screen 迁移完整性守门,防独立实现回升) ---
+  // blocking:P3-3.3 "独立 screen 实现清零" 目标完成,153 个 .tsx 中 151 个迁移到
+  //   @ihui/rn-app 共享层,仅 2 个豁免(DebugScreen/DevEnterScreen)。若不接 pre-commit
+  //   守门,后续新增 screen 漏迁移会导致独立实现回升、维护成本系数恶化。
+  // 检测逻辑:扫描 apps/mobile-rn/src/screens/*.tsx,检查是否 import from '@ihui/rn-app',
+  //   未导入且不在白名单(Debug/DevEnter/SharedDemo/profileMenuData)→ blocking 阻塞 commit。
+  // --staged 模式:仅检查 staged 的 screen 文件(性能优化,pre-commit 用)。
+  // 失败含义:有人新增 mobile-rn screen 但未迁移到共享层,需迁移或登记白名单后重新 commit。
+  {
+    id: '39',
+    label: '📱 mobile-rn screen 迁移完整性(blocking,防独立实现回升)',
+    script: 'check-rn-app-migration.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 发现 mobile-rn screen 未迁移到 @ihui/rn-app 共享层。',
+      '     P3-3.3 目标要求所有 screen(除白名单豁免)必须 import from "@ihui/rn-app"。',
+      '     修复(二选一):',
+      '       A. 迁移到共享层:packages/app/src/features/<feature>/ 创建共享组件 + wrapper 改造',
+      '       B. 若确属 RN 端独占,在 scripts/check-rn-app-migration.mjs WHITELIST 登记并附理由',
+      '     详见 scripts/check-rn-app-migration.mjs --help',
       '',
     ].join('\n'),
   },

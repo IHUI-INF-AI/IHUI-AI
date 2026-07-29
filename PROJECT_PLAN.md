@@ -1166,7 +1166,7 @@ Git 同步证据(§20 硬定义 5 条全绿):
 
 ### [x] ✅(2026-07-29) Phase 24 终态收尾(用户要求"直到没有任何后续建议可给到我为止,完整收尾关闭对话")
 
-用户要求:"timeline现在接入好了吗 继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止 完整收尾 关闭对话"。Advisor 明确:先修 Hydration 错误 → 全量验证 → 写入终态记录。
+用户要求:"timeline现在接入好了吗  继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏  直到没有任何后续建议可给到我为止 完整收尾 关闭对话"。Advisor 明确:先修 Hydration 错误 → 全量验证 → 写入终态记录。
 
 - [x] **Hydration 错误诊断与修复**(commit `384ed84773`,16 单测,4 状态截图):新建 `apps/web/src/components/common/ClientOnly.tsx`(SSR 安全 wrapper);store 改用 `hydrationApplied` flag 幂等 hydrate 模式(agent-progress-pane.ts);agent-progress-trigger.tsx + agent-task-progress-pane.tsx 在 useEffect 调用 hydrate;timeline-event.tsx `formatRelativeTime` 接受 `now` 参数 + `useNowMs()` hook(SSR 返回空字符串,CSR mount 后 setInterval 更新);permission-history-panel.tsx `now` 初始化 null + suppressHydrationWarning;浏览器实测 0 hydration errors(Playwright 验证)
 - [x] **pane-minimize 无限重渲染 regression 修复**(commit `01f54e456f`):Phase 23 的 `idle 自动展开 useEffect` 在 idle 状态下触发 `setIsMinimized(false)`,再次触发 effect,无限循环;删除该 effect(最小化完全由用户控制),更新 test 8 断言;15/15 全过
@@ -1175,15 +1175,15 @@ Git 同步证据(§20 硬定义 5 条全绿):
 
 ### Phase 19-24 终态累计成果
 
-| Phase    | 主题                                | commit | 新 test       | 状态   |
-| -------- | ----------------------------------- | ------ | ------------- | ------ |
-| 19       | Trae Work 深度对标收尾              | 5      | 132           | ✅     |
-| 20       | 深度对标 v2(键盘/复制/导出/右键)    | 1      | 50+9 E2E      | ✅     |
-| 21       | Timeline SSE 实时响应               | 2      | 51+17 E2E     | ✅     |
-| 22       | i18n + 筛选 + tooltip + 记忆 + a11y | 3      | 73            | ✅     |
-| 23       | 消息搜索 + 最小化 + 空状态          | 2      | 36            | ✅     |
-| 24       | Hydration 修复 + 浏览器验证 + 回归  | 3      | 16+15+59=90   | ✅     |
-| **合计** | **6 轮**                            | **16** | **399+ test** | **✅** |
+| Phase | 主题 | commit | 新 test | 状态 |
+| --- | --- | --- | --- | --- |
+| 19 | Trae Work 深度对标收尾 | 5 | 132 | ✅ |
+| 20 | 深度对标 v2(键盘/复制/导出/右键) | 1 | 50+9 E2E | ✅ |
+| 21 | Timeline SSE 实时响应 | 2 | 51+17 E2E | ✅ |
+| 22 | i18n + 筛选 + tooltip + 记忆 + a11y | 3 | 73 | ✅ |
+| 23 | 消息搜索 + 最小化 + 空状态 | 2 | 36 | ✅ |
+| 24 | Hydration 修复 + 浏览器验证 + 回归 | 3 | 16+15+59=90 | ✅ |
+| **合计** | **6 轮** | **16** | **399+ test** | **✅** |
 
 ### 19 个 progress-sections 组件全部对齐 Trae Work
 
@@ -1280,7 +1280,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - 跨端契约: 全部类型上提到 @ihui/types 单一真相源 + packages/app re-export(批次 6 新增 AppRefundStatus 避免 admin RefundStatus 命名冲突;批次 8 新增 10 组 Item + ScreenProps 类型;批次 9 新增 8 组 Item + ScreenProps 类型;批次 10 新增 8 组 Item + ScreenProps 类型,共 16 个新类型 AgentMarketItem/AgentReviewListItem/ActivityItem/FavoritesItem/CheckInDay/CheckInInfo/LiveScreenItem/PointsMallItem 等)
   - 共享层模式: props 注入式(t/items/loading/onPressItem/onBack/colorScheme/onVerify)+ getTokens(colorScheme) 双主题 + react-native-web alias web 渲染 + 静态屏 sections 内化(Privacy/Agreement)
   - 验证: pnpm --filter @ihui/types + @ihui/rn-app + @ihui/mobile-rn typecheck 全绿(批次 6: +1524/-658 行;批次 7: +732/-344 行;批次 8: +1332/-325 行,6 mobile-rn wrapper 60-100 行→20-50 行薄 wrapper,8 subagent 并行派发;批次 9: +2094/-422 行,7 共享组件 + 7 wrapper + 5 语言 i18n 78 键;批次 10: +2460/-727 行,8 共享组件 + 8 wrapper + 5 语言 i18n 80 键,commit b9f24740c)
-- [ ] P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme(进行中:48 wrapper/153 total,独立 105,真维护倍数 1.72x,继续推进功能屏/特殊屏迁移)
+- [x] ✅(2026-07-29) P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme(完成:151 wrapper/153 total,独立 2 豁免 Debug/DevEnter,真维护倍数 1.72x,守门 scripts/check-rn-app-migration.mjs 已落地 guardian-runner 第 39 项 blocking,commit 6ba6f3064c)
 - [ ] P3-3.4 阶段 3 全端验证 — mobile-rn 独立 screen 实现 = 0 + packages/app 覆盖 ≥ 7 features + 全端全绿 + cloc 降本至 ≤ 2.0x
 
 ### 阶段 4:极限收尾(长期 2-3 月,预期 2.0x → 1.7x)
