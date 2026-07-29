@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, Image, Input } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 /**
  * LoginPopUp 登录弹窗 — 对齐原项目 loginPopUp/index.vue
@@ -46,8 +46,7 @@ export default function LoginPopUp({
   onNicknameChange,
   onUpgrade,
 }: LoginPopUpProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [nickname, setNickname] = useState<string>(userInfo?.nickname ?? '')
   const [avatar, setAvatar] = useState<string>(userInfo?.avatar ?? '')

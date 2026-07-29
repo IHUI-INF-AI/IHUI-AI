@@ -2,7 +2,7 @@ import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { sendSmsCode, loginBySms, register, bindPhone, type UserInfo } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { useCountdown } from '@ihui/shared/hooks'
 
 export type VerifyCodeType = 'register' | 'login' | 'changePhone'
@@ -31,8 +31,7 @@ export default function VerifyCodeModal({
   // 2026-07-28 Q-1: 复用 @ihui/shared/hooks useCountdown,消除本地 setInterval/useRef/useState 重复实现。
   // 初始 count=0(显示"重新发送"),发送验证码时 reset(60) + start() 启动倒计时。
   const { count: countdown, start, reset: resetCountdown } = useCountdown(0)
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const reset = useCallback(() => {
     setCodes(Array(CODE_LENGTH).fill(''))

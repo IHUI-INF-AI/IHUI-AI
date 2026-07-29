@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import {
   requestPayment,
   type WechatPayParams,
@@ -73,8 +73,7 @@ export default function PayPopup({
   onPayError,
   onMethodChange,
 }: PayPopupProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   // loading/error 状态(对齐原项目 isLoading + 错误处理)
   const [isLoading, setIsLoading] = useState(false)
