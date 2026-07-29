@@ -135,6 +135,22 @@
       "types": "./src/design/*.ts",
       "import": "./src/design/*.ts"
     },
+    "./seo": {
+      "types": "./src/seo/index.ts",
+      "import": "./src/seo/index.ts"
+    },
+    "./seo/*": {
+      "types": "./src/seo/*.ts",
+      "import": "./src/seo/*.ts"
+    },
+    "./types": {
+      "types": "./src/types/index.ts",
+      "import": "./src/types/index.ts"
+    },
+    "./types/*": {
+      "types": "./src/types/*.ts",
+      "import": "./src/types/*.ts"
+    },
     "./constants": {
       "types": "./src/constants.ts",
       "import": "./src/constants.ts"
