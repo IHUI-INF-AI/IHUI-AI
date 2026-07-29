@@ -36,6 +36,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@ihui/shared/utils/format'
 import { SlashCommandPalette, type ArgSuggestion } from '@/components/ai/slash-command-palette'
+import { SLASH_COMMAND_IDS } from '@/components/chat/slash-command-data'
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
@@ -46,8 +47,7 @@ import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
-import { useModeStore } from '@/stores/mode'
-import type { ChatMode } from '@ihui/types'
+import { CurrentModeBadge } from '@/components/chat/current-mode-badge'
 import {
   PermissionModePopover,
   isHighRiskPermissionMode,
@@ -57,10 +57,8 @@ import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-m
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
-import {
-  FullAccessConfirmDialog,
-  isFullAccessConfirmSuppressed,
-} from '@/components/ai/full-access-confirm-dialog'
+import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
+import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
 import { recordModeChange, updateLatestRecordSource } from '@/lib/permission-mode-history'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
@@ -102,16 +100,6 @@ interface ReferenceItem {
   /** 原始文件大小(字节),用于在 label 中显示尺寸信息 */
   size?: number
 }
-
-const SLASH_COMMAND_IDS = [
-  'summary',
-  'translate',
-  'explain',
-  'code',
-  'polish',
-  'wechat-article',
-  'koubo-script',
-] as const
 
 /** /goal 命令参数候选模板(2026-07-29 二次深化,内置常见 goal 目标条件)
  * 参考 AGENTS.md §8 goal 模式工作流示例 + AI 编程主流场景
@@ -205,19 +193,6 @@ const LOOP_ARG_OPTIONS: ArgSuggestion[] = [
   },
 ]
 
-// ChatMode 4 态元信息(2026-07-28 立,移除 4 按钮后改用小徽章显示)
-// - icon: 当前模式徽章图标(lucide-react)
-// - i18nKey: 模式名 i18n key(从 chat.modeBuild/modePlan/modeReview/modeSpec 取)
-// - slashCmd: 对应 / 命令(供 tooltip 提示用户)
-const CHAT_MODE_META: Record<
-  ChatMode,
-  { icon: React.ComponentType<{ className?: string }>; i18nKey: string; slashCmd: string }
-> = {
-  build: { icon: Hammer, i18nKey: 'modeBuild', slashCmd: '/build' },
-  plan: { icon: BookOpen, i18nKey: 'modePlan', slashCmd: '/plan' },
-  review: { icon: Search, i18nKey: 'modeReview', slashCmd: '/review' },
-  spec: { icon: FileText, i18nKey: 'modeSpec', slashCmd: '/spec' },
-}
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
 const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
@@ -326,49 +301,6 @@ interface WebInputCoreProps {
   sendLabel?: string
   /** 停止按钮 tooltip */
   stopLabel?: string
-}
-
-/**
- * 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示)。
- *
- * 视觉:h-6 px-2 text-xs、bg-muted 圆角 6px、icon + label 同行,subtle 风格。
- * 切换入口(全部在 Tooltip 提示):
- * - /build /plan /review /spec 斜杠命令
- * - Ctrl+1/2/3/4 全局快捷键
- * - AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
- *
- * 不再提供按钮交互(2026-07-28 立,移除 4 按钮,纯视觉指示):
- * - 4 按钮占据顶部空间大、与其他 AI 工具(Cursor/Claude Code/Copilot/Windsurf)设计不符
- * - 用户可显式 /命令 或 Ctrl+1-4 切换,AI 也能自动判断
- * - 当前模式必须保留视觉反馈(用户需知道 AI 当前在哪个模式工作)
- */
-function CurrentModeBadge() {
-  const t = useTranslations('chat')
-  const currentMode = useModeStore((s) => s.currentMode)
-  const meta = CHAT_MODE_META[currentMode]
-  const ModeIcon = meta.icon
-  return (
-    <Tooltip
-      content={
-        <div className="space-y-0.5 text-[11px]">
-          <div className="font-medium">{t('modeBadgeTooltip', { mode: t(meta.i18nKey) })}</div>
-          <div className="text-muted-foreground">{t('modeBadgeSwitchHint')}</div>
-        </div>
-      }
-      side="bottom"
-    >
-      <span
-        className={cn(
-          'inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground',
-        )}
-        data-testid="chat-mode-badge"
-        data-mode={currentMode}
-      >
-        <ModeIcon className="h-3 w-3" aria-hidden="true" />
-        <span>{t(meta.i18nKey)}</span>
-      </span>
-    </Tooltip>
-  )
 }
 
 /** Web 端 MessageInput 实现(forwardRef,契约对齐 SharedMessageInputProps)
@@ -1737,64 +1669,6 @@ export function MessageInput({
           - 4 条该模式详细行为 bullet,底部"知道了"关闭 */}
       <PermissionModeInfoModal mode={infoMode} onClose={() => setInfoMode(null)} />
     </div>
-  )
-}
-
-/** 首次启用高风险模式确认弹窗桥接组件(2026-07-25 深化,深度对标 Codex CLI safety guard)
- *  - 监听 ai-panel store.pendingFullAccess 控制 Dialog open
- *  - confirm:FullAccessConfirmDialog 内部已写 localStorage(suppressed 或 acknowledged),
- *    此处只关弹窗 + 触发实际切模式 + 弹 5s 撤销 toast
- *  - cancel:只 setPendingFullAccess(false),不动 activeWorkspace.mode
- * 单独抽组件是避免污染主组件 useEffect deps + 减少主函数重渲染 */
-function FullAccessConfirmBridge() {
-  const t = useTranslations('chat.permission')
-  const pendingFullAccess = useAiPanelStore((s) => s.pendingFullAccess)
-  const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
-  const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
-  const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
-
-  const handleConfirm = React.useCallback(() => {
-    setPendingFullAccess(false)
-    if (!activeWorkspace) return
-    const previousMode = activeWorkspace.mode
-    // 乐观更新 + 落库(动态 import 避免循环依赖)
-    setActiveWorkspace({ ...activeWorkspace, mode: 'bypass-permissions' })
-    void (async () => {
-      const { switchPermissionMode } = await import('@/components/ai/permission-mode-popover')
-      const { toast } = await import('sonner')
-      const result = await switchPermissionMode('bypass-permissions')
-      if (!result.ok) {
-        if (previousMode !== undefined) {
-          setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
-        }
-        return
-      }
-      // 切到完全访问 → 5s 撤销 toast(与 popover 一致体验)
-      toast(t('switchedToFull'), {
-        description: t('switchedToFullDesc', {
-          prev: previousMode ?? 'default',
-        }),
-        duration: 5000,
-        action: {
-          label: t('undo'),
-          onClick: async () => {
-            await switchPermissionMode(previousMode ?? 'default')
-          },
-        },
-      })
-    })()
-  }, [activeWorkspace, setActiveWorkspace, setPendingFullAccess, t])
-
-  const handleCancel = React.useCallback(() => {
-    setPendingFullAccess(false)
-  }, [setPendingFullAccess])
-
-  return (
-    <FullAccessConfirmDialog
-      open={pendingFullAccess}
-      onConfirm={handleConfirm}
-      onCancel={handleCancel}
-    />
   )
 }
 
