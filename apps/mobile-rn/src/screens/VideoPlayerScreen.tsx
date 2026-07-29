@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Loading } from '@ihui/ui-native'
 import { completeLesson, getProgress, type CourseProgress } from '@ihui/api-client'
+import {
+  VideoPlayerScreen as SharedVideoPlayerScreen,
+  type VideoPlayerProgress,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { HomeStackParamList } from '../navigation/RootNavigator'
 import { VideoPlayer } from '../components/VideoPlayer'
@@ -74,75 +76,39 @@ export function VideoPlayerScreen() {
     }
   }, [completed, onCompleteLesson])
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Loading />
-      </View>
-    )
-  }
+  // CourseProgress 结构兼容 VideoPlayerProgress(含全部字段,lessons 为额外字段)
+  const sharedProgress: VideoPlayerProgress | null = progress
+    ? {
+        courseId: progress.courseId,
+        totalLessons: progress.totalLessons,
+        completedLessons: progress.completedLessons,
+        progress: progress.progress,
+        lastLearnedAt: progress.lastLearnedAt,
+      }
+    : null
 
   return (
-    <View className="flex-1 bg-black">
-      <View className="flex-row items-center justify-between bg-black px-4 pt-12 pb-3">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text className="text-base text-white">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-sm text-white" numberOfLines={1}>
-          {title ?? ''}
-        </Text>
-        <View className="w-10" />
-      </View>
-
-      {videoUrl ? (
-        <VideoPlayer
-          url={videoUrl}
-          title={title}
-          onComplete={onPlayerComplete}
-          onError={setError}
-        />
-      ) : (
-        <View className="aspect-video w-full items-center justify-center bg-neutral-900">
-          <Text className="text-base text-neutral-400">{t('player.noUrl')}</Text>
-          <Text className="mt-2 text-xs text-neutral-500">{t('course.player')}</Text>
-        </View>
-      )}
-
-      <View className="flex-1 bg-white p-4">
-        <Text className="text-lg font-semibold text-neutral-900">{t('course.progress')}</Text>
-        {progress ? (
-          <View className="mt-2">
-            <View className="h-2 overflow-hidden rounded-md bg-neutral-200">
-              <View
-                className="h-2 bg-emerald-500"
-                style={{
-                  width: `${Math.round((progress.completedLessons / Math.max(progress.totalLessons, 1)) * 100)}%`,
-                }}
-              />
-            </View>
-            <Text className="mt-1 text-xs text-neutral-500">
-              {t('course.progressLessons', {
-                completed: progress.completedLessons,
-                total: progress.totalLessons,
-              })}
-            </Text>
-          </View>
-        ) : null}
-
-        {error ? <Text className="mt-2 text-xs text-red-500">{error}</Text> : null}
-
-        <View className="mt-6">
-          {completed ? (
-            <View className="rounded-md bg-emerald-50 p-3">
-              <Text className="text-sm text-emerald-700">✓ {t('course.completed')}</Text>
-            </View>
-          ) : (
-            <Button loading={completing} onPress={onCompleteLesson}>
-              {t('course.complete')}
-            </Button>
-          )}
-        </View>
-      </View>
-    </View>
+    <SharedVideoPlayerScreen
+      t={t}
+      title={title}
+      videoUrl={videoUrl}
+      progress={sharedProgress}
+      completed={completed}
+      completing={completing}
+      loading={loading}
+      error={error}
+      onComplete={onCompleteLesson}
+      onBack={() => navigation.goBack()}
+      playerContent={
+        videoUrl ? (
+          <VideoPlayer
+            url={videoUrl}
+            title={title}
+            onComplete={onPlayerComplete}
+            onError={setError}
+          />
+        ) : undefined
+      }
+    />
   )
 }
