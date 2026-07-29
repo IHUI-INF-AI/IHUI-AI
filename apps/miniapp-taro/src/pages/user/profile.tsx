@@ -4,9 +4,11 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
 import { useI18n } from '@/i18n'
+import './profile.css'
 
 export default function Profile() {
   const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const [form, setForm] = useState<Partial<UserInfo>>({})
   const [uploading, setUploading] = useState(false)
 
@@ -55,101 +57,133 @@ export default function Profile() {
     load()
   })
 
-  const rows = [
-    { label: t('user.profile.avatar'), path: '/pages/user/avatar', value: null, isAvatar: true },
+  const accountRows = [
     {
       label: t('user.profile.nickname'),
       path: '/pages/user/nickname',
       value: form.nickname || t('user.profile.notSet'),
-      isAvatar: false,
     },
     {
       label: t('user.profile.phone'),
       path: '/pages/user/phone',
       value: form.phone || t('user.profile.unbound'),
-      isAvatar: false,
     },
     {
       label: t('user.profile.email'),
       path: '/pages/user/email',
       value: form.email || t('user.profile.unbound'),
-      isAvatar: false,
     },
+  ]
+
+  const securityRows = [
     {
       label: t('user.profile.password'),
       path: '/pages/user/password',
-      value: null,
-      isAvatar: false,
+      value: '',
     },
     {
       label: t('user.profile.realname'),
       path: '/pages/user/realname',
       value: form.realName ? t('user.profile.verified') : t('user.profile.unverified'),
-      isAvatar: false,
     },
   ]
 
   return (
-    <View className="min-h-screen bg-background">
-      {/* 身份标签(对标原项目 settings/account)*/}
-      <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[24rpx] flex items-center justify-between">
-        <Text className="text-[28rpx] text-foreground">{t('user.identity')}</Text>
-        <View className="flex items-center">
+    <View className="pf-page">
+      {/* 身份标签行(对齐原项目 identity-tag) */}
+      <View className="pf-identity-row">
+        <Text className="pf-identity-label">{t('user.identity')}</Text>
+        <View className="pf-identity-tags">
           {form.isVip ? (
-            <Text className="px-[16rpx] py-[4rpx] bg-accent text-accent-foreground text-[22rpx] rounded-[8rpx]">
-              {t('user.vipMember')}
-            </Text>
+            <Text className="pf-tag pf-tag-vip">{t('user.vipMember')}</Text>
           ) : null}
           {(form.roleId ?? 0) >= 1 ? (
-            <Text className="ml-[12rpx] px-[16rpx] py-[4rpx] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-[22rpx] rounded-[8rpx]">
-              {t('user.admin')}
-            </Text>
+            <Text className="pf-tag pf-tag-admin">{t('user.admin')}</Text>
           ) : null}
           {!form.isVip && (form.roleId ?? 0) < 1 ? (
-            <Text className="px-[16rpx] py-[4rpx] bg-muted text-muted-foreground text-[22rpx] rounded-[8rpx]">
-              {t('user.normalUser')}
-            </Text>
+            <Text className="pf-tag pf-tag-normal">{t('user.normalUser')}</Text>
           ) : null}
         </View>
       </View>
-      <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        {rows.map((row, idx) => (
+
+      {/* 头像 section */}
+      <View className="pf-section">
+        <Text className="pf-section-title">{t('user.profile.avatar')}</Text>
+        <View className="pf-section-card">
           <View
-            key={row.path}
-            className={`flex justify-between items-center px-[32rpx] py-[32rpx] ${
-              idx < rows.length - 1 ? 'mb-[8rpx]' : ''
-            }`}
-            onClick={() => (row.isAvatar ? chooseAvatar() : navigate(row.path))}
+            className="pf-item pf-item-avatar"
+            onClick={chooseAvatar}
           >
-            <Text className="text-[28rpx] text-foreground">{row.label}</Text>
-            <View className="flex items-center text-[26rpx] text-muted-foreground">
-              {row.isAvatar ? (
-                <View className="relative">
-                  <Image
-                    className="w-[80rpx] h-[80rpx] rounded-md bg-muted"
-                    src={form.avatar || '/static/default-avatar.png'}
-                    mode="aspectFill"
-                  />
-                  <View className="absolute -bottom-[4rpx] -right-[4rpx] w-[28rpx] h-[28rpx] bg-primary rounded-sm flex items-center justify-center">
-                    <Text className="text-[18rpx] text-primary-foreground leading-none">📷</Text>
-                  </View>
-                </View>
-              ) : (
-                <Text>{row.value}</Text>
-              )}
-              <Text className="text-muted-foreground ml-[16rpx]">›</Text>
+            <View className="pf-avatar-wrap">
+              <Image
+                className="pf-avatar-img"
+                src={form.avatar || '/static/default-avatar.png'}
+                mode="aspectFill"
+              />
+              <View className="pf-avatar-edit-tip">
+                <Text>{tt('user.profile.changeAvatar', '更换')}</Text>
+              </View>
             </View>
+            <Text className="pf-avatar-hint">
+              {tt('user.profile.clickToChange', '点击更换头像')}
+            </Text>
+            <Text className="pf-arrow">›</Text>
           </View>
-        ))}
+        </View>
       </View>
-      <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View
-          className="flex justify-between items-center px-[32rpx] py-[32rpx]"
-          onClick={() => navigate('/pages/user/feedback')}
-        >
-          <Text className="text-[28rpx] text-foreground">{t('user.profile.feedback')}</Text>
-          <View className="flex items-center text-muted-foreground">
-            <Text>›</Text>
+
+      {/* 账号信息 section */}
+      <View className="pf-section">
+        <Text className="pf-section-title">{tt('user.profile.accountInfo', '账号信息')}</Text>
+        <View className="pf-section-card">
+          {accountRows.map((row) => (
+            <View
+              key={row.path}
+              className="pf-item"
+              onClick={() => navigate(row.path)}
+            >
+              <Text className="pf-item-label">{row.label}</Text>
+              <View className="pf-item-right">
+                <Text className="pf-item-value">{row.value}</Text>
+                <Text className="pf-arrow">›</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* 安全设置 section */}
+      <View className="pf-section">
+        <Text className="pf-section-title">{tt('user.profile.security', '安全设置')}</Text>
+        <View className="pf-section-card">
+          {securityRows.map((row) => (
+            <View
+              key={row.path}
+              className="pf-item"
+              onClick={() => navigate(row.path)}
+            >
+              <Text className="pf-item-label">{row.label}</Text>
+              <View className="pf-item-right">
+                {row.value ? <Text className="pf-item-value">{row.value}</Text> : null}
+                <Text className="pf-arrow">›</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* 反馈 section */}
+      <View className="pf-section">
+        <Text className="pf-section-title">{tt('user.profile.other', '其他')}</Text>
+        <View className="pf-section-card">
+          <View
+            className="pf-item"
+            onClick={() => navigate('/pages/user/feedback')}
+          >
+            <Text className="pf-item-label">{t('user.profile.feedback')}</Text>
+            <View className="pf-item-right">
+              <Text className="pf-arrow">›</Text>
+            </View>
           </View>
         </View>
       </View>
