@@ -190,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
     podiumItem: {
       flex: 1,
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
     },
@@ -216,7 +216,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

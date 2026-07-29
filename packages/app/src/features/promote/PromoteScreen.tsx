@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rulesCard: {
       marginHorizontal: 16,
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -221,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

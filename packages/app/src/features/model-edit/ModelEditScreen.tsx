@@ -284,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
     chipActive: { borderColor: tk.purple.DEFAULT, backgroundColor: tk.purple.light },
     chipText: { fontSize: 13, color: tk.text.medium },
     chipTextActive: { color: tk.purple.DEFAULT, fontWeight: '600' },
-    paidCard: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: tk.purple.light },
+    paidCard: { marginTop: 12, padding: 16, borderRadius: 12, backgroundColor: tk.purple.light },
     priceRow: {
       flexDirection: 'row',
       alignItems: 'center',

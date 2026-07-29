@@ -212,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     outlineBtnText: { fontSize: 13, color: tk.success.DEFAULT },
     separator: { height: 12 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
     metaText: { fontSize: 12, color: tk.text.secondary },
     refundForm: {
       marginTop: 12,
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
     },

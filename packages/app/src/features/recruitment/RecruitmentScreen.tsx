@@ -218,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
     jobCard: {
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,

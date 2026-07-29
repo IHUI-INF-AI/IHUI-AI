@@ -227,7 +227,7 @@ function createStyles(tk: AppThemeTokens) {
     sectionBox: {
       marginHorizontal: 16,
       marginTop: 12,
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,

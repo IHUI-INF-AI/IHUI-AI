@@ -88,7 +88,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: 12, color: tk.danger.DEFAULT },
     listBody: { padding: 16 },
     separator: { height: 8 },
-    card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
+    card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
     question: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     questionText: { flex: 1, fontSize: 13, fontWeight: '600', color: tk.text.primary },
     toggle: { fontSize: 18, color: tk.success.DEFAULT, marginLeft: 8 },

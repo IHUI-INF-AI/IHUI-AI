@@ -165,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardLeft: {
       width: 96,
-      padding: 12,
+      padding: 16,
       backgroundColor: tk.success.light,
       alignItems: 'center',
       justifyContent: 'center',

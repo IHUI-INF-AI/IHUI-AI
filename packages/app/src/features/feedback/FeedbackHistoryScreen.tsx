@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react'
+import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import type { FeedbackHistoryScreenProps, FeedbackStatus } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -78,7 +78,7 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 16 },
-    card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light, marginBottom: 8 },
+    card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light, marginBottom: 8 },
     titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardType: { fontSize: 13, fontWeight: '600', color: tk.success.DEFAULT },
     cardStatus: { fontSize: 12, fontWeight: '600' },
