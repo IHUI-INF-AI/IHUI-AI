@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface InteractionItem {
   id: string
@@ -32,8 +32,7 @@ const TYPE_COLOR: Record<InteractionItem['type'], string> = {
 }
 
 export default function InteractionMessage({ list, onClick }: InteractionMessageProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const TYPE_LABEL: Record<InteractionItem['type'], string> = {
     like: tt('interaction.like', '赞了我'),
     comment: tt('interaction.comment', '评论了我'),

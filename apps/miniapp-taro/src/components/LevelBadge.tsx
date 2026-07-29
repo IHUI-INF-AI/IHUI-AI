@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface LevelBadgeProps {
   level?: number
@@ -26,8 +26,7 @@ export default function LevelBadge({
   nextLevelTitle,
   size = 'md',
 }: LevelBadgeProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const LEVEL_TITLES: Record<number, string> = {
     0: tt('level.0', '新手'),
     1: tt('level.1', '青铜'),

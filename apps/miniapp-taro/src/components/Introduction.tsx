@@ -1,6 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import type { Agent } from '@ihui/api-client'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export type AgentRef = Pick<Agent, 'id' | 'name'>
 
@@ -15,8 +15,7 @@ export default function Introduction({
   agents = [],
   onAgentClick,
 }: IntroductionProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="px-4 py-3">
       {content ? (

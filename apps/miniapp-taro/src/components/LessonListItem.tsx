@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './LessonListItem.css'
 
 export interface LessonListItemData {
@@ -61,8 +61,7 @@ export default function LessonListItem({
   showLessonCount,
   onClick,
 }: LessonListItemProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const TYPE_ICONS: Record<string, string> = {
     video: '▶',
     audio: '♫',

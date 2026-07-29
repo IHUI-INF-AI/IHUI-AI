@@ -2,7 +2,7 @@ import { View, Text, Image, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import { saveImageToPhotosAlbum } from '@/utils/save-album'
 import NavBar from '@/components/NavBar'
@@ -32,8 +32,7 @@ interface OperatorData {
 type StatsTab = 'day' | 'month' | 'sum'
 
 export default function DistributionIndex() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const user = useUserStore((s) => s.user)
   const [data, setData] = useState<OperatorData>({})
   const [statsTab, setStatsTab] = useState<StatsTab>('day')

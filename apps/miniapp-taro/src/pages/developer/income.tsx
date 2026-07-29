@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react'
 import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './income.css'
 
 interface BuyInfo {
@@ -60,8 +60,7 @@ interface CashListResponse {
 const PAGE_SIZE = 10
 
 export default function DeveloperIncome() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [title, setTitle] = useState<'income' | 'detail'>('income')
   const [settlement, setSettlement] = useState('')

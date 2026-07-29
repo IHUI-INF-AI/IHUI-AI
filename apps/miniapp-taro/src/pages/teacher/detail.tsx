@@ -2,7 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import './detail.css'
 
@@ -48,8 +48,7 @@ const buildStars = (rating: number): string => {
 }
 
 export default function TeacherDetail() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const router = useRouter()
   const [teacher, setTeacher] = useState<TeacherExtra | null>(null)

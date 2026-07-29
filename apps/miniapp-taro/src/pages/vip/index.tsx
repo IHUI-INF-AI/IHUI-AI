@@ -19,7 +19,7 @@ import {
   type VipBenefit,
   type PriceOption,
 } from '@/components'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 const DEFAULT_PLANS: PriceOption[] = [
@@ -44,10 +44,7 @@ const FEATURES: ReadonlyArray<VipFeature> = [
 
 export default function VipIndexPage() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>([])
@@ -64,7 +61,7 @@ export default function VipIndexPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [noticeAgreed, setNoticeAgreed] = useState(false)
 
-  function dispatchVipPay(payInfo: VipPayInfo, orderNo: string, amount: number, planName: string) {
+  const dispatchVipPay = useCallback((payInfo: VipPayInfo, orderNo: string, amount: number, planName: string) => {
     const successUrl = `/pages/vip/success?orderNo=${orderNo}&amount=${amount}&planName=${encodeURIComponent(planName)}`
     if (
       payInfo.method === 'jsapi' &&
@@ -87,7 +84,7 @@ export default function VipIndexPage() {
       Taro.showToast({ title: t('vip.index.configNotReady'), icon: 'none' })
     }
     Taro.redirectTo({ url: successUrl })
-  }
+  }, [t])
 
   const load = useCallback(async () => {
     Taro.showLoading({ title: t('common.loading'), mask: true })
@@ -148,7 +145,7 @@ export default function VipIndexPage() {
       logger.error('vip/index', '开通VIP', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [selectedPlan, autoRenew, t])
+  }, [selectedPlan, autoRenew, t, dispatchVipPay])
 
   const onBenefitsClick = useCallback(() => {
     setShowBenefits(true)

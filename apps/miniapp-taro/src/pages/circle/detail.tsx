@@ -3,7 +3,7 @@ import { View, Text, Image, Button, ScrollView, Input } from '@tarojs/components
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, type Circle } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './detail.css'
 
 interface Comment {
@@ -46,8 +46,7 @@ interface DetailExt extends Circle {
 const defaultAvatar = '/static/default-avatar.png'
 
 export default function CircleDetailPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [data, setData] = useState<DetailExt>({} as DetailExt)
   const [comments, setComments] = useState<Comment[]>([])

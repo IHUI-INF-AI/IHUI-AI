@@ -3,12 +3,12 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import './profile.css'
 
 export default function Profile() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [form, setForm] = useState<Partial<UserInfo>>({})
   const [uploading, setUploading] = useState(false)
 

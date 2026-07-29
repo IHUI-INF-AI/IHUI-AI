@@ -1,6 +1,6 @@
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 export interface QrCodeShareProps {
   title?: string
@@ -22,7 +22,7 @@ export default function QrCodeShare({
   onShare,
 }: QrCodeShareProps) {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const handleSave = () => {
     if (!qrUrl) {
       Taro.showToast({ title: tt('qrcode.generating', '二维码生成中'), icon: 'loading' })

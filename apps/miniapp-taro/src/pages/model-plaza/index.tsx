@@ -2,7 +2,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 type ModelType = 'text' | 'image' | 'av'
@@ -77,7 +77,7 @@ function inferType(model: LlmModel): ModelType {
 
 export default function ModelPlazaIndex() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   /** 类型 tab(全部用现有 common.all,其他文案为修复严重缺失直接硬编码) */
   const TYPE_TABS: { key: TypeFilter; label: string }[] = [
@@ -87,7 +87,7 @@ export default function ModelPlazaIndex() {
     { key: 'av', label: tt('modelPlaza.tabAv', '音视频') },
   ]
 
-  function inferTags(model: LlmModel): string[] {
+  const inferTags = useCallback((model: LlmModel): string[] => {
     const tags: string[] = []
     const name = (model.name || '').toLowerCase()
     if (/gpt-?4|gpt4/.test(name)) tags.push('GPT-4')
@@ -104,9 +104,9 @@ export default function ModelPlazaIndex() {
       tags.push(k >= 1000 ? `${k / 1000}M${tt('modelPlaza.contextLength', '上下文')}` : `${k}K${tt('modelPlaza.contextLength', '上下文')}`)
     }
     return tags
-  }
+  }, [tt])
 
-  function normalizeModel(raw: LlmModel): ModelDisplay {
+  const normalizeModel = useCallback((raw: LlmModel): ModelDisplay => {
     return {
       id: String(raw.id ?? Math.random().toString(36).slice(2)),
       name: raw.name || '',
@@ -119,7 +119,7 @@ export default function ModelPlazaIndex() {
       type: inferType(raw),
       contextLength: raw.context_length ?? 0,
     }
-  }
+  }, [inferTags, tt])
 
   function typeLabel(type: ModelType): string {
     if (type === 'image') return tt('modelPlaza.tabImage', '图像')
@@ -145,7 +145,7 @@ export default function ModelPlazaIndex() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [normalizeModel])
 
   usePullDownRefresh(() => {
     load().finally(() => Taro.stopPullDownRefresh())

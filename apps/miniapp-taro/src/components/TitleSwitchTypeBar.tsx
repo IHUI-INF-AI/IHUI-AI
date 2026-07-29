@@ -73,7 +73,7 @@ export default function TitleSwitchTypeBar({
     if (found) {
       setTabValue((prev) => (prev.length === 1 && prev[0]?.id === found.id ? prev : [found]))
     }
-  }, [selectedValue, value, mode])
+  }, [selectedValue, value, mode, tabList])
 
   // multi 模式:selectedItems 变化时同步选中项(不触发回调,避免循环)
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function TitleSwitchTypeBar({
       const sameIds = prev.length === items.length && prev.every((it, i) => it.id === items[i]?.id)
       return sameIds ? prev : items
     })
-  }, [selectedItems, mode])
+  }, [selectedItems, mode, tabList])
 
   // 派发选中变化回调(仅在用户交互时调用,不在外部同步时调用)
   const dispatchChange = useCallback(

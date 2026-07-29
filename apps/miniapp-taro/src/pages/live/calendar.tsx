@@ -3,7 +3,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getLiveCalendar, subscribeLive, type Live } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './calendar.css'
 
 type LiveStatus = Live['status']
@@ -61,8 +61,7 @@ const WEEKDAY_KEYS = [
 ] as const
 
 export default function LiveCalendar() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())

@@ -2,7 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionRank } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 interface RankUser {
   id: string
@@ -25,8 +25,7 @@ const RANK_BORDER: Record<string, string> = {
 }
 
 export default function DistributionRank() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [list, setList] = useState<RankUser[]>([])
   const [loading, setLoading] = useState(true)
 
