@@ -67,7 +67,7 @@ CREATE INDEX IF NOT EXISTS ai_model_config_models_relay_public_idx ON ai_model_c
 -- =============================================================================
 -- 3. 新表 ai_relay_key_pool(中转站 Key 池)
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS ai_relay_key_pool (
+CREATE TABLE IF NOT EXISTS "ai_relay_key_pool" (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_code varchar(64) NOT NULL,
   name varchar(128) NOT NULL,
@@ -100,7 +100,7 @@ COMMENT ON COLUMN ai_relay_key_pool.health_status IS '健康状态:unknown/healt
 -- =============================================================================
 -- 4. 新表 ai_relay_discovery(中转站动态发现待审批)
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS ai_relay_discovery (
+CREATE TABLE IF NOT EXISTS "ai_relay_discovery" (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_code varchar(64) NOT NULL,
   model_id varchar(128) NOT NULL,
