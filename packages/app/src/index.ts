@@ -34,6 +34,7 @@ export { PostDetailScreen } from './features/post-detail/PostDetailScreen'
 export { AnnouncementDetailScreen } from './features/announcement-detail/AnnouncementDetailScreen'
 export { LegalDocScreen } from './features/legal-doc/LegalDocScreen'
 export { HelpScreen } from './features/help/HelpScreen'
+export { SearchScreen } from './features/search/SearchScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
