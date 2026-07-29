@@ -794,5 +794,83 @@
     "sectionRightsBody": "您有權隨時查看、修改和刪除您的個人資訊。",
     "sectionObligations": "用戶義務",
     "sectionObligationsBody": "您不得利用本平臺進行違法或侵權活動。"
+  },
+  "agentDetail": {
+    "title": "Agent 詳情",
+    "loadFailed": "載入 Agent 失敗",
+    "description": "描述",
+    "creator": "建立者",
+    "uses": "使用次數",
+    "rating": "評分",
+    "price": "價格",
+    "free": "免費",
+    "startChat": "開始對話"
+  },
+  "askDetail": {
+    "title": "問題詳情",
+    "loadFailed": "載入問題失敗",
+    "empty": "暫無回答",
+    "accepted": "已採納",
+    "views": "{count} 次瀏覽",
+    "answers": "{count} 個回答"
+  },
+  "askList": {
+    "title": "問答列表",
+    "empty": "暫無問題",
+    "loadFailed": "載入問題失敗",
+    "answers": "{count} 回答",
+    "views": "{count} 瀏覽"
+  },
+  "certList": {
+    "title": "證書列表",
+    "empty": "暫無證書",
+    "loadFailed": "載入證書失敗",
+    "issuer": "頒發機構",
+    "issuedAt": "頒發日期"
+  },
+  "certVerify": {
+    "title": "證書驗證",
+    "certNo": "證書編號",
+    "placeholder": "請輸入證書編號",
+    "verify": "驗證",
+    "failed": "驗證失敗",
+    "valid": "證書有效",
+    "invalid": "證書無效",
+    "holder": "持有人",
+    "issuer": "頒發機構",
+    "issuedAt": "頒發日期"
+  },
+  "withdraw": {
+    "title": "提現",
+    "amount": "提現金額",
+    "amountPlaceholder": "請輸入提現金額",
+    "amountInvalid": "金額無效",
+    "minAmount": "最低提現金額 10 元",
+    "bankCard": "銀行卡 ID",
+    "bankCardPlaceholder": "請輸入銀行卡 ID(選填)",
+    "submit": "提交提現",
+    "submitting": "提交中...",
+    "success": "提現申請已提交",
+    "failed": "提現失敗,請重試",
+    "feeHint": "提現手續費 0%"
+  },
+  "vipCompare": {
+    "title": "VIP 對比",
+    "loadFailed": "載入對比失敗",
+    "feature": "功能",
+    "basic": "基礎版",
+    "premium": "高級版",
+    "enterprise": "企業版"
+  },
+  "share": {
+    "title": "分享",
+    "remark": "備註",
+    "remarkPlaceholder": "請輸入備註(選填)",
+    "create": "生成分享連結",
+    "createFailed": "生成分享連結失敗",
+    "url": "分享連結",
+    "code": "分享碼",
+    "expireAt": "過期時間",
+    "shareNow": "立即分享"
   }
 }

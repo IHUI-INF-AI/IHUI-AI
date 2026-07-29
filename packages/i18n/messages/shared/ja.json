@@ -794,5 +794,83 @@
     "sectionRightsBody": "いつでも個人情報の閲覧、変更、削除を行う権利があります。",
     "sectionObligations": "ユーザーの義務",
     "sectionObligationsBody": "本プラットフォームを違法または権利侵害の活動に使用してはなりません。"
+  },
+  "agentDetail": {
+    "title": "Agent 詳細",
+    "loadFailed": "Agent の読み込みに失敗しました",
+    "description": "説明",
+    "creator": "作成者",
+    "uses": "使用回数",
+    "rating": "評価",
+    "price": "価格",
+    "free": "無料",
+    "startChat": "チャット開始"
+  },
+  "askDetail": {
+    "title": "質問詳細",
+    "loadFailed": "質問の読み込みに失敗しました",
+    "empty": "回答がまだありません",
+    "accepted": "採用済み",
+    "views": "{count} 回閲覧",
+    "answers": "{count} 件の回答"
+  },
+  "askList": {
+    "title": "Q&A リスト",
+    "empty": "質問がまだありません",
+    "loadFailed": "質問の読み込みに失敗しました",
+    "answers": "{count} 回答",
+    "views": "{count} 閲覧"
+  },
+  "certList": {
+    "title": "証明書リスト",
+    "empty": "証明書がありません",
+    "loadFailed": "証明書の読み込みに失敗しました",
+    "issuer": "発行機関",
+    "issuedAt": "発行日"
+  },
+  "certVerify": {
+    "title": "証明書検証",
+    "certNo": "証明書番号",
+    "placeholder": "証明書番号を入力してください",
+    "verify": "検証",
+    "failed": "検証に失敗しました",
+    "valid": "証明書は有効です",
+    "invalid": "証明書は無効です",
+    "holder": "所有者",
+    "issuer": "発行機関",
+    "issuedAt": "発行日"
+  },
+  "withdraw": {
+    "title": "引き出し",
+    "amount": "金額",
+    "amountPlaceholder": "金額を入力してください",
+    "amountInvalid": "無効な金額",
+    "minAmount": "最低引き出し金額は 10 です",
+    "bankCard": "銀行カード ID",
+    "bankCardPlaceholder": "銀行カード ID を入力してください(任意)",
+    "submit": "引き出しを提出",
+    "submitting": "送信中...",
+    "success": "引き出し申請が提出されました",
+    "failed": "引き出しに失敗しました。再試行してください",
+    "feeHint": "引き出し手数料 0%"
+  },
+  "vipCompare": {
+    "title": "VIP 比較",
+    "loadFailed": "比較の読み込みに失敗しました",
+    "feature": "機能",
+    "basic": "ベーシック",
+    "premium": "プレミアム",
+    "enterprise": "エンタープライズ"
+  },
+  "share": {
+    "title": "共有",
+    "remark": "備考",
+    "remarkPlaceholder": "備考を入力してください(任意)",
+    "create": "共有リンクを生成",
+    "createFailed": "共有リンクの生成に失敗しました",
+    "url": "共有 URL",
+    "code": "共有コード",
+    "expireAt": "有効期限",
+    "shareNow": "今すぐ共有"
   }
 }

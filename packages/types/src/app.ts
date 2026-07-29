@@ -960,6 +960,165 @@ export interface SearchScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+/** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
+
+/** Agent 详情(平台注入,字段对齐 mobile-rn AgentDetailScreen) */
+export interface AgentDetailItem {
+  id: string
+  name: string
+  description: string
+  avatar?: string
+  uses: number
+  rating: number
+  category: string
+  creator: string
+  isFree: boolean
+  price: number
+}
+
+/** AgentDetailScreen props */
+export interface AgentDetailScreenProps {
+  t: TFunction
+  item: AgentDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  /** 开始对话回调(平台注入导航跳转 AgentChat) */
+  onStartChat?: (agentId: string, name: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 问答回答 */
+export interface AskAnswerItem {
+  id: string
+  author: string
+  content: string
+  isAccepted: boolean
+  createdAt: string
+}
+
+/** 问答详情(平台注入,字段对齐 mobile-rn AskDetailScreen Ask) */
+export interface AskDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  answers: AskAnswerItem[]
+  views: number
+  createdAt: string
+}
+
+/** AskDetailScreen props */
+export interface AskDetailScreenProps {
+  t: TFunction
+  item: AskDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 问答列表项(平台注入,字段对齐 mobile-rn AskListScreen Ask) */
+export interface AskListItem {
+  id: string
+  title: string
+  author: string
+  answerCount: number
+  views: number
+  createdAt: string
+}
+
+/** AskListScreen props */
+export interface AskListScreenProps {
+  t: TFunction
+  items: AskListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onCreate: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 证书列表项(平台注入,字段对齐 mobile-rn CertListScreen Item) */
+export interface CertListItem {
+  id: string
+  name: string
+  issuer: string
+  issuedAt: string
+  score: number
+}
+
+/** CertListScreen props */
+export interface CertListScreenProps {
+  t: TFunction
+  items: CertListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 证书验证结果 */
+export interface CertVerifyResult {
+  valid: boolean
+  certNo: string
+  title: string
+  holder: string
+  issuer: string
+  issuedAt: string
+}
+
+/** CertVerifyScreen props */
+export interface CertVerifyScreenProps {
+  t: TFunction
+  initialCertNo: string
+  result: CertVerifyResult | null
+  loading: boolean
+  error: string
+  onVerify: (certNo: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** WithdrawScreen props(表单屏,状态由 wrapper 管理,共享层只负责渲染) */
+export interface WithdrawScreenProps {
+  t: TFunction
+  amount: string
+  bankCardId: string
+  loading: boolean
+  error: string
+  success: string
+  onAmountChange: (text: string) => void
+  onBankCardIdChange: (text: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** VIP 对比行(平台注入,字段对齐 mobile-rn VipCompareScreen CompareRow) */
+export interface VipCompareRow {
+  feature: string
+  basic: string
+  premium: string
+  enterprise: string
+}
+
+/** VipCompareScreen props */
+export interface VipCompareScreenProps {
+  t: TFunction
+  rows: VipCompareRow[]
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
 /** 分享生成结果(平台注入,字段对齐 mobile-rn ShareScreen ShareResp) */
 export interface ShareResultItem {
   shareUrl: string
