@@ -269,6 +269,22 @@
       "system": "시스템"
     }
   },
+  "messageDirect": {
+    "title": "다이렉트 메시지",
+    "empty": "다이렉트 메시지가 없습니다",
+    "loadFailed": "다이렉트 메시지 로드에 실패했습니다",
+    "from": "보낸 사람"
+  },
+  "messageGroup": {
+    "title": "그룹 채팅",
+    "empty": "그룹 채팅이 없습니다",
+    "loadFailed": "그룹 채팅 로드에 실패했습니다"
+  },
+  "messageSystem": {
+    "title": "시스템 메시지",
+    "empty": "시스템 메시지가 없습니다",
+    "loadFailed": "시스템 메시지 로드에 실패했습니다"
+  },
   "history": {
     "empty": "검색 기록이 없습니다",
     "loadFailed": "기록 로드에 실패했습니다",
@@ -1086,5 +1102,83 @@
     "sendFailed": "코드 전송 실패",
     "bindFailed": "바인딩 실패",
     "networkError": "네트워크 오류"
+  },
+  "examHistory": {
+    "title": "시험 이력",
+    "loadFailed": "시험 이력 로드 실패",
+    "empty": "시험 기록이 없습니다",
+    "passed": "합격",
+    "failed": "불합격"
+  },
+  "examResult": {
+    "title": "시험 결과",
+    "loadFailed": "시험 결과 로드 실패",
+    "passed": "합격",
+    "failed": "불합격",
+    "correct": "정답 {count}/{total}",
+    "duration": "소요 시간 {min}분",
+    "wrongQuestions": "오답",
+    "yourAnswer": "당신의 답변",
+    "correctAnswer": "정답"
+  },
+  "modelIncome": {
+    "title": "모델 수익",
+    "loadFailed": "로드 실패",
+    "loadOverviewFailed": "개요 로드 실패",
+    "loadListFailed": "내역 로드 실패",
+    "networkError": "네트워크 오류, 잠시 후 재시도해주세요",
+    "retry": "재시도",
+    "empty": "수익 기록이 없습니다",
+    "accumulated": "누적 수익",
+    "withdrawBtn": "출금",
+    "withdrawable": "출금 가능(위안)",
+    "withdrawn": "출금 완료(위안)",
+    "today": "오늘 수익",
+    "pending": "정산 대기",
+    "yuan": "위안",
+    "tip": "기간 중 서비스 수수료 무료",
+    "tab": {
+      "all": "전체",
+      "pending": "정산 대기",
+      "settled": "정산 완료"
+    },
+    "orderLabel": "주문",
+    "rateLabel": "수수료율",
+    "withdrawModal": {
+      "title": "출금 방법 선택",
+      "subtitle": "출금 가능 금액",
+      "wechat": "위챗",
+      "moreMethods": "더 많은 출금 방법은 공식 앱을 사용하세요",
+      "confirm": "확인",
+      "close": "닫기"
+    }
+  },
+  "tokenValue": {
+    "title": "토큰 충전",
+    "balanceLabel": "사용 가능 토큰",
+    "frozen": "동결",
+    "totalCost": "누적 사용",
+    "packagesTitle": "충전 패키지",
+    "tokenUnit": "토큰",
+    "bonus": "보너스",
+    "popular": "인기",
+    "recordsTitle": "사용 기록",
+    "loadFailed": "로드 실패",
+    "empty": "기록이 없습니다",
+    "rechargeLabel": "충전",
+    "tab": {
+      "all": "전체",
+      "cost": "소모",
+      "recharge": "충전"
+    },
+    "recharge": {
+      "title": "충전 확인",
+      "message": "{tokens} 토큰을 ¥{price}에 충전하시겠습니까?",
+      "payBtn": "결제 확인",
+      "success": {
+        "title": "충전 성공",
+        "message": "{tokens} 토큰이 충전되었습니다"
+      }
+    }
   }
 }

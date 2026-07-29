@@ -17,7 +17,6 @@ import {
   ChevronsDownUp,
   ArrowDown,
   Sparkles,
-  GripVertical,
   HelpCircle,
   Keyboard,
   X,
@@ -62,9 +61,23 @@ import { TimelineTab, flattenToTimelineEvents } from './progress-sections/timeli
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 /**
- * AgentTaskProgressPane — 消息区右上角的小 popover(2026-07-29 v15)
+ * AgentTaskProgressPane — 消息区右上角的小 popover(2026-07-29 v16 根治方案)
  *
- * v15 改动(用户规则:`div` 应该超出 AI 对话框容器显示,而不是被边框裁切):
+ * v16 改动(用户规则:问题反复出现,彻底根治解决好杜绝):
+ * - 砍掉所有 JS 坐标计算 + getBoundingClientRect + setInterval 轮询:
+ *   历史方案 v13/v14/v15 都因 React 重渲染时序与 JS 状态不同步导致 Pane 漂移
+ *   (用户反馈"反复出现,彻底根治")
+ * - 改用 CSS 原生绝对定位:Pane 通过 React Portal 挂到 AI 面板容器
+ *   [data-testid="ai-side-panel-container"] 内部,该 div 自身 position:fixed,
+ *   作为 Pane 的 containing block;Pane 用 `position: absolute; top: 8px; right: 8px`
+ *   永远锚在 AI 面板右上角,零 JS 依赖,零漂移。
+ * - 同步取消 Pane 拖拽功能(键盘 + 鼠标),用户不再需要手动调整位置
+ *   (CSS 锚定方案下,位置永远不会错位,拖拽失去意义)
+ * - 同步清理:PanePosition 接口 / loadPanePosition / savePanePosition / clampPanePosition
+ *   / POSITION_STORAGE_KEY / KEYBOARD_STEP_PX / KEYBOARD_SHIFT_MULTIPLIER / DRAG_EDGE_MARGIN
+ *   / PANE_ESTIMATED_WIDTH / PANE_ESTIMATED_HEIGHT / GripVertical icon 全部删除
+ *
+ * v15 改动(已被 v16 替代,保留历史):
  * - 根容器改用 React Portal 渲染到 document.body + `position: fixed`,
  *   完全脱离 aside(`overflow-hidden rounded-xl`)的 overflow 限制,
  *   Pane 可以悬浮在 AI 对话框外(超出 aside 边界显示),不再被边框裁切。
@@ -106,20 +119,8 @@ const TOOL_TIME_WINDOW_LEADING_MS = 1000
 /** 每 step 默认预览的工具调用条数上限 */
 const PREVIEW_TOOL_LIMIT = 4
 
-/** Pane 拖拽位置 localStorage key(v15 升 v3,作废旧 v2 absolute 时代父容器坐标,改用 fixed 视口坐标) */
-const POSITION_STORAGE_KEY = 'agent-progress-pane-position-v3'
-
-/** 键盘单步移动像素(P1-1 深度对标,2026-07-28 立) */
-const KEYBOARD_STEP_PX = 5
-/** Shift+方向键的加速步长(单位:KEYBOARD_STEP_PX 倍数) */
-const KEYBOARD_SHIFT_MULTIPLIER = 5
-
-/** Pane 拖拽边界留白(父容器边缘) */
-const DRAG_EDGE_MARGIN = 8
-
-/** Pane 默认尺寸估算(用于父容器 clamp;实际宽高由 CSS w-[280px] max-h-[60vh] 决定) */
-const PANE_ESTIMATED_WIDTH = 280
-const PANE_ESTIMATED_HEIGHT = 400
+/** Pane 默认锚点容器选择器(v16 根治方案,2026-07-29 立) */
+const PANE_ANCHOR_SELECTOR = '[data-testid="ai-side-panel-container"]'
 
 /** Skeleton 行数(v13:3 → 4,更符合常见 plan 步骤规模) */
 const PLAN_SKELETON_ROWS = 4
@@ -196,73 +197,19 @@ const TAB_BUTTONS: ReadonlyArray<{
   { id: 'timeline', i18nKey: 'tabTimeline', Icon: ListTree },
 ]
 
-// ─── 拖拽位置工具(localStorage 持久化 + viewport clamp) ─────────────
-interface PanePosition {
-  x: number
-  y: number
-}
-
-/**
- * 返回视口尺寸(v15 改用 fixed 定位后,clamp 基于 viewport,不再需要父容器 bounds)。
- * SSR / jsdom 环境下 fallback 到 1024x768(确保单测稳定)。
- *
- * 保留 parentRect 参数仅为向后兼容(v14 时代签名),v15 起该参数被忽略。
- */
-function resolveParentBounds(_parentRect?: DOMRect | null): {
-  width: number
-  height: number
-} {
-  if (typeof window !== 'undefined') {
-    return { width: window.innerWidth, height: window.innerHeight }
-  }
-  return { width: 1024, height: 768 }
-}
-
-function loadPanePosition(): PanePosition | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(POSITION_STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown }
-    if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') return null
-    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null
-    return { x: parsed.x, y: parsed.y }
-  } catch {
-    return null
-  }
-}
-
-function savePanePosition(pos: PanePosition): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(pos))
-  } catch {
-    // 忽略 quota / private mode 错误
-  }
-}
-
-/**
- * Pane 位置 clamp。
- * - 默认(viewport 模式):x/y 限制在视口内,留 DRAG_EDGE_MARGIN 边距
- * - bounds 模式(xv15+):传入消息区 rect 时,x/y 限制在消息区内,
- *   避免 Pane 拖出消息区到 viewport 边缘(视觉脱离消息区)
- */
-function clampPanePosition(x: number, y: number, bounds?: DOMRect | null): PanePosition {
-  if (bounds) {
-    const maxX = Math.max(bounds.left, bounds.right - PANE_ESTIMATED_WIDTH)
-    const maxY = Math.max(bounds.top, bounds.bottom - PANE_ESTIMATED_HEIGHT)
-    return {
-      x: Math.min(Math.max(bounds.left, x), maxX),
-      y: Math.min(Math.max(bounds.top, y), maxY),
-    }
-  }
-  const { width, height } = resolveParentBounds()
-  const maxX = Math.max(DRAG_EDGE_MARGIN, width - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN)
-  const maxY = Math.max(DRAG_EDGE_MARGIN, height - PANE_ESTIMATED_HEIGHT - DRAG_EDGE_MARGIN)
-  return {
-    x: Math.min(Math.max(DRAG_EDGE_MARGIN, x), maxX),
-    y: Math.min(Math.max(DRAG_EDGE_MARGIN, y), maxY),
-  }
+// ─── Pane 挂载点解析(v16 根治方案) ────────────────────────────────
+// v16(2026-07-29 立):Pane 不再用 JS 坐标计算 + getBoundingClientRect + setInterval 轮询
+// (历史方案 v13/v14/v15 都因 JS 状态与 React 重渲染时序错位导致 Pane 漂移),
+// 改用 CSS 原生绝对定位:Pane 通过 React Portal 挂到 AI 面板容器 [data-testid="ai-side-panel-container"]
+// 内部,该 div 自身 position:fixed,作为 Pane 的 containing block;
+// Pane 用 position:absolute + top:8px + right:8px 永远锚在 AI 面板右上角,零 JS 依赖。
+// resolvePaneAnchor 一次性解析挂载点,SSR 期间返回 null 由调用方 fallback(不渲染)。
+let _cachedAnchor: HTMLElement | null = null
+function resolvePaneAnchor(): HTMLElement | null {
+  if (_cachedAnchor && document.body.contains(_cachedAnchor)) return _cachedAnchor
+  const el = document.querySelector(PANE_ANCHOR_SELECTOR) as HTMLElement | null
+  if (el) _cachedAnchor = el
+  return el
 }
 
 // ─── 单个 plan step 渲染(v13:i18n 化 hover 预览) ────────────────────
@@ -598,11 +545,6 @@ export function AgentTaskProgressPane() {
   // Phase 19: BatchHeader 折叠状态(默认折叠,避免初次打开时 pane 太长)
   const [batchCollapsed, setBatchCollapsed] = React.useState<boolean>(true)
 
-  // v13: 拖拽位置状态(null = 首次打开,使用默认 right-2 top-2 定位)
-  const [panePosition, setPanePosition] = React.useState<PanePosition | null>(null)
-  // v13: 拖拽中状态(用于切换 cursor / 提升 z-index)
-  const [isDragging, setIsDragging] = React.useState<boolean>(false)
-
   // v13: 快捷键帮助面板开关(pane 打开时按 ? 弹出,Esc 或点关闭按钮收起)
   const [showHelp, setShowHelp] = React.useState<boolean>(false)
 
@@ -613,7 +555,12 @@ export function AgentTaskProgressPane() {
   // 仅在 isStreaming / sessionStart 存在时启用,避免空闲 tick 浪费
   const [elapsedTick, setElapsedTick] = React.useState<number>(0)
 
-  // v15: mounted 标志(SSR 安全 — createPortal 需要 document.body,SSR 时不存在)
+  // v16(2026-07-29):mounted 标志 + Pane 锚点解析
+  // - mounted:SSR 安全(createPortal 需要 document,SSR 时不存在)
+  const [paneAnchor, setPaneAnchor] = React.useState<HTMLElement | null>(null)
+  // - paneAnchor:AI 面板容器 div(作为 Pane Portal 挂载点),useState 触发一次解析,
+  //   解析失败时返回 null(AI 面板还没挂载,本轮不渲染 Pane,等下次)
+    setPaneAnchor(resolvePaneAnchor())
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => {
     setMounted(true)
@@ -635,34 +582,9 @@ export function AgentTaskProgressPane() {
     }
   }, [conversationId, threadId, setThreadId])
 
-  // v13: 客户端 mount 后加载保存的位置(SSR 时 window 不存在,延后到 effect)
-  React.useEffect(() => {
-    const saved = loadPanePosition()
-    if (saved) setPanePosition(clampPanePosition(saved.x, saved.y))
-  }, [])
-
-  // xv15+ 锚点 rect(用于把 Pane 默认锚到 AI 面板右上角,而非视口右上角)
-  // 选择器用 aside[data-testid="ai-side-panel-aside"](2026-07-29 立),
-  // 它在空消息/有消息状态下都在 DOM,不再依赖 message-list-inline-panel(空消息时不挂载)。
-  // 监听 3 类变化:window resize(窗口变)/ MutationObserver(aside DOM 出现/消失,例如 AI 面板开关)
-  // / 兜底 interval 500ms 重读(空消息 → 发消息的 inline panel 出现场景,即便 effect 没触发也兜底)。
-  const [paneAnchorRect, setPaneAnchorRect] = React.useState<DOMRect | null>(null)
-  React.useEffect(() => {
-    const update = () => {
-      const el = document.querySelector(
-        'aside[data-testid="ai-side-panel-aside"]',
-      ) as HTMLElement | null
-      if (el) setPaneAnchorRect(el.getBoundingClientRect())
-    }
-    update()
-    window.addEventListener('resize', update)
-    // 兜底:500ms 重读一次,捕获 AI 面板开关 / inline panel 挂载等 DOM 变化
-    const interval = window.setInterval(update, 500)
-    return () => {
-      window.removeEventListener('resize', update)
-      window.clearInterval(interval)
-    }
-  }, [])
+  // v16 根治:不再需要 paneAnchorRect / loadPanePosition / clampPanePosition
+  // Pane 位置由 CSS `position: absolute; top: 8px; right: 8px` 完全控制,
+  // 锚到 paneAnchor(AI 面板容器)内部,JS 零坐标计算,零漂移。
 
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
@@ -993,8 +915,7 @@ export function AgentTaskProgressPane() {
   React.useEffect(() => {
     if (!open || pinned) return
     const onClick = (e: MouseEvent) => {
-      // 拖拽中不触发 click-outside(避免 mouseup 误关闭)
-      if (isDragging) return
+      // v16 根治:不再有拖拽态,直接判断 click-outside
       const target = e.target as Node
       if (paneRef.current && !paneRef.current.contains(target)) {
         const trigger = document.querySelector('[data-testid="agent-progress-trigger"]')
@@ -1009,7 +930,7 @@ export function AgentTaskProgressPane() {
       window.clearTimeout(id)
       document.removeEventListener('mousedown', onClick)
     }
-  }, [open, pinned, closePane, isDragging])
+  }, [open, pinned, closePane])
 
   // Phase 17: 自动滚动逻辑
   const scrollRef = React.useRef<HTMLDivElement>(null)
@@ -1073,126 +994,27 @@ export function AgentTaskProgressPane() {
   // BatchHeader 折叠切换回调
   const onBatchCollapsedChange = React.useCallback((next: boolean) => setBatchCollapsed(next), [])
 
-  // v13: 拖拽处理器 — 鼠标按下时记录起点,移动时实时更新位置,抬起时持久化
-  // 用 ref 记录最新位置,避免闭包陷阱(stale state)
-  const positionRef = React.useRef<PanePosition | null>(null)
-  // v14: 同步记录 onMove 实时位置(不依赖 React render flush),
-  // 解决 mouseup 在 setState 重渲染前触发 → positionRef.current 仍为旧值的时序 bug
-  const livePositionRef = React.useRef<PanePosition | null>(null)
-  const dragStateRef = React.useRef<{
-    startX: number
-    startY: number
-    originX: number
-    originY: number
-  } | null>(null)
+  if (!open || !mounted || !paneAnchor) return null
 
-  // 同步 position state → ref(确保 onMouseUp 拿到最新值;livePositionRef 在 onMove 内同步写)
-  positionRef.current = panePosition
-
-  const onHeaderMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // 只响应鼠标左键
-    if (e.button !== 0) return
-    // 排除点击按钮 / tab / 可交互子元素的情况(避免误触发拖拽)
-    const target = e.target as HTMLElement
-    if (target.closest('button, [role="tab"], input, [data-no-drag]')) return
-
-    e.preventDefault()
-    // v15: 起始位置基于视口(fixed 定位)— 无保存位置时,使用视口右上角估算
-    const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024
-    const fallback = {
-      x: Math.max(DRAG_EDGE_MARGIN, viewportW - PANE_ESTIMATED_WIDTH - DRAG_EDGE_MARGIN),
-      y: DRAG_EDGE_MARGIN,
-    }
-    const current = positionRef.current ?? fallback
-    dragStateRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: current.x,
-      originY: current.y,
-    }
-    setIsDragging(true)
-
-    const onMove = (ev: MouseEvent) => {
-      const state = dragStateRef.current
-      if (!state) return
-      const dx = ev.clientX - state.startX
-      const dy = ev.clientY - state.startY
-      // v15: clamp 基于 viewport(不再读 offsetParent,因为 Portal 后 offsetParent 是 body)
-      const next = clampPanePosition(state.originX + dx, state.originY + dy)
-      // v14: 同步写入 live ref,避免 mouseup 早于 render flush 时丢保存
-      livePositionRef.current = next
-      setPanePosition(next)
-    }
-
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-      document.body.style.userSelect = ''
-      document.body.style.cursor = ''
-      setIsDragging(false)
-      // 持久化最新位置:优先用 live ref(同步写入,不受 React render flush 影响),
-      // 兜底用 state 镜像 ref(向后兼容 + 单测稳定)
-      const final = livePositionRef.current ?? positionRef.current
-      if (final) savePanePosition(final)
-      livePositionRef.current = null
-      dragStateRef.current = null
-    }
-
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'grabbing'
-  }, [])
-
-  /**
-   * 键盘拖拽:←→↑↓ 微调(5px),Shift+方向键加速(25px)。
-   * 边界 clamp 与鼠标拖拽共用,持久化走同一 savePanePosition。
-   * Phase 20 P1-1(2026-07-28 立):为键盘/无障碍用户提供拖拽替代。
-   */
-  const onHeaderKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    // 只响应方向键 + Esc/Enter
-    const code = e.key
-    let dx = 0
-    let dy = 0
-    if (code === 'ArrowLeft') dx = -1
-    else if (code === 'ArrowRight') dx = 1
-    else if (code === 'ArrowUp') dy = -1
-    else if (code === 'ArrowDown') dy = 1
-    else return
-    e.preventDefault()
-    e.stopPropagation()
-    const step = KEYBOARD_STEP_PX * (e.shiftKey ? KEYBOARD_SHIFT_MULTIPLIER : 1)
-    const baseX = positionRef.current?.x ?? 0
-    const baseY = positionRef.current?.y ?? 0
-    // v15: clamp 基于 viewport(不再读 offsetParent)
-    const next = clampPanePosition(baseX + dx * step, baseY + dy * step)
-    livePositionRef.current = next
-    setPanePosition(next)
-    savePanePosition(next)
-  }, [])
-
-  if (!open || !mounted) return null
-
-  // xv15+ 计算 pane 根容器的位置样式(fixed 相对视口)
-  // - 有保存位置 → left/top(视口坐标)
-  // - 无保存位置 → 默认锚到"AI 面板右上角" viewport 坐标(用户规则:Pane 应该浮在 AI 面板右上角而不是浏览器视口右上角)
-  //   视口不可用(paneAnchorRect 还没拿到)时 → fallback 到视口右上角 {right: 16, top: 16} 避免初次渲染跳动
-  const positionStyle: React.CSSProperties = panePosition
-    ? { left: panePosition.x, top: panePosition.y, right: 'auto' }
-    : paneAnchorRect
-      ? {
-          left: Math.max(DRAG_EDGE_MARGIN, paneAnchorRect.right - PANE_ESTIMATED_WIDTH - 16),
-          top: paneAnchorRect.top + 16,
-          right: 'auto',
-        }
-      : { right: 16, top: 16 }
+  // v16(2026-07-29)根治方案:Pane 位置 100% 由 CSS 控制,零 JS 坐标计算
+  // - Pane 用 position:absolute(top:8px, right:8px)锚到 paneAnchor(AI 面板容器 div)内部
+  // - paneAnchor 自身 position:fixed,是 Pane 的 containing block
+  // - 零 JS 漂移,不会因 React 重渲染时序错位
+  // - AI 面板开关:Pane 跟着 paneAnchor 出现/消失(因为是它的子元素)
+  // - Sidebar 折叠/AI 面板宽度变化:Pane 自动跟随(paneAnchor 位置由 CSS 决定)
+  // 历史方案(v13-v15)都用 JS 算坐标 → 反复出现漂移问题,本次彻底砍掉
+  const positionStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  }
 
   // Phase 23(2026-07-29):最小化模式 — 渲染摘要条替代完整面板
   // 摘要条用同一 positionStyle + Portal 保持位置一致性,用户可点击展开按钮恢复
-  // xv15+:z-popover(2001,globals.css 定义)而非 z-50,防止 Pane 锚到 AI 面板区域时被 AISidePanel(z-sticky=990)遮住
+  // v16(2026-07-29):Portal 挂到 paneAnchor(AI 面板容器)内部,零 JS 坐标计算
   if (isMinimized) {
     return createPortal(
-      <div className="fixed z-popover" style={positionStyle} data-testid="pane-minimized-container">
+      <div className="z-popover" style={positionStyle} data-testid="pane-minimized-container">
         <MinimizedSummaryBar
           progress={progressPct}
           toolCallCount={tools.length}
@@ -1200,47 +1022,41 @@ export function AgentTaskProgressPane() {
           onExpand={() => setIsMinimized(false)}
         />
       </div>,
-      document.body,
+      paneAnchor,
     )
   }
 
-  // v15: 用 React Portal 渲染到 document.body,脱离 aside(overflow-hidden rounded-xl)
-  // 的 overflow 限制,Pane 可以悬浮在 AI 对话框外(超出 aside 边界显示),不被边框裁切。
-  // xv15+:z-popover(2001)而非 z-50,防止 Pane 锚到 AI 面板区域时被 AISidePanel(z-sticky=990)遮住
+  // v16(2026-07-29 根治方案):用 React Portal 渲染到 paneAnchor(AI 面板容器 div)内部
+  // 优势:
+  // 1. position:absolute + top:8 + right:8 → Pane 永远在 AI 面板右上角(由 CSS 保证,无 JS 计算)
+  // 2. Pane 是 paneAnchor 子元素 → AI 面板开关时 Pane 跟着出现/消失
+  // 3. 不受 aside overflow-hidden 限制(因为 Pane 在 aside 父元素,不在 aside 内)
+  // 4. z-popover 保留:z-index 在 paneAnchor 子层内有效,确保 Pane 在 paneAnchor 内其他内容之上
   return createPortal(
     <div
       ref={paneRef}
       className={cn(
-        'fixed z-popover',
+        // v16 根治:absolute(相对于 paneAnchor fixed 父元素),不再 fixed
+        'absolute z-popover',
         'flex w-[280px] max-h-[60vh] flex-col',
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
-        isDragging && 'shadow-lg',
       )}
       style={positionStyle}
       role="complementary"
       aria-label={t('ariaLabel')}
       data-testid="agent-progress-pane"
-      data-dragging={isDragging ? 'true' : undefined}
     >
-      {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮(v13:可拖拽) */}
+      {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮(v16:不再可拖拽,Pane 由 CSS 锚定) */}
       <div
-        onMouseDown={onHeaderMouseDown}
-        onKeyDown={onHeaderKeyDown}
         className={cn(
           'flex h-8 shrink-0 select-none items-center gap-1 border-b border-border px-2 outline-none',
           'focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0',
-          isDragging ? 'cursor-grabbing' : 'cursor-grab',
         )}
         data-testid="pane-header"
         aria-label={t('dragHandle')}
         role="toolbar"
         tabIndex={0}
       >
-        <GripVertical
-          className="h-3 w-3 shrink-0 text-muted-foreground/40"
-          aria-hidden
-          data-testid="pane-drag-grip"
-        />
         <ConnectionStatusDot
           state={connectionState}
           className={cn(
@@ -1687,18 +1503,13 @@ export function AgentTaskProgressPane() {
         )}
       </div>
     </div>,
-    document.body,
+    paneAnchor,
   )
 }
 
 export default AgentTaskProgressPane
 
-// ─── Phase 20 P1-1 导出供单测使用(2026-07-28 立) ─────────────────
-export {
-  clampPanePosition,
-  loadPanePosition,
-  savePanePosition,
-  KEYBOARD_STEP_PX,
-  KEYBOARD_SHIFT_MULTIPLIER,
-  POSITION_STORAGE_KEY,
-}
+// ─── v16(2026-07-29 立)根治方案后,以下导出已删除(JS 坐标计算全部砍掉):
+// - clampPanePosition / loadPanePosition / savePanePosition(被 CSS absolute 替代)
+// - KEYBOARD_STEP_PX / KEYBOARD_SHIFT_MULTIPLIER / POSITION_STORAGE_KEY(拖拽功能已删除)
+// Pane 位置 100% 由 CSS `position: absolute; top: 8; right: 8` 控制,锚到 ai-side-panel-container 内
