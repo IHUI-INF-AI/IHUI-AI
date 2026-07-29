@@ -237,7 +237,7 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-full shrink-0 items-center justify-center rounded-md border border-border/40 px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white px-2 text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
       >
         <Search className="h-4 w-4" />
       </button>
@@ -458,10 +458,10 @@ export function TagsView() {
                     }
                   }}
                   className={cn(
-                    'inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
-                    'hover:bg-destructive/10 hover:text-destructive',
+                    'inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform',
+                    'hover:bg-destructive/20 hover:text-destructive hover:rotate-90 active:scale-90',
                     // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
-                    'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60',
+                    'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
                     // 键盘焦点态:补齐 a11y,让 Tab 用户能看到关闭按钮
                     'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                   )}
@@ -488,7 +488,7 @@ export function TagsView() {
           trigger={
             <button
               type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
               aria-label={tCommon('moreActions')}
             >
               <ChevronDown className="h-4 w-4" />
@@ -563,13 +563,15 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   // spec 为 null 时也必须无条件调用 useTranslations(React hook 规则)
   const t = useTranslations(spec?.ns ?? 'common')
   if (!spec) return <span className="text-sm leading-none">{deriveTitle(path)}</span>
-  let title: string
-  try {
-    title = t(spec.key)
-  } catch {
-    title = deriveTitle(path)
+  // 2026-07-29 根治"标签栏显示 i18n 键名"问题:
+  // next-intl 的 t() 在 key 缺失时不会抛错,而是调用 onError 后返回 key 路径字符串
+  // (如 "aiChat.title"),导致标签栏直接显示键名。原 try/catch 永远进不去 catch 分支。
+  // 改用 t.has() 显式检查 key 是否存在,不存在则回退到 deriveTitle(英文 Title Case 兜底),
+  // 至少不泄露键名;后续可由 path-labels.ts 补齐 key 让标签显示正确翻译。
+  if (!t.has(spec.key)) {
+    return <span className="text-sm leading-none">{deriveTitle(path)}</span>
   }
-  return <span className="text-sm leading-none">{title}</span>
+  return <span className="text-sm leading-none">{t(spec.key)}</span>
 })
 
 export default TagsView
