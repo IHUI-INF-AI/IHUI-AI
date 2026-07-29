@@ -959,3 +959,25 @@ export interface SearchScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 分享生成结果(平台注入,字段对齐 mobile-rn ShareScreen ShareResp) */
+export interface ShareResultItem {
+  shareUrl: string
+  shareCode: string
+  expireAt: string
+}
+
+/** ShareScreen props */
+export interface ShareScreenProps {
+  t: TFunction
+  targetTitle: string
+  remark: string
+  result: ShareResultItem | null
+  loading: boolean
+  error: string
+  onRemarkChange: (text: string) => void
+  onCreate: () => void
+  onShare: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
