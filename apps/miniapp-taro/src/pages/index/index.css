@@ -1,0 +1,234 @@
+/*
+ * 首页 AI 对话主页专用样式 — 对齐原项目 ai_index.vue 视觉
+ *
+ * 作用域:仅 pages/index/index.tsx 使用。
+ * 设计 token:由于 tokens.css 禁止本轮修改(--color-brand-* 前缀会被
+ * sync-design-tokens.mjs 过滤),青色品牌色 / 导航栏背景 / 输入框背景
+ * 在本文件 .ai-home-page 类内局部定义,CSS 变量向下继承,子组件通过
+ * var(--color-brand-cyan) 等引用,默认值 fallback 保证其他页面不受影响。
+ *
+ * 动画:7 个 @keyframes 对齐原项目 pulse / slideUp / rotate / flipIn /
+ * popupFadeIn / gradientFlow / move。
+ */
+
+/* ===== 首页局部 CSS 变量(对齐原项目硬编码颜色)===== */
+.ai-home-page {
+  /* 品牌青色系(原项目 #93d2f3 系列) */
+  --color-brand-cyan: #93d2f3;
+  --color-brand-cyan-light: #b3e5fc;
+  --color-brand-cyan-active: #4baae0;
+  --color-brand-cyan-bg: #ade0f0;
+  --color-brand-cyan-disabled: #bef7fc;
+  --color-brand-cyan-teal: #9bd1d1;
+  --color-brand-cyan-pale: #81d8e5;
+  --color-brand-cyan-opacity-10: rgba(0, 242, 255, 0.1);
+  --color-brand-cyan-opacity-30: rgba(0, 242, 255, 0.3);
+  --color-brand-cyan-opacity-50: rgba(0, 242, 255, 0.5);
+  --color-brand-cyan-opacity-90: rgba(147, 210, 243, 0.9);
+
+  /* 容器 / 背景色 */
+  --color-nav-bg: #E9F0FD;        /* 导航栏浅蓝灰背景 */
+  --color-nav-title: #171717;     /* 导航栏标题色 */
+  --color-input-bg: #E6F3FA;     /* 输入框浅蓝背景 */
+  --color-active-bg: #D3E9FF;    /* menu-item 选中背景 */
+  --color-card-subtle: #fafafa;  /* material-cards-wrap 背景 */
+  --color-bg-warm: #fcfdf7;      /* 暖白背景 */
+
+  /* 文字色 */
+  --color-text-date: #888;       /* 日期分组标题 */
+  --color-text-drawer: #3D3D3D;  /* 抽屉文字、模型列表标题 */
+  --color-text-selected: #0d11fc;/* 选中文字蓝色 */
+  --color-text-icon-label: rgba(0, 0, 0, 0.9);
+
+  /* 边框色 */
+  --color-border-list-item: #B9B9B9;
+  --color-border-card: #eee;
+  --color-border-subtle: #f0f0f0;
+
+  /* 强调色 */
+  --color-brand-purple-bright: #8D83FF;
+  --color-brand-purple-soft: #9A99F3;
+  --color-accent-blue: #5a85ff;
+  --color-ios-blue: #007AFF;
+
+  /* 遮罩 */
+  --color-overlay-40: rgba(0, 0, 0, 0.4);
+  --color-overlay-50: rgba(0, 0, 0, 0.5);
+  --color-overlay-70: rgba(0, 0, 0, 0.7);
+}
+
+/* ===== 顶部品牌区脉冲动画(对齐原项目 .share-image pulse)===== */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.ai-pulse {
+  animation: pulse 0.5s infinite ease-in-out;
+}
+
+/* ===== ModelList 子项上滑入场动画(对齐原项目 .chu-row slideUp)===== */
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(60rpx);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ai-slide-up {
+  opacity: 0;
+  transform: translateY(60rpx);
+  animation: slideUp 0.8s ease forwards;
+  will-change: transform, opacity;
+}
+
+/* ===== 旋转动画(对齐原项目 .agent_back rotate)===== */
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.ai-rotate {
+  animation: rotate 5s linear infinite;
+  will-change: transform;
+}
+
+/* ===== 翻转动画(对齐原项目 .popup-content flipIn)===== */
+@keyframes flipIn {
+  0% {
+    transform: perspective(400rpx) rotateX(90deg);
+    opacity: 0;
+  }
+  100% {
+    transform: perspective(400rpx) rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.ai-flip-in {
+  animation: flipIn 1s linear forwards;
+  will-change: transform, opacity;
+}
+
+/* ===== 弹窗淡入(对齐原项目 popupFadeIn)===== */
+@keyframes popupFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ai-popup-fade-in {
+  animation: popupFadeIn 0.2s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+/* ===== 渐变文字流动(对齐原项目 gradientFlow)===== */
+@keyframes gradientFlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.ai-gradient-flow {
+  background-size: 200% 200%;
+  animation: gradientFlow 3s ease-in-out infinite;
+}
+
+/* ===== 语音线条动画(对齐原项目 move)===== */
+@keyframes move {
+  0% { transform: scaleY(0.3); }
+  100% { transform: scaleY(1); }
+}
+
+.ai-voice-move {
+  animation: move 0.75s linear infinite alternate;
+  will-change: transform;
+}
+
+/* ===== 抽屉滑入滑出过渡 ===== */
+.ai-drawer-border {
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+.ai-drawer-border-hidden {
+  transform: translateX(-100%);
+}
+
+.ai-drawer-border-visible {
+  transform: translateX(0);
+}
+
+/* ===== model-type-btn 箭头旋转(对齐原项目 .btn-arrow.rotate)===== */
+.ai-btn-arrow {
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+.ai-btn-arrow-rotate {
+  transform: rotate(180deg);
+}
+
+/* ===== model-type-btn 容器尺寸(对齐原项目 200rpx×60rpx)===== */
+.ai-model-type-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  width: 200rpx;
+  height: 60rpx;
+}
+
+/* ===== 输入区底部安全区(对齐原项目 env(safe-area-inset-bottom))===== */
+.ai-input-safe-area {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 10rpx);
+}
+
+/* ===== 抽屉菜单项选中态(对齐原项目 .menu-item_active)===== */
+.ai-menu-item-active {
+  background: var(--color-active-bg);
+  border-radius: 15rpx 0 0 15rpx;
+}
+
+/* ===== ModelList popup 模式行样式(对齐原项目 .chu-row)===== */
+.ai-chu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 80rpx;
+  border-radius: 15rpx;
+  background: var(--color-card);
+  border: 4rpx solid var(--color-border-list-item);
+  margin: 5rpx 0;
+  padding: 0 15rpx;
+}
+
+.ai-chu-row-active {
+  border-color: var(--color-foreground);
+  box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 关闭按钮(AGENTS §4 圆角守门豁免:close 按钮) */
+.ai-close-btn {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  width: 50rpx;
+  height: 50rpx;
+  z-index: 1000;
+  background: var(--color-card);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
