@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
+import './index.css'
 
 interface MemberItem {
   id: string
@@ -110,54 +111,54 @@ export default function MemberDetail() {
   })
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx]">
-      <View className="flex gap-[16rpx]">
-        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx] text-center">
-          <Text className="block text-[34rpx] font-bold text-primary">{stats.teamCount}</Text>
-          <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
+    <View className="md-page">
+      <View className="md-stats">
+        <View className="md-stat">
+          <Text className="md-stat-num">{stats.teamCount}</Text>
+          <Text className="md-stat-label">
             {tt('distribution.memberDetail.teamCount', '团队人数')}
           </Text>
         </View>
-        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx] text-center">
-          <Text className="block text-[34rpx] font-bold text-primary">{stats.monthNew}</Text>
-          <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
+        <View className="md-stat">
+          <Text className="md-stat-num">{stats.monthNew}</Text>
+          <Text className="md-stat-label">
             {tt('distribution.memberDetail.monthNew', '本月新增')}
           </Text>
         </View>
-        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx] text-center">
-          <Text className="block text-[34rpx] font-bold text-primary">¥{stats.totalCommission}</Text>
-          <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
+        <View className="md-stat">
+          <Text className="md-stat-num">¥{stats.totalCommission}</Text>
+          <Text className="md-stat-label">
             {tt('distribution.memberDetail.totalCommission', '总佣金')}
           </Text>
         </View>
       </View>
 
-      <View className="mt-[28rpx]">
-        <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
+      <View className="md-list-section">
+        <Text className="md-list-title">
           {tt('distribution.memberDetail.memberList', '成员列表')}
         </Text>
 
         {list.length > 0 && (
-          <View className="flex flex-col gap-[16rpx]">
+          <View className="md-list">
             {list.map((m) => (
-              <View key={m.id} className="flex items-center p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]">
+              <View key={m.id} className="md-card">
                 {m.avatar ? (
-                  <Image className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-muted flex-shrink-0" src={m.avatar} mode="aspectFill" />
+                  <Image className="md-avatar" src={m.avatar} mode="aspectFill" />
                 ) : (
-                  <View className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-muted flex-shrink-0 flex items-center justify-center">
-                    <Text className="text-[28rpx] font-semibold text-primary">{m.nickname.charAt(0) || '?'}</Text>
+                  <View className="md-avatar md-avatar-fallback">
+                    <Text>{m.nickname.charAt(0) || '?'}</Text>
                   </View>
                 )}
-                <View className="flex-1 ml-[20rpx] min-w-0">
-                  <View className="flex items-center justify-between">
-                    <Text className="text-[28rpx] font-medium text-foreground truncate flex-1 min-w-0">{m.nickname}</Text>
-                    <Text className="text-[24rpx] font-semibold text-accent ml-[16rpx] flex-shrink-0">V{m.level}</Text>
+                <View className="md-info">
+                  <View className="md-info-row">
+                    <Text className="md-nickname">{m.nickname}</Text>
+                    <Text className="md-level">V{m.level}</Text>
                   </View>
-                  <View className="flex items-center justify-between mt-[10rpx]">
-                    <Text className="text-[22rpx] text-muted-foreground truncate flex-1 min-w-0">
+                  <View className="md-info-row">
+                    <Text className="md-join">
                       {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
                     </Text>
-                    <Text className="text-[24rpx] font-semibold text-success ml-[16rpx] flex-shrink-0">
+                    <Text className="md-contribution">
                       {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
                     </Text>
                   </View>
@@ -168,26 +169,26 @@ export default function MemberDetail() {
         )}
 
         {list.length === 0 && !loading && !error && (
-          <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">{t('distribution.memberDetail.empty')}</Text>
+          <Text className="md-empty">{t('distribution.memberDetail.empty')}</Text>
         )}
 
         {error && !loading && (
-          <View className="flex flex-col items-center py-[60rpx]" onClick={() => load(true)}>
-            <Text className="text-[26rpx] text-destructive">
+          <View className="md-error" onClick={() => load(true)}>
+            <Text className="md-error-text">
               {tt('distribution.memberDetail.error', '加载失败')}
             </Text>
-            <Text className="text-[26rpx] text-primary mt-[12rpx]">
+            <Text className="md-error-retry">
               {tt('distribution.memberDetail.retry', '点击重试')}
             </Text>
           </View>
         )}
 
         {loading && (
-          <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">{t('distribution.memberDetail.loading')}</Text>
+          <Text className="md-loading">{t('distribution.memberDetail.loading')}</Text>
         )}
 
         {!loading && !hasMore && list.length > 0 && (
-          <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
+          <Text className="md-no-more">
             {tt('distribution.memberDetail.noMore', '没有更多了')}
           </Text>
         )}
