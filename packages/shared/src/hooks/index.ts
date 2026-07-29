@@ -18,3 +18,5 @@ export * from './use-confirm-dialog'
 export * from './use-form'
 // 跨端共享登录表单(2026-07-29 立,web/RN/Taro 三端登录逻辑去重)
 export * from './use-login-form'
+// 跨端共享注册表单(2026-07-29 立,web/RN/Taro 三端注册逻辑去重)
+export * from './use-register-form'
