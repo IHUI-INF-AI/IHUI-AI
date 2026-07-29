@@ -3343,3 +3343,127 @@
 .delay-10 {
   animation-delay: 1s;
 }
+
+/* ============ 12. 时尚杂志动画(Magazine Editorial) ============ */
+
+/* Magazine blur-in entrance — 元素从模糊+下移渐入 */
+@keyframes mag-blur-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.animate-mag-blur-in {
+  animation: mag-blur-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Magazine ghost number — 大号背景数字微浮 */
+@keyframes mag-ghost-float {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.05;
+  }
+  50% {
+    transform: translateY(-3px);
+    opacity: 0.08;
+  }
+}
+
+/* Magazine shimmer sweep — hover 时光泽扫过 */
+@keyframes mag-shimmer-sweep {
+  0% {
+    transform: translateX(-120%) skewX(-15deg);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateX(220%) skewX(-15deg);
+    opacity: 0;
+  }
+}
+
+/* Magazine accent line grow — hover 时左侧装饰线生长 */
+@keyframes mag-line-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Magazine row slide in — 表格行从左滑入 */
+@keyframes mag-row-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-mag-row-slide {
+  animation: mag-row-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Magazine number pop — 大号数字弹入 */
+@keyframes mag-number-pop {
+  0% {
+    opacity: 0;
+    transform: scale(1.4);
+    filter: blur(4px);
+  }
+  60% {
+    opacity: 0.5;
+    transform: scale(0.95);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0.06;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+.animate-mag-number-pop {
+  animation: mag-number-pop 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Magazine value count up glow — 数值高亮微脉冲 */
+@keyframes mag-value-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgb(16 185 129 / 0.25));
+  }
+}
+.animate-mag-value-glow {
+  animation: mag-value-glow 2.5s ease-in-out infinite;
+}
+
+/* Magazine section number breathe — 章节大号数字呼吸 */
+@keyframes mag-section-breathe {
+  0%,
+  100% {
+    opacity: 0.08;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.12;
+    transform: scale(1.02);
+  }
+}
+.animate-mag-section-breathe {
+  animation: mag-section-breathe 4s ease-in-out infinite;
+}
