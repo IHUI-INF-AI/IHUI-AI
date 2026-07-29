@@ -123,4 +123,10 @@ export type {
   StudyProgressCourse,
   StudyProgressData,
   StudyProgressScreenProps,
+  /** 批次 11(2026-07-29):表单型(问答创建/笔记创建/证书申请/账号设置) */
+  AskCreateScreenProps,
+  NoteCreateScreenProps,
+  CertApplyScreenProps,
+  SettingsAccountItem,
+  SettingsAccountScreenProps,
 } from '@ihui/types'
