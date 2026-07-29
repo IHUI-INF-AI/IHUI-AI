@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, integer, bigint, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -6,6 +6,8 @@ import { users } from './users.js'
  * status: 'active'(启用) / 'revoked'(已吊销)。
  * permissions: 权限点列表（jsonb 数组）。rate_limit: 每分钟请求上限。
  * key: 公开标识（前缀+短码）；secret: 仅创建时返回完整值，存储需哈希。
+ * P0-5 中转站(2026-07-29):tokenBalance/costBalanceCents 用于按量计费余额,
+ *   -1 = 无限额度(admin 信任的 Key),0 = 余额不足,>0 = 可用余额。
  */
 export const developerApiKeys = pgTable(
   'developer_api_keys',
@@ -21,6 +23,15 @@ export const developerApiKeys = pgTable(
     status: varchar('status', { length: 20 }).default('active').notNull(),
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
     rateLimit: integer('rate_limit').default(60).notNull(),
+    // --- P0-5 中转站计费字段(2026-07-29 立) ---
+    /** Token 余额(-1 = 无限额度,0 = 余额耗尽,>0 = 可用 token 数) */
+    tokenBalance: bigint('token_balance', { mode: 'number' }).default(-1).notNull(),
+    /** 成本余额(分,-1 = 无限额度,0 = 余额耗尽,>0 = 可用分) */
+    costBalanceCents: integer('cost_balance_cents').default(-1).notNull(),
+    /** 已用 token 累计(用于统计,不回退) */
+    tokenUsedTotal: bigint('token_used_total', { mode: 'number' }).default(0).notNull(),
+    /** 已用成本累计(分,用于统计,不回退) */
+    costUsedTotalCents: integer('cost_used_total_cents').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
