@@ -78,6 +78,42 @@
 
 ---
 
+## 当前活跃任务:miniapp-taro 功能组件对齐 zhs_app-ZZ(2026-07-30 立,平台独占:仅 apps/miniapp-taro)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/miniapp-taro`,不参与 web/api/ai-service 跨端契约同步。
+> 对齐基础设施:`.trae-cn/tmp/zhs-app-ref/components/`(原项目 69 个 Vue 组件源码,已复制到工作区)
+> 全量对齐矩阵:69 组件 100% 覆盖(37 已对齐 + 14 部分对齐 + 9 未对齐 + 9 废弃不迁移)
+
+### 目标条件(五要素契约)
+
+将原项目 `zhs_app-ZZ` 69 个 Vue 组件的功能/交互逻辑在 `apps/miniapp-taro` 中完整对齐。验证:typecheck + lint + build 全绿。约束:复用现有组件,通过扩展 props/variant 模式覆盖,禁止引入新依赖。已对齐 37 + 废弃 9 = 46 个无需改动,聚焦 14 部分对齐 + 9 未对齐 = 23 个补建/修复。
+
+### 硬性指标(H1-H6)
+
+- [x] ✅(2026-07-30) H1:P0 会员介绍弹窗对齐(introduce-popup 4 弹窗:单帜/双帜/等级/私人顾问,扩展 VipBenefitsPopup variant)
+- [x] ✅(2026-07-30) H2:P0 AIGC 配置组件对齐(新建 Selecter.tsx 5 type:scale/video/voice/ratio/默认;ModelConfigDialog 添加 variant='aigc':4 上传按钮 + 动态配置项 + 音色选择弹窗)
+- [x] ✅(2026-07-30) H3:P1 课程组件扩展(LessonListItem 添加 vipOnly/likes/category/lessonCount/price/subtitle/thumbnail 字段 + compact prop;VIP 角标 + 价格标签 + 分类徽章 + 课时数已支持)
+- [x] ✅(2026-07-30) H4:P1 支付组件扩展(新建 PayButton.tsx:5 type 变体 freevip/1/2/3/4 + 购买弹窗 + 数量选择,对齐原项目 pay_btn.vue)
+- [x] ✅(2026-07-30) H5:P1 通用选择器扩展(TitleSwitchTypeBar 添加 mode='multi'|'single' + value/mainList props,类型下沉 packages/types;对齐 type-bar/tab.vue + single.vue)
+- [x] ✅(2026-07-30) H6:typecheck + lint + taro build 全绿(token 同步不漂移)(typecheck 0 errors / lint 0 errors 51 warnings / weapp build 37.16s / h5 build 8.2s / check-miniapp-tokens-sync exit 0;修复 VipBenefitsPopup.tsx 3 处错误:spanStyle undefined 2 处 + useState 条件调用违反 hooks 规则 1 处)
+
+### P2 低优先级(单页面业务专用,按需推进)
+
+- [ ] P2-1:FunctionBlockColumn 分销订单列布局(DistributionStats 扩展卡片列变体)
+- [ ] P2-2:MoreTitles 通用"标题+查看更多"(提取 SectionHeader 共享组件)
+- [ ] P2-3:KnowledgePlanet 知识星球(CourseCatalog 增加 planet variant)
+- [ ] P2-4:CommissionFloatingIcon 可拖拽分佣浮标(CustomerServiceFloat 增加 draggable + 位置本地存储)
+- [ ] P2-5:loginPopUp 登录弹窗形态(头像/昵称/角色选择,如需保留再封装)
+- [ ] P2-6:Toolbar 首页工具栏(首页专用,页面内联实现)
+- [ ] P2-7:colorful_loader 72 点彩色加载器(纯装饰,可不迁移)
+- [ ] P2-8:CourseCarousel 课程专用轮播(Carousel 通用轮播已覆盖)
+
+### 进度记录
+
+- 轮次 1:启动 + 原项目 69 组件复制到 `.trae-cn/tmp/zhs-app-ref/components/` + 全量对齐矩阵建立(37/14/9/9 分布)
+
+---
+
 ## §1 后续任务建议(2026-07-26 维护成本优化批次)
 
 > 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。
