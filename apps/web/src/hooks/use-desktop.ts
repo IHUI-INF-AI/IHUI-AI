@@ -15,6 +15,7 @@ import {
   sendDesktopNotification,
   getSystemTheme,
   onSystemThemeChange,
+  setTrayStatus,
   type DesktopAppInfo,
 } from '@/lib/tauri-bridge'
 
@@ -217,6 +218,7 @@ export function useDesktopEvents(): void {
     // 动态 import 避免浏览器端加载 Tauri event API
     let unlistenTray: (() => void) | undefined
     let unlistenShortcut: (() => void) | undefined
+    let unlistenBeforeClose: (() => void) | undefined
     let cancelled = false
 
     void (async () => {
@@ -256,12 +258,42 @@ export function useDesktopEvents(): void {
             break
         }
       })
+
+      // 2026-07-29 #12:窗口关闭前事件,前端保存正在编辑的消息
+      unlistenBeforeClose = await listen('desktop-before-close', () => {
+        window.dispatchEvent(new CustomEvent('desktop-before-close'))
+      })
     })()
 
     return () => {
       cancelled = true
       unlistenTray?.()
       unlistenShortcut?.()
+      unlistenBeforeClose?.()
     }
   }, [])
+}
+
+/**
+ * useTrayStatus — 根据聊天状态自动切换托盘 tooltip(2026-07-29 #10 立)。
+ *
+ * 监听:
+ * - chat.isStreaming → "thinking"(AI 正在生成回复)
+ * - notification.unreadCount > 0 → "new_message"(有未读消息)
+ * - 两者都无 → "idle"
+ *
+ * 优先级:thinking > new_message > idle
+ * 浏览器端 isTauri()=false,setTrayStatus 为 no-op,无副作用。
+ */
+export function useTrayStatus(isStreaming: boolean, unreadCount: number): void {
+  React.useEffect(() => {
+    if (!isTauri()) return
+    if (isStreaming) {
+      void setTrayStatus('thinking')
+    } else if (unreadCount > 0) {
+      void setTrayStatus('new_message')
+    } else {
+      void setTrayStatus('idle')
+    }
+  }, [isStreaming, unreadCount])
 }
