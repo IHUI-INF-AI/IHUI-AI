@@ -1,0 +1,132 @@
+/*
+ * LessonListItem 组件样式 — 对齐原项目 PopularCourses + CourseCarousel 视觉特征
+ *
+ * 变体映射:
+ *   - list1     → PopularCoursesList1.vue(横向,封面左 + 内容右,VIP 灰底金字 pill)
+ *   - list2     → PopularCoursesList2.vue(横向,封面带价格/分类角标 + VIP/付费 pill)
+ *   - carousel  → CourseCarousel/UpToDate.vue(纵向网格,封面带分类/课时角标)
+ *
+ * 颜色全部使用 CSS 变量 var(--color-*),与 packages/design-tokens 同步。
+ * VIP 金色用 var(--color-warning)(hsl(38 92% 50%) ≈ 原项目 #e99d42)。
+ * 付费红色用 var(--color-destructive)(hsl(0 100% 60%) ≈ 原项目 #ff0000/#e54834)。
+ */
+
+/* ===== 封面容器(对齐 .popular-courses-list-item-img:20rpx 圆角 + overflow hidden)===== */
+.lli-thumb {
+  position: relative;
+  border-radius: 10px; /* 对齐 20rpx */
+  overflow: hidden;
+  background-color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+/* 带角标的封面(需要定位上下文) */
+.lli-thumb-overlay {
+  position: relative;
+}
+
+/* ===== VIP pill(对齐 .popular-courses-list-item-text-king:灰底 + 金字)===== */
+.lli-vip-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 2px 10px;
+  border-radius: 8px; /* 对齐 15rpx */
+  background-color: var(--color-muted);
+}
+
+.lli-vip-text {
+  font-size: 20rpx; /* 对齐原项目 20rpx */
+  color: var(--color-warning); /* 金色,对齐原项目 #e99d42 */
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* ===== 通用 pill(付费项目,对齐 list2 .popular-courses-list-item-text-king 红字变体)===== */
+.lli-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background-color: var(--color-muted);
+}
+
+.lli-pill-text {
+  font-size: 20rpx;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* 付费 pill:红字(对齐原项目 #ff0000) */
+.lli-pill-paid .lli-pill-text {
+  color: var(--color-destructive);
+}
+
+/* VIP pill:金字(对齐原项目 #e99d42) */
+.lli-pill-vip .lli-pill-text {
+  color: var(--color-warning);
+}
+
+/* ===== 黑底半透明角标(对齐 list2/UpToDate 顶左角分类 + 底右角课时)=====
+ * 原项目用 rgba(0,0,0,0.3) + color:white + padding:4rpx 20rpx + border-radius:20rpx + font-size:24rpx
+ */
+.lli-overlay-tag {
+  position: absolute;
+  z-index: 2;
+  padding: 2px 10px;
+  border-radius: 10px; /* 对齐 20rpx */
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  font-size: 24rpx; /* 对齐原项目 24rpx */
+  line-height: 1.4;
+}
+
+/* 顶左角(分类徽章) */
+.lli-overlay-tl {
+  top: 0;
+  left: 0;
+}
+
+/* 底右角(课时数) */
+.lli-overlay-br {
+  bottom: 0;
+  right: 0;
+}
+
+/* ===== 价格角标(对齐 list2 .price-tag:底右角红底白字)=====
+ * 原项目用 rgba(255,0,0,0.8) + border-top-left-radius:12rpx
+ */
+.lli-price-tag {
+  position: absolute;
+  z-index: 2;
+  bottom: 0;
+  right: 0;
+  padding: 2px 10px;
+  border-top-left-radius: 6px; /* 对齐 12rpx */
+  background-color: var(--color-destructive);
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* ===== 变体布局微调 ===== */
+
+/* list1/list2 横向卡片:底部间距(对齐 margin-top:20rpx) */
+.lli-list1,
+.lli-list2 {
+  margin-top: 10px;
+}
+
+/* carousel 纵向网格:底部间距(对齐 margin-bottom:20rpx) */
+.lli-carousel {
+  margin-bottom: 10px;
+}
+
+/* carousel 封面圆角(对齐 UpToDate border-radius:24rpx) */
+.lli-carousel .lli-thumb {
+  border-radius: 12px; /* 对齐 24rpx */
+}

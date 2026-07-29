@@ -51,7 +51,8 @@ const getRatioIconStyle = (str: string): { width: string; height: string } => {
   return { width: '33rpx', height: '33rpx' }
 }
 
-const ITEM_BASE = 'flex items-center justify-center px-2 h-[50rpx] rounded-[10rpx] mr-[21rpx] flex-shrink-0 border'
+const ITEM_BASE =
+  'flex items-center justify-center px-2 h-[50rpx] rounded-[10rpx] mr-[21rpx] flex-shrink-0 border'
 const ITEM_BG = 'bg-muted/40'
 
 export default function Selecter({
@@ -75,7 +76,6 @@ export default function Selecter({
       const first = options[0]
       onChange?.(isObject(first) ? first.value : first, 0)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, type])
 
   // defaultVal 变化时同步选中
@@ -137,8 +137,7 @@ export default function Selecter({
   }
 
   // 水印 desc + 非 VIP 时禁用
-  const isDisabled = ():
- boolean => !!(desc && desc.includes('水印') && isVip === 0)
+  const isDisabled = (): boolean => !!(desc && desc.includes('水印') && isVip === 0)
 
   // ===== type='scale':比例尺寸选择(带 icon) =====
   if (type === 'scale') {
@@ -158,7 +157,10 @@ export default function Selecter({
               >
                 <View
                   className="mr-2 border rounded-[10rpx]"
-                  style={{ ...iconStyle, borderColor: active ? 'var(--color-primary)' : 'var(--color-foreground)' }}
+                  style={{
+                    ...iconStyle,
+                    borderColor: active ? 'var(--color-primary)' : 'var(--color-foreground)',
+                  }}
                 />
                 <Text
                   className="text-[29rpx] leading-[50rpx]"
@@ -251,7 +253,9 @@ export default function Selecter({
                   <View
                     key={index}
                     className={`${ITEM_BASE} ${ITEM_BG}`}
-                    style={{ borderColor: active ? 'var(--color-primary)' : 'var(--color-foreground)' }}
+                    style={{
+                      borderColor: active ? 'var(--color-primary)' : 'var(--color-foreground)',
+                    }}
                     onClick={() => selectSize(obj, index)}
                   >
                     <Text
@@ -272,10 +276,7 @@ export default function Selecter({
               >
                 <Text className="text-[29rpx] leading-[50rpx] text-muted-foreground">← 返回</Text>
               </View>
-              <View
-                className={`${ITEM_BASE}`}
-                style={{ background: 'rgba(81, 141, 253, 0.2)', borderColor: 'var(--color-primary)' }}
-              >
+              <View className={`${ITEM_BASE} selecter-size-label`}>
                 <Text
                   className="text-[29rpx] leading-[50rpx] font-bold"
                   style={{ color: 'var(--color-primary)' }}
@@ -291,7 +292,9 @@ export default function Selecter({
                   <View
                     key={index}
                     className={`${ITEM_BASE} ${ITEM_BG}`}
-                    style={{ borderColor: active ? 'var(--color-primary)' : 'var(--color-foreground)' }}
+                    style={{
+                      borderColor: active ? 'var(--color-primary)' : 'var(--color-foreground)',
+                    }}
                     onClick={() => selectRatio(item, index)}
                   >
                     <Text
@@ -307,10 +310,7 @@ export default function Selecter({
           )}
         </ScrollView>
         {selectedRatio && (
-          <View
-            className="w-full px-[21rpx] py-[13rpx] mt-[21rpx] rounded-[10rpx]"
-            style={{ background: 'rgba(81, 141, 253, 0.1)', border: '1px solid var(--color-primary)' }}
-          >
+          <View className="w-full px-[21rpx] py-[13rpx] mt-[21rpx] rounded-[10rpx] selecter-selected-value">
             <Text className="text-[31rpx] font-bold" style={{ color: 'var(--color-primary)' }}>
               已选择: {firstKey(selectedSize)} - {firstKey(selectedRatio)} (
               {(selectedRatio as Record<string, string>)[firstKey(selectedRatio)]})
