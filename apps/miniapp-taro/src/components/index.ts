@@ -210,3 +210,22 @@ export type { MaterialPopupProps, MaterialItem, MaterialTab } from './MaterialPo
 
 export { default as IntelligentAssistant } from './IntelligentAssistant'
 export type { IntelligentAssistantProps } from './IntelligentAssistant'
+
+// ============ P2 通用扩展组件(2026-07-30) ============
+export { default as SectionHeader } from './SectionHeader'
+export type { SectionHeaderProps } from './SectionHeader'
+
+export { default as ColorfulLoader } from './ColorfulLoader'
+export type { ColorfulLoaderProps } from './ColorfulLoader'
+
+export { default as LoginPopUp } from './LoginPopUp'
+export type { LoginPopUpProps } from './LoginPopUp'
+
+export { default as Toolbar } from './Toolbar'
+export type { ToolbarProps, ToolbarItem } from './Toolbar'
+
+export { default as Selecter } from './Selecter'
+export type { SelecterProps, SelecterOption, SelecterType } from './Selecter'
+
+export { default as PayButton } from './PayButton'
+export type { PayButtonProps, PayButtonType } from './PayButton'
