@@ -237,7 +237,7 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-full shrink-0 items-center justify-center rounded-md border border-border/40 bg-white px-2 text-foreground transition-colors hover:bg-gray-100 dark:bg-black dark:hover:bg-gray-900"
+        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white px-2 text-foreground transition-colors hover:bg-gray-100 dark:bg-black dark:hover:bg-gray-900"
       >
         <Search className="h-4 w-4" />
       </button>
