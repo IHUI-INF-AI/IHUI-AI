@@ -535,7 +535,7 @@ export default function PrivacyPage() {
         <View className="mb-[40rpx]">
           {overviewParagraphs.map((p, idx) => (
             <View key={idx} className="mb-[20rpx]">
-              {p.title ? <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">{p.title}</Text> : null}
+              {p.title ? <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">{p.title}</Text> : null}
               <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">{p.text}</Text>
             </View>
           ))}
@@ -546,7 +546,7 @@ export default function PrivacyPage() {
             <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">{section.subtitle}</Text>
             {section.paragraphs.map((p, pIdx) => (
               <View key={pIdx} className="mb-[20rpx]">
-                {p.title ? <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">{p.title}</Text> : null}
+                {p.title ? <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">{p.title}</Text> : null}
                 <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">{p.text}</Text>
               </View>
             ))}
