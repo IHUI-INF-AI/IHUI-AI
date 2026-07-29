@@ -735,3 +735,203 @@ export interface FeedbackDetailScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+// ============ 批次 8:静态屏+列表屏+详情屏(2026-07-29) ============
+
+/** Privacy 屏 props(纯静态展示,无 API) */
+export interface PrivacyScreenProps {
+  t: TFunction
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agreement 屏 props(纯静态展示,无 API) */
+export interface AgreementScreenProps {
+  t: TFunction
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 积分规则列表项(平台注入,字段对齐 mobile-rn PointRuleScreen Item) */
+export interface PointRuleItem {
+  id: string
+  action: string
+  points: number
+  desc: string
+}
+
+/** PointRule 屏 props */
+export interface PointRuleScreenProps {
+  t: TFunction
+  items: PointRuleItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** VIP 等级详情(平台注入,字段对齐 mobile-rn VipLevelScreen Detail) */
+export interface VipLevelItem {
+  id: string
+  levelName: string
+  price: number
+  durationDays: number
+  benefits: string
+}
+
+/** VipLevel 屏 props */
+export interface VipLevelScreenProps {
+  t: TFunction
+  item: VipLevelItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 退款详情(平台注入,字段对齐 mobile-rn RefundDetailScreen Detail) */
+export interface RefundDetailItem {
+  id: string
+  orderNo: string
+  amount: number
+  status: string
+  reason: string
+  createdAt: string
+}
+
+/** RefundDetail 屏 props */
+export interface RefundDetailScreenProps {
+  t: TFunction
+  item: RefundDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 订单详情(平台注入,字段对齐 mobile-rn OrderDetailScreen OrderDetail) */
+export interface OrderDetailItem {
+  id: string
+  orderNo: string
+  amount: number
+  status: string
+  productName: string
+  createdAt: string
+  paidAt?: string
+}
+
+/** OrderDetail 屏 props */
+export interface OrderDetailScreenProps {
+  t: TFunction
+  item: OrderDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 证书详情(平台注入,字段对齐 mobile-rn CertDetailScreen Cert) */
+export interface CertDetailItem {
+  id: string
+  certNo: string
+  title: string
+  issuer: string
+  holder: string
+  issuedAt: string
+  expiredAt?: string
+  score: number
+  verifyUrl: string
+}
+
+/** CertDetail 屏 props */
+export interface CertDetailScreenProps {
+  t: TFunction
+  item: CertDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  /** 验证证书回调(平台注入导航跳转) */
+  onVerify?: (certNo: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 动态详情(平台注入,字段对齐 mobile-rn PostDetailScreen Post) */
+export interface PostDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  circleName?: string
+  likes: number
+  comments: number
+  createdAt: string
+}
+
+/** PostDetail 屏 props */
+export interface PostDetailScreenProps {
+  t: TFunction
+  item: PostDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 公告详情(平台注入,字段对齐 mobile-rn AnnouncementDetailScreen Detail) */
+export interface AnnouncementDetailItem {
+  id: string
+  title: string
+  content: string
+  author: string
+  publishTime: string
+}
+
+/** AnnouncementDetail 屏 props */
+export interface AnnouncementDetailScreenProps {
+  t: TFunction
+  item: AnnouncementDetailItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 法律文档章节(隐私政策/用户协议等通用静态页) */
+export interface LegalDocSection {
+  title: string
+  body: string
+}
+
+/** LegalDoc 屏 props(通用静态页:隐私/协议/Cookie 政策等) */
+export interface LegalDocScreenProps {
+  t: TFunction
+  title: string
+  subtitle: string
+  updatedAt: string
+  sections: LegalDocSection[]
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 帮助列表项(平台注入,字段对齐 mobile-rn HelpScreen) */
+export interface HelpListItem {
+  id: string
+  question: string
+  answer: string
+}
+
+/** HelpScreen(帮助列表)props */
+export interface HelpScreenProps {
+  t: TFunction
+  items: HelpListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  expandedId: string | null
+  onRefresh: () => void
+  onToggle: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
