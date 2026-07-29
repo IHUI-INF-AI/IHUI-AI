@@ -141,6 +141,19 @@ export { CircleChatScreen } from './features/circle-chat/CircleChatScreen'
 export { CircleCreateScreen } from './features/circle-create/CircleCreateScreen'
 export { CircleDetailScreen } from './features/circle-detail/CircleDetailScreen'
 export { CircleMemberScreen } from './features/circle-member/CircleMemberScreen'
+/** 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏迁移自 mobile-rn) */
+export { DistributionScreen } from './features/distribution/DistributionScreen'
+export { ExamQuestionScreen } from './features/exam-question/ExamQuestionScreen'
+export { FinanceScreen } from './features/finance/FinanceScreen'
+export { HomeScreen } from './features/home/HomeScreen'
+export { IdentityVerifyScreen } from './features/identity-verify/IdentityVerifyScreen'
+export { PromoteScreen } from './features/promote/PromoteScreen'
+export { PromotionScreen } from './features/promotion/PromotionScreen'
+export { RecruitmentScreen } from './features/recruitment/RecruitmentScreen'
+export { ReferrerScreen } from './features/referrer/ReferrerScreen'
+export { TeamScreen } from './features/team/TeamScreen'
+export { VideoPlayerScreen } from './features/video-player/VideoPlayerScreen'
+export { VipBenefitScreen } from './features/vip-benefit/VipBenefitScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -477,4 +490,42 @@ export type {
   CircleCreateScreenProps,
   CircleChatMessage,
   CircleChatScreenProps,
+  /** 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏) */
+  DistributionProduct,
+  DistributionInfo,
+  DistributionScreenProps,
+  ExamQuestionItem,
+  ExamQuestionPaper,
+  ExamQuestionScreenProps,
+  FinanceSummary,
+  FinanceScreenProps,
+  HomeRecommendItem,
+  HomeLiveItem,
+  HomeProgressItem,
+  HomeMenuItem,
+  HomeScreenProps,
+  IdentityVerifyStatus,
+  IdentityVerifyScreenProps,
+  PromoteStatus,
+  PromoteInfo,
+  PromoteInviteRecord,
+  PromoteScreenProps,
+  PromotionCouponStatus,
+  PromotionCoupon,
+  PromotionScreenProps,
+  RecruitmentCategory,
+  RecruitmentJob,
+  RecruitmentScreenProps,
+  ReferrerInfo,
+  ReferrerScreenProps,
+  TeamMemberStatus,
+  TeamRelation,
+  TeamTab,
+  TeamStats,
+  TeamMember,
+  TeamScreenProps,
+  VideoPlayerProgress,
+  VideoPlayerScreenProps,
+  VipBenefitItem,
+  VipBenefitScreenProps,
 } from './types'
