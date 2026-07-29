@@ -1,20 +1,17 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useCallback, useEffect, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { SettingsAccountScreen as SharedSettingsAccountScreen, type SettingsAccountItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Input, Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
-interface Account { name: string; email: string; phone: string }
 
 export function SettingsAccountScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<Nav>()
-  const [account, setAccount] = useState<Account | null>(null)
+  const [account, setAccount] = useState<SettingsAccountItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -23,7 +20,7 @@ export function SettingsAccountScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetchApi<Account>('/account')
+      const r = await fetchApi<SettingsAccountItem>('/account')
       if (!r.success) throw new Error()
       setAccount(r.data ?? { name: '', email: '', phone: '' })
     } catch { setError(t('settingsAccount.loadFailed')) } finally { setLoading(false) }
@@ -31,7 +28,7 @@ export function SettingsAccountScreen() {
 
   useEffect(() => { void load() }, [load])
 
-  const save = async () => {
+  const onSave = async () => {
     if (!account) return
     setSaving(true); setError(''); setToast('')
     try {
@@ -44,46 +41,19 @@ export function SettingsAccountScreen() {
     } catch { setError(t('settingsAccount.loadFailed')) } finally { setSaving(false) }
   }
 
-  if (loading || !account) {
-    return <View style={s.center}><Loading /><Text style={s.muted}>{t('common.loading')}</Text></View>
-  }
-
   return (
-    <View style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={s.title}>{t('settingsAccount.title')}</Text>
-      </View>
-      <View style={s.body}>
-        <Text style={s.label}>{t('settingsAccount.name')}</Text>
-        <Input style={s.input} value={account.name} onChangeText={(v) => setAccount({ ...account, name: v })} />
-        <Text style={s.label}>{t('settingsAccount.email')}</Text>
-        <Input style={s.input} value={account.email} onChangeText={(v) => setAccount({ ...account, email: v })} keyboardType="email-address" autoCapitalize="none" />
-        <Text style={s.label}>{t('settingsAccount.phone')}</Text>
-        <Input style={s.input} value={account.phone} onChangeText={(v) => setAccount({ ...account, phone: v })} keyboardType="phone-pad" />
-        {error ? <Text style={s.error}>{error}</Text> : null}
-        {toast ? <Text style={s.toast}>{toast}</Text> : null}
-        <TouchableOpacity style={[s.btn, saving && s.btnDisabled]} onPress={save} disabled={saving}>
-          {saving ? <Loading color={tokens.surface.light} /> : <Text style={s.btnText}>{t('settingsAccount.save')}</Text>}
-        </TouchableOpacity>
-      </View>
-    </View>
+    <SharedSettingsAccountScreen
+      t={t}
+      account={account}
+      loading={loading}
+      saving={saving}
+      error={error}
+      toast={toast}
+      onNameChange={(v) => setAccount((a) => (a ? { ...a, name: v } : a))}
+      onEmailChange={(v) => setAccount((a) => (a ? { ...a, email: v } : a))}
+      onPhoneChange={(v) => setAccount((a) => (a ? { ...a, phone: v } : a))}
+      onSave={onSave}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  body: { padding: 16 },
-  back: { fontSize: 14, color: tokens.text.medium },
-  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
-  label: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
-  input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: tokens.border.light, fontSize: 13, color: tokens.text.primary },
-  error: { fontSize: 12, color: tokens.danger.DEFAULT, marginTop: 8 },
-  toast: { fontSize: 12, color: tokens.success.DEFAULT, marginTop: 8 },
-  btn: { marginTop: 16, backgroundColor: tokens.success.DEFAULT, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: tokens.surface.light, fontSize: 14, fontWeight: '600' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: tokens.text.secondary, marginTop: 8 },
-})
