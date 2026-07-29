@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface CourseHeaderData {
   title: string
@@ -20,8 +20,7 @@ export interface CourseHeaderProps {
 }
 
 export default function CourseHeader({ data = { title: '' }, onTeacherClick }: CourseHeaderProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card">
       {data.cover && (

@@ -1,5 +1,5 @@
 import { View, Text, Image, Textarea } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface MessageDetailItem {
   id: string
@@ -25,8 +25,7 @@ export default function MessageDetail({
   onInput,
   onSend,
 }: MessageDetailProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="flex flex-col h-full bg-muted">
       <View className="flex-1 px-3 py-3 overflow-y-auto">
