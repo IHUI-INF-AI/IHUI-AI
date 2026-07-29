@@ -1,0 +1,522 @@
+/* login.css — 对齐 zhs_app-ZZ login.vue 样式(完整视觉迁移)
+ * 原项目硬编码颜色直接保留(#847CFF/#409EFF/#f5f5f5/#979797 等)
+ * 背景:loginbackk.png(Image 组件作背景层,兼容微信小程序)
+ * 按钮:zcbutton.png(AuthButton 组件 Image 背景层)
+ * 强调色:#847CFF 紫色(send-code/forgot-pwd-btn)
+ */
+
+/* ===== 容器与背景 ===== */
+.container-ali {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #fff;
+}
+
+.container1 {
+  width: 100%;
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.bg-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.container-box {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  max-height: 100vh;
+  padding: 0 30rpx 0 30rpx;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* ===== 顶部 logo + 标题 ===== */
+.top_box {
+  height: calc(40% - 177rpx);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  padding-top: 100rpx;
+  box-sizing: border-box;
+}
+
+.logobox {
+  padding-top: 20rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: -60rpx;
+}
+
+.logo {
+  width: 55%;
+  height: 245rpx;
+}
+
+.titlebox {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+.titlebox-image {
+  margin-top: 10rpx;
+  width: 310rpx;
+  height: 37rpx;
+}
+
+.titlebox-image1 {
+  margin-top: 18rpx;
+  width: 312rpx;
+  height: 66rpx;
+}
+
+/* ===== 中部内容 ===== */
+.center_box {
+  height: 354rpx;
+}
+
+/* ===== tab 切换 ===== */
+.select-box-above-input {
+  position: relative;
+  z-index: 10;
+  margin-top: -108rpx;
+  margin-bottom: 24rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-type-tabs {
+  width: 650rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background: #f5f5f5;
+  border-radius: 25rpx;
+  padding: 6rpx;
+}
+
+.login-type-tab {
+  flex: 1;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20rpx;
+  font-size: 28rpx;
+  color: #6B6980;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.login-type-tab-active {
+  background: #fff;
+  color: #000;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+}
+
+/* ===== 输入框容器 ===== */
+.input-wbox {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20rpx;
+}
+
+.input-wbox-column {
+  flex-direction: column;
+  align-items: center;
+}
+
+.input-nbox {
+  padding: 2rpx;
+  width: 650rpx;
+  height: 99rpx;
+  margin-top: 30rpx;
+  border-radius: 25rpx;
+  background: #f5f5f5;
+  border: 1px solid #eaeaea;
+  transition: background 0.15s ease-out;
+  position: relative;
+}
+
+.input-nbox-focused {
+  background: #FFFFFF;
+  border-color: transparent;
+}
+
+.input-nbox-focused::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 25rpx;
+  border: 1.5px solid #000;
+  pointer-events: none;
+}
+
+.input-box {
+  width: 100%;
+  height: 100%;
+  background: #f5f5f5;
+  border-radius: 25rpx;
+  display: flex;
+  align-items: center;
+}
+
+.input-nbox-focused .input-box {
+  background: #FFFFFF;
+}
+
+.input-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 10rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-left: 21.69rpx;
+}
+
+.input-area-code {
+  letter-spacing: 0rpx;
+  color: #979797;
+  font-size: 36rpx;
+  font-weight: normal;
+}
+
+.input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  height: 79rpx;
+}
+
+.input-text {
+  font-size: 36rpx;
+  font-weight: 300;
+  letter-spacing: 0rpx;
+  color: #000;
+}
+
+.iponeinput {
+  margin-left: 20rpx;
+}
+
+/* ===== 区号选择器(PhoneAreaCodePicker 组件用) ===== */
+.xiaicc {
+  padding-right: 20rpx;
+  padding-left: 20rpx;
+  height: 39.5rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-right: 1px solid #979797;
+  transition: border-color 0.15s ease-out;
+}
+
+.xiaicc-focused {
+  border-right: 1px solid #000;
+}
+
+.xiaicc-img {
+  width: 0;
+  height: 0;
+  border-left: 5rpx solid transparent;
+  border-right: 5rpx solid transparent;
+  border-top: 9rpx solid #979797;
+  margin-left: 3rpx;
+}
+
+.nation-box {
+  position: absolute;
+  width: 95%;
+  bottom: 72rpx;
+  right: 0;
+  border-radius: 0 0 20rpx 20rpx;
+  padding: 1rpx;
+  background: linear-gradient(180deg, #EEF4FF 0%, #409EFF 100%);
+  z-index: 100;
+}
+
+.nation-boo {
+  width: 100%;
+  height: 100%;
+  background: #F7F8FF;
+  border-radius: 0 0 20rpx 20rpx;
+}
+
+.nationInfo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.nation-info1 {
+  width: 90%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+}
+
+.nation-name {
+  font-size: 28rpx;
+  color: #3D3D3D;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+.nation-code {
+  font-size: 28rpx;
+  color: #6B6980;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+/* ===== 验证码发送按钮 ===== */
+.send-code {
+  font-size: 32rpx;
+  font-weight: bold;
+  line-height: 25rpx;
+  color: #847CFF;
+  margin-left: -15px;
+  padding-right: 16rpx;
+  white-space: nowrap;
+}
+
+/* ===== 密码切换(PasswordVisibilityToggle 组件用) ===== */
+.password-toggle {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-right: 26rpx;
+  width: 50rpx;
+  height: 50rpx;
+}
+
+.eye-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* ===== 忘记密码 ===== */
+.forgot-pwd-row {
+  margin-top: 16rpx;
+  width: 650rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.forgot-pwd-btn {
+  font-size: 26rpx;
+  color: #6B6980;
+}
+
+/* ===== 底部 ===== */
+.bottom-section {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 30rpx 0;
+  box-sizing: border-box;
+}
+
+.bottom_box {
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== 登录按钮(AuthButton 组件用) ===== */
+.login-btn {
+  width: 532rpx;
+  height: 100rpx;
+  margin: 10rpx auto 0 auto;
+  position: relative;
+}
+
+.btn {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-login {
+  border-radius: 30rpx;
+  background-color: #000;
+  font-size: 60rpx;
+  color: #fff;
+  font-weight: 500;
+  text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+}
+
+.btn-register {
+  border-radius: 15rpx;
+  background-color: transparent;
+  font-size: 60rpx;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 500;
+  text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
+}
+
+.btn-disabled {
+  opacity: 0.6;
+}
+
+/* ===== 快捷登录分割线(三段式,用背景色块非 hr) ===== */
+.switch-login {
+  width: 100%;
+  text-align: center;
+  margin-top: 40rpx;
+  font-size: 22rpx;
+  color: #757171;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.switch-login-line {
+  flex: 1;
+  height: 1rpx;
+  background: #979797;
+  margin: 0 20rpx;
+  max-width: 150rpx;
+}
+
+.switch-login-text {
+  font-size: 28rpx;
+  color: #757171;
+}
+
+/* ===== 第三方登录图标 ===== */
+.icon-all {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10rpx;
+}
+
+.icon-all-box {
+  width: 100rpx;
+  height: 100rpx;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 15rpx;
+}
+
+.third-icon {
+  width: 62.505rpx;
+  height: 58.505rpx;
+}
+
+/* ===== 协议勾选 ===== */
+.bottom-agreement {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 24rpx;
+  flex-shrink: 0;
+}
+
+.bottom-agreement .yiyue-box {
+  width: 550rpx;
+  display: flex;
+  align-items: flex-start;
+  margin-top: -2rpx;
+}
+
+.yiyue-box {
+  display: flex;
+  align-items: flex-start;
+}
+
+.custom-checkbox {
+  align-self: flex-start;
+  margin-top: 6rpx;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 10rpx;
+}
+
+.checkmark {
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid #000;
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  transition: all 0.3s ease-in-out;
+}
+
+.checkmark::before {
+  content: '✓';
+  font-size: 14rpx;
+  color: #fff;
+  opacity: 0;
+}
+
+.checkmark.checked {
+  background-color: #000;
+  border-color: #000;
+  transform: scale(1.1) rotateZ(360deg);
+}
+
+.checkmark.checked::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.arge {
+  font-size: 26rpx;
+  font-weight: normal;
+  line-height: 36rpx;
+  color: #979797;
+}
+
+.textItem {
+  color: #409EFF;
+}
