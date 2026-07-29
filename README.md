@@ -1222,21 +1222,25 @@ IHUI-AI/
 
 完整的 OpenAI 兼容 API 中转站,用户可生成平台 API Key 通过 `/v1/chat/completions` 调用多 provider 聚合模型,支持 Key 池负载均衡、按量计费、动态发现审批:
 
-| 能力 | 端点 / 模块 | 说明 |
-| --- | --- | --- |
-| **OpenAI 兼容 API** | `POST /v1/chat/completions`(stream + non-stream) | Bearer API Key 鉴权,转发到 ai-service LiteLLM,支持 80+ 厂商 |
-| **模型列表** | `GET /v1/models` | DB 驱动(优先 `ai_model_config_models.is_relay_public=true`),降级 ai-service live → cache → fallback |
-| **公开模型清单** | `GET /api/relay/models/public` | 无需鉴权,返回中转站已上架模型 + 定价倍率(前端模型市场消费) |
-| **API Key 管理** | `/api/developer/*` + `developerApiKeys` 表 | 创建/吊销/轮换 secret + token/cost 额度 + 权限配置 |
-| **计费链路** | `relay-billing-service.ts` | 调用前 checkQuota(余额预检)→ 调用后 recordCall(写 `llm_call_logs` + 扣减余额 + 累计已用) |
-| **模型管理 admin** | `/api/admin/relay/models` | 上下架 / 定价倍率 / 可见性 / 排序 / 统计 |
-| **Key 池管理 admin** | `/api/admin/relay/key-pool` + `ai_relay_key_pool` 表 | 同 provider 多 key 负载均衡 + 优先级 + 权重 + 健康状态 |
-| **动态发现 admin** | `/api/admin/relay/discovery` + `ai_relay_discovery` 表 | 从上游拉取新模型 → 待审批 → 入库上架 |
-| **调用日志 admin** | `/api/admin/relay/logs` | 用户/模型/时间/token/成本/状态 筛选分页 |
-| **用户仪表盘** | `/developer/relay` | 我的 Key 列表 + 余额 + 用量图表 + 调用日志 |
-| **admin 后台** | `/admin/relay` | 概览 + 模型管理 + Key 池 + 动态发现 + 日志 5 页面 |
+| 能力                 | 端点 / 模块                                            | 说明                                                                                                                                                                                                                                                                        |
+| -------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OpenAI 兼容 API**  | `POST /v1/chat/completions`(stream + non-stream)       | Bearer API Key 鉴权,转发到 ai-service LiteLLM,支持 80+ 厂商                                                                                                                                                                                                                 |
+| **模型列表**         | `GET /v1/models`                                       | DB 驱动(优先 `ai_model_config_models.is_relay_public=true`),降级 ai-service live → cache → fallback                                                                                                                                                                         |
+| **公开模型清单**     | `GET /api/relay/models/public`                         | 无需鉴权,返回中转站已上架模型 + 定价倍率(前端模型市场消费)                                                                                                                                                                                                                  |
+| **API Key 管理**     | `/api/developer/*` + `developerApiKeys` 表             | 创建/吊销/轮换 secret + token/cost 额度 + 权限配置                                                                                                                                                                                                                          |
+| **计费链路**         | `relay-billing-service.ts`                             | 调用前 checkQuota(余额预检)→ 调用后 recordCall(写 `llm_call_logs` + 扣减余额 + 累计已用)                                                                                                                                                                                    |
+| **模型管理 admin**   | `/api/admin/relay/models`                              | 上下架 / 定价倍率 / 可见性 / 排序 / 统计                                                                                                                                                                                                                                    |
+| **Key 池管理 admin** | `/api/admin/relay/key-pool` + `ai_relay_key_pool` 表   | 同 provider 多 key 负载均衡 + 优先级 + 权重 + 健康状态                                                                                                                                                                                                                      |
+| **动态发现 admin**   | `/api/admin/relay/discovery` + `ai_relay_discovery` 表 | 从上游拉取新模型 → 待审批 → 入库上架                                                                                                                                                                                                                                        |
+| **模型池扫描注册机** | `scripts/scan-upstream-models.mjs`                     | 命令行工具,从 DB 读 provider 配置 → 解密 api_key → 调上游 `/v1/models` → 自动注册新模型并上架(`--provider <code>` 筛选 / `--dry-run` 预览)                                                                                                                                  |
+| **全厂商批量入库**   | `scripts/seed-all-providers.mjs`                       | 命令行工具,批量添加 28 个主流模型厂商(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/GLM/Moonshot/ERNIE/星火/豆包/混元/MiniMax/Yi/百川/商汤/SiliconFlow/Groq/Together/Fireworks/OpenRouter/NVIDIA/Microsoft)+ 247 个最新模型到 DB(占位符 key,等用户填真实 key 激活;`--dry-run` 预览) |
+| **已接入上游**       | OpenRouter(真实 key,385 模型上架可调)                  | 覆盖 OpenAI 73 / Anthropic 26 / Google 39 / Qwen 48 / DeepSeek 11 / Llama 8 / Mistral 19 / Grok 5 / 智谱 12 / MiniMax 9 等 50+ 厂商最新模型;StepFun 9 + Agnes 6(免费套餐)。注:OpenAI/Anthropic/Google 直连中国 IP 受区域限制,需代理                                         |
+| **调用日志 admin**   | `/api/admin/relay/logs`                                | 用户/模型/时间/token/成本/状态 筛选分页                                                                                                                                                                                                                                     |
+| **用户仪表盘**       | `/developer/relay`                                     | 我的 Key 列表 + 余额 + 用量图表 + 调用日志                                                                                                                                                                                                                                  |
+| **admin 后台**       | `/admin/relay`                                         | 概览 + 模型管理 + Key 池 + 动态发现 + 日志 5 页面                                                                                                                                                                                                                           |
 
 **计费模型**:
+
 - 上游定价(`aiPricing.inputTokenPrice` / `outputTokenPrice`,分/千 token)× 中转站倍率(`aiModelConfigModels.relayPriceMultiplier`,1.0=原价,1.2=加价 20%)= 中转站成本(分)
 - API Key 余额规则:`-1`=无限额度(admin 信任),`0`=余额耗尽,`>0`=可用余额
 - 余额不足返回 `402 Payment Required`
