@@ -458,10 +458,10 @@ export function TagsView() {
                     }
                   }}
                   className={cn(
-                    'inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-opacity duration-150',
-                    'hover:bg-destructive/20 hover:text-destructive',
+                    'inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform',
+                    'hover:bg-destructive/20 hover:text-destructive hover:rotate-90 active:scale-90',
                     // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
-                    'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60',
+                    'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
                     // 键盘焦点态:补齐 a11y,让 Tab 用户能看到关闭按钮
                     'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                   )}
