@@ -45,7 +45,9 @@ export function MessageGroupScreen() {
         setRefreshing(true)
         void load()
       }}
-      onPressItem={(item) => navigation.navigate('MessageDetail', { id: item.groupId })}
+      onPressItem={(item) =>
+        navigation.navigate('MessageChat', { peerId: item.groupId, name: item.groupName })
+      }
       onBack={() => navigation.goBack()}
     />
   )
