@@ -165,7 +165,7 @@ export default function SettingIndexPage() {
       </View>
 
       <Button
-        className="mx-[32rpx] my-[60rpx] bg-card text-destructive rounded-[40rpx] text-[30rpx]"
+        className="mx-[32rpx] my-[60rpx] bg-card text-destructive rounded-[12rpx] text-[30rpx]"
         onClick={onLogout}
       >
         {tt('setting.logout', '退出登录')}
