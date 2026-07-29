@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
 use base64::Engine;
@@ -57,29 +57,68 @@ struct ClipboardResult {
 }
 
 /// 检测系统 UI 语言是否为中文(Windows: GetUserDefaultUILanguage)。
+/// 支持的语言代码(与 web 端 i18n 5 语言对齐:zh-CN/zh-TW/ko/ja/en)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AppLocale {
+    ZhCn,
+    ZhTw,
+    Ko,
+    Ja,
+    En,
+}
+
 #[cfg(windows)]
-fn is_chinese_locale() -> bool {
-    use winapi::um::winnls::GetUserDefaultUILanguage;
-    let lang_id = unsafe { GetUserDefaultUILanguage() };
-    // 中文主语言 ID = 0x04(涵盖 zh-CN/zh-TW/zh-HK/zh-SG/zh-MO)
-    let primary_lang = lang_id & 0x3FF;
-    primary_lang == 0x04
-}
-
-/// 检测系统 UI 语言是否为中文(非 Windows: LANG 环境变量)。
-#[cfg(not(windows))]
-fn is_chinese_locale() -> bool {
-    std::env::var("LANG")
-        .map(|lang| lang.to_lowercase().starts_with("zh"))
-        .unwrap_or(false)
-}
-
-/// 根据系统 UI 语言返回本地化应用名称:中文 → 智汇AI,其他 → IHUI AI。
-fn localized_app_name() -> &'static str {
-    if is_chinese_locale() {
-        "智汇AI"
+fn get_system_locale() -> AppLocale {
+    use winapi::um::winnls::GetUserDefaultLocaleName;
+    let mut buf = [0u16; 85]; // LOCALE_NAME_MAX_LENGTH
+    let len = unsafe { GetUserDefaultLocaleName(buf.as_mut_ptr(), buf.len() as i32) };
+    if len <= 0 {
+        return AppLocale::En;
+    }
+    let locale: String = String::from_utf16_lossy(&buf[..len as usize - 1])
+        .to_lowercase()
+        .replace('-', "-");
+    // 精确匹配 5 语言,其他降级为 En
+    if locale.starts_with("zh-cn") || locale.starts_with("zh-sg") || locale.starts_with("zh-hans") {
+        AppLocale::ZhCn
+    } else if locale.starts_with("zh-tw") || locale.starts_with("zh-hk") || locale.starts_with("zh-mo") || locale.starts_with("zh-hant") {
+        AppLocale::ZhTw
+    } else if locale.starts_with("ko") {
+        AppLocale::Ko
+    } else if locale.starts_with("ja") {
+        AppLocale::Ja
     } else {
-        "IHUI AI"
+        AppLocale::En
+    }
+}
+
+/// 检测系统 UI 语言(非 Windows: LANG 环境变量)。
+#[cfg(not(windows))]
+fn get_system_locale() -> AppLocale {
+    let locale = std::env::var("LANG")
+        .unwrap_or_default()
+        .to_lowercase()
+        .replace('_', "-");
+    if locale.starts_with("zh-cn") || locale.starts_with("zh-sg") || locale.starts_with("zh-hans") {
+        AppLocale::ZhCn
+    } else if locale.starts_with("zh-tw") || locale.starts_with("zh-hk") || locale.starts_with("zh-hant") {
+        AppLocale::ZhTw
+    } else if locale.starts_with("ko") {
+        AppLocale::Ko
+    } else if locale.starts_with("ja") {
+        AppLocale::Ja
+    } else {
+        AppLocale::En
+    }
+}
+
+/// 根据系统 UI 语言返回本地化应用名称:中文(简/繁)→ 智汇AI,其他 → IHUI AI。
+fn localized_app_name() -> &'static str {
+    match get_system_locale() {
+        AppLocale::ZhCn | AppLocale::ZhTw => "智汇AI",
+        AppLocale::Ko => "IHUI AI",
+        AppLocale::Ja => "IHUI AI",
+        AppLocale::En => "IHUI AI",
     }
 }
 
@@ -223,31 +262,62 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// 返回托盘菜单三项的本地化文案(中文系统 → 中文,其他 → 英文)。
-/// 2026-07-27 立:配合 AGENTS.md §19 i18n 约束,避免 ko/ja/en 用户看到中文菜单。
-fn tray_menu_labels() -> (&'static str, &'static str, &'static str) {
-    if is_chinese_locale() {
-        ("显示主窗口", "隐藏主窗口", "退出")
-    } else {
-        ("Show Main Window", "Hide Main Window", "Quit")
+/// 返回托盘菜单 7 项的本地化文案(5 语言全配,与 web 端 i18n 对齐)。
+/// 2026-07-29 扩充:新增对话/切换主题/打开设置/检查更新,emit 事件给前端处理。
+fn tray_menu_labels() -> [&'static str; 7] {
+    match get_system_locale() {
+        AppLocale::ZhCn => [
+            "新建对话", "显示主窗口", "隐藏主窗口", "切换主题", "打开设置", "检查更新", "退出",
+        ],
+        AppLocale::ZhTw => [
+            "新建對話", "顯示主視窗", "隱藏主視窗", "切換主題", "開啟設定", "檢查更新", "結束",
+        ],
+        AppLocale::Ko => [
+            "새 대화", "메인 창 표시", "메인 창 숨기기", "테마 전환", "설정 열기", "업데이트 확인", "종료",
+        ],
+        AppLocale::Ja => [
+            "新規会話", "メインウィンドウを表示", "メインウィンドウを隠す", "テーマ切替", "設定を開く", "更新確認", "終了",
+        ],
+        AppLocale::En => [
+            "New Chat", "Show Main Window", "Hide Main Window", "Toggle Theme", "Open Settings", "Check for Updates", "Quit",
+        ],
     }
 }
 
-/// 构建系统托盘(显示主窗口 / 隐藏主窗口 / 退出)+ 双击托盘唤起。
+/// 构建系统托盘(7 项菜单:新建对话/显示/隐藏/切换主题/设置/检查更新/退出)+ 双击托盘唤起。
+/// 2026-07-29 扩充:emit 事件给前端处理业务逻辑(新建对话/主题/设置),检查更新调 updater。
 fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
-    let (show_text, hide_text, quit_text) = tray_menu_labels();
-    let show_item = MenuItemBuilder::with_id("tray.show", show_text)
+    let labels = tray_menu_labels();
+    let new_chat_item = MenuItemBuilder::with_id("tray.new_chat", labels[0])
         .build(app)
         .map_err(|e| e.to_string())?;
-    let hide_item = MenuItemBuilder::with_id("tray.hide", hide_text)
+    let show_item = MenuItemBuilder::with_id("tray.show", labels[1])
         .build(app)
         .map_err(|e| e.to_string())?;
-    let quit_item = MenuItemBuilder::with_id("tray.quit", quit_text)
+    let hide_item = MenuItemBuilder::with_id("tray.hide", labels[2])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let theme_item = MenuItemBuilder::with_id("tray.theme", labels[3])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let settings_item = MenuItemBuilder::with_id("tray.settings", labels[4])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let update_item = MenuItemBuilder::with_id("tray.update", labels[5])
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let quit_item = MenuItemBuilder::with_id("tray.quit", labels[6])
         .build(app)
         .map_err(|e| e.to_string())?;
     let menu = MenuBuilder::new(app)
+        .item(&new_chat_item)
+        .separator()
         .item(&show_item)
         .item(&hide_item)
+        .separator()
+        .item(&theme_item)
+        .item(&settings_item)
+        .item(&update_item)
         .separator()
         .item(&quit_item)
         .build()
@@ -262,6 +332,14 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .tooltip(localized_app_name())
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray.new_chat" => {
+                // emit 事件给前端,前端处理新建对话(切到 /agents + 重置 chat store)
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "new_chat");
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
             "tray.show" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
@@ -271,6 +349,30 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.hide" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
+                }
+            }
+            "tray.theme" => {
+                // emit 事件给前端,前端切换主题(light/dark)
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "toggle_theme");
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "tray.settings" => {
+                // emit 事件给前端,前端跳转 /settings
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "open_settings");
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "tray.update" => {
+                // emit 事件给前端,前端调 updater plugin 检查更新(带 UI 反馈)
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "check_update");
+                    let _ = window.show();
+                    let _ = window.set_focus();
                 }
             }
             "tray.quit" => {
@@ -1017,7 +1119,10 @@ pub fn run() {
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
-            // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
+            // 注册全局快捷键(2026-07-29 扩充:3 个系统级快捷键)
+            // 系统级 = 窗口失焦也能触发(与浏览器内 keydown 互补)
+            // Ctrl+K 不注册(浏览器内 use-global-shortcuts.ts 已处理,窗口聚焦时用)
+            // Ctrl+Shift+I:唤起/隐藏主窗口(原有,浏览器内无法监听)
             let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+I", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Some(window) = app.get_webview_window("main") {
@@ -1027,6 +1132,26 @@ pub fn run() {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
+                    }
+                }
+            });
+            // Ctrl+Shift+N:新建对话(系统级,窗口失焦也能触发;窗口聚焦时浏览器内也会触发,前端去重)
+            let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+N", |app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.emit("desktop-shortcut", "new_chat");
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            });
+            // Ctrl+Shift+S:快速截图(复用 Computer Control 的 capture_screen,emit 给前端)
+            let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+S", |app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.emit("desktop-shortcut", "quick_screenshot");
+                        let _ = window.show();
+                        let _ = window.set_focus();
                     }
                 }
             });
