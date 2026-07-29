@@ -1,6 +1,8 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { cn } from '@ihui/design-tokens'
+// 菜单图标 SVG(Vite 编译时内联为 base64,兼容微信小程序 <Image>)
+import menuIconSrc from '@/static/images/menu.svg'
 
 export interface NavBarNotification {
   text: string
@@ -51,7 +53,6 @@ export default function NavBar({
   variant = 'default',
   onMenuClick,
   onJoinClick,
-  menuIcon = '☰',
   joinText = '加入社区群',
 }: NavBarProps) {
   const statusBarHeight = menuButton.top
@@ -81,13 +82,17 @@ export default function NavBar({
           className="relative flex items-center"
           style={{ height: `${navBarHeight}px`, padding: '0 20rpx' }}
         >
-          {/* 左侧:菜单按钮 */}
+          {/* 左侧:菜单按钮(对齐原项目 navigation-bars/index.vue:menu.svg)*/}
           <View
             className="flex items-center justify-center"
             style={{ width: '40rpx', height: '40rpx' }}
             onClick={onMenuClick}
           >
-            <Text style={{ color: textColor, fontSize: '30rpx' }}>{menuIcon}</Text>
+            <Image
+              src={menuIconSrc}
+              style={{ width: '40rpx', height: '40rpx' }}
+              mode="aspectFit"
+            />
           </View>
           {/* 中间:标题(absolute 居中,对齐 .center-row-absolute)*/}
           <View
