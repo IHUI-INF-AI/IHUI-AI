@@ -15,6 +15,7 @@ import {
   sendDesktopNotification,
   getSystemTheme,
   onSystemThemeChange,
+  setTrayStatus,
   type DesktopAppInfo,
 } from '@/lib/tauri-bridge'
 
@@ -37,6 +38,8 @@ export function useDesktop() {
   //   MainShell 标题栏 `isDesktop && (...)` 永不渲染。
   // 修复:用 useState(false) 初始值 + useEffect 异步检测,避免 hydration mismatch。
   // 浏览器端 useEffect 永远检测不到,稳定返回 false,不影响 SSR/CSR 一致性。
+  // 2026-07-29:withGlobalTauri 关闭后,__TAURI__ 不再注入,isTauri() 只检查
+  //   __TAURI_INTERNALS__,轮询逻辑不变(本就依赖此标识的注入时机)。
   const [isDesktop, setIsDesktop] = React.useState(false)
   const [appInfo, setAppInfo] = React.useState<DesktopAppInfo | null>(null)
   const [isMaximized, setIsMaximized] = React.useState(false)
@@ -187,4 +190,110 @@ export function useSystemTheme(): 'light' | 'dark' | null {
   }, [])
 
   return systemTheme
+}
+
+/**
+ * useDesktopEvents — 监听 Rust 端 emit 的桌面事件(托盘菜单 + 系统级快捷键),
+ * 转发为前端已有的 CustomEvent(global-shortcut:* / 主题切换 / 设置跳转等),
+ * 复用 use-global-shortcuts.ts 和现有 UI 组件处理逻辑。
+ *
+ * 2026-07-29 立:配合 Rust 端托盘菜单 7 项 + 系统级快捷键 3 个。
+ *
+ * 事件来源:
+ * - "desktop-tray-action":托盘菜单点击(new_chat/toggle_theme/open_settings/check_update)
+ * - "desktop-shortcut":系统级快捷键(new_chat/quick_screenshot)
+ *
+ * 转发策略:
+ * - new_chat → global-shortcut:new-chat(use-global-shortcuts.ts 已有监听)
+ * - toggle_theme → 下一个主题(next-themes setTheme,通过 CustomEvent 触发)
+ * - open_settings → 路由跳转 /settings
+ * - check_update → 触发 updater 检查
+ * - quick_screenshot → 触发截图(Computer Control)
+ *
+ * 浏览器端 isTauri()=false,此 hook 不注册监听,无副作用。
+ */
+export function useDesktopEvents(): void {
+  React.useEffect(() => {
+    if (!isTauri()) return
+    // 动态 import 避免浏览器端加载 Tauri event API
+    let unlistenTray: (() => void) | undefined
+    let unlistenShortcut: (() => void) | undefined
+    let unlistenBeforeClose: (() => void) | undefined
+    let cancelled = false
+
+    void (async () => {
+      const { listen } = await import('@tauri-apps/api/event')
+      if (cancelled) return
+
+      // 托盘菜单事件
+      unlistenTray = await listen<string>('desktop-tray-action', (event) => {
+        const action = event.payload
+        switch (action) {
+          case 'new_chat':
+            // 复用浏览器内 Ctrl+Shift+N 相同的 CustomEvent
+            window.dispatchEvent(new CustomEvent('global-shortcut:new-chat'))
+            break
+          case 'toggle_theme':
+            window.dispatchEvent(new CustomEvent('desktop-theme-toggle'))
+            break
+          case 'open_settings':
+            window.dispatchEvent(new CustomEvent('desktop-open-settings'))
+            break
+          case 'check_update':
+            window.dispatchEvent(new CustomEvent('desktop-check-update'))
+            break
+        }
+      })
+
+      // 系统级快捷键事件
+      unlistenShortcut = await listen<string>('desktop-shortcut', (event) => {
+        const action = event.payload
+        switch (action) {
+          case 'new_chat':
+            // 窗口聚焦时浏览器内 keydown 也会触发,前端去重由 use-global-shortcuts 处理
+            window.dispatchEvent(new CustomEvent('global-shortcut:new-chat'))
+            break
+          case 'quick_screenshot':
+            window.dispatchEvent(new CustomEvent('desktop-quick-screenshot'))
+            break
+        }
+      })
+
+      // 2026-07-29 #12:窗口关闭前事件,前端保存正在编辑的消息
+      unlistenBeforeClose = await listen('desktop-before-close', () => {
+        window.dispatchEvent(new CustomEvent('desktop-before-close'))
+      })
+    })()
+
+    return () => {
+      cancelled = true
+      unlistenTray?.()
+      unlistenShortcut?.()
+      unlistenBeforeClose?.()
+    }
+  }, [])
+}
+
+/**
+ * useTrayStatus — 根据聊天状态自动切换托盘 tooltip(2026-07-29 #10 立)。
+ *
+ * 监听:
+ * - chat.isStreaming → "thinking"(AI 正在生成回复)
+ * - notification.unreadCount > 0 → "new_message"(有未读消息)
+ * - 两者都无 → "idle"
+ *
+ * 优先级:thinking > new_message > idle
+ * 浏览器端 isTauri()=false,setTrayStatus 为 no-op,无副作用。
+ */
+export function useTrayStatus(isStreaming: boolean, unreadCount: number): void {
+  React.useEffect(() => {
+    if (!isTauri()) return
+    if (isStreaming) {
+      void setTrayStatus('thinking')
+    } else if (unreadCount > 0) {
+      void setTrayStatus('new_message')
+    } else {
+      void setTrayStatus('idle')
+    }
+  }, [isStreaming, unreadCount])
 }

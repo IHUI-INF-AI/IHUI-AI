@@ -300,5 +300,17 @@
         "message": "{{tokens}} Token이 충전되었습니다"
       }
     }
+  },
+  "messageInput": {
+    "placeholder": "메시지 입력...",
+    "send": "전송",
+    "stop": "중지",
+    "fullscreenBack": "접기",
+    "fullscreenHint": "전체 화면 편집 모드",
+    "recording": "떼면 전송, 위로 밀어서 취소",
+    "voiceHint": "길게 눌러 말하기",
+    "document": "문서",
+    "video": "동영상",
+    "addFile": "파일 추가"
   }
 }
