@@ -68,7 +68,7 @@ export default function AigcPublishScreen() {
       })
       if (res.success && res.data) {
         const url = resolveFileUrl(res.data.path)
-        setFiles((prev) => [...prev, { id: res.data!.id, url, type: workType }])
+        setFiles((prev) => [...prev, { id: res.data!.id, url }])
       } else {
         setError(res.error || t('aigcPublish.errorUploadFailed'))
       }
@@ -85,7 +85,7 @@ export default function AigcPublishScreen() {
   const validate = (): boolean => {
     if (workType === 'text') {
       if (!textContent.trim()) {
-        setError(t('aigcPublish.errorTextRequired'))
+        setError(t('aigcPublish.errorNoText'))
         return false
       }
     } else if (files.length === 0) {
