@@ -21,9 +21,20 @@ const menus = [
   { icon: '⚙️', key: 'user.menu.settings', path: '/pages/user/settings' },
 ]
 
+// 会员权益项:i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
+const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: string }> = [
+  { icon: '🤖', key: 'user.benefits.exclusiveModel', fallback: '专属模型' },
+  { icon: '💎', key: 'user.benefits.pointsBoost', fallback: '积分加倍' },
+  { icon: '🎧', key: 'user.benefits.prioritySupport', fallback: '优先客服' },
+  { icon: '🏆', key: 'user.benefits.vipZone', fallback: '会员专区' },
+  { icon: '🏷️', key: 'user.benefits.discount', fallback: '折扣优惠' },
+  { icon: '🎉', key: 'user.benefits.exclusiveEvents', fallback: '专属活动' },
+]
+
 export default function UserIndex() {
   const { t } = useI18n()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+  const [showBenefits, setShowBenefits] = useState<boolean>(false)
   const isLogin = useMemo(() => !!userInfo, [userInfo])
 
   const refresh = useCallback(() => {
@@ -33,6 +44,17 @@ export default function UserIndex() {
   const maskPhone = useCallback((phone: string) => {
     return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
   }, [])
+
+  const toggleBenefits = useCallback(() => setShowBenefits((v) => !v), [])
+
+  // i18n key 不存在时(t 返回 key 本身)回退到中文文案
+  const tf = useCallback(
+    (key: string, fallback: string): string => {
+      const v = t(key)
+      return v === key ? fallback : v
+    },
+    [t],
+  )
 
   function goLogin() {
     Taro.navigateTo({ url: '/pages/login/login' })
@@ -122,6 +144,40 @@ export default function UserIndex() {
             </View>
           </View>
         )}
+      </View>
+
+      {/* 会员权益卡片 — 展开/收起 */}
+      <View className="mx-[32rpx] my-[24rpx] bg-card border border-border rounded-lg overflow-hidden">
+        <View
+          className="flex items-center justify-between px-[32rpx] py-[28rpx]"
+          onClick={toggleBenefits}
+        >
+          <Text className="text-[28rpx] font-semibold text-foreground">
+            {tf('user.benefits.title', '会员权益')}
+          </Text>
+          <Text
+            className={`text-[24rpx] text-muted-foreground transition-transform duration-300 ${
+              showBenefits ? 'rotate-180' : ''
+            }`}
+          >
+            ▼
+          </Text>
+        </View>
+        {showBenefits ? (
+          <View className="flex flex-wrap px-[8rpx] pb-[16rpx]">
+            {membershipBenefits.map((b) => (
+              <View
+                key={b.key}
+                className="w-1/3 flex flex-col items-center py-[16rpx]"
+              >
+                <Text className="text-[44rpx]">{b.icon}</Text>
+                <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
+                  {tf(b.key, b.fallback)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       {/* 快捷入口(订单/收藏/关注/订阅)— */}
