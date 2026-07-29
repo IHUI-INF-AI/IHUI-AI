@@ -81,7 +81,9 @@ export function N8nModelScreen({
               onPress={() => onSelectTab(tabItem.id)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t(tabItem.labelKey)}</Text>
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                {t(tabItem.labelKey)}
+              </Text>
             </TouchableOpacity>
           )
         })}
@@ -105,7 +107,13 @@ export function N8nModelScreen({
           data={list}
           keyExtractor={(i) => i.id}
           contentContainerStyle={styles.listBody}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[tk.purple.DEFAULT]} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[tk.purple.DEFAULT]}
+            />
+          }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -116,12 +124,19 @@ export function N8nModelScreen({
             <View style={styles.card}>
               <View style={styles.cardHead}>
                 <View style={styles.cardTitleRow}>
-                  <View style={[styles.dot, item.status === 'running' ? styles.dotRun : styles.dotStop]} />
+                  <View
+                    style={[styles.dot, item.status === 'running' ? styles.dotRun : styles.dotStop]}
+                  />
                   <Text style={styles.cardName} numberOfLines={1}>
                     {item.name}
                   </Text>
                 </View>
-                <Text style={[styles.badge, item.status === 'running' ? styles.badgeRun : styles.badgeStop]}>
+                <Text
+                  style={[
+                    styles.badge,
+                    item.status === 'running' ? styles.badgeRun : styles.badgeStop,
+                  ]}
+                >
                   {item.status === 'running' ? t('n8nModel.running') : t('n8nModel.stopped')}
                 </Text>
               </View>
@@ -137,20 +152,31 @@ export function N8nModelScreen({
               ) : null}
               <View style={styles.cardMeta}>
                 <Text style={styles.metaText}>{t('n8nModel.calls', { count: item.calls })}</Text>
-                <Text style={styles.metaText}>{t('n8nModel.params', { in: item.paramsIn, out: item.paramsOut })}</Text>
+                <Text style={styles.metaText}>
+                  {t('n8nModel.params', { in: item.paramsIn, out: item.paramsOut })}
+                </Text>
                 <Text style={styles.metaText}>{item.updatedAt}</Text>
               </View>
               <View style={styles.cardActions}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, item.status === 'running' ? styles.actionStop : styles.actionStart]}
+                  style={[
+                    styles.actionBtn,
+                    item.status === 'running' ? styles.actionStop : styles.actionStart,
+                  ]}
                   onPress={() => onToggle(item)}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.actionText}>
-                    {item.status === 'running' ? t('n8nModel.actionStop') : t('n8nModel.actionStart')}
+                    {item.status === 'running'
+                      ? t('n8nModel.actionStop')
+                      : t('n8nModel.actionStart')}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionEdit} onPress={() => onEdit(item)} activeOpacity={0.8}>
+                <TouchableOpacity
+                  style={styles.actionEdit}
+                  onPress={() => onEdit(item)}
+                  activeOpacity={0.8}
+                >
                   <Text style={styles.actionEditText}>{t('n8nModel.actionEdit')}</Text>
                 </TouchableOpacity>
               </View>
@@ -174,7 +200,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     backText: { fontSize: 14, color: tk.text.secondary },
     headerTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    createBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: tk.purple.DEFAULT },
+    createBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: tk.purple.DEFAULT,
+    },
     createText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
     searchRow: { paddingHorizontal: 16 },
     searchInput: {
@@ -195,7 +226,13 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 10,
       backgroundColor: tk.surface.card,
     },
-    tabItem: { flex: 1, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    tabItem: {
+      flex: 1,
+      height: 32,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     tabItemActive: { backgroundColor: tk.surface.bg },
     tabText: { fontSize: 13, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
@@ -217,14 +254,20 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 10 },
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
-    card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light },
+    card: { padding: 16, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light },
     cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     dotRun: { backgroundColor: tk.success.DEFAULT },
     dotStop: { backgroundColor: tk.text.tertiary },
     cardName: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
-    badge: { fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    badge: {
+      fontSize: 11,
+      fontWeight: '600',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
     badgeRun: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
     badgeStop: { color: tk.text.secondary, backgroundColor: tk.surface.card },
     cardDesc: { marginTop: 8, fontSize: 13, color: tk.text.medium },

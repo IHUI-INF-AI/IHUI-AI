@@ -150,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: 8,
-      padding: 12,
+      padding: 16,
     },
     publicLabel: { fontSize: 14, color: tk.text.primary },
     publicValue: { fontSize: 13, fontWeight: '600', color: tk.brand.DEFAULT },
