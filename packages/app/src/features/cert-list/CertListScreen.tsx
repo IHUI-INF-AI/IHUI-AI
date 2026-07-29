@@ -84,7 +84,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 8 },
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 12, color: tk.text.secondary },
-    card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
+    card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
     cardTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
     label: { marginTop: 4, fontSize: 11, color: tk.text.secondary },
     row: {
