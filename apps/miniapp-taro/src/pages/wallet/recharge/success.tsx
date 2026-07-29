@@ -33,7 +33,7 @@ export default function RechargeSuccess() {
   return (
     <View className="min-h-screen bg-background pb-[80rpx]">
       <View className="pt-[120rpx] px-[60rpx] pb-[60rpx] text-center">
-        <View className="w-[160rpx] h-[160rpx] mx-auto rounded-[16rpx] bg-[rgba(34,197,94,0.12)] border-[2rpx] border-[rgba(34,197,94,0.4)] flex items-center justify-center">
+        <View className="w-[160rpx] h-[160rpx] mx-auto rounded-[16rpx] bg-success/10 border-[2rpx] border-success/40 flex items-center justify-center">
           <Text className="text-[80rpx] text-success leading-none">✓</Text>
         </View>
         <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
@@ -52,7 +52,7 @@ export default function RechargeSuccess() {
         )}
       </View>
 
-      <View className="mx-[32rpx] mb-[24rpx] py-[24rpx] px-[28rpx] bg-[rgba(34,197,94,0.08)] rounded-[12rpx]">
+      <View className="mx-[32rpx] mb-[24rpx] py-[24rpx] px-[28rpx] bg-success/10 rounded-[12rpx]">
         <Text className="block text-[26rpx] text-success font-semibold mb-[12rpx]">
           {tt('wallet.recharge.success.tipsTitle', '温馨提示')}
         </Text>
