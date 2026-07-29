@@ -1356,5 +1356,47 @@
         "message": "{tokens} 토큰이 충전되었습니다"
       }
     }
+  },
+  "agentStat": {
+    "title": "Agent 통계",
+    "loadFailed": "통계 로드 실패",
+    "conversations": "대화 수",
+    "messages": "메시지 수",
+    "tokens": "토큰 사용량",
+    "avgRating": "평균 평점"
+  },
+  "agentSetting": {
+    "title": "Agent 설정",
+    "loadFailed": "설정 로드 실패",
+    "name": "이름",
+    "model": "모델",
+    "temperature": "온도",
+    "enabled": "활성화",
+    "saved": "저장됨",
+    "save": "저장"
+  },
+  "agentCreate": {
+    "title": "Agent 생성",
+    "nameRequired": "이름을 입력하세요",
+    "saveFailed": "생성 실패",
+    "name": "이름",
+    "namePlaceholder": "이름 입력",
+    "category": "카테고리",
+    "categoryPlaceholder": "카테고리 입력(기본 general)",
+    "description": "설명",
+    "descPlaceholder": "설명 입력",
+    "systemPrompt": "시스템 프롬프트",
+    "promptPlaceholder": "시스템 프롬프트 입력",
+    "isPublic": "공개 여부",
+    "public": "공개",
+    "private": "비공개",
+    "submit": "제출"
+  },
+  "agentChat": {
+    "loadFailed": "메시지 로드 실패",
+    "sendFailed": "전송 실패",
+    "empty": "메시지 없음",
+    "placeholder": "메시지 입력",
+    "send": "전송"
   }
 }

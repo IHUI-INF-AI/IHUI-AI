@@ -2478,3 +2478,496 @@ export interface LivePlaybackScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态) */
+
+/** Agent 列表项(平台注入,字段对齐 mobile-rn AgentScreen Agent 子集) */
+export interface AgentScreenItem {
+  id: string
+  name: string
+  avatar?: string | null
+  description: string
+  isVipExclusive?: boolean
+  useCount?: number
+  rating?: number
+}
+
+/** AgentScreen props(列表型注入式,详情由 AgentDetailScreen 承载) */
+export interface AgentScreenProps {
+  t: TFunction
+  items: AgentScreenItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 助手分类(对齐 mobile-rn AiAssistantScreen Category) */
+export type AiAssistantCategory = 'all' | 'writing' | 'coding' | 'office' | 'study' | (string & {})
+
+/** AI 助手分类选项(平台注入,label 已本地化) */
+export interface AiAssistantCategoryOption {
+  id: AiAssistantCategory
+  label: string
+}
+
+/** AI 助手列表项(平台注入,字段对齐 mobile-rn AiAssistantScreen Agent 子集) */
+export interface AiAssistantItem {
+  id: string
+  name: string
+  description: string
+  category: string
+  tags: string[]
+  useCount: number
+  favoriteCount: number
+}
+
+/** AiAssistantScreen props(列表 + 搜索 + 分类注入式) */
+export interface AiAssistantScreenProps {
+  t: TFunction
+  items: AiAssistantItem[]
+  categories: AiAssistantCategoryOption[]
+  category: AiAssistantCategory
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onCategoryChange: (c: AiAssistantCategory) => void
+  onKeywordChange: (text: string) => void
+  onRefresh: () => void
+  onPressItem: (item: AiAssistantItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 职业趋势(对齐 mobile-rn AiCareerScreen CareerMatch.trend) */
+export type AiCareerTrend = 'up' | 'stable' | 'new'
+
+/** AI 职业匹配项(平台注入,字段对齐 mobile-rn AiCareerScreen CareerMatch,重命名避免与 @ihui/api-client AiCareerItem 冲突) */
+export interface AiCareerMatchItem {
+  id: string
+  title: string
+  match: number
+  salary: string
+  trend: AiCareerTrend
+  reasons: string[]
+}
+
+/** AiCareerScreen props(列表 + 展开注入式) */
+export interface AiCareerScreenProps {
+  t: TFunction
+  items: AiCareerMatchItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  selectedId: string | null
+  onToggleItem: (id: string) => void
+  onRefresh: () => void
+  onPlan: (item: AiCareerMatchItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 多模态对话模式(对齐 mobile-rn AIMultimodalScreen Mode) */
+export type AiMultimodalMode = 'text' | 'image' | 'audio'
+
+/** AI 多模态聊天消息(平台注入,字段对齐 mobile-rn AIMultimodalScreen ChatMessage) */
+export interface AiMultimodalMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: number
+}
+
+/** AIMultimodalScreen props(聊天界面注入式,wrapper 保留 API 调用) */
+export interface AIMultimodalScreenProps {
+  t: TFunction
+  userName: string
+  mode: AiMultimodalMode
+  models: string[]
+  model: string
+  messages: AiMultimodalMessage[]
+  input: string
+  loading: boolean
+  error: string
+  onModeChange: (m: AiMultimodalMode) => void
+  onModelChange: (m: string) => void
+  onInputChange: (text: string) => void
+  onSend: () => void
+  onClear: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 19(2026-07-29):课程相关 4 屏(列表/详情/筛选/评论) */
+
+/** 课程列表项(平台注入,字段对齐 mobile-rn CourseScreen Course 子集) */
+export interface CourseScreenItem {
+  id: string
+  title: string
+  instructor: string
+  level: string
+  description?: string
+  isFree: boolean
+  price: number
+  studentCount: number
+}
+
+/** CourseScreen props */
+export interface CourseScreenProps {
+  t: TFunction
+  items: CourseScreenItem[]
+  keyword: string
+  loading: boolean
+  error: string
+  page: number
+  totalPages: number
+  onKeywordChange: (text: string) => void
+  onPageChange: (page: number) => void
+  onPressItem: (id: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程详情章节进度项(平台注入,字段对齐 mobile-rn LessonProgress) */
+export interface CourseDetailLesson {
+  lessonId: string
+  title: string
+  isCompleted: boolean
+}
+
+/** 课程详情项(平台注入,字段对齐 mobile-rn CourseDetailScreen Course) */
+export interface CourseDetailItem {
+  id: string
+  title: string
+  instructor: string
+  categoryName: string
+  level: string
+  studentCount: number
+  rating: number
+  description: string
+  isFree: boolean
+  price: number
+  isEnrolled: boolean
+}
+
+/** CourseDetailScreen props */
+export interface CourseDetailScreenProps {
+  t: TFunction
+  item: CourseDetailItem | null
+  lessons: CourseDetailLesson[]
+  loading: boolean
+  error: string
+  enrolling: boolean
+  onEnroll: () => void
+  onPlayLesson: (lessonId: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程筛选难度枚举(平台注入,字段对齐 mobile-rn CourseFilterScreen level) */
+export type CourseFilterLevel = 'beginner' | 'intermediate' | 'advanced'
+
+/** 课程筛选项(平台注入,字段对齐 mobile-rn CourseFilterScreen CourseItem) */
+export interface CourseFilterItem {
+  id: string
+  title: string
+  instructor: string
+  level: CourseFilterLevel
+  price: number
+  category: string
+  cover: string | null
+}
+
+/** CourseFilterScreen props */
+export interface CourseFilterScreenProps {
+  t: TFunction
+  items: CourseFilterItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  category: string
+  level: string
+  priceTab: string
+  onCategoryChange: (category: string) => void
+  onLevelChange: (level: string) => void
+  onPriceTabChange: (priceTab: string) => void
+  onApply: () => void
+  onReset: () => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程评论项(平台注入,字段对齐 mobile-rn CourseCommentScreen Comment) */
+export interface CourseCommentItem {
+  id: string
+  user: string
+  rating: number
+  content: string
+  createdAt: string
+}
+
+/** CourseCommentScreen props */
+export interface CourseCommentScreenProps {
+  t: TFunction
+  items: CourseCommentItem[]
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 19(2026-07-29):Agent 统计/设置/创建/聊天(4 屏迁移自 mobile-rn) */
+
+/** Agent 使用统计(平台注入,字段对齐 mobile-rn AgentStatScreen Stat) */
+export interface AgentStatItem {
+  /** 会话数 */
+  conversations: number
+  /** 消息数 */
+  messages: number
+  /** Token 消耗 */
+  tokens: number
+  /** 平均评分 */
+  avgRating: number
+}
+
+/** AgentStatScreen props(指标展示屏,只读) */
+export interface AgentStatScreenProps {
+  t: TFunction
+  stat: AgentStatItem | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 配置(平台注入,字段对齐 mobile-rn AgentSettingScreen Setting) */
+export interface AgentSettingItem {
+  name: string
+  model: string
+  temperature: number
+  enabled: boolean
+}
+
+/** AgentSettingScreen props(表单屏,状态由 wrapper 管理,共享层只负责渲染) */
+export interface AgentSettingScreenProps {
+  t: TFunction
+  setting: AgentSettingItem | null
+  loading: boolean
+  saving: boolean
+  error: string
+  toast: string
+  /** 字段局部更新回调,平台注入实际 setState */
+  onChange: (patch: Partial<AgentSettingItem>) => void
+  onSave: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AgentCreateScreen props(表单屏,状态由 wrapper 管理) */
+export interface AgentCreateScreenProps {
+  t: TFunction
+  name: string
+  description: string
+  systemPrompt: string
+  category: string
+  isPublic: boolean
+  saving: boolean
+  error: string
+  onNameChange: (text: string) => void
+  onDescriptionChange: (text: string) => void
+  onSystemPromptChange: (text: string) => void
+  onCategoryChange: (text: string) => void
+  onTogglePublic: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AgentChat 聊天消息(平台注入,字段对齐 mobile-rn AgentChatScreen ChatMsg) */
+export interface AgentChatMessage {
+  id: string
+  /** 角色:本地实际使用 user/assistant 两值 */
+  role: 'user' | 'assistant'
+  content: string
+  /** ISO 时间字符串或格式化后的时间文本 */
+  createdAt: string
+}
+
+/** AgentChatScreen props(聊天屏,wrapper 保留 API 调用,共享层负责渲染+自动滚动) */
+export interface AgentChatScreenProps {
+  t: TFunction
+  /** Agent 名称(header 展示) */
+  title: string
+  messages: AgentChatMessage[]
+  loading: boolean
+  error: string
+  input: string
+  sending: boolean
+  onInputChange: (text: string) => void
+  onSend: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
+
+/** 助手状态(对齐 mobile-rn AssistantScreen Tab + 扩展态) */
+export type AssistantStatus = 'draft' | 'reviewing' | 'published' | 'rejected' | 'offline'
+
+/** 助手 Tab(对齐 mobile-rn AssistantScreen Tab) */
+export type AssistantTab = 'draft' | 'reviewing' | 'published'
+
+/** 助手子 Tab(对齐 mobile-rn AssistantScreen SubTab) */
+export type AssistantSubTab = 'all' | 'rejected' | 'offline'
+
+/** 助手列表项(平台注入,字段对齐 mobile-rn AssistantScreen Assistant) */
+export interface AssistantItem {
+  id: string
+  name: string
+  prologue: string
+  status: AssistantStatus
+  category: string
+  price: number
+  cycle: string
+  audience: string
+  publishTime: string
+}
+
+/** AssistantScreen props(注入式:wrapper 持有列表/Tab/搜索状态,共享层只渲染) */
+export interface AssistantScreenProps {
+  t: TFunction
+  items: AssistantItem[]
+  tab: AssistantTab
+  subTab: AssistantSubTab
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onTabChange: (tab: AssistantTab) => void
+  onSubTabChange: (subTab: AssistantSubTab) => void
+  onKeywordChange: (text: string) => void
+  onRefresh: () => void
+  /** 编辑/设置回调(平台注入 Alert/导航) */
+  onEdit: (item: AssistantItem) => void
+  /** 下架回调(平台注入 Alert 确认) */
+  onOffline: (item: AssistantItem) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 群组成员(对齐 mobile-rn AiGroupScreen Member) */
+export interface AiGroupMember {
+  id: string
+  name: string
+  role: string
+}
+
+/** AI 群组列表项(平台注入,字段对齐 mobile-rn AiGroupScreen Group) */
+export interface AiGroupItem {
+  id: string
+  name: string
+  desc: string
+  members: AiGroupMember[]
+  messages: number
+  lastActive: string
+  tag: string
+}
+
+/** AI 群组 Tab */
+export type AiGroupTab = 'mine' | 'discover'
+
+/** AiGroupScreen props(注入式:wrapper 持有列表/Tab/selectedItem,共享层只渲染列表+详情) */
+export interface AiGroupScreenProps {
+  t: TFunction
+  items: AiGroupItem[]
+  tab: AiGroupTab
+  /** 当前选中的群组(非 null 时显示详情页,null 时显示列表页) */
+  selectedItem: AiGroupItem | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onTabChange: (tab: AiGroupTab) => void
+  /** 点击列表项回调(mine → 进入详情;discover → 申请加入),由 wrapper 区分 */
+  onPressItem: (item: AiGroupItem) => void
+  /** 详情页返回列表回调 */
+  onBackToList: () => void
+  /** 进入群聊回调(详情页底部按钮) */
+  onEnterChat: (item: AiGroupItem) => void
+  onRefresh: () => void
+  onRetry: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AIGC 封面选项(对齐 mobile-rn AigcCoverScreen CoverOption) */
+export interface AigcCoverOption {
+  id: string
+  url: string
+  source: 'work' | 'ai'
+  label: string
+}
+
+/** AIGC 封面过滤器 */
+export type AigcCoverFilter = 'all' | 'work' | 'ai'
+
+/** AigcCoverScreen props(注入式:wrapper 持有 covers/selectedId/filter,共享层只渲染) */
+export interface AigcCoverScreenProps {
+  t: TFunction
+  /** 作品标题(header 展示) */
+  workTitle: string
+  covers: AigcCoverOption[]
+  selectedId: string
+  filter: AigcCoverFilter
+  loading: boolean
+  error: string
+  onSelectCover: (id: string) => void
+  onFilterChange: (filter: AigcCoverFilter) => void
+  /** 应用封面回调(平台注入 Alert + navigation.goBack) */
+  onConfirm: (cover: AigcCoverOption) => void
+  /** AI 生成新封面回调(平台注入 Alert 提示) */
+  onGenerateAi: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AIGC 发布作品类型(对齐 mobile-rn AigcPublishScreen WorkType) */
+export type AigcPublishWorkType = 'image' | 'video' | 'audio' | 'text'
+
+/** AIGC 发布上传文件(对齐 mobile-rn AigcPublishScreen UploadFile) */
+export interface AigcPublishFile {
+  id: string
+  url: string
+  type: AigcPublishWorkType
+}
+
+/** AigcPublishScreen props(表单屏注入式:wrapper 持有所有 state + 上传逻辑) */
+export interface AigcPublishScreenProps {
+  t: TFunction
+  workType: AigcPublishWorkType
+  files: AigcPublishFile[]
+  textContent: string
+  title: string
+  description: string
+  prompt: string
+  urlInput: string
+  saving: boolean
+  uploading: boolean
+  error: string
+  onWorkTypeChange: (type: AigcPublishWorkType) => void
+  onTextContentChange: (text: string) => void
+  onTitleChange: (text: string) => void
+  onDescriptionChange: (text: string) => void
+  onPromptChange: (text: string) => void
+  onUrlInputChange: (text: string) => void
+  /** 通过 URL 添加素材回调(wrapper 持有校验逻辑) */
+  onAddFileByUrl: () => void
+  /** 从相册选择回调(wrapper 调用 expo-image-picker + uploadFileMultipart) */
+  onPickImage: () => void
+  onRemoveFile: (id: string) => void
+  /** 发布回调(wrapper 调用 createAigcTask + Alert) */
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}

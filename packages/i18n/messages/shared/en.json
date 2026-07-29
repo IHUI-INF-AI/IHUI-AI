@@ -1356,5 +1356,100 @@
     "play": "Play",
     "noReplay": "No replay",
     "replayTitle": "Replay player"
+  },
+  "agentStat": {
+    "title": "Agent Stats",
+    "loadFailed": "Failed to load stats",
+    "conversations": "Conversations",
+    "messages": "Messages",
+    "tokens": "Tokens",
+    "avgRating": "Avg Rating"
+  },
+  "agentSetting": {
+    "title": "Agent Settings",
+    "loadFailed": "Failed to load settings",
+    "name": "Name",
+    "model": "Model",
+    "temperature": "Temperature",
+    "enabled": "Enabled",
+    "saved": "Saved",
+    "save": "Save"
+  },
+  "agentCreate": {
+    "title": "Create Agent",
+    "nameRequired": "Name is required",
+    "saveFailed": "Failed to create",
+    "name": "Name",
+    "namePlaceholder": "Enter name",
+    "category": "Category",
+    "categoryPlaceholder": "Enter category (default general)",
+    "description": "Description",
+    "descPlaceholder": "Enter description",
+    "systemPrompt": "System Prompt",
+    "promptPlaceholder": "Enter system prompt",
+    "isPublic": "Public",
+    "public": "Public",
+    "private": "Private",
+    "submit": "Submit"
+  },
+  "agentChat": {
+    "loadFailed": "Failed to load messages",
+    "sendFailed": "Send failed",
+    "empty": "No messages",
+    "placeholder": "Type a message",
+    "send": "Send"
+  },
+  "courseScreen": {
+    "title": "Courses",
+    "searchPlaceholder": "Search courses",
+    "loadFailed": "Failed to load courses",
+    "empty": "No courses",
+    "free": "Free",
+    "studentCount": "{{count}} students",
+    "nextPage": "Next"
+  },
+  "courseDetail": {
+    "loadFailed": "Failed to load course",
+    "instructor": "Instructor",
+    "rating": "Rating",
+    "free": "Free",
+    "studentCount": "{{count}} students",
+    "enrolled": "Enrolled",
+    "enroll": "Enroll now",
+    "pay": "Pay ¥{{amount}}",
+    "lessons": "Lessons",
+    "completed": "Completed"
+  },
+  "courseFilter": {
+    "title": "Course Filter",
+    "subtitle": "Filter courses by category, level, and price",
+    "category": "Category",
+    "level": "Level",
+    "priceRange": "Price",
+    "reset": "Reset",
+    "apply": "Apply",
+    "retry": "Retry",
+    "loadFailed": "Failed to load courses",
+    "empty": "No courses",
+    "instructor": "Instructor",
+    "level_label": "Level",
+    "free": "Free",
+    "cat_all": "All",
+    "cat_tech": "Tech",
+    "cat_design": "Design",
+    "cat_business": "Business",
+    "cat_language": "Language",
+    "level_all": "All",
+    "level_beginner": "Beginner",
+    "level_intermediate": "Intermediate",
+    "level_advanced": "Advanced",
+    "price_all": "All",
+    "price_free": "Free",
+    "price_paid": "Paid"
+  },
+  "courseComment": {
+    "title": "Course Comments",
+    "loadFailed": "Failed to load comments",
+    "empty": "No comments"
   }
 }

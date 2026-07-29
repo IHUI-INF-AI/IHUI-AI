@@ -1356,5 +1356,100 @@
     "play": "播放",
     "noReplay": "无回放",
     "replayTitle": "回放播放器"
+  },
+  "agentStat": {
+    "title": "Agent 统计",
+    "loadFailed": "加载统计失败",
+    "conversations": "会话数",
+    "messages": "消息数",
+    "tokens": "Token 消耗",
+    "avgRating": "平均评分"
+  },
+  "agentSetting": {
+    "title": "Agent 设置",
+    "loadFailed": "加载设置失败",
+    "name": "名称",
+    "model": "模型",
+    "temperature": "温度",
+    "enabled": "启用",
+    "saved": "保存成功",
+    "save": "保存"
+  },
+  "agentCreate": {
+    "title": "创建 Agent",
+    "nameRequired": "请输入名称",
+    "saveFailed": "创建失败",
+    "name": "名称",
+    "namePlaceholder": "请输入名称",
+    "category": "分类",
+    "categoryPlaceholder": "请输入分类(默认 general)",
+    "description": "描述",
+    "descPlaceholder": "请输入描述",
+    "systemPrompt": "系统提示词",
+    "promptPlaceholder": "请输入系统提示词",
+    "isPublic": "是否公开",
+    "public": "公开",
+    "private": "私有",
+    "submit": "提交"
+  },
+  "agentChat": {
+    "loadFailed": "加载消息失败",
+    "sendFailed": "发送失败",
+    "empty": "暂无消息",
+    "placeholder": "输入消息",
+    "send": "发送"
+  },
+  "courseScreen": {
+    "title": "课程",
+    "searchPlaceholder": "搜索课程",
+    "loadFailed": "加载课程失败",
+    "empty": "暂无课程",
+    "free": "免费",
+    "studentCount": "{{count}} 人学过",
+    "nextPage": "下一页"
+  },
+  "courseDetail": {
+    "loadFailed": "加载课程失败",
+    "instructor": "讲师",
+    "rating": "评分",
+    "free": "免费",
+    "studentCount": "{{count}} 人学过",
+    "enrolled": "已报名",
+    "enroll": "立即报名",
+    "pay": "支付 ¥{{amount}}",
+    "lessons": "课时",
+    "completed": "已完成"
+  },
+  "courseFilter": {
+    "title": "课程筛选",
+    "subtitle": "按分类、难度、价格筛选课程",
+    "category": "分类",
+    "level": "难度",
+    "priceRange": "价格",
+    "reset": "重置",
+    "apply": "应用",
+    "retry": "重试",
+    "loadFailed": "加载课程失败",
+    "empty": "暂无课程",
+    "instructor": "讲师",
+    "level_label": "难度",
+    "free": "免费",
+    "cat_all": "全部",
+    "cat_tech": "技术",
+    "cat_design": "设计",
+    "cat_business": "商业",
+    "cat_language": "语言",
+    "level_all": "全部",
+    "level_beginner": "入门",
+    "level_intermediate": "中级",
+    "level_advanced": "高级",
+    "price_all": "全部",
+    "price_free": "免费",
+    "price_paid": "付费"
+  },
+  "courseComment": {
+    "title": "课程评论",
+    "loadFailed": "加载评论失败",
+    "empty": "暂无评论"
   }
 }
