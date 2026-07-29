@@ -1172,11 +1172,11 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **批次 6(第三批列表屏)**: PointHistoryScreen + NoteListScreen + ArticleListScreen + AnnouncementScreen + LivePlaybackListScreen + RefundHistoryScreen + CourseQAListScreen(commit 3ab6cc3bdb)
   - **批次 7(第四批详情屏)**: NoteDetailScreen + ArticleDetailScreen + HelpDetailScreen + FeedbackDetailScreen(commit e390677dcb)
   - **批次 8(静态屏+列表屏+详情屏)**: PrivacyScreen + AgreementScreen + PointRuleScreen + VipLevelScreen + RefundDetailScreen + OrderDetailScreen + CertDetailScreen + PostDetailScreen(commit a6d62b48b,8 subagent 并行,Privacy/Agreement 内化 LegalDocScreen 静态 sections)
-  - 已迁移清单: About/Profile/Settings/Feedback/FeedbackHistory/FeedbackDetail/Bookmark/NotificationList/History/Certificate/MessageCenter/Order/StudyPlan/Wallet/CourseCatalog/PointHistory/NoteList/NoteDetail/ArticleList/ArticleDetail/Announcement/LivePlaybackList/RefundHistory/CourseQAList/HelpDetail/Privacy/Agreement/PointRule/VipLevel/RefundDetail/OrderDetail/CertDetail/PostDetail + LegalDoc/AnnouncementDetail/Help = 33 features
-  - 跨端契约: 全部类型上提到 @ihui/types 单一真相源 + packages/app re-export(批次 6 新增 AppRefundStatus 避免 admin RefundStatus 命名冲突;批次 8 新增 10 组 Item + ScreenProps 类型)
+  - 已迁移清单: About/Profile/Settings/Feedback/FeedbackHistory/FeedbackDetail/Bookmark/NotificationList/History/Certificate/MessageCenter/Order/StudyPlan/Wallet/CourseCatalog/PointHistory/NoteList/NoteDetail/ArticleList/ArticleDetail/Announcement/LivePlaybackList/RefundHistory/CourseQAList/HelpDetail/Privacy/Agreement/PointRule/VipLevel/RefundDetail/OrderDetail/CertDetail/PostDetail + LegalDoc/AnnouncementDetail/Help + AgentDetail/AskDetail/AskList/CertList/CertVerify/Withdraw/VipCompare/Share = 41 features
+  - 跨端契约: 全部类型上提到 @ihui/types 单一真相源 + packages/app re-export(批次 6 新增 AppRefundStatus 避免 admin RefundStatus 命名冲突;批次 8 新增 10 组 Item + ScreenProps 类型;批次 9 新增 8 组 Item + ScreenProps 类型)
   - 共享层模式: props 注入式(t/items/loading/onPressItem/onBack/colorScheme/onVerify)+ getTokens(colorScheme) 双主题 + react-native-web alias web 渲染 + 静态屏 sections 内化(Privacy/Agreement)
-  - 验证: pnpm --filter @ihui/types + @ihui/rn-app + @ihui/mobile-rn typecheck 全绿(批次 6: +1524/-658 行;批次 7: +732/-344 行;批次 8: +1332/-325 行,6 mobile-rn wrapper 60-100 行→20-50 行薄 wrapper,8 subagent 并行派发)
-- [ ] P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme(进行中:32 wrapper/153 total,独立 121,真维护倍数 1.85x,继续推进功能屏/特殊屏迁移)
+  - 验证: pnpm --filter @ihui/types + @ihui/rn-app + @ihui/mobile-rn typecheck 全绿(批次 6: +1524/-658 行;批次 7: +732/-344 行;批次 8: +1332/-325 行,6 mobile-rn wrapper 60-100 行→20-50 行薄 wrapper,8 subagent 并行派发;批次 9: +2094/-422 行,7 共享组件 + 7 wrapper + 5 语言 i18n 78 键)
+- [ ] P3-3.3 mobile-rn 独立 screen 实现清零 — 改为 re-export packages/app,wrapper 只注入 navigation/fetchApi/useTheme(进行中:40 wrapper/153 total,独立 113,真维护倍数 1.78x,继续推进功能屏/特殊屏迁移)
 - [ ] P3-3.4 阶段 3 全端验证 — mobile-rn 独立 screen 实现 = 0 + packages/app 覆盖 ≥ 7 features + 全端全绿 + cloc 降本至 ≤ 2.0x
 
 ### 阶段 4:极限收尾(长期 2-3 月,预期 2.0x → 1.7x)
