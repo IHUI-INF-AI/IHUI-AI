@@ -794,5 +794,83 @@
     "sectionRightsBody": "You have the right to view, modify, and delete your personal information at any time.",
     "sectionObligations": "User Obligations",
     "sectionObligationsBody": "You must not use this platform for illegal or infringing activities."
+  },
+  "agentDetail": {
+    "title": "Agent Detail",
+    "loadFailed": "Failed to load agent",
+    "description": "Description",
+    "creator": "Creator",
+    "uses": "Uses",
+    "rating": "Rating",
+    "price": "Price",
+    "free": "Free",
+    "startChat": "Start Chat"
+  },
+  "askDetail": {
+    "title": "Question Detail",
+    "loadFailed": "Failed to load question",
+    "empty": "No answers yet",
+    "accepted": "Accepted",
+    "views": "{count} views",
+    "answers": "{count} answers"
+  },
+  "askList": {
+    "title": "Q&A List",
+    "empty": "No questions yet",
+    "loadFailed": "Failed to load questions",
+    "answers": "{count} answers",
+    "views": "{count} views"
+  },
+  "certList": {
+    "title": "Certificate List",
+    "empty": "No certificates",
+    "loadFailed": "Failed to load certificates",
+    "issuer": "Issuer",
+    "issuedAt": "Issued At"
+  },
+  "certVerify": {
+    "title": "Certificate Verification",
+    "certNo": "Certificate No.",
+    "placeholder": "Enter certificate number",
+    "verify": "Verify",
+    "failed": "Verification failed",
+    "valid": "Certificate Valid",
+    "invalid": "Certificate Invalid",
+    "holder": "Holder",
+    "issuer": "Issuer",
+    "issuedAt": "Issued At"
+  },
+  "withdraw": {
+    "title": "Withdraw",
+    "amount": "Amount",
+    "amountPlaceholder": "Enter amount",
+    "amountInvalid": "Invalid amount",
+    "minAmount": "Minimum withdraw amount is 10",
+    "bankCard": "Bank Card ID",
+    "bankCardPlaceholder": "Enter bank card ID (optional)",
+    "submit": "Submit Withdraw",
+    "submitting": "Submitting...",
+    "success": "Withdraw request submitted",
+    "failed": "Withdraw failed, please retry",
+    "feeHint": "0% withdraw fee"
+  },
+  "vipCompare": {
+    "title": "VIP Comparison",
+    "loadFailed": "Failed to load comparison",
+    "feature": "Feature",
+    "basic": "Basic",
+    "premium": "Premium",
+    "enterprise": "Enterprise"
+  },
+  "share": {
+    "title": "Share",
+    "remark": "Remark",
+    "remarkPlaceholder": "Enter remark (optional)",
+    "create": "Generate Share Link",
+    "createFailed": "Failed to generate share link",
+    "url": "Share URL",
+    "code": "Share Code",
+    "expireAt": "Expires At",
+    "shareNow": "Share Now"
   }
 }

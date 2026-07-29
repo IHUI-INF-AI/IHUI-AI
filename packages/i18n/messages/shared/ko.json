@@ -794,5 +794,83 @@
     "sectionRightsBody": "언제든지 개인정보를 조회, 수정, 삭제할 권리가 있습니다.",
     "sectionObligations": "사용자 의무",
     "sectionObligationsBody": "본 플랫폼을 불법적이거나 권리 침해 활동에 사용해서는 안 됩니다."
+  },
+  "agentDetail": {
+    "title": "Agent 상세",
+    "loadFailed": "Agent 로드 실패",
+    "description": "설명",
+    "creator": "작성자",
+    "uses": "사용 횟수",
+    "rating": "평점",
+    "price": "가격",
+    "free": "무료",
+    "startChat": "채팅 시작"
+  },
+  "askDetail": {
+    "title": "질문 상세",
+    "loadFailed": "질문 로드 실패",
+    "empty": "답변이 없습니다",
+    "accepted": "채택됨",
+    "views": "{count}회 조회",
+    "answers": "{count}개 답변"
+  },
+  "askList": {
+    "title": "Q&A 목록",
+    "empty": "질문이 없습니다",
+    "loadFailed": "질문 로드 실패",
+    "answers": "{count} 답변",
+    "views": "{count} 조회"
+  },
+  "certList": {
+    "title": "증명서 목록",
+    "empty": "증명서가 없습니다",
+    "loadFailed": "증명서 로드 실패",
+    "issuer": "발급 기관",
+    "issuedAt": "발급일"
+  },
+  "certVerify": {
+    "title": "증명서 검증",
+    "certNo": "증명서 번호",
+    "placeholder": "증명서 번호를 입력하세요",
+    "verify": "검증",
+    "failed": "검증 실패",
+    "valid": "증명서 유효",
+    "invalid": "증명서 무효",
+    "holder": "소지자",
+    "issuer": "발급 기관",
+    "issuedAt": "발급일"
+  },
+  "withdraw": {
+    "title": "출금",
+    "amount": "금액",
+    "amountPlaceholder": "금액을 입력하세요",
+    "amountInvalid": "유효하지 않은 금액",
+    "minAmount": "최소 출금 금액은 10입니다",
+    "bankCard": "은행 카드 ID",
+    "bankCardPlaceholder": "은행 카드 ID 입력(선택)",
+    "submit": "출금 제출",
+    "submitting": "제출 중...",
+    "success": "출금 신청이 제출되었습니다",
+    "failed": "출금 실패, 다시 시도하세요",
+    "feeHint": "출금 수수료 0%"
+  },
+  "vipCompare": {
+    "title": "VIP 비교",
+    "loadFailed": "비교 로드 실패",
+    "feature": "기능",
+    "basic": "베이직",
+    "premium": "프리미엄",
+    "enterprise": "엔터프라이즈"
+  },
+  "share": {
+    "title": "공유",
+    "remark": "메모",
+    "remarkPlaceholder": "메모 입력(선택)",
+    "create": "공유 링크 생성",
+    "createFailed": "공유 링크 생성 실패",
+    "url": "공유 URL",
+    "code": "공유 코드",
+    "expireAt": "만료 시간",
+    "shareNow": "지금 공유"
   }
 }
