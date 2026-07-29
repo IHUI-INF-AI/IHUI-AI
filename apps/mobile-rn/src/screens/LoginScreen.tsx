@@ -6,6 +6,9 @@ import { useI18n } from '../i18n'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { rnAuthStore } from '../stores/auth-store'
+// logo 图片(对齐 web AuthShell /images/logo.png)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const LOGO_SOURCE = require('../../assets/images/logo.png')
 
 /**
  * mobile-rn 登录页(2026-07-29 重构:接入 @ihui/shared/hooks useLoginForm)
@@ -91,6 +94,7 @@ export function LoginScreen() {
       onPasswordChange={form.setPassword}
       onLogin={form.login}
       onSsoLogin={form.ssoLoginAction}
+      logoSource={LOGO_SOURCE}
     />
   )
 }

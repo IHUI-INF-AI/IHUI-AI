@@ -14,19 +14,19 @@ type OrderItem = Order & {
   description?: string
 }
 
-const STATUS_MAP: Record<string, { type: string; textKey: string; color: string }> = {
-  pending: { type: 'pending', textKey: 'order.status.pending', color: 'text-warning' },
-  paid: { type: 'paid', textKey: 'order.status.paid', color: 'text-primary' },
-  cancelled: { type: 'cancelled', textKey: 'order.status.cancelled', color: 'text-muted-foreground' },
-  refunding: { type: 'refunding', textKey: 'order.status.refunding', color: 'text-warning' },
-  refunded: { type: 'refunded', textKey: 'order.status.refunded', color: 'text-muted-foreground' },
-  completed: { type: 'completed', textKey: 'order.status.completed', color: 'text-primary' },
-  failed: { type: 'failed', textKey: 'order.status.failed', color: 'text-destructive' },
-  '0': { type: 'pending', textKey: 'order.status.pending', color: 'text-warning' },
-  '1': { type: 'paid', textKey: 'order.status.paid', color: 'text-primary' },
-  '2': { type: 'completed', textKey: 'order.status.completed', color: 'text-primary' },
-  '3': { type: 'cancelled', textKey: 'order.status.cancelled', color: 'text-muted-foreground' },
-  '4': { type: 'refunded', textKey: 'order.status.refunded', color: 'text-muted-foreground' },
+const STATUS_MAP: Record<string, { type: string; textKey: string; badge: string }> = {
+  pending: { type: 'pending', textKey: 'order.status.pending', badge: 'bg-warning text-warning-foreground' },
+  paid: { type: 'paid', textKey: 'order.status.paid', badge: 'bg-info text-info-foreground' },
+  cancelled: { type: 'cancelled', textKey: 'order.status.cancelled', badge: 'bg-muted text-muted-foreground' },
+  refunding: { type: 'refunding', textKey: 'order.status.refunding', badge: 'bg-warning text-warning-foreground' },
+  refunded: { type: 'refunded', textKey: 'order.status.refunded', badge: 'bg-destructive text-destructive-foreground' },
+  completed: { type: 'completed', textKey: 'order.status.completed', badge: 'bg-success text-success-foreground' },
+  failed: { type: 'failed', textKey: 'order.status.failed', badge: 'bg-destructive text-destructive-foreground' },
+  '0': { type: 'pending', textKey: 'order.status.pending', badge: 'bg-warning text-warning-foreground' },
+  '1': { type: 'paid', textKey: 'order.status.paid', badge: 'bg-info text-info-foreground' },
+  '2': { type: 'completed', textKey: 'order.status.completed', badge: 'bg-success text-success-foreground' },
+  '3': { type: 'cancelled', textKey: 'order.status.cancelled', badge: 'bg-muted text-muted-foreground' },
+  '4': { type: 'refunded', textKey: 'order.status.refunded', badge: 'bg-destructive text-destructive-foreground' },
 }
 
 const TABS = [
@@ -69,7 +69,7 @@ export default function OrderList() {
   const loadingRef = useRef(false)
 
   const statusInfo = (s: string) =>
-    STATUS_MAP[s] || { type: s, textKey: '', color: 'text-muted-foreground' }
+    STATUS_MAP[s] || { type: s, textKey: '', badge: 'bg-muted text-muted-foreground' }
 
   const load = async (reset = false) => {
     if (loadingRef.current) return
@@ -169,11 +169,11 @@ export default function OrderList() {
         </View>
       </View>
 
-      <View className="flex bg-card">
+      <View className="flex mx-[24rpx] mt-[16rpx] bg-muted rounded-lg overflow-hidden">
         {TABS.map((tab) => (
           <Text
             key={tab.value}
-            className={`flex-1 text-center text-[26rpx] py-[24rpx] ${status === tab.value ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+            className={`flex-1 text-center text-[28rpx] py-[20rpx] ${status === tab.value ? 'bg-card text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchTab(tab.value)}
           >
             {tt(tab.labelKey, tab.fallback)}
@@ -205,28 +205,28 @@ export default function OrderList() {
             return (
               <View
                 key={o.id}
-                className="bg-card rounded-lg p-[24rpx] mb-[24rpx]"
+                className="bg-card rounded-2xl border border-border p-[24rpx] mb-[24rpx]"
                 onClick={() => goDetail(o.id)}
               >
                 <View className="flex justify-between items-center">
                   <Text className="text-[24rpx] text-muted-foreground">
                     {tt('order.list.orderNo', '订单号')}：{orderNoText}
                   </Text>
-                  <Text className={`text-[24rpx] ${info.color}`}>
+                  <Text className={`inline-flex items-center h-[48rpx] px-[24rpx] rounded-md text-[24rpx] font-medium ${info.badge}`}>
                     {info.textKey ? t(info.textKey) : o.status}
                   </Text>
                 </View>
-                <View className="flex mt-[20rpx]">
+                <View className="flex mt-[8rpx]">
                   {img ? (
                     <Image
-                      className="w-[160rpx] h-[160rpx] rounded-md bg-background"
+                      className="w-[130rpx] h-[130rpx] rounded-md bg-background"
                       src={img}
                       mode="aspectFill"
                       lazyLoad
                     />
                   ) : null}
                   <View className={`flex-1 ${img ? 'ml-[20rpx]' : ''}`}>
-                    <Text className="block text-[28rpx] text-foreground font-semibold">
+                    <Text className="block text-[32rpx] text-foreground font-bold">
                       {productName}
                     </Text>
                     {o.description ? (
@@ -247,7 +247,7 @@ export default function OrderList() {
                       </Text>
                     ) : null}
                   </View>
-                  <Text className="text-[32rpx] text-destructive font-semibold">¥{o.amount}</Text>
+                  <Text className="text-[36rpx] text-destructive font-bold">¥{o.amount}</Text>
                 </View>
                 {(o.status === 'pending' || o.status === 'paid') && (
                   <View className="flex justify-end mt-[20rpx]">

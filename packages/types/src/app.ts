@@ -1530,6 +1530,9 @@ export interface LoginScreenProps {
   onLogin: () => void
   onSsoLogin: () => void
   colorScheme?: 'light' | 'dark'
+  /** logo 图片源(RN Image source,如 require('../../assets/logo.png'))。
+   * 不传则渲染深色方块+IHUI 文字作为 fallback,对齐 web AuthShell logo 占位。 */
+  logoSource?: number | { uri: string }
 }
 
 /** RegisterScreen props(表单屏) */
