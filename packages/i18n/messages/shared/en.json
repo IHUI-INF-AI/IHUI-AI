@@ -593,7 +593,15 @@
     }
   },
   "live": {
-    "empty": "No live sessions"
+    "title": "Live",
+    "loadFailed": "Failed to load live sessions",
+    "empty": "No live sessions",
+    "ongoing": "Live",
+    "upcoming": "Upcoming",
+    "ended": "Ended",
+    "lecturer": "Lecturer",
+    "startAt": "Starts at",
+    "viewerCount": "{count} watching"
   },
   "course": {
     "free": "Free",
@@ -872,5 +880,75 @@
     "code": "Share Code",
     "expireAt": "Expires At",
     "shareNow": "Share Now"
+  },
+  "agentMarket": {
+    "title": "Agent Market",
+    "loadFailed": "Failed to load agents",
+    "searchPlaceholder": "Search agents",
+    "empty": "No agents",
+    "uses": " uses",
+    "free": "Free",
+    "paid": "Paid"
+  },
+  "agentReviewList": {
+    "title": "Agent Reviews",
+    "loadFailed": "Failed to load reviews",
+    "empty": "No reviews",
+    "author": "Author"
+  },
+  "following": {
+    "title": "Following",
+    "loadFailed": "Failed to load following",
+    "empty": "No following",
+    "unfollowTitle": "Unfollow",
+    "unfollow": "Unfollow"
+  },
+  "activity": {
+    "title": "Activities",
+    "loadFailed": "Failed to load activities",
+    "empty": "No activities",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "participants": "Participants",
+    "joinNow": "Join now",
+    "status_upcoming": "Upcoming",
+    "status_ongoing": "Ongoing",
+    "status_ended": "Ended"
+  },
+  "favorites": {
+    "title": "Favorites",
+    "loadFailed": "Failed to load favorites",
+    "empty": "No favorites",
+    "deleteTitle": "Delete favorite"
+  },
+  "checkIn": {
+    "title": "Daily Check-in",
+    "subtitle": "Check in daily to earn points",
+    "loadFailed": "Failed to load check-in info",
+    "retry": "Retry",
+    "empty": "No check-in records",
+    "streak": "Streak",
+    "monthlyDays": "This month",
+    "totalDays": "Total days",
+    "todayReward": "Today's reward",
+    "checkInBtn": "Check in",
+    "checkedIn": "Checked in",
+    "calendar": "Calendar",
+    "signSuccess": "Check-in success",
+    "signFailed": "Check-in failed"
+  },
+  "pointsMall": {
+    "title": "Points Mall",
+    "subtitle": "Redeem rewards with points",
+    "loadFailed": "Failed to load products",
+    "retry": "Retry",
+    "empty": "No products",
+    "balance": "My points",
+    "pointsUnit": "pts",
+    "stock": "Stock {count}",
+    "redeem": "Redeem",
+    "redeemSuccess": "Redeemed",
+    "redeemFailed": "Redeem failed",
+    "insufficient": "Insufficient points"
   }
 }

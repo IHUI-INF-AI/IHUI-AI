@@ -1304,3 +1304,456 @@ export interface SettingsAccountScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 12(2026-07-29):直播列表/优惠券/关注/排行榜/积分商城/考试/VIP */
+
+/** 直播状态 */
+export type LiveStatus = 'upcoming' | 'ongoing' | 'ended' | string
+
+/** 直播列表项(平台注入,字段对齐 mobile-rn LiveListScreen LiveItem) */
+export interface LiveListItem {
+  id: string
+  title: string
+  lecturer: string
+  status: LiveStatus
+  startAt: string
+  viewerCount: number
+  cover: string | null
+}
+
+/** 直播列表 tab key */
+export type LiveListTab = 'all' | 'upcoming' | 'ongoing' | 'ended' | string
+
+/** LiveListScreen props */
+export interface LiveListScreenProps {
+  t: TFunction
+  items: LiveListItem[]
+  activeTab: LiveListTab
+  onSelectTab: (tab: LiveListTab) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (item: LiveListItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 优惠券状态 */
+export type CouponStatus = 'available' | 'used' | 'expired' | string
+
+/** 优惠券列表项(平台注入,字段对齐 mobile-rn CouponScreen CouponItem) */
+export interface CouponItem {
+  id: string
+  name: string
+  amount: number
+  minSpend: number
+  validUntil: string
+  status: CouponStatus
+}
+
+/** CouponScreen props */
+export interface CouponScreenProps {
+  t: TFunction
+  items: CouponItem[]
+  activeTab: CouponStatus
+  onSelectTab: (tab: CouponStatus) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 关注用户列表项(平台注入,字段对齐 mobile-rn FollowingScreen FollowUser) */
+export interface FollowingItem {
+  id: string
+  username: string
+  nickname?: string
+  avatar?: string | null
+  bio?: string
+  followedAt: string
+}
+
+/** FollowingScreen props */
+export interface FollowingScreenProps {
+  t: TFunction
+  items: FollowingItem[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  onRefresh: () => void
+  onLoadMore: () => void
+  onUnfollow: (item: FollowingItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 排行榜范围 */
+export type RankingRange = 'weekly' | 'monthly' | 'allTime' | string
+
+/** 排行榜项(平台注入,字段对齐 mobile-rn RankingScreen RankItem) */
+export interface RankingItem {
+  id: string
+  rank: number
+  nickname: string
+  avatar: string | null
+  points: number
+  studyHours: number
+  isMe: boolean
+}
+
+/** RankingScreen props */
+export interface RankingScreenProps {
+  t: TFunction
+  top3: RankingItem[]
+  rest: RankingItem[]
+  range: RankingRange
+  onSelectRange: (range: RankingRange) => void
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 积分商城商品(平台注入,字段对齐 mobile-rn PointsMallScreen Product) */
+export interface PointsMallItem {
+  id: string
+  name: string
+  description: string
+  pointsCost: number
+  stock: number
+  cover: string | null
+}
+
+/** PointsMallScreen props */
+export interface PointsMallScreenProps {
+  t: TFunction
+  items: PointsMallItem[]
+  balance: number
+  redeemingId: string | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onRedeem: (item: PointsMallItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 考试状态 */
+export type ExamStatus = 'notStarted' | 'inProgress' | 'ended' | string
+
+/** 考试项(平台注入,字段对齐 mobile-rn ExamScreen Exam) */
+export interface ExamItem {
+  id: string
+  title: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  duration: number
+  totalScore: number
+  passScore: number
+  questionCount: number
+  attemptCount: number
+  maxAttempts: number
+}
+
+/** ExamScreen props */
+export interface ExamScreenProps {
+  t: TFunction
+  items: ExamItem[]
+  /** 计算考试状态(平台注入) */
+  getStatus: (exam: ExamItem) => ExamStatus
+  loading: boolean
+  refreshing: boolean
+  error: string
+  toast: string
+  onRefresh: () => void
+  onStart: (exam: ExamItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** VIP 等级(平台注入,字段对齐 mobile-rn VipScreen VipLevel) */
+export interface VipLevelItem2 {
+  id: string
+  levelName: string
+  levelValue: number
+  price: number
+  durationDays: number
+  status: number
+  benefits?: Record<string, unknown>
+}
+
+/** VIP 会员信息(平台注入,字段对齐 mobile-rn VipScreen MembershipInfo) */
+export interface VipMembershipInfo {
+  isActive: boolean
+  level: number
+  levelName: string
+  expireTime: string
+  daysRemaining: number
+}
+
+/** VipScreen props */
+export interface VipScreenProps {
+  t: TFunction
+  levels: VipLevelItem2[]
+  membership: VipMembershipInfo | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  toast: string
+  purchasingId: string | null
+  onRefresh: () => void
+  onPurchase: (level: VipLevelItem2) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 13(2026-07-29):登录/注册/资料编辑/换绑手机 */
+
+/** LoginScreen props(表单屏,状态由 wrapper 管理) */
+export interface LoginScreenProps {
+  t: TFunction
+  account: string
+  password: string
+  loading: boolean
+  ssoLoading: boolean
+  error: string
+  onAccountChange: (text: string) => void
+  onPasswordChange: (text: string) => void
+  onLogin: () => void
+  onSsoLogin: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** RegisterScreen props(表单屏) */
+export interface RegisterScreenProps {
+  t: TFunction
+  account: string
+  password: string
+  confirmPassword: string
+  loading: boolean
+  error: string
+  onAccountChange: (text: string) => void
+  onPasswordChange: (text: string) => void
+  onConfirmPasswordChange: (text: string) => void
+  onRegister: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 性别(0=保密,1=男,2=女) */
+export type Gender = 0 | 1 | 2
+
+/** ProfileEditScreen props(表单屏,状态由 wrapper 管理) */
+export interface ProfileEditScreenProps {
+  t: TFunction
+  nickname: string
+  bio: string
+  gender: Gender
+  avatar: string | null
+  loading: boolean
+  saving: boolean
+  error: string
+  avatarModalVisible: boolean
+  avatarInput: string
+  onNicknameChange: (text: string) => void
+  onBioChange: (text: string) => void
+  onGenderChange: (gender: Gender) => void
+  onOpenAvatarModal: () => void
+  onCloseAvatarModal: () => void
+  onAvatarInputChange: (text: string) => void
+  onConfirmAvatar: () => void
+  onSave: () => void
+  onRetry: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 国家区号选项 */
+export interface NationOption {
+  id: number
+  title: string
+  content: string
+}
+
+/** ChangePhoneScreen props(表单屏,状态由 wrapper 管理) */
+export interface ChangePhoneScreenProps {
+  t: TFunction
+  phoneNumber: string
+  codeValue: string
+  phoneHead: string
+  nationShow: boolean
+  codeMin: number
+  sendCodeShow: boolean
+  tip: string
+  submitting: boolean
+  nations: NationOption[]
+  onPhoneChange: (text: string) => void
+  onCodeChange: (text: string) => void
+  onToggleNationShow: () => void
+  onSelectNation: (nation: NationOption) => void
+  onSendCode: () => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 14(2026-07-29 P3-3.3 实际迁移批次 10):Agent 市场/Agent 评价/活动/收藏/签到 */
+
+/** Agent 市场项(平台注入,字段对齐 mobile-rn AgentMarketScreen Agent) */
+export interface AgentMarketItem {
+  id: string
+  name: string
+  description: string
+  category: string
+  uses: number
+  rating: number
+  isFree: boolean
+}
+
+/** AgentMarketScreen props */
+export interface AgentMarketScreenProps {
+  t: TFunction
+  items: AgentMarketItem[]
+  keyword: string
+  loading: boolean
+  error: string
+  onKeywordChange: (text: string) => void
+  onSearch: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** Agent 评价项(平台注入,字段对齐 mobile-rn AgentReviewListScreen Item) */
+export interface AgentReviewListItem {
+  id: string
+  agentName: string
+  author: string
+  rating: number
+  content: string
+  createdAt: string
+}
+
+/** AgentReviewListScreen props */
+export interface AgentReviewListScreenProps {
+  t: TFunction
+  items: AgentReviewListItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 活动状态 */
+export type ActivityStatus = 'upcoming' | 'ongoing' | 'ended'
+
+/** 活动项(平台注入,字段对齐 mobile-rn ActivityScreen Activity) */
+export interface ActivityItem {
+  id: string
+  title: string
+  description: string
+  startTime: string
+  endTime: string
+  status: ActivityStatus
+  participants: number
+}
+
+/** ActivityScreen props */
+export interface ActivityScreenProps {
+  t: TFunction
+  items: ActivityItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 收藏项(平台注入,字段对齐 mobile-rn FavoritesScreen FavoriteItem) */
+export interface FavoritesItem {
+  id: string
+  title: string
+  cover: string | null
+  targetType: string
+  createdAt: string
+}
+
+/** FavoritesScreen props */
+export interface FavoritesScreenProps {
+  t: TFunction
+  items: FavoritesItem[]
+  loading: boolean
+  refreshing: boolean
+  loadingMore: boolean
+  error: string
+  onRefresh: () => void
+  onLoadMore: () => void
+  onDelete: (item: FavoritesItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 签到日历项(平台注入,字段对齐 mobile-rn CheckInScreen CheckInDay) */
+export interface CheckInDay {
+  date: string
+  signed: boolean
+  reward: number
+}
+
+/** 签到信息(平台注入,字段对齐 mobile-rn CheckInScreen CheckInInfo) */
+export interface CheckInInfo {
+  todaySigned: boolean
+  streak: number
+  totalDays: number
+  monthlyDays: number
+  todayReward: number
+  calendar: CheckInDay[]
+}
+
+/** CheckInScreen props */
+export interface CheckInScreenProps {
+  t: TFunction
+  info: CheckInInfo | null
+  loading: boolean
+  refreshing: boolean
+  signing: boolean
+  error: string
+  onSign: () => void
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 直播列表项(平台注入,字段对齐 mobile-rn LiveScreen Live) */
+export interface LiveScreenItem {
+  id: string
+  title: string
+  lecturerName?: string
+  isLive: boolean
+  startTime: string
+  viewCount: number
+}
+
+/** LiveScreen props(简化版直播列表,无 tab 切换) */
+export interface LiveScreenProps {
+  t: TFunction
+  items: LiveScreenItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
