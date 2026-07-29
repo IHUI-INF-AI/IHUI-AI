@@ -593,7 +593,15 @@
     }
   },
   "live": {
-    "empty": "라이브 없음"
+    "title": "라이브",
+    "loadFailed": "라이브 로드 실패",
+    "empty": "라이브 없음",
+    "ongoing": "진행 중",
+    "upcoming": "예정",
+    "ended": "종료",
+    "lecturer": "강사",
+    "startAt": "시작 시간",
+    "viewerCount": "{count}명 시청"
   },
   "course": {
     "free": "무료",
@@ -872,5 +880,75 @@
     "code": "공유 코드",
     "expireAt": "만료 시간",
     "shareNow": "지금 공유"
+  },
+  "agentMarket": {
+    "title": "Agent 마켓",
+    "loadFailed": "Agent 로드 실패",
+    "searchPlaceholder": "Agent 검색",
+    "empty": "Agent 없음",
+    "uses": "회 사용",
+    "free": "무료",
+    "paid": "유료"
+  },
+  "agentReviewList": {
+    "title": "Agent 리뷰",
+    "loadFailed": "리뷰 로드 실패",
+    "empty": "리뷰 없음",
+    "author": "작성자"
+  },
+  "following": {
+    "title": "팔로잉",
+    "loadFailed": "팔로잉 로드 실패",
+    "empty": "팔로잉 없음",
+    "unfollowTitle": "팔로우 취소",
+    "unfollow": "팔로우 취소"
+  },
+  "activity": {
+    "title": "활동",
+    "loadFailed": "활동 로드 실패",
+    "empty": "활동 없음",
+    "startTime": "시작 시간",
+    "endTime": "종료 시간",
+    "participants": "참여자 수",
+    "joinNow": "지금 참여",
+    "status_upcoming": "예정",
+    "status_ongoing": "진행 중",
+    "status_ended": "종료"
+  },
+  "favorites": {
+    "title": "즐겨찾기",
+    "loadFailed": "즐겨찾기 로드 실패",
+    "empty": "즐겨찾기 없음",
+    "deleteTitle": "즐겨찾기 삭제"
+  },
+  "checkIn": {
+    "title": "매일 체크인",
+    "subtitle": "매일 체크인하여 포인트 획득",
+    "loadFailed": "체크인 정보 로드 실패",
+    "retry": "재시도",
+    "empty": "체크인 기록 없음",
+    "streak": "연속 일수",
+    "monthlyDays": "이번 달",
+    "totalDays": "누적 일수",
+    "todayReward": "오늘의 포인트",
+    "checkInBtn": "체크인",
+    "checkedIn": "체크인 완료",
+    "calendar": "캘린더",
+    "signSuccess": "체크인 성공",
+    "signFailed": "체크인 실패"
+  },
+  "pointsMall": {
+    "title": "포인트 몰",
+    "subtitle": "포인트로 보상 교환",
+    "loadFailed": "상품 로드 실패",
+    "retry": "재시도",
+    "empty": "상품 없음",
+    "balance": "내 포인트",
+    "pointsUnit": "P",
+    "stock": "재고 {count}",
+    "redeem": "교환",
+    "redeemSuccess": "교환 성공",
+    "redeemFailed": "교환 실패",
+    "insufficient": "포인트 부족"
   }
 }
