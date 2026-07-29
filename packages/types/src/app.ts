@@ -2478,3 +2478,274 @@ export interface LivePlaybackScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
+
+/** 助手状态 */
+export type AssistantStatus = 'draft' | 'reviewing' | 'published' | 'rejected' | 'offline'
+
+/** 助手主标签页 */
+export type AssistantTab = 'draft' | 'reviewing' | 'published'
+
+/** 助子子标签页(draft 下细分) */
+export type AssistantSubTab = 'all' | 'rejected' | 'offline'
+
+/** 助手项 */
+export interface AssistantItem {
+  id: string
+  name: string
+  prologue: string
+  status: AssistantStatus
+  /** 已格式化的类别文本(平台注入) */
+  category?: string
+  /** 售卖价格(分) */
+  price?: number
+  /** 售卖周期文本(平台注入,如 "月"/"年",为空表示永久) */
+  cycle?: string
+  /** 已格式化的受众文本(平台注入,如 "会员"/"全部用户") */
+  audience?: string
+  /** 已格式化的上架时间文本(平台注入) */
+  publishTime?: string
+}
+
+/** AssistantScreen props */
+export interface AssistantScreenProps {
+  t: TFunction
+  items: AssistantItem[]
+  tab: AssistantTab
+  subTab: AssistantSubTab
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onTabChange: (tab: AssistantTab) => void
+  onSubTabChange: (subTab: AssistantSubTab) => void
+  onKeywordChange: (keyword: string) => void
+  onRefresh: () => void
+  onEdit: (item: AssistantItem) => void
+  onOffline: (item: AssistantItem) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 群组标签页 */
+export type AiGroupTab = 'mine' | 'discover'
+
+/** AI 群组成员 */
+export interface AiGroupMember {
+  id: string
+  name: string
+  role: string
+}
+
+/** AI 群组项 */
+export interface AiGroupItem {
+  id: string
+  name: string
+  desc: string
+  tag: string
+  members: AiGroupMember[]
+  messages: number
+  /** 已格式化的最近活跃时间文本(平台注入) */
+  lastActive: string
+}
+
+/** AiGroupScreen props */
+export interface AiGroupScreenProps {
+  t: TFunction
+  items: AiGroupItem[]
+  tab: AiGroupTab
+  /** 当前选中的群组(平台注入,控制详情视图显隐) */
+  selectedItem: AiGroupItem | null
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onTabChange: (tab: AiGroupTab) => void
+  onPressItem: (item: AiGroupItem) => void
+  onBackToList: () => void
+  onEnterChat: (item: AiGroupItem) => void
+  onRefresh: () => void
+  onRetry: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AIGC 封面过滤器 */
+export type AigcCoverFilter = 'all' | 'work' | 'ai'
+
+/** AIGC 封面选项 */
+export interface AigcCoverOption {
+  id: string
+  url: string
+  label: string
+  source: 'work' | 'ai'
+}
+
+/** AigcCoverScreen props */
+export interface AigcCoverScreenProps {
+  t: TFunction
+  workTitle: string
+  covers: AigcCoverOption[]
+  selectedId: string | null
+  filter: AigcCoverFilter
+  loading: boolean
+  error: string
+  onSelectCover: (id: string) => void
+  onFilterChange: (filter: AigcCoverFilter) => void
+  onConfirm: (cover: AigcCoverOption) => void
+  onGenerateAi: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AIGC 发布作品类型 */
+export type AigcPublishWorkType = 'image' | 'video' | 'audio' | 'text'
+
+/** AIGC 发布素材文件 */
+export interface AigcPublishFile {
+  id: string
+  url: string
+}
+
+/** AigcPublishScreen props */
+export interface AigcPublishScreenProps {
+  t: TFunction
+  workType: AigcPublishWorkType
+  files: AigcPublishFile[]
+  textContent: string
+  title: string
+  description: string
+  prompt: string
+  urlInput: string
+  saving: boolean
+  uploading: boolean
+  error: string
+  onWorkTypeChange: (type: AigcPublishWorkType) => void
+  onTextContentChange: (text: string) => void
+  onTitleChange: (title: string) => void
+  onDescriptionChange: (desc: string) => void
+  onPromptChange: (prompt: string) => void
+  onUrlInputChange: (url: string) => void
+  onAddFileByUrl: () => void
+  onPickImage: () => void
+  onRemoveFile: (id: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
+
+/** Agent 列表项 */
+export interface AgentScreenItem {
+  id: string
+  name: string
+  avatar?: string
+  description: string
+  isVipExclusive?: boolean
+  useCount?: number
+  rating?: number
+}
+
+/** AgentScreen props */
+export interface AgentScreenProps {
+  t: TFunction
+  items: AgentScreenItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  onRefresh: () => void
+  onPressItem: (id: string) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 助手分类 */
+export interface AiAssistantCategory {
+  id: string
+  label: string
+}
+
+/** AI 助手项 */
+export interface AiAssistantItem {
+  id: string
+  name: string
+  description: string
+  tags: string[]
+  useCount: number
+  favoriteCount: number
+}
+
+/** AiAssistantScreen props */
+export interface AiAssistantScreenProps {
+  t: TFunction
+  items: AiAssistantItem[]
+  categories: AiAssistantCategory[]
+  category: string
+  keyword: string
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  onCategoryChange: (id: string) => void
+  onKeywordChange: (kw: string) => void
+  onRefresh: () => void
+  onPressItem: (item: AiAssistantItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 职业趋势 */
+export type AiCareerTrend = 'up' | 'new' | 'stable'
+
+/** AI 职业匹配项 */
+export interface AiCareerMatchItem {
+  id: string
+  title: string
+  salary?: string
+  match: number
+  trend: AiCareerTrend
+  reasons: string[]
+}
+
+/** AiCareerScreen props */
+export interface AiCareerScreenProps {
+  t: TFunction
+  items: AiCareerMatchItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  selectedId: string | null
+  onToggleItem: (id: string) => void
+  onRefresh: () => void
+  onPlan: (item: AiCareerMatchItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** AI 多模态模式 */
+export type AiMultimodalMode = 'text' | 'image' | 'audio'
+
+/** AI 多模态消息 */
+export interface AiMultimodalMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** AIMultimodalScreen props */
+export interface AIMultimodalScreenProps {
+  t: TFunction
+  userName: string
+  mode: AiMultimodalMode
+  models: string[]
+  model: string
+  messages: AiMultimodalMessage[]
+  input: string
+  loading: boolean
+  error: string | null
+  onModeChange: (mode: AiMultimodalMode) => void
+  onModelChange: (model: string) => void
+  onInputChange: (text: string) => void
+  onSend: () => void
+  onClear: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}

@@ -45,7 +45,9 @@ export function MessageDirectScreen() {
         setRefreshing(true)
         void load()
       }}
-      onPressItem={(item) => navigation.navigate('MessageDetail', { id: item.memberId })}
+      onPressItem={(item) =>
+        navigation.navigate('MessageChat', { peerId: item.memberId, name: item.nickname })
+      }
       onBack={() => navigation.goBack()}
     />
   )
