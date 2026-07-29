@@ -204,24 +204,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} suppressHydrationWarning>
       <body className="font-sans antialiased">
         {/*
-          No-flash bootstrap(2026-07-22 立,修复首屏侧边栏宽度闪烁):
-          在 React hydrate 之前同步执行,从 localStorage 读取 AI 面板持久化 width,
-          预设 --ai-panel-occupy CSS 变量,让 GlobalShell 的 work-area 首帧 paddingLeft
-          就是用户持久化值,而非 store 默认值(408px)。
-
-          注意:sidebar-width **不**在此 inline script 中预设。
-          - 用户要求首帧直接显示默认 130 宽度,不要先显示持久化的拉伸宽度(如 180)再切回。
-          - sidebar.tsx 的 aside style 用 `var(--sidebar-width, 130px)`,首帧 fallback 130。
-          - sidebar.tsx 的 useState(SIDEBAR_WIDTH)=130 + useEffect 同步 CSS 变量=130,三者一致无跳变。
-          - 拖拽宽度仍存 localStorage,但刷新后不读取(首帧永远默认 130,无跳变)。
-
-          z-index 变量运行时覆盖(2026-07-24 立):
-          TRAE IDE 注入 <style id="solo-lite-theme-variables"> 覆盖 --z-sticky / --z-modal 等变量。
-          此处用 document.documentElement.style.setProperty() 设置 inline style,
-          优先级高于任何 stylesheet(含 TRAE 注入),无需 !important(项目规则禁止 !important)。
-
-          与 next-themes 的 suppressHydrationWarning 同模式:只设 CSS 变量,
-          React inline style 只声明 CSS 变量引用,不接管具体数值 → 无 hydration mismatch。
+          Bootstrap script(React hydrate 前同步执行):
+          1. z-index 变量:TRAE IDE 注入 <style> 覆盖 --z-sticky / --z-modal 等,
+             此处用 document.documentElement.style.setProperty() 设 inline style,优先级高于任何 stylesheet。
+          2. --ai-panel-occupy:从 localStorage 读取 AI 面板持久化 width 预设到 :root。
+             2026-07-30 修订:不再用于 work-area paddingLeft(已移除),仅供 WebWorkPanel 计算最大可用宽度。
+             GlobalShell useEffect 会运行时同步此变量(跟随用户拖拽/关闭面板)。
+          与 next-themes 的 suppressHydrationWarning 同模式:只设 CSS 变量,无 hydration mismatch。
         */}
         <script
           dangerouslySetInnerHTML={{
