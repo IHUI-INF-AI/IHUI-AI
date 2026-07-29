@@ -1,6 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import type { ReactNode } from 'react'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 /**
  * 通用"标题 + 查看更多"区块头部组件。
@@ -25,8 +25,7 @@ export default function SectionHeader({
   extra,
   className = '',
 }: SectionHeaderProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const moreLabel = moreText ?? tt('common.viewMore', '查看更多')
 
   return (

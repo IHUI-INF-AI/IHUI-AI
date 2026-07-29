@@ -1,6 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import { useState } from 'react'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface MessageActionsProps {
   onMarkRead?: () => void
@@ -16,8 +16,7 @@ export default function MessageActions({
   pinned = false,
 }: MessageActionsProps) {
   const [expanded, setExpanded] = useState(false)
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   return (
     <View className="relative">

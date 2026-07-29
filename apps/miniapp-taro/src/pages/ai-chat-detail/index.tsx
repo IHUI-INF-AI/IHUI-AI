@@ -163,35 +163,6 @@ export default function AiChatDetail() {
   }, [])
 
   /**
-   * 添加图片:Taro.chooseImage
-   * 失败回退(非用户取消)→ Taro.chooseMessageFile 通用文件选择
-   */
-  const handleAddImage = useCallback(async () => {
-    try {
-      const res = (await Taro.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['album', 'camera'],
-      })) as ChooseImageRes
-      const files = Array.isArray(res.tempFilePaths) ? res.tempFilePaths : []
-      if (files.length === 0) return
-      const newFiles: MessageInputFile[] = files.map((path) => ({
-        id: nextFileId(),
-        url: path,
-        type: 'image',
-      }))
-      setInputFiles((prev) => [...prev, ...newFiles])
-    } catch (e: unknown) {
-      const err = e instanceof Error ? e : new Error(String(e))
-      const msg = String((err as { errMsg?: string }).errMsg || '').toLowerCase()
-      // 用户主动取消 → 静默;其他错误 → toast + fallback 文件选择
-      if (msg.includes('cancel')) return
-      Taro.showToast({ title: tt('aiChatDetail.imagePickFailed', '图片选择失败'), icon: 'none' })
-      await handleAddFile()
-    }
-  }, [tt])
-
-  /**
    * 添加文件:Taro.chooseMessageFile
    * 根据 type 字段推断 MessageInputFileType(image/document/video)
    */
@@ -221,6 +192,35 @@ export default function AiChatDetail() {
       Taro.showToast({ title: tt('aiChatDetail.filePickFailed', '文件选择失败'), icon: 'none' })
     }
   }, [tt])
+
+  /**
+   * 添加图片:Taro.chooseImage
+   * 失败回退(非用户取消)→ Taro.chooseMessageFile 通用文件选择
+   */
+  const handleAddImage = useCallback(async () => {
+    try {
+      const res = (await Taro.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+      })) as ChooseImageRes
+      const files = Array.isArray(res.tempFilePaths) ? res.tempFilePaths : []
+      if (files.length === 0) return
+      const newFiles: MessageInputFile[] = files.map((path) => ({
+        id: nextFileId(),
+        url: path,
+        type: 'image',
+      }))
+      setInputFiles((prev) => [...prev, ...newFiles])
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      const msg = String((err as { errMsg?: string }).errMsg || '').toLowerCase()
+      // 用户主动取消 → 静默;其他错误 → toast + fallback 文件选择
+      if (msg.includes('cancel')) return
+      Taro.showToast({ title: tt('aiChatDetail.imagePickFailed', '图片选择失败'), icon: 'none' })
+      await handleAddFile()
+    }
+  }, [tt, handleAddFile])
 
   const sendMessage = useCallback(async () => {
     const text = inputRef.current.trim()
