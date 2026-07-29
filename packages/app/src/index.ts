@@ -90,6 +90,11 @@ export { AssistantScreen } from './features/assistant/AssistantScreen'
 export { AiGroupScreen } from './features/ai-group/AiGroupScreen'
 export { AigcCoverScreen } from './features/aigc-cover/AigcCoverScreen'
 export { AigcPublishScreen } from './features/aigc-publish/AigcPublishScreen'
+/** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
+export { AgentScreen } from './features/agent-screen/AgentScreen'
+export { AiAssistantScreen } from './features/ai-assistant/AiAssistantScreen'
+export { AiCareerScreen } from './features/ai-career/AiCareerScreen'
+export { AIMultimodalScreen } from './features/ai-multimodal/AIMultimodalScreen'
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
 export { ExamResultScreen } from './features/exam-result/ExamResultScreen'
@@ -100,6 +105,17 @@ export { LiveDetailScreen } from './features/live-detail/LiveDetailScreen'
 export { LiveHostScreen } from './features/live-host/LiveHostScreen'
 export { LivePreviewScreen } from './features/live-preview/LivePreviewScreen'
 export { LivePlaybackScreen } from './features/live-playback-screen/LivePlaybackScreen'
+/** 批次 16(2026-07-29):简单详情/表单/展示类(活动详情/Agent评价详情/银行卡/名片/课程报名/通知设置/发帖/二维码/实名认证/安全设置) */
+export { ActivityDetailScreen } from './features/activity-detail/ActivityDetailScreen'
+export { AgentReviewDetailScreen } from './features/agent-review-detail/AgentReviewDetailScreen'
+export { BankCardScreen } from './features/bank-card/BankCardScreen'
+export { BusinessCardScreen } from './features/business-card/BusinessCardScreen'
+export { CourseEnrollScreen } from './features/course-enroll/CourseEnrollScreen'
+export { NotificationSettingsScreen } from './features/notification-settings/NotificationSettingsScreen'
+export { PostCreateScreen } from './features/post-create/PostCreateScreen'
+export { QrCodeScreen } from './features/qr-code/QrCodeScreen'
+export { RealNameAuthScreen } from './features/real-name-auth/RealNameAuthScreen'
+export { SecuritySettingsScreen } from './features/security-settings/SecuritySettingsScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -354,4 +370,37 @@ export type {
   AigcPublishWorkType,
   AigcPublishFile,
   AigcPublishScreenProps,
+  /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态) */
+  AgentScreenItem,
+  AgentScreenProps,
+  AiAssistantCategory,
+  AiAssistantItem,
+  AiAssistantScreenProps,
+  AiCareerTrend,
+  AiCareerMatchItem,
+  AiCareerScreenProps,
+  AiMultimodalMode,
+  AiMultimodalMessage,
+  AIMultimodalScreenProps,
+  /** 批次 16(2026-07-29):简单详情/表单/展示类 */
+  ActivityDetailItem,
+  ActivityDetailScreenProps,
+  AgentReviewDetailItem,
+  AgentReviewDetailScreenProps,
+  BankCardItem,
+  BankCardScreenProps,
+  BusinessCardItem,
+  BusinessCardScreenProps,
+  CourseEnrollItem,
+  CourseEnrollScreenProps,
+  NotificationSettingsItem,
+  NotificationSettingsScreenProps,
+  PostCreateScreenProps,
+  QrCodeItem,
+  QrCodeScreenProps,
+  RealNameAuthStatus,
+  RealNameAuthItem,
+  RealNameAuthScreenProps,
+  SecuritySettingsItem,
+  SecuritySettingsScreenProps,
 } from './types'
