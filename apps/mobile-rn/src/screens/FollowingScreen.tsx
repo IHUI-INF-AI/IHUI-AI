@@ -1,29 +1,43 @@
 import { useCallback } from 'react'
-import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Avatar, Button, Card } from '@ihui/ui-native'
 import { getFollowing, type FollowUser } from '@ihui/api-client'
+import { FollowingScreen as SharedFollowingScreen, type FollowingItem } from '@ihui/rn-app'
 import { unfollowUser } from '../api/social'
-import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
-import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useTheme } from '../context/ThemeContext'
+import { usePaginatedList, type Fetcher } from '../hooks'
 import { formatShortDateWithYear } from '../utils/date-utils'
-
-const PAGE_SIZE = 20
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+const PAGE_SIZE = 20
+
 export function FollowingScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
-    usePaginatedList<FollowUser>(
-      useCallback(async (query) => getFollowing(query), []),
-      PAGE_SIZE,
-    )
 
-  const onUnfollow = (item: FollowUser) => {
+  const fetcher = useCallback<Fetcher<FollowingItem>>(async (query) => {
+    const res = await getFollowing(query)
+    if (!res.success) return { success: false as const, error: t('following.loadFailed') }
+    const list: FollowingItem[] = (res.data?.list ?? []).map((u: FollowUser) => ({
+      id: u.id,
+      username: u.username,
+      nickname: u.nickname,
+      avatar: u.avatar,
+      bio: u.bio ?? undefined,
+      followedAt: formatShortDateWithYear(u.followedAt),
+    }))
+    return { success: true as const, data: { list, total: res.data?.total ?? list.length } }
+  }, [t])
+
+  const { items, loading, refreshing, loadingMore, error, refresh, loadMore, removeItem } =
+    usePaginatedList<FollowingItem>(fetcher, PAGE_SIZE)
+
+  const onUnfollow = (item: FollowingItem) => {
     Alert.alert(
       t('following.unfollowTitle') || t('common.confirm'),
       `${item.nickname || item.username}?`,
@@ -46,80 +60,18 @@ export function FollowingScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white dark:bg-black">
-      <View className="border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3">
-            <Text className="text-base text-neutral-700 dark:text-neutral-300">
-              {t('common.back')}
-            </Text>
-          </TouchableOpacity>
-          <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-            {t('following.title')}
-          </Text>
-        </View>
-      </View>
-
-      {error ? (
-        <View className="px-4 py-2">
-          <Text className="text-sm text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View className="h-3" />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          loading ? (
-            <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
-            </View>
-          ) : (
-            <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">{t('following.empty')}</Text>
-            </View>
-          )
-        }
-        ListFooterComponent={
-          loadingMore ? (
-            <View className="items-center py-4">
-              <Text className="text-xs text-neutral-500">{t('common.loading')}</Text>
-            </View>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <Card className="flex-row items-center">
-            <Avatar
-              source={item.avatar ? { uri: item.avatar } : undefined}
-              name={item.nickname || item.username}
-              size="lg"
-              shape="circle"
-            />
-            <View className="ml-3 flex-1">
-              <Text
-                className="text-base font-semibold text-neutral-900 dark:text-neutral-50"
-                numberOfLines={1}
-              >
-                {item.nickname || item.username}
-              </Text>
-              {item.bio ? (
-                <Text className="mt-0.5 text-xs text-neutral-500" numberOfLines={1}>
-                  {item.bio}
-                </Text>
-              ) : null}
-              <Text className="mt-0.5 text-xs text-neutral-400">{formatShortDateWithYear(item.followedAt)}</Text>
-            </View>
-            <Button onPress={() => onUnfollow(item)} variant="outline" size="sm">
-              {t('following.unfollow')}
-            </Button>
-          </Card>
-        )}
-      />
-    </View>
+    <SharedFollowingScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      loadingMore={loadingMore}
+      error={error}
+      onRefresh={refresh}
+      onLoadMore={loadMore}
+      onUnfollow={onUnfollow}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }

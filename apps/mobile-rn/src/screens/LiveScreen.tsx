@@ -1,26 +1,12 @@
 import { useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card, Loading } from '@ihui/ui-native'
 import { getLiveList, type Live } from '@ihui/api-client'
+import { LiveScreen as SharedLiveScreen, type LiveScreenItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { LiveStackParamList } from '../navigation/RootNavigator'
-import { formatShortDateTime } from '../utils/date-utils'
 
 type NavigationProp = NativeStackNavigationProp<LiveStackParamList>
-
-function statusKey(live: Live): 'live.ongoing' | 'live.upcoming' | 'live.ended' {
-  if (live.isLive) return 'live.ongoing'
-  if (new Date(live.startTime).getTime() > Date.now()) return 'live.upcoming'
-  return 'live.ended'
-}
-
-function statusColor(key: 'live.ongoing' | 'live.upcoming' | 'live.ended'): string {
-  if (key === 'live.ongoing') return 'bg-red-500'
-  if (key === 'live.upcoming') return 'bg-amber-500'
-  return 'bg-neutral-400'
-}
 
 export function LiveScreen() {
   const { t } = useI18n()
@@ -48,75 +34,25 @@ export function LiveScreen() {
     void load()
   }, [])
 
+  const items: LiveScreenItem[] = lives.map((live) => ({
+    id: live.id,
+    title: live.title,
+    lecturerName: live.lecturerName ?? undefined,
+    isLive: live.isLive,
+    startTime: live.startTime,
+    viewCount: live.viewCount,
+  }))
+
   return (
-    <View className="flex-1 bg-white dark:bg-black">
-      <View className="px-4 pt-12 pb-2">
-        <Text className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('live.title')}
-        </Text>
-      </View>
-
-      {error ? (
-        <View className="px-4 py-2">
-          <Text className="text-sm text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      <FlatList
-        data={lives}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ItemSeparatorComponent={() => <View className="h-3" />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-        ListEmptyComponent={
-          loading ? (
-            <View className="items-center py-12">
-              <Loading />
-              <Text className="mt-2 text-sm text-neutral-500">{t('common.loading')}</Text>
-            </View>
-          ) : (
-            <View className="items-center py-12">
-              <Text className="text-sm text-neutral-500">{t('live.empty')}</Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => {
-          const key = statusKey(item)
-          return (
-            <TouchableOpacity
-              onPress={() => navigation.navigate('LiveDetail', { id: item.id })}
-              activeOpacity={0.7}
-            >
-              <Card>
-                <View className="flex-row items-center justify-between">
-                  <Text
-                    className="flex-1 text-base font-semibold text-neutral-900 dark:text-neutral-50"
-                    numberOfLines={1}
-                  >
-                    {item.title}
-                  </Text>
-                  <View className={`rounded-md px-2 py-0.5 ${statusColor(key)}`}>
-                    <Text className="text-xs text-white">{t(key)}</Text>
-                  </View>
-                </View>
-                {item.lecturerName ? (
-                  <Text className="mt-1 text-xs text-neutral-500">
-                    {t('live.lecturer')}:{item.lecturerName}
-                  </Text>
-                ) : null}
-                <View className="mt-2 flex-row items-center justify-between">
-                  <Text className="text-xs text-neutral-500">
-                    {t('live.startAt')}:{formatShortDateTime(item.startTime)}
-                  </Text>
-                  <Text className="text-xs text-neutral-500">
-                    {t('live.viewerCount', { count: item.viewCount })}
-                  </Text>
-                </View>
-              </Card>
-            </TouchableOpacity>
-          )
-        }}
-      />
-    </View>
+    <SharedLiveScreen
+      t={t}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onRefresh={() => load(true)}
+      onPressItem={(id) => navigation.navigate('LiveDetail', { id })}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
