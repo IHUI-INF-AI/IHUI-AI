@@ -1279,6 +1279,62 @@
     "noReplay": "録画なし",
     "replayTitle": "録画プレーヤー"
   },
+  "agentScreen": {
+    "title": "エージェント",
+    "loadFailed": "読み込みに失敗しました",
+    "useCount": "使用 {count}",
+    "rating": "評価 {score}"
+  },
+  "aiAssistant": {
+    "title": "AI アシスタント",
+    "subtitle": "スマートアシスタントを選んで会話を始めましょう",
+    "searchPlaceholder": "アシスタント名や機能を検索",
+    "empty": "一致するアシスタントがありません",
+    "loadFailed": "読み込みに失敗しました。下に引いて更新してください",
+    "useCount": "使用 {count}",
+    "favoriteCount": "いいね {count}",
+    "startChat": "会話を開始",
+    "catAll": "すべて",
+    "catWriting": "ライティング",
+    "catCoding": "プログラミング",
+    "catOffice": "オフィス",
+    "catStudy": "学習",
+    "chat": {
+      "title": "会話を開始",
+      "message": "「{name}」との会話を開始します"
+    }
+  },
+  "aiCareer": {
+    "title": "AI キャリア計画",
+    "subtitle": "スキル評価に基づくスマートなキャリアマッチングと成長アドバイス",
+    "sectionTitle": "キャリアマッチング推奨",
+    "matchLabel": "マッチ",
+    "reasonTitle": "マッチ理由",
+    "noReason": "マッチ理由がありません",
+    "planBtn": "成長計画を生成",
+    "trendUp": "急上昇",
+    "trendNew": "新興職種",
+    "trendStable": "安定需要",
+    "loadFailed": "読み込みに失敗しました。下に引いて更新してください",
+    "plan": {
+      "title": "計画を生成",
+      "message": "「{name}」の90日間成長計画を生成中"
+    }
+  },
+  "aiMultimodal": {
+    "title": "AI マルチモーダルチャット",
+    "subtitle": "モードとモデルを選んでスマート会話を始めましょう",
+    "textMode": "テキスト",
+    "imageMode": "画像",
+    "audioMode": "音声",
+    "switchModel": "モデル切替",
+    "noModels": "利用可能なモデルがありません",
+    "empty": "最初の会話を始めましょう",
+    "inputPlaceholder": "メッセージを入力...",
+    "send": "送信",
+    "clear": "クリア",
+    "error": "送信に失敗しました。再試行してください"
+  },
   "examHistory": {
     "title": "試験履歴",
     "loadFailed": "試験履歴の読み込みに失敗しました",
@@ -1355,6 +1411,135 @@
         "title": "チャージ成功",
         "message": "{tokens}トークンをチャージしました"
       }
+    }
+  },
+  "assistant": {
+    "title": "マイアシスタント",
+    "searchPlaceholder": "アシスタント名を検索",
+    "tabDraft": "下書き",
+    "tabReviewing": "審査中",
+    "tabPublished": "公開済み",
+    "subTabAll": "すべて",
+    "subTabRejected": "審査不合格",
+    "subTabOffline": "非公開",
+    "loadFailed": "読み込み失敗、下に引いて更新してください",
+    "empty": "アシスタントがありません",
+    "loading": "読み込み中...",
+    "badgePublished": "公開済み",
+    "badgeReviewing": "審査中",
+    "badgeRejected": "審査不合格",
+    "badgeOffline": "非公開",
+    "badgeDraft": "下書き",
+    "metaCategory": "カテゴリ",
+    "metaCycleForever": "無期限",
+    "metaAudience": "対象",
+    "metaPublishTime": "公開",
+    "audienceVip": "会員",
+    "audienceAll": "全ユーザー",
+    "actionSettings": "設定",
+    "actionOffline": "非公開にする",
+    "actionReedit": "再編集",
+    "edit": {
+      "title": "操作",
+      "message": "「{{name}}」の販売設定をしてください"
+    },
+    "offline": {
+      "title": "非公開確認",
+      "message": "「{{name}}」を非公開にしますか?",
+      "confirmBtn": "非公開にする",
+      "done": "非公開にしました"
+    }
+  },
+  "aiGroup": {
+    "title": "AI グループ",
+    "subtitle": "マルチ AI 協働、集合知共创",
+    "tabMine": "マイグループ",
+    "tabDiscover": "発見",
+    "empty": "グループがありません",
+    "loadFailed": "読み込み失敗",
+    "back": "戻る",
+    "detailMembers": "メンバー ({{count}})",
+    "detailRecent": "最近の対話",
+    "detailEnter": "グループに入る",
+    "metaActive": "活発 {{time}}",
+    "metaMessages": "メッセージ {{count}}",
+    "cardMembers": "{{count}} メンバー · {{messages}} メッセージ",
+    "enterMine": "入る",
+    "enterDiscover": "参加",
+    "previewHello": "皆さん、今回のコラボを始めましょう。まず目標と役割分担を確認します。",
+    "previewMine": "了解しました。こちらは調査を始めます。",
+    "memberRole": "役割: {{role}}",
+    "join": {
+      "title": "グループに参加",
+      "message": "「{{name}}」への参加を申請しました"
+    }
+  },
+  "aigcCover": {
+    "loading": "読み込み中...",
+    "title": "カバーを選択",
+    "subtitle": "作品: {{title}}",
+    "workTitleDefault": "無題の作品",
+    "back": "戻る",
+    "filterAll": "すべて",
+    "filterWork": "作品原図",
+    "filterAi": "AI テンプレート",
+    "empty": "カバーがありません。生成してください",
+    "aiGenBtn": "✨ AI に新しいカバーを生成させる",
+    "confirmBtn": "このカバーを適用",
+    "labelDefault": "作品",
+    "loadFailed": "読み込み失敗",
+    "applied": {
+      "title": "カバーを適用しました",
+      "message": "「{{title}}」にカバーを適用しました: {{label}}"
+    },
+    "aiGen": {
+      "title": "AI カバー生成",
+      "message": "機能開発中"
+    }
+  },
+  "aigcPublish": {
+    "back": "戻る",
+    "title": "作品を公開",
+    "subtitle": "タイプ選択 → アップロード → 情報入力 → 公開",
+    "labelType": "作品タイプ",
+    "labelTextContent": "テキスト内容",
+    "labelUpload": "素材をアップロード ({{count}}/5)",
+    "labelTitle": "作品タイトル",
+    "labelDescription": "作品紹介",
+    "labelPrompt": "プロンプト",
+    "typeImage": "画像",
+    "typeVideo": "動画",
+    "typeAudio": "音声",
+    "typeText": "テキスト",
+    "typeImageDesc": "AI 生成画像",
+    "typeVideoDesc": "AI 生成動画",
+    "typeAudioDesc": "AI 生成音声",
+    "typeTextDesc": "AI 生成テキスト",
+    "placeholderTextContent": "テキスト内容を入力",
+    "placeholderUrl": "素材 URL を入力",
+    "placeholderTitle": "作品タイトルを入力",
+    "placeholderDescription": "作品紹介を入力",
+    "placeholderPrompt": "AI 生成時に使用したプロンプトを入力",
+    "urlAddBtn": "追加",
+    "pickFromAlbum": "アルバムから選択",
+    "uploading": "アップロード中...",
+    "uploadingShort": "アップロード中",
+    "fileAddText": "アルバムから",
+    "submitBtn": "作品を公開",
+    "errorNoUrl": "ファイル URL を入力してください",
+    "errorMaxFiles": "最大 5 つの素材まで",
+    "errorNoText": "テキスト内容を入力してください",
+    "errorNoFile": "少なくとも 1 つの素材をアップロードしてください",
+    "errorNoTitle": "作品タイトルを入力してください",
+    "errorNoDescription": "作品紹介を入力してください",
+    "errorNoPrompt": "プロンプトを入力してください",
+    "errorPickFailed": "ファイルの選択に失敗しました",
+    "errorUploadFailed": "アップロード失敗",
+    "errorPublishFailed": "公開失敗",
+    "errorPublishRetry": "公開失敗、後でもう一度お試しください",
+    "success": {
+      "title": "公開成功",
+      "message": "作品を審査に提出しました"
     }
   }
 }
