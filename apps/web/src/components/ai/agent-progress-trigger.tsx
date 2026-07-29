@@ -2,7 +2,10 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
+import {
+  useAgentProgressPaneStore,
+  hydrateAgentProgressPaneFromStorage,
+} from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
 import { ConnectionStatusDot, deriveConnectionState } from './progress-sections/connection-status'
 
@@ -42,6 +45,13 @@ export function AgentProgressTrigger() {
     () => deriveConnectionState(false, 0, false, conversationId),
     [conversationId],
   )
+
+  // Phase 24(2026-07-29):客户端 mount 后同步 localStorage 中的 open/pinned,
+  // 避免 SSR 用默认值 false/true,CSR 却是 true 触发 hydration 错误
+  // (即使 AgentTaskProgressPane 没渲染,trigger 也需要 hydrate 才能正确显示 expanded 状态)
+  React.useEffect(() => {
+    hydrateAgentProgressPaneFromStorage()
+  }, [])
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
