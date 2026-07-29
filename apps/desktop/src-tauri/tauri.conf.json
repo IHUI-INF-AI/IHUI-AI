@@ -10,7 +10,7 @@
     "frontendDist": "../../web/out"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",
@@ -28,25 +28,6 @@
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "maximized": false,
-        "decorations": false,
-        "titleBarStyle": "Overlay",
-        "backgroundColor": "#0a0a0a",
-        "shadow": true
-      },
-      {
-        "label": "admin",
-        "title": "IHUI AI 管理后台",
-        "url": "/admin",
-        "width": 1280,
-        "height": 820,
-        "minWidth": 1200,
-        "minHeight": 720,
-        "resizable": true,
-        "fullscreen": false,
-        "center": true,
-        "visible": false,
-        "theme": "Dark",
-        "dragDropEnabled": true,
         "decorations": false,
         "titleBarStyle": "Overlay",
         "backgroundColor": "#0a0a0a",
