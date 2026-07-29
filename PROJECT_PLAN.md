@@ -99,14 +99,15 @@
 
 ### P2 低优先级(单页面业务专用,按需推进)
 
-- [ ] P2-1:FunctionBlockColumn 分销订单列布局(DistributionStats 扩展卡片列变体)
-- [ ] P2-2:MoreTitles 通用"标题+查看更多"(提取 SectionHeader 共享组件)
-- [ ] P2-3:KnowledgePlanet 知识星球(CourseCatalog 增加 planet variant)
-- [ ] P2-4:CommissionFloatingIcon 可拖拽分佣浮标(CustomerServiceFloat 增加 draggable + 位置本地存储)
-- [ ] P2-5:loginPopUp 登录弹窗形态(头像/昵称/角色选择,如需保留再封装)
-- [ ] P2-6:Toolbar 首页工具栏(首页专用,页面内联实现)
-- [ ] P2-7:colorful_loader 72 点彩色加载器(纯装饰,可不迁移)
-- [ ] P2-8:CourseCarousel 课程专用轮播(Carousel 通用轮播已覆盖)
+- [x] ✅(2026-07-30) P2-1:FunctionBlockColumn 分销订单列布局(DistributionStats 扩展 variant='column' + columnTitle + columnItems props,对齐原项目 FunctionBlockColumn/index.vue;4 色映射 text-foreground/primary/warning/destructive)
+- [x] ✅(2026-07-30) P2-2:MoreTitles 通用"标题+查看更多"(新建 SectionHeader.tsx:title+subtitle+moreText+showMore+onMore+extra,对齐 MoreTitles/index.vue)
+- [x] ✅(2026-07-30) P2-3:KnowledgePlanet 知识星球(CourseCatalog 扩展 variant='planet' + planet{id,name,cover,intro,memberCount,joined} + onJoin,卡片式布局对齐 KnowledgePlanet/index.vue)
+- [x] ✅(2026-07-30) P2-4:CommissionFloatingIcon 可拖拽分佣浮标(CustomerServiceFloat 扩展 variant='commission' + draggable + storageKey + onTouchStart/Move/End 边界吸附 + Taro.setStorageSync 位置本地存储,对齐 CommissionFloatingIcon/index.vue)
+- [x] ✅(2026-07-30) P2-5:loginPopUp 登录弹窗(新建 LoginPopUp.tsx:visible+defaultAvatar+userInfo{nickname,avatar,isVip,identityTypy}+onClose/onChooseAvatar/onNicknameChange/onUpgrade,角色三态显示+升级按钮,对齐 loginPopUp/index.vue)
+- [x] ✅(2026-07-30) P2-6:Toolbar 首页工具栏(新建 Toolbar.tsx:ToolbarItem{id,name,icon,badge,onClick}+items+className,横向滚动+默认 5 项,对齐 Toolbar/index.vue)
+- [x] ✅(2026-07-30) P2-7:colorful_loader 72 点彩色加载器(新建 ColorfulLoader.tsx:size+visible+className,72 点 HSL 循环+animate-spin,对齐 colorful_loader.vue)
+- [x] ✅(2026-07-30) P2-8:CourseCarousel 课程专用轮播(Carousel 扩展 variant='course' + courseMeta{title,price,isFree,tag},底部渐变蒙层 bg-gradient-to-t+标题+价格标签,对齐课程专用轮播)
+- [x] ✅(2026-07-30) P2 整合:6 新组件(SectionHeader/ColorfulLoader/LoginPopUp/Toolbar/Selecter/PayButton)补 index.ts barrel 导出;typecheck 0 errors / lint 0 errors 52 warnings / weapp build 30.23s 成功;5 subagent 并行派单(§11 标准 format)
 
 ### 进度记录
 
