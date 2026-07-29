@@ -9,11 +9,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  DistributionProduct,
-  DistributionInfo,
-  DistributionScreenProps,
-} from '../../types'
+import type { DistributionProduct, DistributionInfo, DistributionScreenProps } from '../../types'
 
 export type { DistributionProduct, DistributionInfo, DistributionScreenProps }
 
@@ -165,7 +161,12 @@ function createStyles(tk: AppThemeTokens) {
     backText: { fontSize: 14, color: tk.text.secondary, marginBottom: 4 },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 4, fontSize: 13, color: tk.text.secondary },
-    levelCard: { marginHorizontal: 16, padding: 16, borderRadius: 8, backgroundColor: tk.success.light },
+    levelCard: {
+      marginHorizontal: 16,
+      padding: 16,
+      borderRadius: 8,
+      backgroundColor: tk.success.light,
+    },
     levelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     levelLabel: { fontSize: 11, color: tk.success.deepText },
     levelValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: tk.success.DEFAULT },
@@ -205,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     productsList: { marginHorizontal: 16, marginBottom: 24 },
     productCard: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

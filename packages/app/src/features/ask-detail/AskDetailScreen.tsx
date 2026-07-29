@@ -110,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
     content: { fontSize: 14, lineHeight: 22, color: tk.text.medium, marginBottom: 16 },
     sectionTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
     answer: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
