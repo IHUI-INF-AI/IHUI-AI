@@ -57,9 +57,17 @@ export function AgreementCheckbox({
         tabIndex={0}
         data-testid="agreement-checkbox"
         onKeyDown={(e) => {
-          if (e.key === ' ' || e.key === 'Enter') {
+          if (e.key === ' ') {
+            // Space:标准 checkbox 切换行为
             e.preventDefault()
             onChange(!checked)
+          } else if (e.key === 'Enter') {
+            // Enter:提交所在表单(等于点击登录按钮),不 toggle 复选框。
+            // 修复:此前 Enter 会 preventDefault + toggle,导致鼠标勾选协议后焦点
+            // 落在 checkbox 上,再按 Enter 反而取消勾选且不触发登录提交。
+            e.preventDefault()
+            const form = e.currentTarget.closest('form')
+            if (form instanceof HTMLFormElement) form.requestSubmit()
           }
         }}
       >
