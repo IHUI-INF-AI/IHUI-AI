@@ -794,5 +794,83 @@
     "sectionRightsBody": "您有权随时查看、修改和删除您的个人信息。",
     "sectionObligations": "用户义务",
     "sectionObligationsBody": "您不得利用本平台进行违法或侵权活动。"
+  },
+  "agentDetail": {
+    "title": "Agent 详情",
+    "loadFailed": "加载 Agent 失败",
+    "description": "描述",
+    "creator": "创建者",
+    "uses": "使用次数",
+    "rating": "评分",
+    "price": "价格",
+    "free": "免费",
+    "startChat": "开始对话"
+  },
+  "askDetail": {
+    "title": "问题详情",
+    "loadFailed": "加载问题失败",
+    "empty": "暂无回答",
+    "accepted": "已采纳",
+    "views": "{count} 次浏览",
+    "answers": "{count} 个回答"
+  },
+  "askList": {
+    "title": "问答列表",
+    "empty": "暂无问题",
+    "loadFailed": "加载问题失败",
+    "answers": "{count} 回答",
+    "views": "{count} 浏览"
+  },
+  "certList": {
+    "title": "证书列表",
+    "empty": "暂无证书",
+    "loadFailed": "加载证书失败",
+    "issuer": "颁发机构",
+    "issuedAt": "颁发日期"
+  },
+  "certVerify": {
+    "title": "证书验证",
+    "certNo": "证书编号",
+    "placeholder": "请输入证书编号",
+    "verify": "验证",
+    "failed": "验证失败",
+    "valid": "证书有效",
+    "invalid": "证书无效",
+    "holder": "持有人",
+    "issuer": "颁发机构",
+    "issuedAt": "颁发日期"
+  },
+  "withdraw": {
+    "title": "提现",
+    "amount": "提现金额",
+    "amountPlaceholder": "请输入提现金额",
+    "amountInvalid": "金额无效",
+    "minAmount": "最低提现金额 10 元",
+    "bankCard": "银行卡 ID",
+    "bankCardPlaceholder": "请输入银行卡 ID(选填)",
+    "submit": "提交提现",
+    "submitting": "提交中...",
+    "success": "提现申请已提交",
+    "failed": "提现失败,请重试",
+    "feeHint": "提现手续费 0%"
+  },
+  "vipCompare": {
+    "title": "VIP 对比",
+    "loadFailed": "加载对比失败",
+    "feature": "功能",
+    "basic": "基础版",
+    "premium": "高级版",
+    "enterprise": "企业版"
+  },
+  "share": {
+    "title": "分享",
+    "remark": "备注",
+    "remarkPlaceholder": "请输入备注(选填)",
+    "create": "生成分享链接",
+    "createFailed": "生成分享链接失败",
+    "url": "分享链接",
+    "code": "分享码",
+    "expireAt": "过期时间",
+    "shareNow": "立即分享"
   }
 }
