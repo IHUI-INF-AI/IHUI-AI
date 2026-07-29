@@ -116,6 +116,17 @@ export { PostCreateScreen } from './features/post-create/PostCreateScreen'
 export { QrCodeScreen } from './features/qr-code/QrCodeScreen'
 export { RealNameAuthScreen } from './features/real-name-auth/RealNameAuthScreen'
 export { SecuritySettingsScreen } from './features/security-settings/SecuritySettingsScreen'
+/** 批次 17(2026-07-29):混合类屏(API 设置/创客名片/课程附件/课程问答/课程资源/客服/讲师详情/笔记/订阅/任务中心,10 屏迁移自 mobile-rn) */
+export { ApiSettingsScreen } from './features/api-settings/ApiSettingsScreen'
+export { CarteScreen } from './features/carte/CarteScreen'
+export { CourseAnnexScreen } from './features/course-annex/CourseAnnexScreen'
+export { CourseQAAskScreen } from './features/course-qa-ask/CourseQAAskScreen'
+export { CourseResourceScreen } from './features/course-resource/CourseResourceScreen'
+export { CustomerServiceScreen } from './features/customer-service/CustomerServiceScreen'
+export { LecturerDetailScreen } from './features/lecturer-detail/LecturerDetailScreen'
+export { NoteScreen } from './features/note/NoteScreen'
+export { SubscriptionsScreen } from './features/subscriptions/SubscriptionsScreen'
+export { TaskCenterScreen } from './features/task-center/TaskCenterScreen'
 /** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
 export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
 export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
@@ -125,6 +136,11 @@ export { CourseScreen } from './features/course-screen/CourseScreen'
 export { CourseFilterScreen } from './features/course-filter/CourseFilterScreen'
 export { CourseDetailScreen } from './features/course-detail/CourseDetailScreen'
 export { CourseCommentScreen } from './features/course-comment/CourseCommentScreen'
+/** 批次 24(2026-07-29):Circle 系(圈子)4 屏 — 成员/详情/创建/聊天 */
+export { CircleChatScreen } from './features/circle-chat/CircleChatScreen'
+export { CircleCreateScreen } from './features/circle-create/CircleCreateScreen'
+export { CircleDetailScreen } from './features/circle-detail/CircleDetailScreen'
+export { CircleMemberScreen } from './features/circle-member/CircleMemberScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -429,4 +445,36 @@ export type {
   CourseFilterScreenProps,
   CourseCommentItem,
   CourseCommentScreenProps,
+  /** 批次 17(2026-07-29):混合类屏(API 设置/创客名片/课程附件/课程问答/课程资源/客服/讲师详情/笔记/订阅/任务中心) */
+  ApiSettingsConfig,
+  ApiSettingsTestState,
+  ApiSettingsScreenProps,
+  CarteCreator,
+  CarteWork,
+  CarteScreenProps,
+  CourseAnnexItem,
+  CourseAnnexScreenProps,
+  CourseQAAskScreenProps,
+  CourseResourceItem,
+  CourseResourceScreenProps,
+  CustomerServiceInfo,
+  CustomerServiceScreenProps,
+  LecturerDetailInfo,
+  LecturerDetailCourse,
+  LecturerDetailScreenProps,
+  NoteItem,
+  NoteScreenProps,
+  SubscriptionsItem,
+  SubscriptionsScreenProps,
+  TaskCenterItem,
+  TaskCenterTab,
+  TaskCenterScreenProps,
+  /** 批次 24(2026-07-29):Circle 系(圈子)4 屏 */
+  CircleMemberItem,
+  CircleMemberScreenProps,
+  CircleDetailItem,
+  CircleDetailScreenProps,
+  CircleCreateScreenProps,
+  CircleChatMessage,
+  CircleChatScreenProps,
 } from './types'

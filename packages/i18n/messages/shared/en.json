@@ -1541,5 +1541,31 @@
       "title": "Published",
       "message": "Work submitted for review"
     }
+  },
+  "circleMember": {
+    "title": "Circle Members",
+    "empty": "No members yet"
+  },
+  "circleDetail": {
+    "loadFailed": "Failed to load circle",
+    "members": "{count} members",
+    "posts": "{count} posts",
+    "membersAction": "Members",
+    "post": "New Post",
+    "leave": "Leave Circle",
+    "join": "Join Circle"
+  },
+  "circleCreate": {
+    "title": "Create Circle",
+    "name": "Circle Name",
+    "namePlaceholder": "Enter circle name",
+    "description": "Description",
+    "descPlaceholder": "Enter description",
+    "submit": "Create"
+  },
+  "circleChat": {
+    "empty": "No messages yet",
+    "placeholder": "Type a message",
+    "send": "Send"
   }
 }
