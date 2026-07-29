@@ -1,11 +1,5 @@
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VideoPlayerProgress, VideoPlayerScreenProps } from '../../types'
 
@@ -56,11 +50,11 @@ export function VideoPlayerScreen({
       </View>
 
       {videoUrl ? (
-        playerContent ?? (
+        (playerContent ?? (
           <View style={styles.noUrlBox}>
             <Text style={styles.noUrlText}>{t('player.noUrl')}</Text>
           </View>
-        )
+        ))
       ) : (
         <View style={styles.noUrlBox}>
           <Text style={styles.noUrlText}>{t('player.noUrl')}</Text>
@@ -159,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { marginTop: 8, fontSize: 12, color: tk.danger.DEFAULT },
     completeWrap: { marginTop: 24 },
     completedBox: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.success.light,
     },

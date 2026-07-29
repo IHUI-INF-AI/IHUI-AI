@@ -17,19 +17,10 @@ import type {
   HomeScreenProps,
 } from '../../types'
 
-export type {
-  HomeRecommendItem,
-  HomeLiveItem,
-  HomeProgressItem,
-  HomeMenuItem,
-  HomeScreenProps,
-}
+export type { HomeRecommendItem, HomeLiveItem, HomeProgressItem, HomeMenuItem, HomeScreenProps }
 
 function getGreetingKey():
-  | 'home.greetingMorning'
-  | 'home.greetingNoon'
-  | 'home.greetingAfternoon'
-  | 'home.greetingEvening' {
+  'home.greetingMorning' | 'home.greetingNoon' | 'home.greetingAfternoon' | 'home.greetingEvening' {
   const h = new Date().getHours()
   if (h < 11) return 'home.greetingMorning'
   if (h < 13) return 'home.greetingNoon'
@@ -97,11 +88,17 @@ export function HomeScreen({
             style={[styles.dot, connected ? styles.dotOn : styles.dotOff]}
             accessibilityLabel={connected ? 'connected' : 'disconnected'}
           />
-          <TouchableOpacity onPress={onOpenNotifications} style={styles.bellBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={onOpenNotifications}
+            style={styles.bellBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.bellIcon}>🔔</Text>
             {unreadCount > 0 ? (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? '99+' : String(unreadCount)}
+                </Text>
               </View>
             ) : null}
           </TouchableOpacity>
@@ -144,10 +141,7 @@ export function HomeScreen({
         ) : (
           <View style={styles.card}>
             <Text style={styles.mutedText}>{t('home.progressEmpty')}</Text>
-            <TouchableOpacity
-              style={styles.outlineBtn}
-              onPress={onNavigateCourses}
-            >
+            <TouchableOpacity style={styles.outlineBtn} onPress={onNavigateCourses}>
               <Text style={styles.outlineBtnText}>{t('nav.courses')}</Text>
             </TouchableOpacity>
           </View>
@@ -157,7 +151,10 @@ export function HomeScreen({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('home.livePreview')}</Text>
-          <TouchableOpacity onPress={onNavigateLives} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={onNavigateLives}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.linkText}>{t('home.livePreviewMore')}</Text>
           </TouchableOpacity>
         </View>
@@ -201,7 +198,10 @@ export function HomeScreen({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('home.recommend')}</Text>
-          <TouchableOpacity onPress={onNavigateCourses} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={onNavigateCourses}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.linkText}>{t('home.livePreviewMore')}</Text>
           </TouchableOpacity>
         </View>
@@ -261,7 +261,12 @@ export function HomeScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tk.surface.bg },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+    },
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -307,7 +312,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     linkText: { fontSize: 12, color: tk.success.DEFAULT },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
