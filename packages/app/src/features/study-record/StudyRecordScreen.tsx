@@ -176,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 16, paddingBottom: 32 },
     separator: { height: 8 },
     statsCard: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     statValue: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
     statLabel: { marginTop: 2, fontSize: 11, color: tk.text.secondary, textAlign: 'center' },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

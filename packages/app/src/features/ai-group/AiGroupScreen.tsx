@@ -233,7 +233,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
