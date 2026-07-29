@@ -46,6 +46,9 @@
     "userAgreement": "User Agreement",
     "version": "Version"
   },
+  "legalDoc": {
+    "updatedAt": "Updated"
+  },
   "auth": {
     "account": "Account",
     "accountHistory": "Account history",
@@ -722,5 +725,74 @@
     "content": "Content",
     "reply": "Reply",
     "createdAt": "Submitted at"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "subtitle": "We value your privacy",
+    "updatedAt": "Updated",
+    "sectionData": "Data Collection",
+    "sectionDataBody": "We collect information you actively provide to deliver better services.",
+    "sectionCookie": "Cookie Usage",
+    "sectionCookieBody": "We use cookies to save your login state and preferences.",
+    "sectionThirdParty": "Third-Party Sharing",
+    "sectionThirdPartyBody": "We will not share your personal information with third parties without your consent."
+  },
+  "pointRule": {
+    "title": "Points Rules",
+    "empty": "No points rules",
+    "loadFailed": "Failed to load points rules"
+  },
+  "vipLevel": {
+    "title": "VIP Level",
+    "loadFailed": "Failed to load",
+    "empty": "Level not found",
+    "price": "Price",
+    "duration": "Duration",
+    "days": "days",
+    "benefits": "Benefits"
+  },
+  "refundDetail": {
+    "title": "Refund Detail",
+    "loadFailed": "Failed to load",
+    "empty": "Refund record not found",
+    "orderNo": "Order No.",
+    "amount": "Refund Amount",
+    "status": "Refund Status",
+    "reason": "Reason",
+    "createdAt": "Requested at"
+  },
+  "orderDetail": {
+    "title": "Order Detail",
+    "loadFailed": "Failed to load order",
+    "orderNo": "Order No.",
+    "product": "Product",
+    "amount": "Amount",
+    "status": "Status",
+    "createdAt": "Order placed at",
+    "paidAt": "Paid at"
+  },
+  "certDetail": {
+    "title": "Certificate Detail",
+    "loadFailed": "Failed to load certificate",
+    "certNo": "Certificate No.",
+    "holder": "Holder",
+    "issuer": "Issuer",
+    "score": "Score",
+    "issuedAt": "Issued at",
+    "expiredAt": "Expires at",
+    "verify": "Verify Certificate"
+  },
+  "postDetail": {
+    "title": "Post Detail",
+    "loadFailed": "Failed to load post"
+  },
+  "agreementSections": {
+    "updatedAt": "Updated",
+    "sectionTerms": "Terms of Service",
+    "sectionTermsBody": "By using this platform, you agree to all terms of this agreement.",
+    "sectionRights": "User Rights",
+    "sectionRightsBody": "You have the right to view, modify, and delete your personal information at any time.",
+    "sectionObligations": "User Obligations",
+    "sectionObligationsBody": "You must not use this platform for illegal or infringing activities."
   }
 }
