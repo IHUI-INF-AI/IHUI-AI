@@ -3901,3 +3901,84 @@ export interface VipBenefitScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 29(2026-07-29):AI 主聊天屏 + 开发者入口屏(2 屏迁移自 mobile-rn) */
+
+/** AI 聊天消息(平台无关镜像,字段对齐 @ihui/shared ChatMessage) */
+export interface ChatScreenMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+/** AI 模型选项(平台无关镜像,字段对齐 @ihui/api-client LlmModel) */
+export interface ChatScreenModel {
+  id: string
+  name: string
+  provider: string
+  context_length: number
+  input_price: number
+}
+
+/** 顶部导航条目(wrapper 注入,避免共享层依赖 react-navigation) */
+export interface ChatScreenNavItem {
+  key: string
+  label: string
+  onPress: () => void
+}
+
+/** ChatScreen props(平台无关,wrapper 注入数据+SSE/截图/分享/导航回调) */
+export interface ChatScreenProps {
+  t: TFunction
+  messages: ChatScreenMessage[]
+  inputText: string
+  isStreaming: boolean
+  error: string
+  models: ChatScreenModel[]
+  model: string
+  pickerOpen: boolean
+  navItems: ChatScreenNavItem[]
+  onInputTextChange: (v: string) => void
+  onSend: () => void
+  onStop: () => void
+  onModelChange: (id: string) => void
+  onPickerOpenChange: (open: boolean) => void
+  onLongPressMessage: (item: ChatScreenMessage) => void
+  /** 消息气泡 ref 注册回调(wrapper 可用于截图等平台特定能力,共享层不依赖) */
+  onMessageRef?: (id: string, el: unknown) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 开发者套餐类型 */
+export type DeveloperPlanType = 'month' | 'year'
+
+/** 开发者套餐条目(平台注入,字段对齐 mobile-rn DeveloperScreen PayPlan) */
+export interface DeveloperPlan {
+  type: DeveloperPlanType
+  label: string
+  price: number
+  unit: string
+  perks: string[]
+}
+
+/** 开发者特性条目 */
+export interface DeveloperFeature {
+  title: string
+  desc: string
+}
+
+/** DeveloperScreen props(平台无关,wrapper 注入数据+回调) */
+export interface DeveloperScreenProps {
+  t: TFunction
+  features: DeveloperFeature[]
+  plans: DeveloperPlan[]
+  selected: DeveloperPlanType
+  loading: boolean
+  refreshing: boolean
+  error: string
+  submitting: boolean
+  onSelectChange: (type: DeveloperPlanType) => void
+  onRefresh: () => void
+  onSubmit: () => void
+  colorScheme?: 'light' | 'dark'
+}

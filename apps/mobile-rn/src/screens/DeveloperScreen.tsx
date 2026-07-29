@@ -1,23 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl } from 'react-native'
 import { getDeveloperPrice } from '@ihui/api-client'
+import {
+  DeveloperScreen as SharedDeveloperScreen,
+  type DeveloperFeature,
+  type DeveloperPlan,
+  type DeveloperPlanType,
+} from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 
-interface PayPlan {
-  type: 'month' | 'year'
-  label: string
-  price: number
-  unit: string
-  perks: string[]
-}
-
-const FEATURES = [
+const FEATURES: DeveloperFeature[] = [
   { title: '上架智能体', desc: '创建并发布你的 AI 助手' },
   { title: '收益分成', desc: '限时 0 服务费,全额到账' },
   { title: '数据分析', desc: '实时查看调用与收益' },
   { title: 'n8n 工作流', desc: '接入 n8n 自动化能力' },
 ]
 
-function buildPlans(priceData: { price: number; [key: string]: unknown }): PayPlan[] {
+function buildPlans(priceData: { price: number; [key: string]: unknown }): DeveloperPlan[] {
   const monthPrice =
     typeof priceData.monthPrice === 'number' ? priceData.monthPrice : Math.round(priceData.price / 10)
   const yearPrice = typeof priceData.yearPrice === 'number' ? priceData.yearPrice : priceData.price
@@ -40,9 +38,10 @@ function buildPlans(priceData: { price: number; [key: string]: unknown }): PayPl
 }
 
 export default function DeveloperScreen() {
-  const [selected, setSelected] = useState<PayPlan['type']>('year')
+  const { t } = useI18n()
+  const [selected, setSelected] = useState<DeveloperPlanType>('year')
   const [submitting, setSubmitting] = useState(false)
-  const [plans, setPlans] = useState<PayPlan[]>([])
+  const [plans, setPlans] = useState<DeveloperPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -54,12 +53,12 @@ export default function DeveloperScreen() {
       if (!resp.success) throw new Error(resp.error)
       setPlans(buildPlans(resp.data))
     } catch {
-      setError('加载失败,下拉刷新重试')
+      setError(t('common.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -76,84 +75,18 @@ export default function DeveloperScreen() {
   }
 
   return (
-    <View className="flex-1 bg-card">
-      <View className="px-4 py-3">
-        <Text className="text-lg font-semibold text-foreground">开发者入口</Text>
-      </View>
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <View className="bg-[#F5F3FF] rounded-xl p-4 mb-5">
-          <Text className="text-[20px] font-bold text-[#7B61FF]">成为开发者</Text>
-          <Text className="mt-1 text-[13px] text-muted-foreground">发布智能体,获取收益</Text>
-          <View className="mt-3.5 flex-row flex-wrap gap-2.5">
-            {FEATURES.map((f) => (
-              <View key={f.title} className="w-[47%] bg-card rounded-lg p-2.5">
-                <Text className="text-[13px] font-semibold text-foreground">{f.title}</Text>
-                <Text className="mt-0.5 text-[11px] text-[#9CA3AF]" numberOfLines={2}>
-                  {f.desc}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <Text className="text-sm font-semibold text-[#374151] mb-3">请选择所需要的服务</Text>
-        {error ? (
-          <View className="py-8 items-center">
-            <Text className="text-sm text-muted-foreground">{error}</Text>
-          </View>
-        ) : loading ? (
-          <View className="py-8 items-center">
-            <Text className="text-sm text-muted-foreground">加载中...</Text>
-          </View>
-        ) : (
-          <View className="flex-row gap-3">
-            {plans.map((p) => {
-              const active = selected === p.type
-              return (
-                <TouchableOpacity
-                  key={p.type}
-                  className={`flex-1 border rounded-xl p-3.5 bg-card ${active ? 'border-[#7B61FF] bg-[#FAF9FF]' : 'border-border'}`}
-                  onPress={() => setSelected(p.type)}
-                  activeOpacity={0.8}
-                >
-                  <Text className={`text-sm font-semibold ${active ? 'text-[#7B61FF]' : 'text-[#374151]'}`}>
-                    {p.label}
-                  </Text>
-                  <Text className={`mt-2 ${active ? 'text-[#7B61FF]' : 'text-foreground'}`}>
-                    <Text className="text-[24px] font-bold">{p.price}</Text>
-                    <Text className="text-xs text-[#9CA3AF]"> / {p.unit}</Text>
-                  </Text>
-                  <View className="mt-2.5 gap-1">
-                    {p.perks.map((perk) => (
-                      <Text
-                        key={perk}
-                        className={`text-[11px] ${active ? 'text-[#7B61FF]' : 'text-muted-foreground'}`}
-                        numberOfLines={1}
-                      >
-                        · {perk}
-                      </Text>
-                    ))}
-                  </View>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        )}
-
-        <TouchableOpacity
-          className={`mt-6 h-[46px] rounded-xl bg-[#7B61FF] items-center justify-center ${submitting ? 'opacity-60' : ''}`}
-          onPress={handleOpen}
-          disabled={submitting}
-          activeOpacity={0.8}
-        >
-          <Text className="text-[15px] font-semibold text-white">{submitting ? '处理中...' : '一键开通'}</Text>
-        </TouchableOpacity>
-        <Text className="mt-3 text-center text-[11px] text-[#9CA3AF]">开通即表示同意《开发者服务协议》</Text>
-      </ScrollView>
-    </View>
+    <SharedDeveloperScreen
+      t={t}
+      features={FEATURES}
+      plans={plans}
+      selected={selected}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      submitting={submitting}
+      onSelectChange={setSelected}
+      onRefresh={onRefresh}
+      onSubmit={handleOpen}
+    />
   )
 }

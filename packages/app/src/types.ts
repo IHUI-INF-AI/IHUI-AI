@@ -386,4 +386,12 @@ export type {
   VideoPlayerScreenProps,
   VipBenefitItem,
   VipBenefitScreenProps,
+  ChatScreenMessage,
+  ChatScreenModel,
+  ChatScreenNavItem,
+  ChatScreenProps,
+  DeveloperPlanType,
+  DeveloperPlan,
+  DeveloperFeature,
+  DeveloperScreenProps,
 } from '@ihui/types'
