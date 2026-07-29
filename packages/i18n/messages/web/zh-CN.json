@@ -10179,34 +10179,34 @@
       "titleEn": "DECISION-MAKER SCENARIOS",
       "subtitle": "智汇 AI 社区覆盖企业决策者最关心的 5 大场景 · 痛点共鸣 → 解决方案 → 可量化收益 · 让 AI 真正落地产生 ROI",
       "costReduction": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "综合省 ¥18-30 万/年 · 替代 5+ SaaS 订阅",
+        "description": "100+ 大模型智能路由 + 60% 缓存命中降本,替代 Claude Pro + GPT Plus + Cursor + 多模型 API 等多项订阅",
+        "painPoint": "AI 工具分散采购,Claude Pro + GPT Plus + Cursor + 各类 API 每年花费数万元,成本难以控制",
+        "title": "智能降本"
       },
       "decision": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "决策效率提升 5× · 数据驱动而非经验驱动",
+        "description": "AI 辅助数据分析与可视化,实时生成决策报告,从数据到结论全链路加速",
+        "painPoint": "决策依赖经验直觉,缺少数据支撑,报告周期长,错过最佳时机",
+        "title": "智能决策"
       },
       "efficiency": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "开发效率提升 10× · 端到端交付周期缩短 60%",
+        "description": "自研 CLI 对标 Claude Code + LangGraph 工作流自动化 + 6 来源配置一键导入,复杂任务一键完成",
+        "painPoint": "重复性工作占用大量人力,开发效率低,代码质量参差不齐",
+        "title": "极速提效"
       },
       "innovation": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "三栈合一较为少见 · 覆盖 Claude Code 不具备的 A2A + ACP 协议",
+        "description": "LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端点 + 6 ACP 扩展,三栈合一构建复杂 AI 自动化",
+        "painPoint": "AI 应用开发门槛高,缺少工作流编排能力,难以实现复杂自动化场景",
+        "title": "技术创新"
       },
       "learning": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "省 ¥10 万/年培训费 · 全员 AI 化 · 三阶段循序渐进",
+        "description": "课程/直播/考试/证书/讲师/班级 6 大模块,全年课程免费参加,从 AI 新工具到企业 AI 文化三阶段",
+        "painPoint": "团队 AI 能力参差不齐,培训成本高,缺少体系化学习路径",
+        "title": "全员学习"
       }
     },
     "comparison": {
@@ -10218,98 +10218,98 @@
       "colClaude": "Claude Code",
       "colCursor": "Cursor",
       "colChatgpt": "ChatGPT",
-      "row1Chatgpt": "",
-      "row1Claude": "",
-      "row1Cursor": "",
-      "row1Feature": "",
-      "row1Us": "",
-      "row2Chatgpt": "",
-      "row2Claude": "",
-      "row2Cursor": "",
-      "row2Feature": "",
-      "row2Us": "",
-      "row3Chatgpt": "",
-      "row3Claude": "",
-      "row3Cursor": "",
-      "row3Feature": "",
-      "row3Us": "",
-      "row4Chatgpt": "",
-      "row4Claude": "",
-      "row4Cursor": "",
-      "row4Feature": "",
-      "row4Us": "",
-      "row5Chatgpt": "",
-      "row5Claude": "",
-      "row5Cursor": "",
-      "row5Feature": "",
-      "row5Us": "",
-      "row6Chatgpt": "",
-      "row6Claude": "",
-      "row6Cursor": "",
-      "row6Feature": "",
-      "row6Us": "",
-      "row7Chatgpt": "",
-      "row7Claude": "",
-      "row7Cursor": "",
-      "row7Feature": "",
-      "row7Us": "",
-      "row8Chatgpt": "",
-      "row8Claude": "",
-      "row8Cursor": "",
-      "row8Feature": "",
-      "row8Us": ""
+      "row1Chatgpt": "Web + APP",
+      "row1Claude": "CLI",
+      "row1Cursor": "桌面端",
+      "row1Feature": "端覆盖",
+      "row1Us": "8 端全覆盖",
+      "row2Chatgpt": "OpenAI 模型",
+      "row2Claude": "Claude 模型",
+      "row2Cursor": "多模型可选",
+      "row2Feature": "大模型数量",
+      "row2Us": "100+ LLM",
+      "row3Chatgpt": "无",
+      "row3Claude": "MCP 单栈",
+      "row3Cursor": "MCP 单栈",
+      "row3Feature": "AI 技术栈",
+      "row3Us": "三栈合一",
+      "row4Chatgpt": "有",
+      "row4Claude": "无",
+      "row4Cursor": "无",
+      "row4Feature": "API 端点",
+      "row4Us": "7 端点",
+      "row5Chatgpt": "无",
+      "row5Claude": "无",
+      "row5Cursor": "无",
+      "row5Feature": "教育模块",
+      "row5Us": "6 大模块",
+      "row6Chatgpt": "无",
+      "row6Claude": "无",
+      "row6Cursor": "无",
+      "row6Feature": "决策者社群",
+      "row6Us": "有",
+      "row7Chatgpt": "英文优先",
+      "row7Claude": "英文优先",
+      "row7Cursor": "英文优先",
+      "row7Feature": "中文优化",
+      "row7Us": "5 语言 i18n",
+      "row8Chatgpt": "GPT Store",
+      "row8Claude": "无",
+      "row8Cursor": "无",
+      "row8Feature": "智能体广场",
+      "row8Us": "5+ 职能"
     },
     "roi": {
       "title": "可量化收益 · ROI 数据",
       "titleEn": "QUANTIFIED ROI",
       "subtitle": "智汇 AI 社区为决策者带来的可量化收益 · 详细计算公式 · 数据来自真实用户案例与行业基准",
       "cache": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude API ¥0.3/次 → 缓存命中 ¥0.024/次 = 省 92%",
+        "description": "智能缓存命中已回答请求,二次调用直接返回缓存结果",
+        "title": "缓存降本",
+        "value": "60% 命中"
       },
       "cost": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥50000 = 省 ¥68200/年",
+        "description": "替代 Claude Pro + GPT Plus + Cursor + 多模型 API 等多项订阅",
+        "title": "综合省成本",
+        "value": "省 ¥18-30 万/年"
       },
       "learning": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "外部培训 ¥10 万/年 → 智汇 AI 全年免费 = 省 ¥10 万",
+        "description": "全年所有课程免费参加,从 AI 新工具到企业 AI 文化三阶段",
+        "title": "培训省成本",
+        "value": "省 ¥10 万/年"
       },
       "models": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "国际 30+ 国产 15+ 云 40+ = 100+ 模型一个 API Key 全访问",
+        "description": "国际 + 国产 + 云厂商全覆盖,一个 API Key 统一访问",
+        "title": "大模型覆盖",
+        "value": "100+ LLM"
       },
       "quality": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "17 守门 + 4 钩子 + 122 migrations = 99.9% 不出错",
+        "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations",
+        "title": "工程质量",
+        "value": "99.9% 不出错"
       },
       "seats": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "专业版 10 席位 · 企业版不限席位 · 旗舰版专属客户经理",
+        "description": "团队协作席位,支持多人共享工作空间与权限管控",
+        "title": "团队席位",
+        "value": "18 席位"
       },
       "sla": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "全年停机 < 8.76 小时 · AES-256-GCM 加密 · RBAC 按钮级权限",
+        "description": "99.9% SLA + AES-256-GCM 加密 + RBAC 按钮级权限",
+        "title": "服务可用性",
+        "value": "99.9% SLA"
       },
       "speed": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "手动编码 10h → CLI + 工作流 1h = 10× 加速",
+        "description": "自研 CLI + LangGraph 工作流 + 6 来源配置一键导入",
+        "title": "开发加速",
+        "value": "10× 加速"
       }
     },
     "cta": {
