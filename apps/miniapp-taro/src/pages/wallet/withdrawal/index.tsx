@@ -2,7 +2,7 @@ import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -10,8 +10,7 @@ const priceFmt = new Intl.NumberFormat('zh-CN', {
 })
 
 export default function WithdrawalPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [available, setAvailable] = useState(0)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')

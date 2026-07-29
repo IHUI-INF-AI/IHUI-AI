@@ -2,7 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import './index.css'
 
@@ -25,10 +25,7 @@ const PAGE_SIZE = 20
 
 export default function MemberDetail() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
   const [list, setList] = useState<MemberItem[]>([])
   const [stats, setStats] = useState<Stats>({ teamCount: 0, monthNew: 0, totalCommission: 0 })
   const [loading, setLoading] = useState(false)

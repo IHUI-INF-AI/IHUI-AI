@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import EmptyState from './EmptyState'
 import LessonListItem, { type LessonListItemData } from './LessonListItem'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 /** 知识星球卡片数据(planet variant 专用,对齐原项目 KnowledgePlanet/index.vue) */
 export interface PlanetData {
@@ -46,8 +46,7 @@ export default function CourseCatalog({
   planet,
   onJoin,
 }: CourseCatalogProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   // ===== planet variant:知识星球卡片 =====
   if (variant === 'planet') {

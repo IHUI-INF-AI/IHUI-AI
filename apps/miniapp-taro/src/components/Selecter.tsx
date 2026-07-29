@@ -76,7 +76,7 @@ export default function Selecter({
       const first = options[0]
       onChange?.(isObject(first) ? first.value : first, 0)
     }
-  }, [options, type])
+  }, [options, type, onChange, value])
 
   // defaultVal 变化时同步选中
   useEffect(() => {

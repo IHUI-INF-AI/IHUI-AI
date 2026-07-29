@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import ProgressBar from './ProgressBar'
 
 export type ColumnItemColor = 'default' | 'primary' | 'warning' | 'destructive'
@@ -40,8 +40,7 @@ export default function DistributionStats({
   columnTitle,
   columnItems = [],
 }: DistributionStatsProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   if (variant === 'column') {
     const title = columnTitle ?? tt('distribution.columnTitle', '分销订单')

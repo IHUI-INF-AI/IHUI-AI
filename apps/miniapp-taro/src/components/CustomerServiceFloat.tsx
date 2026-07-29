@@ -1,7 +1,7 @@
 import { View, Button, Text } from '@tarojs/components'
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import Taro from '@tarojs/taro'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface CustomerServiceFloatProps {
   visible?: boolean
@@ -66,8 +66,7 @@ export default function CustomerServiceFloat({
   storageKey,
 }: CustomerServiceFloatProps) {
   const [show, setShow] = useState(false)
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const posKey = storageKey || `float-position-${variant}`
   const [pos, setPos] = useState<FloatPosition>(() => readPosition(posKey))

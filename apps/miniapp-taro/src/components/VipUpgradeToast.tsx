@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface VipUpgradeToastProps {
   visible?: boolean
@@ -18,8 +18,7 @@ export default function VipUpgradeToast({
   onClose,
   duration = 5000,
 }: VipUpgradeToastProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [show, setShow] = useState(visible)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
