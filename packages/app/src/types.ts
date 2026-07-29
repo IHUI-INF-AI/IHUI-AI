@@ -394,4 +394,8 @@ export type {
   DeveloperPlan,
   DeveloperFeature,
   DeveloperScreenProps,
+  MessageInputFileType,
+  MessageInputFile,
+  MessageInputAgentVariable,
+  MessageInputProps,
 } from '@ihui/types'
