@@ -1232,7 +1232,8 @@ IHUI-AI/
 | **模型管理 admin**   | `/api/admin/relay/models`                              | 上下架 / 定价倍率 / 可见性 / 排序 / 统计                                                                                                   |
 | **Key 池管理 admin** | `/api/admin/relay/key-pool` + `ai_relay_key_pool` 表   | 同 provider 多 key 负载均衡 + 优先级 + 权重 + 健康状态                                                                                     |
 | **动态发现 admin**   | `/api/admin/relay/discovery` + `ai_relay_discovery` 表 | 从上游拉取新模型 → 待审批 → 入库上架                                                                                                       |
-| **模型池扫描注册机** | `scripts/scan-upstream-models.mjs`                     | 命令行工具,从 DB 读 provider 配置 → 解密 api_key → 调上游 `/v1/models` → 自动注册新模型并上架(`--provider <code>` 筛选 / `--dry-run` 预览) |
+| **模型池扫描注册机** | `scripts/scan-upstream-models.mjs` | 命令行工具,从 DB 读 provider 配置 → 解密 api_key → 调上游 `/v1/models` → 自动注册新模型并上架(`--provider <code>` 筛选 / `--dry-run` 预览) |
+| **全厂商批量入库** | `scripts/seed-all-providers.mjs` | 命令行工具,批量添加 25 个主流模型厂商(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/GLM/Moonshot/ERNIE/星火/豆包/混元/MiniMax/Yi/百川/商汤/SiliconFlow/Groq/Together/Fireworks/OpenRouter/NVIDIA)+ 155 个最新模型到 DB(占位符 key,等用户填真实 key 激活;`--dry-run` 预览) |
 | **调用日志 admin**   | `/api/admin/relay/logs`                                | 用户/模型/时间/token/成本/状态 筛选分页                                                                                                    |
 | **用户仪表盘**       | `/developer/relay`                                     | 我的 Key 列表 + 余额 + 用量图表 + 调用日志                                                                                                 |
 | **admin 后台**       | `/admin/relay`                                         | 概览 + 模型管理 + Key 池 + 动态发现 + 日志 5 页面                                                                                          |
