@@ -122,6 +122,16 @@ const nextConfig: NextConfig = {
     // - 生产环境(production)跳过此 rewrite(避免重复代理)
     if (process.env.NODE_ENV !== 'production') {
       return [
+        // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
+        // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
+        // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
+        // invoke 调用(POST /api/ai-skills/{id}/invoke)。
+        // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
+        // :path* 匹配 0 个或多个路径段,覆盖 /api/ai-skills 和 /api/ai-skills/{id}/invoke。
+        {
+          source: '/api/ai-skills/:path*',
+          destination: 'http://localhost:8803/api/ai-skills/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
