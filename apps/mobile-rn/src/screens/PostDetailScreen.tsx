@@ -1,14 +1,10 @@
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { PostDetailScreen as SharedPostDetailScreen, type PostDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
-import { Loading } from '@ihui/ui-native'
-interface Post { id: string; title: string; content: string; author: string; circleName?: string; likes: number; comments: number; createdAt: string }
 
 type Route = RouteProp<RootStackParamList, 'PostDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -18,7 +14,7 @@ export function PostDetailScreen() {
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const { id } = route.params
-  const [post, setPost] = useState<Post | null>(null)
+  const [post, setPost] = useState<PostDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -26,7 +22,7 @@ export function PostDetailScreen() {
     let cancelled = false
     void (async () => {
       setLoading(true); setError('')
-      const res = await fetchApi<Post>(`/api/posts/${encodeURIComponent(id)}`)
+      const res = await fetchApi<PostDetailItem>(`/api/posts/${encodeURIComponent(id)}`)
       if (cancelled) return
       if (res.success) setPost(res.data)
       else setError(res.error || t('postDetail.loadFailed'))
@@ -35,46 +31,13 @@ export function PostDetailScreen() {
     return () => { cancelled = true }
   }, [id, t])
 
-  if (loading) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
-  if (error || !post) return (
-    <View style={styles.center}>
-      <Text style={styles.error}>{error || t('postDetail.loadFailed')}</Text>
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}><Text style={styles.btnText}>{t('common.back')}</Text></TouchableOpacity>
-    </View>
-  )
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
-      <Text style={styles.title}>{post.title}</Text>
-      <View style={styles.metaRow}>
-        <Text style={styles.author}>{post.author}</Text>
-        {post.circleName ? <Text style={styles.circle}>#{post.circleName}</Text> : null}
-        <Text style={styles.meta}>{post.createdAt}</Text>
-      </View>
-      <Text style={styles.content}>{post.content}</Text>
-      <View style={styles.statRow}>
-        <TouchableOpacity style={styles.statBtn}><Text style={styles.statText}>❤ {post.likes}</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.statBtn}><Text style={styles.statText}>💬 {post.comments}</Text></TouchableOpacity>
-      </View>
-    </ScrollView>
+    <SharedPostDetailScreen
+      t={t}
+      item={post}
+      loading={loading}
+      error={error}
+      onBack={() => navigation.goBack()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.surface.bg, paddingHorizontal: 16, paddingTop: 48, paddingBottom: 32 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface.bg, padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: tokens.text.secondary },
-  error: { fontSize: 13, color: tokens.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: tokens.text.secondary },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tokens.text.primary },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 12 },
-  author: { fontSize: 13, color: tokens.success.DEFAULT, fontWeight: '500' },
-  circle: { fontSize: 11, color: tokens.text.secondary, backgroundColor: tokens.surface.card, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  meta: { fontSize: 11, color: tokens.text.tertiary },
-  content: { fontSize: 14, lineHeight: 22, color: tokens.text.medium },
-  statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  statBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: tokens.surface.card },
-  statText: { fontSize: 12, color: tokens.text.medium },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tokens.success.DEFAULT },
-  btnText: { color: tokens.surface.light, fontSize: 14 },
-})
