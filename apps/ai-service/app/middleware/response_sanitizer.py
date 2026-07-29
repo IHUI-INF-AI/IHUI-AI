@@ -8,6 +8,10 @@
 - 字段名大小写不敏感,子串匹配(如 passwordHash / refreshToken 均命中)
 - 脱敏失败 fail-open(不影响正常响应)
 - 数据主体访问自身数据时可设 request.state.skip_response_sanitization = True 跳过
+
+P0-5m(2026-07-30):增加白名单 SAFE_KEYS,保护 LLM usage 字段(prompt_tokens /
+completion_tokens / total_tokens)不被 "token" 子串规则误伤。这些字段是调用方
+必需的计费数据,脱敏会导致 /v1/chat/completions 响应 usage 为空。
 """
 from __future__ import annotations
 
@@ -30,6 +34,14 @@ SENSITIVE_KEYS: set[str] = {
     "twofactorsecret",
 }
 
+# 白名单:即便命中敏感规则也不脱敏(LLM usage 计量字段,调用方必需)
+# P0-5m(2026-07-30):prompt_tokens 等含 "token" 子串会被误伤,导致 usage 返回 ***
+SAFE_KEYS: set[str] = {
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+}
+
 MASK = "***"
 
 # 不应从原响应复制的 header(由 Response 自动设置)
@@ -41,8 +53,14 @@ _SKIP_HEADERS: set[str] = {
 
 
 def _is_sensitive_key(key: str) -> bool:
-    """判断字段名是否命中敏感规则(子串匹配,大小写不敏感)。"""
+    """判断字段名是否命中敏感规则(子串匹配,大小写不敏感)。
+
+    P0-5m(2026-07-30):白名单优先,SAFE_KEYS 中的字段名即便命中敏感规则也不脱敏。
+    """
     lower = key.lower()
+    # 白名单优先(LLM usage 计量字段)
+    if lower in SAFE_KEYS:
+        return False
     return any(k in lower for k in SENSITIVE_KEYS)
 
 
