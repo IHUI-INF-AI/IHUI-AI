@@ -26,9 +26,11 @@
 > 对齐基础设施:`.trae-cn/tmp/miniapp-taro-style-align/`(page-list.md / color-map.md / workflow.md / home-spec.md)
 
 ### 目标条件(五要素契约)
+
 将 `apps/miniapp-taro` 100+ 页面样式完整对齐历史项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue`(uni-app + Vue + SCSS),做到"一模一样":布局/颜色/间距/字号/圆角/交互视觉全对齐。验证:browser_use 截图 + DOM 验证 + typecheck/lint/build 全绿。约束:保留 design-tokens 映射原项目颜色,允许重写页面+子组件,禁止引入新依赖。20 轮耗尽输出剩余清单。
 
 ### 硬性指标(H1-H10)
+
 - [ ] H1:tabbar 5 tab 页面对齐(首页/智汇社区/课程/直播/我的)
 - [ ] H2:高频 10 页面对齐(登录/注册/AI 对话/VIP/支付/订单/用户中心/搜索/消息)
 - [ ] H3:长尾页面按轮次推进
@@ -41,6 +43,7 @@
 - [x] ✅(2026-07-29) H10:工作流模板建立(workflow.md,7 步流程 + 4 快速查询 + 验证清单)
 
 ### 进度记录
+
 - 轮次 1:启动 + 建立 goal-runtime STATE.md + loop-run-log.md
 - 轮次 2:建立对齐基础设施(page-list.md / color-map.md / workflow.md,3 subagent 并行)
 - 轮次 3:新增青色 token 到 tokens.css(8 青色 + 4 透明度)+ 同步到 app.css + H4/H5/H7 达成
@@ -48,6 +51,7 @@
 - 轮次 5+:首页重写 + 子组件重写 + 浏览器验证 + 其他页面对齐(进行中)
 
 ### 关键发现
+
 - 原项目首页 `pages/table/aiIndex/ai_index.vue` 是 AI 对话主页(6186 行:template 182 + script 3772 + style 2229),与 miniapp-taro 现有首页(教育门户)完全不同,需整体重写
 - 原项目主品牌色 #93d2f3 青色系在 design-tokens 缺失,轮次 3 已新增 8 青色 token + 4 透明度变体解除阻塞
 - model-type-btn 选中态用 SVG 背景图(非纯色),8 个按钮统一结构可抽成 ModelTypeButton 组件
@@ -239,6 +243,7 @@
 - [x] ✅(2026-07-29) **P0-5g 前端:模型市场对接中转站** — 修改 `ModelsMarketplace.tsx`:模型卡片增加"中转站可用"徽章(is_relay_public=true 的模型)+ "获取 API Key"快捷入口(跳转 developer/relay/keys)+ 模型详情对话框显示中转站定价(基础价 × 倍率)。受影响文件:`apps/web/app/(main)/models/ModelsMarketplace.tsx` + `ModelDetailDialog.tsx`
 - [x] ✅(2026-07-29) **P0-5h 验证 + 文档** — ① 端到端 curl 验证:创建 Key → 调用 /v1/chat/completions → 查 llm_call_logs → 查余额扣减;② admin 后台 browser_use 4 状态自验(默认/hover/active/dark);③ 用户仪表盘 browser_use 自验;④ README 更新中转站章节(§21 触发:新增对外能力);⑤ .env.example 补充中转站相关环境变量;⑥ typecheck + lint 全绿
 - [x] ✅(2026-07-30) **P0-5i 商业化可运营性端到端验证** — 3 个验证脚本 26 项检查全通过:① `e2e-commercial.mjs`(8 步):admin 登录 → 创建 API Key → GET /v1/models(DB 驱动返回 6 个免费模型)→ POST /v1/chat/completions(stepfun/step-3.7-flash 成功)→ llm_call_logs 写入(tokenUsedTotal 累加)→ 有限额度扣减(tokenBalance 5000→4989)→ 余额耗尽返回 402(✓)→ 清理;② `key-pool-verify.mjs`(10 步):列表脱敏(apiKeyEnc 不泄露)+ keyPrefix 格式 + 添加/列表/健康检查/启用禁用切换/更新/删除/删除后列表清洁,全 ✓;③ `recharge-402-verify.mjs`(11 步):SQL 充值 5000 token → 调用扣减 11 → 累计统计单调递增 11→18 → 清零 → 返回 402("Token 余额不足,请充值或联系管理员")→ 再次充值 10000 → 调用恢复成功。**核心修复**:① `v1-public.ts` 加 `toLiteLLMModelId()` 函数,DB model_id(无前缀)→ LiteLLM 带前缀 model id 映射(stepfun/agnes),解决 /v1/models 返回的模型名无法被 ai-service 路由的断层;② `relay-billing-service.ts` 加 `stripLiteLLMPrefix()` 函数,calculateCost 查 DB 时去前缀,与 toLiteLLMModelId 反向配对。**6 个免费模型全部可调**:agnes/agnes-2.5-flash、agnes/agnes-2.0-flash、agnes/agnes-2.5-pro-alpha、stepfun/step-3.7-flash、stepfun/step-3.5-flash、stepfun/step-router-v1。受影响文件:`apps/api/src/routes/v1-public.ts` + `apps/api/src/services/relay-billing-service.ts`
+- [x] ✅(2026-07-30) **P0-5j 上游模型池扫描注册机 + 9 个新模型自动注册上架** — 用户明确要求"获取最新模型号池,用注册机打"。新建正式工具 `scripts/scan-upstream-models.mjs`(CLI:`--provider <code>` 筛选 + `--dry-run` 预览;符合 AGENTS.md §25 豁免:正式工具带 CLI/docstring)。**注册机链路**:① 从 `ai_model_config` 查所有启用 provider 的 base_url + api_key_enc;② 内联 AES-256-GCM 解密(复用 `crypto.ts` 算法,兼容明文字符串/加密 JSON 字符串/已 parse 对象三种 api_key_enc 格式,容错 JSON.parse 失败回退裸字符串);③ 直接调用上游 `/v1/models` 拉取真实最新模型清单;④ 与 DB `ai_model_config_models` 现有模型比对,找新模型;⑤ 写入 `ai_relay_discovery`(标 approved)+ `ai_model_config_models`(自动上架 `is_relay_public=true`,免费模型定价 0)+ 对已存在但未上架的模型自动上架。**注册结果**:StepFun 上游 9 模型 → 新发现 6 个(stepaudio-2.5-chat/tts/asr/realtime、step-image-edit-2、step-3.5-flash-2603);Agnes 上游 6 模型 → 新发现 3 个(agnes-image-2.0-flash、agnes-image-2.1-flash、agnes-video-v2.0);OpenAI 跳过(占位符 key 401)。**验证**:`/v1/models` 返回 15 个模型(6 原有 + 9 新注册,可见性 9/9)+ 实际调用 `stepfun/step-3.5-flash-2603` 返回 200 回复"好" + 对比调用 `stepfun/step-3.7-flash` 成功。受影响文件:新建 `scripts/scan-upstream-models.mjs`
 
 #### P1-1 SDK 发布 CI
 
