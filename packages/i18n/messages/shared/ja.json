@@ -1541,5 +1541,31 @@
       "title": "公開成功",
       "message": "作品を審査に提出しました"
     }
+  },
+  "circleMember": {
+    "title": "サークルメンバー",
+    "empty": "メンバーがいません"
+  },
+  "circleDetail": {
+    "loadFailed": "サークルの読み込みに失敗しました",
+    "members": "{count} メンバー",
+    "posts": "{count} 投稿",
+    "membersAction": "メンバー一覧",
+    "post": "投稿する",
+    "leave": "サークル退出",
+    "join": "サークル参加"
+  },
+  "circleCreate": {
+    "title": "サークル作成",
+    "name": "サークル名",
+    "namePlaceholder": "サークル名を入力",
+    "description": "説明",
+    "descPlaceholder": "説明を入力",
+    "submit": "作成"
+  },
+  "circleChat": {
+    "empty": "メッセージがありません",
+    "placeholder": "メッセージを入力",
+    "send": "送信"
   }
 }
