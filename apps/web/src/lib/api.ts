@@ -24,8 +24,8 @@ setTokenProvider({
 // 只在客户端执行(build/SSR 时跳过,避免循环依赖导致模块导出未初始化)
 function detectApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    // Tauri 2 环境:window.__TAURI_INTERNALS__ 或 window.__TAURI__
-    if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+    // Tauri 2 环境 IPC 桥(2026-07-29:withGlobalTauri 关闭后只检测此标识)
+    if ('__TAURI_INTERNALS__' in window) {
       return 'http://127.0.0.1:8802'
     }
   }
@@ -44,8 +44,8 @@ function detectApiBaseUrl(): string {
 // 路由到代理服务器导致 ERR_CONNECTION_REFUSED,而 localhost 走 bypass 列表能正常访问。
 function detectStreamBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    // Tauri 2 环境
-    if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+    // Tauri 2 环境 IPC 桥(2026-07-29:withGlobalTauri 关闭后只检测此标识)
+    if ('__TAURI_INTERNALS__' in window) {
       return 'http://localhost:8802'
     }
     // 开发环境:Next.js dev server 运行在 localhost:8801
