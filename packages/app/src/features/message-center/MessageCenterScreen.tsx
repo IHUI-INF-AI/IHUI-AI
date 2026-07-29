@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageCenterItem, MessageCenterScreenProps, MessageTab } from '../../types'
 
@@ -61,7 +54,11 @@ export function MessageCenterScreen({
         <Text style={styles.title}>{t('messageCenter.title')}</Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabs}
+      >
         {TABS.map((tab) => {
           const active = tab === activeTab
           return (
@@ -162,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: 12, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 16 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

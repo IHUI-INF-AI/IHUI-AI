@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseChapterItem, CourseChapterScreenProps } from '../../types'
 
@@ -80,18 +73,44 @@ export function CourseChapterScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 16, paddingTop: 48 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tk.surface.bg, padding: 16 },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+      padding: 16,
+    },
     muted: { marginTop: 8, fontSize: 13, color: tk.text.secondary },
     error: { fontSize: 13, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     back: { fontSize: 14, color: tk.text.secondary },
-    title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary, marginBottom: 12 },
+    title: {
+      marginTop: 8,
+      fontSize: 22,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: 12,
+    },
     empty: { paddingVertical: 40, alignItems: 'center' },
-    card: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light, marginBottom: 8 },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      marginBottom: 8,
+    },
     idx: { width: 28, fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
     cardBody: { flex: 1 },
     cardTitle: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
     meta: { marginTop: 2, fontSize: 11, color: tk.text.tertiary },
-    btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: tk.success.DEFAULT },
+    btn: {
+      marginTop: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: tk.success.DEFAULT,
+    },
     btnText: { color: tk.surface.light, fontSize: 14 },
   })
 }

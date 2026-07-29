@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
     card: { backgroundColor: tk.surface.muted, borderRadius: 8, overflow: 'hidden' },
     pressed: { opacity: 0.85 },
     cover: { width: '100%', height: 128, backgroundColor: tk.surface.card },
-    body: { padding: 12, gap: 8 },
+    body: { padding: 16, gap: 8 },
     title: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     description: { fontSize: 12, color: tk.text.secondary },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
