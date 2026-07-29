@@ -12,7 +12,7 @@ import {
   type ExamRecord,
 } from '@/api'
 import { NavBar } from '@/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './detail.css'
 
 type ExamDetail = ExamPaper & {
@@ -33,13 +33,7 @@ const formatTime = (v: string): string => {
 }
 
 export default function ExamDetail() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
   const router = useRouter()
   const [exam, setExam] = useState<ExamDetail>({} as ExamDetail)
   const [history, setHistory] = useState<ExamRecord[]>([])

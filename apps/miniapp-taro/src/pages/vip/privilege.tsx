@@ -2,7 +2,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getVipPrivilege, getVipInfo, type VipInfo } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './privilege.css'
 
 interface Privilege {
@@ -68,11 +68,7 @@ const BENEFIT_FALLBACK: Record<string, string> = {
 }
 
 export default function PrivilegePage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
   const router = useRouter()
   const [list, setList] = useState<Privilege[]>([])
   const [loading, setLoading] = useState(true)

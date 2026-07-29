@@ -4,7 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
@@ -46,10 +46,7 @@ function readTextFile(filePath: string): Promise<string> {
 
 export default function N8nModel() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
 
   const [view, setView] = useState<'list' | 'create'>('list')
   // 列表态

@@ -2,7 +2,7 @@ import { View, Text, Button, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { createRecharge, createAlipayMiniappPayment, getActivity, getProfile, type UserInfo } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import './index.css'
 
@@ -20,7 +20,7 @@ const priceFmt = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maxi
 
 export default function RechargePage() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [user, setUser] = useState<UserInfo | null>(null)
   const [activity, setActivity] = useState<ActivityData | null>(null)
@@ -60,7 +60,7 @@ export default function RechargePage() {
 
   const onSelectMethod = (m: PayMethod) => setPayMethod(m)
 
-  const payOrder = async (amount: number, method: PayMethod) => {
+  const payOrder = useCallback(async (amount: number, method: PayMethod) => {
     if (method === 'alipay') {
       const res = await createAlipayMiniappPayment({ amount, subject: tt('wallet.recharge.submit', '充值') })
       const orderNo = res.outTradeNo || ''
@@ -95,7 +95,7 @@ export default function RechargePage() {
         url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
       })
     }
-  }
+  }, [tt])
 
   const onSubmit = useCallback(async () => {
     if (!finalAmount || finalAmount < 1) {
@@ -110,7 +110,7 @@ export default function RechargePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [finalAmount, payMethod])
+  }, [finalAmount, payMethod, payOrder, tt])
 
   const onActivitySubmit = useCallback(async () => {
     const amt = Number(activityAmount) || 0
@@ -126,7 +126,7 @@ export default function RechargePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [activityAmount, payMethod])
+  }, [activityAmount, payMethod, payOrder, tt])
 
   if (loading) {
     return (

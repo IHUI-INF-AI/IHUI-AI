@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
 import { getNewsDetail, type News } from '@/api'
 import { NavBar } from '@/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 // 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
 type NewsApiExt = {
@@ -17,13 +17,7 @@ type NewsApiExt = {
 }
 
 export default function NewsDetailPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
   const [news, setNews] = useState<News>({} as News)
   const [loading, setLoading] = useState(true)
   const [id, setId] = useState('')

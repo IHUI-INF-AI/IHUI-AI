@@ -1,5 +1,5 @@
 import { View, Text, ScrollView } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import EmptyState from './EmptyState'
 import Avatar from './Avatar'
 
@@ -26,8 +26,7 @@ export default function TeamManager({
   totalCount,
   onViewDetail,
 }: TeamManagerProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View className="flex items-center justify-between px-4 py-3 mb-2">

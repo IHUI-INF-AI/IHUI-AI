@@ -1,7 +1,7 @@
 import { View, Text } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import streamingRecognizer from '@/utils/streaming-recognizer'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 
 // 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types,
@@ -17,8 +17,7 @@ export default function VoiceInput({
   onComplete,
   onError,
 }: VoiceInputProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [partial, setPartial] = useState('')
