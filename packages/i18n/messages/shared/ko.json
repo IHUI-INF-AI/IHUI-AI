@@ -1356,5 +1356,100 @@
         "message": "{tokens} 토큰이 충전되었습니다"
       }
     }
+  },
+  "agentStat": {
+    "title": "Agent 통계",
+    "loadFailed": "통계 로드 실패",
+    "conversations": "대화 수",
+    "messages": "메시지 수",
+    "tokens": "토큰 사용량",
+    "avgRating": "평균 평점"
+  },
+  "agentSetting": {
+    "title": "Agent 설정",
+    "loadFailed": "설정 로드 실패",
+    "name": "이름",
+    "model": "모델",
+    "temperature": "온도",
+    "enabled": "활성화",
+    "saved": "저장됨",
+    "save": "저장"
+  },
+  "agentCreate": {
+    "title": "Agent 생성",
+    "nameRequired": "이름을 입력하세요",
+    "saveFailed": "생성 실패",
+    "name": "이름",
+    "namePlaceholder": "이름 입력",
+    "category": "카테고리",
+    "categoryPlaceholder": "카테고리 입력(기본 general)",
+    "description": "설명",
+    "descPlaceholder": "설명 입력",
+    "systemPrompt": "시스템 프롬프트",
+    "promptPlaceholder": "시스템 프롬프트 입력",
+    "isPublic": "공개 여부",
+    "public": "공개",
+    "private": "비공개",
+    "submit": "제출"
+  },
+  "agentChat": {
+    "loadFailed": "메시지 로드 실패",
+    "sendFailed": "전송 실패",
+    "empty": "메시지 없음",
+    "placeholder": "메시지 입력",
+    "send": "전송"
+  },
+  "courseScreen": {
+    "title": "코스",
+    "searchPlaceholder": "코스 검색",
+    "loadFailed": "코스 로드 실패",
+    "empty": "코스가 없습니다",
+    "free": "무료",
+    "studentCount": "{{count}}명 학습",
+    "nextPage": "다음"
+  },
+  "courseDetail": {
+    "loadFailed": "코스 로드 실패",
+    "instructor": "강사",
+    "rating": "평점",
+    "free": "무료",
+    "studentCount": "{{count}}명 학습",
+    "enrolled": "수강 중",
+    "enroll": "지금 수강",
+    "pay": "¥{{amount}} 결제",
+    "lessons": "강의",
+    "completed": "완료"
+  },
+  "courseFilter": {
+    "title": "코스 필터",
+    "subtitle": "카테고리, 난이도, 가격으로 필터링",
+    "category": "카테고리",
+    "level": "난이도",
+    "priceRange": "가격",
+    "reset": "초기화",
+    "apply": "적용",
+    "retry": "재시도",
+    "loadFailed": "코스 로드 실패",
+    "empty": "코스가 없습니다",
+    "instructor": "강사",
+    "level_label": "난이도",
+    "free": "무료",
+    "cat_all": "전체",
+    "cat_tech": "기술",
+    "cat_design": "디자인",
+    "cat_business": "비즈니스",
+    "cat_language": "언어",
+    "level_all": "전체",
+    "level_beginner": "초급",
+    "level_intermediate": "중급",
+    "level_advanced": "고급",
+    "price_all": "전체",
+    "price_free": "무료",
+    "price_paid": "유료"
+  },
+  "courseComment": {
+    "title": "코스 리뷰",
+    "loadFailed": "리뷰 로드 실패",
+    "empty": "리뷰가 없습니다"
   }
 }

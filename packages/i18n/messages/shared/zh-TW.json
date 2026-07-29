@@ -1356,5 +1356,100 @@
     "play": "播放",
     "noReplay": "無回放",
     "replayTitle": "回放播放器"
+  },
+  "agentStat": {
+    "title": "Agent 統計",
+    "loadFailed": "載入統計失敗",
+    "conversations": "會話數",
+    "messages": "訊息數",
+    "tokens": "Token 消耗",
+    "avgRating": "平均評分"
+  },
+  "agentSetting": {
+    "title": "Agent 設定",
+    "loadFailed": "載入設定失敗",
+    "name": "名稱",
+    "model": "模型",
+    "temperature": "溫度",
+    "enabled": "啟用",
+    "saved": "儲存成功",
+    "save": "儲存"
+  },
+  "agentCreate": {
+    "title": "建立 Agent",
+    "nameRequired": "請輸入名稱",
+    "saveFailed": "建立失敗",
+    "name": "名稱",
+    "namePlaceholder": "請輸入名稱",
+    "category": "分類",
+    "categoryPlaceholder": "請輸入分類(預設 general)",
+    "description": "描述",
+    "descPlaceholder": "請輸入描述",
+    "systemPrompt": "系統提示詞",
+    "promptPlaceholder": "請輸入系統提示詞",
+    "isPublic": "是否公開",
+    "public": "公開",
+    "private": "私有",
+    "submit": "提交"
+  },
+  "agentChat": {
+    "loadFailed": "載入訊息失敗",
+    "sendFailed": "傳送失敗",
+    "empty": "暫無訊息",
+    "placeholder": "輸入訊息",
+    "send": "傳送"
+  },
+  "courseScreen": {
+    "title": "課程",
+    "searchPlaceholder": "搜尋課程",
+    "loadFailed": "載入課程失敗",
+    "empty": "暫無課程",
+    "free": "免費",
+    "studentCount": "{{count}} 人學過",
+    "nextPage": "下一頁"
+  },
+  "courseDetail": {
+    "loadFailed": "載入課程失敗",
+    "instructor": "講師",
+    "rating": "評分",
+    "free": "免費",
+    "studentCount": "{{count}} 人學過",
+    "enrolled": "已報名",
+    "enroll": "立即報名",
+    "pay": "支付 ¥{{amount}}",
+    "lessons": "課時",
+    "completed": "已完成"
+  },
+  "courseFilter": {
+    "title": "課程篩選",
+    "subtitle": "依分類、難度、價格篩選課程",
+    "category": "分類",
+    "level": "難度",
+    "priceRange": "價格",
+    "reset": "重設",
+    "apply": "套用",
+    "retry": "重試",
+    "loadFailed": "載入課程失敗",
+    "empty": "暫無課程",
+    "instructor": "講師",
+    "level_label": "難度",
+    "free": "免費",
+    "cat_all": "全部",
+    "cat_tech": "技術",
+    "cat_design": "設計",
+    "cat_business": "商業",
+    "cat_language": "語言",
+    "level_all": "全部",
+    "level_beginner": "入門",
+    "level_intermediate": "中級",
+    "level_advanced": "高級",
+    "price_all": "全部",
+    "price_free": "免費",
+    "price_paid": "付費"
+  },
+  "courseComment": {
+    "title": "課程評論",
+    "loadFailed": "載入評論失敗",
+    "empty": "暫無評論"
   }
 }

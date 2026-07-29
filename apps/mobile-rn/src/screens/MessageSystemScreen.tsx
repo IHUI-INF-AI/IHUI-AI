@@ -6,11 +6,11 @@ import { MessageSystemScreen as SharedMessageSystemScreen, type MessageSystemIte
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-type Nav = NativeStackNavigationProp<RootStackParamList>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function MessageSystemScreen() {
   const { t } = useI18n()
-  const navigation = useNavigation<Nav>()
+  const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<MessageSystemItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)

@@ -6,11 +6,11 @@ import { MessageDirectScreen as SharedMessageDirectScreen, type MessageDirectIte
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-type Nav = NativeStackNavigationProp<RootStackParamList>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function MessageDirectScreen() {
   const { t } = useI18n()
-  const navigation = useNavigation<Nav>()
+  const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<MessageDirectItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -45,7 +45,9 @@ export function MessageDirectScreen() {
         setRefreshing(true)
         void load()
       }}
-      onPressItem={(item) => navigation.navigate('MessageDetail', { id: item.memberId })}
+      onPressItem={(item) =>
+        navigation.navigate('MessageChat', { peerId: item.memberId, name: item.nickname })
+      }
       onBack={() => navigation.goBack()}
     />
   )

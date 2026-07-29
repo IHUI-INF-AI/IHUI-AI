@@ -121,6 +121,8 @@ export interface Model {
   releasedAt?: string
   /** 是否首页"推荐位"展示(顶部精选) */
   highlight?: boolean
+  /** P0-5 中转站:是否在中转站公开上架(/v1/models 返回此模型) */
+  isRelayPublic?: boolean
 }
 
 /**

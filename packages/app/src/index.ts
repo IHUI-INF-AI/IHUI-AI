@@ -95,6 +95,26 @@ export { LiveDetailScreen } from './features/live-detail/LiveDetailScreen'
 export { LiveHostScreen } from './features/live-host/LiveHostScreen'
 export { LivePreviewScreen } from './features/live-preview/LivePreviewScreen'
 export { LivePlaybackScreen } from './features/live-playback-screen/LivePlaybackScreen'
+/** 批次 19(2026-07-29):Agent 统计/设置/创建/聊天(迁移自 mobile-rn) */
+export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
+export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
+export { AgentCreateScreen } from './features/agent-create/AgentCreateScreen'
+export { AgentChatScreen } from './features/agent-chat/AgentChatScreen'
+/** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布) */
+export { AssistantScreen } from './features/assistant/AssistantScreen'
+export { AiGroupScreen } from './features/ai-group/AiGroupScreen'
+export { AigcCoverScreen } from './features/aigc-cover/AigcCoverScreen'
+export { AigcPublishScreen } from './features/aigc-publish/AigcPublishScreen'
+/** 批次 21(2026-07-29):课程相关 4 屏(列表/详情/筛选/评论) */
+export { CourseScreen } from './features/course-screen/CourseScreen'
+export { CourseDetailScreen } from './features/course-detail/CourseDetailScreen'
+export { CourseFilterScreen } from './features/course-filter/CourseFilterScreen'
+export { CourseCommentScreen } from './features/course-comment/CourseCommentScreen'
+/** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态) */
+export { AgentScreen } from './features/agent-screen/AgentScreen'
+export { AiAssistantScreen } from './features/ai-assistant/AiAssistantScreen'
+export { AiCareerScreen } from './features/ai-career/AiCareerScreen'
+export { AIMultimodalScreen } from './features/ai-multimodal/AIMultimodalScreen'
 
 export { VipCard, UserInfoCard, BusinessCard, AgentCard, CourseCard } from './features/cards'
 export type {
@@ -333,4 +353,52 @@ export type {
   AigcListItem,
   AigcCategoryOption,
   AigcListScreenProps,
+  /** 批次 19(2026-07-29):Agent 统计/设置/创建/聊天 */
+  AgentStatItem,
+  AgentStatScreenProps,
+  AgentSettingItem,
+  AgentSettingScreenProps,
+  AgentCreateScreenProps,
+  AgentChatMessage,
+  AgentChatScreenProps,
+  /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布) */
+  AssistantStatus,
+  AssistantTab,
+  AssistantSubTab,
+  AssistantItem,
+  AssistantScreenProps,
+  AiGroupMember,
+  AiGroupItem,
+  AiGroupTab,
+  AiGroupScreenProps,
+  AigcCoverOption,
+  AigcCoverFilter,
+  AigcCoverScreenProps,
+  AigcPublishWorkType,
+  AigcPublishFile,
+  AigcPublishScreenProps,
+  /** 批次 21(2026-07-29):课程相关 4 屏(列表/详情/筛选/评论) */
+  CourseScreenItem,
+  CourseScreenProps,
+  CourseDetailLesson,
+  CourseDetailItem,
+  CourseDetailScreenProps,
+  CourseFilterLevel,
+  CourseFilterItem,
+  CourseFilterScreenProps,
+  CourseCommentItem,
+  CourseCommentScreenProps,
+  /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态) */
+  AgentScreenItem,
+  AgentScreenProps,
+  AiAssistantCategory,
+  AiAssistantCategoryOption,
+  AiAssistantItem,
+  AiAssistantScreenProps,
+  AiCareerTrend,
+  AiCareerMatchItem,
+  AiCareerScreenProps,
+  AiMultimodalMode,
+  AiMultimodalMessage,
+  AIMultimodalScreenProps,
 } from './types'

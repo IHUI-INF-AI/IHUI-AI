@@ -6,11 +6,11 @@ import { MessageGroupScreen as SharedMessageGroupScreen, type MessageGroupItem }
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-type Nav = NativeStackNavigationProp<RootStackParamList>
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function MessageGroupScreen() {
   const { t } = useI18n()
-  const navigation = useNavigation<Nav>()
+  const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<MessageGroupItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -45,7 +45,9 @@ export function MessageGroupScreen() {
         setRefreshing(true)
         void load()
       }}
-      onPressItem={(item) => navigation.navigate('MessageDetail', { id: item.groupId })}
+      onPressItem={(item) =>
+        navigation.navigate('MessageChat', { peerId: item.groupId, name: item.groupName })
+      }
       onBack={() => navigation.goBack()}
     />
   )

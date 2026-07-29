@@ -574,6 +574,19 @@ function ModelCardGrid({
         variant="absolute"
       />
 
+      {/* P0-5 中转站可用徽章(左下角,贴边于描述区上方) */}
+      {model.isRelayPublic && (
+        <a
+          href="/developer/relay/keys"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex w-fit items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400 [&>span]:translate-y-[0.5px]"
+          title="该模型已在中转站上架,点击获取 API Key"
+        >
+          <Zap className="h-3 w-3" />
+          <span>{t('market.relayAvailable')}</span>
+        </a>
+      )}
+
       <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{description}</p>
 
       <div className="grid grid-cols-2 gap-2 text-xs">

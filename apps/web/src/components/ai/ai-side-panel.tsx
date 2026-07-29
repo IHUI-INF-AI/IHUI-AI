@@ -650,6 +650,16 @@ export function AISidePanel() {
         // - mr-2 在可见面板右边缘与 work-area 内容间形成 8px 视觉间距
         // - z-sticky(990, 引用 --z-sticky):高于 work-area 内容层,低于 modal/PWA 提示层(z-modal 2000)
         // - width 由 useAiPanelStore.width 控制(320-720px);不挤压右侧 work-area 宽度
+        // Pane 锚点容器(2026-07-29 立,根治方案):AgentTaskProgressPane 用 data-testid 找到这个
+        // 外层 div,把 Pane 通过 React Portal 挂载到这个 div 内部,用 CSS position:absolute 定位。
+        // 外层 div 自身 position:fixed,作为 Pane 的 containing block,Pane 用 absolute + top:8px + right:8px
+        // 即可稳定锚在 AI 面板右上角,完全不需要 JS 计算坐标,不会因 React 时序/JS 状态漂移。
+        // 之前 v15 用 document.body + JS getBoundingClientRect + setInterval 方案:
+        // - 每 500ms 重读 anchor rect → 大量无意义重渲染,位置仍会漂移
+        // - Pane 浮在 AI 面板之上用 fixed,但父元素(z-sticky=990)与 Pane(z-popover=2001)的
+        //   z-index 关系需要 JS 正确计算 → 任何一个回归都会导致 Pane 被遮
+        // v16 根治:外层 div 作 containing block,Pane absolute 内部,JS 零依赖
+        data-testid="ai-side-panel-container"
         className="fixed top-2 bottom-2 left-[var(--sidebar-width,130px)] mr-2 z-sticky"
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
