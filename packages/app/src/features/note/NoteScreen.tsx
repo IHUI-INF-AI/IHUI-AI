@@ -55,7 +55,11 @@ export function NoteScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={onBack}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.retryText}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
@@ -74,7 +78,11 @@ export function NoteScreen({
       </View>
 
       <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.addBtn} onPress={onOpenCreate} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={onOpenCreate}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
           <Text style={styles.addBtnText}>{t('note.add')}</Text>
         </TouchableOpacity>
       </View>
@@ -106,10 +114,18 @@ export function NoteScreen({
               {t('note.updatedAt')}: {item.updatedAt}
             </Text>
             <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.editBtn} onPress={() => onOpenEdit(item)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => onOpenEdit(item)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
                 <Text style={styles.editBtnText}>{t('note.edit')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => onDelete(item)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
                 <Text style={styles.deleteBtnText}>{t('common.delete')}</Text>
               </TouchableOpacity>
             </View>
@@ -117,17 +133,10 @@ export function NoteScreen({
         )}
       />
 
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={onCloseModal}
-      >
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={onCloseModal}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editing ? t('note.edit') : t('note.add')}
-            </Text>
+            <Text style={styles.modalTitle}>{editing ? t('note.edit') : t('note.add')}</Text>
             <TextInput
               style={styles.titleInput}
               value={title}
@@ -214,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     action: { fontSize: 24, color: tk.success.DEFAULT, fontWeight: '600' },
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

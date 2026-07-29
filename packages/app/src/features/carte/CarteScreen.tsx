@@ -1,12 +1,5 @@
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CarteCreator, CarteScreenProps, CarteWork } from '../../types'
 
@@ -46,7 +39,11 @@ export function CarteScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRetry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={onRetry}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.retryText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
@@ -200,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
     statsRow: {
       flexDirection: 'row',
       marginTop: 12,
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
     },
@@ -228,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     skillText: { fontSize: 12, color: tk.brand.DEFAULT },
     card: {
       flexDirection: 'row',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

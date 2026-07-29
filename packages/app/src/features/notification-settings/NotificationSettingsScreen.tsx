@@ -1,10 +1,7 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  NotificationSettingsItem,
-  NotificationSettingsScreenProps,
-} from '../../types'
+import type { NotificationSettingsItem, NotificationSettingsScreenProps } from '../../types'
 
 /** 通知设置共享屏 — props 注入式跨端组件 */
 export type { NotificationSettingsItem, NotificationSettingsScreenProps }
@@ -123,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     body: { padding: 16 },
     card: {
-      padding: 12,
+      padding: 16,
       marginBottom: 12,
       borderRadius: 8,
       backgroundColor: tk.surface.card,
