@@ -73,9 +73,13 @@ def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
     try:
         payload = json.loads(api_key_enc)
         if not (isinstance(payload, dict) and all(k in payload for k in ("iv", "ciphertext", "tag"))):
+            # JSON 解析成功但不是加密 dict(可能是 JSON 字符串带引号)→ 返回解析后的值
+            if isinstance(payload, str):
+                return payload.strip().strip('"').strip("'")
             return api_key_enc
     except (json.JSONDecodeError, TypeError):
-        return api_key_enc
+        # 非 JSON 格式,视为明文(同时 strip 首尾引号/空白,防御 seed 脚本引号包裹)
+        return api_key_enc.strip().strip('"').strip("'")
 
     key_str = settings.credentials_encryption_key
     if not key_str or len(key_str) < 32:
@@ -90,7 +94,9 @@ def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
         tag = base64.b64decode(payload["tag"])
         aesgcm = AESGCM(key)
         plaintext = aesgcm.decrypt(iv, ciphertext + tag, None)
-        return plaintext.decode("utf-8")
+        decoded = plaintext.decode("utf-8")
+        # P0-5m(2026-07-30):strip 首尾引号(防御 seed 脚本把 key 用 JSON.stringify 包裹导致引号残留)
+        return decoded.strip().strip('"').strip("'")
     except Exception as e:
         logger.warning("解密 api_key_enc 失败: %s", e)
         return None
@@ -275,6 +281,11 @@ async def _resolve_from_db(
         real_model = model.split("/", 1)[1] if "/" in model else model
         if api_format == "anthropic_messages":
             litellm_model = model if "/" in model else f"anthropic/{model}"
+        elif provider_code == "openrouter":
+            # P0-5m(2026-07-30):OpenRouter 需要走 LiteLLM 原生 openrouter/ 路由,
+            # 不能转成 openai/(否则 LiteLLM 走 OpenAI 路由不传 Auth header)。
+            # model 已含 openrouter/ 前缀(如 openrouter/deepseek/deepseek-v4-pro),原样返回。
+            litellm_model = model
         else:
             litellm_model = f"openai/{real_model}"
         return api_key, base_url, litellm_model
