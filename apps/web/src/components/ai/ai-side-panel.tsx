@@ -643,10 +643,10 @@ export function AISidePanel() {
         // AI 面板容器(2026-07-30 彻底根治:从 fixed 改为 flex 流内布局)
         // - 不再 fixed 定位,改为 flex 子元素(relative + shrink-0),自然占据空间
         // - py-2:与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)
-        // - mr-4:与 work-area 内容间形成 16px 视觉间距(2026-07-30 用户反馈 8px 太小)
+        // - mr-1.5:与 work-area 内容间固定 6px 间距(用户强制要求,不可更改)
         // - 不需要 z-sticky(flex 布局保证不重叠,z-sticky 已移除)
         // - width 由 useAiPanelStore.width 控制(320-720px);flex 布局自动收缩 work-area
-        className="relative h-full shrink-0 py-2 mr-4"
+        className="relative h-full shrink-0 py-2 mr-1.5"
         style={{ width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }}
       >
         <aside
