@@ -18,6 +18,7 @@ import {
   Sparkles,
   TriangleAlert,
   Zap,
+  Cable,
 } from 'lucide-react'
 
 import {
@@ -252,6 +253,11 @@ export function ModelsMarketplace({ list }: Props) {
     [setModel, openPanel, router],
   )
 
+  /** P0-5g 中转站「获取 API Key」快捷入口:跳转到 developer/relay/keys */
+  const handleRelayKeys = React.useCallback(() => {
+    router.push('/developer/relay/keys')
+  }, [router])
+
   const handleCardClick = React.useCallback((m: Model) => {
     setSelected(m)
     setDialogOpen(true)
@@ -410,6 +416,7 @@ export function ModelsMarketplace({ list }: Props) {
               onTry={handleTryModel}
               onToggleFavorite={handleToggleFavorite}
               onConfigure={handleOpenQuickKey}
+              onRelayKeys={handleRelayKeys}
             />
           ))}
         </div>
@@ -426,6 +433,7 @@ export function ModelsMarketplace({ list }: Props) {
               onTry={handleTryModel}
               onToggleFavorite={handleToggleFavorite}
               onConfigure={handleOpenQuickKey}
+              onRelayKeys={handleRelayKeys}
             />
           ))}
         </div>
@@ -504,6 +512,7 @@ function ModelCardGrid({
   onTry,
   onToggleFavorite,
   onConfigure,
+  onRelayKeys,
 }: {
   model: Model
   allCapabilities: string[]
@@ -514,6 +523,8 @@ function ModelCardGrid({
   onTry: (m: Model) => void
   onToggleFavorite: (id: string) => void
   onConfigure: (m: Model) => void
+  /** P0-5g 中转站「获取 API Key」回调(跳转 developer/relay/keys) */
+  onRelayKeys: () => void
 }) {
   const t = useTranslations('models')
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
@@ -607,7 +618,11 @@ function ModelCardGrid({
 
       {model.features.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {model.features.slice(0, 4).map((f) => (
+          {/* P0-5g 中转站可用徽章(优先展示,占第一位) */}
+          {model.relayPublic && (
+            <RelayBadge multiplier={model.relayPriceMultiplier} variant="tag" />
+          )}
+          {model.features.slice(0, model.relayPublic ? 3 : 4).map((f) => (
             <span
               key={f}
               className="rounded-md bg-primary/8 px-1.5 py-0.5 text-[10px] font-medium text-primary"
@@ -617,8 +632,14 @@ function ModelCardGrid({
           ))}
         </div>
       )}
+      {/* P0-5g 中转站可用徽章(独立行展示,当无 features 时也要显示) */}
+      {model.relayPublic && model.features.length === 0 && (
+        <div className="flex flex-wrap gap-1">
+          <RelayBadge multiplier={model.relayPriceMultiplier} variant="tag" />
+        </div>
+      )}
 
-      {/* 操作区:立即体验为主;若可配置且未配置,显示「配置 API Key」次按钮 */}
+      {/* 操作区:立即体验为主;若可配置且未配置,显示「配置 API Key」次按钮;若中转站可用,显示「获取 API Key」次按钮(P0-5g) */}
       {canConfigure && !isConfigured ? (
         <div className="mt-auto flex items-stretch gap-1.5">
           <Button
@@ -632,6 +653,33 @@ function ModelCardGrid({
           >
             <KeyRound className="h-3.5 w-3.5" />
             <span>{t('market.configureKey')}</span>
+          </Button>
+          <Button
+            size="sm"
+            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[0.5px]"
+            onClick={(e) => {
+              e.stopPropagation()
+              onTry(model)
+            }}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>{t('market.tryNow')}</span>
+            <ArrowRight className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : model.relayPublic ? (
+        <div className="mt-auto flex items-stretch gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[0.5px]"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRelayKeys()
+            }}
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+            <span>{t('market.getRelayKey')}</span>
           </Button>
           <Button
             size="sm"
@@ -674,6 +722,7 @@ function ModelCardList({
   onTry,
   onToggleFavorite,
   onConfigure,
+  onRelayKeys,
 }: {
   model: Model
   isFavorite: boolean
@@ -683,6 +732,8 @@ function ModelCardList({
   onTry: (m: Model) => void
   onToggleFavorite: (id: string) => void
   onConfigure: (m: Model) => void
+  /** P0-5g 中转站「获取 API Key」回调(跳转 developer/relay/keys) */
+  onRelayKeys: () => void
 }) {
   const t = useTranslations('models')
   const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
@@ -725,6 +776,10 @@ function ModelCardList({
               </span>
             </Tooltip>
           )}
+          {/* P0-5g 中转站可用 inline 徽章 */}
+          {model.relayPublic && (
+            <RelayBadge multiplier={model.relayPriceMultiplier} variant="tag" />
+          )}
         </div>
         <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground [&>span]:translate-y-[0.5px]">
           <span className="inline-flex items-center gap-0.5">
@@ -756,7 +811,7 @@ function ModelCardList({
         className="shrink-0"
       />
 
-      {/* List 视图操作区:可配置且未配置时,显示「配置 API Key」小按钮 */}
+      {/* List 视图操作区:可配置且未配置时,显示「配置 API Key」小按钮;中转站可用时,显示「获取 API Key」小按钮(P0-5g) */}
       {canConfigure && !isConfigured && (
         <Tooltip content={t('market.configureKey')}>
           <Button
@@ -770,6 +825,22 @@ function ModelCardList({
           >
             <KeyRound className="h-3 w-3" />
             <span>{t('market.configureKey')}</span>
+          </Button>
+        </Tooltip>
+      )}
+      {model.relayPublic && !canConfigure && (
+        <Tooltip content={t('market.getRelayKey')}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[0.5px]"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRelayKeys()
+            }}
+          >
+            <KeyRound className="h-3 w-3" />
+            <span>{t('market.getRelayKey')}</span>
           </Button>
         </Tooltip>
       )}
@@ -904,6 +975,50 @@ function EmptyState({ onReset }: { onReset: () => void }) {
         {t('market.resetFilters')}
       </Button>
     </div>
+  )
+}
+
+/**
+ * 中转站可用徽章(P0-5g,2026-07-29 立)。
+ *
+ * 模型已上架到中转站(isRelayPublic=true)时展示,提示用户可:
+ * - 用平台 API Key 通过 OpenAI 兼容 /v1/chat/completions 端点调用此模型
+ * - 在 developer/relay/keys 创建/管理 API Key
+ *
+ * variant:
+ * - 'badge': 仅徽章(用在 grid 卡片 features 区 / list 卡片 inline)
+ * - 'tag': 小尺寸 tag(用在 grid 卡片 features 内)
+ */
+function RelayBadge({
+  multiplier,
+  variant = 'badge',
+}: {
+  multiplier?: number
+  variant?: 'badge' | 'tag'
+}) {
+  const t = useTranslations('models')
+  const hasMultiplier = typeof multiplier === 'number' && multiplier > 0 && Math.abs(multiplier - 1) > 0.001
+  const tooltipText = hasMultiplier
+    ? t('market.relayBadgeTooltipMultiplier', { multiplier: multiplier!.toFixed(2) })
+    : t('market.relayBadgeTooltip')
+
+  if (variant === 'tag') {
+    return (
+      <Tooltip content={tooltipText}>
+        <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-400">
+          <Cable className="h-2.5 w-2.5" />
+          {t('market.relayAvailable')}
+        </span>
+      </Tooltip>
+    )
+  }
+  return (
+    <Tooltip content={tooltipText}>
+      <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-400">
+        <Cable className="h-2.5 w-2.5" />
+        {t('market.relayAvailable')}
+      </span>
+    </Tooltip>
   )
 }
 
