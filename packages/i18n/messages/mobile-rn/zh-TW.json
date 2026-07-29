@@ -87,7 +87,21 @@
     "runtimeSend": "傳送"
   },
   "chat": {
-    "voice": "語音"
+    "voice": "語音",
+    "title": "IHUI AI",
+    "modelLabel": "模型",
+    "selectModel": "選擇模型",
+    "thinking": "思考中...",
+    "inputPlaceholder": "輸入訊息...",
+    "stop": "停止",
+    "send": "傳送",
+    "navAgent": "智能體",
+    "navWallet": "錢包",
+    "navCourse": "課程",
+    "navOrder": "訂單",
+    "navProfile": "我的",
+    "navSettings": "設定",
+    "navLogout": "登出"
   },
   "settings": {
     "about": "關於智匯 AI",
@@ -211,6 +225,15 @@
       "message": "截圖已生成",
       "shareBtn": "分享"
     }
+  },
+  "developer": {
+    "title": "開發者入口",
+    "becomeDeveloper": "成為開發者",
+    "subtitle": "發布智能體,獲取收益",
+    "selectService": "請選擇所需的服務",
+    "processing": "處理中...",
+    "openNow": "一鍵開通",
+    "agreementHint": "開通即表示同意《開發者服務協議》"
   },
   "devEnter": {
     "error": {
