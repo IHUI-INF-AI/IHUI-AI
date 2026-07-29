@@ -7,6 +7,7 @@ import type { WorkPanelTabItem } from '@ihui/ui-react'
 import {
   useWorkPanelStore,
   WORK_PANEL_DEFAULT_WIDTH,
+  WORK_PANEL_MIN_WIDTH,
 } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 
@@ -103,8 +104,57 @@ export function WebWorkPanel() {
   const canBack = activeTab ? activeTab.historyIndex > 0 : false
   const canForward = activeTab ? activeTab.historyIndex < activeTab.history.length - 1 : false
 
+  // 动态计算 WebWorkPanel 最大可用宽度:当 AI 面板 + WebWorkPanel 同时打开且 viewport 不足时,
+  // flex 布局会自动收缩 work-area,但 WebWorkPanel 需要限制自身宽度避免挤压 work-area 至 0。
+  // --ai-panel-occupy CSS 变量由 GlobalShell 同步(反映 AI 面板当前占用的宽度)。
+  const [maxAvailableWidth, setMaxAvailableWidth] = React.useState(WORK_PANEL_DEFAULT_WIDTH)
+
+  React.useEffect(() => {
+    if (!mounted) return
+    let raf = 0
+    const update = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const root = document.documentElement
+        const computed = getComputedStyle(root)
+        // 从 CSS 变量读取 sidebar 宽度和 AI 面板占用(由 GlobalShell/AISidePanel 同步)
+        const aiOccupyVal = computed.getPropertyValue('--ai-panel-occupy')
+        const sidebarVal = computed.getPropertyValue('--sidebar-width')
+        const aiOccupy = aiOccupyVal ? parseInt(aiOccupyVal, 10) || 0 : 0
+        const sidebarWidth = sidebarVal ? parseInt(sidebarVal, 10) || 130 : 130
+        // work-area content 最小保留宽度(保证 MainShell 内容可见)
+        const MIN_WORK_AREA_CONTENT = 240
+        // 可用 = viewport - sidebar - AI占用 - work-area最小content - WebWorkPanel mr-2(8px)
+        const available = window.innerWidth - sidebarWidth - aiOccupy - MIN_WORK_AREA_CONTENT - 8
+        setMaxAvailableWidth(available)
+      })
+    }
+    update()
+    // resize:窗口大小变化
+    window.addEventListener('resize', update)
+    // MutationObserver:sidebar 折叠/展开 + AI 面板拖拽宽度会修改 :root style
+    const observer = new MutationObserver(update)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', update)
+      observer.disconnect()
+    }
+  }, [mounted])
+
+  // 空间严重不足时自动关闭 WebWorkPanel(避免挤压 work-area 至 0 宽度)
+  React.useEffect(() => {
+    if (!mounted || !open) return
+    if (maxAvailableWidth < WORK_PANEL_MIN_WIDTH) {
+      closePanel()
+    }
+  }, [mounted, open, maxAvailableWidth, closePanel])
+
   // SSR / 首帧:用默认宽度占位,避免 hydration mismatch
-  const effectiveWidth = !mounted ? WORK_PANEL_DEFAULT_WIDTH : width
+  // 运行时:width 不超过 maxAvailableWidth(空间不足时自动缩小)
+  const effectiveWidth = !mounted
+    ? WORK_PANEL_DEFAULT_WIDTH
+    : Math.min(width, Math.max(WORK_PANEL_MIN_WIDTH, maxAvailableWidth))
   const effectiveOpen = mounted && open
 
   // Tab 栏数据(映射为 UI 组件需要的格式)
