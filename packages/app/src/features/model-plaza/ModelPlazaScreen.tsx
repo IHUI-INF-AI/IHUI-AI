@@ -255,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 10 },
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 13, color: tk.text.tertiary },
-    modelCard: { padding: 12, borderRadius: 12, backgroundColor: tk.surface.bg },
+    modelCard: { padding: 16, borderRadius: 12, backgroundColor: tk.surface.bg },
     cardTop: {
       flexDirection: 'row',
       alignItems: 'center',

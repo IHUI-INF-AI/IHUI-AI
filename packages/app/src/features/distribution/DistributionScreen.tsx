@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     productsList: { marginHorizontal: 16, marginBottom: 24 },
     productCard: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

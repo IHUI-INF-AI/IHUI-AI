@@ -209,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     audioCard: {
       flex: 2,
       flexDirection: 'row',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
       marginBottom: 12,

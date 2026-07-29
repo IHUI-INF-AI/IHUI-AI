@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
     videoUrl: { marginTop: 2, fontSize: 10, color: tk.text.secondary, paddingHorizontal: 16 },
     subscribeSection: { paddingHorizontal: 16, paddingVertical: 12 },
     subscribedBox: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.success.lighter,
     },

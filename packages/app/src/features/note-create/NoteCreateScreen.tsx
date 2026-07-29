@@ -97,7 +97,7 @@ function createStyles(tk: AppThemeTokens) {
     label: { marginTop: 12, fontSize: 12, color: tk.text.secondary },
     input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light, fontSize: 14, color: tk.text.primary },
     textarea: { minHeight: 120, maxHeight: 240 },
-    visibilityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
+    visibilityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: tk.border.light },
     visibilityLabel: { fontSize: 14, color: tk.text.primary },
     switchTrack: { width: 44, height: 24, borderRadius: 8, padding: 2, justifyContent: 'center' },
     switchTrackOn: { backgroundColor: tk.success.DEFAULT },

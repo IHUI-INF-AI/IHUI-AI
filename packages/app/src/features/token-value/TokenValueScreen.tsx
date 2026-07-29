@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
     pkgScroll: { gap: 10, paddingVertical: 4 },
     pkgCard: {
       width: 130,
-      padding: 12,
+      padding: 16,
       borderRadius: 12,
       borderWidth: 1.5,
       borderColor: tk.border.light,
@@ -282,7 +282,7 @@ function createStyles(tk: AppThemeTokens) {
     recordItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
+      padding: 16,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: tk.border.light,

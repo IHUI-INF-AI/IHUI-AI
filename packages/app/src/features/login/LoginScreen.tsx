@@ -36,7 +36,7 @@ export function LoginScreen({
   logoSource,
 }: LoginScreenProps) {
   const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
+  const styles = useMemo(() => createStyles(tk, colorScheme), [tk, colorScheme])
   const disabled = loading || ssoLoading
 
   return (
@@ -126,7 +126,12 @@ export function LoginScreen({
   )
 }
 
-function createStyles(tk: AppThemeTokens) {
+function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
+  // 卡片/输入框表面:浅色用 surface.light(白),深色用 surface.card(深灰)
+  // surface.light 在深色模式仍为 #FFFFFF(语义是"品牌色对比白字"),不能做卡片背景
+  const surface = colorScheme === 'dark' ? tk.surface.card : tk.surface.light
+  // 品牌按钮文字:浅色品牌=黑底→白字,深色品牌=白底→黑字
+  const onBrandText = colorScheme === 'dark' ? tk.gray.black : tk.surface.light
   return StyleSheet.create({
     page: {
       flex: 1,
@@ -139,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       maxWidth: 460,
       padding: 28,
-      backgroundColor: tk.surface.light,
+      backgroundColor: surface,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -171,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 6,
     },
     logoText: {
-      color: tk.surface.light,
+      color: onBrandText,
       fontSize: 11,
       fontWeight: '700',
       letterSpacing: 0.5,
@@ -222,7 +227,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
-      backgroundColor: tk.surface.light,
+      backgroundColor: surface,
     },
     loginBtn: {
       height: 40,
@@ -232,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     loginBtnText: {
-      color: tk.surface.light,
+      color: onBrandText,
       fontSize: 14,
       fontWeight: '500',
     },
@@ -249,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: tk.surface.light,
+      backgroundColor: surface,
     },
     ssoBtnText: {
       color: tk.text.primary,

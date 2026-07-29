@@ -159,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { marginTop: 8, fontSize: 12, color: tk.danger.DEFAULT },
     completeWrap: { marginTop: 24 },
     completedBox: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.success.light,
     },

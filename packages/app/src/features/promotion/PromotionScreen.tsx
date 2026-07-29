@@ -130,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 16, paddingBottom: 32 },
     separator: { height: 12 },
     card: {
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,

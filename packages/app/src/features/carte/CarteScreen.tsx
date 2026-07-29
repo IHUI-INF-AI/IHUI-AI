@@ -200,7 +200,7 @@ function createStyles(tk: AppThemeTokens) {
     statsRow: {
       flexDirection: 'row',
       marginTop: 12,
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       backgroundColor: tk.surface.muted,
     },
@@ -228,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
     skillText: { fontSize: 12, color: tk.brand.DEFAULT },
     card: {
       flexDirection: 'row',
-      padding: 12,
+      padding: 16,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
