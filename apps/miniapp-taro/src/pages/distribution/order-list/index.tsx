@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
+import './index.css'
 
 interface OrderItem {
   id: string
@@ -30,10 +31,10 @@ const TABS: Tab[] = [
 ]
 
 const STATUS_LABELS: Record<string, { key: string; fb: string; cls: string }> = {
-  settled: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'text-success' },
-  pending: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'text-warning' },
-  paid: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'text-success' },
-  unpaid: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'text-warning' },
+  settled: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'ol-status-settled' },
+  pending: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'ol-status-pending' },
+  paid: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'ol-status-settled' },
+  unpaid: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'ol-status-pending' },
 }
 
 const PAGE_SIZE = 20
@@ -124,13 +125,15 @@ export default function DistributionOrderList() {
     load(true).finally(() => Taro.stopPullDownRefresh())
   })
 
+  const totalCommission = list.reduce((sum, o) => sum + (Number(o.commission) || 0), 0)
+
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
-      <View className="flex bg-card sticky top-0 z-10">
+    <View className="ol-page">
+      <View className="ol-tabs">
         {TABS.map((tab) => (
           <View
             key={tab.value}
-            className={`flex-1 text-center py-[24rpx] text-[26rpx] text-muted-foreground relative ${activeTab === tab.value ? 'text-primary font-semibold' : ''}`}
+            className={`ol-tab ${activeTab === tab.value ? 'ol-tab-active' : ''}`}
             onClick={() => switchTab(tab.value)}
           >
             <Text>{tt(tab.labelKey, tab.fallback)}</Text>
@@ -138,43 +141,44 @@ export default function DistributionOrderList() {
         ))}
       </View>
 
+      <View className="ol-total">
+        {tt('distribution.orderList.totalCount', '共')} {list.length} {tt('distribution.orderList.orders', '笔')},
+        {tt('distribution.orderList.commissionTotal', '佣金总额')}:¥{totalCommission}
+      </View>
+
       {list.length > 0 && (
-        <View className="flex flex-col gap-[16rpx] p-[24rpx]">
+        <View className="ol-list">
           {list.map((o) => {
             const statusInfo = STATUS_LABELS[o.status] || {
               key: '',
               fb: o.status,
-              cls: 'text-warning',
+              cls: 'ol-status-pending',
             }
             return (
               <View
                 key={o.id}
-                className="p-[28rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
+                className="ol-card"
                 onClick={() => onItemClick(o.id)}
               >
-                <View className="flex items-center justify-between">
-                  <Text className="text-[22rpx] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0">
+                <View className="ol-card-header">
+                  <Text className="ol-order-no">
                     {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
                   </Text>
-                  <Text
-                    className={`text-[24rpx] font-semibold ml-[16rpx] shrink-0 ${statusInfo.cls}`}
-                  >
+                  <Text className={`ol-status ${statusInfo.cls}`}>
                     {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
                   </Text>
                 </View>
-                <Text className="block text-[28rpx] font-medium text-foreground mt-[16rpx] overflow-hidden text-ellipsis whitespace-nowrap">
-                  {o.product}
-                </Text>
-                <View className="flex items-center justify-between mt-[20rpx]">
-                  <View className="flex items-center gap-[24rpx]">
-                    <Text className="text-[24rpx] text-muted-foreground">
-                      {tt('distribution.orderList.amount', '金额')} ¥{o.amount}
+                <View className="ol-card-main">
+                  <Text className="ol-product-title">{o.product}</Text>
+                </View>
+                <View className="ol-card-footer">
+                  <Text className="ol-time">{o.time || '-'}</Text>
+                  <View className="ol-commission">
+                    <Text className="ol-label">
+                      {tt('distribution.orderList.commission', '佣金')}
                     </Text>
-                    <Text className="text-[26rpx] font-semibold text-primary">
-                      {tt('distribution.orderList.commission', '佣金')} ¥{o.commission}
-                    </Text>
+                    <Text className="ol-commission-amount">¥{o.commission}</Text>
                   </View>
-                  <Text className="text-[22rpx] text-muted-foreground">{o.time || '-'}</Text>
                 </View>
               </View>
             )
@@ -183,30 +187,26 @@ export default function DistributionOrderList() {
       )}
 
       {list.length === 0 && !loading && !error && (
-        <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
-          {t('distribution.orderList.empty')}
-        </Text>
+        <Text className="ol-empty">{t('distribution.orderList.empty')}</Text>
       )}
 
       {error && !loading && (
-        <View className="flex flex-col items-center py-[60rpx]" onClick={() => load(true)}>
-          <Text className="text-[26rpx] text-destructive">
+        <View className="ol-error" onClick={() => load(true)}>
+          <Text className="ol-error-text">
             {tt('distribution.orderList.error', '加载失败')}
           </Text>
-          <Text className="text-[26rpx] text-primary mt-[12rpx]">
+          <Text className="ol-error-retry">
             {tt('distribution.orderList.retry', '点击重试')}
           </Text>
         </View>
       )}
 
       {loading && (
-        <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
-          {t('distribution.orderList.loading')}
-        </Text>
+        <Text className="ol-loading">{t('distribution.orderList.loading')}</Text>
       )}
 
       {!loading && !hasMore && list.length > 0 && (
-        <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
+        <Text className="ol-no-more">
           {tt('distribution.orderList.noMore', '没有更多了')}
         </Text>
       )}
