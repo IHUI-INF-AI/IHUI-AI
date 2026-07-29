@@ -46,6 +46,9 @@
     "userAgreement": "用戶協議",
     "version": "版本"
   },
+  "legalDoc": {
+    "updatedAt": "更新於"
+  },
   "auth": {
     "account": "帳號",
     "accountHistory": "帳號歷史",
@@ -722,5 +725,74 @@
     "content": "內容",
     "reply": "回覆",
     "createdAt": "提交時間"
+  },
+  "privacy": {
+    "title": "隱私政策",
+    "subtitle": "我們重視您的隱私",
+    "updatedAt": "更新日期",
+    "sectionData": "資料收集",
+    "sectionDataBody": "我們收集您主動提供的資訊,以提供更好的服務。",
+    "sectionCookie": "Cookie 使用",
+    "sectionCookieBody": "我們使用 Cookie 技術儲存您的登入狀態和偏好設定。",
+    "sectionThirdParty": "第三方共享",
+    "sectionThirdPartyBody": "未經您同意,我們不會向第三方共享您的個人資訊。"
+  },
+  "pointRule": {
+    "title": "積分規則",
+    "empty": "暫無積分規則",
+    "loadFailed": "載入積分規則失敗"
+  },
+  "vipLevel": {
+    "title": "VIP 等級",
+    "loadFailed": "載入失敗",
+    "empty": "等級不存在",
+    "price": "價格",
+    "duration": "有效期",
+    "days": "天",
+    "benefits": "權益說明"
+  },
+  "refundDetail": {
+    "title": "退款詳情",
+    "loadFailed": "載入失敗",
+    "empty": "退款記錄不存在",
+    "orderNo": "訂單號",
+    "amount": "退款金額",
+    "status": "退款狀態",
+    "reason": "退款原因",
+    "createdAt": "申請時間"
+  },
+  "orderDetail": {
+    "title": "訂單詳情",
+    "loadFailed": "載入訂單失敗",
+    "orderNo": "訂單號",
+    "product": "商品",
+    "amount": "金額",
+    "status": "狀態",
+    "createdAt": "下單時間",
+    "paidAt": "付款時間"
+  },
+  "certDetail": {
+    "title": "證書詳情",
+    "loadFailed": "載入證書失敗",
+    "certNo": "證書編號",
+    "holder": "持有人",
+    "issuer": "頒發機構",
+    "score": "成績",
+    "issuedAt": "頒發日期",
+    "expiredAt": "過期日期",
+    "verify": "驗證證書"
+  },
+  "postDetail": {
+    "title": "動態詳情",
+    "loadFailed": "載入動態失敗"
+  },
+  "agreementSections": {
+    "updatedAt": "更新日期",
+    "sectionTerms": "服務條款",
+    "sectionTermsBody": "使用本平臺服務即表示您同意本協議的全部條款。",
+    "sectionRights": "用戶權利",
+    "sectionRightsBody": "您有權隨時查看、修改和刪除您的個人資訊。",
+    "sectionObligations": "用戶義務",
+    "sectionObligationsBody": "您不得利用本平臺進行違法或侵權活動。"
   }
 }
