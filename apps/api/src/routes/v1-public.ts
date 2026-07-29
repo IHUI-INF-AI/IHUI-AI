@@ -855,6 +855,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
         // P0-5 中转站计费:调用成功,记录流水 + 扣减余额
         if (apiKey) {
+          console.log('[v1/chat] recordCall START', { apiKeyId: apiKey.id, model, totalTokens })
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
@@ -866,7 +867,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             totalTokens,
             latencyMs: Date.now() - startTime,
             status: 'success',
-          }).catch(() => {})
+          }).then((r) => console.log('[v1/chat] recordCall OK', r)).catch((e) => console.error('[v1/chat] recordCall FAIL', e?.message || e))
         }
 
         return reply.send(result)

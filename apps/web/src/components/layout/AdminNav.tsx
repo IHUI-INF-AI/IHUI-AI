@@ -218,6 +218,11 @@ interface AdminNavItem {
     | 'saasMetrics'
     | 'pluginsStats'
     | 'aiCost'
+    | 'adminRelayOverview'
+    | 'adminRelayModels'
+    | 'adminRelayKeyPool'
+    | 'adminRelayDiscovery'
+    | 'adminRelayLogs'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -293,6 +298,12 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/api-platform/packages', labelKey: 'apiPlatformPackages', icon: Package },
   { href: '/admin/api-platform/billing', labelKey: 'apiPlatformBilling', icon: CreditCard },
   { href: '/admin/api-platform/usage', labelKey: 'apiPlatformUsage', icon: BarChart3 },
+  // P0-5 模型 API 中转站(2026-07-29 立,对标 OneAPI/NewAPI)
+  { href: '/admin/relay', labelKey: 'adminRelayOverview', icon: Server },
+  { href: '/admin/relay/models', labelKey: 'adminRelayModels', icon: Package },
+  { href: '/admin/relay/key-pool', labelKey: 'adminRelayKeyPool', icon: KeyRound },
+  { href: '/admin/relay/discovery', labelKey: 'adminRelayDiscovery', icon: Activity },
+  { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: ScrollText },
   // 商品管理
   { href: '/admin/shop/products', labelKey: 'shopProducts', icon: ShoppingBag },
   { href: '/admin/shop/payments', labelKey: 'shopPayments', icon: CreditCard },
@@ -1208,6 +1219,12 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   saasMetrics: 'nav.saasMetrics',
   pluginsStats: 'nav.pluginsStats',
   aiCost: 'nav.aiCost',
+  // P0-5 中转站导航(P0-5a,2026-07-29 立)
+  adminRelayOverview: 'nav.adminRelayOverview',
+  adminRelayModels: 'nav.adminRelayModels',
+  adminRelayKeyPool: 'nav.adminRelayKeyPool',
+  adminRelayDiscovery: 'nav.adminRelayDiscovery',
+  adminRelayLogs: 'nav.adminRelayLogs',
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */
