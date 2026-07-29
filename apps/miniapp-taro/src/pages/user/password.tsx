@@ -61,7 +61,7 @@ export default function Password() {
           <Text className="block w-[160rpx] text-[28rpx] text-foreground mb-[16rpx]">{tt('user.password.oldPassword', '原密码')}</Text>
           <View className="relative">
             <Input
-              className="w-full h-[72rpx] bg-background rounded-[8rpx] pr-[120rpx] pl-[20rpx] text-[28rpx] box-border"
+              className="w-full h-[72rpx] bg-background rounded-[12rpx] pr-[120rpx] pl-[20rpx] text-[28rpx] box-border"
               password={!showOld}
               maxlength={20}
               placeholder={tt('user.password.oldPlaceholder', '请输入原密码')}
@@ -77,7 +77,7 @@ export default function Password() {
           <Text className="block w-[160rpx] text-[28rpx] text-foreground mb-[16rpx]">{tt('user.password.newPassword', '新密码')}</Text>
           <View className="relative">
             <Input
-              className="w-full h-[72rpx] bg-background rounded-[8rpx] pr-[120rpx] pl-[20rpx] text-[28rpx] box-border"
+              className="w-full h-[72rpx] bg-background rounded-[12rpx] pr-[120rpx] pl-[20rpx] text-[28rpx] box-border"
               password={!showNew}
               maxlength={20}
               placeholder={tt('user.password.newPlaceholder', '请输入新密码')}
@@ -98,7 +98,7 @@ export default function Password() {
           <Text className="block w-[160rpx] text-[28rpx] text-foreground mb-[16rpx]">{tt('user.password.confirmPassword', '确认密码')}</Text>
           <View className="relative">
             <Input
-              className="w-full h-[72rpx] bg-background rounded-[8rpx] pr-[120rpx] pl-[20rpx] text-[28rpx] box-border"
+              className="w-full h-[72rpx] bg-background rounded-[12rpx] pr-[120rpx] pl-[20rpx] text-[28rpx] box-border"
               password={!showConfirm}
               maxlength={20}
               placeholder={tt('user.password.confirmPlaceholder', '请再次输入新密码')}
@@ -122,7 +122,7 @@ export default function Password() {
       </View>
 
       <View
-        className={`mx-[32rpx] mt-[40rpx] h-[88rpx] leading-[88rpx] text-center bg-primary text-foreground text-[30rpx] rounded-[8rpx] ${oldPwd && newPwdValid && confirmMatch && !submitting ? '' : 'opacity-50'}`}
+        className={`mx-[32rpx] mt-[40rpx] h-[88rpx] leading-[88rpx] text-center bg-primary text-primary-foreground text-[30rpx] rounded-[12rpx] ${oldPwd && newPwdValid && confirmMatch && !submitting ? '' : 'opacity-50'}`}
         onClick={onSubmit}
       >
         <Text>{submitting ? tt('user.password.submitting', '修改中…') : tt('user.password.submit', '修改密码')}</Text>
