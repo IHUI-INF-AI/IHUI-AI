@@ -130,6 +130,35 @@ let modelsCache: ModelsCacheEntry | null = null
  * 3. 'cache' — 命中 5min 缓存
  * 4. 'fallback' — 静态兜底清单
  */
+/**
+ * P0-5 修复(2026-07-30):DB model_id → LiteLLM 带前缀 model id 映射。
+ *
+ * ai-service /api/llm/complete 的 _resolve_provider 根据 model 前缀路由 provider:
+ *   stepfun/* → STEPFUN_API_KEY + STEPFUN_API_BASE
+ *   agnes/*   → AGNES_API_KEY + AGNES_API_BASE
+ *   其他      → 默认 OPENAI_API_KEY
+ *
+ * DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名(如 step-3.7-flash),
+ * 需要根据 ai_model_config.provider_code + base_url 推断 LiteLLM 前缀并拼接。
+ *
+ * 映射规则:
+ *   provider_code='stepfun'                → stepfun/{model_id}
+ *   base_url 含 'agnes-ai.com'             → agnes/{model_id}
+ *   base_url 含 'openai.com' 或其他        → {model_id}(不加前缀,走默认 OpenAI 路径)
+ *
+ * 反向去前缀在 relay-billing-service.ts 的 stripLiteLLMPrefix 中实现(calculateCost 用)。
+ */
+function toLiteLLMModelId(
+  modelId: string,
+  providerCode: string,
+  baseUrl: string,
+): string {
+  if (providerCode === 'stepfun') return `stepfun/${modelId}`
+  if (baseUrl && baseUrl.includes('agnes-ai.com')) return `agnes/${modelId}`
+  // 其他 provider(openai/groq/gemini 等)若已带前缀则原样返回,否则不加前缀
+  return modelId
+}
+
 async function fetchModels(): Promise<{
   body: V1ModelsResponse
   source: 'db' | 'live' | 'cache' | 'fallback'
@@ -146,6 +175,7 @@ async function fetchModels(): Promise<{
         sortOrder: aiModelConfigModels.relaySortOrder,
         providerCode: aiModelConfig.providerCode,
         configName: aiModelConfig.name,
+        baseUrl: aiModelConfig.baseUrl,
       })
       .from(aiModelConfigModels)
       .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
@@ -162,7 +192,11 @@ async function fetchModels(): Promise<{
       const mapped: V1ModelsResponse = {
         object: 'list',
         data: dbModels.map((m) => ({
-          id: m.id,
+          // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
+          // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
+          // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
+          // 其他(如 openai/原生)→ 不加前缀。
+          id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
           object: 'model' as const,
           created: Math.floor(now / 1000),
           ownedBy: m.providerCode || m.configName || 'ihui',
