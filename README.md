@@ -1218,6 +1218,31 @@ IHUI-AI/
 | **Persona**          | 角色定义注册表 / personas.py + persona_registry.py                                                                                                                                                                                                          |
 | **Socket.IO 兼容层** | sio/handlers.py 兼容旧 coze_zhs_py 客户端                                                                                                                                                                                                                   |
 
+#### B4. 模型 API 中转站(对标 OneAPI/NewAPI,2026-07-29 立)
+
+完整的 OpenAI 兼容 API 中转站,用户可生成平台 API Key 通过 `/v1/chat/completions` 调用多 provider 聚合模型,支持 Key 池负载均衡、按量计费、动态发现审批:
+
+| 能力 | 端点 / 模块 | 说明 |
+| --- | --- | --- |
+| **OpenAI 兼容 API** | `POST /v1/chat/completions`(stream + non-stream) | Bearer API Key 鉴权,转发到 ai-service LiteLLM,支持 80+ 厂商 |
+| **模型列表** | `GET /v1/models` | DB 驱动(优先 `ai_model_config_models.is_relay_public=true`),降级 ai-service live → cache → fallback |
+| **公开模型清单** | `GET /api/relay/models/public` | 无需鉴权,返回中转站已上架模型 + 定价倍率(前端模型市场消费) |
+| **API Key 管理** | `/api/developer/*` + `developerApiKeys` 表 | 创建/吊销/轮换 secret + token/cost 额度 + 权限配置 |
+| **计费链路** | `relay-billing-service.ts` | 调用前 checkQuota(余额预检)→ 调用后 recordCall(写 `llm_call_logs` + 扣减余额 + 累计已用) |
+| **模型管理 admin** | `/api/admin/relay/models` | 上下架 / 定价倍率 / 可见性 / 排序 / 统计 |
+| **Key 池管理 admin** | `/api/admin/relay/key-pool` + `ai_relay_key_pool` 表 | 同 provider 多 key 负载均衡 + 优先级 + 权重 + 健康状态 |
+| **动态发现 admin** | `/api/admin/relay/discovery` + `ai_relay_discovery` 表 | 从上游拉取新模型 → 待审批 → 入库上架 |
+| **调用日志 admin** | `/api/admin/relay/logs` | 用户/模型/时间/token/成本/状态 筛选分页 |
+| **用户仪表盘** | `/developer/relay` | 我的 Key 列表 + 余额 + 用量图表 + 调用日志 |
+| **admin 后台** | `/admin/relay` | 概览 + 模型管理 + Key 池 + 动态发现 + 日志 5 页面 |
+
+**计费模型**:
+- 上游定价(`aiPricing.inputTokenPrice` / `outputTokenPrice`,分/千 token)× 中转站倍率(`aiModelConfigModels.relayPriceMultiplier`,1.0=原价,1.2=加价 20%)= 中转站成本(分)
+- API Key 余额规则:`-1`=无限额度(admin 信任),`0`=余额耗尽,`>0`=可用余额
+- 余额不足返回 `402 Payment Required`
+
+**数据库迁移**:`packages/database/drizzle/20260729120000_relay_billing.sql`(幂等,加字段 + 建表)
+
 ### C. 内容创作与教育(面向创作者与教育者)
 
 #### C1. 内容创作与多平台发布
