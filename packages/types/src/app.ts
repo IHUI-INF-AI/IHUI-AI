@@ -1140,3 +1140,93 @@ export interface ShareScreenProps {
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 批次 10(2026-07-29):订单日志/订单跟踪/课程章节/学习进度 */
+
+/** 订单日志项(平台注入,字段对齐 mobile-rn OrderLogScreen Item) */
+export interface OrderLogItem {
+  id: string
+  action: string
+  operator: string
+  time: string
+  note: string
+}
+
+/** OrderLogScreen props */
+export interface OrderLogScreenProps {
+  t: TFunction
+  items: OrderLogItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 订单跟踪项(平台注入,字段对齐 mobile-rn OrderTrackScreen Item) */
+export interface OrderTrackItem {
+  id: string
+  status: string
+  time: string
+  location: string
+  desc: string
+}
+
+/** OrderTrackScreen props */
+export interface OrderTrackScreenProps {
+  t: TFunction
+  items: OrderTrackItem[]
+  loading: boolean
+  refreshing: boolean
+  error: string
+  onRefresh: () => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 课程章节项(平台注入,字段对齐 mobile-rn CourseChapterScreen Chapter) */
+export interface CourseChapterItem {
+  id: string
+  title: string
+  duration: number
+  lessonCount: number
+}
+
+/** CourseChapterScreen props */
+export interface CourseChapterScreenProps {
+  t: TFunction
+  items: CourseChapterItem[]
+  loading: boolean
+  error: string
+  onPressItem: (item: CourseChapterItem) => void
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 学习进度课程项 */
+export interface StudyProgressCourse {
+  id: string
+  title: string
+  progress: number
+}
+
+/** 学习进度数据(平台注入,字段对齐 mobile-rn StudyProgressScreen Progress) */
+export interface StudyProgressData {
+  totalCourses: number
+  completedCourses: number
+  totalMinutes: number
+  weekMinutes: number
+  streakDays: number
+  courses: StudyProgressCourse[]
+}
+
+/** StudyProgressScreen props */
+export interface StudyProgressScreenProps {
+  t: TFunction
+  progress: StudyProgressData | null
+  loading: boolean
+  error: string
+  onBack: () => void
+  colorScheme?: 'light' | 'dark'
+}
