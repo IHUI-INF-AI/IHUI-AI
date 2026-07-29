@@ -9753,6 +9753,7 @@
       "previewTokenK": "{k}k 토큰",
       "previewToolCalls": "도구 호출 {n}회",
       "previewRelatedMessage": "관련 메시지:",
+      "hoverPreviewLabel": "단계 미리보기 카드",
       "stepBudgetLabel": "단계 예산",
       "executing": "실행 중",
       "subagentBatch": "서브에이전트 배치",
