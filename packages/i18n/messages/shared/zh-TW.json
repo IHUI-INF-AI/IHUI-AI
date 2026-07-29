@@ -593,7 +593,15 @@
     }
   },
   "live": {
-    "empty": "暫無直播"
+    "title": "直播",
+    "loadFailed": "載入直播失敗",
+    "empty": "暫無直播",
+    "ongoing": "直播中",
+    "upcoming": "即將開始",
+    "ended": "已結束",
+    "lecturer": "講師",
+    "startAt": "開始時間",
+    "viewerCount": "{count} 觀看"
   },
   "course": {
     "free": "免費",
@@ -872,5 +880,75 @@
     "code": "分享碼",
     "expireAt": "過期時間",
     "shareNow": "立即分享"
+  },
+  "agentMarket": {
+    "title": "Agent 市場",
+    "loadFailed": "載入 Agent 失敗",
+    "searchPlaceholder": "搜尋 Agent",
+    "empty": "暫無 Agent",
+    "uses": "次使用",
+    "free": "免費",
+    "paid": "付費"
+  },
+  "agentReviewList": {
+    "title": "Agent 評價",
+    "loadFailed": "載入評價失敗",
+    "empty": "暫無評價",
+    "author": "作者"
+  },
+  "following": {
+    "title": "我的關注",
+    "loadFailed": "載入關注失敗",
+    "empty": "暫無關注",
+    "unfollowTitle": "取消關注",
+    "unfollow": "取消關注"
+  },
+  "activity": {
+    "title": "活動",
+    "loadFailed": "載入活動失敗",
+    "empty": "暫無活動",
+    "startTime": "開始時間",
+    "endTime": "結束時間",
+    "participants": "參與人數",
+    "joinNow": "立即參與",
+    "status_upcoming": "即將開始",
+    "status_ongoing": "進行中",
+    "status_ended": "已結束"
+  },
+  "favorites": {
+    "title": "我的收藏",
+    "loadFailed": "載入收藏失敗",
+    "empty": "暫無收藏",
+    "deleteTitle": "刪除收藏"
+  },
+  "checkIn": {
+    "title": "每日簽到",
+    "subtitle": "堅持簽到贏積分",
+    "loadFailed": "載入簽到資訊失敗",
+    "retry": "重試",
+    "empty": "暫無簽到記錄",
+    "streak": "連續簽到",
+    "monthlyDays": "本月簽到",
+    "totalDays": "累計簽到",
+    "todayReward": "今日積分",
+    "checkInBtn": "簽到",
+    "checkedIn": "已簽到",
+    "calendar": "簽到日曆",
+    "signSuccess": "簽到成功",
+    "signFailed": "簽到失敗"
+  },
+  "pointsMall": {
+    "title": "積分商城",
+    "subtitle": "用積分兌換好禮",
+    "loadFailed": "載入商品失敗",
+    "retry": "重試",
+    "empty": "暫無商品",
+    "balance": "我的積分",
+    "pointsUnit": "積分",
+    "stock": "庫存 {count}",
+    "redeem": "兌換",
+    "redeemSuccess": "兌換成功",
+    "redeemFailed": "兌換失敗",
+    "insufficient": "積分不足"
   }
 }
