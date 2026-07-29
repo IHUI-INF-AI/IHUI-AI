@@ -110,6 +110,15 @@ export const aiModelConfigModels = pgTable(
     lastTestedAt: varchar('last_tested_at', { length: 32 }),
     lastTestError: text('last_test_error'),
     extraMetadata: jsonb('extra_metadata').default({}),
+    // --- P0-5 中转站字段(2026-07-29 立) ---
+    /** 是否在中转站公开上架(/v1/models 返回此模型) */
+    isRelayPublic: boolean('is_relay_public').default(false).notNull(),
+    /** 中转站定价倍率(1.0 = 按上游原价,1.2 = 加价 20%),numeric(10,4) */
+    relayPriceMultiplier: varchar('relay_price_multiplier', { length: 20 }).default('1.0000'),
+    /** 中转站展示排序(越小越靠前) */
+    relaySortOrder: integer('relay_sort_order').default(0).notNull(),
+    /** 中转站展示名(为空时用 displayName/modelId) */
+    relayDisplayName: varchar('relay_display_name', { length: 256 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -120,6 +129,7 @@ export const aiModelConfigModels = pgTable(
       t.configId,
       t.modelId,
     ),
+    relayPublicIdx: index('ai_model_config_models_relay_public_idx').on(t.isRelayPublic),
   }),
 )
 
