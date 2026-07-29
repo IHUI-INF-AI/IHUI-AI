@@ -32,14 +32,14 @@ export default function RechargeFail() {
   return (
     <View className="min-h-screen bg-background pb-[80rpx]">
       <View className="pt-[120rpx] px-[60rpx] pb-[60rpx] text-center">
-        <View className="w-[160rpx] h-[160rpx] mx-auto rounded-[16rpx] bg-[rgba(255,59,59,0.12)] border-[2rpx] border-[rgba(255,59,59,0.4)] flex items-center justify-center">
+        <View className="w-[160rpx] h-[160rpx] mx-auto rounded-[16rpx] bg-destructive/10 border-[2rpx] border-destructive/40 flex items-center justify-center">
           <Text className="text-[80rpx] text-destructive leading-none">✕</Text>
         </View>
         <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">{tt('wallet.recharge.fail.title', '充值失败')}</Text>
         <Text className="block text-[26rpx] text-muted-foreground mt-[12rpx] leading-[1.6]">{tt('wallet.recharge.fail.desc', '充值未成功,请稍后重试')}</Text>
       </View>
 
-      <View className="mx-[32rpx] mb-[24rpx] px-[28rpx] py-[24rpx] bg-[rgba(245,158,11,0.08)] rounded-[12rpx]">
+      <View className="mx-[32rpx] mb-[24rpx] px-[28rpx] py-[24rpx] bg-warning/10 rounded-[12rpx]">
         <Text className="block text-[26rpx] text-warning font-semibold mb-[12rpx]">{tt('wallet.recharge.fail.hintTitle', '温馨提示')}</Text>
         <Text className="text-[24rpx] text-muted-foreground leading-[1.6]">
           {tt(
