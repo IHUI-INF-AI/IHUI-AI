@@ -9647,6 +9647,7 @@
       "previewTokenK": "{k}k tokens",
       "previewToolCalls": "{n} 次工具调用",
       "previewRelatedMessage": "关联消息:",
+      "hoverPreviewLabel": "步骤预览卡片",
       "stepBudgetLabel": "步骤预算",
       "executing": "执行中",
       "subagentBatch": "子代理批次",

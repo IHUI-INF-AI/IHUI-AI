@@ -9797,6 +9797,7 @@
       "previewTokenK": "{k}k トークン",
       "previewToolCalls": "ツール呼び出し {n} 回",
       "previewRelatedMessage": "関連メッセージ:",
+      "hoverPreviewLabel": "ステッププレビューカード",
       "stepBudgetLabel": "ステップ予算",
       "executing": "実行中",
       "subagentBatch": "サブエージェントバッチ",
