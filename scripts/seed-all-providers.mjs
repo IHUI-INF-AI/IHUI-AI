@@ -29,21 +29,25 @@ const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@l
 // ============================================================================
 
 const PROVIDERS = [
-  // ===== 国际大厂 =====
+  // ===== 国际大厂(2026 最新版本)=====
   {
     providerCode: 'openai',
     name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     sortOrder: 10,
     models: [
+      { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol (2026 旗舰)', context: 1048576 },
+      { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', context: 1048576 },
+      { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', context: 1048576 },
+      { id: 'gpt-5.5', name: 'GPT-5.5', context: 1048576 },
+      { id: 'gpt-5.2', name: 'GPT-5.2', context: 1048576 },
+      { id: 'gpt-5', name: 'GPT-5', context: 1048576 },
+      { id: 'gpt-oss-120b', name: 'GPT-oSS 120B (开源)', context: 131072 },
       { id: 'gpt-4o', name: 'GPT-4o', context: 128000 },
       { id: 'gpt-4o-mini', name: 'GPT-4o mini', context: 128000 },
       { id: 'gpt-4.1', name: 'GPT-4.1', context: 1047576 },
       { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', context: 1047576 },
       { id: 'gpt-4.1-nano', name: 'GPT-4.1 nano', context: 1047576 },
-      { id: 'o1', name: 'OpenAI o1', context: 200000 },
-      { id: 'o1-mini', name: 'OpenAI o1 mini', context: 128000 },
-      { id: 'o1-pro', name: 'OpenAI o1 pro', context: 200000 },
       { id: 'o3', name: 'OpenAI o3', context: 200000 },
       { id: 'o3-mini', name: 'OpenAI o3 mini', context: 200000 },
       { id: 'o4-mini', name: 'OpenAI o4 mini', context: 200000 },
@@ -57,14 +61,17 @@ const PROVIDERS = [
     baseUrl: 'https://api.anthropic.com/v1',
     sortOrder: 11,
     models: [
+      { id: 'claude-fable-5', name: 'Claude Fable 5 (2026 旗舰)', context: 200000 },
+      { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', context: 200000 },
+      { id: 'claude-opus-4-8', name: 'Claude Opus 4.8', context: 200000 },
+      { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', context: 200000 },
+      { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', context: 200000 },
+      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', context: 200000 },
       { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', context: 200000 },
       { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', context: 200000 },
       { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', context: 200000 },
       { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet v2', context: 200000 },
       { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', context: 200000 },
-      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', context: 200000 },
-      { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet', context: 200000 },
-      { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', context: 200000 },
     ],
   },
   {
@@ -73,13 +80,15 @@ const PROVIDERS = [
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     sortOrder: 12,
     models: [
+      { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (2026 旗舰)', context: 2097152 },
+      { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', context: 2097152 },
+      { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', context: 2097152 },
+      { id: 'gemini-3.1-flash', name: 'Gemini 3.1 Flash', context: 2097152 },
       { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', context: 1048576 },
       { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', context: 1048576 },
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', context: 1048576 },
       { id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini 2.0 Flash Thinking', context: 1048576 },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', context: 2097152 },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', context: 1048576 },
-      { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B', context: 1048576 },
+      { id: 'gemma-3-27b-it', name: 'Gemma 3 27B (开源)', context: 131072 },
     ],
   },
   {
@@ -88,6 +97,8 @@ const PROVIDERS = [
     baseUrl: 'https://api.x.ai/v1',
     sortOrder: 13,
     models: [
+      { id: 'grok-4.5', name: 'Grok 4.5 (2026 旗舰)', context: 256000 },
+      { id: 'grok-4.3', name: 'Grok 4.3', context: 256000 },
       { id: 'grok-4', name: 'Grok 4', context: 256000 },
       { id: 'grok-3', name: 'Grok 3', context: 131072 },
       { id: 'grok-3-mini', name: 'Grok 3 mini', context: 131072 },
@@ -103,7 +114,8 @@ const PROVIDERS = [
     baseUrl: 'https://api.mistral.ai/v1',
     sortOrder: 14,
     models: [
-      { id: 'mistral-large-latest', name: 'Mistral Large', context: 128000 },
+      { id: 'mistral-large-2512', name: 'Mistral Large 2 (2025.12)', context: 256000 },
+      { id: 'mistral-large-latest', name: 'Mistral Large Latest', context: 128000 },
       { id: 'mistral-medium-latest', name: 'Mistral Medium', context: 32000 },
       { id: 'mistral-small-latest', name: 'Mistral Small', context: 32000 },
       { id: 'codestral-latest', name: 'Codestral', context: 256000 },
@@ -112,6 +124,7 @@ const PROVIDERS = [
       { id: 'open-mixtral-8x7b', name: 'Mixtral 8x7B', context: 32000 },
       { id: 'pixtral-large-latest', name: 'Pixtral Large', context: 128000 },
       { id: 'pixtral-12b-2409', name: 'Pixtral 12B', context: 128000 },
+      { id: 'mistral-nemo-12b', name: 'Mistral Nemo 12B', context: 128000 },
       { id: 'mistral-embed', name: 'Mistral Embed', context: 8000 },
     ],
   },
@@ -149,9 +162,13 @@ const PROVIDERS = [
     baseUrl: 'https://api.deepseek.com/v1',
     sortOrder: 20,
     models: [
-      { id: 'deepseek-chat', name: 'DeepSeek V3', context: 65536 },
-      { id: 'deepseek-reasoner', name: 'DeepSeek R1', context: 65536 },
-      { id: 'deepseek-coder', name: 'DeepSeek Coder', context: 65536 },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro (2026 旗舰)', context: 131072 },
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', context: 131072 },
+      { id: 'deepseek-v3.2', name: 'DeepSeek V3.2', context: 65536 },
+      { id: 'deepseek-chat', name: 'DeepSeek V3 (Chat)', context: 65536 },
+      { id: 'deepseek-reasoner', name: 'DeepSeek R1 (Reasoner)', context: 65536 },
+      { id: 'deepseek-coder-v3', name: 'DeepSeek Coder V3', context: 65536 },
+      { id: 'deepseek-coder', name: 'DeepSeek Coder (旧版)', context: 65536 },
     ],
   },
   {
@@ -160,6 +177,12 @@ const PROVIDERS = [
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     sortOrder: 21,
     models: [
+      { id: 'qwen3-max', name: 'Qwen3 Max (2026 旗舰)', context: 2097152 },
+      { id: 'qwen3-235b-a22b', name: 'Qwen3 235B A22B (开源旗舰)', context: 131072 },
+      { id: 'qwen3-32b', name: 'Qwen3 32B', context: 131072 },
+      { id: 'qwen3-8b', name: 'Qwen3 8B', context: 32768 },
+      { id: 'qwen3-0.6b', name: 'Qwen3 0.6B (边缘计算)', context: 32768 },
+      { id: 'qwen3.5', name: 'Qwen3.5 (201 语言)', context: 131072 },
       { id: 'qwen-max', name: 'Qwen Max', context: 32768 },
       { id: 'qwen-plus', name: 'Qwen Plus', context: 131072 },
       { id: 'qwen-turbo', name: 'Qwen Turbo', context: 1000000 },
@@ -177,6 +200,11 @@ const PROVIDERS = [
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     sortOrder: 22,
     models: [
+      { id: 'glm-5.2', name: 'GLM-5.2 (2026 旗舰)', context: 131072 },
+      { id: 'glm-5.1', name: 'GLM-5.1', context: 131072 },
+      { id: 'glm-4.6', name: 'GLM-4.6', context: 131072 },
+      { id: 'glm-4.7-thinking', name: 'GLM-4.7 Thinking (代码推理)', context: 131072 },
+      { id: 'glm-z1-9b-0414', name: 'GLM-Z1 9B (开源推理)', context: 131072 },
       { id: 'glm-4-plus', name: 'GLM-4 Plus', context: 128000 },
       { id: 'glm-4', name: 'GLM-4', context: 128000 },
       { id: 'glm-4-air', name: 'GLM-4 Air', context: 128000 },
@@ -193,11 +221,14 @@ const PROVIDERS = [
     baseUrl: 'https://api.moonshot.cn/v1',
     sortOrder: 23,
     models: [
+      { id: 'kimi-k3', name: 'Kimi K3 (2026 旗舰)', context: 1048576 },
+      { id: 'kimi-k2.7-code', name: 'Kimi K2.7 Code', context: 1048576 },
+      { id: 'kimi-k2.6', name: 'Kimi K2.6', context: 1048576 },
+      { id: 'kimi-latest', name: 'Kimi Latest', context: 1048576 },
       { id: 'moonshot-v1-auto', name: 'Moonshot v1 Auto', context: 128000 },
       { id: 'moonshot-v1-8k', name: 'Moonshot v1 8K', context: 8192 },
       { id: 'moonshot-v1-32k', name: 'Moonshot v1 32K', context: 32768 },
       { id: 'moonshot-v1-128k', name: 'Moonshot v1 128K', context: 128000 },
-      { id: 'kimi-latest', name: 'Kimi Latest', context: 128000 },
     ],
   },
   {
@@ -206,6 +237,7 @@ const PROVIDERS = [
     baseUrl: 'https://qianfan.baidubce.com/v2',
     sortOrder: 24,
     models: [
+      { id: 'ernie-5.0', name: 'ERNIE 5.0 (2026 旗舰)', context: 32768 },
       { id: 'ernie-4.0-turbo-8k', name: 'ERNIE 4.0 Turbo', context: 8192 },
       { id: 'ernie-4.0-8k-latest', name: 'ERNIE 4.0', context: 8192 },
       { id: 'ernie-3.5-8k', name: 'ERNIE 3.5', context: 8192 },
@@ -222,6 +254,7 @@ const PROVIDERS = [
     baseUrl: 'https://spark-api-open.xf-yun.com/v1',
     sortOrder: 25,
     models: [
+      { id: 'spark-v5', name: 'Spark v5 (2026 旗舰)', context: 32768 },
       { id: 'spark-v4', name: 'Spark v4', context: 8192 },
       { id: 'spark-v3.5', name: 'Spark v3.5', context: 8192 },
       { id: 'spark-max', name: 'Spark Max', context: 8192 },
@@ -235,6 +268,7 @@ const PROVIDERS = [
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     sortOrder: 26,
     models: [
+      { id: 'doubao-2.0-pro', name: 'Doubao 2.0 Pro (2026 旗舰)', context: 131072 },
       { id: 'doubao-1.5-pro', name: 'Doubao 1.5 Pro', context: 32768 },
       { id: 'doubao-1.5-lite', name: 'Doubao 1.5 Lite', context: 32768 },
       { id: 'doubao-pro-4k', name: 'Doubao Pro 4K', context: 4096 },
@@ -249,6 +283,7 @@ const PROVIDERS = [
     baseUrl: 'https://api.hunyuan.cloud.tencent.com/v1',
     sortOrder: 27,
     models: [
+      { id: 'hunyuan-2.0-pro', name: 'Hunyuan 2.0 Pro (2026 旗舰)', context: 32768 },
       { id: 'hunyuan-pro', name: 'Hunyuan Pro', context: 32768 },
       { id: 'hunyuan-standard', name: 'Hunyuan Standard', context: 32768 },
       { id: 'hunyuan-lite', name: 'Hunyuan Lite (免费)', context: 32768 },
@@ -262,6 +297,7 @@ const PROVIDERS = [
     baseUrl: 'https://api.minimax.chat/v1',
     sortOrder: 28,
     models: [
+      { id: 'minimax-m3', name: 'MiniMax M3 (2026 旗舰)', context: 1048576 },
       { id: 'abab6.5s', name: 'ABAB 6.5s', context: 245760 },
       { id: 'abab6.5', name: 'ABAB 6.5', context: 8192 },
       { id: 'abab6', name: 'ABAB 6', context: 245760 },
