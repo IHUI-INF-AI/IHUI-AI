@@ -533,6 +533,31 @@ export async function resetWindowState(): Promise<void> {
   }
 }
 
+/**
+ * 清理 WebView2 缓存(Windows:EBWebView 目录,2026-07-29 #6 立)。
+ * prod 模式下该目录会无限增长(可达数百 MB),供前端设置项"清理缓存"调用。
+ * 清理后建议重启应用。
+ * @returns { ok: boolean } 非桌面端静默返回 { ok: false }
+ */
+export async function clearWebViewCache(): Promise<OkResult> {
+  if (!isTauri()) return { ok: false }
+  return await invoke<OkResult>('clear_webview_cache')
+}
+
+/**
+ * 设置托盘状态(2026-07-29 #10):切换 tooltip 表示新消息/AI 思考中。
+ * @param status 'idle' | 'new_message' | 'thinking'
+ * 非桌面端静默忽略。
+ */
+export async function setTrayStatus(status: 'idle' | 'new_message' | 'thinking'): Promise<void> {
+  if (!isTauri()) return
+  try {
+    await invoke('set_tray_status', { status })
+  } catch {
+    // 非桌面端或 tray 未初始化,静默忽略
+  }
+}
+
 // ================== Computer Control ==================
 
 /** 截图结果(base64 PNG)。 */
