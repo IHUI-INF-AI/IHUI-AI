@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
   Building2,
+  Cable,
   CheckCircle2,
   Cpu,
   Gift,
@@ -48,6 +49,7 @@ interface Props {
  * - 价格同时展示输入价 / 输出价(若 outputPrice 缺失,按 inputPrice*3 推算并标注"估算")
  * - 已配置:header 显示 ✓ 已配置徽章;底部「立即体验」+「更新 Key」(打开 QuickKeyDialog)
  * - 可配置但未配置:header 显示 ⚠ 可配置;底部「立即体验」+「一键配置 Key」(打开 QuickKeyDialog)
+ * - P0-5g 中转站:模型已上架中转站时显示"中转站可用"徽章 + 中转站定价(基础价 × 倍率)+「获取 API Key」按钮
  */
 export function ModelDetailDialog({
   model,
@@ -76,12 +78,24 @@ export function ModelDetailDialog({
     onConfigure(model)
   }, [model, onConfigure, onOpenChange])
 
+  /** P0-5g 跳转中转站 API Key 管理页 */
+  const handleRelayKeys = React.useCallback(() => {
+    onOpenChange(false)
+    router.push('/developer/relay/keys')
+  }, [router, onOpenChange])
+
   if (!model) return null
 
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
   const isOutputEstimated = model.outputPrice === undefined
   const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
   const description = model.description ? t(model.description) : t('market.defaultDescription')
+
+  // P0-5g 中转站定价计算
+  const relayMultiplier = model.relayPriceMultiplier ?? 1
+  const hasRelayMultiplier = Math.abs(relayMultiplier - 1) > 0.001
+  const relayInputPrice = model.inputPrice * relayMultiplier
+  const relayOutputPrice = outputPrice * relayMultiplier
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,6 +119,13 @@ export function ModelDetailDialog({
                   <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
                     <CheckCircle2 className="h-2.5 w-2.5" />
                     {t('quickKey.configured')}
+                  </span>
+                )}
+                {/* P0-5g 中转站可用徽章 */}
+                {model.relayPublic && (
+                  <span className="inline-flex items-center gap-0.5 rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-400">
+                    <Cable className="h-2.5 w-2.5" />
+                    {t('market.relayAvailable')}
                   </span>
                 )}
               </DialogTitle>
@@ -136,6 +157,21 @@ export function ModelDetailDialog({
             </div>
           )}
 
+          {/* P0-5g 中转站可用提示条 */}
+          {model.relayPublic && (
+            <div className="flex items-start gap-2 rounded-md bg-sky-50 px-3 py-2 text-[11px] text-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
+              <Cable className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1">{t('market.relayAvailableHint')}</span>
+              <button
+                type="button"
+                onClick={handleRelayKeys}
+                className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-800 transition-colors hover:bg-sky-500/30 dark:bg-sky-500/30 dark:text-sky-200"
+              >
+                {t('market.getRelayKey')}
+              </button>
+            </div>
+          )}
+
           <p className="text-sm leading-relaxed text-foreground/90">{description}</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -160,6 +196,39 @@ export function ModelDetailDialog({
               hint={isOutputEstimated ? t('detail.estimatedHint') : undefined}
             />
           </div>
+
+          {/* P0-5g 中转站定价区(模型已上架中转站且倍率 ≠ 1.0 时显示) */}
+          {model.relayPublic && hasRelayMultiplier && (
+            <div className="rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/20">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-800 dark:text-sky-300 [&>span]:translate-y-[0.5px]">
+                <Cable className="h-3 w-3" />
+                <span>{t('market.relayPricingTitle')}</span>
+                <span className="ml-auto rounded bg-sky-200/60 px-1.5 py-0.5 text-[10px] text-sky-800 dark:bg-sky-900 dark:text-sky-300">
+                  ×{relayMultiplier.toFixed(2)}
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <div className="text-muted-foreground [&>span]:translate-y-[0.5px]">
+                    <span>{t('market.relayInputPrice')}</span>
+                  </div>
+                  <div className="mt-0.5 font-semibold text-foreground">
+                    {relayInputPrice === 0 ? t('free') : `$${relayInputPrice.toFixed(2)}`}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground [&>span]:translate-y-[0.5px]">
+                    <span>{t('market.relayOutputPrice')}</span>
+                  </div>
+                  <div className="mt-0.5 font-semibold text-foreground">
+                    {relayOutputPrice === 0
+                      ? t('free')
+                      : `$${relayOutputPrice.toFixed(2)}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {model.features.length > 0 && (
             <div className="space-y-2">
@@ -194,6 +263,13 @@ export function ModelDetailDialog({
             >
               <KeyRound className="h-3.5 w-3.5" />
               {isConfigured ? t('market.updateKey') : t('market.configureKey')}
+            </Button>
+          )}
+          {/* P0-5g 中转站可用时,加「获取 API Key」CTA */}
+          {model.relayPublic && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleRelayKeys}>
+              <KeyRound className="h-3.5 w-3.5" />
+              {t('market.getRelayKey')}
             </Button>
           )}
           <Button size="sm" className="gap-1.5" onClick={handleTry}>
