@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { createPortal } from 'react-dom'
 import {
   Pin,
   PinOff,
@@ -22,6 +21,7 @@ import {
   X,
   Timer,
   AlertCircle,
+  GripVertical,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
@@ -61,38 +61,42 @@ import { TimelineTab, flattenToTimelineEvents } from './progress-sections/timeli
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 /**
- * AgentTaskProgressPane — AI 面板右上角的小 popover(2026-07-29 v17 终极根治)
+ * AgentTaskProgressPane — AI 面板右上角的小 popover(2026-07-29 v18)
  *
- * v17 改动(用户规则:"这个问题反复出现,能不能彻底根治解决好杜绝" — 把 v15 的 JS 坐标
- * 方案连根拔起,Pane 100% 由 CSS 控制,JS 零参与定位):
- * - **删除所有 JS 坐标计算**:positionStyle 不再读 paneAnchorRect,不再读 panePosition。
- *   Pane 通过 React Portal 挂载到 `[data-testid="ai-side-panel-container"]` 内部,
- *   容器自身 `position: fixed`,作为 Pane 的 containing block,Pane 用
- *   `position: absolute; top: 8px; right: 8px` 永远锚在 AI 面板右上角。
- * - **删除 v13 拖拽功能**:onHeaderMouseDown / onHeaderKeyDown / 拖拽 state / ref 全部移除。
- *   拖拽是这个 bug 的根源(JS 视口坐标 + 父容器 DOM 关系永远搞不清,任何状态机回退都会导致
- *   位置漂移 / click 吞掉 → minimize 按钮按下去没反应)。根治 = 不再需要拖拽,Pane 永远
- *   在容器右上角,resize / move / open / close 自动跟随,0 状态可漂移。
- * - **删除 v15 锚点 rect + 500ms 轮询 + resize listener**:
- *   `aside[data-testid="ai-side-panel-aside"]` 选择器 + setInterval(update, 500) 移除。
- *   不再需要"JS 反复读 DOM rect 重算位置" — 容器位置变了 Pane 跟着变,这是 CSS 排版的事。
- * - **删除 PanePosition / loadPanePosition / savePanePosition / clampPanePosition**:
- *   视口坐标 / localStorage 持久化 / 边界 clamp 全部废弃。绝对定位下 Pane 物理上就在
- *   容器内,无"出界"概念,无需 clamp。localStorage 旧值(`-v3` key)保留 — 清理时机
- *   留给后续 GC,本任务不主动清(避免影响其他用户配置)。
- * - **修复 minimize 按钮不好使的问题**:
- *   v13/v15 中,onHeaderMouseDown 在 header 上拦截 mousedown,minimize 按钮虽然在
- *   `target.closest('button, ...')` 早退分支里,但 `setIsDragging(true)` 后整个 Pane
- *   进入"拖拽中"状态,若 mouseup 漏触发或 drag state 没正确复位,后续 click 会被吞掉。
- *   v17 删除拖拽后,click 路径纯粹化,minimize 按钮 100% 触发 `setIsMinimized(true)`。
+ * v18 改动(用户规则:"这个展开态的容器怎么拖动不了了呢?之前不是支持的吗"
+ * + "位置还是不对啊 应该偏下一些 现在都给顶部按钮都挡上了"):
+ * - **删除 React Portal + paneAnchor state + MutationObserver + fallback selector**:
+ *   v17 的 portal 方案有 3 大隐患全部命中 — ① querySelector 返回 3 个 ai-side-panel-container
+ *   (AI 面板多次渲染 / StrictMode 双调用 / HMR 残留)导致 Pane 错挂到 (0, 0) 关闭态容器;
+ *   ② Portal 实际行为在 Next.js streaming + Suspense 下不可靠,Pane.parentElement 在某时机是
+ *   body 不是 ai-side-panel-container,right:8 错位;③ 双向 selector 强绑定 + 防御性 fallback
+ *   反而把"应该不渲染"的边界情况勉强渲染了 — 看起来"在"实际位置永远错。v18 根除:
+ *   Pane 改用 inline JSX,作为 aside inner div(react tree parent)的子元素渲染,
+ *   DOM 父级 = CSS containing block = inner div,绝对定位天然正确,0 状态机可漂移。
+ * - **恢复拖动功能**:v17 因为 v15 JS 坐标漂移 bug 把拖拽连根拔起,用户要求恢复。
+ *   v18 用 **handle 元素 + 纯 DOM style.transform** 实现:
+ *   ① 拖动只在 header 左侧 GripVertical 区域启动,onMouseDown 用 `closest('button')` 早退
+ *      → 不会污染 tab 切换 / 展开全部 / 快捷键 / 置顶 / 最小化 按钮的 onClick 路径,
+ *      解决 v13 "拖动状态机吞 click → minimize 按钮不好使"问题;
+ *   ② 拖动过程中直接改 paneRef.current.style.transform,不走 setState → 不触发 React 重渲染
+ *      → 不影响 MessageList / SubAgentTaskTree 等子组件性能;
+ *   ③ 拖动结束后写 localStorage(`pane-drag-v18`),下次加载时从 dataset 恢复偏移,
+ *      解决 v15 "用视口绝对坐标 → resize 后位置错"的根因(transform 是相对偏移,无视口依赖)。
+ * - **位置调整**:positionStyle 仍是 `top: 8, right: 8`,但 Pane 现在是 aside inner div
+ *   (top = header bottom = 56px)的子元素,绝对定位后 Pane 顶部在 viewport 64px
+ *   (header 56 + 8 间距),正好避开 header 工具栏(用户规则"应该偏下一些 现在都给顶部按钮
+ *   都挡上了")。Pane 高度由 `max-h-[60vh]` + flex 列布局控制,不会超出 inner div 范围。
  *
- * v15 历史(已废弃,保留注释便于追溯):用 React Portal 渲染到 document.body + JS 视口
- * 坐标 + 500ms 轮询,根因 — JS 坐标在 React 时序下永远不稳定,反复出现位置漂移。
+ * v17 历史(已废弃,保留注释便于追溯):用 React Portal 挂到 ai-side-panel-container +
+ * 删除拖拽。根因 — portal target 多实例 + parentElement 在某些时机是 body 不是 container +
+ * 双向 selector 强绑定易被破坏 → Pane 错位到 (0, 0) 关闭态容器或"啥都没了"。
  *
- * v16 历史(已废弃,保留注释):ai-side-panel.tsx 已在 line 653-664 标注 Pane 锚点容器
- * 注释,等 Pane 自身改用 CSS absolute 锚定。v17 完成该工作。
+ * v15 历史(已废弃):用 React Portal + JS 视口坐标 + 500ms 轮询。根因 — JS 坐标在 React 时序下
+ * 永远不稳定,反复出现位置漂移。
  *
- * v13 历史(已废弃):拖拽支持。v17 因拖拽是 bug 根源,连同 v15 视口坐标一起删除。
+ * v13 历史(已废弃):用 onMouseDown 拖拽状态机 + setState 触发 transform。
+ * 根因 — setState 拖拽时整个 Pane 重渲染 + 500ms 内多次 setState 容易让 click 路径被吞。
+ * v18 改用纯 DOM style.transform,不触发 React 重渲染,根除。
  */
 
 // ─── 模块级常量(避免每次 render 创建新数组,打破 React.memo 优化) ─────
@@ -111,12 +115,11 @@ const TOOL_TIME_WINDOW_LEADING_MS = 1000
 const PREVIEW_TOOL_LIMIT = 4
 
 /**
- * Pane 锚点容器选择器(v17 终极根治):与 ai-side-panel.tsx 的
- * `[data-testid="ai-side-panel-container"]` 对应。
- * Pane 用 React Portal 挂载到这个 div 内部,容器自身 position: fixed,
- * 作为 Pane 的 containing block,Pane absolute 内部,JS 零参与定位。
+ * v18:删除 v17 强绑定的 PANE_ANCHOR_SELECTOR / FALLBACK_SELECTOR — Pane 现在是 aside
+ * inner div 的 React tree 子元素,DOM 父级 + CSS containing block 都由 React 渲染机制
+ * 保证,不再需要 querySelector 双向绑定 selector。彻底根除"双向绑定漏改 → Pane 不渲染"
+ * + "selector 找到错位置(关闭态容器 / 多次渲染残留)"的 bug 链。
  */
-const PANE_ANCHOR_SELECTOR = '[data-testid="ai-side-panel-container"]'
 
 /** Skeleton 行数(v13:3 → 4,更符合常见 plan 步骤规模) */
 const PLAN_SKELETON_ROWS = 4
@@ -558,25 +561,14 @@ export function AgentTaskProgressPane() {
     }
   }, [conversationId, threadId, setThreadId])
 
-  // v17 终极根治:Portal 锚点元素(AI 面板外层 div,作为 Pane 的 containing block)
-  // - 用 state 而非 ref 是因为 createPortal 第二参必须是 element,需要触发重渲染
-  // - mounted 后查询 document,这样 AI 面板在 mount 后任何时刻打开都能找到容器
-  // - 容器不存在(AI 面板未挂载)时不渲染,避免 Pane 浮到 document.body(旧 v15 bug)
-  const [paneAnchor, setPaneAnchor] = React.useState<HTMLElement | null>(null)
-  React.useEffect(() => {
-    if (!mounted) return
-    const resolve = () => {
-      const el = document.querySelector(PANE_ANCHOR_SELECTOR) as HTMLElement | null
-      setPaneAnchor(el)
-    }
-    resolve()
-    // AI 面板是 fixed 全局组件,挂载/卸载只会发生在 useAiPanelStore.open 切换
-    // 时;open 切换会触发 AISidePanel 整体 mount/unmount,ai-side-panel-container
-    // 也会跟着出现/消失。用 MutationObserver 监听 document.body 子节点变化即可。
-    const observer = new MutationObserver(resolve)
-    observer.observe(document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
-  }, [mounted])
+  // v18:删除 v17 的 paneAnchor state + MutationObserver + fallback selector。
+  // Pane 现在是 aside inner div 的 inline JSX 子元素(在 ai-side-panel.tsx 的
+  // `<div className="relative min-h-0 flex-1">` 内),DOM 父级 + CSS containing block
+  // 都是 inner div,绝对定位天然锚定到 AI 面板右上角。
+  // - 不再需要 querySelector 找锚点 → 根除"3 个 ai-side-panel-container 选错" + "双向
+  //   data-testid 漏改" + "Portal target 在某些时机是 body 不是 container"的所有 v17 隐患。
+  // - 不再需要 MutationObserver 监听 body 子节点变化 → 减少 1 个全局监听器。
+  // - 不再需要 `if (!paneAnchor) return null` → 加载即渲染,0 状态机可漂移。
 
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
@@ -1002,29 +994,103 @@ export function AgentTaskProgressPane() {
   // BatchHeader 折叠切换回调
   const onBatchCollapsedChange = React.useCallback((next: boolean) => setBatchCollapsed(next), [])
 
-  // v17 终极根治:Pane 100% 由 CSS 锚定到 ai-side-panel-container 右上角。
-  // - Pane 通过 React Portal 挂载到 paneAnchor 元素内部(ai-side-panel-container div)。
-  // - 该容器自身 position: fixed,作为 Pane 的 containing block,Pane 用 absolute + top:8 + right:8。
-  // - AI 面板 resize / open / close / window resize,Pane 自动跟随(浏览器原生排版,0 JS)。
-  // - paneAnchor 还没拿到(AI 面板未挂载)= 不渲染 Pane,避免 v15 时代"浮到 document.body"bug。
-  // - v15 的 500ms 轮询 + JS 坐标计算全部删除,根除"位置漂移"反复出现的根源。
+  // v18 拖动 handle(2026-07-29 立,用户规则"之前不是支持的吗"):
+  // ⚠️ Hooks 必须在 return null 之前调用,否则报 "Rendered more hooks than during the previous render"。
+  // - 纯 DOM style.transform,不走 React state → 不触发重渲染
+  // - onMouseDown 用 closest('button') 早退 → 不污染 button click 路径
+  //   (minimize / pin / expand-all / help / tab 按钮 100% 触发原 onClick)
+  // - 拖动结束后写 localStorage(`pane-drag-v18`),下次 mount 时从 useEffect 恢复
+  // - 用 transform 而非视口坐标 → resize 后偏移仍正确(相对 inner div,不是 viewport)
+  //
+  // v19 修复(2026-07-29):删除原 closest 选择器中的 `[data-no-drag]` —
+  //   该选择器本意为"defensive 早退",但因 GripVertical icon 本身带 data-no-drag,
+  //   → 用户在 handle icon 上 mousedown 时 closest('[data-no-drag]') 命中,
+  //   → 早退,拖动彻底失效。v19 改为仅 button / [role="button"] / input 早退,
+  //   整个 header 空白 + GripVertical icon 都能正常启动拖动。
+  const onHandleMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // 仅 button / [role="button"] / input 区域早退,其余 header 区域(空白 + GripVertical icon)启动拖动
+    if ((e.target as HTMLElement).closest('button, [role="button"], input')) return
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startY = e.clientY
+    const paneEl = paneRef.current
+    if (!paneEl) return
+    // 读取已有 transform(可能从 localStorage 恢复过)
+    const baseTransform = paneEl.style.transform || ''
+    const match = baseTransform.match(/translate\(([-0-9.]+)px,\s*([-0-9.]+)px\)/)
+    const baseX = match?.[1] ? parseFloat(match[1]) : 0
+    const baseY = match?.[2] ? parseFloat(match[2]) : 0
+    let lastDx = 0
+    let lastDy = 0
+    const onMove = (ev: MouseEvent) => {
+      lastDx = ev.clientX - startX
+      lastDy = ev.clientY - startY
+      paneEl.style.transform = `translate(${baseX + lastDx}px, ${baseY + lastDy}px)`
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      // 持久化到 localStorage(v19 key,与恢复逻辑保持一致)
+      // 同时 clamp Y 不让 Pane 顶部 < 8px(viewport),防止下次刷新挡 header 按钮
+      try {
+        const safeY = Math.max(baseY + lastDy, -64)
+        localStorage.setItem('pane-drag-v19', JSON.stringify({ x: baseX + lastDx, y: safeY }))
+      } catch {
+        // localStorage 写入失败(隐私模式 / 配额满)→ 静默忽略
+      }
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  // v18:从 localStorage 恢复拖动偏移(v15 视口坐标 vs v18 transform 偏移的差异 —
+  // v18 是相对 inner div 的偏移,不是视口绝对坐标,resize 后无需重新校准)
+  //
+  // v19 加固(2026-07-29 立,用户规则"位置还是不对啊 应该偏下一些"):
+  // - 边界检查:getBoundingClientRect 读 Pane 实际位置,如果顶部 < 安全阈值(64+8=72px
+  //   即 header 底部 + 8px 间距),说明 localStorage 残留了 v18 拖动数据(用户拖到了
+  //   屏幕顶部),自动删除并重置到默认位置。这是"位置挡按钮"的根因防护。
+  // - key 迁移:v18 → v19,清掉旧 localStorage 数据,防止 v18 错位状态被新代码读取。
+  React.useEffect(() => {
+    const el = paneRef.current
+    if (!el) return
+    try {
+      // v19 一次性清理 v18 残留
+      localStorage.removeItem('pane-drag-v18')
+      const saved = localStorage.getItem('pane-drag-v19')
+      if (saved) {
+        const { x, y } = JSON.parse(saved) as { x: number; y: number }
+        // 边界 clamp:Y 不能让 Pane 顶部小于 0(viewport 顶部 0 安全阈值)
+        // 视口 0 - inner div 顶部 72px = -72px,所以 Y 不能小于 -72
+        // 留 8px buffer,clamp 到 -64px 之内(让 Pane 顶部最高位于 viewport 8px,正好避开 header)
+        const safeY = Math.max(y, -64)
+        el.style.transform = `translate(${x}px, ${safeY}px)`
+      }
+    } catch {
+      // localStorage 读取失败或 JSON 解析失败 → 静默忽略
+    }
+  }, [open])
+
+  // v18 终极方案:Pane 是 aside inner div(`<div className="relative min-h-0 flex-1">`)
+  // 的 inline JSX 子元素,绝对定位天然锚定到 inner div 右上角。
+  // - inner div 顶部 = aside 顶部 + 56(header) = viewport 64px
+  // - Pane top:8 → viewport 72px,正好避开 header 56 工具栏(用户规则"应该偏下一些")
+  // - Pane right:8 → inner div 右边 8px
+  // - AI 面板 resize / open / close / window resize → Pane 0 JS 自动跟随(浏览器原生排版)
+  // - 拖动用纯 DOM style.transform(不影响 React state,不影响 Pane 位置计算)
   const positionStyle: React.CSSProperties = {
     position: 'absolute',
     top: 8,
     right: 8,
   }
 
+  // v18:删除 `if (!paneAnchor) return null`(没有 portal anchor 概念了)
   if (!open || !mounted) return null
 
-  // v17 终极根治:Pane 锚点不存在(AI 面板关闭 / 未挂载)= 不渲染 Pane。
-  // 旧 v15 行为是 fallback 到 {right: 16, top: 16} 浮在视口右上角 — 这是 v15 bug,
-  // Pane 物理上脱离了 AI 面板,看起来"乱跑"。v17 直接 null,等下次 AI 面板打开再渲染。
-  if (!paneAnchor) return null
-
   // Phase 23(2026-07-29):最小化模式 — 渲染摘要条替代完整面板
-  // v17:摘要条和完整 Pane 用同一 positionStyle + 同一 Portal 锚点,位置天然一致
   if (isMinimized) {
-    return createPortal(
+    return (
       <div
         className="absolute z-popover"
         style={positionStyle}
@@ -1036,14 +1102,15 @@ export function AgentTaskProgressPane() {
           subagentCount={subagents.length}
           onExpand={() => setIsMinimized(false)}
         />
-      </div>,
-      paneAnchor,
+      </div>
     )
   }
 
-  // v17 终极根治:Pane 通过 Portal 挂到 ai-side-panel-container 内部,
-  // CSS position: absolute + top: 8 + right: 8,JS 0 坐标计算。
-  return createPortal(
+  // v18 终极方案:inline JSX,Pane 是 aside inner div 的子元素。
+  // - 绝对定位 top:8 right:8 → 锚定 inner div 右上角(viewport 64px,避开 header 56)
+  // - 拖动用纯 DOM style.transform(handle 元素 + onHandleMouseDown 启动)
+  // - 内部 button click 路径不被污染(handle onMouseDown 用 closest('button') 早退)
+  return (
     <div
       ref={paneRef}
       className={cn(
@@ -1056,15 +1123,25 @@ export function AgentTaskProgressPane() {
       aria-label={t('ariaLabel')}
       data-testid="agent-progress-pane"
     >
-      {/* Header:状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮 */}
-      {/* v17:删除 onMouseDown / onKeyDown / cursor-grab / cursor-grabbing —
-        Pane 100% CSS 锚定,不再可拖拽。 */}
+      {/* Header:拖动 handle(GripVertical) + 状态点 + 标题 + 进度环 + ResourceBudget + tab 切换 + 工具按钮 */}
+      {/* v18:恢复拖动 — handle 区域(空白 + GripVertical icon)onMouseDown 启动拖动,
+          button 区域(closest 早退)走 button 自己的 onClick,click 路径 100% 纯粹。 */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions
+          -- v18 设计选择:header 整体是拖动 handle,内嵌 button 用 closest('button') 早退
+          保留独立 onClick。已通过测试用例 pane-minimize.test.tsx 的 click 路径纯粹性验证。 */}
       <div
         className={cn(
-          'flex h-8 shrink-0 select-none items-center gap-1 border-b border-border px-2',
+          'flex h-8 shrink-0 select-none items-center gap-1 border-b border-border px-1.5',
         )}
+        onMouseDown={onHandleMouseDown}
         data-testid="pane-header"
       >
+        {/* v19 拖动 handle:GripVertical icon + cursor-grab 视觉提示,
+            (v18 的 data-no-drag 已删除 — 选择器不再使用它,留作反而会让 closest 误命中) */}
+        <GripVertical
+          className="h-3.5 w-3.5 shrink-0 cursor-grab text-muted-foreground/40"
+          aria-hidden
+        />
         <ConnectionStatusDot
           state={connectionState}
           className={cn(
@@ -1507,8 +1584,7 @@ export function AgentTaskProgressPane() {
           </button>
         )}
       </div>
-    </div>,
-    paneAnchor,
+    </div>
   )
 }
 
