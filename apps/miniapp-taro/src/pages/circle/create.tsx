@@ -4,7 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { get, post, getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './create.css'
 
 const MAX_CONTENT = 500
@@ -48,8 +48,7 @@ const VIS_KEY: Record<string, string> = {
 }
 
 export default function CircleCreatePage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [form, setForm] = useState<FormState>({
     content: '',
