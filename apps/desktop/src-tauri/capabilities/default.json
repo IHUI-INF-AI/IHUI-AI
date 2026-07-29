@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "IHUI AI 默认能力",
+  "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)",
   "windows": ["main", "admin"],
   "permissions": [
     "core:default",
