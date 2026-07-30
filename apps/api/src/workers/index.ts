@@ -7,16 +7,21 @@ import { startNotificationWorker } from './notification-worker.js'
 import { startAiCallbackWorker } from './ai-callback-worker.js'
 import { startNotificationDispatchWorker } from './notification-dispatch-worker.js'
 import { startRegistrySyncWorker } from './registry-sync-worker.js'
+import {
+  startRelayHealthCheckWorker,
+  RELAY_HEALTH_CHECK_QUEUE_NAME,
+} from './relay-health-check-worker.js'
 
 /**
  * 启动所有 BullMQ Worker（异步任务消费者）。
  *
- * 已注册 Worker（5 个，与队列一一对应，无死代码）：
+ * 已注册 Worker（6 个，与队列一一对应，无死代码）：
  * - email: 邮件发送（调用 sendEmail 完成 SMTP）
  * - notification: 通知处理（DB 落库 + WebSocket 推送 + 可选邮件触发）
  * - aiCallback: AI 回调处理（持久化 assistant 消息 + token + WebSocket 推送）
  * - notificationDispatch: 定向通知 email/sms 异步派发（send-targeted 端点入队）
  * - registrySync: 资源上游同步（MCP/Skill/Plugin 四源拉取 + upsert + 日志）
+ * - relayHealthCheck: 中转站 Key 池健康巡检（每 5 分钟 ping /v1/models + 熔断）
  *
  * 拆分说明(2026-07-18):
  * - 每个 Worker 独立文件(email-worker.ts 等),便于单独维护与测试
@@ -30,6 +35,7 @@ export function startWorkers(server: FastifyInstance): Worker[] {
     startAiCallbackWorker(server),
     startNotificationDispatchWorker(server),
     startRegistrySyncWorker(server),
+    startRelayHealthCheckWorker(server),
   ]
 
   server.log.info(
@@ -41,9 +47,10 @@ export function startWorkers(server: FastifyInstance): Worker[] {
         QUEUE_NAMES.aiCallback,
         QUEUE_NAMES.notificationDispatch,
         REGISTRY_SYNC_QUEUE_NAME,
+        RELAY_HEALTH_CHECK_QUEUE_NAME,
       ],
     },
-    'BullMQ workers started (all 5 queues have consumers)',
+    'BullMQ workers started (all 6 queues have consumers)',
   )
 
   return workers
