@@ -803,7 +803,7 @@ export function AISidePanel() {
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
             {/* 浮窗模式切换按钮(2026-07-30):
-                - docked 模式:显示 Pin 图标,点击切换到浮窗模式 + 最小化为 FAB(默认只显示小按钮)
+                - docked 模式:显示 Pin 图标,点击切换到浮窗模式 + 直接展开完整面板(含输入框)
                 - float 模式:显示 PanelLeft(停靠) + Minus(最小化)两个按钮 */}
             {floatMode ? (
               <>
@@ -837,7 +837,8 @@ export function AISidePanel() {
                   type="button"
                   onClick={() => {
                     setFloatMode(true)
-                    setFloatMinimized(true)
+                    setFloatMinimized(false)
+                    openPanel()
                   }}
                   aria-label={tc('floatMode')}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
