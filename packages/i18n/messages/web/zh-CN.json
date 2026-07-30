@@ -302,6 +302,9 @@
     "mcpProjects": "MCP 项目",
     "openclaw": "OpenClaw",
     "recruitment": "招聘",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
     "adminGroup": {
       "operation": "运营管理",
       "moderation": "内容审核",
@@ -12305,11 +12308,23 @@
     },
     "topBar": {
       "editor": "编辑器",
-      "close": "关闭"
+      "close": "关闭",
+      "document": "文档",
+      "browser": "内置浏览器",
+      "terminal": "终端",
+      "codeChanges": "代码变更",
+      "agent": "智能体",
+      "mcp": "MCP",
+      "settings": "设置",
+      "skill": "技能",
+      "plus": "添加视图"
     },
     "viewSwitcher": {
       "searchPlaceholder": "搜索视图...",
-      "noMatch": "无匹配项"
+      "noMatch": "无匹配项",
+      "groupView": "视图",
+      "groupTools": "工具",
+      "groupSettings": "设置"
     },
     "layout": {
       "documentView": "文档视图",

@@ -38,7 +38,6 @@ import fenxiaoIconIcon from '@/assets/remote/images/fenxiao-icon.png'
 import backIcon from '@/assets/remote/images/back.svg'
 import headertitleyIcon from '@/assets/remote/images/headertitley.png'
 import headertitletIcon from '@/assets/remote/images/headertitlet.png'
-import ddBgIcon from '@/assets/remote/images/dd-bg.jpg'
 import icon301Icon from '@/assets/remote/images/3_01.png'
 import icon302Icon from '@/assets/remote/images/3_02.png'
 import icon303Icon from '@/assets/remote/images/3_03.png'
@@ -107,6 +106,17 @@ import celanceIcon from '@/assets/remote/images/celance.jpg'
 import defaultMingpian2Icon from '@/assets/remote/images/default/mingpian.png'
 import textTipIcon from '@/assets/remote/images/text-tip.jpg'
 import sharIcon from '@/assets/remote/images/shar.jpg'
+import addTextIcon from '@/assets/remote/images/add/text.svg'
+import addPicterIcon from '@/assets/remote/images/add/picter.svg'
+import addVideoIcon from '@/assets/remote/images/add/video.svg'
+import addAudioIcon from '@/assets/remote/images/add/audio.svg'
+import videoIconIcon from '@/assets/remote/images/video_icon.png'
+import yinpinIconIcon from '@/assets/remote/images/icon-yinpin.png'
+import freeVipIconIcon from '@/assets/remote/images/free_vip_icon.png'
+import freeUseIconIcon from '@/assets/remote/images/free_use_icon.png'
+import freeTimeIconIcon from '@/assets/remote/images/free_time_icon.png'
+import buymonthIconIcon from '@/assets/remote/images/buymonth_icon.png'
+import hasbuyIconIcon from '@/assets/remote/images/hasbuy_icon.png'
 
 /** 远程图标注册表:name → 资源路径(本地 import 或远程 URL) */
 export const REMOTE_ICONS: Record<string, string> = {
@@ -204,7 +214,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   back: backIcon,
   headertitley: headertitleyIcon,
   headertitlet: headertitletIcon,
-  ddBg: ddBgIcon,
+  ddBg: aizhsUrl('sys-mini/dd-bg.png'),
   icon301: icon301Icon,
   icon302: icon302Icon,
   icon303: icon303Icon,
@@ -410,6 +420,17 @@ export const REMOTE_ICONS: Record<string, string> = {
   wxfb: bspappUrl('user/wxfb.png'),
   zfb: bspappUrl('user/zfb.png'),
   shar: sharIcon,
+  addText: addTextIcon,
+  addPicter: addPicterIcon,
+  addVideo: addVideoIcon,
+  addAudio: addAudioIcon,
+  videoIcon: videoIconIcon,
+  yinpinIcon: yinpinIconIcon,
+  freeVipIcon: freeVipIconIcon,
+  freeUseIcon: freeUseIconIcon,
+  freeTimeIcon: freeTimeIconIcon,
+  buymonthIcon: buymonthIconIcon,
+  hasbuyIcon: hasbuyIconIcon,
 }
 
 /**
