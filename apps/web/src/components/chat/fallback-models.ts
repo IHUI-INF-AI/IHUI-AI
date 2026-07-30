@@ -374,5 +374,17 @@ export const VENDOR_LABEL: Record<string, string> = {
   ornith: 'Ornith',
   codebrain: 'CodeBrain',
   mai: 'MAI',
+  // 2026-07-30 补齐 models 模块 PROVIDER_GROUPS 用到的厂商(原走 i18n key 但缺翻译导致显示 raw key path)
+  cloudflare_workers_ai: 'Cloudflare Workers AI',
+  nvidia_nim: 'Nvidia NIM',
+  github_models: 'GitHub Models',
+  vercel_ai_gateway: 'Vercel AI Gateway',
+  opencode_zen: 'OpenCode Zen',
+  modal: 'Modal',
+  inferencenet: 'InferenceNet',
+  nlpcloud: 'NLP Cloud',
+  scaleway: 'Scaleway',
+  alibaba_intl: 'Alibaba Cloud International',
+  local: '本地',
   other: '其他',
 }
