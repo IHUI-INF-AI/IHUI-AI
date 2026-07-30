@@ -1,11 +1,10 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export default function RechargeFail() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const router = useRouter()
   const [orderNo, setOrderNo] = useState('')
   const [amount, setAmount] = useState(0)

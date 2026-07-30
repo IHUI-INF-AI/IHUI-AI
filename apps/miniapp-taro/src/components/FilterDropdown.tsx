@@ -1,6 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import { useState } from 'react'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface FilterDropdownProps {
   label?: string
@@ -16,8 +16,7 @@ export default function FilterDropdown({
   onChange,
 }: FilterDropdownProps) {
   const [open, setOpen] = useState(false)
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const selected = options.find((o) => o.value === value)
 
   return (

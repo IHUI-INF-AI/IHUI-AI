@@ -3,7 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import * as api from '@/api'
 import type { UserInfo } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import './index.css'
 
@@ -82,10 +82,7 @@ function readDevLink(userInfo: UserInfo | null): DeveloperLink | null {
 
 export default function DevEnterCover() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
 
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(false)

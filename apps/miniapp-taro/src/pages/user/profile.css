@@ -1,0 +1,133 @@
+.pf-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 48rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 身份标签行(对齐原项目 identity-tag) ===== */
+.pf-identity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  margin: 0 24rpx;
+}
+.pf-identity-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.pf-identity-tags {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.pf-tag {
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+}
+.pf-tag-vip {
+  /* TODO: custom color: 原项目 identity-vip #716fff/#f0eeff,无对应 token,保留原值 */
+  color: #716fff;
+  background: #f0eeff;
+}
+.pf-tag-admin {
+  /* TODO: custom color: 原项目 identity-trader #7ca500/#f0f8e8,无对应 token,保留原值 */
+  color: #7ca500;
+  background: #f0f8e8;
+}
+.pf-tag-normal {
+  color: #999;
+  background: #f5f5f5;
+}
+
+/* ===== 区块分组(对齐原项目 settings-section) ===== */
+.pf-section {
+  margin: 0 24rpx 32rpx;
+}
+.pf-section-title {
+  display: block;
+  padding: 0 8rpx 16rpx;
+  font-size: 26rpx;
+  color: #999;
+}
+.pf-section-card {
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+/* ===== 信息行(对齐原项目 settings-item:左标签 + 右值 + 箭头,用间距分隔不用 border) ===== */
+.pf-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 24rpx;
+}
+.pf-item + .pf-item {
+  margin-top: 8rpx;
+}
+.pf-item-label {
+  font-size: 30rpx;
+  color: #333;
+  flex-shrink: 0;
+}
+.pf-item-right {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.pf-item-value {
+  font-size: 28rpx;
+  color: #666;
+  margin-right: 16rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pf-arrow {
+  font-size: 32rpx;
+  color: #999;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* ===== 头像行(对齐原项目 settings-item-avatar:120rpx + 50% + 半透明编辑提示) ===== */
+.pf-item-avatar {
+  padding: 32rpx 24rpx;
+}
+.pf-avatar-wrap {
+  position: relative;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0f0f0;
+}
+.pf-avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.pf-avatar-edit-tip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+}
+.pf-avatar-hint {
+  flex: 1;
+  font-size: 28rpx;
+  color: #999;
+  margin-left: 24rpx;
+}

@@ -1,0 +1,119 @@
+/* TitleSwitchTypeBar — 对齐原项目 type-bar/tab.vue + single.vue 视觉特征
+ * 保留原项目间距/圆角/字体大小,颜色统一用 CSS 变量(支持 dark mode 自动切换)。
+ * - single 模式:选中项主色高亮,未选中灰底
+ * - multi 模式:选中项主色高亮 + 勾选图标,未选中灰底
+ */
+
+.title-switch-type-bar__list {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 18rpx 20rpx 18rpx 10rpx;
+  overflow-x: auto;
+}
+
+.title-switch-type-bar__item {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44rpx;
+  padding: 0 8rpx;
+  margin-right: 6rpx;
+  border-radius: 8rpx;
+  border: 1px solid var(--color-border);
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+  font-weight: bold;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.title-switch-type-bar__item:last-child {
+  margin-right: 0;
+}
+
+/* 选中态:single / multi 共用主色高亮 */
+.title-switch-type-bar__item--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.title-switch-type-bar__icon {
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 10rpx;
+}
+
+/* multi 模式勾选图标 */
+.title-switch-type-bar__check {
+  margin-left: 6rpx;
+  font-size: 28rpx;
+  line-height: 1;
+  color: var(--color-primary-foreground);
+}
+
+/* 自定义弹窗:对齐原项目 .mask / .add_type */
+.title-switch-type-bar__mask {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 990;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.title-switch-type-bar__modal {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+  z-index: 996;
+  width: 427rpx;
+  height: 303rpx;
+  border-radius: 20rpx;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-switch-type-bar__modal-title {
+  font-size: 24rpx;
+  font-weight: bold;
+  color: var(--color-card-foreground);
+  margin-bottom: 50rpx;
+}
+
+.title-switch-type-bar__modal-input {
+  width: 321rpx;
+  height: 49rpx;
+  border: 1px solid var(--color-border);
+  border-radius: 8rpx;
+  margin-bottom: 50rpx;
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+  padding: 0 12rpx;
+  box-sizing: border-box;
+}
+
+.title-switch-type-bar__modal-btn {
+  width: 100rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: bold;
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  border-radius: 8rpx;
+}

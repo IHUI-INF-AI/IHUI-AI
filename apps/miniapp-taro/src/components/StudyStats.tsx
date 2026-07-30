@@ -1,6 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import ProgressCircle from './ProgressCircle'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface StudyStatsData {
   totalMinutes?: number
@@ -23,8 +23,7 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
     weekTarget = 300,
   } = data
 
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const weekPercent = weekTarget > 0 ? (weekMinutes / weekTarget) * 100 : 0
 

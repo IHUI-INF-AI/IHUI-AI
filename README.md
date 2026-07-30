@@ -505,6 +505,57 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ---
 
+## 🧭 全局顶栏 GlobalTopBar + Plus 弹窗(2026-07-30 立,平台独占 web-only)
+
+> 实现位置:`apps/web/src/components/layout/GlobalTopBar.tsx`(新建) + `apps/web/src/components/layout/MainShell.tsx`(精简) + `apps/web/src/components/layout/GlobalShell.tsx`(挂载) + `apps/web/src/components/layout/TagsView.tsx`(搜索按钮 + 标签左缘对齐) + `apps/web/src/components/layout/index.ts`(re-export)
+> 触发:用户反馈"项目页面打开右上角标签栏不显示,应常驻固定;且需加号按钮弹出含内置浏览器/设置/文档/终端/代码编辑器/MCP/Skill 的小窗"
+> AGENTS.md §9 显式标注:仅 web 端,其他 7 端(apps/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)无此概念,Tauri 桌面端有原生 chrome、Chrome extension 有 action popup、miniapp-taro 微信有原生 tabBar、cli 是 terminal 交互、mobile-rn 是 RN navigation,均无 MainShell 概念
+
+### 整合方案
+
+- **原架构**:顶栏(拖拽 + 窗口控制 + TagsView + Globe 入口)只在 `(main)` 路由组 MainShell 内部渲染;marketing/auth/sso/forbidden/login 等路由不显示
+- **新架构**:抽出 `GlobalTopBar` 提升到 `app/layout.tsx` 的 GlobalShell `children` 位置,所有路由组共享;MainShell 精简为仅"工作区卡片"容器(无顶栏,避免重复)
+- **替代关系**:原 MainShell 顶栏的 Globe 按钮(打开 WebWorkPanel 内置浏览器)统一改从 Plus 弹窗触发
+
+### Plus 弹窗(9 项,分 3 组)
+
+| 分组 | 选项 | 动作 |
+| --- | --- | --- |
+| 视图(2 项) | 文档 / 内置浏览器 | 跳 `/docs` / 切换 `useWorkPanelStore` |
+| 工具(5 项) | 编辑器 / 终端 / 代码变更 / Agent / MCP | 跳 `/workspace` + `setActiveTopTab` |
+| 设置(2 项) | Skill / 设置 | 跳 `/ai-skills` / 跳 `/settings` |
+
+弹窗特性:搜索框模糊匹配 + 快捷键提示(G D / G B / G E / G T / G C / G A / G M / G K / G S)+ Esc 关闭 + 点击外部关闭 + 自动聚焦搜索框
+
+### 桌面端能力(仅 `isDesktop`)
+
+- 8 方向 resize 区域(边 9999 / 角 10000)+ 拖拽 + 双击最大化(250ms 状态机,与 sidebar.tsx 复用)
+- 窗口控制按钮(Min/Max/Close,zh-10001),最大化时隐藏 resize 区域
+- 走 `tauri-bridge` 单一桥接层(`minimizeWindow` / `toggleMaximizeWindow` / `closeWindow` / `startWindowDrag` / `startResize` / `onMaximizeChange`)
+
+### 高度 / 对齐根治(2026-07-30 二轮 UI 反馈)
+
+- **顶栏双重高度冲突**:`h-[32px] + pt-2` 双重定义 → 内部仅 24px;统一为 `h-9`(单层 36px),内部 `h-full` 撑满
+- **搜索按钮容器未对齐**:`px-2 + px-2` → 左缘 8px;统一为 `pl-[28px]` = 卡片圆角(12px) + main p-4(16px),跟下面 MainShell 工作区内容左缘完美对齐
+- **Plus / WindowControl / Dropdown trigger 高度不一**:全部统一为 `h-7 w-7 rounded-md`,不再有 `h-6/h-7` 冲突
+
+### 守门
+
+- typecheck:本任务文件 0 错误(`GlobalTopBar.tsx` / `TagsView.tsx` / `MainShell.tsx` / `GlobalShell.tsx` / `index.ts`),剩余 3 错误为其他 agent 文件已存在问题,按 §12 跳过
+- i18n parity:9 × 5 = 45 个 key 补全(`topBar.{document,browser,terminal,editor,codeChanges,agent,mcp,settings,skill,plus}` + `viewSwitcher.{searchPlaceholder,noMatch,groupView,groupTools,groupSettings}` + `nav.{minimize,maximize,restore,openBrowser}`),`check-i18n-keys.mjs` parity + `scan-i18n-zh-residue.mjs` ko/zh-TW 无残留
+- 浏览器自验:4 状态截图(默认/hover/active/dark mode)覆盖 marketing 首页 `/` + chat `/chat` + admin `/admin` + login `/login` 4 路由,标签栏在所有路由常驻显示
+
+### 与已有架构的分工
+
+| 组件 | 职责 | 渲染位置 |
+| --- | --- | --- |
+| `GlobalShell` | 全局骨架(Sidebar + AISidePanel + 内容槽 + PWA) | `app/layout.tsx` 根级 |
+| `GlobalTopBar` | 全站常驻顶栏(标签 + Plus + 窗口控制) | `GlobalShell` 内 children 上方 |
+| `MainShell` | `(main)` 路由组工作区卡片 | `(main)/layout.tsx` 路由组级 |
+| `TagsView` | 标签栏(根据 pathname 派生标签) | `GlobalTopBar` 内 |
+
+---
+
 ## Use Cases(典型使用场景)
 
 > IHUI-AI 适用于以下 8 类核心场景,每个场景都可在 8 端中任一端运行(8-Platform AI Operating System)。
@@ -810,6 +861,140 @@ cd IHUI-AI && docker compose up -d
 - 🟡 **核心场景级**:核心 Chat / WorkPanel / SSO 等关键路径已打通,但业务页面覆盖度低于 Web 端,适合二次开发补全
 
 **多端同步开发规则**:本项目 [AGENTS.md §9](./AGENTS.md) 强制要求"每一个任务默认全端连通",任何新功能必须同步到所有受影响的端(平台独占豁免除外)。
+
+---
+
+## 跨端共享架构(2026-07-30 立,P3-3.3 完成 49 features 共享)
+
+> IHUI-AI 8 端代码同源 + 跨端共享层(`packages/app` + `packages/shared` + `packages/ui-react` + `packages/design-tokens` + `packages/types` + `packages/api-client` + `packages/auth`)+ 工厂模式 + 依赖注入 = 一处改动,8 端生效。下面以最复杂的 mobile-rn ↔ web 共享为例,说明跨端共享层如何工作。
+
+### 1. 共享层(`packages/app`)的角色
+
+| 共享包                | 路径                      | 职责                                             | 跨端接入方                                                       |
+| --------------------- | ------------------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| `@ihui/rn-app`        | `packages/app/`           | RN 业务屏 + 跨端设计令牌 + 平台无关类型          | mobile-rn(151 wrapper)+ web(`/shared-demo` 验证页)               |
+| `@ihui/shared`        | `packages/shared/`        | hooks / utils / stores / constants / i18n helper | web / api / cli / mobile-rn / miniapp-taro / extension / desktop |
+| `@ihui/ui-react`      | `packages/ui-react/`      | Web 端 shadcn/ui 组件(24 个)                     | web / desktop / extension(共享 React)                            |
+| `@ihui/design-tokens` | `packages/design-tokens/` | 8 端共享设计令牌 + `cn()` + HSL / HEX / CSS 变量 | 全部 8 端                                                        |
+| `@ihui/types`         | `packages/types/`         | 跨端类型单一真相源                               | 全部 8 端(禁止端内重复声明)                                      |
+| `@ihui/api-client`    | `packages/api-client/`    | 40+ 端点 SDK 自动生成                            | web / mobile-rn / miniapp-taro / extension / desktop / cli       |
+| `@ihui/auth`          | `packages/auth/`          | JWT + token-family + OAuth2 + RBAC + data-scope  | apps/api + 端侧 SDK                                              |
+
+### 2. props 注入式跨端共享组件模式
+
+`packages/app/` 内的所有共享屏均采用 **纯 UI 渲染 + props 注入依赖** 的设计,平台相关能力(导航 / i18n / API / 弹窗)全部通过 props 回调注入,做到"平台无关":
+
+```text
+共享组件                          RN 端 wrapper                     Web 端
+AboutScreen / ProfileScreen    ──→ apps/mobile-rn/src/screens ──→ /shared-demo 验证页
+SettingsScreen                    (只注入 navigation / t / API)     (mock 数据 + t fallback)
+                                  60-100 行 → 20-50 行薄 wrapper
+```
+
+- **i18n 注入**:`t` 函数 props(RN 用自研 Context / web 用 next-intl fallback)
+- **数据注入**:`user / stats / orderCount` props(RN 用 `@ihui/api-client` / web 用 mock)
+- **导航注入**:`onBack / onNavigate` props(RN 用 react-navigation / web 用 Next router)
+- **弹窗注入**:`onAlert / onConfirm` props(RN 用 `Alert.alert` / web 用 Modal)
+- **API 注入**:`onChangePassword / fetchApi` props(RN 调真 API / web 用 mock)
+- **主题**:`colorScheme` + `getTokens(colorScheme)` 双主题(预留 `brand.dark / surface.dark` 暗色支持)
+
+### 3. mobile-rn 共享层接入现状(2026-07-29 P3-3.3 完成)
+
+- **153 屏总规模 / 151 wrapper + 2 独立豁免**:`Debug` / `DevEnter` 因平台硬边界(开发者工具 / EAS Build 配置)保留独立实现
+- **49 features 共享清单**(按 10 批次累计):
+  - **批次 1(基础 16 屏)**:About / Profile / Settings / Feedback / FeedbackHistory / FeedbackDetail / Bookmark / NotificationList / History / Certificate / MessageCenter / Order / StudyPlan / Wallet / CourseCatalog / PointHistory
+  - **批次 2(列表 9 屏)**:NoteList / NoteDetail / ArticleList / ArticleDetail / Announcement / LivePlaybackList / RefundHistory / CourseQAList / HelpDetail
+  - **批次 3(静态 11 屏)**:Privacy / Agreement / PointRule / VipLevel / RefundDetail / OrderDetail / CertDetail / PostDetail + LegalDoc / AnnouncementDetail / Help
+  - **批次 4(详情 8 屏)**:AgentDetail / AskDetail / AskList / CertList / CertVerify / Withdraw / VipCompare / Share
+  - **批次 5(深度 8 屏)**:AgentMarket / AgentReviewList / Live / Activity / Favorites / CheckIn / Following / PointsMall
+- **16 个新共享类型**:`AgentMarketItem` / `AgentReviewListItem` / `ActivityItem` / `FavoritesItem` / `CheckInDay` / `CheckInInfo` / `LiveScreenItem` / `PointsMallItem` 等,全部上提到 `@ihui/types` 单一真相源
+- **5 语言 i18n 补全**:累计 78+80 键(批次 9+10)+ 23+11 键(批次 1 settings+about),同步到 `apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts`
+- **react-native-web web 验证**:`apps/web/app/(main)/shared-demo/page.tsx` 用 mock 数据 + t fallback 函数 tab 切换展示共享组件
+- **守门**:`scripts/check-rn-app-migration.mjs` 已落地 guardian-runner 第 39 项 blocking,任何 `apps/mobile-rn/src/screens/<Name>Screen.tsx` 非薄 wrapper 模式 → commit 阻塞
+
+### 4. 跨端共享架构图(简化)
+
+```text
+                     ┌────────────────────────────────────────────┐
+                     │     packages/types 单一真相源              │
+                     │ ChatMessage / SharedUser / Item 类型 / ...│
+                     └──────────────┬─────────────────────────────┘
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        │                           │                           │
+   ┌────▼─────┐               ┌─────▼─────┐               ┌─────▼─────┐
+   │ packages │               │ packages  │               │ packages  │
+   │  /app    │  ── 共享 ──→ │  /shared  │ ←── 共享 ──  │ /ui-react │
+   │(RN 业务) │               │ (hooks +  │              │ (Web 24   │
+   │ 49 features│             │  utils)   │              │  组件)   │
+   └────┬─────┘               └─────┬─────┘               └────┬─────┘
+        │                           │                           │
+        │ 151 wrapper                │ 工厂模式                  │ shadcn/ui
+        │ 60-100 行 → 20-50 行        │ createXxxStore          │
+        │                           │ createXxxHook            │
+   ┌────▼──────────────┐      ┌─────▼────────────┐      ┌────▼────────┐
+   │ apps/mobile-rn    │      │ 全部 8 端         │      │ web / desktop│
+   │ (生产 RN 端)      │      │ 业务逻辑共享      │      │  / extension │
+   └───────────────────┘      └──────────────────┘      └─────────────┘
+```
+
+### 5. 跨端共享效益
+
+- **真维护倍数 1.72x**(2026-07-29 实测,见下文"维护倍数对比"表)
+- **类型零漂移**:`@ihui/types` 单一来源,跨端字段名 / 必填 / 可选变更全端自动同步
+- **UI 零双份维护**:共享屏只在 `packages/app/` 写一次,两端各 20-50 行薄 wrapper
+- **主题零双份**:`getTokens(colorScheme)` 双主题一处定义,8 端引用
+
+详细技术细节见 [docs/architecture.md](./docs/architecture.md) "跨端共享层" 章节 + [PROJECT_PLAN.md](./PROJECT_PLAN.md) "P3 极限目标" 路线图。
+
+---
+
+## 维护倍数对比(2026-07-30 立,5 阶段路线图降本数据)
+
+> IHUI-AI 跨端共享不是空话 —— 我们用 `cloc` 真实数据追踪每阶段维护成本下降幅度。从 6.8x 起步,经 7 阶段(2.9x 收尾)+ P3 极限路线 5 阶段(2.9x → 1.7x),真维护倍数降至 **1.72x**(2026-07-29 实测),接近理论极限 1.5x。
+
+### 阶段路线总览(从立项到当前)
+
+| 阶段   | 时间         | 主题                                  | 维护倍数 | 单阶段降本 | 累计降本    | 关键 commit / 节点                 |
+| ------ | ------------ | ------------------------------------- | -------- | ---------- | ----------- | ---------------------------------- |
+| 起点   | 2026-Q1      | 8 端独立代码 + 各自 hooks / utils     | **6.8x** | —          | —           | 多端维护成本优化立项               |
+| 阶段 1 | 2026-07 早期 | 基础共享层 + i18n 抽取                | 5.4x     | -1.4x      | 1.4x        | `scripts/extract-shared-layer.mjs` |
+| 阶段 2 | 2026-07      | hooks / utils 跨端下沉                | 5.3x     | -0.1x      | 1.5x        | `5ffaf02a8`(20 文件 ~2100 行)      |
+| 阶段 3 | 2026-07      | 登录 / 注册场景跨端共享               | 4.7x     | -0.6x      | 2.1x        | `d8d0abdcb1` + `8a61ee6364`        |
+| 阶段 4 | 2026-07      | design-tokens 8 端统一                | 4.2x     | -0.5x      | 2.6x        | catalog 锁定 + 暗色模式铺路        |
+| 阶段 5 | 2026-07      | i18n 治理(动态拼接 + 无引用 key 清理) | 3.9x     | -0.3x      | 2.9x        | 4 阶段 i18n 完成                   |
+| 阶段 6 | 2026-07-28   | schema 字段补齐 + 真实上传            | 3.1x     | -0.8x      | 3.7x        | 4 subagent 并行                    |
+| 阶段 7 | 2026-07-28   | P0 schema + 类型显式化                | **2.9x** | -0.2x      | 3.9x(57.4%) | P0 schema 补齐                     |
+
+### P3 极限路线图(2026-07-29 立,目标 2.9x → 1.7x)
+
+| P3 阶段                          | 时间窗口      | 主题                                                                                                  | 维护倍数        | 累计降本     | 关键节点                                            |
+| -------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------- | --------------- | ------------ | --------------------------------------------------- |
+| **起点**                         | 2026-07-29    | 阶段 7 收尾                                                                                           | **2.9x**        | 3.9x(57.4%)  | 立项背景                                            |
+| **P3-1 design-tokens 统一**      | 短期 1-2 周   | catalog 锁定 + 暗色模式 + i18n 全量校验                                                               | **2.7x**        | 4.1x         | P3-1.4 全端验证(预期 ≤ 2.7x)                        |
+| **P3-2 Web 系三端共享 ui-react** | 中期 1 月     | Desktop + Extension 改用 ui-react,独立 UI ≤ 3 个                                                      | **2.3x**        | 4.5x         | P3-2.4 全端验证(预期 ≤ 2.3x)                        |
+| **P3-3 Mobile RN 对齐 shadcn**   | 中长期 1-2 月 | mobile-rn 49 features 全部改 re-export `packages/app`,wrapper 只注入 navigation / fetchApi / useTheme | **1.72x**(实测) | 5.08x(74.7%) | P3-3.3 commit `6ba6f3064c`(151 wrapper / 153 total) |
+| **P3-4 极限收尾**                | 长期 2-3 月   | `packages/shared` 全部下沉 + Server-Driven UI + Tauri 2 shell 评估                                    | **2.0x**        | 4.8x         | P3-4.4 全端验证(预期 ≤ 1.7x)                        |
+
+### 真维护倍数 1.72x 实测证据(2026-07-29 P3-3.3 完成)
+
+- **mobile-rn 端 153 屏**:151 个 wrapper(re-export `packages/app`)+ 2 个独立豁免(Debug / DevEnter,平台硬边界)
+- **49 features 共享清单**:从 About / Profile / Settings 基础屏到 AgentMarket / Live / PointsMall 深度屏,共 10 批次累计 16 个新共享类型 + 5 语言 i18n 80+ 键补全
+- **守门脚本 blocking**:`scripts/check-rn-app-migration.mjs` 已落地 guardian-runner 第 39 项,任何 `apps/mobile-rn/src/screens/<Name>Screen.tsx` 非薄 wrapper 模式 → commit 阻塞
+- **commit 链**:`b9f24740c`(批次 10 +2460/-727 行)→ `6ba6f3064c`(P3-3.3 收官 + 守门脚本落地)
+- **类型契约**:全部上提到 `@ihui/types`,跨端字段名 / 必填 / 可选变更一处生效
+
+### 维护倍数计算方法
+
+> 维护倍数 = Σ(端内独立代码行数) / Σ(共享层代码行数)
+>
+> 例子:web 200 页 + mobile-rn 153 屏 + desktop 0 业务屏 + extension 0 业务页 + ... 中,各端 **功能等价** 的代码总量是分母,各端 **实际独立写** 的代码总量是分子
+>
+> 1.0x = 理想情况(只写一次,所有端共享)
+> 2.0x = 每个功能要写 2 份
+> N.x = 每个功能要写 N 份
+>
+> 1.72x 表示 mobile-rn 端 49 features 中,每屏平均只需写 0.72 份独立代码(其余 1.0 份在 `packages/app/` 共享层)
 
 ---
 

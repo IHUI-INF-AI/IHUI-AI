@@ -1,0 +1,32 @@
+/*
+ * 智汇社区页 8 类模型切换区块样式 — 对齐原项目 ai_index.vue model-type-btn
+ *
+ * 作用域:仅 pages/community/index.tsx 使用。
+ * 对齐原项目 .model-type-btn / .btn-arrow.rotate 视觉规格:
+ *   - 200rpx × 60rpx 横向滚动渐变按钮
+ *   - btn-bg 背景层(absolute 填充,选中态 active_back.svg / 默认态 back_default.svg)
+ *   - btn-content 内容层(图标 + 文字 20rpx)
+ *   - btn-arrow 箭头(选中时 rotate 180°,transition 0.3s)
+ */
+
+/* ===== model-type-btn 容器(对齐原项目 200rpx×60rpx)===== */
+.ai-model-type-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  width: 200rpx;
+  height: 60rpx;
+}
+
+/* ===== model-type-btn 箭头旋转(对齐原项目 .btn-arrow.rotate)===== */
+.ai-btn-arrow {
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+.ai-btn-arrow-rotate {
+  transform: rotate(180deg);
+}
