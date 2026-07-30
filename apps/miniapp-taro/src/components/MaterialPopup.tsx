@@ -4,6 +4,7 @@ import { formatDateByTemplate } from '@ihui/shared'
 import DrawerComponent from './DrawerComponent'
 import EmptyState from './EmptyState'
 import { useI18n } from '@/i18n'
+import { icon } from '@/constants/remote-icons'
 
 export type MaterialTab = 1 | 2 | 3 | 4
 
@@ -31,10 +32,10 @@ export interface MaterialPopupProps {
 }
 
 const TABS: { key: MaterialTab; labelKey: string; icon: string }[] = [
-  { key: 1, labelKey: 'ai.materialPopup.tabText', icon: '📝' },
-  { key: 2, labelKey: 'ai.materialPopup.tabImage', icon: '🖼️' },
+  { key: 1, labelKey: 'ai.materialPopup.tabText', icon: icon('addText') },
+  { key: 2, labelKey: 'ai.materialPopup.tabImage', icon: icon('addPicter') },
   { key: 3, labelKey: 'ai.materialPopup.tabVideo', icon: '🎬' },
-  { key: 4, labelKey: 'ai.materialPopup.tabAudio', icon: '🎵' },
+  { key: 4, labelKey: 'ai.materialPopup.tabAudio', icon: icon('addAudio') },
 ]
 
 function formatTime(ts?: string): string {
@@ -90,7 +91,7 @@ export default function MaterialPopup({
             className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onClick={() => onTabChange?.(tabItem.key)}
           >
-            <Text className="mr-1">{tabItem.icon}</Text>
+            <Image className="w-3 h-3 mr-1" src={tabItem.icon} mode="aspectFit" />
             <Text>{t(tabItem.labelKey)}</Text>
           </View>
         ))}
@@ -120,8 +121,8 @@ export default function MaterialPopup({
                     {item.thumbnail ? (
                       <Image className="w-full h-full" src={item.thumbnail} mode="aspectFill" />
                     ) : (
-                      <View className="w-full h-full flex items-center justify-center text-2xl text-muted-foreground">
-                        <Text>🖼️</Text>
+                      <View className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Image className="w-8 h-8" src={icon('addPicter')} mode="aspectFit" />
                       </View>
                     )}
                     <View className="absolute bottom-0 left-0 right-0 px-1 py-1 bg-black/40">
