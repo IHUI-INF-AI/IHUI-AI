@@ -325,13 +325,15 @@ export function GlobalTopBar() {
 
       {/* 顶栏容器
           - h-9:单层固定 36px 高度(避免之前 h-[32px] + pt-2 双重高度设定导致内部只剩 24px)
-          - px-4:水平 16px(与下面 MainShell 的 <main p-4> 左缘对齐 — 搜索按钮容器左缘 == 内容展示区左缘)
+          - pl-[28px]:左侧 28px = 卡片圆角(12px) + main p-4(16px),保证搜索按钮左缘
+            跟下面 MainShell 工作区内容左缘完美对齐(2026-07-30 用户反馈"搜索按钮左侧没对齐下面内容")
+          - pr-4:右侧 16px 跟 main p-4 一致
           - gap-1:标签栏 / Plus 弹窗 / 窗口控制之间 4px 间距
           - cursor-default:覆盖外层(避免标签继承 cursor-move 误导)
           - onMouseDown:统一拖拽状态机
           - 已删除 data-tauri-drag-region(JS 处理更可靠) */}
       <div
-        className="flex h-9 shrink-0 items-center gap-1 px-4 select-none cursor-default"
+        className="flex h-9 shrink-0 items-center gap-1 pl-[28px] pr-4 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
@@ -345,7 +347,8 @@ export function GlobalTopBar() {
         </React.Suspense>
 
         {/* Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
-            - 视觉风格与窗口控制按钮一致(h-6 w-6 rounded-sm hover bg-accent)
+            - 视觉风格与窗口控制按钮一致(h-7 w-7 rounded-md hover bg-accent,2026-07-30
+              修复:之前 h-6 w-6 跟 WindowControlButton h-7 冲突造成"参差不齐")
             - hover 显示加号图标 + 向下箭头
             - 点击展开 9 项菜单(分 3 组:视图/工具/设置)
             - 弹窗内含搜索框(过滤菜单项)+ 快捷键提示
@@ -359,7 +362,7 @@ export function GlobalTopBar() {
               aria-haspopup="menu"
               aria-expanded={plusOpen}
               className={cn(
-                'inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm',
+                'inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md',
                 'transition-colors hover:bg-accent',
                 'focus:outline-none focus-visible:bg-accent',
                 plusOpen ? 'bg-accent text-foreground' : 'text-foreground/80',
@@ -432,10 +435,13 @@ export function GlobalTopBar() {
         </div>
 
         {/* 窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop
-            z-[10001]:高于 8 方向 resize 区域(z-9999/10000) */}
+            z-[10001]:高于 8 方向 resize 区域(z-9999/10000)
+            2026-07-30 修复"双重高度设定/冲突设定"(用户反馈):容器 h-6 (24px) 跟
+            内部 WindowControlButton h-7 (28px) 冲突,容器比按钮矮 4px → 改 h-7
+            跟按钮严格一致(单一高度,不再有容器+按钮双重设定) */}
         {isDesktop && (
           <div
-            className="relative z-[10001] flex h-6 shrink-0 items-center gap-0.5 rounded-md"
+            className="relative z-[10001] flex h-7 shrink-0 items-center gap-0.5 rounded-md"
             data-window-controls
           >
             <WindowControlButton
@@ -486,8 +492,10 @@ function WindowControlButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
+      // 2026-07-30 用户反馈"标签栏高度不对"根治:
+      // 窗口控制按钮 h-6 (24px) → h-7 (28px),跟 Plus / Dropdown 统一
       className={cn(
-        'inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm',
+        'inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md',
         'text-foreground/80 transition-colors',
         'hover:bg-accent hover:text-foreground',
         'focus:outline-none focus-visible:bg-accent',
