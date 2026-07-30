@@ -1,14 +1,21 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { LoginForm, type LoginApiClient, type LoginResult } from '@ihui/ui-react'
+import {
+  LoginForm,
+  type LoginApiClient,
+  type LoginResult,
+  type QrPlatformConfig,
+} from '@ihui/ui-react'
 
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { fetchApi } from '@/lib/api'
+import type { ThirdPartyPlatform } from '@/types/third-party'
 import { useThirdPartyConfig } from '@/hooks/use-third-party-config'
 import { QrCodeLogin } from './QrCodeLogin'
 
@@ -52,11 +59,83 @@ const webLoginApiClient: LoginApiClient = {
 }
 
 /**
- * 共享 LoginForm 的 QR tab 注入 web 端 QrCodeLogin(SDK 二维码)
- * 简化方案:QrCodeLogin 内部管理 platform/refreshKey,共享 QrTab 的注入参数可忽略。
+ * 扫码登录平台配置(注入共享 LoginForm 的 qrPlatforms)。
+ *
+ * 共享 `QrTab` 负责渲染平台切换 Tab + 提示文字 + 操作行(刷新 / 切换方式),
+ * web 端只注入 SVG 图标 + labelKey,避免共享包默认 emoji 图标(💬 🏢 📌 ✈️)
+ * 与第三方登录按钮区的 SVG 风格不一致。
  */
-function QrCodeLoginEmbedded() {
-  return <QrCodeLogin onSwitchMethod={() => {}} />
+const QR_PLATFORMS: QrPlatformConfig[] = [
+  {
+    key: 'wechat',
+    labelKey: 'auth.wechatLogin',
+    icon: (
+      <Image
+        src="/images/oauth-providers/wechat.svg"
+        alt=""
+        width={14}
+        height={14}
+        className="h-[14px] w-[14px] shrink-0"
+      />
+    ),
+    webUrl: '/login?method=qr&platform=wechat',
+  },
+  {
+    key: 'enterpriseWechat',
+    labelKey: 'auth.enterpriseWechat',
+    icon: (
+      <Image
+        src="/images/oauth-providers/wecom.svg"
+        alt=""
+        width={14}
+        height={14}
+        className="h-[14px] w-[14px] shrink-0"
+      />
+    ),
+    webUrl: '/login?method=qr&platform=enterpriseWechat',
+  },
+  {
+    key: 'dingtalk',
+    labelKey: 'auth.dingtalkLogin',
+    icon: (
+      <Image
+        src="/images/oauth-providers/dingtalk.svg"
+        alt=""
+        width={14}
+        height={14}
+        className="h-[14px] w-[14px] shrink-0"
+      />
+    ),
+    webUrl: '/login?method=qr&platform=dingtalk',
+  },
+  {
+    key: 'feishu',
+    labelKey: 'auth.feishuLogin',
+    icon: (
+      <Image
+        src="/images/loginSANFANG/feishu.png"
+        alt=""
+        width={14}
+        height={14}
+        className="h-[14px] w-[14px] shrink-0"
+      />
+    ),
+    webUrl: '/login?method=qr&platform=feishu',
+  },
+]
+
+/**
+ * 共享 LoginForm 的 QR tab 注入 web 端 QrCodeLogin(SDK 二维码)。
+ * 接收共享 QrTab 注入的 { platform, refreshKey },只渲染当前平台的二维码面板。
+ */
+function QrCodeLoginEmbedded({
+  platform,
+  refreshKey,
+}: {
+  platform: ThirdPartyPlatform
+  refreshKey: number
+}) {
+  return <QrCodeLogin platform={platform} refreshKey={refreshKey} />
 }
 
 export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
@@ -92,7 +171,10 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
       onRegister={() => setMode('register')}
       showForgotPassword
       onForgotPassword={() => setMode('forgot')}
-      qrComponent={() => <QrCodeLoginEmbedded />}
+      qrComponent={({ platform, refreshKey }) => (
+        <QrCodeLoginEmbedded platform={platform} refreshKey={refreshKey} />
+      )}
+      qrPlatforms={QR_PLATFORMS}
       // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
       enableCredentialPersistence
     />
