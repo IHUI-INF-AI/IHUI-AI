@@ -326,6 +326,9 @@ def create_app() -> FastAPI:
     app.include_router(ai_skills.router, prefix="/api", tags=["ai-skills"])
     # 多平台一键发布(14 平台 + AES-256-GCM 凭证加密 + 调度器,2026-07-20 新增)
     app.include_router(publish.router, prefix="/api", tags=["publish"])
+    # 多平台扫码登录(2026-07-30 新增,WorkPanel 内置浏览器扫码 → 自动保存 cookies 到账号)
+    from app.routers import scan_login as scan_login_router
+    app.include_router(scan_login_router.router, prefix="/api", tags=["publish-scan-login"])
     # OpenCompass 排行榜抓取(Playwright 渲染,2026-07-22 新增,供 api ai-world-sync 调用)
     app.include_router(opencompass.router, prefix="/api", tags=["opencompass"])
     # 截图服务(Playwright headless,2026-07-22 新增,WorkPanel iframe 降级)
