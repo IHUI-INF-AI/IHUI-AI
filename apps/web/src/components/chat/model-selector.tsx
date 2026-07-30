@@ -29,12 +29,11 @@ export interface ModelOption {
   iconUrl?: string
 }
 
-/** 智能路由模型选项(2026-07-22 立,对标 Qoder Auto 模型调度)
- * value='auto' 表示由后端根据任务类型自动选择最优模型,
- * 在下拉列表中作为独立分组置顶显示 */
+/** 自动模式(value='auto'):后端根据任务类型自动选择最优模型
+ * 2026-07-30 用户反馈"智能路由"措辞太复杂,简化为"自动" */
 const AUTO_OPTION: ModelOption = {
   value: 'auto',
-  label: '智能路由',
+  label: '自动',
   descriptionKey: 'modelAutoRoute',
   vendor: 'auto',
 }
@@ -236,8 +235,9 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
             )}
           </DropdownMenu.Group>
-          {/* 智能路由选项(独立分组,置顶于所有模型分组之前,2026-07-22 立)
-              value='auto' 时后端根据任务类型自动选择最优模型(对标 Qoder Auto 模型调度) */}
+          {/* 自动选项(独立分组,置顶于所有模型分组之前,2026-07-22 立)
+              value='auto' 时后端根据任务类型自动选择最优模型(对标 Qoder Auto 模型调度)
+              2026-07-30 用户反馈"智能路由"措辞太复杂,简化为"自动" */}
           <DropdownMenu.Group>
             <DropdownMenu.Item
               onSelect={() => onChange(AUTO_OPTION.value)}

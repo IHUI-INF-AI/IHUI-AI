@@ -14,6 +14,11 @@ export default [
       'public/**',
       'scripts/**',
       'next-env.d.ts',
+      // 2026-07-30 加:.trae-cn/** 是项目内临时目录(已 gitignore),
+      // 此前未在 eslint ignores 中,导致 .trae-cn/tmp/ 里的临时脚本被 lint 误报
+      // 污染真实 lint 报告。AGENTS.md §15 卫生规则要求临时文件必须项目内 .trae-cn/tmp/,
+      // 故这里统一加 ignore 让 eslint 跳过。
+      '.trae-cn/**',
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useI18n } from '@/i18n'
@@ -40,32 +40,32 @@ export default function VipDetailsPage() {
   // 权益详情(对标原 vip/details.vue 权益图标 + 标题 + 描述)
   const BENEFIT_DETAILS = [
     {
-      icon: '💬',
+      icon: '/static/images/icons/message-circle.svg',
       title: tt('vip.details.benefit.chat', '无限 AI 对话'),
       desc: tt('vip.details.benefit.chatDesc', '畅享顶级模型,不限次数'),
     },
     {
-      icon: '🎨',
+      icon: '/static/images/icons/palette.svg',
       title: tt('vip.details.benefit.draw', 'AI 绘图'),
       desc: tt('vip.details.benefit.drawDesc', '100次/天,高清无水印'),
     },
     {
-      icon: '🎬',
+      icon: '/static/images/icons/film.svg',
       title: tt('vip.details.benefit.video', '视频生成'),
       desc: tt('vip.details.benefit.videoDesc', '60分钟视频生成时长'),
     },
     {
-      icon: '🤖',
+      icon: '/static/images/icons/bot.svg',
       title: tt('vip.details.benefit.model', '全部模型'),
       desc: tt('vip.details.benefit.modelDesc', '解锁所有付费模型'),
     },
     {
-      icon: '🎧',
+      icon: '/static/images/icons/headphones.svg',
       title: tt('vip.details.benefit.support', '优先客服'),
       desc: tt('vip.details.benefit.supportDesc', '7×24 小时专属服务'),
     },
     {
-      icon: '👥',
+      icon: '/static/images/icons/users.svg',
       title: tt('vip.details.benefit.group', '专属社群'),
       desc: tt('vip.details.benefit.groupDesc', 'VIP 会员专属交流群'),
     },
@@ -131,8 +131,8 @@ export default function VipDetailsPage() {
         <View className="flex flex-col gap-[16rpx]">
           {BENEFIT_DETAILS.map((b) => (
             <View key={b.title} className="flex items-start bg-card rounded-[16rpx] p-[24rpx]">
-              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-[rgba(245,158,11,0.1)] flex items-center justify-center mr-[20rpx] shrink-0 text-[32rpx]">
-                <Text>{b.icon}</Text>
+              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-[rgba(245,158,11,0.1)] flex items-center justify-center mr-[20rpx] shrink-0">
+                <Image src={b.icon} className="w-[36rpx] h-[36rpx]" mode="aspectFit" />
               </View>
               <View className="flex-1 flex flex-col">
                 <Text className="text-[28rpx] font-semibold text-foreground">{b.title}</Text>

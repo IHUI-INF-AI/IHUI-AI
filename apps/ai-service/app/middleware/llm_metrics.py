@@ -140,3 +140,87 @@ def classify_fallback_reason(exc: BaseException | None) -> str:
         return 'api_error'
     return 'unknown'
 
+
+# =============================================================================
+# Fusion 策略指标(2026-07-30 立,combo_router._route_fusion 增强配套)
+#
+# 触发场景(combo_router._route_fusion):
+# - PROPOSERS_CALLED:每次 fusion 发起并发调用后,记录 proposer 数量
+# - JUDGE_CALLED:judge 成功产出可用结果(merge 融合完成 / vote JSON 解析成功)
+# - SUCCESS:fusion 最终向调用方返回有效内容(含降级到首条 proposal 的场景)
+# - FAILURE:降级路径触发(全 proposer 失败 / judge 调用异常 / judge 非法 JSON)
+#
+# 标签语义:
+# - combo_name:     combo 链名
+# - proposer_count: 字符串化的 proposer 数量(Counter 标签必须是 str)
+# - judge_model:    judge 用的 model 名
+# - judge_mode:     "merge" / "vote"
+# - reason:         FAILURE 原因:
+#                   "all_proposers_failed" / "judge_call_failed" / "judge_invalid_json"
+# =============================================================================
+
+LLM_FUSION_PROPOSERS_CALLED = Counter(
+    'llm_fusion_proposers_called_total',
+    'Fusion 策略并发调用 proposer 的累计次数(每次 fusion 触发记一次,值=proposer 数量)',
+    ['combo_name', 'proposer_count'],
+)
+
+LLM_FUSION_JUDGE_CALLED = Counter(
+    'llm_fusion_judge_called_total',
+    'Fusion 策略 judge model 成功产出可用结果的次数(merge 融合完成 / vote JSON 解析成功)',
+    ['combo_name', 'judge_model', 'judge_mode'],
+)
+
+LLM_FUSION_SUCCESS = Counter(
+    'llm_fusion_success_total',
+    'Fusion 策略最终向调用方返回有效内容的次数(含降级到首条 proposal 的场景)',
+    ['combo_name'],
+)
+
+LLM_FUSION_FAILURE = Counter(
+    'llm_fusion_failure_total',
+    'Fusion 策略降级路径触发次数(judge 失败 / 全 proposer 失败 / judge 非法 JSON)',
+    ['combo_name', 'reason'],
+)
+
+
+# =============================================================================
+# Token 压缩指标(2026-07-30 立,token_compaction.py 集成到 llm_gateway 调用链)
+#
+# 触发场景(llm_gateway.LLMGateway._apply_token_compaction):
+# - TRIGGERED:每次满足启用条件(enabled + token > 阈值 + 非 stub + 无 tools)调用 compactor
+# - SUCCESS:compactor.compact_messages 成功返回 CompactionResult
+# - FAILURE:compactor 抛异常(降级用原 messages,不阻塞主流程)
+# - RATIO:Histogram 观测压缩率(0-1,值越大压缩越好)
+#
+# 标签语义:
+# - strategy: 压缩策略(rtk / caveman / rtk_caveman)
+# - model:    模型名(用于 TRIGGERED / SUCCESS / FAILURE)
+# - reason:   FAILURE 原因(异常类型名)
+# =============================================================================
+
+LLM_TOKEN_COMPACTION_TRIGGERED = Counter(
+    'llm_token_compaction_triggered',
+    'Number of token compaction triggers in llm_gateway',
+    ['strategy', 'model'],
+)
+
+LLM_TOKEN_COMPACTION_SUCCESS = Counter(
+    'llm_token_compaction_success',
+    'Number of successful token compactions',
+    ['strategy', 'model'],
+)
+
+LLM_TOKEN_COMPACTION_FAILURE = Counter(
+    'llm_token_compaction_failure',
+    'Number of failed token compactions',
+    ['strategy', 'model', 'reason'],
+)
+
+LLM_TOKEN_COMPACTION_RATIO = Histogram(
+    'llm_token_compaction_ratio',
+    'Token compaction compression ratio (0-1)',
+    ['strategy'],
+    buckets=(0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.99),
+)
+
