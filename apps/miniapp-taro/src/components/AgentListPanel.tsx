@@ -1,7 +1,9 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { Agent } from '@ihui/api-client'
 import EmptyState from './EmptyState'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
+// 原项目 AgentList.vue 头像兜底图标(本地副本 import,对齐 zhs_app-ZZ)
+import mianLabelIcon from '@/assets/remote/images/mian_label.png'
 
 export type AgentInfo = Pick<Agent, 'id' | 'name'> & {
   description?: string
@@ -28,8 +30,7 @@ export default function AgentListPanel({
   loading = false,
   onSelect,
 }: AgentListPanelProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (!visible) return null
 
   return (
@@ -39,55 +40,57 @@ export default function AgentListPanel({
       </View>
       <ScrollView scrollY className="" style={{ maxHeight: '40vh' }}>
         <View className="px-3 py-2">
-        {loading ? (
-          <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">
-              {tt('common.loadingShort', '加载中...')}
-            </Text>
-          </View>
-        ) : agents.length === 0 ? (
-          <EmptyState text={tt('agent.empty', '暂无智能体')} />
-        ) : (
-          agents.map((agent) => (
-            <View
-              key={agent.id}
-              className="flex items-center py-2.5 px-3 mb-2 rounded-lg bg-muted"
-              onClick={() => onSelect?.(agent)}
-            >
-              <Image
-                className="w-10 h-10 mr-3 rounded-xl bg-muted"
-                src={agent.avatar || '/static/default-agent.png'}
-                mode="aspectFill"
-              />
-              <View className="flex-1 min-w-0">
-                <View className="flex items-center">
-                  <Text className="text-sm font-medium text-foreground truncate">{agent.name}</Text>
-                  {agent.isVipExclusive && (
-                    <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
-                      VIP
+          {loading ? (
+            <View className="py-8 text-center">
+              <Text className="text-sm text-muted-foreground">
+                {tt('common.loadingShort', '加载中...')}
+              </Text>
+            </View>
+          ) : agents.length === 0 ? (
+            <EmptyState text={tt('agent.empty', '暂无智能体')} />
+          ) : (
+            agents.map((agent) => (
+              <View
+                key={agent.id}
+                className="flex items-center py-2.5 px-3 mb-2 rounded-lg bg-muted"
+                onClick={() => onSelect?.(agent)}
+              >
+                <Image
+                  className="w-10 h-10 mr-3 rounded-xl bg-muted"
+                  src={agent.avatar || mianLabelIcon}
+                  mode="aspectFill"
+                />
+                <View className="flex-1 min-w-0">
+                  <View className="flex items-center">
+                    <Text className="text-sm font-medium text-foreground truncate">
+                      {agent.name}
                     </Text>
-                  )}
-                  {agent.category && (
-                    <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                      {agent.category}
+                    {agent.isVipExclusive && (
+                      <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                        VIP
+                      </Text>
+                    )}
+                    {agent.category && (
+                      <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        {agent.category}
+                      </Text>
+                    )}
+                  </View>
+                  {agent.description && (
+                    <Text className="block text-xs text-muted-foreground truncate">
+                      {agent.description}
                     </Text>
                   )}
                 </View>
-                {agent.description && (
-                  <Text className="block text-xs text-muted-foreground truncate">
-                    {agent.description}
+                {agent.useCount !== undefined && (
+                  <Text className="text-xs text-muted-foreground ml-2">
+                    {agent.useCount}
+                    {tt('agent.uses', '次')}
                   </Text>
                 )}
               </View>
-              {agent.useCount !== undefined && (
-                <Text className="text-xs text-muted-foreground ml-2">
-                  {agent.useCount}
-                  {tt('agent.uses', '次')}
-                </Text>
-              )}
-            </View>
-          ))
-        )}
+            ))
+          )}
         </View>
       </ScrollView>
     </View>

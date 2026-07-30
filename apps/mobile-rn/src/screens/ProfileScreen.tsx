@@ -7,6 +7,7 @@ import { getOrders, getUserStatistics, type UserStatistics } from '@ihui/api-cli
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { LoginPopUp } from '../components/LoginPopUp'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 
@@ -25,6 +26,20 @@ export function ProfileScreen() {
   const [orderCount, setOrderCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [loginPromptVisible, setLoginPromptVisible] = useState(false)
+  const [agreeChecked, setAgreeChecked] = useState(false)
+
+  // 已登录但用户资料未就绪(常见于 token 过期 / 强制下线后清缓存)→ 引导重新登录
+  useEffect(() => {
+    if (ready && !user) {
+      setLoginPromptVisible(true)
+    }
+  }, [ready, user])
+
+  const navigateToLogin = () => {
+    setLoginPromptVisible(false)
+    navigation.getParent()?.navigate('Login' as never)
+  }
 
   useEffect(() => {
     if (!ready) return
@@ -69,31 +84,45 @@ export function ProfileScreen() {
   }))
 
   return (
-    <SharedProfileScreen
-      t={t}
-      user={
-        user
-          ? {
-              id: user.id,
-              nickname: user.nickname,
-              avatar: user.avatar ?? null,
-              email: user.email,
-              phone: user.phone,
-            }
-          : null
-      }
-      stats={stats}
-      orderCount={orderCount}
-      loading={loading}
-      error={error}
-      colorScheme={resolvedTheme}
-      menuSections={menuSections}
-      onNavigate={(key) => {
-        const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
-        if (item) onNavigate(item)
-      }}
-      onLogout={() => void logout()}
-      onBack={() => navigation.goBack()}
-    />
+    <>
+      <SharedProfileScreen
+        t={t}
+        user={
+          user
+            ? {
+                id: user.id,
+                nickname: user.nickname,
+                avatar: user.avatar ?? null,
+                email: user.email,
+                phone: user.phone,
+              }
+            : null
+        }
+        stats={stats}
+        orderCount={orderCount}
+        loading={loading}
+        error={error}
+        colorScheme={resolvedTheme}
+        menuSections={menuSections}
+        onNavigate={(key) => {
+          const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
+          if (item) onNavigate(item)
+        }}
+        onLogout={() => void logout()}
+        onBack={() => navigation.goBack()}
+      />
+      <LoginPopUp
+        visible={loginPromptVisible}
+        title="登录已过期"
+        description="登录状态已失效,请重新登录以继续使用"
+        primaryLabel="立即登录"
+        onPrimary={navigateToLogin}
+        secondaryLabel="稍后再说"
+        onSecondary={() => setLoginPromptVisible(false)}
+        onClose={() => setLoginPromptVisible(false)}
+        agreeChecked={agreeChecked}
+        onAgreeChange={setAgreeChecked}
+      />
+    </>
   )
 }

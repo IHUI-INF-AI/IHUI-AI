@@ -1,5 +1,5 @@
 import { View, ScrollView } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import ModelTypeButton, { type ModelType } from './ModelTypeButton'
 import skillsIcon from '../assets/images/add/skills.svg'
 import talkIcon from '../assets/images/add/talk.svg'
@@ -59,8 +59,7 @@ export default function ModelTypeButtonGroup({
   types = MODEL_TYPES,
   variant = 'compact',
 }: ModelTypeButtonGroupProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   if (variant === 'wide') {
     // ===== wide 模式:对齐原项目 ai_index.vue 8 个 model-type-btn(scroll-x 横向滚动)=====

@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface LikeFavoriteShareProps {
   likeCount?: number
@@ -22,8 +22,7 @@ export default function LikeFavoriteShare({
   onFavorite,
   onShare,
 }: LikeFavoriteShareProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="flex items-center justify-around py-3 bg-card mt-2">
       <View className="flex flex-col items-center" onClick={onLike}>

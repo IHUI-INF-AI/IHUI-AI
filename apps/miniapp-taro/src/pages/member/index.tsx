@@ -1,10 +1,10 @@
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import './index.css'
 
@@ -22,21 +22,13 @@ interface LevelTier {
   perks: string
 }
 
-/** 默认会员特权列表(对齐原 uniapp pages/member/index.vue 555 行版) */
-const DEFAULT_BENEFITS: BenefitItem[] = [
-  { id: 'unlimited', title: '无限对话', desc: '无限制使用 AI 对话功能', active: true },
-  { id: 'advanced', title: '高级模型', desc: '使用最新的 AI 大模型', active: true },
-  { id: 'priority', title: '优先响应', desc: '对话请求优先处理', active: true },
-  { id: 'community', title: 'VIP 社区', desc: '加入专属 VIP 交流群', active: true },
-]
-
-/** 会员等级梯度:普通 / 银卡 / 金卡 / 钻石 */
-const LEVEL_TIERS: LevelTier[] = [
-  { key: 'normal', name: '普通会员', threshold: '注册即享', perks: '基础对话 / 有限次数' },
-  { key: 'silver', name: '银卡会员', threshold: '成长值 ≥ 500', perks: '专属折扣 / 课程试听' },
-  { key: 'gold', name: '金卡会员', threshold: '成长值 ≥ 2000', perks: '免费课程 / 专属客服' },
-  { key: 'diamond', name: '钻石会员', threshold: '成长值 ≥ 8000', perks: '全部权益 / 私董会' },
-]
+/** 等级成长值阈值(与 levelTiers 一一对应) */
+const GROWTH_THRESHOLDS: Record<string, number> = {
+  normal: 0,
+  silver: 500,
+  gold: 2000,
+  diamond: 8000,
+}
 
 /** 从 UserInfo 索引签名安全取值 */
 const readStr = (obj: Record<string, unknown>, key: string): string | undefined => {
@@ -45,8 +37,21 @@ const readStr = (obj: Record<string, unknown>, key: string): string | undefined 
 }
 
 export default function MemberIndexPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
+
+  const defaultBenefits = useMemo<BenefitItem[]>(() => [
+    { id: 'unlimited', title: tt('member.benefit.unlimited', '无限对话'), desc: tt('member.benefit.unlimitedDesc', '无限制使用 AI 对话功能'), active: true },
+    { id: 'advanced', title: tt('member.benefit.advanced', '高级模型'), desc: tt('member.benefit.advancedDesc', '使用最新的 AI 大模型'), active: true },
+    { id: 'priority', title: tt('member.benefit.priority', '优先响应'), desc: tt('member.benefit.priorityDesc', '对话请求优先处理'), active: true },
+    { id: 'community', title: tt('member.benefit.community', 'VIP 社区'), desc: tt('member.benefit.communityDesc', '加入专属 VIP 交流群'), active: true },
+  ], [tt])
+
+  const levelTiers = useMemo<LevelTier[]>(() => [
+    { key: 'normal', name: tt('member.level.normal', '普通会员'), threshold: tt('member.level.normalThreshold', '注册即享'), perks: tt('member.level.normalPerks', '基础对话 / 有限次数') },
+    { key: 'silver', name: tt('member.level.silver', '银卡会员'), threshold: tt('member.level.silverThreshold', '成长值 ≥ 500'), perks: tt('member.level.silverPerks', '专属折扣 / 课程试听') },
+    { key: 'gold', name: tt('member.level.gold', '金卡会员'), threshold: tt('member.level.goldThreshold', '成长值 ≥ 2000'), perks: tt('member.level.goldPerks', '免费课程 / 专属客服') },
+    { key: 'diamond', name: tt('member.level.diamond', '钻石会员'), threshold: tt('member.level.diamondThreshold', '成长值 ≥ 8000'), perks: tt('member.level.diamondPerks', '全部权益 / 私董会') },
+  ], [tt])
 
   const [info, setInfo] = useState<MemberInfo>({} as MemberInfo)
   const [profile, setProfile] = useState<{
@@ -56,7 +61,7 @@ export default function MemberIndexPage() {
     vipExpireTime?: string
     isPermanentVip?: boolean
   }>({})
-  const [benefits, setBenefits] = useState<BenefitItem[]>(DEFAULT_BENEFITS)
+  const [benefits, setBenefits] = useState<BenefitItem[]>(defaultBenefits)
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(async () => {
@@ -112,6 +117,17 @@ export default function MemberIndexPage() {
   const currentLevelKey =
     growth >= 8000 ? 'diamond' : growth >= 2000 ? 'gold' : growth >= 500 ? 'silver' : 'normal'
 
+  // 进度条:当前成长值 → 下一等级阈值
+  const tierOrder: ReadonlyArray<string> = ['normal', 'silver', 'gold', 'diamond']
+  const currentIdx = tierOrder.indexOf(currentLevelKey)
+  const isMaxLevel = currentIdx === tierOrder.length - 1
+  const nextTier = !isMaxLevel ? levelTiers[currentIdx + 1] : null
+  const currentThreshold = GROWTH_THRESHOLDS[currentLevelKey] ?? 0
+  const nextThreshold = !isMaxLevel && nextTier ? GROWTH_THRESHOLDS[nextTier.key] ?? 0 : growth
+  const progressPercent = isMaxLevel
+    ? 100
+    : Math.min(100, Math.max(0, ((growth - currentThreshold) / (nextThreshold - currentThreshold)) * 100))
+
   const goToPayment = () => {
     Taro.navigateTo({ url: '/pages/vip/index' })
   }
@@ -156,7 +172,7 @@ export default function MemberIndexPage() {
           {tt('member.index.levelIntro', '会员等级介绍')}
         </Text>
         <View className="member-level-grid">
-          {LEVEL_TIERS.map((tier) => (
+          {levelTiers.map((tier) => (
             <View
               key={tier.key}
               className={`member-level-item member-level-${tier.key} ${
@@ -189,6 +205,29 @@ export default function MemberIndexPage() {
             <Text className="member-stat-num">{info.coupons || 0}</Text>
             <Text className="member-stat-label">{tt('member.index.coupons', '优惠券')}</Text>
           </View>
+        </View>
+
+        {/* 成长值进度条:当前等级 → 下一等级 */}
+        <View className="member-progress">
+          <View className="member-progress-header">
+            <Text>{tt('member.index.currentLevel', '当前等级')}</Text>
+            <Text className="member-progress-current">
+              {isMaxLevel
+                ? tt('member.index.maxLevel', '已满级')
+                : `${growth} / ${nextThreshold}`}
+            </Text>
+          </View>
+          <View className="member-progress-bar">
+            <View
+              className="member-progress-fill"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </View>
+          <Text className="member-progress-hint">
+            {isMaxLevel
+              ? tt('member.index.maxLevelHint', '已达成最高等级')
+              : tt('member.index.nextLevelHint', `距 ${nextTier?.name ?? ''} 还差 ${nextThreshold - growth}`)}
+          </Text>
         </View>
       </View>
 

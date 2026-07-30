@@ -33,16 +33,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# LLM 出站代理(2026-07-30 立):settings.llm_proxy_url 非空时写入 os.environ,
+# litellm 底层 httpx 自动读取 HTTP_PROXY/HTTPS_PROXY,无需在每个调用处传 proxy 参数
+# 国内服务器访问 OpenAI/Anthropic/OpenRouter 等境外 provider 时必须配置
+_llm_proxy = settings.llm_proxy_url.strip()
+if _llm_proxy:
+    os.environ.setdefault("HTTP_PROXY", _llm_proxy)
+    os.environ.setdefault("HTTPS_PROXY", _llm_proxy)
+    os.environ.setdefault("http_proxy", _llm_proxy)
+    os.environ.setdefault("https_proxy", _llm_proxy)
+    logger.info("LLM 出站代理已启用: %s", _llm_proxy)
+    # 全局共享 httpx.AsyncClient 需显式传入 proxy(环境变量对已创建的 client 无效)
+    _PROXY_KWARGS: dict[str, Any] = {"proxy": _llm_proxy}
+else:
+    _PROXY_KWARGS = {}
+
+
 # 全局共享 httpx.AsyncClient(连接池复用,避免每次请求新建 client)
 # provider 通过 get_http_client() 获取,在 main.py lifespan shutdown 中 close_http_client()
 _http_client: Optional[httpx.AsyncClient] = None
 
 
 def get_http_client() -> httpx.AsyncClient:
-    """获取全局共享 httpx.AsyncClient(懒初始化,连接池复用)。"""
+    """获取全局共享 httpx.AsyncClient(懒初始化,连接池复用,自动应用 LLM 代理)。"""
     global _http_client
     if _http_client is None:
-        _http_client = httpx.AsyncClient(timeout=60.0)
+        _http_client = httpx.AsyncClient(timeout=60.0, **_PROXY_KWARGS)
     return _http_client
 
 
@@ -73,9 +89,13 @@ def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
     try:
         payload = json.loads(api_key_enc)
         if not (isinstance(payload, dict) and all(k in payload for k in ("iv", "ciphertext", "tag"))):
+            # JSON 解析成功但不是加密 dict(可能是 JSON 字符串带引号)→ 返回解析后的值
+            if isinstance(payload, str):
+                return payload.strip().strip('"').strip("'")
             return api_key_enc
     except (json.JSONDecodeError, TypeError):
-        return api_key_enc
+        # 非 JSON 格式,视为明文(同时 strip 首尾引号/空白,防御 seed 脚本引号包裹)
+        return api_key_enc.strip().strip('"').strip("'")
 
     key_str = settings.credentials_encryption_key
     if not key_str or len(key_str) < 32:
@@ -90,7 +110,9 @@ def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
         tag = base64.b64decode(payload["tag"])
         aesgcm = AESGCM(key)
         plaintext = aesgcm.decrypt(iv, ciphertext + tag, None)
-        return plaintext.decode("utf-8")
+        decoded = plaintext.decode("utf-8")
+        # P0-5m(2026-07-30):strip 首尾引号(防御 seed 脚本把 key 用 JSON.stringify 包裹导致引号残留)
+        return decoded.strip().strip('"').strip("'")
     except Exception as e:
         logger.warning("解密 api_key_enc 失败: %s", e)
         return None
@@ -275,6 +297,11 @@ async def _resolve_from_db(
         real_model = model.split("/", 1)[1] if "/" in model else model
         if api_format == "anthropic_messages":
             litellm_model = model if "/" in model else f"anthropic/{model}"
+        elif provider_code == "openrouter":
+            # P0-5m(2026-07-30):OpenRouter 需要走 LiteLLM 原生 openrouter/ 路由,
+            # 不能转成 openai/(否则 LiteLLM 走 OpenAI 路由不传 Auth header)。
+            # model 已含 openrouter/ 前缀(如 openrouter/deepseek/deepseek-v4-pro),原样返回。
+            litellm_model = model
         else:
             litellm_model = f"openai/{real_model}"
         return api_key, base_url, litellm_model

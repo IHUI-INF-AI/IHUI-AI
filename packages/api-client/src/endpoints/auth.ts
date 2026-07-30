@@ -250,6 +250,17 @@ export async function sendEmailCode(
   })
 }
 
+/** 邮箱验证码登录 — POST /auth/login/email(对齐 ui-react LoginApiClient 契约) */
+export async function loginByEmailCode(
+  email: string,
+  code: string,
+): Promise<ApiResult<LoginResult>> {
+  return fetchApi<LoginResult>('/api/auth/login/email', {
+    method: 'POST',
+    body: JSON.stringify({ email, code }),
+  })
+}
+
 /** 邮箱注册 — POST /auth/register/email(只发送后端必需字段,confirmPassword 由前端校验) */
 export async function registerByEmail(
   email: string,

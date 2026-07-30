@@ -67,7 +67,7 @@ export interface AgentRuntimePanelProps {
  * 模型配置类型(两端完全相同)
  * 注意:命名为 ModelConfigType 以避免与 legacy-migration.ts 的 ModelType(LLM 厂商)冲突
  */
-export type ModelConfigType = 'text' | 'image' | 'video' | 'audio' | 'multimodal'
+export type ModelConfigType = 'text' | 'image' | 'video' | 'audio' | 'multimodal' | 'aigc'
 
 // ===== TitleSwitchOverlap =====
 /** 重叠标题切换单项(两端语义相同,均只有 name) */
@@ -136,6 +136,12 @@ export interface TitleSwitchTypeBarItem {
 export interface TitleSwitchTypeBarProps {
   showAll?: boolean
   customize?: boolean
+  /** 'multi' = 多选(默认,'tab' 行为);'single' = 单选(对齐 'single' 行为) */
+  mode?: 'multi' | 'single'
+  /** single 模式下当前选中 id(受控) */
+  value?: string
+  /** 父组件注入的标签列表(不传则用默认 DEFAULT_TABS) */
+  mainList?: TitleSwitchTypeBarItem[]
   onChange?: (ids: string[]) => void
 }
 

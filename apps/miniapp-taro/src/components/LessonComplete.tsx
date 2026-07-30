@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 export interface LessonCompleteProps {
   visible?: boolean
@@ -23,7 +23,7 @@ export default function LessonComplete({
   onClose,
 }: LessonCompleteProps) {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (!visible) return null
 
   return (

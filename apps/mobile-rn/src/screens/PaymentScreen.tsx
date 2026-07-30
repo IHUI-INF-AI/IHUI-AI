@@ -13,6 +13,7 @@ import {
   type PaymentOrderItem,
 } from '@ihui/rn-app'
 import { openWeChatPayment } from '../lib/wechat-pay'
+import { ConfirmPurchasePopUp, type ConfirmPurchaseProduct } from '../components/ConfirmPurchasePopUp'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
@@ -40,6 +41,9 @@ export function PaymentScreen() {
   const [error, setError] = useState('')
   const [actioningId, setActioningId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
+  // 待确认购买的订单:点击 Pay 时先弹 ConfirmPurchasePopUp,用户确认后再发起微信支付
+  const [pendingPurchase, setPendingPurchase] = useState<PaymentOrderItem | null>(null)
+  const [purchaseLoading, setPurchaseLoading] = useState(false)
 
   const load = async (refresh = false) => {
     if (refresh) setRefreshing(true)
@@ -86,7 +90,13 @@ export function PaymentScreen() {
   }
 
   const handlePay = async (order: PaymentOrderItem) => {
+    // 第一步:弹出 ConfirmPurchasePopUp 让用户二次确认
+    setPendingPurchase(order)
+  }
+
+  const executePayment = async (order: PaymentOrderItem) => {
     setActioningId(order.orderNo)
+    setPurchaseLoading(true)
     setToast('')
     try {
       const res = await createWechatAppPayment({
@@ -95,7 +105,6 @@ export function PaymentScreen() {
       })
       if (!res.success || !res.data?.prepayData) {
         setToast(res.error || t('payment.createFailed'))
-        setActioningId(null)
         return
       }
       const paid = await openWeChatPayment(res.data.prepayData)
@@ -110,24 +119,57 @@ export function PaymentScreen() {
       if (msg === 'WECHAT_NOT_INSTALLED') setToast(t('payment.wechatNotInstalled'))
       else if (msg === 'WECHAT_NATIVE_UNAVAILABLE') setToast(t('payment.nativeUnavailable'))
       else setToast(`${t('payment.payFailed')}: ${msg}`)
+    } finally {
+      setActioningId(null)
+      setPurchaseLoading(false)
+      setPendingPurchase(null)
     }
-    setActioningId(null)
   }
 
+  const cancelPurchase = () => {
+    if (purchaseLoading) return
+    setPendingPurchase(null)
+  }
+
+  const pendingProduct: ConfirmPurchaseProduct | null = pendingPurchase
+    ? {
+        name: pendingPurchase.subject || t('payment.untitledOrder'),
+        price: (pendingPurchase.amount ?? 0) / 100,
+        icon: '💳',
+      }
+    : null
+
   return (
-    <SharedPaymentScreen
-      t={t}
-      orders={orders}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      actioningId={actioningId}
-      toast={toast}
-      onPay={handlePay}
-      onSync={handleSync}
-      onCancel={handleCancel}
-      onRefresh={() => load(true)}
-      onBack={() => navigation.goBack()}
-    />
+    <>
+      <SharedPaymentScreen
+        t={t}
+        orders={orders}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        actioningId={actioningId}
+        toast={toast}
+        onPay={handlePay}
+        onSync={handleSync}
+        onCancel={handleCancel}
+        onRefresh={() => load(true)}
+        onBack={() => navigation.goBack()}
+      />
+      {pendingProduct ? (
+        <ConfirmPurchasePopUp
+          visible={pendingPurchase !== null}
+          title="确认支付"
+          message={`订单号:${pendingPurchase?.orderNo ?? ''}`}
+          product={pendingProduct}
+          loading={purchaseLoading}
+          cancelText="再看看"
+          confirmText="确认支付"
+          onCancel={cancelPurchase}
+          onConfirm={() => {
+            if (pendingPurchase) void executePayment(pendingPurchase)
+          }}
+        />
+      ) : null}
+    </>
   )
 }
