@@ -252,314 +252,235 @@ export default function ChatMessageItem({
     }
   }
 
-  return (
-    <View className={`msg-item ${msg.role}`} onLongPress={handleLongPress}>
-      <View className="bubble">
-        {/* 思考过程(对标原 ai_assistant.vue reasoning 折叠) */}
-        {msg.reasoning ? (
-          <View className="reasoning-wrap" onClick={() => setExpanded((v) => !v)}>
-            <Text className="reasoning-toggle">
-              {expanded ? '▾' : '▸'} {t('ai.chatMessageItem.thinkingProcess')}
-            </Text>
-            {expanded ? <Text className="reasoning-content">{msg.reasoning}</Text> : null}
-          </View>
-        ) : null}
+  // 保留 state(对标原 ai_assistant.vue reasoning 内联折叠,现由 onOpenReasoning 浮层承载)
+  void expanded
+  void setExpanded
 
-        {/* 代码块(对标原 ai_assistant.vue content_code,可折叠 + 复制按钮) */}
-        {msg.codeContent ? (
-          <View
-            className="bubble-code-wrap"
-            style={{ marginTop: '8rpx', borderRadius: '8rpx', overflow: 'hidden' }}
-          >
-            <View
-              className="bubble-code-header"
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8rpx 16rpx',
-                background: 'var(--color-muted)',
-                borderBottom: '1rpx solid var(--color-border)',
-              }}
-            >
-              <Text
-                className="bubble-code-lang"
-                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
-                onClick={() => setCodeCollapsed((v) => !v)}
-              >
-                {codeCollapsed ? '▸' : '▾'} {t('ai.chatMessageItem.collapse')}
-              </Text>
-              <Text
-                className="bubble-code-copy"
-                style={{
-                  fontSize: '24rpx',
-                  color: codeCopied ? 'var(--color-success)' : 'var(--color-link)',
-                }}
-                onClick={copyCode}
-              >
-                {codeCopied ? t('ai.chatMessageItem.copy') + ' ✓' : t('ai.chatMessageItem.copy')}
-              </Text>
+  return (
+    <View onLongPress={handleLongPress}>
+      {/* 用户消息:.question-container 右浮,复用按钮在气泡外左侧(对标原 ai_assistant.vue) */}
+      {msg.role === 'user' ? (
+        <View className="question-container">
+          {/* 复用按钮 fuyong-btn:100rpx×40rpx,在气泡外左侧 */}
+          {onReuse ? (
+            <View style={{ marginRight: '10rpx' }}>
+              <Image
+                src={reuseBtnPng}
+                className="fuyong-btn"
+                mode="widthFix"
+                onClick={handleReuse}
+              />
             </View>
-            {!codeCollapsed ? (
+          ) : null}
+          {/* 用户消息图片列表(若有) */}
+          {msg.images && msg.images.length > 0 ? (
+            <View className="agent-content-item-question" style={{ marginTop: '20rpx' }}>
+              {msg.images.map((imgUrl, i) => (
+                <Image
+                  key={i}
+                  src={imgUrl}
+                  className="agent-question-item-img"
+                  style={{ width: '100rpx', height: '100rpx', display: 'block', marginBottom: '10rpx' }}
+                  mode="aspectFill"
+                />
+              ))}
+            </View>
+          ) : null}
+          {/* 用户气泡 agent-content-item-question:紫色渐变右浮 */}
+          <View
+            className="agent-content-item-question"
+            style={{ position: 'relative', maxWidth: 'calc(100% - 110rpx)' }}
+          >
+            {/* 编辑按钮(增强功能,历史项目无,保留) */}
+            {onEdit ? (
               <Text
-                className="bubble-code"
-                style={{
-                  color: 'var(--color-link)',
-                  display: 'block',
-                  padding: '12rpx 16rpx',
-                  fontSize: '26rpx',
-                  background: 'var(--color-muted)',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-all',
-                }}
+                style={{ fontSize: '20rpx', color: '#fff', opacity: 0.7, display: 'block', textAlign: 'right', marginBottom: '6rpx' }}
+                onClick={handleEdit}
               >
-                {msg.codeContent}
+                {t('ai.chatMessageItem.edit')}
               </Text>
             ) : null}
+            <Text>{msg.content}</Text>
           </View>
-        ) : null}
+        </View>
+      ) : (
+        /* AI 消息:.agent-content-item 全宽灰色气泡(对标原 ai_assistant.vue) */
+        <View className="agent-content-item">
+          {/* 答案显隐切换 */}
+          {!answerHidden ? (
+            <View className="content_agent_nei">
+              {/* 段渲染:link 色 #1888ee,header 加粗块级 */}
+              {segments.map((seg, idx) => {
+                if (seg.type === 'link') {
+                  return (
+                    <Text
+                      key={idx}
+                      style={{ color: '#1888ee' }}
+                      onClick={() => handleSegmentClick(seg)}
+                    >
+                      {seg.url}
+                    </Text>
+                  )
+                }
+                if (seg.type === 'header') {
+                  return (
+                    <Text
+                      key={idx}
+                      style={{ fontWeight: 'bold', display: 'block', marginBottom: '20rpx' }}
+                    >
+                      {seg.value}
+                    </Text>
+                  )
+                }
+                return <Text key={idx}>{seg.value}</Text>
+              })}
+              {/* 代码块(保留当前 codeCollapsed 逻辑) */}
+              {msg.codeContent ? (
+                <View style={{ marginTop: '12rpx' }}>
+                  <View
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12rpx 16rpx', background: '#282c34', borderRadius: '8rpx' }}
+                    onClick={() => setCodeCollapsed((v) => !v)}
+                  >
+                    <Text style={{ fontSize: '24rpx', color: '#abb2bf' }}>{codeCollapsed ? '▸' : '▾'} code</Text>
+                    <Text style={{ fontSize: '24rpx', color: '#61dafb' }} onClick={copyCode}>
+                      {codeCopied ? t('success.copied') : t('ai.chatMessageItem.copy')}
+                    </Text>
+                  </View>
+                  {!codeCollapsed ? (
+                    <Text style={{ display: 'block', padding: '16rpx', fontFamily: 'monospace', fontSize: '24rpx', color: '#abb2bf', background: '#282c34', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                      {msg.codeContent}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {/* 语音气泡(若有 audioUrl) */}
+              {audioUrl ? (
+                <View style={{ display: 'flex', alignItems: 'center', marginTop: '12rpx', padding: '12rpx 20rpx', background: '#9a99f3', borderRadius: '30rpx', color: '#fff' }} onClick={playVoice}>
+                  <Text style={{ fontSize: '32rpx', marginRight: '12rpx' }}>{voicePlaying ? '⏸' : '▶'}</Text>
+                  {audioDuration ? <Text style={{ fontSize: '24rpx' }}>{audioDuration}''</Text> : null}
+                </View>
+              ) : null}
+              {/* 数字人关键词检测 */}
+              {hasDigitalHuman ? (
+                <View style={{ marginTop: '12rpx', padding: '10rpx 20rpx', background: '#9a99f3', borderRadius: '15rpx', color: '#fff', display: 'inline-block' }} onClick={goDigitalHuman}>
+                  <Text style={{ fontSize: '24rpx' }}>数字人生成 →</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View style={{ padding: '20rpx', textAlign: 'center' }}>
+              <Text style={{ color: '#999', fontSize: '24rpx' }}>···</Text>
+            </View>
+          )}
 
-        {/* 内容段渲染(对标原 ai_assistant.vue formatContentSegments,支持答案显隐) */}
-        {!answerHidden ? (
-          segments.map((seg, idx) => (
-            <Text
-              key={idx}
-              className={`bubble-seg bubble-seg-${seg.type}`}
-              style={
-                seg.type === 'link'
-                  ? { color: 'var(--color-link)' }
-                  : seg.type === 'header'
-                    ? { fontWeight: 'bold', display: 'block', marginBottom: '20rpx' }
-                    : undefined
-              }
-              onClick={() => handleSegmentClick(seg)}
-            >
-              {seg.value}
-            </Text>
-          ))
-        ) : (
-          <View
-            className="hidden-answer-container"
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '20rpx',
-            }}
-          >
-            <Image
-              src={eyeClosedIcon}
-              style={{ width: '30rpx', height: '30rpx' }}
-              mode="aspectFit"
-            />
-          </View>
-        )}
-
-        {/* 图片展示(对标原 ai_assistant.vue imgUrlList,支持答案显隐 + 加载失败兜底) */}
-        {!answerHidden && msg.images && msg.images.length > 0
-          ? msg.images.map((imgUrl, idx) => (
-              <Image
-                key={`img-${idx}`}
-                className="bubble-img"
-                style={{ width: '100%', marginTop: '10rpx', display: 'block' }}
-                src={imgUrl}
-                mode="widthFix"
-                onClick={() => previewImage(imgUrl, msg.images!)}
-                onError={() => console.warn('Image load failed:', imgUrl)}
-              />
-            ))
-          : null}
-
-        {/* 视频展示(对标原 ai_assistant.vue videoUrlList,支持答案显隐) */}
-        {!answerHidden && msg.videos && msg.videos.length > 0
-          ? msg.videos.map((videoUrl, idx) => (
-              <Video
-                key={`video-${idx}`}
-                className="bubble-video"
-                style={{ width: '100%', marginTop: '10rpx' }}
-                src={videoUrl}
-                controls
-                showPlayBtn
-                showCenterPlayBtn
-                enableProgressGesture
-                objectFit="contain"
-              />
-            ))
-          : null}
-
-        {/* 语音消息气泡(对标原 ai_assistant.vue 语音气泡,audioUrl 可选属性) */}
-        {audioUrl ? (
-          <View
-            className={`voice-bubble ${msg.role}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16rpx',
-              padding: '16rpx 24rpx',
-              borderRadius: '12rpx',
-              marginTop: '10rpx',
-              background:
-                msg.role === 'user' ? 'var(--color-chat-bubble-user)' : 'var(--color-muted)',
-            }}
-            onClick={playVoice}
-          >
-            <Text className="voice-play-icon" style={{ fontSize: '36rpx' }}>
-              {voicePlaying ? '⏸' : '▶'}
-            </Text>
-            <Text
-              className="voice-duration"
-              style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
-            >
-              {audioDuration ? `${audioDuration}"` : t('ai.chatMessageItem.voiceMessage')}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* 数字人跳转按钮(对标原 ai_assistant.vue 数字人跳转,仅 AI 消息含关键词) */}
-        {msg.role === 'assistant' && hasDigitalHuman ? (
-          <View
-            className="digital-human-btn"
-            style={{
-              marginTop: '12rpx',
-              padding: '8rpx 16rpx',
-              background: 'var(--color-link-bg)',
-              color: 'var(--color-link)',
-              borderRadius: '6rpx',
-              fontSize: '24rpx',
-              display: 'inline-flex',
-              alignItems: 'center',
-            }}
-            onClick={goDigitalHuman}
-          >
-            {t('ai.chatMessageItem.viewDigitalHuman')} →
-          </View>
-        ) : null}
-
-        {/* 操作按钮区(对标原 ai_assistant.vue .action-buttons:左 token 消耗 + 右图标按钮组) */}
-        <View className="bubble-actions">
-          {/* 左侧:token 消耗(仅 AI 消息,对标原 ai_assistant.vue "智汇AI生成 消耗智汇值:XXX") */}
-          {msg.role === 'assistant' && msg.tokenCount !== undefined ? (
-            <Text
-              className="bubble-token"
-              style={{
-                marginRight: '10rpx',
-                fontSize: '24rpx',
-                color: 'var(--color-muted-foreground)',
-                lineHeight: '40rpx',
-                opacity: answerHidden ? 0 : 1,
-              }}
-            >
-              {t('ai.chatMessageItem.aiGenerated')}
-              {msg.tokenCount > 0
-                ? ` ${t('ai.chatMessageItem.tokenCost', { n: formatTokenDisplay(msg.tokenCount) })}`
-                : ''}
-            </Text>
-          ) : null}
-
-          {/* 左侧:用户消息复用按钮(图片形式,对标原 ai_assistant.vue .fuyong-btn)+ 编辑按钮 */}
-          {msg.role === 'user' ? (
-            <View style={{ display: 'flex', alignItems: 'center' }}>
-              {onReuse ? (
+          {/* AI 图片列表 agent-content-item-img */}
+          {msg.images && msg.images.length > 0 && !answerHidden ? (
+            <View>
+              {msg.images.map((imgUrl, i) => (
                 <Image
-                  src={reuseBtnPng}
-                  className="fuyong-btn"
+                  key={i}
+                  src={imgUrl}
+                  className="agent-content-item-img"
                   mode="widthFix"
-                  onClick={handleReuse}
+                  onClick={() => previewImage(imgUrl, msg.images!)}
                 />
-              ) : null}
-              {onEdit ? (
-                <Text
-                  className="bubble-edit"
-                  style={{ fontSize: '24rpx', color: 'var(--color-link)', marginLeft: '10rpx' }}
-                  onClick={handleEdit}
-                >
-                  {t('ai.chatMessageItem.edit')}
-                </Text>
-              ) : null}
+              ))}
             </View>
           ) : null}
 
-          {/* 右侧:图标按钮组(仅 AI 消息,对标原 ai_assistant.vue display:flex justify-content:flex-end) */}
-          {msg.role === 'assistant' && msg.content ? (
-            <View className="bubble-actions-right">
-              {/* 答案显隐 eye 图标(对标原 eye-closed.svg / eye-open.svg) */}
+          {/* AI 视频列表(若有) */}
+          {msg.videos && msg.videos.length > 0 && !answerHidden ? (
+            <View>
+              {msg.videos.map((videoUrl, i) => (
+                <Video
+                  key={`video-${i}`}
+                  src={videoUrl}
+                  style={{ width: '100%', marginTop: '10rpx' }}
+                  controls
+                  showPlayBtn
+                  showCenterPlayBtn
+                  enableProgressGesture
+                  objectFit="contain"
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {/* 操作按钮行 action-buttons:左侧 token 信息 + 右侧图标组 */}
+          <View className="action-buttons" style={{ justifyContent: 'space-between' }}>
+            {/* 左侧:智汇AI生成 + 消耗智汇值 */}
+            <View style={{ opacity: answerHidden ? 0 : 1, marginRight: '10rpx', fontSize: '24rpx', color: '#999', lineHeight: '40rpx' }}>
+              <Text>智汇AI生成</Text>
+              {typeof msg.tokenCount === 'number' ? (
+                <Text style={{ marginLeft: '10rpx' }}>消耗智汇值：{formatTokenDisplay(msg.tokenCount)}</Text>
+              ) : null}
+            </View>
+
+            {/* 右侧:图标按钮组 */}
+            <View style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              {/* 答案显隐 eye-closed/eye-open */}
               <Image
+                className="action-btn"
                 src={answerHidden ? eyeOpenIcon : eyeClosedIcon}
-                className="action-btn-img"
                 mode="widthFix"
                 onClick={toggleAnswer}
               />
-              {/* 思考回看 sikao 图标(仅 reasoning 存在时) */}
-              {onOpenReasoning && msg.reasoning ? (
+              {/* 思考过程(若有 reasoning) */}
+              {msg.reasoning ? (
                 <Image
+                  className="action-btn"
                   src={sikaoIcon}
-                  className="action-btn-img"
                   mode="widthFix"
                   onClick={onOpenReasoning}
                 />
               ) : null}
-              {/* 复制图标 */}
+              {/* 复制 */}
               <Image
+                className="action-btn"
                 src={copyIcon}
-                className="action-btn-img"
                 mode="widthFix"
                 onClick={() => copyContent(msg.content)}
               />
-              {/* 下载图标(仅图片消息) */}
+              {/* 下载(有图片时) */}
               {msg.images && msg.images.length > 0 ? (
                 <Image
+                  className="action-btn"
                   src={downloadIcon}
-                  className="action-btn-img"
                   mode="widthFix"
                   onClick={downloadImages}
                 />
               ) : null}
-              {/* 保留文字按钮:重新生成/收藏/朗读 */}
-              {onRegenerate ? (
+              {/* 朗读 TTS(增强功能,历史项目无,保留) */}
+              {onSpeak ? (
                 <Text
-                  className="bubble-regenerate"
-                  style={{
-                    fontSize: '24rpx',
-                    color: 'var(--color-link)',
-                    marginLeft: '20rpx',
-                  }}
-                  onClick={onRegenerate}
+                  style={{ fontSize: '24rpx', color: '#1888ee', marginLeft: '20rpx', lineHeight: '40rpx' }}
+                  onClick={handleSpeak}
                 >
-                  {t('ai.chatMessageItem.regenerate')}
+                  {speaking ? '⏸' : '🔊'}
                 </Text>
               ) : null}
+              {/* 重新生成(增强功能,历史项目无,保留) */}
+              {onRegenerate ? (
+                <Text
+                  style={{ fontSize: '24rpx', color: '#1888ee', marginLeft: '20rpx', lineHeight: '40rpx' }}
+                  onClick={onRegenerate}
+                >
+                  ↻
+                </Text>
+              ) : null}
+              {/* 收藏(增强功能,历史项目无,保留) */}
               {onToggleFavorite ? (
                 <Text
-                  className="bubble-favorite"
-                  style={{
-                    fontSize: '24rpx',
-                    color: isFavorited
-                      ? 'var(--color-destructive)'
-                      : 'var(--color-muted-foreground)',
-                    marginLeft: '20rpx',
-                  }}
+                  style={{ fontSize: '24rpx', color: isFavorited ? '#ff6b6b' : '#999', marginLeft: '20rpx', lineHeight: '40rpx' }}
                   onClick={onToggleFavorite}
                 >
                   {isFavorited ? '♥' : '♡'}
                 </Text>
               ) : null}
-              {onSpeak ? (
-                <Text
-                  className="bubble-speak"
-                  style={{
-                    fontSize: '24rpx',
-                    color: 'var(--color-link)',
-                    marginLeft: '20rpx',
-                  }}
-                  onClick={handleSpeak}
-                >
-                  🔊 {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}
-                </Text>
-              ) : null}
             </View>
-          ) : null}
+          </View>
         </View>
-      </View>
+      )}
     </View>
   )
 }
