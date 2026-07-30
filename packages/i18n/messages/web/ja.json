@@ -192,6 +192,7 @@
     "teams": "チーム",
     "docs": "ドキュメント",
     "search": "検索",
+    "openBrowser": "ブラウザを開く",
     "tags": "タグ",
     "oauthPlatform": "OAuthプラットフォーム",
     "selfMediaWechat": "WeChat公式",
@@ -334,7 +335,10 @@
       "resource": "リソースセンター",
       "developer": "開発者センター",
       "saas": "SaaS プラットフォーム"
-    }
+    },
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "元に戻す"
   },
   "home": {
     "announcement": {
@@ -9009,6 +9013,16 @@
     "suggest": "検索候補",
     "clearAll": "すべてクリア",
     "noResults": "検索結果なし",
+    "quickSuggestions": [
+      "設定",
+      "プロフィール",
+      "プロジェクト",
+      "会話履歴",
+      "メンバー",
+      "ワークスペース",
+      "ショートカット",
+      "AI モデル"
+    ],
     "searchPlaceholder": "検索…",
     "searchHistory": "検索履歴",
     "clear": "クリア",
@@ -9028,17 +9042,7 @@
     "loading": "読み込み中...",
     "emptyResult": "するがつかりません",
     "open": "開く",
-    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})",
-    "quickSuggestions": [
-      "設定",
-      "プロフィール",
-      "プロジェクト",
-      "会話履歴",
-      "メンバー",
-      "ワークスペース",
-      "ショートカット",
-      "AI モデル"
-    ]
+    "resultsCount": "{total} (ユーザー {users} / プロジェクト {projects} / ファイル {files})"
   },
   "footer": {
     "companyName": "吉林省愛智匯AI科技有限公司",
@@ -10248,43 +10252,43 @@
       "subtitle": "8 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
       "modelIntegration": {
         "title": "8 プラットフォームフルスタックアーキテクチャ",
-        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/拡張 6 端 + API/AI-Service 2 端、業界でも比較的珍しいフルスタック、統一アカウントシームレス切替",
-        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行"
+        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行",
+        "description": "Web/デスクトップ/モバイル/ミニプログラム/CLI/拡張 6 端 + API/AI-Service 2 端、業界でも比較的珍しいフルスタック、統一アカウントシームレス切替"
       },
       "appStore": {
         "title": "100+ LLM 大モデル",
-        "description": "国際 30+ (OpenAI/Claude/Gemini/Llama) + 国産 15+ (Qwen/GLM/DeepSeek) + クラウド 40+ プロバイダー、1つの API キーで全アクセス",
-        "benefit": "総合 ¥18 万/年節約 · Claude Pro + GPT Plus + Cursor + マルチモデル API を代替"
+        "benefit": "総合 ¥18 万/年節約 · Claude Pro + GPT Plus + Cursor + マルチモデル API を代替",
+        "description": "国際 30+ (OpenAI/Claude/Gemini/Llama) + 国産 15+ (Qwen/GLM/DeepSeek) + クラウド 40+ プロバイダー、1つの API キーで全アクセス"
       },
       "contentCreation": {
         "title": "独自 CLI、Claude Code 対抗",
-        "description": "ACP Server が Zed/VSCode/Cursor に埋め込み + 6 プライベート拡張メソッド(session 修復/rewind/MCP 呼出) + 6 ソース設定ワンクリック導入",
-        "benefit": "Claude Pro ¥17000/年節約 · 開発効率 10× 向上 · 6 ソース設定ワンクリック導入"
+        "benefit": "Claude Pro ¥17000/年節約 · 開発効率 10× 向上 · 6 ソース設定ワンクリック導入",
+        "description": "ACP Server が Zed/VSCode/Cursor に埋め込み + 6 プライベート拡張メソッド(session 修復/rewind/MCP 呼出) + 6 ソース設定ワンクリック導入"
       },
       "edu": {
         "title": "フルスタック AI 教育",
-        "description": "コース/ライブ/試験/証明書/講師/クラス 6 大モジュール、年間すべてのコース無料参加、AI 新ツールから企業 AI 文化まで 3 段階循序漸進",
-        "benefit": "¥10 万/年研修費節約 · 全員 AI 化 · 3 段階循序漸進"
+        "benefit": "¥10 万/年研修費節約 · 全員 AI 化 · 3 段階循序漸進",
+        "description": "コース/ライブ/試験/証明書/講師/クラス 6 大モジュール、年間すべてのコース無料参加、AI 新ツールから企業 AI 文化まで 3 段階循序漸進"
       },
       "navigation": {
         "title": "企業級ワークスペース",
-        "description": "3 権限モード + 7 エンドポイントランタイムブロック + 60 秒タイムアウト拒否 + RBAC 細粒度権限管理 + 99.9% SLA",
-        "benefit": "データゼロ漏洩 · 監査全程トレーサブル · 99.9% SLA 企業級ゼロリスク"
+        "benefit": "データゼロ漏洩 · 監査全程トレーサブル · 99.9% SLA 企業級ゼロリスク",
+        "description": "3 権限モード + 7 エンドポイントランタイムブロック + 60 秒タイムアウト拒否 + RBAC 細粒度権限管理 + 99.9% SLA"
       },
       "agentSquare": {
         "title": "エージェント広場",
-        "description": "汎用/業界/職能 3 大カテゴリのエージェント、客服/マーケティング/運営/HR/財務 5+ 職能をカバー、すぐに利用可能、カスタムサポート",
-        "benefit": "5+ 人力ポスト代替 · 7×24 不間断 · 総合 ¥30 万/年人件費節約"
+        "benefit": "5+ 人力ポスト代替 · 7×24 不間断 · 総合 ¥30 万/年人件費節約",
+        "description": "汎用/業界/職能 3 大カテゴリのエージェント、客服/マーケティング/運営/HR/財務 5+ 職能をカバー、すぐに利用可能、カスタムサポート"
       },
       "workflow": {
         "title": "LangGraph ワークフロー",
-        "description": "2 個 LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック合一業界でも比較的珍しい",
-        "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · トリプルスタック合一業界でも比較的珍しい"
+        "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · トリプルスタック合一業界でも比較的珍しい",
+        "description": "2 個 LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック合一業界でも比較的珍しい"
       },
       "multimodal": {
         "title": "マルチモーダル AI 入力",
-        "description": "画像生成/音声合成/動画生成/ファイル解析/デジタルヒューマン 5 大モダリティ、1つの API キーで全アクセス",
-        "benefit": "¥5 万/年デザイン費節約 · 5 大モダリティ全打通 · コンテンツ生産 10× 加速"
+        "benefit": "¥5 万/年デザイン費節約 · 5 大モダリティ全打通 · コンテンツ生産 10× 加速",
+        "description": "画像生成/音声合成/動画生成/ファイル解析/デジタルヒューマン 5 大モダリティ、1つの API キーで全アクセス"
       }
     },
     "advantages": {
@@ -12447,11 +12451,23 @@
     },
     "topBar": {
       "editor": "エディタ",
-      "close": "閉じる"
+      "close": "閉じる",
+      "document": "ドキュメント",
+      "browser": "内蔵ブラウザ",
+      "terminal": "ターミナル",
+      "codeChanges": "コード変更",
+      "agent": "エージェント",
+      "mcp": "MCP",
+      "settings": "設定",
+      "skill": "スキル",
+      "plus": "ビューを追加"
     },
     "viewSwitcher": {
       "searchPlaceholder": "ビューを検索...",
-      "noMatch": "一致なし"
+      "noMatch": "一致なし",
+      "groupView": "ビュー",
+      "groupTools": "ツール",
+      "groupSettings": "設定"
     },
     "layout": {
       "documentView": "ドキュメントビュー",
@@ -13357,6 +13373,13 @@
     "cardLabel": "API 価格",
     "cardDesc": "モデル価格と課金ルール"
   },
+  "messageInput": {
+    "document": "ファイル",
+    "removeFile": "ファイルを削除",
+    "placeholder": "メッセージを入力...",
+    "clear": "クリア",
+    "stop": "停止"
+  },
   "a11y": {
     "copyResponse": "レスポンスをコピー",
     "searchOption": "オプションを検索",
@@ -13477,12 +13500,5 @@
   "forbidden": {
     "description": "申し訳ございません、このページにアクセスする権限がありません。権限の付与については管理者にお問い合わせください。",
     "backToHome": "ホームへ戻る"
-  },
-  "messageInput": {
-    "document": "ファイル",
-    "removeFile": "ファイルを削除",
-    "placeholder": "メッセージを入力...",
-    "clear": "クリア",
-    "stop": "停止"
   }
 }

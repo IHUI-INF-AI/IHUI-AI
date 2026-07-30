@@ -1,4 +1,4 @@
-﻿{
+{
   "nav": {
     "profile": "我的",
     "community": "社群"
@@ -23,7 +23,11 @@
     "wechatOnly": "僅支援微信登入",
     "ssoLogin": "SSO 登入",
     "ssoLoginHint": "企業帳號一鍵登入",
-    "agreement": "我已閱讀並同意《使用者協議》和《隱私政策》"
+    "agreement": "我已閱讀並同意《使用者協議》和《隱私政策》",
+    "smsTab": "手機號驗證碼登入",
+    "privacyPolicy": "《隱私政策》",
+    "serviceAgreement": "《服務協議》",
+    "autoRegisterHint": "未註冊用戶將自動建立帳號"
   },
   "forgot": {
     "title": "找回密碼",
@@ -100,7 +104,14 @@
       "subtitle": "{{n}} 個課程"
     },
     "ratingTitle": "評價課程",
-    "ratingLabels": ["", "很差", "較差", "一般", "不錯", "很好"],
+    "ratingLabels": [
+      "",
+      "很差",
+      "較差",
+      "一般",
+      "不錯",
+      "很好"
+    ],
     "ratingPlaceholder": "請評分",
     "ratingDescLabel": "寫下你的評價",
     "ratingInputPlaceholder": "課程怎麼樣?分享你的感受...",
@@ -364,7 +375,12 @@
     "welcomeTitle": "你好,我是智匯 AI 助手",
     "welcomeDesc": "有什麼可以幫你的嗎?",
     "inputPlaceholder": "輸入你的問題…",
-    "suggestions": ["幫我寫一首詩", "解釋量子力學", "寫一段程式碼", "翻譯這段話"],
+    "suggestions": [
+      "幫我寫一首詩",
+      "解釋量子力學",
+      "寫一段程式碼",
+      "翻譯這段話"
+    ],
     "thinking": "思考中…",
     "stop": "停止",
     "clear": "清空",
@@ -436,7 +452,12 @@
       "timbre": "音色"
     },
     "image": {
-      "examples": ["一隻可愛的貓咪", "日落山景", "未來城市", "抽象藝術"],
+      "examples": [
+        "一隻可愛的貓咪",
+        "日落山景",
+        "未來城市",
+        "抽象藝術"
+      ],
       "emptyHint": "輸入描述生成圖片",
       "tryThese": "試試這些",
       "placeholder": "描述你想生成的圖片",
@@ -450,7 +471,14 @@
       "favorited": "已收藏",
       "history": "歷史記錄",
       "empty": "暫無生成記錄",
-      "styles": ["寫實", "動漫", "油畫", "水彩", "3D", "像素"],
+      "styles": [
+        "寫實",
+        "動漫",
+        "油畫",
+        "水彩",
+        "3D",
+        "像素"
+      ],
       "generateFailed": "生成失敗,請重試",
       "downloadSuccess": "已儲存到相簿",
       "downloadFailed": "下載失敗,請重試",
@@ -859,7 +887,10 @@
       "starting": "正在進入考試…"
     },
     "answer": {
-      "judgmentOptions": ["正確", "錯誤"],
+      "judgmentOptions": [
+        "正確",
+        "錯誤"
+      ],
       "loadFailed": "試卷載入失敗",
       "answerPlaceholder": "輸入你的答案",
       "prev": "上一題",
@@ -1172,7 +1203,13 @@
       }
     },
     "appPermission": {
-      "names": ["相簿權限", "相機權限", "麥克風權限", "位置權限", "通知權限"],
+      "names": [
+        "相簿權限",
+        "相機權限",
+        "麥克風權限",
+        "位置權限",
+        "通知權限"
+      ],
       "descs": [
         "用於儲存和上傳圖片到相簿",
         "用於拍攝照片和錄製影片",
@@ -1504,9 +1541,26 @@
   },
   "plaza": {
     "setNeed": {
-      "categories": ["學習心得", "技術分享", "課程筆記", "專案實戰", "問題求助", "經驗總結"],
-      "levels": ["初級", "中級", "高級", "專家"],
-      "budgets": ["1000 元以下", "1000-5000 元", "5000-10000 元", "10000 元以上"],
+      "categories": [
+        "學習心得",
+        "技術分享",
+        "課程筆記",
+        "專案實戰",
+        "問題求助",
+        "經驗總結"
+      ],
+      "levels": [
+        "初級",
+        "中級",
+        "高級",
+        "專家"
+      ],
+      "budgets": [
+        "1000 元以下",
+        "1000-5000 元",
+        "5000-10000 元",
+        "10000 元以上"
+      ],
       "selectAtLeast": "請至少選擇一項",
       "saved": "儲存成功",
       "directionTitle": "學習方向",
@@ -1727,6 +1781,24 @@
       "loadFailed": "載入失敗",
       "thresholdText": "滿{threshold}元可用",
       "expireText": "有效期至 {time}"
+    },
+    "benefit": {
+      "unlimited": "無限制對話",
+      "unlimitedDesc": "無限制使用 AI 對話功能"
+    },
+    "level": {
+      "normal": "普通會員",
+      "normalThreshold": "註冊即享",
+      "normalPerks": "基礎對話 / 有限次數",
+      "silver": "白銀會員",
+      "silverThreshold": "成長值 ≥ 1000",
+      "silverPerks": "更多對話次數 / 優先客服",
+      "gold": "黃金會員",
+      "goldThreshold": "成長值 ≥ 3000",
+      "goldPerks": "無限對話 / 專屬客服",
+      "diamond": "鑽石會員",
+      "diamondThreshold": "成長值 ≥ 8000",
+      "diamondPerks": "全部權益 / 私董會"
     }
   },
   "pay": {
@@ -1813,8 +1885,19 @@
       "tabsComment": "留言"
     },
     "publish": {
-      "categories": ["學習心得", "技術分享", "課程筆記", "專案實戰", "問題求助", "經驗總結"],
-      "visibilityOptions": ["公開", "僅好友", "私密"],
+      "categories": [
+        "學習心得",
+        "技術分享",
+        "課程筆記",
+        "專案實戰",
+        "問題求助",
+        "經驗總結"
+      ],
+      "visibilityOptions": [
+        "公開",
+        "僅好友",
+        "私密"
+      ],
       "enterTitle": "請輸入標題",
       "enterContent": "請輸入內容",
       "published": "發布成功",
@@ -2093,7 +2176,14 @@
       "bannerTitle": "升級VIP會員",
       "bannerDesc": "解鎖更多專屬特權",
       "rightsTitle": "會員權益",
-      "rights": ["專屬客服", "優先體驗", "高級功能", "去廣告", "專屬標識", "折扣優惠"],
+      "rights": [
+        "專屬客服",
+        "優先體驗",
+        "高級功能",
+        "去廣告",
+        "專屬標識",
+        "折扣優惠"
+      ],
       "loadFailed": "載入失敗",
       "operationFailed": "操作失敗",
       "originalPrice": "原價¥{{n}}",
@@ -2174,7 +2264,25 @@
     },
     "benefitsTitle": "會員權益",
     "upgradeNow": "立即升級",
-    "hot": "熱門"
+    "hot": "熱門",
+    "plan": {
+      "monthly": "月度會員",
+      "monthlyPeriod": "30天",
+      "quarterly": "季度會員",
+      "quarterlyPeriod": "90天",
+      "yearly": "年度會員",
+      "yearlyPeriod": "365天"
+    },
+    "feature": {
+      "aiCopywriting": "AI營銷文案",
+      "aiCopywritingDesc": "智能生成各類營銷文案",
+      "aiDesign": "AI智能設計",
+      "aiDesignDesc": "智能生成圖片和設計",
+      "aiVideo": "AI視頻製作",
+      "aiVideoDesc": "智能生成視頻內容",
+      "aiLive": "AI直播助手",
+      "aiLiveDesc": "智能直播輔助工具"
+    }
   },
   "learnDevelop": {
     "title": "學習發展",
@@ -2312,6 +2420,20 @@
   "notification": {
     "settings": "通知設置"
   },
+  "messageInput": {
+    "placeholder": "請輸入內容...",
+    "send": "發送",
+    "stop": "停止",
+    "fullscreenBack": "收起",
+    "fullscreenHint": "全螢幕編輯模式",
+    "recording": "放開發送,上滑取消",
+    "voiceHint": "長按說話",
+    "document": "文件",
+    "video": "影片",
+    "addFile": "新增附件",
+    "releaseToSend": "放開發送",
+    "holdToSpeak": "按住說話"
+  },
   "toolbar": {
     "traffic-service": "流量運營陪跑",
     "device-service": "一站式設備應用",
@@ -2321,5 +2443,18 @@
     "plaza": "廣場",
     "rank": "排行",
     "vip": "會員"
+  },
+  "index": {
+    "mock": {
+      "post1Title": "如何使用 React Hooks?",
+      "today": "今天"
+    },
+    "feature": {
+      "superAgent": "深度思考"
+    },
+    "toast": {
+      "loginRequired": "請先登入"
+    },
+    "title": "智匯AI社群"
   }
 }
