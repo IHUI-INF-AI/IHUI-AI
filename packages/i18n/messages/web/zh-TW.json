@@ -1,4 +1,4 @@
-{
+﻿{
   "skills": {
     "market": {
       "title": "技能市場",
@@ -5924,6 +5924,23 @@
       "lastVerified": "最近驗證",
       "noAccounts": "暫無帳號,請先新增",
       "credentialsHint": "憑證 JSON(平臺特定:token/cookie/appId+secret)"
+      "scanLogin": "掃碼登入",
+      "scanLoginTitle": "掃碼登入平臺",
+      "scanLoginDescription": "選擇平臺後,後端會打開該平臺登入頁並截取二維碼;用對應 App 掃碼即可自動儲存 cookies。",
+      "scanLoginHint": "透過掃碼自動取得並儲存登入憑證",
+      "scan": "掃碼",
+      "selectPlatform": "選擇平臺",
+      "startScanLogin": "開始掃碼登入",
+      "scanLoginQrAlt": "登入二維碼",
+      "scanLoginSuccess": "掃碼登入成功",
+      "scanLoginSucceeded": "登入成功,已自動儲存到帳號",
+      "scanLoginFailed": "掃碼登入失敗",
+      "scanLoginTimeout": "掃碼超時,請重試",
+      "cancelScan": "取消掃碼",
+      "minimize": "最小化(背景繼續等待)",
+      "taskId": "任務",
+      "cookiesSaved": "已儲存 {count} 個 cookies",
+      "waitingForScan": "等待 {platform} App 掃碼..."
     },
     "new": {
       "title": "新建發布任務",
