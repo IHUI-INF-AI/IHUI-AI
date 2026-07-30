@@ -243,7 +243,8 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "targon/": "targon",
     "centml/": "centml",
     "nebius/": "nebius",
-    "siliconcloud/": "siliconcloud",
+    "siliconcloud/": "siliconflow",
+    "siliconflow/": "siliconflow",
     "modelscope/": "modelscope",
     "ppio/": "ppio",
     "bailian/": "bailian",
@@ -1297,7 +1298,9 @@ class LLMGateway:
                 "stream": True,
                 "stream_usage": True,
             }
-            call_kwargs["api_key"] = api_key
+            # 免费 provider (api_key 为占位符) 不传 api_key,走匿名访问避免 402
+            if api_key and api_key not in ("no-key-required", "free"):
+                call_kwargs["api_key"] = api_key
             if api_base:
                 call_kwargs["api_base"] = api_base
             call_kwargs.update(kwargs)
