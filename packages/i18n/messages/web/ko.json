@@ -9323,7 +9323,8 @@
     "thisMonth": "이번 달",
     "confirmDeleteConversation": "삭제 확인채팅？삭제후없음복원。",
     "deleteConversation": "삭제채팅",
-    "deleteFailed": "삭제실패",
+    "deleteFailed": "삭제 실패",
+    "deleteSuccess": "삭제됨",
     "actions": {
       "menu": "더 보기",
       "delete": "삭제",
