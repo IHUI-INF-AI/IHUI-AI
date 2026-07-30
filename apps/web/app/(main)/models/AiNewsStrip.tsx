@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -8,7 +8,7 @@ import { Calendar, ChevronRight, Newspaper, Sparkles, TrendingUp } from 'lucide-
 
 import { Button, Card } from '@ihui/ui-react'
 import { getAiNewsFeed, type AiNewsItem } from '@/lib/models-api'
-import { LIVE_2026_MODELS, PROVIDER_KEY } from './helpers'
+import { LIVE_2026_MODELS, PROVIDER_LABEL } from './helpers'
 
 /**
  * 2026-07 真实 AI 资讯条带
@@ -152,7 +152,6 @@ function NewsCard({ item }: { item: AiNewsItem }) {
 }
 
 function FallbackNewsCard({ item }: { item: FallbackItem }) {
-  const t = useTranslations('models')
   return (
     <Link
       href="/models"
@@ -162,7 +161,7 @@ function FallbackNewsCard({ item }: { item: FallbackItem }) {
         <Calendar className="h-2.5 w-2.5" />
         <span>{item.date || '2026-07'}</span>
         <span className="text-muted-foreground/60">·</span>
-        <span>{t(PROVIDER_KEY[item.provider] ?? 'providers.unknown')}</span>
+        <span>{PROVIDER_LABEL[item.provider] ?? '其他'}</span>
       </div>
       <h3 className="line-clamp-1 text-xs font-medium leading-snug text-foreground group-hover:text-primary">
         {item.title}

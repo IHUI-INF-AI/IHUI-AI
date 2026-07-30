@@ -28,7 +28,7 @@ import { BrandIcon } from '@/components/ai/brand-icon'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
-import { PROVIDER_KEY } from './helpers'
+import { PROVIDER_LABEL } from './helpers'
 import type { Model } from './types'
 
 interface Props {
@@ -88,7 +88,7 @@ export function ModelDetailDialog({
 
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
   const isOutputEstimated = model.outputPrice === undefined
-  const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
+  const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
   // P0-5g 中转站定价计算
@@ -221,9 +221,7 @@ export function ModelDetailDialog({
                     <span>{t('market.relayOutputPrice')}</span>
                   </div>
                   <div className="mt-0.5 font-semibold text-foreground">
-                    {relayOutputPrice === 0
-                      ? t('free')
-                      : `$${relayOutputPrice.toFixed(2)}`}
+                    {relayOutputPrice === 0 ? t('free') : `$${relayOutputPrice.toFixed(2)}`}
                   </div>
                 </div>
               </div>
