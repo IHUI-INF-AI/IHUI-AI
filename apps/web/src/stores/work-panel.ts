@@ -79,9 +79,7 @@ function patchActiveTab(
   patch: (tab: WorkPanelTab) => Partial<WorkPanelTab>,
 ): WorkPanelTab[] {
   if (!activeTabId) return tabs
-  return tabs.map((t) =>
-    t.id === activeTabId ? { ...t, ...patch(t), updatedAt: Date.now() } : t,
-  )
+  return tabs.map((t) => (t.id === activeTabId ? { ...t, ...patch(t), updatedAt: Date.now() } : t))
 }
 
 /** 更新 active tab 的 state 字段 */
@@ -116,10 +114,13 @@ interface WorkPanelState {
   recentUrls: RecentUrlItem[]
 
   // actions
-  openPanel: (params?: { url?: string; source?: 'user' | 'ai-tool' | 'markdown-link' }) => void
+  openPanel: (params?: {
+    url?: string
+    source?: 'user' | 'ai-tool' | 'markdown-link' | 'markdown-image'
+  }) => void
   closePanel: () => void
   toggle: () => void
-  navigate: (url: string, source?: 'user' | 'ai-tool' | 'markdown-link') => void
+  navigate: (url: string, source?: 'user' | 'ai-tool' | 'markdown-link' | 'markdown-image') => void
   /** 启动 URL 加载(主动探测嵌入能力 + 截图降级) */
   loadUrl: (url: string) => void
   back: () => void
