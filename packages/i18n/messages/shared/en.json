@@ -389,7 +389,8 @@
     "settings": "Settings",
     "wallet": "Wallet",
     "live": "Live",
-    "courses": "Courses"
+    "courses": "Courses",
+    "earnings": "Earnings"
   },
   "routes": {
     "aboutUs": "About Us",
