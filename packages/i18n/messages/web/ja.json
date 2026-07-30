@@ -631,6 +631,8 @@
     "modelConfigured": "現在のモデルの API Key は設定済みです",
     "modelNotConfigured": "現在のモデルの API Key が未設定です。モデル広場ページでワンクリック設定できます",
     "manageModels": "カスタムモデル設定",
+    "modelAuto": "自動",
+    "modelAutoDescription": "最適なモデルを自動選択",
     "slashCmd": {
       "plan": "計画モードに切り替え(AIは計画のみ立案し、ツールを実行しません)",
       "act": "実行モードに切り替え(AIは正常にツールを実行します、デフォルト)",
