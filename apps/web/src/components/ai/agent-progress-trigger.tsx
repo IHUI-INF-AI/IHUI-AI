@@ -137,8 +137,9 @@ export function AgentProgressTrigger({
           : 'Agent 任务列表 (Ctrl+Shift+J)'
       }
       className={cn(
-        // 尺寸 + 圆角(h-7=28px 配 rounded-md=6px,符合 user_profile 圆角与元素大小成比例)
-        'inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150 ease-out',
+        // 尺寸 + 圆角(2026-07-30 四向 padding 一致:
+        //   h-8=32px, 内容高 24px(span p-1+16+4=24), 上下空白 (32-24)/2=4px = 左右 px-1=4px = 与 span p-1 一致)
+        'inline-flex h-8 items-center gap-1.5 rounded-md px-1 text-xs font-medium transition-colors duration-150 ease-out',
         // 容器背景色 + 描边(用户规则:light mode 白底浅灰描边,dark mode 黑底深灰描边,无其他颜色)
         'border border-border bg-card text-foreground/80',
         // hover subtle 颜色变化(无蓝色发光边框)
@@ -153,13 +154,20 @@ export function AgentProgressTrigger({
       data-testid="agent-progress-trigger"
     >
       {/* 当前 ChatMode 徽章(从 current-mode-badge 整合到按钮前部)
-          2026-07-30 padding 平衡:h-7 与外层按钮 h-7 同高,徽章上下 6px 与横向 8px 接近 1:1 */}
+          2026-07-30 padding 平衡 + vcenter 冲突修复:
+          1. 去掉 h-7,改用 p-1(4px)shorthand 一次性设置四向内边距,确保上下左右完全相等
+          2. 图标 h-3 w-3(12px) → h-4 w-4(16px),使图标高度 = 文字行高(16px),
+             items-center 居中后图标上下视觉间距 = (badge高-16)/2 = 4px = 左右 padding,四向视觉一致
+          3. style transform:none 覆盖 tokens.css vcenter 全局规则
+             (button.text-xs:has(>span) > span 会 translateY(0.7px),把整个徽章含 bg-muted 背景下移,
+              该规则本为纯文字 span 对齐设计,不适用于带背景的容器徽章) */}
       <span
-        className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground"
+        className="inline-flex items-center gap-1 rounded-md bg-muted p-1 text-xs font-medium text-muted-foreground"
+        style={{ transform: 'none' }}
         data-testid="chat-mode-badge"
         data-mode={currentMode}
       >
-        <ModeIcon className="h-3 w-3" aria-hidden="true" />
+        <ModeIcon className="h-4 w-4" aria-hidden="true" />
         <span>{t(modeMeta.i18nKey)}</span>
       </span>
       {/* Phase 16: 连接状态点 */}
