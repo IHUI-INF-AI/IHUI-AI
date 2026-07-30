@@ -27,6 +27,15 @@ export interface CreateKeyInput {
   name: string
   permissions?: unknown
   rateLimit?: number
+  // --- P0-7 安全粒度字段(2026-07-31 立)---
+  /** 过期时间(null = 永不过期) */
+  expiresAt?: Date | null
+  /** IP 白名单(null/空 = 不限制),支持 CIDR */
+  allowedIps?: string[] | null
+  /** 模型白名单(null/空 = 不限制),支持通配符 gpt-4* */
+  allowedModels?: string[] | null
+  /** 单次请求 token 上限(null = 不限制) */
+  maxTokensPerReq?: number | null
 }
 
 /** 更新 API Key 入参。 */
@@ -35,6 +44,11 @@ export interface UpdateKeyPatch {
   permissions?: unknown
   rateLimit?: number
   status?: 'active' | 'revoked'
+  // --- P0-7 安全粒度字段(2026-07-31 立)---
+  expiresAt?: Date | null
+  allowedIps?: string[] | null
+  allowedModels?: string[] | null
+  maxTokensPerReq?: number | null
 }
 
 /** 脱敏行(不含 secret),仅 listKeys 使用。 */
@@ -66,6 +80,11 @@ export async function createKey(
       secret: hashed,
       permissions,
       rateLimit: input.rateLimit ?? 60,
+      // P0-7 安全粒度字段:undefined → null(DB 默认),null = 不限制
+      expiresAt: input.expiresAt ?? null,
+      allowedIps: input.allowedIps ?? null,
+      allowedModels: input.allowedModels ?? null,
+      maxTokensPerReq: input.maxTokensPerReq ?? null,
     })
     .returning()
   if (!record) throw new Error('创建 API 密钥失败')
@@ -90,6 +109,11 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       costBalanceCents: developerApiKeys.costBalanceCents,
       tokenUsedTotal: developerApiKeys.tokenUsedTotal,
       costUsedTotalCents: developerApiKeys.costUsedTotalCents,
+      // P0-7 安全粒度字段
+      expiresAt: developerApiKeys.expiresAt,
+      allowedIps: developerApiKeys.allowedIps,
+      allowedModels: developerApiKeys.allowedModels,
+      maxTokensPerReq: developerApiKeys.maxTokensPerReq,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })
@@ -135,6 +159,11 @@ export async function updateKey(
   if (patch.permissions !== undefined) setData.permissions = filterPermissions(patch.permissions)
   if (patch.rateLimit !== undefined) setData.rateLimit = patch.rateLimit
   if (patch.status !== undefined) setData.status = patch.status
+  // P0-7 安全粒度字段:undefined = 不修改,null = 清除限制
+  if (patch.expiresAt !== undefined) setData.expiresAt = patch.expiresAt
+  if (patch.allowedIps !== undefined) setData.allowedIps = patch.allowedIps
+  if (patch.allowedModels !== undefined) setData.allowedModels = patch.allowedModels
+  if (patch.maxTokensPerReq !== undefined) setData.maxTokensPerReq = patch.maxTokensPerReq
 
   const [updated] = await db
     .update(developerApiKeys)
