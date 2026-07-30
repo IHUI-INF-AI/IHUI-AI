@@ -13,13 +13,17 @@ const SHORTCUT_ROUTES: Record<string, string> = {
   'global-shortcut:search': '/search',
   'global-shortcut:new-chat': '/chat',
   'global-shortcut:open-drama': '/drama',
+  // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
+  // Ctrl+, 直接打开设置(VS Code 标准,最高频入口,免命令面板搜索)
+  'global-shortcut:open-settings': '/settings',
 }
 
 /**
  * 全局 Hooks Provider：在根 Layout 挂载全局副作用 hooks。
  *
  * - useRouteAnalytics：路由变化自动埋点（page_view / page_time / route_change）
- * - useGlobalShortcuts：全局快捷键监听（Ctrl+K 命令面板 / Ctrl+P 搜索 / Ctrl+Shift+N 新对话 / Ctrl+/ 帮助）
+ * - useGlobalShortcuts：全局快捷键监听（Ctrl+K 命令面板 / Ctrl+P 搜索 / Ctrl+Shift+N 新对话 / Ctrl+/ 帮助 /
+ *   Ctrl+Shift+P 视图切换命令面板 / Ctrl+, 打开设置）
  * - useGlobalNotification：登录后自动连接 WebSocket 通知,写入 notification store(各 UI 组件按需订阅)
  * - 主题跨标签页同步:监听 storage 事件,当其他标签页切换主题时,本标签页通过 next-themes setTheme 跟随
  *
