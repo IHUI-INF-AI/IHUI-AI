@@ -26,13 +26,28 @@ interface UsageRow {
   successCount: number
   errorCount: number
   totalCostCents: number
+  byokCallCount: number
+  relayCallCount: number
+  upstreamCostCents: number
+  platformFeeCents: number
 }
 
 interface UsageData {
   groupBy: 'model' | 'day'
+  mode: 'all' | 'relay' | 'byok'
   rows: UsageRow[]
-  summary: { totalCalls: number; totalTokens: number; totalCostCents: number }
+  summary: {
+    totalCalls: number
+    totalTokens: number
+    totalCostCents: number
+    byokCallCount: number
+    relayCallCount: number
+    upstreamCostCents: number
+    platformFeeCents: number
+  }
 }
+
+type ModeFilter = 'all' | 'relay' | 'byok'
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -50,6 +65,10 @@ function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day') {
     '成功',
     '失败',
     '消耗(元)',
+    'BYOK调用',
+    '中转站调用',
+    '上游成本(元)',
+    '平台服务费(元)',
   ]
   const lines = rows.map((r) =>
     [
@@ -61,6 +80,10 @@ function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day') {
       r.successCount,
       r.errorCount,
       (r.totalCostCents / 100).toFixed(2),
+      r.byokCallCount,
+      r.relayCallCount,
+      r.byokCallCount > 0 ? (r.upstreamCostCents / 100).toFixed(4) : '',
+      r.byokCallCount > 0 ? (r.platformFeeCents / 100).toFixed(4) : '',
     ].join(','),
   )
   const csv = '\uFEFF' + [head.join(','), ...lines].join('\n')
@@ -71,6 +94,29 @@ function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day') {
   a.click()
   URL.revokeObjectURL(url)
   toast.success('已导出 CSV')
+}
+
+/** 调用模式徽章:仅 BYOK=绿 / 仅中转站=灰 / 混合=蓝 */
+function ModeBadge({ byok, relay }: { byok: number; relay: number }) {
+  if (byok > 0 && relay > 0) {
+    return (
+      <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+        混合
+      </span>
+    )
+  }
+  if (byok > 0) {
+    return (
+      <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+        BYOK
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+      中转站
+    </span>
+  )
 }
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
@@ -85,14 +131,15 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 export default function RelayUsagePage() {
   const locale = useLocale()
   const [groupBy, setGroupBy] = React.useState<'model' | 'day'>('model')
+  const [mode, setMode] = React.useState<ModeFilter>('all')
   const [startDate, setStartDate] = React.useState('')
   const num = new Intl.NumberFormat(locale)
 
-  const qs = new URLSearchParams({ groupBy })
+  const qs = new URLSearchParams({ groupBy, mode })
   if (startDate) qs.set('startDate', startDate)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['developer', 'relay', 'usage', groupBy, startDate],
+    queryKey: ['developer', 'relay', 'usage', groupBy, mode, startDate],
     queryFn: () => api<UsageData>(`/api/developer/relay/usage?${qs.toString()}`),
   })
 
@@ -107,7 +154,9 @@ export default function RelayUsagePage() {
             <Activity className="h-6 w-6 text-primary" />
             用量明细
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">按模型或按日查看中转站调用统计</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            按模型或按日查看中转站 / BYOK 调用统计
+          </p>
         </div>
         <Button
           size="sm"
@@ -123,6 +172,16 @@ export default function RelayUsagePage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       <div className="flex flex-wrap items-center gap-2">
+        <Select value={mode} onValueChange={(v) => setMode(v as ModeFilter)}>
+          <SelectTrigger className="w-32" aria-label="调用模式">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部</SelectItem>
+            <SelectItem value="relay">中转站</SelectItem>
+            <SelectItem value="byok">BYOK</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'model' | 'day')}>
           <SelectTrigger className="w-32" aria-label="分组">
             <SelectValue />
@@ -146,12 +205,24 @@ export default function RelayUsagePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
         <SummaryCard label="总调用" value={summary ? num.format(summary.totalCalls) : '—'} />
         <SummaryCard label="总 Token" value={summary ? num.format(summary.totalTokens) : '—'} />
         <SummaryCard
           label="总消耗"
           value={summary ? (summary.totalCostCents / 100).toFixed(2) + ' 元' : '—'}
+        />
+        <SummaryCard
+          label="BYOK 调用"
+          value={summary ? num.format(summary.byokCallCount) : '—'}
+        />
+        <SummaryCard
+          label="BYOK 上游成本"
+          value={summary ? (summary.upstreamCostCents / 100).toFixed(4) + ' 元' : '—'}
+        />
+        <SummaryCard
+          label="BYOK 平台服务费"
+          value={summary ? (summary.platformFeeCents / 100).toFixed(4) + ' 元' : '—'}
         />
       </div>
 
@@ -166,20 +237,23 @@ export default function RelayUsagePage() {
               <th className="px-3 py-2 text-right">Completion</th>
               <th className="px-3 py-2 text-right">成功</th>
               <th className="px-3 py-2 text-right">失败</th>
+              <th className="px-3 py-2 text-left">调用模式</th>
               <th className="px-3 py-2 text-right">消耗(元)</th>
+              <th className="px-3 py-2 text-right">上游成本(元)</th>
+              <th className="px-3 py-2 text-right">平台服务费(元)</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                   加载中...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
                   暂无数据
                 </td>
               </tr>
@@ -201,8 +275,17 @@ export default function RelayUsagePage() {
                   <td className="px-3 py-2 text-right tabular-nums text-rose-600 dark:text-rose-400">
                     {r.errorCount}
                   </td>
+                  <td className="px-3 py-2">
+                    <ModeBadge byok={r.byokCallCount} relay={r.relayCallCount} />
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {(r.totalCostCents / 100).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.byokCallCount > 0 ? (r.upstreamCostCents / 100).toFixed(4) : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {r.byokCallCount > 0 ? (r.platformFeeCents / 100).toFixed(4) : '—'}
                   </td>
                 </tr>
               ))

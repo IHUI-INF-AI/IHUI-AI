@@ -145,6 +145,7 @@ export function PhoneCodeLoginForm({
         <Label htmlFor="login-form-phone">{t('auth.phone')}</Label>
         <Input
           id="login-form-phone"
+          name="tel"
           type="tel"
           autoComplete="tel"
           placeholder={t('auth.phonePlaceholder')}
@@ -161,6 +162,7 @@ export function PhoneCodeLoginForm({
         <div className="flex items-center gap-2">
           <Input
             id="login-form-phone-code"
+            name="otp"
             inputMode="numeric"
             maxLength={6}
             autoComplete="one-time-code"

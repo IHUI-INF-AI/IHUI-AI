@@ -54,7 +54,9 @@ export function CurrentModeBadge() {
     >
       <span
         className={cn(
-          'inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground',
+          // 2026-07-30 padding 平衡:h-7(28px) - 16px 行高 = 12px → 上下各 6px,
+          // 与横向 px-2(8px) 接近 1:1 平衡(原 h-6 上下仅 4px,比例 4:8 偏窄)
+          'inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground',
         )}
         data-testid="chat-mode-badge"
         data-mode={currentMode}
