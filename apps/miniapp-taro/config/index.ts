@@ -34,6 +34,7 @@ export default defineConfig(async (merge) => {
       patterns: [
         { from: 'src/static/', to: `${outputRoot}/static/` },
         { from: 'src/assets/tabbar/', to: `${outputRoot}/assets/tabbar/` },
+        { from: 'src/assets/remote/images/', to: `${outputRoot}/remote-images/` },
         { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
       ],
       options: {},
