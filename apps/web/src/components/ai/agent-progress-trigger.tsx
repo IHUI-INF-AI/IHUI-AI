@@ -45,7 +45,7 @@ const CHAT_MODE_META: Record<
  * 数据来源:从 useAgentProgressPaneStore 读取 progressCurrent/progressTotal
  * (由 AgentTaskProgressPane 组件同步,避免 trigger 启动第二个 SSE 流)
  */
-export function AgentProgressTrigger() {
+export function AgentProgressTrigger({ className }: { className?: string } = {}) {
   const t = useTranslations('chat')
   const open = useAgentProgressPaneStore((s) => s.open)
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
@@ -138,6 +138,8 @@ export function AgentProgressTrigger() {
         hasProgress && 'text-primary',
         // v8:open=true 时 invisible 占位(opacity-0 + 不可点击) → inline 流位置不变
         open && 'invisible pointer-events-none',
+        // 外部传入的 className 覆盖(如浮窗折叠态传 pl-0 让 span 对齐行内边距)
+        className,
       )}
       data-testid="agent-progress-trigger"
     >
