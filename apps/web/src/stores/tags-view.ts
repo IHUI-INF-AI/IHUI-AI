@@ -30,17 +30,14 @@ interface TagsViewState {
   /**
    * 处于"固定(pinned)"状态的标签 path 集合(2026-07-31 立,Chrome 风格)。
    * - pinned 标签在渲染时自动挪到最左(pinned 区末尾),视觉上聚集成组
-   * - closeAll / closeOther / closeRight 跳过 pinned 标签(防误关)
+   * - closeAll 跳过 pinned 标签(防误关)
    * - 标签卡显示图钉图标 + 略亮背景色区分
    * - 操作入口:右键单个标签 → 固定/取消固定
    */
   pinnedPaths: ReadonlySet<string>
   addTag: (tag: TagItem) => void
   removeTag: (path: string) => void
-  closeOther: (path: string) => void
   closeAll: () => void
-  /** 关闭 path 右侧的所有非 pinned 标签(2026-07-31 新增) */
-  closeRight: (path: string) => void
   reorderTags: (fromIndex: number, toIndex: number) => void
   setDirty: (path: string, dirty: boolean) => void
   isDirty: (path: string) => boolean
@@ -79,19 +76,6 @@ export const useTagsViewStore = create<TagsViewState>((set, get) => ({
       }
       return { tags, activePath, dirtyPaths, pinnedPaths }
     }),
-  closeOther: (path) =>
-    set((s) => {
-      // 保留:目标 path + pinnedPaths(Chrome 风格,pinned 不被批量关闭)
-      const tags = s.tags.filter((t) => t.path === path || s.pinnedPaths.has(t.path))
-      // 仅保留幸存标签的脏状态
-      const survivorPaths = new Set(tags.map((t) => t.path))
-      const dirtyPaths = new Set<string>()
-      s.dirtyPaths.forEach((p) => {
-        if (survivorPaths.has(p)) dirtyPaths.add(p)
-      })
-      const activePath = tags.some((t) => t.path === s.activePath) ? s.activePath : path
-      return { tags, activePath, dirtyPaths }
-    }),
   closeAll: () =>
     set((s) => {
       // 保留 pinned 标签(Chrome 风格,closeAll 不关 pinned)
@@ -104,22 +88,6 @@ export const useTagsViewStore = create<TagsViewState>((set, get) => ({
       s.dirtyPaths.forEach((p) => {
         if (survivorPaths.has(p)) dirtyPaths.add(p)
       })
-      return { tags, activePath, dirtyPaths }
-    }),
-  closeRight: (path) =>
-    set((s) => {
-      const idx = s.tags.findIndex((t) => t.path === path)
-      if (idx === -1) return s
-      // 保留:path 及其左侧 + pinnedPaths(无论位置)
-      const tags = s.tags.filter((t, i) => i <= idx || s.pinnedPaths.has(t.path))
-      const survivorPaths = new Set(tags.map((t) => t.path))
-      const dirtyPaths = new Set<string>()
-      s.dirtyPaths.forEach((p) => {
-        if (survivorPaths.has(p)) dirtyPaths.add(p)
-      })
-      const activePath = tags.some((t) => t.path === s.activePath)
-        ? s.activePath
-        : (tags[tags.length - 1]?.path ?? null)
       return { tags, activePath, dirtyPaths }
     }),
   reorderTags: (fromIndex, toIndex) =>
