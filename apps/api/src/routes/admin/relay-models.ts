@@ -308,11 +308,7 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // ===== 8. PATCH /admin/relay/commission/:providerCode — upsert BYOK 抽成率 =====
-  // 行为:全局配置行(provider_code=X AND owner_uuid IS NULL)存在则 UPDATE,
-  //       不存在则 INSERT 一行新的全局配置行(owner_uuid=NULL, enabled=true)
-  // 响应:HTTP 200(update) / 201(insert),body 保持 { providerCode, byokCommissionRate }
-  // 原因:ai_model_config 无 (providerCode, ownerUuid) 联合唯一约束,无法走 onConflictDoUpdate
+  // ===== 8. PATCH /admin/relay/commission/:providerCode — 更新指定 provider 的 BYOK 抽成率 =====
   server.patch('/admin/relay/commission/:providerCode', async (request, reply) => {
     const providerCode = (request.params as { providerCode?: string }).providerCode ?? ''
     if (!providerCode) return reply.status(400).send(error(400, 'providerCode 不能为空'))
@@ -322,65 +318,30 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     const { byokCommissionRate } = parsed.data
 
     try {
-      const result = await db.transaction(async (tx) => {
-        // 1) SELECT 全局配置行(LIMIT 1;表无联合唯一约束,需应用层兜底)
-        const [existing] = await tx
-          .select({ id: aiModelConfig.id })
-          .from(aiModelConfig)
-          .where(
-            and(
-              eq(aiModelConfig.providerCode, providerCode),
-              isNull(aiModelConfig.ownerUuid),
-            ),
-          )
-          .limit(1)
-
-        if (existing) {
-          // 2a) 存在 → UPDATE 抽成率
-          const [updated] = await tx
-            .update(aiModelConfig)
-            .set({
-              byokCommissionRate: byokCommissionRate.toFixed(4),
-              updatedAt: new Date(),
-            })
-            .where(eq(aiModelConfig.id, existing.id))
-            .returning({
-              providerCode: aiModelConfig.providerCode,
-              byokCommissionRate: aiModelConfig.byokCommissionRate,
-            })
-          if (!updated) throw new Error('UPDATE returned no row (concurrent delete?)')
-          return { row: updated, created: false as const }
-        }
-
-        // 2b) 不存在 → INSERT 新全局配置行
-        const [inserted] = await tx
-          .insert(aiModelConfig)
-          .values({
-            name: providerCode,
-            providerCode,
-            isBuiltin: false,
-            baseUrl: '',
-            apiFormat: 'openai_chat',
-            enabled: true,
-            ownerUuid: null,
-            byokCommissionRate: byokCommissionRate.toFixed(4),
-          })
-          .returning({
-            providerCode: aiModelConfig.providerCode,
-            byokCommissionRate: aiModelConfig.byokCommissionRate,
-          })
-        if (!inserted) throw new Error('INSERT returned no row')
-        return { row: inserted, created: true as const }
-      })
-
-      return reply
-        .status(result.created ? 201 : 200)
-        .send(
-          success({
-            providerCode: result.row.providerCode,
-            byokCommissionRate: Number(result.row.byokCommissionRate ?? '0.1000'),
-          }),
+      const [updated] = await db
+        .update(aiModelConfig)
+        .set({
+          byokCommissionRate: byokCommissionRate.toFixed(4),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(aiModelConfig.providerCode, providerCode),
+            isNull(aiModelConfig.ownerUuid),
+          ),
         )
+        .returning({
+          providerCode: aiModelConfig.providerCode,
+          byokCommissionRate: aiModelConfig.byokCommissionRate,
+        })
+      if (!updated)
+        return reply.status(404).send(error(404, '未找到该 provider 的全局配置行'))
+      return reply.send(
+        success({
+          providerCode: updated.providerCode,
+          byokCommissionRate: Number(updated.byokCommissionRate ?? '0.1000'),
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '更新 BYOK 抽成率失败'))
