@@ -117,8 +117,7 @@ export async function voiceSttFromReactNative(
 
     // RN FormData 支持 { uri, type, name } 结构(原生 fetch 会读取文件并上传)
     const fd = new FormData()
-    // @ts-expect-error RN FormData 支持 uri 字段(浏览器类型定义不包含)
-    fd.append('file', { uri: fileUri, type: mimeType, name: filename })
+    fd.append('file', { uri: fileUri, type: mimeType, name: filename } as never)
     if (language) fd.append('language', language)
 
     const res = await fetch(`${aiServiceUrl}/api/voice/stt`, {
