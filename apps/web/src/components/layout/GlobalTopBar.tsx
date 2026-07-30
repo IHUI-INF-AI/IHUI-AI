@@ -89,7 +89,7 @@ const PLUS_MENU_GROUPS: Array<{ titleKey: 'groupView' | 'groupTools' | 'groupSet
  *   全部跟原 MainShell 保持一致,只是位置上移到 GlobalTopBar。
  *
  * 布局:
- *   <div pt-2 px-2 select-none cursor-default>          ← 外层容器(pt-2 顶 8px,px-2 8px 边距)
+ *   <div h-9 px-4 select-none cursor-default>          ← 外层容器(单层 h-9 = 36px,水平 16px 与 main p-4 对齐)
  *     <TagsView flex-1 />                                ← 标签栏
  *     <Plus 弹窗按钮>                                    ← 9 项菜单(文档/浏览器/终端/编辑/代码变更/Agent/MCP/Skill/设置)
  *     <WindowControls>                                   ← 仅桌面端:Min/Max/Close
@@ -324,14 +324,14 @@ export function GlobalTopBar() {
       )}
 
       {/* 顶栏容器
-          - pt-2:顶部 8px 间距(让 resize 区域 + 标签栏 + 工作区卡片之间有视觉缓冲)
-          - px-2:水平 8px 间距(与原 MainShell `mr-2` 等价)
-          - h-[32px]:内容区固定 32px(标签栏/Plus/窗口控制同一排)
+          - h-9:单层固定 36px 高度(避免之前 h-[32px] + pt-2 双重高度设定导致内部只剩 24px)
+          - px-4:水平 16px(与下面 MainShell 的 <main p-4> 左缘对齐 — 搜索按钮容器左缘 == 内容展示区左缘)
+          - gap-1:标签栏 / Plus 弹窗 / 窗口控制之间 4px 间距
           - cursor-default:覆盖外层(避免标签继承 cursor-move 误导)
           - onMouseDown:统一拖拽状态机
           - 已删除 data-tauri-drag-region(JS 处理更可靠) */}
       <div
-        className="flex h-[32px] shrink-0 items-center gap-2 px-2 pt-2 select-none cursor-default"
+        className="flex h-9 shrink-0 items-center gap-1 px-4 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
