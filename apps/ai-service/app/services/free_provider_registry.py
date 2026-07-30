@@ -78,6 +78,8 @@ class FreeProvider:
         protocol: 协议类型(openai_chat / anthropic_messages / gemini_generate_content)。
         docs_url: 文档链接。
         notes: 备注(特殊说明,如"需信用卡验证" / "仅限美国 IP")。
+        zero_cost: 真·零成本(无需 key 即可调用,如 pollinations/llm7/aihorde)。
+        free_tier: 有免费额度但需注册 key(如 groq/zhipu/cloudflare)。
     """
 
     provider_code: str
@@ -92,6 +94,8 @@ class FreeProvider:
     protocol: str = "openai_chat"
     docs_url: str = ""
     notes: str = ""
+    zero_cost: bool = False
+    free_tier: bool = False
 
 
 # ============================================================================
@@ -634,14 +638,14 @@ _REGISTRY: list[FreeProvider] = [
         provider_code="opencode_zen",
         display_name="OpenCode Zen(免费编码模型)",
         category=ProviderCategory.INTERNATIONAL,
-        signup_url="https://opencode.ai",
-        free_quota="recurring-uncapped(轮换免费编码模型,6 个)",
+        signup_url="https://opencode.ai/auth",
+        free_quota="recurring-uncapped(轮换免费编码模型,7 个免费模型)",
         rate_limit="无明确限制",
-        default_base_url="https://api.opencode.ai/v1",
-        key_env_vars=[],  # 无需 key
-        default_models=["opencode/big-pickle-stealth", "opencode/deepseek-v4-flash-free"],
-        docs_url="https://opencode.ai/docs",
-        notes="OmniRoute 标注 recurring-uncapped;default_models.json 已预置 2 个模型,registry 本批次补齐",
+        default_base_url="https://opencode.ai/zen/v1",
+        key_env_vars=[],  # 无需 key(免费模型层已验证无 key 可调,返回 thinking 内容)
+        default_models=["deepseek-v4-flash-free", "mimo-v2.5-free", "qwen3.6-plus-free", "minimax-m3-free", "big-pickle"],
+        docs_url="https://opencode.ai/docs/zen",
+        notes="OmniRoute 标注 recurring-uncapped;正确 base_url 为 https://opencode.ai/zen/v1(非 api.opencode.ai);含 7 个免费模型,无 key 已验证可调",
     ),
     FreeProvider(
         provider_code="scaleway",
@@ -715,6 +719,69 @@ _REGISTRY: list[FreeProvider] = [
 ]
 
 
+# ============================================================================
+# 零成本 / 免费额度标注(2026-07-30 立,零成本引流路径 1)
+# zero_cost:真·零成本,无需 key 即可调用(众包 / 免费镜像 / keyless API)
+# free_tier:有免费额度但需注册 key(永久免费模型 / 试用 credits / 免费层 RPM)
+# 本地 LLM(ollama/lmstudio/llamacpp/vllm)不标 zero_cost(category=LOCAL 已区分)
+# stepfun/agnes 不标 free_tier(项目已配置付费 plan 套餐,非免费层)
+# kiro 不标(法务风险,不接入技术路径)
+# ============================================================================
+_ZERO_COST_CODES: set[str] = {
+    "pollinations",  # 无需 key,免费顶级模型(速率极低)
+    "llm7",  # 无需 key,免费镜像(5M tokens/天)
+    "aihorde",  # 众包 GPU,匿名可用(注册+贡献可加速)
+    "opencode_zen",  # 无需 key,轮换免费编码模型
+}
+
+_FREE_TIER_CODES: set[str] = {
+    # 国内(永久免费模型 / 体验额度)
+    "moonshot",  # Kimi-K2 永久免费
+    "zhipu",  # glm-4-flash 永久免费
+    "deepseek",  # 1 元体验额度
+    "minimax",  # 1M tokens 免费
+    "qwen",  # 100M tokens 免费
+    "doubao",  # 5M tokens 免费体验
+    "wenxin",  # ERNIE-Speed-8K 永久免费
+    "hunyuan",  # hunyuan-lite 永久免费
+    "siliconcloud",  # 小模型永久免费 + 14 元额度
+    "modelscope",  # 1M tokens 体验
+    # 国际(免费层 RPM/TPM 限制)
+    "groq",  # 100 RPM 免费
+    "mistral",  # 500K tokens/周
+    "cohere",  # 1000 calls/月
+    "togetherai",  # $5 credits
+    "huggingface",  # 1000 requests/天
+    "openrouter",  # :free 后缀模型免费
+    "cloudflare_workers_ai",  # 10000 neurons/天
+    "nvidia_nim",  # 1000 credits
+    "github_models",  # 150 requests/天
+    "vercel_ai_gateway",  # 1000 requests/月
+    "cerebras",  # Llama-3.1-8B 免费
+    "sambanova",  # Llama-3.3-70B 免费
+    "fireworksai",  # $1 credits
+    # credits provider(注册送额度)
+    "lambda",  # 250 credits
+    "baseten",  # $30 credits
+    "crusoe",  # $10 credits
+    "hyperbolic",  # $5 credits
+    "nebius",  # $10 credits
+    # OmniRoute 补充 provider
+    "qoder",  # unlimited free 编码模型
+    "ovhcloud",  # 免费层
+    "requesty",  # 免费层
+    "scaleway",  # 1M/月免费
+    "alibaba_intl",  # 1M/模型/月免费
+    "navy",  # 免费层
+}
+
+for _p in _REGISTRY:
+    if _p.provider_code in _ZERO_COST_CODES:
+        _p.zero_cost = True
+    if _p.provider_code in _FREE_TIER_CODES:
+        _p.free_tier = True
+
+
 class FreeProviderRegistry:
     """免费 provider 注册表查询 API。
 
@@ -753,6 +820,14 @@ class FreeProviderRegistry:
     def list_local(self) -> list[FreeProvider]:
         """列出本地 LLM(无需 key)。"""
         return self.list_by_category(ProviderCategory.LOCAL)
+
+    def list_zero_cost(self) -> list[FreeProvider]:
+        """列出真·零成本 provider(无需 key 即可调用,零成本引流核心)。"""
+        return [p for p in self._registry if p.zero_cost]
+
+    def list_free_tier(self) -> list[FreeProvider]:
+        """列出有免费额度的 provider(需注册 key,但有免费层/永久免费模型)。"""
+        return [p for p in self._registry if p.free_tier]
 
     def get_by_code(self, provider_code: str) -> Optional[FreeProvider]:
         """按 provider_code 查询。"""
@@ -826,6 +901,8 @@ class FreeProviderRegistry:
                 "protocol": p.protocol,
                 "docs_url": p.docs_url,
                 "notes": p.notes,
+                "zero_cost": p.zero_cost,
+                "free_tier": p.free_tier,
                 "status": self.is_key_configured(p.provider_code).value,
             })
         return result

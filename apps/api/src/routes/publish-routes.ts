@@ -1,15 +1,16 @@
 /**
  * 多平台发布路由代理 — 把 /api/publish/* 透传到 ai-service 的 /api/publish/*。
  *
- * 端点清单(完整代理,16 个):
- *   GET    /publish/platforms                    列出所有支持的平台元数据
+ * 端点清单(完整代理,16 个 + 2 个本地端点):
+ *   GET    /publish/platforms                    列出所有支持的平台元数据(透传 ai-service)
+ *   GET    /publish/adapters/status              本地端点:返回 13 平台 adapter 可用性矩阵(无需 ai-service 在线)
  *   POST   /publish/upload                       multipart 上传内容文件(docx/pdf/image/video/md/html)
  *   GET    /publish/accounts/:userId             列出用户的所有平台账号
  *   POST   /publish/accounts                     创建账号(凭证加密后存 DB)
  *   PUT    /publish/accounts/:accountId          更新账号
  *   DELETE /publish/accounts/:accountId          删除账号
  *   POST   /publish/accounts/:accountId/verify   测试连接
- *   POST   /publish/tasks                        创建发布任务
+ *   POST   /publish/tasks                        创建发布任务(支持 dryRun=true 短路:本地返回 adapter 可用性,不转发 ai-service)
  *   GET    /publish/tasks                        列出任务
  *   GET    /publish/tasks/:taskId                任务详情
  *   POST   /publish/tasks/:taskId/cancel         取消任务
@@ -25,12 +26,208 @@
  * - 转发 JWT(auth header)、query string、body
  * - /upload 走 multipart:本地解析为 buffer,再用 FormData 转发到 ai-service
  * - 错误处理:ai-service 返回非 2xx 时,把错误信息透传给前端
+ * - 本地 PLATFORM_REGISTRY(2026-07-30 立):13 平台 adapter 元数据,status 标注
+ *   implemented/needs_browser/needs_oauth/needs_sdk,POST /publish/tasks?dryRun=true 时
+ *   短路返回可用性矩阵,避免 stub adapter 静默成功误导用户。
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 
 import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
+
+// =============================================================================
+// 13 平台 adapter 元数据(本地注册表,2026-07-30 立)
+// =============================================================================
+// 用于 GET /publish/adapters/status 本地端点 + POST /publish/tasks dryRun 短路。
+// 与 ai-service app/services/publish/adapters/ 目录对齐(14 个 adapter 文件,
+// 但 wechat 与 wechat-mp 共享一个 adapter,实际 13 个独立平台 + 1 个视频号 = 14)。
+// status 含义:
+//   implemented     — 真实 HTTP API 调用,配置凭据后可直接发布
+//   needs_browser   — Playwright 浏览器自动化,需安装 Playwright + 浏览器内核
+//   needs_oauth     — 需平台 OAuth 授权(开放平台申请),非 cookie/playwright 可解
+//   needs_sdk       — 需官方 SDK/小程序接口(如微信小程序),api 端无法裸 fetch
+// =============================================================================
+
+export type PlatformStatus = 'implemented' | 'needs_browser' | 'needs_oauth' | 'needs_sdk'
+
+export interface PlatformRegistryEntry {
+  platformId: string
+  platformName: string
+  /** 适配器实现状态 */
+  status: PlatformStatus
+  /** 支持的内容格式 */
+  supportedFormats: string[]
+  /** 平台要求的凭据字段名(用户配置账号时填写) */
+  requiresCredentials: string[]
+  /** 是否需要 Playwright 浏览器环境 */
+  needsBrowser: boolean
+  /** 用户配置指引(指向 docs/PUBLISH_SETUP.md 对应章节) */
+  setupHint: string
+}
+
+const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
+  {
+    platformId: 'wordpress',
+    platformName: 'WordPress',
+    status: 'implemented',
+    supportedFormats: ['md', 'html'],
+    requiresCredentials: ['site_url', 'username', 'app_password'],
+    needsBrowser: false,
+    setupHint: 'WordPress REST API + Application Password,参考 docs/PUBLISH_SETUP.md#wordpress',
+  },
+  {
+    platformId: 'medium',
+    platformName: 'Medium',
+    status: 'implemented',
+    supportedFormats: ['md', 'html'],
+    requiresCredentials: ['integration_token', 'author_id'],
+    needsBrowser: false,
+    setupHint: 'Medium Integration Token,参考 docs/PUBLISH_SETUP.md#medium',
+  },
+  {
+    platformId: 'youtube',
+    platformName: 'YouTube',
+    status: 'needs_oauth',
+    supportedFormats: ['video'],
+    requiresCredentials: ['access_token', 'refresh_token', 'client_id', 'client_secret'],
+    needsBrowser: false,
+    setupHint: 'Google OAuth 2.0 + YouTube Data API v3,参考 docs/PUBLISH_SETUP.md#youtube',
+  },
+  {
+    platformId: 'bilibili',
+    platformName: '哔哩哔哩',
+    status: 'implemented',
+    supportedFormats: ['video'],
+    requiresCredentials: ['sessdata', 'bili_jct', 'buvid3'],
+    needsBrowser: false,
+    setupHint: 'B 站 Cookie 凭据(SESSDATA / bili_jct / buvid3),参考 docs/PUBLISH_SETUP.md#bilibili',
+  },
+  {
+    platformId: 'wechat',
+    platformName: '微信公众号',
+    status: 'implemented',
+    supportedFormats: ['md', 'html'],
+    requiresCredentials: ['app_id', 'app_secret'],
+    needsBrowser: false,
+    setupHint: '微信公众平台 AppID/AppSecret + access_token,参考 docs/PUBLISH_SETUP.md#wechat',
+  },
+  {
+    platformId: 'toutiao',
+    platformName: '今日头条',
+    status: 'implemented',
+    supportedFormats: ['md', 'html'],
+    requiresCredentials: ['cookie'],
+    needsBrowser: false,
+    setupHint: '头条号 Cookie 凭据,参考 docs/PUBLISH_SETUP.md#toutiao',
+  },
+  {
+    platformId: 'douyin',
+    platformName: '抖音',
+    status: 'implemented',
+    supportedFormats: ['video'],
+    requiresCredentials: ['cookie'],
+    needsBrowser: false,
+    setupHint: '抖音创作者 Cookie 凭据,参考 docs/PUBLISH_SETUP.md#douyin',
+  },
+  {
+    platformId: 'kuaishou',
+    platformName: '快手',
+    status: 'implemented',
+    supportedFormats: ['video'],
+    requiresCredentials: ['cookie'],
+    needsBrowser: false,
+    setupHint: '快手创作者 Cookie 凭据,参考 docs/PUBLISH_SETUP.md#kuaishou',
+  },
+  {
+    platformId: 'weibo',
+    platformName: '微博',
+    status: 'implemented',
+    supportedFormats: ['md', 'image'],
+    requiresCredentials: ['cookie'],
+    needsBrowser: false,
+    setupHint: '微博 Cookie 凭据,参考 docs/PUBLISH_SETUP.md#weibo',
+  },
+  {
+    platformId: 'zhihu',
+    platformName: '知乎',
+    status: 'needs_browser',
+    supportedFormats: ['md', 'html'],
+    requiresCredentials: ['z_c0', 'd_c0'],
+    needsBrowser: true,
+    setupHint: '知乎 Cookie + Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#zhihu',
+  },
+  {
+    platformId: 'csdn',
+    platformName: 'CSDN',
+    status: 'needs_browser',
+    supportedFormats: ['md', 'html'],
+    requiresCredentials: ['UserName', 'UserToken', 'UserSecret'],
+    needsBrowser: true,
+    setupHint: 'CSDN Cookie + Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#csdn',
+  },
+  {
+    platformId: 'juejin',
+    platformName: '掘金',
+    status: 'needs_browser',
+    supportedFormats: ['md', 'html'],
+    requiresCredentials: ['sessionid', 'sessionid_ss'],
+    needsBrowser: true,
+    setupHint: '掘金 Cookie + Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#juejin',
+  },
+  {
+    platformId: 'xiaohongshu',
+    platformName: '小红书',
+    status: 'needs_browser',
+    supportedFormats: ['md', 'image'],
+    requiresCredentials: ['web_session'],
+    needsBrowser: true,
+    setupHint: '小红书 Cookie + Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#xiaohongshu',
+  },
+  {
+    platformId: 'shipinhao',
+    platformName: '微信视频号',
+    status: 'needs_browser',
+    supportedFormats: ['video'],
+    requiresCredentials: ['cookie'],
+    needsBrowser: true,
+    setupHint: '视频号 Cookie + Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#shipinhao',
+  },
+] as const
+
+/**
+ * 按 platformId 查找本地注册表项。未找到返回 undefined。
+ * 导出供 verify-publish-adapters.mjs 脚本通过 GET /publish/adapters/status 间接使用。
+ */
+export function findPlatformEntry(platformId: string): PlatformRegistryEntry | undefined {
+  return PLATFORM_REGISTRY.find((p) => p.platformId === platformId)
+}
+
+/**
+ * 计算指定平台列表的 dry-run 结果(本地短路,不调 ai-service)。
+ * 用于 POST /publish/tasks?dryRun=true 时返回每个平台的可用性,避免 stub 静默成功。
+ */
+function computeDryRunResults(
+  platforms: string[],
+): Array<{ platformId: string; status: PlatformStatus; canPublish: boolean; setupHint: string }> {
+  return platforms.map((pid) => {
+    const entry = findPlatformEntry(pid)
+    if (!entry) {
+      return {
+        platformId: pid,
+        status: 'needs_sdk' as PlatformStatus,
+        canPublish: false,
+        setupHint: `未知平台 ${pid},参考 docs/PUBLISH_SETUP.md`,
+      }
+    }
+    return {
+      platformId: entry.platformId,
+      status: entry.status,
+      canPublish: entry.status === 'implemented',
+      setupHint: entry.setupHint,
+    }
+  })
+}
 
 async function proxyToAiService(
   request: FastifyRequest,
@@ -148,6 +345,32 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, '/platforms')
   })
 
+  /**
+   * 本地端点(2026-07-30 立):返回 13 平台 adapter 可用性矩阵,无需 ai-service 在线。
+   * 用于 verify-publish-adapters.mjs 脚本 + 前端"发布向导"展示哪些平台可立即发布。
+   * 响应结构:{ code: 0, message: 'success', data: { items: [...], count, summary } }
+   */
+  server.get('/publish/adapters/status', async (_request, reply) => {
+    const items = PLATFORM_REGISTRY.map((e) => ({
+      platformId: e.platformId,
+      platformName: e.platformName,
+      status: e.status,
+      canPublish: e.status === 'implemented',
+      supportedFormats: e.supportedFormats,
+      requiresCredentials: e.requiresCredentials,
+      needsBrowser: e.needsBrowser,
+      setupHint: e.setupHint,
+    }))
+    const summary = {
+      total: items.length,
+      implemented: items.filter((i) => i.status === 'implemented').length,
+      needsBrowser: items.filter((i) => i.status === 'needs_browser').length,
+      needsOauth: items.filter((i) => i.status === 'needs_oauth').length,
+      needsSdk: items.filter((i) => i.status === 'needs_sdk').length,
+    }
+    return reply.send(success({ items, count: items.length, summary }))
+  })
+
   // ===== 文件上传(multipart) =====
 
   server.post('/publish/upload', async (request, reply) => {
@@ -186,6 +409,31 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   // ===== 任务管理 =====
 
   server.post('/publish/tasks', async (request, reply) => {
+    // dryRun 短路(2026-07-30 立):body.dryRun=true 或 query.dryRun=true 时,
+    // 本地返回每个平台的可用性,不转发 ai-service(避免 stub adapter 静默成功误导用户)。
+    const query = request.query as { dryRun?: string }
+    const body = (request.body ?? {}) as { dryRun?: boolean; platforms?: string[] }
+    const isDryRun = body.dryRun === true || query.dryRun === 'true' || query.dryRun === '1'
+
+    if (isDryRun) {
+      // 平台列表优先取 body.platforms,未传则对所有注册平台做 dry-run
+      const platforms = Array.isArray(body.platforms) && body.platforms.length > 0
+        ? body.platforms.filter((p): p is string => typeof p === 'string')
+        : PLATFORM_REGISTRY.map((e) => e.platformId)
+      const results = computeDryRunResults(platforms)
+      return reply.send(
+        success({
+          dryRun: true,
+          results,
+          summary: {
+            total: results.length,
+            canPublishNow: results.filter((r) => r.canPublish).length,
+            needsSetup: results.filter((r) => !r.canPublish).length,
+          },
+        }),
+      )
+    }
+
     await proxyToAiService(request, reply, '/tasks')
   })
 

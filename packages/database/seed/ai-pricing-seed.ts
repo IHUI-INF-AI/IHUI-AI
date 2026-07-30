@@ -302,8 +302,9 @@ const qwen: PricingDef[] = [
 ]
 
 // =============================================================================
-// 21. Zhipu 智谱(6 个)
+// 21. Zhipu 智谱(8 个,含 2 个永久免费模型)
 // 官方价格:https://open.bigmodel.cn/pricing
+// glm-4-flash / glm-4-flashx 永久免费(对齐 ai-service free_provider_registry)
 // =============================================================================
 const zhipu: PricingDef[] = [
   { id: 'glm-4-plus', in: 50, out: 50 }, // ¥0.05/¥0.05 per 1K
@@ -311,7 +312,9 @@ const zhipu: PricingDef[] = [
   { id: 'glm-4-air', in: 1, out: 1 }, // ¥0.001/¥0.001
   { id: 'glm-5.2', in: 30, out: 60 },
   { id: 'glm-5-1', in: 30, out: 60 },
-  { id: 'glm-4-flash', in: 1, out: 1 },
+  { id: 'glm-4-flash', in: 0, out: 0 }, // 永久免费(BYOK 用户零成本)
+  { id: 'glm-4-flashx', in: 0, out: 0 }, // 永久免费
+  { id: 'glm-4-long', in: 1, out: 1 }, // ¥0.001/¥0.001
 ]
 
 // =============================================================================
@@ -351,25 +354,31 @@ const stepfun: PricingDef[] = [
 ]
 
 // =============================================================================
-// 25. 腾讯混元 Hunyuan(4 个)
+// 25. 腾讯混元 Hunyuan(5 个,含 1 个永久免费模型)
 // 官方价格:https://cloud.tencent.com/document/product/1729/97731
+// Hunyuan Lite 永久免费(对齐 free_provider_registry)
 // =============================================================================
 const hunyuan: PricingDef[] = [
   { id: 'hunyuan-pro', in: 20, out: 50 },
   { id: 'hunyuan-turbo', in: 8, out: 20 },
   { id: 'hunyuan-standard', in: 4, out: 9 },
   { id: 'hunyuan-hy3', in: 10, out: 30 },
+  { id: 'hunyuan-lite', in: 0, out: 0 }, // 永久免费
 ]
 
 // =============================================================================
-// 26. 百度文心 ERNIE(4 个)
+// 26. 百度文心 ERNIE(7 个,含 3 个永久免费模型)
 // 官方价格:https://cloud.baidu.com/doc/WENXINWORKSHOP/s/hlrk4akp7
+// ERNIE-Speed-8K / ERNIE-Lite-8K / ERNIE-Tiny-8K 永久免费(对齐 free_provider_registry)
 // =============================================================================
 const wenxin: PricingDef[] = [
   { id: 'ernie-4.0-turbo-8k', in: 30, out: 90 },
   { id: 'ernie-speed-128k', in: 4, out: 12 },
   { id: 'ernie-3.5-8k', in: 8, out: 24 },
   { id: 'ernie-4.0-8k', in: 60, out: 120 },
+  { id: 'ernie-speed-8k', in: 0, out: 0 }, // 永久免费
+  { id: 'ernie-lite-8k', in: 0, out: 0 }, // 永久免费
+  { id: 'ernie-tiny-8k', in: 0, out: 0 }, // 永久免费
 ]
 
 // =============================================================================
@@ -384,11 +393,12 @@ const minimax: PricingDef[] = [
 ]
 
 // =============================================================================
-// 28. 国内其他厂商(百川/讯飞/零一/商汤/天工/书生/新势力)(13 个)
+// 28. 国内其他厂商(百川/讯飞/零一/商汤/天工/书生/新势力)(14 个,含 Spark Lite 永久免费)
 // =============================================================================
 const otherCn: PricingDef[] = [
   { id: 'baichuan-4-turbo', in: 8, out: 8 },
   { id: 'spark-v4', in: 20, out: 50 }, // 讯飞星火
+  { id: 'spark-lite', in: 0, out: 0 }, // 讯飞星火 Lite 永久免费(对齐 free_provider_registry)
   { id: 'yi-large', in: 20, out: 20 },
   { id: 'yi-medium', in: 5, out: 5 },
   { id: 'sensenova-5', in: 8, out: 8 }, // 商汤
@@ -411,7 +421,7 @@ const cnInference: PricingDef[] = [
 ]
 
 // =============================================================================
-// 30. Embedding 模型(5 个,补足 176 总数)
+// 30. Embedding 模型(5 个)
 // =============================================================================
 const embedding: PricingDef[] = [
   { id: 'text-embedding-3-large', in: 1, out: 0, region: USD_REGION }, // $0.13/1M
@@ -419,6 +429,18 @@ const embedding: PricingDef[] = [
   { id: 'text-embedding-ada-002', in: 1, out: 0, region: USD_REGION },
   { id: 'voyage-3-large', in: 1, out: 0, region: USD_REGION },
   { id: 'cohere-embed-v4', in: 1, out: 0, region: USD_REGION },
+]
+
+// =============================================================================
+// 31. 中转站免费 provider 模型(5 个,完全免费,零成本引流核心)
+// pollinations / llm7 无需 API Key,免费用户可直接调用(对齐 free_provider_registry)
+// =============================================================================
+const freeRelay: PricingDef[] = [
+  { id: 'pollinations/openai-fast', in: 0, out: 0, region: USD_REGION }, // Pollinations 完全免费
+  { id: 'llm7/gpt-4o', in: 0, out: 0, region: USD_REGION }, // LLM7 免费(5M tokens/天)
+  { id: 'llm7/gpt-4o-mini', in: 0, out: 0, region: USD_REGION },
+  { id: 'llm7/claude-3.5-sonnet', in: 0, out: 0, region: USD_REGION },
+  { id: 'llm7/o1-mini', in: 0, out: 0, region: USD_REGION },
 ]
 
 // =============================================================================
@@ -446,23 +468,24 @@ const allDefs: PricingDef[] = [
   ...inference, // 20
   ...otherIntl, // 11
   ...qwen, // 6
-  ...zhipu, // 6
+  ...zhipu, // 8(+2 免费模型)
   ...moonshot, // 6
   ...doubao, // 5
   ...stepfun, // 4
-  ...hunyuan, // 4
-  ...wenxin, // 4
+  ...hunyuan, // 5(+1 免费模型)
+  ...wenxin, // 7(+3 免费模型)
   ...minimax, // 4
-  ...otherCn, // 13
+  ...otherCn, // 14(+1 Spark Lite)
   ...cnInference, // 2
   ...embedding, // 5
+  ...freeRelay, // 5(中转站免费 provider)
 ]
 
 const entries: Entry[] = allDefs.map(def)
 
-// 校验:打印总数便于审计
-if (entries.length !== 176) {
-  console.warn(`[seed] ai-pricing: 警告,条目数 ${entries.length} != 176,请检查是否漏缺或重复`)
+// 校验:打印总数便于审计(原 176 + 12 新增免费/补充模型 = 188)
+if (entries.length !== 188) {
+  console.warn(`[seed] ai-pricing: 警告,条目数 ${entries.length} != 188,请检查是否漏缺或重复`)
 }
 
 export async function seedAiPricing() {
