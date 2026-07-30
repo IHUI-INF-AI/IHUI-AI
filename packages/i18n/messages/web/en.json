@@ -6167,67 +6167,6 @@
     "profileTitle": "",
     "securityDesc": "",
     "securityTitle": "",
-    "gateway": {
-      "navLabel": "AI Gateway",
-      "title": "AI Gateway Dashboard",
-      "subtitle": "Provider health, Combo chain management, Token compaction demo",
-      "tabs": {
-        "providers": "Provider Health",
-        "combos": "Combo Chains",
-        "compaction": "Token Compaction"
-      },
-      "providers": {
-        "summary": {
-          "total": "Total",
-          "configured": "Configured",
-          "local": "Local",
-          "notConfigured": "Not Configured"
-        },
-        "filter": {
-          "all": "All",
-          "configured": "Configured",
-          "notConfigured": "Not Configured",
-          "local": "Local"
-        },
-        "cooldown": "Cooling down",
-        "failures": "failures",
-        "models": "models",
-        "refresh": "Refresh"
-      },
-      "combos": {
-        "create": "New Combo",
-        "edit": "Edit",
-        "delete": "Delete",
-        "name": "Chain Name",
-        "strategy": "Strategy",
-        "chain": "Call Chain (one per line)",
-        "judge": "Judge Model (fusion strategy)",
-        "description": "Description",
-        "deleteConfirm": "Delete Combo \"{name}\"?",
-        "createSuccess": "Combo created successfully",
-        "deleteSuccess": "Combo deleted successfully",
-        "empty": "No combo chains yet. Click \"New Combo\" to create one"
-      },
-      "compaction": {
-        "input": "Input Messages",
-        "inputPlaceholder": "Enter text to compress...",
-        "strategy": "Compaction Strategy",
-        "keepRecent": "Keep Recent N",
-        "run": "Run Compaction",
-        "original": "Original Tokens",
-        "compressed": "Compressed Tokens",
-        "ratio": "Compression Ratio",
-        "rtkMapSize": "RTK Map Size",
-        "compressedPreview": "Compressed Preview",
-        "decompressedPreview": "Decompressed Result",
-        "showDecompressed": "Show Decompressed",
-        "hideDecompressed": "Hide Decompressed",
-        "excellent": "Excellent",
-        "good": "Good",
-        "poor": "Poor",
-        "empty": "Click \"Run Compaction\" to see results"
-      }
-    },
     "dashboardDesc": "Quick access to all settings options",
     "themeSystem": "System",
     "langZh": "mid",
@@ -9080,8 +9019,6 @@
       "qwen": "Qwen"
     },
     "models": "LLM Models",
-    "internationalModels": "International Models",
-    "chineseModels": "Chinese Models",
     "officialApp": "Official App",
     "officialWechat": "Official WeChat",
     "paymentPlatforms": "Payment Platforms",
