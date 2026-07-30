@@ -175,6 +175,9 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "jimeng-": "jimeng",
     "kling-": "kling",
     "luyala-": "luyala",
+    # 免费无 key provider(2026-07-30 P0-5p 补充)
+    "pollinations/": "pollinations",
+    "llm7/": "llm7",
     # 国际原厂
     "groq/": "groq",
     "gemini/": "gemini",

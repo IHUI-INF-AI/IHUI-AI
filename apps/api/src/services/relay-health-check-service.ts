@@ -4,7 +4,7 @@
  * 职责：
  * 1. checkAllKeys(): 巡检所有 is_enabled=true 的 key，更新 health_status
  * 2. checkSingleKey(keyId): 巡检单个 key（供 admin API 手动触发）
- * 3. 巡检方式：用 key 调上游 /v1/models 端点（轻量，不消耗 token）
+ * 3. 巡检方式：用 key 调上游 /models 或 /v1/models 端点（根据 base_url 是否已含 /v1 自动适配）（轻量，不消耗 token）
  *    - 根据 provider_code 从 ai_model_config 表查 base_url
  *    - 200 = healthy, 401/403 = down（key 失效）, 429 = degraded（限流）, 超时/网络错误 = degraded
  * 4. 自动禁用：连续 3 次巡检 health_status='down' → is_enabled=false（熔断）
@@ -73,9 +73,15 @@ async function findBaseUrlByProvider(providerCode: string): Promise<string | nul
   return row?.baseUrl ?? null
 }
 
-/** 规范化 base_url（去尾部斜杠），拼接 /v1/models。 */
+/** 规范化 base_url（去尾部斜杠），拼接 /models 或 /v1/models。 */
 function buildModelsUrl(baseUrl: string): string {
-  return `${baseUrl.replace(/\/+$/, '')}/v1/models`
+  const trimmed = baseUrl.replace(/\/+$/, '')
+  // base_url 已以 /v1 结尾 → 拼 /models（避免 /v1/v1/models 双重拼接）
+  if (trimmed.endsWith('/v1')) {
+    return `${trimmed}/models`
+  }
+  // base_url 不含 /v1 → 拼 /v1/models（向后兼容）
+  return `${trimmed}/v1/models`
 }
 
 /** 用 AbortController 实现 fetch 超时。返回状态与可选错误信息。 */
