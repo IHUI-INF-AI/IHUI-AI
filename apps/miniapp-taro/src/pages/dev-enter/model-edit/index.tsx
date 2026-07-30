@@ -3,7 +3,7 @@ import { View, Text, Input, Picker, ScrollView, Image } from '@tarojs/components
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 const CATEGORIES = [
   '文案写作',
@@ -35,10 +35,7 @@ const TAG_ACTIVE = 'bg-primary/10 text-primary border-primary'
 
 export default function ModelEdit() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
 
   const router = useRouter()
   const agentId = (router.params.id as string) || ''

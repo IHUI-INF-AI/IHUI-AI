@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Alert } from 'react-native'
+import { Alert, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getProfile, updateProfile } from '@ihui/api-client'
 import { ProfileEditScreen as SharedProfileEditScreen, type Gender } from '@ihui/rn-app'
+import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -80,27 +81,33 @@ export function ProfileEditScreen() {
   }
 
   return (
-    <SharedProfileEditScreen
-      t={t}
-      nickname={nickname}
-      bio={bio}
-      gender={gender}
-      avatar={avatar}
-      loading={loading}
-      saving={saving}
-      error={error}
-      avatarModalVisible={avatarModalVisible}
-      avatarInput={avatarInput}
-      onNicknameChange={setNickname}
-      onBioChange={setBio}
-      onGenderChange={setGender}
-      onOpenAvatarModal={onOpenAvatarModal}
-      onCloseAvatarModal={() => setAvatarModalVisible(false)}
-      onAvatarInputChange={setAvatarInput}
-      onConfirmAvatar={onConfirmAvatar}
-      onSave={onSave}
-      onRetry={fetchProfile}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={{ flex: 1 }}>
+      <NavBar
+        title={t('profileEdit.title')}
+        onBack={() => navigation.goBack()}
+      />
+      <SharedProfileEditScreen
+        t={t}
+        nickname={nickname}
+        bio={bio}
+        gender={gender}
+        avatar={avatar}
+        loading={loading}
+        saving={saving}
+        error={error}
+        avatarModalVisible={avatarModalVisible}
+        avatarInput={avatarInput}
+        onNicknameChange={setNickname}
+        onBioChange={setBio}
+        onGenderChange={setGender}
+        onOpenAvatarModal={onOpenAvatarModal}
+        onCloseAvatarModal={() => setAvatarModalVisible(false)}
+        onAvatarInputChange={setAvatarInput}
+        onConfirmAvatar={onConfirmAvatar}
+        onSave={onSave}
+        onRetry={fetchProfile}
+        onBack={() => navigation.goBack()}
+      />
+    </View>
   )
 }

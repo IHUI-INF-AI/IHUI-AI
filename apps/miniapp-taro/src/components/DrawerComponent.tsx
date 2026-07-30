@@ -1,13 +1,19 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
-// 抽屉静态资源(SVG 走 Vite base64 内联,PNG 走 Taro copy.patterns 静态拷贝)
-import choutilogoH from '@/static/images/choutilogo_h.png'
-import closeDrawerSvg from '@/static/images/close_drawer.svg'
-import newchatSvg from '@/static/images/newchat.svg'
-import drawerMenu1Png from '@/static/images/drawer_menu1.png'
-import drawerMenu2Png from '@/static/images/drawer_menu2.png'
-import drawerMenu4Png from '@/static/images/drawer_menu4.png'
-import drawerMenu5Png from '@/static/images/drawer_menu5.png'
+// 抽屉静态资源:对齐原项目 DrawerComponentall.vue,统一从 @/assets/remote/ 引入本地副本
+import choutilogoH from '@/assets/remote/images/choutilogo_h.png'
+import closeDrawerSvg from '@/assets/remote/images/close_drawer.svg'
+import newchatSvg from '@/assets/remote/images/newchat.svg'
+import drawerMenu2Png from '@/assets/remote/images/drawer_menu2.png'
+import tabbar1Png from '@/assets/remote/tabbar/tabbar_1.png'
+import lingganSvg from '@/assets/remote/images/default/linggan.svg'
+import tabbar4Png from '@/assets/remote/tabbar/tabbar_4.png'
+import kechengPng from '@/assets/remote/images/kecheng.png'
+import gongsiPng from '@/assets/remote/images/gongsi.png'
+import mianLabelPng from '@/assets/remote/images/mian_label.png'
+import settingIconPng from '@/assets/remote/images/setting_icon.png'
+import mesgSvg from '@/assets/remote/images/default/mesg.svg'
+import daixaodimingPng from '@/assets/remote/images/daixaodiming.png'
 
 /**
  * DrawerComponent 抽屉组件
@@ -91,17 +97,21 @@ export interface DrawerComponentProps {
   onCreateChat?: () => void
 }
 
+// 5 个菜单项图标对齐原项目 DrawerComponentall.vue line 15-32:
+// tabbar_1(应用商店) / drawer_menu2(需求广场) / linggan(灵感) / tabbar_4(动态) / kecheng(课程)
 const DEFAULT_MENU_ITEMS: DrawerMenuItem[] = [
-  { key: 'appStore', label: '应用商店', icon: drawerMenu1Png },
+  { key: 'appStore', label: '应用商店', icon: tabbar1Png },
   { key: 'demand', label: '需求广场', icon: drawerMenu2Png },
-  { key: 'inspiration', label: '灵感', icon: drawerMenu4Png },
-  { key: 'dynamic', label: '动态', icon: drawerMenu5Png },
-  { key: 'course', label: '课程', icon: drawerMenu4Png },
+  { key: 'inspiration', label: '灵感', icon: lingganSvg },
+  { key: 'dynamic', label: '动态', icon: tabbar4Png },
+  { key: 'course', label: '课程', icon: kechengPng },
 ]
 
+// 3 个标签项图标对齐原项目 DrawerComponentall.vue line 37-39:
+// gongsi(我的一人公司) / mian_label(领取免费资料) / newchat(创建新对话)
 const DEFAULT_LABEL_ITEMS: DrawerMenuItem[] = [
-  { key: 'company', label: '我的一人公司' },
-  { key: 'freebie', label: '领取免费资料' },
+  { key: 'company', label: '我的一人公司', icon: gongsiPng },
+  { key: 'freebie', label: '领取免费资料', icon: mianLabelPng },
   { key: 'newChat', label: '创建新对话', icon: newchatSvg },
 ]
 
@@ -141,10 +151,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
     return (
       <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick}>
         {/* 遮罩:rgba(0,0,0,0.4) */}
-        <View
-          className="absolute inset-0"
-          style={{ background: 'rgba(0, 0, 0, 0.4)' }}
-        />
+        <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.4)' }} />
         {/* 抽屉主体:宽 500rpx + 圆角 0 30rpx 30rpx 0 + 高 100vh */}
         <View
           className={cn(
@@ -161,7 +168,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           onClick={handleStop}
         >
           {/* 头部:logo + 关闭按钮 */}
-          <View className="flex items-center justify-between" style={{ padding: '15rpx 28rpx 25rpx' }}>
+          <View
+            className="flex items-center justify-between"
+            style={{ padding: '15rpx 28rpx 25rpx' }}
+          >
             <View className="flex items-center">
               {logoUrl ? (
                 <Image src={logoUrl} style={{ height: '66rpx' }} mode="heightFix" />
@@ -178,10 +188,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           </View>
 
           {/* 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)*/}
-          <View
-            className="flex justify-between"
-            style={{ padding: '15rpx 28rpx 25rpx' }}
-          >
+          <View className="flex justify-between" style={{ padding: '15rpx 28rpx 25rpx' }}>
             {menuItems.map((item) => (
               <View
                 key={item.key}
@@ -243,7 +250,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           <View style={{ padding: '20rpx 23rpx 10rpx' }}>
             <Text
               className="font-bold"
-              style={{ fontSize: '28rpx', color: 'var(--color-text-drawer, var(--color-foreground))' }}
+              style={{
+                fontSize: '28rpx',
+                color: 'var(--color-text-drawer, var(--color-foreground))',
+              }}
             >
               历史对话
             </Text>
@@ -261,17 +271,12 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               groupedData.map((modelGroup) => (
                 <View key={modelGroup.modelName}>
                   {/* 模型标题 */}
-                  <View
-                    className="inline-flex items-center"
-                    style={{ padding: '10rpx 23rpx' }}
-                  >
-                    {modelGroup.modelLogo ? (
-                      <Image
-                        src={modelGroup.modelLogo}
-                        style={{ width: '40rpx', height: '40rpx' }}
-                        mode="aspectFit"
-                      />
-                    ) : null}
+                  <View className="inline-flex items-center" style={{ padding: '10rpx 23rpx' }}>
+                    <Image
+                      src={modelGroup.modelLogo || mianLabelPng}
+                      style={{ width: '40rpx', height: '40rpx' }}
+                      mode="aspectFit"
+                    />
                     <Text
                       className="font-bold ml-[10rpx]"
                       style={{ fontSize: '28rpx', color: 'var(--color-muted-foreground)' }}
@@ -283,7 +288,12 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   {modelGroup.dateGroups.map((dateGroup) => (
                     <View key={dateGroup.date}>
                       <View style={{ padding: '10rpx 23rpx' }}>
-                        <Text style={{ fontSize: '22rpx', color: 'var(--color-text-date, var(--color-muted-foreground))' }}>
+                        <Text
+                          style={{
+                            fontSize: '22rpx',
+                            color: 'var(--color-text-date, var(--color-muted-foreground))',
+                          }}
+                        >
                           {dateGroup.date}
                         </Text>
                       </View>
@@ -293,7 +303,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                         return (
                           <View
                             key={chat.id}
-                            className={cn('flex items-center justify-between', isActive && 'ai-menu-item-active')}
+                            className={cn(
+                              'flex items-center justify-between',
+                              isActive && 'ai-menu-item-active',
+                            )}
                             style={{ padding: '20rpx 23rpx' }}
                             onClick={() => onChatItemClick?.(chat)}
                           >
@@ -330,13 +343,11 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               }}
             >
               <View className="flex items-center">
-                {userinfo.avatar ? (
-                  <Image
-                    src={userinfo.avatar}
-                    style={{ width: '60rpx', height: '60rpx', borderRadius: '8rpx' }}
-                    mode="aspectFill"
-                  />
-                ) : null}
+                <Image
+                  src={userinfo.avatar || daixaodimingPng}
+                  style={{ width: '60rpx', height: '60rpx', borderRadius: '8rpx' }}
+                  mode="aspectFill"
+                />
                 <Text
                   className="ml-[12rpx]"
                   style={{ fontSize: '28rpx', color: 'var(--color-foreground)' }}
@@ -345,8 +356,12 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 </Text>
               </View>
               <View className="flex items-center gap-[16rpx]">
-                <Text style={{ fontSize: '32rpx', color: 'var(--color-foreground)' }}>⚙</Text>
-                <Text style={{ fontSize: '32rpx', color: 'var(--color-foreground)' }}>✉</Text>
+                <Image
+                  src={settingIconPng}
+                  style={{ width: '40rpx', height: '40rpx' }}
+                  mode="aspectFit"
+                />
+                <Image src={mesgSvg} style={{ width: '40rpx', height: '40rpx' }} mode="aspectFit" />
               </View>
             </View>
           ) : null}

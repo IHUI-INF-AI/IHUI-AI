@@ -106,6 +106,12 @@ class Settings(BaseSettings):
     # GITHUB_TOKEN:MCP review_pr 工具调 GitHub API,空=匿名调用受 rate limit(60/h)
     github_token: str = ""
 
+    # LLM 出站代理(2026-07-30 立,商业化上线运营刚需)
+    # 国内服务器访问 OpenAI/Anthropic/OpenRouter 等境外 provider 时必须走代理
+    # 配置后自动写入 os.environ[HTTP_PROXY/HTTPS_PROXY],litellm/httpx 自动读取
+    # 格式:http://user:pass@host:port 或 http://host:port  空字符串=不使用代理
+    llm_proxy_url: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:

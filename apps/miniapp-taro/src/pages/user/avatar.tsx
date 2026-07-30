@@ -4,14 +4,13 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import { getProfile, updateUserAvatar } from '@/api'
 import { uploadImage } from '@/utils/upload-image'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './avatar.css'
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
 
 export default function Avatar() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [avatar, setAvatar] = useState('')
   const [nickname, setNickname] = useState('')
