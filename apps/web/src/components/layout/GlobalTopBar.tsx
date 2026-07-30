@@ -427,9 +427,10 @@ export function GlobalTopBar() {
           根因(用户原话):"把 button button 这两个按钮挪到 button 后面 a 前面"
           → button(搜索) → button(更多Actions) → button(添加视图) → a(首页) → ...
 
-          总高 44px = 8(外层 pt-2) + 36(内层 h-9) — 单一职责,跟 v4 契约一致。 */}
+          总高 50px = 8(外层 pt-2) + 36(内层 h-9) + 6(外层 pb-1.5,与下方工作区卡片间距,2026-07-30 立)。
+          垂直间距统一归 GlobalTopBar 管理(MainShell 注释契约:顶部间距由 GlobalTopBar 提供)。 */}
       <div
-        className="pt-2 shrink-0 select-none cursor-default"
+        className="pt-2 pb-1.5 shrink-0 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
