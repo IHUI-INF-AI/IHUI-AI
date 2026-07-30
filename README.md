@@ -505,6 +505,57 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ---
 
+## 🧭 全局顶栏 GlobalTopBar + Plus 弹窗(2026-07-30 立,平台独占 web-only)
+
+> 实现位置:`apps/web/src/components/layout/GlobalTopBar.tsx`(新建) + `apps/web/src/components/layout/MainShell.tsx`(精简) + `apps/web/src/components/layout/GlobalShell.tsx`(挂载) + `apps/web/src/components/layout/TagsView.tsx`(搜索按钮 + 标签左缘对齐) + `apps/web/src/components/layout/index.ts`(re-export)
+> 触发:用户反馈"项目页面打开右上角标签栏不显示,应常驻固定;且需加号按钮弹出含内置浏览器/设置/文档/终端/代码编辑器/MCP/Skill 的小窗"
+> AGENTS.md §9 显式标注:仅 web 端,其他 7 端(apps/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)无此概念,Tauri 桌面端有原生 chrome、Chrome extension 有 action popup、miniapp-taro 微信有原生 tabBar、cli 是 terminal 交互、mobile-rn 是 RN navigation,均无 MainShell 概念
+
+### 整合方案
+
+- **原架构**:顶栏(拖拽 + 窗口控制 + TagsView + Globe 入口)只在 `(main)` 路由组 MainShell 内部渲染;marketing/auth/sso/forbidden/login 等路由不显示
+- **新架构**:抽出 `GlobalTopBar` 提升到 `app/layout.tsx` 的 GlobalShell `children` 位置,所有路由组共享;MainShell 精简为仅"工作区卡片"容器(无顶栏,避免重复)
+- **替代关系**:原 MainShell 顶栏的 Globe 按钮(打开 WebWorkPanel 内置浏览器)统一改从 Plus 弹窗触发
+
+### Plus 弹窗(9 项,分 3 组)
+
+| 分组 | 选项 | 动作 |
+| --- | --- | --- |
+| 视图(2 项) | 文档 / 内置浏览器 | 跳 `/docs` / 切换 `useWorkPanelStore` |
+| 工具(5 项) | 编辑器 / 终端 / 代码变更 / Agent / MCP | 跳 `/workspace` + `setActiveTopTab` |
+| 设置(2 项) | Skill / 设置 | 跳 `/ai-skills` / 跳 `/settings` |
+
+弹窗特性:搜索框模糊匹配 + 快捷键提示(G D / G B / G E / G T / G C / G A / G M / G K / G S)+ Esc 关闭 + 点击外部关闭 + 自动聚焦搜索框
+
+### 桌面端能力(仅 `isDesktop`)
+
+- 8 方向 resize 区域(边 9999 / 角 10000)+ 拖拽 + 双击最大化(250ms 状态机,与 sidebar.tsx 复用)
+- 窗口控制按钮(Min/Max/Close,zh-10001),最大化时隐藏 resize 区域
+- 走 `tauri-bridge` 单一桥接层(`minimizeWindow` / `toggleMaximizeWindow` / `closeWindow` / `startWindowDrag` / `startResize` / `onMaximizeChange`)
+
+### 高度 / 对齐根治(2026-07-30 二轮 UI 反馈)
+
+- **顶栏双重高度冲突**:`h-[32px] + pt-2` 双重定义 → 内部仅 24px;统一为 `h-9`(单层 36px),内部 `h-full` 撑满
+- **搜索按钮容器未对齐**:`px-2 + px-2` → 左缘 8px;统一为 `pl-[28px]` = 卡片圆角(12px) + main p-4(16px),跟下面 MainShell 工作区内容左缘完美对齐
+- **Plus / WindowControl / Dropdown trigger 高度不一**:全部统一为 `h-7 w-7 rounded-md`,不再有 `h-6/h-7` 冲突
+
+### 守门
+
+- typecheck:本任务文件 0 错误(`GlobalTopBar.tsx` / `TagsView.tsx` / `MainShell.tsx` / `GlobalShell.tsx` / `index.ts`),剩余 3 错误为其他 agent 文件已存在问题,按 §12 跳过
+- i18n parity:9 × 5 = 45 个 key 补全(`topBar.{document,browser,terminal,editor,codeChanges,agent,mcp,settings,skill,plus}` + `viewSwitcher.{searchPlaceholder,noMatch,groupView,groupTools,groupSettings}` + `nav.{minimize,maximize,restore,openBrowser}`),`check-i18n-keys.mjs` parity + `scan-i18n-zh-residue.mjs` ko/zh-TW 无残留
+- 浏览器自验:4 状态截图(默认/hover/active/dark mode)覆盖 marketing 首页 `/` + chat `/chat` + admin `/admin` + login `/login` 4 路由,标签栏在所有路由常驻显示
+
+### 与已有架构的分工
+
+| 组件 | 职责 | 渲染位置 |
+| --- | --- | --- |
+| `GlobalShell` | 全局骨架(Sidebar + AISidePanel + 内容槽 + PWA) | `app/layout.tsx` 根级 |
+| `GlobalTopBar` | 全站常驻顶栏(标签 + Plus + 窗口控制) | `GlobalShell` 内 children 上方 |
+| `MainShell` | `(main)` 路由组工作区卡片 | `(main)/layout.tsx` 路由组级 |
+| `TagsView` | 标签栏(根据 pathname 派生标签) | `GlobalTopBar` 内 |
+
+---
+
 ## Use Cases(典型使用场景)
 
 > IHUI-AI 适用于以下 8 类核心场景,每个场景都可在 8 端中任一端运行(8-Platform AI Operating System)。
