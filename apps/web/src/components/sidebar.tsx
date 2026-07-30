@@ -52,11 +52,12 @@ import {
   LogIn,
   Briefcase,
   Globe,
-  Languages,
+  Globe2,
   Mic,
   Code,
   Key,
   Terminal,
+  TrendingUp,
   FlaskConical,
   Gauge,
   GitBranch,
@@ -436,6 +437,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'tradeGroup',
     items: [
+      { href: '/earnings', labelKey: 'earnings', icon: TrendingUp },
       { href: '/vip', labelKey: 'vip', icon: Crown },
       { href: '/wallet', labelKey: 'wallet', icon: Wallet },
       { href: '/payment', labelKey: 'payment', icon: CreditCard },
@@ -490,12 +492,12 @@ export const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items))
 /** 扁平化主侧边栏导航项,供 TagsView 等复用 path -> labelKey 映射 */
 export const FLAT_NAV_ITEMS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items))
 
-const LANGUAGES: { code: Language; name: string }[] = [
-  { code: 'zh-CN', name: '简体中文' },
-  { code: 'zh-TW', name: '繁體中文' },
-  { code: 'en', name: 'English' },
-  { code: 'ja', name: '日本語' },
-  { code: 'ko', name: '한국어' },
+const LANGUAGES: { code: Language; name: string; badge: string }[] = [
+  { code: 'zh-CN', name: '简体中文', badge: 'ZH' },
+  { code: 'zh-TW', name: '繁體中文', badge: 'TW' },
+  { code: 'en', name: 'English', badge: 'EN' },
+  { code: 'ja', name: '日本語', badge: 'JA' },
+  { code: 'ko', name: '한국어', badge: 'KO' },
 ]
 
 /** 项目所有支持的端(8 端),与 apps/* 目录一一对应:
@@ -600,12 +602,14 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                   locale === lang.code && 'bg-accent font-medium',
                 )}
               >
-                {}
-                <img
-                  src={`/images/flags/${lang.code}.svg`}
-                  className="block h-5 w-7 shrink-0 object-contain"
-                  alt={lang.name}
-                />
+                {/* 2026-07-31 国旗 img 改为单色语言代码徽章,与项目线性图标风格统一;
+                    data-lang-code 供 E2E 稳定定位。尺寸与原国旗一致(h-5 w-7)保持布局不变。 */}
+                <span
+                  data-lang-code={lang.code}
+                  className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground"
+                >
+                  {lang.badge}
+                </span>
                 <span>{lang.name}</span>
               </button>
             ))}
@@ -618,10 +622,9 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           className={cn(btnClass, 'p-0')}
           aria-label={t('language')}
         >
-          {/* 2026-07-31 触发器改为 lucide Languages 图标,与项目内 LanguageCard/preferences/ai-translation
-              统一"语言"语义;彩色写实国旗与侧边栏单色线性图标风格冲突,改为触发器用线性图标、
-              下拉项保留国旗+语言名(识别性强且下拉内不突兀)。btnClass 的 [&_svg]:size-5 自动渲染 20×20。 */}
-          <Languages />
+          {/* 2026-07-31 触发器改为 lucide Globe2(带经纬线精致地球),语义"全球语言切换";
+              Languages 图标过于抽象被否决;btnClass 的 [&_svg]:size-5 自动渲染 20×20。 */}
+          <Globe2 />
         </Button>
       </Popover>
 
