@@ -1,6 +1,6 @@
 import { View, Text, Textarea, ScrollView, Image, Video } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
 import { useI18n } from '@/i18n'
@@ -26,22 +26,28 @@ export interface InputFileItem {
 }
 
 export interface InputAreaProps {
-  value?: string
+  /** 受控值(必填,父组件管理) */
+  value: string
+  /** 输入回调(替代内部 text state) */
+  onInput?: (text: string) => void
   placeholder?: string
   onSend?: (text: string) => void
   onVoicePress?: () => void
   onVoiceRelease?: (filePath: string) => void
   onUpload?: (files: string[]) => void
+  onRemoveImage?: (index: number) => void
+  imgsList?: InputFileItem[]
+  /** 仅禁用发送按钮,不禁用 textarea */
   disabled?: boolean
   maxLength?: number
   autoFocus?: boolean
   /** 样式变体:'default'(旧)/ 'ai-home'(首页专用,对齐原项目 .input-area) */
   variant?: 'default' | 'ai-home'
-  imgsList?: InputFileItem[]
-  onRemoveImage?: (index: number) => void
   onFocus?: () => void
   onBlur?: () => void
   onKeyboardHeightChange?: (height: number) => void
+  /** 放大态变化通知父组件 */
+  onFangdaChange?: (active: boolean) => void
 }
 
 const EMOJI_LIST = [
@@ -74,7 +80,7 @@ const EMOJI_LIST = [
 type Mode = 'text' | 'voice'
 
 /**
- * InputArea 输入区
+ * InputArea 输入区(受控组件模式)
  *
  * 两种 variant:
  * - 'default'(默认):Tailwind bg-muted 输入框,无发送按钮显式宽度
@@ -84,14 +90,15 @@ type Mode = 'text' | 'voice'
  *   - 发送按钮:100rpx×100rpx + 圆角 30rpx + 居中显示发送图标
  */
 export default function InputArea({
-  value = '',
+  value,
   placeholder,
+  onInput,
   onSend,
   onVoicePress,
   onVoiceRelease,
   onUpload,
   disabled = false,
-  maxLength = 500,
+  maxLength = 50000,
   autoFocus = false,
   variant = 'default',
   imgsList,
@@ -99,21 +106,31 @@ export default function InputArea({
   onFocus,
   onBlur,
   onKeyboardHeightChange,
+  onFangdaChange,
 }: InputAreaProps) {
   const { t } = useI18n()
   const [mode, setMode] = useState<Mode>('text')
-  const [text, setText] = useState(value)
   const [showEmoji, setShowEmoji] = useState(false)
   const [recording, setRecording] = useState(false)
   const [isShowIcon, setIsShowIcon] = useState(false) // 加号旋转
   const [isFangdaActive, setIsFangdaActive] = useState(false) // 全屏放大
-  const [inputBottom, setInputBottom] = useState(0) // 键盘高度
+  const [inputBottom, setInputBottom] = useState(0) // 键盘高度(px)
   const [isamplify, setIsamplify] = useState(false) // 放大按钮阈值
+
+  // mount 时查询 .search-input 高度初始化 isamplify(对齐原项目 mounted 逻辑)
+  useEffect(() => {
+    const query = Taro.createSelectorQuery()
+    query.select('.search-input').boundingClientRect()
+    query.exec((res) => {
+      const h = (res?.[0] as { height?: number })?.height || 0
+      setIsamplify(h > 88)
+    })
+  }, [])
 
   const handleInput = useCallback(
     (e: { detail: { value?: string } }) => {
       const v = (e.detail.value || '').slice(0, maxLength)
-      setText(v)
+      onInput?.(v)
       setTimeout(() => {
         const query = Taro.createSelectorQuery()
         query.select('.search-input').boundingClientRect()
@@ -123,19 +140,22 @@ export default function InputArea({
         })
       }, 50)
     },
-    [maxLength],
+    [maxLength, onInput],
   )
 
-  // 清空输入
+  // 清空输入(仅清空,不触发发送)
   const handleClear = useCallback(() => {
-    setText('')
-    onSend?.('')
-  }, [onSend])
+    onInput?.('')
+  }, [onInput])
 
-  // 切换放大
+  // 切换放大(通知父组件放大态变化)
   const toggleFangda = useCallback(() => {
-    setIsFangdaActive((v) => !v)
-  }, [])
+    setIsFangdaActive((prev) => {
+      const next = !prev
+      onFangdaChange?.(next)
+      return next
+    })
+  }, [onFangdaChange])
 
   // 删除附件
   const handleRemoveImage = useCallback(
@@ -145,7 +165,7 @@ export default function InputArea({
     [onRemoveImage],
   )
 
-  // 加号旋转 + 取消后回退
+  // 加号旋转 + 取消后回退(成功选图后保持 isShowIcon,仅用户取消时回退)
   const handleUploadToggle = useCallback(async () => {
     setIsShowIcon((v) => !v)
     try {
@@ -162,14 +182,13 @@ export default function InputArea({
         const files = (fileRes.tempFiles || []).map((f: { path: string }) => f.path)
         if (files.length) onUpload?.(files)
       } catch {
-        /* 用户取消 */
+        /* 用户取消:回退加号旋转 */
+        setIsShowIcon(false)
       }
-    } finally {
-      setIsShowIcon(false)
     }
   }, [onUpload])
 
-  // 键盘高度自管
+  // 键盘高度自管(e.detail.height 单位为 px)
   const handleFocus = useCallback(
     (e?: { detail: { height?: number } }) => {
       const h = e?.detail?.height || 0
@@ -183,7 +202,7 @@ export default function InputArea({
     setTimeout(() => {
       setInputBottom(0)
       onBlur?.()
-    }, 800)
+    }, 150)
   }, [onBlur])
 
   const handleKeyboardHeightChange = useCallback(
@@ -195,33 +214,34 @@ export default function InputArea({
     [onKeyboardHeightChange],
   )
 
-  // 全屏放大样式
+  // 全屏放大样式(对齐原项目 .input_area_active:top:120rpx bottom:112rpx)
+  // 放大态 + isShowIcon 时 bottom:292rpx(对齐 .textarea_input_isShowIcon)
   const fangdaStyle: CSSProperties = isFangdaActive
     ? {
         position: 'fixed',
-        top: 'calc(env(safe-area-inset-top) + 88rpx)',
+        top: '120rpx',
         left: 0,
         right: 0,
-        bottom: 'calc(env(safe-area-inset-bottom) + 112rpx)',
+        bottom: isShowIcon ? '292rpx' : '112rpx',
         zIndex: 999,
         background: 'var(--color-card)',
-        padding: '20rpx',
+        padding: '0',
       }
     : {}
 
   const handleSend = useCallback(() => {
-    const v = text.trim()
+    const v = value.trim()
     if (!v || disabled) return
     onSend?.(v)
-    setText('')
+    onInput?.('')
     setShowEmoji(false)
-  }, [text, disabled, onSend])
+  }, [value, disabled, onSend, onInput])
 
   const handleEmojiPick = useCallback(
     (emoji: string) => {
-      setText((prev) => (prev + emoji).slice(0, maxLength))
+      onInput?.((value + emoji).slice(0, maxLength))
     },
-    [maxLength],
+    [value, maxLength, onInput],
   )
 
   const toggleMode = useCallback(() => {
@@ -255,14 +275,14 @@ export default function InputArea({
     voiceRecorder.cancelRecording()
   }, [recording])
 
-  const canSend = text.trim().length > 0 && !disabled
+  const canSend = value.trim().length > 0 && !disabled
 
   if (variant === 'ai-home') {
     // ===== ai-home 模式:三层嵌套,完全对齐原项目 InputArea.vue 结构 =====
     // .input-area > .input-area-back > .search-box.search-box-bor > .search-box-inner
     // search-box-inner 内:search-box1(语音) + textarea/voice-bar + 放大/缩小按钮 + 占位 search-right + 可见 search-right
     //
-    // 动态 padding(对标原项目 textareaPadding):
+    // 动态 padding(对标原项目 textareaPadding,非 iOS 分支):
     // - 放大态:由 CSS .textarea-input 控制,不设 padding
     // - 长文本(isamplify):12rpx 38rpx 82rpx 0(右侧 38rpx 放大按钮 + 底部 82rpx 图标组)
     // - 短文本:12rpx 134rpx 12rpx 44rpx(右侧 134rpx 图标组 + 左侧 44rpx 语音按钮)
@@ -280,9 +300,8 @@ export default function InputArea({
           isShowIcon && isFangdaActive ? 'textarea-input-isShowIcon' : '',
         )}
         style={{
-          bottom: `${inputBottom}rpx`,
+          bottom: `${inputBottom}px`,
           padding: '10rpx 20rpx 20rpx',
-          top: isFangdaActive ? 'calc(env(safe-area-inset-top) + 88rpx)' : 'auto',
           ...fangdaStyle,
         } as CSSProperties}
       >
@@ -408,8 +427,11 @@ export default function InputArea({
               >
                 <Image
                   className="search-box1-img"
-                  src={recording ? inputQiePng : mode === 'text' ? searchHuaPng : inputQiePng}
-                  style={{ width: '38rpx', height: '40rpx' }}
+                  src={recording ? inputQiePng : searchHuaPng}
+                  style={{
+                    width: recording ? '50rpx' : '38rpx',
+                    height: recording ? '30rpx' : '40rpx',
+                  }}
                   mode="widthFix"
                 />
               </View>
@@ -437,19 +459,19 @@ export default function InputArea({
                     flex: 1,
                     minHeight: '44rpx',
                   } as CSSProperties}
-                  value={text}
+                  value={value}
                   placeholder={placeholder || t('ai.inputArea.placeholder')}
-                  placeholderClass="text-muted-foreground"
                   placeholderStyle="color: #999999; font-size: 28rpx;"
-                  maxlength={maxLength || 50000}
+                  maxlength={maxLength}
                   autoFocus={autoFocus}
                   autoHeight
                   onInput={handleInput}
                   onConfirm={handleSend}
                   confirmType="send"
+                  // 原项目 cursor-spacing="44px";Taro Textarea cursorSpacing 类型为 number(单位 px),44 即 44px
                   cursorSpacing={44}
                   adjustPosition={false}
-                  disabled={recording || disabled}
+                  disabled={recording}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
                   onKeyboardHeightChange={handleKeyboardHeightChange}
@@ -527,10 +549,10 @@ export default function InputArea({
                 </View>
               ) : null}
 
-              {/* 占位 search-right(opacity:0):撑开 textarea 宽度避让右侧图标(对标原项目 line 119-149) */}
+              {/* 占位 search-right(opacity:0 + pointerEvents:none):撑开 textarea 宽度避让右侧图标(对标原项目 line 119-149) */}
               <View
                 className="search-right"
-                style={{ position: 'relative', opacity: 0 }}
+                style={{ position: 'relative', opacity: 0, pointerEvents: 'none' }}
               >
                 <View className="search-box2">
                   <Image
@@ -539,7 +561,7 @@ export default function InputArea({
                   />
                 </View>
                 <View className="search-box3">
-                  {mode === 'text' && text.length > 0 ? (
+                  {mode === 'text' && value.length > 0 ? (
                     <Image
                       className="search-box3-img"
                       src={closeChatPng}
@@ -579,7 +601,7 @@ export default function InputArea({
                 {/* 清空 + 发送 search-box3 */}
                 <View className="search-box3">
                   {/* 清空按钮 close_chat.png 50rpx×50rpx marginRight 10rpx */}
-                  {mode === 'text' && text.length > 0 ? (
+                  {mode === 'text' && value.length > 0 ? (
                     <Image
                       className="search-box3-img"
                       src={closeChatPng}
@@ -643,9 +665,9 @@ export default function InputArea({
             <Textarea
               className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
               style={{ minHeight: '40rpx', maxHeight: '200rpx', width: '100%' }}
-              value={text}
+              value={value}
               placeholder={placeholder || t('ai.inputArea.placeholder')}
-              placeholderClass="text-muted-foreground"
+              placeholderStyle="color: #999999; font-size: 28rpx;"
               maxlength={maxLength}
               autoFocus={autoFocus}
               autoHeight
@@ -654,7 +676,10 @@ export default function InputArea({
               confirmType="send"
               cursorSpacing={20}
               adjustPosition
-              disabled={disabled}
+              disabled={recording}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onKeyboardHeightChange={handleKeyboardHeightChange}
             />
           </View>
         ) : (

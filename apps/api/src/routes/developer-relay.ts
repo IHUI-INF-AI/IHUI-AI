@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, gte, desc, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql, like, type SQL } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { developerApiKeys, llmCallLogs } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -44,6 +44,22 @@ const usageQuerySchema = z.object({
 const logsQuerySchema = paginationSchema.extend({
   model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
+  /** API Key 筛选(仅当前用户名下的 Key)*/
+  apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  /** 渠道筛选,精确匹配 provider_code */
+  provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  /** 客户端 IP 筛选,支持 LIKE 通配符(如 '192.168.%')*/
+  clientIp: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  /** 最小耗时毫秒,筛选 latency_ms >= minLatency(慢调用分析)*/
+  minLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  /** 最大耗时毫秒 */
+  maxLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  /** HTTP 状态码筛选(如 429 限流/500 错误专项)*/
+  httpStatus: z.preprocess(emptyToUndefined, z.coerce.number().int().min(100).max(599).optional()),
+  /** 最小成本分 */
+  minCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  /** 最大成本分 */
+  maxCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
 
 const rechargeBodySchema = z.object({
@@ -289,11 +305,33 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return reply.status(401).send(error(401, '未登录'))
     const q = logsQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { page, pageSize, model, status } = q.data
+    const {
+      page,
+      pageSize,
+      model,
+      status,
+      apiKeyId,
+      provider,
+      clientIp,
+      minLatency,
+      maxLatency,
+      httpStatus,
+      minCost,
+      maxCost,
+    } = q.data
 
-    const conds: ReturnType<typeof eq>[] = [eq(llmCallLogs.userId, userId)]
+    // 强制 userId 隔离:用户只能查自己的日志
+    const conds: SQL[] = [eq(llmCallLogs.userId, userId)]
     if (model) conds.push(eq(llmCallLogs.model, model))
     if (status) conds.push(eq(llmCallLogs.status, status))
+    if (apiKeyId) conds.push(eq(llmCallLogs.apiKeyId, apiKeyId))
+    if (provider) conds.push(eq(llmCallLogs.providerCode, provider))
+    if (clientIp) conds.push(like(llmCallLogs.clientIp, clientIp))
+    if (minLatency !== undefined) conds.push(gte(llmCallLogs.latencyMs, minLatency))
+    if (maxLatency !== undefined) conds.push(lte(llmCallLogs.latencyMs, maxLatency))
+    if (httpStatus !== undefined) conds.push(eq(llmCallLogs.httpStatus, httpStatus))
+    if (minCost !== undefined) conds.push(gte(llmCallLogs.costCents, minCost))
+    if (maxCost !== undefined) conds.push(lte(llmCallLogs.costCents, maxCost))
     const where = and(...conds)
 
     try {
@@ -310,6 +348,13 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
             errorMessage: llmCallLogs.errorMessage,
             metadata: llmCallLogs.metadata,
             createdAt: llmCallLogs.createdAt,
+            // 高级筛选配套返回字段(字段由 schema subagent 同步添加)
+            apiKeyId: llmCallLogs.apiKeyId,
+            providerCode: llmCallLogs.providerCode,
+            clientIp: llmCallLogs.clientIp,
+            costCents: llmCallLogs.costCents,
+            httpStatus: llmCallLogs.httpStatus,
+            ttftMs: llmCallLogs.ttftMs,
           })
           .from(llmCallLogs)
           .where(where)
