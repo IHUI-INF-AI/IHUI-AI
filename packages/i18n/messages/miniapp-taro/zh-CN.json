@@ -23,7 +23,11 @@
     "wechatOnly": "仅支持微信登录",
     "ssoLogin": "SSO 登录",
     "ssoLoginHint": "企业账号一键登录",
-    "agreement": "我已阅读并同意《用户协议》和《隐私政策》"
+    "agreement": "我已阅读并同意《用户协议》和《隐私政策》",
+    "smsTab": "手机号验证码登录",
+    "privacyPolicy": "《隐私政策》",
+    "serviceAgreement": "《服务协议》",
+    "autoRegisterHint": "未注册用户将自动创建账号"
   },
   "forgot": {
     "title": "找回密码",
@@ -100,7 +104,14 @@
       "subtitle": "{{n}} 个课程"
     },
     "ratingTitle": "评价课程",
-    "ratingLabels": ["", "很差", "较差", "一般", "不错", "很好"],
+    "ratingLabels": [
+      "",
+      "很差",
+      "较差",
+      "一般",
+      "不错",
+      "很好"
+    ],
     "ratingPlaceholder": "请评分",
     "ratingDescLabel": "写下你的评价",
     "ratingInputPlaceholder": "课程怎么样?分享你的感受...",
@@ -364,7 +375,12 @@
     "welcomeTitle": "你好,我是智汇 AI 助手",
     "welcomeDesc": "有什么可以帮你的吗?",
     "inputPlaceholder": "输入你的问题…",
-    "suggestions": ["帮我写一首诗", "解释量子力学", "写一段代码", "翻译这段话"],
+    "suggestions": [
+      "帮我写一首诗",
+      "解释量子力学",
+      "写一段代码",
+      "翻译这段话"
+    ],
     "thinking": "思考中…",
     "stop": "停止",
     "clear": "清空",
@@ -436,7 +452,12 @@
       "timbre": "音色"
     },
     "image": {
-      "examples": ["一只可爱的猫咪", "日落山景", "未来城市", "抽象艺术"],
+      "examples": [
+        "一只可爱的猫咪",
+        "日落山景",
+        "未来城市",
+        "抽象艺术"
+      ],
       "emptyHint": "输入描述生成图片",
       "tryThese": "试试这些",
       "placeholder": "描述你想生成的图片",
@@ -450,7 +471,14 @@
       "favorited": "已收藏",
       "history": "历史记录",
       "empty": "暂无生成记录",
-      "styles": ["写实", "动漫", "油画", "水彩", "3D", "像素"],
+      "styles": [
+        "写实",
+        "动漫",
+        "油画",
+        "水彩",
+        "3D",
+        "像素"
+      ],
       "generateFailed": "生成失败,请重试",
       "downloadSuccess": "已保存到相册",
       "downloadFailed": "下载失败,请重试",
@@ -859,7 +887,10 @@
       "starting": "正在进入考试…"
     },
     "answer": {
-      "judgmentOptions": ["正确", "错误"],
+      "judgmentOptions": [
+        "正确",
+        "错误"
+      ],
       "loadFailed": "试卷加载失败",
       "answerPlaceholder": "输入你的答案",
       "prev": "上一题",
@@ -1172,7 +1203,13 @@
       }
     },
     "appPermission": {
-      "names": ["相册权限", "相机权限", "麦克风权限", "位置权限", "通知权限"],
+      "names": [
+        "相册权限",
+        "相机权限",
+        "麦克风权限",
+        "位置权限",
+        "通知权限"
+      ],
       "descs": [
         "用于保存和上传图片到相册",
         "用于拍摄照片和录制视频",
@@ -1504,9 +1541,26 @@
   },
   "plaza": {
     "setNeed": {
-      "categories": ["学习心得", "技术分享", "课程笔记", "项目实战", "问题求助", "经验总结"],
-      "levels": ["初级", "中级", "高级", "专家"],
-      "budgets": ["1000 元以下", "1000-5000 元", "5000-10000 元", "10000 元以上"],
+      "categories": [
+        "学习心得",
+        "技术分享",
+        "课程笔记",
+        "项目实战",
+        "问题求助",
+        "经验总结"
+      ],
+      "levels": [
+        "初级",
+        "中级",
+        "高级",
+        "专家"
+      ],
+      "budgets": [
+        "1000 元以下",
+        "1000-5000 元",
+        "5000-10000 元",
+        "10000 元以上"
+      ],
       "selectAtLeast": "请至少选择一项",
       "saved": "保存成功",
       "directionTitle": "学习方向",
@@ -1727,6 +1781,24 @@
       "loadFailed": "加载失败",
       "thresholdText": "满{threshold}元可用",
       "expireText": "有效期至 {time}"
+    },
+    "benefit": {
+      "unlimited": "无限对话",
+      "unlimitedDesc": "无限制使用 AI 对话功能"
+    },
+    "level": {
+      "normal": "普通会员",
+      "normalThreshold": "注册即享",
+      "normalPerks": "基础对话 / 有限次数",
+      "silver": "白银会员",
+      "silverThreshold": "成长值 ≥ 1000",
+      "silverPerks": "更多对话次数 / 优先客服",
+      "gold": "黄金会员",
+      "goldThreshold": "成长值 ≥ 3000",
+      "goldPerks": "无限对话 / 专属客服",
+      "diamond": "钻石会员",
+      "diamondThreshold": "成长值 ≥ 8000",
+      "diamondPerks": "全部权益 / 私董会"
     }
   },
   "pay": {
@@ -1813,8 +1885,19 @@
       "tabsComment": "评论"
     },
     "publish": {
-      "categories": ["学习心得", "技术分享", "课程笔记", "项目实战", "问题求助", "经验总结"],
-      "visibilityOptions": ["公开", "仅好友", "私密"],
+      "categories": [
+        "学习心得",
+        "技术分享",
+        "课程笔记",
+        "项目实战",
+        "问题求助",
+        "经验总结"
+      ],
+      "visibilityOptions": [
+        "公开",
+        "仅好友",
+        "私密"
+      ],
       "enterTitle": "请输入标题",
       "enterContent": "请输入内容",
       "published": "发布成功",
@@ -2093,7 +2176,14 @@
       "bannerTitle": "升级VIP会员",
       "bannerDesc": "解锁更多专属特权",
       "rightsTitle": "会员权益",
-      "rights": ["专属客服", "优先体验", "高级功能", "去广告", "专属标识", "折扣优惠"],
+      "rights": [
+        "专属客服",
+        "优先体验",
+        "高级功能",
+        "去广告",
+        "专属标识",
+        "折扣优惠"
+      ],
       "loadFailed": "加载失败",
       "operationFailed": "操作失败",
       "originalPrice": "原价¥{{n}}",
@@ -2174,7 +2264,25 @@
     },
     "benefitsTitle": "会员权益",
     "upgradeNow": "立即升级",
-    "hot": "热门"
+    "hot": "热门",
+    "plan": {
+      "monthly": "月度会员",
+      "monthlyPeriod": "30天",
+      "quarterly": "季度会员",
+      "quarterlyPeriod": "90天",
+      "yearly": "年度会员",
+      "yearlyPeriod": "365天"
+    },
+    "feature": {
+      "aiCopywriting": "AI营销文案",
+      "aiCopywritingDesc": "智能生成各类营销文案",
+      "aiDesign": "AI智能设计",
+      "aiDesignDesc": "智能生成图片和设计",
+      "aiVideo": "AI视频制作",
+      "aiVideoDesc": "智能生成视频内容",
+      "aiLive": "AI直播助手",
+      "aiLiveDesc": "智能直播辅助工具"
+    }
   },
   "learnDevelop": {
     "title": "学习发展",
@@ -2335,5 +2443,18 @@
     "plaza": "广场",
     "rank": "排行",
     "vip": "会员"
+  },
+  "index": {
+    "mock": {
+      "post1Title": "如何使用 React Hooks?",
+      "today": "今天"
+    },
+    "feature": {
+      "superAgent": "深度思考"
+    },
+    "toast": {
+      "loginRequired": "请先登录"
+    },
+    "title": "智汇AI社区"
   }
 }
