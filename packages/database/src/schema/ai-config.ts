@@ -9,6 +9,7 @@ import {
   timestamp,
   bigint,
   jsonb,
+  numeric,
   index,
   unique,
 } from 'drizzle-orm/pg-core'
@@ -76,6 +77,14 @@ export const aiModelConfig = pgTable(
     usage30dTokens: bigint('usage_30d_tokens', { mode: 'number' }).default(0),
     /** 30 天累计费用(分) */
     usage30dCostCents: integer('usage_30d_cost_cents').default(0),
+    /**
+     * BYOK 平台服务费抽成率(2026-07-30 立,numeric(5,4),默认 0.1000=10%)。
+     * 用户用自己的 API Key 调用大厂模型时,平台只收抽成(上游原价 × 抽成率),不碰大厂成本。
+     * 仅 owner_uuid IS NULL 的全局配置行生效(admin 配置的平台默认抽成率)。
+     */
+    byokCommissionRate: numeric('byok_commission_rate', { precision: 5, scale: 4 }).default(
+      '0.1000',
+    ),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

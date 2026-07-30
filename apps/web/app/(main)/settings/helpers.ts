@@ -13,6 +13,7 @@ import {
   Bell,
   PackagePlus,
   LogIn,
+  Network,
 } from 'lucide-react'
 
 export const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -33,6 +34,12 @@ export const SUB_PAGES = [
     descKey: 'connectedAccountsDesc',
   },
   { href: '/settings/llm', icon: Key, titleKey: 'llmConfigsTitle', descKey: 'llmConfigsDesc' },
+  {
+    href: '/settings/gateway',
+    icon: Network,
+    titleKey: 'gateway.navLabel',
+    descKey: 'gateway.subtitle',
+  },
   {
     href: '/settings/import',
     icon: PackagePlus,
