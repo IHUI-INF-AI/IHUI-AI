@@ -1194,7 +1194,7 @@
 
     {
       "id": "modal/labcompute/qwen2.5-72b",
-      "name": "Qwen2.5 72B (Modal 试用 credits)",
+      "name": "Qwen2.5 72B (Modal ToS 禁止第三方代理 商用需法务评估)",
       "provider": "modal",
       "context_length": 32768,
       "input_price": 0
@@ -1210,21 +1210,21 @@
 
     {
       "id": "nlpcloud/finetuned-llama-3-70b",
-      "name": "Finetuned Llama 3 70B (NLP Cloud 试用 credits)",
+      "name": "Finetuned Llama 3 70B (NLP Cloud ToS 禁止 proxy 商用需法务评估)",
       "provider": "nlpcloud",
       "context_length": 32768,
       "input_price": 0
     },
     {
       "id": "nlpcloud/dolphin",
-      "name": "Dolphin (NLP Cloud 试用 credits)",
+      "name": "Dolphin (NLP Cloud ToS 禁止 proxy)",
       "provider": "nlpcloud",
       "context_length": 32768,
       "input_price": 0
     },
     {
       "id": "nlpcloud/chatdolphin",
-      "name": "ChatDolphin (NLP Cloud 试用 credits)",
+      "name": "ChatDolphin (NLP Cloud ToS 禁止 proxy)",
       "provider": "nlpcloud",
       "context_length": 32768,
       "input_price": 0
@@ -1285,6 +1285,97 @@
       "name": "Qwen3 235B A22B (Alibaba Intl 1M tokens/模型 免费)",
       "provider": "alibaba_intl",
       "context_length": 131072,
+      "input_price": 0
+    },
+    {
+      "id": "llm7/gpt-4o",
+      "name": "GPT-4o (LLM7 免费镜像,5M tokens/天)",
+      "provider": "llm7",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "llm7/claude-sonnet-4.5",
+      "name": "Claude Sonnet 4.5 (LLM7 免费镜像)",
+      "provider": "llm7",
+      "context_length": 200000,
+      "input_price": 0
+    },
+    {
+      "id": "llm7/gpt-5.6",
+      "name": "GPT-5.6 (LLM7 免费镜像)",
+      "provider": "llm7",
+      "context_length": 256000,
+      "input_price": 0
+    },
+    {
+      "id": "pollinations/gpt-5",
+      "name": "GPT-5 (Pollinations 无 key 免费,1 req/6-15s)",
+      "provider": "pollinations",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "pollinations/claude",
+      "name": "Claude (Pollinations 无 key 免费)",
+      "provider": "pollinations",
+      "context_length": 200000,
+      "input_price": 0
+    },
+    {
+      "id": "pollinations/deepseek",
+      "name": "DeepSeek (Pollinations 无 key 免费)",
+      "provider": "pollinations",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "if/kimi-k2-thinking",
+      "name": "Kimi K2 Thinking (Qoder AI unlimited free)",
+      "provider": "qoder",
+      "context_length": 256000,
+      "input_price": 0
+    },
+    {
+      "id": "if/deepseek-r1",
+      "name": "DeepSeek R1 (Qoder AI unlimited free)",
+      "provider": "qoder",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "if/qwen3-coder-plus",
+      "name": "Qwen3 Coder Plus (Qoder AI unlimited free)",
+      "provider": "qoder",
+      "context_length": 131072,
+      "input_price": 0
+    },
+    {
+      "id": "aihorde/auto",
+      "name": "Auto (AI Horde 众包 GPU,完全免费)",
+      "provider": "aihorde",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "ovhcloud/llama-3.3-70b",
+      "name": "Llama 3.3 70B (OVHcloud 欧洲节点免费层)",
+      "provider": "ovhcloud",
+      "context_length": 131072,
+      "input_price": 0
+    },
+    {
+      "id": "requesty/auto",
+      "name": "Auto (Requesty 透明路由聚合免费层)",
+      "provider": "requesty",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "navy/auto",
+      "name": "Auto (Navy OmniRoute v3.8.49 新增免费 provider)",
+      "provider": "navy",
+      "context_length": 32768,
       "input_price": 0
     }
   ]
