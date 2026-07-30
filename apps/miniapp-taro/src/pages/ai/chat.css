@@ -592,7 +592,7 @@
   overflow-x: auto;
   padding: 0 0 20rpx;
   margin-bottom: 20rpx;
-  border-bottom: 1rpx solid #D8D8D8;
+  border-bottom: 1rpx solid #d8d8d8;
   white-space: nowrap;
 }
 .imgs-list-item {
@@ -1098,7 +1098,9 @@
   color: #ffffff;
   font-size: 22rpx;
   line-height: 28rpx;
-  font-variation-settings: "BEVL" 100, "opsz" auto;
+  font-variation-settings:
+    'BEVL' 100,
+    'opsz' auto;
   box-sizing: border-box;
   word-break: break-word;
 }
@@ -1154,9 +1156,12 @@
   align-items: center;
 }
 
-/* ============ 放大态背景(对标原 .input_area_back) ============ */
+/* ============ 放大态背景(对标原 .input_area_back,放大态必须覆盖 .input-area-back 的呼吸阴影与动画) ============ */
 .input-area-active-bg {
   background: #fff;
+  height: 100%;
+  box-shadow: none;
+  animation: none;
 }
 
 /* ============ search-box 紫色描边圆角(对标原 .search_box_bor) ============ */
@@ -1164,9 +1169,11 @@
   border: 1rpx solid rgba(223, 138, 248, 0.384);
 }
 
-/* 放大态 search-box 子容器 */
+/* 放大态 search-box 子容器(对标原 .search_boxa:height 100% + space-between + flex-end) */
 .search-box-active {
   height: 100%;
+  justify-content: space-between;
+  align-items: flex-end;
 }
 
 /* ============ 内层 search-box(对标原 .search-box.search-boxa) ============ */
@@ -1203,7 +1210,12 @@
 .search-input {
   font-size: 36rpx;
   color: rgba(0, 0, 0) !important;
-  font-family: 'AlimamaFangYuanTi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'AlimamaFangYuanTi',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   font-weight: normal;
   line-height: 40rpx;
   flex: 1;

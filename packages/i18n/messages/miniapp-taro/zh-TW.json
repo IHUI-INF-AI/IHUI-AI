@@ -383,6 +383,7 @@
     "agentLoadFailed": "智慧體載入失敗",
     "generating": "正在極速生成中",
     "thinkingTip": "Tips:您可以先點擊右上角三個點浮窗小程式,過一會兒再回來喲~",
+    "fileSelected": "已選 {{count}} 個檔案",
     "common": {
       "loading": "載入中…"
     },
@@ -406,6 +407,7 @@
       "stopSpeak": "停止",
       "share": "分享",
       "viewDigitalHuman": "查看數字人",
+      "digitalHuman": "數字人生成 →",
       "voiceMessage": "語音消息",
       "downloading": "下載中",
       "downloadSuccess": "已儲存到相簿",
