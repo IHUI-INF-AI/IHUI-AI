@@ -101,7 +101,15 @@
     "moreActions": "더 보기",
     "loadFailed": "로딩 실패",
     "deleteSuccess": "삭제 성공",
-    "colToken": "토큰"
+    "colToken": "토큰",
+    "close": "닫기",
+    "closeOther": "다른 탭 닫기",
+    "closeAll": "모두 닫기",
+    "closeRight": "오른쪽 닫기",
+    "copyPath": "경로 복사",
+    "refresh": "새로고침",
+    "pin": "고정",
+    "unpin": "고정 해제"
   },
   "taskReceiver": {
     "title": "작업 수신기",

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, ChevronDown, XCircle, Search } from 'lucide-react'
+import { X, ChevronDown, XCircle, Search, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
@@ -264,13 +264,18 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
  */
 export const TagsViewChevronButton = React.memo(function TagsViewChevronButton() {
   const tCommon = useTranslations('common')
+  const router = useRouter()
   const tags = useTagsViewStore((s) => s.tags)
   const activePath = useTagsViewStore((s) => s.activePath)
   const closeOther = useTagsViewStore((s) => s.closeOther)
   const closeAll = useTagsViewStore((s) => s.closeAll)
+  const closeRight = useTagsViewStore((s) => s.closeRight)
 
   if (tags.length === 0) return null
 
+  // 2026-07-31 第十二轮:chevron 下拉菜单从 2 项扩到 5 项
+  // 新增:关闭右侧 / 复制路径 / 刷新当前(用户确认)
+  // pin 不进此菜单(用户指定:仅走右键单个标签)
   return (
     <Dropdown
       align="end"
@@ -280,7 +285,34 @@ export const TagsViewChevronButton = React.memo(function TagsViewChevronButton()
           label: tCommon('closeOther'),
           onSelect: () => closeOther(activePath ?? ''),
         },
-        { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
+        {
+          key: 'right',
+          label: tCommon('closeRight'),
+          onSelect: () => closeRight(activePath ?? ''),
+        },
+        {
+          key: 'copy',
+          label: tCommon('copyPath'),
+          onSelect: () => {
+            // 复制当前 activePath 到剪贴板(SSR 安全:可选链 + catch 吞权限拒绝)
+            if (activePath) {
+              navigator.clipboard?.writeText(activePath).catch(() => {})
+            }
+          },
+        },
+        {
+          key: 'refresh',
+          label: tCommon('refresh'),
+          onSelect: () => router.refresh(),
+        },
+        // divider 分隔 destructive 项(§4 禁止 hr/divide-y,但 Radix Separator 是组件级分割,合法)
+        { key: 'div1', divider: true },
+        {
+          key: 'all',
+          label: tCommon('closeAll'),
+          danger: true,
+          onSelect: () => closeAll(),
+        },
       ]}
       trigger={
         // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
@@ -321,6 +353,9 @@ export function TagsView() {
   const reorderTags = useTagsViewStore((s) => s.reorderTags)
   // 订阅 dirtyPaths(Set 引用变化时触发重渲染);各标签用 dirtyPaths.has(path) 判定 dirty
   const dirtyPaths = useTagsViewStore((s) => s.dirtyPaths)
+  // 订阅 pinnedPaths(Chrome 风格 pin 功能,2026-07-31 立)
+  const pinnedPaths = useTagsViewStore((s) => s.pinnedPaths)
+  const togglePin = useTagsViewStore((s) => s.togglePin)
 
   // 路由切换:把当前 path 加入标签栏(只存 path+query,标题由渲染时派生)
   React.useEffect(() => {
@@ -460,7 +495,9 @@ export function TagsView() {
         ) : (
           tags.map((tag, index) => {
             const active = tag.path === activePath
-            const draggable = !active
+            const isPinned = pinnedPaths.has(tag.path)
+            // pinned 标签不可拖拽(Chrome 风格,位置固定在 pinned 区)
+            const draggable = !active && !isPinned
             const isOver = overIndex === index && dragIndex !== null
             const isDirty = dirtyPaths.has(tag.path)
             return (
@@ -489,16 +526,26 @@ export function TagsView() {
                   // - pl-6 (24px) 对应 X 关闭按钮 w-5 (20px) + pr-1 (4px) = 24px,
                   //   左右对称,文字几何居中(用户规则 2026-07-30)
                   TOPBAR_BTN_BASE,
-                  'group cursor-pointer gap-1 pl-6 pr-1 text-xs',
+                  'group relative cursor-pointer gap-1 pl-6 pr-1 text-xs',
                   active
                     ? 'bg-primary/10 font-medium text-primary'
-                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                    : isPinned
+                      // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
+                      ? 'bg-muted/70 font-medium text-foreground'
+                      : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                   // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
                   dragIndex !== null && isOver && 'opacity-50',
                   dragIndex === index && 'opacity-40',
                   draggable && 'cursor-grab active:cursor-grabbing',
                 )}
               >
+                {/* pinned 图钉图标(absolute 左侧,不占文字空间;2026-07-31 Chrome 风格) */}
+                {isPinned && (
+                  <Pin
+                    aria-label={tCommon('pin')}
+                    className="absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 shrink-0 text-primary/70"
+                  />
+                )}
                 {/* 性能修复:TagLabel 子组件内部根据 path 解析到的 ns 只调用 1 次 useTranslations,
                   而非顶层 22 个 translator 全量初始化。React.memo 浅比较 path 避免无关重渲染。 */}
                 <TagLabel path={tag.path} />
@@ -568,6 +615,23 @@ export function TagsView() {
           >
             <XCircle className="h-4 w-4" />
             {tCommon('closeOther')}
+          </button>
+          {/* pin/unpin 项(2026-07-31 Chrome 风格,根据当前 pinned 状态切换文案 + 图标) */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              togglePin(ctxMenu.path)
+              setCtxMenu(null)
+            }}
+            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+          >
+            {pinnedPaths.has(ctxMenu.path) ? (
+              <PinOff className="h-4 w-4" />
+            ) : (
+              <Pin className="h-4 w-4" />
+            )}
+            {pinnedPaths.has(ctxMenu.path) ? tCommon('unpin') : tCommon('pin')}
           </button>
           <div className="my-1" aria-hidden="true" />
           <button
