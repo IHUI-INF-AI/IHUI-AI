@@ -1,8 +1,12 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import { useTt } from '@/i18n'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
+// 原项目 ModelList.vue 静态图标(本地副本 import,对齐 zhs_app-ZZ)
+import mianLabelIcon from '@/assets/remote/images/default/mian_label.png'
+import selectedModelIcon from '@/assets/remote/images/selected_model.png'
+import rankoneIcon from '@/assets/remote/images/default/rankone.png'
 
 export type ModelItem = LlmModel
 
@@ -63,10 +67,31 @@ export default function ModelList({
             <View
               key={i}
               className="flex items-center"
-              style={{ height: '80rpx', margin: '5rpx 0', padding: '0 15rpx', background: 'var(--color-muted)', borderRadius: '15rpx' }}
+              style={{
+                height: '80rpx',
+                margin: '5rpx 0',
+                padding: '0 15rpx',
+                background: 'var(--color-muted)',
+                borderRadius: '15rpx',
+              }}
             >
-              <View style={{ width: '40rpx', height: '40rpx', borderRadius: '8rpx', background: 'var(--color-border)' }} />
-              <View className="ml-[10rpx]" style={{ width: '160rpx', height: '16rpx', background: 'var(--color-border)', borderRadius: '4rpx' }} />
+              <View
+                style={{
+                  width: '40rpx',
+                  height: '40rpx',
+                  borderRadius: '8rpx',
+                  background: 'var(--color-border)',
+                }}
+              />
+              <View
+                className="ml-[10rpx]"
+                style={{
+                  width: '160rpx',
+                  height: '16rpx',
+                  background: 'var(--color-border)',
+                  borderRadius: '4rpx',
+                }}
+              />
             </View>
           ))}
         </View>
@@ -95,9 +120,7 @@ export default function ModelList({
         {/* 分类标题(对齐原项目 .title,display:none 在原项目但保留为视觉锚点)*/}
         {currentType && TYPE_LABELS[currentType] ? (
           <View style={{ padding: '0 15rpx', height: '40rpx', display: 'none' }}>
-            <Text style={{ fontSize: '24rpx', fontWeight: 600 }}>
-              {TYPE_LABELS[currentType]}
-            </Text>
+            <Text style={{ fontSize: '24rpx', fontWeight: 600 }}>{TYPE_LABELS[currentType]}</Text>
           </View>
         ) : null}
 
@@ -108,9 +131,12 @@ export default function ModelList({
             onClick={onAgentSelect}
           >
             <View className="flex items-center">
-              <View className="flex items-center justify-center" style={{ width: '40rpx', height: '40rpx' }}>
-                <Text style={{ fontSize: '28rpx' }}>🤖</Text>
-              </View>
+              {/* image_logo + chu-icon:对齐原项目 /static/images/default/mian_label.png */}
+              <Image
+                src={mianLabelIcon}
+                mode="widthFix"
+                style={{ width: '40rpx', height: '40rpx', borderRadius: '8rpx' }}
+              />
               <Text
                 className="ml-[10rpx]"
                 style={{
@@ -121,6 +147,12 @@ export default function ModelList({
               >
                 Agent模式
               </Text>
+              {/* chu-power 徽章:对齐原项目 mian_label.png */}
+              <Image
+                src={mianLabelIcon}
+                mode="widthFix"
+                style={{ width: '40rpx', height: '40rpx', marginLeft: '10rpx' }}
+              />
             </View>
             {agentActive ? (
               <View
@@ -132,7 +164,12 @@ export default function ModelList({
                   background: 'var(--color-foreground)',
                 }}
               >
-                <Text style={{ color: 'var(--color-card)', fontSize: '20rpx' }}>✓</Text>
+                {/* selected-icon:对齐原项目 /static/images/selected_model.png 80rpx×80rpx */}
+                <Image
+                  src={selectedModelIcon}
+                  mode="widthFix"
+                  style={{ width: '80rpx', height: '80rpx' }}
+                />
               </View>
             ) : null}
           </View>
@@ -149,7 +186,8 @@ export default function ModelList({
               onClick={() => onSelect?.(model)}
             >
               <View className="flex items-center">
-                {/* 模型 logo:对齐原项目 image_logo + chu-icon 40rpx 圆角 8rpx */}
+                {/* 模型 logo:对齐原项目 image_logo + chu-icon 40rpx 圆角 8rpx
+                    原项目用 :src="item.img"(动态),LlmModel 无 img 字段,保留首字母占位 */}
                 <View
                   className="flex items-center justify-center"
                   style={{
@@ -174,8 +212,22 @@ export default function ModelList({
                 >
                   {model.name}
                 </Text>
+                {/* chu-power 排名第一徽章:对齐原项目 rankone.png(index === 0)*/}
+                {index === 0 ? (
+                  <Image
+                    src={rankoneIcon}
+                    mode="widthFix"
+                    style={{ width: '40rpx', height: '40rpx', marginLeft: '10rpx' }}
+                  />
+                ) : null}
+                {/* chu-power 徽章:对齐原项目 mian_label.png(始终显示)*/}
+                <Image
+                  src={mianLabelIcon}
+                  mode="widthFix"
+                  style={{ width: '40rpx', height: '40rpx', marginLeft: '10rpx' }}
+                />
               </View>
-              {/* 选中态:对齐原项目 .selected-icon 32rpx 圆形黑色 */}
+              {/* 选中态:对齐原项目 .selected-icon 32rpx 圆形 + selected_model.png 80rpx×80rpx */}
               {selected ? (
                 <View
                   className="flex items-center justify-center"
@@ -186,7 +238,11 @@ export default function ModelList({
                     background: 'var(--color-foreground)',
                   }}
                 >
-                  <Text style={{ color: 'var(--color-card)', fontSize: '20rpx' }}>✓</Text>
+                  <Image
+                    src={selectedModelIcon}
+                    mode="widthFix"
+                    style={{ width: '80rpx', height: '80rpx' }}
+                  />
                 </View>
               ) : null}
             </View>
@@ -234,7 +290,9 @@ export default function ModelList({
             onClick={() => onSelect?.(model)}
           >
             <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
-              <Text className="text-sm font-medium text-muted-foreground">{model.name.charAt(0)}</Text>
+              <Text className="text-sm font-medium text-muted-foreground">
+                {model.name.charAt(0)}
+              </Text>
             </View>
             <View className="flex-1 min-w-0">
               <View className="flex items-center">
