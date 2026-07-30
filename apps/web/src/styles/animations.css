@@ -1514,18 +1514,6 @@
   }
 }
 
-@keyframes outline {
-  from {
-    outline-color: #6a6a6b;
-  }
-  50% {
-    outline-color: #fac826;
-  }
-  to {
-    outline-color: #fc466b;
-  }
-}
-
 @keyframes colors {
   from {
     color: #000;
@@ -3012,9 +3000,6 @@
 }
 .animate-fp-ring-expand {
   animation: fp-ring-expand 2s ease-out infinite;
-}
-.animate-outline {
-  animation: outline 3s linear infinite;
 }
 .animate-colors {
   animation: colors 3s linear infinite alternate;
