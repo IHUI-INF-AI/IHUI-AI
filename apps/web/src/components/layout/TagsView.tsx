@@ -237,7 +237,11 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white px-2 text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
+        // 2026-07-30 用户反馈"搜索按钮容器左侧没对齐下面内容展示区左侧"根治:
+        // - 删 px-2(8px) → 图标紧贴容器左缘,跟下面 main p-4 (16px) 内的内容左缘视觉对齐
+        //   (顶栏外层 px-4 提供 16px 水平 padding → 搜索按钮容器左缘 = 16px = 内容左缘)
+        // - h-full 跟随外层 h-9 (36px),不再有 h-6/h-7 双重高度冲突
+        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white pl-0 pr-2 text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
       >
         <Search className="h-4 w-4" />
       </button>
@@ -410,7 +414,7 @@ export function TagsView() {
             const isDirty = dirtyPaths.has(tag.path)
             return (
               // 标签宽度契约:右侧 = gap-1 (4px) + X (w-5=20px) + pr-1 (4px) = 28px
-              // 左侧 pl-7 (28px) 与右侧对称,文字几何居中
+              // 左侧 pl-2 (8px) 与右侧对称,文字几何居中
               // X 宽度若调整,需同步修改 pl 值(每 ±4px X 宽度 → ±4px pl)
               <Link
                 key={tag.path}
@@ -422,7 +426,7 @@ export function TagsView() {
                 onDragEnd={onDragEnd}
                 onContextMenu={(e) => handleContextMenu(e, tag.path)}
                 className={cn(
-                  'group inline-flex h-full shrink-0 cursor-pointer items-center gap-1 rounded-md border py-0 pl-7 pr-1 text-xs leading-none transition-colors',
+                  'group inline-flex h-full shrink-0 cursor-pointer items-center gap-1 rounded-md border py-0 pl-2 pr-1 text-xs leading-none transition-colors',
                   active
                     ? 'border-primary/30 bg-primary/10 font-medium text-primary'
                     : 'border-border/40 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -486,9 +490,11 @@ export function TagsView() {
             { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
           ]}
           trigger={
+            // 2026-07-30 用户反馈"标签栏高度不对"根治:Dropdown trigger 改 h-full
+            // 跟随外层 GlobalTopBar h-9 (36px),不再固定 h-7 (28px) 导致比标签栏矮 8px
             <button
               type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
+              className="inline-flex h-full w-7 items-center justify-center rounded-md bg-white text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
               aria-label={tCommon('moreActions')}
             >
               <ChevronDown className="h-4 w-4" />
