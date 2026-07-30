@@ -190,3 +190,19 @@ export * from './resource-context.js'
 export * from './redemption-codes.js'
 // 模型映射表(2026-07-31 立,P0-4 降本神器:全局/用户/Key 三级映射,gpt-4o → deepseek-chat)
 export * from './ai-model-mappings.js'
+// 优惠券表(2026-07-31 立,折扣券/满减券/裂变券三合一:admin 批量生成 + 用户领券/核销/裂变奖励)
+export * from './coupons.js'
+// 阶梯计价规则表(2026-08-01 立,用得越多越便宜:月度用量达阈值自动降价)
+export * from './tiered-pricing-rules.js'
+// 用户计费分组(2026-08-01 立,P0 中转站造血能力:用户分组 + 倍率(VIP 折扣矩阵))
+export * from './user-billing-groups.js'
+// Relay 调用返佣流水表(2026-07-31 立,把返佣绑到 relay 调用消费:被邀请人消费,邀请人返佣)
+export * from './relay-commission-records.js'
+// 中转站渠道分组表(2026-07-31 立,#4 #6 合并:渠道分组 + 负载均衡 + 故障自动切换)
+export * from './ai-relay-channel-groups.js'
+// Relay Webhook 订阅 + 投递日志(2026-08-01 立,relay 调用完成/异常/余额不足事件订阅 + 重试 + HMAC 签名)
+export * from './webhook-subscriptions.js'
+// API Key 分组表(2026-08-01 立,P0 中转站造血能力:多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
+export * from './api-key-groups.js'
+// 模型价格历史 + 限时折扣调度(2026-08-01 立,价格趋势曲线 + 预设折扣 + 动态调价建议)
+export * from './model-price-history.js'
