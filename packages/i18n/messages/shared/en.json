@@ -498,7 +498,19 @@
     "wallet": "Wallet",
     "live": "Live",
     "courses": "Courses",
-    "earnings": "Earnings"
+    "earnings": "Earnings",
+    "developerRelay": "API Relay",
+    "developerRelayKeys": "API Keys",
+    "developerRelayUsage": "Usage",
+    "developerRelaySubscriptions": "Relay Subscriptions",
+    "playground": "Playground",
+    "adminRelayOverview": "Relay Overview",
+    "adminRelayModels": "Model Management",
+    "adminRelayKeyPool": "Key Pool",
+    "adminRelayDiscovery": "Model Discovery",
+    "adminRelayLogs": "Call Logs",
+    "adminRelayModelMappings": "Model Mappings",
+    "adminRelayRedemptionCodes": "Redemption Codes"
   },
   "routes": {
     "aboutUs": "About Us",
