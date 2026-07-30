@@ -692,6 +692,26 @@ _REGISTRY: list[FreeProvider] = [
         docs_url="https://docs.navy.ai",
         notes="OmniRoute v3.8.49 新增;信息有限,建议先小流量测试",
     ),
+
+    # ---------------- P3-2 法务评估:ToS 禁止接入的 provider(2026-07-30 立) ----------------
+    FreeProvider(
+        provider_code="kiro",
+        display_name="Kiro(AWS,AI IDE,免费 Claude)",
+        category=ProviderCategory.INTERNATIONAL,
+        signup_url="https://kiro.dev",
+        free_quota="免费 Claude 接入(AI IDE 内置,通过 AWS Bedrock)",
+        rate_limit="未公开(IDE 内使用)",
+        default_base_url="",  # 无公开 API endpoint(IDE 内置,非独立 API 服务)
+        key_env_vars=[],  # 无独立 API key(IDE 内置认证,不支持外部调用)
+        default_models=["claude-sonnet-4", "claude-3.7-sonnet"],
+        docs_url="https://kiro.dev/docs",
+        notes=(
+            "⚠️ 法务风险(2026-07-30 P3-2 评估):Kiro ToS §3.2 明确禁止第三方集成 / "
+            "自动化调用 / 绕过 IDE 界面访问,违反可能导致账号封禁 + 法律追责。"
+            "本注册表仅记录该 provider 存在(法务评估存档),不提供技术接入路径。"
+            "用户如需使用 Claude,请走 anthropic/ 前缀(官方 API)或 agnes/ 前缀(中转)。"
+        ),
+    ),
 ]
 
 

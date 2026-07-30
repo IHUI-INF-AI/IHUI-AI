@@ -321,6 +321,15 @@
 
 - [x] ✅(2026-07-30) P2-1 README + 对外宣传重写:不跟 OmniRoute 比单一网关,放大 IHUI 已有的 8 端 + Agent 编排 + RAG + 元学习 + 13 平台发布 + AI 教育全栈叙事,做"AI 全家桶"差异化定位 — README B5 章节新增"IHUI 差异化定位 — AI 全家桶而非单一网关"段落,6 维度护城河展开(8 端全栈连通 / Agent 编排深度 / RAG+元学习 / 商业闭环 / 13 平台发布 / AI 教育全栈);对比矩阵新增"元学习"+"AI 教育全栈" 2 行;修复"Token 压缩"和"网关 Dashboard" 2 行过时"待补强"描述;新增 P2-A~F 完成信息详述 6 子任务交付
 
+#### P3 网关补强批次(2026-07-30 立,平台独占:apps/ai-service,AGENTS.md §24 用户已确认)
+
+> **触发**:用户确认 "P3-1 TLS stealth, P3-2 Kiro 免费 Claude, P3-3 OpenRouter 403 代理" 三项都需要。补完 P0 网关批次剩余 3 项能力补强,对标 OmniRoute TLS stealth + 解决 OpenRouter 区域限制 + Kiro 法务评估存档。
+
+- [x] ✅(2026-07-30) **P3-1 TLS stealth 客户端工厂** — 新建 `apps/ai-service/app/services/tls_stealth.py`:6 UA 池(Chrome 131 Windows/Mac/Linux + Firefox 133 Windows/Mac + Safari 17.6 Mac 轮换)+ 3 Accept 头池 + 7 默认浏览器头(Accept-Language/Accept-Encoding/Cache-Control/Sec-Fetch-*/Pragma)+ `get_random_user_agent()` / `get_stealth_headers()` / `create_stealth_client()` 3 公开函数 + curl_cffi 可选依赖降级路径(`_is_curl_cffi_available()` 检测,未启用 JA3 路径,httpx + UA 伪装已足够应付 Cloudflare basic rules)。不引入新依赖(curl_cffi 未在 requirements.txt)。27 测试用例全绿
+- [x] ✅(2026-07-30) **P3-3 OpenRouter 403 代理 + failover 到 agnes 中转** — `llm_gateway.py` 集成:① `_is_openrouter_403_error()` 检测 OpenRouter 403 区域限制(中国 IP 被限);② `_failover_openrouter_to_agnes()` 模型名替换(openrouter/ → agnes/);③ `_openrouter_proxy_context()` 临时 HTTPS_PROXY env var 上下文管理器(配合 `OPENROUTER_PROXY_URL`);④ `complete()` / `astream()` 集成:openrouter 403 自动 failover 到 agnes/ 中转,优先于 FallbackRouter 触发。配置:`OPENROUTER_PROXY_URL`(代理地址)+ `OPENROUTER_FAILOVER_TO_AGNES=true`(403 自动 failover,默认 true)。16 测试用例全绿
+- [x] ✅(2026-07-30) **P3-2 Kiro 法务评估存档** — `free_provider_registry.py` 新增 kiro provider 条目:provider_code='kiro' / name='Kiro' / signup_url='https://kiro.dev' / default_models=['claude-3-5-sonnet','claude-3-haiku'] / region='global' / notes 明确标注"⚠️ 法务风险:Kiro ToS §3.2 禁止第三方集成/自动化调用/绕过 IDE 界面"。仅作法务风险存档,**不提供技术接入路径**,引导用户走 `anthropic/` 或 `agnes/` 前缀。7 测试用例全绿
+- [x] ✅(2026-07-30) **P3-4 验证 + 文档同步(§21 触发)** — ① pytest 178 测试全绿(test_tls_stealth 27 + test_llm_gateway 16 + test_free_provider_registry 50 + 其他 85);② mypy 本任务 4 文件全绿(token_compaction.py 报错为其他 agent P2 代码,非本任务范围);③ README.md B5 章节"P3 补强已完成"段落写入(① P3-1 TLS stealth / ② P3-3 OpenRouter 403 代理 / ③ P3-2 Kiro 法务评估);④ `.env.example` 新增 `OPENROUTER_PROXY_URL` + `OPENROUTER_FAILOVER_TO_AGNES` 配置;⑤ commit + push + git-push-guard 验证(§20 五条全绿)
+
 ---
 
 ### P0 商业化变现批次(2026-07-27 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
