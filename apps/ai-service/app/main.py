@@ -234,6 +234,14 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.screenshot_service import shutdown as screenshot_shutdown
     await screenshot_shutdown()
 
+    # 关闭 Browser Hub(2026-07-31 立:CDP 完整 Chrome 内置浏览器)
+    # 懒加载,若未启动则 no-op;若已启动则关闭所有 session + Chromium 实例
+    try:
+        from app.services.browser_hub import hub
+        await hub.stop()
+    except Exception as e:
+        logger.warning("[browser_hub] 关闭失败(忽略): %s", e)
+
     # P1 修复:关闭所有 LSP 子进程(_instances 全局 dict 持有 LspClient 单例,
     # 不主动 shutdown 会导致 typescript-language-server 子进程 + reader_task 泄漏)
     try:
@@ -329,6 +337,10 @@ def create_app() -> FastAPI:
     # 多平台扫码登录(2026-07-30 新增,WorkPanel 内置浏览器扫码 → 自动保存 cookies 到账号)
     from app.routers import scan_login as scan_login_router
     app.include_router(scan_login_router.router, prefix="/api", tags=["publish-scan-login"])
+    # 2026-07-31 新增:Browser Hub(CDP 完整 Chrome 内置浏览器,对标 Trae/Cursor)
+    # WebSocket 画面流 + REST API + 鼠标键盘事件回传
+    from app.routers import browser_hub as browser_hub_router
+    app.include_router(browser_hub_router.router, prefix="/api", tags=["browser-hub"])
     # OpenCompass 排行榜抓取(Playwright 渲染,2026-07-22 新增,供 api ai-world-sync 调用)
     app.include_router(opencompass.router, prefix="/api", tags=["opencompass"])
     # 截图服务(Playwright headless,2026-07-22 新增,WorkPanel iframe 降级)
