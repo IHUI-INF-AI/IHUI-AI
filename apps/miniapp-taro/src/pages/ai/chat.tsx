@@ -26,6 +26,7 @@ import {
   IntelligentAssistant,
   type AgentItem,
   type MaterialTab,
+  type InputFileItem,
 } from '@/components'
 import { useI18n } from '@/i18n'
 import { useUserStore } from '@/stores/user'
@@ -92,7 +93,10 @@ export default function ChatPage() {
   const shareMsgRef = useRef<ChatMessage | null>(null)
   // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
   const [inputValue, setInputValue] = useState('')
-  const [inputKey, setInputKey] = useState(0)
+  // 附件列表(受控模式由父组件管理,对标原项目 imgs_list)
+  const [imgsList, setImgsList] = useState<InputFileItem[]>([])
+  // 全屏放大态(隐藏导航栏,对标原项目 InputArea.vue fangda)
+  const [navBarHidden, setNavBarHidden] = useState(false)
   // 收藏消息(对标原 ai_assistant.vue 收藏 AI 回复,用消息 timestamp 作为 id)
   const [favoritedMsgs, setFavoritedMsgs] = useState<Set<string>>(new Set())
   // 历史对话(对标原 ai_assistant.vue 历史抽屉)
@@ -497,9 +501,28 @@ export default function ChatPage() {
     if (!agents.length) loadAgents()
   }, [agents.length, loadAgents])
 
-  const handleUpload = useCallback((files: string[]) => {
-    // TODO: i18n — Taro.showToast 硬编码中文待翻译(已选 N 个文件)
-    Taro.showToast({ title: `已选 ${files.length} 个文件`, icon: 'none' })
+  const handleUpload = useCallback(
+    (files: string[]) => {
+      const newItems: InputFileItem[] = files.map((filePath) => {
+        // 根据扩展名判断文件类型
+        const ext = filePath.split('.').pop()?.toLowerCase() || ''
+        if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+          return { imgUrl: filePath, fileType: 'video', video_url: filePath }
+        }
+        if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) {
+          const filename = filePath.split('/').pop() || filePath
+          return { imgUrl: filePath, fileType: 'document', filename }
+        }
+        return { imgUrl: filePath, fileType: 'image' }
+      })
+      setImgsList((prev) => [...prev, ...newItems])
+      Taro.showToast({ title: t('ai.fileSelected', { count: files.length }), icon: 'none' })
+    },
+    [t],
+  )
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setImgsList((prev) => prev.filter((_, i) => i !== index))
   }, [])
 
   const handleVoicePress = useCallback(() => {
@@ -509,9 +532,11 @@ export default function ChatPage() {
   const handleVoiceRelease = useCallback(
     (filePath: string) => {
       if (!filePath) return
-      sendMessage(t('ai.voice.voiceMessage'))
+      // 简化版:直接用本地路径发送(生产环境应上传服务器获取 URL)
+      // sendMessage 当前签名只接受 text 参数,附带 filePath 信息发送
+      sendMessage(`[voice]${filePath}`)
     },
-    [sendMessage, t],
+    [sendMessage],
   )
 
   const handleMaterialUpload = useCallback(
@@ -525,7 +550,6 @@ export default function ChatPage() {
   const handleReuse = useCallback((question: string) => {
     if (!question) return
     setInputValue(question)
-    setInputKey((k) => k + 1)
     Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
   }, [])
 
@@ -579,16 +603,19 @@ export default function ChatPage() {
   const handleEdit = useCallback((msg: ChatMessage, idx: number) => {
     if (msg.role !== 'user') return
     setInputValue(msg.content)
-    setInputKey((k) => k + 1)
     setMessages((prev) => prev.slice(0, idx))
     Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
   }, [])
 
-  /** 恢复选中的历史对话(对标原 ai_assistant.vue 恢复历史) */
+  /** 恢复选中的历史对话(对标原 ai_assistant.vue 恢复历史)
+   *  恢复时清空当前输入态(附件/输入框/选中素材),开始新对话上下文 */
   const handleSelectHistory = useCallback(
     (h: ChatHistoryEntry) => {
       setMessages(h.messages || [])
       setSessionId('')
+      setImgsList([])
+      setInputValue('')
+      setSelectedMaterial(null)
       setHistoryDrawerVisible(false)
       scrollToBottom()
     },
@@ -659,7 +686,10 @@ export default function ChatPage() {
         } as CSSProperties
       }
     >
-      <View className="nav-bar safe-area-bottom" style={{ background: 'transparent' }}>
+      <View
+        className="nav-bar safe-area-bottom"
+        style={{ background: 'transparent', display: navBarHidden ? 'none' : 'flex' }}
+      >
         <View className="nav-left" onClick={openModelDrawer}>
           <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
           <Text className="nav-arrow">▾</Text>
@@ -868,15 +898,24 @@ export default function ChatPage() {
           />
         </View>
         <InputArea
-          key={inputKey}
           variant="ai-home"
           value={inputValue}
+          onInput={(text) => setInputValue(text)}
           placeholder={t('ai.inputPlaceholder')}
           disabled={thinking}
+          imgsList={imgsList}
           onSend={(text) => sendMessage(text)}
           onUpload={handleUpload}
+          onRemoveImage={handleRemoveImage}
           onVoicePress={handleVoicePress}
           onVoiceRelease={handleVoiceRelease}
+          onFangdaChange={(active) => setNavBarHidden(active)}
+          onKeyboardHeightChange={(h) => {
+            if (h > 0) {
+              // 键盘弹起时滚动到底部
+              setTimeout(() => scrollToBottom(), 100)
+            }
+          }}
         />
         {thinking ? (
           <View className="send-btn" onClick={stopGeneration}>
