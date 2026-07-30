@@ -35,6 +35,31 @@ logger = logging.getLogger(__name__)
 # 持有待完成的回调 task 引用,防止 CPython GC 回收未持有的 task
 _pending_callbacks: set[asyncio.Task[None]] = set()
 
+
+def _wrap_ok(data: Any, message: str = "ok") -> dict[str, Any]:
+    """统一 {code, message, data} 响应信封(AGENTS.md §5 项目约定)。
+
+    ai-service Dashboard 端点(GET /llm/providers/health、GET/POST/DELETE /llm/combos、
+    POST /llm/compaction/demo、GET /llm/free-providers)使用此 helper 包装成功响应,
+    以兼容前端 packages/api-client 的 fetchApi(其 fetchOnce 强制检查 json.code === 0)。
+
+    注:/llm/complete 与 /llm/complete/stream 不使用此信封,因为它们的响应结构是
+    LLM 结果对象(含 content/model/usage/tool_calls 等),已被多个内部服务(api 代理、
+    crew-llm-adapter、ai-feed-service 等)依赖为契约,改信封会破坏兼容。
+    """
+    return {"code": 0, "message": message, "data": data}
+
+
+def _error_json(message: str, status_code: int, **extra: Any) -> JSONResponse:
+    """统一错误响应(带 message 字段供 fetchApi 的 fetchOnce 提取)。
+
+    fetchApi 在 !response.ok 时会尝试 JSON.parse 并提取 parsed.message 作为错误信息,
+    所以错误响应必须含 message 字段(而非 error 字段),否则前端只能拿到"请求失败(400)"。
+    """
+    payload: dict[str, Any] = {"code": 1, "message": message}
+    payload.update(extra)
+    return JSONResponse(status_code=status_code, content=payload)
+
 # 默认模型清单 JSON 文件路径(运行时按需加载,修改无需重启)
 _DEFAULT_MODELS_FILE = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
 
@@ -1533,18 +1558,18 @@ async def list_free_providers() -> dict[str, Any]:
         from ..services.free_provider_registry import free_provider_registry
     except ImportError as e:
         logger.error("FreeProviderRegistry 加载失败: %s", e)
-        return {"providers": [], "total": 0, "error": "registry unavailable"}
+        return _wrap_ok({"providers": [], "total": 0, "configured": 0, "local": 0, "not_configured": 0})
 
     providers = free_provider_registry.to_dashboard_dict()
     configured = sum(1 for p in providers if p["status"] == "configured")
     local_count = sum(1 for p in providers if p["status"] == "local")
-    return {
+    return _wrap_ok({
         "providers": providers,
         "total": len(providers),
         "configured": configured,
         "local": local_count,
         "not_configured": len(providers) - configured - local_count,
-    }
+    })
 
 
 # ============================================================================
@@ -1614,10 +1639,10 @@ async def list_providers_health() -> dict[str, Any]:
         from ..services.free_provider_registry import free_provider_registry
     except ImportError as e:
         logger.error("FreeProviderRegistry 加载失败: %s", e)
-        return {
+        return _wrap_ok({
             "providers": [],
             "summary": {"total": 0, "configured": 0, "local": 0, "not_configured": 0},
-        }
+        })
 
     providers_data: list[dict[str, Any]] = []
     configured_count = 0
@@ -1642,7 +1667,7 @@ async def list_providers_health() -> dict[str, Any]:
             local_count += 1
 
     total = len(providers_data)
-    return {
+    return _wrap_ok({
         "providers": providers_data,
         "summary": {
             "total": total,
@@ -1650,7 +1675,7 @@ async def list_providers_health() -> dict[str, Any]:
             "local": local_count,
             "not_configured": total - configured_count - local_count,
         },
-    }
+    })
 
 
 @router.get("/llm/combos", response_model=None)
@@ -1668,7 +1693,7 @@ async def list_combos() -> dict[str, Any]:
         from ..services.combo_router import combo_router
     except ImportError as e:
         logger.error("ComboRouter 加载失败: %s", e)
-        return {"combos": []}
+        return _wrap_ok({"combos": []})
 
     combos_data: list[dict[str, Any]] = []
     for c in combo_router.list_combos():
@@ -1679,7 +1704,7 @@ async def list_combos() -> dict[str, Any]:
             "judge": c.judge,
             "description": c.description,
         })
-    return {"combos": combos_data}
+    return _wrap_ok({"combos": combos_data})
 
 
 class ComboConfigRequest(BaseModel):
@@ -1706,16 +1731,10 @@ async def create_or_update_combo(req: ComboConfigRequest) -> dict[str, Any] | JS
         from ..services.combo_router import combo_router
     except ImportError as e:
         logger.error("ComboRouter 加载失败: %s", e)
-        return JSONResponse(
-            status_code=503,
-            content={"ok": False, "error": "ComboRouter unavailable"},
-        )
+        return _error_json("ComboRouter unavailable", 503)
 
     if not req.chain:
-        return JSONResponse(
-            status_code=400,
-            content={"ok": False, "error": "chain must not be empty"},
-        )
+        return _error_json("chain must not be empty", 400)
 
     config: dict[str, Any] = {
         "strategy": req.strategy,
@@ -1728,11 +1747,8 @@ async def create_or_update_combo(req: ComboConfigRequest) -> dict[str, Any] | JS
     combo_router.configure_combo(req.name, config)
     combo = combo_router.get_combo(req.name)
     if combo is None:
-        return JSONResponse(
-            status_code=500,
-            content={"ok": False, "error": "configure_combo failed silently"},
-        )
-    return {
+        return _error_json("configure_combo failed silently", 500)
+    return _wrap_ok({
         "ok": True,
         "combo": {
             "name": combo.name,
@@ -1741,7 +1757,7 @@ async def create_or_update_combo(req: ComboConfigRequest) -> dict[str, Any] | JS
             "judge": combo.judge,
             "description": combo.description,
         },
-    }
+    })
 
 
 @router.delete("/llm/combos/{name}", response_model=None)
@@ -1755,18 +1771,12 @@ async def delete_combo(name: str) -> dict[str, Any] | JSONResponse:
         from ..services.combo_router import combo_router
     except ImportError as e:
         logger.error("ComboRouter 加载失败: %s", e)
-        return JSONResponse(
-            status_code=503,
-            content={"ok": False, "error": "ComboRouter unavailable"},
-        )
+        return _error_json("ComboRouter unavailable", 503)
 
     if name not in combo_router._combos:
-        return JSONResponse(
-            status_code=404,
-            content={"ok": False, "error": f"combo '{name}' not found"},
-        )
+        return _error_json(f"combo '{name}' not found", 404)
     del combo_router._combos[name]
-    return {"ok": True, "name": name}
+    return _wrap_ok({"ok": True, "name": name})
 
 
 # =============================================================================
@@ -1844,26 +1854,14 @@ async def compaction_demo(
 
     # 空消息检查
     if not req.messages:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "ok": False,
-                "error": "messages must not be empty",
-            },
-        )
+        return _error_json("messages must not be empty", 400)
 
     # 策略校验:字符串 → CompactionStrategy 枚举
     strategy_str = req.strategy.lower().strip()
     if strategy_str not in _STRATEGY_MAP:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "ok": False,
-                "error": (
-                    f"invalid strategy '{req.strategy}', "
-                    "must be one of: rtk / caveman / rtk_caveman"
-                ),
-            },
+        return _error_json(
+            f"invalid strategy '{req.strategy}', must be one of: rtk / caveman / rtk_caveman",
+            400,
         )
 
     try:
@@ -1874,13 +1872,7 @@ async def compaction_demo(
         )
     except ImportError as e:
         logger.error("token_compaction 模块加载失败: %s", e)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "ok": False,
-                "error": f"token_compaction module unavailable: {e}",
-            },
-        )
+        return _error_json(f"token_compaction module unavailable: {e}", 500)
 
     # 策略字符串 → 枚举值(已在 _STRATEGY_MAP 校验过,直接对应)
     strategy_enum = CompactionStrategy(strategy_str)
@@ -1891,7 +1883,7 @@ async def compaction_demo(
         )
         # 解压:还原 RTK 占位符($N → 原文),Caveman 不可逆
         decompressed = TokenCompactor.decompress(result)
-        return {
+        return _wrap_ok({
             "original_tokens": result.original_tokens,
             "compressed_tokens": result.compressed_tokens,
             "compression_ratio": result.compression_ratio,
@@ -1899,13 +1891,7 @@ async def compaction_demo(
             "rtk_map_size": len(result.rtk_map),
             "compressed_messages": result.compressed_messages,
             "decompressed_messages": decompressed,
-        }
+        })
     except Exception as e:
         logger.exception("compaction_demo 内部异常: %s", e)
-        return JSONResponse(
-            status_code=500,
-            content={
-                "ok": False,
-                "error": f"compaction failed: {type(e).__name__}: {e}",
-            },
-        )
+        return _error_json(f"compaction failed: {type(e).__name__}: {e}", 500)

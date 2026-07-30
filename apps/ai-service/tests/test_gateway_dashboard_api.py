@@ -82,10 +82,12 @@ def mock_llm_gateway(monkeypatch):
 
 
 async def test_providers_health_returns_structure(client):
-    """GET /llm/providers/health 返回 providers 列表 + summary。"""
+    """GET /llm/providers/health 返回 providers 列表 + summary(信封 {code,message,data})。"""
     resp = await client.get("/api/llm/providers/health")
     assert resp.status_code == 200
-    data = resp.json()
+    envelope = resp.json()
+    assert envelope["code"] == 0
+    data = envelope["data"]
     assert "providers" in data
     assert "summary" in data
     assert isinstance(data["providers"], list)
@@ -94,7 +96,7 @@ async def test_providers_health_returns_structure(client):
 async def test_providers_health_summary_fields(client):
     """summary 含 total/configured/local/not_configured 四个字段。"""
     resp = await client.get("/api/llm/providers/health")
-    data = resp.json()
+    data = resp.json()["data"]
     summary = data["summary"]
     assert "total" in summary
     assert "configured" in summary
@@ -107,7 +109,7 @@ async def test_providers_health_summary_fields(client):
 async def test_providers_health_has_cooldown_fields(client):
     """每个 provider 含 is_in_cooldown + consecutive_failures 字段。"""
     resp = await client.get("/api/llm/providers/health")
-    data = resp.json()
+    data = resp.json()["data"]
     for p in data["providers"]:
         assert "is_in_cooldown" in p
         assert "consecutive_failures" in p
@@ -118,7 +120,7 @@ async def test_providers_health_has_cooldown_fields(client):
 async def test_providers_health_provider_fields(client):
     """每个 provider 含 provider_code/display_name/status/category/default_models 字段。"""
     resp = await client.get("/api/llm/providers/health")
-    data = resp.json()
+    data = resp.json()["data"]
     assert len(data["providers"]) > 0
     p = data["providers"][0]
     assert "provider_code" in p
@@ -133,7 +135,7 @@ async def test_providers_health_provider_fields(client):
 async def test_providers_health_local_providers_exist(client):
     """测试环境无 API key,local provider(ollama 等)status 应为 'local'。"""
     resp = await client.get("/api/llm/providers/health")
-    data = resp.json()
+    data = resp.json()["data"]
     local_providers = [p for p in data["providers"] if p["status"] == "local"]
     assert len(local_providers) > 0
     local_codes = {p["provider_code"] for p in local_providers}
@@ -146,10 +148,12 @@ async def test_providers_health_local_providers_exist(client):
 
 
 async def test_list_combos_returns_structure(client, clean_combo_router):
-    """GET /llm/combos 返回 combos 列表。"""
+    """GET /llm/combos 返回 combos 列表(信封 {code,message,data})。"""
     resp = await client.get("/api/llm/combos")
     assert resp.status_code == 200
-    data = resp.json()
+    envelope = resp.json()
+    assert envelope["code"] == 0
+    data = envelope["data"]
     assert "combos" in data
     assert isinstance(data["combos"], list)
 
@@ -162,7 +166,7 @@ async def test_list_combos_after_create(client, clean_combo_router):
         "chain": ["kimi-k2", "glm-4-flash"],
     })
     resp = await client.get("/api/llm/combos")
-    data = resp.json()
+    data = resp.json()["data"]
     names = [c["name"] for c in data["combos"]]
     assert "test-list-combo" in names
 
@@ -176,7 +180,7 @@ async def test_list_combos_has_correct_fields(client, clean_combo_router):
         "description": "test desc",
     })
     resp = await client.get("/api/llm/combos")
-    data = resp.json()
+    data = resp.json()["data"]
     combo = next(c for c in data["combos"] if c["name"] == "test-fields-combo")
     assert combo["strategy"] == "priority"
     assert combo["chain"] == ["model-a"]
@@ -197,7 +201,7 @@ async def test_create_combo_success(client, clean_combo_router):
         "chain": ["kimi-k2", "glm-4-flash"],
     })
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
     assert data["ok"] is True
     assert data["combo"]["name"] == "test-create-combo"
     assert data["combo"]["strategy"] == "priority"
@@ -213,11 +217,10 @@ async def test_create_combo_with_judge(client, clean_combo_router):
         "judge": "gpt-4o-mini",
     })
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
     assert data["ok"] is True
     assert data["combo"]["judge"] == "gpt-4o-mini"
     assert data["combo"]["strategy"] == "fusion"
-
 
 async def test_update_combo(client, clean_combo_router):
     """POST /llm/combos 更新已存在的 combo(同名覆盖)。"""
@@ -232,21 +235,23 @@ async def test_update_combo(client, clean_combo_router):
         "chain": ["model-b", "model-c"],
     })
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
     assert data["combo"]["strategy"] == "cheapest"
     assert data["combo"]["chain"] == ["model-b", "model-c"]
 
 
 async def test_create_combo_empty_chain_rejected(client, clean_combo_router):
-    """POST /llm/combos 空 chain 返回 400。"""
+    """POST /llm/combos 空 chain 返回 400(错误信封 {code:1,message:...})。"""
     resp = await client.post("/api/llm/combos", json={
         "name": "test-empty-chain",
         "strategy": "priority",
         "chain": [],
     })
     assert resp.status_code == 400
-    data = resp.json()
-    assert data["ok"] is False
+    envelope = resp.json()
+    assert envelope["code"] == 1
+    assert "message" in envelope
+    assert "chain must not be empty" in envelope["message"]
 
 
 # =============================================================================
@@ -263,12 +268,12 @@ async def test_delete_combo_success(client, clean_combo_router):
     })
     resp = await client.delete("/api/llm/combos/test-delete-combo")
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
     assert data["ok"] is True
     assert data["name"] == "test-delete-combo"
     # 验证已删除
     resp2 = await client.get("/api/llm/combos")
-    names = [c["name"] for c in resp2.json()["combos"]]
+    names = [c["name"] for c in resp2.json()["data"]["combos"]]
     assert "test-delete-combo" not in names
 
 
@@ -276,8 +281,9 @@ async def test_delete_combo_not_found(client, clean_combo_router):
     """DELETE 不存在的 combo 返回 404。"""
     resp = await client.delete("/api/llm/combos/nonexistent-combo-xxx")
     assert resp.status_code == 404
-    data = resp.json()
-    assert data["ok"] is False
+    envelope = resp.json()
+    assert envelope["code"] == 1
+    assert "not found" in envelope["message"]
 
 
 # =============================================================================
