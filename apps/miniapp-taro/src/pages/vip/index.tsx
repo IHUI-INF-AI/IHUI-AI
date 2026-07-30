@@ -1,7 +1,7 @@
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   getVipInfo,
   getVipPrivilege,
@@ -22,12 +22,6 @@ import {
 import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
-const DEFAULT_PLANS: PriceOption[] = [
-  { id: 'monthly', name: '月度会员', price: 30, period: '30天' },
-  { id: 'quarterly', name: '季度会员', price: 88, period: '90天' },
-  { id: 'yearly', name: '年度会员', price: 299, period: '365天' },
-]
-
 // 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
 interface VipFeature {
   id: string
@@ -35,16 +29,24 @@ interface VipFeature {
   title: string
   desc: string
 }
-const FEATURES: ReadonlyArray<VipFeature> = [
-  { id: 'ai_copywriting', icon: '✍️', title: 'AI营销文案', desc: '智能生成各类营销文案' },
-  { id: 'ai_chat', icon: '💬', title: 'AI智能对话', desc: '智能助手解答各类问题' },
-  { id: 'ai_analysis', icon: '📊', title: 'AI数据分析', desc: '智能分析各类数据报表' },
-  { id: 'ai_design', icon: '🎨', title: 'AI智能设计', desc: '智能生成图片和设计' },
-]
 
 export default function VipIndexPage() {
   const { t } = useI18n()
   const tt = useTt()
+
+  const defaultPlans = useMemo<PriceOption[]>(() => [
+    { id: 'monthly', name: tt('vip.plan.monthly', '月度会员'), price: 30, period: tt('vip.plan.monthlyPeriod', '30天') },
+    { id: 'quarterly', name: tt('vip.plan.quarterly', '季度会员'), price: 88, period: tt('vip.plan.quarterlyPeriod', '90天') },
+    { id: 'yearly', name: tt('vip.plan.yearly', '年度会员'), price: 299, period: tt('vip.plan.yearlyPeriod', '365天') },
+  ], [tt])
+
+  const features = useMemo<ReadonlyArray<VipFeature>>(() => [
+    { id: 'ai_copywriting', icon: '✍️', title: tt('vip.feature.aiCopywriting', 'AI营销文案'), desc: tt('vip.feature.aiCopywritingDesc', '智能生成各类营销文案') },
+    { id: 'ai_chat', icon: '💬', title: tt('vip.feature.aiChat', 'AI智能对话'), desc: tt('vip.feature.aiChatDesc', '智能助手解答各类问题') },
+    { id: 'ai_analysis', icon: '📊', title: tt('vip.feature.aiAnalysis', 'AI数据分析'), desc: tt('vip.feature.aiAnalysisDesc', '智能分析各类数据报表') },
+    { id: 'ai_design', icon: '🎨', title: tt('vip.feature.aiDesign', 'AI智能设计'), desc: tt('vip.feature.aiDesignDesc', '智能生成图片和设计') },
+  ], [tt])
+
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>([])
@@ -103,18 +105,18 @@ export default function VipIndexPage() {
         price: l.price / 100,
         period: `${l.durationDays}${t('page.vip.dayUnit')}`,
       })) as PriceOption[]
-      const finalOpts = opts.length > 0 ? opts : DEFAULT_PLANS
+      const finalOpts = opts.length > 0 ? opts : defaultPlans
       setPriceOptions(finalOpts)
       setSelectedPlan((prev) => prev ?? finalOpts[0] ?? null)
     } catch (e) {
       logger.error('vip/index', '获取VIP信息', e)
-      setPriceOptions(DEFAULT_PLANS)
-      setSelectedPlan((prev) => prev ?? DEFAULT_PLANS[0] ?? null)
+      setPriceOptions(defaultPlans)
+      setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       Taro.hideLoading()
     }
-  }, [t])
+  }, [t, defaultPlans])
 
   const onSelectPlan = useCallback((opt: PriceOption) => {
     setSelectedPlan(opt)
@@ -214,7 +216,7 @@ export default function VipIndexPage() {
       <View className="features">
         <View className="section-title">{t('vip.privileges')}</View>
         <View className="feature-list">
-          {FEATURES.map((f) => (
+          {features.map((f) => (
             <View key={f.id} className="feature-item">
               <Text className="feature-icon">{f.icon}</Text>
               <View className="feature-info">
