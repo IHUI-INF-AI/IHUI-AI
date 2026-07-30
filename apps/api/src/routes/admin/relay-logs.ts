@@ -2,14 +2,15 @@
  * /api/admin/relay/logs 中转站调用日志查询(P0-5b 配套,2026-07-29 立)。
  *
  * 端点清单:
- * 1. GET /admin/relay/logs — 调用日志列表(筛选 userId/model/status/时间范围,分页)
+ * 1. GET /admin/relay/logs — 调用日志列表(筛选 userId/model/status/apiKeyId/provider/clientIp/latency/httpStatus/cost/时间范围,分页)
  * 2. GET /admin/relay/logs/stats — 聚合统计(按模型/按日 统计 token + 成本 + 调用次数)
+ * 3. GET /admin/relay/logs/error-clusters — 错误聚类(按 error_message 前 80 字符 group by,定位错误突增)
  *
- * 复用 llm_call_logs 表(metadata.apiKeyId 关联到 developerApiKeys)。
+ * 复用 llm_call_logs 表(apiKeyId 关联到 developerApiKeys)。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, gte, lte, desc, sql, ilike, or, type SQL } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql, ilike, or, like, type SQL } from 'drizzle-orm'
 import { dbRead } from '../../db/index.js'
 import { llmCallLogs, users } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
@@ -21,6 +22,20 @@ const listQuerySchema = paginationSchema.extend({
   model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
   apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  /** 渠道筛选,精确匹配 provider_code */
+  provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  /** 客户端 IP 筛选,支持 LIKE 通配符(如 '192.168.%')*/
+  clientIp: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  /** 最小耗时毫秒,筛选 latency_ms >= minLatency(慢调用分析)*/
+  minLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  /** 最大耗时毫秒 */
+  maxLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  /** HTTP 状态码筛选(如 429 限流/500 错误专项)*/
+  httpStatus: z.preprocess(emptyToUndefined, z.coerce.number().int().min(100).max(599).optional()),
+  /** 最小成本分 */
+  minCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  /** 最大成本分 */
+  maxCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
   /** 起始日期 YYYY-MM-DD */
   startDate: z.preprocess(
     emptyToUndefined,
@@ -30,6 +45,24 @@ const listQuerySchema = paginationSchema.extend({
       .optional(),
   ),
   /** 结束日期 YYYY-MM-DD */
+  endDate: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  ),
+})
+
+/** 错误聚类查询 schema(仅支持时间范围筛选)*/
+const errorClustersQuerySchema = z.object({
+  startDate: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+  ),
   endDate: z.preprocess(
     emptyToUndefined,
     z
@@ -65,7 +98,24 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/admin/relay/logs', async (request, reply) => {
     const q = listQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { page, pageSize, search, userId, model, status, startDate, endDate } = q.data
+    const {
+      page,
+      pageSize,
+      search,
+      userId,
+      model,
+      status,
+      startDate,
+      endDate,
+      apiKeyId,
+      provider,
+      clientIp,
+      minLatency,
+      maxLatency,
+      httpStatus,
+      minCost,
+      maxCost,
+    } = q.data
 
     const conds: SQL[] = []
     if (userId) conds.push(eq(llmCallLogs.userId, userId))
@@ -73,6 +123,14 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
     if (status) conds.push(eq(llmCallLogs.status, status))
     if (startDate) conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
     if (endDate) conds.push(lte(llmCallLogs.createdAt, new Date(`${endDate}T23:59:59Z`)))
+    if (apiKeyId) conds.push(eq(llmCallLogs.apiKeyId, apiKeyId))
+    if (provider) conds.push(eq(llmCallLogs.providerCode, provider))
+    if (clientIp) conds.push(like(llmCallLogs.clientIp, clientIp))
+    if (minLatency !== undefined) conds.push(gte(llmCallLogs.latencyMs, minLatency))
+    if (maxLatency !== undefined) conds.push(lte(llmCallLogs.latencyMs, maxLatency))
+    if (httpStatus !== undefined) conds.push(eq(llmCallLogs.httpStatus, httpStatus))
+    if (minCost !== undefined) conds.push(gte(llmCallLogs.costCents, minCost))
+    if (maxCost !== undefined) conds.push(lte(llmCallLogs.costCents, maxCost))
     const where = conds.length > 0 ? and(...conds) : undefined
 
     // search 搜 model 或 errorMessage
@@ -101,6 +159,13 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
             createdAt: llmCallLogs.createdAt,
             username: users.username,
             email: users.email,
+            // 高级筛选配套返回字段(字段由 schema subagent 同步添加)
+            apiKeyId: llmCallLogs.apiKeyId,
+            providerCode: llmCallLogs.providerCode,
+            clientIp: llmCallLogs.clientIp,
+            costCents: llmCallLogs.costCents,
+            httpStatus: llmCallLogs.httpStatus,
+            ttftMs: llmCallLogs.ttftMs,
           })
           .from(llmCallLogs)
           .leftJoin(users, eq(llmCallLogs.userId, users.id))
@@ -163,6 +228,44 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询调用日志统计失败'))
+    }
+  })
+
+  // ===== 3. GET /admin/relay/logs/error-clusters — 错误聚类(2026-07-31 立)=====
+  // 按 error_message 前 80 字符 group by,返回 top 20 错误类型 + count + 最近发生时间 + 示例 logId
+  // 用于快速定位"今天为什么 500 错误突增"
+  server.get('/admin/relay/logs/error-clusters', async (request, reply) => {
+    const q = errorClustersQuerySchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    const { startDate, endDate } = q.data
+
+    const conds: SQL[] = [
+      eq(llmCallLogs.status, 'error'),
+      sql`${llmCallLogs.errorMessage} IS NOT NULL`,
+    ]
+    if (startDate) conds.push(gte(llmCallLogs.createdAt, new Date(`${startDate}T00:00:00Z`)))
+    if (endDate) conds.push(lte(llmCallLogs.createdAt, new Date(`${endDate}T23:59:59Z`)))
+    const where = and(...conds)
+
+    try {
+      const errorPrefix = sql<string>`left(${llmCallLogs.errorMessage}, 80)`
+      const rows = await dbRead
+        .select({
+          errorPrefix: errorPrefix.as('error_prefix'),
+          count: sql<number>`count(*)::int`,
+          lastSeen: sql<Date>`max(${llmCallLogs.createdAt})`,
+          sampleLogId: sql<string>`(array_agg(${llmCallLogs.id} ORDER BY ${llmCallLogs.createdAt} DESC))[1]`,
+        })
+        .from(llmCallLogs)
+        .where(where)
+        .groupBy(errorPrefix)
+        .orderBy(desc(sql`count(*)::int`))
+        .limit(20)
+
+      return reply.send(success({ clusters: rows, total: rows.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询错误聚类失败'))
     }
   })
 }
