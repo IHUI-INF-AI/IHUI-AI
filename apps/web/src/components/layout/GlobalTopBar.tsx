@@ -241,9 +241,9 @@ export function GlobalTopBar() {
   // - 删除原硬编码 keydown 监听,改为监听 'global-shortcut:open-plus' CustomEvent
   // - 由 useGlobalShortcuts 统一派发,享有:① 帮助面板(Ctrl+/)自动收录 ② 作用域过滤(输入框聚焦不触发)
   //   ③ 跨平台 modifier 处理 ④ 与其他快捷键统一 preventDefault
-  // - 快捷键:Ctrl+Shift+P(Win/Linux)/ Cmd+Shift+P(Mac,若 useGlobalShortcuts 后续支持 wantMod)
-  // - Mac 兼容性说明:当前 useGlobalShortcuts.matchShortcut wantCtrl 严格匹配 ctrlKey,Mac 用户请用 Ctrl;
-  //   UI Tooltip 仍显示 ⌘⇧P 提示 Mac 习惯,实际监听只支持 Ctrl(已知限制,留作未来优化)
+  // - 快捷键:Ctrl+Shift+P(Win/Linux)/ Cmd+Shift+P(Mac)
+  // - Mac 兼容性(2026-07-30 已完成):matchShortcut 在 Mac 上 wantCtrl 接受 ctrlKey || metaKey(Cmd),
+  //   Mac 用户按 Cmd+Shift+P 能正常触发,与 Tooltip 显示 ⌘⇧P 一致(VS Code 标准行为)
   React.useEffect(() => {
     const onOpenPlus = () => {
       // 关闭时打开 / 打开时关闭(切换语义,与 VS Code 命令面板行为一致)
