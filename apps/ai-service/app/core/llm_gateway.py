@@ -18,10 +18,32 @@ from ..middleware.llm_metrics import (
     LLM_FALLBACK_FAILURE,
     LLM_FALLBACK_SUCCESS,
     LLM_FALLBACK_TRIGGERED,
+    LLM_TOKEN_COMPACTION_FAILURE,
+    LLM_TOKEN_COMPACTION_RATIO,
+    LLM_TOKEN_COMPACTION_SUCCESS,
+    LLM_TOKEN_COMPACTION_TRIGGERED,
     classify_fallback_reason,
 )
 from .config import settings
+from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
+
+# Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
+# 延迟导入避免循环依赖(combo_router.py 内部反向 import llm_gateway)
+_COMBO_ROUTER = None  # type: Optional[Any]
+
+
+def _get_combo_router() -> Any:
+    """懒加载 ComboRouter 单例(避免循环导入)。"""
+    global _COMBO_ROUTER
+    if _COMBO_ROUTER is None:
+        try:
+            from ..services.combo_router import combo_router
+            _COMBO_ROUTER = combo_router
+        except ImportError as e:
+            logger.warning("ComboRouter 加载失败,P0-1 Combo fallback 不可用: %s", e)
+            _COMBO_ROUTER = False  # 标记加载失败,避免重复尝试
+    return _COMBO_ROUTER
 
 # TEMP-FIX(ai-feed): 循环导入临时绕过(llm_gateway → providers → base_provider → llm_gateway)
 # 跑完 LLM 批处理后回退。原代码:
@@ -78,6 +100,11 @@ async def _get_pool() -> asyncpg.Pool:
     return await get_shared_pool()
 
 
+# P0-5c(2026-07-30):中转站 Key 池选择器(查 ai_relay_key_pool 表,多 key 负载均衡 + 故障转移)
+# 模块级导入安全:key_pool_selector.py 内部对 llm_gateway 符号用懒导入,无循环依赖
+from ..services.key_pool_selector import KeyPoolSelector
+
+
 def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
     """解密 ai_model_config.api_key_enc。
 
@@ -120,6 +147,10 @@ def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
 
 _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 2026-07 扩展:覆盖 LiteLLM 支持的所有 LLM 厂商前缀
+    # BYOK 平台模式(2026-07-30):用户自带 key 的私有配置统一用 byok/ 前缀,
+    # _resolve_from_db 会按 owner_uuid 优先匹配用户私有 aiModelConfig。
+    "byok/": "byok",
+    "siliconflow-byok/": "siliconflow-byok",
     # 国内
     "stepfun/": "stepfun",
     "agnes/": "agnes",
@@ -144,6 +175,9 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "jimeng-": "jimeng",
     "kling-": "kling",
     "luyala-": "luyala",
+    # 免费无 key provider(2026-07-30 P0-5p 补充)
+    "pollinations/": "pollinations",
+    "llm7/": "llm7",
     # 国际原厂
     "groq/": "groq",
     "gemini/": "gemini",
@@ -434,6 +468,10 @@ def repair_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
 class LLMGateway:
     """LLM 调用网关,封装 LiteLLM 并提供 stub 降级。"""
 
+    # P0-5c:当前请求选中的 key_pool_id(供 complete/astream 故障转移标记用)
+    # _resolve 设置,complete/astream 在 await 前读取到局部变量(无 race:中间无 await 点)
+    _current_key_pool_id: Optional[str] = None
+
     @staticmethod
     def _is_stub_mode() -> bool:
         """未配置任何 .env API key 时为 stub 模式(仍可被 DB 配置覆盖)。
@@ -711,11 +749,121 @@ class LLMGateway:
         model: str,
         owner_uuid: Optional[str] = None,
     ) -> tuple[str | None, str | None, str | None]:
-        """优先 DB 配置,兜底 .env。"""
+        """优先 BYOK → 号池 → .env(三层优先级)。
+
+        1. BYOK 用户私有配置(_resolve_from_db 查 ai_model_config WHERE owner_uuid=?)
+        2. 中转站号池(KeyPoolSelector 查 ai_relay_key_pool WHERE provider_code=?)
+        3. .env 单 key(_resolve_provider 兜底)
+
+        号池命中时:self._current_key_pool_id 设为选中 key 的 id(供 complete/astream
+        故障转移标记用);BYOK/.env 路径置 None。
+        """
+        # 1. BYOK 用户私有配置
         db_result = await _resolve_from_db(model, owner_uuid)
         if db_result:
+            self._current_key_pool_id = None
             return db_result
+
+        # 2. 号池(中转站模式):查 ai_relay_key_pool
+        provider_code = KeyPoolSelector.model_to_provider_code(model)
+        pool_key = await KeyPoolSelector.select_key(provider_code)
+        if pool_key is not None:
+            # base_url 仍从 .env provider config 读(号池只管 key 轮换)
+            # litellm_model 走 _resolve_provider 的前缀处理(去前缀 + 加 openai/ 等)
+            cfg = settings.get_provider_config(provider_code)
+            _, _, litellm_model = self._resolve_provider(model)
+            self._current_key_pool_id = pool_key["key_pool_id"]
+            return pool_key["api_key"], cfg.api_base or None, litellm_model
+
+        # 3. .env 单 key 兜底
+        self._current_key_pool_id = None
         return self._resolve_provider(model)
+
+    async def _apply_token_compaction(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        *,
+        has_tools: bool = False,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        """可选 token 压缩步骤:trim_messages 之后、litellm.acompletion 之前。
+
+        启用条件(全部满足):
+        1. settings.token_compaction_enabled == True(默认 False,getattr 安全读取)
+        2. messages 总 token 数 > settings.token_compaction_min_tokens(默认 2000)
+        3. 非 stub 模式(stub 模式返回模拟响应,无需压缩)
+        4. 不含 tools 参数(function calling 对消息结构敏感,压缩可能破坏 tool_calls)
+
+        Args:
+            messages: trim_messages 后的消息列表(不会被修改,内部会做深拷贝)
+            model: 模型名(用于 Prometheus 指标标签)
+            has_tools: 是否含 tools 参数(True 时跳过压缩,保护 function calling)
+
+        Returns:
+            (compressed_messages, compaction_info) 二元组:
+            - 启用且成功:compressed_messages 为压缩后消息,info 含 original/compressed/ratio/strategy
+            - 未启用或跳过:返回原 messages,info 为 None
+            - 压缩失败:降级用原 messages(不阻塞主流程),info 为 None
+        """
+        enabled = bool(getattr(settings, "token_compaction_enabled", False))
+        if not enabled:
+            return messages, None
+
+        # stub 模式返回模拟响应,无需压缩
+        if self._is_stub_mode():
+            return messages, None
+
+        # tools 调用对消息结构敏感,压缩可能破坏 function calling
+        if has_tools:
+            return messages, None
+
+        # 阈值检查:总 token 数 ≤ min_tokens 时不压缩
+        min_tokens = int(getattr(settings, "token_compaction_min_tokens", 2000))
+        total_tokens = estimate_messages_tokens(messages)
+        if total_tokens <= min_tokens:
+            return messages, None
+
+        # 延迟导入避免 token_compaction 模块在 stub 模式下加载 tiktoken(首次 ~50ms)
+        from ..services.token_compaction import (
+            CompactionStrategy,
+            token_compactor,
+        )
+
+        strategy = CompactionStrategy.RTK_CAVEMAN
+        strategy_str = strategy.value
+        try:
+            LLM_TOKEN_COMPACTION_TRIGGERED.labels(strategy=strategy_str, model=model).inc()
+            result = token_compactor.compact_messages(
+                messages, strategy=strategy, keep_recent=6
+            )
+            LLM_TOKEN_COMPACTION_SUCCESS.labels(strategy=strategy_str, model=model).inc()
+            LLM_TOKEN_COMPACTION_RATIO.labels(strategy=strategy_str).observe(
+                result.compression_ratio
+            )
+            info: dict[str, Any] = {
+                "original_tokens": result.original_tokens,
+                "compressed_tokens": result.compressed_tokens,
+                "compression_ratio": result.compression_ratio,
+                "strategy": strategy_str,
+            }
+            # Message 类型 dict[str, object] → dict[str, Any](运行时同形状,
+            # litellm 期望 list[dict[str, Any]];cast 而非深拷贝,避免无谓开销)
+            return cast(list[dict[str, Any]], result.compressed_messages), info
+        except Exception as e:
+            logger.warning(
+                "Token compaction 失败,降级用原 messages(model=%s): %s",
+                model,
+                e,
+            )
+            try:
+                LLM_TOKEN_COMPACTION_FAILURE.labels(
+                    strategy=strategy_str,
+                    model=model,
+                    reason=type(e).__name__,
+                ).inc()
+            except Exception as metric_err:
+                logger.warning("LLM_TOKEN_COMPACTION_FAILURE 指标记录失败(忽略): %s", metric_err)
+            return messages, None
 
     async def complete(
         self,
@@ -724,6 +872,7 @@ class LLMGateway:
         *,
         owner_uuid: Optional[str] = None,
         _skip_fallback: bool = False,
+        _pool_retry: int = 0,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """调用 LLM 完成对话。
@@ -733,6 +882,7 @@ class LLMGateway:
             model: 模型名称,为空则使用默认模型。
             owner_uuid: 用户 UUID,用于匹配 ai_model_config 表中的用户私有配置。
             _skip_fallback: 内部参数,True 时跳过 FallbackRouter(防递归)。
+            _pool_retry: 内部参数,号池故障转移重试计数(最多 3 次)。
             **kwargs: 透传给 litellm 的额外参数。
 
         Returns:
@@ -744,6 +894,14 @@ class LLMGateway:
         if repair_removed > 0:
             logger.info("repair_messages 修复 %d 条异常消息", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
+
+        # 可选 token 压缩(P3-1,token_compaction.py 集成):
+        # 在 trim_messages 之后、litellm.acompletion 之前调用,压缩长上下文。
+        # 启用条件:settings.token_compaction_enabled=True 且 token 数 > 阈值 且 非 stub 且无 tools
+        # 失败时降级用原 messages,不阻塞主流程
+        trimmed_messages, compaction_info = await self._apply_token_compaction(
+            trimmed_messages, used_model, has_tools="tools" in kwargs
+        )
 
         # 厂商原生适配器(可选增强):当请求含 tools(function calling)时,
         # 优先用厂商原生 API 以保留格式差异(Anthropic tool_use / Gemini functionDeclarations 等),
@@ -783,8 +941,11 @@ class LLMGateway:
                     "stub": True,
                 }
             api_key, api_base, real_model = db_result
+            current_key_pool_id: Optional[str] = None
         else:
             api_key, api_base, real_model = await self._resolve(used_model, owner_uuid)
+            # 立即读取到局部变量(无 await 点,无 race)供故障转移标记用
+            current_key_pool_id = self._current_key_pool_id
 
         try:
             import litellm
@@ -813,6 +974,9 @@ class LLMGateway:
                 "usage": usage_dict,
                 "stub": False,
             }
+            # P3-1 token 压缩信息(仅在压缩启用且成功时存在,前端/监控可读)
+            if compaction_info is not None:
+                result["compaction"] = compaction_info
             reasoning = getattr(response.choices[0].message, "reasoning_content", None)
             if reasoning:
                 result["reasoning"] = reasoning
@@ -830,8 +994,27 @@ class LLMGateway:
                     }
                     for tc in raw_tool_calls
                 ]
+            # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
+            if current_key_pool_id:
+                await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
             return result
         except Exception as e:
+            # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
+            # 重试优先于 FallbackRouter/ComboRouter(同模型换 key < 换模型兜底)
+            if current_key_pool_id is not None and _pool_retry < 3:
+                await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
+                logger.info(
+                    "[key_pool] key %s 失败(retry %d/3),换 key 重试: %s",
+                    current_key_pool_id, _pool_retry + 1, str(e)[:200],
+                )
+                return await self.complete(
+                    messages,
+                    model=model,
+                    owner_uuid=owner_uuid,
+                    _skip_fallback=_skip_fallback,
+                    _pool_retry=_pool_retry + 1,
+                    **kwargs,
+                )
             safe_msg = str(e)
             err_code = "LLM_ERROR"
             if "API key 未配置" in safe_msg or "未配置" in safe_msg:
@@ -884,6 +1067,45 @@ class LLMGateway:
                     ).inc()
                 except Exception as metric_err:
                     logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+
+            # P0-1 Combo 多级 fallback 接入(2026-07-30 立,超越 OmniRoute):
+            # FallbackRouter 单层 fallback 失败后,若 primary model 在某个 combo 链中,
+            # 尝试 ComboRouter(priority/cheapest/fusion 三策略)。ComboRouter 内部会
+            # 透传 _skip_fallback=True 防递归。
+            if err_code == "LLM_ERROR" and not _skip_fallback:
+                combo = _get_combo_router()
+                if combo:
+                    # 找到 primary 所属的 combo 链(若配置了)
+                    combo_name = combo.find_combo_for_model(used_model)
+                    if combo_name:
+                        logger.info(
+                            "Combo fallback 触发: primary=%s combo=%s",
+                            used_model, combo_name,
+                        )
+                        try:
+                            combo_result = cast(
+                                "dict[str, Any]",
+                                await combo.route_with_combo(
+                                    messages=trimmed_messages,
+                                    combo_name=combo_name,
+                                    primary=used_model,
+                                    **kwargs,
+                                ),
+                            )
+                            if not combo_result.get("error"):
+                                combo_result["combo_used"] = combo_name
+                                combo_result["combo_primary"] = used_model
+                                return combo_result
+                            logger.warning(
+                                "Combo fallback 全部失败(combo=%s): %s",
+                                combo_name,
+                                combo_result.get("error") or combo_result.get("error_message"),
+                            )
+                        except Exception as combo_err:
+                            logger.warning(
+                                "Combo fallback 异常(combo=%s): %s",
+                                combo_name, combo_err,
+                            )
             return {
                 "content": "",
                 "model": used_model,
@@ -998,6 +1220,7 @@ class LLMGateway:
         model: str | None = None,
         *,
         owner_uuid: Optional[str] = None,
+        _pool_retry: int = 0,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
         """流式调用 LLM,逐 token 产出。
@@ -1013,6 +1236,11 @@ class LLMGateway:
         if repair_removed > 0:
             logger.info("repair_messages 修复 %d 条异常消息(astream)", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
+
+        # 可选 token 压缩(P3-1,与 complete() 同源):流式也要支持压缩
+        trimmed_messages, compaction_info = await self._apply_token_compaction(
+            trimmed_messages, used_model, has_tools="tools" in kwargs
+        )
 
         # 厂商原生适配器(可选增强):tools 存在时优先用厂商原生流式 API。
         # 流式场景不支持中途 fallback(已发送的 chunk 不可撤回),适配器内部自行处理错误。
@@ -1043,8 +1271,11 @@ class LLMGateway:
                 }
                 return
             api_key, api_base, real_model = db_result
+            current_key_pool_id: Optional[str] = None
         else:
             api_key, api_base, real_model = await self._resolve(used_model, owner_uuid)
+            # 立即读取到局部变量(无 await 点,无 race)供故障转移标记用
+            current_key_pool_id = self._current_key_pool_id
 
         # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
         # 必须在 try 块之前初始化:若 try 内 import/raise 在赋值前抛异常,
@@ -1130,11 +1361,15 @@ class LLMGateway:
                     )
                 except Exception as est_err:
                     logger.warning("token_counter 估算失败,usage 保持空: %s", est_err)
+            # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
+            if current_key_pool_id:
+                await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
             yield {
                 "type": "done",
                 "model": final_model,
                 "usage": final_usage,
                 "stub": False,
+                **({"compaction": compaction_info} if compaction_info is not None else {}),
             }
         except Exception as e:
             safe_msg = str(e)
@@ -1155,12 +1390,38 @@ class LLMGateway:
                     "astream 流式中断:已发 content_len=%d reasoning_len=%d,异常=%s: %s,标记 partial_done",
                     len(accumulated_content), len(accumulated_reasoning), type(e).__name__, safe_msg,
                 )
+                # P0-5c:号池 key 流式中断 → 仍标记失败(下次选 key 时降级)
+                if current_key_pool_id:
+                    await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
                 yield {
                     "type": "partial_done",
                     "fallback_applied": False,
                     "reason": "stream_interrupted",
                     "model": used_model,
                 }
+                return
+            # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
+            # 仅在未发送任何 chunk 时重试(已发送 chunk 不可撤回,无法中途换 key)
+            # 重试优先于 FallbackRouter(同模型换 key < 换模型兜底)
+            if (
+                current_key_pool_id is not None
+                and _pool_retry < 3
+                and not accumulated_content
+                and not accumulated_reasoning
+            ):
+                await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
+                logger.info(
+                    "[key_pool] astream key %s 失败(retry %d/3),换 key 重试: %s",
+                    current_key_pool_id, _pool_retry + 1, str(e)[:200],
+                )
+                async for evt in self.astream(
+                    messages,
+                    model=model,
+                    owner_uuid=owner_uuid,
+                    _pool_retry=_pool_retry + 1,
+                    **kwargs,
+                ):
+                    yield evt
                 return
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)

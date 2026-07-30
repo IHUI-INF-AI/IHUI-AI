@@ -17,8 +17,8 @@ const ICON_IMAGES: Record<string, string> = {
 
 /** 原项目无对应图标的类型,保留 emoji */
 const ICON_EMOJIS: Record<string, string> = {
-  network: '📡',
-  permission: '🔒',
+  network: '/static/images/icons/wifi.svg',
+  permission: '/static/images/icons/lock.svg',
 }
 
 const DEFAULT_TEXTS: Record<string, string> = {
@@ -41,7 +41,7 @@ export default function EmptyIllustration({
       {imgSrc ? (
         <Image className="w-12 h-12 mb-3" src={imgSrc} mode="aspectFit" />
       ) : (
-        <Text className="text-5xl mb-3 text-muted-foreground">{ICON_EMOJIS[type] || '📭'}</Text>
+        <Image className="w-12 h-12 mb-3" src={ICON_EMOJIS[type] || '/static/images/icons/inbox.svg'} mode="aspectFit" />
       )}
       <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS[type]}</Text>
       {desc && <Text className="text-xs text-muted-foreground text-center mb-3">{desc}</Text>}

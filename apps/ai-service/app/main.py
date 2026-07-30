@@ -73,7 +73,9 @@ for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
              "AGNES_API_KEY", "AGNES_API_BASE",
              "AGENT_CONTROL_INTERNAL_SECRET",
              # 2026-07-27:MCP 工作区白名单(防 read_file 路径前缀重复拼接 bug)
-             "MCP_WORKSPACE_ROOTS"):
+             "MCP_WORKSPACE_ROOTS",
+             # 2026-07-30:Combo 多级 fallback 链(JSON),同步到 os.environ 让 combo_router 读到
+             "COMBO_CHAINS"):
     _val = getattr(settings, _key.lower(), None)
     if _val:
         os.environ.setdefault(_key, _val)

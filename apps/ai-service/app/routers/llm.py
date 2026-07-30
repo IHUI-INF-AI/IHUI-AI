@@ -35,6 +35,31 @@ logger = logging.getLogger(__name__)
 # 持有待完成的回调 task 引用,防止 CPython GC 回收未持有的 task
 _pending_callbacks: set[asyncio.Task[None]] = set()
 
+
+def _wrap_ok(data: Any, message: str = "ok") -> dict[str, Any]:
+    """统一 {code, message, data} 响应信封(AGENTS.md §5 项目约定)。
+
+    ai-service Dashboard 端点(GET /llm/providers/health、GET/POST/DELETE /llm/combos、
+    POST /llm/compaction/demo、GET /llm/free-providers)使用此 helper 包装成功响应,
+    以兼容前端 packages/api-client 的 fetchApi(其 fetchOnce 强制检查 json.code === 0)。
+
+    注:/llm/complete 与 /llm/complete/stream 不使用此信封,因为它们的响应结构是
+    LLM 结果对象(含 content/model/usage/tool_calls 等),已被多个内部服务(api 代理、
+    crew-llm-adapter、ai-feed-service 等)依赖为契约,改信封会破坏兼容。
+    """
+    return {"code": 0, "message": message, "data": data}
+
+
+def _error_json(message: str, status_code: int, **extra: Any) -> JSONResponse:
+    """统一错误响应(带 message 字段供 fetchApi 的 fetchOnce 提取)。
+
+    fetchApi 在 !response.ok 时会尝试 JSON.parse 并提取 parsed.message 作为错误信息,
+    所以错误响应必须含 message 字段(而非 error 字段),否则前端只能拿到"请求失败(400)"。
+    """
+    payload: dict[str, Any] = {"code": 1, "message": message}
+    payload.update(extra)
+    return JSONResponse(status_code=status_code, content=payload)
+
 # 默认模型清单 JSON 文件路径(运行时按需加载,修改无需重启)
 _DEFAULT_MODELS_FILE = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
 
@@ -1118,3 +1143,755 @@ async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResp
         "model": used_model,
         "usage": {"prompt_tokens": prompt_tokens, "total_tokens": total_tokens},
     }
+
+
+# ============================================================================
+# P0-2 协议互转端点(2026-07-30 立,对齐 OmniRoute 三协议互转)
+#
+# 暴露 Anthropic Messages 和 Gemini generateContent 协议端点,客户端可直接用
+# 对应厂商官方 SDK 调用 IHUI 网关,无需改 SDK 代码。内部用 ProtocolAdapter
+# 转成 OpenAI 格式走 llm_gateway 标准调用链,响应转回入站协议格式。
+#
+# 端点:
+# - POST /llm/anthropic/v1/messages          (Anthropic Messages 协议,支持 stream)
+# - POST /llm/gemini/v1beta/models/{model}:generateContent  (Gemini 协议,支持 stream)
+# - POST /llm/gemini/v1beta/models/{model}:streamGenerateContent  (Gemini 强制流式)
+# ============================================================================
+
+
+def _anthropic_streaming_response(
+    messages: list[dict[str, Any]], model: str, kwargs: dict[str, Any]
+) -> StreamingResponse:
+    """构造 Anthropic Messages SSE 流式响应(对齐 Anthropic Messages Streaming)。
+
+    SSE 事件序列:
+    1. event: message_start — 初始消息元数据
+    2. event: content_block_start — 文本块开始
+    3. event: content_block_delta (多次) — 逐 token 文本增量
+    4. event: content_block_stop — 文本块结束
+    5. event: message_delta — 消息级增量(stop_reason + usage)
+    6. event: message_stop — 消息结束
+    """
+    msg_id = f"msg_{uuid.uuid4().hex[:24]}"
+
+    async def gen() -> AsyncIterator[str]:
+        # 1. message_start
+        msg_start = {
+            "type": "message_start",
+            "message": {
+                "id": msg_id,
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": model,
+                "stop_reason": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+        }
+        yield f"event: message_start\ndata: {json.dumps(msg_start, ensure_ascii=False)}\n\n"
+
+        # 2. content_block_start
+        block_start = {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        }
+        yield f"event: content_block_start\ndata: {json.dumps(block_start, ensure_ascii=False)}\n\n"
+
+        # 3. content_block_delta(逐 token)
+        final_usage: dict[str, Any] = {}
+        try:
+            async for event in llm_gateway.astream(messages, model=model, **kwargs):
+                event_type = event.get("type", "")
+                if event_type in ("chunk", "message"):
+                    text = event.get("content", "")
+                    if text:
+                        delta = {
+                            "type": "content_block_delta",
+                            "index": 0,
+                            "delta": {"type": "text_delta", "text": text},
+                        }
+                        yield f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n"
+                elif event_type == "done":
+                    final_usage = event.get("usage", {})
+                elif event_type == "error":
+                    err_evt = {
+                        "type": "error",
+                        "error": {"type": "api_error", "message": event.get("message", "LLM 流式调用失败")},
+                    }
+                    yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                    return
+        except Exception as e:
+            err_evt = {
+                "type": "error",
+                "error": {"type": "api_error", "message": str(e)[:500]},
+            }
+            yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+            return
+
+        # 4. content_block_stop
+        block_stop = {"type": "content_block_stop", "index": 0}
+        yield f"event: content_block_stop\ndata: {json.dumps(block_stop, ensure_ascii=False)}\n\n"
+
+        # 5. message_delta(stop_reason + usage)
+        usage = final_usage or {}
+        out_tokens = usage.get("completion_tokens", 0)
+        msg_delta = {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn"},
+            "usage": {"output_tokens": out_tokens},
+        }
+        yield f"event: message_delta\ndata: {json.dumps(msg_delta, ensure_ascii=False)}\n\n"
+
+        # 6. message_stop
+        msg_stop = {"type": "message_stop"}
+        yield f"event: message_stop\ndata: {json.dumps(msg_stop, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+def _gemini_streaming_response(
+    messages: list[dict[str, Any]], model: str, kwargs: dict[str, Any]
+) -> StreamingResponse:
+    """构造 Gemini generateContent SSE 流式响应(对齐 Gemini Streaming)。
+
+    SSE 格式:
+        data: {"candidates":[{"content":{"parts":[{"text":"..."}],"role":"model"},"index":0}]}
+
+    最后一个 chunk 含 finishReason + usageMetadata。
+    """
+    async def gen() -> AsyncIterator[str]:
+        final_usage: dict[str, Any] = {}
+        try:
+            async for event in llm_gateway.astream(messages, model=model, **kwargs):
+                event_type = event.get("type", "")
+                if event_type in ("chunk", "message"):
+                    text = event.get("content", "")
+                    if text:
+                        chunk_data = {
+                            "candidates": [{
+                                "content": {"parts": [{"text": text}], "role": "model"},
+                                "index": 0,
+                            }],
+                        }
+                        yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
+                elif event_type == "done":
+                    final_usage = event.get("usage", {})
+                elif event_type == "error":
+                    err_data = {
+                        "error": {"code": 502, "message": event.get("message", "LLM 流式调用失败"), "status": "INTERNAL"},
+                    }
+                    yield f"data: {json.dumps(err_data, ensure_ascii=False)}\n\n"
+                    return
+        except Exception as e:
+            err_data = {
+                "error": {"code": 502, "message": str(e)[:500], "status": "INTERNAL"},
+            }
+            yield f"data: {json.dumps(err_data, ensure_ascii=False)}\n\n"
+            return
+
+        # 最后一个 chunk:含 finishReason + usageMetadata
+        usage = final_usage or {}
+        final_chunk = {
+            "candidates": [{
+                "content": {"parts": [{"text": ""}], "role": "model"},
+                "finishReason": "STOP",
+                "index": 0,
+            }],
+            "usageMetadata": {
+                "promptTokenCount": usage.get("prompt_tokens", 0),
+                "candidatesTokenCount": usage.get("completion_tokens", 0),
+                "totalTokenCount": usage.get("total_tokens", 0),
+            },
+        }
+        yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/llm/anthropic/v1/messages", response_model=None)
+async def anthropic_messages_endpoint(request: Request) -> dict[str, Any] | JSONResponse | StreamingResponse:
+    """Anthropic Messages 协议端点(对齐 OmniRoute 协议互转)。
+
+    客户端可直接用 Anthropic 官方 SDK:
+        from anthropic import Anthropic
+        client = Anthropic(api_key="ihui-relay-key", base_url="http://ai-service:8800/llm/anthropic")
+        resp = client.messages.create(model="claude-3.5-sonnet", max_tokens=1024, messages=[...])
+
+    内部流程:
+    1. 接收 Anthropic Messages 格式 payload
+    2. ProtocolAdapter 转成 OpenAI Chat Completions 格式
+    3. 调 llm_gateway.complete()(享受 Combo fallback / provider 适配器 / stub 降级)
+    4. 响应用 ProtocolAdapter 转回 Anthropic Messages 格式
+    """
+    try:
+        from ..services.protocol_adapter import (
+            ProtocolType,
+            protocol_converter,
+        )
+    except ImportError as e:
+        logger.error("ProtocolAdapter 加载失败: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"type": "error", "error": {"type": "service_unavailable", "message": "ProtocolAdapter unavailable"}},
+        )
+
+    try:
+        payload = await request.json()
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={"type": "error", "error": {"type": "invalid_request", "message": f"JSON 解析失败: {e}"}},
+        )
+
+    # Anthropic → OpenAI
+    openai_req = protocol_converter.convert_request(
+        payload, ProtocolType.ANTHROPIC, ProtocolType.OPENAI
+    )
+    model = openai_req.get("model") or payload.get("model") or settings.litellm_model
+    messages = openai_req.get("messages", [])
+    kwargs: dict[str, Any] = {}
+    for k in ("tools", "tool_choice", "temperature", "max_tokens"):
+        if k in openai_req:
+            kwargs[k] = openai_req[k]
+
+    # streaming 模式:调 llm_gateway.astream() + Anthropic SSE 事件格式输出
+    if bool(payload.get("stream", False)):
+        return _anthropic_streaming_response(messages, model, kwargs)
+
+    result = await llm_gateway.complete(messages, model=model, **kwargs)
+    if result.get("error"):
+        err_msg = str(result.get("error_message") or "LLM 调用失败")
+        return JSONResponse(
+            status_code=502,
+            content={
+                "type": "error",
+                "error": {"type": "api_error", "message": err_msg},
+            },
+        )
+
+    # OpenAI 响应 → Anthropic 响应
+    openai_resp = {
+        "id": f"msg_{uuid.uuid4().hex[:24]}",
+        "object": "chat.completion",
+        "model": result.get("model", model),
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": result.get("content", ""),
+                "tool_calls": result.get("tool_calls"),
+            },
+            "finish_reason": "stop",
+        }],
+        "usage": result.get("usage", {}),
+    }
+    anthropic_resp = protocol_converter.convert_response(
+        openai_resp, ProtocolType.OPENAI, ProtocolType.ANTHROPIC
+    )
+    return anthropic_resp
+
+
+@router.post("/llm/gemini/v1beta/models/{model_name}:generateContent", response_model=None)
+async def gemini_generate_content_endpoint(
+    model_name: str,
+    request: Request,
+) -> dict[str, Any] | JSONResponse | StreamingResponse:
+    """Gemini generateContent 协议端点(对齐 OmniRoute 协议互转)。
+
+    客户端可直接用 Google Gen AI SDK:
+        from google import genai
+        client = genai.Client(api_key="ihui-relay-key", http_options={"base_url": "http://ai-service:8800/llm/gemini"})
+        resp = client.models.generate_content(model="gemini-1.5-pro", contents="Hello")
+
+    内部流程:
+    1. 接收 Gemini generateContent 格式 payload
+    2. ProtocolAdapter 转成 OpenAI Chat Completions 格式
+    3. 调 llm_gateway.complete()(stream=true 时调 astream)
+    4. 响应用 ProtocolAdapter 转回 Gemini generateContent 格式
+    """
+    try:
+        from ..services.protocol_adapter import (
+            ProtocolType,
+            protocol_converter,
+        )
+    except ImportError as e:
+        logger.error("ProtocolAdapter 加载失败: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"code": 503, "message": "ProtocolAdapter unavailable"}},
+        )
+
+    try:
+        payload = await request.json()
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"code": 400, "message": f"JSON 解析失败: {e}"}},
+        )
+
+    # Gemini → OpenAI
+    openai_req = protocol_converter.convert_request(
+        payload, ProtocolType.GEMINI, ProtocolType.OPENAI
+    )
+    # Gemini 的 model 在 URL path 中,需要补回
+    messages = openai_req.get("messages", [])
+    kwargs: dict[str, Any] = {}
+    for k in ("tools", "temperature", "max_tokens"):
+        if k in openai_req:
+            kwargs[k] = openai_req[k]
+    # topP → top_p(OpenAI 命名)
+    if "topP" in payload.get("generationConfig", {}):
+        kwargs["top_p"] = payload["generationConfig"]["topP"]
+
+    # streaming 模式:调 llm_gateway.astream() + Gemini SSE 格式输出
+    if bool(payload.get("stream", False)):
+        return _gemini_streaming_response(messages, model_name, kwargs)
+
+    result = await llm_gateway.complete(messages, model=model_name, **kwargs)
+    if result.get("error"):
+        err_msg = str(result.get("error_message") or "LLM 调用失败")
+        return JSONResponse(
+            status_code=502,
+            content={"error": {"code": 502, "message": err_msg, "status": "INTERNAL"}},
+        )
+
+    # OpenAI 响应 → Gemini 响应
+    openai_resp = {
+        "object": "chat.completion",
+        "model": result.get("model", model_name),
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": result.get("content", ""),
+                "tool_calls": result.get("tool_calls"),
+            },
+            "finish_reason": "stop",
+        }],
+        "usage": result.get("usage", {}),
+    }
+    gemini_resp = protocol_converter.convert_response(
+        openai_resp, ProtocolType.OPENAI, ProtocolType.GEMINI
+    )
+    return gemini_resp
+
+
+@router.post("/llm/gemini/v1beta/models/{model_name}:streamGenerateContent", response_model=None)
+async def gemini_stream_generate_content_endpoint(
+    model_name: str,
+    request: Request,
+) -> dict[str, Any] | JSONResponse | StreamingResponse:
+    """Gemini streamGenerateContent 协议端点(强制流式,对齐 Gemini SDK streaming)。
+
+    客户端可直接用 Google Gen AI SDK 的 stream 参数:
+        from google import genai
+        client = genai.Client(api_key="ihui-relay-key", http_options={"base_url": "http://ai-service:8800/llm/gemini"})
+        resp = client.models.generate_content(model="gemini-1.5-pro", contents="Hello", stream=True)
+
+    内部流程与 :generateContent 一致,但始终走流式输出(Gemini SSE 格式)。
+    """
+    try:
+        from ..services.protocol_adapter import (
+            ProtocolType,
+            protocol_converter,
+        )
+    except ImportError as e:
+        logger.error("ProtocolAdapter 加载失败: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"code": 503, "message": "ProtocolAdapter unavailable"}},
+        )
+
+    try:
+        payload = await request.json()
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"code": 400, "message": f"JSON 解析失败: {e}"}},
+        )
+
+    # Gemini → OpenAI
+    openai_req = protocol_converter.convert_request(
+        payload, ProtocolType.GEMINI, ProtocolType.OPENAI
+    )
+    messages = openai_req.get("messages", [])
+    kwargs: dict[str, Any] = {}
+    for k in ("tools", "temperature", "max_tokens"):
+        if k in openai_req:
+            kwargs[k] = openai_req[k]
+    if "topP" in payload.get("generationConfig", {}):
+        kwargs["top_p"] = payload["generationConfig"]["topP"]
+
+    return _gemini_streaming_response(messages, model_name, kwargs)
+
+
+@router.get("/llm/free-providers", response_model=None)
+async def list_free_providers() -> dict[str, Any]:
+    """免费 provider 注册表(对齐 OmniRoute 免费 provider 矩阵 + 超越)。
+
+    返回 30+ 免费 LLM provider 的申请入口、免费额度、限制、key 配置状态,
+    供前端 Dashboard 可视化展示"已配置 / 未配置 / 本地"三态。
+
+    超越 OmniRoute 的点:
+    - 本地 LLM 兜底(Ollama / LMStudio / LlamaCpp / vLLM)
+    - 国内 provider 全覆盖(中文场景优化)
+    - key 状态感知(从 .env 检测)
+    """
+    try:
+        from ..services.free_provider_registry import free_provider_registry
+    except ImportError as e:
+        logger.error("FreeProviderRegistry 加载失败: %s", e)
+        return _wrap_ok({"providers": [], "total": 0, "configured": 0, "local": 0, "not_configured": 0})
+
+    providers = free_provider_registry.to_dashboard_dict()
+    configured = sum(1 for p in providers if p["status"] == "configured")
+    local_count = sum(1 for p in providers if p["status"] == "local")
+    return _wrap_ok({
+        "providers": providers,
+        "total": len(providers),
+        "configured": configured,
+        "local": local_count,
+        "not_configured": len(providers) - configured - local_count,
+    })
+
+
+# ============================================================================
+# P0-3 网关 Dashboard 后端 API(2026-07-30 立,对齐 OmniRoute Dashboard + 超越)
+#
+# 暴露 provider 健康状态 + combo 链 CRUD,供前端 Dashboard 可视化展示:
+# - GET    /llm/providers/health  — 所有免费 provider 健康状态(含 429 冷却期)
+# - GET    /llm/combos            — 列出所有 combo 链配置
+# - POST   /llm/combos            — 创建/更新 combo 链配置
+# - DELETE /llm/combos/{name}     — 删除 combo 链配置
+# ============================================================================
+
+
+def _aggregate_provider_health(default_models: list[str]) -> tuple[bool, int]:
+    """聚合 provider 在 ComboRouter 中的健康状态。
+
+    遍历 provider 的 default_models,检查是否有任一 model 在 combo_router._health 中,
+    聚合 is_in_cooldown(任一 model 在冷却期则 True)和 consecutive_failures(取最大值)。
+
+    Args:
+        default_models: provider 的推荐免费模型列表。
+
+    Returns:
+        (is_in_cooldown, consecutive_failures) 二元组。
+    """
+    try:
+        from ..services.combo_router import combo_router
+    except ImportError:
+        return (False, 0)
+
+    is_in_cooldown = False
+    max_failures = 0
+    for model in default_models:
+        health = combo_router._health.get(model)
+        if health is not None:
+            if health.is_in_cooldown():
+                is_in_cooldown = True
+            max_failures = max(max_failures, health.consecutive_failures)
+    return (is_in_cooldown, max_failures)
+
+
+@router.get("/llm/providers/health", response_model=None)
+async def list_providers_health() -> dict[str, Any]:
+    """所有免费 provider 的健康状态(供 Dashboard 可视化)。
+
+    返回结构:
+    {
+      "providers": [
+        {
+          "provider_code": "moonshot",
+          "display_name": "Moonshot Kimi",
+          "status": "configured",
+          "category": "domestic",
+          "free_quota": "Kimi-K2 免费",
+          "default_base_url": "https://api.moonshot.cn/v1",
+          "default_models": ["kimi-k2"],
+          "is_in_cooldown": false,
+          "consecutive_failures": 0,
+        }
+      ],
+      "summary": {"total": 40, "configured": 5, "local": 4, "not_configured": 31}
+    }
+
+    实现:调 free_provider_registry.list_all() + 检查 ComboRouter 的 _health 字典。
+    """
+    try:
+        from ..services.free_provider_registry import free_provider_registry
+    except ImportError as e:
+        logger.error("FreeProviderRegistry 加载失败: %s", e)
+        return _wrap_ok({
+            "providers": [],
+            "summary": {"total": 0, "configured": 0, "local": 0, "not_configured": 0},
+        })
+
+    providers_data: list[dict[str, Any]] = []
+    configured_count = 0
+    local_count = 0
+    for p in free_provider_registry.list_all():
+        status = free_provider_registry.is_key_configured(p.provider_code).value
+        is_in_cooldown, consecutive_failures = _aggregate_provider_health(p.default_models)
+        providers_data.append({
+            "provider_code": p.provider_code,
+            "display_name": p.display_name,
+            "status": status,
+            "category": p.category.value,
+            "free_quota": p.free_quota,
+            "default_base_url": p.default_base_url,
+            "default_models": p.default_models,
+            "is_in_cooldown": is_in_cooldown,
+            "consecutive_failures": consecutive_failures,
+        })
+        if status == "configured":
+            configured_count += 1
+        elif status == "local":
+            local_count += 1
+
+    total = len(providers_data)
+    return _wrap_ok({
+        "providers": providers_data,
+        "summary": {
+            "total": total,
+            "configured": configured_count,
+            "local": local_count,
+            "not_configured": total - configured_count - local_count,
+        },
+    })
+
+
+@router.get("/llm/combos", response_model=None)
+async def list_combos() -> dict[str, Any]:
+    """列出所有 combo 链配置。
+
+    返回结构:
+    {
+      "combos": [
+        {"name": "maximize-free", "strategy": "priority", "chain": [...], "judge": null, "description": "..."}
+      ]
+    }
+    """
+    try:
+        from ..services.combo_router import combo_router
+    except ImportError as e:
+        logger.error("ComboRouter 加载失败: %s", e)
+        return _wrap_ok({"combos": []})
+
+    combos_data: list[dict[str, Any]] = []
+    for c in combo_router.list_combos():
+        combos_data.append({
+            "name": c.name,
+            "strategy": c.strategy.value,
+            "chain": list(c.chain),
+            "judge": c.judge,
+            "description": c.description,
+        })
+    return _wrap_ok({"combos": combos_data})
+
+
+class ComboConfigRequest(BaseModel):
+    """Combo 链配置请求(创建/更新)。"""
+
+    name: str = Field(..., description="链名(如 'maximize-free')")
+    strategy: str = Field("priority", description="路由策略: priority/cheapest/fusion")
+    chain: list[str] = Field(..., description="provider/model 列表")
+    judge: str | None = Field(None, description="fusion 策略下的 judge model")
+    description: str = Field("", description="人类可读描述")
+
+
+@router.post("/llm/combos", response_model=None)
+async def create_or_update_combo(req: ComboConfigRequest) -> dict[str, Any] | JSONResponse:
+    """创建/更新 combo 链配置(管理端)。
+
+    请求体:
+    {"name": "maximize-quality", "strategy": "priority", "chain": ["claude-opus-4", "gpt-5"], "description": "..."}
+
+    响应:
+    {"ok": true, "combo": {...}}
+    """
+    try:
+        from ..services.combo_router import combo_router
+    except ImportError as e:
+        logger.error("ComboRouter 加载失败: %s", e)
+        return _error_json("ComboRouter unavailable", 503)
+
+    if not req.chain:
+        return _error_json("chain must not be empty", 400)
+
+    config: dict[str, Any] = {
+        "strategy": req.strategy,
+        "chain": req.chain,
+        "description": req.description,
+    }
+    if req.judge:
+        config["judge"] = req.judge
+
+    combo_router.configure_combo(req.name, config)
+    combo = combo_router.get_combo(req.name)
+    if combo is None:
+        return _error_json("configure_combo failed silently", 500)
+    return _wrap_ok({
+        "ok": True,
+        "combo": {
+            "name": combo.name,
+            "strategy": combo.strategy.value,
+            "chain": list(combo.chain),
+            "judge": combo.judge,
+            "description": combo.description,
+        },
+    })
+
+
+@router.delete("/llm/combos/{name}", response_model=None)
+async def delete_combo(name: str) -> dict[str, Any] | JSONResponse:
+    """删除 combo 链配置。
+
+    响应:
+    {"ok": true, "name": "maximize-free"}
+    """
+    try:
+        from ..services.combo_router import combo_router
+    except ImportError as e:
+        logger.error("ComboRouter 加载失败: %s", e)
+        return _error_json("ComboRouter unavailable", 503)
+
+    if name not in combo_router._combos:
+        return _error_json(f"combo '{name}' not found", 404)
+    del combo_router._combos[name]
+    return _wrap_ok({"ok": True, "name": name})
+
+
+# =============================================================================
+# Token 压缩演示端点(P3-1,token_compaction.py 集成配套)
+# 提供 POST /llm/compaction/demo 供前端 Dashboard 手动触发压缩并查看效果,
+# 与 llm_gateway._apply_token_compaction 内部自动压缩使用同一个 token_compactor 单例。
+# =============================================================================
+
+
+class CompactionDemoRequest(BaseModel):
+    """Token 压缩演示请求体。"""
+
+    messages: list[dict[str, Any]] = Field(
+        ..., description="OpenAI 格式消息列表([{role, content, ...}])"
+    )
+    strategy: str = Field(
+        "rtk_caveman",
+        description="压缩策略:rtk / caveman / rtk_caveman(默认 rtk_caveman)",
+    )
+    keep_recent: int = Field(
+        6,
+        ge=0,
+        le=100,
+        description="Caveman 策略保留最近 N 条不压缩(0-100,默认 6)",
+    )
+
+
+# 策略字符串 → CompactionStrategy 枚举映射(无效值返回 400)
+_STRATEGY_MAP: dict[str, str] = {
+    "rtk": "rtk",
+    "caveman": "caveman",
+    "rtk_caveman": "rtk_caveman",
+}
+
+
+@router.post("/llm/compaction/demo", response_model=None)
+async def compaction_demo(
+    req: CompactionDemoRequest,
+    request: Request,
+) -> dict[str, Any] | JSONResponse:
+    """Token 压缩演示端点(供前端 Dashboard 手动触发并查看压缩效果)。
+
+    请求体:
+    ```json
+    {
+      "messages": [{"role": "user", "content": "..."}],
+      "strategy": "rtk_caveman",
+      "keep_recent": 6
+    }
+    ```
+
+    响应:
+    ```json
+    {
+      "original_tokens": 1234,
+      "compressed_tokens": 123,
+      "compression_ratio": 0.9,
+      "strategy": "rtk_caveman",
+      "rtk_map_size": 5,
+      "compressed_messages": [{"role": "user", "content": "..."}],
+      "decompressed_messages": [{"role": "user", "content": "..."}]
+    }
+    ```
+
+    错误:
+    - 400: messages 为空 / strategy 无效
+    - 500: 内部异常
+
+    注:跳过 ResponseSanitizer 中间件 — 响应仅含 token 计数和压缩后消息,
+    无敏感数据;字段名 original_tokens / compressed_tokens 含 "token" 子串,
+    否则会被脱敏为 "***"(SAFE_KEYS 白名单只覆盖 prompt_tokens / completion_tokens / total_tokens)。
+    """
+    # 跳过响应脱敏(本端点响应无敏感字段,token 计数需保留为 int 供前端展示)
+    request.state.skip_response_sanitization = True
+
+    # 空消息检查
+    if not req.messages:
+        return _error_json("messages must not be empty", 400)
+
+    # 策略校验:字符串 → CompactionStrategy 枚举
+    strategy_str = req.strategy.lower().strip()
+    if strategy_str not in _STRATEGY_MAP:
+        return _error_json(
+            f"invalid strategy '{req.strategy}', must be one of: rtk / caveman / rtk_caveman",
+            400,
+        )
+
+    try:
+        from ..services.token_compaction import (
+            CompactionStrategy,
+            TokenCompactor,
+            token_compactor,
+        )
+    except ImportError as e:
+        logger.error("token_compaction 模块加载失败: %s", e)
+        return _error_json(f"token_compaction module unavailable: {e}", 500)
+
+    # 策略字符串 → 枚举值(已在 _STRATEGY_MAP 校验过,直接对应)
+    strategy_enum = CompactionStrategy(strategy_str)
+
+    try:
+        result = token_compactor.compact_messages(
+            req.messages, strategy=strategy_enum, keep_recent=req.keep_recent
+        )
+        # 解压:还原 RTK 占位符($N → 原文),Caveman 不可逆
+        decompressed = TokenCompactor.decompress(result)
+        return _wrap_ok({
+            "original_tokens": result.original_tokens,
+            "compressed_tokens": result.compressed_tokens,
+            "compression_ratio": result.compression_ratio,
+            "strategy": strategy_str,
+            "rtk_map_size": len(result.rtk_map),
+            "compressed_messages": result.compressed_messages,
+            "decompressed_messages": decompressed,
+        })
+    except Exception as e:
+        logger.exception("compaction_demo 内部异常: %s", e)
+        return _error_json(f"compaction failed: {type(e).__name__}: {e}", 500)

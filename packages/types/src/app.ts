@@ -1532,6 +1532,8 @@ export interface ThirdPartyLoginOption {
   label: string
   /** RN Image source(如 require('../../assets/icons/wechat.png')) */
   iconSource?: number | { uri: string }
+  /** 平台品牌色(十六进制,如 '#07C160'),用于无图标时的圆形按钮背景 */
+  brandColor?: string
   /** 是否启用(未配置 OAuth 的平台设为 false,按钮置灰) */
   enabled: boolean
   /** 是否强制禁用(如 Apple "即将上线",显示 tooltip 但禁用点击) */
