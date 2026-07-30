@@ -8,6 +8,20 @@ const {
   setupRestoreOnExit,
 } = require('../scripts/lib/staging-snapshot.js')
 
+// 0. staged 文件数预检(2026-07-30 立,防污染事故快速告警)
+// 背景:多 agent 并行 + IDE 自动 stage / lint-staged 副作用曾导致 commit 包含非本任务文件。
+// 现有 staging-snapshot 机制在 hook 退出前自动 unstage 新增文件,本步骤作为"显式文件数预检"
+// 快速告警信号,让 agent 立即看到异常(默认 warn-only,不阻断 commit)。
+// 跳过方法:HUSKY_SKIP_STAGED_COUNT=1
+try {
+  execSync('node scripts/check-staged-files-count.mjs --max=10', {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+  })
+} catch {
+  // 守门脚本失败不阻塞 commit(脚本内部 git 失败已自行 exit 0)
+}
+
 function run(label, cmd) {
   console.log(label)
   try {
