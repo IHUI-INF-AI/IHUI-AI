@@ -320,6 +320,9 @@
     "mcpProjects": "MCP 프로젝트",
     "openclaw": "OpenClaw",
     "recruitment": "채용",
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "restore": "복원",
     "adminGroup": {
       "operation": "운영 관리",
       "moderation": "콘텐츠 심사",
@@ -333,10 +336,7 @@
       "resource": "리소스 센터",
       "developer": "개발자 센터",
       "saas": "SaaS 플랫폼"
-    },
-    "minimize": "최소화",
-    "maximize": "최대화",
-    "restore": "복원"
+    }
   },
   "home": {
     "announcement": {
@@ -5896,6 +5896,7 @@
       "note2": "모든 작업은 기본적으로 dry-run 모드이며, WeChat 임시 보관함에 실제로 푸시하지 않습니다. 수동으로 트리거하거나 설정에서 dry-run을 꺼야 합니다.",
       "note3": "작업 실행 기록은 최근 30개(메모리 내)를 보관하며, 서비스 재시작 후 비워집니다.",
       "note4": "시간대: 동 8구(Asia/Shanghai).",
+      "note5": "Cron 표현식은 표준 5필드 구문 <code>분 시 일 월 요일</code>을 따릅니다. 예: <code>0 9 * * 1</code>은 매주 월요일 9시에 실행됩니다.",
       "examplesTitle": "자동화 예시",
       "examplesDesc": "템플릿을 클릭하여 유사한 작업을 빠르게 설정",
       "useRefTemplate": "이 템플릿 참조",
@@ -6997,7 +6998,8 @@
     "myCommentsSubtitle": "나 댓글",
     "empty": "없음댓글",
     "delete": "삭제",
-    "deleteConfirm": "확인삭제댓글？"
+    "deleteConfirm": "확인삭제댓글？",
+    "submitting": "제출 중..."
   },
   "points": {
     "title": "포인트 센터",
@@ -7568,7 +7570,11 @@
       "dependencies": "종속성",
       "transition": "상태 전환",
       "reason": "사유",
-      "empty": "작업이 없습니다"
+      "empty": "작업이 없습니다",
+      "confirm": "확인",
+      "delete": "삭제",
+      "cancel": "취소",
+      "reasonRequired": "사유를 입력해 주세요"
     }
   },
   "distribution": {
@@ -9108,10 +9114,10 @@
     "privacyPolicy": "개인정보처리방침",
     "aboutUs": "회사 소개",
     "contactUs": "문의하기",
-    "agreementSubtitle": "다음 약관 내용을 주의 깊게 읽어 주세요",
-    "contactSubtitle": "다음 경로로 문의해 주세요",
     "internationalModels": "해외 대형 모델",
-    "chineseModels": "국산 대형 모델"
+    "chineseModels": "국산 대형 모델",
+    "agreementSubtitle": "다음 약관 내용을 주의 깊게 읽어 주세요",
+    "contactSubtitle": "다음 경로로 문의해 주세요"
   },
   "plugins": {
     "title": "플러그인 마켓",
@@ -10229,35 +10235,43 @@
       "subtitle": "8플랫폼 전체 커버 기업급 AI 플랫폼 · 100+ LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
       "modelIntegration": {
         "title": "8플랫폼 전체 커버 아키텍처",
-        "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 8플랫폼 공용 · 데이터 마이그레이션 제로"
+        "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 8플랫폼 공용 · 데이터 마이그레이션 제로",
+        "description": "Web/Desktop/Mobile/미니앱/CLI/Extension 6 + API/AI-Service 2, 풀스택 지원, 통합 계정으로 원활한 전환"
       },
       "appStore": {
         "title": "100+ LLM 대모델",
-        "benefit": "종합 ¥18만/년 절약 · Claude Pro + GPT Plus + Cursor + 다중 모델 API 대체"
+        "benefit": "종합 ¥18만/년 절약 · Claude Pro + GPT Plus + Cursor + 다중 모델 API 대체",
+        "description": "해외 30+ (OpenAI/Claude/Gemini/Llama) + 국산 15+ (Tongyi/GLM/DeepSeek) + 클라우드 40+, 1개 키로 모두 접속"
       },
       "contentCreation": {
         "title": "자체 개발 CLI · Claude Code 대안",
-        "benefit": "Claude Pro ¥17000/년 절약 · 개발 효율 10× 향상 · 6 소스 설정 원클릭 가져오기"
+        "benefit": "Claude Pro ¥17000/년 절약 · 개발 효율 10× 향상 · 6 소스 설정 원클릭 가져오기",
+        "description": "ACP Server에 Zed/VSCode/Cursor 내장 + 6가지 독점 확장 (세션 복구/롤백/MCP 호출) + 6소스 설정 원클릭 가져오기"
       },
       "edu": {
         "title": "AI 교육 풀스택",
-        "benefit": "¥10만/년 교육비 절약 · 전 직원 AI화 · 3단계 점진적 진행"
+        "benefit": "¥10만/년 교육비 절약 · 전 직원 AI화 · 3단계 점진적 진행",
+        "description": "강좌/라이브/시험/증명서/강사/반 6개 모듈, 연중 무료 강좌, AI 도구 → 기업 AI 문화 3단계 점진"
       },
       "navigation": {
         "title": "기업급 워크스페이스",
-        "benefit": "데이터 유출 제로 · 감사 전 과정 추적 가능 · 99.9% SLA 기업급 제로 리스크"
+        "benefit": "데이터 유출 제로 · 감사 전 과정 추적 가능 · 99.9% SLA 기업급 제로 리스크",
+        "description": "3 권한 모드 + 7 런타임 인터셉트 엔드포인트 + 60s 타임아웃 거부 + RBAC 세분화 액세스 제어 + 99.9% SLA"
       },
       "agentSquare": {
         "title": "에이전트 광장",
-        "benefit": "5+ 인력 포지션 대체 · 7×24 중단 없음 · 종합 ¥30만/년 인건비 절약"
+        "benefit": "5+ 인력 포지션 대체 · 7×24 중단 없음 · 종합 ¥30만/년 인건비 절약",
+        "description": "범용/산업/기능 3가지 카테고리, 고객지원/마케팅/운영/HR/재무 5+ 직능 전체 포함, 즉시 사용 가능, 맞춤 가능"
       },
       "workflow": {
         "title": "LangGraph 워크플로우",
-        "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 트리플 스택결합 업계에서도 드문"
+        "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 트리플 스택결합 업계에서도 드문",
+        "description": "2개 LangGraph 워크플로 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 3스택 통합은 업계에서 희귀"
       },
       "multimodal": {
         "title": "멀티모달 AI 입력",
-        "benefit": "¥5만/년 디자인비 절약 · 5대 모달 전체 연동 · 콘텐츠 생산 10× 가속"
+        "benefit": "¥5만/년 디자인비 절약 · 5대 모달 전체 연동 · 콘텐츠 생산 10× 가속",
+        "description": "이미지 생성/음성 합성/영상 생성/파일 파싱/디지털 휴먼 5가지 모달리티, 1개 키로 모두 처리"
       }
     },
     "advantages": {
@@ -12604,6 +12618,8 @@
     "noPreviews": "저장된 미리보기 없음",
     "loadPreview": "미리보기 불러오기",
     "loadFailed": "불러오기 실패",
+    "saved": "「{name}」 저장됨",
+    "saveFailed": "저장 실패: {error}",
     "previewName": "미리보기 이름",
     "componentTree": {
       "title": "컴포넌트 트리",
@@ -12614,7 +12630,8 @@
       "empty": "댓글을 보려면 미리보기를 먼저 저장하세요",
       "noComments": "댓글 없음",
       "loadingFailed": "댓글 로드 실패",
-      "send": "댓글 보내기"
+      "send": "댓글 보내기",
+      "commented": "댓글 작성됨"
     },
     "aiGenerate": {
       "button": "AI 생성",
@@ -12630,7 +12647,8 @@
       "exportButton": "코드 내보내기",
       "exportReact": "React 컴포넌트",
       "exportVue": "Vue 컴포넌트",
-      "exportHtml": "순수 HTML"
+      "exportHtml": "순수 HTML",
+      "exportSuccess": "{filename} 내보냄"
     },
     "responsive": {
       "customWidth": "사용자 지정 너비",
