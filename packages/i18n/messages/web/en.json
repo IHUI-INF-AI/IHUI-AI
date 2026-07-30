@@ -9333,7 +9333,8 @@
     "thisMonth": "This Month",
     "confirmDeleteConversation": "Confirm delete chat? Delete cannot be restored.",
     "deleteConversation": "DeleteChat",
-    "deleteFailed": "DeleteFailed",
+    "deleteFailed": "Delete failed",
+    "deleteSuccess": "Deleted",
     "actions": {
       "menu": "More actions",
       "delete": "Delete",
