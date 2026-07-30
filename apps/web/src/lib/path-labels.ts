@@ -71,12 +71,19 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/recruitment', spec: { ns: 'nav', key: 'recruitment' } },
   { href: '/blog', spec: { ns: 'blog', key: 'title' } },
 
-  // ===== 2026-07-29 补:/chat 系列路由(用户反馈"中文界面还显示 chat")=====
-  // /chat 路由未注册 i18n 规格 → TagsView 走 deriveTitle 兜底返回英文 "Chat"
-  // 复用 aiChat 命名空间(zh-CN="AI任务" / en="AIChat" / ja="aiチャット" / ko="ai채팅" / zh-TW="AI對話")
-  // /chat/history 已通过 NAV_ENTRIES(nav.chatHistory="对话历史")注册,此处不重复
-  // /chat/favorites 复用 chatHistory.favoritesTitle(5 语言均有)
-  { href: '/chat', spec: { ns: 'aiChat', key: 'title' } },
+  // ===== 2026-07-31 修订:/chat 标签显示「首页」对齐主工作区内容 =====
+  // 背景:/chat 路由本身只是 AISidePanel 的快捷入口,page.tsx 复用 /home 的工作区首页内容
+  // (export { default } from '../home/page')。原 spec 走 aiChat.title="AI任务",
+  // 导致刷新 /chat?conversationId=xxx 时主工作区显示首页内容但标签显示"AI任务",
+  // 用户反馈"AI任务这种东西不应该存在啊 ai任务不是在左侧任务列表里吗
+  // 还有在ai对话框中就解决了啊"。
+  // 解决:/chat 标签改用 nav.home="首页",与主工作区渲染的首页内容视觉一致。
+  // AI 任务的实际入口仍是左侧 SidebarChatHistory + 右侧 AISidePanel,标签栏不再
+  // 重复出现"AI任务"概念。
+  // /chat/history 已通过 NAV_ENTRIES(nav.chatHistory="对话历史")注册,此处不重复。
+  // /chat/favorites 复用 chatHistory.favoritesTitle(5 语言均有)。
+  // /chat/templates /chat/settings /chat/share/[id] 保留原 aiChat spec(独立功能页)。
+  { href: '/chat', spec: { ns: 'nav', key: 'home' } },
   { href: '/chat/templates', spec: { ns: 'aiChat', key: 'templates' } },
   { href: '/chat/settings', spec: { ns: 'aiChat', key: 'settings' } },
   { href: '/chat/favorites', spec: { ns: 'chatHistory', key: 'favoritesTitle' } },
