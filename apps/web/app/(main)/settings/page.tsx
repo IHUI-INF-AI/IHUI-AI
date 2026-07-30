@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
-import { KeyRound } from 'lucide-react'
+import { KeyRound, Bot } from 'lucide-react'
 
 import { Card, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
@@ -97,6 +97,22 @@ export default function SettingsPage() {
                   <div className="flex-1">
                     <p className="text-xs font-medium">API 密钥</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">管理开发者 API 密钥</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/settings/llm">
+              <Card className="transition-colors hover:bg-accent">
+                <CardContent className="flex items-start gap-2 p-3">
+                  <div className="rounded-md bg-muted p-1.5">
+                    <Bot className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium">LLM 配置</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      配置你自己的 LLM API Key(BYOK),支持 OpenAI / Anthropic / DeepSeek /
+                      智谱等大厂。平台只收 5-20% 服务费,免费 provider 不收费。
+                    </p>
                   </div>
                 </CardContent>
               </Card>
