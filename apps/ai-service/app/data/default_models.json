@@ -1062,6 +1062,14 @@
 
     {
       "_seed_2026_07_22": "免费 / 试用 credits provider 模型(参考 cheahjs/free-llm-api-resources)",
+      "_note_2026_07_31": "Cloudflare Workers AI 已对 GLM-5.2 免费开放(见 https://mp.weixin.qq.com/s/fNuyKcGbFRyL3_poQfsVuA),列为通用公用主力免费模型",
+      "id": "@cf/zai-org/glm-5.2",
+      "name": "GLM-5.2 (Cloudflare Workers AI 免费,通用主力)",
+      "provider": "cloudflare_workers_ai",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
       "id": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
       "name": "Llama 3.3 70B Fast (Cloudflare Workers AI 免费)",
       "provider": "cloudflare_workers_ai",
