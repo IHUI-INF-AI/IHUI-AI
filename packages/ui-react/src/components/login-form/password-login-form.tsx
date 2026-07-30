@@ -6,9 +6,20 @@ import { Loader2, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import { Button } from '../button'
 import { Input } from '../input'
 import { Label } from '../label'
+import { Checkbox } from '../checkbox'
 import { cn } from '../../lib/utils'
 import { AgreementCheckbox } from './agreement-checkbox'
+import { AccountHistoryInput } from './account-history-input'
 import type { ApiResult, LoginApiClient, LoginResult } from './types'
+import {
+  saveRememberedCredentials,
+  loadRememberedCredentials,
+  clearRememberedCredentials,
+  saveAutoLogin,
+  loadAutoLogin,
+  clearAutoLogin,
+  saveLoginHistory,
+} from '../../lib/remember-credentials'
 
 export interface PasswordLoginFormProps {
   /** i18n 翻译函数 */
@@ -32,23 +43,33 @@ export interface PasswordLoginFormProps {
   showForgotPassword?: boolean
   onForgotPassword?: () => void
   forgotPasswordHref?: string
+  /**
+   * 是否启用凭据持久化(记住密码 + 自动登录 + 账号历史)
+   * 2026-07-30 立:消除 web 端 B 版本与共享包 A 版本功能差异。
+   * true 时:显示"记住密码/自动登录"checkbox + 账号输入框带历史下拉,
+   *         登录成功后持久化到 localStorage。
+   * false 时:向后兼容(不显示 checkbox,账号输入框普通 Input 无下拉)。
+   */
+  enableCredentialPersistence?: boolean
 }
 
 /**
- * 密码登录表单(2026-07-26 抽取到共享包)
+ * 密码登录表单(2026-07-26 抽取到共享包,2026-07-30 恢复凭据持久化)
  *
  * 视觉规范(对标 web 端 PasswordLoginForm.tsx):
  *   - 容器:space-y-4 pt-2
- *   - 账号 Input h-10 + Label
+ *   - 账号 Input h-10 + Label(启用持久化时用 AccountHistoryInput 带历史下拉)
  *   - 密码 Input h-10 + Label(右侧忘记密码链接)+ 密码显示/隐藏 toggle
  *   - 图形验证码 Input h-10 + SVG(可选,captchaEnabled=true 时显示)
+ *   - 记住密码 + 自动登录 checkbox(可选,enableCredentialPersistence=true 时显示)
  *   - 协议复选框(可选)
  *   - submit Button h-10 w-full + loading
  *
- * 共享包关键差异(2026-07-26):
+ * 共享包关键差异:
  *   - 用 useState 管表单(避免引入 react-hook-form)
  *   - 图形验证码组件简单占位(调用方可通过 captcha 扩展点自定义,本组件只接受 svg+token 字符串)
- *   - 不做"记住密码/自动登录"持久化(由调用方用 remember-credentials lib 处理)
+ *   - 凭据持久化(2026-07-30 恢复):enableCredentialPersistence=true 时
+ *     显示记住密码/自动登录 checkbox + 账号历史下拉,登录成功后持久化到 localStorage
  */
 export function PasswordLoginForm({
   t,
@@ -64,9 +85,19 @@ export function PasswordLoginForm({
   showForgotPassword = false,
   onForgotPassword,
   forgotPasswordHref,
+  enableCredentialPersistence = false,
 }: PasswordLoginFormProps) {
-  const [account, setAccount] = React.useState('')
-  const [password, setPassword] = React.useState('')
+  // 启用持久化时,从 localStorage 预读记住的账号密码 + 自动登录标志
+  const remembered = React.useMemo(
+    () => (enableCredentialPersistence ? loadRememberedCredentials() : null),
+    [enableCredentialPersistence],
+  )
+  const [account, setAccount] = React.useState(remembered?.account ?? '')
+  const [password, setPassword] = React.useState(remembered?.password ?? '')
+  const [rememberPassword, setRememberPassword] = React.useState(!!remembered)
+  const [autoLogin, setAutoLogin] = React.useState(
+    enableCredentialPersistence ? loadAutoLogin() && !!remembered : false,
+  )
   const [showPassword, setShowPassword] = React.useState(false)
   const [captcha, setCaptcha] = React.useState('')
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
@@ -127,6 +158,17 @@ export function PasswordLoginForm({
         if (captchaEnabled) await refreshCaptcha()
         return
       }
+      // 凭据持久化(2026-07-30 恢复):登录成功后保存账号历史 + 记住密码 + 自动登录
+      if (enableCredentialPersistence) {
+        saveLoginHistory(account)
+        if (rememberPassword) {
+          saveRememberedCredentials(account, password)
+        } else {
+          clearRememberedCredentials()
+          clearAutoLogin()
+        }
+        saveAutoLogin(autoLogin && rememberPassword)
+      }
       await onSuccess?.(result.data)
     } catch {
       setError(t('auth.loginFailed'))
@@ -145,23 +187,60 @@ export function PasswordLoginForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 pt-2" noValidate>
+    <form
+      onSubmit={onSubmit}
+      onKeyDown={(e) => {
+        // 兜底:Radix Dialog/Portal 内浏览器 implicit form submission 在某些场景失效
+        // (实测:input 上按 Enter 不触发 form submit,但 form.requestSubmit() 能正常触发)。
+        // 原因推测:Radix Dialog Content/FocusScope/Portal 组合干扰了浏览器原生 Enter 提交。
+        // 修复:Enter 在 INPUT 上时主动 requestSubmit;AgreementCheckbox 自身 onKeyDown
+        // 已处理 Enter(标签 target 不是 INPUT,不进入此分支,避免重复 requestSubmit)。
+        // AccountHistoryInput 历史下拉打开 + 高亮项时,Enter 选中账号(stopPropagation 不进此分支)。
+        if (
+          e.key === 'Enter' &&
+          !e.shiftKey &&
+          !e.nativeEvent.isComposing &&
+          (e.target as HTMLElement).tagName === 'INPUT'
+        ) {
+          e.preventDefault()
+          e.currentTarget.requestSubmit()
+        }
+      }}
+      className="space-y-4 pt-2"
+      noValidate
+    >
       {error && <ErrorAlert message={error} />}
 
       <div className="space-y-1.5">
         <Label htmlFor="login-form-account">{t('auth.account')}</Label>
-        <Input
-          id="login-form-account"
-          name="username"
-          type="text"
-          autoComplete="username"
-          placeholder={t('auth.accountPlaceholder')}
-          className={cn('h-10', inputClassName)}
-          value={account}
-          onChange={(e) => setAccount(e.target.value)}
-          disabled={submitting}
-          data-testid="login-account-input"
-        />
+        {enableCredentialPersistence ? (
+          <AccountHistoryInput
+            t={t}
+            id="login-form-account"
+            type="text"
+            autoComplete="username"
+            placeholder={t('auth.accountPlaceholder')}
+            inputClassName={cn('h-10', inputClassName)}
+            value={account}
+            onChange={setAccount}
+            disabled={submitting}
+            ariaLabel={t('auth.account')}
+            active={!submitting}
+          />
+        ) : (
+          <Input
+            id="login-form-account"
+            name="username"
+            type="text"
+            autoComplete="username"
+            placeholder={t('auth.accountPlaceholder')}
+            className={cn('h-10', inputClassName)}
+            value={account}
+            onChange={(e) => setAccount(e.target.value)}
+            disabled={submitting}
+            data-testid="login-account-input"
+          />
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -250,6 +329,45 @@ export function PasswordLoginForm({
               </Button>
             )}
           </div>
+        </div>
+      )}
+
+      {enableCredentialPersistence && (
+        <div className="flex items-center justify-between pt-1">
+          <label
+            className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <Checkbox
+              checked={rememberPassword}
+              onCheckedChange={(v) => {
+                const checked = v === true
+                setRememberPassword(checked)
+                if (!checked) setAutoLogin(false)
+              }}
+              className="h-3.5 w-3.5"
+              aria-label={t('auth.rememberPassword')}
+            />
+            {t('auth.rememberPassword')}
+          </label>
+          <label
+            className={cn(
+              'flex items-center gap-1.5 text-xs',
+              rememberPassword
+                ? 'cursor-pointer text-muted-foreground'
+                : 'cursor-not-allowed text-muted-foreground/50',
+            )}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <Checkbox
+              checked={autoLogin}
+              disabled={!rememberPassword}
+              onCheckedChange={(v) => setAutoLogin(v === true)}
+              className="h-3.5 w-3.5"
+              aria-label={t('auth.autoLogin')}
+            />
+            {t('auth.autoLogin')}
+          </label>
         </div>
       )}
 

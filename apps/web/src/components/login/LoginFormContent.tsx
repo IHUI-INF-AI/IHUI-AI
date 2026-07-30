@@ -93,6 +93,8 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
       showForgotPassword
       onForgotPassword={() => setMode('forgot')}
       qrComponent={() => <QrCodeLoginEmbedded />}
+      // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
+      enableCredentialPersistence
     />
   )
 }
