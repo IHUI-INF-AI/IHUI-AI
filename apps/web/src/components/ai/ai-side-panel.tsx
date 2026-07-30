@@ -709,13 +709,15 @@ export function AISidePanel() {
     <>
       {workspaceNameSync}
       <div
-        // AI 面板容器
+        // AI 面板容器(最外层,DevTools 可选中)
         // - docked 模式:relative + shrink-0,flex 流内布局,mr-1.5 固定 6px 间距
-        // - float 模式:fixed 定位,z-sticky,可拖拽,shadow-lg 浮窗视觉
+        // - float 模式:fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
+        // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
+        data-testid="ai-panel-root"
         className={cn(
-          'py-2',
+          'ai-panel-root py-2',
           floatMode
-            ? 'fixed z-sticky shadow-2xl'
+            ? 'fixed z-sticky ai-float-glow'
             : 'relative h-full shrink-0 mr-1.5',
         )}
         style={
