@@ -11,6 +11,7 @@ import type { UserInfo } from '@/utils/auth'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
+import LoginPopUp from '@/components/LoginPopUp'
 import './login.css'
 
 export default function Login() {
@@ -26,6 +27,10 @@ export default function Login() {
   const [isPwdFocused, setIsPwdFocused] = useState(false)
   const [isAccountFocused, setIsAccountFocused] = useState(false)
   const [isChecked, setIsChecked] = useState(false)
+
+  // 登录成功后的角色展示弹窗(可选增强,LoginPopUp)
+  const [showLoginPopUp, setShowLoginPopUp] = useState(false)
+  const [popupUser, setPopupUser] = useState<UserInfo | null>(null)
 
   // ===== 短信验证码登录状态(保持现状,未接入 useLoginForm) =====
   const [phone, setPhone] = useState('')
@@ -77,8 +82,9 @@ export default function Login() {
     try {
       const res = await loginBySms(phone, code)
       setAuth(res.accessToken, res.user, res.refreshToken)
-      Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
-      setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
+      // 登录成功:弹出角色展示弹窗(可选增强),关闭后再跳首页
+      setPopupUser(res.user ?? null)
+      setShowLoginPopUp(true)
     } catch {
       // 错误已统一提示
     } finally {
@@ -125,9 +131,10 @@ export default function Login() {
   )
 
   const handlePasswordSuccess = useCallback(() => {
-    Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
-    setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
-  }, [t])
+    // 登录成功:弹出角色展示弹窗(可选增强),关闭后再跳首页
+    setPopupUser(lastLoginUserRef.current ?? null)
+    setShowLoginPopUp(true)
+  }, [])
 
   const form = useLoginForm({
     loginApi,
@@ -183,6 +190,11 @@ export default function Login() {
   const accountValue = loginType === 'phone' ? phone : form.account
   const onAccountInput = (e: { detail: { value: string } }) =>
     loginType === 'phone' ? setPhone(e.detail.value) : form.setAccount(e.detail.value)
+
+  // identityTypy 不在 UserInfo 类型中,用交叉类型 + typeof 守卫安全读取(禁 any)
+  const popupUserExt = popupUser as (UserInfo & { identityTypy?: unknown }) | null
+  const popupIdentityTypy =
+    typeof popupUserExt?.identityTypy === 'number' ? popupUserExt.identityTypy : 0
 
   return (
     <View className="container-ali">
@@ -387,6 +399,25 @@ export default function Login() {
           </View>
         </View>
       </View>
+
+      {/* 登录后角色展示弹窗(可选增强) */}
+      <LoginPopUp
+        visible={showLoginPopUp}
+        userInfo={{
+          nickname: popupUser?.nickname || popupUser?.userName || '',
+          avatar: popupUser?.avatar || '',
+          isVip: popupUser?.isVip ? 1 : 0,
+          identityTypy: popupIdentityTypy,
+        }}
+        onClose={() => {
+          setShowLoginPopUp(false)
+          Taro.reLaunch({ url: '/pages/index/index' })
+        }}
+        onUpgrade={() => {
+          setShowLoginPopUp(false)
+          Taro.navigateTo({ url: '/pages/vip/index' })
+        }}
+      />
     </View>
   )
 }

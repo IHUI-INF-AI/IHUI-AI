@@ -34,6 +34,7 @@ import type { ModelType } from '@/components/ModelTypeButton'
 import BottomActionBar, {
   type ToggleButtonItem,
 } from '@/components/BottomActionBar'
+import Toolbar from '@/components/Toolbar'
 import './index.css'
 
 const DEFAULT_AVATAR =
@@ -298,6 +299,19 @@ export default function Index() {
               />
             </View>
           </View>
+        </View>
+
+        {/* ===== Toolbar(快捷入口工具栏,横向滚动,不带背景)===== */}
+        <View className="px-[20rpx] py-[16rpx]">
+          <Toolbar
+            items={[
+              { id: 'ai', name: 'AI对话', icon: '🤖', onClick: () => Taro.navigateTo({ url: '/pages/ai/chat' }) },
+              { id: 'course', name: '课程', icon: '📚', onClick: () => Taro.switchTab({ url: '/pages/course/list' }) },
+              { id: 'plaza', name: '广场', icon: '🏙️', onClick: () => Taro.navigateTo({ url: '/pages/plaza/index/index' }) },
+              { id: 'rank', name: '排行', icon: '🏆', onClick: () => Taro.navigateTo({ url: '/pages/ranking/index' }) },
+              { id: 'vip', name: '会员', icon: '👑', onClick: () => Taro.navigateTo({ url: '/pages/vip/index' }) },
+            ]}
+          />
         </View>
 
         {/* ===== input_box_content(底部输入区,position fixed)===== */}

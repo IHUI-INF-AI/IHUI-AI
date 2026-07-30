@@ -3,6 +3,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
+import Carousel from '@/components/Carousel'
 import { useI18n } from '@/i18n'
 
 interface PlanetCourse {
@@ -174,6 +175,23 @@ export default function CoursePlanet() {
         ))}
         </View>
       </ScrollView>
+      {displayList.length > 0 && (
+        <View className="px-[24rpx] mb-[24rpx]">
+          <Carousel
+            variant="course"
+            items={displayList.slice(0, 5).map((item) => ({ img: item.coverUrl || '' }))}
+            courseMeta={displayList.slice(0, 5).map((item) => ({
+              title: item.title,
+              price: item.price,
+              isFree: item.price === 0,
+            }))}
+            autoplay
+            interval={4000}
+            height={300}
+            onItemClick={(_item, idx) => onItemClick(displayList[idx]?.id ?? '')}
+          />
+        </View>
+      )}
       <View className="p-[24rpx]">
         {displayList.length ? (
           displayList.map((item) => (
