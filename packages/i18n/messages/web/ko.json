@@ -189,6 +189,7 @@
     "teams": "팀",
     "docs": "문서",
     "search": "검색",
+    "openBrowser": "브라우저 열기",
     "tags": "태그",
     "oauthPlatform": "OAuth 플랫폼",
     "selfMediaWechat": "WeChat 공식",
@@ -331,7 +332,10 @@
       "resource": "리소스 센터",
       "developer": "개발자 센터",
       "saas": "SaaS 플랫폼"
-    }
+    },
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "restore": "복원"
   },
   "home": {
     "announcement": {
@@ -8971,6 +8975,16 @@
     "suggest": "검색 제안",
     "clearAll": "모두 지우기",
     "noResults": "검색 결과 없음",
+    "quickSuggestions": [
+      "설정",
+      "프로필",
+      "프로젝트",
+      "대화 기록",
+      "멤버",
+      "워크스페이스",
+      "단축키",
+      "AI 모델"
+    ],
     "searchPlaceholder": "검색…",
     "searchHistory": "검색 기록",
     "clear": "지우기",
@@ -8990,17 +9004,7 @@
     "loading": "로딩 중...",
     "emptyResult": "일치하는 결과를 찾을 수 없습니다",
     "open": "열기",
-    "resultsCount": "총 {total}건 결과(사용자 {users} / 프로젝트 {projects} / 파일 {files})",
-    "quickSuggestions": [
-      "설정",
-      "프로필",
-      "프로젝트",
-      "대화 기록",
-      "멤버",
-      "워크스페이스",
-      "단축키",
-      "AI 모델"
-    ]
+    "resultsCount": "총 {total}건 결과(사용자 {users} / 프로젝트 {projects} / 파일 {files})"
   },
   "footer": {
     "companyName": "지린성 애즈후이 인공지능 기술 유한회사",
@@ -10211,43 +10215,43 @@
       "subtitle": "8플랫폼 전체 커버 기업급 AI 플랫폼 · 100+ LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
       "modelIntegration": {
         "title": "8플랫폼 전체 커버 아키텍처",
-        "description": "웹/데스크톱/모바일/미니프로그램/CLI/확장 6플랫폼 + API/AI-Service 2플랫폼, 업계에서도 드문 풀스택, 통합 계정 원활한 전환",
-        "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 8플랫폼 공용 · 데이터 마이그레이션 제로"
+        "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 8플랫폼 공용 · 데이터 마이그레이션 제로",
+        "description": "웹/데스크톱/모바일/미니프로그램/CLI/확장 6플랫폼 + API/AI-Service 2플랫폼, 업계에서도 드문 풀스택, 통합 계정 원활한 전환"
       },
       "appStore": {
         "title": "100+ LLM 대모델",
-        "description": "국제 30+ (OpenAI/Claude/Gemini/Llama) + 국산 15+ (Qwen/GLM/DeepSeek) + 클라우드 40+ 제공자, 하나의 API 키로 전체 액세스",
-        "benefit": "종합 ¥18만/년 절약 · Claude Pro + GPT Plus + Cursor + 다중 모델 API 대체"
+        "benefit": "종합 ¥18만/년 절약 · Claude Pro + GPT Plus + Cursor + 다중 모델 API 대체",
+        "description": "국제 30+ (OpenAI/Claude/Gemini/Llama) + 국산 15+ (Qwen/GLM/DeepSeek) + 클라우드 40+ 제공자, 하나의 API 키로 전체 액세스"
       },
       "contentCreation": {
         "title": "자체 개발 CLI · Claude Code 대안",
-        "description": "ACP Server 임베드 Zed/VSCode/Cursor + 6개 사유 확장 메서드(session 복구/rewind 되돌리기/MCP 호출) + 6 소스 설정 원클릭 가져오기",
-        "benefit": "Claude Pro ¥17000/년 절약 · 개발 효율 10× 향상 · 6 소스 설정 원클릭 가져오기"
+        "benefit": "Claude Pro ¥17000/년 절약 · 개발 효율 10× 향상 · 6 소스 설정 원클릭 가져오기",
+        "description": "ACP Server 임베드 Zed/VSCode/Cursor + 6개 사유 확장 메서드(session 복구/rewind 되돌리기/MCP 호출) + 6 소스 설정 원클릭 가져오기"
       },
       "edu": {
         "title": "AI 교육 풀스택",
-        "description": "과정/라이브/시험/자격증/강사/반 6대 모듈, 연중 모든 과정 무료 참여, AI 신도구에서 기업 AI 문화까지 3단계 점진적 진행",
-        "benefit": "¥10만/년 교육비 절약 · 전 직원 AI화 · 3단계 점진적 진행"
+        "benefit": "¥10만/년 교육비 절약 · 전 직원 AI화 · 3단계 점진적 진행",
+        "description": "과정/라이브/시험/자격증/강사/반 6대 모듈, 연중 모든 과정 무료 참여, AI 신도구에서 기업 AI 문화까지 3단계 점진적 진행"
       },
       "navigation": {
         "title": "기업급 워크스페이스",
-        "description": "3 권한 모드 + 7 엔드포인트 런타임 차단 + 60s 타임아웃 거부 + RBAC 세분화 권한 관리 + 99.9% SLA",
-        "benefit": "데이터 유출 제로 · 감사 전 과정 추적 가능 · 99.9% SLA 기업급 제로 리스크"
+        "benefit": "데이터 유출 제로 · 감사 전 과정 추적 가능 · 99.9% SLA 기업급 제로 리스크",
+        "description": "3 권한 모드 + 7 엔드포인트 런타임 차단 + 60s 타임아웃 거부 + RBAC 세분화 권한 관리 + 99.9% SLA"
       },
       "agentSquare": {
         "title": "에이전트 광장",
-        "description": "범용/산업/직능 3대 에이전트, 고객센터/마케팅/운영/HR/재무 5+ 직능 커버, 즉시 사용, 커스텀 지원",
-        "benefit": "5+ 인력 포지션 대체 · 7×24 중단 없음 · 종합 ¥30만/년 인건비 절약"
+        "benefit": "5+ 인력 포지션 대체 · 7×24 중단 없음 · 종합 ¥30만/년 인건비 절약",
+        "description": "범용/산업/직능 3대 에이전트, 고객센터/마케팅/운영/HR/재무 5+ 직능 커버, 즉시 사용, 커스텀 지원"
       },
       "workflow": {
         "title": "LangGraph 워크플로우",
-        "description": "2개 LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계에서도 드문",
-        "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 트리플 스택결합 업계에서도 드문"
+        "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 트리플 스택결합 업계에서도 드문",
+        "description": "2개 LangGraph 워크플로우 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 트리플 스택결합 업계에서도 드문"
       },
       "multimodal": {
         "title": "멀티모달 AI 입력",
-        "description": "이미지 생성/음성 합성/비디오 생성/파일 파싱/디지털 휴먼 5대 모달, 하나의 API 키로 전체 액세스",
-        "benefit": "¥5만/년 디자인비 절약 · 5대 모달 전체 연동 · 콘텐츠 생산 10× 가속"
+        "benefit": "¥5만/년 디자인비 절약 · 5대 모달 전체 연동 · 콘텐츠 생산 10× 가속",
+        "description": "이미지 생성/음성 합성/비디오 생성/파일 파싱/디지털 휴먼 5대 모달, 하나의 API 키로 전체 액세스"
       }
     },
     "advantages": {
@@ -12410,11 +12414,23 @@
     },
     "topBar": {
       "editor": "에디터",
-      "close": "닫기"
+      "close": "닫기",
+      "document": "문서",
+      "browser": "내장 브라우저",
+      "terminal": "터미널",
+      "codeChanges": "코드 변경",
+      "agent": "에이전트",
+      "mcp": "MCP",
+      "settings": "설정",
+      "skill": "스킬",
+      "plus": "뷰 추가"
     },
     "viewSwitcher": {
       "searchPlaceholder": "보기 검색...",
-      "noMatch": "일치 항목 없음"
+      "noMatch": "일치 항목 없음",
+      "groupView": "보기",
+      "groupTools": "도구",
+      "groupSettings": "설정"
     },
     "layout": {
       "documentView": "문서 보기",
@@ -13320,6 +13336,13 @@
     "cardLabel": "API 가격",
     "cardDesc": "모델 가격 및 청구 규칙"
   },
+  "messageInput": {
+    "document": "파일",
+    "removeFile": "파일 제거",
+    "placeholder": "메시지 입력...",
+    "clear": "지우기",
+    "stop": "중지"
+  },
   "a11y": {
     "lineChart": "꺾은선 차트",
     "radarChart": "방사형 차트",
@@ -13436,12 +13459,5 @@
   "forbidden": {
     "title": "권한 없음",
     "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요."
-  },
-  "messageInput": {
-    "document": "파일",
-    "removeFile": "파일 제거",
-    "placeholder": "메시지 입력...",
-    "clear": "지우기",
-    "stop": "중지"
   }
 }
