@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveById, subscribeLive, type Live } from '@ihui/api-client'
@@ -7,6 +8,7 @@ import {
   type LiveDetailChatMessage,
   type LiveDetailItem,
 } from '@ihui/rn-app'
+import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import type { LiveStackParamList } from '../navigation/RootNavigator'
 import { formatTimeOnly } from '../utils/date-utils'
@@ -136,21 +138,27 @@ export function LiveDetailScreen() {
   const sharedMessages = useMemo(() => messages.map(mapMessage), [messages])
 
   return (
-    <SharedLiveDetailScreen
-      t={t}
-      live={sharedLive}
-      loading={loading}
-      error={error}
-      subscribed={subscribed}
-      subscribing={subscribing}
-      messages={sharedMessages}
-      input={input}
-      chatStatus={chatStatus}
-      chatError={chatError}
-      onInputChange={setInput}
-      onSend={onSend}
-      onSubscribe={onSubscribe}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={{ flex: 1 }}>
+      <NavBar
+        title={live?.title ?? t('liveDetail.title')}
+        onBack={() => navigation.goBack()}
+      />
+      <SharedLiveDetailScreen
+        t={t}
+        live={sharedLive}
+        loading={loading}
+        error={error}
+        subscribed={subscribed}
+        subscribing={subscribing}
+        messages={sharedMessages}
+        input={input}
+        chatStatus={chatStatus}
+        chatError={chatError}
+        onInputChange={setInput}
+        onSend={onSend}
+        onSubscribe={onSubscribe}
+        onBack={() => navigation.goBack()}
+      />
+    </View>
   )
 }

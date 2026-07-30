@@ -20,3 +20,7 @@ export * from './use-form'
 export * from './use-login-form'
 // 跨端共享注册表单(2026-07-29 立,web/RN/Taro 三端注册逻辑去重)
 export * from './use-register-form'
+// 跨端存储 hook(2026-07-30 立,基于 storage 工厂的 React hook)
+export * from './use-storage'
+// 跨端图片选择 hook(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
+export * from './use-image-picker'

@@ -163,7 +163,7 @@ export default function CourseDetail() {
   ]
 
   return (
-    <View className="min-h-screen pb-[160rpx] bg-background">
+    <View className="min-h-screen pb-[120rpx] bg-background">
       <CourseHeader
         data={headerData}
         onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
@@ -255,13 +255,13 @@ export default function CourseDetail() {
         />
       </View>
 
-      <View className="fixed left-0 right-0 bottom-0 h-[120rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
+      <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
         <View className="flex-1">
-          <Text className="text-sm text-destructive">¥</Text>
-          <Text className="text-2xl text-destructive font-bold">{course.price ?? 0}</Text>
+          <Text className="text-sm text-primary">¥</Text>
+          <Text className="text-2xl text-primary font-bold">{course.price ?? 0}</Text>
         </View>
         <View
-          className="px-7 h-10 leading-10 bg-primary text-white rounded-lg text-sm"
+          className="px-7 h-[80rpx] leading-[80rpx] bg-primary text-primary-foreground rounded-lg text-sm"
           onClick={handleBuy}
         >
           <Text>{t('course.buyNow')}</Text>

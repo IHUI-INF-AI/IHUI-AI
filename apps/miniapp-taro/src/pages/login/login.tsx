@@ -4,17 +4,19 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useUserStore } from '@/stores/user'
 import { sendSmsCode, loginBySms, loginByPassword } from '@/api'
 import { getSsoLoginUrl } from '@/utils/sso'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/hooks'
 import { credentialStorage } from '@/lib/credential-storage'
 import type { UserInfo } from '@/utils/auth'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
+import LoginPopUp from '@/components/LoginPopUp'
 import './login.css'
 
 export default function Login() {
   const { t } = useI18n()
+  const tt = useTt()
   const { setAuth } = useUserStore()
   const [loginType, setLoginType] = useState<'phone' | 'password'>('phone')
 
@@ -27,6 +29,10 @@ export default function Login() {
   const [isAccountFocused, setIsAccountFocused] = useState(false)
   const [isChecked, setIsChecked] = useState(false)
 
+  // 登录成功后的角色展示弹窗(可选增强,LoginPopUp)
+  const [showLoginPopUp, setShowLoginPopUp] = useState(false)
+  const [popupUser, setPopupUser] = useState<UserInfo | null>(null)
+
   // ===== 短信验证码登录状态(保持现状,未接入 useLoginForm) =====
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
@@ -35,8 +41,8 @@ export default function Login() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const codeBtnText = useMemo(
-    () => (countdown > 0 ? `${countdown}秒后重新获取` : '发送验证码'),
-    [countdown],
+    () => (countdown > 0 ? `${countdown}${tt('login.codeCountdownSuffix', '秒后重新获取')}` : tt('login.sendCode', '发送验证码')),
+    [countdown, tt],
   )
   const codeBtnDisabled = useMemo(() => countdown > 0 || phone.length !== 11, [countdown, phone])
 
@@ -77,8 +83,9 @@ export default function Login() {
     try {
       const res = await loginBySms(phone, code)
       setAuth(res.accessToken, res.user, res.refreshToken)
-      Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
-      setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
+      // 登录成功:弹出角色展示弹窗(可选增强),关闭后再跳首页
+      setPopupUser(res.user ?? null)
+      setShowLoginPopUp(true)
     } catch {
       // 错误已统一提示
     } finally {
@@ -125,9 +132,10 @@ export default function Login() {
   )
 
   const handlePasswordSuccess = useCallback(() => {
-    Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
-    setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
-  }, [t])
+    // 登录成功:弹出角色展示弹窗(可选增强),关闭后再跳首页
+    setPopupUser(lastLoginUserRef.current ?? null)
+    setShowLoginPopUp(true)
+  }, [])
 
   const form = useLoginForm({
     loginApi,
@@ -184,6 +192,11 @@ export default function Login() {
   const onAccountInput = (e: { detail: { value: string } }) =>
     loginType === 'phone' ? setPhone(e.detail.value) : form.setAccount(e.detail.value)
 
+  // identityTypy 不在 UserInfo 类型中,用交叉类型 + typeof 守卫安全读取(禁 any)
+  const popupUserExt = popupUser as (UserInfo & { identityTypy?: unknown }) | null
+  const popupIdentityTypy =
+    typeof popupUserExt?.identityTypy === 'number' ? popupUserExt.identityTypy : 0
+
   return (
     <View className="container-ali">
       <View className="container1">
@@ -208,13 +221,13 @@ export default function Login() {
                   className={`login-type-tab ${loginType === 'phone' ? 'login-type-tab-active' : ''}`}
                   onClick={() => setLoginType('phone')}
                 >
-                  <Text>手机号验证码登录</Text>
+                  <Text>{tt('login.smsTab', '手机号验证码登录')}</Text>
                 </View>
                 <View
                   className={`login-type-tab ${loginType === 'password' ? 'login-type-tab-active' : ''}`}
                   onClick={() => setLoginType('password')}
                 >
-                  <Text>手机号密码登录</Text>
+                  <Text>{tt('login.passwordTab', '手机号密码登录')}</Text>
                 </View>
               </View>
             </View>
@@ -234,7 +247,7 @@ export default function Login() {
                       className="input iponeinput input-text"
                       type="number"
                       maxlength={11}
-                      placeholder="手机号码"
+                      placeholder={tt('login.phonePlaceholder', '手机号码')}
                       placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
                       value={accountValue}
                       onInput={onAccountInput}
@@ -255,7 +268,7 @@ export default function Login() {
                     <Input
                       className="input iponeinput input-text"
                       type="text"
-                      placeholder="手机号码"
+                      placeholder={tt('login.phonePlaceholder', '手机号码')}
                       placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
                       value={accountValue}
                       onInput={onAccountInput}
@@ -279,7 +292,7 @@ export default function Login() {
                     <Input
                       className="input iponeinput input-text"
                       password={!showPwd}
-                      placeholder="密码"
+                      placeholder={tt('login.passwordPlaceholder', '密码')}
                       placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
                       value={form.password}
                       onInput={(e) => form.setPassword(e.detail.value)}
@@ -316,7 +329,7 @@ export default function Login() {
                       className="input input-text"
                       type="number"
                       maxlength={6}
-                      placeholder="验证码"
+                      placeholder={tt('login.codePlaceholder', '验证码')}
                       placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
                       value={code}
                       onInput={(e) => setCode(e.detail.value)}
@@ -338,13 +351,13 @@ export default function Login() {
           <View className="bottom-section">
             <View className="bottom_box">
               <AuthButton onClick={handleLoginClick} disabled={isLogging}>
-                {isLogging ? '登录中…' : '登录/注册'}
+                {isLogging ? tt('login.loading', '登录中…') : tt('login.loginOrRegister', '登录/注册')}
               </AuthButton>
 
               {/* 快捷登录分割线(三段式) */}
               <View className="switch-login">
                 <View className="switch-login-line" />
-                <Text className="switch-login-text">快捷登录</Text>
+                <Text className="switch-login-text">{tt('login.quickLogin', '快捷登录')}</Text>
                 <View className="switch-login-line" />
               </View>
 
@@ -377,16 +390,36 @@ export default function Login() {
                   <View className={`checkmark ${isChecked ? 'checked' : ''}`} />
                 </View>
                 <Text className="arge">
-                  点击登录/注册按钮即视为同意
-                  <Text className="textItem">《隐私政策》</Text>
-                  和
-                  <Text className="textItem">《服务协议》</Text>;未注册用户将自动创建账号
+                  {tt('login.agreementPrefix', '点击登录/注册按钮即视为同意')}
+                  <Text className="textItem">{tt('login.privacyPolicy', '《隐私政策》')}</Text>
+                  {tt('login.and', '和')}
+                  <Text className="textItem">{tt('login.serviceAgreement', '《服务协议》')}</Text>
+                  {tt('login.autoRegisterHint', ';未注册用户将自动创建账号')}
                 </Text>
               </View>
             </View>
           </View>
         </View>
       </View>
+
+      {/* 登录后角色展示弹窗(可选增强) */}
+      <LoginPopUp
+        visible={showLoginPopUp}
+        userInfo={{
+          nickname: popupUser?.nickname || popupUser?.userName || '',
+          avatar: popupUser?.avatar || '',
+          isVip: popupUser?.isVip ? 1 : 0,
+          identityTypy: popupIdentityTypy,
+        }}
+        onClose={() => {
+          setShowLoginPopUp(false)
+          Taro.reLaunch({ url: '/pages/index/index' })
+        }}
+        onUpgrade={() => {
+          setShowLoginPopUp(false)
+          Taro.navigateTo({ url: '/pages/vip/index' })
+        }}
+      />
     </View>
   )
 }

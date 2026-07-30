@@ -3,7 +3,8 @@ import { useState, useCallback } from 'react'
 import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
+import './income.css'
 
 interface BuyInfo {
   AccumulatedIncome?: number
@@ -59,8 +60,7 @@ interface CashListResponse {
 const PAGE_SIZE = 10
 
 export default function DeveloperIncome() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [title, setTitle] = useState<'income' | 'detail'>('income')
   const [settlement, setSettlement] = useState('')
@@ -241,11 +241,9 @@ export default function DeveloperIncome() {
   }
   const settleClass = (item: IncomeItem) => {
     const s = String(item.settlement ?? item.settleStatus ?? item.status ?? '')
-    const base = 'text-[22rpx] px-[14rpx] py-[4rpx] rounded-[8rpx] bg-background text-muted-foreground'
-    // TODO: custom color: 浅色背景 #e9f7ef / #fff4e6 无对应 token
-    if (s === '2') return `${base} bg-[#e9f7ef] text-success`
-    if (s === '1') return `${base} bg-[#fff4e6] text-warning`
-    return base
+    if (s === '2') return 'income-item-badge settled'
+    if (s === '1') return 'income-item-badge pending'
+    return 'income-item-badge'
   }
   const displayTime = (item: IncomeItem) =>
     item.time || item.createTime || item.createdAt || ''
@@ -274,92 +272,66 @@ export default function DeveloperIncome() {
   ]
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="relative flex items-center justify-center px-[30rpx] py-[24rpx] bg-card">
-        <Text className="absolute left-[20rpx] top-1/2 -translate-y-1/2 text-[44rpx] text-foreground px-[12rpx] leading-none" onClick={onBack}>
-          ‹
-        </Text>
-        <Text className="text-[34rpx] font-semibold text-foreground">{headerTitle}</Text>
+    <View className="income-page">
+      <View className="income-header">
+        <Text className="income-back" onClick={onBack}>‹</Text>
+        <Text className="income-title">{headerTitle}</Text>
       </View>
 
       {title === 'income' ? (
         <View>
-          <View className="mx-[20rpx] my-[20rpx] p-[30rpx] bg-card rounded-[24rpx]">
-            <View className="flex items-start justify-between mb-[30rpx]">
-              <View className="flex flex-col">
-                <Text className="text-[24rpx] text-muted-foreground mb-[12rpx]">
-                  {tt('developer.income.accumulatedYuan', '累积收入(元)')}
+          <View className="income-card-wrap">
+            <View className="income-card">
+              <View className="income-card-top">
+                <Text className="income-acc-label">
+                  {tt('developer.income.accumulatedYuan', '累积收入')}
                 </Text>
-                {/* TODO: custom color: #7b61ff 紫色品牌色,无对应 token,保留原值 */}
-                <Text className="text-[52rpx] font-bold text-[#7b61ff] leading-[1.1]">
-                  {loading ? '--' : accumulated}
-                </Text>
-              </View>
-              <View
-                className={`px-[36rpx] py-[14rpx] bg-accent rounded-[12rpx]${available <= 0 ? ' opacity-40' : ''}`}
-                onClick={openIncomePopup}
-              >
-                <Text className="text-accent-foreground text-[26rpx] font-semibold">
+                <Text className="income-acc-value">{loading ? '--' : accumulated}</Text>
+                <Text className="income-acc-unit">{tt('developer.income.yuan', '元')}</Text>
+                <Text
+                  className="income-withdraw-btn"
+                  onClick={openIncomePopup}
+                >
                   {tt('developer.income.withdrawPopup', '提现')}
                 </Text>
               </View>
-            </View>
-            <View className="flex mb-[30rpx]">
-              <View className="flex-1 text-center">
-                <Text className="block text-[22rpx] text-muted-foreground mb-[10rpx]">
-                  {tt('developer.income.withdrawableYuan', '可提现金额(元)')}
-                </Text>
-                <Text className="text-[32rpx] text-foreground font-semibold">
-                  {loading ? '--' : available}
-                </Text>
+              <View className="income-stats-row">
+                <View className="income-stat-item">
+                  <Text className="income-stat-label">{tt('developer.income.withdrawableYuan', '可提现金额(元)')}</Text>
+                  <Text className="income-stat-value">{loading ? '--' : available}</Text>
+                </View>
+                <View className="income-stat-item">
+                  <Text className="income-stat-label">{tt('developer.income.withdrawnAmountYuan', '已提现金额(元)')}</Text>
+                  <Text className="income-stat-value">{loading ? '--' : withdrawn}</Text>
+                </View>
+                <View className="income-stat-item" onClick={onSwitchToDetail}>
+                  <Text className="income-stat-label">{tt('developer.income.cashDetail', '提现明细')}</Text>
+                  <Text className="income-stat-value">›</Text>
+                </View>
               </View>
-              <View className="flex-1 text-center">
-                <Text className="block text-[22rpx] text-muted-foreground mb-[10rpx]">
-                  {tt('developer.income.withdrawnAmountYuan', '已提现金额(元)')}
-                </Text>
-                <Text className="text-[32rpx] text-foreground font-semibold">
-                  {loading ? '--' : withdrawn}
-                </Text>
-              </View>
-              <View className="flex-1 text-center" onClick={onSwitchToDetail}>
-                <Text className="block text-[22rpx] text-muted-foreground mb-[10rpx]">
-                  {tt('developer.income.cashDetail', '提现明细')}
-                </Text>
-                <Text className="text-[32rpx] text-foreground font-semibold text-accent text-[40rpx]">›</Text>
-              </View>
-            </View>
-            <View className="flex">
-              <View className="flex-1 text-center">
-                <Text className="block text-[22rpx] text-muted-foreground mb-[10rpx]">
-                  {tt('developer.income.todayIncome', '今日收入')}
-                </Text>
-                <Text className="text-[32rpx] text-foreground font-semibold">
-                  {loading ? '--' : todayAccount}
-                </Text>
-              </View>
-              <View className="flex-1 text-center">
-                <Text className="block text-[22rpx] text-muted-foreground mb-[10rpx]">
-                  {tt('developer.income.pendingSettlement', '待结算金额')}
-                </Text>
-                <Text className="text-[32rpx] text-foreground font-semibold">
-                  {loading ? '--' : pendingSettlement}
-                </Text>
+              <View className="income-card-bottom">
+                <View className="income-stat-item">
+                  <Text className="income-stat-label">{tt('developer.income.todayIncome', '今日收入')}</Text>
+                  <Text className="income-stat-value">{loading ? '--' : todayAccount}</Text>
+                </View>
+                <View className="income-stat-item">
+                  <Text className="income-stat-label">{tt('developer.income.pendingSettlement', '待结算金额')}</Text>
+                  <Text className="income-stat-value">{loading ? '--' : pendingSettlement}</Text>
+                </View>
               </View>
             </View>
           </View>
 
-          <View className="flex items-center px-[20rpx] mb-[20rpx]">
-            <Text className="w-[32rpx] h-[32rpx] leading-[32rpx] text-center bg-accent text-accent-foreground rounded-[8rpx] text-[22rpx] mr-[12rpx]">¥</Text>
-            <Text className="text-[24rpx] text-muted-foreground">
-              {tt('developer.income.feeTip', '平台限时不收取任何服务费')}
-            </Text>
+          <View className="income-fee-tip">
+            <Text className="income-fee-icon">¥</Text>
+            <Text>{tt('developer.income.feeTip', '平台限时不收取任何服务费')}</Text>
           </View>
 
-          <View className="flex mx-[20rpx] mb-[20rpx] p-[6rpx] bg-background rounded-[16rpx]">
+          <View className="income-tabs">
             {tabs.map((tab) => (
               <View
                 key={tab.id || 'all'}
-                className={`flex-1 text-center py-[16rpx] rounded-[12rpx] text-muted-foreground text-[26rpx]${settlement === tab.id ? ' bg-card text-foreground font-semibold' : ''}`}
+                className={`income-tab${settlement === tab.id ? ' active' : ''}`}
                 onClick={() => onChangeSettlement(tab.id)}
               >
                 <Text>{tab.name}</Text>
@@ -367,22 +339,18 @@ export default function DeveloperIncome() {
             ))}
           </View>
 
-          <View className="px-[20rpx] pb-[40rpx]">
+          <View className="income-list">
             {loading ? (
-              <Text className="block text-center text-muted-foreground py-[80rpx] text-[26rpx]">
-                {tt('common.loading', '加载中…')}
-              </Text>
+              <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
             ) : incomeList.length ? (
               incomeList.map((item, idx) => (
-                <View key={item.id ?? idx} className="flex items-center justify-between bg-card rounded-[20rpx] p-[24rpx] mb-[16rpx]">
-                  <View className="flex-1">
-                    <Text className="block text-[28rpx] text-foreground mb-[8rpx]">{displayTitle(item)}</Text>
-                    <Text className="text-[24rpx] text-muted-foreground">{displayTime(item)}</Text>
+                <View key={item.id ?? idx} className="income-list-item">
+                  <View>
+                    <Text className="income-item-title">{displayTitle(item)}</Text>
+                    <Text className="income-item-time">{displayTime(item)}</Text>
                   </View>
-                  <View className="flex flex-col items-end">
-                    <Text className="text-[30rpx] text-success font-semibold mb-[8rpx]">
-                      +¥{displayAmount(item)}
-                    </Text>
+                  <View>
+                    <Text className="income-item-amount">+¥{displayAmount(item)}</Text>
                     {settleText(item) ? (
                       <Text className={settleClass(item)}>{settleText(item)}</Text>
                     ) : null}
@@ -390,86 +358,72 @@ export default function DeveloperIncome() {
                 </View>
               ))
             ) : (
-              <Text className="block text-center text-muted-foreground py-[80rpx] text-[26rpx]">
-                {tt('developer.income.empty', '暂无收入记录')}
-              </Text>
+              <Text className="income-empty">{tt('developer.income.empty', '暂无收入记录')}</Text>
             )}
             {incomeList.length > 0 && !hasMore ? (
-              <Text className="block text-center text-muted-foreground py-[20rpx] text-[24rpx]">
-                {tt('developer.income.noMore', '没有更多了')}
-              </Text>
+              <Text className="income-empty">{tt('developer.income.noMore', '没有更多了')}</Text>
             ) : null}
             {loadingMore ? (
-              <Text className="block text-center text-muted-foreground py-[20rpx] text-[24rpx]">
-                {tt('common.loading', '加载中…')}
-              </Text>
+              <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
             ) : null}
           </View>
         </View>
       ) : (
-        <View className="p-[20rpx]">
+        <View className="cash-list">
           {!cashLoaded ? (
-            <Text className="block text-center text-muted-foreground py-[80rpx] text-[26rpx]">
-              {tt('common.loading', '加载中…')}
-            </Text>
+            <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
           ) : cashList.length ? (
             cashList.map((item, idx) => (
-              <View key={item.id ?? idx} className="flex items-center justify-between bg-card rounded-[20rpx] p-[24rpx] mb-[16rpx]">
-                <View className="flex flex-col">
-                  <Text className="text-[30rpx] text-foreground font-semibold mb-[8rpx]">
-                    -¥{Number(item.amount ?? 0)}
-                  </Text>
-                  <Text className="text-[24rpx] text-muted-foreground">{cashTime(item)}</Text>
+              <View key={item.id ?? idx} className="cash-item">
+                <View>
+                  <Text className="income-item-amount">-¥{Number(item.amount ?? 0)}</Text>
+                  <Text className="income-item-time">{cashTime(item)}</Text>
                 </View>
-                <Text className="text-[24rpx] text-muted-foreground">{cashStatusText(item)}</Text>
+                <Text className="income-item-time">{cashStatusText(item)}</Text>
               </View>
             ))
           ) : (
-            <Text className="block text-center text-muted-foreground py-[80rpx] text-[26rpx]">
-              {tt('developer.income.cashEmpty', '暂无提现明细')}
-            </Text>
+            <Text className="income-empty">{tt('developer.income.cashEmpty', '暂无提现明细')}</Text>
           )}
         </View>
       )}
 
       {showIncomePopup ? (
-        <View className="fixed left-0 top-0 right-0 bottom-0 bg-[rgba(0,0,0,0.5)] flex items-center justify-center z-[1000]" onClick={closeIncomePopup}>
+        <View className="income-popup-mask" onClick={closeIncomePopup}>
           <View
-            className="w-[600rpx] bg-card rounded-[24rpx] px-[32rpx] py-[40rpx] flex flex-col items-stretch"
+            className="income-popup"
             onClick={(e) => e.stopPropagation()}
           >
-            <View className="flex items-center mb-[12rpx]">
-              {/* TODO: custom color: bg-[#7b61ff] 紫色品牌色 + bg-[#f3eeff] 浅紫选中背景,无对应 token */}
-              <Text className="w-[44rpx] h-[44rpx] leading-[44rpx] text-center bg-[#7b61ff] text-primary-foreground rounded-[10rpx] text-[24rpx] mr-[16rpx]">¥</Text>
-              <Text className="text-[30rpx] font-semibold text-foreground">
+            <View style={{ display: 'flex', alignItems: 'center', marginBottom: '12rpx' }}>
+              <Text style={{ width: '44rpx', height: '44rpx', lineHeight: '44rpx', textAlign: 'center', background: '#7b61ff', color: '#fff', borderRadius: '10rpx', fontSize: '24rpx', marginRight: '16rpx' }}>¥</Text>
+              <Text className="income-popup-title">
                 {tt('developer.income.selectMethod', '请选择提现方式')}
               </Text>
             </View>
-            <Text className="text-[22rpx] text-muted-foreground mb-[28rpx]">
+            <Text className="income-popup-sub" style={{ marginBottom: '28rpx' }}>
               {tt('developer.income.moreMethod', '更多提现方式可使用官方APP')}
             </Text>
             <View
-              className={`flex items-center w-full p-[20rpx] bg-background rounded-[12rpx] mb-[28rpx] box-border${incomeType === 'wechat' ? ' bg-[#f3eeff]' : ''}`}
+              className="income-popup-sub"
+              style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '20rpx', background: incomeType === 'wechat' ? '#f3eeff' : 'var(--color-background)', borderRadius: '12rpx', marginBottom: '28rpx', boxSizing: 'border-box' }}
               onClick={() => setIncomeType((prev) => (prev === 'wechat' ? '' : 'wechat'))}
             >
-              <View className="w-[48rpx] h-[48rpx] leading-[48rpx] text-center bg-[var(--color-wechat-green)] text-primary-foreground rounded-[10rpx] text-[24rpx] mr-[16rpx]">
-                <Text className="text-primary-foreground">微</Text>
-              </View>
-              <Text className="flex-1 text-[28rpx] text-foreground">
+              <Text style={{ width: '48rpx', height: '48rpx', lineHeight: '48rpx', textAlign: 'center', background: 'var(--color-wechat-green)', color: '#fff', borderRadius: '10rpx', fontSize: '24rpx', marginRight: '16rpx' }}>微</Text>
+              <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-foreground)' }}>
                 {tt('developer.income.wechat', '微信')}
               </Text>
-              <Text className={`w-[36rpx] text-center text-muted-foreground text-[28rpx]${incomeType === 'wechat' ? ' text-[var(--color-wechat-green)] text-[32rpx]' : ''}`}>
+              <Text style={{ width: '36rpx', textAlign: 'center', color: incomeType === 'wechat' ? 'var(--color-wechat-green)' : 'var(--color-muted-foreground)', fontSize: '32rpx' }}>
                 {incomeType === 'wechat' ? '✓' : ''}
               </Text>
             </View>
-            <View className="flex w-full gap-[20rpx]">
-              <View className="flex-1 text-center py-[20rpx] rounded-[16rpx] bg-background" onClick={closeIncomePopup}>
-                <Text className="text-[28rpx] text-muted-foreground">
+            <View style={{ display: 'flex', width: '100%', gap: '20rpx' }}>
+              <View style={{ flex: 1, textAlign: 'center', padding: '20rpx 0', borderRadius: '16rpx', background: 'var(--color-background)' }} onClick={closeIncomePopup}>
+                <Text style={{ fontSize: '28rpx', color: 'var(--color-muted-foreground)' }}>
                   {tt('common.cancel', '取消')}
                 </Text>
               </View>
-              <View className="flex-1 text-center py-[20rpx] rounded-[16rpx] bg-accent" onClick={onIncomeMethodConfirm}>
-                <Text className="text-[28rpx] text-accent-foreground font-semibold">
+              <View style={{ flex: 1, textAlign: 'center', padding: '20rpx 0', borderRadius: '16rpx', background: 'var(--color-accent)' }} onClick={onIncomeMethodConfirm}>
+                <Text style={{ fontSize: '28rpx', color: 'var(--color-accent-foreground)', fontWeight: 600 }}>
                   {tt('developer.income.withdrawPopup', '提现')}
                 </Text>
               </View>
@@ -479,38 +433,37 @@ export default function DeveloperIncome() {
       ) : null}
 
       {showPopup ? (
-        <View className="fixed left-0 top-0 right-0 bottom-0 bg-[rgba(0,0,0,0.5)] flex items-center justify-center z-[1000]" onClick={closePopup}>
-          <View className="w-[600rpx] bg-card rounded-[24rpx] px-[32rpx] py-[40rpx] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-            <Text className="text-[32rpx] font-semibold text-foreground mb-[24rpx]">
+        <View className="income-popup-mask" onClick={closePopup}>
+          <View className="income-popup" style={{ alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <Text style={{ fontSize: '32rpx', fontWeight: 600, color: 'var(--color-foreground)', marginBottom: '24rpx' }}>
               {tt('developer.income.withdrawPopup', '提现')}
             </Text>
-            <Text className="text-[24rpx] text-muted-foreground mb-[24rpx]">
-              {tt('developer.income.withdrawAvailable', '可提现金额 ¥')}
-              {available}
+            <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)', marginBottom: '24rpx' }}>
+              {tt('developer.income.withdrawAvailable', '可提现金额 ¥')}{available}
             </Text>
-            <View className="flex items-center w-full bg-background rounded-[16rpx] px-[20rpx] py-[16rpx] box-border mb-[16rpx]">
-              <Text className="text-[32rpx] text-foreground font-semibold mr-[12rpx]">¥</Text>
+            <View style={{ display: 'flex', alignItems: 'center', width: '100%', background: 'var(--color-background)', borderRadius: '16rpx', padding: '16rpx 20rpx', boxSizing: 'border-box', marginBottom: '16rpx' }}>
+              <Text style={{ fontSize: '32rpx', fontWeight: 600, color: 'var(--color-foreground)', marginRight: '12rpx' }}>¥</Text>
               <Input
-                className="flex-1 text-[32rpx] text-foreground"
+                style={{ flex: 1, fontSize: '32rpx', color: 'var(--color-foreground)' }}
                 type="digit"
                 placeholder={tt('developer.income.withdrawPlaceholder', '请输入提现金额')}
                 value={amount}
                 onInput={(e) => setAmount(e.detail.value)}
               />
             </View>
-            <View className="self-end mb-[32rpx]" onClick={() => setAmount(String(available))}>
-              <Text className="text-[24rpx] text-accent">
+            <View style={{ alignSelf: 'flex-end', marginBottom: '32rpx' }} onClick={() => setAmount(String(available))}>
+              <Text style={{ fontSize: '24rpx', color: 'var(--color-accent)' }}>
                 {tt('developer.income.withdrawAll', '全部提现')}
               </Text>
             </View>
-            <View className="flex w-full gap-[20rpx]">
-              <View className="flex-1 text-center py-[20rpx] rounded-[16rpx] bg-background" onClick={closePopup}>
-                <Text className="text-[28rpx] text-muted-foreground">
+            <View style={{ display: 'flex', width: '100%', gap: '20rpx' }}>
+              <View style={{ flex: 1, textAlign: 'center', padding: '20rpx 0', borderRadius: '16rpx', background: 'var(--color-background)' }} onClick={closePopup}>
+                <Text style={{ fontSize: '28rpx', color: 'var(--color-muted-foreground)' }}>
                   {tt('common.cancel', '取消')}
                 </Text>
               </View>
-              <View className="flex-1 text-center py-[20rpx] rounded-[16rpx] bg-accent" onClick={confirmWithdraw}>
-                <Text className="text-[28rpx] text-accent-foreground font-semibold">
+              <View style={{ flex: 1, textAlign: 'center', padding: '20rpx 0', borderRadius: '16rpx', background: 'var(--color-accent)' }} onClick={confirmWithdraw}>
+                <Text style={{ fontSize: '28rpx', color: 'var(--color-accent-foreground)', fontWeight: 600 }}>
                   {submitting
                     ? tt('common.loading', '加载中…')
                     : tt('common.confirm', '确认')}
