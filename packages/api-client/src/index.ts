@@ -1,5 +1,6 @@
 export {
   fetchApi,
+  fetchRaw,
   setTokenProvider,
   setBaseUrl,
   setStreamBaseUrl,
@@ -165,6 +166,9 @@ export type {
 // 覆盖 audit 清单中 carousels/agreements/announcements/points/search 公开端点
 // 旧函数名通过 apps/web/src/lib/legacy-edu-api.ts 桥接
 export * from './endpoints/legacy-public'
+
+// 多平台一键发布(账号 + 任务 + 扫码登录,2026-07-30 新增)
+export * from './endpoints/publish'
 
 // Coze 平台 API 端点(2026-07-27 立,PAT 直连 Coze 官方 API,跨端共享)
 export * from './endpoints/coze'
