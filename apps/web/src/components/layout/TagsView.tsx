@@ -70,7 +70,7 @@ interface CtxMenuState {
  * 渲染到右侧工作区(#work-area-portal-root),居中于工作区顶部、向下滑出。
  * 提交后跳 /search?q=...。点击外部 / Esc 键 / 路由变化均会关闭弹层。
  */
-const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
+export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   const router = useRouter()
   const tNav = useTranslations('nav')
   const tCommon = useTranslations('common')
@@ -253,6 +253,54 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   )
 })
 
+/**
+ * 标签栏"更多Actions"按钮(2026-07-30 第十一轮"做减法 v7"用户反馈
+ * "把 chevron/Plus 挪到搜索按钮后面 a 标签前面"后抽出独立组件)
+ * - 内部独立订阅 tagsview store (tags.length / activePath / closeOther / closeAll),
+ *   tags.length === 0 时不渲染(无 tag 时不显示批量关闭)
+ * - 跟 TagsViewSearchButton 平级,放在 GlobalTopBar 内层 flex 的 chevron 位置
+ * - 渲染 chevron-down + Dropdown 弹层(closeOther / closeAll)
+ */
+export const TagsViewChevronButton = React.memo(function TagsViewChevronButton() {
+  const tCommon = useTranslations('common')
+  const tags = useTagsViewStore((s) => s.tags)
+  const activePath = useTagsViewStore((s) => s.activePath)
+  const closeOther = useTagsViewStore((s) => s.closeOther)
+  const closeAll = useTagsViewStore((s) => s.closeAll)
+
+  if (tags.length === 0) return null
+
+  return (
+    <Dropdown
+      align="end"
+      items={[
+        {
+          key: 'other',
+          label: tCommon('closeOther'),
+          onSelect: () => closeOther(activePath ?? ''),
+        },
+        { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
+      ]}
+      trigger={
+        // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
+        // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
+        // - hover:bg-accent → hover:bg-muted/50 跟搜索按钮同步
+        <button
+          type="button"
+          className={cn(
+            TOPBAR_BTN_BASE,
+            TOPBAR_BTN_W9,
+            'text-foreground/80 hover:bg-muted/50',
+          )}
+          aria-label={tCommon('moreActions')}
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      }
+    />
+  )
+})
+
 export function TagsView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -397,8 +445,10 @@ export function TagsView() {
       className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
       <div className="hover-scroll flex h-full flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
-        {/* 搜索按钮(2026-07-28 立,从侧边栏迁移至标签栏第一个固定位置,只显示搜索图标) */}
-        <TagsViewSearchButton />
+        {/* 第十一轮"做减法 v7"(2026-07-30 用户反馈"把 chevron/Plus 挪到搜索按钮后面 a 标签前面"):
+            搜索按钮和 chevron 按钮已抽出为 TagsViewSearchButton / TagsViewChevronButton 独立组件,
+            移到 GlobalTopBar 内层 flex 直接渲染,本组件只保留 a 标签 + 关闭按钮 (a 标签本身)。
+            顺序契约:GlobalTopBar 内部 flex 顺序 = 搜索 → chevron → Plus → 标签栏(TagsView) */}
         {tags.length === 0 ? (
           // 2026-07-25 用户反馈:无 tag 时不返回 null,显示一行 placeholder 占位文本
           // 2026-07-28 立:走 tagsview 命名空间(用户反馈"标签栏卡片文本没做好 i18n"),
@@ -484,35 +534,6 @@ export function TagsView() {
           })
         )}
       </div>
-      {tags.length > 0 && (
-        <Dropdown
-          align="end"
-          items={[
-            {
-              key: 'other',
-              label: tCommon('closeOther'),
-              onSelect: () => closeOther(activePath ?? ''),
-            },
-            { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
-          ]}
-          trigger={
-            // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
-            // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
-            // - hover:bg-accent → hover:bg-muted/50 跟搜索按钮同步
-            <button
-              type="button"
-              className={cn(
-                TOPBAR_BTN_BASE,
-                TOPBAR_BTN_W9,
-                'text-foreground/80 hover:bg-muted/50',
-              )}
-              aria-label={tCommon('moreActions')}
-            >
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          }
-        />
-      )}
       {/* Feature 3: 右键菜单本体(独立 fixed 定位,避免父容器 transform 影响) */}
       {ctxMenu && (
         <div

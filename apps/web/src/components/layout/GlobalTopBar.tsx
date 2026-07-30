@@ -34,7 +34,7 @@ import {
   onMaximizeChange,
 } from '@/lib/tauri-bridge'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
-import { TagsView } from './TagsView'
+import { TagsView, TagsViewSearchButton, TagsViewChevronButton } from './TagsView'
 import { Tooltip } from '@/components/feedback'
 
 type PlusMenuAction = {
@@ -324,48 +324,43 @@ export function GlobalTopBar() {
         </>
       )}
 
-      {/* 顶栏(2026-07-30 第八轮"做减法 v4"用户反馈"div 也应该跟屏幕顶部有间距,跟 header 一致同步"后版本)
-          用户原话:div 他也应该跟屏幕顶部有间距啊,跟 header 跟屏幕顶部的间距一致,同步。
+      {/* 顶栏(2026-07-30 第十一轮"做减法 v7"用户反馈"取消 bg-shell-panel + 把 chevron/Plus 挪到搜索按钮后面 a 标签前面"后版本)
+          第十轮曾加 bg-shell-panel 跟工作区/AI 面板背景色一致(用户上一轮要求),本轮用户推翻:
+          "谁让你把这个设置了背景色的?取消掉" — 顶栏恢复透明,只保留内层 36px h-9 高度。
 
-          根因:之前"做减法 v3"合并后顶栏是 h-9 (36px) 单层无 padding,首子元素 y=0;
-          而 AISidePanel 容器有 py-2,header y=8。两者顶部不同步。
+          第十轮 flex 顺序: 搜索(在 TagsView 内) → 标签栏(在 TagsView 内) → chevron(在 TagsView 内) → Plus
+          第十一轮 flex 顺序(本轮): 搜索 → chevron → Plus → 标签栏(a 标签)
+          为实现新顺序,搜索 + chevron 抽出为独立组件 TagsViewSearchButton / TagsViewChevronButton
+          (TagsView.tsx),直接放在 GlobalTopBar 内层 flex 内,顺序由 JSX 顺序控制;
+          主 TagsView 退化为只渲染 a 标签 + 关闭按钮,顺序由父级 flex 控制。
 
-          修复:恢复两层结构但每层单一职责,不再"双重设定":
-            <div pt-2 shrink-0 select-none cursor-default>           ← 外层 wrapper(8px 顶部,跟 AISidePanel py-2 顶部对齐)
-              <div flex h-9 items-center gap-1 pl-4 pr-4 ...>       ← 内层顶栏(36px 内容,单一高度来源)
-                <TagsView /> <Plus /> <WindowControls />
-              </div>
-            </div>
+          根因(用户原话):"把 button button 这两个按钮挪到 button 后面 a 前面"
+          → button(搜索) → button(更多Actions) → button(添加视图) → a(首页) → ...
 
-          总高 44px = 8(外层 pt-2) + 36(内层 h-9)
-            - 首子元素 y=8(跟 AISidePanel header y=8 严丝合缝对齐)✅
-            - 内容区 36px(用户"标签栏高度不对"反馈已满足)✅
-            - 拖拽 handler 落外层,padding 8px 区也可拖
-
-          跟 v3"双重设定"对比:
-            - v3: <div h-[52px] py-2>  (同一元素 h + py 双重声明贡献总高 52px)
-            - v4: <div pt-2> + <div h-9>  (两个元素各单一职责,加和 44px)
-            每层单一职责,不再"双重设定"耦合,且总高从 52px → 44px。 */}
+          总高 44px = 8(外层 pt-2) + 36(内层 h-9) — 单一职责,跟 v4 契约一致。 */}
       <div
-        className="bg-shell-panel pt-2 shrink-0 select-none cursor-default"
+        className="pt-2 shrink-0 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
       >
-        {/* 第九轮"做减法 v5"(2026-07-30 用户反馈"搜索按钮容器不是正方形,没贴最左侧边 div"):
-            - 删 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8 全部响应式 padding
-            - 之前 pl-8 (lg)=32px 把搜索按钮挤到 x=32,现在 x=0 真贴最左侧
-            - TagsView 内搜索按钮加 w-9 (36px),配合父 h-full 形成 36x36 正方形 */}
+        {/* 第十一轮 flex 顺序契约(由 JSX 顺序控制):
+            1. TagsViewSearchButton    ← 搜索按钮(36x36)
+            2. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染)
+            3. <Plus>                  ← 添加视图 36x36
+            4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间 */}
         <div className="flex h-9 items-center gap-1">
-        {/* 标签栏(全站常驻,TagsView 内部根据 pathname 派生标签)
-            flex-1 占满中间区域,与右侧 Plus 按钮 + 窗口控制同一排 */}
-        <React.Suspense fallback={null}>
-          <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden">
-            <TagsView />
-          </div>
-        </React.Suspense>
+          {/* 1. 搜索按钮(从 TagsView 抽出) */}
+          <React.Suspense fallback={null}>
+            <TagsViewSearchButton />
+          </React.Suspense>
 
-        {/* Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
+          {/* 2. chevron 关闭其他/全部 按钮(从 TagsView 抽出) */}
+          <React.Suspense fallback={null}>
+            <TagsViewChevronButton />
+          </React.Suspense>
+
+          {/* 3. Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
             - 视觉风格与窗口控制按钮一致(h-full w-9 rounded-md hover bg-muted/50,2026-07-30
               深度修复:之前 h-7 w-7 (28px) 跟顶栏 h-9 (36px) 矮 8px,导致"标签栏高度不对"
               的视觉效果 — Plus 按钮底部露出 4px 空隙,标签栏高度看起来参差不齐。改 h-full w-9
@@ -457,6 +452,14 @@ export function GlobalTopBar() {
             </div>
           )}
         </div>
+
+        {/* 4. 标签栏(2026-07-30 第十一轮"做减法 v7"用户反馈"a 标签在 chevron/Plus 后面"后位置)
+            flex-1 占满剩余空间,只渲染 a 标签 + 关闭按钮(无搜索/无 chevron,已抽出为独立组件) */}
+        <React.Suspense fallback={null}>
+          <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden">
+            <TagsView />
+          </div>
+        </React.Suspense>
 
         {/* 窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop
             z-[10001]:高于 8 方向 resize 区域(z-9999/10000)
