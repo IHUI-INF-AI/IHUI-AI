@@ -294,12 +294,22 @@
 #### P0-6 README + 文档同步(§21 触发)
 
 - [x] ✅(2026-07-30) P0-6a README.md 更新 — 新增 B5 章节"AI 网关核心补强(对标并超越 OmniRoute)",含能力表格 + 配置示例 + IHUI vs OmniRoute 10 维度对比矩阵
-- [ ] P0-6b commit + push + git-push-guard 验证(§20 五条全绿)
+- [x] ✅(2026-07-30) P0-6b commit + push + git-push-guard 验证(§20 五条全绿)
 
-#### P1 Token 压缩超越(下一批次)
+#### P1 OmniRoute 深度对齐 + 免费 provider 真实接入(2026-07-30 立)
 
-- [ ] P1-1 调研 RTK+Caveman 算法,用 Python 重写,目标工具调用场景压缩率 ≥90%(超越 OmniRoute 89%)
-- [ ] P1-2 集成到 llm_gateway.py 调用链,压缩前/后 token 数记录到 metric
+> **触发**:用户要求"跟他做深度对比还哪里差,他有那么多免费模型你也给我真实接进来"。深度调研 OmniRoute `docs/reference/FREE_TIERS.md` v3.8.49(342 行)后,对齐 10 个 OmniRoute 独有 / 补注册 provider,registry 从 30 → 40+,default_models.json 新增 14 个免费模型。
+
+- [x] ✅(2026-07-30) P1-1 registry 补 10 个 provider 注册项:① OmniRoute 独有 6 个(LLM7 150M/月免费 / Pollinations 无 key / Qoder unlimited / AI Horde 众包 / OVHcloud 欧洲 / Requesty 路由聚合);② default_models 已有但 registry 未注册 3 个(OpenCode Zen / Scaleway / Alibaba Intl);③ OmniRoute v3.8.49 新增 1 个(Navy)
+- [x] ✅(2026-07-30) P1-2 default_models.json 补 14 个免费模型:llm7/gpt-4o + llm7/claude-sonnet-4.5 + llm7/gpt-5.6 + pollinations/gpt-5 + pollinations/claude + pollinations/deepseek + if/kimi-k2-thinking + if/deepseek-r1 + if/qwen3-coder-plus + aihorde/auto + ovhcloud/llama-3.3-70b + requesty/auto + navy/auto
+- [x] ✅(2026-07-30) P1-3 ToS 风险标签:① github_models notes 加"2026-06-16 后新用户无法注册"(OmniRoute v3.8.49 标注);② fireworksai notes 加"ToS §2.1/§2.2 禁止 proxy/中介";③ modal name 加"ToS §1.3 禁止第三方代理";④ nlpcloud name 加"ToS 禁止 proxy"
+- [x] ✅(2026-07-30) P1-4 测试验证:test_free_provider_registry.py 从 31 → 50 测试(新增 19 个:10 个参数化 provider 存在性 + LLM7/Pollinations 无 key + Qoder 思考模型 + Alibaba Intl 5 模型 + Scaleway 3 模型 + github_models/fireworksai ToS 警告 + OmniRoute forever free 对齐完整性)。99/99 全绿(0.34s)+ mypy 0 错误
+- [ ] P1-5 commit + push + git-push-guard 验证(§20 五条全绿)
+
+#### P2 Token 压缩超越(下一批次)
+
+- [ ] P2-1 调研 RTK+Caveman 算法,用 Python 重写,目标工具调用场景压缩率 ≥90%(超越 OmniRoute 89%)
+- [ ] P2-2 集成到 llm_gateway.py 调用链,压缩前/后 token 数记录到 metric
 
 #### P1 网关 Dashboard(下一批次)
 
