@@ -63,7 +63,8 @@ function parseValue(raw: string): { numericValue: number | null; prefix: string;
   // 匹配第一个数字
  const match = raw.match(/(\d+)/)
   if (!match) return { numericValue: null, prefix: '', suffix: '', displayValue: raw }
-  const numStr = match[1]
+  // match[1] 必非空(正则 \d+ 至少匹配 1 位数字),用 ! 断言避免 TS18048 误报
+  const numStr = match[1]!
   const num = parseInt(numStr, 10)
   const idx = match.index ?? 0
   const prefix = raw.slice(0, idx)
@@ -109,7 +110,7 @@ export function HomeRoi() {
         </p>
       </RevealOnView>
 
-      <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4">
         {rois.map(({ icon: Icon, title, value, description, calculation, numericValue, prefix, suffix }, i) => (
           <RevealOnView
             key={title}

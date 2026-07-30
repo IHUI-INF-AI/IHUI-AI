@@ -29,8 +29,13 @@ export interface TransportInit {
    *   (localhost 跨端口 sameSite=lax 允许,auth_token cookie 发送到 api 端,csrf 插件命中豁免)
    * - 小程序 Taro.request:通常不需要(同域或不跨域),传 'omit' 或不传
    * 默认 'include'(适配 8801 web -> 8802 api 跨端口场景)。
+   *
+   * 2026-07-30:用字面量联合替代 DOM `RequestCredentials` 类型,因 packages/api-client
+   *   是跨端共享包(被 apps/api 等无 DOM lib 的 Node 端消费),DOM 类型不可见。
+   *   apps/web 端 TS 仍可通过字符串字面量赋值给 native fetch 的 RequestCredentials,
+   *   运行时行为完全一致。
    */
-  credentials?: RequestCredentials
+  credentials?: 'include' | 'omit' | 'same-origin'
 }
 
 /** 传输函数类型 — 替代 native fetch */

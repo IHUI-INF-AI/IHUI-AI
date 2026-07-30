@@ -11,6 +11,7 @@ import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
 import { resolvePathLabelSpec } from '@/lib/path-labels'
+import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 
 /**
  * 兜底标题:取 URL 最后一段,处理 [id] 占位符 + kebab-case → Title Case。
@@ -69,7 +70,7 @@ interface CtxMenuState {
  * 渲染到右侧工作区(#work-area-portal-root),居中于工作区顶部、向下滑出。
  * 提交后跳 /search?q=...。点击外部 / Esc 键 / 路由变化均会关闭弹层。
  */
-const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
+export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
   const router = useRouter()
   const tNav = useTranslations('nav')
   const tCommon = useTranslations('common')
@@ -237,16 +238,64 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        // 2026-07-30 用户反馈"搜索按钮容器左侧没对齐下面内容展示区左侧"根治:
-        // - 删 px-2(8px) → 图标紧贴容器左缘,跟下面 main p-4 (16px) 内的内容左缘视觉对齐
-        //   (顶栏外层 px-4 提供 16px 水平 padding → 搜索按钮容器左缘 = 16px = 内容左缘)
-        // - h-full 跟随外层 h-9 (36px),不再有 h-6/h-7 双重高度冲突
-        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white pl-0 pr-2 text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
+        // 2026-07-30 第九轮"做减法 v5 根治"(用户反馈"搜索按钮容器不是正方形,没贴最左侧"):
+        // - 加 w-9(36px):搜索按钮 36x36 正方形(配合父 h-full=36px 形成完美正方形)
+        //   跟 Plus / 窗口控制按钮 w-7(28x36) 视觉上区分:搜索按钮更大更突出,作为主要操作
+        // - 顶栏内层 div 已删 pl-4 pr-4,搜索按钮真贴最左侧 x=0(不再被 pl-8=32 挤到中间)
+        // - 仍用 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)共享样式
+        // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
+        //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一,此处只保留 w-9 宽度差异项
+        className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9)}
       >
         <Search className="h-4 w-4" />
       </button>
       {dropdown}
     </>
+  )
+})
+
+/**
+ * 标签栏"更多Actions"按钮(2026-07-30 第十一轮"做减法 v7"用户反馈
+ * "把 chevron/Plus 挪到搜索按钮后面 a 标签前面"后抽出独立组件)
+ * - 内部独立订阅 tagsview store (tags.length / activePath / closeOther / closeAll),
+ *   tags.length === 0 时不渲染(无 tag 时不显示批量关闭)
+ * - 跟 TagsViewSearchButton 平级,放在 GlobalTopBar 内层 flex 的 chevron 位置
+ * - 渲染 chevron-down + Dropdown 弹层(closeOther / closeAll)
+ */
+export const TagsViewChevronButton = React.memo(function TagsViewChevronButton() {
+  const tCommon = useTranslations('common')
+  const tags = useTagsViewStore((s) => s.tags)
+  const activePath = useTagsViewStore((s) => s.activePath)
+  const closeOther = useTagsViewStore((s) => s.closeOther)
+  const closeAll = useTagsViewStore((s) => s.closeAll)
+
+  if (tags.length === 0) return null
+
+  return (
+    <Dropdown
+      align="end"
+      items={[
+        {
+          key: 'other',
+          label: tCommon('closeOther'),
+          onSelect: () => closeOther(activePath ?? ''),
+        },
+        { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
+      ]}
+      trigger={
+        // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
+        // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
+        // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
+        //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一,此处只保留 w-9 宽度
+        <button
+          type="button"
+          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9)}
+          aria-label={tCommon('moreActions')}
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      }
+    />
   )
 })
 
@@ -394,8 +443,10 @@ export function TagsView() {
       className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
       <div className="hover-scroll flex h-full flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap">
-        {/* 搜索按钮(2026-07-28 立,从侧边栏迁移至标签栏第一个固定位置,只显示搜索图标) */}
-        <TagsViewSearchButton />
+        {/* 第十一轮"做减法 v7"(2026-07-30 用户反馈"把 chevron/Plus 挪到搜索按钮后面 a 标签前面"):
+            搜索按钮和 chevron 按钮已抽出为 TagsViewSearchButton / TagsViewChevronButton 独立组件,
+            移到 GlobalTopBar 内层 flex 直接渲染,本组件只保留 a 标签 + 关闭按钮 (a 标签本身)。
+            顺序契约:GlobalTopBar 内部 flex 顺序 = 搜索 → chevron → Plus → 标签栏(TagsView) */}
         {tags.length === 0 ? (
           // 2026-07-25 用户反馈:无 tag 时不返回 null,显示一行 placeholder 占位文本
           // 2026-07-28 立:走 tagsview 命名空间(用户反馈"标签栏卡片文本没做好 i18n"),
@@ -413,9 +464,12 @@ export function TagsView() {
             const isOver = overIndex === index && dragIndex !== null
             const isDirty = dirtyPaths.has(tag.path)
             return (
-              // 标签宽度契约:右侧 = gap-1 (4px) + X (w-5=20px) + pr-1 (4px) = 28px
-              // 左侧 pl-2 (8px) 与右侧对称,文字几何居中
-              // X 宽度若调整,需同步修改 pl 值(每 ±4px X 宽度 → ±4px pl)
+              // 标签宽度契约(2026-07-30 第十一轮"做减法 v8"用户反馈"X 关闭按钮右侧空间也要在左侧复刻"):
+              // - 文字到右边缘: gap-1 (4) + X span w-5 (20) + pr-1 (4) = 28px
+              //   (X 按钮 + 它的右内边距 = 24px 是"X 关闭按钮占的右侧空间")
+              // - 文字到左边缘: pl-6 (24px) — 与 X 关闭按钮+pr 的 24px 对称,文字几何居中
+              //   (gap-1 是 X 按钮前的视觉留白,不算"X 关闭按钮占的"空间,对称以 X 视觉边界为准)
+              // - 若 X 宽度调整,需同步修改 pl-6 → pl-±N(每 ±4px X 宽度 → ±4px pl)
               <Link
                 key={tag.path}
                 href={buildHref(tag)}
@@ -426,17 +480,22 @@ export function TagsView() {
                 onDragEnd={onDragEnd}
                 onContextMenu={(e) => handleContextMenu(e, tag.path)}
                 className={cn(
-                  'group inline-flex h-full shrink-0 cursor-pointer items-center gap-1 rounded-md border py-0 pl-2 pr-1 text-xs leading-none transition-colors',
+                  // 2026-07-30 第七轮"做减法 v3 根治":
+                  // - 改用共享 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)
+                  // - 真去掉所有 border(第六轮 v2 没做干净,残留 border-primary/30 /
+                  //   border-border/40 / border-dashed border-primary/50 / 主类 border)
+                  // - active 态靠 bg-primary/10 + font-medium + text-primary 已足够视觉指示
+                  // - 拖拽视觉简化:目标位 + 源项共用 opacity-50,无 border-dashed 残留
+                  // - pl-6 (24px) 对应 X 关闭按钮 w-5 (20px) + pr-1 (4px) = 24px,
+                  //   左右对称,文字几何居中(用户规则 2026-07-30)
+                  TOPBAR_BTN_BASE,
+                  'group cursor-pointer gap-1 pl-6 pr-1 text-xs',
                   active
-                    ? 'border-primary/30 bg-primary/10 font-medium text-primary'
-                    : 'border-border/40 text-muted-foreground hover:bg-muted hover:text-foreground',
-                  // 拖拽中视觉:目标位透明,源项半透明,其它项降不透明
-                  dragIndex !== null &&
-                    (isOver
-                      ? 'border-dashed border-primary/50 opacity-50'
-                      : dragIndex === index
-                        ? 'opacity-40'
-                        : 'opacity-100'),
+                    ? 'bg-primary/10 font-medium text-primary'
+                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                  // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
+                  dragIndex !== null && isOver && 'opacity-50',
+                  dragIndex === index && 'opacity-40',
                   draggable && 'cursor-grab active:cursor-grabbing',
                 )}
               >
@@ -478,30 +537,6 @@ export function TagsView() {
           })
         )}
       </div>
-      {tags.length > 0 && (
-        <Dropdown
-          align="end"
-          items={[
-            {
-              key: 'other',
-              label: tCommon('closeOther'),
-              onSelect: () => closeOther(activePath ?? ''),
-            },
-            { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
-          ]}
-          trigger={
-            // 2026-07-30 用户反馈"标签栏高度不对"根治:Dropdown trigger 改 h-full
-            // 跟随外层 GlobalTopBar h-9 (36px),不再固定 h-7 (28px) 导致比标签栏矮 8px
-            <button
-              type="button"
-              className="inline-flex h-full w-7 items-center justify-center rounded-md bg-white text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
-              aria-label={tCommon('moreActions')}
-            >
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          }
-        />
-      )}
       {/* Feature 3: 右键菜单本体(独立 fixed 定位,避免父容器 transform 影响) */}
       {ctxMenu && (
         <div

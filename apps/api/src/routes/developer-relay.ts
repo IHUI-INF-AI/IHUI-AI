@@ -31,6 +31,8 @@ const usageQuerySchema = z.object({
   ),
   /** 分组维度:model / day(默认 model) */
   groupBy: z.enum(['model', 'day']).default('model'),
+  /** 调用模式筛选:all=全部 / relay=中转站 / byok=BYOK(默认 all) */
+  mode: z.enum(['all', 'relay', 'byok']).default('all'),
 })
 
 const logsQuerySchema = paginationSchema.extend({
@@ -88,7 +90,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return reply.status(401).send(error(401, '未登录'))
     const q = usageQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { startDate, groupBy } = q.data
+    const { startDate, groupBy, mode } = q.data
 
     const conds: ReturnType<typeof eq>[] = [eq(llmCallLogs.userId, userId)]
     if (startDate) {
@@ -96,6 +98,12 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     } else {
       // 默认近 30 天
       conds.push(gte(llmCallLogs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
+    }
+    // BYOK 模式筛选:byokMode=true 表示 BYOK 调用,其余为中转站调用
+    if (mode === 'byok') {
+      conds.push(sql`${llmCallLogs.metadata}->>'byokMode' = 'true'`)
+    } else if (mode === 'relay') {
+      conds.push(sql`${llmCallLogs.metadata}->>'byokMode' IS NULL OR ${llmCallLogs.metadata}->>'byokMode' != 'true'`)
     }
     const where = and(...conds)
 
@@ -115,6 +123,14 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           successCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'success')::int`,
           errorCount: sql<number>`count(*) filter (where ${llmCallLogs.status} = 'error')::int`,
           totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)::int), 0)::int`,
+          // BYOK 调用次数(metadata->>'byokMode'='true')
+          byokCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' = 'true')::int`,
+          // 中转站调用次数
+          relayCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' IS NULL OR ${llmCallLogs.metadata}->>'byokMode' != 'true')::int`,
+          // BYOK 上游成本合计(分)
+          upstreamCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'upstreamCostCents')::numeric)::bigint), 0)::bigint::int`,
+          // BYOK 平台服务费合计(分)
+          platformFeeCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'platformFeeCents')::numeric)::bigint), 0)::bigint::int`,
         })
         .from(llmCallLogs)
         .where(where)
@@ -128,6 +144,10 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           totalCalls: sql<number>`count(*)::int`,
           totalTokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
           totalCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)::int), 0)::int`,
+          byokCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' = 'true')::int`,
+          relayCallCount: sql<number>`count(*) filter (where ${llmCallLogs.metadata}->>'byokMode' IS NULL OR ${llmCallLogs.metadata}->>'byokMode' != 'true')::int`,
+          upstreamCostCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'upstreamCostCents')::numeric)::bigint), 0)::bigint::int`,
+          platformFeeCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'platformFeeCents')::numeric)::bigint), 0)::bigint::int`,
         })
         .from(llmCallLogs)
         .where(where)
@@ -135,11 +155,16 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(
         success({
           groupBy,
+          mode,
           rows,
           summary: {
             totalCalls: summary?.totalCalls ?? 0,
             totalTokens: summary?.totalTokens ?? 0,
             totalCostCents: summary?.totalCostCents ?? 0,
+            byokCallCount: summary?.byokCallCount ?? 0,
+            relayCallCount: summary?.relayCallCount ?? 0,
+            upstreamCostCents: summary?.upstreamCostCents ?? 0,
+            platformFeeCents: summary?.platformFeeCents ?? 0,
           },
         }),
       )
