@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, QrCode } from 'lucide-react'
 import {
   Button, Card, CardContent, Input, Label,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -13,6 +13,7 @@ import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
 import { CredentialGuide } from '@/components/publish/CredentialGuide'
 import { PLATFORM_SCHEMAS, getPlatformSchema, normalizeCredentials } from '@/lib/publish/platform-schemas'
+import { ScanLoginDialog } from './ScanLoginDialog'
 
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -31,13 +32,15 @@ const TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
 export default function AccountsPage() {
   const t = useTranslations('publish')
   const tc = useTranslations('common')
-  const { accounts, loading, saving, verifyingId, create, update, verify, remove } = usePublishAccounts()
+  const { accounts, loading, saving, verifyingId, create, update, verify, remove, reload } = usePublishAccounts()
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<PublishAccount | null>(null)
   const [form, setForm] = React.useState({ platform: 'wordpress', nickname: '' })
   const [credentials, setCredentials] = React.useState<Record<string, string>>({})
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<PublishAccount | null>(null)
+  const [scanOpen, setScanOpen] = React.useState(false)
+  const [scanDefaultPlatform, setScanDefaultPlatform] = React.useState<string | undefined>(undefined)
 
   const pendingPlatforms = React.useMemo(
     () => {
@@ -59,6 +62,10 @@ export default function AccountsPage() {
     setCredentials(normalizeCredentials(a.credentials))
     setDialogOpen(true)
   }
+  function openScanLogin(platform?: string) {
+    setScanDefaultPlatform(platform)
+    setScanOpen(true)
+  }
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     const input = { platform: form.platform, displayName: form.nickname, credentials }
@@ -78,7 +85,12 @@ export default function AccountsPage() {
           <h2 className="text-base font-semibold">{t('accounts.title')}</h2>
           <p className="text-xs text-muted-foreground">{t('accounts.subtitle')}</p>
         </div>
-        <Button size="sm" onClick={() => openAdd()}><Plus className="h-4 w-4" />{t('accounts.add')}</Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => openScanLogin()}>
+            <QrCode className="h-4 w-4" />{t('accounts.scanLogin')}
+          </Button>
+          <Button size="sm" onClick={() => openAdd()}><Plus className="h-4 w-4" />{t('accounts.add')}</Button>
+        </div>
       </div>
 
       {!loading && pendingPlatforms.length > 0 && (
@@ -137,6 +149,9 @@ export default function AccountsPage() {
                     <Button size="sm" variant="outline" onClick={() => verify(a.id)} disabled={isVerifying} className="h-7 text-xs">
                       {isVerifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                       {t('accounts.verify')}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => openScanLogin(a.platform)} className="h-7 text-xs" title={t('accounts.scanLoginHint')}>
+                      <QrCode className="h-3 w-3" />{t('accounts.scan')}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => openEdit(a)} className="h-7 text-xs">
                       <Pencil className="h-3 w-3" />{t('accounts.edit')}
@@ -197,6 +212,13 @@ export default function AccountsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ScanLoginDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onSuccess={() => void reload()}
+        defaultPlatform={scanDefaultPlatform}
+      />
     </div>
   )
 }
