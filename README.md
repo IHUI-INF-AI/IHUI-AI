@@ -519,11 +519,11 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ### Plus 弹窗(9 项,分 3 组)
 
-| 分组 | 选项 | 动作 |
-| --- | --- | --- |
-| 视图(2 项) | 文档 / 内置浏览器 | 跳 `/docs` / 切换 `useWorkPanelStore` |
-| 工具(5 项) | 编辑器 / 终端 / 代码变更 / Agent / MCP | 跳 `/workspace` + `setActiveTopTab` |
-| 设置(2 项) | Skill / 设置 | 跳 `/ai-skills` / 跳 `/settings` |
+| 分组       | 选项                                   | 动作                                  |
+| ---------- | -------------------------------------- | ------------------------------------- |
+| 视图(2 项) | 文档 / 内置浏览器                      | 跳 `/docs` / 切换 `useWorkPanelStore` |
+| 工具(5 项) | 编辑器 / 终端 / 代码变更 / Agent / MCP | 跳 `/workspace` + `setActiveTopTab`   |
+| 设置(2 项) | Skill / 设置                           | 跳 `/ai-skills` / 跳 `/settings`      |
 
 弹窗特性:搜索框模糊匹配 + 快捷键提示(G D / G B / G E / G T / G C / G A / G M / G K / G S)+ Esc 关闭 + 点击外部关闭 + 自动聚焦搜索框
 
@@ -547,12 +547,12 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ### 与已有架构的分工
 
-| 组件 | 职责 | 渲染位置 |
-| --- | --- | --- |
-| `GlobalShell` | 全局骨架(Sidebar + AISidePanel + 内容槽 + PWA) | `app/layout.tsx` 根级 |
-| `GlobalTopBar` | 全站常驻顶栏(标签 + Plus + 窗口控制) | `GlobalShell` 内 children 上方 |
-| `MainShell` | `(main)` 路由组工作区卡片 | `(main)/layout.tsx` 路由组级 |
-| `TagsView` | 标签栏(根据 pathname 派生标签) | `GlobalTopBar` 内 |
+| 组件           | 职责                                           | 渲染位置                       |
+| -------------- | ---------------------------------------------- | ------------------------------ |
+| `GlobalShell`  | 全局骨架(Sidebar + AISidePanel + 内容槽 + PWA) | `app/layout.tsx` 根级          |
+| `GlobalTopBar` | 全站常驻顶栏(标签 + Plus + 窗口控制)           | `GlobalShell` 内 children 上方 |
+| `MainShell`    | `(main)` 路由组工作区卡片                      | `(main)/layout.tsx` 路由组级   |
+| `TagsView`     | 标签栏(根据 pathname 派生标签)                 | `GlobalTopBar` 内              |
 
 ---
 
@@ -1431,6 +1431,65 @@ IHUI-AI/
 - 余额不足返回 `402 Payment Required`
 
 **数据库迁移**:`packages/database/drizzle/20260729120000_relay_billing.sql`(幂等,加字段 + 建表)
+
+#### B5. AI 网关核心补强(对标并超越 OmniRoute,2026-07-30 立)
+
+对标开源 AI 网关项目 OmniRoute(GitHub 27k stars,MIT 协议,聚合 290+ provider / 500+ 模型,Combo 多级 fallback,OpenAI/Claude/Gemini 协议互转,RTK+Caveman 89% 压缩,网关 Dashboard)。IHUI-AI 在 AI 网关核心能力上反超 OmniRoute,同时保留 8 端全栈 + Agent 编排 + RAG + 元学习 + 13 平台发布的业务深度优势。
+
+| 能力                            | 模块                                                                                         | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Combo 多级 fallback 链**      | `apps/ai-service/app/services/combo_router.py`                                               | 3 策略:① **priority**(按预定义链顺序 fallback,对齐 OmniRoute);② **cheapest**(按价格升序选可用 provider,超越 OmniRoute);③ **fusion**(并发调用多个 model + judge model 票决,超越 OmniRoute)。429 配额耗尽自动 cooldown(指数退避 60s→30min)+ 自动切下一个 provider,记录 fallback 历史到 LLM_FALLBACK_TRIGGERED metric                                                                                                                                                                                                                                       |
+| **协议互转适配器**              | `apps/ai-service/app/services/protocol_adapter.py`                                           | OpenAI Chat Completions / Anthropic Messages / Gemini generateContent 三协议任意互转(6 个方向),客户端可用任一厂商 SDK 调用 IHUI 网关,内部统一转 OpenAI 格式调 llm_gateway,响应再转回客户端期望格式。对齐 OmniRoute 协议互转                                                                                                                                                                                                                                                                                                                              |
+| **Anthropic Messages 端点**     | `POST /llm/anthropic/v1/messages`                                                            | 客户端可直接用 Anthropic 官方 SDK(`base_url=http://ai-service:8800/llm/anthropic`)调用任一 IHUI 接入的模型                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Gemini generateContent 端点** | `POST /llm/gemini/v1beta/models/{model}:generateContent`                                     | 客户端可直接用 Google Gen AI SDK(`base_url=http://ai-service:8800/llm/gemini`)调用任一 IHUI 接入的模型                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **免费 provider 注册表**        | `apps/ai-service/app/services/free_provider_registry.py` + `GET /llm/free-providers`         | 30+ 免费 LLM provider 申请入口矩阵(国内 8 + 国际 12 + 本地 4 + credits 8):Moonshot Kimi-K2 / 智谱 glm-4-flash / DeepSeek / StepFun / Agnes / Ollama / LMStudio / LlamaCpp / vLLM / OpenRouter free tier / Groq / Together / Mistral / Cohere / HuggingFace / Replicate / Fireworks / NVIDIA / Cerebras / SiliconFlow / Yi / 百川 / MiniMax / 商汤 / 星火 / 豆包 / 混元 / Qwen / ERNIE。返回 key 配置状态(`configured` / `not_configured` / `local`),供前端 Dashboard 可视化展示。超越 OmniRoute 的点:本地 LLM 兜底 + 国内 provider 全覆盖 + key 状态感知 |
+| **Combo 接入 llm_gateway**      | `apps/ai-service/app/core/llm_gateway.py`                                                    | 主 provider 失败后,FallbackRouter 单层 fallback 用尽,若 primary 在某 combo 链中,自动触发 ComboRouter(priority/cheapest/fusion 三策略),ComboRouter 内部透传 `_skip_fallback=True` 防递归。ComboRouter 单例懒加载,加载失败降级不影响主链路                                                                                                                                                                                                                                                                                                                 |
+| **测试覆盖**                    | `tests/test_combo_router.py` + `test_protocol_adapter.py` + `test_free_provider_registry.py` | 80 个单测全绿,覆盖 ComboChain 构造 / ProviderHealthState cooldown / 3 策略路由 / 429 标记 / 6 协议互转方向 / 30+ provider 注册查询 / key 状态检测                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+**配置示例**(环境变量 `COMBO_CHAINS` JSON):
+
+```json
+{
+  "maximize-free": {
+    "strategy": "priority",
+    "chain": ["kimi-k2", "glm-4-flash", "deepseek-chat", "stepfun/step-3.7-flash"],
+    "description": "最大化免费额度,4 级 fallback"
+  },
+  "maximize-quality": {
+    "strategy": "priority",
+    "chain": ["claude-opus-4", "gpt-5", "gemini-3-pro"],
+    "description": "最大化质量,3 级 fallback"
+  },
+  "cheapest-first": {
+    "strategy": "cheapest",
+    "chain": ["glm-4-flash", "deepseek-chat", "kimi-k2", "stepfun/step-3.7-flash"],
+    "description": "最便宜优先,按价格升序"
+  },
+  "fusion-vote": {
+    "strategy": "fusion",
+    "chain": ["gpt-4o", "claude-3.5-sonnet", "gemini-2.5-pro"],
+    "judge": "gpt-4o-mini",
+    "description": "3 model 并发 + judge 票决"
+  }
+}
+```
+
+**IHUI vs OmniRoute 对比**:
+
+| 维度           | IHUI-AI                                                       | OmniRoute                     | 胜方              |
+| -------------- | ------------------------------------------------------------- | ----------------------------- | ----------------- |
+| Provider 数    | 18 原生适配器 + 30+ 免费 provider 注册表 + OpenRouter 385     | 290+ provider                 | 平                |
+| Fallback 策略  | **3 种**(priority / cheapest / fusion+judge)                  | 1 种(priority)                | **IHUI**          |
+| 协议互转       | OpenAI ↔ Anthropic ↔ Gemini(6 方向)                           | OpenAI / Claude / Gemini 互转 | 平                |
+| Token 压缩     | context_compaction.py(88% 阈值)                               | RTK+Caveman 89% 压缩          | OmniRoute(待补强) |
+| 网关 Dashboard | 30+ provider 状态矩阵 + combo 链可视化(待前端实现)            | 已有                          | OmniRoute(待补强) |
+| 8 端全栈       | ✅ web/api/ai-service/desktop/extension/mobile-rn/miniapp/cli | ❌ 单一网关                   | **IHUI**          |
+| Agent 编排     | ✅ LangGraph + MCP + A2A + 10 subagent + invoke_parallel      | ❌ 无                         | **IHUI**          |
+| RAG            | ✅ FTS5 + 向量检索                                            | ❌ 无                         | **IHUI**          |
+| 商业闭环       | ✅ VIP/钱包/积分/10 支付网关                                  | ❌ 无                         | **IHUI**          |
+| 13 平台发布    | ✅ CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音...          | ❌ 无                         | **IHUI**          |
+
+**P0-1 ~ P0-5 已完成**(2026-07-30):Combo 多级 fallback + 协议互转 + 免费 provider 注册表 + llm_gateway 集成 + 80 测试全绿。**待补强**(P1 批次):Token 压缩超越(RTK+Caveman 算法)、网关 Dashboard 前端可视化、TLS stealth。
 
 ### C. 内容创作与教育(面向创作者与教育者)
 
