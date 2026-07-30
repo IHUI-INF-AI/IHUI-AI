@@ -243,8 +243,9 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         //   跟 Plus / 窗口控制按钮 w-7(28x36) 视觉上区分:搜索按钮更大更突出,作为主要操作
         // - 顶栏内层 div 已删 pl-4 pr-4,搜索按钮真贴最左侧 x=0(不再被 pl-8=32 挤到中间)
         // - 仍用 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)共享样式
-        // - hover 跟其他顶栏元素统一用 hover:bg-muted
-        className={cn(TOPBAR_BTN_BASE, 'w-9', 'text-foreground/80 hover:bg-muted/50')}
+        // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
+        //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一,此处只保留 w-9 宽度差异项
+        className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9)}
       >
         <Search className="h-4 w-4" />
       </button>
@@ -284,14 +285,11 @@ export const TagsViewChevronButton = React.memo(function TagsViewChevronButton()
       trigger={
         // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
         // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
-        // - hover:bg-accent → hover:bg-muted/50 跟搜索按钮同步
+        // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
+        //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一,此处只保留 w-9 宽度
         <button
           type="button"
-          className={cn(
-            TOPBAR_BTN_BASE,
-            TOPBAR_BTN_W9,
-            'text-foreground/80 hover:bg-muted/50',
-          )}
+          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9)}
           aria-label={tCommon('moreActions')}
         >
           <ChevronDown className="h-4 w-4" />
@@ -494,7 +492,7 @@ export function TagsView() {
                   'group cursor-pointer gap-1 pl-6 pr-1 text-xs',
                   active
                     ? 'bg-primary/10 font-medium text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                   // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
                   dragIndex !== null && isOver && 'opacity-50',
                   dragIndex === index && 'opacity-40',
