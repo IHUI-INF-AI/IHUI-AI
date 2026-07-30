@@ -52,6 +52,7 @@ import {
   LogIn,
   Briefcase,
   Globe,
+  Languages,
   Mic,
   Code,
   Key,
@@ -617,12 +618,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           className={cn(btnClass, 'p-0')}
           aria-label={t('language')}
         >
-          {}
-          <img
-            src={`/images/flags/${locale}.svg`}
-            className="block h-3 w-4 shrink-0 object-contain"
-            alt={locale}
-          />
+          {/* 2026-07-31 触发器改为 lucide Languages 图标,与项目内 LanguageCard/preferences/ai-translation
+              统一"语言"语义;彩色写实国旗与侧边栏单色线性图标风格冲突,改为触发器用线性图标、
+              下拉项保留国旗+语言名(识别性强且下拉内不突兀)。btnClass 的 [&_svg]:size-5 自动渲染 20×20。 */}
+          <Languages />
         </Button>
       </Popover>
 
