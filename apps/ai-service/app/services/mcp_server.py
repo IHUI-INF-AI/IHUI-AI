@@ -10,7 +10,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 if TYPE_CHECKING:
@@ -2032,7 +2032,10 @@ def _get_orchestrator() -> "AgentOrchestrator":
     return _orchestrator
 
 
-async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
+async def _tool_dispatch_subagent(
+    arguments: dict[str, Any],
+    progress_callback: Optional[Callable[[dict[str, Any]], None]] = None,
+) -> dict[str, Any]:
     """dispatch_subagent: 派发子智能体执行独立任务(单 agent 或并行多 agent)。
 
     双模式(对标 Trae Work subagent orchestration):
@@ -2041,11 +2044,24 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
       orchestrator.invoke_parallel,真实并行派发,互不污染上下文。
 
     互斥:同时传 name/task 与 tasks → 报错 DUAL_MODE。
+
+    2026-07-30 加固:新增 progress_callback 参数(可选),让调用方(llm.py router)
+    能在子任务执行过程中实时推送 subagent_progress SSE 事件,而不是等任务全部完成
+    才返回。callback 收到 {phase, agentName, iteration, tool, ok, output_preview}。
     """
     name = arguments.get("name", "")
     task = arguments.get("task", "")
     tasks = arguments.get("tasks")
     max_concurrency = arguments.get("max_concurrency", 5)
+
+    def _emit(evt: dict[str, Any]) -> None:
+        """统一进度事件出口(无 callback 时静默 no-op)"""
+        if progress_callback is not None:
+            try:
+                progress_callback(evt)
+            except Exception:  # noqa: BLE001
+                # 回调失败不影响主任务执行
+                pass
 
     has_single = bool(name) or bool(task)
     has_tasks = tasks is not None
@@ -2077,11 +2093,18 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
                     "error": f"tasks[{i}] 缺少 name 或 task 字段",
                     "errorCode": "INVALID_PARAMS",
                 }
+        _emit({"phase": "parallel_started", "total": len(tasks), "max_concurrency": max_concurrency})
         try:
             orchestrator = _get_orchestrator()
             result = await orchestrator.invoke_parallel(
                 tasks=tasks, max_concurrency=max_concurrency
             )
+            _emit({
+                "phase": "parallel_done",
+                "total": result.get("total", 0),
+                "succeeded": result.get("succeeded", 0),
+                "failed": result.get("failed", 0),
+            })
             return {
                 "tool": "dispatch_subagent", "mode": "parallel",
                 "ok": result.get("ok", False),
@@ -2105,6 +2128,7 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "name and task are required(或传 tasks 数组启用并行模式)",
             "errorCode": "MISSING_PARAMS",
         }
+    _emit({"phase": "single_started", "agentName": name})
     try:
         orchestrator = _get_orchestrator()
         step_result = await orchestrator.invoke(
@@ -2112,6 +2136,12 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
             user_input=task,
             session_id=session_id,
         )
+        _emit({
+            "phase": "single_done",
+            "agentName": name,
+            "iterations": step_result.iterations,
+            "ok": step_result.status == "completed",
+        })
         return {
             "tool": "dispatch_subagent", "mode": "single",
             "agent": name,
