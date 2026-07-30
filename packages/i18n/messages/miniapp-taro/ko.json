@@ -388,6 +388,7 @@
     "agentLoadFailed": "에이전트 로딩 실패",
     "generating": "빠른 생성 중",
     "thinkingTip": "Tips:먼저 오른쪽 상단의 점 3개를 눌러 미니프로그램을 띄워놓고 잠시 후 돌아오세요~",
+    "fileSelected": "{{count}}개 파일 선택됨",
     "common": {
       "loading": "로딩 중…"
     },
@@ -411,6 +412,7 @@
       "stopSpeak": "중지",
       "share": "공유",
       "viewDigitalHuman": "디지털 휴먼 보기",
+      "digitalHuman": "디지털 휴먼 생성 →",
       "voiceMessage": "음성 메시지",
       "downloading": "다운로드 중",
       "downloadSuccess": "앨범에 저장됨",
@@ -1041,7 +1043,6 @@
   "about": {
     "version": "버전 {{version}}",
     "protocol": {
-      "mainTitle": "서비스 약관",
       "s2": {
         "t1": "2.1 사용자 자격 및 이용 제한",
         "t2": "2.2 서비스 업데이트 및 변경",
@@ -1067,14 +1068,12 @@
         "t2": "5.2 정보 콘텐츠 규범",
         "t3": "5.3 불만 및 신고"
       },
+      "mainTitle": "서비스 약관",
       "title": "이용약관"
     },
     "privacy": {
       "overviewTitle": "IHUI AI 개인정보처리방침 개요",
       "coreTitle": "개인정보처리방침 핵심 사항:",
-      "mainTitle": "개인정보처리방침",
-      "updateDate": "갱신일: 2025년 06월 21일",
-      "effectiveDate": "시행일: 2025년 06월 21일",
       "s1": {
         "t1": "1.1 회원가입 및 로그인",
         "t2": "1.2 스마트 대화 서비스",
@@ -1125,7 +1124,10 @@
         "t14": "9.14 Okio",
         "t15": "9.15 DCloud SDK",
         "t16": "9.16 MAC 주소 수집"
-      }
+      },
+      "mainTitle": "개인정보처리방침",
+      "updateDate": "갱신일: 2025년 06월 21일",
+      "effectiveDate": "시행일: 2025년 06월 21일"
     },
     "help": {
       "title": "도움말 센터",
