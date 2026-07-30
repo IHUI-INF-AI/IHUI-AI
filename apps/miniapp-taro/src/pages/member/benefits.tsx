@@ -5,6 +5,24 @@ import { getMemberBenefits } from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
+// 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)
+// 用字符串路径让 Taro copy 到 dist/static/ 而非打包进 benefits.js chunk(11 个图标 ~1MB,base64 内联会让 chunk 暴涨)
+const shoppingIcon = '/static/images/benefits/shopping.png'
+const sparkleIcon = '/static/images/benefits/sparkle.png'
+const giftIcon = '/static/images/benefits/gift.png'
+const calendarIcon = '/static/images/benefits/calendar.png'
+const mailIcon = '/static/images/benefits/mail.png'
+const silverIcon = '/static/images/benefits/silver.png'
+const birthdayIcon = '/static/images/benefits/birthday.png'
+const truckIcon = '/static/images/benefits/truck.png'
+const ticketIcon = '/static/images/benefits/ticket.png'
+const partyIcon = '/static/images/benefits/party.png'
+const trophyIcon = '/static/images/benefits/trophy.png'
+
+// 统一判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径或 import 路径)
+function isImagePath(s: string): boolean {
+  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
+}
 
 interface Benefit {
   id: string
@@ -37,35 +55,35 @@ const TIERS: Tier[] = [
     nf: '普通会员',
     benefits: [
       {
-        icon: '🛒',
+        icon: shoppingIcon,
         tk: 'member.benefits.b.discount',
         tf: '购物折扣',
         dk: 'member.benefits.b.discountD1',
         df: '全场商品 95 折',
       },
       {
-        icon: '✨',
+        icon: sparkleIcon,
         tk: 'member.benefits.b.points',
         tf: '积分加速',
         dk: 'member.benefits.b.pointsD1',
         df: '消费 1 元得 1 积分',
       },
       {
-        icon: '🎁',
+        icon: giftIcon,
         tk: 'member.benefits.b.gift',
         tf: '新人礼包',
         dk: 'member.benefits.b.giftD',
         df: '注册专享礼包',
       },
       {
-        icon: '📅',
+        icon: calendarIcon,
         tk: 'member.benefits.b.sign',
         tf: '每日签到',
         dk: 'member.benefits.b.signD',
         df: '每日签到领积分',
       },
       {
-        icon: '💌',
+        icon: mailIcon,
         tk: 'member.benefits.b.news',
         tf: '优惠资讯',
         dk: 'member.benefits.b.newsD',
@@ -75,47 +93,47 @@ const TIERS: Tier[] = [
   },
   {
     key: 'silver',
-    icon: '🥈',
+    icon: silverIcon,
     nk: 'member.benefits.tier.silver',
     nf: '银卡会员',
     benefits: [
       {
-        icon: '🛒',
+        icon: shoppingIcon,
         tk: 'member.benefits.b.discount',
         tf: '购物折扣',
         dk: 'member.benefits.b.discountD2',
         df: '全场商品 9 折',
       },
       {
-        icon: '✨',
+        icon: sparkleIcon,
         tk: 'member.benefits.b.pointsMul',
         tf: '积分倍数',
         dk: 'member.benefits.b.pointsMulD2',
         df: '1.2 倍积分加速',
       },
       {
-        icon: '🎂',
+        icon: birthdayIcon,
         tk: 'member.benefits.b.birthday',
         tf: '生日礼包',
         dk: 'member.benefits.b.birthdayD',
         df: '生日专享礼包',
       },
       {
-        icon: '🚚',
+        icon: truckIcon,
         tk: 'member.benefits.b.shipping',
         tf: '免邮特权',
         dk: 'member.benefits.b.shippingD2',
         df: '每月 3 次免邮',
       },
       {
-        icon: '🎟️',
+        icon: ticketIcon,
         tk: 'member.benefits.b.coupon',
         tf: '专属优惠券',
         dk: 'member.benefits.b.couponD2',
         df: '每月 2 张优惠券',
       },
       {
-        icon: '📅',
+        icon: calendarIcon,
         tk: 'member.benefits.b.sign',
         tf: '每日签到',
         dk: 'member.benefits.b.signD2',
@@ -130,28 +148,28 @@ const TIERS: Tier[] = [
     nf: '金卡会员',
     benefits: [
       {
-        icon: '🛒',
+        icon: shoppingIcon,
         tk: 'member.benefits.b.discount',
         tf: '购物折扣',
         dk: 'member.benefits.b.discountD3',
         df: '全场商品 85 折',
       },
       {
-        icon: '✨',
+        icon: sparkleIcon,
         tk: 'member.benefits.b.pointsMul',
         tf: '积分倍数',
         dk: 'member.benefits.b.pointsMulD3',
         df: '1.5 倍积分加速',
       },
       {
-        icon: '🎂',
+        icon: birthdayIcon,
         tk: 'member.benefits.b.birthday',
         tf: '生日礼包',
         dk: 'member.benefits.b.birthdayD3',
         df: '生日双倍礼包',
       },
       {
-        icon: '🚚',
+        icon: truckIcon,
         tk: 'member.benefits.b.shipping',
         tf: '免邮特权',
         dk: 'member.benefits.b.shippingD3',
@@ -165,14 +183,14 @@ const TIERS: Tier[] = [
         df: '1 对 1 专属服务',
       },
       {
-        icon: '🎟️',
+        icon: ticketIcon,
         tk: 'member.benefits.b.coupon',
         tf: '专属优惠券',
         dk: 'member.benefits.b.couponD3',
         df: '每月 5 张优惠券',
       },
       {
-        icon: '🎉',
+        icon: partyIcon,
         tk: 'member.benefits.b.preview',
         tf: '优先体验',
         dk: 'member.benefits.b.previewD',
@@ -187,28 +205,28 @@ const TIERS: Tier[] = [
     nf: '钻石会员',
     benefits: [
       {
-        icon: '🛒',
+        icon: shoppingIcon,
         tk: 'member.benefits.b.discount',
         tf: '购物折扣',
         dk: 'member.benefits.b.discountD4',
         df: '全场商品 8 折',
       },
       {
-        icon: '✨',
+        icon: sparkleIcon,
         tk: 'member.benefits.b.pointsMul',
         tf: '积分倍数',
         dk: 'member.benefits.b.pointsMulD4',
         df: '2 倍积分加速',
       },
       {
-        icon: '🎂',
+        icon: birthdayIcon,
         tk: 'member.benefits.b.birthday',
         tf: '生日礼包',
         dk: 'member.benefits.b.birthdayD4',
         df: '生日豪华礼包',
       },
       {
-        icon: '🚚',
+        icon: truckIcon,
         tk: 'member.benefits.b.shipping',
         tf: '免邮特权',
         dk: 'member.benefits.b.shippingD4',
@@ -222,21 +240,21 @@ const TIERS: Tier[] = [
         df: '7×24 专属管家',
       },
       {
-        icon: '🎟️',
+        icon: ticketIcon,
         tk: 'member.benefits.b.coupon',
         tf: '专属优惠券',
         dk: 'member.benefits.b.couponD4',
         df: '每月 10 张优惠券',
       },
       {
-        icon: '🎉',
+        icon: partyIcon,
         tk: 'member.benefits.b.preview',
         tf: '优先体验',
         dk: 'member.benefits.b.previewD4',
         df: '新功能首发体验',
       },
       {
-        icon: '🏆',
+        icon: trophyIcon,
         tk: 'member.benefits.b.event',
         tf: '尊享活动',
         dk: 'member.benefits.b.eventD',
@@ -312,6 +330,10 @@ export default function BenefitsPage() {
               className="w-[calc(50%-8rpx)] bg-card rounded-[16rpx] py-[24rpx] px-[16rpx] text-center"
             >
               <Text className="block text-[48rpx]">{b.icon || '★'}</Text>
+              {/* 兼容后端返回的 icon 为图片路径时,用 Image 渲染 */}
+              {b.icon && isImagePath(b.icon) ? (
+                <Image src={b.icon} className="w-12 h-12 mx-auto mt-[8rpx]" mode="aspectFit" />
+              ) : null}
               <Text className="block mt-[12rpx] text-[28rpx] font-semibold text-foreground">
                 {b.title}
               </Text>
@@ -331,7 +353,7 @@ export default function BenefitsPage() {
       {TIERS.map((tier) => (
         <View key={tier.key} className="bg-card rounded-[16rpx] overflow-hidden mb-[24rpx]">
           <View className={`flex items-center px-[32rpx] py-[24rpx] ${TIER_HEAD_CLASS[tier.key]}`}>
-            {tier.icon.startsWith('http') ? (
+            {isImagePath(tier.icon) ? (
               <Image src={tier.icon} className="w-6 h-6 mr-[16rpx]" mode="aspectFit" />
             ) : (
               <Text className="text-[40rpx] mr-[16rpx]">{tier.icon}</Text>
@@ -341,7 +363,7 @@ export default function BenefitsPage() {
           <View className="py-[8rpx]">
             {tier.benefits.map((b, i) => (
               <View key={i} className="flex items-center px-[32rpx] py-[20rpx]">
-                {b.icon.startsWith('http') ? (
+                {isImagePath(b.icon) ? (
                   <Image src={b.icon} className="w-5 h-5 flex-shrink-0" mode="aspectFit" />
                 ) : (
                   <Text className="text-[36rpx] w-[48rpx] text-center flex-shrink-0">{b.icon}</Text>
