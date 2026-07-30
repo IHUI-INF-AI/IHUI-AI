@@ -1,4 +1,4 @@
-import { fetchApi } from '../client'
+import { fetchApi, fetchAiServiceJson } from '../client'
 import type {
   PermissionMode,
   PermissionDecision,
@@ -251,34 +251,39 @@ export interface SkillExecuteResult {
 // ============================================================================
 
 export async function executeAgent(params: AgentExecuteRequest) {
-  return fetchApi<AgentExecuteResult>('/agents/execute', {
+  return fetchAiServiceJson<AgentExecuteResult>('/agents/execute', {
     method: 'POST',
     body: JSON.stringify(params),
   })
 }
 
 export async function getAgentStatus(taskId: string) {
-  return fetchApi<AgentTaskStatus>(`/agents/${encodeURIComponent(taskId)}/status`)
+  return fetchAiServiceJson<AgentTaskStatus>(`/agents/${encodeURIComponent(taskId)}/status`)
 }
 
 export async function cancelAgent(taskId: string) {
-  return fetchApi<AgentCancelResult>(`/agents/${encodeURIComponent(taskId)}/cancel`, {
+  return fetchAiServiceJson<AgentCancelResult>(`/agents/${encodeURIComponent(taskId)}/cancel`, {
     method: 'POST',
   })
 }
 
 export async function listAgentSessions() {
-  return fetchApi<AgentSessionList>('/agents/sessions')
+  return fetchAiServiceJson<AgentSessionList>('/agents/sessions')
 }
 
 export async function getAgentSession(sessionId: string) {
-  return fetchApi<AgentSession>(`/agents/sessions/${encodeURIComponent(sessionId)}/messages`)
+  return fetchAiServiceJson<AgentSession>(
+    `/agents/sessions/${encodeURIComponent(sessionId)}/messages`,
+  )
 }
 
 export async function resumeAgentSession(sessionId: string) {
-  return fetchApi<AgentResumeResult>(`/agents/sessions/${encodeURIComponent(sessionId)}/resume`, {
-    method: 'POST',
-  })
+  return fetchAiServiceJson<AgentResumeResult>(
+    `/agents/sessions/${encodeURIComponent(sessionId)}/resume`,
+    {
+      method: 'POST',
+    },
+  )
 }
 
 // ============================================================================
@@ -286,26 +291,26 @@ export async function resumeAgentSession(sessionId: string) {
 // ============================================================================
 
 export async function sendA2ATask(params: A2ASendTaskRequest) {
-  return fetchApi<A2ATask>('/a2a/tasks', {
+  return fetchAiServiceJson<A2ATask>('/a2a/tasks', {
     method: 'POST',
     body: JSON.stringify(params),
   })
 }
 
 export async function getA2ATaskStatus(taskId: string) {
-  return fetchApi<A2ATaskStatus>(`/a2a/tasks/${encodeURIComponent(taskId)}/status`)
+  return fetchAiServiceJson<A2ATaskStatus>(`/a2a/tasks/${encodeURIComponent(taskId)}/status`)
 }
 
 export async function getA2ATaskResult(taskId: string) {
-  return fetchApi<A2ATaskResult>(`/a2a/tasks/${encodeURIComponent(taskId)}/result`)
+  return fetchAiServiceJson<A2ATaskResult>(`/a2a/tasks/${encodeURIComponent(taskId)}/result`)
 }
 
 export async function listA2AAgents() {
-  return fetchApi<A2AAgentList>('/a2a/agents')
+  return fetchAiServiceJson<A2AAgentList>('/a2a/agents')
 }
 
 export async function registerA2AAgent(params: A2ARegisterAgentRequest) {
-  return fetchApi<A2AAgent>('/a2a/agents/register', {
+  return fetchAiServiceJson<A2AAgent>('/a2a/agents/register', {
     method: 'POST',
     body: JSON.stringify(params),
   })
@@ -316,26 +321,26 @@ export async function registerA2AAgent(params: A2ARegisterAgentRequest) {
 // ============================================================================
 
 export async function listMCPTools() {
-  return fetchApi<McpToolList>('/mcp/tools')
+  return fetchAiServiceJson<McpToolList>('/mcp/tools')
 }
 
 export async function callMCPTool(name: string, args: Record<string, unknown> = {}) {
-  return fetchApi<McpToolCallResult>('/mcp/tools/call', {
+  return fetchAiServiceJson<McpToolCallResult>('/mcp/tools/call', {
     method: 'POST',
     body: JSON.stringify({ name, arguments: args }),
   })
 }
 
 export async function listMCPSkills() {
-  return fetchApi<McpSkillList>('/mcp/skills')
+  return fetchAiServiceJson<McpSkillList>('/mcp/skills')
 }
 
 export async function listSlashCommands() {
-  return fetchApi<SlashCommandList>('/mcp/slash-commands')
+  return fetchAiServiceJson<SlashCommandList>('/mcp/slash-commands')
 }
 
 export async function executeSlashCommand(command: string, args: string[] = []) {
-  return fetchApi<SlashCommandResult>('/mcp/slash-commands', {
+  return fetchAiServiceJson<SlashCommandResult>('/mcp/slash-commands', {
     method: 'POST',
     body: JSON.stringify({ command, args, ctx: {} }),
   })
@@ -346,15 +351,15 @@ export async function executeSlashCommand(command: string, args: string[] = []) 
 // ============================================================================
 
 export async function listSkills() {
-  return fetchApi<McpSkillList>('/mcp/skills')
+  return fetchAiServiceJson<McpSkillList>('/mcp/skills')
 }
 
 export async function getSkill(name: string) {
-  return fetchApi<McpSkill>(`/mcp/skills/${encodeURIComponent(name)}`)
+  return fetchAiServiceJson<McpSkill>(`/mcp/skills/${encodeURIComponent(name)}`)
 }
 
 export async function executeSkill(name: string, params: Record<string, unknown> = {}) {
-  return fetchApi<SkillExecuteResult>(`/mcp/skills/${encodeURIComponent(name)}/execute`, {
+  return fetchAiServiceJson<SkillExecuteResult>(`/mcp/skills/${encodeURIComponent(name)}/execute`, {
     method: 'POST',
     body: JSON.stringify(params),
   })
@@ -409,20 +414,20 @@ export interface McpPromptInvokeResult {
 }
 
 export async function listMCPResources() {
-  return fetchApi<McpResourceList>('/mcp/resources')
+  return fetchAiServiceJson<McpResourceList>('/mcp/resources')
 }
 
 // URI 可能含 `/`(如 file:///path),用 encodeURI 保留路径分隔符,匹配后端 {uri:path} 路由
 export async function readMCPResource(uri: string) {
-  return fetchApi<McpResourceReadResult>(`/mcp/resources/${encodeURI(uri)}`)
+  return fetchAiServiceJson<McpResourceReadResult>(`/mcp/resources/${encodeURI(uri)}`)
 }
 
 export async function listMCPPrompts() {
-  return fetchApi<McpPromptList>('/mcp/prompts')
+  return fetchAiServiceJson<McpPromptList>('/mcp/prompts')
 }
 
 export async function invokeMCPPrompt(name: string, args: Record<string, unknown> = {}) {
-  return fetchApi<McpPromptInvokeResult>('/mcp/prompts/invoke', {
+  return fetchAiServiceJson<McpPromptInvokeResult>('/mcp/prompts/invoke', {
     method: 'POST',
     body: JSON.stringify({ name, arguments: args }),
   })
