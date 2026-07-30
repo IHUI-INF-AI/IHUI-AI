@@ -1977,3 +1977,256 @@ class TestStructuredCompletionInternalUsesComplete:
         # response_format 必须透传(L916 内部行为)
         call_kwargs = gw.complete.call_args.kwargs
         assert call_kwargs["response_format"]["type"] == "json_schema"
+
+
+# =============================================================================
+# P3-3 OpenRouter 403 代理 + failover(2026-07-30 立)
+# =============================================================================
+
+import os
+
+from app.core.llm_gateway import (
+    _failover_openrouter_to_agnes,
+    _is_openrouter_403_error,
+    _openrouter_proxy_context,
+)
+
+
+# --- _is_openrouter_403_error ---
+
+
+def test_is_openrouter_403_error_true_with_403_message():
+    """openrouter/ 前缀 + 错误消息含 '403' → True(可 failover)。"""
+    err = RuntimeError("OpenRouter returned 403 Forbidden")
+    assert _is_openrouter_403_error("openrouter/llama-3.3-70b", err) is True
+
+
+def test_is_openrouter_403_error_true_with_forbidden_message():
+    """openrouter/ 前缀 + 错误消息含 'forbidden' → True。"""
+    err = Exception("Access forbidden by WAF")
+    assert _is_openrouter_403_error("openrouter/qwen/qwen3-235b", err) is True
+
+
+def test_is_openrouter_403_error_true_with_access_denied_message():
+    """openrouter/ 前缀 + 错误消息含 'access denied' → True。"""
+    err = Exception("access denied")
+    assert _is_openrouter_403_error("openrouter/gpt-4o", err) is True
+
+
+def test_is_openrouter_403_error_false_non_openrouter_model():
+    """非 openrouter/ 前缀 → False(不触发 failover)。"""
+    err = RuntimeError("403 Forbidden")
+    assert _is_openrouter_403_error("agnes/gpt-4o", err) is False
+    assert _is_openrouter_403_error("stepfun/step-3.7-flash", err) is False
+
+
+def test_is_openrouter_403_error_false_non_403_error():
+    """openrouter/ 前缀但非 403 错误(如 timeout)→ False(不 failover)。"""
+    err = RuntimeError("connection timeout")
+    assert _is_openrouter_403_error("openrouter/llama-3.3-70b", err) is False
+
+
+def test_is_openrouter_403_error_case_insensitive_model():
+    """模型名大小写不敏感:OPENROUTER/ 也能识别。"""
+    err = RuntimeError("403 Forbidden")
+    assert _is_openrouter_403_error("OPENROUTER/llama-3.3-70b", err) is True
+
+
+# --- _failover_openrouter_to_agnes ---
+
+
+def test_failover_openrouter_to_agnes_converts_prefix():
+    """openrouter/<model> → agnes/<model>(同模型换 provider)。"""
+    result = _failover_openrouter_to_agnes("openrouter/llama-3.3-70b")
+    assert result == "agnes/llama-3.3-70b"
+
+
+def test_failover_openrouter_to_agnes_nested_model():
+    """嵌套模型名 openrouter/deepseek/deepseek-v4 → agnes/deepseek/deepseek-v4。"""
+    result = _failover_openrouter_to_agnes("openrouter/deepseek/deepseek-v4")
+    assert result == "agnes/deepseek/deepseek-v4"
+
+
+def test_failover_openrouter_to_agnes_non_openrouter_returns_none():
+    """非 openrouter/ 前缀 → None(无法转换)。"""
+    assert _failover_openrouter_to_agnes("agnes/gpt-4o") is None
+    assert _failover_openrouter_to_agnes("stepfun/step-3.7-flash") is None
+
+
+# --- _openrouter_proxy_context ---
+
+
+def test_openrouter_proxy_context_sets_env_var(monkeypatch):
+    """openrouter/ 前缀 + 有 proxy_url → with 块内 HTTPS_PROXY/HTTP_PROXY 被设置。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "openrouter_proxy_url", "http://proxy.example.com:8080")
+    monkeypatch.delenv("HTTPS_PROXY", raising=False)
+    monkeypatch.delenv("HTTP_PROXY", raising=False)
+
+    with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
+        assert os.environ.get("HTTPS_PROXY") == "http://proxy.example.com:8080"
+        assert os.environ.get("HTTP_PROXY") == "http://proxy.example.com:8080"
+    # 退出后恢复(原值为 None → pop 掉)
+    assert "HTTPS_PROXY" not in os.environ
+    assert "HTTP_PROXY" not in os.environ
+
+
+def test_openrouter_proxy_context_restores_original_value(monkeypatch):
+    """with 块退出后恢复原 HTTPS_PROXY 值(非 None 时还原)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "openrouter_proxy_url", "http://new-proxy:8080")
+    monkeypatch.setenv("HTTPS_PROXY", "http://original-proxy:9090")
+    monkeypatch.setenv("HTTP_PROXY", "http://original-proxy:9090")
+
+    with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
+        assert os.environ.get("HTTPS_PROXY") == "http://new-proxy:8080"
+    # 退出后恢复原值
+    assert os.environ.get("HTTPS_PROXY") == "http://original-proxy:9090"
+    assert os.environ.get("HTTP_PROXY") == "http://original-proxy:9090"
+
+
+def test_openrouter_proxy_context_non_openrouter_model_noop(monkeypatch):
+    """非 openrouter/ 前缀 → 不设置代理(noop)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "openrouter_proxy_url", "http://proxy:8080")
+    monkeypatch.delenv("HTTPS_PROXY", raising=False)
+
+    with _openrouter_proxy_context("agnes/gpt-4o"):
+        assert "HTTPS_PROXY" not in os.environ
+
+
+def test_openrouter_proxy_context_empty_proxy_url_noop(monkeypatch):
+    """openrouter/ 前缀但 proxy_url 为空 → 不设置代理(走全局或直连)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "openrouter_proxy_url", "")
+    monkeypatch.delenv("HTTPS_PROXY", raising=False)
+
+    with _openrouter_proxy_context("openrouter/llama-3.3-70b"):
+        assert "HTTPS_PROXY" not in os.environ
+
+
+# --- complete() + OpenRouter 403 failover 集成测试 ---
+
+
+async def test_complete_openrouter_403_failover_to_agnes(monkeypatch):
+    """complete() openrouter/ 返回 403 → 自动 failover 到 agnes/<model>。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "openrouter": {"api_key": "sk-or-test"},
+        "agnes": {"api_key": "sk-agnes-test", "api_base": "https://apihub.agnes-ai.com/v1"},
+    }))
+    monkeypatch.setattr(settings, "openrouter_failover_to_agnes", True)
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    call_models: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        call_models.append(kwargs.get("model", ""))
+        if kwargs.get("model", "").startswith("openrouter/"):
+            raise RuntimeError("OpenRouter returned 403 Forbidden")
+        # agnes 调用成功
+        class FakeUsage:
+            def model_dump(self):
+                return {"prompt_tokens": 5, "completion_tokens": 3, "total_tokens": 8}
+
+        class FakeMessage:
+            content = "agnes fallback response"
+
+        class FakeChoice:
+            message = FakeMessage()
+
+        class FakeResponse:
+            usage = FakeUsage()
+            choices = [FakeChoice()]
+            model = "agnes/llama-3.3-70b"
+
+        return FakeResponse()
+
+    fake_litellm.acompletion = fake_acompletion
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    result = await gw.complete(
+        [{"role": "user", "content": "test"}],
+        model="openrouter/llama-3.3-70b",
+    )
+
+    # 第一次调 openrouter/(403 失败),第二次 failover 到 agnes/(成功)
+    # 注意:agnes/llama-3.3-70b 经 _resolve_provider 转换为 openai/llama-3.3-70b
+    # (OpenAI 兼容路由,_resolve_provider 对 agnes/ 前缀去前缀 + 加 openai/ 前缀)
+    assert len(call_models) == 2
+    assert call_models[0] == "openrouter/llama-3.3-70b"
+    assert call_models[1] == "openai/llama-3.3-70b"
+    # 返回 agnes 的响应
+    assert result["content"] == "agnes fallback response"
+    assert result["stub"] is False
+
+
+async def test_complete_openrouter_403_failover_disabled(monkeypatch):
+    """openrouter_failover_to_agnes=False → 不 failover,直接返回错误。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "openrouter": {"api_key": "sk-or-test"},
+        "agnes": {"api_key": "sk-agnes-test"},
+    }))
+    monkeypatch.setattr(settings, "openrouter_failover_to_agnes", False)
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs):
+        raise RuntimeError("403 Forbidden")
+
+    fake_litellm.acompletion = fake_acompletion
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    result = await gw.complete(
+        [{"role": "user", "content": "test"}],
+        model="openrouter/llama-3.3-70b",
+    )
+
+    # 不 failover,直接返回错误
+    assert result["error"] is True
+    assert "403" in result["error_message"]
+
+
+async def test_complete_openrouter_non_403_error_no_failover(monkeypatch):
+    """openrouter/ 返回非 403 错误(如 timeout)→ 不触发 agnes failover。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({
+        "openrouter": {"api_key": "sk-or-test"},
+        "agnes": {"api_key": "sk-agnes-test"},
+    }))
+    monkeypatch.setattr(settings, "openrouter_failover_to_agnes", True)
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    call_count = 0
+
+    async def fake_acompletion(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        raise RuntimeError("connection timeout")
+
+    fake_litellm.acompletion = fake_acompletion
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    result = await gw.complete(
+        [{"role": "user", "content": "test"}],
+        model="openrouter/llama-3.3-70b",
+    )
+
+    # 非 403 错误不触发 agnes failover(只调 1 次)
+    assert call_count == 1
+    assert result["error"] is True
