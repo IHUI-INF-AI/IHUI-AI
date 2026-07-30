@@ -1734,10 +1734,12 @@ export function Sidebar({
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口长按拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
     <div
       className={cn(
-        // header 高 44px。px-2 mx-0 与 nav 的 px-2 对齐:logo 左侧 + collapse 按钮右侧与菜单项左右侧各 8px 对齐。
+        // header 高 44px(保持不变,新建任务按钮位置不动)。
+        // pt-2 pb-0 + items-center:content-box = 44-8-0 = 36px(从 y=8 到 y=44),
+        // 折叠按钮(36px)填满 content-box,logo(26px)在 content-box 内居中,
+        // 两者中心都在 y=26,与 GlobalTopBar 按钮中心(pt-2+h-9/2=26)垂直对齐(2026-07-30 用户反馈)。
         // gap-1(4px)让 logo(80) + gap(4) + 按钮(28) = 112px < 内容区 114px,不溢出。
-        // 44px = 内部最高元素 h-9(36px) + 上下各 4px 间距(2026-07-30 用户反馈 52px 浪费空间)。
-        'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 mx-0 transition-[padding] duration-200',
+        'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 pt-2 pb-0 mx-0 transition-[padding] duration-200',
         // 折叠态:aside 的 border-r(1px)使内容区 59px,header 居中后按钮会偏左 0.5px。
         // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
         collapsed && 'justify-center pl-[9px] pr-2 mx-0',
