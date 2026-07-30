@@ -1567,5 +1567,15 @@
     "empty": "메시지가 없습니다",
     "placeholder": "메시지 입력",
     "send": "전송"
+  },
+  "byokGuide": {
+    "cardTitle": "API Key 직접 입력(BYOK)",
+    "cardDesc": "프로바이더 API Key를 직접 입력, 중간 마진 없음, 무료 모델은 무료",
+    "feature1": "50+ 프로바이더 Key 지원",
+    "feature2": "유료 모델은 5-20% 서비스 수수료만",
+    "feature3": "무료 모델은 완전 무료",
+    "cta": "API Key 설정",
+    "freeNoteTitle": "무료 모델 무료 사용",
+    "freeNoteDesc": "BYOK로 Cloudflare Workers AI, GitHub Models, NVIDIA NIM 등 무료 프로바이더에 연결 — 완전 무료로 사용 가능, 플랫폼 수수료 없음."
   }
 }
