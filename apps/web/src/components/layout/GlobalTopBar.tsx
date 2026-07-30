@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
   Plus,
-  ChevronDown,
   Globe,
   FileText,
   Terminal,
@@ -44,7 +43,7 @@ type PlusMenuAction = {
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
   href?: string
   /** 切换 IDE 顶 tab(可选,触发 useIDEWorkspace.setActiveTopTab) */
-  setIdeTab?: Parameters<ReturnType<typeof useIDEWorkspace>['setActiveTopTab']>[0]
+  setIdeTab?: 'editor' | 'document' | 'terminal' | 'browser' | 'code-changes' | 'figma' | 'agent' | 'mcp' | 'settings'
   /** 触发 WorkPanel 切换(可选,内置浏览器复用) */
   toggleWorkPanel?: boolean
   /** 快捷键提示文案 */
