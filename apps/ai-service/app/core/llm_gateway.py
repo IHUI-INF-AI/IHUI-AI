@@ -100,6 +100,11 @@ async def _get_pool() -> asyncpg.Pool:
     return await get_shared_pool()
 
 
+# P0-5c(2026-07-30):中转站 Key 池选择器(查 ai_relay_key_pool 表,多 key 负载均衡 + 故障转移)
+# 模块级导入安全:key_pool_selector.py 内部对 llm_gateway 符号用懒导入,无循环依赖
+from ..services.key_pool_selector import KeyPoolSelector
+
+
 def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
     """解密 ai_model_config.api_key_enc。
 
@@ -460,6 +465,10 @@ def repair_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
 class LLMGateway:
     """LLM 调用网关,封装 LiteLLM 并提供 stub 降级。"""
 
+    # P0-5c:当前请求选中的 key_pool_id(供 complete/astream 故障转移标记用)
+    # _resolve 设置,complete/astream 在 await 前读取到局部变量(无 race:中间无 await 点)
+    _current_key_pool_id: Optional[str] = None
+
     @staticmethod
     def _is_stub_mode() -> bool:
         """未配置任何 .env API key 时为 stub 模式(仍可被 DB 配置覆盖)。
@@ -737,10 +746,34 @@ class LLMGateway:
         model: str,
         owner_uuid: Optional[str] = None,
     ) -> tuple[str | None, str | None, str | None]:
-        """优先 DB 配置,兜底 .env。"""
+        """优先 BYOK → 号池 → .env(三层优先级)。
+
+        1. BYOK 用户私有配置(_resolve_from_db 查 ai_model_config WHERE owner_uuid=?)
+        2. 中转站号池(KeyPoolSelector 查 ai_relay_key_pool WHERE provider_code=?)
+        3. .env 单 key(_resolve_provider 兜底)
+
+        号池命中时:self._current_key_pool_id 设为选中 key 的 id(供 complete/astream
+        故障转移标记用);BYOK/.env 路径置 None。
+        """
+        # 1. BYOK 用户私有配置
         db_result = await _resolve_from_db(model, owner_uuid)
         if db_result:
+            self._current_key_pool_id = None
             return db_result
+
+        # 2. 号池(中转站模式):查 ai_relay_key_pool
+        provider_code = KeyPoolSelector.model_to_provider_code(model)
+        pool_key = await KeyPoolSelector.select_key(provider_code)
+        if pool_key is not None:
+            # base_url 仍从 .env provider config 读(号池只管 key 轮换)
+            # litellm_model 走 _resolve_provider 的前缀处理(去前缀 + 加 openai/ 等)
+            cfg = settings.get_provider_config(provider_code)
+            _, _, litellm_model = self._resolve_provider(model)
+            self._current_key_pool_id = pool_key["key_pool_id"]
+            return pool_key["api_key"], cfg.api_base or None, litellm_model
+
+        # 3. .env 单 key 兜底
+        self._current_key_pool_id = None
         return self._resolve_provider(model)
 
     async def _apply_token_compaction(
@@ -836,6 +869,7 @@ class LLMGateway:
         *,
         owner_uuid: Optional[str] = None,
         _skip_fallback: bool = False,
+        _pool_retry: int = 0,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """调用 LLM 完成对话。
@@ -845,6 +879,7 @@ class LLMGateway:
             model: 模型名称,为空则使用默认模型。
             owner_uuid: 用户 UUID,用于匹配 ai_model_config 表中的用户私有配置。
             _skip_fallback: 内部参数,True 时跳过 FallbackRouter(防递归)。
+            _pool_retry: 内部参数,号池故障转移重试计数(最多 3 次)。
             **kwargs: 透传给 litellm 的额外参数。
 
         Returns:
@@ -903,8 +938,11 @@ class LLMGateway:
                     "stub": True,
                 }
             api_key, api_base, real_model = db_result
+            current_key_pool_id: Optional[str] = None
         else:
             api_key, api_base, real_model = await self._resolve(used_model, owner_uuid)
+            # 立即读取到局部变量(无 await 点,无 race)供故障转移标记用
+            current_key_pool_id = self._current_key_pool_id
 
         try:
             import litellm
@@ -953,8 +991,27 @@ class LLMGateway:
                     }
                     for tc in raw_tool_calls
                 ]
+            # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
+            if current_key_pool_id:
+                await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
             return result
         except Exception as e:
+            # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
+            # 重试优先于 FallbackRouter/ComboRouter(同模型换 key < 换模型兜底)
+            if current_key_pool_id is not None and _pool_retry < 3:
+                await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
+                logger.info(
+                    "[key_pool] key %s 失败(retry %d/3),换 key 重试: %s",
+                    current_key_pool_id, _pool_retry + 1, str(e)[:200],
+                )
+                return await self.complete(
+                    messages,
+                    model=model,
+                    owner_uuid=owner_uuid,
+                    _skip_fallback=_skip_fallback,
+                    _pool_retry=_pool_retry + 1,
+                    **kwargs,
+                )
             safe_msg = str(e)
             err_code = "LLM_ERROR"
             if "API key 未配置" in safe_msg or "未配置" in safe_msg:
@@ -1160,6 +1217,7 @@ class LLMGateway:
         model: str | None = None,
         *,
         owner_uuid: Optional[str] = None,
+        _pool_retry: int = 0,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
         """流式调用 LLM,逐 token 产出。
@@ -1210,8 +1268,11 @@ class LLMGateway:
                 }
                 return
             api_key, api_base, real_model = db_result
+            current_key_pool_id: Optional[str] = None
         else:
             api_key, api_base, real_model = await self._resolve(used_model, owner_uuid)
+            # 立即读取到局部变量(无 await 点,无 race)供故障转移标记用
+            current_key_pool_id = self._current_key_pool_id
 
         # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
         # 必须在 try 块之前初始化:若 try 内 import/raise 在赋值前抛异常,
@@ -1297,6 +1358,9 @@ class LLMGateway:
                     )
                 except Exception as est_err:
                     logger.warning("token_counter 估算失败,usage 保持空: %s", est_err)
+            # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
+            if current_key_pool_id:
+                await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
             yield {
                 "type": "done",
                 "model": final_model,
@@ -1323,12 +1387,38 @@ class LLMGateway:
                     "astream 流式中断:已发 content_len=%d reasoning_len=%d,异常=%s: %s,标记 partial_done",
                     len(accumulated_content), len(accumulated_reasoning), type(e).__name__, safe_msg,
                 )
+                # P0-5c:号池 key 流式中断 → 仍标记失败(下次选 key 时降级)
+                if current_key_pool_id:
+                    await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
                 yield {
                     "type": "partial_done",
                     "fallback_applied": False,
                     "reason": "stream_interrupted",
                     "model": used_model,
                 }
+                return
+            # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
+            # 仅在未发送任何 chunk 时重试(已发送 chunk 不可撤回,无法中途换 key)
+            # 重试优先于 FallbackRouter(同模型换 key < 换模型兜底)
+            if (
+                current_key_pool_id is not None
+                and _pool_retry < 3
+                and not accumulated_content
+                and not accumulated_reasoning
+            ):
+                await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
+                logger.info(
+                    "[key_pool] astream key %s 失败(retry %d/3),换 key 重试: %s",
+                    current_key_pool_id, _pool_retry + 1, str(e)[:200],
+                )
+                async for evt in self.astream(
+                    messages,
+                    model=model,
+                    owner_uuid=owner_uuid,
+                    _pool_retry=_pool_retry + 1,
+                    **kwargs,
+                ):
+                    yield evt
                 return
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)
