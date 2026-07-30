@@ -258,7 +258,20 @@ export default function InputArea({
   const canSend = text.trim().length > 0 && !disabled
 
   if (variant === 'ai-home') {
-    // ===== ai-home 模式:三层嵌套 + search-box 绝对定位右侧图标组(对齐原项目 InputArea.vue)=====
+    // ===== ai-home 模式:三层嵌套,完全对齐原项目 InputArea.vue 结构 =====
+    // .input-area > .input-area-back > .search-box.search-box-bor > .search-box-inner
+    // search-box-inner 内:search-box1(语音) + textarea/voice-bar + 放大/缩小按钮 + 占位 search-right + 可见 search-right
+    //
+    // 动态 padding(对标原项目 textareaPadding):
+    // - 放大态:由 CSS .textarea-input 控制,不设 padding
+    // - 长文本(isamplify):12rpx 38rpx 82rpx 0(右侧 38rpx 放大按钮 + 底部 82rpx 图标组)
+    // - 短文本:12rpx 134rpx 12rpx 44rpx(右侧 134rpx 图标组 + 左侧 44rpx 语音按钮)
+    const textareaPadding = isFangdaActive
+      ? '0'
+      : isamplify
+        ? '12rpx 38rpx 82rpx 0'
+        : '12rpx 134rpx 12rpx 44rpx'
+
     return (
       <View
         className={cn(
@@ -273,12 +286,12 @@ export default function InputArea({
           ...fangdaStyle,
         } as CSSProperties}
       >
-        {/* 第二层:input-area-back 白底呼吸阴影 */}
+        {/* 第二层:input-area-back 白底呼吸阴影(对标原项目 .input-area-back inputAreaBackAnimation) */}
         <View
           className={isFangdaActive ? 'input-area-back input-area-active-bg' : 'input-area-back'}
           style={{ width: '100%' }}
         >
-          {/* 第三层:search-box search-box-bor 紫色描边圆角容器 */}
+          {/* 第三层:search-box search-box-bor 紫色描边圆角容器(对标原项目 .search-box.search_box_bor) */}
           <View
             className={cn(
               'search-box',
@@ -289,7 +302,7 @@ export default function InputArea({
               backgroundColor: recording ? '#ECEDFC' : '#fff',
             }}
           >
-            {/* 附件列表 imgs-list(保留当前实现) */}
+            {/* 附件列表 imgs-list(对标原项目 .imgs_list,横向滚动,底部 1px 灰线分隔) */}
             {imgsList && imgsList.length > 0 ? (
               <ScrollView scrollX className="imgs-list" style={{ flexBasis: '100%' }}>
                 {imgsList.map((item, index) => (
@@ -297,7 +310,7 @@ export default function InputArea({
                     <Image
                       src={closeInputPng}
                       className="imgs-list-close"
-                      mode="aspectFit"
+                      mode="widthFix"
                       onClick={() => handleRemoveImage(index)}
                     />
                     {item.fileType === 'document' ? (
@@ -397,14 +410,18 @@ export default function InputArea({
                   className="search-box1-img"
                   src={recording ? inputQiePng : mode === 'text' ? searchHuaPng : inputQiePng}
                   style={{ width: '38rpx', height: '40rpx' }}
-                  mode="aspectFit"
+                  mode="widthFix"
                 />
               </View>
 
               {/* textarea search-input 或 语音波形动画 */}
               {mode === 'text' ? (
                 <Textarea
-                  className={cn('search-input', isFangdaActive ? 'textarea-input' : '')}
+                  className={cn(
+                    'search-input',
+                    isFangdaActive ? 'textarea-input' : '',
+                    !isamplify && !isFangdaActive ? 'textarea-int' : '',
+                  )}
                   style={{
                     position: recording ? 'absolute' : 'relative',
                     top: 0,
@@ -413,6 +430,7 @@ export default function InputArea({
                     bottom: 0,
                     zIndex: recording ? -1 : 1,
                     maxHeight: isFangdaActive ? 'none' : '500rpx',
+                    padding: textareaPadding,
                     fontSize: '36rpx',
                     color: 'rgba(0, 0, 0)',
                     lineHeight: '40rpx',
@@ -431,13 +449,13 @@ export default function InputArea({
                   confirmType="send"
                   cursorSpacing={44}
                   adjustPosition={false}
-                  disabled={disabled}
+                  disabled={recording || disabled}
                   onFocus={handleFocus}
                   onBlur={handleBlur}
                   onKeyboardHeightChange={handleKeyboardHeightChange}
                 />
               ) : (
-                /* 语音波形动画 voice-bar-animation:30 根线 6rpx gap */
+                /* 语音波形动画 voice-bar-animation:30 根线,recording 时添加 line1~line30 类名触发动画 */
                 <View
                   style={{ flex: 1, display: 'flex', alignItems: 'center' }}
                   onTouchStart={handleVoiceStart}
@@ -446,13 +464,98 @@ export default function InputArea({
                 >
                   <View className="voice-bar-animation">
                     {Array.from({ length: 30 }).map((_, n) => (
-                      <View key={n} className="line" />
+                      <View
+                        key={n}
+                        className={cn('line', recording ? `line${n + 1}` : '')}
+                      />
                     ))}
                   </View>
                 </View>
               )}
 
-              {/* 右侧图标组 search-right:绝对定位 right:6rpx bottom:calc(50% - 26rpx) */}
+              {/* 放大按钮(对标原项目 isamplify && !isVoiceAnimationActive && !isFangdaActive)
+                  位置:absolute right:0 top:12rpx 40×40 z-index:2,图标 48×48 widthFix */}
+              {mode === 'text' && isamplify && !recording && !isFangdaActive ? (
+                <View
+                  className="search-right"
+                  style={{
+                    position: 'absolute',
+                    justifyContent: 'flex-end',
+                    right: 0,
+                    top: '12rpx',
+                    width: '40rpx',
+                    height: '40rpx',
+                    zIndex: 2,
+                  }}
+                >
+                  <View className="search-box3">
+                    <Image
+                      className="search-box3-img"
+                      src={fangdaPng}
+                      style={{ width: '48rpx', height: '48rpx' }}
+                      mode="widthFix"
+                      onClick={toggleFangda}
+                    />
+                  </View>
+                </View>
+              ) : null}
+
+              {/* 缩小按钮(对标原项目 isFangdaActive,含 search_suo 类)
+                  位置:absolute right:0 top:12rpx 40×40 z-index:2,图标 48×48 widthFix */}
+              {mode === 'text' && isFangdaActive ? (
+                <View
+                  className="search-right search-suo"
+                  style={{
+                    position: 'absolute',
+                    justifyContent: 'flex-end',
+                    right: 0,
+                    top: '12rpx',
+                    width: '40rpx',
+                    height: '40rpx',
+                    zIndex: 2,
+                  }}
+                >
+                  <View className="search-box3">
+                    <Image
+                      className="search-box3-img"
+                      src={suoxiaoPng}
+                      style={{ width: '48rpx', height: '48rpx' }}
+                      mode="widthFix"
+                      onClick={toggleFangda}
+                    />
+                  </View>
+                </View>
+              ) : null}
+
+              {/* 占位 search-right(opacity:0):撑开 textarea 宽度避让右侧图标(对标原项目 line 119-149) */}
+              <View
+                className="search-right"
+                style={{ position: 'relative', opacity: 0 }}
+              >
+                <View className="search-box2">
+                  <Image
+                    className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
+                    src={searchAddPng}
+                  />
+                </View>
+                <View className="search-box3">
+                  {mode === 'text' && text.length > 0 ? (
+                    <Image
+                      className="search-box3-img"
+                      src={closeChatPng}
+                      style={{ width: '50rpx', height: '50rpx', marginRight: '10rpx' }}
+                    />
+                  ) : null}
+                  <Image
+                    className="search-box3-img"
+                    src={sandMsgPng}
+                    style={{ width: '50rpx', height: '50rpx', marginLeft: '18rpx' }}
+                    mode="widthFix"
+                  />
+                </View>
+              </View>
+
+              {/* 可见 search-right:绝对定位 right:6rpx bottom:calc(50% - 26rpx) */}
               <View
                 className="search-right"
                 style={{
@@ -465,45 +568,22 @@ export default function InputArea({
                   zIndex: 2,
                 }}
               >
-                {/* 附件按钮 search-box2:44rpx×44rpx,opacity 控制 */}
-                <View
-                  className="search-box2"
-                  style={{
-                    width: '44rpx',
-                    height: '44rpx',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: isShowIcon ? 1 : 0,
-                    transition: 'opacity 0.3s',
-                  }}
-                  onClick={handleUploadToggle}
-                >
+                {/* 附件按钮 search-box2:44rpx×44rpx,默认可见,isShowIcon 只控制旋转 */}
+                <View className="search-box2" onClick={handleUploadToggle}>
                   <Image
                     className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
                     src={searchAddPng}
-                    style={{ width: '44rpx', height: '44rpx', transition: 'transform 0.5s ease' }}
-                    mode="aspectFit"
                   />
                 </View>
 
                 {/* 清空 + 发送 search-box3 */}
-                <View
-                  className="search-box3"
-                  style={{
-                    width: 'auto',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
+                <View className="search-box3">
                   {/* 清空按钮 close_chat.png 50rpx×50rpx marginRight 10rpx */}
                   {mode === 'text' && text.length > 0 ? (
                     <Image
                       className="search-box3-img"
                       src={closeChatPng}
                       style={{ width: '50rpx', height: '50rpx', marginRight: '10rpx' }}
-                      mode="aspectFit"
                       onClick={handleClear}
                     />
                   ) : null}
@@ -518,30 +598,6 @@ export default function InputArea({
                   />
                 </View>
               </View>
-
-              {/* 放大/缩小按钮(放大态显示,放 search-box-inner 右上角) */}
-              {mode === 'text' && (isamplify || isFangdaActive) ? (
-                <View
-                  style={{
-                    position: 'absolute',
-                    right: '6rpx',
-                    top: '6rpx',
-                    width: '44rpx',
-                    height: '44rpx',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 3,
-                  }}
-                  onClick={toggleFangda}
-                >
-                  <Image
-                    src={isFangdaActive ? suoxiaoPng : fangdaPng}
-                    style={{ width: '40rpx', height: '40rpx' }}
-                    mode="aspectFit"
-                  />
-                </View>
-              ) : null}
             </View>
           </View>
         </View>
