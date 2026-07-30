@@ -319,3 +319,100 @@ def test_custom_registry_injection():
     reg = FreeProviderRegistry(registry=custom)
     assert len(reg) == 1
     assert reg.get_by_code("custom") is not None
+
+# =============================================================================
+# P1-1 新增 provider 测试(2026-07-30 立,对齐 OmniRoute v3.8.49)
+# =============================================================================
+
+
+def test_registry_has_40_plus_providers():
+    """注册表含 40+ 免费 provider(对齐 OmniRoute v3.8.49 + 超越)。"""
+    assert len(free_provider_registry) >= 40
+
+
+@pytest.mark.parametrize("provider_code", [
+    "llm7",
+    "pollinations",
+    "qoder",
+    "aihorde",
+    "ovhcloud",
+    "requesty",
+    "opencode_zen",
+    "scaleway",
+    "alibaba_intl",
+    "navy",
+])
+def test_new_omniroute_providers_exist(provider_code):
+    """10 个 OmniRoute 独有 / 补注册 provider 全部存在于 registry。"""
+    p = free_provider_registry.get_by_code(provider_code)
+    assert p is not None, f"provider {provider_code} 不在 registry"
+    assert p.signup_url.startswith("http"), f"{provider_code} signup_url 非 http"
+    assert p.default_base_url, f"{provider_code} 缺 default_base_url"
+    assert len(p.default_models) >= 1, f"{provider_code} 缺 default_models"
+
+
+def test_llm7_no_key_required():
+    """LLM7 无需 key(免费镜像服务)。"""
+    p = free_provider_registry.get_by_code("llm7")
+    assert p is not None
+    assert p.key_env_vars == [], "LLM7 应无需 key"
+    assert "gpt-4o" in p.default_models
+
+
+def test_pollinations_no_key_required():
+    """Pollinations 无需 key(无注册免费顶级模型)。"""
+    p = free_provider_registry.get_by_code("pollinations")
+    assert p is not None
+    assert p.key_env_vars == [], "Pollinations 应无需 key"
+
+
+def test_qoder_has_thinking_models():
+    """Qoder AI 含 Kimi K2 Thinking / DeepSeek R1 思考模型。"""
+    p = free_provider_registry.get_by_code("qoder")
+    assert p is not None
+    assert "if/kimi-k2-thinking" in p.default_models
+    assert "if/deepseek-r1" in p.default_models
+
+
+def test_alibaba_intl_5_models():
+    """Alibaba Intl 含 5 个 Qwen 模型(default_models.json 已预置)。"""
+    p = free_provider_registry.get_by_code("alibaba_intl")
+    assert p is not None
+    assert len(p.default_models) == 5
+    assert "alibaba-intl/qwen3-235b-a22b" in p.default_models
+
+
+def test_scaleway_3_models():
+    """Scaleway 含 3 个模型(default_models.json 已预置)。"""
+    p = free_provider_registry.get_by_code("scaleway")
+    assert p is not None
+    assert len(p.default_models) == 3
+
+
+def test_github_models_has_tos_warning():
+    """GitHub Models 的 notes 含 2026-06-16 关闭警告。"""
+    p = free_provider_registry.get_by_code("github_models")
+    assert p is not None
+    assert "2026-06-16" in p.notes, "github_models notes 应含 2026-06-16 关闭警告"
+
+
+def test_fireworksai_has_tos_warning():
+    """Fireworks AI 的 notes 含 ToS §2.1 禁止 proxy 警告。"""
+    p = free_provider_registry.get_by_code("fireworksai")
+    assert p is not None
+    assert "ToS" in p.notes or "禁止" in p.notes, "fireworksai notes 应含 ToS 警告"
+
+
+def test_omniroute_alignment_complete():
+    """IHUI registry 对齐 OmniRoute v3.8.49 关键 forever free provider 全覆盖。
+
+    对照 OmniRoute FREE_TIERS.md v3.8.49 的 11 个 forever free:
+    Kiro / Qoder / Pollinations / LongCat / Cloudflare / NVIDIA / Cerebras / Qwen / Gemini / Scaleway / Groq
+    (Kiro 因 ToS 风险暂不接入,LongCat 在 v3.8.42 重分类为一次性,本测试验证 IHUI 已接入的)
+    """
+    omniroute_forever_free_should_have = [
+        "qoder", "pollinations", "cerebras", "groq", "scaleway",
+    ]
+    for code in omniroute_forever_free_should_have:
+        p = free_provider_registry.get_by_code(code)
+        assert p is not None, f"OmniRoute forever free provider {code} 未接入"
