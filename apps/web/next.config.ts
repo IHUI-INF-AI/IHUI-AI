@@ -154,6 +154,21 @@ const nextConfig: NextConfig = {
           source: '/api/llm/:path*',
           destination: 'http://localhost:8803/api/llm/:path*',
         },
+        // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
+        // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
+        // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
+        // 必须直连 ai-service 8803 才能命中。必须放在 /api/:path* 通配符之前。
+        {
+          source: '/api/mcp/:path*',
+          destination: 'http://localhost:8803/api/mcp/:path*',
+        },
+        // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
+        // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
+        // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
+        {
+          source: '/api/agents/:path*',
+          destination: 'http://localhost:8803/api/agents/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',

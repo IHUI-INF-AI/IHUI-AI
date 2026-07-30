@@ -1,6 +1,8 @@
 export {
   fetchApi,
+  fetchAiServiceJson,
   fetchRaw,
+  fetchText,
   setTokenProvider,
   setBaseUrl,
   setStreamBaseUrl,
