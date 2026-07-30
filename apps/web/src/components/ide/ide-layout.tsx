@@ -14,6 +14,8 @@ import { CodeEditorPane } from './code-editor-pane'
 import { DiffViewerPane } from './diff-viewer-pane'
 import { StatusBar } from './status-bar'
 import { TerminalPanel } from './terminal-panel'
+import { AgentPane } from './agent-pane'
+import { McpPane } from './mcp-pane'
 
 /** 根据活动视图渲染左侧面板 */
 function SidePanel() {
@@ -44,19 +46,35 @@ function MainContent() {
     case 'code-changes':
       return <DiffViewerPane />
     case 'document':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.documentView')}</div>
+      return (
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          {t('layout.documentView')}
+        </div>
+      )
     case 'terminal':
       return <TerminalPanel />
     case 'browser':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.browserView')}</div>
+      return (
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          {t('layout.browserView')}
+        </div>
+      )
     case 'figma':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.figmaView')}</div>
+      return (
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          {t('layout.figmaView')}
+        </div>
+      )
     case 'agent':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.agentView')}</div>
+      return <AgentPane />
     case 'mcp':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.mcpView')}</div>
+      return <McpPane />
     case 'settings':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.settingsView')}</div>
+      return (
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          {t('layout.settingsView')}
+        </div>
+      )
     default:
       return <CodeEditorPane />
   }
@@ -64,7 +82,15 @@ function MainContent() {
 
 export function IDELayout() {
   useIDEShortcuts()
-  const { workspacePath, setWorkspacePath, restoreExpandedFolders, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches } = useIDEWorkspace()
+  const {
+    workspacePath,
+    setWorkspacePath,
+    restoreExpandedFolders,
+    fetchFileTree,
+    fetchDiffFiles,
+    fetchGitLog,
+    fetchGitBranches,
+  } = useIDEWorkspace()
 
   // 工作区初始化:从 localStorage 恢复路径 + 展开状态,有路径则 fetch 数据
   React.useEffect(() => {
@@ -79,7 +105,15 @@ export function IDELayout() {
     void fetchDiffFiles()
     void fetchGitLog()
     void fetchGitBranches()
-  }, [workspacePath, setWorkspacePath, restoreExpandedFolders, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches])
+  }, [
+    workspacePath,
+    setWorkspacePath,
+    restoreExpandedFolders,
+    fetchFileTree,
+    fetchDiffFiles,
+    fetchGitLog,
+    fetchGitBranches,
+  ])
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background">
