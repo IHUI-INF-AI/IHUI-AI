@@ -76,8 +76,13 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
                 content={"code": 401, "message": "Refresh token cannot be used as access token"},
             )
 
-        request.state.user_id = payload.get("userId")
-        request.state.role_id = payload.get("roleId", 0)
+        # 兼容 apps/api 的 JWT payload:apps/api 用 setSubject(userId) 写入 sub 字段,
+        # 也可能直接写 userId 字段(由 issueTokenPair 不同实现产生)。
+        # 优先读 sub(JWT RFC 7519 标准),其次 userId(老格式)。
+        user_id = payload.get("sub") or payload.get("userId")
+        role_id = payload.get("roleId", 0)
+        request.state.user_id = user_id
+        request.state.role_id = role_id
         request.state.jwt_payload = payload
 
         return await call_next(request)

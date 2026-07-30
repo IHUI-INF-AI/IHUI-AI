@@ -305,6 +305,27 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   return response.text()
 }
 
+/** 拉取原始二进制响应(如 PNG 截图),自动加 Authorization 头。 */
+export async function fetchRaw(url: string, options: RequestInit = {}): Promise<Blob> {
+  const token = tokenProvider.getToken()
+  const normalizedUrl = normalizeUrl(url)
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const response = await getTransport()(normalizedUrl, {
+    method: options.method,
+    headers,
+    body: typeof options.body === 'string' ? options.body : undefined,
+    signal: options.signal ?? undefined,
+  })
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`${response.status}: ${text}`)
+  }
+  return response.blob()
+}
+
 // ==================== SSE 流式对话 ====================
 
 export interface StreamChatOptions {
