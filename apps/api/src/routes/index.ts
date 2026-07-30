@@ -348,6 +348,10 @@ import relayDiscoveryRoutes from './admin/relay-discovery.js'
 import relayLogsRoutes from './admin/relay-logs.js'
 import { relayPublicRoutes } from './relay-public.js'
 import developerRelayRoutes from './developer-relay.js'
+// P0 中转站造血能力对标批次(2026-07-31 立):Anthropic 原生格式 + 兑换码 + 模型映射
+import adminModelMappingsRoutes from './admin/model-mappings.js'
+import adminRedemptionCodesRoutes from './admin/redemption-codes.js'
+import v1MessagesRoutes from './v1-messages.js'
 // 资源上下文管理(7 端点:列表/创建/详情/更新/删除/绑定/按会话查询)+ 交易员流水统计(4 端点:流水/汇总/按日/排行)
 import resourceContextRoutes from './resource-context.js'
 import traderStatsRoutes from './trader-stats.js'
@@ -969,4 +973,13 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayPublicRoutes, { prefix: '/api/relay' })
   // developer 用户侧端点:API Key 列表(含余额)/ 用量明细 / 调用日志 / 充值
   server.register(developerRelayRoutes, { prefix: '/api' })
+
+  // ===== P0 中转站造血能力对标批次(2026-07-31 立,8 subagent 并行)=====
+  // admin 模型映射管理(CRUD + 优先级 + 启用/禁用):POST /api/admin/model-mappings 等
+  server.register(adminModelMappingsRoutes, { prefix: '/api/admin' })
+  // admin 兑换码管理(批量生成 + 查询 + 兑换记录):POST /api/admin/redemption-codes/batch 等
+  server.register(adminRedemptionCodesRoutes, { prefix: '/api/admin' })
+  // Anthropic Messages 原生格式端点(POST /v1/messages,内部转 OpenAI 格式走 relay 链路)
+  // 与 v1-public.ts 同前缀 /v1,内部路径 /messages 拼接为 /v1/messages
+  server.register(v1MessagesRoutes, { prefix: '/v1' })
 }

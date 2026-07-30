@@ -87,6 +87,8 @@ import {
   ChevronDown,
   Layers,
   Zap,
+  Shuffle,
+  Ticket,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -224,6 +226,8 @@ interface AdminNavItem {
     | 'adminRelayKeyPool'
     | 'adminRelayDiscovery'
     | 'adminRelayLogs'
+    | 'adminRelayModelMappings'
+    | 'adminRelayRedemptionCodes'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -797,6 +801,9 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/relay/key-pool', labelKey: 'adminRelayKeyPool', icon: KeyRound },
       { href: '/admin/relay/discovery', labelKey: 'adminRelayDiscovery', icon: Activity },
       { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
+      // P0 中转站造血能力对标批次(2026-07-31 立):模型映射 + 兑换码管理
+      { href: '/admin/relay/model-mappings', labelKey: 'adminRelayModelMappings', icon: Shuffle },
+      { href: '/admin/relay/redemption-codes', labelKey: 'adminRelayRedemptionCodes', icon: Ticket },
     ],
   },
   // 营销直播
@@ -1225,6 +1232,8 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminRelayKeyPool: 'nav.adminRelayKeyPool',
   adminRelayDiscovery: 'nav.adminRelayDiscovery',
   adminRelayLogs: 'nav.adminRelayLogs',
+  adminRelayModelMappings: 'nav.adminRelayModelMappings',
+  adminRelayRedemptionCodes: 'nav.adminRelayRedemptionCodes',
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */

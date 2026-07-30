@@ -25,6 +25,10 @@ export const llmCallLogs = pgTable(
     promptTokens: integer('prompt_tokens').default(0).notNull(),
     completionTokens: integer('completion_tokens').default(0).notNull(),
     totalTokens: integer('total_tokens').default(0).notNull(),
+    /** prompt cache 命中读取的 token 数(按 10% 价计费,OpenAI/Claude 标准) */
+    cacheReadTokens: integer('cache_read_tokens').default(0).notNull(),
+    /** prompt cache 创建写入的 token 数(按 125% 价计费) */
+    cacheCreationTokens: integer('cache_creation_tokens').default(0).notNull(),
     latencyMs: integer('latency_ms').default(0).notNull(),
     status: varchar('status', { length: 20 }).default('success').notNull(),
     errorMessage: text('error_message'),
