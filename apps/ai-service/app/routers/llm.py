@@ -345,11 +345,39 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any] | JSONResponse
 async def list_models() -> dict[str, Any]:
     """返回可用模型列表。
 
-    从 data/default_models.json 加载(支持热更新,无需重启),按 id 去重。
+    从 data/default_models.json + ai_model_config_models 表合并加载,按 id 去重。
     stub 模式下返回默认列表。
     前端 /models 页面通过 API 代理调用此端点获取动态模型清单。
     """
     default_models = _load_default_models()
+    # 从数据库加载额外模型(ai_model_config_models 表,is_relay_public=true)
+    try:
+        from ..core.db_pool import get_shared_pool
+        pool = await get_shared_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT m.model_id, m.display_name, m.context_length, c.provider_code
+                   FROM ai_model_config_models m
+                   JOIN ai_model_config c ON m.config_id = c.id
+                   WHERE m.enabled = true AND c.enabled = true AND m.is_relay_public = true
+                   ORDER BY c.sort_order NULLS LAST, m.relay_sort_order"""
+            )
+        seen = {m["id"] for m in default_models}
+        for r in rows:
+            mid = r["model_id"]
+            # OpenRouter 模型需要 "openrouter/" 前缀(调用时 _model_to_provider_code 匹配)
+            if r["provider_code"] == "openrouter" and not mid.startswith("openrouter/"):
+                mid = f"openrouter/{mid}"
+            if mid not in seen:
+                default_models.append({
+                    "id": mid,
+                    "name": r["display_name"] or mid,
+                    "provider": r["provider_code"],
+                    "context_length": r["context_length"] or 4096,
+                })
+                seen.add(mid)
+    except Exception as e:
+        logger.warning("从数据库加载模型失败: %s", e)
     return {
         "models": default_models,
         "default": settings.litellm_model,
