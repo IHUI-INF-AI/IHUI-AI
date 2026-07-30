@@ -153,7 +153,15 @@ export const MARQUEE_BRANDS: readonly Icon[] = [...MODELS, ...PROMOTIONS]
 // nameKey 已是 `marquee.X` 形式的复合 key,但 useTranslations('home.marquee')
 // 会再拼一层 → 解析成 home.marquee.marquee.X 报错。
 // 解法:BrandMarquee 的 MarqueeRow 组件在取名时去掉 `marquee.` 前缀。
-export const SCHOOL_BRANDS: readonly (Omit<Icon, 'nameKey'> & { nameKey: string })[] = [
+// 2026-07-30:显式列字段而不是 Omit<Icon, 'nameKey'>,因为 Icon 后续可能加新可选字段,
+//   Omit 会强制要求新字段显式声明,会引发 typecheck 报错。Pick<Icon, ...> + nameKey 更稳。
+export const SCHOOL_BRANDS: readonly {
+  nameKey: string
+  src: string
+  href?: string
+  mono?: boolean
+  darkInvert?: boolean
+}[] = [
   { nameKey: 'kouzi', src: '/brands/kouzi.png' },
   { nameKey: 'bbxLogo', src: '/brands/bbx.svg' },
   // brand4.svg 在架构变更中丢失,跳过
@@ -162,11 +170,11 @@ export const SCHOOL_BRANDS: readonly (Omit<Icon, 'nameKey'> & { nameKey: string 
   { nameKey: 'ali', src: '/brands/ali.png' },
   { nameKey: 'baidu', src: '/brands/baidu.svg' },
   { nameKey: 'dbsfdx', src: '/brands/dbsfdx.png' },
-  { nameKey: 'gork', src: '/brands/gork.png' },
+  { nameKey: 'gork', src: '/brands/gork.png', darkInvert: true },
   { nameKey: 'huawei', src: '/brands/huawei.svg' },
   { nameKey: 'jldx', src: '/brands/jldx.png' },
-  { nameKey: 'openai', src: '/brands/openai.png' },
+  { nameKey: 'openai', src: '/brands/openai.png', darkInvert: true },
   { nameKey: 'tencent', src: '/brands/tencent.png' },
   { nameKey: 'yuanbaoxiang', src: '/brands/ybx.png' },
-  { nameKey: 'yushu', src: '/brands/yushu.png' },
+  { nameKey: 'yushu', src: '/brands/yushu.png', darkInvert: true },
 ]
