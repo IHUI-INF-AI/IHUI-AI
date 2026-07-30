@@ -84,7 +84,17 @@
       }
     },
     "dismiss": "忽略",
-    "empty": "暂无记录"
+    "empty": "暂无记录",
+    "moreActions": "更多操作",
+    "close": "关闭",
+    "closeOther": "关闭其他",
+    "closeAll": "关闭全部",
+    "closeRight": "关闭右侧",
+    "copyPath": "复制路径",
+    "refresh": "刷新",
+    "pin": "固定",
+    "unpin": "取消固定",
+    "unsaved": "未保存"
   },
   "taskReceiver": {
     "title": "任务接收",
