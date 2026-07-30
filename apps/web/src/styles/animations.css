@@ -2468,8 +2468,8 @@
 /* 思考内容渐显(高亮) */
 @keyframes fadeInHighlight {
   0% {
-    color: rgb(var(--primary));
-    background-color: rgb(var(--primary) / 0.15);
+    color: var(--color-primary);
+    background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
   }
   100% {
     color: inherit;
