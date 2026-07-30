@@ -6,7 +6,7 @@ import { useTagsViewStore } from '@/stores/tags-view'
 /**
  * 把"当前页表单是否处于 dirty 状态"声明给 TagsView。
  * 当 dirty 变为 true 时,对应 path 的标签会显示未保存指示点;
- * 关闭标签 / closeOther / closeAll 会自动清理脏状态,无需手动解绑。
+ * 关闭标签 / closeAll 会自动清理脏状态,无需手动解绑。
  *
  * 用法:
  *   useTagDirty('/user/profile', form.dirty)

@@ -257,39 +257,27 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
 /**
  * 标签栏"更多Actions"按钮(2026-07-30 第十一轮"做减法 v7"用户反馈
  * "把 chevron/Plus 挪到搜索按钮后面 a 标签前面"后抽出独立组件)
- * - 内部独立订阅 tagsview store (tags.length / activePath / closeOther / closeAll),
+ * - 内部独立订阅 tagsview store (tags.length / activePath / closeAll),
  *   tags.length === 0 时不渲染(无 tag 时不显示批量关闭)
  * - 跟 TagsViewSearchButton 平级,放在 GlobalTopBar 内层 flex 的 chevron 位置
- * - 渲染 chevron-down + Dropdown 弹层(closeOther / closeAll)
+ * - 渲染 chevron-down + Dropdown 弹层(复制路径 / 刷新 / closeAll)
+ *
+ * 2026-07-31 第十三轮做减法:删除 closeOther / closeRight(与 closeAll 语义重叠,
+ * 用户规则:"做彻底然后收尾",pin + closeAll 已覆盖所有清理场景)
  */
 export const TagsViewChevronButton = React.memo(function TagsViewChevronButton() {
   const tCommon = useTranslations('common')
   const router = useRouter()
   const tags = useTagsViewStore((s) => s.tags)
   const activePath = useTagsViewStore((s) => s.activePath)
-  const closeOther = useTagsViewStore((s) => s.closeOther)
   const closeAll = useTagsViewStore((s) => s.closeAll)
-  const closeRight = useTagsViewStore((s) => s.closeRight)
 
   if (tags.length === 0) return null
 
-  // 2026-07-31 第十二轮:chevron 下拉菜单从 2 项扩到 5 项
-  // 新增:关闭右侧 / 复制路径 / 刷新当前(用户确认)
-  // pin 不进此菜单(用户指定:仅走右键单个标签)
   return (
     <Dropdown
       align="end"
       items={[
-        {
-          key: 'other',
-          label: tCommon('closeOther'),
-          onSelect: () => closeOther(activePath ?? ''),
-        },
-        {
-          key: 'right',
-          label: tCommon('closeRight'),
-          onSelect: () => closeRight(activePath ?? ''),
-        },
         {
           key: 'copy',
           label: tCommon('copyPath'),
@@ -348,7 +336,6 @@ export function TagsView() {
   const activePath = useTagsViewStore((s) => s.activePath)
   const addTag = useTagsViewStore((s) => s.addTag)
   const removeTag = useTagsViewStore((s) => s.removeTag)
-  const closeOther = useTagsViewStore((s) => s.closeOther)
   const closeAll = useTagsViewStore((s) => s.closeAll)
   const reorderTags = useTagsViewStore((s) => s.reorderTags)
   // 订阅 dirtyPaths(Set 引用变化时触发重渲染);各标签用 dirtyPaths.has(path) 判定 dirty
@@ -603,18 +590,6 @@ export function TagsView() {
           >
             <X className="h-4 w-4" />
             {tCommon('close')}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              closeOther(ctxMenu.path)
-              setCtxMenu(null)
-            }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
-          >
-            <XCircle className="h-4 w-4" />
-            {tCommon('closeOther')}
           </button>
           {/* pin/unpin 项(2026-07-31 Chrome 风格,根据当前 pinned 状态切换文案 + 图标) */}
           <button
