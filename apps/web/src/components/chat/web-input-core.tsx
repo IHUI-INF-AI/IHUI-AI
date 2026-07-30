@@ -49,106 +49,108 @@ export interface WebInputCoreProps {
 /** Web 端 MessageInput 实现(forwardRef,契约对齐 SharedMessageInputProps)
  * 渲染 textarea + 字符计数(2026-07-29 简化,清除/发送/停止按钮已挪到外层 toolbar)。
  * 内部托管 textarea ref + 自动高度,主组件通过 forwarded ref 调用 focus/setSelectionRange/resize。 */
-export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(function WebInputCore(
-  {
-    text,
-    placeholder,
-    onTextChange,
-    onSend,
-    onClear,
-    error,
-    onChange,
-    onKeyDown,
-    onPaste,
-    isStreaming,
-    // 2026-07-29 简化:sendLabel/stopLabel 在 web 端不再使用(发送/停止按钮已挪到外层 toolbar),
-    // 保留在 props 契约里是为了和 packages/types SharedMessageInputProps 对齐(rn/taro 端仍用)。
-    t: _t,
-    sendLabel: _sendLabel,
-    stopLabel: _stopLabel,
-  },
-  ref,
-) {
-  const innerRef = React.useRef<HTMLTextAreaElement>(null)
-  const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
-    threeLinePx: MIN_HEIGHT_PX,
-    maxHeightPx: MAX_HEIGHT_PX,
-  })
-  React.useImperativeHandle(
+export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCoreProps>(
+  function WebInputCore(
+    {
+      text,
+      placeholder,
+      onTextChange,
+      onSend,
+      onClear,
+      error,
+      onChange,
+      onKeyDown,
+      onPaste,
+      isStreaming,
+      // 2026-07-29 简化:sendLabel/stopLabel 在 web 端不再使用(发送/停止按钮已挪到外层 toolbar),
+      // 保留在 props 契约里是为了和 packages/types SharedMessageInputProps 对齐(rn/taro 端仍用)。
+      t: _t,
+      sendLabel: _sendLabel,
+      stopLabel: _stopLabel,
+    },
     ref,
-    (): WebInputCoreHandle => ({
-      focus: () => innerRef.current?.focus(),
-      setSelectionRange: (s, e) => innerRef.current?.setSelectionRange(s, e),
-      resize,
-    }),
-    [resize],
-  )
-  // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 BrushCleaning 清洁刷图标,
-  // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
-  return (
-    <div className="group relative px-3 pt-2 pb-2">
-      <textarea
-        ref={innerRef}
-        value={text}
-        onChange={(e) => {
-          const v = e.target.value.slice(0, MAX_LENGTH)
-          onTextChange(v)
-          onChange?.(e)
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault()
-            onSend()
-          } else {
-            onKeyDown?.(e)
-          }
-        }}
-        onPaste={onPaste}
-        placeholder={placeholder}
-        rows={3}
-        aria-label={placeholder}
-        style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
-        className={cn(
-          'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
-          'placeholder:text-muted-foreground/70',
-          'pb-6',
-        )}
-      />
-      {/* 清除按钮:仅 hover textarea 容器时显示,有内容时渲染,
+  ) {
+    const innerRef = React.useRef<HTMLTextAreaElement>(null)
+    const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
+      threeLinePx: MIN_HEIGHT_PX,
+      maxHeightPx: MAX_HEIGHT_PX,
+    })
+    React.useImperativeHandle(
+      ref,
+      (): WebInputCoreHandle => ({
+        focus: () => innerRef.current?.focus(),
+        setSelectionRange: (s, e) => innerRef.current?.setSelectionRange(s, e),
+        resize,
+      }),
+      [resize],
+    )
+    // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 BrushCleaning 清洁刷图标,
+    // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
+    return (
+      <div className="group relative px-3 pt-2 pb-2">
+        <textarea
+          ref={innerRef}
+          value={text}
+          onChange={(e) => {
+            const v = e.target.value.slice(0, MAX_LENGTH)
+            onTextChange(v)
+            onChange?.(e)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              onSend()
+            } else {
+              onKeyDown?.(e)
+            }
+          }}
+          onPaste={onPaste}
+          placeholder={placeholder}
+          rows={3}
+          aria-label={placeholder}
+          style={{ maxHeight: MAX_HEIGHT_PX, minHeight: MIN_HEIGHT_PX }}
+          className={cn(
+            'thin-scroll block w-full resize-none bg-transparent text-sm leading-snug outline-none',
+            'placeholder:text-muted-foreground/70',
+            'pb-6',
+          )}
+        />
+        {/* 清除按钮:仅 hover textarea 容器时显示,有内容时渲染,
           流式时禁用(不与 Stop 按钮冲突,流式时清空草稿语义模糊)。
           位置:textarea 右上角 absolute(2026-07-30 二次调整:再往上 4px 至 top-1,
           让按钮更贴近 textarea 顶边,视觉上像"挂在输入框角落")。
           不挡字符计数(字符计数在 bottom-2)。 */}
-      {text.length > 0 && (
-        <button
-          type="button"
-          aria-label="清除输入"
-          title="清除输入"
-          onClick={onClear}
-          disabled={isStreaming}
-          className={cn(
-            'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md',
-            'text-muted-foreground transition-opacity',
-            'opacity-0 hover:bg-accent hover:text-accent-foreground',
-            'group-hover:opacity-100 focus-visible:opacity-100',
-            'disabled:pointer-events-none',
-          )}
-        >
-          <BrushCleaning className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      )}
-      <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center">
-        <span
-          aria-live="polite"
-          className={cn(
-            'text-[10px] tabular-nums text-muted-foreground/60',
-            text.length >= MAX_LENGTH && 'text-destructive',
-          )}
-        >
-          {text.length}/{MAX_LENGTH}
-        </span>
+        {text.length > 0 && (
+          <button
+            type="button"
+            aria-label="清除输入"
+            title="清除输入"
+            onClick={onClear}
+            disabled={isStreaming}
+            className={cn(
+              'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md',
+              'text-muted-foreground transition-opacity',
+              'opacity-0 hover:bg-accent hover:text-accent-foreground',
+              'group-hover:opacity-100 focus-visible:opacity-100',
+              'disabled:pointer-events-none',
+            )}
+          >
+            <BrushCleaning className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
+        <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-end">
+          <span
+            aria-live="polite"
+            className={cn(
+              'text-[10px] tabular-nums text-muted-foreground/60',
+              text.length >= MAX_LENGTH && 'text-destructive',
+            )}
+          >
+            {text.length}/{MAX_LENGTH}
+          </span>
+        </div>
+        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
       </div>
-      {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
-    </div>
-  )
-})
+    )
+  },
+)
