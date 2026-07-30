@@ -66,6 +66,7 @@ export function LoginForm(props: LoginFormProps) {
     className,
     qrComponent,
     qrPlatforms,
+    enableCredentialPersistence = false,
   } = props
 
   const enabledTabs: LoginTab[] = tabs ?? ['email', 'phone', 'password', 'qr']
@@ -122,6 +123,8 @@ export function LoginForm(props: LoginFormProps) {
     showAgreeErr,
     inputClassName,
     buttonClassName,
+    // 2026-07-30:3 个 tab 共用同一份账号历史(email/phone/password 登录成功都写入同一 localStorage)
+    enableCredentialPersistence,
   }
 
   return (
@@ -176,7 +179,12 @@ export function LoginForm(props: LoginFormProps) {
 
         {enabledTabs.includes('qr') && (
           <TabsContent value="qr">
-            <QrTab t={t} QrComponent={qrComponent} platforms={qrPlatforms} onSwitchMethod={() => setTab('email')} />
+            <QrTab
+              t={t}
+              QrComponent={qrComponent}
+              platforms={qrPlatforms}
+              onSwitchMethod={() => setTab('email')}
+            />
           </TabsContent>
         )}
       </Tabs>

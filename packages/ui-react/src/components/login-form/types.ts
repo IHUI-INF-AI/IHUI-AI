@@ -42,14 +42,7 @@ export type LoginTab = 'email' | 'phone' | 'password' | 'qr'
 
 /** 8 个第三方登录平台(固定枚举,与 web 端 ThirdPartyPlatform 对齐) */
 export type ThirdPartyPlatform =
-  | 'wechat'
-  | 'google'
-  | 'github'
-  | 'feishu'
-  | 'dingtalk'
-  | 'enterpriseWechat'
-  | 'alipay'
-  | 'apple'
+  'wechat' | 'google' | 'github' | 'feishu' | 'dingtalk' | 'enterpriseWechat' | 'alipay' | 'apple'
 
 /** 8 平台静态列表,顺序与 web 端 ThirdPartyLoginButtons 一致(3 列网格按行铺) */
 export const ALL_THIRD_PARTY_PLATFORMS: readonly ThirdPartyPlatform[] = [
@@ -90,7 +83,11 @@ export interface ThirdPartyConfig {
 /** 登录 API 客户端(由调用方注入,适配 web/extension 不同存储/网络) */
 export interface LoginApiClient {
   /** 账号密码登录 */
-  loginByAccount: (account: string, password: string, captcha?: string) => Promise<ApiResult<LoginResult>>
+  loginByAccount: (
+    account: string,
+    password: string,
+    captcha?: string,
+  ) => Promise<ApiResult<LoginResult>>
   /** 邮箱验证码登录 */
   loginByEmailCode: (email: string, code: string) => Promise<ApiResult<LoginResult>>
   /** 手机号验证码登录 */
@@ -169,4 +166,11 @@ export interface LoginFormProps {
   qrComponent?: (props: { platform: ThirdPartyPlatform; refreshKey: number }) => ReactNode
   /** 自定义 QR 平台列表(默认 4 个 wechat/wecom/dingtalk/feishu) */
   qrPlatforms?: QrPlatformConfig[]
+  /**
+   * 是否启用凭据持久化(记住密码 + 自动登录 + 账号历史)
+   * 2026-07-30 立:消除 web 端 B 版本与共享包 A 版本功能差异。
+   * true 时 password tab 显示"记住密码/自动登录"checkbox + 账号输入框带历史下拉,
+   * 登录成功后持久化到 localStorage。默认 false 向后兼容。
+   */
+  enableCredentialPersistence?: boolean
 }
