@@ -15,7 +15,8 @@ export interface TransportResponse {
   headers: { get(name: string): string | null }
   text(): Promise<string>
   json(): Promise<unknown>
-  blob(): Promise<Blob>
+  /** blob() 仅 web/desktop/extension 实现,小程序环境用不到(downloadFile 走 native) */
+  blob?(): Promise<Blob>
 }
 
 /** 传输初始化参数 — RequestInit 的跨平台子集 */
