@@ -79,6 +79,20 @@ export const CHIP_BASE_CLASS =
 export const HEADER_BAR_CLASS =
   'flex h-14 shrink-0 items-center gap-2 px-3 [&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]'
 
+/** 顶栏按钮/标签共享基础类 (h-9 = 36px, 2026-07-30 立)
+ *  - 复用范围:GlobalTopBar(Plus 按钮 / 窗口控制按钮 Min/Max/Close)+ TagsView(搜索按钮 / 标签 Link / Dropdown trigger)
+ *  - 4 处元素高度雷同(都是 h-full 撑满 h-9 父容器),共享 base 杜绝"看似不同其实只是 padding/bg 不同"的雷同 className 重复
+ *  - 约束:所有子项 h-full 撑满父容器严丝合缝对齐 / rounded-md (6px) / 文字图标垂直水平居中
+ *  - 包含 focus 行为(focus-visible:bg-accent),4 类元素统一焦点环
+ *  - 不预设 hover bg / active bg(各元素差异项):Plus / 窗口控制用 hover:bg-accent,
+ *    搜索 / 标签用 hover:bg-muted,Dropdown trigger 用 hover:bg-accent
+ */
+export const TOPBAR_BTN_BASE =
+  'inline-flex h-full shrink-0 items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:bg-accent'
+
+/** 顶栏按钮/标签宽度(Plus / 窗口控制按钮 / Dropdown trigger 共用 28px 方块尺寸) */
+export const TOPBAR_BTN_W7 = 'w-7'
+
 /** 模型选择器下拉触发器 (h-9,icon + 文字 + chevron)
  *  - 三元素同行,中间文字 span 加 translateY
  */
