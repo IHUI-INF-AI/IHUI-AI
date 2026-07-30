@@ -48,6 +48,8 @@ interface AiPanelState {
   floatMode: boolean
   /** 浮窗最小化:只显示 FAB 按钮,点击展开完整面板 */
   floatMinimized: boolean
+  /** 浮窗折叠态:只显示输入框,点击展开按钮拉出完整面板(对话历史+header) */
+  floatCollapsed: boolean
   /** 浮窗位置(视口坐标,持久化) */
   floatPosition: { x: number; y: number }
   openPanel: () => void
@@ -62,6 +64,7 @@ interface AiPanelState {
   setPendingFullAccess: (v: boolean) => void
   setFloatMode: (v: boolean) => void
   setFloatMinimized: (v: boolean) => void
+  setFloatCollapsed: (v: boolean) => void
   setFloatPosition: (pos: { x: number; y: number }) => void
 }
 
@@ -83,6 +86,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       pendingFullAccess: false,
       floatMode: false,
       floatMinimized: false,
+      floatCollapsed: false,
       floatPosition: FLOAT_DEFAULT_POSITION,
 
       openPanel: () => set({ open: true }),
@@ -98,6 +102,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
       setFloatMode: (v: boolean) => set({ floatMode: v }),
       setFloatMinimized: (v: boolean) => set({ floatMinimized: v }),
+      setFloatCollapsed: (v: boolean) => set({ floatCollapsed: v }),
       setFloatPosition: (pos: { x: number; y: number }) => set({ floatPosition: pos }),
     }),
     {
