@@ -1,4 +1,10 @@
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
+import tishiIcon from '@/assets/remote/images/tishi_icon.png'
+import floderInputIcon from '@/assets/remote/images/floder_input.png'
+import skillsIcon from '@/assets/remote/images/add/skills.svg'
+import fileIcon from '@/assets/remote/images/file.png'
+// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
+const recordBackIcon = '/static/images/record_back.png'
 import Taro, { useRouter, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import {
@@ -668,9 +674,7 @@ export default function ChatPage() {
           >
             ?
           </Text>
-          <Text className="nav-history" onClick={() => setHistoryDrawerVisible(true)}>
-            📜
-          </Text>
+          <Image src={fileIcon} className="nav-history w-[30rpx] h-[30rpx]" mode="aspectFit" onClick={() => setHistoryDrawerVisible(true)} />
           {messages.length ? (
             <Text className="nav-clear" onClick={clearChat}>
               {t('ai.clear')}
@@ -683,7 +687,7 @@ export default function ChatPage() {
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
         {agent ? (
           <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
-            <Text className="tishi-block-icon">{tishiShow ? '✕' : '💡'}</Text>
+            {tishiShow ? <Text className="tishi-block-icon">✕</Text> : <Image src={tishiIcon} className="tishi-block-icon w-[28rpx] h-[28rpx]" mode="aspectFit" />}
             <Text className="tishi-block-text">
               {tishiShow ? t('ai.tishi.close') : t('ai.tishi.view')} {t('ai.tishi.title')}
             </Text>
@@ -692,7 +696,7 @@ export default function ChatPage() {
         {agent && tishiShow && agent.prologue ? (
           <View className="tishi-box">
             <View className="tishi-title">
-              <Text className="tishi-title-icon">📋</Text>
+              <Image src={recordBackIcon} className="tishi-title-icon w-[32rpx] h-[32rpx]" mode="aspectFit" />
               <Text className="tishi-title-text">{t('ai.tishi.needInput')}</Text>
             </View>
             <View className="tishi-content">
@@ -802,12 +806,8 @@ export default function ChatPage() {
 
       <View className="input-bar safe-area-bottom">
         <View className="tool-icons">
-          <Text className="tool-icon" onClick={openMaterialDrawer}>
-            📁
-          </Text>
-          <Text className="tool-icon" onClick={openSkillsPopup}>
-            ⚡
-          </Text>
+          <Image src={floderInputIcon} className="tool-icon w-[40rpx] h-[40rpx]" mode="aspectFit" onClick={openMaterialDrawer} />
+          <Image src={skillsIcon} className="tool-icon w-[40rpx] h-[40rpx]" mode="aspectFit" onClick={openSkillsPopup} />
         </View>
         <InputArea
           key={inputKey}

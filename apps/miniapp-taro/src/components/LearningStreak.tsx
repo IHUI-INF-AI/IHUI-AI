@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 export interface StreakDay {
   date: string
@@ -23,7 +23,7 @@ export default function LearningStreak({
   onSign,
 }: LearningStreakProps) {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card rounded-xl px-4 py-4">
       <View className="flex items-center justify-between mb-3">

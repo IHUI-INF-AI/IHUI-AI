@@ -2,7 +2,7 @@ import { View, Text, Textarea, Input, Button, RadioGroup, Radio } from '@tarojs/
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { refund, getOrderDetail, type Order } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 const REASONS: Array<{ key: string; fb: string }> = [
   { key: 'order.refund.reasonUnwanted', fb: '不想要了' },
@@ -13,8 +13,7 @@ const REASONS: Array<{ key: string; fb: string }> = [
 ]
 
 export default function OrderRefund() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const router = useRouter()
   const [orderNo, setOrderNo] = useState('')
   const [order, setOrder] = useState<Order | null>(null)

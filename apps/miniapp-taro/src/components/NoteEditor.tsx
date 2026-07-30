@@ -1,6 +1,6 @@
 import { View, Text, Textarea } from '@tarojs/components'
 import { useState } from 'react'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface NoteEditorProps {
   visible?: boolean
@@ -19,8 +19,7 @@ export default function NoteEditor({
 }: NoteEditorProps) {
   const [content, setContent] = useState(initialContent)
 
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   if (!visible) return null
 

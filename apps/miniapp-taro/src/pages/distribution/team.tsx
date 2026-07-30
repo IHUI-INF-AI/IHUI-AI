@@ -2,7 +2,7 @@ import { View, Text, Image, Input, Picker } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 import './team.css'
 
@@ -36,8 +36,7 @@ const toMs = (v: number | string): number => {
 }
 
 export default function DistributionTeam() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [rawList, setRawList] = useState<TeamMember[]>([])
   const [displayList, setDisplayList] = useState<TeamMember[]>([])

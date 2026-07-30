@@ -3,6 +3,7 @@ import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync } from '@t
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
+import { logger } from '@/utils/logger'
 
 /** 导航到 webview 页面并加载指定 URL */
 export function navigateToWebView(url: string): void {
@@ -66,12 +67,12 @@ export default function WebviewIndex() {
 
   // 接收 H5 页面 postMessage 的消息(对标原项目 handleWebviewMessage)
   const handleWebviewMessage = (e: unknown) => {
-    console.log('webview message:', e, fileCacheRef.current)
+    logger.info('webview', 'message', String(e))
   }
 
   // web-view 加载完成回调(对标原项目 onWebviewLoad)
   const onWebviewLoad = (e: unknown) => {
-    console.log('webview loaded:', e)
+    logger.info('webview', 'loaded', String(e))
   }
 
   if (!url) {
