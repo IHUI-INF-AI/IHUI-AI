@@ -477,4 +477,45 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     const qs = request.url.split('?')[1] ?? ''
     await proxyToAiService(request, reply, qs ? `/running?${qs}` : '/running')
   })
+
+  // ===== 扫码登录(2026-07-30 新增,WorkPanel 内置浏览器扫码 → 自动保存 cookies)=====
+
+  server.get('/publish/scan-login/platforms', async (request, reply) => {
+    await proxyToAiService(request, reply, '/scan-login/platforms')
+  })
+
+  server.post('/publish/scan-login/start', async (request, reply) => {
+    await proxyToAiService(request, reply, '/scan-login/start')
+  })
+
+  server.get('/publish/scan-login/:taskId/status', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/scan-login/${encodeURIComponent(taskId)}/status`)
+  })
+
+  // 二维码截图:ai-service 返回 image/png,代理需要透传 binary
+  server.get('/publish/scan-login/:taskId/qr', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    const url = `${config.AI_SERVICE_URL}/api/publish/scan-login/${encodeURIComponent(taskId)}/qr`
+    const authHeader = request.headers.authorization
+    const headers: Record<string, string> = {}
+    if (authHeader) headers.authorization = authHeader
+    try {
+      const upstream = await fetch(url, { method: 'GET', headers })
+      const buf = Buffer.from(await upstream.arrayBuffer())
+      reply
+        .status(upstream.status)
+        .header('Content-Type', upstream.headers.get('content-type') ?? 'image/png')
+        .header('Cache-Control', 'no-store, no-cache, must-revalidate')
+        .send(buf)
+    } catch (e) {
+      request.log.error({ err: e, url }, 'scan-login qr proxy failed')
+      reply.status(502).send(error(502, 'ai-service unavailable'))
+    }
+  })
+
+  server.post('/publish/scan-login/:taskId/cancel', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/scan-login/${encodeURIComponent(taskId)}/cancel`)
+  })
 }
