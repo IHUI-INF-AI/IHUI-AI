@@ -323,6 +323,9 @@
     "mcpProjects": "MCPプロジェクト",
     "openclaw": "OpenClaw",
     "recruitment": "採用",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "元に戻す",
     "adminGroup": {
       "operation": "運営管理",
       "moderation": "コンテンツ審査",
@@ -336,10 +339,7 @@
       "resource": "リソースセンター",
       "developer": "開発者センター",
       "saas": "SaaS プラットフォーム"
-    },
-    "minimize": "最小化",
-    "maximize": "最大化",
-    "restore": "元に戻す"
+    }
   },
   "home": {
     "announcement": {
@@ -5918,6 +5918,7 @@
       "note2": "すべてのタスクはデフォルトで dry-run モードであり、WeChat の下書きに実際にプッシュしません。手動でトリガーするか、設定で dry-run をオフにしてください。",
       "note3": "タスク実行履歴は直近 30 件(メモリ内)を保持し、サービス再起動後にクリアされます。",
       "note4": "タイムゾーン:東 8 区(Asia/Shanghai)。",
+      "note5": "Cron 式は標準 5 フィールド構文 <code>分 時 日 月 曜</code> に従います。例: <code>0 9 * * 1</code> は毎週月曜 9 時に実行されます。",
       "examplesTitle": "自動化サンプル",
       "examplesDesc": "テンプレートをクリックして類似タスクを素早く設定",
       "useRefTemplate": "このテンプレートを参考にする",
@@ -7042,7 +7043,8 @@
     "myCommentsSubtitle": "のコメント",
     "empty": "なしコメント",
     "delete": "削除",
-    "deleteConfirm": "コメント？"
+    "deleteConfirm": "コメント？",
+    "submitting": "送信中..."
   },
   "points": {
     "title": "ポイントセンター",
@@ -7613,7 +7615,11 @@
       "dependencies": "依存関係",
       "transition": "遷移",
       "reason": "理由",
-      "empty": "タスクがありません"
+      "empty": "タスクがありません",
+      "confirm": "確認",
+      "delete": "削除",
+      "cancel": "キャンセル",
+      "reasonRequired": "理由を入力してください"
     }
   },
   "distribution": {
@@ -9153,10 +9159,10 @@
     "privacyPolicy": "プライバシーポリシー",
     "aboutUs": "会社概要",
     "contactUs": "お問い合わせ",
-    "agreementSubtitle": "以下の契約条件を注意深くお読みください",
-    "contactSubtitle": "以下の方法でお問い合わせください",
     "internationalModels": "海外大型モデル",
-    "chineseModels": "国産大型モデル"
+    "chineseModels": "国産大型モデル",
+    "agreementSubtitle": "以下の契約条件を注意深くお読みください",
+    "contactSubtitle": "以下の方法でお問い合わせください"
   },
   "plugins": {
     "title": "プラグイン市場",
@@ -10274,35 +10280,43 @@
       "subtitle": "8 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
       "modelIntegration": {
         "title": "8 プラットフォームフルスタックアーキテクチャ",
-        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行"
+        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行",
+        "description": "Web/Desktop/Mobile/ミニプログラム/CLI/Extension 6 + API/AI-Service 2、フルスタック対応、統一アカウントでシームレス切替"
       },
       "appStore": {
         "title": "100+ LLM 大モデル",
-        "benefit": "総合 ¥18 万/年節約 · Claude Pro + GPT Plus + Cursor + マルチモデル API を代替"
+        "benefit": "総合 ¥18 万/年節約 · Claude Pro + GPT Plus + Cursor + マルチモデル API を代替",
+        "description": "海外 30+ (OpenAI/Claude/Gemini/Llama) + 国産 15+ (Tongyi/GLM/DeepSeek) + クラウド 40+、1 キーで全域アクセス"
       },
       "contentCreation": {
         "title": "独自 CLI、Claude Code 対抗",
-        "benefit": "Claude Pro ¥17000/年節約 · 開発効率 10× 向上 · 6 ソース設定ワンクリック導入"
+        "benefit": "Claude Pro ¥17000/年節約 · 開発効率 10× 向上 · 6 ソース設定ワンクリック導入",
+        "description": "ACP Server は Zed/VSCode/Cursor を内蔵 + 6 つの独自拡張 (セッション修復/ロールバック/MCP 呼出) + 6 ソース設定のワンクリック取り込み"
       },
       "edu": {
         "title": "フルスタック AI 教育",
-        "benefit": "¥10 万/年研修費節約 · 全員 AI 化 · 3 段階循序漸進"
+        "benefit": "¥10 万/年研修費節約 · 全員 AI 化 · 3 段階循序漸進",
+        "description": "コース/ライブ/試験/証明書/講師/クラス 6 モジュール、通年無料コース、AI ツール → 企業 AI 文化 三段階漸進"
       },
       "navigation": {
         "title": "企業級ワークスペース",
-        "benefit": "データゼロ漏洩 · 監査全程トレーサブル · 99.9% SLA 企業級ゼロリスク"
+        "benefit": "データゼロ漏洩 · 監査全程トレーサブル · 99.9% SLA 企業級ゼロリスク",
+        "description": "3 権限モード + 7 実行時インターセプト端点 + 60s タイムアウト拒否 + RBAC 細粒度アクセス制御 + 99.9% SLA"
       },
       "agentSquare": {
         "title": "エージェント広場",
-        "benefit": "5+ 人力ポスト代替 · 7×24 不間断 · 総合 ¥30 万/年人件費節約"
+        "benefit": "5+ 人力ポスト代替 · 7×24 不間断 · 総合 ¥30 万/年人件費節約",
+        "description": "汎用/業種/機能 3 カテゴリ、カスタマーサービス/マーケティング/運営/HR/財務 5+ 職能を全網羅、すぐ使える、カスタマイズ可"
       },
       "workflow": {
         "title": "LangGraph ワークフロー",
-        "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · トリプルスタック合一業界でも比較的珍しい"
+        "benefit": "複雑タスク自動化 · 5+ SaaS ツール代替 · トリプルスタック合一業界でも比較的珍しい",
+        "description": "2 つの LangGraph ワークフロー + 11 MCP ツール + 5 A2A 端点 + 6 ACP 拡張、三スタック統合は業界でも稀"
       },
       "multimodal": {
         "title": "マルチモーダル AI 入力",
-        "benefit": "¥5 万/年デザイン費節約 · 5 大モダリティ全打通 · コンテンツ生産 10× 加速"
+        "benefit": "¥5 万/年デザイン費節約 · 5 大モダリティ全打通 · コンテンツ生産 10× 加速",
+        "description": "画像生成/音声合成/動画生成/ファイル解析/デジタルヒューマン 5 モダリティ、1 キーで全域アクセス"
       }
     },
     "advantages": {
@@ -12649,6 +12663,8 @@
     "noPreviews": "保存済みプレビューなし",
     "loadPreview": "プレビュー読み込み",
     "loadFailed": "読み込み失敗",
+    "saved": "「{name}」を保存しました",
+    "saveFailed": "保存に失敗しました:{error}",
     "previewName": "プレビュー名",
     "componentTree": {
       "title": "コンポーネントツリー",
@@ -12659,7 +12675,8 @@
       "empty": "コメントを表示するにはプレビューを保存してください",
       "noComments": "コメントなし",
       "loadingFailed": "コメントの読み込みに失敗",
-      "send": "コメントを送信"
+      "send": "コメントを送信",
+      "commented": "コメント済み"
     },
     "aiGenerate": {
       "button": "AI生成",
@@ -12675,7 +12692,8 @@
       "exportButton": "コードをエクスポート",
       "exportReact": "Reactコンポーネント",
       "exportVue": "Vueコンポーネント",
-      "exportHtml": "プレーンHTML"
+      "exportHtml": "プレーンHTML",
+      "exportSuccess": "{filename} をエクスポートしました"
     },
     "responsive": {
       "customWidth": "カスタム幅",
