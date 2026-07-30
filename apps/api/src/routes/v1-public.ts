@@ -44,7 +44,7 @@ import {
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
-import { checkQuota, recordCall } from '../services/relay-billing-service.js'
+import { checkQuota, recordCall, isByokCall } from '../services/relay-billing-service.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -160,7 +160,7 @@ function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string
   return modelId
 }
 
-async function fetchModels(): Promise<{
+async function fetchModels(userId?: string): Promise<{
   body: V1ModelsResponse
   source: 'db' | 'live' | 'cache' | 'fallback'
 }> {
@@ -189,19 +189,58 @@ async function fetchModels(): Promise<{
       )
       .orderBy(aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)
 
-    if (dbModels.length > 0) {
+    // BYOK 平台模式(2026-07-30):鉴权用户额外查其私有 BYOK 配置下的 models,
+    // 合并到返回结果,owned_by 标记为 'byok'(用户用自己的 key 调用,平台只收抽成)
+    let byokModels: Array<{
+      id: string
+      providerCode: string
+      configName: string
+      baseUrl: string
+    }> = []
+    if (userId) {
+      try {
+        byokModels = await dbRead
+          .select({
+            id: aiModelConfigModels.modelId,
+            providerCode: aiModelConfig.providerCode,
+            configName: aiModelConfig.name,
+            baseUrl: aiModelConfig.baseUrl,
+          })
+          .from(aiModelConfigModels)
+          .innerJoin(aiModelConfig, eq(aiModelConfigModels.configId, aiModelConfig.id))
+          .where(
+            and(
+              eq(aiModelConfig.ownerUuid, userId),
+              eq(aiModelConfig.enabled, true),
+              eq(aiModelConfigModels.enabled, true),
+            ),
+          )
+          .orderBy(aiModelConfigModels.modelId)
+      } catch {
+        // BYOK 查询失败,忽略(不影响主列表)
+      }
+    }
+
+    if (dbModels.length > 0 || byokModels.length > 0) {
+      const relayList = dbModels.map((m) => ({
+        // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
+        // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
+        // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
+        // 其他(如 openai/原生)→ 不加前缀。
+        id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
+        object: 'model' as const,
+        created: Math.floor(now / 1000),
+        owned_by: m.providerCode || m.configName || 'ihui',
+      }))
+      const byokList = byokModels.map((m) => ({
+        id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
+        object: 'model' as const,
+        created: Math.floor(now / 1000),
+        owned_by: 'byok',
+      }))
       const mapped: V1ModelsResponse = {
         object: 'list',
-        data: dbModels.map((m) => ({
-          // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
-          // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
-          // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
-          // 其他(如 openai/原生)→ 不加前缀。
-          id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
-          object: 'model' as const,
-          created: Math.floor(now / 1000),
-          owned_by: m.providerCode || m.configName || 'ihui',
-        })),
+        data: [...relayList, ...byokList],
       }
       modelsCache = { data: mapped, fetchedAt: now }
       return { body: mapped, source: 'db' }
@@ -379,6 +418,8 @@ async function streamChatCompletion(
     userId?: string
     promptText?: string
     startTime?: number
+    /** 计费模式:'relay'=中转站(默认) | 'byok'=BYOK(平台只收抽成) */
+    mode?: 'relay' | 'byok'
   },
 ): Promise<void> {
   reply.hijack()
@@ -392,7 +433,7 @@ async function streamChatCompletion(
 
   const id = `chatcmpl-${randomUUID()}`
   const created = Math.floor(Date.now() / 1000)
-  const { model, messages, temperature, maxTokens } = opts
+  const { model, messages, temperature, maxTokens, userId } = opts
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
   let streamError: string | null = null
@@ -420,6 +461,8 @@ async function streamChatCompletion(
     const body: Record<string, unknown> = { messages, model }
     if (temperature !== undefined) body.temperature = temperature
     if (maxTokens !== undefined) body.max_tokens = maxTokens
+    // BYOK 平台模式(2026-07-30):透传 owner_uuid via metadata.userId
+    if (userId) body.metadata = { userId }
 
     const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
       method: 'POST',
@@ -496,6 +539,7 @@ async function streamChatCompletion(
         status: streamError ? 'error' : 'success',
         errorMessage: streamError,
         metadata: { stream: true },
+        mode: opts.mode ?? 'relay',
       }).catch(() => {})
     }
   }
@@ -808,6 +852,17 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      // BYOK 平台模式(2026-07-30):若用户对该 model 有私有 ai_model_config,走 BYOK 计费分支
+      // mode='byok' 时 recordCall 只扣 platformFeeCents(上游原价 × 抽成率),不扣大厂成本
+      let mode: 'relay' | 'byok' = 'relay'
+      if (apiKey?.userId) {
+        try {
+          if (await isByokCall(apiKey.userId, model)) mode = 'byok'
+        } catch {
+          // isByokCall 失败默认走 relay,不影响主链路
+        }
+      }
+
       if (stream) {
         return streamChatCompletion(request, reply, {
           model,
@@ -818,6 +873,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           userId: apiKey?.userId,
           promptText,
           startTime,
+          mode,
         })
       }
 
@@ -847,6 +903,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               latencyMs: Date.now() - startTime,
               status: 'error',
               errorMessage: `AI service unavailable (${resp.status})`,
+              mode,
             }).catch(() => {})
           }
           return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
@@ -874,6 +931,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               latencyMs: Date.now() - startTime,
               status: 'error',
               errorMessage: data.error_message ?? 'AI service error',
+              mode,
             }).catch(() => {})
           }
           return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
@@ -929,6 +987,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             totalTokens: safeTotal,
             latencyMs: Date.now() - startTime,
             status: 'success',
+            mode,
           }).catch((e) => {
             console.error('[v1/chat] recordCall FAIL', e?.message || e)
           })
@@ -949,6 +1008,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             latencyMs: Date.now() - startTime,
             status: 'error',
             errorMessage: (e as Error).message || 'AI service unavailable',
+            mode,
           }).catch(() => {})
         }
         return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
@@ -987,8 +1047,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       },
       preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
     },
-    async (_request, reply) => {
-      const { body, source } = await fetchModels()
+    async (request, reply) => {
+      // BYOK 平台模式(2026-07-30):鉴权用户额外返回其私有 BYOK 模型
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      const { body, source } = await fetchModels(apiKey?.userId)
       reply.header('X-Model-Source', source)
       return reply.send(body)
     },

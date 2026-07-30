@@ -124,6 +124,7 @@
   "nav": {
     "title": "Main Navigation",
     "vip": "VIP Membership",
+    "close": "Close",
     "user": "Account",
     "messages": "Messages",
     "expand": "Expand",
@@ -6010,6 +6011,67 @@
     }
   },
   "settings": {
+    "gateway": {
+      "navLabel": "AI Gateway",
+      "title": "AI Gateway Dashboard",
+      "subtitle": "Provider health, Combo chain management, Token compaction demo",
+      "tabs": {
+        "providers": "Provider Health",
+        "combos": "Combo Chains",
+        "compaction": "Token Compaction"
+      },
+      "providers": {
+        "summary": {
+          "total": "Total",
+          "configured": "Configured",
+          "local": "Local",
+          "notConfigured": "Not Configured"
+        },
+        "filter": {
+          "all": "All",
+          "configured": "Configured",
+          "notConfigured": "Not Configured",
+          "local": "Local"
+        },
+        "cooldown": "Cooldown",
+        "failures": "failures",
+        "models": "models",
+        "refresh": "Refresh"
+      },
+      "combos": {
+        "create": "New Combo",
+        "edit": "Edit",
+        "delete": "Delete",
+        "name": "Chain Name",
+        "strategy": "Strategy",
+        "chain": "Call Chain (one per line)",
+        "judge": "Judge Model (fusion strategy)",
+        "description": "Description",
+        "deleteConfirm": "Delete Combo \"{name}\"?",
+        "createSuccess": "Combo created successfully",
+        "deleteSuccess": "Combo deleted successfully",
+        "empty": "No combo chains yet. Click \"New Combo\" to create one"
+      },
+      "compaction": {
+        "input": "Input Message",
+        "inputPlaceholder": "Enter text to compact...",
+        "strategy": "Compaction Strategy",
+        "keepRecent": "Keep Recent N Messages",
+        "run": "Run Compaction",
+        "original": "Original Tokens",
+        "compressed": "Compacted Tokens",
+        "ratio": "Compression Ratio",
+        "rtkMapSize": "RTK Map Size",
+        "compressedPreview": "Compacted Preview",
+        "decompressedPreview": "Decompressed Result",
+        "showDecompressed": "Show Decompressed",
+        "hideDecompressed": "Hide Decompressed",
+        "excellent": "Excellent",
+        "good": "Good",
+        "poor": "Below Standard",
+        "empty": "Click \"Run Compaction\" to see results"
+      }
+    },
     "activityLoading": "Loading...",
     "activityEmpty": "No activity records",
     "activityLoadFailed": "Loading failed, please try again later",
@@ -8920,58 +8982,32 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": [
-          "chat",
-          "talk",
-          "AI",
-          "conversation"
-        ]
+        "keywords": ["chat", "talk", "AI", "conversation"]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": [
-          "drama",
-          "video",
-          "AI",
-          "show"
-        ]
+        "keywords": ["drama", "video", "AI", "show"]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": [
-          "search",
-          "find",
-          "query"
-        ]
+        "keywords": ["search", "find", "query"]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": [
-          "AI",
-          "world",
-          "apps"
-        ]
+        "keywords": ["AI", "world", "apps"]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": [
-          "profile",
-          "user",
-          "settings"
-        ]
+        "keywords": ["profile", "user", "settings"]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": [
-          "settings",
-          "preferences",
-          "config"
-        ]
+        "keywords": ["settings", "preferences", "config"]
       }
     }
   },
@@ -9025,60 +9061,67 @@
     "icp": "Ji ICP No. 2025027274",
     "copyright": "© 2025 Zhihui AI Group · China",
     "modelRecord": "Model Filing",
-    "cloudDatabases": "",
-    "communityGroup": "",
+    "cloudDatabases": "Cloud Databases",
+    "communityGroup": "WeCom Community",
     "databases": {
-      "mongodb": "",
-      "mysql": "",
-      "postgresql": "",
-      "redis": "",
-      "sqlite": ""
+      "mongodb": "Volcengine",
+      "mysql": "Alibaba Cloud",
+      "postgresql": "Tencent Cloud",
+      "redis": "Huawei Cloud",
+      "sqlite": "Amazon Web Services"
     },
     "modelItems": {
-      "claude": "",
-      "deepseek": "",
-      "doubao": "",
-      "gemini": "",
-      "gpt": "",
-      "llama": "",
-      "mistral": "",
-      "qwen": ""
+      "claude": "Claude",
+      "deepseek": "DeepSeek",
+      "doubao": "Doubao",
+      "gemini": "Gemini",
+      "gpt": "GPT",
+      "llama": "iFlytek Spark",
+      "mistral": "MiniMax",
+      "qwen": "Qwen"
     },
-    "models": "",
-    "officialApp": "",
-    "officialWechat": "",
-    "paymentPlatforms": "",
+    "models": "LLM Models",
+    "officialApp": "Official App",
+    "officialWechat": "Official WeChat",
+    "paymentPlatforms": "Payment Platforms",
     "payments": {
-      "alipay": "",
-      "douyin": "",
-      "unionpay": "",
-      "visa": "",
-      "wechat": ""
+      "alipay": "Alipay",
+      "douyin": "Douyin Pay",
+      "unionpay": "UnionPay",
+      "visa": "Visa",
+      "wechat": "WeChat Pay"
     },
     "platforms": {
-      "coze": "",
-      "n8n": ""
+      "coze": "Coze",
+      "n8n": "n8n"
     },
     "promos": {
-      "baidu": "",
-      "bilibili": "",
-      "douyin": "",
-      "facebook": "",
-      "github": "",
-      "google": "",
-      "kuaishou": "",
-      "qq": "",
-      "reddit": "",
-      "telegram": "",
-      "wechat": "",
-      "wechatChannels": "",
-      "weibo": "",
-      "x": "",
-      "xiaohongshu": "",
-      "youtube": ""
+      "baidu": "Baidu",
+      "bilibili": "Bilibili",
+      "douyin": "Douyin",
+      "facebook": "Facebook",
+      "github": "GitHub",
+      "google": "Google",
+      "kuaishou": "Kuaishou",
+      "qq": "QQ",
+      "reddit": "Reddit",
+      "telegram": "Telegram",
+      "wechat": "WeChat",
+      "wechatChannels": "WeChat Channels",
+      "weibo": "Weibo",
+      "x": "X (Twitter)",
+      "xiaohongshu": "Xiaohongshu",
+      "youtube": "YouTube"
     },
-    "supportedPlatforms": "",
-    "contactSubtitle": "Reach us through the following channels"
+    "supportedPlatforms": "Supported Platforms",
+    "userAgreement": "User Agreement",
+    "privacyPolicy": "Privacy Policy",
+    "aboutUs": "About Us",
+    "contactUs": "Contact Us",
+    "contactSubtitle": "Reach us through the following channels",
+    "internationalModels": "International Models",
+    "chineseModels": "Chinese Models",
+    "agreementSubtitle": "Please read the following agreement terms carefully"
   },
   "plugins": {
     "title": "Plugin Market",
@@ -9362,31 +9405,19 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ]
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ]
+          "features": ["Communication platform", "Experience sharing", "Resource matching"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ]
+          "features": ["Professional LLMs", "Agent services", "Consulting services"]
         }
       ]
     },
@@ -9507,37 +9538,25 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ]
+          "examples": ["Knowledge Q&A", "Process automation"]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ]
+          "examples": ["Data analysis", "Decision support"]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ]
+          "examples": ["Meeting scheduling", "Approval workflows"]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ]
+          "examples": ["Marketing automation", "Multi-agent collaboration"]
         }
       ]
     },
@@ -11137,15 +11156,7 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ],
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"

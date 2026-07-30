@@ -13,7 +13,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, or, ilike, desc, sql, gte, type SQL } from 'drizzle-orm'
+import { eq, and, or, ilike, desc, sql, gte, isNull, type SQL } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { dbRead } from '../../db/index.js'
 import {
@@ -51,6 +51,22 @@ const updateBodySchema = z.object({
   relaySortOrder: z.number().int().optional(),
   relayDisplayName: z.string().max(256).nullable().optional(),
 })
+
+/** BYOK 抽成率更新(0~1,3 位小数;0.10=10%) */
+const commissionUpdateSchema = z.object({
+  byokCommissionRate: z
+    .number()
+    .min(0, '抽成率不能小于 0')
+    .max(1, '抽成率不能大于 1')
+    .refine((v) => Math.round(v * 1000) === v * 1000, '最多 3 位小数'),
+})
+
+/** 全局 provider BYOK 抽成配置行(owner_uuid IS NULL) */
+interface CommissionRow {
+  providerCode: string
+  byokCommissionRate: number
+  isEnabled: boolean
+}
 
 const relayModelsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
@@ -265,6 +281,109 @@ const relayModelsRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '切换上下架失败'))
+    }
+  })
+
+  // ===== 7. GET /admin/relay/commission — 全局 provider 的 BYOK 抽成率列表 =====
+  server.get('/admin/relay/commission', async (_request, reply) => {
+    try {
+      const rows = await dbRead
+        .select({
+          providerCode: aiModelConfig.providerCode,
+          byokCommissionRate: aiModelConfig.byokCommissionRate,
+          isEnabled: aiModelConfig.enabled,
+        })
+        .from(aiModelConfig)
+        .where(isNull(aiModelConfig.ownerUuid))
+        .orderBy(aiModelConfig.providerCode)
+      const providers: CommissionRow[] = rows.map((r) => ({
+        providerCode: r.providerCode,
+        byokCommissionRate: Number(r.byokCommissionRate ?? '0.1000'),
+        isEnabled: r.isEnabled,
+      }))
+      return reply.send(success({ providers }))
+    } catch (e) {
+      _request.log.error(e)
+      return reply.status(500).send(error(500, '查询 BYOK 抽成列表失败'))
+    }
+  })
+
+  // ===== 8. PATCH /admin/relay/commission/:providerCode — upsert BYOK 抽成率 =====
+  // 行为:全局配置行(provider_code=X AND owner_uuid IS NULL)存在则 UPDATE,
+  //       不存在则 INSERT 一行新的全局配置行(owner_uuid=NULL, enabled=true)
+  // 响应:HTTP 200(update) / 201(insert),body 保持 { providerCode, byokCommissionRate }
+  // 原因:ai_model_config 无 (providerCode, ownerUuid) 联合唯一约束,无法走 onConflictDoUpdate
+  server.patch('/admin/relay/commission/:providerCode', async (request, reply) => {
+    const providerCode = (request.params as { providerCode?: string }).providerCode ?? ''
+    if (!providerCode) return reply.status(400).send(error(400, 'providerCode 不能为空'))
+    const parsed = commissionUpdateSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { byokCommissionRate } = parsed.data
+
+    try {
+      const result = await db.transaction(async (tx) => {
+        // 1) SELECT 全局配置行(LIMIT 1;表无联合唯一约束,需应用层兜底)
+        const [existing] = await tx
+          .select({ id: aiModelConfig.id })
+          .from(aiModelConfig)
+          .where(
+            and(
+              eq(aiModelConfig.providerCode, providerCode),
+              isNull(aiModelConfig.ownerUuid),
+            ),
+          )
+          .limit(1)
+
+        if (existing) {
+          // 2a) 存在 → UPDATE 抽成率
+          const [updated] = await tx
+            .update(aiModelConfig)
+            .set({
+              byokCommissionRate: byokCommissionRate.toFixed(4),
+              updatedAt: new Date(),
+            })
+            .where(eq(aiModelConfig.id, existing.id))
+            .returning({
+              providerCode: aiModelConfig.providerCode,
+              byokCommissionRate: aiModelConfig.byokCommissionRate,
+            })
+          if (!updated) throw new Error('UPDATE returned no row (concurrent delete?)')
+          return { row: updated, created: false as const }
+        }
+
+        // 2b) 不存在 → INSERT 新全局配置行
+        const [inserted] = await tx
+          .insert(aiModelConfig)
+          .values({
+            name: providerCode,
+            providerCode,
+            isBuiltin: false,
+            baseUrl: '',
+            apiFormat: 'openai_chat',
+            enabled: true,
+            ownerUuid: null,
+            byokCommissionRate: byokCommissionRate.toFixed(4),
+          })
+          .returning({
+            providerCode: aiModelConfig.providerCode,
+            byokCommissionRate: aiModelConfig.byokCommissionRate,
+          })
+        if (!inserted) throw new Error('INSERT returned no row')
+        return { row: inserted, created: true as const }
+      })
+
+      return reply
+        .status(result.created ? 201 : 200)
+        .send(
+          success({
+            providerCode: result.row.providerCode,
+            byokCommissionRate: Number(result.row.byokCommissionRate ?? '0.1000'),
+          }),
+        )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '更新 BYOK 抽成率失败'))
     }
   })
 }

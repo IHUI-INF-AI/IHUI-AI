@@ -105,6 +105,7 @@
   "nav": {
     "title": "主导航",
     "vip": "VIP 会员",
+    "close": "关闭",
     "user": "个人中心",
     "messages": "站内消息",
     "expand": "展开",
@@ -1102,13 +1103,7 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": [
-          "每月 1000 积分",
-          "所有 AI 模型",
-          "所有 6 个客户端",
-          "API 访问",
-          "社区支持"
-        ]
+        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
       },
       "pro": {
         "name": "专业版",
@@ -1125,13 +1120,7 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": [
-          "不限积分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "审计日志",
-          "专属技术支持"
-        ]
+        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
       }
     },
     "checkout": {
@@ -5966,6 +5955,67 @@
     }
   },
   "settings": {
+    "gateway": {
+      "navLabel": "AI 网关",
+      "title": "AI 网关 Dashboard",
+      "subtitle": "Provider 健康状态、Combo 链管理、Token 压缩演示",
+      "tabs": {
+        "providers": "Provider 健康",
+        "combos": "Combo 链",
+        "compaction": "Token 压缩"
+      },
+      "providers": {
+        "summary": {
+          "total": "总计",
+          "configured": "已配置",
+          "local": "本地",
+          "notConfigured": "未配置"
+        },
+        "filter": {
+          "all": "全部",
+          "configured": "已配置",
+          "notConfigured": "未配置",
+          "local": "本地"
+        },
+        "cooldown": "冷却中",
+        "failures": "次失败",
+        "models": "个模型",
+        "refresh": "刷新"
+      },
+      "combos": {
+        "create": "新建 Combo",
+        "edit": "编辑",
+        "delete": "删除",
+        "name": "链名",
+        "strategy": "策略",
+        "chain": "调用链(每行一个)",
+        "judge": "Judge 模型(fusion 策略)",
+        "description": "描述",
+        "deleteConfirm": "确认删除 Combo \"{name}\"?",
+        "createSuccess": "Combo 创建成功",
+        "deleteSuccess": "Combo 删除成功",
+        "empty": "暂无 Combo 链,点击「新建 Combo」创建第一个"
+      },
+      "compaction": {
+        "input": "输入消息",
+        "inputPlaceholder": "输入要压缩的文本内容...",
+        "strategy": "压缩策略",
+        "keepRecent": "保留最近 N 条",
+        "run": "开始压缩",
+        "original": "原始 Token",
+        "compressed": "压缩后 Token",
+        "ratio": "压缩率",
+        "rtkMapSize": "RTK 映射表大小",
+        "compressedPreview": "压缩后预览",
+        "decompressedPreview": "解压结果",
+        "showDecompressed": "显示解压结果",
+        "hideDecompressed": "隐藏解压结果",
+        "excellent": "优秀",
+        "good": "良好",
+        "poor": "未达标",
+        "empty": "点击「开始压缩」查看效果"
+      }
+    },
     "activityLoading": "加载中...",
     "activityEmpty": "暂无活动记录",
     "activityLoadFailed": "加载失败,请稍后重试",
@@ -8819,58 +8869,32 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": [
-          "对话",
-          "聊天",
-          "AI",
-          "chat"
-        ]
+        "keywords": ["对话", "聊天", "AI", "chat"]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": [
-          "短剧",
-          "视频",
-          "AI",
-          "drama"
-        ]
+        "keywords": ["短剧", "视频", "AI", "drama"]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ]
+        "keywords": ["搜索", "查找", "search"]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "应用"
-        ]
+        "keywords": ["AI", "世界", "应用"]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": [
-          "个人",
-          "资料",
-          "设置"
-        ]
+        "keywords": ["个人", "资料", "设置"]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": [
-          "设置",
-          "偏好",
-          "配置"
-        ]
+        "keywords": ["设置", "偏好", "配置"]
       }
     }
   },
@@ -8924,59 +8948,67 @@
     "icp": "吉ICP备2025027274号",
     "copyright": "© 2025 智汇AI集团 · 中国",
     "modelRecord": "模型备案",
-    "cloudDatabases": "",
-    "communityGroup": "",
+    "cloudDatabases": "云数据库",
+    "communityGroup": "企微社群",
     "databases": {
-      "mongodb": "",
-      "mysql": "",
-      "postgresql": "",
-      "redis": "",
-      "sqlite": ""
+      "mongodb": "火山引擎",
+      "mysql": "阿里云",
+      "postgresql": "腾讯云",
+      "redis": "华为云",
+      "sqlite": "亚马逊云"
     },
     "modelItems": {
-      "claude": "",
-      "deepseek": "",
-      "doubao": "",
-      "gemini": "",
-      "gpt": "",
-      "llama": "",
-      "mistral": "",
-      "qwen": ""
+      "claude": "Claude",
+      "deepseek": "DeepSeek",
+      "doubao": "豆包",
+      "gemini": "Gemini",
+      "gpt": "GPT",
+      "llama": "讯飞星火",
+      "mistral": "Minimax",
+      "qwen": "通义千问"
     },
-    "models": "",
-    "officialApp": "",
-    "officialWechat": "",
-    "paymentPlatforms": "",
+    "models": "大模型",
+    "officialApp": "官方App",
+    "officialWechat": "官方微信",
+    "paymentPlatforms": "支付平台",
     "payments": {
-      "alipay": "",
-      "douyin": "",
-      "unionpay": "",
-      "visa": "",
-      "wechat": ""
+      "alipay": "支付宝",
+      "douyin": "抖音支付",
+      "unionpay": "银联",
+      "visa": "Visa",
+      "wechat": "微信支付"
     },
     "platforms": {
-      "coze": "",
-      "n8n": ""
+      "coze": "Coze",
+      "n8n": "n8n"
     },
     "promos": {
-      "baidu": "",
-      "bilibili": "",
-      "douyin": "",
-      "facebook": "",
-      "github": "",
-      "google": "",
-      "kuaishou": "",
-      "qq": "",
-      "reddit": "",
-      "telegram": "",
-      "wechat": "",
-      "wechatChannels": "",
-      "weibo": "",
-      "x": "",
-      "xiaohongshu": "",
-      "youtube": ""
+      "baidu": "百度",
+      "bilibili": "哔哩哔哩",
+      "douyin": "抖音",
+      "facebook": "Facebook",
+      "github": "GitHub",
+      "google": "Google",
+      "kuaishou": "快手",
+      "qq": "QQ",
+      "reddit": "Reddit",
+      "telegram": "Telegram",
+      "wechat": "微信",
+      "wechatChannels": "视频号",
+      "weibo": "微博",
+      "x": "X (Twitter)",
+      "xiaohongshu": "小红书",
+      "youtube": "YouTube"
     },
-    "supportedPlatforms": ""
+    "supportedPlatforms": "支持平台",
+    "userAgreement": "用户协议",
+    "privacyPolicy": "隐私政策",
+    "aboutUs": "关于我们",
+    "contactUs": "联系我们",
+    "internationalModels": "国际大模型",
+    "chineseModels": "国产大模型",
+    "agreementSubtitle": "请仔细阅读以下协议条款",
+    "contactSubtitle": "通过以下渠道联系我们"
   },
   "plugins": {
     "title": "插件市场",
@@ -9260,31 +9292,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": [
-            "系统化课程",
-            "实践探索",
-            "社群互助"
-          ]
+          "features": ["系统化课程", "实践探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": [
-            "交流平台",
-            "经验共享",
-            "资源对接"
-          ]
+          "features": ["交流平台", "经验共享", "资源对接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": [
-            "专业大模型",
-            "智能体服务",
-            "咨询服务"
-          ]
+          "features": ["专业大模型", "智能体服务", "咨询服务"]
         }
       ]
     },
@@ -9405,37 +9425,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": [
-            "知识问答",
-            "流程自动化"
-          ]
+          "examples": ["知识问答", "流程自动化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": [
-            "数据分析",
-            "决策支持"
-          ]
+          "examples": ["数据分析", "决策支持"]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": [
-            "会议安排",
-            "审批流程"
-          ]
+          "examples": ["会议安排", "审批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": [
-            "营销自动化",
-            "多智能体协同"
-          ]
+          "examples": ["营销自动化", "多智能体协同"]
         }
       ]
     },
@@ -10117,35 +10125,43 @@
       "subtitle": "8 端全覆盖 · 100+ 大模型 · 自研 CLI · 工业级工程严谨",
       "modelIntegration": {
         "title": "8 端全覆盖",
-        "benefit": "1 账号 8 端"
+        "benefit": "1 账号 8 端",
+        "description": "Web/Desktop/Mobile/小程序/CLI/Extension 6 + API/AI-Service 2,全栈覆盖,统一账号无缝切换"
       },
       "appStore": {
         "title": "100+ LLM",
-        "benefit": "省 ¥18 万/年"
+        "benefit": "省 ¥18 万/年",
+        "description": "国际 30+ (OpenAI/Claude/Gemini/Llama) + 国产 15+ (通义/GLM/DeepSeek) + 云厂商 40+ ,一 key 走天下"
       },
       "contentCreation": {
         "title": "自研 CLI",
-        "benefit": "10× 效率"
+        "benefit": "省 ¥17000/年",
+        "description": "ACP Server 内嵌 Zed/VSCode/Cursor + 6 大独家扩展 (会话修复/回退/MCP 调) + 6 大源配置一键导入"
       },
       "edu": {
         "title": "AI 教育",
-        "benefit": "省 ¥10 万/年"
+        "benefit": "省 ¥10 万/年",
+        "description": "课程/直播/考试/证书/讲师/班级 6 大模块,全年免费课程,AI 工具 → 企业 AI 文化 三阶递进"
       },
       "navigation": {
         "title": "企业安全",
-        "benefit": "99.9% SLA"
+        "benefit": "99.9% SLA",
+        "description": "3 大权限模式 + 7 大运行时拦截端点 + 60s 超时拒绝 + RBAC 细粒度访问控制 + 99.9% SLA"
       },
       "agentSquare": {
         "title": "智能体广场",
-        "benefit": "省 ¥30 万/年"
+        "benefit": "省 ¥30 万/年",
+        "description": "通用/行业/功能 3 大类,客服/营销/运营/HR/财务 5+ 职能全覆盖,开箱即用,可定制"
       },
       "workflow": {
         "title": "工作流引擎",
-        "benefit": "替代 5+ SaaS"
+        "benefit": "替代 5+ SaaS",
+        "description": "2 大 LangGraph 工作流 + 11 个 MCP 工具 + 5 个 A2A 端点 + 6 个 ACP 扩展,三栈合一行业罕见"
       },
       "multimodal": {
         "title": "多模态 AI",
-        "benefit": "5 大模态"
+        "benefit": "省 ¥5 万/年",
+        "description": "图像生成/语音合成/视频生成/文件解析/数字人 5 大模态,一 key 走天下"
       }
     },
     "advantages": {
@@ -10903,11 +10919,7 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": [
-        "全年所有课程免费参加",
-        "线下探索活动优先参与名额",
-        "智汇 AI 会员社群无限次互动"
-      ]
+      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
     },
     "enterprise": {
       "name": "企业服务",
@@ -11035,15 +11047,7 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": [
-      "周一",
-      "周二",
-      "周三",
-      "周四",
-      "周五",
-      "周六",
-      "周日"
-    ],
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -11187,18 +11191,8 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": [
-        "重点中学",
-        "普通中学",
-        "国际学校",
-        "私立学校"
-      ],
-      "classLevel": [
-        "优秀(班级前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(后 30%)"
-      ],
+      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
+      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -12558,12 +12552,7 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": [
-          "1M tokens 额度",
-          "基础模型可用",
-          "5 个 API 令牌",
-          "社区支持"
-        ]
+        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
       },
       "pro": {
         "features": [
@@ -13005,13 +12994,7 @@
         "price": "¥999",
         "unit": "/小时",
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": [
-          "视频会议 / 远程桌面",
-          "2 小时起",
-          "故障排查",
-          "增值税发票",
-          "响应 SLA 24h"
-        ]
+        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
       }
     },
     "socialProof": {

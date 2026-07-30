@@ -79,6 +79,32 @@ export const CHIP_BASE_CLASS =
 export const HEADER_BAR_CLASS =
   'flex h-14 shrink-0 items-center gap-2 px-3 [&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]'
 
+/** 顶栏按钮/标签共享基础类 (h-9 = 36px, 2026-07-30 立)
+ *  - 复用范围:GlobalTopBar(Plus 按钮 / 窗口控制按钮 Min/Max/Close)+ TagsView(搜索按钮 / 标签 Link / Dropdown trigger)
+ *  - 4 处元素高度雷同(都是 h-full 撑满 h-9 父容器),共享 base 杜绝"看似不同其实只是 padding/bg 不同"的雷同 className 重复
+ *  - 约束:所有子项 h-full 撑满父容器严丝合缝对齐 / rounded-md (6px) / 文字图标垂直水平居中
+ *  - 包含 focus 行为(focus-visible:bg-accent),4 类元素统一焦点环
+ *
+ *  2026-07-30 用户规则:"这些按钮应该有背景色设定啊 全局统一 hover时突出"
+ *  2026-07-30 用户反馈:"睁开你的狗眼看看 哪里有背景色?跟底色背景也没区分开啊"
+ *
+ *  修正(原 bg-muted/30 在亮色下计算 94.87% L,跟背景 96.1% L 差距仅 1.23% L 肉眼不可见):
+ *  - 默认 bg-card:亮色 100% L(比 bg 96.1% 亮 3.9%,更白符合用户偏好)/
+ *    暗色 10% L(比 bg 14% 深 4%,更黑符合用户偏好)— 与背景明显区分
+ *  - hover:bg-accent:亮色 88% L(比默认 100% 深 12%,明显加深)/
+ *    暗色 17% L(比默认 10% 浅 7%,反相但差距足够大,突出)— hover 突出
+ *  - text-foreground/80:统一文字色(原本散落在各使用处,现提到 base 统一)
+ *  - 层级:bg-card(默认 亮100/暗10) < bg-accent(hover 亮88/暗17) ≤ bg-accent text-foreground(active,Plus 打开,文字加深)
+ *  - close 变体保留红色 hover(WindowControlButton variant='close'),在 base 之后追加覆盖
+ */
+export const TOPBAR_BTN_BASE =
+  'inline-flex h-full shrink-0 items-center justify-center rounded-md bg-card text-foreground/80 transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent'
+
+/** 顶栏按钮/标签宽度(2026-07-30 第十轮"做减法 v6"用户反馈"搜索/chevron-down/Plus 按钮应一致 + 正方形"后升级 w-7 → w-9)
+ *  - Plus 按钮 / 窗口控制按钮 / Dropdown trigger / 搜索按钮 4 类全部统一 36×36 正方形
+ *  - 之前 w-7 (28×36) 矩形,3 类按钮"看似不同实则都是 28×36 雷同"但跟搜索按钮 36×36 视觉参差 */
+export const TOPBAR_BTN_W9 = 'w-9'
+
 /** 模型选择器下拉触发器 (h-9,icon + 文字 + chevron)
  *  - 三元素同行,中间文字 span 加 translateY
  */
