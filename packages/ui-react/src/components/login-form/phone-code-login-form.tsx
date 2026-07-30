@@ -8,7 +8,9 @@ import { Input } from '../input'
 import { Label } from '../label'
 import { cn } from '../../lib/utils'
 import { AgreementCheckbox } from './agreement-checkbox'
+import { AccountHistoryInput } from './account-history-input'
 import { isValidPhone } from './types'
+import { saveLoginHistory } from '../../lib/remember-credentials'
 import type { ApiResult, LoginApiClient, LoginResult } from './types'
 
 export interface PhoneCodeLoginFormProps {
@@ -27,6 +29,11 @@ export interface PhoneCodeLoginFormProps {
   /** 自定义样式 */
   inputClassName?: string
   buttonClassName?: string
+  /**
+   * 是否启用账号历史持久化(2026-07-30 立:消除 password/email/phone 3 个 tab 功能差异)
+   * true 时手机号输入框带历史下拉,登录成功后保存到 localStorage。
+   */
+  enableCredentialPersistence?: boolean
 }
 
 /**
@@ -54,6 +61,7 @@ export function PhoneCodeLoginForm({
   showAgreeErr,
   inputClassName,
   buttonClassName,
+  enableCredentialPersistence = false,
 }: PhoneCodeLoginFormProps) {
   const [phone, setPhone] = React.useState('')
   const [code, setCode] = React.useState('')
@@ -129,6 +137,8 @@ export function PhoneCodeLoginForm({
         setError(result.error || t('auth.loginFailed'))
         return
       }
+      // 2026-07-30:登录成功后保存账号历史(与 password/email tab 共用同一份 localStorage)
+      if (enableCredentialPersistence) saveLoginHistory(phone)
       await onSuccess?.(result.data)
     } catch {
       setError(t('auth.loginFailed'))
@@ -138,23 +148,58 @@ export function PhoneCodeLoginForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 pt-2" noValidate>
+    <form
+      onSubmit={onSubmit}
+      onKeyDown={(e) => {
+        // 兜底:Radix Dialog/Portal 内浏览器 implicit form submission 在某些场景失效
+        // (实测:input 上按 Enter 不触发 form submit,但 form.requestSubmit() 能正常触发)。
+        // 详见 password-login-form.tsx 同段注释。AgreementCheckbox 自身 onKeyDown
+        // 已处理 Enter(标签 target 不是 INPUT,不进入此分支,避免重复 requestSubmit)。
+        if (
+          e.key === 'Enter' &&
+          !e.shiftKey &&
+          !e.nativeEvent.isComposing &&
+          (e.target as HTMLElement).tagName === 'INPUT'
+        ) {
+          e.preventDefault()
+          e.currentTarget.requestSubmit()
+        }
+      }}
+      className="space-y-4 pt-2"
+      noValidate
+    >
       {error && <ErrorAlert message={error} />}
 
       <div className="space-y-1.5">
         <Label htmlFor="login-form-phone">{t('auth.phone')}</Label>
-        <Input
-          id="login-form-phone"
-          name="tel"
-          type="tel"
-          autoComplete="tel"
-          placeholder={t('auth.phonePlaceholder')}
-          className={cn('h-10', inputClassName)}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
-          disabled={submitting}
-          data-testid="login-phone-input"
-        />
+        {enableCredentialPersistence ? (
+          <AccountHistoryInput
+            t={t}
+            id="login-form-phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder={t('auth.phonePlaceholder')}
+            inputClassName={cn('h-10', inputClassName)}
+            value={phone}
+            onChange={(v) => setPhone(v.replace(/\D/g, '').slice(0, 11))}
+            disabled={submitting}
+            ariaLabel={t('auth.phone')}
+            active={!submitting}
+          />
+        ) : (
+          <Input
+            id="login-form-phone"
+            name="tel"
+            type="tel"
+            autoComplete="tel"
+            placeholder={t('auth.phonePlaceholder')}
+            className={cn('h-10', inputClassName)}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            disabled={submitting}
+            data-testid="login-phone-input"
+          />
+        )}
       </div>
 
       <div className="space-y-1.5">
