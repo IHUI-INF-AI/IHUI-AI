@@ -60,6 +60,7 @@
     "release": "turbo run build && changeset publish",
     "nativewind:status": "node scripts/check-nativewind-status.mjs",
     "check:button-wrap": "node scripts/check-shrinkable-text-button.mjs",
+    "footer:guard": "node scripts/check-site-footer.mjs",
     "seo:indexnow": "node scripts/notify-indexnow.mjs",
     "social-preview": "node scripts/generate-social-preview.mjs",
     "guardian:docs": "node scripts/generate-guardian-docs.mjs"

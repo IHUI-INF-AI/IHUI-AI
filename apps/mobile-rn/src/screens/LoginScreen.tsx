@@ -14,7 +14,7 @@ import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
 import { Toolbar } from '../components/Toolbar'
-import { useI18n } from '../i18n'
+import { useI18n, type Locale } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
@@ -59,18 +59,55 @@ const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {}
 // apple forceDisabled = true(对齐 web "Apple 登录即将上线")
 // iconSource 未传时共享 LoginScreen 自动 fallback 到平台首字母(圆形按钮 + 居中字母)
 const THIRD_PARTY_OPTIONS: ThirdPartyLoginOption[] = [
-  { platform: 'wechat', label: '微信', iconSource: THIRD_PARTY_ICONS.wechat, enabled: true },
-  { platform: 'google', label: 'Google', iconSource: THIRD_PARTY_ICONS.google, enabled: true },
-  { platform: 'github', label: 'GitHub', iconSource: THIRD_PARTY_ICONS.github, enabled: true },
-  { platform: 'feishu', label: '飞书', iconSource: THIRD_PARTY_ICONS.feishu, enabled: true },
-  { platform: 'dingtalk', label: '钉钉', iconSource: THIRD_PARTY_ICONS.dingtalk, enabled: true },
+  {
+    platform: 'wechat',
+    label: '微信',
+    iconSource: THIRD_PARTY_ICONS.wechat,
+    enabled: true,
+    brandColor: '#07C160',
+  },
+  {
+    platform: 'google',
+    label: 'Google',
+    iconSource: THIRD_PARTY_ICONS.google,
+    enabled: true,
+    brandColor: '#4285F4',
+  },
+  {
+    platform: 'github',
+    label: 'GitHub',
+    iconSource: THIRD_PARTY_ICONS.github,
+    enabled: true,
+    brandColor: '#181717',
+  },
+  {
+    platform: 'feishu',
+    label: '飞书',
+    iconSource: THIRD_PARTY_ICONS.feishu,
+    enabled: true,
+    brandColor: '#3370FF',
+  },
+  {
+    platform: 'dingtalk',
+    label: '钉钉',
+    iconSource: THIRD_PARTY_ICONS.dingtalk,
+    enabled: true,
+    brandColor: '#0089FF',
+  },
   {
     platform: 'enterpriseWechat',
     label: '企业微信',
     iconSource: THIRD_PARTY_ICONS.enterpriseWechat,
     enabled: true,
+    brandColor: '#2DC100',
   },
-  { platform: 'alipay', label: '支付宝', iconSource: THIRD_PARTY_ICONS.alipay, enabled: true },
+  {
+    platform: 'alipay',
+    label: '支付宝',
+    iconSource: THIRD_PARTY_ICONS.alipay,
+    enabled: true,
+    brandColor: '#1677FF',
+  },
   {
     platform: 'apple',
     label: 'Apple',
@@ -78,6 +115,7 @@ const THIRD_PARTY_OPTIONS: ThirdPartyLoginOption[] = [
     enabled: false,
     forceDisabled: true,
     disabledHint: 'Apple 登录即将上线',
+    brandColor: '#000000',
   },
 ]
 
@@ -90,8 +128,8 @@ const CODE_COUNTDOWN_SECONDS = 60
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
 export function LoginScreen() {
-  const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
+  const { t, locale, setLocale } = useI18n()
+  const { resolvedTheme, setThemeMode } = useTheme()
   const navigation = useNavigation<LoginNavigationProp>()
   const fullUserRef = useRef<AuthUser | null>(null)
 
@@ -370,6 +408,16 @@ export function LoginScreen() {
   const unifiedLoading = form.loading || emailLoading || phoneLoading
 
   // ===== Toolbar 工具条(主题切换 + 语言切换 + 帮助) =====
+  // theme:在 light/dark 间 toggle(忽略 system,登录页用显式切换更直观)
+  // lang:循环切换 5 个 locale(zh-CN → en → ja → ko → zh-TW → zh-CN),Alert 确认
+  const LOCALE_CYCLE: readonly Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
+  const LOCALE_ICON: Record<Locale, string> = {
+    'zh-CN': '中',
+    en: 'EN',
+    ja: '日',
+    ko: '한',
+    'zh-TW': '繁',
+  }
   const toolbarItems = useMemo(
     () => [
       {
@@ -377,15 +425,17 @@ export function LoginScreen() {
         icon: resolvedTheme === 'dark' ? '☀' : '🌙',
         active: resolvedTheme === 'dark',
         onPress: () => {
-          // 仅作 shell 演示;真实切换走 useTheme().toggle()
-          Alert.alert('theme', `current: ${resolvedTheme}`)
+          setThemeMode(resolvedTheme === 'dark' ? 'light' : 'dark')
         },
       },
       {
         key: 'lang',
-        icon: '中',
+        icon: LOCALE_ICON[locale],
         onPress: () => {
-          Alert.alert('lang', '语言切换演示(壳层占位)')
+          const idx = LOCALE_CYCLE.indexOf(locale)
+          const safeIdx = idx < 0 ? 0 : idx
+          const next = LOCALE_CYCLE[(safeIdx + 1) % LOCALE_CYCLE.length]
+          if (next) void setLocale(next)
         },
       },
       {
@@ -396,7 +446,7 @@ export function LoginScreen() {
         },
       },
     ],
-    [resolvedTheme, t],
+    [resolvedTheme, setThemeMode, locale, setLocale, t],
   )
 
   return (

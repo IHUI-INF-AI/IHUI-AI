@@ -5,7 +5,8 @@ import { AlertTriangle, Clock3, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { isHighRiskPermissionMode } from '@/components/ai/permission-mode-popover'
-import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
+import { formatRemaining } from '@/hooks/use-permission-auto-revert'
+import type { usePermissionAutoRevert } from '@/hooks/use-permission-auto-revert'
 import { useAiPanelStore } from '@/stores/ai-panel'
 
 /**
