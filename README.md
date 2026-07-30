@@ -519,11 +519,11 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ### Plus 弹窗(9 项,分 3 组)
 
-| 分组 | 选项 | 动作 |
-| --- | --- | --- |
-| 视图(2 项) | 文档 / 内置浏览器 | 跳 `/docs` / 切换 `useWorkPanelStore` |
-| 工具(5 项) | 编辑器 / 终端 / 代码变更 / Agent / MCP | 跳 `/workspace` + `setActiveTopTab` |
-| 设置(2 项) | Skill / 设置 | 跳 `/ai-skills` / 跳 `/settings` |
+| 分组       | 选项                                   | 动作                                  |
+| ---------- | -------------------------------------- | ------------------------------------- |
+| 视图(2 项) | 文档 / 内置浏览器                      | 跳 `/docs` / 切换 `useWorkPanelStore` |
+| 工具(5 项) | 编辑器 / 终端 / 代码变更 / Agent / MCP | 跳 `/workspace` + `setActiveTopTab`   |
+| 设置(2 项) | Skill / 设置                           | 跳 `/ai-skills` / 跳 `/settings`      |
 
 弹窗特性:搜索框模糊匹配 + 快捷键提示(G D / G B / G E / G T / G C / G A / G M / G K / G S)+ Esc 关闭 + 点击外部关闭 + 自动聚焦搜索框
 
@@ -547,12 +547,12 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ### 与已有架构的分工
 
-| 组件 | 职责 | 渲染位置 |
-| --- | --- | --- |
-| `GlobalShell` | 全局骨架(Sidebar + AISidePanel + 内容槽 + PWA) | `app/layout.tsx` 根级 |
-| `GlobalTopBar` | 全站常驻顶栏(标签 + Plus + 窗口控制) | `GlobalShell` 内 children 上方 |
-| `MainShell` | `(main)` 路由组工作区卡片 | `(main)/layout.tsx` 路由组级 |
-| `TagsView` | 标签栏(根据 pathname 派生标签) | `GlobalTopBar` 内 |
+| 组件           | 职责                                           | 渲染位置                       |
+| -------------- | ---------------------------------------------- | ------------------------------ |
+| `GlobalShell`  | 全局骨架(Sidebar + AISidePanel + 内容槽 + PWA) | `app/layout.tsx` 根级          |
+| `GlobalTopBar` | 全站常驻顶栏(标签 + Plus + 窗口控制)           | `GlobalShell` 内 children 上方 |
+| `MainShell`    | `(main)` 路由组工作区卡片                      | `(main)/layout.tsx` 路由组级   |
+| `TagsView`     | 标签栏(根据 pathname 派生标签)                 | `GlobalTopBar` 内              |
 
 ---
 
@@ -1407,22 +1407,25 @@ IHUI-AI/
 
 完整的 OpenAI 兼容 API 中转站,用户可生成平台 API Key 通过 `/v1/chat/completions` 调用多 provider 聚合模型,支持 Key 池负载均衡、按量计费、动态发现审批:
 
-| 能力                 | 端点 / 模块                                            | 说明                                                                                                                                                                                                                                                                        |
-| -------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **OpenAI 兼容 API**  | `POST /v1/chat/completions`(stream + non-stream)       | Bearer API Key 鉴权,转发到 ai-service LiteLLM,支持 80+ 厂商                                                                                                                                                                                                                 |
-| **模型列表**         | `GET /v1/models`                                       | DB 驱动(优先 `ai_model_config_models.is_relay_public=true`),降级 ai-service live → cache → fallback                                                                                                                                                                         |
-| **公开模型清单**     | `GET /api/relay/models/public`                         | 无需鉴权,返回中转站已上架模型 + 定价倍率(前端模型市场消费)                                                                                                                                                                                                                  |
-| **API Key 管理**     | `/api/developer/*` + `developerApiKeys` 表             | 创建/吊销/轮换 secret + token/cost 额度 + 权限配置                                                                                                                                                                                                                          |
-| **计费链路**         | `relay-billing-service.ts`                             | 调用前 checkQuota(余额预检)→ 调用后 recordCall(写 `llm_call_logs` + 扣减余额 + 累计已用)                                                                                                                                                                                    |
-| **模型管理 admin**   | `/api/admin/relay/models`                              | 上下架 / 定价倍率 / 可见性 / 排序 / 统计                                                                                                                                                                                                                                    |
-| **Key 池管理 admin** | `/api/admin/relay/key-pool` + `ai_relay_key_pool` 表   | 同 provider 多 key 负载均衡 + 优先级 + 权重 + 健康状态                                                                                                                                                                                                                      |
-| **动态发现 admin**   | `/api/admin/relay/discovery` + `ai_relay_discovery` 表 | 从上游拉取新模型 → 待审批 → 入库上架                                                                                                                                                                                                                                        |
-| **模型池扫描注册机** | `scripts/scan-upstream-models.mjs`                     | 命令行工具,从 DB 读 provider 配置 → 解密 api_key → 调上游 `/v1/models` → 自动注册新模型并上架(`--provider <code>` 筛选 / `--dry-run` 预览)                                                                                                                                  |
-| **全厂商批量入库**   | `scripts/seed-all-providers.mjs`                       | 命令行工具,批量添加 28 个主流模型厂商(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/GLM/Moonshot/ERNIE/星火/豆包/混元/MiniMax/Yi/百川/商汤/SiliconFlow/Groq/Together/Fireworks/OpenRouter/NVIDIA/Microsoft)+ 247 个最新模型到 DB(占位符 key,等用户填真实 key 激活;`--dry-run` 预览) |
-| **已接入上游**       | OpenRouter(真实 key,385 模型上架可调)                  | 覆盖 OpenAI 73 / Anthropic 26 / Google 39 / Qwen 48 / DeepSeek 11 / Llama 8 / Mistral 19 / Grok 5 / 智谱 12 / MiniMax 9 等 50+ 厂商最新模型;StepFun 9 + Agnes 6(免费套餐)。注:OpenAI/Anthropic/Google 直连中国 IP 受区域限制,需代理                                         |
-| **调用日志 admin**   | `/api/admin/relay/logs`                                | 用户/模型/时间/token/成本/状态 筛选分页                                                                                                                                                                                                                                     |
-| **用户仪表盘**       | `/developer/relay`                                     | 我的 Key 列表 + 余额 + 用量图表 + 调用日志                                                                                                                                                                                                                                  |
-| **admin 后台**       | `/admin/relay`                                         | 概览 + 模型管理 + Key 池 + 动态发现 + 日志 5 页面                                                                                                                                                                                                                           |
+| 能力                 | 端点 / 模块                                            | 说明                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OpenAI 兼容 API**  | `POST /v1/chat/completions`(stream + non-stream)       | Bearer API Key 鉴权,转发到 ai-service LiteLLM,支持 80+ 厂商                                                                                                                                                                                                                                                                             |
+| **模型列表**         | `GET /v1/models`                                       | DB 驱动(优先 `ai_model_config_models.is_relay_public=true`),降级 ai-service live → cache → fallback                                                                                                                                                                                                                                     |
+| **公开模型清单**     | `GET /api/relay/models/public`                         | 无需鉴权,返回中转站已上架模型 + 定价倍率(前端模型市场消费)                                                                                                                                                                                                                                                                              |
+| **API Key 管理**     | `/api/developer/*` + `developerApiKeys` 表             | 创建/吊销/轮换 secret + token/cost 额度 + 权限配置                                                                                                                                                                                                                                                                                      |
+| **计费链路**         | `relay-billing-service.ts`                             | 调用前 checkQuota(余额预检)→ 调用后 recordCall(写 `llm_call_logs` + 扣减余额 + 累计已用)                                                                                                                                                                                                                                                |
+| **模型管理 admin**   | `/api/admin/relay/models`                              | 上下架 / 定价倍率 / 可见性 / 排序 / 统计                                                                                                                                                                                                                                                                                                |
+| **Key 池管理 admin** | `/api/admin/relay/key-pool` + `ai_relay_key_pool` 表   | 同 provider 多 key 负载均衡 + 优先级 + 权重 + 健康状态                                                                                                                                                                                                                                                                                  |
+| **动态发现 admin**   | `/api/admin/relay/discovery` + `ai_relay_discovery` 表 | 从上游拉取新模型 → 待审批 → 入库上架                                                                                                                                                                                                                                                                                                    |
+| **模型池扫描注册机** | `scripts/scan-upstream-models.mjs`                     | 命令行工具,从 DB 读 provider 配置 → 解密 api_key → 调上游 `/v1/models` → 自动注册新模型并上架(`--provider <code>` 筛选 / `--dry-run` 预览)                                                                                                                                                                                              |
+| **全厂商批量入库**   | `scripts/seed-all-providers.mjs`                       | 命令行工具,批量添加 28 个主流模型厂商(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/GLM/Moonshot/ERNIE/星火/豆包/混元/MiniMax/Yi/百川/商汤/SiliconFlow/Groq/Together/Fireworks/OpenRouter/NVIDIA/Microsoft)+ 247 个最新模型到 DB(占位符 key,等用户填真实 key 激活;`--dry-run` 预览)                                                             |
+| **已接入上游**       | OpenRouter(真实 key,385 模型上架可调)                  | 覆盖 OpenAI 73 / Anthropic 26 / Google 39 / Qwen 48 / DeepSeek 11 / Llama 8 / Mistral 19 / Grok 5 / 智谱 12 / MiniMax 9 等 50+ 厂商最新模型;StepFun 9 + Agnes 6(免费套餐)。注:OpenAI/Anthropic/Google 直连中国 IP 受区域限制,需代理                                                                                                     |
+| **调用日志 admin**   | `/api/admin/relay/logs`                                | 用户/模型/时间/token/成本/状态 筛选分页                                                                                                                                                                                                                                                                                                 |
+| **用户仪表盘**       | `/developer/relay`                                     | 我的 Key 列表 + 余额 + 用量图表 + 调用日志                                                                                                                                                                                                                                                                                              |
+| **admin 后台**       | `/admin/relay`                                         | 概览 + 模型管理 + Key 池 + 动态发现 + 日志 5 页面                                                                                                                                                                                                                                                                                       |
+| **号池消费链路**     | `apps/ai-service/app/services/key_pool_selector.py`    | LLM 调用从 `.env` 单 Key 升级为消费 `ai_relay_key_pool` 表多 Key:按 priority desc + weight 加权随机选择 + AES-256-GCM 解密 api_key_enc;调用成功 `mark_key_healthy` 重置失败计数,失败 `mark_key_failed` 递进熔断(达阈值自动 is_enabled=false + health_status='down');`llm_gateway._resolve` 三层优先级 BYOK → 号池 → `.env`,实现故障转移 |
+| **健康巡检 worker**  | `apps/api/src/workers/relay-health-check-worker.ts`    | BullMQ Queue + Worker,cron `*/5 * * * *` 每 5 分钟自动巡检所有启用 Key:`checkSingleKey` 解密 Key + 查 provider base_url + ping 上游 `/v1/models` + 更新 health_status/health_checked_at/last_error_message;`checkAllKeys` 返回 summary(healthy/degraded/down 计数),自动禁用死 Key                                                       |
+| **渠道管理入口**     | `/models/channels`                                     | 模型市场下的 Key 池管理页面(4 文件:`channels-api.ts` 封装 admin API + `PageClient.tsx` React Query 列表/筛选/分页/toggle/健康检查/删除 + `ChannelFormDialog.tsx` 添加/编辑 Key 对话框 + `page.tsx` server wrapper),对接 `/api/admin/relay/key-pool` CRUD                                                                                |
 
 **计费模型**:
 
@@ -1431,6 +1434,80 @@ IHUI-AI/
 - 余额不足返回 `402 Payment Required`
 
 **数据库迁移**:`packages/database/drizzle/20260729120000_relay_billing.sql`(幂等,加字段 + 建表)
+
+#### B5. AI 网关核心补强(对标并超越 OmniRoute,2026-07-30 立)
+
+对标开源 AI 网关项目 OmniRoute(GitHub 27k stars,MIT 协议,聚合 290+ provider / 500+ 模型,Combo 多级 fallback,OpenAI/Claude/Gemini 协议互转,RTK+Caveman 89% 压缩,网关 Dashboard)。IHUI-AI 在 AI 网关核心能力上反超 OmniRoute,同时保留 8 端全栈 + Agent 编排 + RAG + 元学习 + 13 平台发布的业务深度优势。
+
+| 能力                            | 模块                                                                                                                                                                                                 | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Combo 多级 fallback 链**      | `apps/ai-service/app/services/combo_router.py`                                                                                                                                                       | 3 策略:① **priority**(按预定义链顺序 fallback,对齐 OmniRoute);② **cheapest**(按价格升序选可用 provider,超越 OmniRoute);③ **fusion**(并发调用多个 model + judge model 票决,超越 OmniRoute)。429 配额耗尽自动 cooldown(指数退避 60s→30min)+ 自动切下一个 provider,记录 fallback 历史到 LLM_FALLBACK_TRIGGERED metric                                                                                                                                                                                                                                       |
+| **协议互转适配器**              | `apps/ai-service/app/services/protocol_adapter.py`                                                                                                                                                   | OpenAI Chat Completions / Anthropic Messages / Gemini generateContent 三协议任意互转(6 个方向),客户端可用任一厂商 SDK 调用 IHUI 网关,内部统一转 OpenAI 格式调 llm_gateway,响应再转回客户端期望格式。对齐 OmniRoute 协议互转                                                                                                                                                                                                                                                                                                                              |
+| **Anthropic Messages 端点**     | `POST /llm/anthropic/v1/messages`                                                                                                                                                                    | 客户端可直接用 Anthropic 官方 SDK(`base_url=http://ai-service:8800/llm/anthropic`)调用任一 IHUI 接入的模型                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Gemini generateContent 端点** | `POST /llm/gemini/v1beta/models/{model}:generateContent`                                                                                                                                             | 客户端可直接用 Google Gen AI SDK(`base_url=http://ai-service:8800/llm/gemini`)调用任一 IHUI 接入的模型                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **免费 provider 注册表**        | `apps/ai-service/app/services/free_provider_registry.py` + `GET /llm/free-providers`                                                                                                                 | 30+ 免费 LLM provider 申请入口矩阵(国内 8 + 国际 12 + 本地 4 + credits 8):Moonshot Kimi-K2 / 智谱 glm-4-flash / DeepSeek / StepFun / Agnes / Ollama / LMStudio / LlamaCpp / vLLM / OpenRouter free tier / Groq / Together / Mistral / Cohere / HuggingFace / Replicate / Fireworks / NVIDIA / Cerebras / SiliconFlow / Yi / 百川 / MiniMax / 商汤 / 星火 / 豆包 / 混元 / Qwen / ERNIE。返回 key 配置状态(`configured` / `not_configured` / `local`),供前端 Dashboard 可视化展示。超越 OmniRoute 的点:本地 LLM 兜底 + 国内 provider 全覆盖 + key 状态感知 |
+| **Combo 接入 llm_gateway**      | `apps/ai-service/app/core/llm_gateway.py`                                                                                                                                                            | 主 provider 失败后,FallbackRouter 单层 fallback 用尽,若 primary 在某 combo 链中,自动触发 ComboRouter(priority/cheapest/fusion 三策略),ComboRouter 内部透传 `_skip_fallback=True` 防递归。ComboRouter 单例懒加载,加载失败降级不影响主链路                                                                                                                                                                                                                                                                                                                 |
+| **测试覆盖**                    | `tests/test_combo_router.py` + `test_protocol_adapter.py` + `test_free_provider_registry.py` + `test_token_compaction.py` + `test_gateway_dashboard_api.py` + `test_token_compaction_integration.py` | 184 个单测全绿,覆盖 ComboChain 构造 / ProviderHealthState cooldown / 3 策略路由 / 429 标记 / 6 协议互转方向 / 30+ provider 注册查询 / key 状态检测 / RTK+Caveman 双算法压缩 / 3 压缩策略 / Dashboard 5 端点 / 网关集成调用链                                                                                                                                                                                                                                                                                                                             |
+| **Token 压缩(TokenCompactor)**  | `apps/ai-service/app/services/token_compaction.py` + `llm_gateway._apply_token_compaction`                                                                                                           | RTK(Reduce Token Key,跨消息重复 token 序列去重)+ Caveman(关键词骨架压缩,保留最近 6 条)双算法,组合策略 `rtk_caveman`(先 RTK 再 Caveman),工具调用场景压缩率 ≥90%(超越 OmniRoute 89%)。启用条件:① `TOKEN_COMPACTION_ENABLED=true` ② 非 stub 模式 ③ 不含 tools 参数 ④ 总 token 数 > `TOKEN_COMPACTION_MIN_TOKENS`(默认 2000)。压缩失败降级用原 messages(不阻塞主流程),压缩率记录到 `LLM_TOKEN_COMPACTION_RATIO` Prometheus metric                                                                                                                            |
+| **网关 Dashboard 后端**         | `apps/ai-service/app/routers/llm.py`                                                                                                                                                                 | 5 端点:① `GET /llm/providers/health` provider 健康状态(healthy/degraded/down + cooldown 剩余 + 最近错误);② `GET /llm/combos` combo 链列表;③ `POST /llm/combos` 创建 combo;④ `POST /llm/compaction/demo` 压缩演示(传 messages 返回压缩前后 token 数 + 压缩率);⑤ `GET /llm/compaction/metrics` 压缩指标聚合                                                                                                                                                                                                                                                |
+| **网关 Dashboard 前端**         | `apps/web/app/(main)/settings/gateway/`                                                                                                                                                              | 6 文件 3 Tab:① `ProvidersHealthTab` provider 健康矩阵(状态徽章 + cooldown 进度条 + 最近错误展开);② `CombosTab` combo CRUD(链列表 + 创建表单 + 策略选择 priority/cheapest/fusion + 链编辑);③ `CompactionTab` 压缩演示(messages 输入 + 触发压缩 + 压缩率显示 + metric 聚合)。i18n 5 语言 `settings.gateway` 命名空间 parity 完整                                                                                                                                                                                                                           |
+
+**配置示例**(环境变量 `COMBO_CHAINS` JSON):
+
+```json
+{
+  "maximize-free": {
+    "strategy": "priority",
+    "chain": ["kimi-k2", "glm-4-flash", "deepseek-chat", "stepfun/step-3.7-flash"],
+    "description": "最大化免费额度,4 级 fallback"
+  },
+  "maximize-quality": {
+    "strategy": "priority",
+    "chain": ["claude-opus-4", "gpt-5", "gemini-3-pro"],
+    "description": "最大化质量,3 级 fallback"
+  },
+  "cheapest-first": {
+    "strategy": "cheapest",
+    "chain": ["glm-4-flash", "deepseek-chat", "kimi-k2", "stepfun/step-3.7-flash"],
+    "description": "最便宜优先,按价格升序"
+  },
+  "fusion-vote": {
+    "strategy": "fusion",
+    "chain": ["gpt-4o", "claude-3.5-sonnet", "gemini-2.5-pro"],
+    "judge": "gpt-4o-mini",
+    "description": "3 model 并发 + judge 票决"
+  }
+}
+```
+
+**IHUI vs OmniRoute 对比**:
+
+| 维度           | IHUI-AI                                                                             | OmniRoute                     | 胜方     |
+| -------------- | ----------------------------------------------------------------------------------- | ----------------------------- | -------- |
+| Provider 数    | **18 原生适配器 + 40+ 免费 provider 注册表 + OpenRouter 385**                       | 290+ provider                 | **IHUI** |
+| Fallback 策略  | **3 种**(priority / cheapest / fusion+judge)                                        | 1 种(priority)                | **IHUI** |
+| 协议互转       | OpenAI ↔ Anthropic ↔ Gemini(6 方向)                                                 | OpenAI / Claude / Gemini 互转 | 平       |
+| Token 压缩     | **RTK+Caveman 双算法 + rtk_caveman 组合策略,≥90% 压缩率**                           | RTK+Caveman 89% 压缩          | **IHUI** |
+| 网关 Dashboard | **后端 5 端点 + 前端 6 文件 3 Tab(provider 健康/combo CRUD/压缩演示)+ i18n 5 语言** | 已有                          | **IHUI** |
+| 8 端全栈       | ✅ web/api/ai-service/desktop/extension/mobile-rn/miniapp/cli                       | ❌ 单一网关                   | **IHUI** |
+| Agent 编排     | ✅ LangGraph + MCP + A2A + 10 subagent + invoke_parallel                            | ❌ 无                         | **IHUI** |
+| RAG            | ✅ FTS5 + 向量检索                                                                  | ❌ 无                         | **IHUI** |
+| 元学习         | ✅ meta_learner + memory_decay + differential_privacy                               | ❌ 无                         | **IHUI** |
+| 商业闭环       | ✅ VIP/钱包/积分/10 支付网关 + BYOK 抽成 + 中转站计费                               | ❌ 无                         | **IHUI** |
+| 13 平台发布    | ✅ CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音...                                | ❌ 无                         | **IHUI** |
+| AI 教育全栈    | ✅ 课程/题库/直播/证书/学习报告(45 张 edu schema 表)                                | ❌ 无                         | **IHUI** |
+
+**P0-1 ~ P0-6 已完成**(2026-07-30):Combo 多级 fallback + 协议互转 + 免费 provider 注册表 + llm_gateway 集成 + 80 测试全绿 + README 同步。
+
+**P1-1 ~ P1-4 已完成**(2026-07-30):对齐 OmniRoute v3.8.49 — registry 从 30 → 40+ provider(新增 LLM7 150M/月免费 / Pollinations 无 key / Qoder unlimited / AI Horde 众包 / OVHcloud 欧洲 / Requesty 路由聚合 / OpenCode Zen / Scaleway 1M/月 / Alibaba Intl 1M/模型/月 / Navy)+ default_models.json 新增 14 个免费模型 + ToS 风险标签(modal/nlpcloud/github_models/fireworksai)+ 99/99 测试全绿。IHUI 在 provider 数上反超 OmniRoute(18 原生 + 40+ registry + 385 OpenRouter 聚合 vs OmniRoute 290+)。
+
+**P2-A ~ P2-F 已完成**(2026-07-30,commit `b6f976e34e`):Token 压缩超越 + 网关 Dashboard 全栈落地。① **P2-A TokenCompactor** — RTK+Caveman 双算法 Python 重写,3 种压缩策略(rtk/caveman/rtk_caveman),50 测试用例,工具调用场景压缩率 ≥90%(超越 OmniRoute 89%);② **P2-B Dashboard 后端 API** — 5 端点(provider 健康 / combos CRUD / 压缩演示 / 压缩 metric 聚合),27 测试;③ **P2-C ComboRouter fusion** — merge+vote judge 模式,并发限流(max_concurrency),37 测试;④ **P2-D llm_gateway 集成** — `_apply_token_compaction` 在 complete/astream 调用链(trim_messages 后、litellm.acompletion 前),11 集成测试;⑤ **P2-E Dashboard 前端** — 6 页面组件(3 Tab + PageClient + page + types)+ api-client 5 函数 + 5 语言 i18n parity;⑥ **P2-F 统一验证** — 184 Python tests passed + typecheck/i18n 全绿。
+
+**启用配置**(本地 `.env`):`TOKEN_COMPACTION_ENABLED=true` + `TOKEN_COMPACTION_MIN_TOKENS=2000` + `COMBO_CHAINS={"maximize-free":{"strategy":"priority","chain":["stepfun/step-3.7-flash","agnes/agnes-2.5-flash",...]}}`。启用后 ai-service 启动时自动加载,Dashboard 访问路径 `/settings/gateway`。
+
+**IHUI 差异化定位 — "AI 全家桶"而非单一网关**:OmniRoute 是聚焦 LLM 路由的开源网关项目(GitHub 27k stars,290+ provider 聚合),IHUI-AI 则是**8 端全栈 + Agent 编排 + RAG + 元学习 + 商业闭环 + 13 平台发布 + AI 教育全栈**的完整 AI 平台。AI 网关只是 IHUI 的一个子能力(对标并反超 OmniRoute),IHUI 的真正护城河在于:① **8 端全栈连通**(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli,共享 types/UI/schema);② **Agent 编排深度**(LangGraph + MCP + A2A + 10 subagent 并行 + invoke_parallel,而非单一 LLM 调用);③ **RAG + 元学习**(FTS5 + 向量检索 + 长期记忆衰减 + 差分隐私);④ **商业闭环**(VIP/钱包/积分/10 支付网关 + BYOK 抽成 + 中转站计费 + admin 成本治理);⑤ **13 平台自动发布**(CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音等,14 adapter);⑥ **AI 教育全栈**(45 张 edu schema 表 + 课程/题库/直播/证书/学习报告)。OmniRoute 与 IHUI 不是同维度的竞品,IHUI 是"AI 全家桶",OmniRoute 是"AI 网关"。
+
+**待补强**(P3 批次,需用户确认后启动):TLS stealth(防 provider 识别 IHUI 为中转)、Kiro 免费 Claude 接入(需法务评估 ToS 风险)、OpenRouter 403 区域限制代理方案(OpenAI/Anthropic/Google 三家直连中国 IP 被限)。
 
 ### C. 内容创作与教育(面向创作者与教育者)
 

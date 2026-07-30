@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -50,6 +50,21 @@ const imageStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+  },
+  // 无图标 fallback:品牌色圆形背景 + 白色首字母(对齐 web ThirdPartyLoginButtons 视觉)
+  thirdPartyFallback: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#999999',
+  },
+  thirdPartyFallbackText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 14,
   },
   qrImage: {
     width: 200,
@@ -280,9 +295,22 @@ function ThirdPartyLoginArea({
               {isLoading ? (
                 <ActivityIndicator size="small" color={tk.brand.DEFAULT} />
               ) : opt.iconSource ? (
-                <Image source={opt.iconSource} style={imageStyles.thirdPartyIcon} resizeMode="contain" />
+                <Image
+                  source={opt.iconSource}
+                  style={imageStyles.thirdPartyIcon}
+                  resizeMode="contain"
+                />
               ) : (
-                <Text style={styles.thirdPartyIconText}>{opt.label.charAt(0).toUpperCase()}</Text>
+                <View
+                  style={[
+                    imageStyles.thirdPartyFallback,
+                    !!opt.brandColor && { backgroundColor: opt.brandColor },
+                  ]}
+                >
+                  <Text style={imageStyles.thirdPartyFallbackText}>
+                    {opt.label.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           )
