@@ -6,7 +6,6 @@ import {
   Square,
   SquareSlash,
   AtSign,
-  X,
   Info,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -20,7 +19,6 @@ import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
-import { CurrentModeBadge } from '@/components/chat/current-mode-badge'
 import { WebInputCore, MAX_LENGTH, type WebInputCoreHandle } from './web-input-core'
 import { PermissionModePopover, isHighRiskPermissionMode } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
@@ -167,9 +165,8 @@ export function MessageInput({
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
-  // 发送/清除按钮可用态(2026-07-29 用户规则:与外层 toolbar 同行显示,沿用 WebInputCore 旧逻辑)
+  // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
   const canSend = !isStreaming && value.trim().length > 0
-  const canClear = !isStreaming && value.length > 0
   // 把 pluginId 解析成 chip 展示所需的 SelectedToolItem(name + integration 标记)
   const selectedToolItems: SelectedToolItem[] = React.useMemo(() => {
     const all = [...PROJECT_PLUGINS, ...MARKET_PLUGINS]
@@ -566,25 +563,9 @@ export function MessageInput({
                 />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
-                {/* 清除 + 发送/停止按钮(2026-07-29 用户规则:与 toolbar 其他动作按钮同一行,
-                    修复原 WebInputCore 内部 absolute 浮层把发送按钮挤到 textarea 右下角的问题)
-                    - 清除:有输入时显示(灰底 hover)
-                    - 发送/停止:流式中切 Stop(红底),否则 Send(主色,空输入/流式中禁用) */}
-                {canClear && (
-                  <Tooltip content={t('clear')}>
-                    <button
-                      type="button"
-                      aria-label={t('clear')}
-                      onClick={() => {
-                        setValue('')
-                        requestAnimationFrame(() => inputCoreRef.current?.resize())
-                      }}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </Tooltip>
-                )}
+                {/* 发送/停止按钮(2026-07-30 用户规则:清除按钮已挪回 WebInputCore 内部 textarea 右上角悬浮呈现,
+                    不再占用 toolbar 槽位)
+                    - 流式中切 Stop(红底),否则 Send(主色,空输入/流式中禁用) */}
                 {isStreaming ? (
                   <Tooltip content={stopLabel ?? t('stop')}>
                     <button
