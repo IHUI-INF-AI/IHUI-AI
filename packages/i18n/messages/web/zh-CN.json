@@ -1102,13 +1102,7 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": [
-          "每月 1000 积分",
-          "所有 AI 模型",
-          "所有 6 个客户端",
-          "API 访问",
-          "社区支持"
-        ]
+        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
       },
       "pro": {
         "name": "专业版",
@@ -1125,13 +1119,7 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": [
-          "不限积分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "审计日志",
-          "专属技术支持"
-        ]
+        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
       }
     },
     "checkout": {
@@ -8819,58 +8807,32 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": [
-          "对话",
-          "聊天",
-          "AI",
-          "chat"
-        ]
+        "keywords": ["对话", "聊天", "AI", "chat"]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": [
-          "短剧",
-          "视频",
-          "AI",
-          "drama"
-        ]
+        "keywords": ["短剧", "视频", "AI", "drama"]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ]
+        "keywords": ["搜索", "查找", "search"]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "应用"
-        ]
+        "keywords": ["AI", "世界", "应用"]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": [
-          "个人",
-          "资料",
-          "设置"
-        ]
+        "keywords": ["个人", "资料", "设置"]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": [
-          "设置",
-          "偏好",
-          "配置"
-        ]
+        "keywords": ["设置", "偏好", "配置"]
       }
     }
   },
@@ -8924,59 +8886,61 @@
     "icp": "吉ICP备2025027274号",
     "copyright": "© 2025 智汇AI集团 · 中国",
     "modelRecord": "模型备案",
-    "cloudDatabases": "",
-    "communityGroup": "",
+    "cloudDatabases": "云数据库",
+    "communityGroup": "企微社群",
     "databases": {
-      "mongodb": "",
-      "mysql": "",
-      "postgresql": "",
-      "redis": "",
-      "sqlite": ""
+      "mongodb": "火山引擎",
+      "mysql": "阿里云",
+      "postgresql": "腾讯云",
+      "redis": "华为云",
+      "sqlite": "亚马逊云"
     },
     "modelItems": {
-      "claude": "",
-      "deepseek": "",
-      "doubao": "",
-      "gemini": "",
-      "gpt": "",
-      "llama": "",
-      "mistral": "",
-      "qwen": ""
+      "claude": "Claude",
+      "deepseek": "DeepSeek",
+      "doubao": "豆包",
+      "gemini": "Gemini",
+      "gpt": "GPT",
+      "llama": "讯飞星火",
+      "mistral": "Minimax",
+      "qwen": "通义千问"
     },
-    "models": "",
-    "officialApp": "",
-    "officialWechat": "",
-    "paymentPlatforms": "",
+    "models": "大模型",
+    "officialApp": "官方App",
+    "officialWechat": "官方微信",
+    "paymentPlatforms": "支付平台",
     "payments": {
-      "alipay": "",
-      "douyin": "",
-      "unionpay": "",
-      "visa": "",
-      "wechat": ""
+      "alipay": "支付宝",
+      "douyin": "抖音支付",
+      "unionpay": "银联",
+      "visa": "Visa",
+      "wechat": "微信支付"
     },
     "platforms": {
-      "coze": "",
-      "n8n": ""
+      "coze": "Coze",
+      "n8n": "n8n"
     },
     "promos": {
-      "baidu": "",
-      "bilibili": "",
-      "douyin": "",
-      "facebook": "",
-      "github": "",
-      "google": "",
-      "kuaishou": "",
-      "qq": "",
-      "reddit": "",
-      "telegram": "",
-      "wechat": "",
-      "wechatChannels": "",
-      "weibo": "",
-      "x": "",
-      "xiaohongshu": "",
-      "youtube": ""
+      "baidu": "百度",
+      "bilibili": "哔哩哔哩",
+      "douyin": "抖音",
+      "facebook": "Facebook",
+      "github": "GitHub",
+      "google": "Google",
+      "kuaishou": "快手",
+      "qq": "QQ",
+      "reddit": "Reddit",
+      "telegram": "Telegram",
+      "wechat": "微信",
+      "wechatChannels": "视频号",
+      "weibo": "微博",
+      "x": "X (Twitter)",
+      "xiaohongshu": "小红书",
+      "youtube": "YouTube"
     },
-    "supportedPlatforms": ""
+    "supportedPlatforms": "支持平台",
+    "aboutUs": "关于我们",
+    "contactUs": "联系我们"
   },
   "plugins": {
     "title": "插件市场",
@@ -9260,31 +9224,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": [
-            "系统化课程",
-            "实践探索",
-            "社群互助"
-          ]
+          "features": ["系统化课程", "实践探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": [
-            "交流平台",
-            "经验共享",
-            "资源对接"
-          ]
+          "features": ["交流平台", "经验共享", "资源对接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": [
-            "专业大模型",
-            "智能体服务",
-            "咨询服务"
-          ]
+          "features": ["专业大模型", "智能体服务", "咨询服务"]
         }
       ]
     },
@@ -9405,37 +9357,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": [
-            "知识问答",
-            "流程自动化"
-          ]
+          "examples": ["知识问答", "流程自动化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": [
-            "数据分析",
-            "决策支持"
-          ]
+          "examples": ["数据分析", "决策支持"]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": [
-            "会议安排",
-            "审批流程"
-          ]
+          "examples": ["会议安排", "审批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": [
-            "营销自动化",
-            "多智能体协同"
-          ]
+          "examples": ["营销自动化", "多智能体协同"]
         }
       ]
     },
@@ -10903,11 +10843,7 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": [
-        "全年所有课程免费参加",
-        "线下探索活动优先参与名额",
-        "智汇 AI 会员社群无限次互动"
-      ]
+      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
     },
     "enterprise": {
       "name": "企业服务",
@@ -11035,15 +10971,7 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": [
-      "周一",
-      "周二",
-      "周三",
-      "周四",
-      "周五",
-      "周六",
-      "周日"
-    ],
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -11187,18 +11115,8 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": [
-        "重点中学",
-        "普通中学",
-        "国际学校",
-        "私立学校"
-      ],
-      "classLevel": [
-        "优秀(班级前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(后 30%)"
-      ],
+      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
+      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -12558,12 +12476,7 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": [
-          "1M tokens 额度",
-          "基础模型可用",
-          "5 个 API 令牌",
-          "社区支持"
-        ]
+        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
       },
       "pro": {
         "features": [
@@ -13005,13 +12918,7 @@
         "price": "¥999",
         "unit": "/小时",
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": [
-          "视频会议 / 远程桌面",
-          "2 小时起",
-          "故障排查",
-          "增值税发票",
-          "响应 SLA 24h"
-        ]
+        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
       }
     },
     "socialProof": {
