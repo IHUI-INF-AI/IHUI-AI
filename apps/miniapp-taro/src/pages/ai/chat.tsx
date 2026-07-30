@@ -100,6 +100,9 @@ export default function ChatPage() {
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false)
   // 智能体提示说明弹窗(对标原 ai_index.vue,首次进入自动弹 + "?" 手动触发)
   const [agentTipVisible, setAgentTipVisible] = useState(false)
+  // 思考过程独立浮层(对标原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
+  const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
+  const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
 
   const activeAgentId = currentAgentId || routeAgentId
 
@@ -674,7 +677,12 @@ export default function ChatPage() {
           >
             ?
           </Text>
-          <Image src={fileIcon} className="nav-history w-[30rpx] h-[30rpx]" mode="aspectFit" onClick={() => setHistoryDrawerVisible(true)} />
+          <Image
+            src={fileIcon}
+            className="nav-history w-[30rpx] h-[30rpx]"
+            mode="aspectFit"
+            onClick={() => setHistoryDrawerVisible(true)}
+          />
           {messages.length ? (
             <Text className="nav-clear" onClick={clearChat}>
               {t('ai.clear')}
@@ -687,7 +695,15 @@ export default function ChatPage() {
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
         {agent ? (
           <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
-            {tishiShow ? <Text className="tishi-block-icon">✕</Text> : <Image src={tishiIcon} className="tishi-block-icon w-[28rpx] h-[28rpx]" mode="aspectFit" />}
+            {tishiShow ? (
+              <Text className="tishi-block-icon">✕</Text>
+            ) : (
+              <Image
+                src={tishiIcon}
+                className="tishi-block-icon w-[28rpx] h-[28rpx]"
+                mode="aspectFit"
+              />
+            )}
             <Text className="tishi-block-text">
               {tishiShow ? t('ai.tishi.close') : t('ai.tishi.view')} {t('ai.tishi.title')}
             </Text>
@@ -696,7 +712,11 @@ export default function ChatPage() {
         {agent && tishiShow && agent.prologue ? (
           <View className="tishi-box">
             <View className="tishi-title">
-              <Image src={recordBackIcon} className="tishi-title-icon w-[32rpx] h-[32rpx]" mode="aspectFit" />
+              <Image
+                src={recordBackIcon}
+                className="tishi-title-icon w-[32rpx] h-[32rpx]"
+                mode="aspectFit"
+              />
               <Text className="tishi-title-text">{t('ai.tishi.needInput')}</Text>
             </View>
             <View className="tishi-content">
@@ -753,6 +773,14 @@ export default function ChatPage() {
               msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined
             }
             onSpeak={msg.role === 'assistant' ? handleSpeak : undefined}
+            onOpenReasoning={
+              msg.role === 'assistant' && msg.reasoning
+                ? () => {
+                    setReasoningPopupContent(msg.reasoning || '')
+                    setReasoningPopupVisible(true)
+                  }
+                : undefined
+            }
           />
         ))}
 
@@ -804,13 +832,44 @@ export default function ChatPage() {
         </View>
       ) : null}
 
-      <View className="input-bar safe-area-bottom">
+      {/* 快捷按钮区(对标原 ai_assistant.vue .quick-actions-container,suggestedQuestions 横向滚动)
+          仅无消息或当前 Agent 提供 suggestedQuestions 时显示 */}
+      {messages.length === 0 && suggestions.length > 0 ? (
+        <View className="quick-actions-container">
+          <ScrollView scrollX showScrollbar={false} className="quick-actions-scroll">
+            <View className="quick-actions-wrapper">
+              {suggestions.map((q, i) => (
+                <View
+                  key={`qa-${i}`}
+                  className="quick-action-btn"
+                  onClick={() => handleSuggestion(q)}
+                >
+                  <Text>{q}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      ) : null}
+
+      <View className="input-box-content safe-area-bottom">
         <View className="tool-icons">
-          <Image src={floderInputIcon} className="tool-icon w-[40rpx] h-[40rpx]" mode="aspectFit" onClick={openMaterialDrawer} />
-          <Image src={skillsIcon} className="tool-icon w-[40rpx] h-[40rpx]" mode="aspectFit" onClick={openSkillsPopup} />
+          <Image
+            src={floderInputIcon}
+            className="tool-icon w-[40rpx] h-[40rpx]"
+            mode="aspectFit"
+            onClick={openMaterialDrawer}
+          />
+          <Image
+            src={skillsIcon}
+            className="tool-icon w-[40rpx] h-[40rpx]"
+            mode="aspectFit"
+            onClick={openSkillsPopup}
+          />
         </View>
         <InputArea
           key={inputKey}
+          variant="ai-home"
           value={inputValue}
           placeholder={t('ai.inputPlaceholder')}
           disabled={thinking}
@@ -883,6 +942,67 @@ export default function ChatPage() {
         onClear={handleClearHistory}
       />
       <AgentTipDialog visible={agentTipVisible} onClose={closeAgentTip} />
+      {reasoningPopupVisible ? (
+        <View
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setReasoningPopupVisible(false)}
+        >
+          <View
+            style={{
+              width: 'calc(100% - 80rpx)',
+              maxHeight: '50vh',
+              background:
+                'linear-gradient(101deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%)',
+              borderRadius: '20rpx',
+              padding: '20rpx',
+              overflow: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <View
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12rpx',
+              }}
+            >
+              <Text
+                style={{ fontSize: '28rpx', fontWeight: '600', color: 'var(--color-foreground)' }}
+              >
+                {t('ai.chatMessageItem.thinkingProcess')}
+              </Text>
+              <Text
+                style={{ fontSize: '32rpx', color: 'var(--color-muted-foreground)' }}
+                onClick={() => setReasoningPopupVisible(false)}
+              >
+                ✕
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontSize: '24rpx',
+                color: 'var(--color-foreground)',
+                lineHeight: '1.6',
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {reasoningPopupContent}
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   )
 }
