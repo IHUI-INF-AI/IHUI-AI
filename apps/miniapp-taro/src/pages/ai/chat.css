@@ -487,23 +487,38 @@
   opacity: 0.5;
 }
 
+/* ============ 输入区基础容器(对标原项目 .input-area) ============ */
+.input-area {
+  position: relative;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  z-index: 5;
+  background: transparent;
+  box-sizing: border-box;
+}
+
 /* ============ 输入框背板:阴影 + 呼吸动画(对标原项目 .input-area-back inputAreaBackAnimation) ============ */
 .input-area-back {
   width: 100%;
-  background: #fff;
+  background: none;
   border-radius: 30rpx;
-  box-shadow: 0 0 20rpx rgba(154, 153, 243, 0.3);
+  box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
   transition: box-shadow 0.3s ease;
   animation: inputAreaBackAnimation 2s linear infinite;
   box-sizing: border-box;
 }
 @keyframes inputAreaBackAnimation {
-  0%,
-  100% {
-    box-shadow: 0 0 20rpx rgba(154, 153, 243, 0.3);
+  0% {
+    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
   }
   50% {
-    box-shadow: 0 0 30rpx rgba(154, 153, 243, 0.6);
+    box-shadow: 0px 2rpx 16rpx -8rpx rgba(90, 87, 255, 0.5);
+  }
+  100% {
+    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
   }
 }
 
@@ -556,13 +571,16 @@
   left: 0 !important;
   width: calc(100% - 44rpx) !important;
 }
+.textarea-int {
+  height: 40rpx !important;
+}
 
 /* ============ 加号旋转激活态(对标原项目 .rotate-icon + .search-box2-img transition) ============ */
 .search-add-icon {
   transition: transform 0.5s ease;
 }
 .rotate-icon {
-  transform: rotate(225deg);
+  transform: rotate(45deg);
   transition: transform 0.5s ease;
 }
 
@@ -574,13 +592,13 @@
   overflow-x: auto;
   padding: 0 0 20rpx;
   margin-bottom: 20rpx;
-  border-bottom: 1rpx solid var(--color-border);
+  border-bottom: 1rpx solid #D8D8D8;
   white-space: nowrap;
 }
 .imgs-list-item {
   position: relative;
   flex: none;
-  width: 120rpx;
+  width: auto;
   height: 120rpx;
   display: inline-block;
 }
@@ -642,7 +660,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4rpx;
+  gap: 2px;
   width: 300rpx;
   height: 40rpx;
   flex: none;
@@ -654,6 +672,7 @@
   background-color: #000;
   border-radius: 5rpx;
   animation: voiceMove 0.75s linear infinite alternate;
+  transition: all 1s;
 }
 .voice-bar-animation .line:nth-child(1) {
   animation-delay: 0.25s;
