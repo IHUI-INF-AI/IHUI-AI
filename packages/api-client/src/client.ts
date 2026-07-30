@@ -208,8 +208,12 @@ export async function fetchApi<T>(
   }
 
   const isFormData = typeof FormData !== 'undefined' && restOptions.body instanceof FormData
+  // 2026-07-30 修复:无 body 的请求(DELETE/GET 等)不再强制带 Content-Type: application/json。
+  // 原因:Fastify 5 对带 Content-Type 但空 body 的 DELETE 返回 400(空 body 解析失败),
+  // 导致删除对话等无 body 写操作全部失败。Content-Type 应描述 body 媒体类型,无 body 不应带。
+  const hasBody = restOptions.body !== undefined && restOptions.body !== null
   const headers: Record<string, string> = {
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(hasBody && !isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(restOptions.headers as Record<string, string> | undefined),
   }
 
