@@ -1,8 +1,8 @@
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { cn } from '@ihui/design-tokens'
-// 菜单图标 SVG(Vite 编译时内联为 base64,兼容微信小程序 <Image>)
-import menuIconSrc from '@/static/images/menu.svg'
+// 菜单图标 SVG(对齐原项目,统一从 @/assets/remote/ 引入;Vite 编译时内联为 base64,兼容微信小程序 <Image>)
+import menuIconSrc from '@/assets/remote/images/menu.svg'
 
 export interface NavBarNotification {
   text: string
@@ -88,21 +88,14 @@ export default function NavBar({
             style={{ width: '40rpx', height: '40rpx' }}
             onClick={onMenuClick}
           >
-            <Image
-              src={menuIconSrc}
-              style={{ width: '40rpx', height: '40rpx' }}
-              mode="aspectFit"
-            />
+            <Image src={menuIconSrc} style={{ width: '40rpx', height: '40rpx' }} mode="aspectFit" />
           </View>
           {/* 中间:标题(absolute 居中,对齐 .center-row-absolute)*/}
           <View
             className="absolute left-1/2 top-1/2 flex items-center justify-center"
             style={{ transform: 'translate(-50%, -50%)' }}
           >
-            <Text
-              className="font-bold"
-              style={{ color: textColor, fontSize: '30rpx' }}
-            >
+            <Text className="font-bold" style={{ color: textColor, fontSize: '30rpx' }}>
               {title}
             </Text>
           </View>
@@ -118,9 +111,7 @@ export default function NavBar({
             }}
             onClick={onJoinClick}
           >
-            <Text style={{ color: '#000', fontSize: '24rpx', fontWeight: 'bold' }}>
-              {joinText}
-            </Text>
+            <Text style={{ color: '#000', fontSize: '24rpx', fontWeight: 'bold' }}>{joinText}</Text>
           </View>
         </View>
         {notification && (
@@ -128,7 +119,10 @@ export default function NavBar({
             className="flex items-center justify-between px-[32rpx] py-[16rpx]"
             style={{ backgroundColor: 'var(--color-notification-bg)' }}
           >
-            <Text className="flex-1 truncate text-[24rpx]" style={{ color: 'var(--color-notification-text)' }}>
+            <Text
+              className="flex-1 truncate text-[24rpx]"
+              style={{ color: 'var(--color-notification-text)' }}
+            >
               {notification.text}
             </Text>
             <Text
@@ -181,9 +175,15 @@ export default function NavBar({
       {notification && (
         <View
           className="absolute left-0 right-0 flex items-center justify-between px-[32rpx] py-[16rpx]"
-          style={{ top: `${statusBarHeight + navBarHeight}px`, backgroundColor: 'var(--color-notification-bg)' }}
+          style={{
+            top: `${statusBarHeight + navBarHeight}px`,
+            backgroundColor: 'var(--color-notification-bg)',
+          }}
         >
-          <Text className="flex-1 truncate text-[24rpx]" style={{ color: 'var(--color-notification-text)' }}>
+          <Text
+            className="flex-1 truncate text-[24rpx]"
+            style={{ color: 'var(--color-notification-text)' }}
+          >
             {notification.text}
           </Text>
           <Text
