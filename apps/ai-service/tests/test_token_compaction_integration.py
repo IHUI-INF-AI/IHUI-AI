@@ -275,7 +275,7 @@ async def test_gateway_complete_compaction_failure_fallback(
 
 
 async def test_compaction_demo_endpoint_rtk(client: None) -> None:
-    """POST /llm/compaction/demo strategy=rtk 返回 200 + 压缩结果。"""
+    """POST /llm/compaction/demo strategy=rtk 返回 200 + 压缩结果(信封 {code,message,data})。"""
     # 构造跨消息重复 schema(RTK 才能找到重复子串生成 $N 占位符)
     schema = '{"type":"function","name":"exec_query","parameters":{"query":{"type":"string"}}}'
     payload = {
@@ -291,7 +291,9 @@ async def test_compaction_demo_endpoint_rtk(client: None) -> None:
     }
     resp = await client.post("/api/llm/compaction/demo", json=payload)  # type: ignore[union-attr]
     assert resp.status_code == 200
-    data = resp.json()
+    envelope = resp.json()
+    assert envelope["code"] == 0
+    data = envelope["data"]
     assert data["strategy"] == "rtk"
     assert data["original_tokens"] > 0
     assert data["compressed_tokens"] >= 0
@@ -319,7 +321,7 @@ async def test_compaction_demo_endpoint_caveman(client: None) -> None:
     }
     resp = await client.post("/api/llm/compaction/demo", json=payload)  # type: ignore[union-attr]
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
     assert data["strategy"] == "caveman"
     assert data["original_tokens"] > 0
     assert data["rtk_map_size"] == 0  # Caveman 不生成 RTK map
@@ -344,7 +346,7 @@ async def test_compaction_demo_endpoint_rtk_caveman(client: None) -> None:
     }
     resp = await client.post("/api/llm/compaction/demo", json=payload)  # type: ignore[union-attr]
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
     assert data["strategy"] == "rtk_caveman"
     assert data["original_tokens"] > 0
 
@@ -355,16 +357,16 @@ async def test_compaction_demo_endpoint_rtk_caveman(client: None) -> None:
 
 
 async def test_compaction_demo_endpoint_invalid_strategy(client: None) -> None:
-    """strategy=invalid 返回 400。"""
+    """strategy=invalid 返回 400(错误信封 {code:1,message:...})。"""
     payload = {
         "messages": [{"role": "user", "content": "test"}],
         "strategy": "invalid_strategy",
     }
     resp = await client.post("/api/llm/compaction/demo", json=payload)  # type: ignore[union-attr]
     assert resp.status_code == 400
-    data = resp.json()
-    assert "error" in data
-    err_msg = data["error"].lower()
+    envelope = resp.json()
+    assert envelope["code"] == 1
+    err_msg = envelope["message"].lower()
     assert "invalid" in err_msg or "invalid_strategy" in err_msg
 
 
@@ -381,9 +383,10 @@ async def test_compaction_demo_endpoint_empty_messages(client: None) -> None:
     }
     resp = await client.post("/api/llm/compaction/demo", json=payload)  # type: ignore[union-attr]
     assert resp.status_code == 400
-    data = resp.json()
-    assert "error" in data
-    assert "empty" in data["error"].lower() or "messages" in data["error"].lower()
+    envelope = resp.json()
+    assert envelope["code"] == 1
+    err_msg = envelope["message"].lower()
+    assert "empty" in err_msg or "messages" in err_msg
 
 
 # =============================================================================
@@ -413,7 +416,7 @@ async def test_compaction_demo_endpoint_decompress_correct(client: None) -> None
     }
     resp = await client.post("/api/llm/compaction/demo", json=payload)  # type: ignore[union-attr]
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
 
     # 验证 RTK 生成了占位符(跨消息重复 schema 应触发 RTK)
     if data["rtk_map_size"] > 0:
