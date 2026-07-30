@@ -239,12 +239,17 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
           注:此 section 不用 HomeSectionFrame,因结构略不同
           (用 flex snap-start flex-col,无 overflow-hidden 避免裁切 Footer 边缘);
           保留 4 行原 <section> 写法,避免 Tailwind className 源序覆盖风险。
-          2026-07-30 二次根治:加回 minHeight = calc(100vh - 1rem),与 HomeSectionFrame 默认一致,
-          配合上面 Frame 改回视口高度,snap-y 滚动时 Page 7 也占一屏。 */}
+
+          2026-07-30 v10 第四次调整:SiteFooter v10 拉高放宽(95→140px)后,需要给 footer 预留更多空间。
+          上一版 v9 minHeight 100vh-1rem-8rem = 1097px 配 footer 95px,留 132px 余量足够。
+          v10 footer 变 140px,改为 minHeight 100vh-1rem-12rem = 1029px
+          (给 footer 留 140px),magazine 限在 1029-140=889px 范围内 flex-1 撑开,
+          既保证 page-7 占满一屏(不破坏 snap-y),又让 3 个 QR + ICP 图标完整可见
+          (main 视口 ~1229 - page-7 1029 = 200px 余量,footer 140px 完整可见)。 */}
       <section
         id="home-page-7"
         className="flex snap-start flex-col"
-        style={{ minHeight: 'calc(100vh - 1rem)' }}
+        style={{ minHeight: 'calc(100vh - 1rem - 12rem)' }}
         aria-label={t('magazine.title', { fallback: 'News' })}
       >
         <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-2">
