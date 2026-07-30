@@ -383,6 +383,7 @@
     "agentLoadFailed": "智能体加载失败",
     "generating": "正在极速生成中",
     "thinkingTip": "Tips:您可以先点击右上角三个点浮窗小程序,过一会儿再回来哟~",
+    "fileSelected": "已选 {{count}} 个文件",
     "common": {
       "loading": "加载中…"
     },
