@@ -200,7 +200,7 @@ export type { CustomerServiceFloatProps } from './CustomerServiceFloat'
 
 // ============ AI 聊天 3 组件 ============
 export { default as InputArea } from './InputArea'
-export type { InputAreaProps } from './InputArea'
+export type { InputAreaProps, InputFileItem } from './InputArea'
 
 export { default as SkillsPopup } from './SkillsPopup'
 export type { SkillsPopupProps, AgentItem, SkillCategory } from './SkillsPopup'
