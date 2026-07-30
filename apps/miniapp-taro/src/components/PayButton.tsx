@@ -147,8 +147,8 @@ export default function PayButton({
               {agentAvatar ? (
                 <Image className="w-[84rpx] h-[84rpx] rounded-[15rpx] mr-3" src={agentAvatar} mode="aspectFill" />
               ) : (
-                <View className="w-[84rpx] h-[84rpx] rounded-[15rpx] mr-3 bg-muted flex items-center justify-center text-2xl">
-                  🤖
+                <View className="w-[84rpx] h-[84rpx] rounded-[15rpx] mr-3 bg-muted flex items-center justify-center">
+                  <Image className="w-8 h-8" src="/static/images/icons/bot.svg" mode="aspectFit" />
                 </View>
               )}
               <View className="flex-1">
