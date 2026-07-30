@@ -1659,6 +1659,18 @@ export interface RegisterScreenProps {
   onRegister: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 是否显示协议同意行(默认 false,启用后需配合 agreed/onAgreedChange) */
+  enableAgreement?: boolean
+  /** 协议是否已勾选(仅 enableAgreement=true 时有意义) */
+  agreed?: boolean
+  /** 协议勾选状态变更回调 */
+  onAgreedChange?: (v: boolean) => void
+  /** 是否显示协议未勾选错误(提交失败时置 true) */
+  showAgreeErr?: boolean
+  /** 服务条款点击回调 */
+  onOpenTerms?: () => void
+  /** 隐私政策点击回调 */
+  onOpenPrivacy?: () => void
 }
 
 /** 性别(0=保密,1=男,2=女) */
