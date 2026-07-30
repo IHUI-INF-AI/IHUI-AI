@@ -5,7 +5,8 @@ import { getStudyInfo, getStudyRecords, type StudyRecord } from '@/api'
 import { useI18n } from '@/i18n'
 import rankoneIcon from '@/assets/remote/images/rankone.png'
 import kechengIcon from '@/assets/remote/images/kecheng.png'
-import recordBackIcon from '@/assets/remote/images/record_back.png'
+// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js
+const recordBackIcon = '/static/images/record_back.png'
 import studyIconAddIcon from '@/assets/remote/images/study_icon_add.png'
 import wenjianIcon from '@/assets/remote/images/wenjian.png'
 
