@@ -322,6 +322,9 @@
     "mcpProjects": "MCP Projects",
     "openclaw": "OpenClaw",
     "recruitment": "Recruitment",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
     "adminGroup": {
       "operation": "Operations",
       "moderation": "Moderation",
@@ -335,10 +338,7 @@
       "resource": "Resource Center",
       "developer": "Developer Center",
       "saas": "SaaS Platform"
-    },
-    "minimize": "Minimize",
-    "maximize": "Maximize",
-    "restore": "Restore"
+    }
   },
   "home": {
     "announcement": {
@@ -5906,6 +5906,7 @@
       "note2": "All tasks default to dry-run mode and do not actually push to WeChat drafts. Trigger manually or disable dry-run in the configuration.",
       "note3": "Task execution history keeps the latest 30 entries (in memory) and is cleared on service restart.",
       "note4": "Timezone: UTC+8 (Asia/Shanghai).",
+      "note5": "Cron expressions follow the standard 5-field syntax <code>minute hour day month weekday</code>, e.g. <code>0 9 * * 1</code> runs every Monday at 9:00.",
       "examplesTitle": "Automation Examples",
       "examplesDesc": "Click a template to quickly configure a similar task",
       "useRefTemplate": "Use This Template",
@@ -7008,7 +7009,8 @@
     "myCommentsSubtitle": "Manage my comments",
     "empty": "No comments",
     "delete": "Delete",
-    "deleteConfirm": "Are you sure to delete this comment?"
+    "deleteConfirm": "Are you sure to delete this comment?",
+    "submitting": "Submitting..."
   },
   "points": {
     "title": "Points Center",
@@ -7579,7 +7581,11 @@
       "dependencies": "Dependencies",
       "transition": "Transition",
       "reason": "Reason",
-      "empty": "No tasks"
+      "empty": "No tasks",
+      "confirm": "Confirm",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "reasonRequired": "Please enter a reason"
     }
   },
   "distribution": {
@@ -9118,10 +9124,10 @@
     "privacyPolicy": "Privacy Policy",
     "aboutUs": "About Us",
     "contactUs": "Contact Us",
-    "contactSubtitle": "Reach us through the following channels",
     "internationalModels": "International Models",
     "chineseModels": "Chinese Models",
-    "agreementSubtitle": "Please read the following agreement terms carefully"
+    "agreementSubtitle": "Please read the following agreement terms carefully",
+    "contactSubtitle": "Reach us through the following channels"
   },
   "plugins": {
     "title": "Plugin Market",
@@ -10239,35 +10245,43 @@
       "subtitle": "8-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
       "modelIntegration": {
         "title": "8-Platform Full-Stack Architecture",
-        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration"
+        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration",
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension (6) + API/AI-Service (2), full-stack coverage, unified account seamless switching"
       },
       "appStore": {
         "title": "100+ LLMs",
-        "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API"
+        "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API",
+        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + Domestic 15+ (Tongyi/GLM/DeepSeek) + Cloud 40+, one key for all"
       },
       "contentCreation": {
         "title": "Self-Developed CLI vs. Claude Code",
-        "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import"
+        "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import",
+        "description": "ACP Server embeds Zed/VSCode/Cursor + 6 exclusive extensions (session recovery/rollback/MCP calls) + 6-source config one-click import"
       },
       "edu": {
         "title": "Full-Stack AI Education",
-        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages"
+        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages",
+        "description": "Course/Live/Exam/Certificate/Instructor/Class 6 modules, year-round free courses, AI tools → enterprise AI culture three-stage progression"
       },
       "navigation": {
         "title": "Enterprise-Grade Workspace",
-        "benefit": "Zero data leakage · fully traceable audit · 99.9% SLA enterprise-grade zero risk"
+        "benefit": "Zero data leakage · fully traceable audit · 99.9% SLA enterprise-grade zero risk",
+        "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control + 99.9% SLA"
       },
       "agentSquare": {
         "title": "Agent Square",
-        "benefit": "Replaces 5+ manual roles · 7×24 non-stop · save ¥300K/year labor cost"
+        "benefit": "Replaces 5+ manual roles · 7×24 non-stop · save ¥300K/year labor cost",
+        "description": "General/Industry/Function 3 categories, customer service/marketing/operations/HR/finance 5+ functions fully covered, out-of-the-box, customizable"
       },
       "workflow": {
         "title": "LangGraph Workflow",
-        "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare"
+        "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare",
+        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple-stack integration rare in industry"
       },
       "multimodal": {
         "title": "Multimodal AI Input",
-        "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production"
+        "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production",
+        "description": "Image generation/speech synthesis/video generation/file parsing/digital human 5 modalities, one key for all"
       }
     },
     "advantages": {
@@ -12624,6 +12638,8 @@
     "noPreviews": "No saved previews",
     "loadPreview": "Load Preview",
     "loadFailed": "Failed to load previews",
+    "saved": "Saved \"{name}\"",
+    "saveFailed": "Save failed: {error}",
     "previewName": "Preview Name",
     "componentTree": {
       "title": "Component Tree",
@@ -12634,7 +12650,8 @@
       "empty": "Save preview first to view comments",
       "noComments": "No comments yet",
       "loadingFailed": "Failed to load comments",
-      "send": "Send Comment"
+      "send": "Send Comment",
+      "commented": "Commented"
     },
     "aiGenerate": {
       "button": "AI Generate",
@@ -12650,7 +12667,8 @@
       "exportButton": "Export Code",
       "exportReact": "React Component",
       "exportVue": "Vue Component",
-      "exportHtml": "Plain HTML"
+      "exportHtml": "Plain HTML",
+      "exportSuccess": "Exported {filename}"
     },
     "responsive": {
       "customWidth": "Custom Width",
