@@ -280,7 +280,7 @@ function ThirdPartyLoginArea({
               {isLoading ? (
                 <ActivityIndicator size="small" color={tk.brand.DEFAULT} />
               ) : opt.iconSource ? (
-                <Image source={opt.iconSource} style={styles.thirdPartyIcon} resizeMode="contain" />
+                <Image source={opt.iconSource} style={imageStyles.thirdPartyIcon} resizeMode="contain" />
               ) : (
                 <Text style={styles.thirdPartyIconText}>{opt.label.charAt(0).toUpperCase()}</Text>
               )}
