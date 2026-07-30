@@ -34,7 +34,7 @@ export interface MaterialPopupProps {
 const TABS: { key: MaterialTab; labelKey: string; icon: string }[] = [
   { key: 1, labelKey: 'ai.materialPopup.tabText', icon: icon('addText') },
   { key: 2, labelKey: 'ai.materialPopup.tabImage', icon: icon('addPicter') },
-  { key: 3, labelKey: 'ai.materialPopup.tabVideo', icon: '🎬' },
+  { key: 3, labelKey: 'ai.materialPopup.tabVideo', icon: icon('addVideo') },
   { key: 4, labelKey: 'ai.materialPopup.tabAudio', icon: icon('addAudio') },
 ]
 
@@ -139,10 +139,14 @@ export default function MaterialPopup({
                     className={`flex p-3 mb-2 rounded-xl active:bg-muted ${selectedId === item.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
                     onClick={() => onSelect?.(item)}
                   >
-                    <View className="w-12 h-12 mr-3 rounded-lg bg-muted flex items-center justify-center text-xl flex-shrink-0">
-                      <Text>
-                        {item.thumbnail ? '' : isTextTab ? '📝' : tab === 3 ? '🎬' : '🎵'}
-                      </Text>
+                    <View className="w-12 h-12 mr-3 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      {item.thumbnail ? null : (
+                        <Image
+                          className="w-5 h-5"
+                          src={isTextTab ? icon('addText') : tab === 3 ? icon('addVideo') : icon('addAudio')}
+                          mode="aspectFit"
+                        />
+                      )}
                     </View>
                     <View className="flex-1 min-w-0">
                       <View className="flex items-center">
