@@ -603,14 +603,17 @@ export function AISidePanel() {
 
       e.preventDefault()
       const startX = floatPosition.x < 0 ? window.innerWidth - width - 24 : floatPosition.x
-      const startY = floatPosition.y < 0 ? 80 : floatPosition.y
+      const startY = floatPosition.y < 0 ? 8 : floatPosition.y
       floatDragStart.current = { x: startX, y: startY, px: e.clientX, py: e.clientY }
 
       const onMove = (ev: PointerEvent) => {
         if (!floatDragStart.current) return
         const dx = ev.clientX - floatDragStart.current.px
         const dy = ev.clientY - floatDragStart.current.py
-        const newX = Math.max(8, Math.min(window.innerWidth - width - 8, floatDragStart.current.x + dx))
+        const newX = Math.max(
+          8,
+          Math.min(window.innerWidth - width - 8, floatDragStart.current.x + dx),
+        )
         const newY = Math.max(8, Math.min(window.innerHeight - 120, floatDragStart.current.y + dy))
         setFloatPosition({ x: newX, y: newY })
       }
@@ -647,7 +650,7 @@ export function AISidePanel() {
           style={{
             left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
             right: floatPosition.x < 0 ? '24px' : 'auto',
-            top: floatPosition.y < 0 ? '80px' : `${floatPosition.y}px`,
+            top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
           }}
         >
           <BrandIcon vendor={inferVendor(currentModel)} size={22} className="text-primary" />
@@ -671,7 +674,7 @@ export function AISidePanel() {
             width,
             left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
             right: floatPosition.x < 0 ? '24px' : 'auto',
-            top: floatPosition.y < 0 ? '80px' : `${floatPosition.y}px`,
+            top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
           }}
         >
           <aside
@@ -743,10 +746,7 @@ export function AISidePanel() {
     return (
       <>
         {workspaceNameSync}
-        <div
-          className="relative h-full shrink-0 py-2"
-          style={{ width: 0 }}
-        >
+        <div className="relative h-full shrink-0 py-2" style={{ width: 0 }}>
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
           (容器右边缘 +4px ~ +12px),与 Sidebar 自身手柄(Sidebar 右边缘 -4px ~ +4px)空间错开,
           两个手柄各保留完整 8px 命中区,互不重叠冲突。
@@ -809,7 +809,7 @@ export function AISidePanel() {
                 width,
                 left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
                 right: floatPosition.x < 0 ? '24px' : 'auto',
-                top: floatPosition.y < 0 ? '80px' : `${floatPosition.y}px`,
+                top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
                 height: 'min(600px, calc(100vh - 100px))',
                 transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
               }
