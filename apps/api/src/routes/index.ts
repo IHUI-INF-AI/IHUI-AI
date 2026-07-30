@@ -979,7 +979,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminModelMappingsRoutes, { prefix: '/api/admin' })
   // admin 兑换码管理(批量生成 + 查询 + 兑换记录):POST /api/admin/redemption-codes/batch 等
   server.register(adminRedemptionCodesRoutes, { prefix: '/api/admin' })
-  // Anthropic Messages 原生格式端点(POST /v1/messages,内部转 OpenAI 格式走 relay 链路)
-  // 与 v1-public.ts 同前缀 /v1,内部路径 /messages 拼接为 /v1/messages
-  server.register(v1MessagesRoutes, { prefix: '/v1' })
+  // Anthropic Messages 原生格式端点(POST /v1/anthropic/messages,内部转 OpenAI 格式走 relay 链路)
+  // 注:用 /v1/anthropic 前缀而非 /v1,因 v1-knowledge-tools.ts:2380 已注册 POST /v1/messages(发布消息),
+  // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设
+  // ANTHROPIC_BASE_URL=https://api.x5m5x.com/v1/anthropic 即可走 /v1/anthropic/messages。
+  server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
 }
