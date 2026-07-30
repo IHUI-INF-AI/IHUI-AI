@@ -108,6 +108,7 @@ export {
   ThirdPartyLoginButtons,
   AgreementCheckbox,
   AgreementNoticeDialog,
+  AccountHistoryInput,
   ALL_THIRD_PARTY_PLATFORMS,
   isValidEmail,
   isValidPhone,
@@ -128,7 +129,23 @@ export type {
   ThirdPartyLoginButtonsProps,
   AgreementCheckboxProps,
   AgreementNoticeDialogProps,
+  AccountHistoryInputProps,
 } from './components/login-form'
+// 记住密码 / 账号历史 / 自动登录 凭据管理(2026-07-30 抽到共享包,只依赖 localStorage)
+export {
+  saveRememberedCredentials,
+  loadRememberedCredentials,
+  clearRememberedCredentials,
+  saveAutoLogin,
+  loadAutoLogin,
+  clearAutoLogin,
+  saveLoginHistory,
+  loadLoginHistory,
+  clearLoginHistory,
+  removeFromLoginHistory,
+} from './lib/remember-credentials'
+export type { RememberedCredentials } from './lib/remember-credentials'
+
 // AuthShell + LoginForm 共享样式(单一来源,web + extension globals.css 都 @import 这份)
 import './styles/auth-shell.css'
 import './styles/login-form.css'
