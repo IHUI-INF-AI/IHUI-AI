@@ -267,6 +267,7 @@ function TestConsumer({ data }: { data: TestData | null }): React.ReactElement {
       <div
         ref={anchorRef}
         data-testid="hover-anchor"
+        role="button"
         onMouseEnter={preview.hoverHandlers.onMouseEnter}
         onMouseLeave={preview.hoverHandlers.onMouseLeave}
         onFocus={preview.hoverHandlers.onFocus}
@@ -433,6 +434,7 @@ function StatefulTestConsumer(): React.ReactElement {
       <div
         ref={anchorRef}
         data-testid="stateful-anchor"
+        role="button"
         onMouseEnter={preview.hoverHandlers.onMouseEnter}
         onMouseLeave={preview.hoverHandlers.onMouseLeave}
         tabIndex={0}

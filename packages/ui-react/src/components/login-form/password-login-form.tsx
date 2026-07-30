@@ -152,6 +152,7 @@ export function PasswordLoginForm({
         <Label htmlFor="login-form-account">{t('auth.account')}</Label>
         <Input
           id="login-form-account"
+          name="username"
           type="text"
           autoComplete="username"
           placeholder={t('auth.accountPlaceholder')}
@@ -179,6 +180,7 @@ export function PasswordLoginForm({
         <div className="relative">
           <Input
             id="login-form-password"
+            name="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             placeholder={t('auth.passwordPlaceholder')}
@@ -210,6 +212,7 @@ export function PasswordLoginForm({
           <div className="flex items-center gap-2">
             <Input
               id="login-form-captcha"
+              name="captcha"
               placeholder={t('auth.captchaPlaceholder')}
               autoComplete="off"
               className={cn('h-10 flex-1', inputClassName)}

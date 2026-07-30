@@ -41,7 +41,13 @@ function MarqueeRow({
   shape = 'square',
   namespace = 'footer',
 }: {
-  brands: readonly { nameKey: string; src: string; mono?: boolean }[]
+  brands: readonly {
+    nameKey: string
+    src: string
+    mono?: boolean
+    /** 纯黑/深色前景 → 暗色反相(2026-07-30 加,精准反色避免破坏彩色 logo) */
+    darkInvert?: boolean
+  }[]
   loopKey: string
   containerLabel: string
   /** 容器形状: square(14×14 方形,适合方形 logo)/ wide(h-16 × w-44 横长方形,适合品牌横长 logo) */
@@ -59,12 +65,24 @@ function MarqueeRow({
         //   上下左右各 10px 内边距,给 logo 明显呼吸感
         'mx-3 inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-card transition-colors hover:border-primary/40'
   const img = shape === 'wide' ? 'h-10 w-36 object-contain' : 'h-9 w-9 object-contain'
+  // 2026-07-30:用户反馈"不能把所有图都反相,只有黑色部分反相为白色"
+  //   三态 filter(与 SiteFooter.PlatformIcon 对齐):
+  //   - mono=true (白前景): invert 亮色 / invert-0 暗色还原白 → 始终可见
+  //   - darkInvert=true (纯黑前景): 亮色不动 / 暗色 invert 反相变白 → 暗色下黑变白
+  //   - 都不标(带颜色前景): 不加 filter,保持原色(避免反相破坏彩色 logo)
+  const monoFilter = ' invert dark:invert-0'
+  const darkInvertFilter = ' dark:invert'
   return (
     <div className="relative overflow-hidden rounded-lg border bg-card px-3 py-3">
       <span className="sr-only">{containerLabel}</span>
       <div className="flex whitespace-nowrap will-change-transform animate-marquee">
         {loop.map((brand, idx) => {
           const label = t(brand.nameKey)
+          const filter = brand.mono
+            ? monoFilter
+            : brand.darkInvert
+              ? darkInvertFilter
+              : ''
           return (
             <div
               key={`${loopKey}-${brand.nameKey}-${idx}`}
@@ -76,12 +94,7 @@ function MarqueeRow({
                 alt={label}
                 width={shape === 'wide' ? 144 : 36}
                 height={shape === 'wide' ? 40 : 36}
-                // 2026-07-21 v5:用户反馈"暗色模式下图片背景容器需要加一个白色背景,不然看不清"。
-                //   mono=true 的 logo 是白色单色图,必须在任何底色下 invert 成深色才能看清:
-                //   - light mode: box=bg-card(浅色)→ 白图 invert 变深色 → 在浅底上可见 ✅
-                //   - dark mode:  box=white(用户要求)→ 白图 invert 变深色 → 在白底上可见 ✅
-                //   原 `invert dark:invert-0` 在 dark mode 下撤销 invert,白图+白底=同色不可见 ❌
-                className={`${img}${brand.mono ? ' invert' : ''}`}
+                className={`${img}${filter}`}
                 {...IMG_EAGER}
               />
             </div>

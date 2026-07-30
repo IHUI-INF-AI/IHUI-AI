@@ -54,7 +54,7 @@ async def _get_redis() -> Any:
             if not url or aioredis is None:
                 return None
             client = aioredis.from_url(url, decode_responses=True)
-            await client.ping()  # type: ignore[misc]
+            await client.ping()
             _redis_client = client
             return _redis_client
         except Exception as e:
