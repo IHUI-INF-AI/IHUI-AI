@@ -1,14 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getCourses, type Course } from '@ihui/api-client'
 import { CourseScreen as SharedCourseScreen, type CourseScreenItem } from '@ihui/rn-app'
+import PopularCourses, {
+  type PopularCourse as PopularCourseItem,
+} from '../components/PopularCourses'
 import { useI18n } from '../i18n'
 import type { CourseStackParamList } from '../navigation/RootNavigator'
 
 const PAGE_SIZE = 12
 
 type NavigationProp = NativeStackNavigationProp<CourseStackParamList>
+
+/** Course → PopularCourses 卡片项,VIP 标识用 tags 启发式判断(后端未提供 isVip 字段) */
+function toPopularCourses(items: Course[]): PopularCourseItem[] {
+  return items.slice(0, 6).map((c) => ({
+    id: c.id,
+    title: c.title,
+    instructor: c.instructor,
+    lessons: c.lessonCount,
+    price: c.price,
+    isFree: c.isFree,
+    isVip: c.tags.some((tag) => tag.toLowerCase().includes('vip')),
+    studentCount: c.studentCount,
+  }))
+}
 
 export function CourseScreen() {
   const { t } = useI18n()
@@ -58,21 +76,41 @@ export function CourseScreen() {
     cover: c.cover ?? undefined,
   }))
 
-  return (
-    <SharedCourseScreen
-      t={t}
-      items={items}
-      keyword={keyword}
-      loading={loading}
-      error={error}
-      page={page}
-      totalPages={totalPages}
-      onKeywordChange={(v) => {
-        setKeyword(v)
-        setPage(1)
-      }}
-      onPageChange={setPage}
-      onPressItem={(id) => navigation.navigate('CourseDetail', { id })}
-    />
+  const popularItems = useMemo<PopularCourseItem[]>(
+    () => toPopularCourses(courses),
+    [courses],
   )
+
+  return (
+    <View style={shellStyles.root}>
+      <View style={shellStyles.popularWrap}>
+        <PopularCourses
+          courses={popularItems}
+          title="热门课程"
+          subtitle="本周学习人数 Top"
+          onPress={(id) => navigation.navigate('CourseDetail', { id })}
+        />
+      </View>
+      <SharedCourseScreen
+        t={t}
+        items={items}
+        keyword={keyword}
+        loading={loading}
+        error={error}
+        page={page}
+        totalPages={totalPages}
+        onKeywordChange={(v) => {
+          setKeyword(v)
+          setPage(1)
+        }}
+        onPageChange={setPage}
+        onPressItem={(id) => navigation.navigate('CourseDetail', { id })}
+      />
+    </View>
+  )
+}
+
+const shellStyles = {
+  root: { flex: 1 } as const,
+  popularWrap: { paddingTop: 4, paddingBottom: 4 } as const,
 }

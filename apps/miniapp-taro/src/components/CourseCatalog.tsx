@@ -3,6 +3,7 @@ import { cn } from '@ihui/design-tokens'
 import EmptyState from './EmptyState'
 import LessonListItem, { type LessonListItemData } from './LessonListItem'
 import { useTt } from '@/i18n'
+import { bspappUrl } from '@/constants/icon-urls'
 
 /** 知识星球卡片数据(planet variant 专用,对齐原项目 KnowledgePlanet/index.vue) */
 export interface PlanetData {
@@ -68,9 +69,7 @@ export default function CourseCatalog({
           ) : null}
           <View className="flex items-center justify-between">
             <Text className="text-xs text-muted-foreground">
-              {memberCount !== undefined
-                ? `${memberCount} ${tt('planet.members', '成员')}`
-                : ''}
+              {memberCount !== undefined ? `${memberCount} ${tt('planet.members', '成员')}` : ''}
             </Text>
             <View
               onClick={() => {
@@ -78,9 +77,7 @@ export default function CourseCatalog({
               }}
               className={cn(
                 'px-4 py-1.5 rounded-md',
-                joined
-                  ? 'bg-muted text-muted-foreground'
-                  : 'bg-primary text-primary-foreground',
+                joined ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground',
               )}
             >
               <Text className="text-sm">
@@ -97,8 +94,26 @@ export default function CourseCatalog({
   return (
     <View className="bg-card">
       <View className="flex items-center justify-between px-4 py-3 mb-2">
-        <Text className="text-sm font-medium text-foreground">{tt('catalog.courseCatalog', '课程目录')}</Text>
-        <Text className="text-xs text-muted-foreground">{lessons.length} 节</Text>
+        <View className="flex items-center">
+          <Image
+            src={bspappUrl('tabbar/home/zhongxia/popular-courser.png')}
+            mode="aspectFill"
+            className="w-[62rpx] h-[62rpx] mr-[20rpx]"
+            lazyLoad
+          />
+          <Text className="text-sm font-medium text-foreground">
+            {tt('catalog.courseCatalog', '课程目录')}
+          </Text>
+        </View>
+        <View className="flex items-center">
+          <Text className="text-xs text-muted-foreground">{lessons.length} 节</Text>
+          <Image
+            src={bspappUrl('tabbar/home/zhongxia/right-arrow.png')}
+            mode="aspectFill"
+            className="w-[30rpx] h-[30rpx] ml-[10rpx]"
+            lazyLoad
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -109,7 +124,9 @@ export default function CourseCatalog({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {tt('common.loadingShort', '加载中...')}
+            </Text>
           </View>
         ) : lessons.length === 0 ? (
           <EmptyState text={tt('catalog.empty', '暂无课程内容')} />
