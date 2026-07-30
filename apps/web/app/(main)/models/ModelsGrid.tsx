@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { Sparkles, Cpu, Zap } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui/ui-react'
-import { PROVIDER_KEY } from './helpers'
+import { PROVIDER_LABEL } from './helpers'
 import type { Model } from './types'
 
 interface Props {
@@ -29,7 +29,9 @@ export async function ModelsGrid({ list }: Props) {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Sparkles className="h-4 w-4" />
               </div>
-              <span className="text-xs text-muted-foreground">{t(PROVIDER_KEY[m.provider] ?? 'providers.unknown')}</span>
+              <span className="text-xs text-muted-foreground">
+                {PROVIDER_LABEL[m.provider] ?? '其他'}
+              </span>
             </div>
             <CardTitle className="text-base">
               {m.name.startsWith('model.') ? t(m.name) : m.name}

@@ -67,7 +67,7 @@ import {
   type UserLlmProvider,
 } from '../settings/llm/types-v2'
 
-import { PROVIDER_KEY } from './helpers'
+import { PROVIDER_LABEL } from './helpers'
 import type { Model } from './types'
 
 interface Props {
@@ -232,7 +232,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
               </DialogTitle>
               <DialogDescription className="mt-0.5 flex items-center gap-1.5 text-xs">
                 <BrandIcon vendor={model.provider} size={12} className="text-muted-foreground" />
-                <span>{t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')}</span>
+                <span>{PROVIDER_LABEL[model.provider] ?? '其他'}</span>
                 <span className="text-muted-foreground/60">·</span>
                 <code className="font-mono text-[11px]">{model.id}</code>
               </DialogDescription>
