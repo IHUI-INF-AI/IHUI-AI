@@ -9,7 +9,7 @@
 `onClick` → `onTap`,`overflowX:auto` → `ScrollView` 等),本目录为 Taro 端**薄适配层**,
 复用 `packages/app` 的 props 契约、状态机、主题 token 注入逻辑,仅替换 web 元素。
 
-## 2. 当前已迁移(本批次,P2-F 起步)
+## 2. 当前已迁移(本批次,P2-F 起步 + 二批深化)
 
 | 共享组件                      | Taro 适配文件             | 行数 | 替换要点                                                                              |
 | ----------------------------- | ------------------------- | ---- | ------------------------------------------------------------------------------------- |
@@ -17,6 +17,11 @@
 | `packages/app/ColorfulLoader` | `ColorfulLoader.taro.tsx` | ~88  | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin` |
 | `packages/app/PayButton`      | `PayButton.taro.tsx`      | ~290 | `button` → `View`;`onClick` → `onTap`;Modal 自绘;Toast → `Taro.showToast`             |
 | `packages/app/Selecter`       | `Selecter.taro.tsx`       | ~280 | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留  |
+| `packages/app/Carousel`       | `Carousel.taro.tsx`       | ~190 | `div` → `View/ScrollView scrollX`;`onScroll/onMomentumScrollEnd` 状态机;indicator dots;autoplay |
+| `packages/app/NavBar`         | `NavBar.taro.tsx`         | ~120 | 状态栏高度 + 返回按钮 + 标题/副标题 + 右侧动作 slot;`statusBarHeight` 透传              |
+| `packages/app/TabBar`         | `TabBar.taro.tsx`         | ~150 | 5 Tab 状态机 + active 配色;safe area bottom inset 适配                                 |
+| `packages/app/Toolbar`        | `Toolbar.taro.tsx`        | ~130 | 水平工具栏 + active 状态 + 分隔线;`ScrollView scrollX` 防溢出                          |
+| `packages/app/UserInfoCard`   | `UserInfoCard.taro.tsx`   | ~180 | 未登录/已登录态 + 角色 badge + 智汇值格式化(Intl.NumberFormat 兜底)                    |
 
 ## 3. 架构原则
 
