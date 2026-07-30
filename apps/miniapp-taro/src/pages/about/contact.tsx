@@ -1,9 +1,18 @@
 import { logger } from '@/utils/logger'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getContact } from '@/api'
 import { useI18n } from '@/i18n'
+import telIcon from '@/assets/remote/images/tel_icon.png'
+import qqIcon from '@/assets/remote/images/QQ.svg'
+import wxIcon from '@/assets/remote/images/wx.svg'
+import gongsiIcon from '@/assets/remote/images/gongsi.png'
+import sandMsgIcon from '@/assets/remote/images/sand_msg.png'
+
+function isImagePath(s: string): boolean {
+  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
+}
 
 interface ContactInfo {
   phone: string
@@ -76,28 +85,28 @@ export default function ContactPage() {
     const items: ContactItem[] = [
       {
         key: 'phone',
-        icon: '📞',
+        icon: telIcon,
         label: tt('about.contact.phone', '电话'),
         value: info.phone,
         actionType: 'call',
       },
       {
         key: 'email',
-        icon: '✉️',
+        icon: sandMsgIcon,
         label: tt('about.contact.email', '邮箱'),
         value: info.email,
         actionType: 'copy',
       },
       {
         key: 'qq',
-        icon: '💬',
+        icon: qqIcon,
         label: tt('about.contact.qq', 'QQ'),
         value: info.qq || '',
         actionType: 'copy',
       },
       {
         key: 'wechat',
-        icon: '👤',
+        icon: wxIcon,
         label: tt('about.contact.wechat', '微信'),
         value: info.wechat || '',
         actionType: 'copy',
@@ -127,7 +136,7 @@ export default function ContactPage() {
                   : copy(item.value, item.label)
               }
             >
-              <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>
+              {isImagePath(item.icon) ? <Image src={item.icon} className="w-[40rpx] h-[40rpx] flex-shrink-0" mode="aspectFit" /> : <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>}
               <View className="flex-1 ml-[24rpx] mr-[16rpx]">
                 <Text className="block text-[22rpx] text-muted-foreground">{item.label}</Text>
                 <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">{item.value}</Text>
@@ -145,7 +154,7 @@ export default function ContactPage() {
       {info.address ? (
         <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
           <View className="flex items-center p-[32rpx] active:bg-background" onClick={() => openLocation(info.address)}>
-            <Text className="text-[40rpx] flex-shrink-0">📍</Text>
+            <Image src={gongsiIcon} className="w-[40rpx] h-[40rpx] flex-shrink-0" mode="aspectFit" />
             <View className="flex-1 ml-[24rpx] mr-[16rpx]">
               <Text className="block text-[22rpx] text-muted-foreground">{tt('about.contact.address', '地址')}</Text>
               <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">{info.address}</Text>
