@@ -147,24 +147,26 @@ test.describe('Sidebar 视觉守门', () => {
     expect(lineBox!.width).toBeLessThanOrEqual(2)
   })
 
-  test('语言切换 Popover 弹出后完整可见不被裁剪 + 国旗 img 渲染', async ({ page }) => {
-    // 1. 找到侧边栏底部语言切换按钮(带国旗 img 的 ghost icon button)
+  test('语言切换 Popover 弹出后完整可见不被裁剪 + 触发器 Languages 图标渲染', async ({ page }) => {
+    // 1. 找到侧边栏底部语言切换按钮(带 lucide Languages svg 的 ghost icon button)
+    // 2026-07-31 触发器由彩色国旗 img 改为 lucide Languages 线性图标,与项目内
+    // LanguageCard/preferences/ai-translation 统一"语言"语义;下拉项保留国旗+语言名。
     const langBtn = page
       .locator('aside button[aria-label]')
-      .filter({ has: page.locator('img[src*="/images/flags/"]') })
+      .filter({ has: page.locator('svg.lucide-languages') })
       .first()
     await expect(langBtn).toBeVisible()
 
-    // 2. 验证触发按钮里的国旗 img 可见且有尺寸(非 0x0)
-    const triggerFlag = langBtn.locator('img')
-    await expect(triggerFlag).toBeVisible()
-    const flagBox = await triggerFlag.boundingBox()
-    expect(flagBox).not.toBeNull()
-    expect(flagBox!.width, '国旗 img 宽度应 > 0').toBeGreaterThan(0)
-    expect(flagBox!.height, '国旗 img 高度应 > 0').toBeGreaterThan(0)
-    // 国旗应是 16x12(h-3 w-4),允许 1px 误差
-    expect(Math.abs(flagBox!.width - 16)).toBeLessThanOrEqual(1)
-    expect(Math.abs(flagBox!.height - 12)).toBeLessThanOrEqual(1)
+    // 2. 验证触发按钮里的 Languages svg 可见且有尺寸(非 0x0),btnClass [&_svg]:size-5 应渲染 20×20
+    const triggerIcon = langBtn.locator('svg.lucide-languages')
+    await expect(triggerIcon).toBeVisible()
+    const iconBox = await triggerIcon.boundingBox()
+    expect(iconBox).not.toBeNull()
+    expect(iconBox!.width, 'Languages svg 宽度应 > 0').toBeGreaterThan(0)
+    expect(iconBox!.height, 'Languages svg 高度应 > 0').toBeGreaterThan(0)
+    // [&_svg]:size-5 渲染为 20×20,允许 1px 误差
+    expect(Math.abs(iconBox!.width - 20)).toBeLessThanOrEqual(1)
+    expect(Math.abs(iconBox!.height - 20)).toBeLessThanOrEqual(1)
 
     // 3. 点击打开 Popover
     await langBtn.click()
