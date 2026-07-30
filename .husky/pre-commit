@@ -319,4 +319,29 @@ if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
   console.log('⏭  button 文字换行守门(HUSKY_SKIP_BUTTON_WRAP_CHECK=1, 跳过)')
 }
 
+// 🦶 SiteFooter 守门(2026-07-30 立,blocking 防 v10/v11 回退)
+// 背景:SiteFooter v10(拉高放宽 + 放大 icon/QR/ICP)+ v11(国际/国产模型分组)涉及
+//      7 个关键 class(py-2 md:py-3 / h-7 w-7 / h-16 w-16 / h-5 w-5 ICP / lg:grid-cols-5 /
+//      5 分组 / INTERNATIONAL_MODELS+CHINESE_MODELS 拆分),改完已两次被其他 agent
+//      commit 部分回退,本守门在每次 commit 时跑,确保关键 class + 5 语言 i18n key 完整。
+// 跳过方法(紧急):HUSKY_SKIP_FOOTER_GUARD=1 git commit ...
+// 性能:仅读 5 个 i18n 文件 + SiteFooter.tsx + footer-data.ts,~300ms 跑完。
+// 阻断条件:1) SiteFooter 关键 class 缺失;2) ECOSYSTEM_GROUPS 不是 5 分组;
+//         3) 5 语言 footer 命名空间任一 key 缺失或为空。
+if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
+  if (
+    !run(
+      '🦶 SiteFooter 守门(防 v10/v11 回退, 5 语言 i18n + 关键 class, 2026-07-30 立)...',
+      'node scripts/check-site-footer.mjs',
+    )
+  ) {
+    console.error('❌ SiteFooter 守门失败,提交已阻止(防 v10/v11 关键 class / 5 分组 / i18n key 被回退)')
+    console.error('   修复方法:检查 SiteFooter.tsx / footer-data.ts / 5 语言 footer 命名空间')
+    console.error('   紧急跳过:HUSKY_SKIP_FOOTER_GUARD=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  SiteFooter 守门(HUSKY_SKIP_FOOTER_GUARD=1, 跳过)')
+}
+
 console.log('✅ Pre-commit 检查通过')

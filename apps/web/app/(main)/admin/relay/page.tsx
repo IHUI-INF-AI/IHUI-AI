@@ -320,7 +320,6 @@ export default function AdminRelayOverviewPage() {
                 value={rateInput}
                 onChange={(e) => setRateInput(e.target.value)}
                 className="h-9"
-                autoFocus
               />
               <p className="text-xs text-muted-foreground">范围 0~100,支持 1 位小数(如 10.5 表示 10.5%)</p>
             </div>

@@ -398,19 +398,19 @@ export const useChatStore = create<ChatState>()(
                 break
             }
             // tool_result 时把 tool_call 的 stepText 推入 completedSteps
-            let completedSteps = a.completedSteps
-            let toolCallsCount = a.toolCallsCount ?? 0
-            if (event.phase === 'tool_result') {
-              toolCallsCount += 1
-              completedSteps = [
-                ...completedSteps,
-                {
-                  stepAction: `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}`,
-                  createdAt: event.timestamp,
-                  status: (event.ok ? 'completed' : 'failed') as 'completed' | 'failed',
-                },
-              ]
-            }
+            const completedSteps =
+              event.phase === 'tool_result'
+                ? [
+                    ...a.completedSteps,
+                    {
+                      stepAction: `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}`,
+                      createdAt: event.timestamp,
+                      status: (event.ok ? 'completed' : 'failed') as 'completed' | 'failed',
+                    },
+                  ]
+                : a.completedSteps
+            const toolCallsCount =
+              event.phase === 'tool_result' ? (a.toolCallsCount ?? 0) + 1 : a.toolCallsCount ?? 0
             return {
               ...a,
               currentStep: stepText,
@@ -418,6 +418,7 @@ export const useChatStore = create<ChatState>()(
               progressIteration: event.iteration ?? a.progressIteration,
               progressTool: event.tool ?? a.progressTool,
               toolCallsCount,
+              completedSteps,
               outputPreview: event.outputPreview ?? a.outputPreview,
             }
           }),

@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
+  CHINESE_MODELS,
   DATABASES,
   IMG_EAGER,
-  MODELS,
+  INTERNATIONAL_MODELS,
   PAYMENTS,
   PROMOTIONS,
   QRS,
@@ -43,12 +44,13 @@ import { Tooltip } from '@/components/feedback'
  * - v3:Dialog 弹窗替换页面跳转(用户要求"弹窗窗口 而不是完整页面")。
  */
 
-// 生态合作 4 类分组(2026-07-21 v8 恢复 4 类布局,响应式 grid 自适应屏幕宽度)
-// - 移动端/平板:grid-cols-2(2 列,4 类分 2 行)
-// - 桌面 lg+:lg:grid-cols-4(4 列,4 类一行)
+// 生态合作 5 类分组(2026-07-30 v11 拆分:原 4 类 → 5 类,模型拆为国际/国产 2 组)
+// - 移动端/平板:grid-cols-2(2 列,5 类需换行 2-3 行)
+// - 桌面 lg+:lg:grid-cols-5(5 列,5 类 1 行;1024 边界 8 个图标分 2 组各 4 个,每列 4 个图标只换 1 行,布局更舒展)
 const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] = [
   { titleKey: 'supportedPlatforms', items: SUPPORTED },
-  { titleKey: 'models', items: MODELS },
+  { titleKey: 'internationalModels', items: INTERNATIONAL_MODELS },
+  { titleKey: 'chineseModels', items: CHINESE_MODELS },
   { titleKey: 'paymentPlatforms', items: PAYMENTS },
   { titleKey: 'cloudDatabases', items: DATABASES },
 ]
@@ -288,13 +290,13 @@ export function SiteFooter({ className }: { className?: string }) {
             </div>
           </div>
 
-          {/* 栏 2: 生态合作 4 类分组(响应式自适应)
-              - grid-cols-2(移动端/平板 2 列)+ lg:grid-cols-4(桌面 lg+ 4 列)
-              - 1024 边界修复:768-1023px 用 md:grid-cols-2 留出更多列宽,避免 4 列过挤图标溢出
+          {/* 栏 2: 生态合作 5 类分组(响应式自适应,2026-07-30 v11 拆分大模型为国际/国产 2 组)
+              - grid-cols-2(移动端/平板 2 列)+ lg:grid-cols-5(桌面 lg+ 5 列 1 行)
+              - 1024 边界修复:768-1023px 用 md:grid-cols-2 留出更多列宽,避免 5 列过挤图标溢出
               - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1 */}
           <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
-            <div className="grid grid-cols-2 gap-1 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-1 md:grid-cols-2 lg:grid-cols-5">
               {ECOSYSTEM_GROUPS.map((g) => (
                 <div key={g.titleKey} className="space-y-1">
                   <h5 className="text-[11px] font-medium text-foreground/50">{t(g.titleKey)}</h5>
@@ -305,7 +307,6 @@ export function SiteFooter({ className }: { className?: string }) {
                         name={t(p.nameKey)}
                         src={p.src}
                         mono={p.mono}
-                        darkInvert={p.darkInvert}
                         {...(p.href ? { href: p.href } : {})}
                       />
                     ))}
@@ -327,7 +328,6 @@ export function SiteFooter({ className }: { className?: string }) {
                   name={t(p.nameKey)}
                   src={p.src}
                   mono={p.mono}
-                  darkInvert={p.darkInvert}
                   {...(p.href ? { href: p.href } : {})}
                 />
               ))}
