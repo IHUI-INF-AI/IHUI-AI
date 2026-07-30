@@ -48,6 +48,11 @@ type PlusMenuAction = {
   setIdeTab?: 'editor' | 'document' | 'terminal' | 'browser' | 'code-changes' | 'figma' | 'agent' | 'mcp' | 'settings'
   /** 触发 WorkPanel 切换(可选,内置浏览器复用) */
   toggleWorkPanel?: boolean
+  /** 全局直接快捷键(可选,显示在菜单项右侧)
+   * 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
+   * 设计原则(做减法):只为最高频入口(设置)标独立快捷键,其他 7 项通过 Ctrl+Shift+P 命令面板搜索触发
+   * 避免快捷键爆炸(用户记不住 + 浏览器冲突);Ctrl+, 是 VS Code 标准,用户最熟悉 */
+  shortcut?: string
 }
 
 const PLUS_MENU_GROUPS: Array<{ titleKey: 'groupView' | 'groupTools' | 'groupSettings'; items: PlusMenuAction[] }> = [
@@ -72,7 +77,8 @@ const PLUS_MENU_GROUPS: Array<{ titleKey: 'groupView' | 'groupTools' | 'groupSet
     titleKey: 'groupSettings',
     items: [
       { key: 'skill', icon: Sparkles, href: '/ai-skills' },
-      { key: 'settings', icon: Settings, href: '/settings' },
+      // 2026-07-30 Ctrl+, 直接打开设置(VS Code 标准,已在 useGlobalShortcuts 注册全局快捷键)
+      { key: 'settings', icon: Settings, href: '/settings', shortcut: 'Ctrl+,' },
     ],
   },
 ]
@@ -118,6 +124,9 @@ export function GlobalTopBar() {
   // 根因:work-area-portal-root 父容器 overflow-hidden 裁剪 Plus 弹窗(absolute top-full)
   // 修复:弹窗用 createPortal 渲染到 document.body + fixed 定位,不受祖先 overflow 限制
   const [plusRect, setPlusRect] = React.useState<{ top: number; right: number } | null>(null)
+  // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
+  // 键盘导航:↑↓ 切换选中项 / Enter 确认 / Ctrl+Shift+P 全局打开
+  const [activeIndex, setActiveIndex] = React.useState(0)
   const plusRef = React.useRef<HTMLDivElement>(null)
   const plusInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -152,41 +161,6 @@ export function GlobalTopBar() {
     }
   }, [])
 
-  // Plus 弹窗:点击外部关闭
-  React.useEffect(() => {
-    if (!plusOpen) return
-    const handler = (e: MouseEvent) => {
-      if (plusRef.current && !plusRef.current.contains(e.target as Node)) {
-        setPlusOpen(false)
-        setPlusQuery('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [plusOpen])
-
-  // Plus 弹窗:打开后聚焦搜索框
-  React.useEffect(() => {
-    if (!plusOpen) return
-    setPlusQuery('')
-    const id = requestAnimationFrame(() => plusInputRef.current?.focus())
-    return () => cancelAnimationFrame(id)
-  }, [plusOpen])
-
-  // Plus 弹窗:Esc 关闭
-  React.useEffect(() => {
-    if (!plusOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        setPlusOpen(false)
-        setPlusQuery('')
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [plusOpen])
-
   // 过滤菜单项(按 label / id 模糊匹配)
   const filteredGroups = React.useMemo(() => {
     const q = plusQuery.trim().toLowerCase()
@@ -203,7 +177,22 @@ export function GlobalTopBar() {
       .filter((g) => g.items.length > 0)
   }, [plusQuery, t])
 
-  // 处理菜单项点击
+  // flatItems:展开为一维数组,用于键盘导航 ↑↓ 计算 activeIndex
+  const flatItems = React.useMemo(
+    () => filteredGroups.flatMap((g) => g.items),
+    [filteredGroups],
+  )
+
+  // indexedItems:带 flatIndex 的分组(渲染用,让每个 button 知道自己在 flatItems 中的全局 index)
+  const indexedItems = React.useMemo(() => {
+    let idx = 0
+    return filteredGroups.map((g) => ({
+      ...g,
+      items: g.items.map((item) => ({ ...item, flatIndex: idx++ })),
+    }))
+  }, [filteredGroups])
+
+  // 处理菜单项点击(键盘 Enter 或鼠标点击共用)
   const handleAction = (action: PlusMenuAction) => {
     setPlusOpen(false)
     setPlusQuery('')
@@ -217,6 +206,85 @@ export function GlobalTopBar() {
       router.push(action.href)
     }
   }
+
+  // Plus 弹窗:点击外部关闭
+  React.useEffect(() => {
+    if (!plusOpen) return
+    const handler = (e: MouseEvent) => {
+      if (plusRef.current && !plusRef.current.contains(e.target as Node)) {
+        setPlusOpen(false)
+        setPlusQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [plusOpen])
+
+  // Plus 弹窗:打开后聚焦搜索框 + 重置 activeIndex
+  React.useEffect(() => {
+    if (!plusOpen) return
+    setPlusQuery('')
+    setActiveIndex(0)
+    const id = requestAnimationFrame(() => plusInputRef.current?.focus())
+    return () => cancelAnimationFrame(id)
+  }, [plusOpen])
+
+  // 过滤结果变化时重置 activeIndex(避免超出范围)
+  React.useEffect(() => {
+    if (activeIndex >= flatItems.length) {
+      setActiveIndex(0)
+    }
+  }, [flatItems.length, activeIndex])
+
+  // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
+  // 接入 useGlobalShortcuts 系统(AGENTS.md §3 共享层优先):
+  // - 删除原硬编码 keydown 监听,改为监听 'global-shortcut:open-plus' CustomEvent
+  // - 由 useGlobalShortcuts 统一派发,享有:① 帮助面板(Ctrl+/)自动收录 ② 作用域过滤(输入框聚焦不触发)
+  //   ③ 跨平台 modifier 处理 ④ 与其他快捷键统一 preventDefault
+  // - 快捷键:Ctrl+Shift+P(Win/Linux)/ Cmd+Shift+P(Mac,若 useGlobalShortcuts 后续支持 wantMod)
+  // - Mac 兼容性说明:当前 useGlobalShortcuts.matchShortcut wantCtrl 严格匹配 ctrlKey,Mac 用户请用 Ctrl;
+  //   UI Tooltip 仍显示 ⌘⇧P 提示 Mac 习惯,实际监听只支持 Ctrl(已知限制,留作未来优化)
+  React.useEffect(() => {
+    const onOpenPlus = () => {
+      // 关闭时打开 / 打开时关闭(切换语义,与 VS Code 命令面板行为一致)
+      setPlusOpen((o) => {
+        if (!o && plusRef.current) {
+          const r = plusRef.current.getBoundingClientRect()
+          setPlusRect({ top: r.bottom + 4, right: window.innerWidth - r.right })
+        }
+        return !o
+      })
+    }
+    window.addEventListener('global-shortcut:open-plus', onOpenPlus)
+    return () => window.removeEventListener('global-shortcut:open-plus', onOpenPlus)
+  }, [])
+
+  // Plus 弹窗:↑↓ 导航 / Enter 确认 / Esc 关闭(合并到单一监听器,避免多个 keydown)
+  React.useEffect(() => {
+    if (!plusOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setPlusOpen(false)
+        setPlusQuery('')
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveIndex((i) => (flatItems.length ? (i + 1) % flatItems.length : 0))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex((i) =>
+          flatItems.length ? (i - 1 + flatItems.length) % flatItems.length : 0,
+        )
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        const item = flatItems[activeIndex]
+        if (item) handleAction(item)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plusOpen, flatItems, activeIndex])
 
   const handleMinimize = async () => {
     await minimizeWindow()
@@ -269,6 +337,10 @@ export function GlobalTopBar() {
   }
 
   const plusLabel = t('topBar.plus')
+  // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
+  // Tooltip 显示快捷键提示(Ctrl+Shift+P 打开,VS Code 命令面板模式)
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+  const plusShortcut = isMac ? '⌘⇧P' : 'Ctrl+Shift+P'
 
   return (
     <>
@@ -373,7 +445,7 @@ export function GlobalTopBar() {
             - 弹窗内含搜索框(过滤菜单项)+ 快捷键提示
             - 走 workPanel toggle / IDE setActiveTopTab / router.push 三类动作 */}
         <div ref={plusRef} className="relative h-full shrink-0">
-          <Tooltip content={plusLabel} side="bottom">
+          <Tooltip content={`${plusLabel} · ${plusShortcut}`} side="bottom">
             <button
               type="button"
               onClick={() => {
@@ -430,34 +502,57 @@ export function GlobalTopBar() {
                   {t('viewSwitcher.noMatch')}
                 </div>
               ) : (
-                filteredGroups.map((group) => (
+                indexedItems.map((group) => (
                   <div key={group.titleKey} className="px-1 pb-1 pt-1">
                     <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                       {t(`viewSwitcher.${group.titleKey}`)}
                     </div>
                     {group.items.map((item) => {
                       const Icon = item.icon
+                      const isActive = item.flatIndex === activeIndex
                       return (
                         <button
                           key={item.key}
                           type="button"
                           role="menuitem"
+                          aria-current={isActive ? 'true' : undefined}
                           onClick={() => handleAction(item)}
+                          // 鼠标 hover 时同步 activeIndex(键盘 ↑↓ 跟鼠标 hover 联动)
+                          onMouseEnter={() => setActiveIndex(item.flatIndex)}
                           className={cn(
                             'flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs',
-                            'text-muted-foreground transition-colors',
-                            'hover:bg-muted/50 hover:text-foreground',
-                            'focus:bg-muted/50 focus:text-foreground focus:outline-none',
+                            'transition-colors focus:outline-none',
+                            isActive
+                              ? 'bg-accent text-foreground'
+                              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground',
                           )}
                         >
                           <Icon className="h-3.5 w-3.5 shrink-0" />
                           <span className="flex-1 text-left">{t(`topBar.${item.key}`)}</span>
+                          {/* 快捷键提示(2026-07-30 立):仅"设置"项标 Ctrl+,,
+                              其他项通过 Ctrl+Shift+P 命令面板搜索触发(做减法,避免快捷键爆炸)
+                              样式参考 terminal-panel.tsx L1323 ml-auto text-[10px] opacity-50 */}
+                          {item.shortcut && (
+                            <kbd className="ml-auto shrink-0 text-[10px] opacity-50">
+                              {item.shortcut}
+                            </kbd>
+                          )}
                         </button>
                       )
                     })}
                   </div>
                 ))
               )}
+              {/* 底部快捷键提示(2026-07-30 用户规则:"做好快捷键写上也行啊")
+                  无 border-t(§4 禁止分割线),用 mt-1 间距 + 低对比度文字视觉分隔
+                  2026-07-30 升级:加入 Ctrl+Shift+P 全局打开提示,让用户知道命令面板入口
+                  (VS Code 用户最熟悉的快捷键,接入 useGlobalShortcuts 后被 Ctrl+/ 帮助面板自动收录) */}
+              <div className="mt-1 flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground/70">
+                <span>↑↓ 导航</span>
+                <span>↵ 确认</span>
+                <span>Esc 关闭</span>
+                <span className="ml-auto">{plusShortcut} 打开</span>
+              </div>
             </div>,
             document.body
           )}

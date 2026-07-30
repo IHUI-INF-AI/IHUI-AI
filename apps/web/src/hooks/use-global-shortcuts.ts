@@ -54,6 +54,13 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
   { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
   { key: 'Ctrl+Shift+D', description: '短剧编辑器', event: 'global-shortcut:open-drama' },
+  // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
+  // VS Code 标准命令面板快捷键:Ctrl+Shift+P 打开 Plus 命令面板(视图/工具/设置切换)
+  // 设计依据:① VS Code 用户最熟悉 ② 不与项目已有 Ctrl+P(搜索)冲突(matchShortcut 修复后严格区分 shift)
+  // ③ 用户在面板内输入字符过滤 + ↑↓ 导航 + Enter 确认,完整覆盖 9 项菜单访问
+  { key: 'Ctrl+Shift+P', description: '命令面板(视图切换)', event: 'global-shortcut:open-plus' },
+  // VS Code 标准设置快捷键:Ctrl+, 直接打开设置页(高频入口,免命令面板搜索)
+  { key: 'Ctrl+,', description: '打开设置', event: 'global-shortcut:open-settings' },
   // 对话模式切换(2026-07-28 立,补全 ChatMode 4态三通道)
   // Ctrl+1/2/3/4 切换 build/plan/review/spec,仅在 AI 面板打开时生效(由 ai-side-panel 监听 keydown)
   // 全局注册主要用于帮助面板展示 + 统一 preventDefault 阻止浏览器 tab 切换默认行为
@@ -67,7 +74,15 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
 // 快捷键匹配
 // ============================================================================
 
-/** 判断键盘事件是否匹配快捷键组合（格式如 "Ctrl+K"、"Ctrl+Shift+N"） */
+/** 判断键盘事件是否匹配快捷键组合（格式如 "Ctrl+K"、"Ctrl+Shift+N"）
+ *
+ * 2026-07-30 严格匹配修复(用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"):
+ * - 修复前:wantShift=false 时不检查 shiftKey,导致 Ctrl+P 会匹配 Ctrl+Shift+P 按键事件
+ *   → 注册 Ctrl+Shift+P 永远不触发(被 Ctrl+P 先 break)
+ * - 修复后:未指定的 modifier 必须为 false(严格匹配),让 Ctrl+P 与 Ctrl+Shift+P 严格区分
+ * - 影响审计:现有快捷键全部 wantShift=true 或 wantShift=false 的纯 Ctrl 组合,
+ *   修复后行为更精确(用户按 Ctrl+Shift+K 不再误触 Ctrl+K),无回归风险
+ */
 function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
 
@@ -88,6 +103,13 @@ function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
   if (wantCmd && !event.metaKey) return false
   if (wantShift && !event.shiftKey) return false
   if (wantAlt && !event.altKey) return false
+
+  // 严格匹配:未在组合中声明的 modifier 必须为 false
+  // (修复前缺失此约束,导致 Ctrl+P 误匹配 Ctrl+Shift+P,Ctrl+Shift+P 永不触发)
+  if (!wantCtrl && !wantMod && event.ctrlKey && !event.metaKey) return false
+  if (!wantCmd && !wantMod && event.metaKey && !event.ctrlKey) return false
+  if (!wantShift && event.shiftKey) return false
+  if (!wantAlt && event.altKey) return false
 
   return event.key.toLowerCase() === targetKey
 }
