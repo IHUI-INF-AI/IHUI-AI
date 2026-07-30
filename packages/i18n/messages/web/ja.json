@@ -104,7 +104,15 @@
     "deleteSuccess": "しました",
     "withdraw": "出金",
     "viewDetail": "詳細を見る",
-    "colToken": "トークン"
+    "colToken": "トークン",
+    "close": "閉じる",
+    "closeAll": "すべて閉じる",
+    "closeRight": "右側を閉じる",
+    "copyPath": "パスをコピー",
+    "refresh": "更新",
+    "pin": "ピン留め",
+    "unpin": "ピン留め解除",
+    "unsaved": "未保存"
   },
   "taskReceiver": {
     "title": "タスク受信",
