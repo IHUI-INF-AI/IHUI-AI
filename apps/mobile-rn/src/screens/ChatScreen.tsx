@@ -25,6 +25,14 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 const FALLBACK_MODELS: LlmModel[] = [
   {
+    // 默认模型与 web 端 chat store 对齐(2026-07-30):web 已从 step-3.7-flash 迁移到 step-router-v1
+    id: 'stepfun/step-router-v1',
+    name: 'Step Router v1',
+    provider: 'stepfun',
+    context_length: 8192,
+    input_price: 0,
+  },
+  {
     id: 'stepfun/step-3.7-flash',
     name: 'Step 3.7 Flash',
     provider: 'stepfun',
