@@ -27,19 +27,33 @@ interface TagsViewState {
    * 关闭/重排时自动清理,避免脏状态残留。
    */
   dirtyPaths: ReadonlySet<string>
+  /**
+   * 处于"固定(pinned)"状态的标签 path 集合(2026-07-31 立,Chrome 风格)。
+   * - pinned 标签在渲染时自动挪到最左(pinned 区末尾),视觉上聚集成组
+   * - closeAll / closeOther / closeRight 跳过 pinned 标签(防误关)
+   * - 标签卡显示图钉图标 + 略亮背景色区分
+   * - 操作入口:右键单个标签 → 固定/取消固定
+   */
+  pinnedPaths: ReadonlySet<string>
   addTag: (tag: TagItem) => void
   removeTag: (path: string) => void
   closeOther: (path: string) => void
   closeAll: () => void
+  /** 关闭 path 右侧的所有非 pinned 标签(2026-07-31 新增) */
+  closeRight: (path: string) => void
   reorderTags: (fromIndex: number, toIndex: number) => void
   setDirty: (path: string, dirty: boolean) => void
   isDirty: (path: string) => boolean
+  /** 切换标签的固定状态;pin 时自动挪到 pinned 区末尾(2026-07-31 新增) */
+  togglePin: (path: string) => void
+  isPinned: (path: string) => boolean
 }
 
 export const useTagsViewStore = create<TagsViewState>((set, get) => ({
   tags: [],
   activePath: null,
   dirtyPaths: new Set<string>(),
+  pinnedPaths: new Set<string>(),
   addTag: (tag) =>
     set((s) => {
       if (s.tags.some((t) => t.path === tag.path)) return { activePath: tag.path }
@@ -50,23 +64,64 @@ export const useTagsViewStore = create<TagsViewState>((set, get) => ({
       const tags = s.tags.filter((t) => t.path !== path)
       const activePath =
         s.activePath === path ? (tags[tags.length - 1]?.path ?? null) : s.activePath
-      // 标签关闭时同步清理脏状态,防止残留导致幽灵指示点
+      // 标签关闭时同步清理脏状态 + pinned 状态,防止残留导致幽灵指示点 / 幽灵 pin
       let dirtyPaths = s.dirtyPaths
       if (s.dirtyPaths.has(path)) {
         const next = new Set(s.dirtyPaths)
         next.delete(path)
         dirtyPaths = next
       }
-      return { tags, activePath, dirtyPaths }
+      let pinnedPaths = s.pinnedPaths
+      if (s.pinnedPaths.has(path)) {
+        const next = new Set(s.pinnedPaths)
+        next.delete(path)
+        pinnedPaths = next
+      }
+      return { tags, activePath, dirtyPaths, pinnedPaths }
     }),
   closeOther: (path) =>
     set((s) => {
-      const tags = s.tags.filter((t) => t.path === path)
-      // 仅保留目标 path 的脏状态
-      const dirtyPaths = s.dirtyPaths.has(path) ? new Set([path]) : new Set<string>()
-      return { tags, activePath: path, dirtyPaths }
+      // 保留:目标 path + pinnedPaths(Chrome 风格,pinned 不被批量关闭)
+      const tags = s.tags.filter((t) => t.path === path || s.pinnedPaths.has(t.path))
+      // 仅保留幸存标签的脏状态
+      const survivorPaths = new Set(tags.map((t) => t.path))
+      const dirtyPaths = new Set<string>()
+      s.dirtyPaths.forEach((p) => {
+        if (survivorPaths.has(p)) dirtyPaths.add(p)
+      })
+      const activePath = tags.some((t) => t.path === s.activePath) ? s.activePath : path
+      return { tags, activePath, dirtyPaths }
     }),
-  closeAll: () => set({ tags: [], activePath: null, dirtyPaths: new Set() }),
+  closeAll: () =>
+    set((s) => {
+      // 保留 pinned 标签(Chrome 风格,closeAll 不关 pinned)
+      const tags = s.tags.filter((t) => s.pinnedPaths.has(t.path))
+      const activePath = tags.length > 0
+        ? (tags.some((t) => t.path === s.activePath) ? s.activePath : (tags[tags.length - 1]?.path ?? null))
+        : null
+      const survivorPaths = new Set(tags.map((t) => t.path))
+      const dirtyPaths = new Set<string>()
+      s.dirtyPaths.forEach((p) => {
+        if (survivorPaths.has(p)) dirtyPaths.add(p)
+      })
+      return { tags, activePath, dirtyPaths }
+    }),
+  closeRight: (path) =>
+    set((s) => {
+      const idx = s.tags.findIndex((t) => t.path === path)
+      if (idx === -1) return s
+      // 保留:path 及其左侧 + pinnedPaths(无论位置)
+      const tags = s.tags.filter((t, i) => i <= idx || s.pinnedPaths.has(t.path))
+      const survivorPaths = new Set(tags.map((t) => t.path))
+      const dirtyPaths = new Set<string>()
+      s.dirtyPaths.forEach((p) => {
+        if (survivorPaths.has(p)) dirtyPaths.add(p)
+      })
+      const activePath = tags.some((t) => t.path === s.activePath)
+        ? s.activePath
+        : (tags[tags.length - 1]?.path ?? null)
+      return { tags, activePath, dirtyPaths }
+    }),
   reorderTags: (fromIndex, toIndex) =>
     set((s) => {
       // 边界守卫:无操作 / 越界直接 return 保持原状
@@ -92,4 +147,22 @@ export const useTagsViewStore = create<TagsViewState>((set, get) => ({
       return { dirtyPaths: next }
     }),
   isDirty: (path) => get().dirtyPaths.has(path),
+  togglePin: (path) =>
+    set((s) => {
+      const nextPinned = new Set(s.pinnedPaths)
+      const wasPinned = nextPinned.has(path)
+      if (wasPinned) {
+        // unpin:仅移除 pinned 标记,tags 顺序保持不变(停在当前位置)
+        nextPinned.delete(path)
+        return { pinnedPaths: nextPinned }
+      }
+      // pin:加标记 + 把 tag 挪到 pinned 区末尾(所有已 pinned 之后、非 pinned 之前)
+      nextPinned.add(path)
+      const target = s.tags.find((t) => t.path === path)
+      if (!target) return { pinnedPaths: nextPinned }
+      const pinnedTags = s.tags.filter((t) => t.path !== path && nextPinned.has(t.path))
+      const nonPinnedTags = s.tags.filter((t) => t.path !== path && !nextPinned.has(t.path))
+      return { pinnedPaths: nextPinned, tags: [...pinnedTags, target, ...nonPinnedTags] }
+    }),
+  isPinned: (path) => get().pinnedPaths.has(path),
 }))
