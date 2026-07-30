@@ -563,10 +563,10 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // 图标尺寸与 NavLink 导航项 (h-5 w-5=20px) 完全一致,避免底部工具栏图标过小不一致;
   // 4 个按钮 + 3 个 gap-0.5 (6px) = 110px,正好填满 130px 默认宽度 (扣 px-1.5 + p-1 = 20px padding);
   // [&_svg]:size-5 覆盖 Button 默认的 [&_svg]:size-4,让 svg 渲染为 20×20 与导航项图标尺寸一致。
-  // 2026-07-29 与顶部 TagsView 搜索按钮统一风格:纯白/纯黑背景(无描边),hover 微变灰,
-  // focus-visible:ring-1 为键盘用户提供视觉锚点(鼠标用户不变),outline-none 屏蔽浏览器默认 ring。
+  // 2026-07-30 修订:去掉独立容器背景色(bg-white/dark:bg-black),
+  // 让按钮透出侧边栏底背景色(用户要求),仅保留 hover 微反馈 + 键盘 focus ring。
   const btnClass =
-    'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5 text-foreground outline-none transition-colors bg-white hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30'
+    'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5 text-foreground outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:hover:bg-accent/50 dark:focus-visible:ring-foreground/30'
 
   return (
     <div
