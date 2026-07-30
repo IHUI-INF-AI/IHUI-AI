@@ -203,7 +203,7 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
 
           {/* 4 Stat 数据条 */}
           <div className="mx-auto w-full max-w-5xl px-4">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-4">
               {[
                 { value: 8, suffix: '', label: t('stats.platforms') },
                 { value: 100, suffix: '+', label: t('stats.models') },

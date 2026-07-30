@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # 工作区根目录白名单:优先复用 mcp_server 的常量,失败则从 env 读取,再失败用 cwd
 def _resolve_workspace_roots() -> list[str]:
     try:
-        from .mcp_server import _WORKSPACE_ROOTS as mcp_roots
+        from .mcp_server import _WORKSPACE_ROOTS as mcp_roots  # type: ignore[attr-defined]
         if mcp_roots:
             return list(mcp_roots)
     except Exception as e:
