@@ -1,9 +1,15 @@
-import { View, Text, Textarea, ScrollView } from '@tarojs/components'
+import { View, Text, Textarea, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
 import { useI18n } from '@/i18n'
 import { cn } from '@ihui/design-tokens'
+// ai-home 模式图标(对齐原项目 InputArea.vue):
+// search-hua(文字模式切语音)/ input_qie(语音模式切文字)/ search-add(附件)/ sand_msg(发送)
+import searchHuaPng from '@/assets/remote/images/search-hua.png'
+import inputQiePng from '@/assets/remote/images/input_qie.png'
+import searchAddPng from '@/assets/remote/images/search-add.png'
+import sandMsgPng from '@/assets/remote/images/sand_msg.png'
 
 export interface InputAreaProps {
   value?: string
@@ -169,7 +175,10 @@ export default function InputArea({
         }}
       >
         {showEmoji ? (
-          <ScrollView scrollY style={{ height: '180rpx', marginBottom: '10rpx', flexBasis: '100%' }}>
+          <ScrollView
+            scrollY
+            style={{ height: '180rpx', marginBottom: '10rpx', flexBasis: '100%' }}
+          >
             <View className="flex flex-wrap" style={{ padding: '10rpx' }}>
               {EMOJI_LIST.map((e, i) => (
                 <View
@@ -185,15 +194,18 @@ export default function InputArea({
           </ScrollView>
         ) : null}
 
-        {/* 切换按钮(语音/文字)*/}
+        {/* 切换按钮(语音/文字):对齐原项目 InputArea.vue line 40-44
+            文字模式显示 search-hua(切语音)/ 语音模式显示 input_qie(切文字)*/}
         <View
           className="flex items-center justify-center"
           style={{ width: '60rpx', height: '80rpx', flexShrink: 0 }}
           onClick={toggleMode}
         >
-          <Text style={{ fontSize: '36rpx', color: mode === 'voice' ? 'var(--color-primary)' : 'var(--color-muted-foreground)' }}>
-            {mode === 'text' ? '🎤' : '⌨️'}
-          </Text>
+          <Image
+            src={mode === 'text' ? searchHuaPng : inputQiePng}
+            style={{ width: '50rpx', height: '40rpx' }}
+            mode="aspectFit"
+          />
         </View>
 
         {mode === 'text' ? (
@@ -260,7 +272,12 @@ export default function InputArea({
             style={{ width: '60rpx', height: '80rpx', flexShrink: 0 }}
             onClick={toggleEmoji}
           >
-            <Text style={{ fontSize: '36rpx', color: showEmoji ? 'var(--color-primary)' : 'var(--color-muted-foreground)' }}>
+            <Text
+              style={{
+                fontSize: '36rpx',
+                color: showEmoji ? 'var(--color-primary)' : 'var(--color-muted-foreground)',
+              }}
+            >
               😊
             </Text>
           </View>
@@ -270,7 +287,7 @@ export default function InputArea({
           style={{ width: '60rpx', height: '80rpx', flexShrink: 0 }}
           onClick={handleUpload}
         >
-          <Text style={{ fontSize: '36rpx', color: 'var(--color-muted-foreground)' }}>📎</Text>
+          <Image src={searchAddPng} style={{ width: '50rpx', height: '50rpx' }} mode="aspectFit" />
         </View>
 
         {/* 发送按钮:对齐原项目 .send-btn 100rpx×100rpx 圆角 30rpx(在小屏可压缩到 80rpx)*/}
@@ -288,9 +305,13 @@ export default function InputArea({
             }}
             onClick={handleSend}
           >
-            <Text style={{ color: 'inherit' }}>
-              {canSend ? '➤' : ''}
-            </Text>
+            {canSend ? (
+              <Image
+                src={sandMsgPng}
+                style={{ width: '50rpx', height: '50rpx' }}
+                mode="aspectFit"
+              />
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -318,12 +339,16 @@ export default function InputArea({
 
       <View className="flex items-end px-3 py-2">
         <View className="flex items-center mr-2">
-          <Text
-            className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-muted ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
+          <View
+            className={`w-9 h-9 flex items-center justify-center rounded-lg active:bg-muted ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
           >
-            {mode === 'text' ? '🎤' : '⌨️'}
-          </Text>
+            <Image
+              src={mode === 'text' ? searchHuaPng : inputQiePng}
+              className="w-5 h-5"
+              mode="aspectFit"
+            />
+          </View>
         </View>
 
         {mode === 'text' ? (
@@ -372,12 +397,12 @@ export default function InputArea({
               😊
             </Text>
           ) : null}
-          <Text
-            className="w-9 h-9 leading-9 text-center text-xl rounded-lg ml-1 text-muted-foreground active:bg-muted"
+          <View
+            className="w-9 h-9 flex items-center justify-center rounded-lg ml-1 text-muted-foreground active:bg-muted"
             onClick={handleUpload}
           >
-            📎
-          </Text>
+            <Image src={searchAddPng} className="w-5 h-5" mode="aspectFit" />
+          </View>
         </View>
 
         {mode === 'text' ? (

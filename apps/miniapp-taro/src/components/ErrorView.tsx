@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface ErrorViewProps {
   title?: string
@@ -12,8 +12,7 @@ export default function ErrorView({
   desc = '请稍后重试',
   onRetry,
 }: ErrorViewProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="flex flex-col items-center justify-center py-12 px-4">
       <Text className="text-4xl text-muted-foreground mb-3">⚠</Text>

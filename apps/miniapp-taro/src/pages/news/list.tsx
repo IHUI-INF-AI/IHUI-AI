@@ -3,7 +3,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './list.css'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -63,13 +63,7 @@ const formatViews = (n: number): string => {
 }
 
 export default function NewsListPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
 
   const [list, setList] = useState<NewsExt[]>([])
   const [loading, setLoading] = useState(false)

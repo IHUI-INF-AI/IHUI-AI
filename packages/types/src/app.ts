@@ -11,6 +11,8 @@
  * 共享组件只负责纯 UI 渲染,不直接依赖任何平台 API。
  */
 
+import type { ReactNode } from 'react'
+
 /** i18n 翻译函数契约(兼容 next-intl / i18next / 自定义) */
 export type TFunction = (key: string, options?: Record<string, string | number>) => string
 
@@ -1517,7 +1519,47 @@ export interface VipScreenProps {
 
 /** 批次 13(2026-07-29):登录/注册/资料编辑/换绑手机 */
 
-/** LoginScreen props(表单屏,状态由 wrapper 管理) */
+/** 登录 tab key(对齐 web ui-react LoginFormProps.tabs,默认顺序 email/phone/password/qr) */
+export type LoginTab = 'email' | 'phone' | 'password' | 'qr'
+
+/** 第三方登录平台 key(对齐 web ui-react ThirdPartyPlatform) */
+export type ThirdPartyPlatform =
+  'wechat' | 'google' | 'github' | 'feishu' | 'dingtalk' | 'enterpriseWechat' | 'alipay' | 'apple'
+
+/** 第三方登录配置项(wrapper 注入:平台 key + 文案 + 图标 + 是否启用) */
+export interface ThirdPartyLoginOption {
+  platform: ThirdPartyPlatform
+  label: string
+  /** RN Image source(如 require('../../assets/icons/wechat.png')) */
+  iconSource?: number | { uri: string }
+  /** 是否启用(未配置 OAuth 的平台设为 false,按钮置灰) */
+  enabled: boolean
+  /** 是否强制禁用(如 Apple "即将上线",显示 tooltip 但禁用点击) */
+  forceDisabled?: boolean
+  /** 禁用提示文案(forceDisabled=true 时显示) */
+  disabledHint?: string
+}
+
+/** QR 扫码登录状态(wrapper 注入,驱动 QrTab UI) */
+export type QrLoginStatus = 'idle' | 'loading' | 'waiting' | 'scanned' | 'expired' | 'error'
+
+/** QR 扫码登录配置(wrapper 注入,共享层只渲染占位 + 状态文案,不依赖任何 SDK) */
+export interface QrLoginConfig {
+  /** 当前状态 */
+  status: QrLoginStatus
+  /** 二维码图片源(RN Image source;null 则渲染占位图标) */
+  qrSource?: number | { uri: string } | null
+  /** 错误文案(status='error' 时显示) */
+  errorText?: string
+  /** 刷新回调(status='expired'/'error' 时显示刷新按钮) */
+  onRefresh?: () => void
+}
+
+/** LoginScreen props(表单屏,状态由 wrapper 管理)
+ *
+ * 2026-07-30 升级:支持 4-tab(email/phone/password/qr)+ 第三方登录 + 协议同意,
+ * 对齐 web ui-react LoginForm。新增字段全部可选,保持向后兼容(仅传 account/password
+ * 的旧调用方仍可工作,渲染为单一 password tab)。 */
 export interface LoginScreenProps {
   t: TFunction
   account: string
@@ -1533,6 +1575,72 @@ export interface LoginScreenProps {
   /** logo 图片源(RN Image source,如 require('../../assets/logo.png'))。
    * 不传则渲染深色方块+IHUI 文字作为 fallback,对齐 web AuthShell logo 占位。 */
   logoSource?: number | { uri: string }
+
+  // ===== 4-tab 扩展(可选,未传则只渲染 password tab,保持向后兼容) =====
+
+  /** 启用的 tab 列表(默认 ['password'],传多个则渲染 tab 切换条)。
+   * 对齐 web ui-react LoginFormProps.tabs,顺序:email/phone/password/qr。 */
+  tabs?: readonly LoginTab[]
+  /** 默认激活 tab(默认第一个 tab) */
+  defaultTab?: LoginTab
+
+  // ===== 邮箱验证码登录(email tab) =====
+
+  email?: string
+  emailCode?: string
+  /** 邮箱验证码发送中(按钮 loading) */
+  emailCodeSending?: boolean
+  /** 邮箱验证码倒计时(>0 时按钮显示 "{n}s 后重发",禁用点击) */
+  emailCountdown?: number
+  onEmailChange?: (text: string) => void
+  onEmailCodeChange?: (text: string) => void
+  onSendEmailCode?: () => void
+  onLoginByEmailCode?: () => void
+
+  // ===== 手机验证码登录(phone tab) =====
+
+  phone?: string
+  phoneCode?: string
+  phoneCodeSending?: boolean
+  phoneCountdown?: number
+  onPhoneChange?: (text: string) => void
+  onPhoneCodeChange?: (text: string) => void
+  onSendPhoneCode?: () => void
+  onLoginByPhoneCode?: () => void
+
+  // ===== QR 扫码登录(qr tab) =====
+
+  /** QR 登录配置(传则渲染 QR 占位 + 状态文案;不传则 qr tab 显示"暂未启用") */
+  qrConfig?: QrLoginConfig
+
+  // ===== 第三方登录区 =====
+
+  /** 第三方登录选项列表(传则渲染第三方登录区;不传则不显示) */
+  thirdPartyOptions?: ThirdPartyLoginOption[]
+  /** 第三方登录点击回调(wrapper 实现 OAuth flow,如 WebBrowser.openAuthSessionAsync) */
+  onThirdPartyLogin?: (platform: ThirdPartyPlatform) => void
+  /** 当前正在登录的第三方平台 key(对应按钮 loading) */
+  thirdPartyLoadingPlatform?: ThirdPartyPlatform | null
+
+  // ===== 协议同意 =====
+
+  /** 是否已同意协议(双向绑定) */
+  agreed?: boolean
+  /** 协议同意回调(用户切换复选框时触发) */
+  onAgreedChange?: (agreed: boolean) => void
+  /** 服务条款链接回调(wrapper 注入导航跳转,如 navigate('Agreement')) */
+  onOpenTerms?: () => void
+  /** 隐私政策链接回调 */
+  onOpenPrivacy?: () => void
+  /** 协议未勾选时的提示文案(由 wrapper 控制是否显示,共享层不维护) */
+  agreementError?: string
+
+  // ===== 忘记密码 + 注册链接(password tab 独有) =====
+
+  /** 忘记密码回调(传则 password tab 右上角显示"忘记密码"链接) */
+  onForgotPassword?: () => void
+  /** 注册回调(传则卡片底部显示"还没有账号?立即注册") */
+  onRegister?: () => void
 }
 
 /** RegisterScreen props(表单屏) */
@@ -3883,7 +3991,7 @@ export interface VideoPlayerScreenProps {
   error: string
   onComplete: () => void
   onBack: () => void
-  playerContent?: import('react').ReactNode
+  playerContent?: ReactNode
   colorScheme?: 'light' | 'dark'
 }
 

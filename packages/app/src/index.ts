@@ -170,6 +170,18 @@ export type {
   CourseCardProps,
 } from './features/cards'
 
+/** 跨端共享小组件(SectionHeader / ColorfulLoader / PayButton / Selecter,从 miniapp-taro 提取) */
+export { SectionHeader, ColorfulLoader, PayButton, Selecter } from './components'
+export type {
+  SectionHeaderProps,
+  ColorfulLoaderProps,
+  PayButtonProps,
+  PayButtonType,
+  SelecterProps,
+  SelecterType,
+  SelecterOption,
+} from './components'
+
 export { tokens, lightTokens, darkTokens, getTokens } from './theme/tokens'
 export type { AppTokens, AppThemeMode, AppThemeTokens } from './theme/tokens'
 
