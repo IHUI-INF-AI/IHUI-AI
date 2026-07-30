@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 
 import type { AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
-import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
+import type { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import {
   GOAL_ARG_TEMPLATES,
   LOOP_ARG_OPTIONS,
