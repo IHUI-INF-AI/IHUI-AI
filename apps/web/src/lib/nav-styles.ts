@@ -86,15 +86,19 @@ export const HEADER_BAR_CLASS =
  *  - 包含 focus 行为(focus-visible:bg-accent),4 类元素统一焦点环
  *
  *  2026-07-30 用户规则:"这些按钮应该有背景色设定啊 全局统一 hover时突出"
- *  - 默认 bg-muted/30:30% 透明度的 muted 灰,亮色下 ~93.4% L(背景 96.1% L)极淡显形,
- *    暗色下 ~14.3% L(背景 14% L)极淡显形;符合 compact/elegant 风格,subtle 不抢眼
- *  - hover:bg-muted:100% muted,亮色 92% L / 暗色 14.9% L,比默认态明显加深 = "突出"
+ *  2026-07-30 用户反馈:"睁开你的狗眼看看 哪里有背景色?跟底色背景也没区分开啊"
+ *
+ *  修正(原 bg-muted/30 在亮色下计算 94.87% L,跟背景 96.1% L 差距仅 1.23% L 肉眼不可见):
+ *  - 默认 bg-card:亮色 100% L(比 bg 96.1% 亮 3.9%,更白符合用户偏好)/
+ *    暗色 10% L(比 bg 14% 深 4%,更黑符合用户偏好)— 与背景明显区分
+ *  - hover:bg-accent:亮色 88% L(比默认 100% 深 12%,明显加深)/
+ *    暗色 17% L(比默认 10% 浅 7%,反相但差距足够大,突出)— hover 突出
  *  - text-foreground/80:统一文字色(原本散落在各使用处,现提到 base 统一)
- *  - 层级:透明背景 < bg-muted/30(默认) < bg-muted(hover) < bg-accent(active,如 Plus 打开)
+ *  - 层级:bg-card(默认 亮100/暗10) < bg-accent(hover 亮88/暗17) ≤ bg-accent text-foreground(active,Plus 打开,文字加深)
  *  - close 变体保留红色 hover(WindowControlButton variant='close'),在 base 之后追加覆盖
  */
 export const TOPBAR_BTN_BASE =
-  'inline-flex h-full shrink-0 items-center justify-center rounded-md bg-muted/30 text-foreground/80 transition-colors hover:bg-muted focus:outline-none focus-visible:bg-accent'
+  'inline-flex h-full shrink-0 items-center justify-center rounded-md bg-card text-foreground/80 transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent'
 
 /** 顶栏按钮/标签宽度(2026-07-30 第十轮"做减法 v6"用户反馈"搜索/chevron-down/Plus 按钮应一致 + 正方形"后升级 w-7 → w-9)
  *  - Plus 按钮 / 窗口控制按钮 / Dropdown trigger / 搜索按钮 4 类全部统一 36×36 正方形
