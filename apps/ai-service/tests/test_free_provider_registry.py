@@ -472,3 +472,139 @@ def test_kiro_is_not_configured():
     """Kiro 状态为 NOT_CONFIGURED(无 key_env_vars → 无法配置)。"""
     status = free_provider_registry.is_key_configured("kiro")
     assert status == ProviderStatus.NOT_CONFIGURED
+
+
+# =============================================================================
+# 零成本 / 免费额度标注(2026-07-30 立,零成本引流路径 1)
+# =============================================================================
+
+
+def test_free_provider_zero_cost_defaults_false():
+    """FreeProvider.zero_cost 默认 False。"""
+    p = FreeProvider(
+        provider_code="test",
+        display_name="Test",
+        category=ProviderCategory.INTERNATIONAL,
+        signup_url="https://example.com",
+        free_quota="test",
+    )
+    assert p.zero_cost is False
+    assert p.free_tier is False
+
+
+def test_list_zero_cost_returns_keyless_providers():
+    """list_zero_cost 返回无需 key 的真·零成本 provider(零成本引流核心)。"""
+    zero_cost = free_provider_registry.list_zero_cost()
+    codes = [p.provider_code for p in zero_cost]
+    # 4 个 keyless cloud provider
+    assert "pollinations" in codes
+    assert "llm7" in codes
+    assert "aihorde" in codes
+    assert "opencode_zen" in codes
+    assert len(zero_cost) >= 4
+
+
+def test_list_free_tier_returns_providers_with_free_quota():
+    """list_free_tier 返回有免费额度(需注册 key)的 provider。"""
+    free_tier = free_provider_registry.list_free_tier()
+    codes = [p.provider_code for p in free_tier]
+    # 国内永久免费模型
+    assert "zhipu" in codes  # glm-4-flash 永久免费
+    assert "moonshot" in codes  # Kimi-K2 免费
+    # 国际免费层
+    assert "groq" in codes
+    assert "cloudflare_workers_ai" in codes
+    assert "github_models" in codes
+    assert "huggingface" in codes
+    assert "siliconcloud" in codes
+    assert len(free_tier) >= 20
+
+
+def test_zero_cost_providers_are_keyless():
+    """zero_cost=True 的 provider 应为 keyless 或 key 可选(匿名可用)。
+
+    pollinations/llm7/opencode_zen 完全无 key_env_vars;
+    aihorde 有可选 key_env_vars(注册可加速,但匿名也可调用)。
+    """
+    for p in free_provider_registry.list_zero_cost():
+        # 关键判定:有可调用的 endpoint(default_base_url 非空)
+        assert p.default_base_url, f"zero_cost provider {p.provider_code} 缺 default_base_url"
+
+
+def test_pollinations_is_zero_cost():
+    """Pollinations 标记为 zero_cost(无 key 免费顶级模型)。"""
+    p = free_provider_registry.get_by_code("pollinations")
+    assert p is not None
+    assert p.zero_cost is True
+    assert p.free_tier is False
+
+
+def test_llm7_is_zero_cost():
+    """LLM7 标记为 zero_cost(免费镜像,无需 key)。"""
+    p = free_provider_registry.get_by_code("llm7")
+    assert p is not None
+    assert p.zero_cost is True
+
+
+def test_aihorde_is_zero_cost():
+    """AI Horde 标记为 zero_cost(众包 GPU,匿名可用)。"""
+    p = free_provider_registry.get_by_code("aihorde")
+    assert p is not None
+    assert p.zero_cost is True
+
+
+def test_groq_is_free_tier():
+    """Groq 标记为 free_tier(有免费层但需注册 key)。"""
+    p = free_provider_registry.get_by_code("groq")
+    assert p is not None
+    assert p.free_tier is True
+    assert p.zero_cost is False
+
+
+def test_zhipu_is_free_tier():
+    """智谱标记为 free_tier(glm-4-flash 永久免费但需 key)。"""
+    p = free_provider_registry.get_by_code("zhipu")
+    assert p is not None
+    assert p.free_tier is True
+    assert p.zero_cost is False
+
+
+def test_ollama_not_zero_cost_not_free_tier():
+    """Ollama 本地 LLM 不标 zero_cost(category=LOCAL 已区分)。"""
+    p = free_provider_registry.get_by_code("ollama")
+    assert p is not None
+    assert p.zero_cost is False
+    assert p.free_tier is False
+    assert p.category == ProviderCategory.LOCAL
+
+
+def test_stepfun_not_free_tier():
+    """StepFun 不标 free_tier(项目已配置付费 plan 套餐)。"""
+    p = free_provider_registry.get_by_code("stepfun")
+    assert p is not None
+    assert p.free_tier is False
+    assert p.zero_cost is False
+
+
+def test_kiro_not_zero_cost_not_free_tier():
+    """Kiro 不标(法务风险,不接入技术路径)。"""
+    p = free_provider_registry.get_by_code("kiro")
+    assert p is not None
+    assert p.zero_cost is False
+    assert p.free_tier is False
+
+
+def test_to_dashboard_dict_includes_zero_cost_and_free_tier():
+    """to_dashboard_dict 返回 zero_cost 和 free_tier 字段。"""
+    dashboard = free_provider_registry.to_dashboard_dict()
+    assert len(dashboard) >= 30
+    for item in dashboard:
+        assert "zero_cost" in item
+        assert "free_tier" in item
+        assert isinstance(item["zero_cost"], bool)
+        assert isinstance(item["free_tier"], bool)
+    # 验证具体值
+    pollinations = next(p for p in dashboard if p["provider_code"] == "pollinations")
+    assert pollinations["zero_cost"] is True
+    groq = next(p for p in dashboard if p["provider_code"] == "groq")
+    assert groq["free_tier"] is True

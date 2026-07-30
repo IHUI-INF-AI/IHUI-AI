@@ -16,10 +16,12 @@ import {
   FileText,
   GitBranch,
   Coins,
+  Check,
+  KeyRound,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui-react'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +44,7 @@ async function api<T>(url: string): Promise<T> {
 export default function DeveloperHomePage() {
   const t = useTranslations('developerHomePage')
   const tPricing = useTranslations('developerPricingPage')
+  const tByok = useTranslations('byokGuide')
   const locale = useLocale()
   const summaryQ = useQuery({
     queryKey: ['developer', 'summary'],
@@ -167,6 +170,38 @@ export default function DeveloperHomePage() {
                 </Link>
               )
             })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* BYOK 引导:自带 API Key,零中间商加价,免费模型不收费 */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
+                <KeyRound className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold">{tByok('cardTitle')}</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{tByok('cardDesc')}</p>
+              <ul className="mt-2 space-y-1 text-xs text-muted-foreground [&>li]:translate-y-[0px]">
+                <li className="flex items-center gap-1.5">
+                  <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span>{tByok('feature1')}</span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span>{tByok('feature2')}</span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span>{tByok('feature3')}</span>
+                </li>
+              </ul>
+            </div>
+            <Button asChild variant="outline" size="sm" className="shrink-0">
+              <Link href="/settings/llm">{tByok('cta')}</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
