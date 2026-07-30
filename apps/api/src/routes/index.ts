@@ -357,6 +357,8 @@ import { subagentsExtendedRoutes } from './subagents-extended-routes.js'
 import { aiTutorRoutes } from './ai-tutor-routes.js'
 // Newsletter 订阅路由(定价页转化率优化配套,lead capture)
 import newsletterRoutes from './newsletter.js'
+// 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
+import { earningsRoutes } from './earnings-routes.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
