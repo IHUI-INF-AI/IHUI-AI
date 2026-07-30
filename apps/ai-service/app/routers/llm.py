@@ -368,6 +368,9 @@ async def list_models() -> dict[str, Any]:
             # OpenRouter 模型需要 "openrouter/" 前缀(调用时 _model_to_provider_code 匹配)
             if r["provider_code"] == "openrouter" and not mid.startswith("openrouter/"):
                 mid = f"openrouter/{mid}"
+            # StepFun 模型加 "stepfun/" 前缀(与 default_models.json 对齐,避免重复)
+            elif r["provider_code"] == "stepfun" and not mid.startswith("stepfun/"):
+                mid = f"stepfun/{mid}"
             if mid not in seen:
                 default_models.append({
                     "id": mid,
