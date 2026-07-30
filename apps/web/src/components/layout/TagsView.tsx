@@ -466,9 +466,12 @@ export function TagsView() {
             const isOver = overIndex === index && dragIndex !== null
             const isDirty = dirtyPaths.has(tag.path)
             return (
-              // 标签宽度契约:右侧 = gap-1 (4px) + X (w-5=20px) + pr-1 (4px) = 28px
-              // 左侧 pl-2 (8px) 与右侧对称,文字几何居中
-              // X 宽度若调整,需同步修改 pl 值(每 ±4px X 宽度 → ±4px pl)
+              // 标签宽度契约(2026-07-30 第十一轮"做减法 v8"用户反馈"X 关闭按钮右侧空间也要在左侧复刻"):
+              // - 文字到右边缘: gap-1 (4) + X span w-5 (20) + pr-1 (4) = 28px
+              //   (X 按钮 + 它的右内边距 = 24px 是"X 关闭按钮占的右侧空间")
+              // - 文字到左边缘: pl-6 (24px) — 与 X 关闭按钮+pr 的 24px 对称,文字几何居中
+              //   (gap-1 是 X 按钮前的视觉留白,不算"X 关闭按钮占的"空间,对称以 X 视觉边界为准)
+              // - 若 X 宽度调整,需同步修改 pl-6 → pl-±N(每 ±4px X 宽度 → ±4px pl)
               <Link
                 key={tag.path}
                 href={buildHref(tag)}
@@ -485,8 +488,10 @@ export function TagsView() {
                   //   border-border/40 / border-dashed border-primary/50 / 主类 border)
                   // - active 态靠 bg-primary/10 + font-medium + text-primary 已足够视觉指示
                   // - 拖拽视觉简化:目标位 + 源项共用 opacity-50,无 border-dashed 残留
+                  // - pl-6 (24px) 对应 X 关闭按钮 w-5 (20px) + pr-1 (4px) = 24px,
+                  //   左右对称,文字几何居中(用户规则 2026-07-30)
                   TOPBAR_BTN_BASE,
-                  'group cursor-pointer gap-1 pl-2 pr-1 text-xs',
+                  'group cursor-pointer gap-1 pl-6 pr-1 text-xs',
                   active
                     ? 'bg-primary/10 font-medium text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
