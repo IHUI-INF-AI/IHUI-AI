@@ -324,33 +324,35 @@ export function GlobalTopBar() {
         </>
       )}
 
-      {/* 顶栏单层(2026-07-30 第七轮"做减法 v3"根治,用户反馈"标签栏高度不对 + 双重设定冲突"后最终版)
-          用户原话:标签栏高度不是我之前要求的高度,而且搜索按钮容器左侧也没对齐下面内容展示区左侧,
-          是有双重设定吗?冗余设定冲突设定?
+      {/* 顶栏(2026-07-30 第八轮"做减法 v4"用户反馈"div 也应该跟屏幕顶部有间距,跟 header 一致同步"后版本)
+          用户原话:div 他也应该跟屏幕顶部有间距啊,跟 header 跟屏幕顶部的间距一致,同步。
 
-          原状态(双重高度冲突):
-            <div h-[52px] py-2 pl-0 pr-0>
-              - h-[52px]:总高度 52px
-              - py-2:上下 8px padding(8+36+8 = 52px,内容区 36px)
-              - pl-0 pr-0:水平 0 padding(搜索按钮贴左边 0,跟 main p-4 不对齐)
-            两重声明(h + py)导致总高度需看两层才能算出,且与 main p-4 不一致。
+          根因:之前"做减法 v3"合并后顶栏是 h-9 (36px) 单层无 padding,首子元素 y=0;
+          而 AISidePanel 容器有 py-2,header y=8。两者顶部不同步。
 
-          修复后(单一高度 + 对齐 main padding):
-            <div h-9 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8>
-              - h-9:总高度 36px(单一来源,跟用户"之前要求的 36px 高度"一致)
-              - pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8:水平 padding 跟 main p-4 md:p-6 lg:p-8 完全一致
-                (搜索按钮左侧 x=16,跟 main 内容左侧 x=16 严丝合缝对齐;Plus 按钮 / 窗口控制也跟随内移)
-              - 删 py-2:不再有 padding 贡献高度,杜绝"双重设定"歧义
-              - 子元素 h-full 撑满 h-9 = 36px,跟原设计 36px 内容区一致
-              - 跟 AI 面板 header 顶部间距的关系:AI 面板 header 内部仍由其父级 py-2 控 8px 顶部间距,
-                与本顶栏"无 padding"形成的 y=0 起点不同,这是设计差异(AI 面板卡片需要视觉呼吸,
-                顶栏不需要),符合用户对两个面板不同间距要求的意图。 */}
+          修复:恢复两层结构但每层单一职责,不再"双重设定":
+            <div pt-2 shrink-0 select-none cursor-default>           ← 外层 wrapper(8px 顶部,跟 AISidePanel py-2 顶部对齐)
+              <div flex h-9 items-center gap-1 pl-4 pr-4 ...>       ← 内层顶栏(36px 内容,单一高度来源)
+                <TagsView /> <Plus /> <WindowControls />
+              </div>
+            </div>
+
+          总高 44px = 8(外层 pt-2) + 36(内层 h-9)
+            - 首子元素 y=8(跟 AISidePanel header y=8 严丝合缝对齐)✅
+            - 内容区 36px(用户"标签栏高度不对"反馈已满足)✅
+            - 拖拽 handler 落外层,padding 8px 区也可拖
+
+          跟 v3"双重设定"对比:
+            - v3: <div h-[52px] py-2>  (同一元素 h + py 双重声明贡献总高 52px)
+            - v4: <div pt-2> + <div h-9>  (两个元素各单一职责,加和 44px)
+            每层单一职责,不再"双重设定"耦合,且总高从 52px → 44px。 */}
       <div
-        className="flex h-9 shrink-0 select-none cursor-default items-center gap-1 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8"
+        className="pt-2 shrink-0 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
       >
+        <div className="flex h-9 items-center gap-1 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8">
         {/* 标签栏(全站常驻,TagsView 内部根据 pathname 派生标签)
             flex-1 占满中间区域,与右侧 Plus 按钮 + 窗口控制同一排 */}
         <React.Suspense fallback={null}>
@@ -489,6 +491,7 @@ export function GlobalTopBar() {
             />
           </div>
         )}
+        </div>
       </div>
     </>
   )
