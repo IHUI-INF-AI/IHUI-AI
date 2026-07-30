@@ -95,7 +95,9 @@
     "list": {
       "searchPlaceholder": "강의 검색",
       "search": "검색",
-      "empty": "강의 없음"
+      "empty": "강의 없음",
+      "title": "추천 강의",
+      "subtitle": "{{n}}개 강의"
     },
     "ratingTitle": "코스 평가",
     "ratingLabels": ["", "매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음"],
@@ -272,7 +274,8 @@
     "commission": {
       "today": "오늘의 수수료",
       "available": "출금 가능 수수료",
-      "records": "수수료 기록"
+      "records": "수수료 기록",
+      "title": "수수료 상세"
     }
   },
   "community": {
@@ -971,6 +974,40 @@
       "menuTeam": "팀 관리",
       "menuCommission": "수수료",
       "menuWithdraw": "출금 신청"
+    },
+    "index": {
+      "title": "내 회사",
+      "menuTeam": "내 팀",
+      "menuOrders": "배포 주문",
+      "menuPlan": "수수료 플랜",
+      "menuWithdraw": "출금 신청",
+      "menuRank": "프로모션 랭킹",
+      "menuQrCode": "내 QR 코드",
+      "tabDay": "일",
+      "tabMonth": "월",
+      "tabSum": "합계",
+      "columnEarnings": "수익",
+      "columnOrders": "주문",
+      "columnInvites": "초대",
+      "defaultName": "운영자",
+      "operator": "운영자",
+      "earnings": "수익",
+      "orders": "주문 수",
+      "invites": "초대 인원",
+      "columnTitle": "배포 데이터",
+      "qrTitle": "내 공유 QR 코드",
+      "share": "친구에게 공유",
+      "saveAlbum": "앨범에 저장",
+      "verifyTitle": "신원 확인",
+      "idPlaceholder": "신분증 번호 입력",
+      "namePlaceholder": "이름 입력",
+      "confirm": "확인",
+      "qrLoadFail": "QR 코드 로딩 실패",
+      "qrLoading": "QR 코드 생성 중",
+      "fillInfo": "정보를 완전히 입력하세요",
+      "verifying": "확인 중",
+      "verifyOk": "확인 성공",
+      "verifyFail": "확인 실패"
     },
     "rankTitle": "배포 랭킹",
     "rankEmpty": "랭킹 데이터 없음",
@@ -2293,5 +2330,15 @@
   },
   "notification": {
     "settings": "알림 설정"
+  },
+  "toolbar": {
+    "traffic-service": "트래픽 운영 코칭",
+    "device-service": "원스톱 기기 솔루션",
+    "ai-other-service": "AI 기타 기술 서비스",
+    "ai": "AI 채팅",
+    "course": "강의",
+    "plaza": "플라자",
+    "rank": "랭킹",
+    "vip": "회원"
   }
 }
