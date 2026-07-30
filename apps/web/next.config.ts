@@ -132,6 +132,19 @@ const nextConfig: NextConfig = {
           source: '/api/ai-skills/:path*',
           destination: 'http://localhost:8803/api/ai-skills/:path*',
         },
+        // 2026-07-30 新增:AI 网关 Dashboard 的 /api/llm/* 路由转发到 ai-service 8803
+        // 原因:前端 api-client 调用 /llm/providers/health 等端点,normalizeUrl 会加 /api 前缀
+        // 变成 /api/llm/providers/health。若走默认 /api/:path* → 8802/api/* 会 404(api 服务无此路由,
+        // 因为 llm router 注册在 ai-service 8803 的 /api 前缀下)。
+        // 这里把 /api/llm/* 转发到 ai-service 8803 的 /api/llm/* (保留 /api 前缀,
+        // 因为 ai-service main.py 第 313 行注册 llm.router 时是 prefix="/api")。
+        // 覆盖端点:GET /llm/providers/health + GET/POST/DELETE /llm/combos + POST /llm/compaction/demo
+        // + GET /llm/compaction/metrics + GET /llm/free-providers + POST /llm/anthropic/v1/messages
+        // + POST /llm/gemini/v1beta/models/{model}:generateContent + GET /llm/models + POST /llm/complete 等
+        {
+          source: '/api/llm/:path*',
+          destination: 'http://localhost:8803/api/llm/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
