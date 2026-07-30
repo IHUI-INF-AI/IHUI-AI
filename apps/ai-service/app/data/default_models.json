@@ -1063,8 +1063,9 @@
     {
       "_seed_2026_07_22": "免费 / 试用 credits provider 模型(参考 cheahjs/free-llm-api-resources)",
       "_note_2026_07_31": "Cloudflare Workers AI 已对 GLM-5.2 免费开放(见 https://mp.weixin.qq.com/s/fNuyKcGbFRyL3_poQfsVuA),列为通用公用主力免费模型",
+      "_verify_2026_07_31": "实测 Cloudflare Workers Free plan 调用 @cf/zai-org/glm-5.2 返回 5035 错误 'This model requires a Workers Paid plan',但同一 token 调 @cf/meta/llama-3.3-70b-instruct-fp8-fast 等其他 7 个 @cf/ 模型成功。GLM-5.2 可能需升级 Workers Paid($5/月),或 Cloudflare 政策在文章发布后调整。保留条目供升级后使用,免费层用户请用 Llama 3.3 70B Fast 等 7 个免费模型",
       "id": "@cf/zai-org/glm-5.2",
-      "name": "GLM-5.2 (Cloudflare Workers AI 免费,通用主力)",
+      "name": "GLM-5.2 (Cloudflare Workers AI,需 Workers Paid)",
       "provider": "cloudflare_workers_ai",
       "context_length": 128000,
       "input_price": 0
