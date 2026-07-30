@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * 用户级 LLM 配置中心 — 主页面 v2(2026-07-22 升级)
@@ -21,7 +21,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
-import { KeyRound, Loader2, PackagePlus, Sparkles, Upload, Wand2 } from 'lucide-react'
+import { KeyRound, Loader2, PackagePlus, ShieldCheck, Sparkles, Upload, Wand2 } from 'lucide-react'
 
 import { GroupSidebar } from './GroupSidebar'
 import { ProviderCardV2 } from './ProviderCardV2'
@@ -194,6 +194,16 @@ export default function UserLlmConfigsPage() {
 
       {/* Info Banner */}
       <Alert variant="info" title={t('infoTitle')} description={t('infoDesc')} />
+
+      {/* BYOK 模式提示 */}
+      <div className="flex items-start gap-2 rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
+        <p>
+          <span className="font-medium text-foreground">BYOK 模式</span>
+          :你配置的 API Key 加密存储(AES-256-GCM),调用时直接使用你的 Key 访问大厂。平台只收 5-20%
+          服务费,Cloudflare / GitHub Models / HuggingFace 等免费 provider 不收费。
+        </p>
+      </div>
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[200px_1fr]">

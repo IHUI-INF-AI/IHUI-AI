@@ -16,13 +16,14 @@
  *
  * 读写分离:写用 db,读用 dbRead。
  */
-import { eq, and, sql, desc } from 'drizzle-orm'
+import { eq, and, sql, desc, isNull } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import {
   developerApiKeys,
   llmCallLogs,
   aiPricing,
   aiModelConfigModels,
+  aiModelConfig,
 } from '@ihui/database'
 
 // =============================================================================
@@ -53,6 +54,10 @@ export interface RecordCallInput {
   conversationId?: string | null
   /** 额外 metadata(如 upstream_model / provider_code / key_pool_id) */
   metadata?: Record<string, unknown>
+  /** 计费模式:'relay'=中转站(默认,平台扣全额含上游成本+加价) | 'byok'=BYOK(平台只收抽成,不碰大厂成本) */
+  mode?: 'relay' | 'byok'
+  /** BYOK 模式下的平台抽成率(0.10=10%),未传时由 getByokCommissionRate 兜底读取全局默认 */
+  commissionRate?: number
 }
 
 export interface RecordCallResult {
@@ -61,6 +66,10 @@ export interface RecordCallResult {
   /** 扣减后的新余额(-1 = 无限,0 = 耗尽,>0 = 可用) */
   newTokenBalance: number
   newCostBalanceCents: number
+  /** BYOK 模式:大厂上游原价(分,用户直接付给大厂,平台不碰) */
+  upstreamCostCents?: number
+  /** BYOK 模式:平台服务费(分,= upstreamCostCents × commissionRate,免费 provider 为 0) */
+  platformFeeCents?: number
 }
 
 export interface CalculateCostResult {
@@ -88,10 +97,7 @@ export interface CalculateCostResult {
  * 调用前检查 API Key 余额是否允许调用。
  * estimatedTokens 用于预估是否够用(允许传入 0 = 不预检 token,只检查 Key 状态)。
  */
-export async function checkQuota(
-  apiKeyId: string,
-  estimatedTokens = 0,
-): Promise<CheckQuotaResult> {
+export async function checkQuota(apiKeyId: string, estimatedTokens = 0): Promise<CheckQuotaResult> {
   const [row] = await dbRead
     .select({
       id: developerApiKeys.id,
@@ -137,11 +143,7 @@ export async function checkQuota(
   }
 
   // token 余额检查(仅当 estimatedTokens > 0 时预检)
-  if (
-    row.tokenBalance !== -1 &&
-    estimatedTokens > 0 &&
-    row.tokenBalance < estimatedTokens
-  ) {
+  if (row.tokenBalance !== -1 && estimatedTokens > 0 && row.tokenBalance < estimatedTokens) {
     return {
       allowed: false,
       reason: 'no_balance_token',
@@ -282,6 +284,216 @@ export async function calculateCost(
 }
 
 // =============================================================================
+// 2b. BYOK 平台模式计费(2026-07-30 立)
+// =============================================================================
+// 用户用自己的 API Key 调用大厂模型,大厂直接扣用户账户,平台只收服务费(上游原价 × 抽成率)。
+// 免费 provider(cloudflare/huggingface/pollinations 等)平台不抽成。
+// =============================================================================
+
+/**
+ * 免费 provider 前缀清单(平台对 BYOK 调用不抽成)。
+ * 来源:ai-service 侧 llm_gateway.py 中标注为免费/无需 API Key 的 provider。
+ */
+const FREE_PROVIDER_PREFIXES = [
+  'cloudflare/',
+  '@cf/',
+  'github/',
+  'huggingface/',
+  'pollinations/',
+  'llm7/',
+  'ovh/',
+  'aihorde/',
+  'reka/',
+  'routeway/',
+  'bazaarlink/',
+  'ainative/',
+  'opencode/',
+  'vercel/',
+  'modal/',
+  'inferencenet/',
+  'nlpcloud/',
+  'scaleway/',
+  'alibaba-intl/',
+]
+
+/**
+ * 判断模型是否属于免费 provider(平台对 BYOK 调用不抽成)。
+ * 匹配规则:model 名前缀命中 FREE_PROVIDER_PREFIXES 任一项。
+ */
+export function isFreeProvider(model: string): boolean {
+  const m = model.toLowerCase()
+  return FREE_PROVIDER_PREFIXES.some((p) => m.startsWith(p))
+}
+
+/**
+ * 模型名 → provider_code 映射(与 ai-service 侧 llm_gateway.py 的 _model_to_provider_code 一致)。
+ * 用于 BYOK 模式下查 ai_model_config 中用户私有配置/全局抽成率。
+ * 只覆盖主要厂商,未命中默认 'openai'。
+ */
+function _modelToProviderCode(model: string): string {
+  const m = model.toLowerCase()
+  const prefixMap: Record<string, string> = {
+    'byok/': 'byok',
+    'siliconflow-byok/': 'siliconflow-byok',
+    'stepfun/': 'stepfun',
+    'agnes/': 'agnes',
+    'deepseek-': 'deepseek',
+    'glm-': 'zhipu',
+    qwen: 'alibaba',
+    'moonshot-': 'moonshot',
+    'kimi-': 'moonshot',
+    'doubao-': 'bytedance',
+    'gpt-': 'openai',
+    'o1-': 'openai',
+    'o3-': 'openai',
+    'o4-': 'openai',
+    'claude-': 'anthropic',
+    'gemini-': 'google',
+    'groq/': 'groq',
+    'openrouter/': 'openrouter',
+  }
+  for (const [prefix, code] of Object.entries(prefixMap)) {
+    if (m.startsWith(prefix)) return code
+  }
+  return 'openai'
+}
+
+/** BYOK 成本计算结果 */
+export interface ByokCostResult {
+  /** 大厂上游原价(分,用户直接付给大厂,平台不碰) */
+  upstreamCostCents: number
+  /** 平台服务费(分,= upstreamCostCents × commissionRate,免费 provider 为 0) */
+  platformFeeCents: number
+  /** 抽成率(0.10=10%) */
+  commissionRate: number
+  /** 基础输入单价(分/千 token) */
+  baseInputPricePer1k: number
+  /** 基础输出单价(分/千 token) */
+  baseOutputPricePer1k: number
+  /** 定价来源:'ai_pricing' | 'model_config' | 'default' */
+  source: 'ai_pricing' | 'model_config' | 'default'
+  /** 是否免费 provider */
+  isFree: boolean
+}
+
+/**
+ * 计算 BYOK 调用成本(分)。
+ *
+ * 复用 calculateCost 的定价查询逻辑(aiPricing 优先 → aiModelConfigModels 兜底 → 默认 0),
+ * 但**不乘中转站倍率**(BYOK 模式用户用自己的 key,平台不参与上游定价)。
+ *
+ * - upstreamCostCents = Math.round(baseInput × promptTokens/1000 + baseOutput × completionTokens/1000)
+ * - isFree = isFreeProvider(model)
+ * - platformFeeCents = isFree ? 0 : Math.round(upstreamCostCents × commissionRate)
+ */
+export async function calculateByokCost(
+  model: string,
+  promptTokens: number,
+  completionTokens: number,
+  commissionRate: number,
+): Promise<ByokCostResult> {
+  const dbModelId = stripLiteLLMPrefix(model)
+
+  const [modelRow] = await dbRead
+    .select({
+      inputPricePer1k: aiModelConfigModels.inputPricePer1k,
+      outputPricePer1k: aiModelConfigModels.outputPricePer1k,
+    })
+    .from(aiModelConfigModels)
+    .where(eq(aiModelConfigModels.modelId, dbModelId))
+    .limit(1)
+
+  const [pricingRow] = await dbRead
+    .select({
+      inputTokenPrice: aiPricing.inputTokenPrice,
+      outputTokenPrice: aiPricing.outputTokenPrice,
+    })
+    .from(aiPricing)
+    .where(
+      and(
+        eq(aiPricing.modelId, dbModelId),
+        sql`${aiPricing.effectiveAt} <= now()`,
+        sql`(${aiPricing.expiresAt} IS NULL OR ${aiPricing.expiresAt} > now())`,
+      ),
+    )
+    .orderBy(desc(aiPricing.effectiveAt))
+    .limit(1)
+
+  let baseInputPricePer1k = 0
+  let baseOutputPricePer1k = 0
+  let source: ByokCostResult['source'] = 'default'
+
+  if (pricingRow) {
+    baseInputPricePer1k = pricingRow.inputTokenPrice
+    baseOutputPricePer1k = pricingRow.outputTokenPrice
+    source = 'ai_pricing'
+  } else if (modelRow) {
+    baseInputPricePer1k = modelRow.inputPricePer1k ?? 0
+    baseOutputPricePer1k = modelRow.outputPricePer1k ?? 0
+    source = 'model_config'
+  }
+
+  const upstreamCostCents = Math.round(
+    (baseInputPricePer1k * promptTokens) / 1000 + (baseOutputPricePer1k * completionTokens) / 1000,
+  )
+  const isFree = isFreeProvider(model)
+  const platformFeeCents = isFree ? 0 : Math.round(upstreamCostCents * commissionRate)
+
+  return {
+    upstreamCostCents,
+    platformFeeCents,
+    commissionRate,
+    baseInputPricePer1k,
+    baseOutputPricePer1k,
+    source,
+    isFree,
+  }
+}
+
+/**
+ * 判断指定用户对模型是否走 BYOK 模式。
+ * 查 ai_model_config WHERE owner_uuid = userId AND provider_code = _modelToProviderCode(model) AND enabled = true,
+ * 返回是否有用户私有配置(有 = BYOK 模式,无 = 中转站模式)。
+ */
+export async function isByokCall(userId: string, model: string): Promise<boolean> {
+  const providerCode = _modelToProviderCode(model)
+  const [row] = await dbRead
+    .select({ id: aiModelConfig.id })
+    .from(aiModelConfig)
+    .where(
+      and(
+        eq(aiModelConfig.ownerUuid, userId),
+        eq(aiModelConfig.providerCode, providerCode),
+        eq(aiModelConfig.enabled, true),
+      ),
+    )
+    .limit(1)
+  return !!row
+}
+
+/**
+ * 查询指定 provider 的 BYOK 平台默认抽成率(从 ai_model_config 全局配置行)。
+ * WHERE provider_code = ? AND owner_uuid IS NULL AND enabled = true
+ * 默认 0.10(10%)。
+ */
+export async function getByokCommissionRate(providerCode: string): Promise<number> {
+  const [row] = await dbRead
+    .select({ rate: aiModelConfig.byokCommissionRate })
+    .from(aiModelConfig)
+    .where(
+      and(
+        eq(aiModelConfig.providerCode, providerCode),
+        isNull(aiModelConfig.ownerUuid),
+        eq(aiModelConfig.enabled, true),
+      ),
+    )
+    .limit(1)
+  if (!row?.rate) return 0.1
+  const n = Number(row.rate)
+  return Number.isFinite(n) && n >= 0 ? n : 0.1
+}
+
+// =============================================================================
 // 3. recordCall — 调用后写入 llm_call_logs + 扣减 API Key 余额
 // =============================================================================
 
@@ -292,16 +504,62 @@ export async function calculateCost(
  * 失败容错:写流水失败不抛错(只 log),扣减失败也不抛错(避免影响已返回给用户的响应)。
  */
 export async function recordCall(input: RecordCallInput): Promise<RecordCallResult> {
-  // 1. 计算成本
-  const cost = await calculateCost(input.model, input.promptTokens, input.completionTokens)
+  // 1. 计算成本(区分 mode:'relay' 中转站 / 'byok' BYOK 平台模式)
+  const mode = input.mode ?? 'relay'
+
+  // 中转站模式:全额成本(上游 × 中转站倍率),平台扣全额
+  // BYOK 模式:平台只收 platformFeeCents(上游原价 × 抽成率),不碰大厂成本 upstreamCostCents
+  let costCentsToDeduct: number
+  let multiplier = 1
+  let pricingSource: 'ai_pricing' | 'model_config' | 'default' = 'default'
+  let upstreamCostCents: number | undefined
+  let platformFeeCents: number | undefined
+  let commissionRate: number | undefined
+
+  if (mode === 'byok') {
+    // BYOK:抽成率优先用入参,否则查全局默认
+    const providerCode = _modelToProviderCode(input.model)
+    const rate = input.commissionRate ?? (await getByokCommissionRate(providerCode))
+    const byokCost = await calculateByokCost(
+      input.model,
+      input.promptTokens,
+      input.completionTokens,
+      rate,
+    )
+    costCentsToDeduct = byokCost.platformFeeCents
+    pricingSource = byokCost.source
+    upstreamCostCents = byokCost.upstreamCostCents
+    platformFeeCents = byokCost.platformFeeCents
+    commissionRate = rate
+  } else {
+    // 中转站(默认)
+    const cost = await calculateCost(input.model, input.promptTokens, input.completionTokens)
+    costCentsToDeduct = cost.totalCostCents
+    multiplier = cost.multiplier
+    pricingSource = cost.source
+  }
 
   // 2. 写 llm_call_logs(prompt 截断 5000 字符防止超大字段)
-  const truncatedPrompt = input.prompt.length > 5000
-    ? input.prompt.slice(0, 5000) + '...[truncated]'
-    : input.prompt
-  const truncatedResponse = input.response && input.response.length > 5000
-    ? input.response.slice(0, 5000) + '...[truncated]'
-    : (input.response ?? '')
+  const truncatedPrompt =
+    input.prompt.length > 5000 ? input.prompt.slice(0, 5000) + '...[truncated]' : input.prompt
+  const truncatedResponse =
+    input.response && input.response.length > 5000
+      ? input.response.slice(0, 5000) + '...[truncated]'
+      : (input.response ?? '')
+
+  const metadata: Record<string, unknown> = {
+    apiKeyId: input.apiKeyId,
+    costCents: costCentsToDeduct,
+    multiplier,
+    pricingSource,
+    ...(input.metadata ?? {}),
+  }
+  if (mode === 'byok') {
+    metadata.byokMode = true
+    metadata.upstreamCostCents = upstreamCostCents
+    metadata.platformFeeCents = platformFeeCents
+    metadata.commissionRate = commissionRate
+  }
 
   const [logRow] = await db
     .insert(llmCallLogs)
@@ -317,18 +575,13 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
       status: input.status,
       errorMessage: input.errorMessage ?? null,
       conversationId: input.conversationId ?? null,
-      metadata: {
-        apiKeyId: input.apiKeyId,
-        costCents: cost.totalCostCents,
-        multiplier: cost.multiplier,
-        pricingSource: cost.source,
-        ...(input.metadata ?? {}),
-      },
+      metadata,
     })
     .returning({ id: llmCallLogs.id })
 
   // 3. 扣减 API Key 余额 + 累计已用统计(原子操作)
   // tokenBalance/costBalanceCents = -1 时不扣减(无限额度),只累加 tokenUsedTotal/costUsedTotalCents
+  // BYOK 模式:costBalanceCents 只扣 platformFeeCents(不扣大厂成本 upstreamCostCents)
   const [apiKeyRow] = await dbRead
     .select({
       tokenBalance: developerApiKeys.tokenBalance,
@@ -357,13 +610,13 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
       // 无限额度,不扣减成本余额
       newCostBalanceCents = -1
     } else {
-      newCostBalanceCents = Math.max(0, apiKeyRow.costBalanceCents - cost.totalCostCents)
+      newCostBalanceCents = Math.max(0, apiKeyRow.costBalanceCents - costCentsToDeduct)
       setClause.costBalanceCents = newCostBalanceCents
     }
 
     // 累计已用统计(总是累加,即使余额无限)
     setClause.tokenUsedTotal = sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`
-    setClause.costUsedTotalCents = sql`${developerApiKeys.costUsedTotalCents} + ${cost.totalCostCents}`
+    setClause.costUsedTotalCents = sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`
 
     await db
       .update(developerApiKeys)
@@ -376,9 +629,10 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
 
   return {
     logId: logRow?.id ?? '',
-    costCents: cost.totalCostCents,
+    costCents: costCentsToDeduct,
     newTokenBalance,
     newCostBalanceCents,
+    ...(mode === 'byok' ? { upstreamCostCents, platformFeeCents } : {}),
   }
 }
 
