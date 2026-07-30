@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
-import { View, Text, Image, Input } from '@tarojs/components'
+import { View, Text, Image, Input, Button } from '@tarojs/components'
 import { useTt } from '@/i18n'
 
 /**
@@ -74,23 +74,9 @@ export default function LoginPopUp({
   // 升级按钮:仅 普通用户(isVip===0 && identityTypy===0) 显示(对齐原项目 line 41)
   const showUpgrade = isNormal
 
-  // 头像选择:小程序专用。
-  // 原项目 chooseAvatar 调用 uploadPictures(uni.chooseImage 上传);
-  // 本端 Taro 4.2 类型中无 Taro.chooseAvatar(WeChat 用 <Button open-type="chooseAvatar"> 触发,
-  // 非编程式 API),沿用 profile.tsx 既有 Taro.chooseImage 模式,功能等价:选图 → 回调 URL。
-  const handleChooseAvatar = () => {
-    Taro.chooseImage({
-      count: 1,
-      sizeType: ['compressed'],
-      success: (res) => {
-        const url = res.tempFilePaths[0] ?? ''
-        if (url) {
-          setAvatar(url)
-          onChooseAvatar?.(url)
-        }
-      },
-    })
-  }
+  // 头像选择:微信小程序用 <Button open-type="chooseAvatar"> + onChooseAvatar 事件
+  // (对齐原项目 loginPopUp/index.vue 的 chooseAvatar 实现)。
+  // H5 端 openType 不生效,用 Taro.chooseImage 兜底(见 Button onClick)。
 
   const handleNicknameInput = (e: { detail: { value?: string } }) => {
     const val = e.detail.value ?? ''
@@ -112,12 +98,39 @@ export default function LoginPopUp({
       >
         {/* 头像区:圆形头像(rounded-full 豁免,AGENTS.md §4 头像豁免) */}
         <View className="flex flex-col items-center mb-4">
-          <Image
-            src={avatar || defaultAvatar}
-            mode="aspectFill"
-            className="w-[140rpx] h-[140rpx] rounded-full bg-muted border border-primary/20"
-            onClick={handleChooseAvatar}
-          />
+          <Button
+            openType="chooseAvatar"
+            onChooseAvatar={(e: { detail: { avatarUrl?: string } }) => {
+              const url = e.detail.avatarUrl ?? ''
+              if (url) {
+                setAvatar(url)
+                onChooseAvatar?.(url)
+              }
+            }}
+            onClick={() => {
+              // H5 端 openType 不生效,用 Taro.chooseImage 兜底
+              if (process.env.TARO_ENV === 'h5') {
+                Taro.chooseImage({
+                  count: 1,
+                  sizeType: ['compressed'],
+                  success: (res) => {
+                    const url = res.tempFilePaths[0] ?? ''
+                    if (url) {
+                      setAvatar(url)
+                      onChooseAvatar?.(url)
+                    }
+                  },
+                })
+              }
+            }}
+            className="!p-0 !bg-transparent !border-none w-[140rpx] h-[140rpx] rounded-full overflow-hidden"
+          >
+            <Image
+              src={avatar || defaultAvatar}
+              mode="aspectFill"
+              className="w-[140rpx] h-[140rpx] rounded-full bg-muted border border-primary/20"
+            />
+          </Button>
           <Text className="text-xs text-muted-foreground mt-2">
             {tt('user.profile.clickToChange', '点击更换头像')}
           </Text>
