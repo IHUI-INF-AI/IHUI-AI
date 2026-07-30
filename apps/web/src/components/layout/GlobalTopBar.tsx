@@ -2,6 +2,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions -- 桌面端窗口控制(拖拽/resize/双击最大化)是鼠标专用交互,不适用于键盘/屏幕阅读器 */
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
@@ -115,6 +116,10 @@ export function GlobalTopBar() {
 
   const [plusOpen, setPlusOpen] = React.useState(false)
   const [plusQuery, setPlusQuery] = React.useState('')
+  // 2026-07-30 用户反馈:"点击后的下拉窗被ai对话框容器裁掉了一半 层级不对啊"
+  // 根因:work-area-portal-root 父容器 overflow-hidden 裁剪 Plus 弹窗(absolute top-full)
+  // 修复:弹窗用 createPortal 渲染到 document.body + fixed 定位,不受祖先 overflow 限制
+  const [plusRect, setPlusRect] = React.useState<{ top: number; right: number } | null>(null)
   const plusRef = React.useRef<HTMLDivElement>(null)
   const plusInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -373,7 +378,16 @@ export function GlobalTopBar() {
           <Tooltip content={plusLabel} side="bottom">
             <button
               type="button"
-              onClick={() => setPlusOpen((o) => !o)}
+              onClick={() => {
+                setPlusOpen((o) => {
+                  if (!o && plusRef.current) {
+                    // 打开时计算 Plus 按钮位置(fixed 定位用)
+                    const r = plusRef.current.getBoundingClientRect()
+                    setPlusRect({ top: r.bottom + 4, right: window.innerWidth - r.right })
+                  }
+                  return !o
+                })
+              }}
               aria-label={plusLabel}
               aria-haspopup="menu"
               aria-expanded={plusOpen}
@@ -392,12 +406,13 @@ export function GlobalTopBar() {
             </button>
           </Tooltip>
 
-          {plusOpen && (
+          {plusOpen && plusRect && createPortal(
             <div
               role="menu"
               aria-label={plusLabel}
               data-testid="global-topbar-plus-menu"
-              className="absolute right-0 top-full z-popover mt-1 w-64 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+              style={{ position: 'fixed', top: plusRect.top, right: plusRect.right, zIndex: 50 }}
+              className="w-64 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
             >
               {/* 搜索框 */}
               <div className="px-1 pb-1 pt-0.5">
@@ -450,7 +465,8 @@ export function GlobalTopBar() {
                   </div>
                 ))
               )}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
 
