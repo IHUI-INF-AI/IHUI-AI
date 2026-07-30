@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useI18n } from '@/i18n'
 import './IntelligentAssistant.css'
 
@@ -24,7 +24,7 @@ export default function IntelligentAssistant({
   const { t } = useI18n()
   return (
     <View className="ia-card">
-      <Text className="ia-robot ia-float">🤖</Text>
+      <Image className="ia-robot ia-float" src="/static/images/icons/bot.svg" mode="aspectFit" />
       <View className="ia-content">
         <Text className="ia-greeting">{t('ai.intelligentAssistant.greeting')}</Text>
         <Text className="ia-subtitle">{t('ai.intelligentAssistant.subtitle')}</Text>
