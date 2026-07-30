@@ -45,6 +45,8 @@ import {
 import { error } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
 import { checkQuota, recordCall, isByokCall } from '../services/relay-billing-service.js'
+// P0 中转站造血能力批次(2026-07-31 立):模型映射解析(Key 级 > 用户级 > 全局)
+import { resolveModelMapping } from '../services/model-mapping-service.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -401,6 +403,54 @@ function extractStreamText(line: string): string | null {
   return null
 }
 
+/**
+ * 从 usage 对象解析 prompt cache 字段(OpenAI/Anthropic 风格兼容)。
+ * - OpenAI:usage.prompt_tokens_details.cached_tokens → cacheReadTokens
+ * - Anthropic:usage.cache_read_input_tokens → cacheReadTokens / cache_creation_input_tokens → cacheCreationTokens
+ * 兼容两者混用(取较大值)。
+ */
+function parseCacheTokens(
+  usage: unknown,
+): { cacheReadTokens: number; cacheCreationTokens: number } {
+  if (!usage || typeof usage !== 'object') return { cacheReadTokens: 0, cacheCreationTokens: 0 }
+  const u = usage as Record<string, unknown>
+  const details = u.prompt_tokens_details as Record<string, unknown> | undefined
+  const openaiCached =
+    typeof details?.cached_tokens === 'number' ? Math.max(0, Math.floor(details.cached_tokens)) : 0
+  const anthropicRead =
+    typeof u.cache_read_input_tokens === 'number'
+      ? Math.max(0, Math.floor(u.cache_read_input_tokens))
+      : 0
+  const anthropicCreation =
+    typeof u.cache_creation_input_tokens === 'number'
+      ? Math.max(0, Math.floor(u.cache_creation_input_tokens))
+      : 0
+  return {
+    cacheReadTokens: Math.max(openaiCached, anthropicRead),
+    cacheCreationTokens: anthropicCreation,
+  }
+}
+
+/**
+ * 从 ai-service 流式响应行中提取 usage 对象(用于流式聚合 prompt cache 字段)。
+ * 仅解析 `data: {...}` SSE 格式中含 usage 字段的 chunk(通常为最后一个 chunk)。
+ */
+function extractStreamUsage(line: string): Record<string, unknown> | null {
+  const trimmed = line.trim()
+  if (!trimmed || !trimmed.startsWith('data:')) return null
+  const data = trimmed.slice(5).trim()
+  if (!data || data === '[DONE]') return null
+  try {
+    const json = JSON.parse(data)
+    if (json && typeof json === 'object' && 'usage' in json) {
+      return json.usage as Record<string, unknown>
+    }
+  } catch {
+    /* not JSON */
+  }
+  return null
+}
+
 // =============================================================================
 // 流式 Chat 补全辅助函数
 // =============================================================================
@@ -420,6 +470,8 @@ async function streamChatCompletion(
     startTime?: number
     /** 计费模式:'relay'=中转站(默认) | 'byok'=BYOK(平台只收抽成) */
     mode?: 'relay' | 'byok'
+    /** P0 模型映射元信息(审计用,记录原始模型 + 映射后模型 + 作用域) */
+    modelMappingMeta?: Record<string, unknown>
   },
 ): Promise<void> {
   reply.hijack()
@@ -437,6 +489,9 @@ async function streamChatCompletion(
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
   let streamError: string | null = null
+  /** 流式聚合 prompt cache 字段(从 SSE 末尾 usage chunk 解析,OpenAI/Anthropic 风格) */
+  let streamCacheReadTokens = 0
+  let streamCacheCreationTokens = 0
 
   const writeChunk = (delta: Record<string, unknown>, finishReason: string | null) => {
     raw.write(
@@ -499,6 +554,13 @@ async function streamChatCompletion(
           responseText += text
           writeChunk({ content: text }, null)
         }
+        // P0-5b prompt cache:从 SSE usage chunk 解析 cache 字段(末尾 chunk 通常含 usage)
+        const usageObj = extractStreamUsage(line)
+        if (usageObj) {
+          const cache = parseCacheTokens(usageObj)
+          streamCacheReadTokens = cache.cacheReadTokens
+          streamCacheCreationTokens = cache.cacheCreationTokens
+        }
       }
     }
     if (buffer.trim()) {
@@ -506,6 +568,12 @@ async function streamChatCompletion(
       if (text) {
         responseText += text
         writeChunk({ content: text }, null)
+      }
+      const usageObj = extractStreamUsage(buffer)
+      if (usageObj) {
+        const cache = parseCacheTokens(usageObj)
+        streamCacheReadTokens = cache.cacheReadTokens
+        streamCacheCreationTokens = cache.cacheCreationTokens
       }
     }
 
@@ -535,10 +603,12 @@ async function streamChatCompletion(
         promptTokens,
         completionTokens,
         totalTokens,
+        cacheReadTokens: streamCacheReadTokens,
+        cacheCreationTokens: streamCacheCreationTokens,
         latencyMs: Date.now() - (opts.startTime ?? Date.now()),
         status: streamError ? 'error' : 'success',
         errorMessage: streamError,
-        metadata: { stream: true },
+        metadata: { stream: true, ...(opts.modelMappingMeta ?? {}) },
         mode: opts.mode ?? 'relay',
       }).catch(() => {})
     }
@@ -863,9 +933,35 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      // P0 模型映射(2026-07-31 立):Key 级 > 用户级 > 全局,admin 可配全局映射,
+      // 用户可配 Key 级映射,实现"gpt-4o→deepseek-chat 偷偷换后端降本 90%"等场景。
+      // 解析失败默认走原 model,不影响主链路。metadata 记录原始 model 供 recordCall 审计。
+      let resolvedModel = model
+      let modelMappingMeta: Record<string, unknown> | undefined
+      if (apiKey?.userId) {
+        try {
+          const mappingResult = await resolveModelMapping(model, apiKey.userId, apiKey.id)
+          if (mappingResult.mapped && mappingResult.resolvedModel) {
+            resolvedModel = mappingResult.resolvedModel
+            modelMappingMeta = {
+              originalModel: model,
+              mappedModel: resolvedModel,
+              mappingId: mappingResult.mapping?.id,
+              mappingScope: mappingResult.mapping?.apiKeyId
+                ? 'key'
+                : mappingResult.mapping?.userId
+                  ? 'user'
+                  : 'global',
+            }
+          }
+        } catch {
+          // 映射解析失败默认走原 model,不影响主链路
+        }
+      }
+
       if (stream) {
         return streamChatCompletion(request, reply, {
-          model,
+          model: resolvedModel,
           messages,
           temperature,
           maxTokens,
@@ -874,12 +970,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           promptText,
           startTime,
           mode,
+          modelMappingMeta,
         })
       }
 
       // 非流式:转发到 ai-service /api/llm/complete
       try {
-        const body: Record<string, unknown> = { messages, model }
+        const body: Record<string, unknown> = { messages, model: resolvedModel }
         if (temperature !== undefined) body.temperature = temperature
         if (maxTokens !== undefined) body.max_tokens = maxTokens
         // P0-5 BYOK(2026-07-30):非流式也透传 metadata.userId + byokMode,
@@ -899,8 +996,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             void recordCall({
               apiKeyId: apiKey.id,
               userId: apiKey.userId,
-              model,
+              model: resolvedModel,
               prompt: promptText,
+              metadata: modelMappingMeta,
               response: null,
               promptTokens: 0,
               completionTokens: 0,
@@ -927,8 +1025,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             void recordCall({
               apiKeyId: apiKey.id,
               userId: apiKey.userId,
-              model,
+              model: resolvedModel,
               prompt: promptText,
+              metadata: modelMappingMeta,
               response: null,
               promptTokens: 0,
               completionTokens: 0,
@@ -945,6 +1044,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const promptTokens = data.usage?.prompt_tokens ?? 0
         const completionTokens = data.usage?.completion_tokens ?? 0
         const totalTokens = data.usage?.total_tokens ?? 0
+        // P0-5b prompt cache:从 usage 解析 cache_read/cache_creation tokens(OpenAI/Anthropic 风格)
+        const cacheTokens = parseCacheTokens(data.usage)
         // P0-5 防御:ai-service 偶发把 usage 序列化为 '***' 字符串(LLMMetrics 中间件脱敏),
         // 此时按字符数估算(1 token ≈ 4 字符,中英文混合),避免 recordCall 写库失败。
         const safeInt = (v: unknown, fallbackChars: number): number => {
@@ -990,6 +1091,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             promptTokens: safePrompt,
             completionTokens: safeCompletion,
             totalTokens: safeTotal,
+            cacheReadTokens: cacheTokens.cacheReadTokens,
+            cacheCreationTokens: cacheTokens.cacheCreationTokens,
             latencyMs: Date.now() - startTime,
             status: 'success',
             mode,
