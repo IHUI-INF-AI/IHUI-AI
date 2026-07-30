@@ -33,7 +33,7 @@ import {
   startResize,
   onMaximizeChange,
 } from '@/lib/tauri-bridge'
-import { TOPBAR_BTN_BASE, TOPBAR_BTN_W7 } from '@/lib/nav-styles'
+import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { TagsView } from './TagsView'
 import { Tooltip } from '@/components/feedback'
 
@@ -347,12 +347,16 @@ export function GlobalTopBar() {
             - v4: <div pt-2> + <div h-9>  (两个元素各单一职责,加和 44px)
             每层单一职责,不再"双重设定"耦合,且总高从 52px → 44px。 */}
       <div
-        className="pt-2 shrink-0 select-none cursor-default"
+        className="bg-shell-panel pt-2 shrink-0 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
       >
-        <div className="flex h-9 items-center gap-1 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8">
+        {/* 第九轮"做减法 v5"(2026-07-30 用户反馈"搜索按钮容器不是正方形,没贴最左侧边 div"):
+            - 删 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8 全部响应式 padding
+            - 之前 pl-8 (lg)=32px 把搜索按钮挤到 x=32,现在 x=0 真贴最左侧
+            - TagsView 内搜索按钮加 w-9 (36px),配合父 h-full 形成 36x36 正方形 */}
+        <div className="flex h-9 items-center gap-1">
         {/* 标签栏(全站常驻,TagsView 内部根据 pathname 派生标签)
             flex-1 占满中间区域,与右侧 Plus 按钮 + 窗口控制同一排 */}
         <React.Suspense fallback={null}>
@@ -362,10 +366,10 @@ export function GlobalTopBar() {
         </React.Suspense>
 
         {/* Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
-            - 视觉风格与窗口控制按钮一致(h-full w-7 rounded-md hover bg-accent,2026-07-30
+            - 视觉风格与窗口控制按钮一致(h-full w-9 rounded-md hover bg-muted/50,2026-07-30
               深度修复:之前 h-7 w-7 (28px) 跟顶栏 h-9 (36px) 矮 8px,导致"标签栏高度不对"
-              的视觉效果 — Plus 按钮底部露出 4px 空隙,标签栏高度看起来参差不齐。改 h-full
-              后跟顶栏 36px 严格一致,消除"双重高度设定/冲突设定"问题(用户原话))
+              的视觉效果 — Plus 按钮底部露出 4px 空隙,标签栏高度看起来参差不齐。改 h-full w-9
+              后跟顶栏 36px 严格一致 36x36 正方形,消除"双重高度设定/冲突设定"问题(用户原话))
             - hover 显示加号图标 + 向下箭头
             - 点击展开 9 项菜单(分 3 组:视图/工具/设置)
             - 弹窗内含搜索框(过滤菜单项)+ 快捷键提示
@@ -378,16 +382,14 @@ export function GlobalTopBar() {
               aria-label={plusLabel}
               aria-haspopup="menu"
               aria-expanded={plusOpen}
-              // 2026-07-30 第七轮"做减法 v3 根治":
-              // - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W7(28px 方块)
-              // - 删手写 inline-flex h-full w-7 ... transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent
-              //   (跟 WindowControlButton / Dropdown trigger 4 处雷同声明合并)
-              // - 删冗余的 cursor-pointer(button 默认就是 cursor: pointer)
-              // - active 态:plusOpen 时 bg-accent + text-foreground(跟 hover 同色但属于状态指示)
+              // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
+              // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
+              // - hover:bg-accent → hover:bg-muted/50 跟搜索按钮同步(2026-07-30 用户规则:"样式一样 同步")
+              // - active 态:plusOpen 时 bg-accent text-foreground(属于状态指示,保留)
               className={cn(
                 TOPBAR_BTN_BASE,
-                TOPBAR_BTN_W7,
-                plusOpen ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent',
+                TOPBAR_BTN_W9,
+                plusOpen ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-muted/50',
               )}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -499,11 +501,8 @@ export function GlobalTopBar() {
 
 // ================== 子组件 ==================
 
-/** 窗口控制按钮(Min/Max/Close) — 2026-07-30 第七轮"做减法 v3 根治"
- *  - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W7(28px 方块)
- *  - 删手写 inline-flex h-full w-7 ... transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent
- *    (跟 Plus 按钮 / Dropdown trigger 3 处雷同声明合并)
- *  - 删冗余的 cursor-pointer
+/** 窗口控制按钮(Min/Max/Close) — 2026-07-30 第十轮"做减法 v6"
+ *  - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W9(36px 方块,跟搜索/Plus/chevron-down 4 类按钮全部正方形)
  *  - variant === 'close' 保留红色 hover 样式(差异项,关闭按钮需特别视觉警示) */
 function WindowControlButton({
   onClick,
@@ -523,10 +522,12 @@ function WindowControlButton({
       aria-label={ariaLabel}
       className={cn(
         TOPBAR_BTN_BASE,
-        TOPBAR_BTN_W7,
+        TOPBAR_BTN_W9,
+        // 2026-07-30 第十轮:跟搜索/Plus/chevron-down 同步 hover:bg-muted/50
+        // close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示)
         variant === 'close'
           ? 'text-foreground/80 hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400'
-          : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+          : 'text-foreground/80 hover:bg-muted/50',
       )}
     >
       {icon}

@@ -11,7 +11,7 @@ import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
 import { resolvePathLabelSpec } from '@/lib/path-labels'
-import { TOPBAR_BTN_BASE, TOPBAR_BTN_W7 } from '@/lib/nav-styles'
+import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 
 /**
  * 兜底标题:取 URL 最后一段,处理 [id] 占位符 + kebab-case → Title Case。
@@ -238,17 +238,13 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        // 2026-07-30 第七轮"做减法 v3 根治"最终版(用户反馈"搜索按钮左侧没对齐下面内容展示区左侧"):
-        // - 改用共享 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)
-        // - 删自定义 bg-white / dark:bg-black / hover:bg-gray-100 / dark:hover:bg-gray-900
-        //   (跟主题色不一致的"多重设定"乱象之一,让搜索按钮在不同主题下表现不可预期)
-        // - 删 pl-1.5 pr-1.5:之前在顶栏 pl-0 pr-0 时作为内补偿偏移,现在顶栏已统一 pl-4 pr-4
-        //   (跟 main p-4 对齐),搜索按钮作为顶栏第一个子元素,左侧 x=16 严丝合缝对齐 main 内容左侧
-        //   (用户原话:搜索按钮容器左侧应该对齐下面内容展示区左侧),不能再额外 pl-1.5
-        // - 删 w-7(TOPBAR_BTN_W7):搜索按钮宽度由内容自决定(仅一个 Search 图标 w-4=16px),
-        //   不需要硬编码 28px 方块(Plus / 窗口控制 / Dropdown trigger 才需要)
+        // 2026-07-30 第九轮"做减法 v5 根治"(用户反馈"搜索按钮容器不是正方形,没贴最左侧"):
+        // - 加 w-9(36px):搜索按钮 36x36 正方形(配合父 h-full=36px 形成完美正方形)
+        //   跟 Plus / 窗口控制按钮 w-7(28x36) 视觉上区分:搜索按钮更大更突出,作为主要操作
+        // - 顶栏内层 div 已删 pl-4 pr-4,搜索按钮真贴最左侧 x=0(不再被 pl-8=32 挤到中间)
+        // - 仍用 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)共享样式
         // - hover 跟其他顶栏元素统一用 hover:bg-muted
-        className={cn(TOPBAR_BTN_BASE, 'text-foreground/80 hover:bg-muted/50')}
+        className={cn(TOPBAR_BTN_BASE, 'w-9', 'text-foreground/80 hover:bg-muted/50')}
       >
         <Search className="h-4 w-4" />
       </button>
@@ -500,17 +496,15 @@ export function TagsView() {
             { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
           ]}
           trigger={
-            // 2026-07-30 第七轮"做减法 v3 根治":
-            // - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W7(28px 方块)
-            // - 删自定义 bg-white / dark:bg-black / hover:bg-gray-100 / dark:hover:bg-gray-900
-            //   (跟主题色不一致的"多重设定"乱象之一,跟 Plus 按钮 / 窗口控制按钮风格不统一)
-            // - 跟 Plus 按钮 / 窗口控制按钮 hover 风格统一为 hover:bg-accent
+            // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
+            // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
+            // - hover:bg-accent → hover:bg-muted/50 跟搜索按钮同步
             <button
               type="button"
               className={cn(
                 TOPBAR_BTN_BASE,
-                TOPBAR_BTN_W7,
-                'text-foreground/80 hover:bg-accent hover:text-foreground',
+                TOPBAR_BTN_W9,
+                'text-foreground/80 hover:bg-muted/50',
               )}
               aria-label={tCommon('moreActions')}
             >
