@@ -26,7 +26,7 @@
     {
       "id": "agnes/gpt-4o",
       "name": "GPT-4o (Agnes Plan)",
-      "provider": "openai",
+      "provider": "agnes",
       "context_length": 128000,
       "input_price": 0
     },
