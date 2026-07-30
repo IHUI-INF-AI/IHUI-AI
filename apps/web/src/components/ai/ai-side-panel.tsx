@@ -710,15 +710,16 @@ export function AISidePanel() {
       {workspaceNameSync}
       <div
         // AI 面板容器(最外层,DevTools 可选中)
-        // - docked 模式:relative + shrink-0,flex 流内布局,mr-1.5 固定 6px 间距
+        // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
         // - float 模式:fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
+        //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
         // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
         data-testid="ai-panel-root"
         className={cn(
-          'ai-panel-root py-2',
+          'ai-panel-root',
           floatMode
-            ? 'fixed z-sticky ai-float-glow'
-            : 'relative h-full shrink-0 mr-1.5',
+            ? 'fixed z-sticky ai-float-glow rounded-xl'
+            : 'relative h-full shrink-0 mr-1.5 py-2',
         )}
         style={
           floatMode
