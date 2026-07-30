@@ -629,6 +629,8 @@
     "modelConfigured": "API Key for current model is configured",
     "modelNotConfigured": "API Key for current model is not configured, set it up in one click on the Models page",
     "manageModels": "Customize model configurations",
+    "modelAuto": "Auto",
+    "modelAutoDescription": "Automatically select the optimal model",
     "slashCmd": {
       "plan": "Switch to plan mode (AI only makes plans, does not execute tools)",
       "act": "Switch to act mode (AI normally executes tools, default)",
