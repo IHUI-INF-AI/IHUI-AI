@@ -8,6 +8,8 @@ import { toast } from 'sonner'
 import { Server, Package, KeyRound, Activity, Coins, ArrowRight, Pencil, Percent } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { getAuthCookie } from '@/lib/cookie-utils'
+import { useAuthStore } from '@/stores/auth'
 import {
   Card,
   CardContent,
@@ -80,20 +82,59 @@ export default function AdminRelayOverviewPage() {
     },
   })
   const updateCommission = useMutation({
-    mutationFn: async (vars: { providerCode: string; rate: number }) => {
-      const r = await fetchApi<{ providerCode: string; byokCommissionRate: number }>(
-        `/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`,
+    mutationFn: async (vars: {
+      providerCode: string
+      rate: number
+    }): Promise<{
+      data: { providerCode: string; byokCommissionRate: number }
+      status: number
+    }> => {
+      // fetchApi 的 ApiResult success 分支不携带 HTTP status,本场景需区分
+      // 200(更新已有全局行)/ 201(新建全局配置行),改用原生 fetch 直读 response.status
+      const baseUrl =
+        typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+          ? 'http://127.0.0.1:8802'
+          : (process.env.NEXT_PUBLIC_API_BASE_URL || '')
+      const token = useAuthStore.getState().token ?? getAuthCookie()
+      const res = await fetch(
+        `${baseUrl}/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`,
         {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ byokCommissionRate: vars.rate }),
         },
       )
-      if (!r.success) throw new Error(r.error)
-      return r.data
+      const body = (await res.json().catch(() => null)) as
+        | { data?: { providerCode?: string; byokCommissionRate?: number }; message?: string }
+        | null
+      if (!res.ok) {
+        throw new Error(body?.message || `HTTP ${res.status}`)
+      }
+      const data = body?.data
+      if (
+        !data ||
+        typeof data.providerCode !== 'string' ||
+        typeof data.byokCommissionRate !== 'number'
+      ) {
+        throw new Error('响应数据格式错误')
+      }
+      return {
+        data: {
+          providerCode: data.providerCode,
+          byokCommissionRate: data.byokCommissionRate,
+        },
+        status: res.status,
+      }
     },
-    onSuccess: () => {
-      toast.success('抽成率已更新')
+    onSuccess: (result) => {
+      if (result.status === 201) {
+        toast.success(`已为新 provider 创建默认抽成配置 (${result.data.providerCode})`)
+      } else {
+        toast.success(`抽成率已更新 (${result.data.providerCode})`)
+      }
       setEditTarget(null)
       qc.invalidateQueries({ queryKey: ['admin', 'relay', 'commission'] })
     },
