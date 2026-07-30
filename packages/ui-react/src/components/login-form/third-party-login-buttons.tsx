@@ -72,7 +72,12 @@ export function ThirdPartyLoginButtons({ t, config, className }: ThirdPartyLogin
                 variant="outline"
                 disabled={disabled}
                 onClick={() => onLogin(p.key)}
-                className={cn(p.forceDisabled && 'grayscale opacity-50')}
+                className={cn(
+                  // 暗色模式 hover:纯黑底 + 纯白字,高对比高亮突出
+                  // (覆盖 outline variant 默认的 hover:bg-accent 灰底,不够醒目)
+                  'dark:hover:bg-black dark:hover:text-white',
+                  p.forceDisabled && 'grayscale opacity-50',
+                )}
                 data-testid={`third-party-${p.key}`}
               >
                 {isBusy ? (
