@@ -44,7 +44,7 @@ import {
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
-import { checkQuota, recordCall, isByokCall } from '../services/relay-billing-service.js'
+import { checkQuota, recordCall, isByokCall, modelToProviderCode } from '../services/relay-billing-service.js'
 // P0 中转站造血能力批次(2026-07-31 立):模型映射解析(Key 级 > 用户级 > 全局)
 import { resolveModelMapping } from '../services/model-mapping-service.js'
 
@@ -472,6 +472,9 @@ async function streamChatCompletion(
     mode?: 'relay' | 'byok'
     /** P0 模型映射元信息(审计用,记录原始模型 + 映射后模型 + 作用域) */
     modelMappingMeta?: Record<string, unknown>
+    /** P0 中转站造血能力批次(2026-08-01):审计字段透传 */
+    providerCode?: string
+    clientIp?: string
   },
 ): Promise<void> {
   reply.hijack()
@@ -492,6 +495,9 @@ async function streamChatCompletion(
   /** 流式聚合 prompt cache 字段(从 SSE 末尾 usage chunk 解析,OpenAI/Anthropic 风格) */
   let streamCacheReadTokens = 0
   let streamCacheCreationTokens = 0
+  /** P0 中转站造血能力批次(2026-08-01):TTFT + 上游 HTTP 状态码 */
+  let firstTokenTime: number | null = null
+  let upstreamHttpStatus: number | null = null
 
   const writeChunk = (delta: Record<string, unknown>, finishReason: string | null) => {
     raw.write(
@@ -529,6 +535,8 @@ async function streamChatCompletion(
       signal: controller.signal,
     })
 
+    upstreamHttpStatus = resp.status
+
     if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '')
       streamError = `upstream ${resp.status}: ${errText.slice(0, 200)}`
@@ -551,6 +559,8 @@ async function streamChatCompletion(
         buffer = buffer.slice(nl + 1)
         const text = extractStreamText(line)
         if (text) {
+          // P0 中转站造血能力批次(2026-08-01):记录首 token 时间用于 TTFT
+          if (firstTokenTime === null) firstTokenTime = Date.now()
           responseText += text
           writeChunk({ content: text }, null)
         }
@@ -610,6 +620,10 @@ async function streamChatCompletion(
         errorMessage: streamError,
         metadata: { stream: true, ...(opts.modelMappingMeta ?? {}) },
         mode: opts.mode ?? 'relay',
+        providerCode: opts.providerCode,
+        clientIp: opts.clientIp,
+        httpStatus: upstreamHttpStatus ?? undefined,
+        ttftMs: firstTokenTime !== null ? firstTokenTime - (opts.startTime ?? firstTokenTime) : undefined,
       }).catch(() => {})
     }
   }
@@ -971,6 +985,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           startTime,
           mode,
           modelMappingMeta,
+          providerCode: modelToProviderCode(resolvedModel),
+          clientIp: request.ip,
         })
       }
 
@@ -1007,6 +1023,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               status: 'error',
               errorMessage: `AI service unavailable (${resp.status})`,
               mode,
+              providerCode: modelToProviderCode(resolvedModel),
+              clientIp: request.ip,
+              httpStatus: resp.status,
             }).catch(() => {})
           }
           return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
@@ -1036,6 +1055,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               status: 'error',
               errorMessage: data.error_message ?? 'AI service error',
               mode,
+              providerCode: modelToProviderCode(resolvedModel),
+              clientIp: request.ip,
+              httpStatus: resp.status,
             }).catch(() => {})
           }
           return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
@@ -1096,6 +1118,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             latencyMs: Date.now() - startTime,
             status: 'success',
             mode,
+            providerCode: modelToProviderCode(resolvedModel),
+            clientIp: request.ip,
+            httpStatus: resp.status,
           }).catch((e) => {
             console.error('[v1/chat] recordCall FAIL', e?.message || e)
           })
@@ -1117,6 +1142,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             status: 'error',
             errorMessage: (e as Error).message || 'AI service unavailable',
             mode,
+            providerCode: modelToProviderCode(resolvedModel),
+            clientIp: request.ip,
           }).catch(() => {})
         }
         return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))

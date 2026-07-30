@@ -35,12 +35,33 @@ export const llmCallLogs = pgTable(
     conversationId: varchar('conversation_id', { length: 100 }),
     metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    /** P0 中转站造血能力批次(2026-08-01):8 个审计/统计字段 */
+    /** 调用所用 API Key id(关联 developer_api_keys.id) */
+    apiKeyId: uuid('api_key_id'),
+    /** 上游 provider 代码(如 'openai'/'anthropic'/'stepfun') */
+    providerCode: varchar('provider_code', { length: 32 }),
+    /** 所用模型配置 id(关联 ai_model_config.id) */
+    configId: uuid('config_id'),
+    /** 所用 key 池条目 id(关联 ai_relay_key_pool.id) */
+    keyPoolId: uuid('key_pool_id'),
+    /** 调用方 IP(支持 IPv4/IPv6) */
+    clientIp: varchar('client_ip', { length: 45 }),
+    /** 本次调用总成本(分,= input + output + cacheRead + cacheCreation) */
+    costCents: integer('cost_cents'),
+    /** 上游 HTTP 状态码(如 200/429/500) */
+    httpStatus: integer('http_status'),
+    /** Time To First Token 毫秒数(首 token 耗时,流式才有) */
+    ttftMs: integer('ttft_ms'),
   },
   (t) => ({
     userIdx: index('llm_call_logs_user_idx').on(t.userId),
     modelIdx: index('llm_call_logs_model_idx').on(t.model),
     statusIdx: index('llm_call_logs_status_idx').on(t.status),
     createdAtIdx: index('llm_call_logs_created_at_idx').on(t.createdAt),
+    apiKeyIdx: index('llm_call_logs_api_key_idx').on(t.apiKeyId),
+    providerIdx: index('llm_call_logs_provider_idx').on(t.providerCode),
+    clientIpIdx: index('llm_call_logs_client_ip_idx').on(t.clientIp),
+    httpStatusIdx: index('llm_call_logs_http_status_idx').on(t.httpStatus),
   }),
 )
 
