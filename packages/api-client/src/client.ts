@@ -420,6 +420,9 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
     const text = await response.text().catch(() => '')
     throw new Error(`${response.status}: ${text}`)
   }
+  if (!response.blob) {
+    throw new Error('当前 transport 不支持 blob 下载(小程序环境请用 native downloadFile)')
+  }
   return response.blob()
 }
 
