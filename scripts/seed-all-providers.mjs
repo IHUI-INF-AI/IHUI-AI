@@ -194,6 +194,7 @@ const PROVIDERS = [
       { id: 'qwen-long', name: 'Qwen Long', context: 10000000 },
     ],
   },
+  // freeTier: true — 与 ai-service free_provider_registry 对齐,glm-4-flash 永久免费 / glm-4-air 100M tokens 免费额度
   {
     providerCode: 'zhipu',
     name: '智谱 GLM',
@@ -231,6 +232,7 @@ const PROVIDERS = [
       { id: 'moonshot-v1-128k', name: 'Moonshot v1 128K', context: 128000 },
     ],
   },
+  // freeTier: true — 与 ai-service free_provider_registry 对齐,ERNIE-Speed-8K / ERNIE-Lite-8K 永久免费
   {
     providerCode: 'ernie',
     name: '百度文心一言',
@@ -248,6 +250,7 @@ const PROVIDERS = [
       { id: 'ernie-character-8k', name: 'ERNIE Character', context: 8192 },
     ],
   },
+  // freeTier: true — 与 ai-service free_provider_registry 对齐,Spark Lite 永久免费
   {
     providerCode: 'spark',
     name: '讯飞星火',
@@ -277,6 +280,7 @@ const PROVIDERS = [
       { id: 'doubao-lite-32k', name: 'Doubao Lite 32K', context: 32000 },
     ],
   },
+  // freeTier: true — 与 ai-service free_provider_registry 对齐,Hunyuan Lite 永久免费
   {
     providerCode: 'hunyuan',
     name: '腾讯混元',
@@ -341,6 +345,7 @@ const PROVIDERS = [
   },
 
   // ===== 开源模型托管平台(聚合) =====
+  // freeTier: true — 与 ai-service free_provider_registry 对齐,Qwen2.5-7B 等小模型永久免费
   {
     providerCode: 'siliconflow',
     name: '硅基流动 SiliconFlow (免费额度)',
@@ -363,6 +368,7 @@ const PROVIDERS = [
       { id: '01-ai/Yi-1.5-34B-Chat', name: 'Yi 1.5 34B', context: 16384 },
     ],
   },
+  // freeTier: true — 与 ai-service free_provider_registry 对齐,Llama 系列免费 / 100 RPD 开发者层
   {
     providerCode: 'groq',
     name: 'Groq (免费额度,极速)',
