@@ -332,15 +332,31 @@
     },
 
     {
+      "_note_2026_07_31": "AWS Bedrock 非永久免费:新 AWS 账号(2025-07-15 后)送 $200 credits($100 注册 + $100 引导任务),6 个月有效期,用完即收费,需绑信用卡。Bedrock 本身不在 Always Free tier。credits 用尽后按 token 计费(Claude Sonnet 4.5: $3/$15 per M tokens)。便宜模型:Nova Micro $0.035/$0.14, Nova Lite $0.06/$0.24 per M tokens",
+      "_signup_2026_07_31": "https://aws.amazon.com → Create Account → 信用卡验证 + 手机 2FA → Console → AI & ML → Bedrock → Model Access 申请 Claude/Nova → 生成 IAM Access Key",
+      "id": "bedrock/amazon-nova-micro",
+      "name": "Amazon Nova Micro (Bedrock,最便宜 $0.035/$0.14)",
+      "provider": "bedrock",
+      "context_length": 128000,
+      "input_price": 0.035
+    },
+    {
+      "id": "bedrock/amazon-nova-lite",
+      "name": "Amazon Nova Lite (Bedrock,性价比 $0.06/$0.24)",
+      "provider": "bedrock",
+      "context_length": 300000,
+      "input_price": 0.06
+    },
+    {
       "id": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2",
-      "name": "Bedrock Claude 3.5 Sonnet v2",
+      "name": "Bedrock Claude 3.5 Sonnet v2 ($3/$15 per M)",
       "provider": "bedrock",
       "context_length": 200000,
       "input_price": 3.0
     },
     {
       "id": "bedrock/meta.llama3-1-405b-instruct-v1",
-      "name": "Bedrock Llama 3.1 405B",
+      "name": "Bedrock Llama 3.1 405B ($3/$3 per M)",
       "provider": "bedrock",
       "context_length": 128000,
       "input_price": 3.0
@@ -1135,8 +1151,52 @@
     },
 
     {
+      "_note_2026_07_31": "NVIDIA NIM(build.nvidia.com)真免费:1M tokens/月 + 40 RPM,每月重置,无需信用卡,OpenAI 兼容。注册 NVIDIA Developer Program 拿 nvapi- key。100+ 模型含 DeepSeek R1 671B / Llama 3.3 70B / GLM-5 744B / Kimi K2.5 等顶级开源模型。免费层用 credits 计量,大模型消耗多 credits",
+      "_signup_2026_07_31": "https://build.nvidia.com → Sign In → Create account → 邮箱验证 → 任意模型页 Get API Key → nvapi-xxx(只显示一次,立即保存)",
+      "id": "nvidia/deepseek-ai/deepseek-r1",
+      "name": "DeepSeek R1 671B (NVIDIA NIM 免费,推理最强)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "nvidia/meta/llama-3.3-70b-instruct",
+      "name": "Llama 3.3 70B (NVIDIA NIM 免费,通用主力)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "nvidia/zai-org/glm-5",
+      "name": "GLM-5 744B (NVIDIA NIM 免费,智谱旗舰)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "nvidia/moonshotai/kimi-k2.5",
+      "name": "Kimi K2.5 (NVIDIA NIM 免费,代码强)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "nvidia/mistralai/mistral-large",
+      "name": "Mistral Large (NVIDIA NIM 免费)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "nvidia/openai/gpt-oss-120b",
+      "name": "GPT-OSS 120B (NVIDIA NIM 免费,OpenAI 开源版优化 Blackwell)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
       "id": "nvidia/llama-3.1-nemotron-70b-instruct",
-      "name": "Llama 3.1 Nemotron 70B (NVIDIA NIM 免费)",
+      "name": "Llama 3.1 Nemotron 70B (NVIDIA NIM 免费,Agent 优化)",
       "provider": "nvidia_nim",
       "context_length": 128000,
       "input_price": 0
