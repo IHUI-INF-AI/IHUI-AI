@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -13,6 +14,7 @@ import {
   type CourseDetailItem,
   type CourseDetailLesson,
 } from '@ihui/rn-app'
+import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import type { HomeStackParamList } from '../navigation/RootNavigator'
 
@@ -92,16 +94,22 @@ export function CourseDetailScreen() {
   }))
 
   return (
-    <SharedCourseDetailScreen
-      t={t}
-      item={detailItem}
-      lessons={detailLessons}
-      loading={loading}
-      error={error}
-      enrolling={enrolling}
-      onEnroll={onEnroll}
-      onPlayLesson={onPlay}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={{ flex: 1 }}>
+      <NavBar
+        title={course?.title ?? '课程详情'}
+        onBack={() => navigation.goBack()}
+      />
+      <SharedCourseDetailScreen
+        t={t}
+        item={detailItem}
+        lessons={detailLessons}
+        loading={loading}
+        error={error}
+        enrolling={enrolling}
+        onEnroll={onEnroll}
+        onPlayLesson={onPlay}
+        onBack={() => navigation.goBack()}
+      />
+    </View>
   )
 }
