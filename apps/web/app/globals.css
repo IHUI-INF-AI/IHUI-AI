@@ -772,3 +772,22 @@ button:focus,
 button:focus-visible {
   outline: none;
 }
+
+/* Radix trigger(DropdownMenu/Popover/Dialog/Select 等)关闭时焦点还原 box-shadow ring 清除
+ *   (2026-07-30 立,用户报告"添加工作区"按钮点击外部关闭 menu 后出现描边)
+ *   根因:Radix 在 menu/dialog 关闭时调 trigger.focus() 还原焦点,程序性 focus 在 Chrome
+ *        下会触发 :focus-visible,导致 trigger 自带的 focus-visible:ring-1 ring-ring
+ *        (Tailwind ring = box-shadow)显示 1px 灰色 ring,用户视觉上感知为"描边"。
+ *   修复:针对 data-state="closed" 的 button focus 状态清除 box-shadow。
+ *        data-state="closed" 是 Radix trigger 常态(从未打开过 + 关闭后),此规则让 Radix
+ *        trigger 在 focus 时不显示 ring,由 hover/active 背景色承担反馈
+ *        (用户规则:"有背景色区分不就可以了吗")。
+ *   不影响非 Radix 的普通 button(如 shadcn Button):它们没有 data-state 属性,
+ *        键盘 Tab focus 时仍保留 focus-visible:ring-1 ring-ring(WCAG 2.4.7 可访问性保留)。
+ *   覆盖范围:WorkspaceSelector / model-selector / admin relay 页面 / publish 页面等
+ *        所有用 Radix DropdownMenu/Popover/Dialog/Select 且 trigger 是 <button> 的场景。
+ */
+button[data-state='closed']:focus,
+button[data-state='closed']:focus-visible {
+  box-shadow: none;
+}
