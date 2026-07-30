@@ -6179,6 +6179,67 @@
     "profileTitle": "",
     "securityDesc": "",
     "securityTitle": "",
+    "gateway": {
+      "navLabel": "AIゲートウェイ",
+      "title": "AIゲートウェイダッシュボード",
+      "subtitle": "Provider健全性、Comboチェーン管理、Token圧縮デモ",
+      "tabs": {
+        "providers": "Provider健全性",
+        "combos": "Comboチェーン",
+        "compaction": "Token圧縮"
+      },
+      "providers": {
+        "summary": {
+          "total": "合計",
+          "configured": "設定済み",
+          "local": "ローカル",
+          "notConfigured": "未設定"
+        },
+        "filter": {
+          "all": "全て",
+          "configured": "設定済み",
+          "notConfigured": "未設定",
+          "local": "ローカル"
+        },
+        "cooldown": "クールダウン中",
+        "failures": "回失敗",
+        "models": "モデル",
+        "refresh": "更新"
+      },
+      "combos": {
+        "create": "Combo作成",
+        "edit": "編集",
+        "delete": "削除",
+        "name": "チェーン名",
+        "strategy": "戦略",
+        "chain": "呼び出しチェーン(1行1つ)",
+        "judge": "Judgeモデル(fusion戦略)",
+        "description": "説明",
+        "deleteConfirm": "Combo「{name}」を削除しますか?",
+        "createSuccess": "Combo作成成功",
+        "deleteSuccess": "Combo削除成功",
+        "empty": "Comboチェーンがありません。「Combo作成」をクリックして最初のものを作成してください"
+      },
+      "compaction": {
+        "input": "入力メッセージ",
+        "inputPlaceholder": "圧縮するテキストを入力...",
+        "strategy": "圧縮戦略",
+        "keepRecent": "最近N件保持",
+        "run": "圧縮開始",
+        "original": "元のToken",
+        "compressed": "圧縮後Token",
+        "ratio": "圧縮率",
+        "rtkMapSize": "RTKマップサイズ",
+        "compressedPreview": "圧縮後プレビュー",
+        "decompressedPreview": "解凍結果",
+        "showDecompressed": "解凍結果を表示",
+        "hideDecompressed": "解凍結果を非表示",
+        "excellent": "優秀",
+        "good": "良好",
+        "poor": "未達",
+        "empty": "「圧縮開始」をクリックして結果を確認"
+      }
+    },
     "subtitle": "のなドキュメントとAPIリファレンス",
     "dashboardTitle": "設定概要",
     "dashboardDesc": "すべてのオプションにすばやくアクセス",
@@ -9054,6 +9115,8 @@
       "qwen": "Qwen"
     },
     "models": "大規模モデル",
+    "internationalModels": "海外大型モデル",
+    "chineseModels": "国産大型モデル",
     "officialApp": "公式App",
     "officialWechat": "公式WeChat",
     "paymentPlatforms": "決済プラットフォーム",
