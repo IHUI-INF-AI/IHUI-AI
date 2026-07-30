@@ -103,7 +103,14 @@
     "moreActions": "MoreActions",
     "loadFailed": "Load Failed",
     "viewDetail": "View Details",
-    "colToken": "Tokens"
+    "colToken": "Tokens",
+    "close": "Close",
+    "closeRight": "Close to the Right",
+    "copyPath": "Copy Path",
+    "refresh": "Refresh",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "unsaved": "Unsaved"
   },
   "taskReceiver": {
     "title": "Task Receiver",
