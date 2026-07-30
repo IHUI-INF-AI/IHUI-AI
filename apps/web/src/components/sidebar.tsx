@@ -320,6 +320,10 @@ const DEVELOPER_ITEMS: NavItem[] = [
   { href: '/developer/relay', labelKey: 'developerRelay', icon: Zap },
   { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
   { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
+  // P0 API 订阅包产品化(2026-07-31 立):3 档 API 订阅方案(Starter/Pro/Enterprise)
+  { href: '/developer/relay/subscriptions', labelKey: 'developerRelaySubscriptions', icon: CreditCard },
+  // P0 Playground 内置在线测试页(2026-07-31 立):用当前用户 API Key 走 /v1/chat/completions 在线测试
+  { href: '/playground', labelKey: 'playground', icon: FlaskConical },
   { href: '/developer/webhooks', labelKey: 'developerWebhooks', icon: Webhook },
   { href: '/developer/sandbox', labelKey: 'developerSandbox', icon: FlaskConical },
   { href: '/developer/limits', labelKey: 'developerLimits', icon: Gauge },
