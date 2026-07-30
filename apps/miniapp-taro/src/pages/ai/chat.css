@@ -616,6 +616,8 @@
   top: 0;
   height: 100%;
   align-items: center;
+  animation-fill-mode: both;
+  animation-play-state: running;
   will-change: transform;
 }
 .scroll-separator {
@@ -629,6 +631,10 @@
   100% {
     transform: translateX(-100%);
   }
+}
+/* 鼠标悬停时暂停滚动(对标原项目 .scroll-container:hover .scroll-content) */
+.scroll-container:hover .scroll-content {
+  animation-play-state: paused;
 }
 
 /* ============ 语音波形动画(对标原项目 .voice-bar-animation + .line1~30 + @keyframes move) ============ */
@@ -1047,6 +1053,7 @@
   right: 0;
   transition: bottom 0.3s ease;
   padding-bottom: calc(env(safe-area-inset-bottom) + 10rpx);
+  z-index: 1000;
 }
 
 /* ============================================================
@@ -1128,17 +1135,6 @@
   align-items: center;
 }
 
-/* ============ 输入区外层(对标原 InputArea.vue .input-area) ============ */
-.input-area {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: transparent;
-  box-sizing: border-box;
-}
-
 /* ============ 放大态背景(对标原 .input_area_back) ============ */
 .input-area-active-bg {
   background: #fff;
@@ -1211,14 +1207,14 @@
   z-index: 2;
 }
 
-/* ============ 附件按钮(对标原 .search-box2) ============ */
+/* ============ 附件按钮(对标原 .search-box2,默认可见,opacity 由 inline showFile 控制) ============ */
 .search-box2 {
   width: 44rpx;
   height: 44rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.3s;
   flex: none;
 }
