@@ -53,15 +53,21 @@ const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] 
   { titleKey: 'cloudDatabases', items: DATABASES },
 ]
 
-// 排版原子 — v6 进一步压缩
-// - section title: text-[10px](从 text-xs 减 2px) + uppercase 风格更克制
-// - icon box: h-6 w-6(从 h-7 w-7 减 4px),保持 36×36 触摸目标依赖 padding
-// - QR box: h-14 w-14(从 h-16 w-16 减 8px),hover 弹 240px 大图不受影响
-const SECTION_TITLE = 'text-[10px] font-semibold uppercase tracking-wider text-foreground/60'
+// 排版原子 — v10 拉高放宽
+// - footer padding py-2 md:py-3(从 v9 py-0.5 md:py-1 拉回,footer 整体从 95px → ~140px)
+// - section title: text-[11px](从 v9 text-[10px] 放大 1px,可读性更佳)
+// - icon box: h-7 w-7(从 h-5 w-5 放大 8px,触摸目标 + 视觉都更稳)
+// - QR box: h-16 w-16(从 h-12 w-12 放大 16px,3 个 QR 完全可见 + 可扫)
+// - ICP 图标: h-5 w-5(从 h-4 w-4 放大 4px,正常可见不糊)
+// 2026-07-30 v10:用户反馈"footer 三个二维码被截断 + 备案图标未显示 + Tooltip 文字空白",
+//   上一版 v9 紧凑化(95px)把 footer 压扁,3 个 QR + ICP 图标都肉眼难辨。
+//   本轮反向:拉高 padding + 放大 icon/QR/ICP,footer 高度从 95px → 140px,
+//   Page 7 同步减小 minHeight = calc(100vh - 1rem - 12rem) 让 footer 整体可见不被切。
+const SECTION_TITLE = 'text-[11px] font-semibold uppercase tracking-wider text-foreground/60'
 const ICON_BOX =
-  'flex h-6 w-6 items-center justify-center rounded border bg-card transition-colors hover:border-primary/40'
+  'flex h-7 w-7 items-center justify-center rounded border bg-card transition-colors hover:border-primary/40'
 const ICON_IMG = 'h-4 w-4 object-contain'
-const QR_BOX = 'h-14 w-14 overflow-hidden rounded border border-zinc-900 bg-zinc-900 p-0.5'
+const QR_BOX = 'h-16 w-16 overflow-hidden rounded border border-zinc-900 bg-zinc-900 p-0.5'
 const QR_IMG = 'h-full w-full object-contain'
 const FOOTER_BTN = 'text-muted-foreground transition-colors hover:text-primary cursor-pointer'
 
@@ -83,8 +89,8 @@ function PlatformIcon({
     <img
       src={src}
       alt={name}
-      width={16}
-      height={16}
+      width={14}
+      height={14}
       className={`${ICON_IMG}${mono ? ` ${MONO_FILTER}` : ''}`}
       {...IMG_EAGER}
     />
@@ -101,16 +107,14 @@ function PlatformIcon({
   }
   return (
     <Tooltip content={name}>
-      <div className={className}>
-        {img}
-      </div>
+      <div className={className}>{img}</div>
     </Tooltip>
   )
 }
 
 function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'footer'>> }) {
   const img = (
-    <img src={qr.src} alt={t(qr.altKey)} width={48} height={48} className={QR_IMG} {...IMG_EAGER} />
+    <img src={qr.src} alt={t(qr.altKey)} width={64} height={64} className={QR_IMG} {...IMG_EAGER} />
   )
 
   // 2026-07-20:action='copy' → 点击复制 copyValue(如微信号)到剪贴板 + sonner toast 引导
@@ -147,23 +151,24 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
   }, [qr.action, qr.copyValue])
 
   // action='copy' 用 <button>(无障碍 + 键盘 Enter 触发);普通二维码用 <div>
-  const trigger = qr.action === 'copy' ? (
-    <Tooltip content={`点击复制微信号: ${qr.copyValue ?? ''}`}>
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="cursor-pointer transition-opacity hover:opacity-80"
-      >
-        <div className={QR_BOX}>{img}</div>
-      </button>
-    </Tooltip>
-  ) : (
-    <Tooltip content={t(qr.altKey)}>
-      <div className="cursor-pointer transition-opacity hover:opacity-80">
-        <div className={QR_BOX}>{img}</div>
-      </div>
-    </Tooltip>
-  )
+  const trigger =
+    qr.action === 'copy' ? (
+      <Tooltip content={`点击复制微信号: ${qr.copyValue ?? ''}`}>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="cursor-pointer transition-opacity hover:opacity-80"
+        >
+          <div className={QR_BOX}>{img}</div>
+        </button>
+      </Tooltip>
+    ) : (
+      <Tooltip content={t(qr.altKey)}>
+        <div className="cursor-pointer transition-opacity hover:opacity-80">
+          <div className={QR_BOX}>{img}</div>
+        </div>
+      </Tooltip>
+    )
 
   return (
     <div className="group/qr relative flex flex-col items-center gap-0.5">
@@ -225,35 +230,38 @@ export function SiteFooter({ className }: { className?: string }) {
   const dlg = useDialogSwitch()
 
   return (
-    // v6 排版(2026-07-20 第五次重构,用户二次反馈"排版还是很难看"):
-    // - py-1 md:py-1.5(从 py-1.5 md:py-2 再省 2px 上下 padding,footer 整体更窄)
-    // - 内部 gap-1(从 gap-1.5 再省 2px)
-    // - 取消 max-w-7xl mx-auto,撑满 w-full,与 page-4 容器左右对齐
+    // v10 排版(2026-07-30 第七次重构,用户反馈"footer 三个二维码被截断 + 备案图标未显示"):
+    // - py-2 md:py-3(从 v9 py-0.5 md:py-1 拉回,footer 高度 95→~140px,3 个 QR + ICP 图标完全可见)
+    // - 内部 gap-1.5(从 v9 gap-0.5 放宽)
+    // - icon box h-7 w-7 + QR box h-16 w-16(配合 ICON_BOX/QR_BOX 原子常量)
+    // - 备案图标 h-5 w-5(从 h-4 w-4 放大 4px,清晰可见)
+    // - 取消 max-w-7xl mx-auto,撑满 w-full,与 page-7 容器左右对齐
     <footer
-      className={`border-t bg-card/50 px-4 py-1 md:px-8 md:py-1.5${className ? ` ${className}` : ''}`}
+      className={`border-t bg-card/50 px-4 py-2 md:px-8 md:py-3${className ? ` ${className}` : ''}`}
     >
-      <div className="flex w-full flex-col gap-1">
-        {/* Row 1: 3 栏布局(v8 — 2026-07-21 恢复 4 类分组 + 响应式 + 压空白)
+      <div className="flex w-full flex-col gap-1.5">
+        {/* Row 1: 3 栏布局(v10 — 2026-07-30 配合 footer 拉高放宽)
             - 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底) — flex justify-between 消除空白
             - 栏 2: 生态合作 4 类分组 — grid-cols-2 md:grid-cols-4 响应式自适应屏幕宽度
-            - 栏 3: 官方推广 + QR(不变) */}
-        <div className="grid gap-2 md:grid-cols-[1fr_1.5fr_1fr] md:items-start">
+            - 栏 3: 官方推广 + QR(不变)
+            v10: gap-3(从 v9 gap-1 放大),与 footer 整体拉高对齐 */}
+        <div className="grid gap-3 md:grid-cols-[1fr_1.5fr_1fr] md:items-start">
           {/* 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底)
-              - v8: flex flex-col justify-between 让按钮沉底,消除公司信息下方空白
-              - 公司信息用 space-y-0.5,按钮用 flex flex-wrap gap-x-2 */}
+              - flex flex-col justify-between 让按钮沉底,消除公司信息下方空白
+              - 公司信息用 space-y-1,按钮用 flex flex-wrap gap-x-2 gap-y-1 */}
           <div className="flex flex-col justify-between gap-1">
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               <h3 className="text-xs font-semibold">{t('companyName')}</h3>
-              <p className="text-[10px] leading-snug text-muted-foreground">
+              <p className="text-[11px] leading-snug text-muted-foreground">
                 {t('addressLine1')}
                 <br />
                 {t('addressLine2')}
               </p>
-              <p className="text-[10px] leading-snug text-muted-foreground">
+              <p className="text-[11px] leading-snug text-muted-foreground">
                 {t('companyContact')} · {t('companyEmail')}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <Link
                 href="/about"
                 className={FOOTER_BTN}
@@ -275,15 +283,15 @@ export function SiteFooter({ className }: { className?: string }) {
             </div>
           </div>
 
-          {/* 栏 2: 生态合作 4 类分组(v8 恢复 4 类布局,响应式自适应)
+          {/* 栏 2: 生态合作 4 类分组(响应式自适应)
               - grid-cols-2(移动端 2 列)+ md:grid-cols-4(桌面端 4 列)
-              - 每组带子标题(text-[10px]),icons 用 flex flex-wrap gap-1 */}
-          <div className="space-y-0.5">
+              - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1 */}
+          <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
             <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
               {ECOSYSTEM_GROUPS.map((g) => (
-                <div key={g.titleKey} className="space-y-0.5">
-                  <h5 className="text-[10px] font-medium text-foreground/50">{t(g.titleKey)}</h5>
+                <div key={g.titleKey} className="space-y-1">
+                  <h5 className="text-[11px] font-medium text-foreground/50">{t(g.titleKey)}</h5>
                   <div className="flex flex-wrap gap-1">
                     {g.items.map((p) => (
                       <PlatformIcon
@@ -300,10 +308,10 @@ export function SiteFooter({ className }: { className?: string }) {
             </div>
           </div>
 
-          {/* 栏 3: 官方推广 + QR(不变)
-              - v6 QR 缩小到 h-14 w-14
-              - gap-1.5 + pt-0.5 */}
-          <div className="space-y-0.5">
+          {/* 栏 3: 官方推广 + QR(v10 配合 footer 拉高)
+              - QR h-16 w-16(从 v9 h-12 w-12 放大 16px,3 个 QR 完全可见)
+              - gap-2 + pt-1 */}
+          <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('officialPromotion')}</h4>
             <div className="flex flex-wrap gap-1">
               {PROMOTIONS.map((p) => (
@@ -316,7 +324,7 @@ export function SiteFooter({ className }: { className?: string }) {
                 />
               ))}
             </div>
-            <div className="flex gap-1.5 pt-0.5">
+            <div className="flex gap-2 pt-1">
               {QRS.map((q) => (
                 <QrItem key={q.src} qr={q} t={t} />
               ))}
@@ -324,16 +332,16 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
         </div>
 
-        {/* Row 2: ICP + 版权居中(v8 简化 — 按钮已移到栏 1 底部,消除空白)
+        {/* Row 2: ICP + 版权居中(v10 拉高 — 备案图标 h-5 w-5 替代 h-4 w-4 让 16→20px 更清晰)
             - justify-center 居中显示
             - 只保留 ICP 图标 + ICP 文字 + 版权 */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 border-t pt-0.5 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
           <img
             src="/footer/erweima/footer-icon-1.png"
             alt={t('icp')}
-            width={12}
-            height={12}
-            className="h-3 w-3 object-contain"
+            width={20}
+            height={20}
+            className="h-5 w-5 object-contain"
             {...IMG_EAGER}
           />
           <Link href="/settings/icp-record" className="transition-colors hover:text-primary">
