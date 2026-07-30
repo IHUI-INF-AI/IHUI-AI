@@ -81,20 +81,37 @@
   background: var(--color-wechat-green);
 }
 .bubble {
-  max-width: 70%;
+  max-width: 100%;
   margin: 0 20rpx;
-  padding: 20rpx 24rpx;
-  border-radius: 16rpx;
+  padding: 20rpx;
+  border-radius: 30rpx;
+  box-sizing: border-box;
 }
 .msg-item.user .bubble {
-  background: var(--color-primary);
+  background: #9a99f3;
+  color: #ffffff;
+  border: 2rpx solid;
+  border-image: linear-gradient(
+      275deg,
+      rgba(252, 255, 77, 0.5) -32%,
+      rgba(76, 32, 116, 0) 5%,
+      rgba(54, 16, 88, 0) 98%,
+      rgba(54, 16, 88, 0.5) 129%
+    )
+    2;
+  border-radius: 15rpx;
+  box-shadow: 0px 0px 6rpx 0px rgba(0, 0, 0, 0.3);
 }
 .msg-item.assistant .bubble {
-  background: var(--color-card);
+  background: #f6f6f6;
+  border: 1rpx solid #eeeeee;
+  color: #333333;
+  box-shadow: 0px 0px 6rpx 0px rgba(0, 0, 0, 0.05);
 }
 .bubble-text {
-  font-size: 28rpx;
-  line-height: 1.6;
+  font-size: 22rpx;
+  line-height: 28rpx;
+  letter-spacing: 0.02em;
 }
 .msg-item.user .bubble-text {
   color: var(--color-foreground);
@@ -450,4 +467,563 @@
 .voice-duration {
   font-size: 24rpx;
   color: var(--color-muted-foreground);
+}
+
+/* ============ 操作按钮图标(对标原 ai_assistant.vue .action-btn) ============ */
+.action-btn {
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
+}
+
+/* ============ 答案隐藏态容器 ============ */
+.hidden-answer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20rpx;
+  opacity: 0.5;
+}
+
+/* ============ 输入框背板:阴影 + 呼吸动画(对标原项目 .input-area-back inputAreaBackAnimation) ============ */
+.input-area-back {
+  border-radius: 30rpx;
+  box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
+  transition: box-shadow 0.3s ease;
+  animation: inputAreaBackAnimation 2s linear infinite;
+}
+@keyframes inputAreaBackAnimation {
+  0%,
+  100% {
+    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0px 2rpx 16rpx -8rpx rgba(90, 87, 255, 0.5);
+  }
+}
+
+/* 全屏放大态(对标原项目 input_area_active:position fixed + z-index 999) */
+.input-area-active {
+  border-radius: 0;
+  box-shadow: 0px -4rpx 16rpx -4rpx rgba(0, 0, 0, 0.15);
+}
+
+/* ============ 搜索框紫色描边(对标原项目 .search_box_bor) ============ */
+.search-box {
+  border: 1rpx solid rgba(223, 138, 248, 0.384);
+  padding: 10rpx 15rpx 10rpx 25rpx;
+}
+
+/* ============ textarea 原生样式重置(对标原项目 textarea.search-input) ============ */
+.input-bar textarea,
+.search-input {
+  -webkit-appearance: none;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ============ textarea 放大态重排(对标原项目 .textarea_input) ============ */
+.textarea-input {
+  height: calc(100% - 68rpx) !important;
+  position: absolute !important;
+  top: 12rpx !important;
+  left: 0 !important;
+  width: calc(100% - 44rpx) !important;
+}
+
+/* ============ 加号旋转激活态(对标原项目 .rotate-icon + .search-box2-img transition) ============ */
+.search-add-icon {
+  transition: transform 0.5s ease;
+}
+.rotate-icon {
+  transform: rotate(45deg);
+}
+
+/* ============ 附件展示区(对标原项目 .imgs_list) ============ */
+.imgs-list {
+  display: flex;
+  flex-direction: row;
+  gap: 10rpx;
+  overflow-x: auto;
+  padding: 0 0 20rpx;
+  margin-bottom: 20rpx;
+  border-bottom: 1rpx solid var(--color-border);
+  white-space: nowrap;
+}
+.imgs-list-item {
+  position: relative;
+  flex: none;
+  width: 120rpx;
+  height: 120rpx;
+  display: inline-block;
+}
+.imgs-list-close {
+  position: absolute;
+  top: 5rpx;
+  right: 5rpx;
+  width: 30rpx;
+  height: 30rpx;
+  z-index: 10;
+  background: var(--color-card);
+  border-radius: 100rpx;
+}
+.imgs-list-item-img {
+  width: 100%;
+  height: 120rpx;
+  border-radius: 15rpx;
+}
+
+/* ============ 文档文件名滚动动画(对标原项目 .scroll-container + @keyframes scroll) ============ */
+.scroll-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  height: 100%;
+}
+.scroll-content {
+  display: flex;
+  white-space: nowrap;
+  animation: scroll 10s linear infinite;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  align-items: center;
+  will-change: transform;
+}
+.scroll-separator {
+  width: 100rpx;
+  display: inline-block;
+}
+@keyframes scroll {
+  0% {
+    transform: translateX(20%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* ============ 语音波形动画(对标原项目 .voice-bar-animation + .line1~30 + @keyframes move) ============ */
+.voice-bar-animation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  width: 300rpx;
+  height: 40rpx;
+  flex: none;
+  margin: 0 auto;
+}
+.voice-bar-animation .line {
+  width: 6rpx;
+  height: 6rpx;
+  background-color: #5a57ff;
+  border-radius: 5rpx;
+  animation: voiceMove 0.75s linear infinite alternate;
+}
+.voice-bar-animation .line:nth-child(1) {
+  animation-delay: 0.25s;
+}
+.voice-bar-animation .line:nth-child(2) {
+  animation-delay: 0.5s;
+}
+.voice-bar-animation .line:nth-child(3) {
+  animation-delay: 0.75s;
+}
+.voice-bar-animation .line:nth-child(4) {
+  animation-delay: 1s;
+}
+.voice-bar-animation .line:nth-child(5) {
+  animation-delay: 1.25s;
+}
+.voice-bar-animation .line:nth-child(6) {
+  animation-delay: 1.5s;
+}
+.voice-bar-animation .line:nth-child(7) {
+  animation-delay: 1.75s;
+}
+.voice-bar-animation .line:nth-child(8) {
+  animation-delay: 2s;
+}
+.voice-bar-animation .line:nth-child(9) {
+  animation-delay: 2.25s;
+}
+.voice-bar-animation .line:nth-child(10) {
+  animation-delay: 2.5s;
+}
+.voice-bar-animation .line:nth-child(11) {
+  animation-delay: 2.75s;
+}
+.voice-bar-animation .line:nth-child(12) {
+  animation-delay: 3s;
+}
+.voice-bar-animation .line:nth-child(13) {
+  animation-delay: 3.25s;
+}
+.voice-bar-animation .line:nth-child(14) {
+  animation-delay: 3.5s;
+}
+.voice-bar-animation .line:nth-child(15) {
+  animation-delay: 3.75s;
+}
+.voice-bar-animation .line:nth-child(16) {
+  animation-delay: 4s;
+}
+.voice-bar-animation .line:nth-child(17) {
+  animation-delay: 4.25s;
+}
+.voice-bar-animation .line:nth-child(18) {
+  animation-delay: 4.5s;
+}
+.voice-bar-animation .line:nth-child(19) {
+  animation-delay: 4.75s;
+}
+.voice-bar-animation .line:nth-child(20) {
+  animation-delay: 5s;
+}
+.voice-bar-animation .line:nth-child(21) {
+  animation-delay: 5.25s;
+}
+.voice-bar-animation .line:nth-child(22) {
+  animation-delay: 5.5s;
+}
+.voice-bar-animation .line:nth-child(23) {
+  animation-delay: 5.75s;
+}
+.voice-bar-animation .line:nth-child(24) {
+  animation-delay: 6s;
+}
+.voice-bar-animation .line:nth-child(25) {
+  animation-delay: 6.25s;
+}
+.voice-bar-animation .line:nth-child(26) {
+  animation-delay: 6.5s;
+}
+.voice-bar-animation .line:nth-child(27) {
+  animation-delay: 6.75s;
+}
+.voice-bar-animation .line:nth-child(28) {
+  animation-delay: 7s;
+}
+.voice-bar-animation .line:nth-child(29) {
+  animation-delay: 7.25s;
+}
+.voice-bar-animation .line:nth-child(30) {
+  animation-delay: 7.5s;
+}
+@keyframes voiceMove {
+  0% {
+    transform: scaleY(0.1);
+  }
+  100% {
+    transform: scaleY(2.5);
+  }
+}
+
+/* ============ 思考进度条:渐变 5 色 + 流光动画 + 斜纹(对标原项目 .thinking-progress-container + .thinking-progress-bar) ============ */
+.thinking-progress-container {
+  position: relative;
+  width: 100%;
+  height: 36rpx;
+  background: var(--color-muted);
+  border-radius: 18rpx;
+  overflow: hidden;
+  margin-top: 8rpx;
+}
+.thinking-progress-bar {
+  position: relative;
+  height: 100%;
+  border-radius: 18rpx;
+  background: linear-gradient(
+    90deg,
+    #8b0bff 0%,
+    #fff200 25%,
+    #c0c6ff 50%,
+    #fff200 75%,
+    #9014ff 100%
+  );
+  background-size: 200% 100%;
+  animation: progressAnimation 2s linear infinite;
+  transition: width 120ms linear;
+  overflow: hidden;
+}
+.thinking-progress-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 0,
+    rgba(255, 255, 255, 0.15) 4rpx,
+    transparent 4rpx,
+    transparent 8rpx
+  );
+}
+@keyframes progressAnimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* ============ 4 点 loader 动画(对标原项目 .loader-container + .loader-dot + loaderpulse) ============ */
+.loader-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-right: 12rpx;
+}
+.loader-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #ae44d1;
+  animation: loaderpulse 1.5s infinite ease-in-out;
+}
+.loader-dot:nth-child(1) {
+  animation-delay: -0.1875s;
+}
+.loader-dot:nth-child(2) {
+  animation-delay: -0.0625s;
+}
+.loader-dot:nth-child(3) {
+  animation-delay: 0.0625s;
+}
+.loader-dot:nth-child(4) {
+  animation-delay: 0.1875s;
+}
+@keyframes loaderpulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============ 思考过程独立浮层(对标原项目 .agent-content1 + .agent_back 旋转紫边) ============ */
+.agent-content1-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.agent-content1 {
+  position: relative;
+  width: calc(100% - 80rpx);
+  max-height: 50vh;
+  background: var(--color-card);
+  border-radius: 20rpx;
+  padding: 2rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.agent-content1 .agent_back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #9a99f3;
+  animation: agentBackRotate 5s linear infinite;
+  z-index: 0;
+}
+.agent-content1-header {
+  position: relative;
+  z-index: 1;
+  background: var(--color-card);
+  margin: 4rpx;
+  border-radius: 18rpx 18rpx 0 0;
+  padding: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.agent-content1-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  flex: 1;
+}
+.agent-content1-body {
+  position: relative;
+  z-index: 1;
+  background: var(--color-card);
+  margin: 0 4rpx 4rpx;
+  border-radius: 0 0 18rpx 18rpx;
+  padding: 20rpx;
+  max-height: 40vh;
+  overflow-y: auto;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  line-height: 1.6;
+}
+@keyframes agentBackRotate {
+  0% {
+    background-color: #9a99f3;
+  }
+  50% {
+    background-color: #ffffff;
+  }
+  100% {
+    background-color: #9a99f3;
+  }
+}
+
+/* ============ tishi 渐变边框(对标原项目 .tishi_box + .tishi_box_back) ============ */
+.tishi-box-gradient {
+  padding: 2rpx;
+  background: linear-gradient(
+    81deg,
+    #7f5fdf 7%,
+    rgba(63, 129, 244, 0.6) 54%,
+    rgba(75, 77, 85, 0) 126%
+  );
+  border-radius: 20rpx;
+  margin: 12rpx 16rpx;
+}
+.tishi-box-inner {
+  background: var(--color-card);
+  border-radius: 18rpx;
+  padding: 10rpx 0;
+}
+
+/* ============ 思考标题(对标原项目 .agent_content_title_top) ============ */
+.thinking-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+/* ============ 快捷按钮区(对标原 ai_assistant.vue .quick-actions-container + .quick-action-btn) ============ */
+.quick-actions-container {
+  padding: 10rpx 20rpx;
+  margin-bottom: 10rpx;
+  background-color: transparent;
+}
+.quick-actions-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+.quick-actions-wrapper {
+  display: inline-flex;
+  gap: 20rpx;
+  padding: 0 10rpx;
+}
+.quick-action-btn {
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  font-size: 26rpx;
+  font-weight: bold;
+  color: #000;
+  border-radius: 15rpx;
+  border: 2rpx solid #dadada;
+  background: #fff;
+  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+.quick-action-btn:active {
+  transform: scale(0.95);
+  opacity: 0.9;
+}
+
+/* ============ 用户消息复用按钮(对标原 ai_assistant.vue .fuyong-btn) ============ */
+.fuyong-btn {
+  width: 100rpx;
+  height: 40rpx;
+  margin-right: 10rpx;
+  flex-shrink: 0;
+}
+
+/* ============ 用户问题容器(对标原 ai_assistant.vue .question-container) ============ */
+.question-container {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  margin-top: 20rpx;
+}
+
+/* ============ 操作按钮容器(对标原 ai_assistant.vue .action-buttons) ============ */
+.bubble-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10rpx;
+}
+.bubble-actions-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.bubble-actions-right .action-btn-img {
+  width: 40rpx;
+  height: 40rpx;
+  display: block;
+  margin-left: 20rpx;
+  flex-shrink: 0;
+}
+.bubble-actions-right .action-btn-img:first-child {
+  margin-left: 0;
+}
+
+/* ============ 分享按钮(对标原 ai_assistant.vue .share-btn + .share-button + .share-icon) ============ */
+.share-btn {
+  display: inline-block;
+  position: relative;
+  margin-left: 20rpx;
+  width: 40rpx;
+  height: 40rpx;
+}
+.share-button {
+  opacity: 0;
+  position: relative;
+  z-index: 1;
+  width: 40rpx;
+  height: 40rpx;
+}
+.share-icon {
+  width: 40rpx;
+  height: 40rpx;
+  display: inline-block;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* ============ 底部输入区容器(对标原 ai_assistant.vue .input_box_content + .bottom-fixed-area) ============ */
+.input-box-content {
+  background-color: #fff;
+  left: 0;
+  right: 0;
+  transition: bottom 0.3s ease;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 10rpx);
 }
