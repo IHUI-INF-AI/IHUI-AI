@@ -6,7 +6,7 @@ import type { Metadata } from 'next'
  *
  * - Server Component(含 metadata export)
  * - Sidebar + AISidePanel 由根 layout.tsx 的 GlobalShell 全局提供(全站统一导航)
- * - 与 (main) 路由组 MainShell 同款卡片容器结构:rounded-xl + bg-shell-panel + my-2 mr-2
+ * - 与 (main) 路由组 MainShell 同款卡片容器结构:rounded-xl + bg-shell-panel + pb-2 pr-2
  * - 已移除 MarketingHeader(2026-07-20):sidebar 已含全部 6 个路由
  *   (enterprise/learn/agents/news/ai-world/dashboard)+ 登录入口 + 品牌 logo,
  *   MarketingHeader 是纯冗余,违反"左侧侧边栏统一导航"项目设定
@@ -17,15 +17,17 @@ import type { Metadata } from 'next'
  *   /(marketing)/page.tsx          → /
  *
  * 结构(填充在 GlobalShell 内容槽内):
- *   div rounded-xl bg-shell-panel my-2 mr-2 overflow-hidden
- *     children          (首页 main 用 height: calc(100vh - 1rem) 独立滚动,
+ *   div rounded-xl bg-shell-panel pb-2 pr-2 overflow-hidden
+ *     children          (首页 main 用 height: calc(100vh - 58px) 独立滚动,
  *                        SiteFooter 在 main 内部末尾,跟随 main 滚动可见)
  *   /div
  *
  * 高度策略:
  * - flex-1 min-h-0:在 GlobalShell 内容槽(flex 容器)中正确填充
  * - overflow-hidden:裁剪子元素溢出 + 保持圆角不被覆盖
- * - my-2 mr-2:与 GlobalShell 的 Sidebar 之间留 8px 间距,与视口顶部/底部留 8px 间距
+ * - pb-2 pr-2:跟 MainShell 完全一致(顶部间距由 GlobalTopBar 的 pt-2+h-9+pb-1.5=50px 提供,
+ *   底部 8px + 右侧 8px 用 padding),确保 WebWorkPanel 的 mt-[50px] 在所有路由组都对齐
+ *   工作区卡片顶部(2026-07-31 修复:原 my-2 mr-2 让首页卡片顶部在 58px,WebWorkPanel 在 50px,差 8px)
  */
 export const metadata: Metadata = {
   title: {
@@ -52,7 +54,7 @@ export const metadata: Metadata = {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-shell-panel my-2 mr-2">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-shell-panel pb-2 pr-2">
       {children}
     </div>
   )
