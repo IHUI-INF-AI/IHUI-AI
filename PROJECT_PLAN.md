@@ -314,6 +314,7 @@
 #### P1 网关 Dashboard(已完成,2026-07-30 commit `b6f976e34e`)
 
 - [x] ✅(2026-07-30) P1-3 apps/web 新增 `/settings/gateway` 页面:provider 健康状态 / 配额剩余 / fallback 历史 / 压缩率统计 / 成本曲线 — 由 P2-B Dashboard 后端 + P2-E Dashboard 前端完成:后端 5 端点(`GET /llm/providers/health` + `GET /llm/combos` + `POST /llm/combos` + `POST /llm/compaction/demo` + `GET /llm/compaction/metrics`,27 测试),前端 `apps/web/app/(main)/settings/gateway/` 6 文件 3 Tab(`ProvidersHealthTab` provider 健康 + `CombosTab` combo CRUD + `CompactionTab` 压缩演示)+ api-client 5 函数 + 5 语言 i18n `settings.gateway` 命名空间 parity 完整
+- [x] ✅(2026-07-30) P1-3b 端点响应格式统一收尾 — commit `95d30acdce` 补完:6 个 Dashboard 端点(`GET /llm/free-providers` + `GET /llm/providers/health` + `GET /llm/combos` + `POST /llm/combos` + `DELETE /llm/combos/{name}` + `POST /llm/compaction/demo`)从裸数据改为 `{code:0, message:"ok", data:{...}}` 信封,兼容前端 `fetchApi.fetchOnce` 的 `json.code !== 0` 检查;错误响应字段 `error` → `message`;新增 `_wrap_ok` / `_error_json` helper。38 测试用例同步更新全绿。browser_use 自验 Dashboard 4 状态(默认/hover/active Tab 切换/dark mode)DOM 数值验证通过(data-state=active 切换正常,html.dark 生效,Card 含 dark:bg-card 类)。`/llm/complete` 与 `/llm/complete/stream` 保持裸数据响应(LLM 结果对象,被 api 代理/crew-llm-adapter/ai-feed-service 等多个内部服务依赖为契约,不改信封)
 
 #### P2 全栈一体化叙事(已完成,2026-07-30 本批次补完)
 
