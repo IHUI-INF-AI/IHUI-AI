@@ -211,7 +211,9 @@ pnpm dev                                       # 启动所有服务(web + api + 
 ### 联动规则
 
 - 与第 7 节(删除安全)协同:subagent 不得删除非任务清单内文件。
-- 与第 16 节(push 保护)和 §20 协同:subagent 完成后由主 agent 统一 push。
+- 与第 16 节(push保护)和 §20 协同:subagent 完成后由主 agent 统一 push。
+- **subagent working tree 自检(2026-07-30 立,真实事故)**:subagent 完成任务后**必须**执行 `git status --short` 自检,确认 working tree 状态符合预期——只有任务清单内文件被修改/新增。如果发现意外文件(其他 agent 改动被 `git stash pop` 带回 / lint-staged 副作用 / IDE 自动 stage / 文件被清成 1 行等异常),**立即停止**并报告主 agent,**禁止**继续 commit/push/补救。主 agent 收到异常报告后按 §12 + §22 处理(revert / 隔离 add / `--no-verify` 跳过其他 agent 代码问题)。
+- **stash 操作后强制 Read 验证(2026-07-30 立)**:subagent 在执行 `git stash push` / `git stash pop` / `git stash apply` 后,**必须**用 Read 工具验证任务清单内文件内容完整(防止 stash 误操作把文件清成 1 行或吞掉内容)。Read 返回内容与预期不符 → 立即停止,报告主 agent,**禁止**基于未验证的"假设文件完整"继续操作。
 
 ---
 
