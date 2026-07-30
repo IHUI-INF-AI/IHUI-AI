@@ -305,6 +305,103 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   return response.text()
 }
 
+/**
+ * 专为 ai-service 设计的 JSON fetch(2026-07-31 立,IDE MCP/Agent 面板使用)。
+ *
+ * 与 fetchApi 的差异:ai-service 大部分端点返回**非标准格式**(无 `{code, data}` 包装),
+ * 例如 `GET /mcp/tools` 直接返回 `{"tools": [...], "count": N}`,
+ * `POST /mcp/tools/call` 直接返回 result 对象。
+ * fetchApi 会因 `json.code !== 0` 判定业务失败,故此函数直接把 response body 当作 data 返回。
+ *
+ * 语义:
+ *   - 2xx:返回 `ApiResult<T>` 的 success 分支,data = response.json()
+ *   - 4xx/5xx:返回 error 分支(5xx 不抛错,统一返回 ApiResult,简化调用方)
+ *   - 网络异常:返回 error 分支
+ *
+ * @example
+ * const res = await fetchAiServiceJson<McpToolList>('/mcp/tools')
+ * if (res.success) console.log(res.data.tools)
+ */
+export async function fetchAiServiceJson<T>(
+  url: string,
+  options: FetchApiOptions = {},
+): Promise<ApiResult<T>> {
+  const token = tokenProvider.getToken()
+  const { params, ...restOptions } = options
+  let normalizedUrl = normalizeUrl(url)
+  if (params) {
+    const qs = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') {
+        qs.append(key, String(value))
+      }
+    }
+    const qsString = qs.toString()
+    if (qsString) {
+      normalizedUrl += (normalizedUrl.includes('?') ? '&' : '?') + qsString
+    }
+  }
+
+  const isFormData = typeof FormData !== 'undefined' && restOptions.body instanceof FormData
+  const hasBody = restOptions.body !== undefined && restOptions.body !== null
+  const headers: Record<string, string> = {
+    ...(hasBody && !isFormData ? { 'Content-Type': 'application/json' } : {}),
+    ...(restOptions.headers as Record<string, string> | undefined),
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const DEFAULT_TIMEOUT_MS = 30_000
+  const timeoutController = new AbortController()
+  const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
+  const userSignal = restOptions.signal
+  const mergedSignal = userSignal
+    ? mergeAbortSignals([userSignal, timeoutController.signal])
+    : timeoutController.signal
+
+  try {
+    const response = await getTransport()(normalizedUrl, {
+      method: restOptions.method,
+      headers,
+      body: typeof restOptions.body === 'string' ? restOptions.body : undefined,
+      signal: mergedSignal,
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      let message = text || `请求失败(${response.status})`
+      let errorCode: string | undefined
+      try {
+        const parsed = JSON.parse(text)
+        if (parsed && typeof parsed.message === 'string') message = parsed.message
+        if (parsed && typeof parsed.detail === 'string') message = parsed.detail
+        if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
+      } catch {
+        // 非 JSON 响应,保留 text 作为 message
+      }
+      return {
+        success: false,
+        error: message,
+        status: response.status,
+        errorCode,
+      }
+    }
+
+    // ai-service 直接返回 JSON,无 {code, data} 包装,整体作为 data
+    const json = (await response.json()) as T
+    return { success: true, data: json }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return {
+        success: false,
+        error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
+      }
+    }
+    return normalizeErrorToResult(err) as ApiResult<T>
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 /** 拉取原始二进制响应(如 PNG 截图),自动加 Authorization 头。 */
 export async function fetchRaw(url: string, options: RequestInit = {}): Promise<Blob> {
   const token = tokenProvider.getToken()
