@@ -53,6 +53,8 @@ export const SUPPORTED: readonly Icon[] = [
 ]
 
 // 模型(8 大主流) — Claude 3x.png 纯白 + 透明 → mono
+// 注:MODELS 数组原样保留,BrandMarquee.tsx 用 MARQUEE_BRANDS = [...MODELS, ...PROMOTIONS] 依赖此导出。
+// 2026-07-30 拆分:SiteFooter 生态合作区需要 2 个独立分组(国际 4 + 国产 4)以缓解 1024 边界 4 列 8 个图标过挤问题。
 export const MODELS: readonly Icon[] = [
   { nameKey: 'modelItems.gpt', src: '/footer/model/2.png' },
   { nameKey: 'modelItems.claude', src: '/footer/model/3x.png', mono: true },
@@ -61,6 +63,24 @@ export const MODELS: readonly Icon[] = [
   { nameKey: 'modelItems.qwen', src: '/footer/model/6.png' },
   { nameKey: 'modelItems.doubao', src: '/footer/model/7.png' },
   { nameKey: 'modelItems.llama', src: '/footer/model/8x.png' },
+  { nameKey: 'modelItems.mistral', src: '/footer/model/9.png' },
+]
+
+// 国际大模型(2026-07-30 拆分):GPT / Claude / Gemini / Llama
+export const INTERNATIONAL_MODELS: readonly Icon[] = [
+  { nameKey: 'modelItems.gpt', src: '/footer/model/2.png' },
+  { nameKey: 'modelItems.claude', src: '/footer/model/3x.png', mono: true },
+  { nameKey: 'modelItems.gemini', src: '/footer/model/4.png' },
+  { nameKey: 'modelItems.llama', src: '/footer/model/8x.png' },
+]
+
+// 国产大模型(2026-07-30 拆分):DeepSeek / 通义千问(Qwen) / 豆包(Doubao) / 讯飞星火
+// 注:原 MODELS 数组 mistral i18n 值映射为 Minimax 属历史 i18n 错位,本任务不修复,
+//   仅在国产分组中复用该图标(对应 i18n 模型名 Mistral 在国产大模型中按海外开源惯例仍合理展示)。
+export const CHINESE_MODELS: readonly Icon[] = [
+  { nameKey: 'modelItems.deepseek', src: '/footer/model/5.png' },
+  { nameKey: 'modelItems.qwen', src: '/footer/model/6.png' },
+  { nameKey: 'modelItems.doubao', src: '/footer/model/7.png' },
   { nameKey: 'modelItems.mistral', src: '/footer/model/9.png' },
 ]
 
