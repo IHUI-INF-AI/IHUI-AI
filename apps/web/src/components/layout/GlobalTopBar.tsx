@@ -144,7 +144,7 @@ export function GlobalTopBar() {
   // 2026-07-30 用户反馈:"点击后的下拉窗被ai对话框容器裁掉了一半 层级不对啊"
   // 根因:work-area-portal-root 父容器 overflow-hidden 裁剪 Plus 弹窗(absolute top-full)
   // 修复:弹窗用 createPortal 渲染到 document.body + fixed 定位,不受祖先 overflow 限制
-  const [plusRect, setPlusRect] = React.useState<{ top: number; right: number } | null>(null)
+  const [plusRect, setPlusRect] = React.useState<{ top: number; left: number } | null>(null)
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // 键盘导航:↑↓ 切换选中项 / Enter 确认 / Ctrl+Shift+P 全局打开
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -255,7 +255,7 @@ export function GlobalTopBar() {
       setPlusOpen((o) => {
         if (!o && plusRef.current) {
           const r = plusRef.current.getBoundingClientRect()
-          setPlusRect({ top: r.bottom + 4, right: window.innerWidth - r.right })
+          setPlusRect({ top: r.bottom + 4, left: r.left })
         }
         return !o
       })
@@ -419,13 +419,14 @@ export function GlobalTopBar() {
           "谁让你把这个设置了背景色的?取消掉" — 顶栏恢复透明,只保留内层 36px h-9 高度。
 
           第十轮 flex 顺序: 搜索(在 TagsView 内) → 标签栏(在 TagsView 内) → chevron(在 TagsView 内) → Plus
-          第十一轮 flex 顺序(本轮): 搜索 → chevron → Plus → 标签栏(a 标签)
+          第十一轮 flex 顺序: 搜索 → chevron → Plus → 标签栏(a 标签)
+          第十二轮 flex 顺序(本轮,2026-07-31 用户反馈"这两个按钮对换一下"): 搜索 → Plus → chevron → 标签栏
           为实现新顺序,搜索 + chevron 抽出为独立组件 TagsViewSearchButton / TagsViewChevronButton
           (TagsView.tsx),直接放在 GlobalTopBar 内层 flex 内,顺序由 JSX 顺序控制;
           主 TagsView 退化为只渲染 a 标签 + 关闭按钮,顺序由父级 flex 控制。
 
-          根因(用户原话):"把 button button 这两个按钮挪到 button 后面 a 前面"
-          → button(搜索) → button(更多Actions) → button(添加视图) → a(首页) → ...
+          根因(用户原话):"把 button button 这两个按钮挪到 button 后面 a 前面" → 后续"这两个按钮对换一下"
+          → button(搜索) → button(添加视图) → button(更多Actions) → a(首页) → ...
 
           总高 50px = 8(外层 pt-2) + 36(内层 h-9) + 6(外层 pb-1.5,与下方工作区卡片间距,2026-07-30 立)。
           垂直间距统一归 GlobalTopBar 管理(MainShell 注释契约:顶部间距由 GlobalTopBar 提供)。 */}
@@ -435,10 +436,10 @@ export function GlobalTopBar() {
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
       >
-        {/* 第十一轮 flex 顺序契约(由 JSX 顺序控制):
+        {/* 第十二轮 flex 顺序契约(2026-07-31 用户反馈"这两个按钮对换一下",由 JSX 顺序控制):
             1. TagsViewSearchButton    ← 搜索按钮(36x36)
-            2. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染)
-            3. <Plus>                  ← 添加视图 36x36
+            2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
+            3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
             4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间 */}
         <div className="flex h-9 items-center gap-1">
           {/* 1. 搜索按钮(从 TagsView 抽出) */}
@@ -446,12 +447,7 @@ export function GlobalTopBar() {
             <TagsViewSearchButton />
           </React.Suspense>
 
-          {/* 2. chevron 关闭其他/全部 按钮(从 TagsView 抽出) */}
-          <React.Suspense fallback={null}>
-            <TagsViewChevronButton />
-          </React.Suspense>
-
-          {/* 3. Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
+          {/* 2. Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
             - 视觉风格与窗口控制按钮一致(h-full w-9 rounded-md hover bg-muted/50,2026-07-30
               深度修复:之前 h-7 w-7 (28px) 跟顶栏 h-9 (36px) 矮 8px,导致"标签栏高度不对"
               的视觉效果 — Plus 按钮底部露出 4px 空隙,标签栏高度看起来参差不齐。改 h-full w-9
@@ -469,7 +465,7 @@ export function GlobalTopBar() {
                     if (!o && plusRef.current) {
                       // 打开时计算 Plus 按钮位置(fixed 定位用)
                       const r = plusRef.current.getBoundingClientRect()
-                      setPlusRect({ top: r.bottom + 4, right: window.innerWidth - r.right })
+                      setPlusRect({ top: r.bottom + 4, left: r.left })
                     }
                     return !o
                   })
@@ -502,7 +498,7 @@ export function GlobalTopBar() {
                   style={{
                     position: 'fixed',
                     top: plusRect.top,
-                    right: plusRect.right,
+                    left: plusRect.left,
                     zIndex: 50,
                   }}
                   className="w-72 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
@@ -578,6 +574,11 @@ export function GlobalTopBar() {
                 document.body,
               )}
           </div>
+
+          {/* 3. chevron 关闭其他/全部 按钮(从 TagsView 抽出,2026-07-31 第十二轮挪到 Plus 后面) */}
+          <React.Suspense fallback={null}>
+            <TagsViewChevronButton />
+          </React.Suspense>
 
           {/* 4. 标签栏(2026-07-30 第十一轮"做减法 v7"用户反馈"a 标签在 chevron/Plus 后面"后位置)
             flex-1 占满剩余空间,只渲染 a 标签 + 关闭按钮(无搜索/无 chevron,已抽出为独立组件) */}
