@@ -82,6 +82,15 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
  * - 修复后:未指定的 modifier 必须为 false(严格匹配),让 Ctrl+P 与 Ctrl+Shift+P 严格区分
  * - 影响审计:现有快捷键全部 wantShift=true 或 wantShift=false 的纯 Ctrl 组合,
  *   修复后行为更精确(用户按 Ctrl+Shift+K 不再误触 Ctrl+K),无回归风险
+ *
+ * 2026-07-30 Mac 兼容性优化(用户规则:"继续按你的建议去做执行 完美细致完整毫无遗漏"):
+ * - 优化前:wantCtrl 严格匹配 ctrlKey,Mac 用户按 Cmd+X 不触发 Ctrl+X 注册的快捷键
+ *   (Tooltip 显示 ⌘⇧P 但实际监听只支持 Ctrl,UI 与行为不一致)
+ * - 优化后:Mac 上 wantCtrl 接受 ctrlKey || metaKey(Cmd),与 VS Code 标准行为一致
+ *   (VS Code 在 Mac 上 Cmd+P = 搜索,Cmd+Shift+P = 命令面板,跟 Win/Linux Ctrl+P 等价)
+ * - 严格匹配仍保留:Mac 上 wantCtrl=true 时,"未声明 cmd 但按了 metaKey"不返回 false
+ *   (因为 wantCtrl 在 Mac 上接受 metaKey,这是合法行为)
+ * - 无回归风险:Windows/Linux 上 wantCtrl 仍只接受 ctrlKey,行为不变
  */
 function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
@@ -99,15 +108,28 @@ function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
   if (wantMod) {
     if (isMac ? !event.metaKey : !event.ctrlKey) return false
   }
-  if (wantCtrl && !event.ctrlKey) return false
+  // Mac 兼容性(2026-07-30):Mac 上 wantCtrl 接受 ctrlKey || metaKey(Cmd),
+  // 让 Mac 用户用 Cmd+X 触发 Ctrl+X 注册的快捷键(VS Code 标准行为)
+  // Windows/Linux 上 wantCtrl 仍只接受 ctrlKey
+  if (wantCtrl && !wantMod) {
+    if (isMac) {
+      if (!event.metaKey && !event.ctrlKey) return false
+    } else {
+      if (!event.ctrlKey) return false
+    }
+  }
   if (wantCmd && !event.metaKey) return false
   if (wantShift && !event.shiftKey) return false
   if (wantAlt && !event.altKey) return false
 
   // 严格匹配:未在组合中声明的 modifier 必须为 false
   // (修复前缺失此约束,导致 Ctrl+P 误匹配 Ctrl+Shift+P,Ctrl+Shift+P 永不触发)
+  // Mac 兼容性(2026-07-30):wantCtrl=true 时,metaKey 是合法的,不返回 false
   if (!wantCtrl && !wantMod && event.ctrlKey && !event.metaKey) return false
-  if (!wantCmd && !wantMod && event.metaKey && !event.ctrlKey) return false
+  if (!wantCmd && !wantMod && event.metaKey && !event.ctrlKey) {
+    // Mac 上 wantCtrl=true 时,metaKey 是合法的(wantCtrl 接受 metaKey),不返回 false
+    if (!(isMac && wantCtrl)) return false
+  }
   if (!wantShift && event.shiftKey) return false
   if (!wantAlt && event.altKey) return false
 
