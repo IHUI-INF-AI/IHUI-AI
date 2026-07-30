@@ -2230,3 +2230,256 @@ async def test_complete_openrouter_non_403_error_no_failover(monkeypatch):
     # 非 403 错误不触发 agnes failover(只调 1 次)
     assert call_count == 1
     assert result["error"] is True
+
+
+# =============================================================================
+# BYOK ai-service 侧链路验证(2026-07-30 立,零成本引流路径 1)
+# _resolve_from_db BYOK 解析:用户私有配置(owner_uuid=userId)优先 + AES 解密 + 模型前缀映射
+# =============================================================================
+
+import base64
+import os
+
+from app.core.config import settings
+from app.core.llm_gateway import _resolve_from_db
+
+# 测试用加密密钥(32 字符,满足 AES-256-GCM 要求)
+_BYOK_TEST_ENC_KEY = "0123456789abcdef0123456789abcdef"
+
+
+class _FakeRow:
+    """模拟 asyncpg.Record(支持 row["col"] 访问)。"""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self._data = data
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+
+class _FakeConn:
+    """模拟 asyncpg.Connection.fetchrow。"""
+
+    def __init__(self, row: _FakeRow | None = None) -> None:
+        self._row = row
+
+    async def fetchrow(self, query: str, *args: Any) -> _FakeRow | None:
+        return self._row
+
+
+class _FakePoolAcquire:
+    """模拟 pool.acquire() async context manager。"""
+
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    async def __aenter__(self) -> _FakeConn:
+        return self._conn
+
+    async def __aexit__(self, *args: Any) -> bool:
+        return False
+
+
+class _FakePool:
+    """模拟 asyncpg.Pool。"""
+
+    def __init__(self, row: _FakeRow | None = None) -> None:
+        self._conn = _FakeConn(row)
+
+    def acquire(self) -> _FakePoolAcquire:
+        return _FakePoolAcquire(self._conn)
+
+
+def _encrypt_api_key_for_test(plaintext: str, encryption_key: str) -> str:
+    """用 AES-256-GCM 加密(与 apps/api/utils/crypto.ts + _decrypt_api_key 对应)。"""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    key = encryption_key.encode("utf-8")[:32]
+    aesgcm = AESGCM(key)
+    iv = os.urandom(12)
+    ciphertext = aesgcm.encrypt(iv, plaintext.encode("utf-8"), None)
+    tag = ciphertext[-16:]
+    ct = ciphertext[:-16]
+    return json.dumps({
+        "iv": base64.b64encode(iv).decode(),
+        "ciphertext": base64.b64encode(ct).decode(),
+        "tag": base64.b64encode(tag).decode(),
+    })
+
+
+def _patch_db_pool(monkeypatch, row: _FakeRow | None = None) -> _FakePool:
+    """Patch _get_pool 返回含指定 row 的 fake pool。"""
+    fake_pool = _FakePool(row)
+
+    async def fake_get_pool() -> _FakePool:
+        return fake_pool
+
+    monkeypatch.setattr("app.core.llm_gateway._get_pool", fake_get_pool)
+    return fake_pool
+
+
+async def test_byok_user_config_returns_user_api_key(monkeypatch):
+    """BYOK:用户私有配置(owner_uuid=userId)的 api_key 被正确返回。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": "sk-user-private-key",
+        "base_url": "https://api.user-custom.com/v1",
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("stepfun/step-3.7-flash", owner_uuid="user-abc-123")
+    assert result is not None
+    api_key, api_base, litellm_model = result
+    assert api_key == "sk-user-private-key"
+    assert api_base == "https://api.user-custom.com/v1"
+    assert litellm_model == "openai/step-3.7-flash"
+
+
+async def test_byok_no_matching_config_returns_none(monkeypatch):
+    """BYOK:无匹配配置(DB 返回 None)→ 返回 None。"""
+    _patch_db_pool(monkeypatch, row=None)
+    result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid="user-xyz")
+    assert result is None
+
+
+async def test_byok_decrypts_aes256_gcm_encrypted_key(monkeypatch):
+    """BYOK:AES-256-GCM 加密的 api_key_enc 能被正确解密使用。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    encrypted = _encrypt_api_key_for_test("sk-decrypted-byok-key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": encrypted,
+        "base_url": "https://api.example.com/v1",
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid="user-123")
+    assert result is not None
+    api_key, _, _ = result
+    assert api_key == "sk-decrypted-byok-key"
+
+
+async def test_byok_plaintext_key_returned_stripped(monkeypatch):
+    """BYOK:明文 api_key_enc(非 JSON)直接返回(strip 首尾引号/空白)。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": '"sk-plaintext-key"',
+        "base_url": None,
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid="user-123")
+    assert result is not None
+    api_key, api_base, _ = result
+    assert api_key == "sk-plaintext-key"
+    assert api_base is None  # base_url 为 None/空时返回 None
+
+
+async def test_byok_stepfun_prefix_maps_to_openai(monkeypatch):
+    """BYOK:stepfun/ 前缀模型 → litellm_model = openai/<real_model>(去前缀加 openai/)。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": "sk-test",
+        "base_url": "https://api.stepfun.com/v1",
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("stepfun/step-3.7-flash", owner_uuid="user-123")
+    assert result is not None
+    _, _, litellm_model = result
+    assert litellm_model == "openai/step-3.7-flash"
+
+
+async def test_byok_openrouter_passthrough_no_prefix_change(monkeypatch):
+    """BYOK:openrouter/ 前缀 → litellm_model 原样返回(不转 openai/,走 LiteLLM 原生路由)。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": "sk-or-test",
+        "base_url": None,
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("openrouter/llama-3.3-70b", owner_uuid="user-123")
+    assert result is not None
+    _, _, litellm_model = result
+    assert litellm_model == "openrouter/llama-3.3-70b"
+
+
+async def test_byok_anthropic_protocol_adds_prefix(monkeypatch):
+    """BYOK:api_format=anthropic_messages → litellm_model 加 anthropic/ 前缀(无 / 时)。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": "sk-ant-test",
+        "base_url": None,
+        "api_format": "anthropic_messages",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("claude-3-opus", owner_uuid="user-123")
+    assert result is not None
+    _, _, litellm_model = result
+    assert litellm_model == "anthropic/claude-3-opus"
+
+
+async def test_byok_db_exception_returns_none_graceful(monkeypatch):
+    """BYOK:DB 查询异常 → 返回 None(不抛异常,graceful 降级)。"""
+    async def failing_get_pool() -> Any:
+        raise RuntimeError("DB connection lost")
+
+    monkeypatch.setattr("app.core.llm_gateway._get_pool", failing_get_pool)
+
+    result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid="user-123")
+    assert result is None
+
+
+async def test_byok_no_owner_uuid_works_global_only(monkeypatch):
+    """BYOK:owner_uuid=None 时正常查询全局配置(无用户上下文,走全局 SQL 分支)。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": "sk-global-key",
+        "base_url": "https://api.global.com/v1",
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid=None)
+    assert result is not None
+    api_key, api_base, _ = result
+    assert api_key == "sk-global-key"
+    assert api_base == "https://api.global.com/v1"
+
+
+async def test_byok_empty_api_key_enc_returns_none(monkeypatch):
+    """BYOK:api_key_enc 为空 → _decrypt_api_key 返回 None → _resolve_from_db 返回 None。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": "",
+        "base_url": None,
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid="user-123")
+    assert result is None
+
+
+async def test_byok_agnes_prefix_maps_to_openai(monkeypatch):
+    """BYOK:agnes/ 前缀模型 → litellm_model = openai/<real_model>(中转站 OpenAI 兼容)。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "api_key_enc": "sk-agnes-byok",
+        "base_url": "https://apihub.agnes-ai.com/v1",
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("agnes/gpt-4o-mini", owner_uuid="user-456")
+    assert result is not None
+    api_key, api_base, litellm_model = result
+    assert api_key == "sk-agnes-byok"
+    assert api_base == "https://apihub.agnes-ai.com/v1"
+    assert litellm_model == "openai/gpt-4o-mini"
