@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import { useTt } from '@/i18n'
 
 /**
  * Toolbar 首页工具栏 — 对齐原项目 Toolbar/index.vue
@@ -27,37 +28,38 @@ export interface ToolbarProps {
 // 与原项目 Toolbar/index.vue 的 headerMenu 一致(bspapp CDN URL,本地无副本)
 const BSPAPP_BASE = 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com'
 
-const DEFAULT_ITEMS: ToolbarItem[] = [
-  {
-    id: 'traffic-service',
-    name: '流量运营陪跑',
-    icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 28@2x.png`,
-  },
-  {
-    id: 'device-service',
-    name: '一站式设备应用',
-    icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x.png`,
-  },
-  {
-    id: 'ai-other-service',
-    name: 'AI其他技术服务',
-    icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x (2).png`,
-  },
-]
-
 // 判断 icon 是否为图片路径(非 emoji)
 function isImagePath(icon: string): boolean {
   return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
 }
 
-export default function Toolbar({ items = DEFAULT_ITEMS, className }: ToolbarProps) {
+export default function Toolbar({ items, className }: ToolbarProps) {
+  const tt = useTt()
+  const defaultItems: ToolbarItem[] = [
+    {
+      id: 'traffic-service',
+      name: tt('toolbar.traffic-service', '流量运营陪跑'),
+      icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 28@2x.png`,
+    },
+    {
+      id: 'device-service',
+      name: tt('toolbar.device-service', '一站式设备应用'),
+      icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x.png`,
+    },
+    {
+      id: 'ai-other-service',
+      name: tt('toolbar.ai-other-service', 'AI其他技术服务'),
+      icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x (2).png`,
+    },
+  ]
+  const resolvedItems = items ?? defaultItems
   return (
     <ScrollView scrollX scrollWithAnimation className={cn('w-full', className)}>
       <View
         className="flex flex-row gap-3 px-4 py-3"
         style={{ width: 'max-content', whiteSpace: 'nowrap' }}
       >
-        {items.map((item) => (
+        {resolvedItems.map((item) => (
           <View
             key={item.id}
             className="flex flex-col items-center flex-shrink-0"
