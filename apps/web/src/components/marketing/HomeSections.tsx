@@ -59,7 +59,7 @@ const BENEFITS_KEYS = [
 function HomeSectionFrame({
   page,
   ariaLabel,
-  height = 'calc(100vh - 1rem)',
+  height = 'calc(100vh - 58px)',
   className,
   children,
 }: {
@@ -249,7 +249,7 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
       <section
         id="home-page-7"
         className="flex snap-start flex-col"
-        style={{ minHeight: 'calc(100vh - 1rem - 12rem)' }}
+        style={{ minHeight: 'calc(100vh - 58px - 12rem)' }}
         aria-label={t('magazine.title', { fallback: 'News' })}
       >
         <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-2">
