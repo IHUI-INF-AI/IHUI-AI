@@ -277,6 +277,33 @@ iframe::-webkit-scrollbar {
   display: none !important;
 }
 
+/* ============ AI 浮窗品牌微光(2026-07-30 方案B)============
+ * 浮窗模式(floatMode)下,面板需要有视觉悬浮感区分于背景。
+ * 设计:品牌色(#6366f1 亮 / #818cf8 暗)微光描边 + 同色系柔光投影。
+ * - 默认态:微弱品牌色描边 + 轻微投影,克制不刺眼
+ * - hover 态:描边提亮 + 投影扩散增强,光晕变明显
+ * - transition 平滑过渡(300ms),鼠标移入移出有动画感
+ * 暗色模式下品牌色自动提亮(--color-brand 暗色值 #818cf8),
+ * 配合 rgba 透明度让光晕在深色背景上依然清晰可见。
+ */
+.ai-float-glow {
+  /* 默认态:微弱品牌色光晕 */
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-brand) 12%, transparent),
+    0 8px 40px -8px color-mix(in srgb, var(--color-brand) 18%, transparent),
+    0 2px 12px rgba(0, 0, 0, 0.3);
+  transition:
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ai-float-glow:hover {
+  /* hover 态:光晕增强,描边提亮 */
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-brand) 25%, transparent),
+    0 12px 48px -6px color-mix(in srgb, var(--color-brand) 28%, transparent),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
 /* 跳转到主内容链接:键盘用户可见,平时屏幕阅读器外隐藏 — 由 app/(main)/layout.tsx 中的 sr-only 元素承担 */
 
 /* 主内容区焦点可见(配合 skip link 使用) */
