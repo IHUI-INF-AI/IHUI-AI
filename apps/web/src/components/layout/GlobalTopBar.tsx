@@ -379,12 +379,13 @@ export function GlobalTopBar() {
               aria-expanded={plusOpen}
               // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
               // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
-              // - hover:bg-accent → hover:bg-muted/50 跟搜索按钮同步(2026-07-30 用户规则:"样式一样 同步")
-              // - active 态:plusOpen 时 bg-accent text-foreground(属于状态指示,保留)
+              // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
+              //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
+              //   - active 态:plusOpen 时 bg-accent text-foreground(属于状态指示,保留覆盖)
               className={cn(
                 TOPBAR_BTN_BASE,
                 TOPBAR_BTN_W9,
-                plusOpen ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-muted/50',
+                plusOpen ? 'bg-accent text-foreground' : '',
               )}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -526,11 +527,12 @@ function WindowControlButton({
       className={cn(
         TOPBAR_BTN_BASE,
         TOPBAR_BTN_W9,
-        // 2026-07-30 第十轮:跟搜索/Plus/chevron-down 同步 hover:bg-muted/50
-        // close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示)
+        // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
+        //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
+        //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-muted
         variant === 'close'
-          ? 'text-foreground/80 hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400'
-          : 'text-foreground/80 hover:bg-muted/50',
+          ? 'hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400'
+          : '',
       )}
     >
       {icon}
