@@ -679,7 +679,7 @@ export function AISidePanel() {
             className="flex flex-col overflow-hidden rounded-xl bg-shell-panel"
           >
             {/* 输入区(直接渲染 MessageInput,无 MessageList)
-                floatHeader 融合在输入卡片内部最上方,与卡片共享 border + bg-card */}
+                floatHeader = 浮窗按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */}
             <MessageInput
               onSend={sendMessage}
               onStop={stop}
@@ -690,21 +690,18 @@ export function AISidePanel() {
               model={currentModel}
               onModelChange={setModel}
               modelLabel={t('model')}
+              onFloatDragStart={handleFloatDragStart}
               floatHeader={
-                <div
-                  onPointerDown={handleFloatDragStart}
-                  className="flex cursor-move items-center gap-1 px-1.5 py-1.5"
-                >
+                <>
                   <button
                     type="button"
                     onClick={() => setFloatCollapsed(false)}
                     aria-label={tc('floatMode')}
-                    className="inline-flex items-center gap-1.5 rounded-md py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-md py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
                     <ChevronUp className="h-3.5 w-3.5" />
                     <span>{tc('floatMode')}</span>
                   </button>
-                  <div className="flex-1" />
                   <Tooltip content={tc('dockPanel')}>
                     <button
                       type="button"
@@ -728,7 +725,7 @@ export function AISidePanel() {
                       <Minus className="h-3.5 w-3.5" />
                     </button>
                   </Tooltip>
-                </div>
+                </>
               }
             />
           </aside>
