@@ -1,8 +1,21 @@
-import { View, Text, Input, Button, ScrollView } from '@tarojs/components'
+import { View, Text, Input, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useI18n } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
+import { REMOTE_ICONS } from '@/constants/remote-icons'
+
+/**
+ * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
+ * 此处断言为具体接口类型(所用 key 均为静态已确认存在),保证点号访问返回 string。
+ */
+const ICONS = REMOTE_ICONS as {
+  message: string
+  imageOr: string
+  aimusic: string
+  jiqiren: string
+  search: string
+}
 
 type FilterType = 'all' | 'chat' | 'image' | 'voice' | 'agent'
 type GroupKey = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
@@ -21,11 +34,11 @@ const HISTORY_KEY = 'ai_chat_history'
 const PAGE_SIZE = 20
 
 const FILTERS: Array<{ key: FilterType; labelKey: string; fallback: string; icon: string }> = [
-  { key: 'all', labelKey: 'ai.historyPage.filterAll', fallback: '全部', icon: '💬' },
-  { key: 'chat', labelKey: 'ai.historyPage.filterChat', fallback: 'AI对话', icon: '💬' },
-  { key: 'image', labelKey: 'ai.historyPage.filterImage', fallback: 'AI绘图', icon: '🎨' },
-  { key: 'voice', labelKey: 'ai.historyPage.filterVoice', fallback: 'AI语音', icon: '🎤' },
-  { key: 'agent', labelKey: 'ai.historyPage.filterAgent', fallback: '智能体', icon: '🤖' },
+  { key: 'all', labelKey: 'ai.historyPage.filterAll', fallback: '全部', icon: ICONS.message },
+  { key: 'chat', labelKey: 'ai.historyPage.filterChat', fallback: 'AI对话', icon: ICONS.message },
+  { key: 'image', labelKey: 'ai.historyPage.filterImage', fallback: 'AI绘图', icon: ICONS.imageOr },
+  { key: 'voice', labelKey: 'ai.historyPage.filterVoice', fallback: 'AI语音', icon: ICONS.aimusic },
+  { key: 'agent', labelKey: 'ai.historyPage.filterAgent', fallback: '智能体', icon: ICONS.jiqiren },
 ]
 
 const GROUP_LABELS: Array<{ key: GroupKey; labelKey: string; fallback: string }> = [
@@ -172,7 +185,7 @@ export default function HistoryPage() {
 
   const isFiltered = keyword.trim() || filter !== 'all'
   const iconFor = (h: HistoryItem) =>
-    FILTERS.find((f) => f.key === (h.type || 'chat'))?.icon || '💬'
+    FILTERS.find((f) => f.key === (h.type || 'chat'))?.icon || ICONS.message
 
   return (
     <View className="flex flex-col h-screen bg-background">
@@ -196,17 +209,18 @@ export default function HistoryPage() {
 
       <View className="flex gap-[12rpx] py-[16rpx] px-[32rpx] bg-card overflow-x-auto whitespace-nowrap">
         {FILTERS.map((f) => (
-          <Text
+          <View
             key={f.key}
-            className={`inline-block py-[8rpx] px-[24rpx] bg-background rounded-[8rpx] text-[24rpx] text-muted-foreground flex-shrink-0 ${filter === f.key ? 'bg-primary text-foreground' : ''}`}
+            className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-[8rpx] flex-shrink-0 ${filter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
             onClick={() => {
               setFilter(f.key)
               setPage(1)
               setHasMore(true)
             }}
           >
-            {f.icon} {tt(f.labelKey, f.fallback)}
-          </Text>
+            <Image src={f.icon} className="w-[28rpx] h-[28rpx]" mode="aspectFit" />
+            <Text className="text-[24rpx]">{tt(f.labelKey, f.fallback)}</Text>
+          </View>
         ))}
       </View>
 
@@ -221,14 +235,21 @@ export default function HistoryPage() {
       >
         {filtered.length === 0 ? (
           <View className="flex flex-col items-center justify-center py-[160rpx] px-[32rpx]">
-            <Text className="text-[96rpx]">{isFiltered ? '🔍' : '💬'}</Text>
+            <Image
+              src={isFiltered ? ICONS.search : ICONS.message}
+              className="w-[120rpx] h-[120rpx]"
+              mode="aspectFit"
+            />
             <Text className="text-[28rpx] text-muted-foreground mt-[24rpx]">
               {isFiltered
                 ? tt('ai.historyPage.noResult', '未找到相关对话')
                 : t('ai.historyPage.empty')}
             </Text>
             {!isFiltered ? (
-              <Button className="mt-[40rpx] px-[64rpx] h-[80rpx] leading-[80rpx] bg-primary text-foreground rounded-[12rpx] text-[28rpx]" onClick={() => goChat()}>
+              <Button
+                className="mt-[40rpx] px-[64rpx] h-[80rpx] leading-[80rpx] bg-primary text-foreground rounded-[12rpx] text-[28rpx]"
+                onClick={() => goChat()}
+              >
                 {tt('ai.historyPage.startNew', '开始新对话')}
               </Button>
             ) : null}
@@ -240,7 +261,9 @@ export default function HistoryPage() {
               if (!items || items.length === 0) return null
               return (
                 <View key={g.key} className="mb-[32rpx]">
-                  <Text className="block text-[24rpx] text-muted-foreground mb-[16rpx] pl-[8rpx]">{tt(g.labelKey, g.fallback)}</Text>
+                  <Text className="block text-[24rpx] text-muted-foreground mb-[16rpx] pl-[8rpx]">
+                    {tt(g.labelKey, g.fallback)}
+                  </Text>
                   {items.map((h) => {
                     const ts = itemTimestamp(h)
                     const count = h.messageCount || h.messages?.length || 0
@@ -253,15 +276,25 @@ export default function HistoryPage() {
                         onClick={() => goChat(h)}
                         onLongPress={() => onDeleteOne(h)}
                       >
-                        <View className="w-[64rpx] h-[64rpx] flex items-center justify-center bg-background rounded-[12rpx] text-[32rpx] flex-shrink-0 mr-[20rpx]">
-                          <Text>{iconFor(h)}</Text>
+                        <View className="w-[64rpx] h-[64rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[20rpx]">
+                          <Image
+                            src={iconFor(h)}
+                            className="w-[40rpx] h-[40rpx]"
+                            mode="aspectFit"
+                          />
                         </View>
                         <View className="flex-1 min-w-0">
                           <View className="flex items-center justify-between gap-[16rpx]">
-                            <Text className="text-[30rpx] text-foreground font-semibold flex-1 truncate">{h.title}</Text>
-                            <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">{fmtTime(ts)}</Text>
+                            <Text className="text-[30rpx] text-foreground font-semibold flex-1 truncate">
+                              {h.title}
+                            </Text>
+                            <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">
+                              {fmtTime(ts)}
+                            </Text>
                           </View>
-                          <Text className="block text-[26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">{preview}</Text>
+                          <Text className="block text-[26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
+                            {preview}
+                          </Text>
                           <Text className="block text-[22rpx] text-muted-foreground mt-[12rpx]">
                             {t('ai.historyPage.msgCount', { n: count })}
                           </Text>
@@ -273,7 +306,9 @@ export default function HistoryPage() {
               )
             })}
             {!hasMore ? (
-              <Text className="block text-center p-[32rpx] text-[24rpx] text-muted-foreground">{tt('ai.historyPage.noMore', '没有更多了')}</Text>
+              <Text className="block text-center p-[32rpx] text-[24rpx] text-muted-foreground">
+                {tt('ai.historyPage.noMore', '没有更多了')}
+              </Text>
             ) : null}
           </View>
         )}
