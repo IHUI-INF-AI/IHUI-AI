@@ -59,6 +59,12 @@ interface MessageInputProps {
   model: string
   onModelChange: (model: string) => void
   modelLabel: string
+  /** 浮窗折叠态头部按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */
+  floatHeader?: React.ReactNode
+  /** 浮窗折叠态拖拽回调,绑定在合并行上 */
+  onFloatDragStart?: (e: React.PointerEvent) => void
+  /** 浮窗折叠态点击 AgentProgressTrigger 时展开面板(setFloatCollapsed(false)) */
+  onTriggerClick?: () => void
 }
 
 export function MessageInput({
@@ -71,6 +77,9 @@ export function MessageInput({
   model,
   onModelChange,
   modelLabel,
+  floatHeader,
+  onFloatDragStart,
+  onTriggerClick,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -303,16 +312,16 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          {/* Agent 任务进度触发按钮(2026-07-28 v8 零窜位最终版,用户规则:
-              trigger 在输入容器 div 外面上方居中,点击切换 store.open。
-              v8 关键修复:trigger 永远渲染(删除原 v6 return null),
-              open=true 时用 invisible pointer-events-none 占位 → inline 流位置零变化。
-              popover 仍按 v6 原设计用 absolute right-2 top-2 浮在消息区右上角
-              (用户特意要求,2026-07-28 立不可改),浮层不占流 → 周围内容零窜位。
-              empty:hidden 兜底保留(防御未来回归)。 */}
-          <div className="flex justify-center pb-1 empty:hidden">
-            <AgentProgressTrigger />
-          </div>
+          {/* Agent 任务进度触发按钮 + 浮窗折叠态按钮(2026-07-30 重构):
+              - 浮窗折叠态(floatHeader 有值):两组合并到输入卡片内部第一行,
+                AgentProgressTrigger 在左(floatHeader 按钮在右),行可拖拽。
+                AgentProgressTrigger 传 pl-0 让 span(构建徽章)对齐行 px-1.5(6px)= py-1.5(6px)。
+              - 普通态(floatHeader 无值):trigger 在卡片上方居中,保持原有布局。 */}
+          {floatHeader ? null : (
+            <div className="flex justify-center pb-1 empty:hidden">
+              <AgentProgressTrigger />
+            </div>
+          )}
           {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告 */}
           <div
@@ -333,6 +342,19 @@ export function MessageInput({
             {isDragOver && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-primary/5">
                 <p className="text-sm font-medium text-primary">释放鼠标以添加附件(图片/视频)</p>
+              </div>
+            )}
+            {/* 浮窗折叠态合并行:AgentProgressTrigger(左) + 浮窗按钮(右),与卡片融合不占独立行
+                AgentProgressTrigger 传 border-0 bg-transparent px-0 → 按钮本身无描边/背景/内边距,
+                span(构建徽章 bg-muted)左边缘 = 行 px-1.5(6px)= 上下 py-1.5(6px),四向一致。
+                行 gap-1 提供按钮间距,floatHeader 用 Fragment + ml-auto 推到右侧(无 div 包裹)。 */}
+            {floatHeader && (
+              <div
+                onPointerDown={onFloatDragStart}
+                className="flex cursor-move items-center gap-1 px-1.5 py-1.5"
+              >
+                <AgentProgressTrigger className="border-0 bg-transparent px-0" onTriggerClick={onTriggerClick} />
+                {floatHeader}
               </div>
             )}
             <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
