@@ -130,6 +130,10 @@ async function main() {
   // 3. 查 DB:所有免费 provider 的模型记录(含 is_relay_public + 定价)
   console.log('--- 查 DB:免费 provider 模型上架状态 ---')
   const providerCodes = [...new Set(EXPECTED_FREE_MODELS.map((m) => m.provider_code))]
+  // PostgreSQL 数组字面量 {a,b,c} + ::text[] cast。
+  // 用 postgres-js 的 sql.array() 在 prepare:false 模式下序列化不稳定(报"有缺陷的数组常量"),
+  // 改用字符串参数 + cast,参数化无注入风险(provider_code 均为内部固定标识符)。
+  const arrLiteral = `{${providerCodes.join(',')}}`
   const rows = await sql`
     SELECT c.provider_code, m.model_id, m.display_name,
            m.is_relay_public, m.relay_price_multiplier,
@@ -137,7 +141,7 @@ async function main() {
            c.enabled AS config_enabled
     FROM ai_model_config_models m
     INNER JOIN ai_model_config c ON c.id = m.config_id
-    WHERE c.provider_code = ANY(${sql.array(providerCodes)})
+    WHERE c.provider_code = ANY(${arrLiteral}::text[])
     ORDER BY c.provider_code, m.model_id
   `
   console.log(`DB 查询到 ${rows.length} 条记录(覆盖 ${providerCodes.length} 个免费 provider)\n`)
