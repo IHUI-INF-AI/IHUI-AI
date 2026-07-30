@@ -23,7 +23,11 @@
     "wechatOnly": "Only WeChat login is supported",
     "ssoLogin": "SSO login",
     "ssoLoginHint": "One-click enterprise login",
-    "agreement": "I have read and agree to the Terms of Service and Privacy Policy"
+    "agreement": "I have read and agree to the Terms of Service and Privacy Policy",
+    "smsTab": "SMS Login",
+    "privacyPolicy": "Privacy Policy",
+    "serviceAgreement": "Service Agreement",
+    "autoRegisterHint": "Unregistered users will be auto-registered"
   },
   "forgot": {
     "title": "Recover password",
@@ -95,10 +99,19 @@
     "list": {
       "searchPlaceholder": "Search courses",
       "search": "Search",
-      "empty": "No courses"
+      "empty": "No courses",
+      "title": "Featured Courses",
+      "subtitle": "{{n}} courses"
     },
     "ratingTitle": "Rate Course",
-    "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
+    "ratingLabels": [
+      "",
+      "Very Bad",
+      "Poor",
+      "Fair",
+      "Good",
+      "Excellent"
+    ],
     "ratingPlaceholder": "Please rate",
     "ratingDescLabel": "Write your review",
     "ratingInputPlaceholder": "How was the course? Share your thoughts...",
@@ -272,7 +285,8 @@
     "commission": {
       "today": "Today's commission",
       "available": "Available commission",
-      "records": "Commission records"
+      "records": "Commission records",
+      "title": "Commission Details"
     }
   },
   "community": {
@@ -438,7 +452,12 @@
       "timbre": "Timbre"
     },
     "image": {
-      "examples": ["A cute cat", "Sunset mountain landscape", "Futuristic city", "Abstract art"],
+      "examples": [
+        "A cute cat",
+        "Sunset mountain landscape",
+        "Futuristic city",
+        "Abstract art"
+      ],
       "emptyHint": "Describe an image to generate",
       "tryThese": "Try these",
       "placeholder": "Describe the image you want",
@@ -452,7 +471,14 @@
       "favorited": "Favorited",
       "history": "History",
       "empty": "No generations yet",
-      "styles": ["Realistic", "Anime", "Oil Painting", "Watercolor", "3D", "Pixel"],
+      "styles": [
+        "Realistic",
+        "Anime",
+        "Oil Painting",
+        "Watercolor",
+        "3D",
+        "Pixel"
+      ],
       "generateFailed": "Generation failed, please retry",
       "downloadSuccess": "Saved to album",
       "downloadFailed": "Download failed, please retry",
@@ -861,7 +887,10 @@
       "starting": "Entering exam…"
     },
     "answer": {
-      "judgmentOptions": ["True", "False"],
+      "judgmentOptions": [
+        "True",
+        "False"
+      ],
       "loadFailed": "Paper load failed",
       "answerPlaceholder": "Type your answer",
       "prev": "Previous",
@@ -971,6 +1000,40 @@
       "menuTeam": "Team",
       "menuCommission": "Commission",
       "menuWithdraw": "Withdraw"
+    },
+    "index": {
+      "title": "My Company",
+      "menuTeam": "My Team",
+      "menuOrders": "Distribution Orders",
+      "menuPlan": "Commission Plan",
+      "menuWithdraw": "Request Withdrawal",
+      "menuRank": "Promotion Ranking",
+      "menuQrCode": "My QR Code",
+      "tabDay": "Day",
+      "tabMonth": "Month",
+      "tabSum": "Total",
+      "columnEarnings": "Earnings",
+      "columnOrders": "Orders",
+      "columnInvites": "Invites",
+      "defaultName": "Operator",
+      "operator": "Operator",
+      "earnings": "Earnings",
+      "orders": "Orders",
+      "invites": "Invites",
+      "columnTitle": "Distribution Data",
+      "qrTitle": "My Share QR Code",
+      "share": "Share to friends",
+      "saveAlbum": "Save to album",
+      "verifyTitle": "Identity Verification",
+      "idPlaceholder": "Enter ID card number",
+      "namePlaceholder": "Enter name",
+      "confirm": "Confirm",
+      "qrLoadFail": "QR code load failed",
+      "qrLoading": "QR code generating",
+      "fillInfo": "Please fill in complete information",
+      "verifying": "Verifying",
+      "verifyOk": "Verification successful",
+      "verifyFail": "Verification failed"
     },
     "rankTitle": "Distribution Ranking",
     "rankEmpty": "No ranking data",
@@ -1486,8 +1549,18 @@
         "Help Request",
         "Experience Summary"
       ],
-      "levels": ["Beginner", "Intermediate", "Advanced", "Expert"],
-      "budgets": ["Under 1000 CNY", "1000-5000 CNY", "5000-10000 CNY", "Over 10000 CNY"],
+      "levels": [
+        "Beginner",
+        "Intermediate",
+        "Advanced",
+        "Expert"
+      ],
+      "budgets": [
+        "Under 1000 CNY",
+        "1000-5000 CNY",
+        "5000-10000 CNY",
+        "Over 10000 CNY"
+      ],
       "selectAtLeast": "Please select at least one",
       "saved": "Saved",
       "directionTitle": "Learning direction",
@@ -1708,6 +1781,24 @@
       "loadFailed": "Load failed",
       "thresholdText": "Spend {threshold} CNY+",
       "expireText": "Valid until {time}"
+    },
+    "benefit": {
+      "unlimited": "Unlimited Chat",
+      "unlimitedDesc": "Unlimited AI chat"
+    },
+    "level": {
+      "normal": "Normal Member",
+      "normalThreshold": "Sign up to enjoy",
+      "normalPerks": "Basic chat / limited",
+      "silver": "Silver Member",
+      "silverThreshold": "Growth ≥ 1000",
+      "silverPerks": "More chats / priority support",
+      "gold": "Gold Member",
+      "goldThreshold": "Growth ≥ 3000",
+      "goldPerks": "Unlimited chat / dedicated support",
+      "diamond": "Diamond Member",
+      "diamondThreshold": "Growth ≥ 8000",
+      "diamondPerks": "All benefits / private council"
     }
   },
   "pay": {
@@ -1802,7 +1893,11 @@
         "Help Request",
         "Experience Summary"
       ],
-      "visibilityOptions": ["Public", "Friends Only", "Private"],
+      "visibilityOptions": [
+        "Public",
+        "Friends Only",
+        "Private"
+      ],
       "enterTitle": "Please enter a title",
       "enterContent": "Please enter content",
       "published": "Published",
@@ -2169,7 +2264,25 @@
     },
     "benefitsTitle": "VIP Benefits",
     "upgradeNow": "Upgrade Now",
-    "hot": "Hot"
+    "hot": "Hot",
+    "plan": {
+      "monthly": "Monthly",
+      "monthlyPeriod": "30 days",
+      "quarterly": "Quarterly",
+      "quarterlyPeriod": "90 days",
+      "yearly": "Yearly",
+      "yearlyPeriod": "365 days"
+    },
+    "feature": {
+      "aiCopywriting": "AI Copywriting",
+      "aiCopywritingDesc": "Smart marketing copy generation",
+      "aiDesign": "AI Design",
+      "aiDesignDesc": "Smart image and design generation",
+      "aiVideo": "AI Video",
+      "aiVideoDesc": "Smart video content generation",
+      "aiLive": "AI Live Assistant",
+      "aiLiveDesc": "Smart live streaming tool"
+    }
   },
   "learnDevelop": {
     "title": "Learning & development",
@@ -2320,5 +2433,28 @@
     "addFile": "Add file",
     "releaseToSend": "Release to send",
     "holdToSpeak": "Hold to speak"
+  },
+  "toolbar": {
+    "traffic-service": "Traffic Operations Coaching",
+    "device-service": "One-stop Device Solutions",
+    "ai-other-service": "AI Other Technical Services",
+    "ai": "AI Chat",
+    "course": "Courses",
+    "plaza": "Plaza",
+    "rank": "Ranking",
+    "vip": "VIP"
+  },
+  "index": {
+    "mock": {
+      "post1Title": "How to use React Hooks?",
+      "today": "Today"
+    },
+    "feature": {
+      "superAgent": "Deep Thinking"
+    },
+    "toast": {
+      "loginRequired": "Please login first"
+    },
+    "title": "IHUI AI Community"
   }
 }

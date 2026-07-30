@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface RankingItem {
   id: string | number
@@ -30,8 +30,7 @@ function getName(item: RankingItem): string {
 }
 
 export default function Ranking({ list, title, unit = '', loading = false }: RankingProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (loading) {
     return (
       <View className="px-3 py-2">

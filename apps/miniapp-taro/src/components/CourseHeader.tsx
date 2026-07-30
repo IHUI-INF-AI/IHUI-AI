@@ -1,5 +1,6 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
+import { bspappUrl } from '@/constants/icon-urls'
 
 export interface CourseHeaderData {
   title: string
@@ -20,8 +21,7 @@ export interface CourseHeaderProps {
 }
 
 export default function CourseHeader({ data = { title: '' }, onTeacherClick }: CourseHeaderProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card">
       {data.cover && (
@@ -72,14 +72,27 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
         </View>
 
         {data.price !== undefined && (
-          <View className="flex items-baseline mt-2">
-            <Text className="text-xs text-destructive mr-1">¥</Text>
-            <Text className="text-xl font-bold text-destructive">{data.price}</Text>
-            {data.originalPrice && (
-              <Text className="text-xs text-muted-foreground line-through ml-2">
-                ¥{data.originalPrice}
-              </Text>
+          <View className="mt-2 flex flex-col gap-1">
+            {data.price > 0 && (
+              <View className="inline-flex items-center self-start h-[36rpx] px-[10rpx] rounded-[15rpx] bg-muted">
+                <Image
+                  src={bspappUrl('tabbar/course/fufei.png')}
+                  mode="aspectFill"
+                  className="w-[38rpx] h-[34rpx] mr-[10rpx]"
+                  lazyLoad
+                />
+                <Text className="text-[20rpx] text-destructive">付费项目</Text>
+              </View>
             )}
+            <View className="flex items-baseline">
+              <Text className="text-xs text-destructive mr-1">¥</Text>
+              <Text className="text-xl font-bold text-destructive">{data.price}</Text>
+              {data.originalPrice && (
+                <Text className="text-xs text-muted-foreground line-through ml-2">
+                  ¥{data.originalPrice}
+                </Text>
+              )}
+            </View>
           </View>
         )}
       </View>
