@@ -45,7 +45,13 @@ const CHAT_MODE_META: Record<
  * 数据来源:从 useAgentProgressPaneStore 读取 progressCurrent/progressTotal
  * (由 AgentTaskProgressPane 组件同步,避免 trigger 启动第二个 SSE 流)
  */
-export function AgentProgressTrigger({ className }: { className?: string } = {}) {
+export function AgentProgressTrigger({
+  className,
+  onTriggerClick,
+}: {
+  className?: string
+  onTriggerClick?: () => void
+} = {}) {
   const t = useTranslations('chat')
   const open = useAgentProgressPaneStore((s) => s.open)
   const toggle = useAgentProgressPaneStore((s) => s.toggle)
@@ -119,7 +125,10 @@ export function AgentProgressTrigger({ className }: { className?: string } = {})
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={() => {
+        toggle()
+        onTriggerClick?.()
+      }}
       aria-label={hasProgress ? `任务进度 ${progressCurrent}/${progressTotal}` : '任务列表'}
       aria-expanded={open}
       title={

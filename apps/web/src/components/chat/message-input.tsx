@@ -63,6 +63,8 @@ interface MessageInputProps {
   floatHeader?: React.ReactNode
   /** 浮窗折叠态拖拽回调,绑定在合并行上 */
   onFloatDragStart?: (e: React.PointerEvent) => void
+  /** 浮窗折叠态点击 AgentProgressTrigger 时展开面板(setFloatCollapsed(false)) */
+  onTriggerClick?: () => void
 }
 
 export function MessageInput({
@@ -77,6 +79,7 @@ export function MessageInput({
   modelLabel,
   floatHeader,
   onFloatDragStart,
+  onTriggerClick,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -350,7 +353,7 @@ export function MessageInput({
                 onPointerDown={onFloatDragStart}
                 className="flex cursor-move items-center gap-1 px-1.5 py-1.5"
               >
-                <AgentProgressTrigger className="border-0 bg-transparent px-0" />
+                <AgentProgressTrigger className="border-0 bg-transparent px-0" onTriggerClick={onTriggerClick} />
                 {floatHeader}
               </div>
             )}

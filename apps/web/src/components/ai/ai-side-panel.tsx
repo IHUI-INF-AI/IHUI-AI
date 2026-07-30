@@ -691,6 +691,7 @@ export function AISidePanel() {
               onModelChange={setModel}
               modelLabel={t('model')}
               onFloatDragStart={handleFloatDragStart}
+              onTriggerClick={() => setFloatCollapsed(false)}
               floatHeader={
                 <>
                   <button
@@ -929,14 +930,14 @@ export function AISidePanel() {
                 </button>
               </Tooltip>
             )}
-            <Tooltip content={floatMode ? tc('minimize') : tcommon('close')}>
+            <Tooltip content={tcommon('close')}>
               <button
                 type="button"
-                onClick={floatMode ? () => setFloatMinimized(true) : closePanel}
-                aria-label={floatMode ? tc('minimize') : tcommon('close')}
+                onClick={closePanel}
+                aria-label={tcommon('close')}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
-                {floatMode ? <Minus className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                <X className="h-4 w-4" />
               </button>
             </Tooltip>
           </header>
