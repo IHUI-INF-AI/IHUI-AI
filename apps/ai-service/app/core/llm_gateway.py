@@ -23,6 +23,23 @@ from ..middleware.llm_metrics import (
 from .config import settings
 from .db_pool import get_shared_pool
 
+# Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
+# 延迟导入避免循环依赖(combo_router.py 内部反向 import llm_gateway)
+_COMBO_ROUTER = None  # type: Optional[Any]
+
+
+def _get_combo_router() -> Any:
+    """懒加载 ComboRouter 单例(避免循环导入)。"""
+    global _COMBO_ROUTER
+    if _COMBO_ROUTER is None:
+        try:
+            from ..services.combo_router import combo_router
+            _COMBO_ROUTER = combo_router
+        except ImportError as e:
+            logger.warning("ComboRouter 加载失败,P0-1 Combo fallback 不可用: %s", e)
+            _COMBO_ROUTER = False  # 标记加载失败,避免重复尝试
+    return _COMBO_ROUTER
+
 # TEMP-FIX(ai-feed): 循环导入临时绕过(llm_gateway → providers → base_provider → llm_gateway)
 # 跑完 LLM 批处理后回退。原代码:
 # from ..providers import get_provider as _get_native_provider
@@ -884,6 +901,45 @@ class LLMGateway:
                     ).inc()
                 except Exception as metric_err:
                     logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+
+            # P0-1 Combo 多级 fallback 接入(2026-07-30 立,超越 OmniRoute):
+            # FallbackRouter 单层 fallback 失败后,若 primary model 在某个 combo 链中,
+            # 尝试 ComboRouter(priority/cheapest/fusion 三策略)。ComboRouter 内部会
+            # 透传 _skip_fallback=True 防递归。
+            if err_code == "LLM_ERROR" and not _skip_fallback:
+                combo = _get_combo_router()
+                if combo:
+                    # 找到 primary 所属的 combo 链(若配置了)
+                    combo_name = combo.find_combo_for_model(used_model)
+                    if combo_name:
+                        logger.info(
+                            "Combo fallback 触发: primary=%s combo=%s",
+                            used_model, combo_name,
+                        )
+                        try:
+                            combo_result = cast(
+                                "dict[str, Any]",
+                                await combo.route_with_combo(
+                                    messages=trimmed_messages,
+                                    combo_name=combo_name,
+                                    primary=used_model,
+                                    **kwargs,
+                                ),
+                            )
+                            if not combo_result.get("error"):
+                                combo_result["combo_used"] = combo_name
+                                combo_result["combo_primary"] = used_model
+                                return combo_result
+                            logger.warning(
+                                "Combo fallback 全部失败(combo=%s): %s",
+                                combo_name,
+                                combo_result.get("error") or combo_result.get("error_message"),
+                            )
+                        except Exception as combo_err:
+                            logger.warning(
+                                "Combo fallback 异常(combo=%s): %s",
+                                combo_name, combo_err,
+                            )
             return {
                 "content": "",
                 "model": used_model,
