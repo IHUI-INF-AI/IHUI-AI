@@ -8,6 +8,7 @@ import eyeOpenIcon from '@/assets/remote/images/eye-gray.svg'
 import eyeClosedIcon from '@/assets/remote/images/eye-slash-gray.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
 import copyIcon from '@/assets/remote/images/copy.png'
+import reuseBtnPng from '@/assets/remote/images/fuyong_btn.png'
 
 export interface ChatMessageItemProps {
   msg: ChatMessage
@@ -253,9 +254,6 @@ export default function ChatMessageItem({
 
   return (
     <View className={`msg-item ${msg.role}`} onLongPress={handleLongPress}>
-      <View className={`avatar ${msg.role}`}>
-        {msg.role === 'user' ? t('ai.chatMessageItem.me') : t('ai.chatMessageItem.ai')}
-      </View>
       <View className="bubble">
         {/* 思考过程(对标原 ai_assistant.vue reasoning 折叠) */}
         {msg.reasoning ? (
@@ -458,26 +456,21 @@ export default function ChatMessageItem({
             </Text>
           ) : null}
 
-          {/* 左侧:用户消息复用 + 编辑按钮(对标原 ai_assistant.vue fuyong-btn) */}
+          {/* 左侧:用户消息复用按钮(图片形式,对标原 ai_assistant.vue .fuyong-btn)+ 编辑按钮 */}
           {msg.role === 'user' ? (
             <View style={{ display: 'flex', alignItems: 'center' }}>
               {onReuse ? (
-                <Text
-                  className="bubble-reuse"
-                  style={{
-                    fontSize: '24rpx',
-                    color: 'var(--color-link)',
-                    marginRight: '20rpx',
-                  }}
+                <Image
+                  src={reuseBtnPng}
+                  className="fuyong-btn"
+                  mode="widthFix"
                   onClick={handleReuse}
-                >
-                  {t('ai.chatMessageItem.reuse')}
-                </Text>
+                />
               ) : null}
               {onEdit ? (
                 <Text
                   className="bubble-edit"
-                  style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
+                  style={{ fontSize: '24rpx', color: 'var(--color-link)', marginLeft: '10rpx' }}
                   onClick={handleEdit}
                 >
                   {t('ai.chatMessageItem.edit')}
