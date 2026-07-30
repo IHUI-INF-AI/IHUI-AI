@@ -49,6 +49,12 @@ const BENEFITS_KEYS = [
  *   style={{ minHeight: 'calc(100vh - 1rem)' }} aria-label={...}>`
  * 每个 section 重复 3-4 行,7 处共 21-28 行冗余;抽 Frame 后净省 ~16 行且语义清晰。
  *
+ * 2026-07-30 用户反馈根治:把默认 height 从 'calc(100vh - 1rem)' 改为 'auto'。
+ * 原问题:7 个 section 都被强制拉伸到一屏高(~1064px),但内容只有 300-500px,
+ * 导致每页都有 500+px 黑色留白,snap-y 滚动时每页先看到大片空白。
+ * 改 auto 后:section 高度 = 内容自然高,snap-y 仍按 section 跳,
+ * 整页总高从 7448px 降到 ~2850px,内容紧凑显示。
+ *
  * 7 个 section 全部走 HomeSectionFrame:
  *   - 1-6 用默认 className(relative + flex + snap-start + overflow-hidden)
  *   - 7 用 className override(去掉 overflow-hidden,因内部含 Footer 不需要裁切)
@@ -56,7 +62,7 @@ const BENEFITS_KEYS = [
 function HomeSectionFrame({
   page,
   ariaLabel,
-  height = 'calc(100vh - 1rem)',
+  height = 'auto',
   className,
   children,
 }: {
@@ -89,7 +95,15 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
 
   return (
     <>
-      {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits + 通知跑马灯 */}
+      {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits + 通知跑马灯
+          2026-07-30 用户反馈根治:把 6 Benefits 从底部独立 fixed 区合并到主区,
+          主区改 justify-evenly 让 Hero/4 徽章/6 Benefits 三段在主区内均分。
+          原结构是 顶部 fixed (Marquee+Banner) + 主区 (Hero+4徽章) + 底部 fixed (6 Benefits),
+          主区 flex-1 justify-center 把 Hero+4 徽章推到中间,4 徽章和 6 Benefits 中间夹 ~500px 黑色,
+          视觉上 4 徽章"飘"在半空、6 Benefits 紧贴底部,中间大片空白。
+          新结构:顶部 fixed (Marquee+Banner) + 主区 (Hero+4 徽章+6 Benefits),
+          主区用 justify-evenly 让 3 段在主区内均分,消除中间夹空白。
+          配合 HomeSectionFrame 默认 height 改 auto,section 高度 = 内容自然高。 */}
       <HomeSectionFrame page={1} ariaLabel={t('indicator.page1', { fallback: 'Hero' })}>
         {/* 顶部固定区:Marquee 通知跑马灯 + GithubStarBanner */}
         <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
@@ -97,8 +111,9 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
           <GithubStarBanner />
         </div>
 
-        {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}
-        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-4 md:gap-5">
+        {/* 主区:Hero + 4 徽章 + 6 Benefits(合并到主区)
+            justify-evenly 让 3 段在主区内均分(顶部/中部/底部) */}
+        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-evenly gap-4 px-4 py-2 md:gap-5 md:py-3">
           <TypewriterHeroSection />
 
           {/* 4 个信任徽章 */}
@@ -127,10 +142,8 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
               {t('welcome.multiEnd')}
             </span>
           </RevealOnView>
-        </div>
 
-        {/* 底部固定区:6 Benefits */}
-        <div className="relative z-10 flex w-full flex-col gap-2 px-4 pb-12 md:px-8 md:pb-14">
+          {/* 6 Benefits(2026-07-30 从底部 fixed 区合并到主区,justify-evenly 让它位于主区底部 1/3 位置) */}
           <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
             {benefits.map((b, i) => (
               <RevealOnView
@@ -230,11 +243,13 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
 
       {/* Page 7: Magazine 新闻 + (可选) Footer
           注:此 section 不用 HomeSectionFrame,因结构略不同
-          (用 flex min-h-... snap-start flex-col,无 overflow-hidden 避免裁切 Footer 边缘);
-          保留 4 行原 <section> 写法,避免 Tailwind className 源序覆盖风险。 */}
+          (用 flex snap-start flex-col,无 overflow-hidden 避免裁切 Footer 边缘);
+          保留 4 行原 <section> 写法,避免 Tailwind className 源序覆盖风险。
+          2026-07-30 用户反馈根治:去掉 min-h-[calc(100vh-1rem)],让 section 按内容自然高,
+          配合 HomeSectionFrame 默认 height 改 auto 保持一致。 */}
       <section
         id="home-page-7"
-        className="flex min-h-[calc(100vh-1rem)] snap-start flex-col"
+        className="flex snap-start flex-col"
         aria-label={t('magazine.title', { fallback: 'News' })}
       >
         <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-2">
