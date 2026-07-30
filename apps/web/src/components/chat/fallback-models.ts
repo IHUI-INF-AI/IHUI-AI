@@ -97,8 +97,8 @@ export const FALLBACK_MODELS: FallbackModel[] = [
     label: 'OR Claude 3.5 Sonnet',
     vendor: 'openrouter',
   },
-  // Cloudflare Workers AI 免费(2026-07-31 立,GLM-5.2 已免费开放,通用公用)
-  { value: '@cf/zai-org/glm-5.2', label: 'GLM-5.2 (CF 免费)', vendor: 'cloudflare_workers_ai' },
+  // Cloudflare Workers AI 免费(2026-07-31 立,GLM-5.2 7月28日起需 Workers Paid,用 GLM-4.7-flash 免费替代)
+  { value: '@cf/zai-org/glm-4.7-flash', label: 'GLM-4.7 Flash (CF 免费)', vendor: 'cloudflare_workers_ai' },
   {
     value: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
     label: 'Llama 3.3 70B Fast (CF 免费)',
