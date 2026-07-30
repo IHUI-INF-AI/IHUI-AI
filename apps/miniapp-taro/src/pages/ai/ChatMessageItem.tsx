@@ -1,6 +1,6 @@
-import { View, Text, Image, Video } from '@tarojs/components'
+import { View, Text, Image, Video, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
 import { useI18n } from '@/i18n'
 import sikaoIcon from '@/assets/remote/images/sikao_icon.png'
@@ -9,6 +9,7 @@ import eyeClosedIcon from '@/assets/remote/images/eye-slash-gray.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
 import copyIcon from '@/assets/remote/images/copy.png'
 import reuseBtnPng from '@/assets/remote/images/fuyong_btn.png'
+import agentsharePng from '@/assets/remote/images/agentshare.png'
 
 export interface ChatMessageItemProps {
   msg: ChatMessage
@@ -24,6 +25,8 @@ export interface ChatMessageItemProps {
   onSpeak?: (content: string) => void
   /** 打开思考过程独立浮层(仅 AI 消息含 reasoning) */
   onOpenReasoning?: () => void
+  /** 分享消息(仅 AI 消息,对标原 ai_assistant.vue share(index):按钮点击前置写入待分享消息) */
+  onShare?: () => void
 }
 
 /** 内容段类型(对标原 ai_assistant.vue formatContentSegments) */
@@ -72,13 +75,11 @@ function formatContentSegments(str: string): ContentSegment[] {
   return segments
 }
 
-/** 移除特殊字符(对标原 ai_assistant.vue removeSpecialChars,完整实现) */
+/** 移除特殊字符(对标原 ai_assistant.vue removeSpecialChars,保留 # 号以识别标题) */
 function removeSpecialChars(str: string): string {
   if (!str) return ''
-  // 移除 # 号(标题标记)
-  if (/#+/g.test(str)) str = str.replace(/#+/g, '')
-  // 移除 * 号(加粗/斜体标记)
-  if (/\*+/g.test(str)) str = str.replace(/\*+/g, '')
+  // 移除 * 号(加粗/斜体标记),保留 # 号(formatContentSegments 依赖 # 识别标题)
+  str = str.replace(/\*+/g, '')
   // 横线 → 列表符号 •
   str = str.replace(/(^|\n)\s*[-–—_]+/g, '$1•')
   // 圆点 → 列表符号 •
@@ -92,6 +93,17 @@ function formatTokenDisplay(count: number): string {
   return String(count)
 }
 
+/** ChatMessage 可选音频扩展(对标原 ai_assistant.vue 语音消息字段) */
+interface ChatMessageWithAudio extends ChatMessage {
+  audioUrl?: string
+  audioDuration?: number
+}
+
+/** 类型守卫:判断消息是否包含音频字段 */
+function hasAudio(msg: ChatMessage): msg is ChatMessageWithAudio {
+  return 'audioUrl' in msg || 'audioDuration' in msg
+}
+
 export default function ChatMessageItem({
   msg,
   onReuse,
@@ -102,10 +114,10 @@ export default function ChatMessageItem({
   onToggleFavorite,
   onSpeak,
   onOpenReasoning,
+  onShare,
 }: ChatMessageItemProps) {
   const { t } = useI18n()
-  const [expanded, setExpanded] = useState(false)
-  const [codeCollapsed, setCodeCollapsed] = useState(false)
+  const [codeCollapsed, setCodeCollapsed] = useState(true)
   const [codeCopied, setCodeCopied] = useState(false)
   // TTS 朗读状态(对标原 ai_assistant.vue 朗读/停止)
   const [speaking, setSpeaking] = useState(false)
@@ -113,6 +125,15 @@ export default function ChatMessageItem({
   const [voicePlaying, setVoicePlaying] = useState(false)
   // 显示/隐藏答案(对标原 ai_assistant.vue toggleAnswerVisibility + eye-closed/eye-open.svg)
   const [answerHidden, setAnswerHidden] = useState(false)
+
+  // 音频上下文 ref(避免每次播放创建新实例导致资源泄漏)
+  const audioContextRef = useRef<Taro.InnerAudioContext | null>(null)
+  useEffect(() => {
+    return () => {
+      audioContextRef.current?.destroy()
+      audioContextRef.current = null
+    }
+  }, [])
 
   const toggleAnswer = useCallback(() => setAnswerHidden((v) => !v), [])
 
@@ -128,10 +149,10 @@ export default function ChatMessageItem({
     [msg.content],
   )
 
-  /** 语音消息 audioUrl(可选属性扩展,不破坏 ChatMessage 接口) */
-  const audioUrl = (msg as { audioUrl?: string }).audioUrl
+  /** 语音消息 audioUrl(类型安全访问,对标原 ai_assistant.vue 语音消息字段) */
+  const audioUrl = hasAudio(msg) ? msg.audioUrl : undefined
   /** 语音时长(可选,秒) */
-  const audioDuration = (msg as { audioDuration?: number }).audioDuration
+  const audioDuration = hasAudio(msg) ? msg.audioDuration : undefined
 
   /** 点击朗读(对标原 ai_assistant.vue 朗读按钮,触发父级 TTS 跳转) */
   function handleSpeak() {
@@ -142,14 +163,15 @@ export default function ChatMessageItem({
     }
     setSpeaking(true)
     onSpeak(msg.content)
-    // 简化实现:朗读状态由用户手动停止,或跳转后自动重置
-    setTimeout(() => setSpeaking(false), 3000)
   }
 
-  /** 播放语音气泡(对标原 ai_assistant.vue 语音消息播放) */
+  /** 播放语音气泡(对标原 ai_assistant.vue 语音消息播放,复用 audioContextRef 避免泄漏) */
   function playVoice() {
     if (!audioUrl) return
+    // 销毁旧实例再创建新实例,避免重复播放
+    audioContextRef.current?.destroy()
     const audio = Taro.createInnerAudioContext()
+    audioContextRef.current = audio
     audio.src = audioUrl
     setVoicePlaying(true)
     audio.onEnded(() => setVoicePlaying(false))
@@ -201,8 +223,9 @@ export default function ChatMessageItem({
     if (msg.role === 'user' && onEdit) onEdit()
   }
 
-  /** 预览图片(对标原 ai_assistant.vue previewImage) */
+  /** 预览图片(对标原 ai_assistant.vue previewImage,防御 urls 空数组) */
   function previewImage(currentUrl: string, urlList: string[]) {
+    if (!urlList || urlList.length === 0) return
     Taro.previewImage({ current: currentUrl, urls: urlList })
   }
 
@@ -217,7 +240,7 @@ export default function ChatMessageItem({
   async function downloadImages() {
     const urls = msg.images || []
     if (!urls.length) return
-    Taro.showLoading({ title: t('ai.chatMessageItem.downloading') || '下载中' })
+    Taro.showLoading({ title: t('ai.chatMessageItem.downloading') })
     try {
       for (const url of urls) {
         const res = await Taro.downloadFile({ url })
@@ -226,24 +249,23 @@ export default function ChatMessageItem({
         }
       }
       Taro.showToast({
-        title: t('ai.chatMessageItem.downloadSuccess') || '已保存到相册',
+        title: t('ai.chatMessageItem.downloadSuccess'),
         icon: 'success',
       })
     } catch (err) {
       const errMsg = String((err as { errMsg?: string })?.errMsg || '')
       if (errMsg.includes('auth deny')) {
         Taro.showModal({
-          title: t('common.hint') || '提示',
-          content:
-            t('ai.chatMessageItem.needAlbumAuth') || '需要相册权限才能保存图片,请在设置中开启',
-          confirmText: t('common.goSettings') || '去设置',
+          title: t('common.hint'),
+          content: t('ai.chatMessageItem.needAlbumAuth'),
+          confirmText: t('common.goSettings'),
           success: (res) => {
             if (res.confirm) Taro.openSetting()
           },
         })
       } else {
         Taro.showToast({
-          title: t('ai.chatMessageItem.downloadFailed') || '下载失败',
+          title: t('ai.chatMessageItem.downloadFailed'),
           icon: 'none',
         })
       }
@@ -251,10 +273,6 @@ export default function ChatMessageItem({
       Taro.hideLoading()
     }
   }
-
-  // 保留 state(对标原 ai_assistant.vue reasoning 内联折叠,现由 onOpenReasoning 浮层承载)
-  void expanded
-  void setExpanded
 
   return (
     <View onLongPress={handleLongPress}>
@@ -280,7 +298,12 @@ export default function ChatMessageItem({
                   key={i}
                   src={imgUrl}
                   className="agent-question-item-img"
-                  style={{ width: '100rpx', height: '100rpx', display: 'block', marginBottom: '10rpx' }}
+                  style={{
+                    width: '100rpx',
+                    height: '100rpx',
+                    display: 'block',
+                    marginBottom: '10rpx',
+                  }}
                   mode="aspectFill"
                 />
               ))}
@@ -294,7 +317,14 @@ export default function ChatMessageItem({
             {/* 编辑按钮(增强功能,历史项目无,保留) */}
             {onEdit ? (
               <Text
-                style={{ fontSize: '20rpx', color: '#fff', opacity: 0.7, display: 'block', textAlign: 'right', marginBottom: '6rpx' }}
+                style={{
+                  fontSize: '20rpx',
+                  color: '#fff',
+                  opacity: 0.7,
+                  display: 'block',
+                  textAlign: 'right',
+                  marginBottom: '6rpx',
+                }}
                 onClick={handleEdit}
               >
                 {t('ai.chatMessageItem.edit')}
@@ -332,22 +362,46 @@ export default function ChatMessageItem({
                     </Text>
                   )
                 }
-                return <Text key={idx}>{seg.value}</Text>
+                return (
+                  <Text key={idx} style={{ whiteSpace: 'pre-wrap' }}>
+                    {seg.value}
+                  </Text>
+                )
               })}
               {/* 代码块(保留当前 codeCollapsed 逻辑) */}
               {msg.codeContent ? (
                 <View style={{ marginTop: '12rpx' }}>
                   <View
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12rpx 16rpx', background: '#282c34', borderRadius: '8rpx' }}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12rpx 16rpx',
+                      background: '#282c34',
+                      borderRadius: '8rpx',
+                    }}
                     onClick={() => setCodeCollapsed((v) => !v)}
                   >
-                    <Text style={{ fontSize: '24rpx', color: '#abb2bf' }}>{codeCollapsed ? '▸' : '▾'} code</Text>
+                    <Text style={{ fontSize: '24rpx', color: '#abb2bf' }}>
+                      {codeCollapsed ? '▸' : '▾'} code
+                    </Text>
                     <Text style={{ fontSize: '24rpx', color: '#61dafb' }} onClick={copyCode}>
                       {codeCopied ? t('success.copied') : t('ai.chatMessageItem.copy')}
                     </Text>
                   </View>
                   {!codeCollapsed ? (
-                    <Text style={{ display: 'block', padding: '16rpx', fontFamily: 'monospace', fontSize: '24rpx', color: '#abb2bf', background: '#282c34', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                    <Text
+                      style={{
+                        display: 'block',
+                        padding: '16rpx',
+                        fontFamily: 'monospace',
+                        fontSize: '24rpx',
+                        color: '#abb2bf',
+                        background: '#282c34',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                      }}
+                    >
                       {msg.codeContent}
                     </Text>
                   ) : null}
@@ -355,15 +409,40 @@ export default function ChatMessageItem({
               ) : null}
               {/* 语音气泡(若有 audioUrl) */}
               {audioUrl ? (
-                <View style={{ display: 'flex', alignItems: 'center', marginTop: '12rpx', padding: '12rpx 20rpx', background: '#9a99f3', borderRadius: '30rpx', color: '#fff' }} onClick={playVoice}>
-                  <Text style={{ fontSize: '32rpx', marginRight: '12rpx' }}>{voicePlaying ? '⏸' : '▶'}</Text>
-                  {audioDuration ? <Text style={{ fontSize: '24rpx' }}>{audioDuration}''</Text> : null}
+                <View
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginTop: '12rpx',
+                    padding: '12rpx 20rpx',
+                    background: '#9a99f3',
+                    borderRadius: '30rpx',
+                    color: '#fff',
+                  }}
+                  onClick={playVoice}
+                >
+                  <Text style={{ fontSize: '32rpx', marginRight: '12rpx' }}>
+                    {voicePlaying ? '⏸' : '▶'}
+                  </Text>
+                  {audioDuration ? (
+                    <Text style={{ fontSize: '24rpx' }}>{`${audioDuration}''`}</Text>
+                  ) : null}
                 </View>
               ) : null}
               {/* 数字人关键词检测 */}
               {hasDigitalHuman ? (
-                <View style={{ marginTop: '12rpx', padding: '10rpx 20rpx', background: '#9a99f3', borderRadius: '15rpx', color: '#fff', display: 'inline-block' }} onClick={goDigitalHuman}>
-                  <Text style={{ fontSize: '24rpx' }}>数字人生成 →</Text>
+                <View
+                  style={{
+                    marginTop: '12rpx',
+                    padding: '10rpx 20rpx',
+                    background: '#9a99f3',
+                    borderRadius: '15rpx',
+                    color: '#fff',
+                    display: 'inline-block',
+                  }}
+                  onClick={goDigitalHuman}
+                >
+                  <Text style={{ fontSize: '24rpx' }}>{t('ai.chatMessageItem.digitalHuman')}</Text>
                 </View>
               ) : null}
             </View>
@@ -382,7 +461,7 @@ export default function ChatMessageItem({
                   src={imgUrl}
                   className="agent-content-item-img"
                   mode="widthFix"
-                  onClick={() => previewImage(imgUrl, msg.images!)}
+                  onClick={() => previewImage(imgUrl, msg.images || [imgUrl])}
                 />
               ))}
             </View>
@@ -409,10 +488,20 @@ export default function ChatMessageItem({
           {/* 操作按钮行 action-buttons:左侧 token 信息 + 右侧图标组 */}
           <View className="action-buttons" style={{ justifyContent: 'space-between' }}>
             {/* 左侧:智汇AI生成 + 消耗智汇值 */}
-            <View style={{ opacity: answerHidden ? 0 : 1, marginRight: '10rpx', fontSize: '24rpx', color: '#999', lineHeight: '40rpx' }}>
-              <Text>智汇AI生成</Text>
+            <View
+              style={{
+                opacity: answerHidden ? 0 : 1,
+                marginRight: '10rpx',
+                fontSize: '24rpx',
+                color: '#999',
+                lineHeight: '40rpx',
+              }}
+            >
+              <Text>{t('ai.chatMessageItem.aiGenerated')}</Text>
               {typeof msg.tokenCount === 'number' ? (
-                <Text style={{ marginLeft: '10rpx' }}>消耗智汇值：{formatTokenDisplay(msg.tokenCount)}</Text>
+                <Text style={{ marginLeft: '10rpx' }}>
+                  {t('ai.chatMessageItem.tokenCost', { n: formatTokenDisplay(msg.tokenCount) })}
+                </Text>
               ) : null}
             </View>
 
@@ -422,38 +511,38 @@ export default function ChatMessageItem({
               <Image
                 className="action-btn"
                 src={answerHidden ? eyeOpenIcon : eyeClosedIcon}
-                mode="widthFix"
                 onClick={toggleAnswer}
               />
               {/* 思考过程(若有 reasoning) */}
               {msg.reasoning ? (
-                <Image
-                  className="action-btn"
-                  src={sikaoIcon}
-                  mode="widthFix"
-                  onClick={onOpenReasoning}
-                />
+                <Image className="action-btn" src={sikaoIcon} onClick={onOpenReasoning} />
               ) : null}
               {/* 复制 */}
               <Image
                 className="action-btn"
                 src={copyIcon}
-                mode="widthFix"
                 onClick={() => copyContent(msg.content)}
               />
               {/* 下载(有图片时) */}
               {msg.images && msg.images.length > 0 ? (
-                <Image
-                  className="action-btn"
-                  src={downloadIcon}
-                  mode="widthFix"
-                  onClick={downloadImages}
-                />
+                <Image className="action-btn" src={downloadIcon} onClick={downloadImages} />
               ) : null}
+              {/* 分享(对标原 ai_assistant.vue .share-btn:Button openType=share 触发原生分享,View onClick 前置写入待分享消息) */}
+              <View className="share-btn" onClick={onShare}>
+                <Button openType="share" className="share-button">
+                  {t('ai.chatMessageItem.share')}
+                </Button>
+                <Image className="share-icon" src={agentsharePng} mode="widthFix" />
+              </View>
               {/* 朗读 TTS(增强功能,历史项目无,保留) */}
               {onSpeak ? (
                 <Text
-                  style={{ fontSize: '24rpx', color: '#1888ee', marginLeft: '20rpx', lineHeight: '40rpx' }}
+                  style={{
+                    fontSize: '24rpx',
+                    color: '#1888ee',
+                    marginLeft: '20rpx',
+                    lineHeight: '40rpx',
+                  }}
                   onClick={handleSpeak}
                 >
                   {speaking ? '⏸' : '🔊'}
@@ -462,7 +551,12 @@ export default function ChatMessageItem({
               {/* 重新生成(增强功能,历史项目无,保留) */}
               {onRegenerate ? (
                 <Text
-                  style={{ fontSize: '24rpx', color: '#1888ee', marginLeft: '20rpx', lineHeight: '40rpx' }}
+                  style={{
+                    fontSize: '24rpx',
+                    color: '#1888ee',
+                    marginLeft: '20rpx',
+                    lineHeight: '40rpx',
+                  }}
                   onClick={onRegenerate}
                 >
                   ↻
@@ -471,7 +565,12 @@ export default function ChatMessageItem({
               {/* 收藏(增强功能,历史项目无,保留) */}
               {onToggleFavorite ? (
                 <Text
-                  style={{ fontSize: '24rpx', color: isFavorited ? '#ff6b6b' : '#999', marginLeft: '20rpx', lineHeight: '40rpx' }}
+                  style={{
+                    fontSize: '24rpx',
+                    color: isFavorited ? '#ff6b6b' : '#999',
+                    marginLeft: '20rpx',
+                    lineHeight: '40rpx',
+                  }}
                   onClick={onToggleFavorite}
                 >
                   {isFavorited ? '♥' : '♡'}

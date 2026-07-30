@@ -299,18 +299,26 @@ export default function InputArea({
           isFangdaActive ? 'input-area-active' : '',
           isShowIcon && isFangdaActive ? 'textarea-input-isShowIcon' : '',
         )}
-        style={{
-          bottom: `${inputBottom}px`,
-          padding: '10rpx 20rpx 20rpx',
-          ...fangdaStyle,
-        } as CSSProperties}
+        style={
+          {
+            bottom: `${inputBottom}px`,
+            padding: '10rpx 20rpx 20rpx',
+            top: 'auto',
+            ...fangdaStyle,
+          } as CSSProperties
+        }
       >
-        {/* 第二层:input-area-back 白底呼吸阴影(对标原项目 .input-area-back inputAreaBackAnimation) */}
+        {/* 第二层:input-area-back 白底呼吸阴影(对标原项目 .input-area-back inputAreaBackAnimation)
+            放大态:对标原项目 .input_area_back(仅 height:100%,移除 box-shadow + animation) */}
         <View
           className={isFangdaActive ? 'input-area-back input-area-active-bg' : 'input-area-back'}
-          style={{ width: '100%' }}
+          style={{
+            width: '100%',
+            ...(isFangdaActive ? { height: '100%', boxShadow: 'none', animation: 'none' } : {}),
+          }}
         >
-          {/* 第三层:search-box search-box-bor 紫色描边圆角容器(对标原项目 .search-box.search_box_bor) */}
+          {/* 第三层:search-box search-box-bor 紫色描边圆角容器(对标原项目 .search-box.search_box_bor)
+              语音模式背景色 #ECEDFC(对标原项目 isVoiceAnimationActive 判断) */}
           <View
             className={cn(
               'search-box',
@@ -318,7 +326,7 @@ export default function InputArea({
               isFangdaActive ? 'search-box-active' : '',
             )}
             style={{
-              backgroundColor: recording ? '#ECEDFC' : '#fff',
+              backgroundColor: mode === 'voice' ? '#ECEDFC' : '#fff',
             }}
           >
             {/* 附件列表 imgs-list(对标原项目 .imgs_list,横向滚动,底部 1px 灰线分隔) */}
@@ -332,48 +340,50 @@ export default function InputArea({
                       mode="widthFix"
                       onClick={() => handleRemoveImage(index)}
                     />
-                    {item.fileType === 'document' ? (
-                      <View style={{ position: 'relative', width: '120rpx', height: '120rpx' }}>
-                        <Image src={filePng} className="imgs-list-item-img" mode="aspectFill" />
-                        {item.filename ? (
-                          <View
-                            style={{
-                              position: 'absolute',
-                              left: 0,
-                              bottom: 0,
-                              right: 0,
-                              zIndex: 1,
-                              overflow: 'hidden',
-                              height: '32rpx',
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <View className="scroll-container">
-                              <View className="scroll-content">
-                                <Text>{item.filename}</Text>
-                                <Text className="scroll-separator"> </Text>
-                                <Text>{item.filename}</Text>
-                              </View>
-                            </View>
+                    {item.fileType === 'document' && item.filename ? (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          bottom: 0,
+                          right: 0,
+                          zIndex: 1,
+                          overflow: 'hidden',
+                          height: '32rpx',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <View className="scroll-container">
+                          <View className="scroll-content">
+                            <Text>{item.filename}</Text>
+                            <Text className="scroll-separator"> </Text>
+                            <Text>{item.filename}</Text>
                           </View>
-                        ) : null}
+                        </View>
                       </View>
-                    ) : item.fileType === 'video' || item.video_url ? (
-                      <Video
-                        src={item.video_url || ''}
-                        poster={item.imgUrl}
-                        showCenterPlayBtn={false}
-                        showPlayBtn={false}
-                        enableProgressGesture={false}
-                        controls={false}
-                        autoplay={false}
-                        showFullscreenBtn={false}
-                        objectFit="contain"
-                        style={{ width: '213rpx', height: '120rpx', borderRadius: '15rpx' }}
-                      />
+                    ) : null}
+                    {item.fileType === 'video' || item.video_url ? (
+                      <View style={{ position: 'relative', width: '213rpx', height: '120rpx' }}>
+                        <Video
+                          src={item.video_url || ''}
+                          poster={item.imgUrl}
+                          showCenterPlayBtn={false}
+                          showPlayBtn={false}
+                          enableProgressGesture={false}
+                          controls={false}
+                          autoplay={false}
+                          showFullscreenBtn={false}
+                          objectFit="contain"
+                          style={{ width: '213rpx', height: '120rpx', borderRadius: '15rpx' }}
+                        />
+                      </View>
                     ) : (
-                      <Image src={item.imgUrl} className="imgs-list-item-img" mode="heightFix" />
+                      <Image
+                        src={item.fileType === 'document' ? filePng : item.imgUrl}
+                        className="imgs-list-item-img"
+                        mode="heightFix"
+                      />
                     )}
                   </View>
                 ))}
@@ -410,6 +420,9 @@ export default function InputArea({
                 padding: 0,
                 background: 'transparent',
                 width: '100%',
+                ...(isFangdaActive
+                  ? { height: '100%', justifyContent: 'space-between', alignItems: 'flex-end' }
+                  : {}),
               }}
             >
               {/* 语音切换按钮 search-box1:50rpx×44rpx */}
@@ -421,36 +434,37 @@ export default function InputArea({
                   display: 'flex',
                   alignItems: 'center',
                   flex: 'none',
-                  marginRight: recording ? '0' : '20rpx',
+                  marginRight: mode === 'voice' ? '0' : '20rpx',
                 }}
                 onClick={toggleMode}
               >
                 <Image
                   className="search-box1-img"
-                  src={recording ? inputQiePng : searchHuaPng}
+                  src={mode === 'voice' ? inputQiePng : searchHuaPng}
                   style={{
-                    width: recording ? '50rpx' : '38rpx',
-                    height: recording ? '30rpx' : '40rpx',
+                    width: mode === 'voice' ? '50rpx' : '38rpx',
+                    height: mode === 'voice' ? '30rpx' : '40rpx',
                   }}
                   mode="widthFix"
                 />
               </View>
 
-              {/* textarea search-input 或 语音波形动画 */}
-              {mode === 'text' ? (
-                <Textarea
-                  className={cn(
-                    'search-input',
-                    isFangdaActive ? 'textarea-input' : '',
-                    !isamplify && !isFangdaActive ? 'textarea-int' : '',
-                  )}
-                  style={{
-                    position: recording ? 'absolute' : 'relative',
+              {/* textarea search-input(对标原项目 textarea.search-input)
+                  始终渲染:语音模式时通过 position:absolute + zIndex:-1 隐藏(对标原项目 disabled 控制逻辑) */}
+              <Textarea
+                className={cn(
+                  'search-input',
+                  isFangdaActive ? 'textarea-input' : '',
+                  !isamplify && !isFangdaActive ? 'textarea-int' : '',
+                )}
+                style={
+                  {
+                    position: mode === 'voice' ? 'absolute' : 'relative',
                     top: 0,
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    zIndex: recording ? -1 : 1,
+                    zIndex: mode === 'voice' ? -1 : 1,
                     maxHeight: isFangdaActive ? 'none' : '500rpx',
                     padding: textareaPadding,
                     fontSize: '36rpx',
@@ -458,26 +472,28 @@ export default function InputArea({
                     lineHeight: '40rpx',
                     flex: 1,
                     minHeight: '44rpx',
-                  } as CSSProperties}
-                  value={value}
-                  placeholder={placeholder || t('ai.inputArea.placeholder')}
-                  placeholderStyle="color: #999999; font-size: 28rpx;"
-                  maxlength={maxLength}
-                  autoFocus={autoFocus}
-                  autoHeight
-                  onInput={handleInput}
-                  onConfirm={handleSend}
-                  confirmType="send"
-                  // 原项目 cursor-spacing="44px";Taro Textarea cursorSpacing 类型为 number(单位 px),44 即 44px
-                  cursorSpacing={44}
-                  adjustPosition={false}
-                  disabled={recording}
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
-                  onKeyboardHeightChange={handleKeyboardHeightChange}
-                />
-              ) : (
-                /* 语音波形动画 voice-bar-animation:30 根线,recording 时添加 line1~line30 类名触发动画 */
+                  } as CSSProperties
+                }
+                value={value}
+                placeholder={placeholder || t('ai.inputArea.placeholder')}
+                placeholderStyle="color: #999999; font-size: 28rpx;"
+                maxlength={maxLength}
+                autoFocus={autoFocus}
+                autoHeight
+                onInput={handleInput}
+                onConfirm={handleSend}
+                confirmType="send"
+                cursorSpacing={44}
+                adjustPosition={false}
+                disabled={mode === 'voice' || recording}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyboardHeightChange={handleKeyboardHeightChange}
+              />
+
+              {/* 语音波形动画 voice-bar-animation(对标原项目 v-if="isVoiceAnimationActive")
+                  语音模式时渲染:30 根线,recording 时添加 line1~line30 类名触发动画 */}
+              {mode === 'voice' ? (
                 <View
                   style={{ flex: 1, display: 'flex', alignItems: 'center' }}
                   onTouchStart={handleVoiceStart}
@@ -486,14 +502,11 @@ export default function InputArea({
                 >
                   <View className="voice-bar-animation">
                     {Array.from({ length: 30 }).map((_, n) => (
-                      <View
-                        key={n}
-                        className={cn('line', recording ? `line${n + 1}` : '')}
-                      />
+                      <View key={n} className={cn('line', recording ? `line${n + 1}` : '')} />
                     ))}
                   </View>
                 </View>
-              )}
+              ) : null}
 
               {/* 放大按钮(对标原项目 isamplify && !isVoiceAnimationActive && !isFangdaActive)
                   位置:absolute right:0 top:12rpx 40×40 z-index:2,图标 48×48 widthFix */}

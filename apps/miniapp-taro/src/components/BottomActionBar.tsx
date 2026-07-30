@@ -146,7 +146,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         ) : null}
 
         {/* InputArea:ai-home 模式(padding 20rpx + bg #E6F3FA 圆角 30rpx + send 100rpx 圆角 30rpx)*/}
-        <InputArea variant="ai-home" {...inputAreaProps} />
+        <InputArea variant="ai-home" {...inputAreaProps} value={inputAreaProps?.value ?? ''} />
 
         {/* icon-button-group:4 个图标按钮(对齐原项目 .icon-button-group)*/}
         {showIconButtons ? (
