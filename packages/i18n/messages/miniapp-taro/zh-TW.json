@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "profile": "我的",
     "community": "社群"
@@ -95,7 +95,9 @@
     "list": {
       "searchPlaceholder": "搜尋課程",
       "search": "搜尋",
-      "empty": "暫無課程"
+      "empty": "暫無課程",
+      "title": "精品課程",
+      "subtitle": "{{n}} 個課程"
     },
     "ratingTitle": "評價課程",
     "ratingLabels": ["", "很差", "較差", "一般", "不錯", "很好"],
@@ -272,7 +274,8 @@
     "commission": {
       "today": "今日佣金",
       "available": "可提現佣金",
-      "records": "佣金記錄"
+      "records": "佣金記錄",
+      "title": "佣金明細"
     }
   },
   "community": {
@@ -966,6 +969,40 @@
       "menuTeam": "團隊管理",
       "menuCommission": "佣金記錄",
       "menuWithdraw": "申請提現"
+    },
+    "index": {
+      "title": "我的公司",
+      "menuTeam": "我的團隊",
+      "menuOrders": "分銷訂單",
+      "menuPlan": "分傭計劃",
+      "menuWithdraw": "申請提現",
+      "menuRank": "推廣排行",
+      "menuQrCode": "我的二維碼",
+      "tabDay": "日",
+      "tabMonth": "月",
+      "tabSum": "總",
+      "columnEarnings": "收益",
+      "columnOrders": "訂單",
+      "columnInvites": "邀請",
+      "defaultName": "操盤手",
+      "operator": "操盤手",
+      "earnings": "收益",
+      "orders": "訂單數",
+      "invites": "邀請人數",
+      "columnTitle": "分銷數據",
+      "qrTitle": "我的分享二維碼",
+      "share": "分享給好友",
+      "saveAlbum": "儲存到相簿",
+      "verifyTitle": "身分資訊驗證",
+      "idPlaceholder": "請輸入身分證號碼",
+      "namePlaceholder": "請輸入姓名",
+      "confirm": "確認",
+      "qrLoadFail": "二維碼載入失敗",
+      "qrLoading": "二維碼生成中",
+      "fillInfo": "請填寫完整資訊",
+      "verifying": "驗證中",
+      "verifyOk": "驗證成功",
+      "verifyFail": "驗證失敗"
     },
     "rankTitle": "分銷排行榜",
     "rankEmpty": "暫無排行數據",
@@ -2274,5 +2311,15 @@
   },
   "notification": {
     "settings": "通知設置"
+  },
+  "toolbar": {
+    "traffic-service": "流量運營陪跑",
+    "device-service": "一站式設備應用",
+    "ai-other-service": "AI其他技術服務",
+    "ai": "AI對話",
+    "course": "課程",
+    "plaza": "廣場",
+    "rank": "排行",
+    "vip": "會員"
   }
 }

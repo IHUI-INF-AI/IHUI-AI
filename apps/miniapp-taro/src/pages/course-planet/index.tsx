@@ -16,6 +16,60 @@ interface PlanetCourse {
   category?: string
 }
 
+// API 返回空数据时的 mock 降级(避免 Carousel 不渲染导致页面顶部空白)
+const MOCK_COURSES: PlanetCourse[] = [
+  {
+    id: 'mock-1',
+    title: 'AI 绘画入门:从零到精通',
+    coverUrl:
+      'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Course%20cover%20AI%20painting%20intro%20minimalist%20illustration&image_size=landscape_16_9',
+    teacher: 'AI 教研组',
+    price: 0,
+    students: 1280,
+    category: 'recommend',
+  },
+  {
+    id: 'mock-2',
+    title: '短视频制作全流程实战',
+    coverUrl:
+      'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Course%20cover%20short%20video%20production%20minimalist%20illustration&image_size=landscape_16_9',
+    teacher: '实战导师',
+    price: 99,
+    students: 856,
+    category: 'hot',
+  },
+  {
+    id: 'mock-3',
+    title: 'ChatGPT 提示词工程',
+    coverUrl:
+      'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Course%20cover%20ChatGPT%20prompt%20engineering%20minimalist%20illustration&image_size=landscape_16_9',
+    teacher: 'AI 教研组',
+    price: 199,
+    students: 2340,
+    category: 'recommend',
+  },
+  {
+    id: 'mock-4',
+    title: 'AI 办公效率提升指南',
+    coverUrl:
+      'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Course%20cover%20AI%20office%20productivity%20minimalist%20illustration&image_size=landscape_16_9',
+    teacher: '效率专家',
+    price: 0,
+    students: 1560,
+    category: 'free',
+  },
+  {
+    id: 'mock-5',
+    title: '大模型应用开发实战',
+    coverUrl:
+      'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=Course%20cover%20LLM%20app%20development%20minimalist%20illustration&image_size=landscape_16_9',
+    teacher: '技术大牛',
+    price: 299,
+    students: 678,
+    category: 'new',
+  },
+]
+
 const PAGE_SIZE = 10
 
 const CATEGORY_KEYS = [
@@ -76,11 +130,12 @@ export default function CoursePlanet() {
                 : undefined,
         category: (item.category as string) || (item.tag as string) || (item.type as string) || '',
       }))
-      setAllList(mapped)
+      setAllList(mapped.length > 0 ? mapped : MOCK_COURSES)
       setDisplayCount(PAGE_SIZE)
     } catch (e) {
       logger.error('coursePlanet', '加载课程星球', e)
       setError(true)
+      setAllList(MOCK_COURSES)
     } finally {
       setLoading(false)
       loadingRef.current = false
