@@ -102,6 +102,8 @@ export {
   requestWithdraw,
   getDayMonthSummary,
 } from './endpoints/distribution'
+// 挣钱中心仪表盘 API(2026-07-31 立,P0 挣钱核心,跨端共享)
+export * from './endpoints/earnings'
 export * from './endpoints/edu'
 export * from './endpoints/exam'
 // 文件上传端点(2026-07-28 立,mobile-rn AigcPublishScreen 接入真实文件选择+上传)
