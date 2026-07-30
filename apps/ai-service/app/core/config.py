@@ -112,6 +112,17 @@ class Settings(BaseSettings):
     # 格式:http://user:pass@host:port 或 http://host:port  空字符串=不使用代理
     llm_proxy_url: str = ""
 
+    # Token 压缩(2026-07-30 立,P2-A TokenCompactor 配套配置)
+    # 启用后 llm_gateway.complete/astream 在 trim_messages 后、litellm.acompletion 前
+    # 自动调用 RTK+Caveman 双算法压缩(策略=rtk_caveman,keep_recent=6)。
+    # 启用条件(全部满足才压缩):① token_compaction_enabled=True ② 非 stub 模式
+    # ③ 不含 tools 参数(保护 function calling) ④ 总 token 数 > token_compaction_min_tokens
+    # 压缩失败降级用原 messages(不阻塞主流程),压缩率记录到 LLM_TOKEN_COMPACTION_RATIO metric
+    # Combo 多级 fallback 链(COMBO_CHAINS 环境变量)由 combo_router.py 直接走
+    # os.environ 读取,不走 settings 字段(避免重复配置入口)
+    token_compaction_enabled: bool = False
+    token_compaction_min_tokens: int = 2000
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:
