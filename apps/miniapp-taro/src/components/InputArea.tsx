@@ -318,9 +318,9 @@ export default function InputArea({
     )
   }
 
-  // ===== default 模式:兼容旧调用 =====
+  // ===== default 模式:兼容旧调用(适配父容器 column 布局,占满宽度)=====
   return (
-    <View className="bg-card safe-area-bottom mt-2">
+    <View className="w-full">
       {showEmoji ? (
         <ScrollView scrollY className="h-48 mb-2">
           <View className="flex flex-wrap p-2">
@@ -337,8 +337,8 @@ export default function InputArea({
         </ScrollView>
       ) : null}
 
-      <View className="flex items-end px-3 py-2">
-        <View className="flex items-center mr-2">
+      <View className="flex items-center w-full">
+        <View className="flex items-center mr-2 flex-shrink-0">
           <View
             className={`w-9 h-9 flex items-center justify-center rounded-lg active:bg-muted ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
@@ -352,10 +352,10 @@ export default function InputArea({
         </View>
 
         {mode === 'text' ? (
-          <View className="flex-1 min-h-10 bg-muted rounded-2xl px-3 py-2">
+          <View className="flex-1 min-h-10 bg-muted rounded-2xl px-3 py-2 flex items-center">
             <Textarea
               className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
-              style={{ minHeight: '40rpx', maxHeight: '200rpx' }}
+              style={{ minHeight: '40rpx', maxHeight: '200rpx', width: '100%' }}
               value={text}
               placeholder={placeholder || t('ai.inputArea.placeholder')}
               placeholderClass="text-muted-foreground"
@@ -369,11 +369,6 @@ export default function InputArea({
               adjustPosition
               disabled={disabled}
             />
-            <View className="text-right text-xs text-muted-foreground mt-1">
-              <Text>
-                {text.length}/{maxLength}
-              </Text>
-            </View>
           </View>
         ) : (
           <View
@@ -388,7 +383,7 @@ export default function InputArea({
           </View>
         )}
 
-        <View className="flex items-center ml-2">
+        <View className="flex items-center ml-2 flex-shrink-0">
           {mode === 'text' ? (
             <Text
               className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-muted ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
@@ -407,7 +402,7 @@ export default function InputArea({
 
         {mode === 'text' ? (
           <View
-            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm ${canSend ? 'bg-primary text-white active:bg-primary' : 'bg-muted text-muted-foreground'}`}
+            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm flex-shrink-0 ${canSend ? 'bg-primary text-white active:bg-primary' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
           >
             <Text>{t('ai.inputArea.send')}</Text>
