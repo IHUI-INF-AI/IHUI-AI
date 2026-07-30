@@ -137,6 +137,10 @@ def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
 
 _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 2026-07 扩展:覆盖 LiteLLM 支持的所有 LLM 厂商前缀
+    # BYOK 平台模式(2026-07-30):用户自带 key 的私有配置统一用 byok/ 前缀,
+    # _resolve_from_db 会按 owner_uuid 优先匹配用户私有 aiModelConfig。
+    "byok/": "byok",
+    "siliconflow-byok/": "siliconflow-byok",
     # 国内
     "stepfun/": "stepfun",
     "agnes/": "agnes",
