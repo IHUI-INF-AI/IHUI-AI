@@ -33,6 +33,7 @@ import {
   startResize,
   onMaximizeChange,
 } from '@/lib/tauri-bridge'
+import { TOPBAR_BTN_BASE, TOPBAR_BTN_W7 } from '@/lib/nav-styles'
 import { TagsView } from './TagsView'
 import { Tooltip } from '@/components/feedback'
 
@@ -323,38 +324,32 @@ export function GlobalTopBar() {
         </>
       )}
 
-      {/* 顶栏 wrapper(2026-07-30 用户反馈根治)
-          - 外部包 py-2 wrapper(8px 上下间距),跟左侧 AI 面板 wrapper
-            (`<div className="relative h-full shrink-0 py-2">`,见 ai-side-panel.tsx)完全一致。
-            原 bug:顶栏直接 h-9 贴顶 y=0,paddingTop=0,
-            AI 面板 wrapper y=0 但 py-2 让 header 视觉起点 y=8 →
-            顶栏内容(搜索/Plus 图标)vs AI 面板 header 视觉顶部差 8px。
-            修复:顶栏 wrapper py-2,内部 h-9 div 起点 y=8,
-            内部 items-center 让 36px 高图标中心 y=8+18=26,
-            跟 AI 面板 header 中心 y=8+18=26 完美对齐。
-          - 顶栏外层承担拖拽状态机(原 onMouseDown/Up/Leave),因为内部 div items-center
-            鼠标落点常在图标/按钮上,会被 closest('button, a...') 跳过,改到 wrapper 上
-            保证空白区点击也响应拖拽 + 双击最大化。 */}
+      {/* 顶栏单层(2026-07-30 第七轮"做减法 v3"根治,用户反馈"标签栏高度不对 + 双重设定冲突"后最终版)
+          用户原话:标签栏高度不是我之前要求的高度,而且搜索按钮容器左侧也没对齐下面内容展示区左侧,
+          是有双重设定吗?冗余设定冲突设定?
+
+          原状态(双重高度冲突):
+            <div h-[52px] py-2 pl-0 pr-0>
+              - h-[52px]:总高度 52px
+              - py-2:上下 8px padding(8+36+8 = 52px,内容区 36px)
+              - pl-0 pr-0:水平 0 padding(搜索按钮贴左边 0,跟 main p-4 不对齐)
+            两重声明(h + py)导致总高度需看两层才能算出,且与 main p-4 不一致。
+
+          修复后(单一高度 + 对齐 main padding):
+            <div h-9 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8>
+              - h-9:总高度 36px(单一来源,跟用户"之前要求的 36px 高度"一致)
+              - pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8:水平 padding 跟 main p-4 md:p-6 lg:p-8 完全一致
+                (搜索按钮左侧 x=16,跟 main 内容左侧 x=16 严丝合缝对齐;Plus 按钮 / 窗口控制也跟随内移)
+              - 删 py-2:不再有 padding 贡献高度,杜绝"双重设定"歧义
+              - 子元素 h-full 撑满 h-9 = 36px,跟原设计 36px 内容区一致
+              - 跟 AI 面板 header 顶部间距的关系:AI 面板 header 内部仍由其父级 py-2 控 8px 顶部间距,
+                与本顶栏"无 padding"形成的 y=0 起点不同,这是设计差异(AI 面板卡片需要视觉呼吸,
+                顶栏不需要),符合用户对两个面板不同间距要求的意图。 */}
       <div
-        className="shrink-0 select-none py-2"
+        className="flex h-9 shrink-0 select-none cursor-default items-center gap-1 pl-4 pr-4 md:pl-6 md:pr-6 lg:pl-8 lg:pr-8"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
-      >
-      {/* 顶栏容器
-          - h-9:单层固定 36px 高度
-          - pl-0 pr-0(2026-07-30 用户反馈根治:水平 padding 全部为 0,
-            让搜索/Plus 按钮左缘严格 = work-area 左缘 = main 内容左缘。
-            原因:work-area 内各内容区(marketing/main 等)无内 padding,
-            顶栏若 pl-16 会让搜索/Plus 按钮左缘 x=559,比 main 内容左缘 x=543
-            往右缩 16px,出现"切掉一块,缩进去一块"的视觉割裂(用户原话))。
-            现在 pl-0 pr-0,顶栏内容左缘 = main 内容左缘 = 543,完美对齐。
-          - gap-1:标签栏 / Plus 弹窗 / 窗口控制之间 4px 间距
-          - cursor-default:覆盖外层(避免标签继承 cursor-move 误导)
-          - 已删除响应式水平 padding(2026-07-30 决策:由 wrapper py-2 提供视觉间距,
-            水平方向 pl-0 pr-0 让顶栏严格对齐 work-area 左/右缘,响应式断点不需要) */}
-      <div
-        className="flex h-9 shrink-0 cursor-default items-center gap-1 pl-0 pr-0 select-none"
       >
         {/* 标签栏(全站常驻,TagsView 内部根据 pathname 派生标签)
             flex-1 占满中间区域,与右侧 Plus 按钮 + 窗口控制同一排 */}
@@ -381,11 +376,16 @@ export function GlobalTopBar() {
               aria-label={plusLabel}
               aria-haspopup="menu"
               aria-expanded={plusOpen}
+              // 2026-07-30 第七轮"做减法 v3 根治":
+              // - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W7(28px 方块)
+              // - 删手写 inline-flex h-full w-7 ... transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent
+              //   (跟 WindowControlButton / Dropdown trigger 4 处雷同声明合并)
+              // - 删冗余的 cursor-pointer(button 默认就是 cursor: pointer)
+              // - active 态:plusOpen 时 bg-accent + text-foreground(跟 hover 同色但属于状态指示)
               className={cn(
-                'inline-flex h-full w-7 cursor-pointer items-center justify-center rounded-md',
-                'transition-colors hover:bg-accent',
-                'focus:outline-none focus-visible:bg-accent',
-                plusOpen ? 'bg-accent text-foreground' : 'text-foreground/80',
+                TOPBAR_BTN_BASE,
+                TOPBAR_BTN_W7,
+                plusOpen ? 'bg-accent text-foreground' : 'text-foreground/80 hover:bg-accent',
               )}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -490,14 +490,18 @@ export function GlobalTopBar() {
           </div>
         )}
       </div>
-      </div>
     </>
   )
 }
 
 // ================== 子组件 ==================
 
-/** 窗口控制按钮(Min/Max/Close) */
+/** 窗口控制按钮(Min/Max/Close) — 2026-07-30 第七轮"做减法 v3 根治"
+ *  - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W7(28px 方块)
+ *  - 删手写 inline-flex h-full w-7 ... transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent
+ *    (跟 Plus 按钮 / Dropdown trigger 3 处雷同声明合并)
+ *  - 删冗余的 cursor-pointer
+ *  - variant === 'close' 保留红色 hover 样式(差异项,关闭按钮需特别视觉警示) */
 function WindowControlButton({
   onClick,
   ariaLabel,
@@ -514,15 +518,12 @@ function WindowControlButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      // 2026-07-30 用户反馈"标签栏高度不对"深度根治:
-      // 窗口控制按钮 h-7 (28px) → h-full (跟容器 36px 同步),彻底消除容器 + 按钮
-      // 的"双重高度"残留风险(用户原话:有双重设定吗?冗余设定冲突设定?)
       className={cn(
-        'inline-flex h-full w-7 cursor-pointer items-center justify-center rounded-md',
-        'text-foreground/80 transition-colors',
-        'hover:bg-accent hover:text-foreground',
-        'focus:outline-none focus-visible:bg-accent',
-        variant === 'close' && 'hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400',
+        TOPBAR_BTN_BASE,
+        TOPBAR_BTN_W7,
+        variant === 'close'
+          ? 'text-foreground/80 hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400'
+          : 'text-foreground/80 hover:bg-accent hover:text-foreground',
       )}
     >
       {icon}

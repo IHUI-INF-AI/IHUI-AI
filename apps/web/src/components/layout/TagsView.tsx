@@ -11,6 +11,7 @@ import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
 import { resolvePathLabelSpec } from '@/lib/path-labels'
+import { TOPBAR_BTN_BASE, TOPBAR_BTN_W7 } from '@/lib/nav-styles'
 
 /**
  * 兜底标题:取 URL 最后一段,处理 [id] 占位符 + kebab-case → Title Case。
@@ -237,11 +238,17 @@ const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        // 2026-07-30 用户反馈"搜索按钮容器左侧没对齐下面内容展示区左侧"根治:
-        // - 删 px-2(8px) → 图标紧贴容器左缘,跟下面 main p-4 (16px) 内的内容左缘视觉对齐
-        //   (顶栏外层 px-4 提供 16px 水平 padding → 搜索按钮容器左缘 = 16px = 内容左缘)
-        // - h-full 跟随外层 h-9 (36px),不再有 h-6/h-7 双重高度冲突
-        className="inline-flex h-full shrink-0 items-center justify-center rounded-md bg-white pl-0 pr-2 text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
+        // 2026-07-30 第七轮"做减法 v3 根治"最终版(用户反馈"搜索按钮左侧没对齐下面内容展示区左侧"):
+        // - 改用共享 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)
+        // - 删自定义 bg-white / dark:bg-black / hover:bg-gray-100 / dark:hover:bg-gray-900
+        //   (跟主题色不一致的"多重设定"乱象之一,让搜索按钮在不同主题下表现不可预期)
+        // - 删 pl-1.5 pr-1.5:之前在顶栏 pl-0 pr-0 时作为内补偿偏移,现在顶栏已统一 pl-4 pr-4
+        //   (跟 main p-4 对齐),搜索按钮作为顶栏第一个子元素,左侧 x=16 严丝合缝对齐 main 内容左侧
+        //   (用户原话:搜索按钮容器左侧应该对齐下面内容展示区左侧),不能再额外 pl-1.5
+        // - 删 w-7(TOPBAR_BTN_W7):搜索按钮宽度由内容自决定(仅一个 Search 图标 w-4=16px),
+        //   不需要硬编码 28px 方块(Plus / 窗口控制 / Dropdown trigger 才需要)
+        // - hover 跟其他顶栏元素统一用 hover:bg-muted
+        className={cn(TOPBAR_BTN_BASE, 'text-foreground/80 hover:bg-muted/50')}
       >
         <Search className="h-4 w-4" />
       </button>
@@ -426,17 +433,20 @@ export function TagsView() {
                 onDragEnd={onDragEnd}
                 onContextMenu={(e) => handleContextMenu(e, tag.path)}
                 className={cn(
-                  'group inline-flex h-full shrink-0 cursor-pointer items-center gap-1 rounded-md border py-0 pl-2 pr-1 text-xs leading-none transition-colors',
+                  // 2026-07-30 第七轮"做减法 v3 根治":
+                  // - 改用共享 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)
+                  // - 真去掉所有 border(第六轮 v2 没做干净,残留 border-primary/30 /
+                  //   border-border/40 / border-dashed border-primary/50 / 主类 border)
+                  // - active 态靠 bg-primary/10 + font-medium + text-primary 已足够视觉指示
+                  // - 拖拽视觉简化:目标位 + 源项共用 opacity-50,无 border-dashed 残留
+                  TOPBAR_BTN_BASE,
+                  'group cursor-pointer gap-1 pl-2 pr-1 text-xs',
                   active
-                    ? 'border-primary/30 bg-primary/10 font-medium text-primary'
-                    : 'border-border/40 text-muted-foreground hover:bg-muted hover:text-foreground',
-                  // 拖拽中视觉:目标位透明,源项半透明,其它项降不透明
-                  dragIndex !== null &&
-                    (isOver
-                      ? 'border-dashed border-primary/50 opacity-50'
-                      : dragIndex === index
-                        ? 'opacity-40'
-                        : 'opacity-100'),
+                    ? 'bg-primary/10 font-medium text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
+                  dragIndex !== null && isOver && 'opacity-50',
+                  dragIndex === index && 'opacity-40',
                   draggable && 'cursor-grab active:cursor-grabbing',
                 )}
               >
@@ -490,11 +500,18 @@ export function TagsView() {
             { key: 'all', label: tCommon('closeAll'), onSelect: () => closeAll() },
           ]}
           trigger={
-            // 2026-07-30 用户反馈"标签栏高度不对"根治:Dropdown trigger 改 h-full
-            // 跟随外层 GlobalTopBar h-9 (36px),不再固定 h-7 (28px) 导致比标签栏矮 8px
+            // 2026-07-30 第七轮"做减法 v3 根治":
+            // - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W7(28px 方块)
+            // - 删自定义 bg-white / dark:bg-black / hover:bg-gray-100 / dark:hover:bg-gray-900
+            //   (跟主题色不一致的"多重设定"乱象之一,跟 Plus 按钮 / 窗口控制按钮风格不统一)
+            // - 跟 Plus 按钮 / 窗口控制按钮 hover 风格统一为 hover:bg-accent
             <button
               type="button"
-              className="inline-flex h-full w-7 items-center justify-center rounded-md bg-white text-foreground outline-none transition-colors hover:bg-gray-100 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:bg-black dark:hover:bg-gray-900 dark:focus-visible:ring-foreground/30"
+              className={cn(
+                TOPBAR_BTN_BASE,
+                TOPBAR_BTN_W7,
+                'text-foreground/80 hover:bg-accent hover:text-foreground',
+              )}
               aria-label={tCommon('moreActions')}
             >
               <ChevronDown className="h-4 w-4" />
