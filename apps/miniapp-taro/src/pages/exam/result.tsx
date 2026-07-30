@@ -4,7 +4,7 @@ import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamResult, get } from '@/api'
 import { NavBar } from '@/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './result.css'
 
 interface ExamResultInfo {
@@ -32,13 +32,7 @@ interface ReviewQuestion {
 }
 
 export default function ExamResult() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
   const router = useRouter()
   const [info, setInfo] = useState<ExamResultInfo>({ score: 0, pass: false })
   const [reviews, setReviews] = useState<ReviewQuestion[]>([])

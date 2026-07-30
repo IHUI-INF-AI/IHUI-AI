@@ -1,4 +1,4 @@
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, {
   useDidShow,
   useShareAppMessage,
@@ -10,27 +10,67 @@ import { useState, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getCircleList } from '@/api'
 import { useI18n } from '@/i18n'
+import { aizhsUrl, bspappUrl } from '@/constants/icon-urls'
+// 8 类模型切换背景图 + 箭头(Vite 编译时内联为 base64,对标原项目 ai_index.vue)
+import activeBackSvg from '@/static/images/add/active_back.svg'
+import backDefaultSvg from '@/static/images/add/back_default.svg'
+import jiantouSvg from '@/static/images/add/jiantou.svg'
+// 8 类模型图标(skills/talk/image/video/audio/videoa/other/sck)
+import skillsIcon from '@/assets/images/add/skills.svg'
+import talkIcon from '@/assets/images/add/talk.svg'
+import imageIcon from '@/assets/images/add/image.svg'
+import videoIcon from '@/assets/images/add/video.svg'
+import audioIcon from '@/assets/images/add/audio.svg'
+import videoaIcon from '@/assets/images/add/videoa.svg'
+import otherIcon from '@/assets/images/add/other.svg'
+import sckIcon from '@/assets/images/add/sck.svg'
+import './index.css'
 
 const defaultAvatar = '/static/default-avatar.png'
 
-// 8 类模型切换(对标原项目 ai_index.vue 的 8 类:skills/talk/image/video/audio/videoa/other/sck)
-const modelTypes = [
-  { icon: '💬', key: 'community.modelTypes.aiChat', path: '/pages/ai/chat' },
-  { icon: '🎨', key: 'community.modelTypes.aiImage', path: '/pages/ai/image' },
-  { icon: '🎬', key: 'community.modelTypes.aiVideo', path: '/pages/ai/video' },
-  { icon: '🎙️', key: 'community.modelTypes.aiVoice', path: '/pages/ai/voice' },
-  { icon: '⚡', key: 'community.modelTypes.agent', path: '/pages/ai/agent' },
-  { icon: '🧠', key: 'community.modelTypes.digitalHuman', path: '/pages/ai/special' },
-  { icon: '🏛️', key: 'community.modelTypes.modelPlaza', path: '/pages/model-plaza/index' },
-  { icon: '🔧', key: 'community.modelTypes.moreTools', path: '/pages/ai/agent' },
+// 8 类模型切换(对标原项目 ai_index.vue:skills/talk/image/video/audio/videoa/other/sck)
+type ModelTypeKey = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
+
+interface ModelTypeConfig {
+  type: ModelTypeKey
+  label: string
+  icon: string
+  path: string
+}
+
+const modelTypes: ModelTypeConfig[] = [
+  { type: 'skills', label: '技能', icon: skillsIcon, path: '/pages/ai/agent' },
+  { type: 'talk', label: '对话', icon: talkIcon, path: '/pages/ai/chat' },
+  { type: 'image', label: '图像', icon: imageIcon, path: '/pages/ai/image' },
+  { type: 'video', label: '视频', icon: videoIcon, path: '/pages/ai/video' },
+  { type: 'audio', label: '语音', icon: audioIcon, path: '/pages/ai/voice' },
+  { type: 'videoa', label: '视频+语音', icon: videoaIcon, path: '/pages/ai/special' },
+  { type: 'other', label: '其他', icon: otherIcon, path: '/pages/model-plaza/index' },
+  { type: 'sck', label: '创作', icon: sckIcon, path: '/pages/ai/agent' },
 ]
 
-// 快捷入口
+// 快捷入口(图标引用原项目远程图库:aizhs.top / bspapp.com)
 const quickEntries = [
-  { icon: '📝', key: 'community.quickEntries.myCreation', path: '/pages/aigc/list' },
-  { icon: '🎨', key: 'community.quickEntries.aigcWorks', path: '/pages/aigc/publish' },
-  { icon: '🏆', key: 'community.quickEntries.ranking', path: '/pages/ranking/index' },
-  { icon: '👥', key: 'community.quickEntries.aiTeam', path: '/pages/ai-group/index' },
+  {
+    icon: aizhsUrl('sys-mini/penicon.png'),
+    key: 'community.quickEntries.myCreation',
+    path: '/pages/aigc/list',
+  },
+  {
+    icon: aizhsUrl('sys-mini/xtk/aiWork.png'),
+    key: 'community.quickEntries.aigcWorks',
+    path: '/pages/aigc/publish',
+  },
+  {
+    icon: bspappUrl('tabbar/home/zhongxia/king.png'),
+    key: 'community.quickEntries.ranking',
+    path: '/pages/ranking/index',
+  },
+  {
+    icon: aizhsUrl('sys-mini/tuandui-icon.png'),
+    key: 'community.quickEntries.aiTeam',
+    path: '/pages/ai-group/index',
+  },
 ]
 
 interface CircleItem {
@@ -51,6 +91,8 @@ export default function Community() {
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  // 8 类模型切换激活态(默认 skills,仅视觉反馈:active 时用 active_back.svg + 箭头旋转 180°)
+  const [activeType, setActiveType] = useState<ModelTypeKey>('skills')
 
   function refreshUser() {
     setIsLogin(isLoggedIn())
@@ -110,6 +152,12 @@ export default function Community() {
     Taro.navigateTo({ url: `/pages/circle/detail?id=${id}` })
   }
 
+  // 8 类模型切换:设置激活态 + 跳转对应页面
+  function onModelTypeSelect(cfg: ModelTypeConfig) {
+    setActiveType(cfg.type)
+    goPage(cfg.path)
+  }
+
   // 微信分享
   useShareAppMessage(() => ({
     title: t('share.appTitle'),
@@ -148,7 +196,7 @@ export default function Community() {
         </View>
       </View>
 
-      {/* 8 类模型切换 — 对标原项目 ai_index.vue */}
+      {/* 8 类模型切换 — 对标原项目 ai_index.vue model-type-btn(200rpx×60rpx 横向滚动渐变按钮)*/}
       <View className="mx-[32rpx] my-[24rpx] p-[24rpx]">
         <View className="flex justify-between items-center mb-[20rpx]">
           <Text className="text-[30rpx] font-semibold text-primary">{t('agent.title')}</Text>
@@ -159,20 +207,63 @@ export default function Community() {
             {t('home.more')} {'>'}
           </Text>
         </View>
-        <View className="flex flex-wrap">
-          {modelTypes.map((item) => (
-            <View
-              key={item.path + item.key}
-              className="w-1/4 flex flex-col items-center py-[20rpx]"
-              onClick={() => goPage(item.path)}
-            >
-              <View className="w-[88rpx] h-[88rpx] rounded-[20rpx] bg-primary flex items-center justify-center mb-[8rpx]">
-                <Text className="text-[44rpx]">{item.icon}</Text>
-              </View>
-              <Text className="text-[22rpx] text-foreground">{t(item.key)}</Text>
-            </View>
-          ))}
-        </View>
+        <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
+          <View className="inline-flex flex-row items-center" style={{ padding: '0 20rpx' }}>
+            {modelTypes.map((item) => {
+              const isActive = activeType === item.type
+              return (
+                <View
+                  key={item.type}
+                  className="ai-model-type-btn"
+                  onClick={() => onModelTypeSelect(item)}
+                >
+                  {/* btn-bg 背景层(absolute 填充,选中态切换 SVG:active_back.svg / back_default.svg)*/}
+                  <Image
+                    className="absolute top-0 left-0"
+                    src={isActive ? activeBackSvg : backDefaultSvg}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      zIndex: 1,
+                      opacity: isActive ? 1 : 0.6,
+                    }}
+                    mode="aspectFill"
+                  />
+                  {/* btn-content 内容层(图标 + 文字 20rpx,对标原项目 .btn-content)*/}
+                  <View className="relative flex items-center" style={{ zIndex: 3 }}>
+                    <Image
+                      src={item.icon}
+                      style={{ width: '28rpx', height: '28rpx' }}
+                      mode="aspectFit"
+                    />
+                    <Text
+                      style={{
+                        fontSize: '20rpx',
+                        color: 'rgba(0, 0, 0, 0.9)',
+                        marginLeft: '6rpx',
+                      }}
+                    >
+                      {item.label}
+                    </Text>
+                  </View>
+                  {/* btn-arrow 箭头(选中时 rotate 180°,对标原项目 .btn-arrow.rotate)*/}
+                  <Image
+                    src={jiantouSvg}
+                    className={`ai-btn-arrow ${isActive ? 'ai-btn-arrow-rotate' : ''}`}
+                    style={{
+                      position: 'relative',
+                      zIndex: 3,
+                      width: '20rpx',
+                      height: '20rpx',
+                      marginLeft: '6rpx',
+                    }}
+                    mode="aspectFit"
+                  />
+                </View>
+              )
+            })}
+          </View>
+        </ScrollView>
       </View>
 
       {/* 快捷入口 */}
@@ -184,7 +275,7 @@ export default function Community() {
               className="flex-1 flex flex-col items-center py-[16rpx]"
               onClick={() => goPage(entry.path)}
             >
-              <Text className="text-[44rpx]">{entry.icon}</Text>
+              <Image src={entry.icon} className="w-[44rpx] h-[44rpx]" mode="aspectFit" />
               <Text className="mt-[6rpx] text-[22rpx] text-foreground">{t(entry.key)}</Text>
             </View>
           ))}
@@ -232,9 +323,14 @@ export default function Community() {
                 </Text>
               ) : null}
               {item.likeCount ? (
-                <Text className="block mt-[12rpx] text-[22rpx] text-[var(--color-primary)]">
-                  ♥ {item.likeCount}
-                </Text>
+                <View className="flex items-center gap-[6rpx] mt-[12rpx]">
+                  <Image
+                    src={bspappUrl('tabbar/home/xia/Like.png')}
+                    className="w-[24rpx] h-[24rpx]"
+                    mode="aspectFit"
+                  />
+                  <Text className="text-[22rpx] text-[var(--color-primary)]">{item.likeCount}</Text>
+                </View>
               ) : null}
             </View>
           ))

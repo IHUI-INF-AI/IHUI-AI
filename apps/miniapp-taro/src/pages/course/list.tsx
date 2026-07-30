@@ -8,10 +8,13 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
+import SectionHeader from '@/components/SectionHeader'
+import ColorfulLoader from '@/components/ColorfulLoader'
 
 export default function CourseList() {
   const { t } = useI18n()
+  const tt = useTt()
   const router = useRouter()
   const initialKeyword = router.params.keyword || ''
   const [list, setList] = useState<Course[]>([])
@@ -97,6 +100,14 @@ export default function CourseList() {
         </View>
       </View>
 
+      <View className="mb-3">
+        <SectionHeader
+          title={tt('course.list.title', '精品课程')}
+          subtitle={`${list.length} 个课程`}
+          showMore={false}
+        />
+      </View>
+
       {list.length > 0 && (
         <View>
           {list.map((item) => (
@@ -134,8 +145,8 @@ export default function CourseList() {
       )}
 
       {loading && (
-        <View className="text-center py-16 text-muted-foreground text-sm">
-          <Text>{t('common.loading')}</Text>
+        <View className="flex justify-center items-center py-16">
+          <ColorfulLoader size={80} />
         </View>
       )}
     </View>

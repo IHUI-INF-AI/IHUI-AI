@@ -34,7 +34,7 @@ export default function NotificationPage() {
     } finally {
       setLoading(false)
     }
-  }, [t, tt])
+  }, [tt])
 
   useDidShow(() => {
     load()
