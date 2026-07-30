@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
+import { icon } from '@/constants/remote-icons'
 
 /**
  * 支付按钮 — 对齐原项目 components/pay_btn.vue
@@ -12,7 +13,7 @@ import { useTt } from '@/i18n'
  * - '3' = 每月付费(原 buymonth_icon/buymonth.png)
  * - '4' = 已购买(原 hasbuy_icon/hasbuy.png)
  *
- * 注:原项目通过图片资源渲染按钮,本组件用 Tailwind 类 + emoji 替代以减少资源依赖;
+ * 注:原项目通过图片资源渲染按钮,本组件用 Tailwind 类 + 图标替代以减少资源依赖;
  * 点击 type='3' 触发购买弹窗(对齐 pay_mask + pay_window);
  * 其他 type 仅触发 onClick 回调(无后端调用)。
  */
@@ -37,7 +38,7 @@ interface TypeConfig {
   bgClass: string
   /** 按钮文字颜色 */
   textClass: string
-  /** 图标 emoji */
+  /** 图标资源路径(本地 import 或远程 URL) */
   icon: string
   /** 按钮文字 */
   label: string
@@ -49,35 +50,35 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
   freevip: {
     bgClass: 'bg-warning/20',
     textClass: 'text-warning',
-    icon: '👑',
+    icon: icon('freeVipIcon'),
     label: '会员免费',
     showPurchasePopup: false,
   },
   '1': {
     bgClass: 'bg-primary/20',
     textClass: 'text-primary',
-    icon: '🎁',
+    icon: icon('freeUseIcon'),
     label: '免费使用',
     showPurchasePopup: false,
   },
   '2': {
     bgClass: 'bg-destructive/20',
     textClass: 'text-destructive',
-    icon: '⏰',
+    icon: icon('freeTimeIcon'),
     label: '限时免费',
     showPurchasePopup: false,
   },
   '3': {
     bgClass: 'bg-primary',
     textClass: 'text-white',
-    icon: '💳',
+    icon: icon('buymonthIcon'),
     label: '每月',
     showPurchasePopup: true,
   },
   '4': {
     bgClass: 'bg-muted',
     textClass: 'text-muted-foreground',
-    icon: '✓',
+    icon: icon('hasbuyIcon'),
     label: '已购买',
     showPurchasePopup: false,
   },
@@ -127,7 +128,7 @@ export default function PayButton({
         }`}
         onClick={handleClick}
       >
-        <Text className="mr-1">{cfg.icon}</Text>
+        <Image className="w-3 h-3 mr-1" src={cfg.icon} mode="aspectFit" />
         <Text>{cfg.label}</Text>
       </View>
 

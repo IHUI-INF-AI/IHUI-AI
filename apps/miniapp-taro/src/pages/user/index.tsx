@@ -5,6 +5,11 @@ import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import { logout } from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
+import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
+import gerenIcon from '@/assets/remote/images/geren-icon.png'
+import shezhiIcon from '@/assets/remote/images/shezhi.png'
+import gonggaoIcon from '@/assets/remote/images/gonggao.png'
+import xianLabelIcon from '@/assets/remote/images/xian_label.png'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
@@ -23,16 +28,16 @@ function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
 }
 
 const quickEntries = [
-  { icon: '📋', key: 'user.menu.orders', path: '/pages/user/orders' },
+  { icon: dingdanIcon, key: 'user.menu.orders', path: '/pages/user/orders' },
   { icon: icon('shoucang'), key: 'user.menu.favorites', path: '/pages/favorites/index' },
-  { icon: '👤', key: 'user.menu.following', path: '/pages/following/index' },
-  { icon: '🔔', key: 'user.menu.subscriptions', path: '/pages/subscriptions/index' },
+  { icon: gerenIcon, key: 'user.menu.following', path: '/pages/following/index' },
+  { icon: gonggaoIcon, key: 'user.menu.subscriptions', path: '/pages/subscriptions/index' },
 ]
 
 const menus = [
   { icon: icon('courseIcon'), key: 'user.menu.courses', path: '/pages/course/list' },
   { icon: icon('aiIcon'), key: 'user.menu.ai', path: '/pages/ai/chat' },
-  { icon: '⚙️', key: 'user.menu.settings', path: '/pages/user/settings' },
+  { icon: shezhiIcon, key: 'user.menu.settings', path: '/pages/user/settings' },
 ]
 
 // 会员权益项:i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
@@ -41,7 +46,7 @@ const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: s
   { icon: icon('zuan'), key: 'user.benefits.pointsBoost', fallback: '积分加倍' },
   { icon: icon('addKf'), key: 'user.benefits.prioritySupport', fallback: '优先客服' },
   { icon: icon('uservipAct'), key: 'user.benefits.vipZone', fallback: '会员专区' },
-  { icon: '🏷️', key: 'user.benefits.discount', fallback: '折扣优惠' },
+  { icon: xianLabelIcon, key: 'user.benefits.discount', fallback: '折扣优惠' },
   { icon: icon('act'), key: 'user.benefits.exclusiveEvents', fallback: '专属活动' },
 ]
 
