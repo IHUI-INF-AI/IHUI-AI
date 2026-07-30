@@ -323,20 +323,38 @@ export function GlobalTopBar() {
         </>
       )}
 
-      {/* 顶栏容器
-          - h-9:单层固定 36px 高度(避免之前 h-[32px] + pt-2 双重高度设定导致内部只剩 24px)
-          - pl-[28px]:左侧 28px = 卡片圆角(12px) + main p-4(16px),保证搜索按钮左缘
-            跟下面 MainShell 工作区内容左缘完美对齐(2026-07-30 用户反馈"搜索按钮左侧没对齐下面内容")
-          - pr-4:右侧 16px 跟 main p-4 一致
-          - gap-1:标签栏 / Plus 弹窗 / 窗口控制之间 4px 间距
-          - cursor-default:覆盖外层(避免标签继承 cursor-move 误导)
-          - onMouseDown:统一拖拽状态机
-          - 已删除 data-tauri-drag-region(JS 处理更可靠) */}
+      {/* 顶栏 wrapper(2026-07-30 用户反馈根治)
+          - 外部包 py-2 wrapper(8px 上下间距),跟左侧 AI 面板 wrapper
+            (`<div className="relative h-full shrink-0 py-2">`,见 ai-side-panel.tsx)完全一致。
+            原 bug:顶栏直接 h-9 贴顶 y=0,paddingTop=0,
+            AI 面板 wrapper y=0 但 py-2 让 header 视觉起点 y=8 →
+            顶栏内容(搜索/Plus 图标)vs AI 面板 header 视觉顶部差 8px。
+            修复:顶栏 wrapper py-2,内部 h-9 div 起点 y=8,
+            内部 items-center 让 36px 高图标中心 y=8+18=26,
+            跟 AI 面板 header 中心 y=8+18=26 完美对齐。
+          - 顶栏外层承担拖拽状态机(原 onMouseDown/Up/Leave),因为内部 div items-center
+            鼠标落点常在图标/按钮上,会被 closest('button, a...') 跳过,改到 wrapper 上
+            保证空白区点击也响应拖拽 + 双击最大化。 */}
       <div
-        className="flex h-9 shrink-0 items-center gap-1 pl-[28px] pr-4 select-none cursor-default"
+        className="shrink-0 select-none py-2"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
+      >
+      {/* 顶栏容器
+          - h-9:单层固定 36px 高度
+          - pl-0 pr-0(2026-07-30 用户反馈根治:水平 padding 全部为 0,
+            让搜索/Plus 按钮左缘严格 = work-area 左缘 = main 内容左缘。
+            原因:work-area 内各内容区(marketing/main 等)无内 padding,
+            顶栏若 pl-16 会让搜索/Plus 按钮左缘 x=559,比 main 内容左缘 x=543
+            往右缩 16px,出现"切掉一块,缩进去一块"的视觉割裂(用户原话))。
+            现在 pl-0 pr-0,顶栏内容左缘 = main 内容左缘 = 543,完美对齐。
+          - gap-1:标签栏 / Plus 弹窗 / 窗口控制之间 4px 间距
+          - cursor-default:覆盖外层(避免标签继承 cursor-move 误导)
+          - 已删除响应式水平 padding(2026-07-30 决策:由 wrapper py-2 提供视觉间距,
+            水平方向 pl-0 pr-0 让顶栏严格对齐 work-area 左/右缘,响应式断点不需要) */}
+      <div
+        className="flex h-9 shrink-0 cursor-default items-center gap-1 pl-0 pr-0 select-none"
       >
         {/* 标签栏(全站常驻,TagsView 内部根据 pathname 派生标签)
             flex-1 占满中间区域,与右侧 Plus 按钮 + 窗口控制同一排 */}
@@ -347,13 +365,15 @@ export function GlobalTopBar() {
         </React.Suspense>
 
         {/* Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
-            - 视觉风格与窗口控制按钮一致(h-7 w-7 rounded-md hover bg-accent,2026-07-30
-              修复:之前 h-6 w-6 跟 WindowControlButton h-7 冲突造成"参差不齐")
+            - 视觉风格与窗口控制按钮一致(h-full w-7 rounded-md hover bg-accent,2026-07-30
+              深度修复:之前 h-7 w-7 (28px) 跟顶栏 h-9 (36px) 矮 8px,导致"标签栏高度不对"
+              的视觉效果 — Plus 按钮底部露出 4px 空隙,标签栏高度看起来参差不齐。改 h-full
+              后跟顶栏 36px 严格一致,消除"双重高度设定/冲突设定"问题(用户原话))
             - hover 显示加号图标 + 向下箭头
             - 点击展开 9 项菜单(分 3 组:视图/工具/设置)
             - 弹窗内含搜索框(过滤菜单项)+ 快捷键提示
             - 走 workPanel toggle / IDE setActiveTopTab / router.push 三类动作 */}
-        <div ref={plusRef} className="relative shrink-0">
+        <div ref={plusRef} className="relative h-full shrink-0">
           <Tooltip content={plusLabel} side="bottom">
             <button
               type="button"
@@ -362,7 +382,7 @@ export function GlobalTopBar() {
               aria-haspopup="menu"
               aria-expanded={plusOpen}
               className={cn(
-                'inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md',
+                'inline-flex h-full w-7 cursor-pointer items-center justify-center rounded-md',
                 'transition-colors hover:bg-accent',
                 'focus:outline-none focus-visible:bg-accent',
                 plusOpen ? 'bg-accent text-foreground' : 'text-foreground/80',
@@ -436,12 +456,13 @@ export function GlobalTopBar() {
 
         {/* 窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop
             z-[10001]:高于 8 方向 resize 区域(z-9999/10000)
-            2026-07-30 修复"双重高度设定/冲突设定"(用户反馈):容器 h-6 (24px) 跟
-            内部 WindowControlButton h-7 (28px) 冲突,容器比按钮矮 4px → 改 h-7
-            跟按钮严格一致(单一高度,不再有容器+按钮双重设定) */}
+            2026-07-30 深度修复"双重高度设定/冲突设定"(用户反馈):之前容器 h-7 (28px) 跟
+            顶栏 h-9 (36px) 矮 8px,导致桌面端窗口控制按钮区域"塌陷",跟右侧 Plus 按钮
+            视觉参差。改 h-full 后容器跟顶栏 36px 严格一致,内部 WindowControlButton 同步
+            h-full 撑满容器,消除容器+按钮的"双重高度"残留风险。 */}
         {isDesktop && (
           <div
-            className="relative z-[10001] flex h-7 shrink-0 items-center gap-0.5 rounded-md"
+            className="relative z-[10001] flex h-full shrink-0 items-center gap-0.5 rounded-md"
             data-window-controls
           >
             <WindowControlButton
@@ -469,6 +490,7 @@ export function GlobalTopBar() {
           </div>
         )}
       </div>
+      </div>
     </>
   )
 }
@@ -492,10 +514,11 @@ function WindowControlButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      // 2026-07-30 用户反馈"标签栏高度不对"根治:
-      // 窗口控制按钮 h-6 (24px) → h-7 (28px),跟 Plus / Dropdown 统一
+      // 2026-07-30 用户反馈"标签栏高度不对"深度根治:
+      // 窗口控制按钮 h-7 (28px) → h-full (跟容器 36px 同步),彻底消除容器 + 按钮
+      // 的"双重高度"残留风险(用户原话:有双重设定吗?冗余设定冲突设定?)
       className={cn(
-        'inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md',
+        'inline-flex h-full w-7 cursor-pointer items-center justify-center rounded-md',
         'text-foreground/80 transition-colors',
         'hover:bg-accent hover:text-foreground',
         'focus:outline-none focus-visible:bg-accent',
