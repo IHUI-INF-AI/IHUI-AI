@@ -30,11 +30,13 @@ export interface ModelOption {
 }
 
 /** 自动模式(value='auto'):后端根据任务类型自动选择最优模型
- * 2026-07-30 用户反馈"智能路由"措辞太复杂,简化为"自动" */
+ * 2026-07-30 用户反馈"智能路由"措辞太复杂,简化为"自动"
+ * 2026-07-31 i18n 修复:label/description 走 t('modelAuto')/t('modelAutoDescription'),
+ *   此处 label 仅作类型必填占位,渲染处统一用 t() 覆盖 */
 const AUTO_OPTION: ModelOption = {
   value: 'auto',
-  label: '自动',
-  descriptionKey: 'modelAutoRoute',
+  label: 'auto',
+  descriptionKey: 'modelAutoDescription',
   vendor: 'auto',
 }
 
@@ -252,8 +254,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               />
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-medium">{AUTO_OPTION.label}</span>
-                <span className="truncate text-xs text-muted-foreground">自动选择最优模型</span>
+                <span className="truncate font-medium">{t('modelAuto')}</span>
+                <span className="truncate text-xs text-muted-foreground">{t('modelAutoDescription')}</span>
               </div>
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
