@@ -22,10 +22,12 @@ import {
 } from '@ihui/ui-react'
 import { PLATFORM_KEY, CONTENT_FORMAT_KEY } from '../helpers'
 
+// 后端契约:publish.py _serialize_account 返回 camelCase 字段
+// id 是 BIGSERIAL(number),不是 string;displayName 不是 nickname
 interface Account {
-  id: string
+  id: number
   platform: string
-  nickname: string
+  displayName: string
   status: 'active' | 'disabled' | 'expired'
 }
 
@@ -167,19 +169,27 @@ export default function NewPublishPage() {
 
     setSubmitting(true)
     try {
-      const content: Record<string, unknown> = {}
-      if (format === 'md' || format === 'html') content.text = textContent
-      else content.file_path = filePath || ''
-      if (coverPath) content.cover_path = coverPath
+      // 后端契约:TaskCreate 的 text/file_path/cover_path/images 是顶层字段,
+      // 不是嵌套在 content 对象里(publish.py L154-165)
+      const isText = format === 'md' || format === 'html'
 
+      // account_id 必须是 number(publish.py PublishTarget.account_id: int)
+      // a.id 已是 number 类型,Number() 兜底防御 JSON 反序列化类型漂移
       const targets = Array.from(selected).flatMap((p) =>
-        (platformMap.get(p) ?? []).map((a) => ({ platform: p, account_id: a.id, config: {} })),
+        (platformMap.get(p) ?? []).map((a) => ({
+          platform: p,
+          account_id: Number(a.id),
+          config: {},
+        })),
       )
 
       const body = JSON.stringify({
         title: title.trim(),
         format,
-        content,
+        text: isText ? textContent : undefined,
+        file_path: isText ? undefined : (filePath || undefined),
+        cover_path: coverPath || undefined,
+        images: [] as string[],
         targets,
         scheduled_at: scheduleMode === 'schedule' ? new Date(scheduledAt).toISOString() : undefined,
       })
