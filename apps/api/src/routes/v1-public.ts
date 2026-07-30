@@ -882,6 +882,11 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const body: Record<string, unknown> = { messages, model }
         if (temperature !== undefined) body.temperature = temperature
         if (maxTokens !== undefined) body.max_tokens = maxTokens
+        // P0-5 BYOK(2026-07-30):非流式也透传 metadata.userId + byokMode,
+        // 让 ai-service 能识别 BYOK 调用并走用户自有 key 路径(与流式 streamChatCompletion 对齐)。
+        if (apiKey?.userId) {
+          body.metadata = { userId: apiKey.userId, ...(mode === 'byok' ? { byokMode: true } : {}) }
+        }
 
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
           method: 'POST',

@@ -1567,5 +1567,15 @@
     "empty": "メッセージがありません",
     "placeholder": "メッセージを入力",
     "send": "送信"
+  },
+  "byokGuide": {
+    "cardTitle": "APIキー持ち込み（BYOK）",
+    "cardDesc": "プロバイダーのAPIキーを持ち込み、中間マークアップなし、無料モデルは無料",
+    "feature1": "50以上のプロバイダーキーに対応",
+    "feature2": "有料モデルは5-20%のサービス料のみ",
+    "feature3": "無料モデルは完全無料",
+    "cta": "APIキーを設定",
+    "freeNoteTitle": "無料モデルは無料",
+    "freeNoteDesc": "BYOKでCloudflare Workers AI、GitHub Models、NVIDIA NIMなどの無料プロバイダーに接続 — 完全無料で利用可能、プラットフォーム料金は一切なし。"
   }
 }
