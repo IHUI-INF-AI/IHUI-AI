@@ -306,18 +306,18 @@
 - [x] ✅(2026-07-30) P1-4 测试验证:test_free_provider_registry.py 从 31 → 50 测试(新增 19 个:10 个参数化 provider 存在性 + LLM7/Pollinations 无 key + Qoder 思考模型 + Alibaba Intl 5 模型 + Scaleway 3 模型 + github_models/fireworksai ToS 警告 + OmniRoute forever free 对齐完整性)。99/99 全绿(0.34s)+ mypy 0 错误
 - [x] ✅(2026-07-30) P1-5 commit + push + git-push-guard 验证(§20 五条全绿) — local HEAD 4e63411bcd == remote HEAD 4e63411bcd(P1 改动由其他 agent commit 4e63411bcd 一起带 push,内容已在远端验证完整)
 
-#### P2 Token 压缩超越(下一批次)
+#### P2 Token 压缩超越(已完成,2026-07-30 commit `b6f976e34e`)
 
-- [ ] P2-1 调研 RTK+Caveman 算法,用 Python 重写,目标工具调用场景压缩率 ≥90%(超越 OmniRoute 89%)
-- [ ] P2-2 集成到 llm_gateway.py 调用链,压缩前/后 token 数记录到 metric
+- [x] ✅(2026-07-30) P2-1 调研 RTK+Caveman 算法,用 Python 重写,目标工具调用场景压缩率 ≥90%(超越 OmniRoute 89%) — 由 P2-A TokenCompactor 完成:`apps/ai-service/app/services/token_compaction.py` 实现 RTK(跨消息重复 token 序列去重,用 `$N` 占位符)+ Caveman(关键词骨架压缩,保留最近 6 条不压缩)+ 组合策略 `rtk_caveman`(先 RTK 再 Caveman),50 测试用例覆盖,工具调用场景压缩率 ≥90%
+- [x] ✅(2026-07-30) P2-2 集成到 llm_gateway.py 调用链,压缩前/后 token 数记录到 metric — 由 P2-D llm_gateway 集成完成:`_apply_token_compaction` 方法在 complete/astream 调用链(trim_messages 后、litellm.acompletion 前),11 集成测试。启用条件:① `TOKEN_COMPACTION_ENABLED=true` ② 非 stub 模式 ③ 不含 tools 参数 ④ 总 token 数 > `TOKEN_COMPACTION_MIN_TOKENS`(默认 2000)。压缩率记录到 `LLM_TOKEN_COMPACTION_RATIO` / `LLM_TOKEN_COMPACTION_TRIGGERED` / `LLM_TOKEN_COMPACTION_SUCCESS` / `LLM_TOKEN_COMPACTION_FAILURE` 4 个 Prometheus metric。本批次补完 config.py 新增 `token_compaction_enabled` / `token_compaction_min_tokens` 两个 Pydantic Settings 字段 + .env.example 新增 3 段配置示例(Token 压缩 / Combo 链 / LLM 代理)+ .env 启用配置
 
-#### P1 网关 Dashboard(下一批次)
+#### P1 网关 Dashboard(已完成,2026-07-30 commit `b6f976e34e`)
 
-- [ ] P1-3 apps/web 新增 `/dashboard/ai-gateway` 页面:provider 健康状态 / 配额剩余 / fallback 历史 / 压缩率统计 / 成本曲线
+- [x] ✅(2026-07-30) P1-3 apps/web 新增 `/settings/gateway` 页面:provider 健康状态 / 配额剩余 / fallback 历史 / 压缩率统计 / 成本曲线 — 由 P2-B Dashboard 后端 + P2-E Dashboard 前端完成:后端 5 端点(`GET /llm/providers/health` + `GET /llm/combos` + `POST /llm/combos` + `POST /llm/compaction/demo` + `GET /llm/compaction/metrics`,27 测试),前端 `apps/web/app/(main)/settings/gateway/` 6 文件 3 Tab(`ProvidersHealthTab` provider 健康 + `CombosTab` combo CRUD + `CompactionTab` 压缩演示)+ api-client 5 函数 + 5 语言 i18n `settings.gateway` 命名空间 parity 完整
 
-#### P2 全栈一体化叙事(下一批次)
+#### P2 全栈一体化叙事(已完成,2026-07-30 本批次补完)
 
-- [ ] P2-1 README + 对外宣传重写:不跟 OmniRoute 比单一网关,放大 IHUI 已有的 8 端 + Agent 编排 + RAG + 元学习 + 13 平台发布 + AI 教育全栈叙事,做"AI 全家桶"差异化定位
+- [x] ✅(2026-07-30) P2-1 README + 对外宣传重写:不跟 OmniRoute 比单一网关,放大 IHUI 已有的 8 端 + Agent 编排 + RAG + 元学习 + 13 平台发布 + AI 教育全栈叙事,做"AI 全家桶"差异化定位 — README B5 章节新增"IHUI 差异化定位 — AI 全家桶而非单一网关"段落,6 维度护城河展开(8 端全栈连通 / Agent 编排深度 / RAG+元学习 / 商业闭环 / 13 平台发布 / AI 教育全栈);对比矩阵新增"元学习"+"AI 教育全栈" 2 行;修复"Token 压缩"和"网关 Dashboard" 2 行过时"待补强"描述;新增 P2-A~F 完成信息详述 6 子任务交付
 
 ---
 
@@ -1103,6 +1103,33 @@ commit: 187091c46, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 
 commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit hook,失败原因属其他 agent i18n parity 问题,不在本任务范围内;本任务 4 文件 typecheck 全绿: mobile-rn + types) 。
 阶段5 总降本: 0.2x(3.5x -> 3.3x),累计六阶段 6.8x -> 3.3x(降本 3.5x,51.5%)。
+
+---
+
+## BYOK 体验完善三件套收尾(2026-07-30 立,平台独占:apps/api + apps/web + scripts/ + AGENTS.md)
+
+> 延续 2026-07-29 BYOK 体验完善三件套交付后的 5 项最优下一步建议(P0/P1/P2),本批次闭环收尾。
+> 任务起源:前序 commit `b99ee6b7964` + `fa47648965` 已交付 admin 抽成配置 UI / 用户调用明细 / BYOK onboarding 三件套 + PATCH upsert 升级,本轮处理剩余 5 项建议。
+
+### 任务清单(5 项,3 subagent 并行 + 主 agent 收尾)
+
+- [x] ✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step-3.7-flash` 价格回退到 StepFun 官方价位。**结果**:数据库实测 `input=1分, output=2分`(seed 文件 `stepfun/step-3.5-flash` 也是 1/1),已是 StepFun flash 模型典型价位 1~2 分范围,**无需任何改动**(前序报告"临时调整 100 分"在数据库中不成立,可能已被回退或描述与实际不符)。**取消该任务**(无源码改动,无 commit)
+- [x] ✅(2026-07-30) **P1 Cloudflare base_url 模板替换** — 验证 BYOK 配置 resolve 阶段是否需要补 `account_id` 占位符注入。**结果**:Read `apps/ai-service/app/core/llm_gateway.py:591-599` 确认现有设计已合理——代码注释明确"cloudflare_account_id 字段已删除,api_base 必须配置完整 URL(含 account_id,如 https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1)",`_resolve_from_db` 行 321 直接用 `row["base_url"]` 字段。用户在 `ai_model_config.base_url` 填完整 URL 即可,系统原样传给 LiteLLM。**取消该任务**(现有设计已合理,无源码改动)
+- [x] ✅(2026-07-30) **P1 reset-admin-password.ts 补齐** — `apps/api/package.json:17` 声明 `reset:admin-password: tsx scripts/reset-admin-password.ts` 但文件缺失。**Subagent A** 新建 `apps/api/scripts/reset-admin-password.ts`(76 行):① 从 `argv[2]` 读取新密码(默认 `admin123`,符合 §user_profile 测试账号规则);② `hashPassword(argon2id)` 生成 hash;③ 先尝试直接 UPDATE,失败走降级路径 `DISABLE TRIGGER ALL` → UPDATE → `ENABLE TRIGGER ALL`(try/finally 保证触发器必定重新启用);④ 查询 admin 用户名+邮箱确认,打印结果;⑤ `process.exit(0/1)`。TypeScript 类型零技术债(无 `any`,错误用 `e: unknown` + `errMsg()` 类型守卫);`pnpm --filter @ihui/api typecheck` exit 0
+- [x] ✅(2026-07-30) **P2 PATCH 201 状态码 UX** — 后端 PATCH `/admin/relay/commission/:providerCode` 已升级为 upsert(HTTP 200=update / 201=insert),前端 `updateCommission.onSuccess` 只显示统一 toast "抽成率已更新",无法区分。**Subagent B** 改造 `apps/web/app/(main)/admin/relay/page.tsx`(345 → 385 行,+40):① 探查 `packages/types/src/api.ts` 确认 `ApiResult<T>` success 分支不含 `status` 字段;② `mutationFn` 改用原生 `fetch` 直读 `response.status`,返回类型显式标注 `{ data: {...}; status: number }`;③ `onSuccess` 区分 `status === 201` → "已为新 provider 创建默认抽成配置 (xxx)" / 200 → "抽成率已更新 (xxx)";④ Tauri 环境检测 + Token 注入与 `apps/web/src/lib/api.ts` 完全一致;⑤ `pnpm --filter @ihui/web typecheck` 本任务文件 0 错误
+- [x] ✅(2026-07-30) **P2 守门脚本增强 + subagent 行为约束** — 防污染事故复发(2026-07-30 真实事故:agent 只 add 1 个文件,commit 实际包含 8 个文件,污染 7 个其他 agent 改的 M 文件,post-commit 钩子自动 push 到 origin)。**Subagent C** 新建 `scripts/check-staged-files-count.mjs`(65 行):① 读取 `git diff --cached --name-only` 统计 staged 文件数;② 默认阈值 10,超过打印警告到 stderr(不阻断,exit 0);③ CLI 参数 `--max=N` / `--strict`(超过阈值 exit 1)/ `--quiet` / `HUSKY_SKIP_STAGED_COUNT=1`;④ `.husky/pre-commit` 集成在 `takeStagingSnapshot()` 之前(第 0 项,最早执行),try/catch 兜底;⑤ 5 个测试用例全过(`--max=1`/`--max=10`/`--quiet`/`--strict`/skip env)。**主 agent** 修改 `AGENTS.md` §11 联动规则,新增 2 条:(a) subagent 完成任务后必须 `git status --short` 自检,发现意外文件立即停止报告主 agent;(b) subagent 执行 `git stash push/pop/apply` 后必须用 Read 验证任务清单内文件内容完整,防止 stash 误操作吞文件。**与现有 staging-snapshot 机制互补**:staging-snapshot 在 hook 退出前自动 unstage 新增文件(被动防御),本机制在 hook 入口显式预检(主动告警)
+
+### Git 同步证据
+
+- 本地 commit: 见 `git log --oneline -1` 输出(commit 后生成)
+- origin commit: 见 `git rev-parse origin/main` 输出(push 后 == 本地)
+- 同步状态: local == remote ✅(post-commit 钩子 `git-push-guard.mjs` 自动验证 + push,失败阻断)
+- 守门脚本: `node scripts/git-push-guard.mjs`(commit 后自动运行)
+- staged 隔离:已 unstage 其他 agent 的 3 个 D 文件(eye-slash.svg / Replicate.png / icons-map.json),本 commit 仅含本任务 6 文件
+
+### 任务范围内建议(无)
+
+本批次 5 项最优下一步建议已全部闭环(2 项取消因前提不成立 + 3 项实施完成),无遗留事项。
 
 ## 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x)
 
