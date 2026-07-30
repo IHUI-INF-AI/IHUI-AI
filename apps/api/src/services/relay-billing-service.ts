@@ -25,6 +25,15 @@ import {
   aiModelConfigModels,
   aiModelConfig,
 } from '@ihui/database'
+import { getCurrentTierMultiplier } from './tiered-pricing-service.js'
+// Relay 返佣(2026-07-31 立,扣费后异步触发,失败不影响主链路)
+import { recordRelayCommission } from './relay-commission-service.js'
+import { getUserModelMultiplier } from './user-billing-group-service.js'
+// Relay Webhook 通知(2026-08-01 立,扣费后异步触发 relay.call.completed/failed/balance.low 事件)
+import { notifyRelayEvent } from './webhook-relay-notifier.js'
+// API Key 分组(2026-08-01 立,组池余额检查/扣减)
+import { getKeyGroup } from './api-key-group-service.js'
+import { apiKeyGroups } from '@ihui/database'
 
 // =============================================================================
 // 类型定义
@@ -164,6 +173,54 @@ export async function checkQuota(apiKeyId: string, estimatedTokens = 0): Promise
     }
   }
 
+  // === 组池余额检查(2026-08-01 立,API Key 分组)===
+  // 若 Key 所属组存在且 enabled,检查组池余额(sharedTokenBalance / sharedCostBalanceCents)
+  // 而非 Key 个人余额。无组则走下方个人余额逻辑(向后兼容)。
+  const groupInfo = await getKeyGroup(row.id)
+  if (groupInfo && groupInfo.enabled) {
+    if (groupInfo.sharedTokenBalance === -1 && groupInfo.sharedCostBalanceCents === -1) {
+      return {
+        allowed: true,
+        apiKeyId: row.id,
+        userId: row.userId,
+        tokenBalance: groupInfo.sharedTokenBalance,
+        costBalanceCents: groupInfo.sharedCostBalanceCents,
+      }
+    }
+    if (
+      groupInfo.sharedTokenBalance !== -1 &&
+      estimatedTokens > 0 &&
+      groupInfo.sharedTokenBalance < estimatedTokens
+    ) {
+      return {
+        allowed: false,
+        reason: 'no_balance_token',
+        apiKeyId: row.id,
+        userId: row.userId,
+        tokenBalance: groupInfo.sharedTokenBalance,
+        costBalanceCents: groupInfo.sharedCostBalanceCents,
+      }
+    }
+    if (groupInfo.sharedCostBalanceCents === 0) {
+      return {
+        allowed: false,
+        reason: 'no_balance_cost',
+        apiKeyId: row.id,
+        userId: row.userId,
+        tokenBalance: groupInfo.sharedTokenBalance,
+        costBalanceCents: groupInfo.sharedCostBalanceCents,
+      }
+    }
+    return {
+      allowed: true,
+      apiKeyId: row.id,
+      userId: row.userId,
+      tokenBalance: groupInfo.sharedTokenBalance,
+      costBalanceCents: groupInfo.sharedCostBalanceCents,
+    }
+  }
+
+  // === 个人余额检查(无组,维持原逻辑,向后兼容)===
   // -1 = 无限额度,直接放行
   if (row.tokenBalance === -1 && row.costBalanceCents === -1) {
     return {
@@ -244,6 +301,7 @@ export async function calculateCost(
   promptTokens: number,
   completionTokens: number,
   options?: CalculateCostCacheOptions,
+  userId?: string,
 ): Promise<CalculateCostResult> {
   // P0-5 修复(2026-07-30):去 LiteLLM 前缀(stepfun/agnes)再查 DB,
   // 因为 DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名。
@@ -280,9 +338,23 @@ export async function calculateCost(
     .limit(1)
 
   // 解析倍率(字符串 numeric(10,4) → number,默认 1.0)
-  const multiplier = modelRow?.relayPriceMultiplier
+  let multiplier = modelRow?.relayPriceMultiplier
     ? Math.max(0, Number(modelRow.relayPriceMultiplier) || 1)
     : 1
+
+  // 用户计费分组倍率(2026-08-01 立):userId 传入时查分组倍率并叠加
+  // 中转站倍率 × 用户分组倍率 = 实际计费倍率(如 svip 组 gpt-4o = 1.0 × 0.8 = 0.8)
+  if (userId) {
+    const groupMultiplier = await getUserModelMultiplier(userId, model)
+    multiplier *= groupMultiplier
+  }
+
+  // 阶梯计价倍率(2026-08-01 立):userId 传入时查当月阶梯倍率并叠加
+  // 中转站倍率 × 用户分组倍率 × 阶梯倍率 = 实际计费倍率(如 gpt-4o 月用 200 万 = 1.0 × 1.0 × 0.9 = 0.9)
+  if (userId) {
+    const tier = await getCurrentTierMultiplier(userId, dbModelId)
+    multiplier *= tier.multiplier
+  }
 
   let baseInputPricePer1k = 0
   let baseOutputPricePer1k = 0
@@ -591,7 +663,7 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
     const cost = await calculateCost(input.model, input.promptTokens, input.completionTokens, {
       cacheReadTokens: input.cacheReadTokens,
       cacheCreationTokens: input.cacheCreationTokens,
-    })
+    }, input.userId)
     costCentsToDeduct = cost.totalCostCents
     multiplier = cost.multiplier
     pricingSource = cost.source
@@ -648,52 +720,165 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
     })
     .returning({ id: llmCallLogs.id })
 
-  // 3. 扣减 API Key 余额 + 累计已用统计(原子操作)
-  // tokenBalance/costBalanceCents = -1 时不扣减(无限额度),只累加 tokenUsedTotal/costUsedTotalCents
+  // 3. 扣减余额 + 累计已用统计(原子操作)
+  // 2026-08-01 立:若 Key 所属组存在且 enabled,扣组池(sharedTokenBalance / sharedCostBalanceCents)
+  // 无组则扣 Key 个人余额(向后兼容)
+  // tokenBalance/costBalanceCents = -1 时不扣减(无限额度),只累加统计
   // BYOK 模式:costBalanceCents 只扣 platformFeeCents(不扣大厂成本 upstreamCostCents)
-  const [apiKeyRow] = await dbRead
-    .select({
-      tokenBalance: developerApiKeys.tokenBalance,
-      costBalanceCents: developerApiKeys.costBalanceCents,
-    })
-    .from(developerApiKeys)
-    .where(eq(developerApiKeys.id, input.apiKeyId))
-    .limit(1)
+  let newTokenBalance = -1
+  let newCostBalanceCents = -1
 
-  let newTokenBalance = apiKeyRow?.tokenBalance ?? -1
-  let newCostBalanceCents = apiKeyRow?.costBalanceCents ?? -1
+  const groupInfoForDeduct = await getKeyGroup(input.apiKeyId)
+  if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
+    // === 扣组池(2026-08-01 立)===
+    const [groupRow] = await dbRead
+      .select({
+        sharedTokenBalance: apiKeyGroups.sharedTokenBalance,
+        sharedCostBalanceCents: apiKeyGroups.sharedCostBalanceCents,
+      })
+      .from(apiKeyGroups)
+      .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
+      .limit(1)
 
-  if (apiKeyRow) {
-    // 计算扣减后的值(不直接用 SQL 扣减,避免 -1 被误减)
-    const setClause: Record<string, unknown> = { updatedAt: new Date() }
+    newTokenBalance = groupRow?.sharedTokenBalance ?? -1
+    newCostBalanceCents = groupRow?.sharedCostBalanceCents ?? -1
 
-    if (apiKeyRow.tokenBalance === -1) {
-      // 无限额度,不扣减 token 余额
-      newTokenBalance = -1
-    } else {
-      newTokenBalance = Math.max(0, apiKeyRow.tokenBalance - input.totalTokens)
-      setClause.tokenBalance = newTokenBalance
+    if (groupRow) {
+      const groupSetClause: Record<string, unknown> = { updatedAt: new Date() }
+
+      if (groupRow.sharedTokenBalance === -1) {
+        newTokenBalance = -1
+      } else {
+        newTokenBalance = Math.max(0, groupRow.sharedTokenBalance - input.totalTokens)
+        groupSetClause.sharedTokenBalance = newTokenBalance
+      }
+
+      if (groupRow.sharedCostBalanceCents === -1) {
+        newCostBalanceCents = -1
+      } else {
+        newCostBalanceCents = Math.max(0, groupRow.sharedCostBalanceCents - costCentsToDeduct)
+        groupSetClause.sharedCostBalanceCents = newCostBalanceCents
+      }
+
+      await db
+        .update(apiKeyGroups)
+        .set(groupSetClause)
+        .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
+        .catch(() => {
+          // 扣减失败不抛错(避免影响已返回给用户的响应)
+        })
     }
 
-    if (apiKeyRow.costBalanceCents === -1) {
-      // 无限额度,不扣减成本余额
-      newCostBalanceCents = -1
-    } else {
-      newCostBalanceCents = Math.max(0, apiKeyRow.costBalanceCents - costCentsToDeduct)
-      setClause.costBalanceCents = newCostBalanceCents
-    }
-
-    // 累计已用统计(总是累加,即使余额无限)
-    setClause.tokenUsedTotal = sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`
-    setClause.costUsedTotalCents = sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`
-
+    // 同时累加 Key 个人统计(tokenUsedTotal / costUsedTotalCents,用于组内用量排行)
     await db
       .update(developerApiKeys)
-      .set(setClause)
+      .set({
+        tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`,
+        costUsedTotalCents: sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`,
+        updatedAt: new Date(),
+      })
       .where(eq(developerApiKeys.id, input.apiKeyId))
       .catch(() => {
-        // 扣减失败不抛错,只 log(避免影响已返回给用户的响应)
+        // 统计累加失败不影响主链路
       })
+  } else {
+    // === 扣个人余额(无组,维持原逻辑,向后兼容)===
+    const [apiKeyRow] = await dbRead
+      .select({
+        tokenBalance: developerApiKeys.tokenBalance,
+        costBalanceCents: developerApiKeys.costBalanceCents,
+      })
+      .from(developerApiKeys)
+      .where(eq(developerApiKeys.id, input.apiKeyId))
+      .limit(1)
+
+    newTokenBalance = apiKeyRow?.tokenBalance ?? -1
+    newCostBalanceCents = apiKeyRow?.costBalanceCents ?? -1
+
+    if (apiKeyRow) {
+      // 计算扣减后的值(不直接用 SQL 扣减,避免 -1 被误减)
+      const setClause: Record<string, unknown> = { updatedAt: new Date() }
+
+      if (apiKeyRow.tokenBalance === -1) {
+        // 无限额度,不扣减 token 余额
+        newTokenBalance = -1
+      } else {
+        newTokenBalance = Math.max(0, apiKeyRow.tokenBalance - input.totalTokens)
+        setClause.tokenBalance = newTokenBalance
+      }
+
+      if (apiKeyRow.costBalanceCents === -1) {
+        // 无限额度,不扣减成本余额
+        newCostBalanceCents = -1
+      } else {
+        newCostBalanceCents = Math.max(0, apiKeyRow.costBalanceCents - costCentsToDeduct)
+        setClause.costBalanceCents = newCostBalanceCents
+      }
+
+      // 累计已用统计(总是累加,即使余额无限)
+      setClause.tokenUsedTotal = sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`
+      setClause.costUsedTotalCents = sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`
+
+      await db
+        .update(developerApiKeys)
+        .set(setClause)
+        .where(eq(developerApiKeys.id, input.apiKeyId))
+        .catch(() => {
+          // 扣减失败不抛错,只 log(避免影响已返回给用户的响应)
+        })
+    }
+  }
+
+  // 4. 异步触发 relay 返佣(2026-07-31 立,被邀请人消费 → 邀请人返佣)
+  // 不阻塞主链路,失败不影响已返回给用户的响应;BYOK 模式也触发(基于 platformFeeCents 返佣)
+  const relayLogId = logRow?.id
+  if (costCentsToDeduct > 0 && relayLogId) {
+    setImmediate(() => {
+      recordRelayCommission({
+        sourceUserId: input.userId,
+        sourceCallLogId: relayLogId,
+        sourceCostCents: costCentsToDeduct,
+      }).catch(() => {
+        // 返佣失败不影响主链路(只 log,不抛错)
+      })
+    })
+  }
+
+  // 5. 异步触发 relay webhook 通知(2026-08-01 立,扣费后通知订阅方)
+  // 事件:relay.call.completed(success)/ relay.call.failed(error)/ relay.balance.low(余额不足)
+  // 不阻塞主链路,失败只忽略;余额判断排除 -1(无限额度)避免误触发
+  if (relayLogId) {
+    setImmediate(() => {
+      notifyRelayEvent({
+        userId: input.userId,
+        event: input.status === 'success' ? 'relay.call.completed' : 'relay.call.failed',
+        payload: {
+          callLogId: relayLogId,
+          model: input.model,
+          costCents: costCentsToDeduct,
+          status: input.status,
+          errorMessage: input.errorMessage ?? null,
+        },
+      }).catch(() => {
+        // webhook 通知失败不影响主链路
+      })
+      // 余额检查:token 余额耗尽 或 cost 余额低于 1000 分(10 元)且非无限额度
+      if (
+        newTokenBalance === 0 ||
+        (newCostBalanceCents !== -1 && newCostBalanceCents < 1000)
+      ) {
+        notifyRelayEvent({
+          userId: input.userId,
+          event: 'relay.balance.low',
+          payload: {
+            tokenBalance: newTokenBalance,
+            costBalanceCents: newCostBalanceCents,
+          },
+        }).catch(() => {
+          // 余额告警通知失败不影响主链路
+        })
+      }
+    })
   }
 
   return {
