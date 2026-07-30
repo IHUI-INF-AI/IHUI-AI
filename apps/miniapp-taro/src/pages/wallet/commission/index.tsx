@@ -2,7 +2,8 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionInfo, getCommissionRecords } from '@/api'
-import { useI18n } from '@/i18n'
+import SectionHeader from '@/components/SectionHeader'
+import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 interface CommissionRecord {
@@ -29,6 +30,7 @@ function sumToday(items: CommissionRecord[]): number {
 
 export default function CommissionPage() {
   const { t } = useI18n()
+  const tt = useTt()
   const [list, setList] = useState<CommissionRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [totalCommission, setTotalCommission] = useState(0)
@@ -88,6 +90,11 @@ export default function CommissionPage() {
 
   return (
     <View className="wc-page">
+      <SectionHeader
+        title={tt('wallet.commission.title', '佣金明细')}
+        showMore={false}
+        className="mb-[16rpx]"
+      />
       <View className="wc-stats">
         <View className="wc-stat-item">
           <Text className="wc-stat-label">{t('wallet.commission.today')}</Text>
