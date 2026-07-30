@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
+  CHINESE_MODELS,
   DATABASES,
   IMG_EAGER,
-  MODELS,
+  INTERNATIONAL_MODELS,
   PAYMENTS,
   PROMOTIONS,
   QRS,
@@ -43,12 +44,13 @@ import { Tooltip } from '@/components/feedback'
  * - v3:Dialog 弹窗替换页面跳转(用户要求"弹窗窗口 而不是完整页面")。
  */
 
-// 生态合作 4 类分组(2026-07-21 v8 恢复 4 类布局,响应式 grid 自适应屏幕宽度)
-// - 移动端/平板:grid-cols-2(2 列,4 类分 2 行)
-// - 桌面 lg+:lg:grid-cols-4(4 列,4 类一行)
+// 生态合作 5 类分组(2026-07-30 v11 拆分:原 4 类 → 5 类,模型拆为国际/国产 2 组)
+// - 移动端/平板:grid-cols-2(2 列,5 类需换行 2-3 行)
+// - 桌面 lg+:lg:grid-cols-4(4 列,5 类 1 行多 1;1024 边界 8 个图标分 2 组各 4 个,每列 4 个图标只换 1 行,布局更舒展)
 const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] = [
   { titleKey: 'supportedPlatforms', items: SUPPORTED },
-  { titleKey: 'models', items: MODELS },
+  { titleKey: 'internationalModels', items: INTERNATIONAL_MODELS },
+  { titleKey: 'chineseModels', items: CHINESE_MODELS },
   { titleKey: 'paymentPlatforms', items: PAYMENTS },
   { titleKey: 'cloudDatabases', items: DATABASES },
 ]
