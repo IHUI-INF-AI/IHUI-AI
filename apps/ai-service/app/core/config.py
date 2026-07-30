@@ -112,6 +112,24 @@ class Settings(BaseSettings):
     # 格式:http://user:pass@host:port 或 http://host:port  空字符串=不使用代理
     llm_proxy_url: str = ""
 
+    # Token 压缩(2026-07-30 立,P2-A TokenCompactor 配套配置)
+    # 启用后 llm_gateway.complete/astream 在 trim_messages 后、litellm.acompletion 前
+    # 自动调用 RTK+Caveman 双算法压缩(策略=rtk_caveman,keep_recent=6)。
+    # 启用条件(全部满足才压缩):① token_compaction_enabled=True ② 非 stub 模式
+    # ③ 不含 tools 参数(保护 function calling) ④ 总 token 数 > token_compaction_min_tokens
+    # 压缩失败降级用原 messages(不阻塞主流程),压缩率记录到 LLM_TOKEN_COMPACTION_RATIO metric
+    token_compaction_enabled: bool = False
+    token_compaction_min_tokens: int = 2000
+
+    # Combo 多级 fallback 链(2026-07-30 立,2026-07-30 修复 .env 加载断裂 Bug)
+    # JSON 字符串,格式:{"<combo_name>": {"strategy": "priority|cheapest|fusion",
+    #   "chain": ["model1", "model2", ...], "judge": "model"(fusion 可选),
+    #   "judge_mode": "merge|vote"(fusion 可选), "max_concurrency": int(fusion 可选)}, ...}
+    # 修复历史:原设计 combo_router.py 直接走 os.environ 读取,但 pydantic-settings
+    # 只加载到 Settings 对象不同步到 os.environ,导致 .env 的 COMBO_CHAINS 永远读不到。
+    # 现在通过 settings.combo_chains 字段加载,main.py 同步到 os.environ 让 combo_router 读到。
+    combo_chains: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:

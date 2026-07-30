@@ -152,9 +152,10 @@ export function AgentProgressTrigger({
       )}
       data-testid="agent-progress-trigger"
     >
-      {/* 当前 ChatMode 徽章(从 current-mode-badge 整合到按钮前部) */}
+      {/* 当前 ChatMode 徽章(从 current-mode-badge 整合到按钮前部)
+          2026-07-30 padding 平衡:h-7 与外层按钮 h-7 同高,徽章上下 6px 与横向 8px 接近 1:1 */}
       <span
-        className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground"
+        className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground"
         data-testid="chat-mode-badge"
         data-mode={currentMode}
       >

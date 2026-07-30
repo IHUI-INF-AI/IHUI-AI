@@ -145,6 +145,7 @@ export function EmailCodeLoginForm({
         <Label htmlFor="login-form-email">{t('auth.email')}</Label>
         <Input
           id="login-form-email"
+          name="email"
           type="email"
           autoComplete="email"
           placeholder={t('auth.emailPlaceholder')}
@@ -161,6 +162,7 @@ export function EmailCodeLoginForm({
         <div className="flex items-center gap-2">
           <Input
             id="login-form-email-code"
+            name="otp"
             inputMode="numeric"
             maxLength={6}
             autoComplete="one-time-code"

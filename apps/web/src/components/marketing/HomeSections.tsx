@@ -49,10 +49,13 @@ const BENEFITS_KEYS = [
  *   style={{ minHeight: 'calc(100vh - 1rem)' }} aria-label={...}>`
  * 每个 section 重复 3-4 行,7 处共 21-28 行冗余;抽 Frame 后净省 ~16 行且语义清晰。
  *
- * 7 个 section 全部走 HomeSectionFrame:
- *   - 1-6 用默认 className(relative + flex + snap-start + overflow-hidden)
- *   - 7 用 className override(去掉 overflow-hidden,因内部含 Footer 不需要裁切)
- */
+ * 2026-07-30 用户反馈"问题太大"二次根治:把默认 height 改回 'calc(100vh - 1rem)'。
+ * 上一轮改 'auto' 导致 section 自然高 472-891px,小于 main 视口 1177px,
+ * 滚到 Page 1 时下面 700px 是 Page 2+Page 3 顶部内容"提前溢出",
+ * 滚到 Page 2 同样看到 Page 3+Page 4 溢出,snap-y 滚动混乱。
+ * 改回 'calc(100vh - 1rem)' 后:每个 section 撑满 1177px = main 视口高,
+ * snap-y 严格按 section 跳,每页只显示该页内容(无溢出)。
+ * 内容紧凑性由 Page 1 主区改用 justify-center 让 Hero+4徽章+6Benefits 整组居中保证。 */
 function HomeSectionFrame({
   page,
   ariaLabel,
@@ -89,7 +92,12 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
 
   return (
     <>
-      {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits + 通知跑马灯 */}
+      {/* Page 1: Hero typewriter + 4 信任徽章 + 6 Benefits + 通知跑马灯
+          2026-07-30 用户反馈"问题太大"二次根治:
+          上一轮把 6 Benefits 合并到主区 + justify-evenly,但 section 改 auto 导致 snap 溢出混乱。
+          本轮恢复 section 高度 = 视口(HomeSectionFrame 改回 calc(100vh - 1rem)),
+          主区用 justify-center 让 Hero+4 徽章+6 Benefits 整组垂直居中,
+          顶部 Marquee+Banner 固定上方,主区整组居中,不留中间夹空白。 */}
       <HomeSectionFrame page={1} ariaLabel={t('indicator.page1', { fallback: 'Hero' })}>
         {/* 顶部固定区:Marquee 通知跑马灯 + GithubStarBanner */}
         <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
@@ -97,8 +105,9 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
           <GithubStarBanner />
         </div>
 
-        {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}
-        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-4 md:gap-5">
+        {/* 主区:Hero + 4 徽章 + 6 Benefits(合并到主区)
+            justify-center 让 3 段作为一个整体垂直居中,消除上下大片空白 */}
+        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-4 px-4 py-2 md:gap-5 md:py-3">
           <TypewriterHeroSection />
 
           {/* 4 个信任徽章 */}
@@ -127,10 +136,8 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
               {t('welcome.multiEnd')}
             </span>
           </RevealOnView>
-        </div>
 
-        {/* 底部固定区:6 Benefits */}
-        <div className="relative z-10 flex w-full flex-col gap-2 px-4 pb-12 md:px-8 md:pb-14">
+          {/* 6 Benefits(2026-07-30 从底部 fixed 区合并到主区,justify-evenly 让它位于主区底部 1/3 位置) */}
           <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
             {benefits.map((b, i) => (
               <RevealOnView
@@ -196,7 +203,7 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
 
           {/* 4 Stat 数据条 */}
           <div className="mx-auto w-full max-w-5xl px-4">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-4">
               {[
                 { value: 8, suffix: '', label: t('stats.platforms') },
                 { value: 100, suffix: '+', label: t('stats.models') },
@@ -230,11 +237,19 @@ export function HomeSections({ showFooter = true }: HomeSectionsProps) {
 
       {/* Page 7: Magazine 新闻 + (可选) Footer
           注:此 section 不用 HomeSectionFrame,因结构略不同
-          (用 flex min-h-... snap-start flex-col,无 overflow-hidden 避免裁切 Footer 边缘);
-          保留 4 行原 <section> 写法,避免 Tailwind className 源序覆盖风险。 */}
+          (用 flex snap-start flex-col,无 overflow-hidden 避免裁切 Footer 边缘);
+          保留 4 行原 <section> 写法,避免 Tailwind className 源序覆盖风险。
+
+          2026-07-30 v10 第四次调整:SiteFooter v10 拉高放宽(95→140px)后,需要给 footer 预留更多空间。
+          上一版 v9 minHeight 100vh-1rem-8rem = 1097px 配 footer 95px,留 132px 余量足够。
+          v10 footer 变 140px,改为 minHeight 100vh-1rem-12rem = 1029px
+          (给 footer 留 140px),magazine 限在 1029-140=889px 范围内 flex-1 撑开,
+          既保证 page-7 占满一屏(不破坏 snap-y),又让 3 个 QR + ICP 图标完整可见
+          (main 视口 ~1229 - page-7 1029 = 200px 余量,footer 140px 完整可见)。 */}
       <section
         id="home-page-7"
-        className="flex min-h-[calc(100vh-1rem)] snap-start flex-col"
+        className="flex snap-start flex-col"
+        style={{ minHeight: 'calc(100vh - 1rem - 12rem)' }}
         aria-label={t('magazine.title', { fallback: 'News' })}
       >
         <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-2">
