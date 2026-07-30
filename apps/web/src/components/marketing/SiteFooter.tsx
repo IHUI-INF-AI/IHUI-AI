@@ -71,8 +71,9 @@ const QR_BOX = 'h-16 w-16 overflow-hidden rounded border border-zinc-900 bg-zinc
 const QR_IMG = 'h-full w-full object-contain'
 const FOOTER_BTN = 'text-muted-foreground transition-colors hover:text-primary cursor-pointer'
 
-// mono 图标(白前景)filter: 亮色 invert 白→黑,暗色 invert-0 还原白
-// 非 mono 默认 dark:invert:暗色下反相,黑图标变白可见
+// mono 图标(白前景+透明背景):亮色 invert 白→黑可见,暗色 invert-0 还原白
+// darkInvert 图标(深色前景):亮色不动可见,暗色 invert 反相变白
+// 其它(带颜色前景):不加任何 filter,保持原色
 const MONO_FILTER = 'invert dark:invert-0'
 const DARK_INVERT_FILTER = 'dark:invert'
 
@@ -81,19 +82,22 @@ function PlatformIcon({
   src,
   href,
   mono,
+  darkInvert,
 }: {
   name: string
   src: string
   href?: string
   mono?: boolean
+  darkInvert?: boolean
 }) {
+  const filter = mono ? ` ${MONO_FILTER}` : darkInvert ? ` ${DARK_INVERT_FILTER}` : ''
   const img = (
     <img
       src={src}
       alt={name}
       width={14}
       height={14}
-      className={`${ICON_IMG}${mono ? ` ${MONO_FILTER}` : ` ${DARK_INVERT_FILTER}`}`}
+      className={`${ICON_IMG}${filter}`}
       {...IMG_EAGER}
     />
   )
@@ -301,6 +305,7 @@ export function SiteFooter({ className }: { className?: string }) {
                         name={t(p.nameKey)}
                         src={p.src}
                         mono={p.mono}
+                        darkInvert={p.darkInvert}
                         {...(p.href ? { href: p.href } : {})}
                       />
                     ))}
@@ -322,6 +327,7 @@ export function SiteFooter({ className }: { className?: string }) {
                   name={t(p.nameKey)}
                   src={p.src}
                   mono={p.mono}
+                  darkInvert={p.darkInvert}
                   {...(p.href ? { href: p.href } : {})}
                 />
               ))}
