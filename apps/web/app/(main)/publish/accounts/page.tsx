@@ -25,12 +25,14 @@ import {
 } from '@ihui/ui-react'
 import { PLATFORM_KEY } from '../helpers'
 
+// 后端契约:publish.py _serialize_account 返回 camelCase 字段
+// id 是 BIGSERIAL(number);displayName 不是 nickname;lastVerifiedAt 不是 last_verified_at
 interface Account {
-  id: string
+  id: number
   platform: string
-  nickname: string
+  displayName: string
   status: 'active' | 'disabled' | 'expired'
-  last_verified_at?: string | null
+  lastVerifiedAt?: string | null
   credentials?: Record<string, unknown>
 }
 
@@ -92,7 +94,7 @@ export default function AccountsPage() {
     credentialsJson: '{}',
   })
   const [saving, setSaving] = React.useState(false)
-  const [verifyingId, setVerifyingId] = React.useState<string | null>(null)
+  const [verifyingId, setVerifyingId] = React.useState<number | null>(null)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleteTarget, setDeleteTarget] = React.useState<Account | null>(null)
 
@@ -124,7 +126,7 @@ export default function AccountsPage() {
     setEditing(a)
     setForm({
       platform: a.platform,
-      nickname: a.nickname,
+      nickname: a.displayName,
       credentialsJson: a.credentials ? JSON.stringify(a.credentials, null, 2) : '{}',
     })
     setDialogOpen(true)
@@ -133,11 +135,12 @@ export default function AccountsPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      // 后端契约:AccountCreate 用 display_name(不是 nickname);
+      // user_id 从 JWT 取(publish.py AccountCreate 不含 user_id 字段),禁止传 userId
       const body = JSON.stringify({
         platform: form.platform,
-        nickname: form.nickname,
+        display_name: form.nickname,
         credentials: JSON.parse(form.credentialsJson || '{}'),
-        userId: 'me',
       })
       if (editing) {
         await api(`/api/publish/accounts/${editing.id}`, {
@@ -219,7 +222,7 @@ export default function AccountsPage() {
               <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{a.nickname}</div>
+                    <div className="truncate text-sm font-medium">{a.displayName}</div>
                     <div className="text-xs text-muted-foreground">
                       {t(PLATFORM_KEY[a.platform] ?? 'platforms.unknown')}
                     </div>
@@ -235,7 +238,7 @@ export default function AccountsPage() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {t('accounts.lastVerified')}:{' '}
-                  {a.last_verified_at ? TIME_FMT.format(new Date(a.last_verified_at)) : '-'}
+                  {a.lastVerifiedAt ? TIME_FMT.format(new Date(a.lastVerifiedAt)) : '-'}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Button
