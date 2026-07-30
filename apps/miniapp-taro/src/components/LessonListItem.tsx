@@ -67,7 +67,7 @@ export default function LessonListItem({
     video: icon('videoIcon'),
     audio: icon('yinpinIcon'),
     article: tt('lesson.articleType', '文'),
-    live: '🔴',
+    live: '/static/images/icons/radio.svg',
   }
 
   // show* 默认(undefined)= 按数据自动判断;显式 true/false 强制覆盖。
@@ -244,7 +244,7 @@ export default function LessonListItem({
       <View className="flex-1 min-w-0">
         <View className="flex items-center">
           {typeIcon && (
-            data.type === 'article' || data.type === 'live' ? (
+            data.type === 'article' ? (
               <Text className="text-xs text-muted-foreground mr-2">{typeIcon}</Text>
             ) : (
               <Image className="w-3 h-3 mr-2" src={typeIcon} mode="aspectFit" />
@@ -299,7 +299,7 @@ export default function LessonListItem({
         </Text>
       )}
       {data.watched && <Text className="text-xs text-primary mr-2">✓</Text>}
-      {data.locked && <Text className="text-xs text-muted-foreground mr-2">🔒</Text>}
+      {data.locked && <Image className="w-3 h-3 mr-2" src="/static/images/icons/lock.svg" mode="aspectFit" />}
     </View>
   )
 }
