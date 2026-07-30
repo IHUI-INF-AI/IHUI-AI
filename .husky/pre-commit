@@ -185,6 +185,15 @@ if (process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
   console.log('⏭  staged typecheck 闸门(HUSKY_SKIP_STAGED_TYPECHECK=1, 跳过)')
 }
 
+// 16b-16e: 条件守门(非 git 环境用 try/catch 兜底,跳过)
+try {
+  const stagedFiles = execSync('git diff --cached --name-only --diff-filter=ACMR', {
+    encoding: 'utf8',
+    cwd: process.cwd(),
+  })
+    .split('\n')
+    .filter(Boolean)
+
   // 16b. 条件 database 重建闸门(仅 staged 涉及 packages/database/src/ 时跑)
   // 防止"schema 加字段但 dist 未重建导致运行时字段缺失"的循环(0108 icon_svg 字段踩坑)
   // database 包的 package.json 配置 import: ./dist/index.js,运行时加载 dist 而非 src
