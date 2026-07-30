@@ -40,6 +40,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -49,6 +50,10 @@ from ..middleware.llm_metrics import (
     LLM_FALLBACK_FAILURE,
     LLM_FALLBACK_SUCCESS,
     LLM_FALLBACK_TRIGGERED,
+    LLM_FUSION_FAILURE,
+    LLM_FUSION_JUDGE_CALLED,
+    LLM_FUSION_PROPOSERS_CALLED,
+    LLM_FUSION_SUCCESS,
     classify_fallback_reason,
 )
 
@@ -73,6 +78,12 @@ class ComboChain:
         chain: provider/model 列表(按优先级或价格升序)。
         judge: fusion 策略下的 judge model(可选)。
         description: 人类可读描述。
+        judge_mode: fusion 策略下 judge 的工作模式:
+            - "merge"(默认):judge 综合各方优点产出融合答案。
+            - "vote":judge 评估每个 proposal 的质量(1-10 分),选出最佳,
+              返回 ``fusion_vote_result`` 字段含评分详情。
+        max_concurrency: fusion 策略下并发调用 proposer 的上限(默认 5,
+            避免一次 fusion 调用打爆 provider)。
     """
 
     name: str
@@ -80,6 +91,8 @@ class ComboChain:
     chain: list[str]
     judge: Optional[str] = None
     description: str = ""
+    judge_mode: str = "merge"  # "merge" | "vote"
+    max_concurrency: int = 5
 
 
 @dataclass
@@ -207,6 +220,8 @@ class ComboRouter:
                 "strategy": "priority" | "cheapest" | "fusion",
                 "chain": ["model1", "model2", ...],
                 "judge": "model_name"(fusion 策略可选),
+                "judge_mode": "merge" | "vote"(fusion 策略可选,默认 "merge"),
+                "max_concurrency": int(fusion 策略可选,默认 5),
                 "description": "..."
             }
         """
@@ -222,12 +237,36 @@ class ComboRouter:
             logger.warning("Combo '%s' chain 为空,跳过配置", name)
             return
 
+        # judge_mode 校验:仅 merge/vote 合法,其他值降级为 merge
+        judge_mode = config.get("judge_mode", "merge")
+        if judge_mode not in ("merge", "vote"):
+            logger.warning(
+                "Combo '%s' judge_mode 无效: %s,降级为 merge", name, judge_mode
+            )
+            judge_mode = "merge"
+
+        # max_concurrency 校验:必须 >=1,否则用默认 5
+        max_concurrency_raw = config.get("max_concurrency", 5)
+        if (
+            not isinstance(max_concurrency_raw, int)
+            or isinstance(max_concurrency_raw, bool)
+            or max_concurrency_raw < 1
+        ):
+            logger.warning(
+                "Combo '%s' max_concurrency 无效: %r,降级为 5", name, max_concurrency_raw
+            )
+            max_concurrency = 5
+        else:
+            max_concurrency = max_concurrency_raw
+
         self._combos[name] = ComboChain(
             name=name,
             strategy=strategy,
             chain=list(chain),
             judge=config.get("judge"),
             description=config.get("description", ""),
+            judge_mode=judge_mode,
+            max_concurrency=max_concurrency,
         )
 
     def get_combo(self, name: str) -> Optional[ComboChain]:
@@ -395,64 +434,350 @@ class ComboRouter:
         chain: list[str],
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """fusion 策略:并发调用多个 model + judge model 票决。
+        """fusion 策略:并发调用多个 model + judge model 票决/融合,带降级路径。
 
         流程:
-        1. 并发调用 chain 中所有 model(return_exceptions=True 防止单个失败崩溃)
-        2. 收集所有成功响应
-        3. 若有 judge model,把所有响应喂给 judge 票决最佳答案
-        4. 无 judge 时,取第一个成功响应
+        1. 用 ``asyncio.Semaphore`` 限制并发 proposer 数(``combo.max_concurrency``)
+        2. 并发调用 chain 中所有 model(return_exceptions=True 防止单个失败崩溃)
+        3. 收集所有成功响应
+        4. 全失败 → 记录 ``LLM_FUSION_FAILURE`` + 返回 error
+        5. 有 judge 且 >1 个成功 → 走 merge / vote 模式:
+           - merge:judge 融合各方优点产出综合答案
+           - vote:judge 评估每个 proposal(1-10 分),选出最佳,返回评分详情
+           judge 成功 → 记录 ``LLM_FUSION_JUDGE_CALLED`` + ``LLM_FUSION_SUCCESS``
+           judge 失败(judge 异常 / vote JSON 非法)→ 记录 ``LLM_FUSION_FAILURE`` + 降级取第一个
+        6. 无 judge 或 ≤1 个成功 → 取第一个成功,记录 ``LLM_FUSION_SUCCESS``
         """
         from ..core.llm_gateway import llm_gateway
 
-        # 1. 并发调用
-        tasks = [
-            llm_gateway.complete(messages, model=p, _skip_fallback=True, **kwargs)
-            for p in chain
-        ]
+        # 1. 并发限流(Semaphore 上限 ≥1,防御 max_concurrency 配置为 0 的边界)
+        max_conc = max(1, combo.max_concurrency)
+        semaphore = asyncio.Semaphore(max_conc)
+
+        async def _call_with_limit(provider: str) -> dict[str, Any]:
+            async with semaphore:
+                return await llm_gateway.complete(
+                    messages, model=provider, _skip_fallback=True, **kwargs
+                )
+
+        # 2. 并发调用
+        tasks = [_call_with_limit(p) for p in chain]
         proposals = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 2. 收集成功响应
+        # 3. Metric:proposers_called(每次 fusion 触发记一次)
+        self._safe_metric_inc(
+            LLM_FUSION_PROPOSERS_CALLED,
+            combo_name=combo.name,
+            proposer_count=str(len(chain)),
+        )
+
+        # 4. 收集成功响应
         successful: list[tuple[str, dict[str, Any]]] = []
         for provider, proposal in zip(chain, proposals):
             if isinstance(proposal, Exception):
-                logger.warning("fusion provider %s 异常: %s", provider, proposal)
+                logger.warning("fusion proposer %s 异常: %s", provider, proposal)
                 continue
             if isinstance(proposal, dict) and not proposal.get("error"):
                 successful.append((provider, proposal))
 
+        # 5. 全 proposer 失败
         if not successful:
-            return {"content": "", "error": f"fusion combo '{combo.name}' all proposers failed"}
+            self._safe_metric_inc(
+                LLM_FUSION_FAILURE,
+                combo_name=combo.name,
+                reason="all_proposers_failed",
+            )
+            return {
+                "content": "",
+                "error": f"fusion combo '{combo.name}' all proposers failed",
+            }
 
-        # 3. 有 judge 时票决
+        # 6. 有 judge 且 >1 个成功 → 走 merge / vote
+        judge_result: Optional[dict[str, Any]] = None
+        failure_reason = ""
         if combo.judge and len(successful) > 1:
-            proposal_texts = [
-                p.get("content", "") for _, p in successful if p.get("content")
-            ]
-            if proposal_texts:
-                agg_messages = messages + [{
-                    "role": "user",
-                    "content": (
-                        "以下是多个模型的回答,请综合给出最佳答案(可融合各方优点):\n\n"
-                        + "\n\n---\n\n".join(proposal_texts)
-                    ),
-                }]
-                try:
-                    judge_result = await llm_gateway.complete(
-                        agg_messages, model=combo.judge, _skip_fallback=True, **kwargs
-                    )
-                    if not judge_result.get("error"):
-                        judge_result["model"] = combo.judge
-                        judge_result["fusion_proposers"] = [p for p, _ in successful]
-                        return judge_result
-                except Exception as e:
-                    logger.warning("fusion judge %s 失败: %s,降级取第一个", combo.judge, e)
+            if combo.judge_mode == "vote":
+                judge_result, failure_reason = await self._run_judge_vote(
+                    messages, combo, successful, **kwargs
+                )
+            else:
+                judge_result, failure_reason = await self._run_judge_merge(
+                    messages, combo, successful, **kwargs
+                )
 
-        # 4. 无 judge 或 judge 失败:取第一个成功响应
-        first_provider, first_result = successful[0]
+            if judge_result is not None:
+                # judge 成功产出
+                self._safe_metric_inc(
+                    LLM_FUSION_JUDGE_CALLED,
+                    combo_name=combo.name,
+                    judge_model=combo.judge or "",
+                    judge_mode=combo.judge_mode,
+                )
+                self._safe_metric_inc(LLM_FUSION_SUCCESS, combo_name=combo.name)
+                return judge_result
+
+            # judge 失败 → 记录 FAILURE + 降级到第一个
+            logger.warning(
+                "fusion judge %s (mode=%s) 失败: %s,降级取第一个成功 proposal",
+                combo.judge, combo.judge_mode, failure_reason,
+            )
+            self._safe_metric_inc(
+                LLM_FUSION_FAILURE,
+                combo_name=combo.name,
+                reason=failure_reason,
+            )
+
+        # 7. 无 judge / judge 失败 / 仅 1 个成功 → 取第一个
+        first_provider, first_raw = successful[0]
+        first_result = dict(first_raw)  # 避免修改原 dict
         first_result["model"] = first_provider
         first_result["fusion_proposers"] = [p for p, _ in successful]
+        first_result["fusion_judge_mode"] = (
+            combo.judge_mode if (combo.judge and len(successful) > 1) else "none"
+        )
+        self._safe_metric_inc(LLM_FUSION_SUCCESS, combo_name=combo.name)
         return first_result
+
+    async def _run_judge_merge(
+        self,
+        messages: list[dict[str, Any]],
+        combo: ComboChain,
+        successful: list[tuple[str, dict[str, Any]]],
+        **kwargs: Any,
+    ) -> tuple[Optional[dict[str, Any]], str]:
+        """merge 模式 judge:综合各方优点产出融合答案。
+
+        Returns:
+            ``(judge_result, failure_reason)``。成功时 ``failure_reason`` 为空字符串;
+            失败时 ``judge_result`` 为 None,``failure_reason`` 为
+            ``"judge_call_failed"`` 或 ``"judge_no_content"``。
+        """
+        from ..core.llm_gateway import llm_gateway
+
+        proposal_texts = [
+            p.get("content", "") for _, p in successful if p.get("content")
+        ]
+        if not proposal_texts:
+            return None, "judge_no_content"
+
+        agg_messages = messages + [{
+            "role": "user",
+            "content": (
+                "以下是多个模型的回答,请综合给出最佳答案(可融合各方优点):\n\n"
+                + "\n\n---\n\n".join(proposal_texts)
+            ),
+        }]
+
+        try:
+            judge_result = await llm_gateway.complete(
+                agg_messages, model=combo.judge, _skip_fallback=True, **kwargs
+            )
+        except Exception as e:
+            logger.warning("fusion merge judge %s 调用异常: %s", combo.judge, e)
+            return None, "judge_call_failed"
+
+        if not isinstance(judge_result, dict) or judge_result.get("error"):
+            return None, "judge_call_failed"
+        if not judge_result.get("content"):
+            return None, "judge_no_content"
+
+        merged = dict(judge_result)
+        merged["model"] = combo.judge
+        merged["fusion_proposers"] = [p for p, _ in successful]
+        merged["fusion_judge_mode"] = "merge"
+        return merged, ""
+
+    async def _run_judge_vote(
+        self,
+        messages: list[dict[str, Any]],
+        combo: ComboChain,
+        successful: list[tuple[str, dict[str, Any]]],
+        **kwargs: Any,
+    ) -> tuple[Optional[dict[str, Any]], str]:
+        """vote 模式 judge:评估每个 proposal(1-10 分),选出最佳。
+
+        Returns:
+            ``(judge_result, failure_reason)``。成功时返回最佳 proposal dict +
+            ``fusion_vote_result`` 字段含评分详情;失败时 ``judge_result`` 为 None,
+            ``failure_reason`` 为 ``"judge_call_failed"`` / ``"judge_no_content"``
+            / ``"judge_invalid_json"``。
+        """
+        from ..core.llm_gateway import llm_gateway
+
+        original_question = self._extract_original_question(messages)
+
+        # 构造候选回答块(1-based 索引,与 successful 位置对齐,便于 best_index 反查)
+        candidate_lines: list[str] = []
+        has_any_content = False
+        for idx, (provider, proposal) in enumerate(successful, start=1):
+            content = proposal.get("content", "")
+            if not isinstance(content, str):
+                content = str(content) if content else ""
+            if not content:
+                content = "(empty)"
+            else:
+                has_any_content = True
+            candidate_lines.append(f"[{idx}] {provider}: {content}")
+        if not has_any_content:
+            return None, "judge_no_content"
+
+        candidate_block = "\n".join(candidate_lines)
+        prompt = (
+            "以下是多个模型对同一问题的回答,请评估每个回答的质量(1-10 分),选出最佳回答。\n\n"
+            f"问题:{original_question}\n\n"
+            f"候选回答:\n{candidate_block}\n\n"
+            "请输出 JSON:\n"
+            '{"best_index": 1, "scores": '
+            '[{"index": 1, "score": 8, "reason": "..."}], "reason": "..."}'
+        )
+        agg_messages = messages + [{"role": "user", "content": prompt}]
+
+        try:
+            judge_raw = await llm_gateway.complete(
+                agg_messages, model=combo.judge, _skip_fallback=True, **kwargs
+            )
+        except Exception as e:
+            logger.warning("fusion vote judge %s 调用异常: %s", combo.judge, e)
+            return None, "judge_call_failed"
+
+        if not isinstance(judge_raw, dict) or judge_raw.get("error"):
+            return None, "judge_call_failed"
+
+        judge_content = judge_raw.get("content", "")
+        if not isinstance(judge_content, str) or not judge_content:
+            return None, "judge_no_content"
+
+        # 解析 vote JSON
+        vote_data = self._parse_vote_json(judge_content, total=len(successful))
+        if vote_data is None:
+            logger.warning(
+                "fusion vote judge %s 返回非法 JSON(前 200 字符): %r",
+                combo.judge, judge_content[:200],
+            )
+            return None, "judge_invalid_json"
+
+        best_index = vote_data["best_index"]
+        # best_index 已在 _parse_vote_json 校验 1..total,直接取
+        best_provider, best_proposal = successful[best_index - 1]
+        result = dict(best_proposal)
+        result["model"] = best_provider
+        result["fusion_proposers"] = [p for p, _ in successful]
+        result["fusion_judge_mode"] = "vote"
+        result["fusion_vote_result"] = vote_data
+        result["fusion_judge_model"] = combo.judge
+        return result, ""
+
+    def _parse_vote_json(
+        self, content: str, total: int
+    ) -> Optional[dict[str, Any]]:
+        """解析 vote judge 返回的 JSON(支持 markdown fence / 裸 JSON / 文本前后)。
+
+        Args:
+            content: judge 返回的原始文本。
+            total: 成功 proposal 总数(用于校验 best_index 上界)。
+
+        Returns:
+            解析后的 dict:
+            - ``best_index``: int(1-based,1..total)
+            - ``scores``: list[dict[str, Any]](每项含 index/score/reason)
+            - ``reason``: str
+            解析失败返回 None。
+        """
+        parsed: Any = None
+
+        # 1. 直接 parse
+        try:
+            parsed = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 2. markdown fence ```json ... ``` 或 ``` ... ```
+        if parsed is None:
+            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+            if match:
+                try:
+                    parsed = json.loads(match.group(1))
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        # 3. 从首个 { 到末尾 } 的最大跨度提取
+        if parsed is None:
+            start = content.find("{")
+            end = content.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                try:
+                    parsed = json.loads(content[start:end + 1])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        if not isinstance(parsed, dict):
+            return None
+
+        # 校验 best_index(必须是 1..total 之间的 int,bool 不算)
+        best_index_raw = parsed.get("best_index")
+        if not isinstance(best_index_raw, int) or isinstance(best_index_raw, bool):
+            return None
+        if best_index_raw < 1 or best_index_raw > total:
+            return None
+
+        # 校验 scores(可选,缺省为空列表)
+        scores_raw = parsed.get("scores", [])
+        scores: list[dict[str, Any]] = []
+        if isinstance(scores_raw, list):
+            for s in scores_raw:
+                if isinstance(s, dict):
+                    scores.append({
+                        "index": s.get("index", 0),
+                        "score": s.get("score", 0),
+                        "reason": s.get("reason", ""),
+                    })
+
+        # 校验 reason(可选,缺省为空字符串,非 str 转 str)
+        reason_raw = parsed.get("reason", "")
+        reason = reason_raw if isinstance(reason_raw, str) else str(reason_raw)
+
+        return {
+            "best_index": best_index_raw,
+            "scores": scores,
+            "reason": reason,
+        }
+
+    def _extract_original_question(
+        self, messages: list[dict[str, Any]]
+    ) -> str:
+        """从 messages 提取最后一条 user 消息 content 作为原问题。
+
+        支持纯字符串 content 和多模态 list content(取首项 text)。
+        找不到时返回 ``"(unknown)"``。
+        """
+        for msg in reversed(messages):
+            if not isinstance(msg, dict):
+                continue
+            if msg.get("role") == "user":
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    return content
+                if isinstance(content, list) and content:
+                    first = content[0]
+                    if isinstance(first, dict):
+                        text = first.get("text", "")
+                        if isinstance(text, str):
+                            return text
+                return "(unknown)"
+        return "(unknown)"
+
+    def _safe_metric_inc(self, counter: Any, **labels: Any) -> None:
+        """安全递增 Prometheus Counter(失败不阻塞业务)。
+
+        Args:
+            counter: ``prometheus_client.Counter`` 实例(duck-typed,避免硬依赖类型)。
+            **labels: 标签键值对(值会被 ``str()`` 转换)。
+        """
+        try:
+            str_labels = {k: str(v) for k, v in labels.items()}
+            counter.labels(**str_labels).inc()
+        except Exception as e:
+            logger.warning("Fusion metric 记录失败(忽略): %s", e)
 
     def _is_rate_limit_error(self, result: dict[str, Any]) -> bool:
         """检查 LLM 响应是否是 429 错误。
