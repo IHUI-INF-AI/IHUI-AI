@@ -1567,5 +1567,15 @@
     "empty": "No messages yet",
     "placeholder": "Type a message",
     "send": "Send"
+  },
+  "byokGuide": {
+    "cardTitle": "Bring Your Own Key (BYOK)",
+    "cardDesc": "Bring your own provider API key, zero markup, free models at no cost",
+    "feature1": "Supports 50+ provider keys",
+    "feature2": "Only 5-20% service fee for paid models",
+    "feature3": "Free models are completely free",
+    "cta": "Configure API Key",
+    "freeNoteTitle": "Free Models at No Cost",
+    "freeNoteDesc": "Connect via BYOK to free providers like Cloudflare Workers AI, GitHub Models, or NVIDIA NIM — completely free to use, with no platform charges."
   }
 }

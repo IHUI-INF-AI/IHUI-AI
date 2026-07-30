@@ -1567,5 +1567,15 @@
     "empty": "暂无消息",
     "placeholder": "输入消息",
     "send": "发送"
+  },
+  "byokGuide": {
+    "cardTitle": "自带 API Key(BYOK)",
+    "cardDesc": "自带厂商 API Key,零中间商加价,免费模型不收费",
+    "feature1": "支持 50+ 厂商 Key 接入",
+    "feature2": "付费模型仅收 5-20% 服务费",
+    "feature3": "免费模型完全免费,无任何费用",
+    "cta": "配置 API Key",
+    "freeNoteTitle": "免费模型不收费",
+    "freeNoteDesc": "通过 BYOK 接入 Cloudflare Workers AI / GitHub Models / NVIDIA NIM 等免费 provider,完全免费使用,平台不收任何费用。"
   }
 }
