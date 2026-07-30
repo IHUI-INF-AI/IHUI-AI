@@ -62,6 +62,23 @@ export interface RecordCallInput {
   cacheReadTokens?: number
   /** prompt cache 创建写入的 token 数(按 input price × 1.25 计费) */
   cacheCreationTokens?: number
+  /** P0 中转站造血能力批次(2026-08-01):8 个审计/统计字段,写入 llm_call_logs 对应列 */
+  /** 调用所用 API Key id(已存在于接口,这里仅声明会写入 api_key_id 列) */
+  // apiKeyId 已在上方声明(必填,用于 developerApiKeys 余额扣减)
+  /** 上游 provider 代码(如 'openai'/'anthropic'/'stepfun'),未传则不写入 */
+  providerCode?: string
+  /** 所用模型配置 id(关联 ai_model_config.id),未传则不写入 */
+  configId?: string
+  /** 所用 key 池条目 id(关联 ai_relay_key_pool.id),未传则不写入 */
+  keyPoolId?: string
+  /** 调用方 IP(支持 IPv4/IPv6),未传则不写入 */
+  clientIp?: string
+  /** 本次调用总成本(分),未传则用 calculateCost 的 totalCostCents 自动填充 */
+  costCents?: number
+  /** 上游 HTTP 状态码(如 200/429/500),未传则不写入 */
+  httpStatus?: number
+  /** Time To First Token 毫秒数(首 token 耗时,流式才有),未传则不写入 */
+  ttftMs?: number
 }
 
 export interface RecordCallResult {
@@ -364,10 +381,11 @@ export function isFreeProvider(model: string): boolean {
 
 /**
  * 模型名 → provider_code 映射(与 ai-service 侧 llm_gateway.py 的 _model_to_provider_code 一致)。
- * 用于 BYOK 模式下查 ai_model_config 中用户私有配置/全局抽成率。
+ * 用于 BYOK 模式下查 ai_model_config 中用户私有配置/全局抽成率,
+ * 以及写入 llm_call_logs.provider_code 审计字段。
  * 只覆盖主要厂商,未命中默认 'openai'。
  */
-function _modelToProviderCode(model: string): string {
+export function modelToProviderCode(model: string): string {
   const m = model.toLowerCase()
   const prefixMap: Record<string, string> = {
     'byok/': 'byok',
@@ -489,11 +507,11 @@ export async function calculateByokCost(
 
 /**
  * 判断指定用户对模型是否走 BYOK 模式。
- * 查 ai_model_config WHERE owner_uuid = userId AND provider_code = _modelToProviderCode(model) AND enabled = true,
+ * 查 ai_model_config WHERE owner_uuid = userId AND provider_code = modelToProviderCode(model) AND enabled = true,
  * 返回是否有用户私有配置(有 = BYOK 模式,无 = 中转站模式)。
  */
 export async function isByokCall(userId: string, model: string): Promise<boolean> {
-  const providerCode = _modelToProviderCode(model)
+  const providerCode = modelToProviderCode(model)
   const [row] = await dbRead
     .select({ id: aiModelConfig.id })
     .from(aiModelConfig)
@@ -555,7 +573,7 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
 
   if (mode === 'byok') {
     // BYOK:抽成率优先用入参,否则查全局默认
-    const providerCode = _modelToProviderCode(input.model)
+    const providerCode = modelToProviderCode(input.model)
     const rate = input.commissionRate ?? (await getByokCommissionRate(providerCode))
     const byokCost = await calculateByokCost(
       input.model,
@@ -588,8 +606,6 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
       : (input.response ?? '')
 
   const metadata: Record<string, unknown> = {
-    apiKeyId: input.apiKeyId,
-    costCents: costCentsToDeduct,
     multiplier,
     pricingSource,
     ...(input.metadata ?? {}),
@@ -601,6 +617,9 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
     metadata.commissionRate = commissionRate
   }
 
+  // P0 中转站造血能力批次(2026-08-01):8 个审计/统计字段写入顶层列
+  // apiKeyId/costCents 从 metadata 迁移到顶层列(支持索引聚合查询)
+  // costCents:未传则用 calculateCost 的 totalCostCents(costCentsToDeduct)自动填充
   const [logRow] = await db
     .insert(llmCallLogs)
     .values({
@@ -618,6 +637,14 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
       errorMessage: input.errorMessage ?? null,
       conversationId: input.conversationId ?? null,
       metadata,
+      apiKeyId: input.apiKeyId,
+      providerCode: input.providerCode ?? null,
+      configId: input.configId ?? null,
+      keyPoolId: input.keyPoolId ?? null,
+      clientIp: input.clientIp ?? null,
+      costCents: input.costCents ?? costCentsToDeduct,
+      httpStatus: input.httpStatus ?? null,
+      ttftMs: input.ttftMs ?? null,
     })
     .returning({ id: llmCallLogs.id })
 

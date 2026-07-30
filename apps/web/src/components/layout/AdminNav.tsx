@@ -1269,7 +1269,9 @@ function loadCollapsed(): Set<AdminGroupKey> {
 }
 
 export function AdminNav({ children }: { children: React.ReactNode }) {
-  const t = useTranslations('admin')
+  // 注:NAV_LABEL_KEY 映射表用的是 'nav.xxx' 完整 key,需用不限命名空间的 useTranslations()
+  // 不能用 useTranslations('admin')(admin 命名空间不存在会 fallback 显示 key 本身)
+  const t = useTranslations()
   const pathname = usePathname()
   const { list: dynamicList, loaded } = useAdminRouters()
   const [collapsed, setCollapsed] = React.useState<Set<AdminGroupKey>>(() => new Set())
