@@ -123,6 +123,7 @@
   "nav": {
     "title": "主導航",
     "vip": "VIP 會員",
+    "close": "關閉",
     "user": "個人中心",
     "messages": "站內消息",
     "expand": "展開",
@@ -5989,6 +5990,67 @@
     }
   },
   "settings": {
+    "gateway": {
+      "navLabel": "AI 閘道",
+      "title": "AI 閘道 Dashboard",
+      "subtitle": "Provider 健康狀態、Combo 鏈管理、Token 壓縮演示",
+      "tabs": {
+        "providers": "Provider 健康",
+        "combos": "Combo 鏈",
+        "compaction": "Token 壓縮"
+      },
+      "providers": {
+        "summary": {
+          "total": "總計",
+          "configured": "已設定",
+          "local": "本地",
+          "notConfigured": "未設定"
+        },
+        "filter": {
+          "all": "全部",
+          "configured": "已設定",
+          "notConfigured": "未設定",
+          "local": "本地"
+        },
+        "cooldown": "冷卻中",
+        "failures": "次失敗",
+        "models": "個模型",
+        "refresh": "重新整理"
+      },
+      "combos": {
+        "create": "新建 Combo",
+        "edit": "編輯",
+        "delete": "刪除",
+        "name": "鏈名",
+        "strategy": "策略",
+        "chain": "呼叫鏈(每行一個)",
+        "judge": "Judge 模型(fusion 策略)",
+        "description": "描述",
+        "deleteConfirm": "確認刪除 Combo \"{name}\"?",
+        "createSuccess": "Combo 建立成功",
+        "deleteSuccess": "Combo 刪除成功",
+        "empty": "暫無 Combo 鏈,點擊「新建 Combo」建立第一個"
+      },
+      "compaction": {
+        "input": "輸入訊息",
+        "inputPlaceholder": "輸入要壓縮的文字內容...",
+        "strategy": "壓縮策略",
+        "keepRecent": "保留最近 N 條",
+        "run": "開始壓縮",
+        "original": "原始 Token",
+        "compressed": "壓縮後 Token",
+        "ratio": "壓縮率",
+        "rtkMapSize": "RTK 映射表大小",
+        "compressedPreview": "壓縮後預覽",
+        "decompressedPreview": "解壓結果",
+        "showDecompressed": "顯示解壓結果",
+        "hideDecompressed": "隱藏解壓結果",
+        "excellent": "優秀",
+        "good": "良好",
+        "poor": "未達標",
+        "empty": "點擊「開始壓縮」查看效果"
+      }
+    },
     "activityLoading": "加載中...",
     "activityEmpty": "暫無活動記錄",
     "activityLoadFailed": "加載失敗,請稍後重試",
@@ -9014,7 +9076,10 @@
     "privacyPolicy": "隱私政策",
     "aboutUs": "關於我們",
     "contactUs": "聯繫我們",
-    "contactSubtitle": "通過以下方式聯繫我們"
+    "contactSubtitle": "通過以下方式聯繫我們",
+    "internationalModels": "國際大模型",
+    "chineseModels": "國產大模型",
+    "agreementSubtitle": "請仔細閱讀以下協議條款"
   },
   "plugins": {
     "title": "外掛市場",
