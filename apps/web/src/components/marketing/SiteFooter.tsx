@@ -44,8 +44,8 @@ import { Tooltip } from '@/components/feedback'
  */
 
 // 生态合作 4 类分组(2026-07-21 v8 恢复 4 类布局,响应式 grid 自适应屏幕宽度)
-// - 移动端:grid-cols-2(2 列,4 类分 2 行)
-// - 桌面端:md:grid-cols-4(4 列,4 类一行)
+// - 移动端/平板:grid-cols-2(2 列,4 类分 2 行)
+// - 桌面 lg+:lg:grid-cols-4(4 列,4 类一行)
 const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] = [
   { titleKey: 'supportedPlatforms', items: SUPPORTED },
   { titleKey: 'models', items: MODELS },
@@ -71,8 +71,10 @@ const QR_BOX = 'h-16 w-16 overflow-hidden rounded border border-zinc-900 bg-zinc
 const QR_IMG = 'h-full w-full object-contain'
 const FOOTER_BTN = 'text-muted-foreground transition-colors hover:text-primary cursor-pointer'
 
-// mono 图标的 filter 适配类
+// mono 图标(白前景)filter: 亮色 invert 白→黑,暗色 invert-0 还原白
+// 非 mono 默认 dark:invert:暗色下反相,黑图标变白可见
 const MONO_FILTER = 'invert dark:invert-0'
+const DARK_INVERT_FILTER = 'dark:invert'
 
 function PlatformIcon({
   name,
@@ -91,7 +93,7 @@ function PlatformIcon({
       alt={name}
       width={14}
       height={14}
-      className={`${ICON_IMG}${mono ? ` ${MONO_FILTER}` : ''}`}
+      className={`${ICON_IMG}${mono ? ` ${MONO_FILTER}` : ` ${DARK_INVERT_FILTER}`}`}
       {...IMG_EAGER}
     />
   )
@@ -226,7 +228,6 @@ function useDialogSwitch() {
 
 export function SiteFooter({ className }: { className?: string }) {
   const t = useTranslations('footer')
-  const tRoutes = useTranslations('routes')
   const dlg = useDialogSwitch()
 
   return (
@@ -272,10 +273,10 @@ export function SiteFooter({ className }: { className?: string }) {
                 {t('aboutUs')}
               </Link>
               <button type="button" onClick={() => dlg.open('user')} className={FOOTER_BTN}>
-                {tRoutes('userAgreement')}
+                {t('userAgreement')}
               </button>
               <button type="button" onClick={() => dlg.open('privacy')} className={FOOTER_BTN}>
-                {tRoutes('privacyPolicy')}
+                {t('privacyPolicy')}
               </button>
               <button type="button" onClick={() => dlg.open('contact')} className={FOOTER_BTN}>
                 {t('contactUs')}
@@ -284,11 +285,12 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
 
           {/* 栏 2: 生态合作 4 类分组(响应式自适应)
-              - grid-cols-2(移动端 2 列)+ md:grid-cols-4(桌面端 4 列)
+              - grid-cols-2(移动端/平板 2 列)+ lg:grid-cols-4(桌面 lg+ 4 列)
+              - 1024 边界修复:768-1023px 用 md:grid-cols-2 留出更多列宽,避免 4 列过挤图标溢出
               - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1 */}
           <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
-            <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-1 md:grid-cols-2 lg:grid-cols-4">
               {ECOSYSTEM_GROUPS.map((g) => (
                 <div key={g.titleKey} className="space-y-1">
                   <h5 className="text-[11px] font-medium text-foreground/50">{t(g.titleKey)}</h5>
