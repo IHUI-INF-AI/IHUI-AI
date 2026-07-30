@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { useTt } from '@/i18n'
 import { useUserStore } from '@/stores/user'
+import { aizhsUrl, bspappUrl } from '@/constants/icon-urls'
 import { saveImageToPhotosAlbum } from '@/utils/save-album'
 import NavBar from '@/components/NavBar'
 import DistributionStats, { type ColumnItem } from '@/components/DistributionStats'
@@ -125,32 +126,32 @@ export default function DistributionIndex() {
     action?: 'qrcode'
   }> = [
     {
-      icon: '👥',
+      icon: aizhsUrl('sys-mini/tuandui-icon.png'),
       label: tt('distribution.index.menuTeam', '我的团队'),
       url: '/pages/distribution/team',
     },
     {
-      icon: '📦',
+      icon: aizhsUrl('sys-mini/fenxiao-icon.png'),
       label: tt('distribution.index.menuOrders', '分销订单'),
       url: '/pages/distribution/order-list/index',
     },
     {
-      icon: '🎯',
+      icon: bspappUrl('tabbar/home/xia/commission.png'),
       label: tt('distribution.index.menuPlan', '分佣计划'),
       url: '/pages/distribution/plan/index',
     },
     {
-      icon: '💸',
+      icon: aizhsUrl('sys-mini/tixian.jpg'),
       label: tt('distribution.index.menuWithdraw', '申请提现'),
       url: '/pages/distribution/withdraw',
     },
     {
-      icon: '📊',
+      icon: bspappUrl('tabbar/home/zhongxia/king.png'),
       label: tt('distribution.index.menuRank', '推广排行'),
       url: '/pages/distribution/rank',
     },
     {
-      icon: '💬',
+      icon: aizhsUrl('sys-mini/erweima-icon.png'),
       label: tt('distribution.index.menuQrCode', '我的二维码'),
       action: 'qrcode',
     },
@@ -269,15 +270,11 @@ export default function DistributionIndex() {
           <View className="dist-stats-body">
             <View className="dist-stats-item">
               <Text className="dist-stats-num">¥{stats.earnings.toFixed(2)}</Text>
-              <Text className="dist-stats-label">
-                {tt('distribution.index.earnings', '收益')}
-              </Text>
+              <Text className="dist-stats-label">{tt('distribution.index.earnings', '收益')}</Text>
             </View>
             <View className="dist-stats-item">
               <Text className="dist-stats-num">{stats.orders}</Text>
-              <Text className="dist-stats-label">
-                {tt('distribution.index.orders', '订单数')}
-              </Text>
+              <Text className="dist-stats-label">{tt('distribution.index.orders', '订单数')}</Text>
             </View>
             <View className="dist-stats-item">
               <Text className="dist-stats-num">{stats.invites}</Text>
@@ -299,9 +296,17 @@ export default function DistributionIndex() {
         <View className="dist-card dist-menu">
           {menuItems.map((item, idx) => (
             <View key={idx} className="dist-menu-item" onClick={() => onMenuClick(item)}>
-              <Text className="dist-menu-icon">{item.icon}</Text>
+              <Image
+                src={item.icon}
+                className="dist-menu-icon w-[40rpx] h-[40rpx]"
+                mode="aspectFit"
+              />
               <Text className="dist-menu-label">{item.label}</Text>
-              <Text className="dist-menu-arrow">›</Text>
+              <Image
+                src={bspappUrl('tabbar/home/zhong/right-arrow.png')}
+                className="dist-menu-arrow w-[24rpx] h-[24rpx]"
+                mode="aspectFit"
+              />
             </View>
           ))}
         </View>
@@ -311,9 +316,7 @@ export default function DistributionIndex() {
       <CustomerServiceFloat
         variant="commission"
         commissionAmount={totalCommission}
-        onCommissionClick={() =>
-          Taro.navigateTo({ url: '/pages/wallet/commission/index' })
-        }
+        onCommissionClick={() => Taro.navigateTo({ url: '/pages/wallet/commission/index' })}
         draggable
       />
 
@@ -325,9 +328,12 @@ export default function DistributionIndex() {
               <Text className="dist-qrpop-title">
                 {tt('distribution.index.qrTitle', '我的分享二维码')}
               </Text>
-              <Text className="dist-qrpop-close" onClick={() => setShowQrCode(false)}>
-                ×
-              </Text>
+              <Image
+                src={aizhsUrl('sys-mini/xtk/cancel.png')}
+                className="dist-qrpop-close w-[32rpx] h-[32rpx]"
+                mode="aspectFit"
+                onClick={() => setShowQrCode(false)}
+              />
             </View>
             <View className="dist-qrpop-qr">
               {qrCode ? (
@@ -342,10 +348,7 @@ export default function DistributionIndex() {
               COPYRIGHT © 2025-2035 IHUIINF AGI ALL RIGHTS RESERVED.
             </Text>
             <View className="dist-qrpop-actions">
-              <Button
-                className="dist-qrpop-btn"
-                openType="share"
-              >
+              <Button className="dist-qrpop-btn" openType="share">
                 {tt('distribution.index.share', '分享给好友')}
               </Button>
               <Text className="dist-qrpop-link" onClick={onSaveQr}>

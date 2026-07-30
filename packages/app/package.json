@@ -13,7 +13,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test": "vitest run --environment jsdom"
   },
   "dependencies": {
     "@ihui/design-tokens": "workspace:*",
@@ -25,9 +26,22 @@
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
+    "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
+    "jsdom": "^25.0.1",
     "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "react-native": "^0.79.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "vitest": {
+    "environment": "jsdom",
+    "include": [
+      "src/**/__tests__/**/*.test.{ts,tsx}"
+    ],
+    "globals": false,
+    "testTimeout": 15000,
+    "hookTimeout": 15000
   }
 }
