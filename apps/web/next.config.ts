@@ -132,6 +132,15 @@ const nextConfig: NextConfig = {
           source: '/api/ai-skills/:path*',
           destination: 'http://localhost:8803/api/ai-skills/:path*',
         },
+        // 2026-07-29 新增:publish 多平台分发路由转发到 ai-service 8803
+        // 原因:publish.py 注册在 ai-service(prefix="/publish",应用挂载 /api 前缀),
+        // 完整路径是 /api/publish/*。若不显式转发会被 /api/:path* 通配符转发到 8802(api server),
+        // 而 api server 没有注册 /api/publish 路由 → 404。
+        // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
+        {
+          source: '/api/publish/:path*',
+          destination: 'http://localhost:8803/api/publish/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
