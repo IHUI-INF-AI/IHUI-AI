@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Share, View } from 'react-native'
+import { Alert, Share } from 'react-native'
+import type { View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import {
   streamChat,
@@ -271,7 +272,9 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
     const uri = await capture({ current: el } as React.RefObject<View>)
     if (!uri) return
     Alert.alert(
-      original.role === 'user' ? t('chatAlert.longPress.myTitle') : t('chatAlert.longPress.aiTitle'),
+      original.role === 'user'
+        ? t('chatAlert.longPress.myTitle')
+        : t('chatAlert.longPress.aiTitle'),
       t('chatAlert.longPress.message'),
       [
         {
@@ -303,7 +306,11 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
       label: t('chat.navProfile'),
       onPress: () => navigation.getParent()?.navigate('Tabs'),
     },
-    { key: 'settings', label: t('chat.navSettings'), onPress: () => navigation.navigate('Settings') },
+    {
+      key: 'settings',
+      label: t('chat.navSettings'),
+      onPress: () => navigation.navigate('Settings'),
+    },
     { key: 'logout', label: t('chat.navLogout'), onPress: logout },
   ]
 

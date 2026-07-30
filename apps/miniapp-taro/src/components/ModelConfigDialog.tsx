@@ -1,10 +1,20 @@
 import { useState } from 'react'
-import { View, Text, Input, Switch } from '@tarojs/components'
+import { View, Text, Input, Switch, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import type { ModelConfigType } from '@ihui/types'
+import { aizhsUrl } from '@/constants/icon-urls'
 import Selecter from './Selecter'
 import './ModelConfigDialog.css'
+
+// aigc variant 上传按钮图标(对齐原项目 ModelConfigDialog/indexa.vue):
+// icon-album(首帧/尾帧空)/ icon-yinpin(音频空 + 克隆音色行)/ icon-audio-success(音频成功)/
+// icon-kelong(视频空)/ icon-video-success(视频成功)/ model_edit_yes(首帧/尾帧成功)
+import iconAlbumPng from '@/assets/remote/images/icon-album.png'
+import iconYinpinPng from '@/assets/remote/images/icon-yinpin.png'
+import iconAudioSuccessPng from '@/assets/remote/images/icon-audio-success.png'
+import iconKelongPng from '@/assets/remote/images/icon-kelong.png'
+import iconVideoSuccessPng from '@/assets/remote/images/icon-video-success.png'
 
 // ===== 默认 variant 用:简化版配置 =====
 export interface ModelConfig {
@@ -373,32 +383,32 @@ export default function ModelConfigDialog({
       label: '添加首帧图',
       url: uploads.firstFrame.url,
       name: uploads.firstFrame.name,
-      emptyIcon: '🖼️',
-      successIcon: '✅',
+      emptyIcon: iconAlbumPng,
+      successIcon: aizhsUrl('sys-mini/xtk/model_edit_yes.png'),
     },
     {
       key: 'lastFrame',
       label: '添加尾帧图',
       url: uploads.lastFrame.url,
       name: uploads.lastFrame.name,
-      emptyIcon: '🖼️',
-      successIcon: '✅',
+      emptyIcon: iconAlbumPng,
+      successIcon: aizhsUrl('sys-mini/xtk/model_edit_yes.png'),
     },
     {
       key: 'audio',
       label: '参考音色',
       url: uploads.audio.url,
       name: uploads.audio.name,
-      emptyIcon: '🎵',
-      successIcon: '🔊',
+      emptyIcon: iconYinpinPng,
+      successIcon: iconAudioSuccessPng,
     },
     {
       key: 'video',
       label: '克隆数字人',
       url: uploads.video.url,
       name: uploads.video.name,
-      emptyIcon: '🎬',
-      successIcon: '🎞️',
+      emptyIcon: iconKelongPng,
+      successIcon: iconVideoSuccessPng,
     },
   ]
 
@@ -428,12 +438,16 @@ export default function ModelConfigDialog({
               >
                 <View className="relative">
                   {!it.url ? (
-                    <View className="w-[74rpx] h-[74rpx] flex items-center justify-center bg-muted rounded-lg text-2xl">
-                      {it.emptyIcon}
+                    <View className="w-[74rpx] h-[74rpx] flex items-center justify-center bg-muted rounded-lg">
+                      <Image src={it.emptyIcon} className="w-[50rpx] h-[50rpx]" mode="aspectFit" />
                     </View>
                   ) : (
-                    <View className="w-[74rpx] h-[74rpx] flex items-center justify-center bg-primary/10 rounded-lg text-2xl">
-                      {it.successIcon}
+                    <View className="w-[74rpx] h-[74rpx] flex items-center justify-center bg-primary/10 rounded-lg">
+                      <Image
+                        src={it.successIcon}
+                        className="w-[50rpx] h-[50rpx]"
+                        mode="aspectFit"
+                      />
                     </View>
                   )}
                   {it.url && (
@@ -499,7 +513,11 @@ export default function ModelConfigDialog({
                     handleUpload('audio')
                   }}
                 >
-                  <Text className="text-2xl mr-2">🎤</Text>
+                  <Image
+                    src={iconYinpinPng}
+                    className="w-[40rpx] h-[40rpx] mr-2"
+                    mode="aspectFit"
+                  />
                   <View className="flex-1">
                     <Text className="block text-sm">
                       {uploads.audio.name ? '当前：' + uploads.audio.name : '克隆音色'}
