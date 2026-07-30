@@ -1,4 +1,4 @@
-﻿{
+{
   "skills": {
     "market": {
       "title": "Skill Market",
@@ -5940,7 +5940,7 @@
       "credentials": "Credentials",
       "lastVerified": "Last Verified",
       "noAccounts": "No accounts yet, please add one first",
-      "credentialsHint": "Credentials JSON (platform-specific: token/cookie/appId+secret)"
+      "credentialsHint": "Credentials JSON (platform-specific: token/cookie/appId+secret)",
       "scanLogin": "Scan Login",
       "scanLoginTitle": "Scan to Login",
       "scanLoginDescription": "Select a platform. The backend opens the platform login page and captures a QR code. Scan with the app to auto-save cookies.",
@@ -12483,6 +12483,39 @@
       "agentView": "Agent View",
       "mcpView": "MCP View",
       "settingsView": "Settings View"
+    },
+    "agentPane": {
+      "plan": "Plan",
+      "placeholder": "Describe the coding task you want AI to complete...",
+      "modelSelect": "Select model",
+      "execute": "Execute",
+      "emptyHint": "Enter a task and click execute, AI will complete the coding autonomously",
+      "result": "Result",
+      "stop": "Stop",
+      "clear": "Clear",
+      "taskId": "Task ID"
+    },
+    "mcpPane": {
+      "tools": "Tools",
+      "resources": "Resources",
+      "prompts": "Prompts",
+      "skills": "Skills",
+      "slash": "Commands",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search...",
+      "empty": "No data",
+      "selectHint": "Select an item from the list to view details",
+      "result": "Result",
+      "copy": "Copy",
+      "call": "Call",
+      "resourceUri": "Resource URI",
+      "parameters": "Parameters",
+      "noParams": "No parameters",
+      "skillTemplate": "Skill Template",
+      "loading": "Loading...",
+      "noTemplate": "No template",
+      "slashArgs": "Command args",
+      "slashArgsHint": "Separate multiple args with spaces"
     },
     "fileExplorer": {
       "tabFiles": "Files",

@@ -361,6 +361,74 @@ export async function executeSkill(name: string, params: Record<string, unknown>
 }
 
 // ============================================================================
+// MCP 资源与提示词端点(对应 AI-Service /mcp/resources /mcp/prompts)
+// ============================================================================
+
+export interface McpResource {
+  uri: string
+  name?: string
+  description?: string
+  mimeType?: string
+  [key: string]: unknown
+}
+
+export interface McpResourceList {
+  resources: McpResource[]
+  count: number
+}
+
+export interface McpResourceReadResult {
+  uri: string
+  contents: unknown
+  [key: string]: unknown
+}
+
+export interface McpPromptArgument {
+  name: string
+  description?: string
+  required?: boolean
+  [key: string]: unknown
+}
+
+export interface McpPrompt {
+  name: string
+  description: string
+  arguments?: McpPromptArgument[]
+  [key: string]: unknown
+}
+
+export interface McpPromptList {
+  prompts: McpPrompt[]
+  count: number
+}
+
+export interface McpPromptInvokeResult {
+  name: string
+  messages: unknown
+  [key: string]: unknown
+}
+
+export async function listMCPResources() {
+  return fetchApi<McpResourceList>('/mcp/resources')
+}
+
+// URI 可能含 `/`(如 file:///path),用 encodeURI 保留路径分隔符,匹配后端 {uri:path} 路由
+export async function readMCPResource(uri: string) {
+  return fetchApi<McpResourceReadResult>(`/mcp/resources/${encodeURI(uri)}`)
+}
+
+export async function listMCPPrompts() {
+  return fetchApi<McpPromptList>('/mcp/prompts')
+}
+
+export async function invokeMCPPrompt(name: string, args: Record<string, unknown> = {}) {
+  return fetchApi<McpPromptInvokeResult>('/mcp/prompts/invoke', {
+    method: 'POST',
+    body: JSON.stringify({ name, arguments: args }),
+  })
+}
+
+// ============================================================================
 // SSE 流式执行(对应 AI-Service /agents/execute/stream)
 // 因 client.ts 未导出 SSE 通用封装,此处使用 fetch 直连 + 显式 options。
 // 多端调用方需通过 options.headers 传入 Authorization、options.baseUrl 传入网关地址。
