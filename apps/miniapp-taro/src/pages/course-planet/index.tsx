@@ -4,6 +4,7 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
 import Carousel from '@/components/Carousel'
+import SectionHeader from '@/components/SectionHeader'
 import { useI18n } from '@/i18n'
 
 interface PlanetCourse {
@@ -230,6 +231,14 @@ export default function CoursePlanet() {
         ))}
         </View>
       </ScrollView>
+      {displayList.length > 0 && (
+        <View className="px-[24rpx] mb-[16rpx]">
+          <SectionHeader
+            title={tt('coursePlanet.featured', '精选推荐')}
+            showMore={false}
+          />
+        </View>
+      )}
       {displayList.length > 0 && (
         <View className="px-[24rpx] mb-[24rpx]">
           <Carousel

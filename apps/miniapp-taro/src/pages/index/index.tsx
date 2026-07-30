@@ -20,7 +20,7 @@ import { View, Image, Text } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import NavBar from '@/components/NavBar'
 import DrawerComponent, {
   type DrawerModelGroup,
@@ -35,6 +35,7 @@ import BottomActionBar, {
   type ToggleButtonItem,
 } from '@/components/BottomActionBar'
 import Toolbar from '@/components/Toolbar'
+import { icon } from '@/constants/remote-icons'
 import './index.css'
 
 const DEFAULT_AVATAR =
@@ -97,6 +98,7 @@ interface AiHomeState {
 
 export default function Index() {
   const { t } = useI18n()
+  const tt = useTt()
   const [state, setState] = useState<AiHomeState>({
     drawerVisible: false,
     showModelList: false,
@@ -305,11 +307,11 @@ export default function Index() {
         <View className="px-[20rpx] py-[16rpx]">
           <Toolbar
             items={[
-              { id: 'ai', name: 'AI对话', icon: '🤖', onClick: () => Taro.navigateTo({ url: '/pages/ai/chat' }) },
-              { id: 'course', name: '课程', icon: '📚', onClick: () => Taro.switchTab({ url: '/pages/course/list' }) },
-              { id: 'plaza', name: '广场', icon: '🏙️', onClick: () => Taro.navigateTo({ url: '/pages/plaza/index/index' }) },
-              { id: 'rank', name: '排行', icon: '🏆', onClick: () => Taro.navigateTo({ url: '/pages/ranking/index' }) },
-              { id: 'vip', name: '会员', icon: '👑', onClick: () => Taro.navigateTo({ url: '/pages/vip/index' }) },
+              { id: 'ai', name: tt('toolbar.ai', 'AI对话'), icon: icon('aiIcon'), onClick: () => Taro.navigateTo({ url: '/pages/ai/chat' }) },
+              { id: 'course', name: tt('toolbar.course', '课程'), icon: icon('courseIcon'), onClick: () => Taro.switchTab({ url: '/pages/course/list' }) },
+              { id: 'plaza', name: tt('toolbar.plaza', '广场'), icon: '🏙️', onClick: () => Taro.navigateTo({ url: '/pages/plaza/index/index' }) },
+              { id: 'rank', name: tt('toolbar.rank', '排行'), icon: icon('rankone'), onClick: () => Taro.navigateTo({ url: '/pages/ranking/index' }) },
+              { id: 'vip', name: tt('toolbar.vip', '会员'), icon: icon('uservipAct'), onClick: () => Taro.navigateTo({ url: '/pages/vip/index' }) },
             ]}
           />
         </View>
