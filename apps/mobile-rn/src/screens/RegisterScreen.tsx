@@ -1,11 +1,13 @@
-import { useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { register } from '@ihui/api-client'
+import { register, sendSmsCode } from '@ihui/api-client'
 import { useRegisterForm } from '@ihui/shared/hooks'
 import { RegisterScreen as SharedRegisterScreen } from '@ihui/rn-app'
+import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
+import { VerifyCodeModal } from '../components/VerifyCodeModal'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -19,6 +21,12 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  * - onRegisterSuccess:注册成功后调 AuthContext.login(account, password) 自动登录;
  *   失败时跳 Login 页让用户手动登录(保留原 wrapper 行为)
  * - accountRef/passwordRef:缓存表单值供 onRegisterSuccess 使用,避免闭包 stale
+ *
+ * 2026-07-30 增补:接入本地 VerifyCodeModal 作为"手机号二次验证"附加触发器,
+ * 账号密码注册成功后引导用户绑定/验证手机号(纯演示流程,不影响主注册提交)。
+ *
+ * 2026-07-30 进一步接入:本地 FloatBox 浮层提示,覆盖注册成功 / 失败 / 自动登录失败
+ * 三种状态(替代 Alert.alert,与共享 LoginScreen 风格对齐)。
  */
 export function RegisterScreen() {
   const { t } = useI18n()
@@ -26,6 +34,22 @@ export function RegisterScreen() {
   const navigation = useNavigation<NavigationProp>()
   const accountRef = useRef('')
   const passwordRef = useRef('')
+  const [verifyVisible, setVerifyVisible] = useState(false)
+  const [verifyPhone, setVerifyPhone] = useState('')
+  // FloatBox 浮层提示状态
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<FloatBoxType>('info')
+  const [toastMessage, setToastMessage] = useState('')
+
+  const showToast = useCallback((type: FloatBoxType, message: string): void => {
+    setToastType(type)
+    setToastMessage(message)
+    setToastVisible(true)
+  }, [])
+
+  const hideToast = useCallback((): void => {
+    setToastVisible(false)
+  }, [])
 
   const form = useRegisterForm({
     type: 'account',
@@ -38,6 +62,8 @@ export function RegisterScreen() {
       const res = await register(v.account.trim(), v.password)
       if (res.success) {
         const user = res.data.user
+        // 同步缓存手机号供后续弹窗使用
+        if (user.phone) setVerifyPhone(user.phone)
         return {
           success: true,
           accessToken: res.data.accessToken,
@@ -52,11 +78,28 @@ export function RegisterScreen() {
       return { success: false, error: res.error }
     },
     onRegisterSuccess: async (result) => {
-      if (!result.success) return
+      if (!result.success) {
+        showToast('error', result.error ?? t('auth.registerFailed'))
+        return
+      }
+      showToast('success', t('auth.registerSuccess'))
       const r = await login(accountRef.current, passwordRef.current)
       if (!r.success) {
-        navigation.navigate('Login')
+        showToast('warning', t('auth.autoLoginFailed'))
+        // 浮层淡出后再跳 Login,避免页面提前销毁
+        const navTimer = setTimeout(() => {
+          clearTimeout(navTimer)
+          navigation.navigate('Login')
+        }, 1500)
+        return
       }
+      // 注册 + 自动登录成功,延迟让用户看到成功提示再弹二次验证
+      const toastTimer = setTimeout(() => {
+        clearTimeout(toastTimer)
+        if (verifyPhone) {
+          setVerifyVisible(true)
+        }
+      }, 1200)
     },
   })
 
@@ -68,18 +111,42 @@ export function RegisterScreen() {
   }
 
   return (
-    <SharedRegisterScreen
-      t={t}
-      account={form.values.account}
-      password={form.values.password}
-      confirmPassword={form.values.confirmPassword}
-      loading={form.submitting}
-      error={translateError(form.error)}
-      onAccountChange={form.setAccount}
-      onPasswordChange={form.setPassword}
-      onConfirmPasswordChange={form.setConfirmPassword}
-      onRegister={form.register}
-      onBack={() => navigation.goBack()}
-    />
+    <>
+      <SharedRegisterScreen
+        t={t}
+        account={form.values.account}
+        password={form.values.password}
+        confirmPassword={form.values.confirmPassword}
+        loading={form.submitting}
+        error={translateError(form.error)}
+        onAccountChange={form.setAccount}
+        onPasswordChange={form.setPassword}
+        onConfirmPasswordChange={form.setConfirmPassword}
+        onRegister={form.register}
+        onBack={() => navigation.goBack()}
+      />
+      <VerifyCodeModal
+        visible={verifyVisible}
+        phone={verifyPhone || '未绑定手机号'}
+        onClose={() => setVerifyVisible(false)}
+        onResend={async () => {
+          if (verifyPhone) {
+            await sendSmsCode(verifyPhone, 'register')
+          }
+        }}
+        onSubmit={(code) => {
+          // 演示流程:打印验证码并关闭弹窗;真实项目应调 verifySmsCode API
+          // eslint-disable-next-line no-console
+          console.log('[RegisterScreen] verify code:', code)
+          setVerifyVisible(false)
+        }}
+      />
+      <FloatBox
+        visible={toastVisible}
+        type={toastType}
+        message={toastMessage}
+        onHide={hideToast}
+      />
+    </>
   )
 }
