@@ -498,7 +498,19 @@
     "wallet": "錢包",
     "live": "直播",
     "courses": "課程",
-    "earnings": "賺錢中心"
+    "earnings": "賺錢中心",
+    "developerRelay": "API 中轉站",
+    "developerRelayKeys": "API 金鑰",
+    "developerRelayUsage": "用量明細",
+    "developerRelaySubscriptions": "中轉訂閱",
+    "playground": "線上測試",
+    "adminRelayOverview": "中轉站概覽",
+    "adminRelayModels": "模型管理",
+    "adminRelayKeyPool": "金鑰池",
+    "adminRelayDiscovery": "模型發現",
+    "adminRelayLogs": "呼叫日誌",
+    "adminRelayModelMappings": "模型映射",
+    "adminRelayRedemptionCodes": "兌換碼"
   },
   "routes": {
     "aboutUs": "關於我們",

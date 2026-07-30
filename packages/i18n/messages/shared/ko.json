@@ -498,7 +498,19 @@
     "wallet": "지갑",
     "live": "라이브",
     "courses": "강의",
-    "earnings": "수익 센터"
+    "earnings": "수익 센터",
+    "developerRelay": "API 릴레이",
+    "developerRelayKeys": "API 키",
+    "developerRelayUsage": "사용량",
+    "developerRelaySubscriptions": "중계 구독",
+    "playground": "플레이그라운드",
+    "adminRelayOverview": "릴레이 개요",
+    "adminRelayModels": "모델 관리",
+    "adminRelayKeyPool": "키 풀",
+    "adminRelayDiscovery": "모델 발견",
+    "adminRelayLogs": "호출 로그",
+    "adminRelayModelMappings": "모델 매핑",
+    "adminRelayRedemptionCodes": "교환 코드"
   },
   "routes": {
     "aboutUs": "우리 소개",

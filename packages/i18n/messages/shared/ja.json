@@ -498,7 +498,19 @@
     "wallet": "ウォレット",
     "live": "ライブ",
     "courses": "コース",
-    "earnings": "収益センター"
+    "earnings": "収益センター",
+    "developerRelay": "API リレー",
+    "developerRelayKeys": "API キー",
+    "developerRelayUsage": "使用量",
+    "developerRelaySubscriptions": "リレーサブスクリプション",
+    "playground": "プレイグラウンド",
+    "adminRelayOverview": "リレー概览",
+    "adminRelayModels": "モデル管理",
+    "adminRelayKeyPool": "キープール",
+    "adminRelayDiscovery": "モデル発見",
+    "adminRelayLogs": "呼び出しログ",
+    "adminRelayModelMappings": "モデルマッピング",
+    "adminRelayRedemptionCodes": "引き換えコード"
   },
   "routes": {
     "aboutUs": "私たちについて",
