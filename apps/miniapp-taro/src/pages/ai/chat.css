@@ -104,9 +104,12 @@
 }
 .input-bar {
   display: flex;
-  align-items: center;
-  padding: 16rpx 32rpx;
+  flex-direction: column;
+  padding: 12rpx 24rpx;
+  padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
+  border-top: 1rpx solid var(--color-border);
+  gap: 8rpx;
 }
 .input {
   flex: 1;
@@ -152,11 +155,12 @@
 .tool-icons {
   display: flex;
   align-items: center;
-  margin-right: 16rpx;
+  gap: 16rpx;
+  padding: 0 4rpx;
 }
 .tool-icon {
-  width: 56rpx;
-  height: 56rpx;
+  width: 48rpx;
+  height: 48rpx;
   line-height: 56rpx;
   text-align: center;
   font-size: 32rpx;
