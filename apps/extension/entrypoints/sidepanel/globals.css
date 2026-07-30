@@ -36,6 +36,18 @@ button:focus-visible {
   outline: none;
 }
 
+/* Radix trigger 关闭时焦点还原 box-shadow ring 清除(2026-07-30 立,与 web 端 globals.css 同步)
+ *   根因:Radix 在 menu/dialog 关闭时调 trigger.focus() 还原焦点,触发 :focus-visible,
+ *        导致 trigger 自带的 focus-visible:ring-1 ring-ring(box-shadow)显示 1px 灰色 ring。
+ *   修复:针对 data-state="closed" 的 button focus 状态清除 box-shadow,
+ *        由 hover/active 背景色承担反馈(用户规则:"有背景色区分不就可以了吗")。
+ *   非 Radix 的普通 button 不受影响,键盘 focus ring 保留(WCAG 2.4.7)。
+ */
+button[data-state='closed']:focus,
+button[data-state='closed']:focus-visible {
+  box-shadow: none;
+}
+
 html {
   font-size: 14px;
 }
