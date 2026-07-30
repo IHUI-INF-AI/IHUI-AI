@@ -6,6 +6,8 @@ import { useTt } from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import { saveImageToPhotosAlbum } from '@/utils/save-album'
 import NavBar from '@/components/NavBar'
+import DistributionStats, { type ColumnItem } from '@/components/DistributionStats'
+import CustomerServiceFloat from '@/components/CustomerServiceFloat'
 import './index.css'
 
 interface OperatorStats {
@@ -183,6 +185,33 @@ export default function DistributionIndex() {
   }
   const stats = statsMap[statsTab]
 
+  const tabPrefix =
+    statsTab === 'day'
+      ? tt('distribution.index.tabDay', '日')
+      : statsTab === 'month'
+        ? tt('distribution.index.tabMonth', '月')
+        : tt('distribution.index.tabSum', '总')
+
+  const columnItems: ColumnItem[] = [
+    {
+      label: `${tabPrefix}${tt('distribution.index.columnEarnings', '收益')}`,
+      value: `¥${stats.earnings.toFixed(2)}`,
+      color: 'primary',
+    },
+    {
+      label: `${tabPrefix}${tt('distribution.index.columnOrders', '订单')}`,
+      value: stats.orders,
+      color: 'default',
+    },
+    {
+      label: `${tabPrefix}${tt('distribution.index.columnInvites', '邀请')}`,
+      value: stats.invites,
+      color: 'warning',
+    },
+  ]
+
+  const totalCommission = data.stats?.sumEarnings ?? 0
+
   const avatar = data.avatar || user?.avatar || ''
   const nickname = data.nickname || user?.nickname || tt('distribution.index.defaultName', '操盘手')
   const initial = nickname.charAt(0) || 'U'
@@ -259,6 +288,13 @@ export default function DistributionIndex() {
           </View>
         </View>
 
+        {/* DistributionStats column 变体 - 分销数据列布局 */}
+        <DistributionStats
+          variant="column"
+          columnTitle={tt('distribution.index.columnTitle', '分销数据')}
+          columnItems={columnItems}
+        />
+
         {/* FunctionBlockColumn */}
         <View className="dist-card dist-menu">
           {menuItems.map((item, idx) => (
@@ -270,6 +306,16 @@ export default function DistributionIndex() {
           ))}
         </View>
       </View>
+
+      {/* CustomerServiceFloat 分佣浮标 */}
+      <CustomerServiceFloat
+        variant="commission"
+        commissionAmount={totalCommission}
+        onCommissionClick={() =>
+          Taro.navigateTo({ url: '/pages/wallet/commission/index' })
+        }
+        draggable
+      />
 
       {/* BottomPops 二维码弹窗 */}
       {showQrCode ? (

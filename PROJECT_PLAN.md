@@ -109,6 +109,7 @@
 - [x] ✅(2026-07-30) P2-7:colorful_loader 72 点彩色加载器(新建 ColorfulLoader.tsx:size+visible+className,72 点 HSL 循环+animate-spin,对齐 colorful_loader.vue)
 - [x] ✅(2026-07-30) P2-8:CourseCarousel 课程专用轮播(Carousel 扩展 variant='course' + courseMeta{title,price,isFree,tag},底部渐变蒙层 bg-gradient-to-t+标题+价格标签,对齐课程专用轮播)
 - [x] ✅(2026-07-30) P2 整合:6 新组件(SectionHeader/ColorfulLoader/LoginPopUp/Toolbar/Selecter/PayButton)补 index.ts barrel 导出;typecheck 0 errors / lint 0 errors 52 warnings / weapp build 30.23s 成功;5 subagent 并行派单(§11 标准 format)
+- [x] ✅(2026-07-30) P2 页面接入(W1-W5):distribution 接入 DistributionStats column 列布局+CustomerServiceFloat commission 分佣浮标;course/list 接入 SectionHeader+ColorfulLoader;course-planet 接入 Carousel course 精品轮播;index 首页接入 Toolbar 5 项快捷入口;login 接入 LoginPopUp 登录后弹窗+commission 接入 SectionHeader;typecheck 0e / lint 0e / weapp build 44.63s;5 subagent 并行派单
 
 ### 进度记录
 
