@@ -40,14 +40,14 @@ const CAPABILITY_TAGS = [
 
 // 操盘手权益(对标原 vip/trader.vue features,精选 8 项)
 const TRADER_FEATURES = [
-  { icon: '🏅', key: 'distribution_qualification', title: '分销资格', desc: '享受大额分销资格,入驻社区服务商名列' },
-  { icon: '🎓', key: 'ai_courses', title: 'AI 课程', desc: 'AI深度认知课/深度商业课/流量全链路打法课程免费观看' },
-  { icon: '🤝', key: 'founder_qa', title: '创始人答疑', desc: '创始人一对一随时答疑陪跑' },
-  { icon: '🧪', key: 'agent_beta', title: 'Agent 内测', desc: '最新研发 agent 内测资格一年' },
-  { icon: '💎', key: 'vip_max_discount', title: '顶级折扣', desc: '会员等级拉满,享受全部最高折扣' },
-  { icon: '⚡', key: 'custom_agent_discount', title: '定制优惠', desc: '插队定制独家定制 agent 功能 8 折优惠' },
-  { icon: '🚀', key: 'vertical_account_incubation', title: '账号孵化', desc: 'AI+垂类账号孵化优先陪跑机会' },
-  { icon: '💡', key: 'free_computing_power', title: '赠送算力', desc: '操盘手赠送 1600W 算力' },
+  { icon: '/static/images/icons/medal.svg', key: 'distribution_qualification', title: '分销资格', desc: '享受大额分销资格,入驻社区服务商名列' },
+  { icon: '/static/images/icons/graduation-cap.svg', key: 'ai_courses', title: 'AI 课程', desc: 'AI深度认知课/深度商业课/流量全链路打法课程免费观看' },
+  { icon: '/static/images/icons/handshake.svg', key: 'founder_qa', title: '创始人答疑', desc: '创始人一对一随时答疑陪跑' },
+  { icon: '/static/images/icons/flask-conical.svg', key: 'agent_beta', title: 'Agent 内测', desc: '最新研发 agent 内测资格一年' },
+  { icon: '/static/images/icons/gem.svg', key: 'vip_max_discount', title: '顶级折扣', desc: '会员等级拉满,享受全部最高折扣' },
+  { icon: '/static/images/icons/zap.svg', key: 'custom_agent_discount', title: '定制优惠', desc: '插队定制独家定制 agent 功能 8 折优惠' },
+  { icon: '/static/images/icons/rocket.svg', key: 'vertical_account_incubation', title: '账号孵化', desc: 'AI+垂类账号孵化优先陪跑机会' },
+  { icon: '/static/images/icons/lightbulb.svg', key: 'free_computing_power', title: '赠送算力', desc: '操盘手赠送 1600W 算力' },
 ]
 
 // 历史业绩指标(年化收益率/胜率/最大回撤/累计收益)
@@ -218,7 +218,7 @@ export default function VipTraderIndexPage() {
             {TRADER_FEATURES.map((f) => (
               <View key={f.key} className="feature-item">
                 <View className="feature-icon">
-                  <Text>{f.icon}</Text>
+                  <Image src={f.icon} mode="aspectFit" style={{ width: '36rpx', height: '36rpx' }} />
                 </View>
                 <View className="feature-content">
                   <Text className="feature-title">{f.title}</Text>
