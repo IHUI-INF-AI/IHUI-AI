@@ -65,7 +65,6 @@ function deriveCaption(relPath: string): string {
   const dir = path.dirname(relPath).replace(/\\/g, '/')
   if (dir.startsWith('images/ihui-ai')) return '智汇 AI 品牌主视觉(主色 / 背景 / 营销素材)'
   if (dir.startsWith('images/common')) return '智汇 AI 通用图标与装饰素材'
-  if (dir.startsWith('images/flags')) return '智汇 AI 多语言国旗图标(中/繁/英/日/韩)'
   if (dir.startsWith('images/story')) return '智汇 AI 团队故事配图'
   if (dir.startsWith('images/oauth-providers')) return '智汇 AI 第三方登录品牌素材'
   if (dir.startsWith('images/loginSANFANG')) return '智汇 AI 扫码登录三方图标'
