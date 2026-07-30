@@ -23,7 +23,11 @@
     "wechatOnly": "WeChat ログインのみ対応",
     "ssoLogin": "SSO ログイン",
     "ssoLoginHint": "企業アカウントでワンクリックログイン",
-    "agreement": "《利用規約》と《プライバシーポリシー》を読み同意しました"
+    "agreement": "《利用規約》と《プライバシーポリシー》を読み同意しました",
+    "smsTab": "SMS認証ログイン",
+    "privacyPolicy": "《プライバシーポリシー》",
+    "serviceAgreement": "《サービス規約》",
+    "autoRegisterHint": "未登録ユーザーは自動登録されます"
   },
   "forgot": {
     "title": "パスワード再設定",
@@ -95,10 +99,19 @@
     "list": {
       "searchPlaceholder": "コースを検索",
       "search": "検索",
-      "empty": "コースなし"
+      "empty": "コースなし",
+      "title": "おすすめコース",
+      "subtitle": "{{n}} コース"
     },
     "ratingTitle": "コースを評価",
-    "ratingLabels": ["", "非常に悪い", "悪い", "普通", "良い", "非常に良い"],
+    "ratingLabels": [
+      "",
+      "非常に悪い",
+      "悪い",
+      "普通",
+      "良い",
+      "非常に良い"
+    ],
     "ratingPlaceholder": "評価してください",
     "ratingDescLabel": "レビューを書く",
     "ratingInputPlaceholder": "コースはどうでしたか?感想を共有してください...",
@@ -272,7 +285,8 @@
     "commission": {
       "today": "本日のコミッション",
       "available": "出金可能コミッション",
-      "records": "コミッション記録"
+      "records": "コミッション記録",
+      "title": "コミッション明細"
     }
   },
   "community": {
@@ -438,7 +452,12 @@
       "timbre": "音色"
     },
     "image": {
-      "examples": ["可愛い猫", "夕日の山風景", "未来都市", "抽象芸術"],
+      "examples": [
+        "可愛い猫",
+        "夕日の山風景",
+        "未来都市",
+        "抽象芸術"
+      ],
       "emptyHint": "画像生成の説明を入力",
       "tryThese": "これらを試す",
       "placeholder": "生成したい画像を説明",
@@ -452,7 +471,14 @@
       "favorited": "お気に入り済み",
       "history": "履歴",
       "empty": "生成記録なし",
-      "styles": ["リアル", "アニメ", "油絵", "水彩", "3D", "ピクセル"],
+      "styles": [
+        "リアル",
+        "アニメ",
+        "油絵",
+        "水彩",
+        "3D",
+        "ピクセル"
+      ],
       "generateFailed": "生成失敗、再試行してください",
       "downloadSuccess": "アルバムに保存しました",
       "downloadFailed": "ダウンロード失敗、再試行してください",
@@ -861,7 +887,10 @@
       "starting": "試験にアクセスしています…"
     },
     "answer": {
-      "judgmentOptions": ["正しい", "間違い"],
+      "judgmentOptions": [
+        "正しい",
+        "間違い"
+      ],
       "loadFailed": "問題の読み込み失敗",
       "answerPlaceholder": "答えを入力",
       "prev": "前の問題",
@@ -971,6 +1000,40 @@
       "menuTeam": "チーム管理",
       "menuCommission": "コミッション",
       "menuWithdraw": "出金申請"
+    },
+    "index": {
+      "title": "マイカンパニー",
+      "menuTeam": "マイチーム",
+      "menuOrders": "ディストリビューション注文",
+      "menuPlan": "コミッションプラン",
+      "menuWithdraw": "出金申請",
+      "menuRank": "プロモーションランキング",
+      "menuQrCode": "マイQRコード",
+      "tabDay": "日",
+      "tabMonth": "月",
+      "tabSum": "合計",
+      "columnEarnings": "収益",
+      "columnOrders": "注文",
+      "columnInvites": "招待",
+      "defaultName": "オペレーター",
+      "operator": "オペレーター",
+      "earnings": "収益",
+      "orders": "注文数",
+      "invites": "招待人数",
+      "columnTitle": "ディストリビューションデータ",
+      "qrTitle": "マイ共有QRコード",
+      "share": "友達に共有",
+      "saveAlbum": "アルバムに保存",
+      "verifyTitle": "本人確認",
+      "idPlaceholder": "身分証明書番号を入力",
+      "namePlaceholder": "氏名を入力",
+      "confirm": "確認",
+      "qrLoadFail": "QRコードの読み込みに失敗",
+      "qrLoading": "QRコード生成中",
+      "fillInfo": "情報を完全に入力してください",
+      "verifying": "確認中",
+      "verifyOk": "確認成功",
+      "verifyFail": "確認失敗"
     },
     "rankTitle": "ディストリビューションランキング",
     "rankEmpty": "ランキングデータがありません",
@@ -1140,7 +1203,13 @@
       }
     },
     "appPermission": {
-      "names": ["アルバム権限", "カメラ権限", "マイク権限", "位置権限", "通知権限"],
+      "names": [
+        "アルバム権限",
+        "カメラ権限",
+        "マイク権限",
+        "位置権限",
+        "通知権限"
+      ],
       "descs": [
         "画像をアルバムに保存・アップロード",
         "写真撮影・動画録画",
@@ -1480,8 +1549,18 @@
         "質問求助",
         "経験まとめ"
       ],
-      "levels": ["初級", "中級", "上級", "エキスパート"],
-      "budgets": ["1000元以下", "1000-5000元", "5000-10000元", "10000元以上"],
+      "levels": [
+        "初級",
+        "中級",
+        "上級",
+        "エキスパート"
+      ],
+      "budgets": [
+        "1000元以下",
+        "1000-5000元",
+        "5000-10000元",
+        "10000元以上"
+      ],
       "selectAtLeast": "1つ以上選択",
       "saved": "保存しました",
       "directionTitle": "学習方向",
@@ -1702,6 +1781,24 @@
       "loadFailed": "読み込み失敗",
       "thresholdText": "満{threshold}元で利用可",
       "expireText": "有効期限: {time}"
+    },
+    "benefit": {
+      "unlimited": "無制限対話",
+      "unlimitedDesc": "AI対話機能を無制限で利用"
+    },
+    "level": {
+      "normal": "一般会員",
+      "normalThreshold": "登録即享受",
+      "normalPerks": "基本対話 / 回数制限あり",
+      "silver": "シルバー会員",
+      "silverThreshold": "成長値 ≥ 1000",
+      "silverPerks": "対話回数増加 / 優先サポート",
+      "gold": "ゴールド会員",
+      "goldThreshold": "成長値 ≥ 3000",
+      "goldPerks": "無制限対話 / 専属サポート",
+      "diamond": "ダイヤモンド会員",
+      "diamondThreshold": "成長値 ≥ 10000",
+      "diamondPerks": "全機能解放 / VIP待遇"
     }
   },
   "pay": {
@@ -1796,7 +1893,11 @@
         "質問求助",
         "経験まとめ"
       ],
-      "visibilityOptions": ["公開", "フレンドのみ", "プライベート"],
+      "visibilityOptions": [
+        "公開",
+        "フレンドのみ",
+        "プライベート"
+      ],
       "enterTitle": "タイトルを入力",
       "enterContent": "内容を入力",
       "published": "公開しました",
@@ -2075,7 +2176,14 @@
       "bannerTitle": "VIP会員へアップグレード",
       "bannerDesc": "さらに専用特権を解放",
       "rightsTitle": "会員特典",
-      "rights": ["専用サポート", "優先体験", "高级機能", "広告除去", "専用バッジ", "割引特典"],
+      "rights": [
+        "専用サポート",
+        "優先体験",
+        "高级機能",
+        "広告除去",
+        "専用バッジ",
+        "割引特典"
+      ],
       "loadFailed": "読み込み失敗",
       "operationFailed": "操作失敗",
       "originalPrice": "通常¥{{n}}",
@@ -2156,7 +2264,25 @@
     },
     "benefitsTitle": "会員特典",
     "upgradeNow": "今すぐアップグレード",
-    "hot": "人気"
+    "hot": "人気",
+    "plan": {
+      "monthly": "月額会員",
+      "monthlyPeriod": "30日間",
+      "quarterly": "四半期会員",
+      "quarterlyPeriod": "90日間",
+      "yearly": "年会員",
+      "yearlyPeriod": "365日間"
+    },
+    "feature": {
+      "aiCopywriting": "AIマーケティング文案",
+      "aiCopywritingDesc": "各種マーケティング文案をスマート生成",
+      "aiDesign": "AIデザイン",
+      "aiDesignDesc": "プロレベルのビジュアルデザインを生成",
+      "aiVideo": "AI動画",
+      "aiVideoDesc": "テキストから動画を生成",
+      "aiLive": "AIライブ",
+      "aiLiveDesc": "インテリジェントライブ放送支援"
+    }
   },
   "learnDevelop": {
     "title": "学習・開発",
@@ -2293,5 +2419,42 @@
   },
   "notification": {
     "settings": "通知設定"
+  },
+  "messageInput": {
+    "placeholder": "メッセージを入力...",
+    "send": "送信",
+    "stop": "停止",
+    "fullscreenBack": "折りたたむ",
+    "fullscreenHint": "全画面編集モード",
+    "recording": "離して送信、上にスライドでキャンセル",
+    "voiceHint": "長押しで話す",
+    "document": "ドキュメント",
+    "video": "動画",
+    "addFile": "添付ファイルを追加",
+    "releaseToSend": "離して送信",
+    "holdToSpeak": "押して話す"
+  },
+  "toolbar": {
+    "traffic-service": "トラフィック運営支援",
+    "device-service": "ワンストップデバイス応用",
+    "ai-other-service": "AIその他テクニカルサービス",
+    "ai": "AIチャット",
+    "course": "コース",
+    "plaza": "プラザ",
+    "rank": "ランキング",
+    "vip": "会員"
+  },
+  "index": {
+    "mock": {
+      "post1Title": "React Hooksの使い方は?",
+      "today": "今日"
+    },
+    "feature": {
+      "superAgent": "深思考"
+    },
+    "toast": {
+      "loginRequired": "先にログインしてください"
+    },
+    "title": "智汇AIコミュニティ"
   }
 }

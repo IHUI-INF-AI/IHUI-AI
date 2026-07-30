@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert } from 'react-native'
+import { Alert, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app'
@@ -10,6 +10,9 @@ import type {
   SharedNotificationToggles,
 } from '@ihui/rn-app'
 import { updatePassword } from '@ihui/api-client'
+import { getRnTokens } from '@ihui/design-tokens'
+import { Drawer, type DrawerMenuItem } from '../components/Drawer'
+import { NavBar } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n, type Locale } from '../i18n'
@@ -28,11 +31,13 @@ export default function SettingsScreen() {
   const { user, logout } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const { themeMode, setThemeMode, resolvedTheme } = useTheme()
+  const tokens = getRnTokens(resolvedTheme)
   const [notifications, setNotifications] = useState<SharedNotificationToggles>({
     push: true,
     message: true,
     email: false,
   })
+  const [drawerVisible, setDrawerVisible] = useState(false)
 
   const localeOptions: SharedLocaleOption[] = [
     { value: 'zh-CN', label: t('settings.lang_zhCN') },
@@ -53,6 +58,13 @@ export default function SettingsScreen() {
     { key: 'Feedback', label: t('menu.feedback') },
     { key: 'Privacy', label: t('menu.privacy') },
     { key: 'Agreement', label: t('menu.agreement') },
+  ]
+
+  const drawerMenuItems: DrawerMenuItem[] = [
+    { key: 'About', label: t('menu.about'), icon: 'ℹ' },
+    { key: 'Feedback', label: t('menu.feedback'), icon: '✎' },
+    { key: 'Privacy', label: t('menu.privacy'), icon: '🔒' },
+    { key: 'Agreement', label: t('menu.agreement'), icon: '📄' },
   ]
 
   const onSelectLocale = (v: string) => {
@@ -92,38 +104,64 @@ export default function SettingsScreen() {
     navigation.getParent()?.navigate(key)
   }
 
+  const onDrawerItemPress = (key: string) => {
+    // Drawer 内菜单点击复用 onMenuPress 的跨栈导航逻辑
+    onMenuPress(key)
+  }
+
   return (
-    <SharedSettingsScreen
-      t={t}
-      user={
-        user
-          ? {
-              id: user.id,
-              nickname: user.nickname,
-              avatar: user.avatar ?? null,
-              email: user.email,
-              phone: user.phone,
-            }
-          : null
-      }
-      locale={locale}
-      localeOptions={localeOptions}
-      onSelectLocale={onSelectLocale}
-      theme={themeMode}
-      themeOptions={themeOptions}
-      onSelectTheme={onSelectTheme}
-      colorScheme={resolvedTheme}
-      notifications={notifications}
-      onToggleNotification={onToggleNotification}
-      onEditProfile={() => navigation.navigate('ProfileEdit')}
-      onChangePassword={onChangePassword}
-      onAlert={onAlert}
-      onConfirm={onConfirm}
-      onLogout={() => void logout()}
-      menuItems={menuItems}
-      onMenuPress={onMenuPress}
-      appVersion={APP_VERSION}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={{ flex: 1 }}>
+      <NavBar
+        title={t('settings.title')}
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            onPress={() => setDrawerVisible(true)}
+            hitSlop={8}
+            accessibilityLabel="菜单"
+          >
+            <Text style={{ fontSize: 22, lineHeight: 24, color: tokens.text.primary }}>{'☰'}</Text>
+          </TouchableOpacity>
+        }
+      />
+      <SharedSettingsScreen
+        t={t}
+        user={
+          user
+            ? {
+                id: user.id,
+                nickname: user.nickname,
+                avatar: user.avatar ?? null,
+                email: user.email,
+                phone: user.phone,
+              }
+            : null
+        }
+        locale={locale}
+        localeOptions={localeOptions}
+        onSelectLocale={onSelectLocale}
+        theme={themeMode}
+        themeOptions={themeOptions}
+        onSelectTheme={onSelectTheme}
+        colorScheme={resolvedTheme}
+        notifications={notifications}
+        onToggleNotification={onToggleNotification}
+        onEditProfile={() => navigation.navigate('ProfileEdit')}
+        onChangePassword={onChangePassword}
+        onAlert={onAlert}
+        onConfirm={onConfirm}
+        onLogout={() => void logout()}
+        menuItems={menuItems}
+        onMenuPress={onMenuPress}
+        appVersion={APP_VERSION}
+        onBack={() => navigation.goBack()}
+      />
+      <Drawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        menuItems={drawerMenuItems}
+        onItemPress={onDrawerItemPress}
+      />
+    </View>
   )
 }

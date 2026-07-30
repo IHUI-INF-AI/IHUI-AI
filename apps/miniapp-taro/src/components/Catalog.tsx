@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import EmptyState from './EmptyState'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface ChapterItem {
   id: string
@@ -27,8 +27,7 @@ export default function Catalog({
   onSelect,
   onReachBottom,
 }: CatalogProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (loading) {
     return (
       <View className="py-8 text-center">

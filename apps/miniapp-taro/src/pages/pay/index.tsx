@@ -3,7 +3,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
 import { getVipOrderPayInfo, createAlipayMiniappPayment, type VipPayInfo, getProfile, get, post } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 type PayMethod = 'wechat' | 'alipay' | 'balance'
 
@@ -36,7 +36,7 @@ function formatTime(sec: number): string {
 
 export default function PayIndex() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const router = useRouter()
 
   const [orderNo, setOrderNo] = useState('')

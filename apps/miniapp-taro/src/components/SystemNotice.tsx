@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface SystemNoticeItem {
   id: string
@@ -29,8 +29,7 @@ const TYPE_STYLE: Record<string, string> = {
 }
 
 export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (!list.length) {
     return (
       <View className="flex items-center justify-center py-16">

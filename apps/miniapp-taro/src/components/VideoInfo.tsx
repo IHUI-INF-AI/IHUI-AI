@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 export interface VideoInfoData {
   title?: string
@@ -17,7 +17,7 @@ export interface VideoInfoProps {
 
 export default function VideoInfo({ info = {} }: VideoInfoProps) {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card px-4 py-3">
       <Text className="block text-base font-medium text-foreground">

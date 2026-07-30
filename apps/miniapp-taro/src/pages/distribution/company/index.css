@@ -1,0 +1,167 @@
+.cp-page {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+/* ===== 顶部 header(对齐原项目 PersonalInformationCard:深色渐变) ===== */
+.cp-header {
+  /* TODO: custom color: 原项目品牌深灰渐变,无对应 token,保留原值 */
+  background: linear-gradient(180deg, #1f2937 0%, #374151 100%);
+  padding: 60rpx 32rpx 48rpx;
+  color: #fff;
+}
+.cp-header-title {
+  display: block;
+  font-size: 28rpx;
+  opacity: 0.8;
+}
+.cp-header-level {
+  display: block;
+  font-size: 48rpx;
+  font-weight: bold;
+  margin-top: 16rpx;
+}
+.cp-stats {
+  display: flex;
+  margin-top: 40rpx;
+}
+.cp-stat {
+  flex: 1;
+  text-align: center;
+}
+.cp-stat-num {
+  display: block;
+  font-size: 36rpx;
+  font-weight: bold;
+  /* TODO: custom color: 原项目金色 #ffd700,无对应 token,保留原值 */
+  color: #ffd700;
+}
+.cp-stat-label {
+  display: block;
+  font-size: 22rpx;
+  opacity: 0.7;
+  margin-top: 8rpx;
+}
+
+/* ===== 团队成员卡(对齐原项目团队成员列表) ===== */
+.cp-team-card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: var(--color-card);
+  border-radius: 30rpx;
+  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.05);
+}
+.cp-team-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+.cp-team-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+.cp-team-count {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.cp-member {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+}
+.cp-member + .cp-member {
+  margin-top: 16rpx;
+}
+.cp-member-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: var(--color-muted);
+  margin-right: 24rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.cp-member-info {
+  flex: 1;
+  min-width: 0;
+}
+.cp-member-name {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cp-member-time {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 4rpx;
+}
+.cp-member-level {
+  font-size: 24rpx;
+  color: #ff9800;
+  font-weight: bold;
+}
+.cp-loading-row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+}
+.cp-loading-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: var(--color-muted);
+  margin-right: 24rpx;
+}
+.cp-loading-bar {
+  flex: 1;
+  height: 24rpx;
+  background: var(--color-muted);
+  border-radius: 8rpx;
+}
+.cp-empty {
+  text-align: center;
+  padding: 64rpx 0;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 菜单功能卡(对齐原项目 FunctionBlockColumn:渐变圆角图标) ===== */
+.cp-menu-card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: var(--color-card);
+  border-radius: 30rpx;
+  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.05);
+}
+.cp-menu-grid {
+  display: flex;
+  gap: 24rpx;
+}
+.cp-menu-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24rpx 0;
+  /* TODO: custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
+  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  border-radius: 15rpx;
+}
+.cp-menu-icon {
+  font-size: 40rpx;
+}
+.cp-menu-label {
+  font-size: 24rpx;
+  color: #333;
+  margin-top: 8rpx;
+}

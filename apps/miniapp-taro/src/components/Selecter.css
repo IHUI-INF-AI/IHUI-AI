@@ -1,0 +1,25 @@
+/* Selecter 组件样式 — 对齐原项目 selecter.vue 视觉特征,使用 CSS 变量 */
+
+/* 尺寸标签(对齐原项目 .size_label:1K/2K/4K 选中后高亮) */
+.selecter-size-label {
+  background: rgba(81, 141, 253, 0.2);
+  border-color: var(--color-primary);
+}
+
+/* 已选值显示(对齐原项目 .selected_value:底部蓝色提示框) */
+.selecter-selected-value {
+  background: rgba(81, 141, 253, 0.1);
+  border: 1px solid var(--color-primary);
+}
+
+/* active 状态(对齐原项目 .active:选中项高亮) */
+.selecter-item-active {
+  border-color: var(--color-primary);
+  background-color: rgba(81, 141, 253, 0.15);
+}
+
+/* 禁用状态(对齐原项目 .disabled:非 VIP 水印禁用) */
+.selecter-item-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

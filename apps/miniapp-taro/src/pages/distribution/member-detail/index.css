@@ -1,0 +1,152 @@
+.md-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 20rpx;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 顶部统计三卡(对齐原项目统计视觉:渐变 header) ===== */
+.md-stats {
+  display: flex;
+  gap: 16rpx;
+}
+.md-stat {
+  flex: 1;
+  padding: 28rpx 12rpx;
+  text-align: center;
+  /* TODO: custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
+  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  border-radius: 30rpx;
+  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3), 0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
+}
+.md-stat-num {
+  display: block;
+  font-size: 42rpx;
+  font-weight: bold;
+  color: #ff9800;
+}
+.md-stat-label {
+  display: block;
+  font-size: 22rpx;
+  color: #3d3d3d;
+  margin-top: 8rpx;
+}
+
+/* ===== 成员列表区块 ===== */
+.md-list-section {
+  margin-top: 28rpx;
+}
+.md-list-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #3d3d3d;
+  margin-bottom: 16rpx;
+}
+.md-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+/* ===== 成员卡(对齐原项目 person-card:渐变 + 30rpx + 50% 大头像 + #ff9800) ===== */
+.md-card {
+  display: flex;
+  align-items: flex-start;
+  padding: 40rpx 15rpx;
+  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  border-radius: 30rpx;
+  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3), 0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
+}
+.md-avatar {
+  width: 170rpx;
+  height: 170rpx;
+  border-radius: 50%;
+  background: var(--color-muted);
+  border: 4rpx solid #fff;
+  box-shadow: 0 0 8rpx rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+  margin-right: 33rpx;
+}
+.md-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.md-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  margin-top: 4rpx;
+  font-size: 28rpx;
+  color: #3d3d3d;
+}
+.md-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+.md-nickname {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md-level {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #ff9800;
+  flex-shrink: 0;
+}
+.md-join {
+  font-size: 28rpx;
+  color: #3d3d3d;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md-contribution {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #ff9800;
+  flex-shrink: 0;
+}
+
+/* ===== 状态文案 ===== */
+.md-empty,
+.md-loading,
+.md-no-more {
+  display: block;
+  text-align: center;
+  font-size: 28rpx;
+  color: #999;
+  padding: 100rpx 0;
+}
+.md-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 0;
+}
+.md-error-text {
+  font-size: 28rpx;
+  color: var(--color-destructive);
+}
+.md-error-retry {
+  font-size: 28rpx;
+  color: var(--color-primary);
+  margin-top: 12rpx;
+}

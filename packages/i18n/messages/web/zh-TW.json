@@ -190,6 +190,7 @@
     "teams": "團隊",
     "docs": "文檔",
     "search": "搜索",
+    "openBrowser": "開啟瀏覽器",
     "tags": "標籤",
     "oauthPlatform": "開放平臺",
     "selfMediaWechat": "微信公眾號",
@@ -333,7 +334,10 @@
       "developer": "開發者中心",
       "saas": "SaaS 平臺"
     },
-    "settings": "設置"
+    "settings": "設置",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "還原"
   },
   "home": {
     "announcement": {
@@ -8945,6 +8949,16 @@
     "suggest": "搜尋建議",
     "clearAll": "清除全部",
     "noResults": "無搜尋結果",
+    "quickSuggestions": [
+      "設定",
+      "個人資料",
+      "專案",
+      "對話歷史",
+      "成員",
+      "工作區",
+      "快捷鍵",
+      "AI 模型"
+    ],
     "searchPlaceholder": "搜尋…",
     "searchHistory": "搜尋歷史",
     "clear": "清除",
@@ -8964,17 +8978,7 @@
     "loading": "搜尋中...",
     "emptyResult": "未找到匹配結果",
     "open": "打開",
-    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})",
-    "quickSuggestions": [
-      "設定",
-      "個人資料",
-      "專案",
-      "對話歷史",
-      "成員",
-      "工作區",
-      "快捷鍵",
-      "AI 模型"
-    ]
+    "resultsCount": "共 {total} 條結果(使用者 {users} / 項目 {projects} / 文件 {files})"
   },
   "footer": {
     "companyName": "吉林省愛智匯人工智能科技有限公司",
@@ -10184,43 +10188,43 @@
       "subtitle": "8 端全覆蓋的企業級 AI 平臺 · 100+ 大模型 · 自研 CLI · 工業級工程嚴謹 · 讓決策者一站式拿到所有 AI 能力",
       "modelIntegration": {
         "title": "8 端全覆蓋架構",
-        "description": "Web/桌面/移動/小程式/CLI/擴展 6 端 + API/AI-Service 2 端,提供數不多的全棧方案,統一帳號無縫切換",
-        "benefit": "省 8 倍重複購買成本 · 1 個帳號通用 8 端 · 數據零遷移"
+        "benefit": "省 8 倍重複購買成本 · 1 個帳號通用 8 端 · 數據零遷移",
+        "description": "Web/桌面/移動/小程式/CLI/擴展 6 端 + API/AI-Service 2 端,提供數不多的全棧方案,統一帳號無縫切換"
       },
       "appStore": {
         "title": "100+ LLM 大模型",
-        "description": "國際 30+ (OpenAI/Claude/Gemini/Llama) + 國產 15+ (Qwen/GLM/DeepSeek) + 雲 40+ 提供商,一個 API Key 全訪問",
-        "benefit": "綜合省 ¥18 萬/年 · 替代 Claude Pro + GPT Plus + Cursor + 多模型 API"
+        "benefit": "綜合省 ¥18 萬/年 · 替代 Claude Pro + GPT Plus + Cursor + 多模型 API",
+        "description": "國際 30+ (OpenAI/Claude/Gemini/Llama) + 國產 15+ (Qwen/GLM/DeepSeek) + 雲 40+ 提供商,一個 API Key 全訪問"
       },
       "contentCreation": {
         "title": "自研 CLI 對標 Claude Code",
-        "description": "ACP Server 嵌入 Zed/VSCode/Cursor + 6 私有擴展方法(session 修復/rewind 回溯/MCP 調用) + 6 來源配置一鍵導入",
-        "benefit": "省 Claude Pro ¥17000/年 · 開發效率提升 10× · 6 來源配置一鍵導入"
+        "benefit": "省 Claude Pro ¥17000/年 · 開發效率提升 10× · 6 來源配置一鍵導入",
+        "description": "ACP Server 嵌入 Zed/VSCode/Cursor + 6 私有擴展方法(session 修復/rewind 回溯/MCP 調用) + 6 來源配置一鍵導入"
       },
       "edu": {
         "title": "AI 教育全棧",
-        "description": "課程/直播/考試/證書/講師/班級 6 大模組,全年所有課程免費參加,從 AI 新工具到企業 AI 文化三階段循序漸進",
-        "benefit": "省 ¥10 萬/年培訓費 · 全員 AI 化 · 三階段循序漸進"
+        "benefit": "省 ¥10 萬/年培訓費 · 全員 AI 化 · 三階段循序漸進",
+        "description": "課程/直播/考試/證書/講師/班級 6 大模組,全年所有課程免費參加,從 AI 新工具到企業 AI 文化三階段循序漸進"
       },
       "navigation": {
         "title": "企業級工作空間",
-        "description": "3 權限模式 + 7 端點運行時攔截 + 60s 超時拒絕 + RBAC 細粒度權限管控 + 99.9% SLA",
-        "benefit": "數據零洩露 · 審計全程可追溯 · 99.9% SLA 企業級零風險"
+        "benefit": "數據零洩露 · 審計全程可追溯 · 99.9% SLA 企業級零風險",
+        "description": "3 權限模式 + 7 端點運行時攔截 + 60s 超時拒絕 + RBAC 細粒度權限管控 + 99.9% SLA"
       },
       "agentSquare": {
         "title": "智能體廣場",
-        "description": "通用/行業/職能三大類智能體,覆蓋客服/營銷/運營/HR/財務 5+ 職能,即開即用,支持自定義",
-        "benefit": "替代 5+ 人工崗位 · 7×24 不間斷 · 綜合省 ¥30 萬/年人力成本"
+        "benefit": "替代 5+ 人工崗位 · 7×24 不間斷 · 綜合省 ¥30 萬/年人力成本",
+        "description": "通用/行業/職能三大類智能體,覆蓋客服/營銷/運營/HR/財務 5+ 職能,即開即用,支持自定義"
       },
       "workflow": {
         "title": "LangGraph 工作流",
-        "description": "2 個 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展,三棧合一在行業中較為少見",
-        "benefit": "複雜任務自動化 · 替代 5+ SaaS 工具 · 三棧合一行業少見"
+        "benefit": "複雜任務自動化 · 替代 5+ SaaS 工具 · 三棧合一行業少見",
+        "description": "2 個 LangGraph 工作流 + 11 MCP 工具 + 5 A2A 端點 + 6 ACP 擴展,三棧合一在行業中較為少見"
       },
       "multimodal": {
         "title": "多模態 AI 輸入",
-        "description": "圖像生成/語音合成/視頻生成/文件解析/數字人 5 大模態,一個 API Key 全訪問",
-        "benefit": "省 ¥5 萬/年設計費 · 5 大模態全打通 · 內容生產 10× 加速"
+        "benefit": "省 ¥5 萬/年設計費 · 5 大模態全打通 · 內容生產 10× 加速",
+        "description": "圖像生成/語音合成/視頻生成/文件解析/數字人 5 大模態,一個 API Key 全訪問"
       }
     },
     "advantages": {
@@ -12383,11 +12387,23 @@
     },
     "topBar": {
       "editor": "編輯器",
-      "close": "關閉"
+      "close": "關閉",
+      "document": "文件",
+      "browser": "內建瀏覽器",
+      "terminal": "終端機",
+      "codeChanges": "程式碼變更",
+      "agent": "智慧體",
+      "mcp": "MCP",
+      "settings": "設定",
+      "skill": "技能",
+      "plus": "新增檢視"
     },
     "viewSwitcher": {
       "searchPlaceholder": "搜尋檢視...",
-      "noMatch": "無符合項"
+      "noMatch": "無符合項",
+      "groupView": "檢視",
+      "groupTools": "工具",
+      "groupSettings": "設定"
     },
     "layout": {
       "documentView": "文件檢視",
@@ -13293,6 +13309,13 @@
     "cardLabel": "API 定價",
     "cardDesc": "模型價格與計費規則"
   },
+  "messageInput": {
+    "document": "檔案",
+    "removeFile": "移除檔案",
+    "placeholder": "輸入訊息...",
+    "clear": "清空",
+    "stop": "停止"
+  },
   "a11y": {
     "pieChart": "圓餅圖",
     "send": "傳送",
@@ -13349,12 +13372,5 @@
   "forbidden": {
     "title": "無權限造訪",
     "description": "抱歉，您沒有造訪該頁面的權限。如需開通權限，請聯繫管理員。"
-  },
-  "messageInput": {
-    "document": "檔案",
-    "removeFile": "移除檔案",
-    "placeholder": "輸入訊息...",
-    "clear": "清空",
-    "stop": "停止"
   }
 }

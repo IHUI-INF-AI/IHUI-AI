@@ -1,5 +1,5 @@
 import { View, Text, Video } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface VideoPlayerProps {
   src?: string
@@ -26,8 +26,7 @@ export default function VideoPlayer({
   onEnded,
   onError,
 }: VideoPlayerProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   if (loading) {
     return (
       <View

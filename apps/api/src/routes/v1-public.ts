@@ -96,16 +96,16 @@ const errorResponseSchema = {
 const FALLBACK_MODELS: V1ModelsResponse = {
   object: 'list',
   data: [
-    { id: 'gpt-4o', object: 'model', created: 1700000000, ownedBy: 'openai' },
-    { id: 'gpt-4o-mini', object: 'model', created: 1700000000, ownedBy: 'openai' },
-    { id: 'gpt-4-turbo', object: 'model', created: 1700000000, ownedBy: 'openai' },
-    { id: 'claude-3-5-sonnet', object: 'model', created: 1700000000, ownedBy: 'anthropic' },
-    { id: 'claude-3-5-haiku', object: 'model', created: 1700000000, ownedBy: 'anthropic' },
-    { id: 'glm-4', object: 'model', created: 1700000000, ownedBy: 'zhipu' },
-    { id: 'glm-4-flash', object: 'model', created: 1700000000, ownedBy: 'zhipu' },
-    { id: 'deepseek-chat', object: 'model', created: 1700000000, ownedBy: 'deepseek' },
-    { id: 'qwen-plus', object: 'model', created: 1700000000, ownedBy: 'alibaba' },
-    { id: 'moonshot-v1-8k', object: 'model', created: 1700000000, ownedBy: 'moonshot' },
+    { id: 'gpt-4o', object: 'model', created: 1700000000, owned_by: 'openai' },
+    { id: 'gpt-4o-mini', object: 'model', created: 1700000000, owned_by: 'openai' },
+    { id: 'gpt-4-turbo', object: 'model', created: 1700000000, owned_by: 'openai' },
+    { id: 'claude-3-5-sonnet', object: 'model', created: 1700000000, owned_by: 'anthropic' },
+    { id: 'claude-3-5-haiku', object: 'model', created: 1700000000, owned_by: 'anthropic' },
+    { id: 'glm-4', object: 'model', created: 1700000000, owned_by: 'zhipu' },
+    { id: 'glm-4-flash', object: 'model', created: 1700000000, owned_by: 'zhipu' },
+    { id: 'deepseek-chat', object: 'model', created: 1700000000, owned_by: 'deepseek' },
+    { id: 'qwen-plus', object: 'model', created: 1700000000, owned_by: 'alibaba' },
+    { id: 'moonshot-v1-8k', object: 'model', created: 1700000000, owned_by: 'moonshot' },
   ],
 }
 
@@ -148,13 +148,14 @@ let modelsCache: ModelsCacheEntry | null = null
  *
  * 反向去前缀在 relay-billing-service.ts 的 stripLiteLLMPrefix 中实现(calculateCost 用)。
  */
-function toLiteLLMModelId(
-  modelId: string,
-  providerCode: string,
-  baseUrl: string,
-): string {
+function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string): string {
   if (providerCode === 'stepfun') return `stepfun/${modelId}`
   if (baseUrl && baseUrl.includes('agnes-ai.com')) return `agnes/${modelId}`
+  // P0-5m(2026-07-30):OpenRouter 模型加 openrouter/ 前缀,
+  // ai-service _resolve_provider 识别 openrouter/ 前缀后走 LiteLLM 原生 OpenRouter 路由。
+  // OpenRouter 上游模型 ID 已含厂商前缀(如 deepseek/deepseek-v4-pro),
+  // 加 openrouter/ 后变成 openrouter/deepseek/deepseek-v4-pro(LiteLLM 原生格式)。
+  if (providerCode === 'openrouter') return `openrouter/${modelId}`
   // 其他 provider(openai/groq/gemini 等)若已带前缀则原样返回,否则不加前缀
   return modelId
 }
@@ -199,7 +200,7 @@ async function fetchModels(): Promise<{
           id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
           object: 'model' as const,
           created: Math.floor(now / 1000),
-          ownedBy: m.providerCode || m.configName || 'ihui',
+          owned_by: m.providerCode || m.configName || 'ihui',
         })),
       }
       modelsCache = { data: mapped, fetchedAt: now }
@@ -241,7 +242,7 @@ async function fetchModels(): Promise<{
               (typeof mo.manufacturer === 'string' && mo.manufacturer) ||
               'ihui'
             const created = typeof mo.created === 'number' ? mo.created : Math.floor(now / 1000)
-            return { id, object: 'model' as const, created, ownedBy }
+            return { id, object: 'model' as const, created, owned_by: ownedBy }
           }),
         }
         modelsCache = { data: mapped, fetchedAt: now }
@@ -280,7 +281,12 @@ function deriveModelCapabilities(modelName: string): string[] {
     caps.push('vision', 'tools')
   }
   // o1 / o3 / o4 系列 → reasoning
-  if (/^o[134]-/.test(name) || name.startsWith('o1') || name.startsWith('o3') || name.startsWith('o4')) {
+  if (
+    /^o[134]-/.test(name) ||
+    name.startsWith('o1') ||
+    name.startsWith('o3') ||
+    name.startsWith('o4')
+  ) {
     caps.push('reasoning', 'tools')
   }
   // Gemini → vision + tools
@@ -398,7 +404,7 @@ async function streamChatCompletion(
         object: 'chat.completion.chunk',
         created,
         model,
-        choices: [{ index: 0, delta, finishReason }],
+        choices: [{ index: 0, delta, finish_reason: finishReason }],
       })}\n\n`,
     )
   }
@@ -538,11 +544,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       // P2 修复:解析分页参数,默认 limit=20,范围 1-100;offset 默认 0
@@ -588,11 +590,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -645,11 +643,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -745,8 +739,33 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               object: { type: 'string' },
               created: { type: 'number' },
               model: { type: 'string' },
-              choices: { type: 'array' },
-              usage: { type: 'object' },
+              choices: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    index: { type: 'number' },
+                    message: {
+                      type: 'object',
+                      properties: {
+                        role: { type: 'string' },
+                        content: { type: 'string' },
+                      },
+                    },
+                    finish_reason: { type: 'string' },
+                  },
+                },
+              },
+              // P0-5m(2026-07-30):必须声明 usage 子字段 properties,
+              // 否则 fast-json-stringify 会过滤掉所有子字段,返回 usage: {}
+              usage: {
+                type: 'object',
+                properties: {
+                  prompt_tokens: { type: 'number' },
+                  completion_tokens: { type: 'number' },
+                  total_tokens: { type: 'number' },
+                },
+              },
             },
           },
           400: errorResponseSchema,
@@ -756,11 +775,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('chat:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = chatCompletionSchema.safeParse(request.body)
@@ -891,13 +906,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             {
               index: 0,
               message: { role: 'assistant', content: data.content ?? '' },
-              finishReason: 'stop',
+              finish_reason: 'stop',
             },
           ],
           usage: {
-            promptTokens: safePrompt,
-            completionTokens: safeCompletion,
-            totalTokens: safeTotal,
+            prompt_tokens: safePrompt,
+            completion_tokens: safeCompletion,
+            total_tokens: safeTotal,
           },
         }
 
@@ -961,7 +976,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
                     id: { type: 'string' },
                     object: { type: 'string' },
                     created: { type: 'number' },
-                    ownedBy: { type: 'string' },
+                    owned_by: { type: 'string' },
                   },
                 },
               },
@@ -970,11 +985,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       const { body, source } = await fetchModels()
@@ -1013,11 +1024,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -1067,11 +1074,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -1188,11 +1191,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('chat:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
