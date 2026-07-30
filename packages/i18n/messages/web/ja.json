@@ -1,4 +1,4 @@
-{
+﻿{
   "skills": {
     "market": {
       "title": "スキルマーケット",
@@ -5956,6 +5956,23 @@
       "lastVerified": "最終認証",
       "noAccounts": "アカウントがありません。先に追加してください",
       "credentialsHint": "認証情報 JSON(プラットフォーム固有: token/cookie/appId+secret)"
+      "scanLogin": "QRコードログイン",
+      "scanLoginTitle": "QRコードログイン",
+      "scanLoginDescription": "プラットフォームを選択すると、バックエンドがログイン画面を開きQRコードをキャプチャします。アプリでスキャンしてcookieを自動保存。",
+      "scanLoginHint": "QRコードスキャンでログイン情報を自動取得・保存",
+      "scan": "スキャン",
+      "selectPlatform": "プラットフォーム選択",
+      "startScanLogin": "QRコードログイン開始",
+      "scanLoginQrAlt": "ログインQRコード",
+      "scanLoginSuccess": "QRコードログイン成功",
+      "scanLoginSucceeded": "ログイン成功、アカウントに保存しました",
+      "scanLoginFailed": "QRコードログイン失敗",
+      "scanLoginTimeout": "スキャンタイムアウト、再試行してください",
+      "cancelScan": "スキャン取消",
+      "minimize": "最小化(バックグラウンドで待機)",
+      "taskId": "タスク",
+      "cookiesSaved": "{count} 個のcookieを保存",
+      "waitingForScan": "{platform} アプリのスキャン待機中..."
     },
     "new": {
       "title": "新規公開タスク",
