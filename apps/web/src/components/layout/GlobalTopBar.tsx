@@ -40,12 +40,30 @@ import { Tooltip } from '@/components/feedback'
 
 type PlusMenuAction = {
   /** 唯一 key,i18n 标签用 `topBar.<key>` 解析 */
-  key: 'document' | 'browser' | 'terminal' | 'editor' | 'codeChanges' | 'agent' | 'mcp' | 'settings' | 'skill'
+  key:
+    | 'document'
+    | 'browser'
+    | 'terminal'
+    | 'editor'
+    | 'codeChanges'
+    | 'agent'
+    | 'mcp'
+    | 'settings'
+    | 'skill'
   icon: LucideIcon
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
   href?: string
   /** 切换 IDE 顶 tab(可选,触发 useIDEWorkspace.setActiveTopTab) */
-  setIdeTab?: 'editor' | 'document' | 'terminal' | 'browser' | 'code-changes' | 'figma' | 'agent' | 'mcp' | 'settings'
+  setIdeTab?:
+    | 'editor'
+    | 'document'
+    | 'terminal'
+    | 'browser'
+    | 'code-changes'
+    | 'figma'
+    | 'agent'
+    | 'mcp'
+    | 'settings'
   /** 触发 WorkPanel 切换(可选,内置浏览器复用) */
   toggleWorkPanel?: boolean
   /** 全局直接快捷键(可选,显示在菜单项右侧)
@@ -55,7 +73,10 @@ type PlusMenuAction = {
   shortcut?: string
 }
 
-const PLUS_MENU_GROUPS: Array<{ titleKey: 'groupView' | 'groupTools' | 'groupSettings'; items: PlusMenuAction[] }> = [
+const PLUS_MENU_GROUPS: Array<{
+  titleKey: 'groupView' | 'groupTools' | 'groupSettings'
+  items: PlusMenuAction[]
+}> = [
   {
     titleKey: 'groupView',
     items: [
@@ -165,32 +186,16 @@ export function GlobalTopBar() {
   const filteredGroups = React.useMemo(() => {
     const q = plusQuery.trim().toLowerCase()
     if (!q) return PLUS_MENU_GROUPS
-    return PLUS_MENU_GROUPS
-      .map((g) => ({
-        ...g,
-        items: g.items.filter(
-          (i) =>
-            i.key.toLowerCase().includes(q) ||
-            t(`topBar.${i.key}`).toLowerCase().includes(q),
-        ),
-      }))
-      .filter((g) => g.items.length > 0)
+    return PLUS_MENU_GROUPS.map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (i) => i.key.toLowerCase().includes(q) || t(`topBar.${i.key}`).toLowerCase().includes(q),
+      ),
+    })).filter((g) => g.items.length > 0)
   }, [plusQuery, t])
 
-  // flatItems:展开为一维数组,用于键盘导航 ↑↓ 计算 activeIndex
-  const flatItems = React.useMemo(
-    () => filteredGroups.flatMap((g) => g.items),
-    [filteredGroups],
-  )
-
-  // indexedItems:带 flatIndex 的分组(渲染用,让每个 button 知道自己在 flatItems 中的全局 index)
-  const indexedItems = React.useMemo(() => {
-    let idx = 0
-    return filteredGroups.map((g) => ({
-      ...g,
-      items: g.items.map((item) => ({ ...item, flatIndex: idx++ })),
-    }))
-  }, [filteredGroups])
+  // flatItems:展开为一维数组,用于键盘导航 ↑↓←→ 计算 activeIndex + 九宫格渲染
+  const flatItems = React.useMemo(() => filteredGroups.flatMap((g) => g.items), [filteredGroups])
 
   // 处理菜单项点击(键盘 Enter 或鼠标点击共用)
   const handleAction = (action: PlusMenuAction) => {
@@ -259,9 +264,11 @@ export function GlobalTopBar() {
     return () => window.removeEventListener('global-shortcut:open-plus', onOpenPlus)
   }, [])
 
-  // Plus 弹窗:↑↓ 导航 / Enter 确认 / Esc 关闭(合并到单一监听器,避免多个 keydown)
+  // Plus 弹窗:↑↓←→ 九宫格导航 / Enter 确认 / Esc 关闭(合并到单一监听器,避免多个 keydown)
+  // 2026-07-30 九宫格改造:↓↑ 按行跳(±3 列数),←→ 按列跳(±1),环形回绕适配过滤后非 9 项场景
   React.useEffect(() => {
     if (!plusOpen) return
+    const COLS = 3 // 九宫格列数,与 grid-cols-3 对齐
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
@@ -269,8 +276,16 @@ export function GlobalTopBar() {
         setPlusQuery('')
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setActiveIndex((i) => (flatItems.length ? (i + 1) % flatItems.length : 0))
+        setActiveIndex((i) => (flatItems.length ? (i + COLS) % flatItems.length : 0))
       } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex((i) =>
+          flatItems.length ? (i - COLS + flatItems.length) % flatItems.length : 0,
+        )
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setActiveIndex((i) => (flatItems.length ? (i + 1) % flatItems.length : 0))
+      } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
         setActiveIndex((i) =>
           flatItems.length ? (i - 1 + flatItems.length) % flatItems.length : 0,
@@ -444,163 +459,164 @@ export function GlobalTopBar() {
             - 点击展开 9 项菜单(分 3 组:视图/工具/设置)
             - 弹窗内含搜索框(过滤菜单项)+ 快捷键提示
             - 走 workPanel toggle / IDE setActiveTopTab / router.push 三类动作 */}
-        <div ref={plusRef} className="relative h-full shrink-0">
-          <Tooltip content={`${plusLabel} · ${plusShortcut}`} side="bottom">
-            <button
-              type="button"
-              onClick={() => {
-                setPlusOpen((o) => {
-                  if (!o && plusRef.current) {
-                    // 打开时计算 Plus 按钮位置(fixed 定位用)
-                    const r = plusRef.current.getBoundingClientRect()
-                    setPlusRect({ top: r.bottom + 4, right: window.innerWidth - r.right })
-                  }
-                  return !o
-                })
-              }}
-              aria-label={plusLabel}
-              aria-haspopup="menu"
-              aria-expanded={plusOpen}
-              // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
-              // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
-              // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
-              //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
-              //   - active 态:plusOpen 时 bg-accent text-foreground(属于状态指示,保留覆盖)
-              className={cn(
-                TOPBAR_BTN_BASE,
-                TOPBAR_BTN_W9,
-                plusOpen ? 'bg-accent text-foreground' : '',
-              )}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
+          <div ref={plusRef} className="relative h-full shrink-0">
+            <Tooltip content={`${plusLabel} · ${plusShortcut}`} side="bottom">
+              <button
+                type="button"
+                onClick={() => {
+                  setPlusOpen((o) => {
+                    if (!o && plusRef.current) {
+                      // 打开时计算 Plus 按钮位置(fixed 定位用)
+                      const r = plusRef.current.getBoundingClientRect()
+                      setPlusRect({ top: r.bottom + 4, right: window.innerWidth - r.right })
+                    }
+                    return !o
+                  })
+                }}
+                aria-label={plusLabel}
+                aria-haspopup="menu"
+                aria-expanded={plusOpen}
+                // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
+                // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
+                // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
+                //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
+                //   - active 态:plusOpen 时 bg-accent text-foreground(属于状态指示,保留覆盖)
+                className={cn(
+                  TOPBAR_BTN_BASE,
+                  TOPBAR_BTN_W9,
+                  plusOpen ? 'bg-accent text-foreground' : '',
+                )}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
 
-          {plusOpen && plusRect && createPortal(
-            <div
-              role="menu"
-              aria-label={plusLabel}
-              data-testid="global-topbar-plus-menu"
-              style={{ position: 'fixed', top: plusRect.top, right: plusRect.right, zIndex: 50 }}
-              className="w-64 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
-            >
-              {/* 搜索框 */}
-              <div className="px-1 pb-1 pt-0.5">
-                <div className="flex items-center gap-1.5 rounded-sm bg-muted/50 px-2 py-1">
-                  <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <input
-                    ref={plusInputRef}
-                    value={plusQuery}
-                    onChange={(e) => setPlusQuery(e.target.value)}
-                    placeholder={t('viewSwitcher.searchPlaceholder')}
-                    className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
-                  />
-                </div>
-              </div>
-              {filteredGroups.length === 0 ? (
-                <div className="px-3 py-3 text-center text-xs text-muted-foreground">
-                  {t('viewSwitcher.noMatch')}
-                </div>
-              ) : (
-                indexedItems.map((group) => (
-                  <div key={group.titleKey} className="px-1 pb-1 pt-1">
-                    <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {t(`viewSwitcher.${group.titleKey}`)}
+            {plusOpen &&
+              plusRect &&
+              createPortal(
+                <div
+                  role="menu"
+                  aria-label={plusLabel}
+                  data-testid="global-topbar-plus-menu"
+                  style={{
+                    position: 'fixed',
+                    top: plusRect.top,
+                    right: plusRect.right,
+                    zIndex: 50,
+                  }}
+                  className="w-72 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                >
+                  {/* 搜索框 */}
+                  <div className="px-1 pb-1 pt-0.5">
+                    <div className="flex items-center gap-1.5 rounded-sm bg-muted/50 px-2 py-1">
+                      <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <input
+                        ref={plusInputRef}
+                        value={plusQuery}
+                        onChange={(e) => setPlusQuery(e.target.value)}
+                        placeholder={t('viewSwitcher.searchPlaceholder')}
+                        className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+                      />
                     </div>
-                    {group.items.map((item) => {
-                      const Icon = item.icon
-                      const isActive = item.flatIndex === activeIndex
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          role="menuitem"
-                          aria-current={isActive ? 'true' : undefined}
-                          onClick={() => handleAction(item)}
-                          // 鼠标 hover 时同步 activeIndex(键盘 ↑↓ 跟鼠标 hover 联动)
-                          onMouseEnter={() => setActiveIndex(item.flatIndex)}
-                          className={cn(
-                            'flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs',
-                            'transition-colors focus:outline-none',
-                            isActive
-                              ? 'bg-accent text-foreground'
-                              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground',
-                          )}
-                        >
-                          <Icon className="h-3.5 w-3.5 shrink-0" />
-                          <span className="flex-1 text-left">{t(`topBar.${item.key}`)}</span>
-                          {/* 快捷键提示(2026-07-30 立):仅"设置"项标 Ctrl+,,
-                              其他项通过 Ctrl+Shift+P 命令面板搜索触发(做减法,避免快捷键爆炸)
-                              样式参考 terminal-panel.tsx L1323 ml-auto text-[10px] opacity-50 */}
-                          {item.shortcut && (
-                            <kbd className="ml-auto shrink-0 text-[10px] opacity-50">
-                              {item.shortcut}
-                            </kbd>
-                          )}
-                        </button>
-                      )
-                    })}
                   </div>
-                ))
-              )}
-              {/* 底部快捷键提示(2026-07-30 用户规则:"做好快捷键写上也行啊")
+                  {flatItems.length === 0 ? (
+                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                      {t('viewSwitcher.noMatch')}
+                    </div>
+                  ) : (
+                    // 2026-07-30 九宫格改造(用户规则:"把这个下拉窗里的一行行按钮编程九宫格的样式 9个正方形")
+                    // 9 项菜单 3×3 网格排列,每个格子 aspect-square 正方形(图标在上 + 文字在下)
+                    // 空间利用:垂直列表 376px 高 → 九宫格 288px 高,节省 23%;宽度 256→288(+12px 容纳 3 列)
+                    // 分组标题去掉(九宫格本身就是视觉组织,分组标题在 9 项场景下增加阅读噪音)
+                    <div className="grid grid-cols-3 gap-1 p-1">
+                      {flatItems.map((item, idx) => {
+                        const Icon = item.icon
+                        const isActive = idx === activeIndex
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            role="menuitem"
+                            aria-current={isActive ? 'true' : undefined}
+                            onClick={() => handleAction(item)}
+                            // 鼠标 hover 时同步 activeIndex(键盘 ↑↓←→ 跟鼠标 hover 联动)
+                            onMouseEnter={() => setActiveIndex(idx)}
+                            className={cn(
+                              'relative flex aspect-square flex-col items-center justify-center gap-1 rounded-md p-2 text-center transition-colors focus:outline-none',
+                              isActive
+                                ? 'bg-accent text-foreground'
+                                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground',
+                            )}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="text-[10px] leading-tight">
+                              {t(`topBar.${item.key}`)}
+                            </span>
+                            {/* 快捷键角标(仅"设置"项):右上角小标,不占格子主空间 */}
+                            {item.shortcut && (
+                              <span className="absolute right-1 top-1 text-[9px] opacity-40">
+                                {item.shortcut}
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {/* 底部快捷键提示(2026-07-30 用户规则:"做好快捷键写上也行啊")
                   无 border-t(§4 禁止分割线),用 mt-1 间距 + 低对比度文字视觉分隔
                   2026-07-30 升级:加入 Ctrl+Shift+P 全局打开提示,让用户知道命令面板入口
                   (VS Code 用户最熟悉的快捷键,接入 useGlobalShortcuts 后被 Ctrl+/ 帮助面板自动收录) */}
-              <div className="mt-1 flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground/70">
-                <span>↑↓ 导航</span>
-                <span>↵ 确认</span>
-                <span>Esc 关闭</span>
-                <span className="ml-auto">{plusShortcut} 打开</span>
-              </div>
-            </div>,
-            document.body
-          )}
-        </div>
-
-        {/* 4. 标签栏(2026-07-30 第十一轮"做减法 v7"用户反馈"a 标签在 chevron/Plus 后面"后位置)
-            flex-1 占满剩余空间,只渲染 a 标签 + 关闭按钮(无搜索/无 chevron,已抽出为独立组件) */}
-        <React.Suspense fallback={null}>
-          <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden">
-            <TagsView />
+                  <div className="mt-1 flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground/70">
+                    <span>↑↓←→ 导航</span>
+                    <span>↵ 确认</span>
+                    <span>Esc 关闭</span>
+                    <span className="ml-auto">{plusShortcut} 打开</span>
+                  </div>
+                </div>,
+                document.body,
+              )}
           </div>
-        </React.Suspense>
 
-        {/* 窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop
+          {/* 4. 标签栏(2026-07-30 第十一轮"做减法 v7"用户反馈"a 标签在 chevron/Plus 后面"后位置)
+            flex-1 占满剩余空间,只渲染 a 标签 + 关闭按钮(无搜索/无 chevron,已抽出为独立组件) */}
+          <React.Suspense fallback={null}>
+            <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden">
+              <TagsView />
+            </div>
+          </React.Suspense>
+
+          {/* 窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop
             z-[10001]:高于 8 方向 resize 区域(z-9999/10000)
             2026-07-30 深度修复"双重高度设定/冲突设定"(用户反馈):之前容器 h-7 (28px) 跟
             顶栏 h-9 (36px) 矮 8px,导致桌面端窗口控制按钮区域"塌陷",跟右侧 Plus 按钮
             视觉参差。改 h-full 后容器跟顶栏 36px 严格一致,内部 WindowControlButton 同步
             h-full 撑满容器,消除容器+按钮的"双重高度"残留风险。 */}
-        {isDesktop && (
-          <div
-            className="relative z-[10001] flex h-full shrink-0 items-center gap-0.5 rounded-md"
-            data-window-controls
-          >
-            <WindowControlButton
-              onClick={handleMinimize}
-              ariaLabel={tNav('minimize')}
-              icon={<Minus className="h-3.5 w-3.5" />}
-            />
-            <WindowControlButton
-              onClick={handleToggleMax}
-              ariaLabel={isMaximized ? tNav('restore') : tNav('maximize')}
-              icon={
-                isMaximized ? (
-                  <RestoreIcon className="h-3 w-3" />
-                ) : (
-                  <Square className="h-3 w-3" />
-                )
-              }
-            />
-            <WindowControlButton
-              onClick={handleClose}
-              ariaLabel={tNav('close')}
-              icon={<X className="h-3.5 w-3.5" />}
-              variant="close"
-            />
-          </div>
-        )}
+          {isDesktop && (
+            <div
+              className="relative z-[10001] flex h-full shrink-0 items-center gap-0.5 rounded-md"
+              data-window-controls
+            >
+              <WindowControlButton
+                onClick={handleMinimize}
+                ariaLabel={tNav('minimize')}
+                icon={<Minus className="h-3.5 w-3.5" />}
+              />
+              <WindowControlButton
+                onClick={handleToggleMax}
+                ariaLabel={isMaximized ? tNav('restore') : tNav('maximize')}
+                icon={
+                  isMaximized ? <RestoreIcon className="h-3 w-3" /> : <Square className="h-3 w-3" />
+                }
+              />
+              <WindowControlButton
+                onClick={handleClose}
+                ariaLabel={tNav('close')}
+                icon={<X className="h-3.5 w-3.5" />}
+                variant="close"
+              />
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -634,9 +650,7 @@ function WindowControlButton({
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
         //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
         //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-muted
-        variant === 'close'
-          ? 'hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400'
-          : '',
+        variant === 'close' ? 'hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400' : '',
       )}
     >
       {icon}
