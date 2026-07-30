@@ -25,31 +25,38 @@ const STATUS_LABEL: Record<string, string> = {
   skipped: '跳过',
 }
 
+// 后端契约:publish.py list_tasks 返回 camelCase 字段(非 snake_case)
+// 注意:/publish/tasks 列表不返回 targets/duration_ms,返回 platformCount
 interface Target {
   platform: string
-  account_id?: string
+  accountId?: number
   status?: string
   url?: string | null
   error?: string | null
-  duration_ms?: number
+  durationMs?: number
 }
 interface Task {
-  id: string
+  id: number
+  taskId?: string
   title: string
   format?: string
   status: string
-  created_at?: string
-  updated_at?: string
-  scheduled_at?: string | null
+  createdAt?: string
+  updatedAt?: string
+  scheduledAt?: string | null
+  platformCount?: number
   targets?: Target[]
   error?: string | null
-  duration_ms?: number
 }
+// 后端契约:publish.py get_stats 返回 {tasks: {total, success, failed, partial, ...}, ...}
+// tasks 是嵌套对象,不是顶层字段;没有 success_rate 字段
 interface Stats {
-  total?: number
-  success?: number
-  failed?: number
-  success_rate?: number
+  tasks?: {
+    total?: number
+    success?: number
+    failed?: number
+    partial?: number
+  }
 }
 
 const PLATFORMS = [
@@ -107,13 +114,15 @@ export default function HistoryPage() {
   const [loading, setLoading] = React.useState(true)
   const [filterPlatform, setFilterPlatform] = React.useState<string>('all')
   const [filterStatus, setFilterStatus] = React.useState<string>('all')
-  const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
 
   const load = React.useCallback(async () => {
     setLoading(true)
     try {
+      // 后端契约:/publish/tasks 列表返回 {items: [...], count, limit, offset}
+      // 任务列表才有 title/format 字段;/publish/history 是单平台粒度,无 title/format
       const [histRes, statsRes] = await Promise.all([
-        api<{ items?: Task[]; list?: Task[] } | Task[]>('/api/publish/history?limit=50'),
+        api<{ items?: Task[]; list?: Task[] } | Task[]>('/api/publish/tasks?limit=50'),
         api<Stats>('/api/publish/stats').catch(() => ({})),
       ])
       const list = Array.isArray(histRes) ? histRes : (histRes.items ?? histRes.list ?? [])
@@ -130,7 +139,7 @@ export default function HistoryPage() {
     void load()
   }, [load])
 
-  function toggle(id: string) {
+  function toggle(id: number) {
     setExpanded((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -154,14 +163,14 @@ export default function HistoryPage() {
         <Card>
           <CardContent className="p-3">
             <div className="text-xs text-muted-foreground">{t('stats.totalTasks')}</div>
-            <div className="mt-1 text-lg font-semibold">{stats.total ?? 0}</div>
+            <div className="mt-1 text-lg font-semibold">{stats.tasks?.total ?? 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
             <div className="text-xs text-muted-foreground">{t('stats.totalSuccess')}</div>
             <div className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-              {stats.success ?? 0}
+              {stats.tasks?.success ?? 0}
             </div>
           </CardContent>
         </Card>
@@ -169,7 +178,7 @@ export default function HistoryPage() {
           <CardContent className="p-3">
             <div className="text-xs text-muted-foreground">{t('stats.totalFailed')}</div>
             <div className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">
-              {stats.failed ?? 0}
+              {stats.tasks?.failed ?? 0}
             </div>
           </CardContent>
         </Card>
@@ -177,8 +186,8 @@ export default function HistoryPage() {
           <CardContent className="p-3">
             <div className="text-xs text-muted-foreground">{t('stats.successRate')}</div>
             <div className="mt-1 text-lg font-semibold">
-              {typeof stats.success_rate === 'number'
-                ? `${(stats.success_rate * 100).toFixed(1)}%`
+              {stats.tasks?.total && stats.tasks?.success
+                ? `${((stats.tasks.success / stats.tasks.total) * 100).toFixed(1)}%`
                 : '-'}
             </div>
           </CardContent>
@@ -257,11 +266,11 @@ export default function HistoryPage() {
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         <span>
                           {t('history.time')}:{' '}
-                          {task.created_at ? TIME_FMT.format(new Date(task.created_at)) : '-'}
+                          {task.createdAt ? TIME_FMT.format(new Date(task.createdAt)) : '-'}
                         </span>
-                        <span>
-                          {t('history.duration')}: {fmtDuration(task.duration_ms)}
-                        </span>
+                        {typeof task.platformCount === 'number' && (
+                          <span>平台数: {task.platformCount}</span>
+                        )}
                         {task.format && <span className="font-mono">{task.format}</span>}
                       </div>
                     </div>
@@ -278,7 +287,7 @@ export default function HistoryPage() {
                         <div className="space-y-1">
                           {task.targets.map((tg, i) => (
                             <div
-                              key={`${tg.account_id ?? tg.platform}-${i}`}
+                              key={`${tg.accountId ?? tg.platform}-${i}`}
                               className="flex flex-wrap items-center gap-2"
                             >
                               <span className="font-medium">
@@ -292,9 +301,9 @@ export default function HistoryPage() {
                               >
                                 {STATUS_LABEL[tg.status ?? 'pending'] ?? tg.status}
                               </span>
-                              {tg.duration_ms !== undefined && tg.duration_ms !== null && (
+                              {tg.durationMs !== undefined && tg.durationMs !== null && (
                                 <span className="text-muted-foreground">
-                                  {fmtDuration(tg.duration_ms)}
+                                  {fmtDuration(tg.durationMs)}
                                 </span>
                               )}
                               {tg.url && (
