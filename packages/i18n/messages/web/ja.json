@@ -125,6 +125,7 @@
   "nav": {
     "title": "メインナビゲーション",
     "vip": "VIP",
+    "close": "閉じる",
     "user": "アカウント",
     "messages": "メッセージ",
     "expand": "展開",
@@ -6022,6 +6023,67 @@
     }
   },
   "settings": {
+    "gateway": {
+      "navLabel": "AIゲートウェイ",
+      "title": "AIゲートウェイダッシュボード",
+      "subtitle": "Provider状態、Comboチェーン管理、Token圧縮デモ",
+      "tabs": {
+        "providers": "Provider状態",
+        "combos": "Comboチェーン",
+        "compaction": "Token圧縮"
+      },
+      "providers": {
+        "summary": {
+          "total": "合計",
+          "configured": "設定済み",
+          "local": "ローカル",
+          "notConfigured": "未設定"
+        },
+        "filter": {
+          "all": "全て",
+          "configured": "設定済み",
+          "notConfigured": "未設定",
+          "local": "ローカル"
+        },
+        "cooldown": "クールダウン中",
+        "failures": "回失敗",
+        "models": "個モデル",
+        "refresh": "更新"
+      },
+      "combos": {
+        "create": "新規Combo作成",
+        "edit": "編集",
+        "delete": "削除",
+        "name": "チェーン名",
+        "strategy": "戦略",
+        "chain": "呼び出しチェーン(1行1つ)",
+        "judge": "Judgeモデル(fusion戦略)",
+        "description": "説明",
+        "deleteConfirm": "Combo \"{name}\"を削除しますか?",
+        "createSuccess": "Combo作成成功",
+        "deleteSuccess": "Combo削除成功",
+        "empty": "Comboチェーンがありません。「新規Combo作成」をクリックして作成してください"
+      },
+      "compaction": {
+        "input": "入力メッセージ",
+        "inputPlaceholder": "圧縮するテキストを入力...",
+        "strategy": "圧縮戦略",
+        "keepRecent": "最近N件保持",
+        "run": "圧縮実行",
+        "original": "元Token",
+        "compressed": "圧縮後Token",
+        "ratio": "圧縮率",
+        "rtkMapSize": "RTKマップサイズ",
+        "compressedPreview": "圧縮後プレビュー",
+        "decompressedPreview": "解凍結果",
+        "showDecompressed": "解凍結果を表示",
+        "hideDecompressed": "解凍結果を非表示",
+        "excellent": "優秀",
+        "good": "良好",
+        "poor": "未達",
+        "empty": "「圧縮実行」をクリックして結果を確認"
+      }
+    },
     "activityLoading": "読み込み中...",
     "activityEmpty": "アクティビティはありません",
     "activityLoadFailed": "読み込みに失敗しました。しばらくしてから再試行してください",
@@ -9092,7 +9154,9 @@
     "aboutUs": "会社概要",
     "contactUs": "お問い合わせ",
     "agreementSubtitle": "以下の契約条件を注意深くお読みください",
-    "contactSubtitle": "以下の方法でお問い合わせください"
+    "contactSubtitle": "以下の方法でお問い合わせください",
+    "internationalModels": "海外大型モデル",
+    "chineseModels": "国産大型モデル"
   },
   "plugins": {
     "title": "プラグイン市場",
