@@ -129,7 +129,10 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
 
   // 性能修复(2026-07-25):用 useMemo 缓存 find + groupByVendor 结果,
   // 避免 ModelSelector 每次父级重渲染(由根因 #2 AISidePanel 高频渲染带动)都重算分组。
-  const current = React.useMemo(() => options.find((m) => m.value === value), [options, value])
+  const current = React.useMemo(
+    () => (value === 'auto' ? AUTO_OPTION : options.find((m) => m.value === value)),
+    [options, value],
+  )
   const grouped = React.useMemo(() => groupByVendor(options), [options])
 
   // 当前选中模型是否已配置(根据 vendor 映射到 templateCode 后查 configuredTemplateCodes)
@@ -179,7 +182,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                导致 specificity 相同时由顺序决定胜负,400px 默认宽度下 span 仍隐藏。
                改为不带任何 Tailwind display 类,默认 span inline,container query 决定隐藏。 */
             <span className="model-selector-text min-w-0 max-w-[6rem] truncate">
-              {current?.label ?? value}
+              {current ? (current.value === 'auto' ? t('modelAuto') : current.label) : value}
             </span>
           )}
           {/* 配置感知徽章:已配置 → 绿色 ✓,未配置 → 琥珀 ⚠
