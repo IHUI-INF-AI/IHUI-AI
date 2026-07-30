@@ -388,6 +388,7 @@
     "agentLoadFailed": "エージェントの読み込み失敗",
     "generating": "急速生成中",
     "thinkingTip": "Tips:まず右上の3点をクリックしてミニプログラムを浮窓し、しばらくしてから戻ってください~",
+    "fileSelected": "{{count}}個のファイルを選択しました",
     "common": {
       "loading": "読み込み中…"
     },
@@ -411,6 +412,7 @@
       "stopSpeak": "停止",
       "share": "共有",
       "viewDigitalHuman": "デジタルヒューマンを見る",
+      "digitalHuman": "デジタルヒューマン生成 →",
       "voiceMessage": "音声メッセージ",
       "downloading": "ダウンロード中",
       "downloadSuccess": "アルバムに保存しました",
