@@ -262,6 +262,55 @@
 
 ---
 
+### P0 AI 网关核心补强批次(2026-07-30 立,超越 OmniRoute,平台独占:apps/ai-service,AGENTS.md §24 用户已确认)
+
+> **触发**:用户深度调研开源项目 OmniRoute(GitHub 27k stars,MIT 协议 AI 网关,聚合 290+ provider / 500+ 模型,RTK+Caveman 压缩 89%,OpenAI/Claude/Gemini 协议互转,Combo 4 级 fallback)后明确要求"我要我的项目比他强 比他全面"。经 AskUserQuestion 确认 4 维度超越路径(网关核心补强 / Token 压缩 / Dashboard / 全栈叙事),本批次优先做"网关核心补强"。**IHUI 现状**:18 个 provider 适配器 + model_router.py(5 种复杂度路由)+ llm_gateway.py(单层 fallback)+ context_compaction.py(压缩率未知)。**OmniRoute 优势**:290+ provider / Combo 多级 fallback / 三协议互转 / RTK+Caveman 89% 压缩 / 网关 Dashboard / TLS stealth。**目标**:在 AI 网关核心能力上反超 OmniRoute,同时保留 IHUI 8 端全栈 + Agent 编排 + RAG + 元学习 + 13 平台发布的业务深度优势。
+
+#### P0-1 Combo 多级 fallback 链服务(对齐 OmniRoute Combo + 超越)
+
+- [x] ✅(2026-07-30) P0-1a 新建 `apps/ai-service/app/services/combo_router.py` — ComboChain 类,支持 3 策略:① priority(按预定义链顺序 fallback,OmniRoute 同款);② cheapest(按价格升序选可用 provider,超越 OmniRoute);③ fusion(并发调用多个 model + judge model 票决,超越 OmniRoute)。配额耗尽(429)/超时/5xx 自动切下一个 provider,记录 fallback 历史到 LLM_FALLBACK_TRIGGERED metric。配置:`COMBO_CHAINS = {"maximize-free": ["kimi-k2", "glm-4-flash", "deepseek-chat", "stepfun/step-3.7-flash"], "maximize-quality": ["claude-opus-4", "gpt-5", "gemini-3-pro"]}`
+
+#### P0-2 协议互转适配器(对齐 OmniRoute 三协议互转)
+
+- [x] ✅(2026-07-30) P0-2a 新建 `apps/ai-service/app/services/protocol_adapter.py` — 三协议互转:① OpenAI Chat Completions ↔ Anthropic Messages(system prompt / tool_use / tool_result 格式差异);② OpenAI ↔ Gemini generateContent(system_instruction / functionDeclarations / functionCall 格式差异);③ Anthropic ↔ Gemini。让 IHUI 网关接受任意协议的请求,客户端可用 OpenAI / Claude / Gemini 任一 SDK 接入
+
+#### P0-3 扩 provider 库(18 → 30+,聚焦免费 provider)
+
+- [x] ✅(2026-07-30) P0-3a 调整方案:不新增 8 个同质化 OpenAI 兼容适配器文件(违反 §3 共享层优先 + 做减法原则),改为在 `free_provider_registry.py` 记录 30+ 免费 provider 的 default_base_url + default_models + key_env_vars,provider 路由仍走 LiteLLM 前缀机制(`moonshot/*` / `deepseek/*` / `groq/*` 等通过 LiteLLM 内置适配器调用,无需自己写适配器文件)。避免代码膨胀,符合"最小化代码,零冗余"约束
+- [x] ✅(2026-07-30) P0-3b 新建 `apps/ai-service/app/services/free_provider_registry.py` — 30+ 免费 provider 注册表(国内 8 + 国际 12 + 本地 4 + credits 8),每条含:provider_code / display_name / 申请链接 / 免费额度 / 限制 / key 配置字段名 / 状态(configured/not_configured/local)+ default_base_url + default_models + protocol。`GET /llm/free-providers` 端点返回 Dashboard 可视化数据
+
+#### P0-4 集成到 llm_gateway.py 主入口
+
+- [x] ✅(2026-07-30) P0-4a Combo fallback 接入 LLM 调用链 — `llm_gateway.py` 的 `complete()` 在主 provider + FallbackRouter 单层 fallback 全部失败后,若 primary model 在某 combo 链中,自动触发 ComboRouter(priority/cheapest/fusion 三策略)。ComboRouter 内部透传 `_skip_fallback=True` 防递归。ComboRouter 单例懒加载(`_get_combo_router()`),加载失败降级不影响主链路
+- [x] ✅(2026-07-30) P0-4b 协议互转接入 — `routers/llm.py` 新增 2 端点:① `POST /llm/anthropic/v1/messages`(Anthropic Messages 协议);② `POST /llm/gemini/v1beta/models/{model}:generateContent`(Gemini generateContent 协议)。客户端可用 Anthropic / Google 官方 SDK 直接调用 IHUI 网关,内部 ProtocolAdapter 转 OpenAI 格式走标准 llm_gateway 调用链,响应再转回客户端期望格式
+
+#### P0-5 测试覆盖
+
+- [x] ✅(2026-07-30) P0-5a 新建 `tests/test_combo_router.py` — 20 测试:ComboChain 构造 / ProviderHealthState cooldown / 3 策略路由 / 429 标记 / 全链路失败降级 / 配置链缺失处理 / 单例
+- [x] ✅(2026-07-30) P0-5b 新建 `tests/test_protocol_adapter.py` — 30 测试:协议探测 / 6 方向请求转换 / 6 方向响应转换 / 同协议 no-op / 不支持方向降级 / 单例
+- [x] ✅(2026-07-30) P0-5c 新建 `tests/test_free_provider_registry.py` — 30 测试:30+ provider 完整性 / 分类查询 / key 状态检测 / Dashboard dict 结构 / 单例
+- [x] ✅(2026-07-30) P0-5d 运行 `pytest tests/test_combo_router.py tests/test_protocol_adapter.py tests/test_free_provider_registry.py -v` 80/80 全绿(0.23s)+ mypy 通过(0 错误)
+
+#### P0-6 README + 文档同步(§21 触发)
+
+- [x] ✅(2026-07-30) P0-6a README.md 更新 — 新增 B5 章节"AI 网关核心补强(对标并超越 OmniRoute)",含能力表格 + 配置示例 + IHUI vs OmniRoute 10 维度对比矩阵
+- [ ] P0-6b commit + push + git-push-guard 验证(§20 五条全绿)
+
+#### P1 Token 压缩超越(下一批次)
+
+- [ ] P1-1 调研 RTK+Caveman 算法,用 Python 重写,目标工具调用场景压缩率 ≥90%(超越 OmniRoute 89%)
+- [ ] P1-2 集成到 llm_gateway.py 调用链,压缩前/后 token 数记录到 metric
+
+#### P1 网关 Dashboard(下一批次)
+
+- [ ] P1-3 apps/web 新增 `/dashboard/ai-gateway` 页面:provider 健康状态 / 配额剩余 / fallback 历史 / 压缩率统计 / 成本曲线
+
+#### P2 全栈一体化叙事(下一批次)
+
+- [ ] P2-1 README + 对外宣传重写:不跟 OmniRoute 比单一网关,放大 IHUI 已有的 8 端 + Agent 编排 + RAG + 元学习 + 13 平台发布 + AI 教育全栈叙事,做"AI 全家桶"差异化定位
+
+---
+
 ### P0 商业化变现批次(2026-07-27 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
 
 > 用户明确要求"用本项目挣钱",已通过 AskUserQuestion 确认 4 路径(SaaS 订阅 + 企业私有化 + API 开放平台 + AI 教育)× 双市场(国内+海外)。代码层面 95% 已就绪(微信支付/支付宝/VIP/积分/API 密钥/4 语言 SDK/教育模块/部署/i18n 全部真实可用),主要缺口:Stripe/PayPal(海外)、plan-driven 中间件、模型价格 seed、运营数据、真实凭据。**用户必须本人操作**:注册 Stripe 商户 / 申请微信支付+支付宝商户号 / ICP 备案 / 购买云服务器 / 配置 GitHub Secrets / 谈企业客户签合同 / 录课。
