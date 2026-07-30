@@ -1,8 +1,9 @@
 /**
- * POST /v1/messages — Anthropic Messages 原生格式端点(2026-07-31 立,P0-6)。
+ * POST /v1/anthropic/messages — Anthropic Messages 原生格式端点(2026-07-31 立,P0-6)。
  *
- * 让 Claude SDK(anthropic-sdk-python / @anthropic-ai/sdk)用户无需改代码即可接入
- * IHUI 中转站。内部走现有 relay 调用链(ai-service /api/llm/complete[/stream])+
+ * 让 Claude SDK(anthropic-sdk-python / @anthropic-ai/sdk)用户设
+ * ANTHROPIC_BASE_URL=https://api.x5m5x.com/v1/anthropic 即可接入 IHUI 中转站。
+ * 内部走现有 relay 调用链(ai-service /api/llm/complete[/stream])+
  * relay-billing-service 计费,与 /v1/chat/completions 共享同一上游与计费逻辑。
  *
  * 流程:
