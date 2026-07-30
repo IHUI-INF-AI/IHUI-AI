@@ -26,7 +26,6 @@ import {
   listScanLoginPlatforms,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
 import {
   Button,
   Dialog,
@@ -65,7 +64,7 @@ export function ScanLoginDialog({
   const [platform, setPlatform] = React.useState<string>(defaultPlatform ?? '')
   const [task, setTask] = React.useState<ScanLoginTask | null>(null)
   const [qrUrl, setQrUrl] = React.useState<string>('')
-  const [loading, setLoading] = React.useState(false)
+  const [, setLoading] = React.useState(false)
   const [starting, setStarting] = React.useState(false)
   const pollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
