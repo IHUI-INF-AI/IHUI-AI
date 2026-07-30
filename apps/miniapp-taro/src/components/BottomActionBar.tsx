@@ -1,12 +1,12 @@
 import { View, Text, Input, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import InputArea, { type InputAreaProps } from './InputArea'
-// 4 个图标按钮 + 选中勾 PNG(Taro copy.patterns 把 src/static/* 复制到 dist/static/*)
-import cammerInputPng from '@/static/images/cammer_input.png'
-import picterInputPng from '@/static/images/picter_input.png'
-import floderInputPng from '@/static/images/floder_input.png'
-import wechatFilePng from '@/static/images/wechat_file.png'
-import selectedModelPng from '@/static/images/selected_model.png'
+// 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
+// 原项目"微信文件"按钮也用 floder_input.png(非 wechat_file.png),保持一致
+import cammerInputPng from '@/assets/remote/images/cammer_input.png'
+import picterInputPng from '@/assets/remote/images/picter_input.png'
+import floderInputPng from '@/assets/remote/images/floder_input.png'
+import selectedModelPng from '@/assets/remote/images/selected_model.png'
 
 /**
  * BottomActionBar 底部操作栏
@@ -73,11 +73,13 @@ const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
   { key: 'permanentMemory', label: '永久记忆' },
 ]
 
+// 4 个图标按钮对齐原项目 BottomActionBar.vue line 65-80:
+// 相机 / 相册 / 本地文件 / 微信文件(原项目微信文件也用 floder_input.png)
 const DEFAULT_ICON_BUTTONS: IconButtonItem[] = [
   { key: 'camera', label: '相机', icon: cammerInputPng },
   { key: 'album', label: '相册', icon: picterInputPng },
   { key: 'file', label: '本地文件', icon: floderInputPng },
-  { key: 'wxfile', label: '微信文件', icon: wechatFilePng },
+  { key: 'wxfile', label: '微信文件', icon: floderInputPng },
 ]
 
 export default function BottomActionBar(props: BottomActionBarProps) {
@@ -163,7 +165,8 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 style={{
                   width: '160rpx',
                   height: '150rpx',
-                  background: 'linear-gradient(135deg, rgba(205, 208, 255, 0.3), rgba(253, 255, 225, 0.3))',
+                  background:
+                    'linear-gradient(135deg, rgba(205, 208, 255, 0.3), rgba(253, 255, 225, 0.3))',
                   borderRadius: '30rpx',
                   border: '6rpx solid var(--color-card)',
                 }}
@@ -174,7 +177,12 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                   style={{ width: '70rpx', height: '70rpx', marginBottom: '12rpx' }}
                   mode="aspectFit"
                 />
-                <Text style={{ fontSize: '20rpx', color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))' }}>
+                <Text
+                  style={{
+                    fontSize: '20rpx',
+                    color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))',
+                  }}
+                >
                   {btn.label}
                 </Text>
               </View>
@@ -192,7 +200,10 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               padding: '0 20rpx 10rpx',
             }}
           >
-            <View className="flex items-center" style={{ color: 'var(--color-foreground)', fontSize: '20rpx' }}>
+            <View
+              className="flex items-center"
+              style={{ color: 'var(--color-foreground)', fontSize: '20rpx' }}
+            >
               <Image
                 src={selectedModelPng}
                 style={{ width: '24rpx', height: '24rpx', marginRight: '8rpx' }}
