@@ -51,8 +51,8 @@ import {
   Moon,
   LogIn,
   Briefcase,
+  Flag,
   Globe,
-  Globe2,
   Mic,
   Code,
   Key,
@@ -622,9 +622,9 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           className={cn(btnClass, 'p-0')}
           aria-label={t('language')}
         >
-          {/* 2026-07-31 触发器改为 lucide Globe2(带经纬线精致地球),语义"全球语言切换";
-              Languages 图标过于抽象被否决;btnClass 的 [&_svg]:size-5 自动渲染 20×20。 */}
-          <Globe2 />
+          {/* 2026-07-31 v3: 触发器改为 lucide Flag(通用旗帜),用户要求"类似国旗"的图标;
+              下拉项保留单色语言代码徽章(ZH/TW/EN/JA/KO)不动;btnClass 的 [&_svg]:size-5 自动渲染 20×20。 */}
+          <Flag />
         </Button>
       </Popover>
 
