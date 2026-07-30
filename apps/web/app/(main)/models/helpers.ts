@@ -1,6 +1,30 @@
 import { fetchApi } from '@/lib/api'
+import { VENDOR_LABEL } from '@/components/chat/fallback-models'
 import type { Provider, Model, ProviderGroup, PresetPrompt } from './types'
 import { FAVORITE_MODELS_STORAGE_KEY } from './types'
+
+/**
+ * 厂商显示名映射(单一数据源:复用 fallback-models.ts 的 VENDOR_LABEL,避免与 i18n 重复维护)
+ *
+ * 2026-07-30 修复:原 PROVIDER_KEY 把 provider code 映射到 i18n key 'providers.{p}',
+ * 但 models namespace 下完全缺 providers 子对象,导致 next-intl 返回 raw key path
+ * 'models.providers.openai',UI 显示成"models.providers.openai"。改为直接读 VENDOR_LABEL,
+ * 单一数据源 + 跨语言通用(厂商名是品牌名,不翻译)。
+ */
+export { VENDOR_LABEL as PROVIDER_LABEL }
+
+/**
+ * 厂商分组中文标签(原走 i18n 'providerGroups.{key}',但 models namespace 缺翻译,
+ * 直接用静态中文常量,避免 raw key path 暴露)
+ */
+export const PROVIDER_GROUP_LABEL: Record<ProviderGroup, string> = {
+  international: '国际原厂',
+  domestic: '国内厂商',
+  inference: '推理加速',
+  cloud: '云平台',
+  aggregator: '聚合平台',
+  local: '本地',
+}
 
 /**
  * 厂商分组定义:用于 ModelsNav 按分组展示 provider,降低 80+ 厂商的认知负担
@@ -128,13 +152,6 @@ export const PROVIDER_GROUPS: { key: ProviderGroup; providers: Provider[] }[] = 
  * 内置厂商列表(展开 PROVIDER_GROUPS,保留扁平 export 以兼容旧引用)
  */
 export const PROVIDERS: Provider[] = PROVIDER_GROUPS.flatMap((g) => g.providers)
-
-/**
- * 厂商 i18n key 静态映射表:providers.{provider}
- */
-export const PROVIDER_KEY: Record<string, string> = Object.fromEntries(
-  PROVIDERS.map((p) => [p, `providers.${p}`]),
-)
 
 /**
  * 排序 i18n key 静态映射表:sort.{key}
@@ -1909,9 +1926,13 @@ export async function fetchModels(): Promise<Model[]> {
         }>
       }>('/api/llm/models'),
       // P0-5g 并发拉取中转站已上架模型清单(失败时降级空清单,不阻塞主流程)
-      fetchApi<{ items: Array<{ modelId: string; relayPriceMultiplier: number; relayDisplayName?: string | null }> }>(
-        '/api/relay/models/public',
-      ).catch(() => null),
+      fetchApi<{
+        items: Array<{
+          modelId: string
+          relayPriceMultiplier: number
+          relayDisplayName?: string | null
+        }>
+      }>('/api/relay/models/public').catch(() => null),
     ])
     if (!r.success) throw new Error(r.error)
 
