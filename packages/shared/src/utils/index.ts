@@ -8,6 +8,12 @@ export * from './file-helpers'
 export * from './form-styles'
 export * from './format'
 export * from './format-ext'
+// 移动端/小程序端通用格式工具(2026-07-30 立)
+export * from './format-mobile'
+// 跨端图片处理工具(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
+export * from './image-helpers'
+// 跨端存储抽象(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
+export * from './storage'
 export * from './jwt-utils'
 export * from './llm-templates'
 export * from './logger'
