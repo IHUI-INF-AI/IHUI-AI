@@ -71,7 +71,6 @@ const { mockLocale, MESSAGES, setMockLocale } = vi.hoisted(() => {
     'zh-CN': {
       common: {
         close: '关闭',
-        closeOther: '关闭其他',
         closeAll: '关闭全部',
         unsaved: '未保存',
         moreActions: '更多操作',
@@ -82,7 +81,6 @@ const { mockLocale, MESSAGES, setMockLocale } = vi.hoisted(() => {
     en: {
       common: {
         close: 'Close',
-        closeOther: 'Close others',
         closeAll: 'Close all',
         unsaved: 'Unsaved',
         moreActions: 'More',
@@ -370,25 +368,6 @@ describe('TagsView 视觉守门', () => {
       container.querySelector('[data-testid="tag-dirty-dot"]'),
       'dirty=false 时应无指示点',
     ).toBeNull()
-  })
-
-  it('closeOther 应清理被关闭标签的脏状态,只保留目标标签', () => {
-    act(() => {
-      useTagsViewStore.getState().addTag({ path: '/a', title: 'A' })
-      useTagsViewStore.getState().addTag({ path: '/b', title: 'B' })
-      useTagsViewStore.getState().addTag({ path: '/c', title: 'C' })
-      useTagsViewStore.getState().setDirty('/a', true)
-      useTagsViewStore.getState().setDirty('/b', true)
-      useTagsViewStore.getState().setDirty('/c', true)
-    })
-    act(() => {
-      useTagsViewStore.getState().closeOther('/b')
-    })
-    const state = useTagsViewStore.getState()
-    expect(state.tags.map((t) => t.path)).toEqual(['/b'])
-    expect(state.dirtyPaths.has('/b'), '目标 dirty 应保留').toBe(true)
-    expect(state.dirtyPaths.has('/a'), '/a dirty 应清理').toBe(false)
-    expect(state.dirtyPaths.has('/c'), '/c dirty 应清理').toBe(false)
   })
 
   it('removeTag 应同步清理对应 path 的脏状态', () => {
