@@ -1,6 +1,6 @@
 import { View, Text, Input } from '@tarojs/components'
 import { useState } from 'react'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 export interface CourseRatingProps {
   initialRating?: number
@@ -19,8 +19,8 @@ export default function CourseRating({
   const [comment, setComment] = useState(initialComment)
   const [hoverRating, setHoverRating] = useState(0)
 
-  const { t, tList } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const { tList } = useI18n()
+  const tt = useTt()
 
   if (!visible) return null
 

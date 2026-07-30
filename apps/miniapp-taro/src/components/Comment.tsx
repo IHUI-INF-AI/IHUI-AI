@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import EmptyState from './EmptyState'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface CommentItem {
   id: string
@@ -32,8 +32,7 @@ export default function Comment({
   onReply,
   onReachBottom,
 }: CommentProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="flex flex-col" style={{ maxHeight: '50vh' }}>
       <ScrollView
