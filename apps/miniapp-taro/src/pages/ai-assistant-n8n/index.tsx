@@ -3,7 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 /** n8n 工作流状态映射 */
 function getStatusInfo(status: unknown, tt: (k: string, fb: string) => string): { label: string; cls: string } {
@@ -22,10 +22,7 @@ function getStatusInfo(status: unknown, tt: (k: string, fb: string) => string): 
 
 export default function AiAssistantN8n() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
   const [list, setList] = useState<Array<Record<string, unknown>>>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)

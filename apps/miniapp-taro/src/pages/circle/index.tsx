@@ -2,7 +2,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleList, get, post, type Circle } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import './index.css'
 
 type TabKey = 'recommend' | 'follow' | 'latest' | 'hot'
@@ -42,8 +42,7 @@ const PAGE_SIZE = 10
 const defaultAvatar = '/static/default-avatar.png'
 
 export default function CircleIndexPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
 
   const [list, setList] = useState<Circle[]>([])
   const [loading, setLoading] = useState(false)

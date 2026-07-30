@@ -4,31 +4,50 @@ import { useState, useMemo, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, clearAuth, type UserInfo } from '@/utils/auth'
 import { logout } from '@/api'
 import { useI18n } from '@/i18n'
+import { icon } from '@/constants/remote-icons'
+import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
+import gerenIcon from '@/assets/remote/images/geren-icon.png'
+import shezhiIcon from '@/assets/remote/images/shezhi.png'
+import gonggaoIcon from '@/assets/remote/images/gonggao.png'
+import xianLabelIcon from '@/assets/remote/images/xian_label.png'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
+// 判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径),非图片视为 emoji
+function isImagePath(icon: string): boolean {
+  return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
+}
+
+// 统一渲染 icon:图片路径 → <Image>,emoji → <Text>
+function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
+  if (isImagePath(iconStr)) {
+    return <Image src={iconStr} className={imgClass} mode="aspectFit" />
+  }
+  return <Text className={emojiClass}>{iconStr}</Text>
+}
+
 const quickEntries = [
-  { icon: '📋', key: 'user.menu.orders', path: '/pages/user/orders' },
-  { icon: '⭐', key: 'user.menu.favorites', path: '/pages/favorites/index' },
-  { icon: '👤', key: 'user.menu.following', path: '/pages/following/index' },
-  { icon: '🔔', key: 'user.menu.subscriptions', path: '/pages/subscriptions/index' },
+  { icon: dingdanIcon, key: 'user.menu.orders', path: '/pages/user/orders' },
+  { icon: icon('shoucang'), key: 'user.menu.favorites', path: '/pages/favorites/index' },
+  { icon: gerenIcon, key: 'user.menu.following', path: '/pages/following/index' },
+  { icon: gonggaoIcon, key: 'user.menu.subscriptions', path: '/pages/subscriptions/index' },
 ]
 
 const menus = [
-  { icon: '📚', key: 'user.menu.courses', path: '/pages/course/list' },
-  { icon: '🤖', key: 'user.menu.ai', path: '/pages/ai/chat' },
-  { icon: '⚙️', key: 'user.menu.settings', path: '/pages/user/settings' },
+  { icon: icon('courseIcon'), key: 'user.menu.courses', path: '/pages/course/list' },
+  { icon: icon('aiIcon'), key: 'user.menu.ai', path: '/pages/ai/chat' },
+  { icon: shezhiIcon, key: 'user.menu.settings', path: '/pages/user/settings' },
 ]
 
 // 会员权益项:i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
 const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: string }> = [
-  { icon: '🤖', key: 'user.benefits.exclusiveModel', fallback: '专属模型' },
-  { icon: '💎', key: 'user.benefits.pointsBoost', fallback: '积分加倍' },
-  { icon: '🎧', key: 'user.benefits.prioritySupport', fallback: '优先客服' },
-  { icon: '🏆', key: 'user.benefits.vipZone', fallback: '会员专区' },
-  { icon: '🏷️', key: 'user.benefits.discount', fallback: '折扣优惠' },
-  { icon: '🎉', key: 'user.benefits.exclusiveEvents', fallback: '专属活动' },
+  { icon: icon('aiIcon'), key: 'user.benefits.exclusiveModel', fallback: '专属模型' },
+  { icon: icon('zuan'), key: 'user.benefits.pointsBoost', fallback: '积分加倍' },
+  { icon: icon('addKf'), key: 'user.benefits.prioritySupport', fallback: '优先客服' },
+  { icon: icon('uservipAct'), key: 'user.benefits.vipZone', fallback: '会员专区' },
+  { icon: xianLabelIcon, key: 'user.benefits.discount', fallback: '折扣优惠' },
+  { icon: icon('act'), key: 'user.benefits.exclusiveEvents', fallback: '专属活动' },
 ]
 
 export default function UserIndex() {
@@ -166,11 +185,8 @@ export default function UserIndex() {
         {showBenefits ? (
           <View className="flex flex-wrap px-[8rpx] pb-[16rpx]">
             {membershipBenefits.map((b) => (
-              <View
-                key={b.key}
-                className="w-1/3 flex flex-col items-center py-[16rpx]"
-              >
-                <Text className="text-[44rpx]">{b.icon}</Text>
+              <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
+                {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
                 <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
                   {tf(b.key, b.fallback)}
                 </Text>
@@ -189,7 +205,7 @@ export default function UserIndex() {
               className="flex-1 flex flex-col items-center"
               onClick={() => goPage(entry.path)}
             >
-              <Text className="text-[44rpx]">{entry.icon}</Text>
+              {renderIcon(entry.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
               <Text className="mt-[6rpx] text-[24rpx] text-foreground">{t(entry.key)}</Text>
             </View>
           ))}
@@ -206,7 +222,7 @@ export default function UserIndex() {
             }`}
             onClick={() => goPage(item.path)}
           >
-            <Text className="text-[40rpx]">{item.icon}</Text>
+            {renderIcon(item.icon, 'text-[40rpx]', 'w-[40rpx] h-[40rpx]')}
             <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
             <Text className="text-[26rpx] text-[var(--color-primary)]">{'>'}</Text>
           </View>

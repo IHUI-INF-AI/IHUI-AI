@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -16,6 +17,7 @@ import {
   type HomeProgressItem,
   type HomeRecommendItem,
 } from '@ihui/rn-app'
+import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
@@ -68,6 +70,17 @@ function toProgressItem(items: StudyProgress[]): HomeProgressItem[] {
   }))
 }
 
+/** 顶部轮播:取前 5 条推荐课程,适配 CourseCarouselItem 形状 */
+function toCarouselItems(items: HomeRecommendItem[]): CourseCarouselItem[] {
+  return items.slice(0, 5).map((r) => ({
+    id: r.id,
+    title: r.title,
+    price: r.price,
+    isFree: r.isFree,
+    icon: '📘',
+  }))
+}
+
 export function HomeScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
@@ -103,27 +116,42 @@ export function HomeScreen() {
     void load()
   }, [])
 
-  return (
-    <SharedHomeScreen
-      t={t}
-      userNickname={user?.nickname || user?.phone || ''}
-      connected={connected}
-      unreadCount={unreadCount}
-      recommends={recommends}
-      lives={lives}
-      progress={progress}
-      menuItems={MENU_ITEMS}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRefresh={() => load(true)}
-      onOpenNotifications={() => setVisible(true)}
-      onPressProgress={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
-      onPressLive={(id) => navigation.navigate('LiveDetail', { id })}
-      onPressCourse={(id) => navigation.navigate('CourseDetail', { id })}
-      onPressMenu={(key) => navigation.getParent()?.navigate(key as never)}
-      onNavigateCourses={() => navigation.getParent()?.navigate('CourseTab' as never)}
-      onNavigateLives={() => navigation.getParent()?.navigate('LiveTab' as never)}
-    />
+  const carouselItems = useMemo<CourseCarouselItem[]>(
+    () => toCarouselItems(recommends),
+    [recommends],
   )
+
+  return (
+    <View style={shellStyles.root}>
+      <CourseCarousel
+        courses={carouselItems}
+        onPress={(id) => navigation.navigate('CourseDetail', { id })}
+      />
+      <SharedHomeScreen
+        t={t}
+        userNickname={user?.nickname || user?.phone || ''}
+        connected={connected}
+        unreadCount={unreadCount}
+        recommends={recommends}
+        lives={lives}
+        progress={progress}
+        menuItems={MENU_ITEMS}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={() => load(true)}
+        onOpenNotifications={() => setVisible(true)}
+        onPressProgress={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
+        onPressLive={(id) => navigation.navigate('LiveDetail', { id })}
+        onPressCourse={(id) => navigation.navigate('CourseDetail', { id })}
+        onPressMenu={(key) => navigation.getParent()?.navigate(key as never)}
+        onNavigateCourses={() => navigation.getParent()?.navigate('CourseTab' as never)}
+        onNavigateLives={() => navigation.getParent()?.navigate('LiveTab' as never)}
+      />
+    </View>
+  )
+}
+
+const shellStyles = {
+  root: { flex: 1 } as const,
 }

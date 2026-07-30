@@ -1,5 +1,5 @@
 import { View, Text, Switch } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface NotificationSettingItem {
   key: string
@@ -14,8 +14,7 @@ export interface NotificationSettingsProps {
 }
 
 export default function NotificationSettings({ items = [], onToggle }: NotificationSettingsProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card">
       <View className="px-4 pt-3 pb-2">
