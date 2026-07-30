@@ -100,13 +100,11 @@
     )
     2;
   border-radius: 15rpx;
-  box-shadow: 0px 0px 6rpx 0px rgba(0, 0, 0, 0.3);
 }
 .msg-item.assistant .bubble {
   background: #f6f6f6;
-  border: 1rpx solid #eeeeee;
+  border: 1px solid #eeeeee;
   color: #333333;
-  box-shadow: 0px 0px 6rpx 0px rgba(0, 0, 0, 0.05);
 }
 .bubble-text {
   font-size: 22rpx;
@@ -423,14 +421,14 @@
 /* TTS 朗读按钮(对标原 ai_assistant.vue 朗读,仅 AI 消息) */
 .bubble-speak {
   font-size: 24rpx;
-  color: var(--color-link);
+  color: #1888ee;
   margin-left: 20rpx;
 }
 
 /* 分享按钮(对标原 ai_assistant.vue 分享对话) */
 .bubble-share {
   font-size: 24rpx;
-  color: var(--color-link);
+  color: #1888ee;
   margin-left: 20rpx;
 }
 
@@ -439,7 +437,7 @@
   margin-top: 12rpx;
   padding: 8rpx 16rpx;
   background: var(--color-link-bg);
-  color: var(--color-link);
+  color: #1888ee;
   border-radius: 6rpx;
   font-size: 24rpx;
   display: inline-flex;
@@ -494,7 +492,7 @@
   width: 100%;
   background: #fff;
   border-radius: 30rpx;
-  box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
+  box-shadow: 0 0 20rpx rgba(154, 153, 243, 0.3);
   transition: box-shadow 0.3s ease;
   animation: inputAreaBackAnimation 2s linear infinite;
   box-sizing: border-box;
@@ -502,10 +500,10 @@
 @keyframes inputAreaBackAnimation {
   0%,
   100% {
-    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
+    box-shadow: 0 0 20rpx rgba(154, 153, 243, 0.3);
   }
   50% {
-    box-shadow: 0px 2rpx 16rpx -8rpx rgba(90, 87, 255, 0.5);
+    box-shadow: 0 0 30rpx rgba(154, 153, 243, 0.6);
   }
 }
 
@@ -564,7 +562,7 @@
   transition: transform 0.5s ease;
 }
 .rotate-icon {
-  transform: rotate(45deg);
+  transform: rotate(225deg);
   transition: transform 0.5s ease;
 }
 
@@ -647,7 +645,7 @@
 .voice-bar-animation .line {
   width: 6rpx;
   height: 6rpx;
-  background-color: #5a57ff;
+  background-color: #000;
   border-radius: 5rpx;
   animation: voiceMove 0.75s linear infinite alternate;
 }
@@ -743,10 +741,12 @@
 }
 @keyframes voiceMove {
   0% {
-    transform: scaleY(0.1);
+    top: 0;
+    height: 65rpx;
   }
   100% {
-    transform: scaleY(2.5);
+    top: 15rpx;
+    height: 25rpx;
   }
 }
 
@@ -765,12 +765,12 @@
   height: 100%;
   border-radius: 18rpx;
   background: linear-gradient(
-    90deg,
-    #8b0bff 0%,
-    #fff200 25%,
-    #c0c6ff 50%,
+    214deg,
+    #8b0bff 3%,
+    #fff200 30%,
+    #ff0000 55%,
     #fff200 75%,
-    #9014ff 100%
+    #9014ff 96%
   );
   background-size: 200% 100%;
   animation: progressAnimation 2s linear infinite;
@@ -796,8 +796,11 @@
   0% {
     background-position: 0% 50%;
   }
+  50% {
+    background-position: 100% 50%;
+  }
   100% {
-    background-position: 200% 50%;
+    background-position: 0% 50%;
   }
 }
 
@@ -871,7 +874,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #9a99f3;
+  background: linear-gradient(275deg, #9a99f3 0%, #ffffff 50%, #9a99f3 100%);
   animation: agentBackRotate 5s linear infinite;
   z-index: 0;
 }
@@ -907,13 +910,10 @@
 }
 @keyframes agentBackRotate {
   0% {
-    background-color: #9a99f3;
-  }
-  50% {
-    background-color: #ffffff;
+    transform: rotate(0deg);
   }
   100% {
-    background-color: #9a99f3;
+    transform: rotate(360deg);
   }
 }
 
