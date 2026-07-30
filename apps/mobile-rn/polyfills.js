@@ -16,10 +16,14 @@ if (typeof global.window === 'undefined') {
 // stub 仅作为 fallback 兜底(pnpm junction 异常导致 Metro 默认解析失败时)。
 if (typeof global.document === 'undefined') {
   const _classList = {
-    contains: function () { return false },
+    contains: function () {
+      return false
+    },
     add: function () {},
     remove: function () {},
-    toggle: function () { return false },
+    toggle: function () {
+      return false
+    },
   }
   global.document = {
     documentElement: {
@@ -28,7 +32,9 @@ if (typeof global.document === 'undefined') {
     },
     head: { appendChild: function () {} },
     body: { appendChild: function () {} },
-    getElementsByTagName: function () { return [{ appendChild: function () {} }] },
+    getElementsByTagName: function () {
+      return [{ appendChild: function () {} }]
+    },
     createElement: function () {
       return {
         style: {},
@@ -37,8 +43,12 @@ if (typeof global.document === 'undefined') {
         classList: _classList,
       }
     },
-    querySelector: function () { return null },
-    querySelectorAll: function () { return [] },
+    querySelector: function () {
+      return null
+    },
+    querySelectorAll: function () {
+      return []
+    },
     addEventListener: function () {},
     removeEventListener: function () {},
   }
@@ -46,7 +56,9 @@ if (typeof global.document === 'undefined') {
 if (typeof global.window.getComputedStyle === 'undefined') {
   global.window.getComputedStyle = function () {
     return {
-      getPropertyValue: function () { return '' },
+      getPropertyValue: function () {
+        return ''
+      },
       fontSize: '16px',
     }
   }
@@ -62,7 +74,9 @@ if (typeof global.window.matchMedia === 'undefined') {
 // 用 Date.now() 提供毫秒级时间戳(足够 RN 运行时使用)。
 if (typeof global.performance === 'undefined') {
   global.performance = {
-    now: function () { return Date.now() },
+    now: function () {
+      return Date.now()
+    },
   }
 }
 
@@ -71,8 +85,12 @@ if (typeof global.performance === 'undefined') {
 if (typeof global.FormData === 'undefined') {
   global.FormData = function FormData() {
     this._data = {}
-    this.append = function (k, v) { this._data[k] = v }
-    this.get = function (k) { return this._data[k] }
+    this.append = function (k, v) {
+      this._data[k] = v
+    }
+    this.get = function (k) {
+      return this._data[k]
+    }
   }
 }
 if (typeof global.XMLHttpRequest === 'undefined') {
@@ -89,14 +107,19 @@ if (typeof global.FileReader === 'undefined') {
 }
 if (typeof global.URLSearchParams === 'undefined') {
   global.URLSearchParams = function URLSearchParams() {
-    this.get = function () { return null }
-    this.toString = function () { return '' }
+    this.get = function () {
+      return null
+    }
+    this.toString = function () {
+      return ''
+    }
   }
 }
 if (typeof global.setImmediate === 'undefined') {
-  global.setImmediate = function (fn) {
-    var args = Array.prototype.slice.call(arguments, 1)
-    return setTimeout(function () { fn.apply(null, args) }, 0)
+  global.setImmediate = function (fn, ...args) {
+    return setTimeout(() => fn(...args), 0)
   }
-  global.clearImmediate = function (id) { clearTimeout(id) }
+  global.clearImmediate = function (id) {
+    clearTimeout(id)
+  }
 }

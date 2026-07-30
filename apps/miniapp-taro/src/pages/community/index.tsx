@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getCircleList } from '@/api'
 import { useI18n } from '@/i18n'
+import { aizhsUrl, bspappUrl } from '@/constants/icon-urls'
 // 8 类模型切换背景图 + 箭头(Vite 编译时内联为 base64,对标原项目 ai_index.vue)
 import activeBackSvg from '@/static/images/add/active_back.svg'
 import backDefaultSvg from '@/static/images/add/back_default.svg'
@@ -48,12 +49,28 @@ const modelTypes: ModelTypeConfig[] = [
   { type: 'sck', label: '创作', icon: sckIcon, path: '/pages/ai/agent' },
 ]
 
-// 快捷入口
+// 快捷入口(图标引用原项目远程图库:aizhs.top / bspapp.com)
 const quickEntries = [
-  { icon: '📝', key: 'community.quickEntries.myCreation', path: '/pages/aigc/list' },
-  { icon: '🎨', key: 'community.quickEntries.aigcWorks', path: '/pages/aigc/publish' },
-  { icon: '🏆', key: 'community.quickEntries.ranking', path: '/pages/ranking/index' },
-  { icon: '👥', key: 'community.quickEntries.aiTeam', path: '/pages/ai-group/index' },
+  {
+    icon: aizhsUrl('sys-mini/penicon.png'),
+    key: 'community.quickEntries.myCreation',
+    path: '/pages/aigc/list',
+  },
+  {
+    icon: aizhsUrl('sys-mini/xtk/aiWork.png'),
+    key: 'community.quickEntries.aigcWorks',
+    path: '/pages/aigc/publish',
+  },
+  {
+    icon: bspappUrl('tabbar/home/zhongxia/king.png'),
+    key: 'community.quickEntries.ranking',
+    path: '/pages/ranking/index',
+  },
+  {
+    icon: aizhsUrl('sys-mini/tuandui-icon.png'),
+    key: 'community.quickEntries.aiTeam',
+    path: '/pages/ai-group/index',
+  },
 ]
 
 interface CircleItem {
@@ -258,7 +275,7 @@ export default function Community() {
               className="flex-1 flex flex-col items-center py-[16rpx]"
               onClick={() => goPage(entry.path)}
             >
-              <Text className="text-[44rpx]">{entry.icon}</Text>
+              <Image src={entry.icon} className="w-[44rpx] h-[44rpx]" mode="aspectFit" />
               <Text className="mt-[6rpx] text-[22rpx] text-foreground">{t(entry.key)}</Text>
             </View>
           ))}
@@ -306,9 +323,14 @@ export default function Community() {
                 </Text>
               ) : null}
               {item.likeCount ? (
-                <Text className="block mt-[12rpx] text-[22rpx] text-[var(--color-primary)]">
-                  ♥ {item.likeCount}
-                </Text>
+                <View className="flex items-center gap-[6rpx] mt-[12rpx]">
+                  <Image
+                    src={bspappUrl('tabbar/home/xia/Like.png')}
+                    className="w-[24rpx] h-[24rpx]"
+                    mode="aspectFit"
+                  />
+                  <Text className="text-[22rpx] text-[var(--color-primary)]">{item.likeCount}</Text>
+                </View>
               ) : null}
             </View>
           ))
