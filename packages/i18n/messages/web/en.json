@@ -1,4 +1,4 @@
-{
+﻿{
   "skills": {
     "market": {
       "title": "Skill Market",
@@ -5943,6 +5943,23 @@
       "lastVerified": "Last Verified",
       "noAccounts": "No accounts yet, please add one first",
       "credentialsHint": "Credentials JSON (platform-specific: token/cookie/appId+secret)"
+      "scanLogin": "Scan Login",
+      "scanLoginTitle": "Scan to Login",
+      "scanLoginDescription": "Select a platform. The backend opens the platform login page and captures a QR code. Scan with the app to auto-save cookies.",
+      "scanLoginHint": "Auto-fetch and save login credentials via QR scan",
+      "scan": "Scan",
+      "selectPlatform": "Select platform",
+      "startScanLogin": "Start Scan Login",
+      "scanLoginQrAlt": "Login QR code",
+      "scanLoginSuccess": "Scan login successful",
+      "scanLoginSucceeded": "Login successful, saved to account",
+      "scanLoginFailed": "Scan login failed",
+      "scanLoginTimeout": "Scan timeout, please retry",
+      "cancelScan": "Cancel scan",
+      "minimize": "Minimize (keep waiting in background)",
+      "taskId": "Task",
+      "cookiesSaved": "{count} cookies saved",
+      "waitingForScan": "Waiting for {platform} app to scan..."
     },
     "new": {
       "title": "New Publish Task",
