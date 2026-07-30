@@ -18,10 +18,20 @@ import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 
-import { Button, Card, CardContent } from '@ihui/ui-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
-import { KeyRound, Loader2, PackagePlus, ShieldCheck, Sparkles, Upload, Wand2 } from 'lucide-react'
+import { BookOpen, KeyRound, Loader2, PackagePlus, ShieldCheck, Sparkles, Upload, Wand2 } from 'lucide-react'
 
 import { GroupSidebar } from './GroupSidebar'
 import { ProviderCardV2 } from './ProviderCardV2'
@@ -61,6 +71,33 @@ export default function UserLlmConfigsPage() {
     prov: UserLlmProvider
     m: UserLlmModel
   } | null>(null)
+
+  // BYOK 模式 onboarding:仅首次访问弹出(localStorage 标记)
+  // hydration 安全:初始 false,mounted 后读取 localStorage 决定是否显示
+  const BYOK_ONBOARDING_KEY = 'ihui-byok-onboarding-dismissed'
+  const [mounted, setMounted] = React.useState(false)
+  const [showOnboarding, setShowOnboarding] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+    if (typeof window !== 'undefined' && !localStorage.getItem(BYOK_ONBOARDING_KEY)) {
+      setShowOnboarding(true)
+    }
+  }, [BYOK_ONBOARDING_KEY])
+
+  function dismissOnboarding() {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(BYOK_ONBOARDING_KEY, '1')
+    }
+    setShowOnboarding(false)
+  }
+
+  function reopenOnboarding() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(BYOK_ONBOARDING_KEY)
+    }
+    setShowOnboarding(true)
+  }
 
   // 加载模板
   const { data: tplData } = useQuery({
@@ -198,11 +235,22 @@ export default function UserLlmConfigsPage() {
       {/* BYOK 模式提示 */}
       <div className="flex items-start gap-2 rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
-        <p>
+        <p className="flex-1">
           <span className="font-medium text-foreground">BYOK 模式</span>
           :你配置的 API Key 加密存储(AES-256-GCM),调用时直接使用你的 Key 访问大厂。平台只收 5-20%
           服务费,Cloudflare / GitHub Models / HuggingFace 等免费 provider 不收费。
         </p>
+        {mounted && (
+          <Button
+            onClick={reopenOnboarding}
+            size="sm"
+            variant="ghost"
+            className="h-7 shrink-0 px-2 text-xs"
+          >
+            <BookOpen className="mr-1 h-3.5 w-3.5" />
+            查看引导
+          </Button>
+        )}
       </div>
 
       {/* Two-column layout */}
@@ -341,6 +389,90 @@ export default function UserLlmConfigsPage() {
         onClose={() => setCopySource(null)}
         onSaved={refreshAll}
       />
+
+      {/* BYOK 模式 onboarding:首次访问引导 */}
+      <Dialog open={mounted && showOnboarding} onOpenChange={(o) => !o && dismissOnboarding()}>
+        <DialogContent className="max-w-lg gap-0 p-0 sm:rounded-lg">
+          <DialogHeader className="space-y-2 border-b p-4">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+              欢迎使用 BYOK 平台模式
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              自带 API Key 调用大厂模型,平台仅收 5-20% 服务费
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto p-4 text-sm">
+            {/* 价值说明 */}
+            <section className="space-y-1.5">
+              <p className="font-medium text-foreground">为什么选择 BYOK?</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                BYOK(Bring Your Own Key)让你自带大厂 API Key 调用模型,大厂直接扣你的账户,平台只收
+                5-20% 服务费。相比传统中转站,你无需付中间商加价。
+              </p>
+            </section>
+
+            {/* 免费 provider 推荐 */}
+            <section className="space-y-2">
+              <p className="font-medium text-foreground">免费 Provider 推荐</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Card className="rounded-md">
+                  <CardContent className="space-y-0.5 p-3">
+                    <p className="text-xs font-medium">Cloudflare Workers AI</p>
+                    <p className="text-[11px] text-muted-foreground">@cf/ · 免费,无需 API Key</p>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-md">
+                  <CardContent className="space-y-0.5 p-3">
+                    <p className="text-xs font-medium">GitHub Models</p>
+                    <p className="text-[11px] text-muted-foreground">github/ · 免费,用 GitHub token</p>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-md">
+                  <CardContent className="space-y-0.5 p-3">
+                    <p className="text-xs font-medium">HuggingFace</p>
+                    <p className="text-[11px] text-muted-foreground">huggingface/ · 免费,用 HF token</p>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-md">
+                  <CardContent className="space-y-0.5 p-3">
+                    <p className="text-xs font-medium">Pollinations</p>
+                    <p className="text-[11px] text-muted-foreground">pollinations/ · 免费,无需 API Key</p>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-md sm:col-span-2">
+                  <CardContent className="space-y-0.5 p-3">
+                    <p className="text-xs font-medium">LLM7</p>
+                    <p className="text-[11px] text-muted-foreground">llm7/ · 免费,无需 API Key</p>
+                  </CardContent>
+                </Card>
+              </div>
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-500">
+                以上免费 provider 平台完全不收费(0 服务费)
+              </p>
+            </section>
+
+            {/* 操作步骤 */}
+            <section className="space-y-2">
+              <p className="font-medium text-foreground">操作步骤</p>
+              <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
+                <li>点击左侧「添加 Provider」按钮</li>
+                <li>选择厂商(如 OpenAI / DeepSeek / 智谱)或免费 provider(如 cloudflare)</li>
+                <li>填入你的 API Key(AES-256-GCM 加密存储,平台无法看到明文)</li>
+                <li>添加你要用的模型</li>
+                <li>调用时系统自动优先使用你的 Key</li>
+              </ol>
+            </section>
+          </div>
+
+          <DialogFooter className="border-t p-4">
+            <Button onClick={dismissOnboarding} size="sm" className="w-full sm:w-auto">
+              知道了
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Container>
   )
 }
