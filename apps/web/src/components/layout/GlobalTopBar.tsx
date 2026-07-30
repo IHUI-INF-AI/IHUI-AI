@@ -87,11 +87,14 @@ const PLUS_MENU_GROUPS: Array<{
   {
     titleKey: 'groupTools',
     items: [
-      { key: 'editor', icon: Code2, href: '/workspace', setIdeTab: 'editor' },
-      { key: 'terminal', icon: Terminal, href: '/workspace', setIdeTab: 'terminal' },
-      { key: 'codeChanges', icon: GitCompare, href: '/workspace', setIdeTab: 'code-changes' },
-      { key: 'agent', icon: Bot, href: '/workspace', setIdeTab: 'agent' },
-      { key: 'mcp', icon: Plug, href: '/workspace', setIdeTab: 'mcp' },
+      // 2026-07-31 修复路由断裂:原 href:'/workspace'(项目列表页,不渲染 IDELayout)
+      // → 改为 '/developer/ide'(真正渲染 IDELayout 的路由,app/(main)/developer/ide/page.tsx)
+      // 否则 setIdeTab 设置的 store 状态无人消费,5 项点击后只看到项目列表
+      { key: 'editor', icon: Code2, href: '/developer/ide', setIdeTab: 'editor' },
+      { key: 'terminal', icon: Terminal, href: '/developer/ide', setIdeTab: 'terminal' },
+      { key: 'codeChanges', icon: GitCompare, href: '/developer/ide', setIdeTab: 'code-changes' },
+      { key: 'agent', icon: Bot, href: '/developer/ide', setIdeTab: 'agent' },
+      { key: 'mcp', icon: Plug, href: '/developer/ide', setIdeTab: 'mcp' },
     ],
   },
   {
