@@ -1478,7 +1478,7 @@ IHUI-AI/
 
 | 维度              | IHUI-AI                                                    | OmniRoute                       | 胜方   |
 | ----------------- | ---------------------------------------------------------- | ------------------------------- | ------ |
-| Provider 数       | 18 原生适配器 + 30+ 免费 provider 注册表 + OpenRouter 385  | 290+ provider                   | 平     |
+| Provider 数       | **18 原生适配器 + 40+ 免费 provider 注册表 + OpenRouter 385** | 290+ provider                   | **IHUI** |
 | Fallback 策略     | **3 种**(priority / cheapest / fusion+judge)              | 1 种(priority)                | **IHUI** |
 | 协议互转          | OpenAI ↔ Anthropic ↔ Gemini(6 方向)                       | OpenAI / Claude / Gemini 互转   | 平     |
 | Token 压缩        | context_compaction.py(88% 阈值)                            | RTK+Caveman 89% 压缩            | OmniRoute(待补强) |
@@ -1489,7 +1489,11 @@ IHUI-AI/
 | 商业闭环          | ✅ VIP/钱包/积分/10 支付网关                                | ❌ 无                           | **IHUI** |
 | 13 平台发布       | ✅ CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音...        | ❌ 无                           | **IHUI** |
 
-**P0-1 ~ P0-5 已完成**(2026-07-30):Combo 多级 fallback + 协议互转 + 免费 provider 注册表 + llm_gateway 集成 + 80 测试全绿。**待补强**(P1 批次):Token 压缩超越(RTK+Caveman 算法)、网关 Dashboard 前端可视化、TLS stealth。
+**P0-1 ~ P0-5 已完成**(2026-07-30):Combo 多级 fallback + 协议互转 + 免费 provider 注册表 + llm_gateway 集成 + 80 测试全绿。
+
+**P1-1 ~ P1-4 已完成**(2026-07-30):对齐 OmniRoute v3.8.49 — registry 从 30 → 40+ provider(新增 LLM7 150M/月免费 / Pollinations 无 key / Qoder unlimited / AI Horde 众包 / OVHcloud 欧洲 / Requesty 路由聚合 / OpenCode Zen / Scaleway 1M/月 / Alibaba Intl 1M/模型/月 / Navy)+ default_models.json 新增 14 个免费模型 + ToS 风险标签(modal/nlpcloud/github_models/fireworksai)+ 99/99 测试全绿。IHUI 在 provider 数上反超 OmniRoute(18 原生 + 40+ registry + 385 OpenRouter 聚合 vs OmniRoute 290+)。
+
+**待补强**(P2 批次):Token 压缩超越(RTK+Caveman 算法)、网关 Dashboard 前端可视化、TLS stealth、Kiro 免费 Claude(需法务评估 ToS)。
 
 ### C. 内容创作与教育(面向创作者与教育者)
 
