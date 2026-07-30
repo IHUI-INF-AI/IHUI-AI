@@ -38,20 +38,50 @@ export function AgreementCheckbox({
   className,
 }: AgreementCheckboxProps) {
   return (
-    <label className={cn('group flex cursor-pointer items-start gap-2 select-none', className)}>
-      <span
-        onMouseDown={(e) => {
-          // 阻止 mousedown 默认行为,避免 label 把焦点转移给隐藏的 <input type="checkbox">。
-          // 根因:鼠标点击时浏览器默认会 focus label 的关联控件(本组件是 sr-only input),
-          //      焦点落在 input 后,用户按 Enter 触发的是 input 的 native toggle(取消勾选),
-          //      而不是 form submit,导致"按 Enter 没触发登录"。
-          // 阻止焦点转移后,焦点停留在上一个 input(如密码框),按 Enter 走 form 隐式 submit。
-          e.preventDefault()
-        }}
-        onClick={(e) => {
+    // 注意:此处用 <label> 作为视觉容器但**不关联任何 <input>**。
+    // 原因:之前用 <label> 包裹 <span role="checkbox"> + sr-only <input> 模式时,
+    // 浏览器在 click 后会通过 label 的 default 行为把焦点转移给 hidden input,
+    // 导致用户在密码框外按 Enter 触发的是 input 的 native toggle(取消勾选),
+    // 而不是 form submit。
+    // 现在让 <label> 自身充当 checkbox(无 labeled control,label 没有 default 行为):
+    //   - click label:不转移焦点(label 没有 associated control,label 的 default 行为是 focus/click input,此处不适用)
+    //   - Enter on label:onKeyDown 触发 form.requestSubmit() 走 form submit
+    //   - a11y:role="checkbox" + aria-checked + tabIndex={0} 由 label 直接提供
+    // 配套:内嵌 <a> 链接用 e.stopPropagation() 阻止冒泡到 label.onClick,
+    //      避免点击链接时 toggle 复选框。
+    <label
+      role="checkbox"
+      tabIndex={0}
+      aria-checked={checked}
+      data-testid="agreement-checkbox"
+      onClick={(e) => {
+        // 阻止内部 <a> 链接冒泡(链接自带 onClick stopPropagation,
+        // 这里防御性再处理一次,避免第三方代码改动打破隔离)
+        if ((e.target as HTMLElement).closest('a')) return
+        e.preventDefault()
+        onChange(!checked)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === ' ') {
+          // Space:标准 checkbox 切换行为
           e.preventDefault()
           onChange(!checked)
-        }}
+        } else if (e.key === 'Enter') {
+          // Enter:提交所在表单(等于点击登录按钮),不 toggle 复选框。
+          // 这是用户期望的核心交互:账号/密码填完 + 勾选协议 + Enter 等同点击「登录」按钮。
+          e.preventDefault()
+          const form = e.currentTarget.closest('form')
+          if (form instanceof HTMLFormElement) form.requestSubmit()
+        }
+      }}
+      className={cn(
+        'group flex cursor-pointer items-start gap-2 select-none rounded-sm outline-none',
+        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        className,
+      )}
+    >
+      <span
+        aria-hidden="true"
         className={cn(
           'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
           error
@@ -60,44 +90,9 @@ export function AgreementCheckbox({
               ? 'border-primary bg-primary text-primary-foreground'
               : 'border-input bg-background group-hover:border-foreground/60',
         )}
-        aria-checked={checked}
-        role="checkbox"
-        tabIndex={0}
-        data-testid="agreement-checkbox"
-        onKeyDown={(e) => {
-          if (e.key === ' ') {
-            // Space:标准 checkbox 切换行为
-            e.preventDefault()
-            onChange(!checked)
-          } else if (e.key === 'Enter') {
-            // Enter:提交所在表单(等于点击登录按钮),不 toggle 复选框。
-            // 修复:此前 Enter 会 preventDefault + toggle,导致鼠标勾选协议后焦点
-            // 落在 checkbox 上,再按 Enter 反而取消勾选且不触发登录提交。
-            e.preventDefault()
-            const form = e.currentTarget.closest('form')
-            if (form instanceof HTMLFormElement) form.requestSubmit()
-          }
-        }}
       >
         {checked && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}
       </span>
-      <input
-        type="checkbox"
-        className="sr-only"
-        tabIndex={-1}
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        aria-hidden="true"
-        onKeyDown={(e) => {
-          // 兜底:即便 focus 因任何原因(屏幕阅读器 / 旧浏览器 quirk)落在 sr-only input 上,
-          // Enter 也走 form.requestSubmit 而不是 native toggle 把勾选取消。
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            const form = e.currentTarget.closest('form')
-            if (form instanceof HTMLFormElement) form.requestSubmit()
-          }
-        }}
-      />
       <span className="text-xs leading-5 text-muted-foreground">
         {t('auth.agreePrefix')}
         <a
