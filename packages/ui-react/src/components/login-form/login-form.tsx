@@ -14,6 +14,13 @@ import { ThirdPartyLoginButtons } from './third-party-login-buttons'
 import type { LoginFormProps, LoginTab } from './types'
 
 /**
+ * 登录方式 Tab 选中态背景(2026-07-30 立,用户要求)
+ * 亮色模式纯白 / 暗色模式纯黑,覆盖 TabsTrigger 默认的 bg-background(浅灰/深灰)。
+ * 仅作用于登录场景的 TabsTrigger,不影响其他 Tabs。
+ */
+const loginTabActiveClassName = 'data-[state=active]:bg-white dark:data-[state=active]:bg-black'
+
+/**
  * 共享 LoginForm 组件(2026-07-26 立)
  *
  * 单一来源(single source of truth):web 端 LoginFormContent 和扩展端
@@ -132,22 +139,34 @@ export function LoginForm(props: LoginFormProps) {
       <Tabs value={tab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-4">
           {enabledTabs.includes('email') && (
-            <TabsTrigger value="email" data-testid="login-tab-email">
+            <TabsTrigger
+              value="email"
+              data-testid="login-tab-email"
+              className={loginTabActiveClassName}
+            >
               {t('auth.emailLogin')}
             </TabsTrigger>
           )}
           {enabledTabs.includes('phone') && (
-            <TabsTrigger value="phone" data-testid="login-tab-phone">
+            <TabsTrigger
+              value="phone"
+              data-testid="login-tab-phone"
+              className={loginTabActiveClassName}
+            >
               {t('auth.phoneCodeLogin')}
             </TabsTrigger>
           )}
           {enabledTabs.includes('password') && (
-            <TabsTrigger value="password" data-testid="login-tab-password">
+            <TabsTrigger
+              value="password"
+              data-testid="login-tab-password"
+              className={loginTabActiveClassName}
+            >
               {t('auth.passwordLogin')}
             </TabsTrigger>
           )}
           {enabledTabs.includes('qr') && (
-            <TabsTrigger value="qr" data-testid="login-tab-qr">
+            <TabsTrigger value="qr" data-testid="login-tab-qr" className={loginTabActiveClassName}>
               {t('auth.qrLogin')}
             </TabsTrigger>
           )}
