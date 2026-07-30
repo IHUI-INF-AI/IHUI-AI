@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Alert } from 'react-native'
+import { Alert, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -7,6 +7,7 @@ import {
   DistributionScreen as SharedDistributionScreen,
   type DistributionInfo,
 } from '@ihui/rn-app'
+import EarningsStatisticsCard from '../components/EarningsStatisticsCard'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -68,16 +69,33 @@ export function DistributionScreen() {
   }
 
   return (
-    <SharedDistributionScreen
-      t={t}
-      info={info}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      withdrawing={withdrawing}
-      onRefresh={() => void load(true)}
-      onWithdraw={handleWithdraw}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={shellStyles.root}>
+      <View style={shellStyles.statsWrap}>
+        <EarningsStatisticsCard
+          label="分销收益概览"
+          title={info?.totalEarnings ?? 0}
+          todayAmount={info?.pending ?? 0}
+          monthAmount={info?.withdrawn ?? 0}
+          totalAmount={info?.totalEarnings ?? 0}
+          trend={info ? { direction: 'up', percent: 12.5 } : undefined}
+        />
+      </View>
+      <SharedDistributionScreen
+        t={t}
+        info={info}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        withdrawing={withdrawing}
+        onRefresh={() => void load(true)}
+        onWithdraw={handleWithdraw}
+        onBack={() => navigation.goBack()}
+      />
+    </View>
   )
+}
+
+const shellStyles = {
+  root: { flex: 1 } as const,
+  statsWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 } as const,
 }
