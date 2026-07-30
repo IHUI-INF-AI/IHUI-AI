@@ -2,12 +2,13 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Calculator, FileText, Info } from 'lucide-react'
+import { Calculator, FileText, Gift, Info } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui-react'
 
 export function BillingRules(): React.JSX.Element {
   const t = useTranslations('developerPricingPage')
+  const tByok = useTranslations('byokGuide')
 
   return (
     <Card>
@@ -92,6 +93,17 @@ export function BillingRules(): React.JSX.Element {
             <p>{t('noteRegion')}</p>
             <p>{t('noteSettlement')}</p>
             <p>{t('noteRound')}</p>
+          </div>
+        </div>
+
+        {/* 免费模型不收费说明(BYOK) */}
+        <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
+          <Gift className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p className="font-medium text-emerald-700 dark:text-emerald-400">
+              {tByok('freeNoteTitle')}
+            </p>
+            <p>{tByok('freeNoteDesc')}</p>
           </div>
         </div>
       </CardContent>
