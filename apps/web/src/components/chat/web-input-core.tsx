@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { Brush } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -54,15 +55,14 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     placeholder,
     onTextChange,
     onSend,
+    onClear,
     error,
     onChange,
     onKeyDown,
     onPaste,
-    // 2026-07-29 简化:以下 props 在 web 端不再使用(发送/停止/清除按钮已挪到外层 toolbar),
+    isStreaming,
+    // 2026-07-29 简化:sendLabel/stopLabel 在 web 端不再使用(发送/停止按钮已挪到外层 toolbar),
     // 保留在 props 契约里是为了和 packages/types SharedMessageInputProps 对齐(rn/taro 端仍用)。
-    isStreaming: _isStreaming,
-    onStop: _onStop,
-    onClear: _onClear,
     t: _t,
     sendLabel: _sendLabel,
     stopLabel: _stopLabel,
@@ -83,10 +83,10 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     }),
     [resize],
   )
-  // 发送/停止/清除按钮已挪到外层 MessageInput 底部 toolbar 与其他动作按钮同行(2026-07-29 用户规则),
-  // 本组件只负责 textarea + 字符计数;onSend/onStop/onClear 仍由 props 透传供 Enter 触发等场景使用。
+  // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,改成 Brush 图标,
+  // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
   return (
-    <div className="relative px-3 pt-2 pb-2">
+    <div className="group relative px-3 pt-2 pb-2">
       <textarea
         ref={innerRef}
         value={text}
@@ -114,6 +114,27 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           'pb-6',
         )}
       />
+      {/* 清除按钮:仅 hover textarea 容器时显示,有内容时渲染,
+          流式时禁用(不与 Stop 按钮冲突,流式时清空草稿语义模糊)。
+          位置:textarea 右上角 absolute,不挡字符计数(字符计数在 bottom-2)。 */}
+      {text.length > 0 && (
+        <button
+          type="button"
+          aria-label="清除输入"
+          title="清除输入"
+          onClick={onClear}
+          disabled={isStreaming}
+          className={cn(
+            'absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md',
+            'text-muted-foreground transition-opacity',
+            'opacity-0 hover:bg-accent hover:text-accent-foreground',
+            'group-hover:opacity-100 focus-visible:opacity-100',
+            'disabled:pointer-events-none',
+          )}
+        >
+          <Brush className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      )}
       <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center">
         <span
           aria-live="polite"
