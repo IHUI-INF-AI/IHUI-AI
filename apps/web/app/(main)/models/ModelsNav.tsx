@@ -1,10 +1,12 @@
+'use client'
+
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { useTranslations } from 'next-intl'
 import { Layers } from 'lucide-react'
 
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { cn } from '@/lib/utils'
-import { PROVIDER_GROUPS, PROVIDER_KEY } from './helpers'
+import { PROVIDER_GROUPS, PROVIDER_LABEL, PROVIDER_GROUP_LABEL } from './helpers'
 import type { Provider, ProviderGroup } from './types'
 
 interface Props {
@@ -20,15 +22,6 @@ const GROUP_ORDER: ProviderGroup[] = [
   'local',
 ]
 
-const PROVIDER_GROUP_KEYS: Record<ProviderGroup, string> = {
-  international: 'providerGroups.international',
-  domestic: 'providerGroups.domestic',
-  inference: 'providerGroups.inference',
-  cloud: 'providerGroups.cloud',
-  aggregator: 'providerGroups.aggregator',
-  local: 'providerGroups.local',
-}
-
 /**
  * 模型市场厂商 nav:
  * - 紧凑 pill 风格(对齐 FilterChip)+ BrandIcon(厂商真实矢量 SVG)
@@ -38,14 +31,11 @@ const PROVIDER_GROUP_KEYS: Record<ProviderGroup, string> = {
  * - 顶层"全部"独立一行(Layers icon),与分组厂商视觉区分
  * - 整体容器:bg-muted/30 浅灰底,subtle 容器边界,符合"不要单边 border 分割线"规则
  */
-export async function ModelsNav({ active }: Props) {
-  const t = await getTranslations('models')
+export function ModelsNav({ active }: Props) {
+  const t = useTranslations('models')
 
   return (
-    <nav
-      aria-label={t('navAriaLabel')}
-      className="flex flex-col gap-3 rounded-lg bg-muted/30 p-3"
-    >
+    <nav aria-label={t('navAriaLabel')} className="flex flex-col gap-3 rounded-lg bg-muted/30 p-3">
       {/* 顶部"全部"速选 */}
       <div className="flex flex-wrap items-center gap-1.5">
         <ProviderPill
@@ -66,13 +56,13 @@ export async function ModelsNav({ active }: Props) {
               className="mr-1 inline-flex h-7 items-center rounded-md bg-background/60 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
               data-group-label={groupKey}
             >
-              {t(PROVIDER_GROUP_KEYS[groupKey]!)}
+              {PROVIDER_GROUP_LABEL[groupKey]}
             </span>
             {group.providers.map((p) => (
               <ProviderPill
                 key={p}
                 href={`/models?provider=${p}`}
-                label={t(PROVIDER_KEY[p] ?? 'providers.unknown')}
+                label={PROVIDER_LABEL[p] ?? '其他'}
                 icon={<BrandIcon vendor={p} size={14} />}
                 active={active === p}
               />

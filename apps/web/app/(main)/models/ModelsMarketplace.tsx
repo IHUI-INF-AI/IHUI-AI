@@ -41,7 +41,13 @@ import { cn } from '@/lib/utils'
 
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { QuickKeyDialog } from './QuickKeyDialog'
-import { getFavoriteModelIds, toggleFavoriteModel, PROVIDER_KEY, SORT_KEY, QUICK_FILTER_KEY } from './helpers'
+import {
+  getFavoriteModelIds,
+  toggleFavoriteModel,
+  PROVIDER_LABEL,
+  SORT_KEY,
+  QUICK_FILTER_KEY,
+} from './helpers'
 import type { Model, QuickFilter, SortKey, ViewMode } from './types'
 
 interface Props {
@@ -189,7 +195,7 @@ export function ModelsMarketplace({ list }: Props) {
         m.name.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
         m.provider.toLowerCase().includes(q) ||
-        t(PROVIDER_KEY[m.provider] ?? 'providers.unknown').toLowerCase().includes(q) ||
+        (PROVIDER_LABEL[m.provider] ?? '其他').toLowerCase().includes(q) ||
         m.features.some((f) => f.toLowerCase().includes(q))
       const matchFilter = matchesQuickFilter(m, quickFilter)
       return matchQuery && matchFilter
@@ -528,7 +534,7 @@ function ModelCardGrid({
 }) {
   const t = useTranslations('models')
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
-  const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
+  const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
   return (
@@ -736,7 +742,7 @@ function ModelCardList({
   onRelayKeys: () => void
 }) {
   const t = useTranslations('models')
-  const vendorLabel = t(PROVIDER_KEY[model.provider] ?? 'providers.unknown')
+  const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
 
   return (
     <Card
@@ -875,7 +881,9 @@ function FavoriteStar({
   return (
     <button
       type="button"
-      aria-label={isFavorite ? t('market.ariaLabel.removeFavorite') : t('market.ariaLabel.addFavorite')}
+      aria-label={
+        isFavorite ? t('market.ariaLabel.removeFavorite') : t('market.ariaLabel.addFavorite')
+      }
       onClick={onClick}
       className={cn(
         'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent',
@@ -947,11 +955,7 @@ function ConfiguredBadge({
     }
     return (
       <Tooltip content={t('market.configureKey')}>
-        <button
-          type="button"
-          className={baseCls}
-          onClick={onConfigure}
-        >
+        <button type="button" className={baseCls} onClick={onConfigure}>
           <TriangleAlert className="h-2.5 w-2.5" />
           {t('quickKey.notConfigured')}
         </button>
@@ -997,7 +1001,8 @@ function RelayBadge({
   variant?: 'badge' | 'tag'
 }) {
   const t = useTranslations('models')
-  const hasMultiplier = typeof multiplier === 'number' && multiplier > 0 && Math.abs(multiplier - 1) > 0.001
+  const hasMultiplier =
+    typeof multiplier === 'number' && multiplier > 0 && Math.abs(multiplier - 1) > 0.001
   const tooltipText = hasMultiplier
     ? t('market.relayBadgeTooltipMultiplier', { multiplier: multiplier!.toFixed(2) })
     : t('market.relayBadgeTooltip')
