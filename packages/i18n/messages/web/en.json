@@ -10219,43 +10219,35 @@
       "subtitle": "8-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
       "modelIntegration": {
         "title": "8-Platform Full-Stack Architecture",
-        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration",
-        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, broad full-stack, unified account seamless switching"
+        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration"
       },
       "appStore": {
         "title": "100+ LLMs",
-        "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API",
-        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + China 15+ (Qwen/GLM/DeepSeek) + Cloud 40+ providers, one API key for all"
+        "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API"
       },
       "contentCreation": {
         "title": "Self-Developed CLI vs. Claude Code",
-        "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import",
-        "description": "ACP Server embedded in Zed/VSCode/Cursor + 6 private extension methods (session repair/rewind/MCP calls) + 6-source config one-click import"
+        "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import"
       },
       "edu": {
         "title": "Full-Stack AI Education",
-        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages",
-        "description": "Courses/Live/Exams/Certificates/Instructors/Classes 6 modules, free year-round courses, three progressive stages from AI tools to enterprise AI culture"
+        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages"
       },
       "navigation": {
         "title": "Enterprise-Grade Workspace",
-        "benefit": "Zero data leakage · fully traceable audit · 99.9% SLA enterprise-grade zero risk",
-        "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control + 99.9% SLA"
+        "benefit": "Zero data leakage · fully traceable audit · 99.9% SLA enterprise-grade zero risk"
       },
       "agentSquare": {
         "title": "Agent Square",
-        "benefit": "Replaces 5+ manual roles · 7×24 non-stop · save ¥300K/year labor cost",
-        "description": "General/industry/functional three categories, covering customer service/marketing/operations/HR/finance 5+ functions, ready to use, customizable"
+        "benefit": "Replaces 5+ manual roles · 7×24 non-stop · save ¥300K/year labor cost"
       },
       "workflow": {
         "title": "LangGraph Workflow",
-        "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare",
-        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple stack relatively rare"
+        "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare"
       },
       "multimodal": {
         "title": "Multimodal AI Input",
-        "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production",
-        "description": "Image generation/voice synthesis/video generation/file parsing/digital human 5 modalities, one API key for all"
+        "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production"
       }
     },
     "advantages": {
