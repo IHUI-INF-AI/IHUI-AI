@@ -346,12 +346,23 @@ import relayModelsRoutes from './admin/relay-models.js'
 import relayKeyPoolRoutes from './admin/relay-key-pool.js'
 import relayDiscoveryRoutes from './admin/relay-discovery.js'
 import relayLogsRoutes from './admin/relay-logs.js'
+import adminRelayStatsRoutes from './admin/relay-stats.js'
 import { relayPublicRoutes } from './relay-public.js'
 import developerRelayRoutes from './developer-relay.js'
+import developerApiKeyGroupsRoutes from './developer/api-key-groups.js'
 // P0 中转站造血能力对标批次(2026-07-31 立):Anthropic 原生格式 + 兑换码 + 模型映射
 import adminModelMappingsRoutes from './admin/model-mappings.js'
 import adminRedemptionCodesRoutes from './admin/redemption-codes.js'
+import adminRelayCommissionRoutes from './admin/relay-commission.js'
+import adminCouponsRoutes from './admin/coupons.js'
+import adminRelayChannelsRoutes from './admin/relay-channels.js'
+import adminTieredPricingRoutes from './admin/tiered-pricing.js'
+import adminRelayPricingRoutes from './admin/relay-pricing.js'
+import adminUserBillingGroupsRoutes from './admin/user-billing-groups.js'
 import v1MessagesRoutes from './v1-messages.js'
+// Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
+import developerWebhooksRoutes from './developer/webhooks.js'
+import adminWebhookDebugRoutes from './admin/webhook-debug.js'
 // 资源上下文管理(7 端点:列表/创建/详情/更新/删除/绑定/按会话查询)+ 交易员流水统计(4 端点:流水/汇总/按日/排行)
 import resourceContextRoutes from './resource-context.js'
 import traderStatsRoutes from './trader-stats.js'
@@ -962,6 +973,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiTutorRoutes, { prefix: '/api' })
   // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
   server.register(newsletterRoutes, { prefix: '/api/newsletter' })
+  // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
+  server.register(earningsRoutes, { prefix: '/api/earnings' })
 
   // ===== P0-5 模型 API 中转站(2026-07-29 立,对标 OneAPI/NewAPI)=====
   // admin 管理后台:模型上下架/Key 池/动态发现/调用日志(4 个路由文件,绝对路径字面量注册)
@@ -969,19 +982,44 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayKeyPoolRoutes, { prefix: '/api' })
   server.register(relayDiscoveryRoutes, { prefix: '/api' })
   server.register(relayLogsRoutes, { prefix: '/api' })
+  // admin 实时监控 Dashboard 聚合端点(overview/model-distribution/trend/top-users)
+  server.register(adminRelayStatsRoutes, { prefix: '/api/admin' })
   // 公开端点:GET /api/relay/models/public(无需鉴权,返回中转站已上架模型清单 + 定价倍率)
   server.register(relayPublicRoutes, { prefix: '/api/relay' })
   // developer 用户侧端点:API Key 列表(含余额)/ 用量明细 / 调用日志 / 充值
   server.register(developerRelayRoutes, { prefix: '/api' })
+  // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
+  server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
 
   // ===== P0 中转站造血能力对标批次(2026-07-31 立,8 subagent 并行)=====
   // admin 模型映射管理(CRUD + 优先级 + 启用/禁用):POST /api/admin/model-mappings 等
   server.register(adminModelMappingsRoutes, { prefix: '/api/admin' })
   // admin 兑换码管理(批量生成 + 查询 + 兑换记录):POST /api/admin/redemption-codes/batch 等
   server.register(adminRedemptionCodesRoutes, { prefix: '/api/admin' })
+  // admin Relay 返佣管理(2026-07-31 立,把返佣绑到 relay 调用消费:记录/统计/释放/配置)
+  server.register(adminRelayCommissionRoutes, { prefix: '/api/admin' })
+  // admin 优惠券管理(2026-07-31 立,折扣券/满减券/裂变券三合一:CRUD + 统计 + 领券记录 + 批量生成)
+  server.register(adminCouponsRoutes, { prefix: '/api/admin' })
+  // admin 用户计费分组管理(分组 CRUD + 成员 + 模型倍率矩阵):/api/admin/user-billing-groups/*
+  server.register(adminUserBillingGroupsRoutes, { prefix: '/api/admin' })
+  // admin 中转站渠道分组管理(分组 CRUD + 成员 + 组统计 + 一键测速):
+  // GET/POST /api/admin/relay/channels/groups 等(8 端点,#4 #6 合并任务)
+  server.register(adminRelayChannelsRoutes, { prefix: '/api/admin' })
+  // admin 阶梯计价规则管理(规则 CRUD + 按 model 筛选):/api/admin/tiered-pricing/rules 等
+  server.register(adminTieredPricingRoutes, { prefix: '/api/admin' })
+  // admin 价格历史 + 限时折扣调度 + 动态调价建议(7 端点):
+  // GET/POST /api/admin/relay/pricing/history + GET/POST/PATCH/DELETE /api/admin/relay/pricing/discounts + GET /api/admin/relay/pricing/suggestions
+  server.register(adminRelayPricingRoutes, { prefix: '/api/admin' })
   // Anthropic Messages 原生格式端点(POST /v1/anthropic/messages,内部转 OpenAI 格式走 relay 链路)
   // 注:用 /v1/anthropic 前缀而非 /v1,因 v1-knowledge-tools.ts:2380 已注册 POST /v1/messages(发布消息),
   // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设
   // ANTHROPIC_BASE_URL=https://api.x5m5x.com/v1/anthropic 即可走 /v1/anthropic/messages。
   server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
+
+  // ===== Relay Webhook 系统(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)=====
+  // developer 用户自助管理订阅(7 端点):/api/developer/webhooks/subscriptions/*
+  // 注:用 /webhooks/subscriptions 子路径,避免与现有 /api/developer/webhooks(/) 及 /:id 路由冲突
+  server.register(developerWebhooksRoutes, { prefix: '/api/developer' })
+  // admin 调试面板(4 端点):/api/admin/webhook-debug/subscriptions | /logs | /retry-all | /stats
+  server.register(adminWebhookDebugRoutes, { prefix: '/api/admin' })
 }
