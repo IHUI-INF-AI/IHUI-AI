@@ -15,6 +15,7 @@ export interface TransportResponse {
   headers: { get(name: string): string | null }
   text(): Promise<string>
   json(): Promise<unknown>
+  blob(): Promise<Blob>
 }
 
 /** 传输初始化参数 — RequestInit 的跨平台子集 */
@@ -56,6 +57,7 @@ const defaultTransport: Transport = async (url, init) => {
     headers: response.headers,
     text: () => response.text(),
     json: () => response.json(),
+    blob: () => response.blob(),
   }
 }
 
