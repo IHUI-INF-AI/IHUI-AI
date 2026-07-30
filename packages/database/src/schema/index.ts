@@ -186,3 +186,7 @@ export * from './model-leaderboard.js'
 export * from './registry.js'
 // 资源上下文管理(2026-07-24 新增,用户上传文件/知识库/URL 绑定到会话供 AI 引用)
 export * from './resource-context.js'
+// 兑换码表(2026-07-31 立,P0-5 刮刮卡式裂变充值:admin 批量生成 + 用户兑换码充值)
+export * from './redemption-codes.js'
+// 模型映射表(2026-07-31 立,P0-4 降本神器:全局/用户/Key 三级映射,gpt-4o → deepseek-chat)
+export * from './ai-model-mappings.js'
