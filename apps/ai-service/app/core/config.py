@@ -112,6 +112,17 @@ class Settings(BaseSettings):
     # 格式:http://user:pass@host:port 或 http://host:port  空字符串=不使用代理
     llm_proxy_url: str = ""
 
+    # P3-3 OpenRouter 403 代理 + failover(2026-07-30 立)
+    # OpenRouter 对国内 IP / 非浏览器 UA 常返回 403 Forbidden(WAF 拦截),
+    # 配置专用代理 URL 后,llm_gateway 在 openrouter/ 前缀调用期间临时设置
+    # HTTPS_PROXY env var(LiteLLM 底层 httpx 自动读取),调用结束恢复原值。
+    # 空字符串=不使用 OpenRouter 专用代理(走全局 llm_proxy_url 或直连)
+    openrouter_proxy_url: str = ""
+    # OpenRouter 403 时自动 failover 到 agnes/ 中转(同模型换 provider)
+    # True(默认):openrouter/<model> 返回 403 时,自动重试 agnes/<model>
+    # False:不 failover,直接返回 403 错误(用户自行处理)
+    openrouter_failover_to_agnes: bool = True
+
     # Token 压缩(2026-07-30 立,P2-A TokenCompactor 配套配置)
     # 启用后 llm_gateway.complete/astream 在 trim_messages 后、litellm.acompletion 前
     # 自动调用 RTK+Caveman 双算法压缩(策略=rtk_caveman,keep_recent=6)。
