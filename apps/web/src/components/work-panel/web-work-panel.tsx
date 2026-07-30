@@ -95,8 +95,7 @@ export function WebWorkPanel() {
   const status = activeTab?.state.status ?? 'idle'
   // WebViewFrame 只支持 iframe/screenshot/external,native(Tauri)映射为 external
   const rawMode = activeTab?.state.mode ?? 'iframe'
-  const mode: 'iframe' | 'screenshot' | 'external' =
-    rawMode === 'native' ? 'external' : rawMode
+  const mode: 'iframe' | 'screenshot' | 'external' = rawMode === 'native' ? 'external' : rawMode
   const screenshot = activeTab?.state.screenshot
   const title = activeTab?.state.title
   const error = activeTab?.state.error
@@ -189,23 +188,15 @@ export function WebWorkPanel() {
   if (!effectiveOpen) return null
 
   return (
-    // 2026-07-26 用户反馈(第十一次,修底部间距裁剪):WebWorkPanel 容器
-    // 用 `h-[calc(100%-16px)]` + my-2 mr-2,而不是 `h-full` + my-2 mr-2。
-    // 根因:GlobalShell 父容器 `<div className="flex flex-row overflow-hidden">`
-    // 高度 = 视口 900px,WebWorkPanel 用 h-full + my-2 时:
-    //   - 父 div 高度 = 900px
-    //   - my-2 上下 8+8 = 16px margin 在 flex-row 中溢出(底部 8px 被 overflow-hidden 裁掉)
-    //   - 视觉:WebWorkPanel 顶部 8px ✅,底部贴边 0px ❌
-    // 修复:把 h-full 改为 h-[calc(100%-16px)] = 884px(父容器 - my-2 总占位),
-    //   my-2 的 16px 全部落在父容器可见范围内,顶部/底部/右侧各 8px 视觉间距生效。
-    // 设计目标:让 WebWorkPanel 与 AISidePanel (mr-2) + MainShell (my-2 mr-2) 形成对称卡片化视觉。
-    // - my-2:顶部/底部 8px 间距,WebWorkPanel 不再贴到右列顶部/底部
-    // - mr-2:右侧 8px 间距,WebWorkPanel 不再贴到右屏边缘
-    // - 左侧 0 间距(无 ml-2),由父容器 flex 流自然紧贴 work-area,
-    //   中部与 main 的 8px 视觉间距由 MainShell 自己的 mr-2 自然形成
-    // - WebWorkPanel 关闭时 return null,不影响布局
-    // - WorkPanel 高度从 900 变成 884(缩 16px),内部 flex-1 内容区自动适应,不影响视觉
-    <div className="my-2 mr-2 h-[calc(100%-16px)] shrink-0">
+    // 2026-07-31 修复"双重设定冲突"(用户反馈"右侧工作展示区顶部高度变低,跟顶部标签栏链路变大"):
+    // - 布局:GlobalShell 右列 flex-row(h-screen)内并排 <AISidePanel /> + <work-area-portal-root flex-col>(GlobalTopBar + MainShell) + <WebWorkPanel />
+    // - 根因:GlobalTopBar 总高 50px(pt-2=8 + h-9=36 + pb-1.5=6),MainShell 工作区卡片顶部在 50px(顶栏下方)。
+    //   旧设定 my-2(8px)让 WebWorkPanel 顶部在 8px,比 MainShell 顶部高 42px,视觉"链路变大"。
+    // - 修复:mt-[50px] 让 WebWorkPanel 顶部对齐 MainShell 顶部(都在 GlobalTopBar 下方 50px);
+    //   mb-2 底部 8px 跟 MainShell 的 pb-2 对齐;mr-2 右侧 8px 跟 MainShell 的 pr-2 对齐;
+    //   h-[calc(100%-58px)] = 100% - 50(顶部) - 8(底部),保证底部 8px 可见不被 overflow-hidden 裁剪。
+    // - WebWorkPanel 关闭时 return null,不影响布局。
+    <div className="mt-[50px] mb-2 mr-2 h-[calc(100%-58px)] shrink-0">
       <WorkPanel
         open={effectiveOpen}
         width={effectiveWidth}
