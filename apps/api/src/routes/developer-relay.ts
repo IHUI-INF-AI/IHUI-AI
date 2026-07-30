@@ -16,7 +16,8 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, gte, lte, desc, sql, like, type SQL } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { developerApiKeys, llmCallLogs } from '@ihui/database'
+import { db } from '../db/index.js'
+import { developerApiKeys, llmCallLogs, aiModelMappings } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { requireAuth } from '../plugins/require-permission.js'
 import { paginationSchema } from './admin/_shared.js'
@@ -25,6 +26,9 @@ import { createMapping, listMappings } from '../services/model-mapping-service.j
 import { redeemCode } from '../services/redemption-code-service.js'
 import { idParamSchema } from './admin/_shared.js'
 import { createKey, updateKey } from '../services/developer-api-keys-service.js'
+import { claimCoupon, listUserCoupons } from '../services/coupon-service.js'
+import { listUserCommissions } from '../services/relay-commission-service.js'
+import { getTieredProgress } from '../services/tiered-pricing-service.js'
 
 const usageQuerySchema = z.object({
   /** 起始日期 YYYY-MM-DD(默认近 30 天) */
@@ -107,6 +111,19 @@ const updateKeyBodySchema = z.object({
   rateLimit: z.number().int().min(1).max(10000).optional(),
   status: z.enum(['active', 'revoked']).optional(),
   ...securityFieldsSchema,
+})
+
+/** 优惠券查询 query(2026-07-31 立) */
+const couponsQuerySchema = z.object({
+  status: z.preprocess(emptyToUndefined, z.enum(['unused', 'used', 'expired']).optional()),
+})
+
+/** 优惠券领取 body(2026-07-31 立,用户输入券码领取) */
+const couponClaimBodySchema = z.object({
+  /** 券码(IHUI-COUPON-XXXXXXXXXXXX,自动 normalize 去空格/转大写) */
+  code: z.string().min(1, '券码不能为空').max(64),
+  /** 裂变券专属:分享人的 user_coupon.id(通过分享链接领取时传入) */
+  referrerUserCouponId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 })
 
 const developerRelayRoutes: FastifyPluginAsync = async (server) => {
@@ -550,6 +567,104 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       .returning({ id: aiModelMappings.id })
     if (!deleted) return reply.status(404).send(error(404, '映射不存在'))
     return reply.send(success({ id: deleted.id }))
+  })
+
+  // ===== 8. GET /developer/relay/commission-records — 当前用户的返佣记录(作为 beneficiary) =====
+  // 查自己作为邀请人收到的返佣流水,强制 beneficiaryUserId = 当前用户(用户只能查自己的返佣收入)
+  server.get('/developer/relay/commission-records', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) {
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const result = await listUserCommissions(userId, q.data.page, q.data.pageSize)
+      return reply.send(
+        success({
+          records: result.records,
+          total: result.total,
+          page: q.data.page,
+          pageSize: q.data.pageSize,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询返佣记录失败'))
+    }
+  })
+
+  // ===== 9. GET /developer/relay/coupons — 查自己可用券(2026-07-31 立) =====
+  server.get('/developer/relay/coupons', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const q = couponsQuerySchema.safeParse(request.query)
+    if (!q.success) {
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const list = await listUserCoupons(userId, q.data.status)
+      return reply.send(success({ list, total: list.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询优惠券失败'))
+    }
+  })
+
+  // ===== 10. POST /developer/relay/coupons/redeem — 领券(用户输入码领取) =====
+  server.post('/developer/relay/coupons/redeem', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const parsed = couponClaimBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const result = await claimCoupon(userId, parsed.data.code, parsed.data.referrerUserCouponId)
+      if (!result.success) {
+        const reasonMap: Record<string, { status: number; msg: string }> = {
+          code_not_found: { status: 404, msg: '优惠券码不存在' },
+          disabled: { status: 403, msg: '优惠券已被禁用' },
+          not_started: { status: 410, msg: '优惠券活动尚未开始' },
+          expired: { status: 410, msg: '优惠券已过期' },
+          sold_out: { status: 410, msg: '优惠券已发放完毕' },
+          per_user_limit_exceeded: { status: 409, msg: '已超过每人限领数量' },
+          insert_failed: { status: 500, msg: '领取失败' },
+        }
+        const mapped =
+          reasonMap[result.reason ?? ''] ?? { status: 400, msg: result.reason ?? '领取失败' }
+        return reply.status(mapped.status).send(error(mapped.status, mapped.msg))
+      }
+      return reply.send(success(result.userCoupon))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '领取优惠券失败'))
+    }
+  })
+
+  // ===== 11. GET /developer/relay/tiered-progress — 当月阶梯计价进度(前端进度条用) =====
+  // 返回当前用户指定模型的当月累计 token + 阶梯列表 + 下一阶梯信息
+  // 强制 userId = 当前用户(用户只能查自己的阶梯进度)
+  server.get('/developer/relay/tiered-progress', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const q = z
+      .object({
+        model: z.string().min(1, 'model 不能为空').max(128),
+      })
+      .safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+
+    try {
+      const progress = await getTieredProgress(userId, q.data.model)
+      return reply.send(success(progress))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询阶梯计价进度失败'))
+    }
   })
 }
 
