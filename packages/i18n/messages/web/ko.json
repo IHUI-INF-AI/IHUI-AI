@@ -1,4 +1,4 @@
-﻿{
+{
   "skills": {
     "market": {
       "title": "스킬 마켓",
@@ -5931,7 +5931,7 @@
       "credentials": "자격 증명",
       "lastVerified": "최근 인증",
       "noAccounts": "계정이 없습니다. 먼저 추가하세요",
-      "credentialsHint": "자격 증명 JSON(플랫폼별: token/cookie/appId+secret)"
+      "credentialsHint": "자격 증명 JSON(플랫폼별: token/cookie/appId+secret)",
       "scanLogin": "QR 로그인",
       "scanLoginTitle": "QR 로그인",
       "scanLoginDescription": "플랫폼 선택 시 백엔드가 로그인 페이지를 열고 QR 코드를 캡처합니다. 앱으로 스캔하면 쿠키가 자동 저장됩니다.",
@@ -12464,6 +12464,39 @@
       "agentView": "에이전트 보기",
       "mcpView": "MCP 보기",
       "settingsView": "설정 보기"
+    },
+    "agentPane": {
+      "plan": "계획",
+      "placeholder": "AI가 완료할 코딩 작업을 설명하세요...",
+      "modelSelect": "모델 선택",
+      "execute": "실행",
+      "emptyHint": "작업을 입력하고 실행을 클릭하면 AI가 자율적으로 코딩을 완료합니다",
+      "result": "결과",
+      "stop": "중지",
+      "clear": "초기화",
+      "taskId": "작업 ID"
+    },
+    "mcpPane": {
+      "tools": "도구",
+      "resources": "리소스",
+      "prompts": "프롬프트",
+      "skills": "스킬",
+      "slash": "명령",
+      "refresh": "새로고침",
+      "searchPlaceholder": "검색...",
+      "empty": "데이터 없음",
+      "selectHint": "목록 항목을 선택하여 상세 보기",
+      "result": "호출 결과",
+      "copy": "복사",
+      "call": "호출",
+      "resourceUri": "리소스 URI",
+      "parameters": "매개변수",
+      "noParams": "매개변수 없음",
+      "skillTemplate": "스킬 템플릿",
+      "loading": "로딩 중...",
+      "noTemplate": "템플릿 없음",
+      "slashArgs": "명령 인수",
+      "slashArgsHint": "여러 인수는 공백으로 구분"
     },
     "fileExplorer": {
       "tabFiles": "파일",
