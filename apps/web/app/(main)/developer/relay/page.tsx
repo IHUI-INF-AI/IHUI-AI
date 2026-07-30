@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import Link from 'next/link'
-import { Zap, Key, Activity, Coins, TrendingUp, Loader2, ArrowRight } from 'lucide-react'
+import { Zap, Key, Activity, Coins, TrendingUp, Loader2, ArrowRight, Bot } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -78,15 +78,18 @@ export default function RelayOverviewPage() {
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
   const num = new Intl.NumberFormat(locale)
 
-  const { data: keysData, isLoading: keysLoading, error: keysError } = useQuery({
+  const {
+    data: keysData,
+    isLoading: keysLoading,
+    error: keysError,
+  } = useQuery({
     queryKey: ['developer', 'relay', 'keys'],
     queryFn: () =>
       api<KeysData>('/api/developer/relay/keys').catch(() => ({ list: [] }) as KeysData),
   })
   const { data: usageData, isLoading: usageLoading } = useQuery({
     queryKey: ['developer', 'relay', 'usage', 'overview'],
-    queryFn: () =>
-      api<UsageSummary>('/api/developer/relay/usage?groupBy=model').catch(() => null),
+    queryFn: () => api<UsageSummary>('/api/developer/relay/usage?groupBy=model').catch(() => null),
   })
 
   const list = keysData?.list ?? []
@@ -136,17 +139,42 @@ export default function RelayOverviewPage() {
         />
       </div>
 
+      <Card className="bg-muted/50">
+        <CardContent className="flex items-center justify-between gap-3 p-3">
+          <div className="flex min-w-0 flex-1 items-start gap-2">
+            <div className="rounded-md bg-background p-1.5">
+              <Bot className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">或使用自己的 API Key(BYOK)</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                自带大厂 API Key(OpenAI/DeepSeek/智谱等),平台只收 5-20% 服务费。Cloudflare/GitHub
+                Models/HuggingFace 等免费 provider 不收费。
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link href="/settings/llm">
+              配置 BYOK
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">我的 Key</h2>
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
             <Link href="/developer/relay/keys">
-              管理 Key<ArrowRight className="h-3.5 w-3.5" />
+              管理 Key
+              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/developer/relay/usage">
-              用量明细<ArrowRight className="h-3.5 w-3.5" />
+              用量明细
+              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
         </div>
@@ -163,10 +191,7 @@ export default function RelayOverviewPage() {
         ) : (
           <div className="space-y-2 p-3">
             {list.map((k) => (
-              <div
-                key={k.id}
-                className="flex items-center gap-3 rounded-md bg-muted/40 p-3"
-              >
+              <div key={k.id} className="flex items-center gap-3 rounded-md bg-muted/40 p-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-medium">{k.name}</p>
@@ -182,8 +207,8 @@ export default function RelayOverviewPage() {
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    余额 {formatBalance(k.costBalanceCents)} · 已用{' '}
-                    {num.format(k.tokenUsedTotal)} token
+                    余额 {formatBalance(k.costBalanceCents)} · 已用 {num.format(k.tokenUsedTotal)}{' '}
+                    token
                     {k.lastUsedAt && ` · ${dateFmt.format(new Date(k.lastUsedAt))}`}
                   </p>
                 </div>

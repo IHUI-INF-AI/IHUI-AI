@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Brush } from 'lucide-react'
+import { BrushCleaning } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -83,7 +83,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     }),
     [resize],
   )
-  // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,改成 Brush 图标,
+  // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 BrushCleaning 清洁刷图标,
   // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
   return (
     <div className="group relative px-3 pt-2 pb-2">
@@ -116,7 +116,9 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
       />
       {/* 清除按钮:仅 hover textarea 容器时显示,有内容时渲染,
           流式时禁用(不与 Stop 按钮冲突,流式时清空草稿语义模糊)。
-          位置:textarea 右上角 absolute,不挡字符计数(字符计数在 bottom-2)。 */}
+          位置:textarea 右上角 absolute(2026-07-30 二次调整:再往上 4px 至 top-1,
+          让按钮更贴近 textarea 顶边,视觉上像"挂在输入框角落")。
+          不挡字符计数(字符计数在 bottom-2)。 */}
       {text.length > 0 && (
         <button
           type="button"
@@ -125,14 +127,14 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           onClick={onClear}
           disabled={isStreaming}
           className={cn(
-            'absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md',
+            'absolute right-2 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md',
             'text-muted-foreground transition-opacity',
             'opacity-0 hover:bg-accent hover:text-accent-foreground',
             'group-hover:opacity-100 focus-visible:opacity-100',
             'disabled:pointer-events-none',
           )}
         >
-          <Brush className="h-3.5 w-3.5" aria-hidden="true" />
+          <BrushCleaning className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       )}
       <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center">
