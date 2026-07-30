@@ -95,7 +95,9 @@
     "list": {
       "searchPlaceholder": "コースを検索",
       "search": "検索",
-      "empty": "コースなし"
+      "empty": "コースなし",
+      "title": "おすすめコース",
+      "subtitle": "{{n}} コース"
     },
     "ratingTitle": "コースを評価",
     "ratingLabels": ["", "非常に悪い", "悪い", "普通", "良い", "非常に良い"],
@@ -272,7 +274,8 @@
     "commission": {
       "today": "本日のコミッション",
       "available": "出金可能コミッション",
-      "records": "コミッション記録"
+      "records": "コミッション記録",
+      "title": "コミッション明細"
     }
   },
   "community": {
@@ -971,6 +974,40 @@
       "menuTeam": "チーム管理",
       "menuCommission": "コミッション",
       "menuWithdraw": "出金申請"
+    },
+    "index": {
+      "title": "マイカンパニー",
+      "menuTeam": "マイチーム",
+      "menuOrders": "ディストリビューション注文",
+      "menuPlan": "コミッションプラン",
+      "menuWithdraw": "出金申請",
+      "menuRank": "プロモーションランキング",
+      "menuQrCode": "マイQRコード",
+      "tabDay": "日",
+      "tabMonth": "月",
+      "tabSum": "合計",
+      "columnEarnings": "収益",
+      "columnOrders": "注文",
+      "columnInvites": "招待",
+      "defaultName": "オペレーター",
+      "operator": "オペレーター",
+      "earnings": "収益",
+      "orders": "注文数",
+      "invites": "招待人数",
+      "columnTitle": "ディストリビューションデータ",
+      "qrTitle": "マイ共有QRコード",
+      "share": "友達に共有",
+      "saveAlbum": "アルバムに保存",
+      "verifyTitle": "本人確認",
+      "idPlaceholder": "身分証明書番号を入力",
+      "namePlaceholder": "氏名を入力",
+      "confirm": "確認",
+      "qrLoadFail": "QRコードの読み込みに失敗",
+      "qrLoading": "QRコード生成中",
+      "fillInfo": "情報を完全に入力してください",
+      "verifying": "確認中",
+      "verifyOk": "確認成功",
+      "verifyFail": "確認失敗"
     },
     "rankTitle": "ディストリビューションランキング",
     "rankEmpty": "ランキングデータがありません",
@@ -2293,5 +2330,15 @@
   },
   "notification": {
     "settings": "通知設定"
+  },
+  "toolbar": {
+    "traffic-service": "トラフィック運営支援",
+    "device-service": "ワンストップデバイス応用",
+    "ai-other-service": "AIその他テクニカルサービス",
+    "ai": "AIチャット",
+    "course": "コース",
+    "plaza": "プラザ",
+    "rank": "ランキング",
+    "vip": "会員"
   }
 }

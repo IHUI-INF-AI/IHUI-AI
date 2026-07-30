@@ -95,7 +95,9 @@
     "list": {
       "searchPlaceholder": "搜索课程",
       "search": "搜索",
-      "empty": "暂无课程"
+      "empty": "暂无课程",
+      "title": "精品课程",
+      "subtitle": "{{n}} 个课程"
     },
     "ratingTitle": "评价课程",
     "ratingLabels": ["", "很差", "较差", "一般", "不错", "很好"],
@@ -272,7 +274,8 @@
     "commission": {
       "today": "今日佣金",
       "available": "可提现佣金",
-      "records": "佣金记录"
+      "records": "佣金记录",
+      "title": "佣金明细"
     }
   },
   "community": {
@@ -966,6 +969,40 @@
       "menuTeam": "团队管理",
       "menuCommission": "佣金记录",
       "menuWithdraw": "申请提现"
+    },
+    "index": {
+      "title": "我的公司",
+      "menuTeam": "我的团队",
+      "menuOrders": "分销订单",
+      "menuPlan": "分佣计划",
+      "menuWithdraw": "申请提现",
+      "menuRank": "推广排行",
+      "menuQrCode": "我的二维码",
+      "tabDay": "日",
+      "tabMonth": "月",
+      "tabSum": "总",
+      "columnEarnings": "收益",
+      "columnOrders": "订单",
+      "columnInvites": "邀请",
+      "defaultName": "操盘手",
+      "operator": "操盘手",
+      "earnings": "收益",
+      "orders": "订单数",
+      "invites": "邀请人数",
+      "columnTitle": "分销数据",
+      "qrTitle": "我的分享二维码",
+      "share": "分享给好友",
+      "saveAlbum": "保存到相册",
+      "verifyTitle": "身份信息验证",
+      "idPlaceholder": "请输入身份证号码",
+      "namePlaceholder": "请输入姓名",
+      "confirm": "确认",
+      "qrLoadFail": "二维码加载失败",
+      "qrLoading": "二维码生成中",
+      "fillInfo": "请填写完整信息",
+      "verifying": "验证中",
+      "verifyOk": "验证成功",
+      "verifyFail": "验证失败"
     },
     "rankTitle": "分销排行榜",
     "rankEmpty": "暂无排行数据",
@@ -2288,5 +2325,15 @@
     "addFile": "添加附件",
     "releaseToSend": "松开发送",
     "holdToSpeak": "按住说话"
+  },
+  "toolbar": {
+    "traffic-service": "流量运营陪跑",
+    "device-service": "一站式设备应用",
+    "ai-other-service": "AI其他技术服务",
+    "ai": "AI对话",
+    "course": "课程",
+    "plaza": "广场",
+    "rank": "排行",
+    "vip": "会员"
   }
 }
