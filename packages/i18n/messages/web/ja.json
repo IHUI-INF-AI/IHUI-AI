@@ -1,4 +1,4 @@
-﻿{
+{
   "skills": {
     "market": {
       "title": "スキルマーケット",
@@ -5953,7 +5953,7 @@
       "credentials": "認証情報",
       "lastVerified": "最終認証",
       "noAccounts": "アカウントがありません。先に追加してください",
-      "credentialsHint": "認証情報 JSON(プラットフォーム固有: token/cookie/appId+secret)"
+      "credentialsHint": "認証情報 JSON(プラットフォーム固有: token/cookie/appId+secret)",
       "scanLogin": "QRコードログイン",
       "scanLoginTitle": "QRコードログイン",
       "scanLoginDescription": "プラットフォームを選択すると、バックエンドがログイン画面を開きQRコードをキャプチャします。アプリでスキャンしてcookieを自動保存。",
@@ -12509,6 +12509,39 @@
       "agentView": "エージェントビュー",
       "mcpView": "MCP ビュー",
       "settingsView": "設定ビュー"
+    },
+    "agentPane": {
+      "plan": "計画",
+      "placeholder": "AIに完了させたいコーディングタスクを記述...",
+      "modelSelect": "モデル選択",
+      "execute": "実行",
+      "emptyHint": "タスクを入力して実行をクリック、AIが自律的にコーディングを完了します",
+      "result": "結果",
+      "stop": "停止",
+      "clear": "クリア",
+      "taskId": "タスクID"
+    },
+    "mcpPane": {
+      "tools": "ツール",
+      "resources": "リソース",
+      "prompts": "プロンプト",
+      "skills": "スキル",
+      "slash": "コマンド",
+      "refresh": "更新",
+      "searchPlaceholder": "検索...",
+      "empty": "データなし",
+      "selectHint": "リスト項目を選択して詳細を表示",
+      "result": "呼び出し結果",
+      "copy": "コピー",
+      "call": "呼び出し",
+      "resourceUri": "リソースURI",
+      "parameters": "パラメータ",
+      "noParams": "パラメータなし",
+      "skillTemplate": "スキルテンプレート",
+      "loading": "読み込み中...",
+      "noTemplate": "テンプレートなし",
+      "slashArgs": "コマンド引数",
+      "slashArgsHint": "複数引数はスペース区切り"
     },
     "fileExplorer": {
       "tabFiles": "ファイル",

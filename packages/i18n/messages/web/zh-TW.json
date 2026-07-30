@@ -1,4 +1,4 @@
-﻿{
+{
   "skills": {
     "market": {
       "title": "技能市場",
@@ -5921,7 +5921,7 @@
       "credentials": "憑證",
       "lastVerified": "最近驗證",
       "noAccounts": "暫無帳號,請先新增",
-      "credentialsHint": "憑證 JSON(平臺特定:token/cookie/appId+secret)"
+      "credentialsHint": "憑證 JSON(平臺特定:token/cookie/appId+secret)",
       "scanLogin": "掃碼登入",
       "scanLoginTitle": "掃碼登入平臺",
       "scanLoginDescription": "選擇平臺後,後端會打開該平臺登入頁並截取二維碼;用對應 App 掃碼即可自動儲存 cookies。",
