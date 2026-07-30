@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Minus, Pin, PanelLeft } from 'lucide-react'
+import { X, Plus, Minus, Pin, PanelLeft, ChevronUp, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -64,9 +64,11 @@ export function AISidePanel() {
   // 浮窗模式状态(2026-07-30)
   const floatMode = useAiPanelStore((s) => s.floatMode)
   const floatMinimized = useAiPanelStore((s) => s.floatMinimized)
+  const floatCollapsed = useAiPanelStore((s) => s.floatCollapsed)
   const floatPosition = useAiPanelStore((s) => s.floatPosition)
   const setFloatMode = useAiPanelStore((s) => s.setFloatMode)
   const setFloatMinimized = useAiPanelStore((s) => s.setFloatMinimized)
+  const setFloatCollapsed = useAiPanelStore((s) => s.setFloatCollapsed)
   const setFloatPosition = useAiPanelStore((s) => s.setFloatPosition)
   const openPanel = useAiPanelStore((s) => s.openPanel)
   const {
@@ -595,7 +597,7 @@ export function AISidePanel() {
   const handleFloatDragStart = React.useCallback(
     (e: React.PointerEvent) => {
       if (!floatMode || floatMinimized) return
-      // 只响应左键 + header 区域(不是按钮)
+      // 只响应左键 + 拖拽区域(不是按钮)
       const target = e.target as HTMLElement
       if (target.closest('button, a, input, textarea, select')) return
 
@@ -637,6 +639,7 @@ export function AISidePanel() {
           type="button"
           onClick={() => {
             setFloatMinimized(false)
+            setFloatCollapsed(false)
             openPanel()
           }}
           aria-label={tc('title')}
@@ -649,6 +652,84 @@ export function AISidePanel() {
         >
           <BrandIcon vendor={inferVendor(currentModel)} size={22} className="text-primary" />
         </button>
+      </>
+    )
+  }
+
+  // 浮窗折叠态:只显示输入框 + 展开按钮,点击展开拉出完整面板
+  // 用户交互:Pin → 折叠态(只看输入框)→ 点击展开 → 完整面板(对话历史+header)
+  if (floatMode && floatCollapsed) {
+    return (
+      <>
+        {workspaceNameSync}
+        <div
+          data-testid="ai-panel-root"
+          className="ai-panel-root fixed z-sticky ai-float-glow rounded-xl"
+          style={{
+            width,
+            left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
+            right: floatPosition.x < 0 ? '24px' : 'auto',
+            top: floatPosition.y < 0 ? '80px' : `${floatPosition.y}px`,
+          }}
+        >
+          <aside
+            aria-label={tc('title')}
+            className="flex flex-col overflow-hidden rounded-xl bg-shell-panel"
+          >
+            {/* 折叠态工具条:可拖拽 + 展开按钮 + 最小化 */}
+            <div
+              onPointerDown={handleFloatDragStart}
+              className="flex h-9 shrink-0 cursor-move items-center gap-1 px-2"
+            >
+              <button
+                type="button"
+                onClick={() => setFloatCollapsed(false)}
+                aria-label={tc('floatMode')}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <ChevronUp className="h-3.5 w-3.5" />
+                <span>{tc('floatMode')}</span>
+              </button>
+              <div className="flex-1" />
+              <Tooltip content={tc('dockPanel')}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFloatMode(false)
+                    setFloatCollapsed(false)
+                  }}
+                  aria-label={tc('dockPanel')}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <PanelLeft className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+              <Tooltip content={tc('minimize')}>
+                <button
+                  type="button"
+                  onClick={() => setFloatMinimized(true)}
+                  aria-label={tc('minimize')}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+            </div>
+
+            {/* 输入区(直接渲染 MessageInput,无 MessageList) */}
+            <MessageInput
+              onSend={sendMessage}
+              onStop={stop}
+              isStreaming={isStreaming}
+              placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+              sendLabel={t('send')}
+              stopLabel={t('stop')}
+              model={currentModel}
+              onModelChange={setModel}
+              modelLabel={t('model')}
+            />
+          </aside>
+        </div>
       </>
     )
   }
@@ -803,7 +884,7 @@ export function AISidePanel() {
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
             {/* 浮窗模式切换按钮(2026-07-30):
-                - docked 模式:显示 Pin 图标,点击切换到浮窗模式 + 直接展开完整面板(含输入框)
+                - docked 模式:显示 Pin 图标,点击切换到浮窗折叠态(只显示输入框)
                 - float 模式:显示 PanelLeft(停靠) + Minus(最小化)两个按钮 */}
             {floatMode ? (
               <>
@@ -838,6 +919,7 @@ export function AISidePanel() {
                   onClick={() => {
                     setFloatMode(true)
                     setFloatMinimized(false)
+                    setFloatCollapsed(true)
                     openPanel()
                   }}
                   aria-label={tc('floatMode')}
@@ -854,7 +936,7 @@ export function AISidePanel() {
                 aria-label={floatMode ? tc('minimize') : tcommon('close')}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
-                <X className="h-4 w-4" />
+                {floatMode ? <Minus className="h-4 w-4" /> : <X className="h-4 w-4" />}
               </button>
             </Tooltip>
           </header>
