@@ -28,7 +28,7 @@ import {
   requireApiKeyPermission,
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
-import { checkQuota, recordCall, isByokCall } from '../services/relay-billing-service.js'
+import { checkQuota, recordCall, isByokCall, modelToProviderCode } from '../services/relay-billing-service.js'
 import { error } from '../utils/response.js'
 import {
   anthropicRequestToOpenAI,
@@ -133,6 +133,9 @@ async function streamAnthropicMessages(
     promptText: string
     startTime: number
     mode: 'relay' | 'byok'
+    /** P0 中转站造血能力批次(2026-08-01):审计字段透传 */
+    providerCode?: string
+    clientIp?: string
   },
 ): Promise<void> {
   reply.hijack()
@@ -148,12 +151,17 @@ async function streamAnthropicMessages(
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
   let streamError: string | null = null
+  /** P0 中转站造血能力批次(2026-08-01):TTFT + 上游 HTTP 状态码 */
+  let firstTokenTime: number | null = null
+  let upstreamHttpStatus: number | null = null
 
   const writeEvents = (events: ReturnType<typeof openAIStreamChunkToAnthropicEvents>) => {
     for (const ev of events) {
       raw.write(serializeAnthropicSSEEvent(ev))
       // 累计 text_delta 文本用于计费估算
       if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+        // P0 中转站造血能力批次(2026-08-01):记录首 token 时间用于 TTFT
+        if (firstTokenTime === null) firstTokenTime = Date.now()
         responseText += ev.delta.text
       }
     }
@@ -173,6 +181,8 @@ async function streamAnthropicMessages(
       body: JSON.stringify(opts.openaiBody),
       signal: controller.signal,
     })
+
+    upstreamHttpStatus = resp.status
 
     if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '')
@@ -286,6 +296,10 @@ async function streamAnthropicMessages(
         errorMessage: streamError,
         metadata: { stream: true, protocol: 'anthropic-messages' },
         mode: opts.mode,
+        providerCode: opts.providerCode,
+        clientIp: opts.clientIp,
+        httpStatus: upstreamHttpStatus ?? undefined,
+        ttftMs: firstTokenTime !== null ? firstTokenTime - opts.startTime : undefined,
       }).catch(() => {})
     }
   }
@@ -426,6 +440,8 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
           promptText,
           startTime,
           mode,
+          providerCode: modelToProviderCode(body.model),
+          clientIp: request.ip,
         })
       }
 
@@ -453,6 +469,9 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
               errorMessage: `AI service unavailable (${resp.status})`,
               metadata: { protocol: 'anthropic-messages' },
               mode,
+              providerCode: modelToProviderCode(body.model),
+              clientIp: request.ip,
+              httpStatus: resp.status,
             }).catch(() => {})
           }
           return reply
@@ -484,6 +503,9 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
               errorMessage: data.error_message ?? 'AI service error',
               metadata: { protocol: 'anthropic-messages' },
               mode,
+              providerCode: modelToProviderCode(body.model),
+              clientIp: request.ip,
+              httpStatus: resp.status,
             }).catch(() => {})
           }
           return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
@@ -537,6 +559,9 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
             status: 'success',
             metadata: { protocol: 'anthropic-messages' },
             mode,
+            providerCode: modelToProviderCode(body.model),
+            clientIp: request.ip,
+            httpStatus: resp.status,
           }).catch((e) => {
             console.error('[v1/messages] recordCall FAIL', e?.message || e)
           })
@@ -559,6 +584,8 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
             errorMessage: (e as Error).message || 'AI service unavailable',
             metadata: { protocol: 'anthropic-messages' },
             mode,
+            providerCode: modelToProviderCode(body.model),
+            clientIp: request.ip,
           }).catch(() => {})
         }
         return reply
