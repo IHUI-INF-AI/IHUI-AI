@@ -90,8 +90,10 @@ export const HEADER_BAR_CLASS =
 export const TOPBAR_BTN_BASE =
   'inline-flex h-full shrink-0 items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:bg-accent'
 
-/** 顶栏按钮/标签宽度(Plus / 窗口控制按钮 / Dropdown trigger 共用 28px 方块尺寸) */
-export const TOPBAR_BTN_W7 = 'w-7'
+/** 顶栏按钮/标签宽度(2026-07-30 第十轮"做减法 v6"用户反馈"搜索/chevron-down/Plus 按钮应一致 + 正方形"后升级 w-7 → w-9)
+ *  - Plus 按钮 / 窗口控制按钮 / Dropdown trigger / 搜索按钮 4 类全部统一 36×36 正方形
+ *  - 之前 w-7 (28×36) 矩形,3 类按钮"看似不同实则都是 28×36 雷同"但跟搜索按钮 36×36 视觉参差 */
+export const TOPBAR_BTN_W9 = 'w-9'
 
 /** 模型选择器下拉触发器 (h-9,icon + 文字 + chevron)
  *  - 三元素同行,中间文字 span 加 translateY
