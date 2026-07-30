@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
@@ -61,28 +61,28 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
   '1': {
     bg: (tk) => tk.indigo.light,
     text: (tk) => tk.indigo.DEFAULT,
-    icon: '🎁',
+    icon: freeUseIcon,
     label: '免费使用',
     showPurchasePopup: false,
   },
   '2': {
     bg: (tk) => tk.danger.light,
     text: (tk) => tk.danger.DEFAULT,
-    icon: '⏰',
+    icon: freeTimeIcon,
     label: '限时免费',
     showPurchasePopup: false,
   },
   '3': {
     bg: (tk) => tk.brand.DEFAULT,
     text: (tk) => tk.surface.light,
-    icon: '💳',
+    icon: buymonthIcon,
     label: '每月',
     showPurchasePopup: true,
   },
   '4': {
     bg: (tk) => tk.gray[100],
     text: (tk) => tk.gray[500],
-    icon: '✓',
+    icon: hasbuyIcon,
     label: '已购买',
     showPurchasePopup: false,
   },
