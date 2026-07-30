@@ -2,14 +2,15 @@
 
 import * as React from 'react'
 import dynamic from 'next/dynamic'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Download, FileText, Play } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
+import ReactMarkdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
 import { useWorkPanelStore } from '@/stores/work-panel'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
-// P2 中期增强:亮色模式用 oneLight,暗色模式用 oneDark(此前固定 oneDark,亮色模式下代码块偏暗)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
@@ -19,9 +20,6 @@ const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram')
 })
 
 // 语法高亮组件懒加载,避免首屏 bundle 过大
-// 注:react-syntax-highlighter 自带类型定义与 next/dynamic loader 签名存在 children 类型不兼容
-// (库内 SyntaxHighlighterProps.children 为 string|string[],next/dynamic 期望与 ComponentType 兼容)。
-// 用 unknown 接收 + 类型断言绕过,真实运行时类型由库自身保证。
 import type { Prism as PrismType } from 'react-syntax-highlighter'
 type PrismComponent = typeof PrismType
 const SyntaxHighlighter = dynamic(
@@ -37,77 +35,7 @@ interface MarkdownStreamProps {
   isStreaming?: boolean
 }
 
-const INLINE_REGEX =
-  /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))|(\[[^\]]+\]\[[^\]]*\))/g
-
-function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = []
-  let lastIndex = 0
-  let key = 0
-  let match: RegExpExecArray | null
-  INLINE_REGEX.lastIndex = 0
-
-  while ((match = INLINE_REGEX.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index))
-    }
-    const token = match[0]
-    const k = `${keyPrefix}-${key++}`
-
-    if (token.startsWith('`')) {
-      nodes.push(
-        <code key={k} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">
-          {token.slice(1, -1)}
-        </code>,
-      )
-    } else if (token.startsWith('**')) {
-      nodes.push(
-        <strong key={k} className="font-semibold">
-          {token.slice(2, -2)}
-        </strong>,
-      )
-    } else if (token.startsWith('*')) {
-      nodes.push(<em key={k}>{token.slice(1, -1)}</em>)
-    } else if (token.startsWith('[')) {
-      const linkMatch = /\[([^\]]+)\]\(([^)]+)\)/.exec(token)
-      if (linkMatch && linkMatch[1] && linkMatch[2]) {
-        const href = linkMatch[2]
-        const isSafeUrl = /^(https?:|mailto:|\/|#)/.test(href)
-        if (!isSafeUrl) {
-          nodes.push(token)
-        } else {
-          nodes.push(
-            <a
-              key={k}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
-              onClick={(e) => {
-                // 左键无修饰键:在右侧工作展示区打开(Ctrl/Cmd/Shift/中键保留默认新标签页行为)
-                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
-                e.preventDefault()
-                useWorkPanelStore.getState().openPanel({ url: href, source: 'markdown-link' })
-              }}
-            >
-              {linkMatch[1]}
-            </a>,
-          )
-        }
-      } else {
-        nodes.push(token)
-      }
-    }
-    lastIndex = INLINE_REGEX.lastIndex
-  }
-
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex))
-  }
-  return nodes
-}
-
-// 复制到剪贴板 hook(自包含,不依赖外部)
+// 复制到剪贴板 hook
 function useCopy() {
   const [copied, setCopied] = React.useState(false)
   const copy = React.useCallback((text: string) => {
@@ -155,17 +83,14 @@ const CodeBlockImpl = function CodeBlock({
   language?: string
   code: string
   isStreaming?: boolean
-  // P2 中期增强:由外层 ThemedCodeBlock 注入(dark → oneDark,其他 → oneLight)
-  // 提升为 prop 让 React.memo 在主题切换时也能正确触发重渲染
   syntaxStyle: Record<string, React.CSSProperties>
 }): React.ReactElement {
   const tA11y = useTranslations('a11y')
   const { copied, copy } = useCopy()
   // 流式场景下 mermaid 代码会频繁变化,用 debounce 减少 mermaid.render 调用
-  // 代码不完整时的渲染失败由 MermaidDiagram 内部错误降级处理,代码完整后会重新渲染
   const debouncedCode = useDebounce(code, 300)
 
-  // mermaid 块交给 MermaidDiagram 客户端渲染(P2-3 成果,不动此分支)
+  // mermaid 块交给 MermaidDiagram 客户端渲染
   if (language === 'mermaid') {
     return <MermaidDiagram code={debouncedCode} />
   }
@@ -194,7 +119,6 @@ const CodeBlockImpl = function CodeBlock({
   )
 
   // 流式中的代码块用 opacity-60 标记(临时闭合位置)
-  // P2 中期增强:背景与文本颜色跟随主题(light → 白底深字, dark → 深底浅字)
   const preClassName = cn(
     'relative my-2 overflow-x-auto rounded-lg p-3 text-sm',
     'bg-zinc-100 text-zinc-900',
@@ -241,14 +165,13 @@ const CodeBlockImpl = function CodeBlock({
   )
 }
 
-// React.memo 包裹:code/language/syntaxStyle 不变时跳过重渲染(增量解析优化)
-// P2 中期增强:syntaxStyle 提升为 prop,主题切换时(对象引用变化)也能正确触发重渲染
+// React.memo 包裹:code/language/syntaxStyle 不变时跳过重渲染
 const CodeBlock = React.memo(CodeBlockImpl)
 
 /**
  * 主题感知包装层:在 useTheme hook 中读取 resolvedTheme,转成 syntaxStyle 注入 CodeBlock。
- * 不放在 CodeBlock 内部:React.memo 会因 props(只有 code/language)未变而跳过重渲染,
- * 导致主题切换时样式不更新。把 syntaxStyle 提升为 prop 后,memo 能在引用变化时正常触发更新。
+ * 不放在 CodeBlock 内部:React.memo 会因 props 未变而跳过重渲染,
+ * 把 syntaxStyle 提升为 prop 后,memo 能在引用变化时正常触发更新。
  */
 function ThemedCodeBlock(props: { language?: string; code: string; isStreaming?: boolean }) {
   const { resolvedTheme } = useTheme()
@@ -256,159 +179,126 @@ function ThemedCodeBlock(props: { language?: string; code: string; isStreaming?:
   return <CodeBlock {...props} syntaxStyle={syntaxStyle} />
 }
 
-function parseTableRow(line: string): string[] {
-  return line
-    .split('|')
-    .map((c) => c.trim())
-    .filter((_, i, arr) => i > 0 && i < arr.length - 1)
-}
+// 图片放大容器:点击图片在 WorkPanel 打开(同源);外链在新标签页打开
+function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
+  const srcStr = typeof src === 'string' ? src : undefined
+  if (!srcStr) return null
 
-function parseLineBlocks(segment: string, keyBase: string): React.ReactNode[] {
-  const lines = segment.split('\n')
-  const blocks: React.ReactNode[] = []
-  let i = 0
-  let key = 0
+  const isExternal = /^https?:\/\//i.test(srcStr)
+  const isDataUri = srcStr.startsWith('data:')
+  const isImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?|$)/i.test(srcStr) || isDataUri
+  if (!isImage) return null
 
-  while (i < lines.length) {
-    const line = lines[i] ?? ''
-    const trimmed = line.trim()
-
-    if (trimmed === '') {
-      i++
-      continue
+  const handleOpen = () => {
+    if (isExternal) {
+      window.open(srcStr, '_blank', 'noopener,noreferrer')
+      return
     }
-
-    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(trimmed)
-    if (headingMatch && headingMatch[1] && headingMatch[2] !== undefined) {
-      const level = headingMatch[1].length
-      const sizes = ['text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm', 'text-sm']
-      const size = sizes[level - 1] ?? 'text-base'
-      blocks.push(
-        React.createElement(
-          `h${level}`,
-          { key: `${keyBase}-${key++}`, className: cn('my-2 font-semibold', size) },
-          parseInline(headingMatch[2], `${keyBase}-${key}`),
-        ),
-      )
-      i++
-      continue
-    }
-
-    if (trimmed.startsWith('> ')) {
-      const quoteLines: string[] = []
-      while (i < lines.length && (lines[i] ?? '').trim().startsWith('> ')) {
-        quoteLines.push((lines[i] ?? '').trim().slice(2))
-        i++
-      }
-      blocks.push(
-        <blockquote
-          key={`${keyBase}-${key++}`}
-          className="my-2 border-l-2 border-border pl-3 text-muted-foreground italic"
-        >
-          {parseInline(quoteLines.join(' '), `${keyBase}-${key}`)}
-        </blockquote>,
-      )
-      continue
-    }
-
-    if (
-      /^\||^\|.*\|$/.test(trimmed) &&
-      i + 1 < lines.length &&
-      /^\|?[\s-:]+\|/.test((lines[i + 1] ?? '').trim())
-    ) {
-      const headerCells = parseTableRow(trimmed)
-      i += 2
-      const rows: string[][] = []
-      while (i < lines.length && (lines[i] ?? '').trim().startsWith('|')) {
-        rows.push(parseTableRow((lines[i] ?? '').trim()))
-        i++
-      }
-      blocks.push(
-        <div key={`${keyBase}-${key++}`} className="my-2 overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                {headerCells.map((c, ci) => (
-                  <th
-                    key={ci}
-                    className="border border-border bg-muted px-3 py-1.5 text-left font-medium"
-                  >
-                    {parseInline(c, `${keyBase}-th-${ci}`)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, ri) => (
-                <tr key={ri}>
-                  {row.map((c, ci) => (
-                    <td key={ci} className="border border-border px-3 py-1.5">
-                      {parseInline(c, `${keyBase}-td-${ri}-${ci}`)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>,
-      )
-      continue
-    }
-
-    if (/^[-*]\s+/.test(trimmed)) {
-      const items: string[] = []
-      while (i < lines.length && /^[-*]\s+/.test((lines[i] ?? '').trim())) {
-        items.push((lines[i] ?? '').trim().replace(/^[-*]\s+/, ''))
-        i++
-      }
-      blocks.push(
-        <ul key={`${keyBase}-${key++}`} className="my-2 list-disc space-y-1 pl-6">
-          {items.map((item, ii) => (
-            <li key={ii}>{parseInline(item, `${keyBase}-li-${ii}`)}</li>
-          ))}
-        </ul>,
-      )
-      continue
-    }
-
-    if (/^\d+\.\s+/.test(trimmed)) {
-      const items: string[] = []
-      while (i < lines.length && /^\d+\.\s+/.test((lines[i] ?? '').trim())) {
-        items.push((lines[i] ?? '').trim().replace(/^\d+\.\s+/, ''))
-        i++
-      }
-      blocks.push(
-        <ol key={`${keyBase}-${key++}`} className="my-2 list-decimal space-y-1 pl-6">
-          {items.map((item, ii) => (
-            <li key={ii}>{parseInline(item, `${keyBase}-ol-${ii}`)}</li>
-          ))}
-        </ol>,
-      )
-      continue
-    }
-
-    const paraLines: string[] = []
-    while (
-      i < lines.length &&
-      (lines[i] ?? '').trim() !== '' &&
-      !/^(#{1,6})\s+/.test((lines[i] ?? '').trim()) &&
-      !/^[-*]\s+/.test((lines[i] ?? '').trim()) &&
-      !/^\d+\.\s+/.test((lines[i] ?? '').trim()) &&
-      !(lines[i] ?? '').trim().startsWith('> ')
-    ) {
-      paraLines.push((lines[i] ?? '').trim())
-      i++
-    }
-    if (paraLines.length > 0) {
-      blocks.push(
-        <p key={`${keyBase}-${key++}`} className="my-2 leading-relaxed">
-          {parseInline(paraLines.join(' '), `${keyBase}-p-${key}`)}
-        </p>,
-      )
-    }
+    useWorkPanelStore.getState().openPanel({ url: srcStr, source: 'markdown-image' })
   }
 
-  return blocks
+  return (
+    <button
+      type="button"
+      onClick={handleOpen}
+      className="my-2 block max-w-full overflow-hidden rounded-md bg-muted/40 transition-colors hover:bg-muted/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+      aria-label={alt ? `图片: ${alt}` : '点击放大图片'}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- AI 返回的图片 URL 可能是任意来源,不走 next/image 优化 */}
+      <img
+        src={srcStr}
+        alt={alt ?? ''}
+        className="max-h-[400px] max-w-full object-contain"
+        loading="lazy"
+      />
+    </button>
+  )
+}
+
+// 视频内嵌播放:支持 mp4/webm/ogg
+function MarkdownVideo({ src }: { src?: string }) {
+  const srcStr = typeof src === 'string' ? src : undefined
+  if (!srcStr) return null
+  const isVideo = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(srcStr)
+  if (!isVideo) return null
+  return (
+    <video src={srcStr} controls className="my-2 max-w-full rounded-md" preload="metadata">
+      <track kind="captions" />
+    </video>
+  )
+}
+
+// Office 文件链接卡片:Word/Excel/PPT/PDF
+const OFFICE_EXT = /\.(docx?|xlsx?|pptx?|pdf|csv|md|txt|rtf|odt|ods|odp)(\?|$)/i
+function isOfficeLink(href: string): boolean {
+  return OFFICE_EXT.test(href)
+}
+
+function MarkdownLink({ href, children }: { href?: string; children?: React.ReactNode }) {
+  const hrefStr = typeof href === 'string' ? href : undefined
+  if (!hrefStr) {
+    // 无 href 的链接:渲染为 span(避免 a11y 警告)
+    return <span>{children}</span>
+  }
+
+  const isSafeUrl = /^(https?:|mailto:|\/|#)/.test(hrefStr)
+  if (!isSafeUrl) {
+    return <span>{children}</span>
+  }
+
+  // Office 文件:渲染为下载卡片
+  if (isOfficeLink(hrefStr)) {
+    const fileName = hrefStr.split('/').pop()?.split('?')[0] ?? 'file'
+    const ext = (fileName.match(/\.([^.]+)$/)?.[1] ?? '').toLowerCase()
+    return (
+      <a
+        href={hrefStr}
+        target="_blank"
+        rel="noopener noreferrer"
+        download={fileName}
+        className="my-2 flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm transition-colors hover:bg-muted/70"
+      >
+        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="truncate">{fileName}</span>
+        <span className="ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+          {ext}
+        </span>
+        <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      </a>
+    )
+  }
+
+  // 视频链接(非内嵌):渲染为带 Play 图标的链接
+  if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(hrefStr)) {
+    return (
+      <a
+        href={hrefStr}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="my-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1 text-sm transition-colors hover:bg-muted/70"
+      >
+        <Play className="h-3.5 w-3.5" aria-hidden />
+        <span>{children}</span>
+      </a>
+    )
+  }
+
+  // 普通链接:左键无修饰键在 WorkPanel 打开
+  return (
+    <a
+      href={hrefStr}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary underline underline-offset-2 hover:text-primary/80"
+      onClick={(e) => {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+        e.preventDefault()
+        useWorkPanelStore.getState().openPanel({ url: hrefStr, source: 'markdown-link' })
+      }}
+    >
+      {children}
+    </a>
+  )
 }
 
 // 检测未闭合的代码块围栏(奇数个 ``` 表示未闭合,流式中的常见情况)
@@ -417,72 +307,12 @@ function hasUnclosedFence(content: string): boolean {
   return matches !== null && matches.length % 2 === 1
 }
 
-function parseMarkdown(content: string): React.ReactNode[] {
-  const blocks: React.ReactNode[] = []
-
-  // 边界修复:未闭合的代码块用临时闭合标记让正则能匹配
-  // 预处理只用于解析,不修改原 content(避免影响外部状态)
-  // 修复前:未闭合代码块会被 split 当段落渲染,闭合瞬间跳变
-  // 修复后:未闭合代码块始终按 <pre> 渲染,流式过程平滑
-  const isUnclosed = hasUnclosedFence(content)
-  const parseContent = isUnclosed ? content + '\n```\n' : content
-
-  const segments = parseContent.split(/(```[\s\S]*?```)/g)
-
-  // 未闭合场景下,定位最后一个代码块段(用于标记流式中的代码块)
-  // 注意:追加 '\n```\n' 后,末尾可能多出一个空文本段,所以不能直接用 length-1
-  let lastCodeSegIdx = -1
-  if (isUnclosed) {
-    for (let i = segments.length - 1; i >= 0; i--) {
-      const seg = segments[i]
-      if (seg && seg.startsWith('```')) {
-        lastCodeSegIdx = i
-        break
-      }
-    }
-  }
-
-  segments.forEach((seg, idx) => {
-    if (seg.startsWith('```')) {
-      const match = /^```(\w*)\n?([\s\S]*?)```$/.exec(seg)
-      if (match) {
-        const lang = match[1] || undefined
-        const code = match[2] ?? ''
-        // 未闭合场景下,最后一个代码块是流式中的(用 opacity-60 标记)
-        const blockStreaming = idx === lastCodeSegIdx
-        // 稳定 key:索引 + 内容前缀(流式追加时 key 稳定,避免 remount)
-        // idx 保证唯一性,code.slice(0, 20) 在结构变化时强制 remount
-        const blockKey = `code-${idx}-${code.slice(0, 20)}`
-        blocks.push(
-          <ThemedCodeBlock
-            key={blockKey}
-            language={lang}
-            code={code}
-            isStreaming={blockStreaming}
-          />,
-        )
-      }
-    } else if (seg) {
-      parseLineBlocks(seg, `blk-${idx}`).forEach((b) => {
-        blocks.push(b)
-      })
-    }
-  })
-
-  return blocks
-}
-
 export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
-  // P2 中期增强:把 resolvedTheme 加入 useMemo 依赖,主题切换时重新解析节点树
-  // (ThemedCodeBlock 才能感知到主题变化并切换语法高亮)
-  const { resolvedTheme } = useTheme()
-  // P1-2 修复(2026-07-28):流式渲染每帧(rAF 16ms)全量重解析 markdown 导致长会话卡顿,
-  // 用 200ms throttle(leading + trailing)合并解析频率:
-  // - leading:距上次 flush 已过 200ms,立即 flush(流式过程中每 200ms 更新一次,约 5fps)
-  // - trailing:200ms 内的后续变化安排 trailing flush(流式结束 200ms 后保证最终内容渲染)
-  // 长回答(>10k tokens)时 parseMarkdown 耗时线性增长,节流后解析频率从 60fps 降到 5fps,
-  // 主线程压力大幅降低,同时保留流式过程中可见的内容更新(纯 debounce 会导致中间内容空白)。
-  const [debouncedContent, setDebouncedContent] = React.useState(content)
+  // 200ms throttle(leading + trailing)合并解析频率:
+  // - leading:距上次 flush 已过 200ms,立即 flush
+  // - trailing:200ms 内的后续变化安排 trailing flush
+  // 长回答(>10k tokens)时 react-markdown 解析耗时线性增长,节流后解析频率从 60fps 降到 5fps
+  const [throttledContent, setThrottledContent] = React.useState(content)
   const lastFlushRef = React.useRef<number>(0)
   const trailingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -490,24 +320,21 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
     const now = Date.now()
     const elapsed = now - lastFlushRef.current
     if (elapsed >= 200) {
-      // leading:距上次 flush 已过 200ms,立即 flush
       lastFlushRef.current = now
-      setDebouncedContent(content)
+      setThrottledContent(content)
       if (trailingTimerRef.current) {
         clearTimeout(trailingTimerRef.current)
         trailingTimerRef.current = null
       }
     } else if (trailingTimerRef.current === null) {
-      // trailing:200ms 内首次触发,安排 trailing flush(后续触发忽略,保证最后 token 也 flush)
       trailingTimerRef.current = setTimeout(() => {
         lastFlushRef.current = Date.now()
         trailingTimerRef.current = null
-        setDebouncedContent(content)
+        setThrottledContent(content)
       }, 200 - elapsed)
     }
   }, [content])
 
-  // 卸载时清理 trailing timer,防止内存泄漏
   React.useEffect(() => {
     return () => {
       if (trailingTimerRef.current) {
@@ -517,15 +344,171 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
     }
   }, [])
 
-  const nodes = React.useMemo(
-    () => parseMarkdown(debouncedContent),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- parseMarkdown 不依赖 theme,这里只为了让 memo 在主题切换时失效
-    [debouncedContent, resolvedTheme],
+  // 流式场景:未闭合代码块临时闭合让 react-markdown 能解析
+  // 流式中的代码块用 isStreamingCodeRef 标记,渲染时 opacity-60
+  const isStreamingCodeRef = React.useRef(false)
+  const parseContent = React.useMemo(() => {
+    if (hasUnclosedFence(throttledContent)) {
+      isStreamingCodeRef.current = true
+      return throttledContent + '\n```\n'
+    }
+    isStreamingCodeRef.current = false
+    return throttledContent
+  }, [throttledContent])
+
+  // components memo:无依赖(主题感知在 ThemedCodeBlock 内部 useTheme 处理)
+  const components = React.useMemo<Components>(
+    () => ({
+      code({ className, children, ...props }) {
+        // 行内 code:`xxx` 不带 language- class,直接渲染
+        // 块级 code:```lang\nxxx``` 带 language-xxx class,父级 <pre> 由我们接管
+        const match = /language-(\w+)/.exec(className ?? '')
+        const lang = match?.[1]
+        const codeText = String(children ?? '').replace(/\n$/, '')
+
+        // 块级代码:有 language-xxx 或多行 code → 用 CodeBlock 渲染
+        if (lang || codeText.includes('\n')) {
+          return (
+            <ThemedCodeBlock
+              language={lang}
+              code={codeText}
+              isStreaming={isStreamingCodeRef.current}
+            />
+          )
+        }
+
+        // 行内 code
+        return (
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]" {...props}>
+            {children}
+          </code>
+        )
+      },
+      // pre 包装:react-markdown 默认 <pre><code>,我们已经把 code 替换为 CodeBlock,
+      // 这里让 pre 直接渲染 children(避免双重 pre 嵌套)
+      pre({ children }) {
+        return <>{children}</>
+      },
+      img({ src, alt }) {
+        return <MarkdownImage src={typeof src === 'string' ? src : undefined} alt={alt} />
+      },
+      video({ src }) {
+        return <MarkdownVideo src={typeof src === 'string' ? src : undefined} />
+      },
+      a({ href, children }) {
+        return <MarkdownLink href={href}>{children}</MarkdownLink>
+      },
+      // 表格:外层包 overflow-x-auto 容器,移动端可横向滚动
+      table({ children }) {
+        return (
+          <div className="my-2 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">{children}</table>
+          </div>
+        )
+      },
+      thead({ children }) {
+        return <thead className="bg-muted/50">{children}</thead>
+      },
+      th({ children }) {
+        return (
+          <th className="border border-border px-3 py-1.5 text-left font-medium">{children}</th>
+        )
+      },
+      td({ children }) {
+        return <td className="border border-border px-3 py-1.5">{children}</td>
+      },
+      // 分隔线:用低对比度样式(符合 §4 禁止分割线规则 - 容器完整描边允许,纯线条用 border 替代)
+      // hr 在 markdown 语义里是必需的(用户明确要求支持分隔线),样式用 bg-muted 替代纯线条
+      hr() {
+        return <div className="my-4 h-px bg-border" role="separator" aria-hidden />
+      },
+      // 删除线:GFM ~~text~~
+      del({ children }) {
+        return <del className="text-muted-foreground line-through">{children}</del>
+      },
+      // 任务列表 checkbox:GFM - [ ] / - [x]
+      input({ checked, ...props }) {
+        // 仅处理 checkbox(其他 input 透传)
+        if (props.type !== 'checkbox' && checked === undefined) {
+          return <input {...props} />
+        }
+        return (
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled
+            className="mr-1.5 h-3.5 w-3.5 rounded-sm align-middle accent-primary"
+            aria-label={checked ? '已完成' : '未完成'}
+            readOnly
+          />
+        )
+      },
+      // 列表项:任务列表的 li 需要去掉默认 list-style(因为前面有 checkbox)
+      li({ children, ...props }) {
+        // GFM 任务列表:li 内首元素是 checkbox input
+        const firstChild = Array.isArray(children) ? children[0] : children
+        const isTaskItem =
+          React.isValidElement(firstChild) &&
+          (firstChild as React.ReactElement<{ type?: string }>).props?.type === 'checkbox'
+        return (
+          <li
+            className={cn('my-0.5', isTaskItem && 'list-none')}
+            {...(props as React.LiHTMLAttributes<HTMLLIElement>)}
+          >
+            {children}
+          </li>
+        )
+      },
+      blockquote({ children }) {
+        return (
+          <blockquote className="my-2 border-l-2 border-border pl-3 text-muted-foreground italic">
+            {children}
+          </blockquote>
+        )
+      },
+      // 标题样式
+      h1({ children }) {
+        return <h1 className="my-3 text-2xl font-semibold">{children}</h1>
+      },
+      h2({ children }) {
+        return <h2 className="my-2 text-xl font-semibold">{children}</h2>
+      },
+      h3({ children }) {
+        return <h3 className="my-2 text-lg font-semibold">{children}</h3>
+      },
+      h4({ children }) {
+        return <h4 className="my-2 text-base font-semibold">{children}</h4>
+      },
+      h5({ children }) {
+        return <h5 className="my-2 text-sm font-semibold">{children}</h5>
+      },
+      h6({ children }) {
+        return <h6 className="my-2 text-sm font-medium">{children}</h6>
+      },
+      p({ children }) {
+        return <p className="my-2 leading-relaxed">{children}</p>
+      },
+      ul({ children }) {
+        return <ul className="my-2 list-disc space-y-1 pl-6">{children}</ul>
+      },
+      ol({ children }) {
+        return <ol className="my-2 list-decimal space-y-1 pl-6">{children}</ol>
+      },
+      strong({ children }) {
+        return <strong className="font-semibold">{children}</strong>
+      },
+      em({ children }) {
+        return <em>{children}</em>
+      },
+    }),
+    [], // components 不依赖主题(主题感知在 ThemedCodeBlock 内部处理)
   )
 
   return (
     <div className="text-sm">
-      {nodes}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {parseContent}
+      </ReactMarkdown>
       {isStreaming && (
         <span
           className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle"
