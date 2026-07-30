@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 
 export interface CourseIntroData {
   description?: string
@@ -13,8 +13,7 @@ export interface CourseIntroProps {
 }
 
 export default function CourseIntro({ data = {} }: CourseIntroProps) {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   return (
     <View className="bg-card px-4 py-3">
       {data.description && (

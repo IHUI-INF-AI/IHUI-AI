@@ -2,7 +2,7 @@ import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -54,10 +54,7 @@ const PAGE_SIZE = 10
 
 export default function DeveloperIndex() {
   const { t } = useI18n()
-  const tt = (k: string, fb: string) => {
-    const v = t(k)
-    return v === k ? fb : v
-  }
+  const tt = useTt()
 
   const [list, setList] = useState<AgentItem[]>([])
   const [loading, setLoading] = useState(false)

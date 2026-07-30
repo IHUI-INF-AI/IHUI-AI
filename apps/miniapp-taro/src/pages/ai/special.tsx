@@ -1,9 +1,29 @@
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { getAgentList } from '@/api'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
+import { REMOTE_ICONS } from '@/constants/remote-icons'
+
+/**
+ * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
+ * 此处断言为具体接口类型(所用 key 均为静态已确认存在),保证点号访问返回 string。
+ */
+const ICONS = REMOTE_ICONS as {
+  aitext: string
+  model: string
+  imageOr: string
+  aiVideo: string
+  aimusic: string
+  jiqirenBig: string
+  jiqiren: string
+  plazaIcon01: string
+  hot: string
+  message: string
+  empty: string
+  tishiIcon: string
+}
 
 type CategoryKey = 'chat' | 'image' | 'video' | 'voice' | 'agent' | 'plaza'
 
@@ -24,7 +44,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     key: 'gemini-flash',
     name: 'Gemini-2.5-flash',
     desc: 'Google Gemini 2.5 Flash 文本模型,快速响应、多模态输入',
-    icon: '⚡',
+    icon: ICONS.aitext,
     category: 'chat',
     uses: 2300,
     route: '/pages/ai/chat?model=gemini-2.5-flash',
@@ -34,7 +54,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     key: 'httpmodel',
     name: 'HttpModel',
     desc: '通用 HTTP 模型代理,支持自定义模型接入',
-    icon: '🔌',
+    icon: ICONS.model,
     category: 'chat',
     uses: 540,
     route: '/pages/ai/chat',
@@ -43,7 +63,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     key: 'nanobanana',
     name: 'NanoBanana',
     desc: 'Google 图片编辑模型,支持自然语言指令编辑图片',
-    icon: '🍌',
+    icon: ICONS.imageOr,
     category: 'image',
     uses: 1280,
     route: '/pages/ai/image',
@@ -53,7 +73,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     key: 'veo3',
     name: 'Veo3',
     desc: 'Google 视频生成模型,支持高质量文生视频',
-    icon: '🎬',
+    icon: ICONS.aiVideo,
     category: 'video',
     uses: 860,
     route: '/pages/ai/video',
@@ -63,7 +83,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     key: 'tts',
     name: 'AI 语音',
     desc: '文本转语音,支持多语种自然发音',
-    icon: '🎙️',
+    icon: ICONS.aimusic,
     category: 'voice',
     uses: 420,
     route: '/pages/ai/voice',
@@ -72,7 +92,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     key: 'agent',
     name: '智能体广场',
     desc: '多场景智能体:办公/写作/编程/教育/生活',
-    icon: '🤖',
+    icon: ICONS.jiqirenBig,
     category: 'agent',
     uses: 3100,
     route: '/pages/ai/agent',
@@ -82,7 +102,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
     key: 'plaza',
     name: '模型广场',
     desc: '探索更多 AI 模型与厂商能力',
-    icon: '🛒',
+    icon: ICONS.plazaIcon01,
     category: 'plaza',
     uses: 780,
     route: '/pages/plaza/index',
@@ -90,13 +110,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
 ]
 
 export default function SpecialModelsPage() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string, params?: Record<string, string | number>) => {
-    const v = params ? t(k, params) : t(k)
-    if (v !== k) return v
-    if (!params) return fb
-    return fb.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? ''))
-  }
+  const tt = useTt()
 
   const [models, setModels] = useState<ModelEntry[]>(DEFAULT_MODELS)
   const [activeCategory, setActiveCategory] = useState<CategoryKey | 'all'>('all')
@@ -108,13 +122,13 @@ export default function SpecialModelsPage() {
   const hasMoreRef = useRef(false)
 
   const categories: Array<{ key: CategoryKey | 'all'; label: string; icon: string }> = [
-    { key: 'all', label: tt('ai.special.cat.all', '全部'), icon: '🌟' },
-    { key: 'chat', label: tt('ai.special.cat.chat', 'AI 对话'), icon: '💬' },
-    { key: 'image', label: tt('ai.special.cat.image', 'AI 绘图'), icon: '🎨' },
-    { key: 'video', label: tt('ai.special.cat.video', 'AI 视频'), icon: '🎬' },
-    { key: 'voice', label: tt('ai.special.cat.voice', 'AI 语音'), icon: '🎙️' },
-    { key: 'agent', label: tt('ai.special.cat.agent', '智能体'), icon: '🤖' },
-    { key: 'plaza', label: tt('ai.special.cat.plaza', '模型广场'), icon: '🛒' },
+    { key: 'all', label: tt('ai.special.cat.all', '全部'), icon: ICONS.hot },
+    { key: 'chat', label: tt('ai.special.cat.chat', 'AI 对话'), icon: ICONS.message },
+    { key: 'image', label: tt('ai.special.cat.image', 'AI 绘图'), icon: ICONS.imageOr },
+    { key: 'video', label: tt('ai.special.cat.video', 'AI 视频'), icon: ICONS.aiVideo },
+    { key: 'voice', label: tt('ai.special.cat.voice', 'AI 语音'), icon: ICONS.aimusic },
+    { key: 'agent', label: tt('ai.special.cat.agent', '智能体'), icon: ICONS.jiqirenBig },
+    { key: 'plaza', label: tt('ai.special.cat.plaza', '模型广场'), icon: ICONS.plazaIcon01 },
   ]
 
   const load = useCallback(async (reset = false) => {
@@ -134,7 +148,7 @@ export default function SpecialModelsPage() {
         key: `agent-${a.id}`,
         name: a.name,
         desc: a.desc || '',
-        icon: '🤖',
+        icon: ICONS.jiqiren,
         category: 'agent',
         uses: Number(a.uses ?? 0),
         route: `/pages/ai/agent-detail?id=${a.id}`,
@@ -234,8 +248,8 @@ export default function SpecialModelsPage() {
                 className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-[12rpx] align-top"
                 onClick={() => onEnter(m)}
               >
-                <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-background rounded-[12rpx] text-[40rpx]">
-                  <Text>{m.icon}</Text>
+                <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-background rounded-[12rpx]">
+                  <Image src={m.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 </View>
                 <Text className="block mt-[12rpx] text-[26rpx] text-foreground font-medium max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
                   {m.name}
@@ -252,23 +266,23 @@ export default function SpecialModelsPage() {
       {/* 分类 Tab */}
       <ScrollView scrollX className="whitespace-nowrap mb-[16rpx]" enhanced showScrollbar={false}>
         <View className="whitespace-nowrap px-[24rpx]">
-        {categories.map((c) => {
-          const active = activeCategory === c.key
-          return (
-            <View
-              key={c.key}
-              className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-primary/10 border-primary' : 'border-border'}`}
-              onClick={() => setActiveCategory(c.key)}
-            >
-              <Text className="text-[26rpx]">{c.icon}</Text>
-              <Text
-                className={`text-[26rpx] ${active ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+          {categories.map((c) => {
+            const active = activeCategory === c.key
+            return (
+              <View
+                key={c.key}
+                className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-primary/10 border-primary' : 'border-border'}`}
+                onClick={() => setActiveCategory(c.key)}
               >
-                {c.label}
-              </Text>
-            </View>
-          )
-        })}
+                <Image src={c.icon} className="w-[32rpx] h-[32rpx]" mode="aspectFit" />
+                <Text
+                  className={`text-[26rpx] ${active ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+                >
+                  {c.label}
+                </Text>
+              </View>
+            )
+          })}
         </View>
       </ScrollView>
 
@@ -280,8 +294,8 @@ export default function SpecialModelsPage() {
               key={m.key}
               className="flex p-[24rpx] bg-card border border-border rounded-[12rpx]"
             >
-              <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-background rounded-[12rpx] text-[44rpx] flex-shrink-0">
-                <Text>{m.icon}</Text>
+              <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0">
+                <Image src={m.icon} className="w-[56rpx] h-[56rpx]" mode="aspectFit" />
               </View>
               <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
                 <View className="flex items-center justify-between gap-[12rpx]">
@@ -312,7 +326,7 @@ export default function SpecialModelsPage() {
       {/* 状态 */}
       {!loading && filtered.length === 0 && !error ? (
         <View className="flex flex-col items-center py-[80rpx] text-[26rpx] text-muted-foreground">
-          <Text className="text-[56rpx] mb-[16rpx]">📭</Text>
+          <Image src={ICONS.empty} className="w-[80rpx] h-[80rpx] mb-[16rpx]" mode="aspectFit" />
           <Text className="text-[26rpx] text-muted-foreground">
             {tt('ai.special.empty', '暂无内容')}
           </Text>
@@ -324,13 +338,15 @@ export default function SpecialModelsPage() {
           className="flex flex-col items-center py-[80rpx] text-[26rpx] text-muted-foreground"
           onClick={() => void load(true)}
         >
-          <Text className="text-[56rpx] mb-[16rpx]">⚠️</Text>
+          <Image
+            src={ICONS.tishiIcon}
+            className="w-[80rpx] h-[80rpx] mb-[16rpx]"
+            mode="aspectFit"
+          />
           <Text className="text-[26rpx] text-muted-foreground">
             {tt('ai.special.error', '加载失败')}
           </Text>
-          <Text className="mt-[12rpx] text-[26rpx] text-primary">
-            {tt('common.retry', '重试')}
-          </Text>
+          <Text className="mt-[12rpx] text-[26rpx] text-primary">{tt('common.retry', '重试')}</Text>
         </View>
       ) : null}
 

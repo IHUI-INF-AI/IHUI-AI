@@ -199,6 +199,7 @@ services:
       - LITELLM_MODEL=${LITELLM_MODEL:-stepfun/step-3.7-flash}
       - API_SERVICE_URL=http://api:8080
       - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
+      - LLM_PROXY_URL=${LLM_PROXY_URL:-}
     depends_on:
       db:
         condition: service_healthy

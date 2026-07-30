@@ -11,9 +11,13 @@ require('react-native/Libraries/Core/InitializeCore')
 // 现在 BatchedBridge 已就绪,可以注册 callable module。
 // registerCallableModule 在 bridge 模式下走 BatchedBridge.registerLazyCallableModule。
 try {
-  const registerCallableModule = require('react-native/Libraries/Core/registerCallableModule').default
-  registerCallableModule('HMRClient', () => require('react-native/Libraries/Utilities/HMRClient').default)
-} catch (e) {
+  const registerCallableModule =
+    require('react-native/Libraries/Core/registerCallableModule').default
+  registerCallableModule(
+    'HMRClient',
+    () => require('react-native/Libraries/Utilities/HMRClient').default,
+  )
+} catch {
   // 即使失败也让应用继续跑(可能只是 __DEV__ 关闭时不需要 HMR)
 }
 

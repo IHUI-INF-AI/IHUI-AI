@@ -20,7 +20,7 @@ import { View, Image, Text } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import NavBar from '@/components/NavBar'
 import DrawerComponent, {
   type DrawerModelGroup,
@@ -34,6 +34,8 @@ import type { ModelType } from '@/components/ModelTypeButton'
 import BottomActionBar, {
   type ToggleButtonItem,
 } from '@/components/BottomActionBar'
+import Toolbar from '@/components/Toolbar'
+import { icon } from '@/constants/remote-icons'
 import './index.css'
 
 const DEFAULT_AVATAR =
@@ -43,33 +45,6 @@ const DEFAULT_AVATAR =
 const SHARE_ZHUANMI_IMG = '/static/images/share_zhuanmi.png'
 const SHARE_ZHZ_IMG = '/static/images/share_zhz.png'
 const QRCODE_IMG = '/static/images/qewm.png'
-
-// 模拟历史对话分组数据(对齐原项目 groupedData 结构,TODO: 接入真实 API)
-const MOCK_GROUPED_DATA: DrawerModelGroup[] = [
-  {
-    modelName: 'GPT-4',
-    dateGroups: [
-      {
-        date: '今天',
-        chats: [
-          { id: 1, title: '如何使用 React Hooks?', date: '今天' },
-          { id: 2, title: 'TypeScript 类型推断', date: '今天' },
-        ],
-      },
-    ],
-  },
-  {
-    modelName: 'Claude',
-    dateGroups: [
-      {
-        date: '昨天',
-        chats: [
-          { id: 3, title: '设计模式讨论', date: '昨天' },
-        ],
-      },
-    ],
-  },
-]
 
 // 本地 mock 模型列表(对齐原项目 modelList 数据源,TODO: 接入真实 API /api/llm/models)
 const MOCK_MODELS: ModelItem[] = [
@@ -96,7 +71,8 @@ interface AiHomeState {
 
 export default function Index() {
   const { t } = useI18n()
-  const [state, setState] = useState<AiHomeState>({
+  const tt = useTt()
+  const [state, setState] = useState<AiHomeState>(() => ({
     drawerVisible: false,
     showModelList: false,
     currentModelType: '',
@@ -109,13 +85,37 @@ export default function Index() {
     showQrCodeModal: false,
     showIconButtons: false,
     toggleButtons: [
-      { key: 'superAgent', label: '深度思考', active: false },
-      { key: 'mcp', label: '联网', active: false },
-      { key: 'knowledgeBase', label: '知识库', active: false },
-      { key: 'permanentMemory', label: '永久记忆', active: false },
+      { key: 'superAgent', label: tt('index.feature.superAgent', '深度思考'), active: false },
+      { key: 'mcp', label: tt('index.feature.mcp', '联网'), active: false },
+      { key: 'knowledgeBase', label: tt('index.feature.knowledgeBase', '知识库'), active: false },
+      { key: 'permanentMemory', label: tt('index.feature.permanentMemory', '永久记忆'), active: false },
     ],
-    groupedData: MOCK_GROUPED_DATA,
-  })
+    groupedData: [
+      {
+        modelName: 'GPT-4',
+        dateGroups: [
+          {
+            date: tt('index.mock.today', '今天'),
+            chats: [
+              { id: 1, title: tt('index.mock.post1Title', '如何使用 React Hooks?'), date: tt('index.mock.today', '今天') },
+              { id: 2, title: tt('index.mock.post2Title', 'TypeScript 类型推断'), date: tt('index.mock.today', '今天') },
+            ],
+          },
+        ],
+      },
+      {
+        modelName: 'Claude',
+        dateGroups: [
+          {
+            date: tt('index.mock.yesterday', '昨天'),
+            chats: [
+              { id: 3, title: tt('index.mock.post3Title', '设计模式讨论'), date: tt('index.mock.yesterday', '昨天') },
+            ],
+          },
+        ],
+      },
+    ],
+  }))
 
   const [models] = useState<ModelItem[]>(MOCK_MODELS)
 
@@ -220,11 +220,11 @@ export default function Index() {
 
   const handleSend = (text: string) => {
     if (!state.isLogin) {
-      Taro.showToast({ title: '请先登录', icon: 'none' })
+      Taro.showToast({ title: tt('index.toast.loginRequired', '请先登录'), icon: 'none' })
       return
     }
     Taro.navigateTo({ url: `/pages/ai/chat?prompt=${encodeURIComponent(text)}` }).catch(() => {
-      Taro.showToast({ title: '对话页未配置', icon: 'none' })
+      Taro.showToast({ title: tt('index.toast.chatNotConfigured', '对话页未配置'), icon: 'none' })
     })
   }
 
@@ -271,7 +271,7 @@ export default function Index() {
         {/* ===== NavBar(粘性 + 标题"智汇AI社区" + 菜单 + 加入社区群)===== */}
         <NavBar
           variant="ai-home"
-          title="智汇AI社区"
+          title={tt('index.title', '智汇AI社区')}
           bgColor="var(--color-nav-bg, #E9F0FD)"
           textColor="var(--color-nav-title, #171717)"
           onMenuClick={handleMenuClick}
@@ -298,6 +298,19 @@ export default function Index() {
               />
             </View>
           </View>
+        </View>
+
+        {/* ===== Toolbar(快捷入口工具栏,横向滚动,不带背景)===== */}
+        <View className="px-[20rpx] py-[16rpx]">
+          <Toolbar
+            items={[
+              { id: 'ai', name: tt('toolbar.ai', 'AI对话'), icon: icon('aiIcon'), onClick: () => Taro.navigateTo({ url: '/pages/ai/chat' }) },
+              { id: 'course', name: tt('toolbar.course', '课程'), icon: icon('courseIcon'), onClick: () => Taro.switchTab({ url: '/pages/course/list' }) },
+              { id: 'plaza', name: tt('toolbar.plaza', '广场'), icon: '🏙️', onClick: () => Taro.navigateTo({ url: '/pages/plaza/index/index' }) },
+              { id: 'rank', name: tt('toolbar.rank', '排行'), icon: icon('rankone'), onClick: () => Taro.navigateTo({ url: '/pages/ranking/index' }) },
+              { id: 'vip', name: tt('toolbar.vip', '会员'), icon: icon('uservipAct'), onClick: () => Taro.navigateTo({ url: '/pages/vip/index' }) },
+            ]}
+          />
         </View>
 
         {/* ===== input_box_content(底部输入区,position fixed)===== */}
@@ -347,7 +360,7 @@ export default function Index() {
             inputAreaProps={{
               onSend: handleSend,
               disabled: !state.isLogin,
-              placeholder: state.isLogin ? '输入消息...' : '请先登录',
+              placeholder: state.isLogin ? tt('index.placeholder.input', '输入消息...') : tt('index.placeholder.loginRequired', '请先登录'),
             }}
           />
         </View>
@@ -395,7 +408,7 @@ export default function Index() {
               mode="aspectFit"
             />
             <Text style={{ fontSize: '32rpx', color: 'var(--color-foreground)', marginTop: '20rpx' }}>
-              扫描二维码加入社区
+              {tt('index.qrCodeHint', '扫描二维码加入社区')}
             </Text>
             {/* 关闭按钮(对齐原项目 .qr-code-close:60rpx×60rpx,圆形,AGENTS 豁免)*/}
             <View
