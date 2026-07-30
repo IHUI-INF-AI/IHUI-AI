@@ -9221,6 +9221,7 @@
     "confirmDeleteConversation": "确认删除该任务？删除后无法恢复。",
     "deleteConversation": "删除任务",
     "deleteFailed": "删除失败",
+    "deleteSuccess": "已删除",
     "actions": {
       "menu": "更多操作",
       "delete": "删除",
