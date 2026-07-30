@@ -498,7 +498,19 @@
     "wallet": "钱包",
     "live": "直播",
     "courses": "课程",
-    "earnings": "挣钱中心"
+    "earnings": "挣钱中心",
+    "developerRelay": "API 中转站",
+    "developerRelayKeys": "API 密钥",
+    "developerRelayUsage": "用量明细",
+    "developerRelaySubscriptions": "API 订阅",
+    "playground": "在线测试",
+    "adminRelayOverview": "中转站概览",
+    "adminRelayModels": "模型管理",
+    "adminRelayKeyPool": "密钥池",
+    "adminRelayDiscovery": "模型发现",
+    "adminRelayLogs": "调用日志",
+    "adminRelayModelMappings": "模型映射",
+    "adminRelayRedemptionCodes": "兑换码"
   },
   "routes": {
     "aboutUs": "关于我们",
