@@ -628,6 +628,8 @@
     "modelConfigured": "현재 모델의 API Key가 설정되어 있습니다",
     "modelNotConfigured": "현재 모델의 API Key가 설정되지 않았습니다. 모델 광장 페이지에서 원클릭 설정 가능",
     "manageModels": "사용자 지정 모델 구성",
+    "modelAuto": "자동",
+    "modelAutoDescription": "최적 모델 자동 선택",
     "slashCmd": {
       "plan": "계획 모드로 전환(AI가 계획만 수립하고 도구를 실행하지 않습니다)",
       "act": "실행 모드로 전환(AI가 정상적으로 도구를 실행합니다, 기본값)",
