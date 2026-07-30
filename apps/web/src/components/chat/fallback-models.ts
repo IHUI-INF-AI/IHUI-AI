@@ -104,6 +104,10 @@ export const FALLBACK_MODELS: FallbackModel[] = [
     label: 'Llama 3.3 70B Fast (CF 免费)',
     vendor: 'cloudflare_workers_ai',
   },
+  // NVIDIA NIM 免费(2026-07-31 立,1M tokens/月 + 40 RPM,需 nvapi- key,OpenAI 兼容)
+  { value: 'nvidia/deepseek-ai/deepseek-r1', label: 'DeepSeek R1 671B (NIM 免费)', vendor: 'nvidia_nim' },
+  { value: 'nvidia/meta/llama-3.3-70b-instruct', label: 'Llama 3.3 70B (NIM 免费)', vendor: 'nvidia_nim' },
+  { value: 'nvidia/zai-org/glm-5', label: 'GLM-5 744B (NIM 免费)', vendor: 'nvidia_nim' },
   // HuggingFace 推理(1 个)
   {
     value: 'huggingface/meta-llama/Llama-3.3-70B-Instruct',
