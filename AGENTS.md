@@ -174,6 +174,22 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ---
 
+## 9b. 单分支开发强制规则(强制)
+
+- **禁止创建乱七八糟分支,所有改动统一往 main 合并**。除 main 之外**不允许**新建任何本地/远程分支(`feat/*` / `fix/*` / `hotfix/*` / `add-*` / `rescue/*` / 自定义前缀全部禁止)。
+- **唯一例外**:`/goal` 模式目标条件强制要求独立分支时,允许创建 `goal/<目标名>` 临时分支(AGENTS.md §8);`goal/*` 完成后**必须立即删除**,不留历史快照。
+- **必要分支判断标准**:**单次任务无法在 main 上原子完成**才允许创建(如 8 端并行多 subagent、紧急 hotfix 需独立回滚通道);**普通功能开发、Bug 修复、refactor、文档/守门脚本改动一律禁止创建分支**,全部在 main 上直接 commit。
+- **已合并分支立即删除**:任务合并后**本会话内**完成 `git branch -d <已合并>`(本地) + `git push origin --delete <已合并>`(远程),不留"历史快照"分支污染 main 分支列表。
+- **删除未合并分支前必须 tag 备份**(AGENTS.md §22 配套):`git tag backup/cleanup-<date>-<branch> <branch>` → `git push origin --atomic refs/tags/backup/cleanup-*` → 再 `git branch -D`。tag 必须本地+远端双备份,防 git gc 清理。
+- **fetch + prune 是日常**:`git fetch origin --prune` 在每个 push 周期跑一次,清理已删远程分支的本地 stale 引用。
+- **守门**(本任务新增,2026-07-30 立):
+  - `scripts/check-single-branch.mjs`(待补):检测 `git branch -a` 列表中除 main / upstream 外的分支,发现任意 1 个 → exit 1 阻塞 commit。
+  - 集成位置:`.husky/pre-commit` 新增第 X 项(blocking),守门不通过则禁止 commit + push。
+  - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.trae-cn/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。
+- **历史教训**(2026-07-30 立):仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),其中 `add-ihui-ai` / `goal/*` / `rescue/*` 等 13 个无价值分支全部已合并或已被 main 覆盖;3 个未合并分支的内容(LLM 三提供商/i18n 五端/console.log→logger/awesome-prs)均已在 main 后续 commit 中包含或演进,merge 会回退 main 功能。教训:**分支不是"工作单元",是"协作单元"**——单 agent 单任务无需分支,直接 main 提交即可。
+
+---
+
 ## 10. 交付报告一致性硬约束(强制)
 
 同一份 .md 报告中**不得**同时出现:"无后续建议" / "完整收尾" / "对话可关闭" 与 "P1-P5" / "优化项" / "TODO" / "后续任务"。守门:`scripts/check-delivery-report-consistency.mjs` + pre-commit 第 12 项。
