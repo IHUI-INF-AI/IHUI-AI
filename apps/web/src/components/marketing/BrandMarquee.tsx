@@ -76,12 +76,10 @@ function MarqueeRow({
                 alt={label}
                 width={shape === 'wide' ? 144 : 36}
                 height={shape === 'wide' ? 40 : 36}
-                // 2026-07-21 v5:用户反馈"暗色模式下图片背景容器需要加一个白色背景,不然看不清"。
-                //   mono=true 的 logo 是白色单色图,必须在任何底色下 invert 成深色才能看清:
-                //   - light mode: box=bg-card(浅色)→ 白图 invert 变深色 → 在浅底上可见 ✅
-                //   - dark mode:  box=white(用户要求)→ 白图 invert 变深色 → 在白底上可见 ✅
-                //   原 `invert dark:invert-0` 在 dark mode 下撤销 invert,白图+白底=同色不可见 ❌
-                className={`${img}${brand.mono ? ' invert' : ''}`}
+                // 2026-07-30:用户反馈"暗色模式下黑色图标看不清" → 非 mono 默认加 dark:invert
+                //   - mono=true (白前景): invert 亮色 / invert-0 暗色还原白 → 始终可见
+                //   - mono=false (黑/多色前景): dark:invert 仅暗色反相 → 暗色下黑变白
+                className={`${img}${brand.mono ? ' invert dark:invert-0' : ' dark:invert'}`}
                 {...IMG_EAGER}
               />
             </div>
