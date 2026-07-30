@@ -1,6 +1,7 @@
 import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
 import './LessonListItem.css'
+import { icon } from '@/constants/remote-icons'
 
 export interface LessonListItemData {
   id: string
@@ -63,8 +64,8 @@ export default function LessonListItem({
 }: LessonListItemProps) {
   const tt = useTt()
   const TYPE_ICONS: Record<string, string> = {
-    video: '▶',
-    audio: '♫',
+    video: icon('videoIcon'),
+    audio: icon('yinpinIcon'),
     article: tt('lesson.articleType', '文'),
     live: '🔴',
   }
@@ -102,7 +103,8 @@ export default function LessonListItem({
           )}
           {vipVisible && (
             <View className="lli-vip-pill">
-              <Text className="lli-vip-text">👑 VIP可看</Text>
+              <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('king')} mode="aspectFit" />
+              <Text className="lli-vip-text">VIP可看</Text>
             </View>
           )}
           <View className="flex items-center">
@@ -154,8 +156,14 @@ export default function LessonListItem({
           )}
           {(vipVisible || priceVisible) && (
             <View className={`lli-pill ${data.vipOnly ? 'lli-pill-vip' : 'lli-pill-paid'}`}>
+              {data.vipOnly && (
+                <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('king')} mode="aspectFit" />
+              )}
+              {!data.vipOnly && data.price !== undefined && (
+                <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('fufei')} mode="aspectFit" />
+              )}
               <Text className="lli-pill-text">
-                {data.vipOnly ? '👑 VIP可看' : data.price !== undefined ? '💎 付费项目' : ''}
+                {data.vipOnly ? 'VIP鍙湅' : data.price !== undefined ? '浠樿垂椤圭洰' : ''}
               </Text>
             </View>
           )}
@@ -204,7 +212,8 @@ export default function LessonListItem({
         <View className="flex items-center mt-[10rpx]">
           {vipVisible && data.vipOnly && (
             <View className="lli-vip-pill">
-              <Text className="lli-vip-text">👑 VIP可看</Text>
+              <Image className="w-[38rpx] h-[34rpx] mr-[10rpx]" src={icon('king')} mode="aspectFit" />
+              <Text className="lli-vip-text">VIP可看</Text>
             </View>
           )}
           {priceVisible && !data.vipOnly && data.price !== undefined && (
@@ -218,6 +227,7 @@ export default function LessonListItem({
   }
 
   // ===== 默认布局(无 variant,保持向后兼容 — CourseCatalog 等现有调用方) =====
+  const typeIcon = (data.type && TYPE_ICONS[data.type]) || ''
   return (
     <View
       className={`flex items-center px-4 py-3 mb-2 ${active ? 'bg-primary/10' : ''}`}
@@ -233,8 +243,12 @@ export default function LessonListItem({
 
       <View className="flex-1 min-w-0">
         <View className="flex items-center">
-          {data.type && (
-            <Text className="text-xs text-muted-foreground mr-2">{TYPE_ICONS[data.type]}</Text>
+          {typeIcon && (
+            data.type === 'article' || data.type === 'live' ? (
+              <Text className="text-xs text-muted-foreground mr-2">{typeIcon}</Text>
+            ) : (
+              <Image className="w-3 h-3 mr-2" src={typeIcon} mode="aspectFit" />
+            )
           )}
           <Text
             className={`text-sm truncate ${active ? 'text-primary font-medium' : 'text-foreground'}`}
