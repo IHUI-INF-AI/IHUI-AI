@@ -48,16 +48,12 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const LOGO_SOURCE = require('../../assets/images/logo.png')
 
-// 第三方登录图标资源(8 平台,从 assets/images/ 引入)
-// 注意:mobile-rn 未安装 react-native-svg,SVG 文件无法直接 require;
-// 仅 PNG 图标可用 require,SVG 图标走共享组件首字母 fallback(平台首字母圆形按钮)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {
-  github: require('../../assets/images/Github.png'),
-  feishu: require('../../assets/images/feishu.png'),
-  // 其他 6 平台(wechat/google/dingtalk/enterpriseWechat/alipay/apple)走首字母 fallback
-  // 后续可补:安装 react-native-svg-transformer + 配置 metro.config.js 支持 SVG require
-}
+// 第三方登录图标资源(8 平台)
+// 注意:Metro watch mode 在 pnpm isolated linker 下 file map 不完整,
+// 部分 PNG require 会报 "Unable to resolve"(Github.png/feishu.png 文件存在但 watch 未扫描到)。
+// 全部走首字母 fallback(共享 LoginScreen ThirdPartyLoginArea 组件:平台首字母圆形按钮),
+// 后续可补:安装 react-native-svg-transformer + 配置 metro.config.js 支持 SVG require。
+const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {}
 
 // 第三方登录配置(对齐 web use-third-party-config.tsx PROVIDER_DEFS,8 平台)
 // apple forceDisabled = true(对齐 web "Apple 登录即将上线")
@@ -167,7 +163,8 @@ export function LoginScreen() {
   const [agreementError, setAgreementError] = useState('')
 
   // ===== 第三方登录 loading 平台标识 =====
-  const [thirdPartyLoadingPlatform, setThirdPartyLoadingPlatform] = useState<ThirdPartyPlatform | null>(null)
+  const [thirdPartyLoadingPlatform, setThirdPartyLoadingPlatform] =
+    useState<ThirdPartyPlatform | null>(null)
 
   // ===== 倒计时 effect(60s 邮箱/短信验证码) =====
   useEffect(() => {
@@ -303,29 +300,35 @@ export function LoginScreen() {
   // ===== 第三方登录回调 =====
   // 移动端未集成各平台原生 SDK,统一提示用户使用网页端登录(对齐 sso.ts 跳转策略)
   // 后续可扩展:用 expo-web-browser.openAuthSessionAsync 跳 OAuth flow
-  const handleThirdPartyLogin = useCallback((platform: ThirdPartyPlatform) => {
-    const option = THIRD_PARTY_OPTIONS.find((o) => o.platform === platform)
-    if (!option || !option.enabled || option.forceDisabled) {
-      Alert.alert(t('auth.thirdPartyLogin'), option?.disabledHint ?? t('auth.googleNotConfigured'))
-      return
-    }
-    setThirdPartyLoadingPlatform(platform)
-    // 当前 mobile-rn 暂未集成各平台原生 SDK,统一引导走 SSO 跳 web
-    Alert.alert(
-      t('auth.thirdPartyLogin'),
-      `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"使用网页账号登录"按钮跳转网页端授权。`,
-      [
-        { text: '取消', onPress: () => setThirdPartyLoadingPlatform(null), style: 'cancel' },
-        {
-          text: '前往网页端',
-          onPress: () => {
-            setThirdPartyLoadingPlatform(null)
-            void form.ssoLoginAction()
+  const handleThirdPartyLogin = useCallback(
+    (platform: ThirdPartyPlatform) => {
+      const option = THIRD_PARTY_OPTIONS.find((o) => o.platform === platform)
+      if (!option || !option.enabled || option.forceDisabled) {
+        Alert.alert(
+          t('auth.thirdPartyLogin'),
+          option?.disabledHint ?? t('auth.googleNotConfigured'),
+        )
+        return
+      }
+      setThirdPartyLoadingPlatform(platform)
+      // 当前 mobile-rn 暂未集成各平台原生 SDK,统一引导走 SSO 跳 web
+      Alert.alert(
+        t('auth.thirdPartyLogin'),
+        `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"使用网页账号登录"按钮跳转网页端授权。`,
+        [
+          { text: '取消', onPress: () => setThirdPartyLoadingPlatform(null), style: 'cancel' },
+          {
+            text: '前往网页端',
+            onPress: () => {
+              setThirdPartyLoadingPlatform(null)
+              void form.ssoLoginAction()
+            },
           },
-        },
-      ],
-    )
-  }, [t, form])
+        ],
+      )
+    },
+    [t, form],
+  )
 
   // ===== 协议同意回调 =====
   const handleAgreedChange = useCallback((next: boolean) => {
