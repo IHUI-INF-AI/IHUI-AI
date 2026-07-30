@@ -416,3 +416,59 @@ def test_omniroute_alignment_complete():
     for code in omniroute_forever_free_should_have:
         p = free_provider_registry.get_by_code(code)
         assert p is not None, f"OmniRoute forever free provider {code} 未接入"
+
+
+# =============================================================================
+# P3-2 Kiro 法务评估测试(2026-07-30 立,ToS 禁止第三方集成)
+# =============================================================================
+
+
+def test_kiro_exists_in_registry():
+    """Kiro provider 在注册表中(P3-2 法务评估存档,不接入技术路径)。"""
+    p = free_provider_registry.get_by_code("kiro")
+    assert p is not None
+    assert p.display_name == "Kiro(AWS,AI IDE,免费 Claude)"
+
+
+def test_kiro_has_tos_warning_in_notes():
+    """Kiro notes 含 ToS 法务风险警告(明确禁止第三方集成)。"""
+    p = free_provider_registry.get_by_code("kiro")
+    assert p is not None
+    assert "法务风险" in p.notes
+    assert "ToS" in p.notes
+    assert "禁止" in p.notes
+
+
+def test_kiro_no_key_env_vars():
+    """Kiro 无 key_env_vars(IDE 内置认证,不支持外部 API 调用)。"""
+    p = free_provider_registry.get_by_code("kiro")
+    assert p is not None
+    assert p.key_env_vars == [], "Kiro 应无 key_env_vars(不支持外部 API 调用)"
+
+
+def test_kiro_no_default_base_url():
+    """Kiro 无 default_base_url(非独立 API 服务,IDE 内置)。"""
+    p = free_provider_registry.get_by_code("kiro")
+    assert p is not None
+    assert p.default_base_url == "", "Kiro 应无 default_base_url(IDE 内置,非独立 API)"
+
+
+def test_kiro_has_claude_models():
+    """Kiro 推荐模型含 Claude(AWS Bedrock 提供免费 Claude 接入)。"""
+    p = free_provider_registry.get_by_code("kiro")
+    assert p is not None
+    assert "claude-sonnet-4" in p.default_models
+    assert "claude-3.7-sonnet" in p.default_models
+
+
+def test_kiro_is_international_category():
+    """Kiro 分类为 INTERNATIONAL(AWS 国际服务)。"""
+    p = free_provider_registry.get_by_code("kiro")
+    assert p is not None
+    assert p.category == ProviderCategory.INTERNATIONAL
+
+
+def test_kiro_is_not_configured():
+    """Kiro 状态为 NOT_CONFIGURED(无 key_env_vars → 无法配置)。"""
+    status = free_provider_registry.is_key_configured("kiro")
+    assert status == ProviderStatus.NOT_CONFIGURED
