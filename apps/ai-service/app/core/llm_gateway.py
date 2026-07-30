@@ -9,6 +9,8 @@ import base64
 import json
 import logging
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any, AsyncIterator, Optional, TYPE_CHECKING, cast
 
 import asyncpg
@@ -24,6 +26,7 @@ from ..middleware.llm_metrics import (
     LLM_TOKEN_COMPACTION_TRIGGERED,
     classify_fallback_reason,
 )
+from ..services.tls_stealth import create_stealth_client, get_stealth_headers
 from .config import settings
 from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
@@ -77,10 +80,20 @@ _http_client: Optional[httpx.AsyncClient] = None
 
 
 def get_http_client() -> httpx.AsyncClient:
-    """获取全局共享 httpx.AsyncClient(懒初始化,连接池复用,自动应用 LLM 代理)。"""
+    """获取全局共享 httpx.AsyncClient(懒初始化,连接池复用,自动应用 LLM 代理)。
+
+    P3-1(2026-07-30):用 create_stealth_client() 替代普通 httpx.AsyncClient,
+    全局 client 含 stealth 头(UA 伪装 + Accept 随机化),降低 WAF 拦截概率。
+    厂商原生适配器(providers/*)通过本函数获取 client,自动继承 stealth 能力。
+    """
     global _http_client
     if _http_client is None:
-        _http_client = httpx.AsyncClient(timeout=60.0, **_PROXY_KWARGS)
+        # P3-1:用 stealth client 工厂(含 UA 伪装 + 默认浏览器头)
+        # proxy 优先用全局 llm_proxy_url(LiteLLM 也读这个 env var)
+        _http_client = create_stealth_client(
+            timeout=60.0,
+            proxy=_llm_proxy or None,
+        )
     return _http_client
 
 
@@ -464,6 +477,96 @@ def repair_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
 
     return cleaned, removed, reasons
 
+
+# ============================================================================
+# P3-3 OpenRouter 403 代理 + failover 辅助函数(2026-07-30 立)
+# ============================================================================
+
+
+def _is_openrouter_403_error(model: str, error: Exception) -> bool:
+    """检测是否为 OpenRouter 403 错误(可 failover 到 agnes)。
+
+    OpenRouter 对国内 IP / 非浏览器 UA 常返回 403 Forbidden(Cloudflare WAF),
+    本函数从错误类型 + 错误消息双维度判断是否为可 failover 的 403 错误。
+
+    Args:
+        model: 模型名(需以 openrouter/ 开头才考虑 failover)。
+        error: LiteLLM 抛出的异常。
+
+    Returns:
+        True 表示是 OpenRouter 403 错误,可 failover 到 agnes。
+    """
+    if not model.lower().startswith("openrouter/"):
+        return False
+    err_msg = str(error).lower()
+    # 错误消息特征:含 "403" / "forbidden" / "access denied"
+    if "403" in err_msg or "forbidden" in err_msg or "access denied" in err_msg:
+        return True
+    # LiteLLM 异常类型特征:AuthenticationError / PermissionDeniedError
+    err_type = type(error).__name__.lower()
+    if "auth" in err_type or "forbidden" in err_type or "permission" in err_type:
+        return True
+    return False
+
+
+def _failover_openrouter_to_agnes(model: str) -> Optional[str]:
+    """将 openrouter/<model> 转换为 agnes/<model>(用于 403 failover)。
+
+    Args:
+        model: 原始模型名(如 openrouter/llama-3.3-70b)。
+
+    Returns:
+        agnes/ 前缀的模型名(如 agnes/llama-3.3-70b),或 None(无法转换)。
+    """
+    if not model.lower().startswith("openrouter/"):
+        return None
+    real_model = model.split("/", 1)[1] if "/" in model else model
+    return f"agnes/{real_model}"
+
+
+@contextmanager
+def _openrouter_proxy_context(model: str) -> Iterator[None]:
+    """临时为 OpenRouter 请求设置专用代理(P3-3)。
+
+    LiteLLM 底层 httpx 读取 HTTPS_PROXY / HTTP_PROXY env var,
+    本函数在 openrouter/ 前缀调用期间临时设置 settings.openrouter_proxy_url,
+    调用结束后恢复原值。仅对 openrouter/ 前缀模型生效,其他模型直接 yield。
+
+    注意:env var 方式在并发场景下有竞态风险(多 OpenRouter 请求并行时互相干扰),
+    但 LiteLLM 不支持 per-call proxy 参数,这是当前最优方案。生产环境如需严格隔离,
+    应在进程级配置不同 worker 分别处理 OpenRouter 流量。
+
+    Args:
+        model: 模型名(仅 openrouter/ 前缀触发代理设置)。
+
+    Yields:
+        None(上下文管理器无返回值)。
+    """
+    if not model.lower().startswith("openrouter/"):
+        yield
+        return
+    proxy_url = settings.openrouter_proxy_url.strip()
+    if not proxy_url:
+        yield
+        return
+    # 保存原值(可能为 None,即未设置)
+    saved_https = os.environ.get("HTTPS_PROXY")
+    saved_http = os.environ.get("HTTP_PROXY")
+    try:
+        os.environ["HTTPS_PROXY"] = proxy_url
+        os.environ["HTTP_PROXY"] = proxy_url
+        logger.debug("OpenRouter 专用代理已设置: %s", proxy_url)
+        yield
+    finally:
+        # 恢复原值(原值可能为 None → pop 掉;原值非 None → 还原)
+        if saved_https is not None:
+            os.environ["HTTPS_PROXY"] = saved_https
+        else:
+            os.environ.pop("HTTPS_PROXY", None)
+        if saved_http is not None:
+            os.environ["HTTP_PROXY"] = saved_http
+        else:
+            os.environ.pop("HTTP_PROXY", None)
 
 
 class LLMGateway:
@@ -962,7 +1065,9 @@ class LLMGateway:
             call_kwargs["timeout"] = 30
             call_kwargs["num_retries"] = 2
             call_kwargs.update(kwargs)
-            response = await litellm.acompletion(**call_kwargs)
+            # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
+            with _openrouter_proxy_context(used_model):
+                response = await litellm.acompletion(**call_kwargs)
             usage = response.usage
             usage_dict: dict[str, Any] = {}
             if usage is not None:
@@ -1027,6 +1132,34 @@ class LLMGateway:
                     if key_field in safe_msg.lower():
                         safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
                         break
+            # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
+            # 自动 failover 到 agnes/<model>(同模型换 provider,优先于 FallbackRouter 换模型)
+            # _is_openrouter_403_error 天然防递归:agnes/ 前缀不匹配 openrouter/ 判断
+            if (
+                settings.openrouter_failover_to_agnes
+                and _is_openrouter_403_error(used_model, e)
+                and not _skip_fallback
+            ):
+                agnes_model = _failover_openrouter_to_agnes(used_model)
+                if agnes_model:
+                    logger.info(
+                        "OpenRouter 403 failover: %s → %s",
+                        used_model, agnes_model,
+                    )
+                    try:
+                        LLM_FALLBACK_TRIGGERED.labels(
+                            primary_model=used_model,
+                            backup_model=agnes_model,
+                            reason="openrouter_403",
+                        ).inc()
+                    except Exception as metric_err:
+                        logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+                    return await self.complete(
+                        messages,
+                        model=agnes_model,
+                        owner_uuid=owner_uuid,
+                        **kwargs,
+                    )
             # FallbackRouter 接入:LLM_ERROR 且未跳过 fallback 时,
             # 自动尝试 fallbacks 配置中的备用 provider(如 stepfun 故障 → agnes 兜底)
             if (
@@ -1304,7 +1437,9 @@ class LLMGateway:
             if api_base:
                 call_kwargs["api_base"] = api_base
             call_kwargs.update(kwargs)
-            response = await litellm.acompletion(**call_kwargs)
+            # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
+            with _openrouter_proxy_context(used_model):
+                response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}
             # P0 修复:try/finally 确保客户端断开时显式关闭 litellm 响应流,防止 httpx 连接泄漏
@@ -1426,6 +1561,43 @@ class LLMGateway:
                 ):
                     yield evt
                 return
+            # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
+            # 自动 failover 到 agnes/<model>(仅未发送 chunk 时,已发送 chunk 不可撤回)
+            # _is_openrouter_403_error 天然防递归:agnes/ 前缀不匹配 openrouter/ 判断
+            if (
+                settings.openrouter_failover_to_agnes
+                and _is_openrouter_403_error(used_model, e)
+                and not accumulated_content
+                and not accumulated_reasoning
+            ):
+                agnes_model = _failover_openrouter_to_agnes(used_model)
+                if agnes_model:
+                    logger.info(
+                        "astream OpenRouter 403 failover: %s → %s",
+                        used_model, agnes_model,
+                    )
+                    try:
+                        LLM_FALLBACK_TRIGGERED.labels(
+                            primary_model=used_model,
+                            backup_model=agnes_model,
+                            reason="openrouter_403",
+                        ).inc()
+                    except Exception as metric_err:
+                        logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+                    yield {
+                        "type": "fallback",
+                        "primary_model": used_model,
+                        "backup_model": agnes_model,
+                        "reason": "openrouter_403",
+                    }
+                    async for evt in self.astream(
+                        messages,
+                        model=agnes_model,
+                        owner_uuid=owner_uuid,
+                        **kwargs,
+                    ):
+                        yield evt
+                    return
             # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
             # (已发送 chunk 不可撤回,无法中途切换 provider)
             if (
