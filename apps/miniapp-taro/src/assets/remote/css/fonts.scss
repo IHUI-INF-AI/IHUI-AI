@@ -1,0 +1,8 @@
+/* 全项目统一字体：阿里妈妈方圆体 VF，BEVL 圆角统一 100 */
+@font-face {
+  font-family: 'AlimamaFangYuanTi';
+  src: url('/static/fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block; /* 等待字体加载后再显示，避免先系统字体再切换 */
+}

@@ -5,10 +5,10 @@ import { cn } from '@ihui/design-tokens'
  * Toolbar 首页工具栏 — 对齐原项目 Toolbar/index.vue
  * 横向滚动 + 多个工具入口(图标 + 文字 + 可选红点/角标)
  *
- * 与原项目差异:
- * - 原项目 headerMenu 是 3 项固定入口(流量运营陪跑/一站式设备应用/AI其他技术服务);
- *   本组件改为通用列表(items prop),不传时用默认 5 项(AI对话/课程/直播/广场/分销)。
- * - 原项目 item.imgUrl 是图片 URL;本组件 icon 支持图片路径或 emoji(参照 Menu.tsx 模式)。
+ * 与原项目对齐:
+ * - 默认 items 与原项目 headerMenu 一致(3 项:流量运营陪跑/一站式设备应用/AI其他技术服务),
+ *   icon 用原项目 bspapp CDN URL(本地 assets/remote 无 tabbar/tabbar/ 副本,直接远程引用)。
+ * - 原项目 item.imgUrl 是图片 URL;本组件 icon 支持图片路径或 emoji(兼容扩展)。
  * - 原项目 secondRowList/third-row 等运营位不在本组件范围(由页面层组合)。
  */
 export interface ToolbarItem {
@@ -24,12 +24,25 @@ export interface ToolbarProps {
   className?: string
 }
 
+// 与原项目 Toolbar/index.vue 的 headerMenu 一致(bspapp CDN URL,本地无副本)
+const BSPAPP_BASE = 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com'
+
 const DEFAULT_ITEMS: ToolbarItem[] = [
-  { id: 'ai', name: 'AI对话', icon: '🤖' },
-  { id: 'course', name: '课程', icon: '📚' },
-  { id: 'live', name: '直播', icon: '📺' },
-  { id: 'plaza', name: '广场', icon: '🏙️' },
-  { id: 'distribution', name: '分销', icon: '💰' },
+  {
+    id: 'traffic-service',
+    name: '流量运营陪跑',
+    icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 28@2x.png`,
+  },
+  {
+    id: 'device-service',
+    name: '一站式设备应用',
+    icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x.png`,
+  },
+  {
+    id: 'ai-other-service',
+    name: 'AI其他技术服务',
+    icon: `${BSPAPP_BASE}/tabbar/tabbar/图片 32@2x (2).png`,
+  },
 ]
 
 // 判断 icon 是否为图片路径(非 emoji)
@@ -37,10 +50,7 @@ function isImagePath(icon: string): boolean {
   return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
 }
 
-export default function Toolbar({
-  items = DEFAULT_ITEMS,
-  className,
-}: ToolbarProps) {
+export default function Toolbar({ items = DEFAULT_ITEMS, className }: ToolbarProps) {
   return (
     <ScrollView scrollX scrollWithAnimation className={cn('w-full', className)}>
       <View
@@ -79,9 +89,7 @@ export default function Toolbar({
                 </View>
               )}
             </View>
-            <Text className="text-xs text-foreground mt-1 whitespace-nowrap">
-              {item.name}
-            </Text>
+            <Text className="text-xs text-foreground mt-1 whitespace-nowrap">{item.name}</Text>
           </View>
         ))}
       </View>
