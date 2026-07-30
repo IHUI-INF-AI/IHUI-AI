@@ -147,23 +147,24 @@ test.describe('Sidebar 视觉守门', () => {
     expect(lineBox!.width).toBeLessThanOrEqual(2)
   })
 
-  test('语言切换 Popover 弹出后完整可见不被裁剪 + 触发器 Languages 图标渲染', async ({ page }) => {
-    // 1. 找到侧边栏底部语言切换按钮(带 lucide Languages svg 的 ghost icon button)
-    // 2026-07-31 触发器由彩色国旗 img 改为 lucide Languages 线性图标,与项目内
-    // LanguageCard/preferences/ai-translation 统一"语言"语义;下拉项保留国旗+语言名。
+  test('语言切换 Popover 弹出后完整可见不被裁剪 + 触发器 Globe2 图标渲染', async ({ page }) => {
+    // 1. 找到侧边栏底部语言切换按钮(带 lucide Globe2 svg 的 ghost icon button)
+    // 2026-07-31 v2: 触发器由 Languages(用户反馈难看)改为 Globe2(带经纬线精致地球);
+    // 下拉项国旗 img 改为单色语言代码徽章(ZH/TW/EN/JA/KO)与项目线性风格统一。
+    // 注: lucide-react 的 Globe2 是 Earth 的别名,svg className 渲染为 lucide-earth。
     const langBtn = page
       .locator('aside button[aria-label]')
-      .filter({ has: page.locator('svg.lucide-languages') })
+      .filter({ has: page.locator('svg.lucide-earth') })
       .first()
     await expect(langBtn).toBeVisible()
 
-    // 2. 验证触发按钮里的 Languages svg 可见且有尺寸(非 0x0),btnClass [&_svg]:size-5 应渲染 20×20
-    const triggerIcon = langBtn.locator('svg.lucide-languages')
+    // 2. 验证触发按钮里的 Globe2 svg 可见且有尺寸(非 0x0),btnClass [&_svg]:size-5 应渲染 20×20
+    const triggerIcon = langBtn.locator('svg.lucide-earth')
     await expect(triggerIcon).toBeVisible()
     const iconBox = await triggerIcon.boundingBox()
     expect(iconBox).not.toBeNull()
-    expect(iconBox!.width, 'Languages svg 宽度应 > 0').toBeGreaterThan(0)
-    expect(iconBox!.height, 'Languages svg 高度应 > 0').toBeGreaterThan(0)
+    expect(iconBox!.width, 'Globe2 svg 宽度应 > 0').toBeGreaterThan(0)
+    expect(iconBox!.height, 'Globe2 svg 高度应 > 0').toBeGreaterThan(0)
     // [&_svg]:size-5 渲染为 20×20,允许 1px 误差
     expect(Math.abs(iconBox!.width - 20)).toBeLessThanOrEqual(1)
     expect(Math.abs(iconBox!.height - 20)).toBeLessThanOrEqual(1)
@@ -173,18 +174,19 @@ test.describe('Sidebar 视觉守门', () => {
     await page.waitForTimeout(300)
 
     // 4. 验证 Popover 内 5 个语言项可见(关键:不被 aside overflow 裁剪)
-    const langItems = page.locator('div.bg-popover button:has(img[src*="/images/flags/"])')
+    // 2026-07-31 v2: 下拉项由 img 国旗改为 span[data-lang-code] 徽章(ZH/TW/EN/JA/KO)
+    const langItems = page.locator('div.bg-popover button:has(span[data-lang-code])')
     await expect(langItems.first()).toBeVisible({ timeout: 3000 })
     const itemCount = await langItems.count()
     expect(itemCount, '应显示 5 个语言项').toBe(5)
 
-    // 5. 验证每个语言项的国旗 img 可见
-    const firstItemFlag = langItems.first().locator('img')
-    await expect(firstItemFlag).toBeVisible()
-    const itemFlagBox = await firstItemFlag.boundingBox()
-    expect(itemFlagBox).not.toBeNull()
-    expect(itemFlagBox!.width).toBeGreaterThan(0)
-    expect(itemFlagBox!.height).toBeGreaterThan(0)
+    // 5. 验证每个语言项的徽章 span 可见且有尺寸(非 0x0),h-5 w-7 应渲染 20×28
+    const firstItemBadge = langItems.first().locator('span[data-lang-code]')
+    await expect(firstItemBadge).toBeVisible()
+    const badgeBox = await firstItemBadge.boundingBox()
+    expect(badgeBox).not.toBeNull()
+    expect(badgeBox!.width).toBeGreaterThan(0)
+    expect(badgeBox!.height).toBeGreaterThan(0)
 
     // 6. 验证 Popover 完整在视口内(不被裁剪)
     const firstItemBox = await langItems.first().boundingBox()
