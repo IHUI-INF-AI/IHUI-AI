@@ -1701,3 +1701,50 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - 轮次 1(2026-07-31):深度盘点(3 search subagent + 自读 ide-layout/use-terminal-session/ide-workspace/api-client/workspace-ai)确认零件齐备 + I1 修复 href 断裂
 - 轮次 2(2026-07-31):2 general_purpose_task subagent 并行实现 AgentPane(660行,SSE流式+复用progress-sections)+ McpPane(461行,5类MCP能力+补充4个api-client端点);主agent集成ide-layout + 补5语言i18n key(33个×5语言);typecheck我的文件零错误 + browser验证AgentPane/McpPane渲染PASS
 - 轮次 3(2026-07-31,本批次):修复 MCP 面板工具列表加载失败 — 根因 api-client fetchApi 期望 {code:0,data:T} 但 ai-service 返回 {tools:[...],count:N} 非标准格式;新增 fetchAiServiceJson 辅助函数(client.ts)处理 ai-service 直接返回 JSON 无包装的格式;agent-runtime.ts 19 个函数(MCP/agents/a2a)全部改用 fetchAiServiceJson;/agent-runtime/* 保留 fetchApi(走 api server 8802 标准格式);next.config.ts 补 /api/mcp/* 和 /api/agents/* rewrite 到 8803;ai-service .env 补 JWT_PUBLIC_PATHS 白名单(/api/mcp/ /api/agents/)让 dev 环境无 token 可访问;browser 验证 PASS:MCP 5 tab 全渲染+45 工具加载+dark mode 正常,Agent 面板 textarea+执行按钮+进度区全存在,Plus 菜单 9 项全可点击
+
+---
+
+## WorkPanel CDP 完整 Chrome 升级(2026-07-31 立,P0,平台独占 web+ai-service,AGENTS.md §9 显式标注)
+
+> 触发:用户反馈内置浏览器最初要求是"完整 Chrome",当前 WorkPanel 是 iframe 架构([web-work-panel.tsx:96-100](apps/web/src/components/work-panel/web-work-panel.tsx)),受 X-Frame-Options 限制无法打开第三方平台登录页(知乎/B站等),扫码登录只能走后端截图流折中方案(/scan-login 页面)。
+> 目标:升级 WorkPanel 为 CDP(Chrome DevTools Protocol)远程控制真实 Chromium,对标 Trae/Cursor 内置浏览器,根治 iframe 限制。
+> 平台独占:apps/web + apps/ai-service(§9 豁免,内置浏览器是 web 专属能力,其他端无 WorkPanel 概念)
+
+### 硬性指标(C1-C6)
+
+- [ ] C1:后端 Browser Hub 服务(apps/ai-service/app/services/browser_hub.py),持续 Chromium 实例(async_playwright headed) + WebSocket 画面流(CDP Page.startScreencast) + REST API(创建会话/导航/获取 cookies/关闭)
+- [ ] C2:前端 WorkPanel 新增 cdp mode(packages/types WebViewMode 加 'cdp' + apps/web 新建 CdpBrowserView 组件 canvas 渲染画面帧 + 鼠标键盘事件回传 WebSocket + 地址栏/导航基于 CDP)
+- [ ] C3:扫码登录简化(删除 /scan-login 页面 + ScanLoginDialog 改为直接 navigate 平台 URL + 后端 CDP Network.getCookies 检测登录态)
+- [ ] C4:typecheck + build 全绿;browser 验证 WorkPanel 能打开知乎登录页(无白屏,X-Frame-Options 不再受限)+ 扫码 + 自动保存 cookies
+- [ ] C5:README 同步(架构章节 + 内置浏览器能力清单更新,§21 触发)
+- [ ] C6:commit + push 同步 origin/main(§20 五条全绿 + git-push-guard exit 0)
+
+### 实施阶段
+
+- **阶段 1**:后端 Browser Hub MVP(async_playwright 持续 Chromium + WebSocket 画面流 + REST API + 多 session 管理)
+- **阶段 2**:前端 WorkPanel CDP 渲染(canvas + 事件回传 + 地址栏 + WebViewMode 类型扩展)
+- **阶段 3**:扫码登录简化(删除 /scan-login + ScanLoginDialog 直接 navigate + CDP cookies 检测)
+- **阶段 4**:集成测试 + README + PROJECT_PLAN 收尾
+
+### 技术方案
+
+```
+前端 (apps/web)                    后端 (apps/ai-service)
+┌─────────────────┐                ┌─────────────────────────┐
+│ WorkPanel       │ WebSocket      │ Browser Hub              │
+│  ┌───────────┐  │ ←──────────→  │  async_playwright        │
+│  │ canvas    │  │ 画面帧+事件    │  Chromium (headed)       │
+│  │ 渲染      │  │                │  ┌────────────────────┐ │
+│  └───────────┘  │                │  │ 真实网页(可交互)    │ │
+│  鼠标/键盘事件   │                │  │ X-Frame-Options 无效│ │
+│  → 回传后端     │                │  └────────────────────┘ │
+│  地址栏/导航     │                │  CDP: screencast/input  │
+│  → REST API     │                │  cookies/navigation API │
+└─────────────────┘                └─────────────────────────┘
+```
+
+CDP 关键 API:
+- `Page.startScreencast` - 推送 JPEG/PNG 画面帧
+- `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` - 鼠标键盘事件
+- `Network.getCookies` - 获取 cookies(扫码登录后检测)
+- `Page.navigate` - 导航
