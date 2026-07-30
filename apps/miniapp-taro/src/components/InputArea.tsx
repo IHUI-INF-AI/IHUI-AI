@@ -339,12 +339,16 @@ export default function InputArea({
 
       <View className="flex items-end px-3 py-2">
         <View className="flex items-center mr-2">
-          <Text
-            className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-muted ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
+          <View
+            className={`w-9 h-9 flex items-center justify-center rounded-lg active:bg-muted ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
           >
-            {mode === 'text' ? '🎤' : '⌨️'}
-          </Text>
+            <Image
+              src={mode === 'text' ? searchHuaPng : inputQiePng}
+              className="w-5 h-5"
+              mode="aspectFit"
+            />
+          </View>
         </View>
 
         {mode === 'text' ? (
@@ -393,12 +397,12 @@ export default function InputArea({
               😊
             </Text>
           ) : null}
-          <Text
-            className="w-9 h-9 leading-9 text-center text-xl rounded-lg ml-1 text-muted-foreground active:bg-muted"
+          <View
+            className="w-9 h-9 flex items-center justify-center rounded-lg ml-1 text-muted-foreground active:bg-muted"
             onClick={handleUpload}
           >
-            📎
-          </Text>
+            <Image src={searchAddPng} className="w-5 h-5" mode="aspectFit" />
+          </View>
         </View>
 
         {mode === 'text' ? (
