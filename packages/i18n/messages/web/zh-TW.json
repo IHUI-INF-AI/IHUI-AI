@@ -321,6 +321,9 @@
     "mcpProjects": "MCP 專案",
     "openclaw": "OpenClaw",
     "recruitment": "招聘",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "還原",
     "adminGroup": {
       "operation": "營運管理",
       "moderation": "內容審核",
@@ -335,10 +338,7 @@
       "developer": "開發者中心",
       "saas": "SaaS 平臺"
     },
-    "settings": "設置",
-    "minimize": "最小化",
-    "maximize": "最大化",
-    "restore": "還原"
+    "settings": "設置"
   },
   "home": {
     "announcement": {
@@ -5885,6 +5885,7 @@
       "note2": "所有任務預設 dry-run 模式,不會真的推送微信草稿箱,需手動觸發或在設定中關閉 dry-run。",
       "note3": "任務執行歷史保留最近 30 條(記憶體),服務重啟後清空。",
       "note4": "時區:東八區(Asia/Shanghai)。",
+      "note5": "Cron 運算式遵循標準 5 段式語法 <code>分 時 日 月 週</code>,例如 <code>0 9 * * 1</code> 表示每週一 9 點執行。",
       "examplesTitle": "自動化範例",
       "examplesDesc": "點擊參考範本,快速設定類似任務",
       "useRefTemplate": "參考此範本",
@@ -6970,7 +6971,8 @@
     "myCommentsSubtitle": "管理我發表過的評論",
     "empty": "暫無評論",
     "delete": "刪除",
-    "deleteConfirm": "確定刪除此評論？"
+    "deleteConfirm": "確定刪除此評論？",
+    "submitting": "提交中..."
   },
   "points": {
     "title": "積分中心",
@@ -7541,7 +7543,11 @@
       "dependencies": "依賴",
       "transition": "狀態轉換",
       "reason": "原因",
-      "empty": "暫無任務"
+      "empty": "暫無任務",
+      "confirm": "確認",
+      "delete": "刪除",
+      "cancel": "取消",
+      "reasonRequired": "請輸入原因"
     }
   },
   "distribution": {
@@ -9076,10 +9082,10 @@
     "privacyPolicy": "隱私政策",
     "aboutUs": "關於我們",
     "contactUs": "聯繫我們",
-    "contactSubtitle": "通過以下方式聯繫我們",
     "internationalModels": "國際大模型",
     "chineseModels": "國產大模型",
-    "agreementSubtitle": "請仔細閱讀以下協議條款"
+    "agreementSubtitle": "請仔細閱讀以下協議條款",
+    "contactSubtitle": "通過以下方式聯繫我們"
   },
   "plugins": {
     "title": "外掛市場",
@@ -10197,35 +10203,43 @@
       "subtitle": "8 端全覆蓋的企業級 AI 平臺 · 100+ 大模型 · 自研 CLI · 工業級工程嚴謹 · 讓決策者一站式拿到所有 AI 能力",
       "modelIntegration": {
         "title": "8 端全覆蓋架構",
-        "benefit": "省 8 倍重複購買成本 · 1 個帳號通用 8 端 · 數據零遷移"
+        "benefit": "省 8 倍重複購買成本 · 1 個帳號通用 8 端 · 數據零遷移",
+        "description": "Web/Desktop/Mobile/小程式/CLI/Extension 6 + API/AI-Service 2,全端覆蓋,統一帳號無縫切換"
       },
       "appStore": {
         "title": "100+ LLM 大模型",
-        "benefit": "綜合省 ¥18 萬/年 · 替代 Claude Pro + GPT Plus + Cursor + 多模型 API"
+        "benefit": "綜合省 ¥18 萬/年 · 替代 Claude Pro + GPT Plus + Cursor + 多模型 API",
+        "description": "國際 30+ (OpenAI/Claude/Gemini/Llama) + 國產 15+ (通義/GLM/DeepSeek) + 雲廠商 40+ ,一 key 走天下"
       },
       "contentCreation": {
         "title": "自研 CLI 對標 Claude Code",
-        "benefit": "省 Claude Pro ¥17000/年 · 開發效率提升 10× · 6 來源配置一鍵導入"
+        "benefit": "省 Claude Pro ¥17000/年 · 開發效率提升 10× · 6 來源配置一鍵導入",
+        "description": "ACP Server 內嵌 Zed/VSCode/Cursor + 6 大獨家擴充 (會話修復/回退/MCP 調) + 6 大源設定一鍵匯入"
       },
       "edu": {
         "title": "AI 教育全棧",
-        "benefit": "省 ¥10 萬/年培訓費 · 全員 AI 化 · 三階段循序漸進"
+        "benefit": "省 ¥10 萬/年培訓費 · 全員 AI 化 · 三階段循序漸進",
+        "description": "課程/直播/考試/證書/講師/班級 6 大模組,全年免費課程,AI 工具 → 企業 AI 文化 三階遞進"
       },
       "navigation": {
         "title": "企業級工作空間",
-        "benefit": "數據零洩露 · 審計全程可追溯 · 99.9% SLA 企業級零風險"
+        "benefit": "數據零洩露 · 審計全程可追溯 · 99.9% SLA 企業級零風險",
+        "description": "3 大權限模式 + 7 大執行時攔截端點 + 60s 超時拒絕 + RBAC 細粒度存取控制 + 99.9% SLA"
       },
       "agentSquare": {
         "title": "智能體廣場",
-        "benefit": "替代 5+ 人工崗位 · 7×24 不間斷 · 綜合省 ¥30 萬/年人力成本"
+        "benefit": "替代 5+ 人工崗位 · 7×24 不間斷 · 綜合省 ¥30 萬/年人力成本",
+        "description": "通用/行業/功能 3 大類,客服/行銷/營運/HR/財務 5+ 職能全覆蓋,開箱即用,可訂製"
       },
       "workflow": {
         "title": "LangGraph 工作流",
-        "benefit": "複雜任務自動化 · 替代 5+ SaaS 工具 · 三棧合一行業少見"
+        "benefit": "複雜任務自動化 · 替代 5+ SaaS 工具 · 三棧合一行業少見",
+        "description": "2 大 LangGraph 工作流 + 11 個 MCP 工具 + 5 個 A2A 端點 + 6 個 ACP 擴充,三棧合一業界罕見"
       },
       "multimodal": {
         "title": "多模態 AI 輸入",
-        "benefit": "省 ¥5 萬/年設計費 · 5 大模態全打通 · 內容生產 10× 加速"
+        "benefit": "省 ¥5 萬/年設計費 · 5 大模態全打通 · 內容生產 10× 加速",
+        "description": "圖像生成/語音合成/視頻生成/檔案解析/數字人 5 大模態,一 key 走天下"
       }
     },
     "advantages": {
@@ -12568,6 +12582,8 @@
     "noPreviews": "暫無已儲存預覽",
     "loadPreview": "載入預覽",
     "loadFailed": "載入預覽失敗",
+    "saved": "已儲存「{name}」",
+    "saveFailed": "儲存失敗:{error}",
     "previewName": "預覽名稱",
     "componentTree": {
       "title": "組件樹",
@@ -12578,7 +12594,8 @@
       "empty": "請先儲存預覽以查看評論",
       "noComments": "暫無評論",
       "loadingFailed": "載入評論失敗",
-      "send": "發送評論"
+      "send": "發送評論",
+      "commented": "已評論"
     },
     "aiGenerate": {
       "button": "AI 生成",
@@ -12594,7 +12611,8 @@
       "exportButton": "匯出程式碼",
       "exportReact": "React 元件",
       "exportVue": "Vue 元件",
-      "exportHtml": "純 HTML"
+      "exportHtml": "純 HTML",
+      "exportSuccess": "已匯出 {filename}"
     },
     "responsive": {
       "customWidth": "自訂寬度",

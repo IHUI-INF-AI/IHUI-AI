@@ -5850,6 +5850,7 @@
       "note2": "所有任务默认 dry-run 模式,不会真的推送微信草稿箱,需手动触发或在配置中关闭 dry-run。",
       "note3": "任务执行历史保留最近 30 条(内存),服务重启后清空。",
       "note4": "时区:东八区(Asia/Shanghai)。",
+      "note5": "Cron 表达式遵循标准 5 段式语法 <code>分 时 日 月 周</code>,例如 <code>0 9 * * 1</code> 表示每周一 9 点执行。",
       "examplesTitle": "自动化示例",
       "examplesDesc": "点击参考模板,快速配置类似任务",
       "useRefTemplate": "参考此模板",
@@ -6901,7 +6902,8 @@
     "myCommentsSubtitle": "管理我发表过的评论",
     "empty": "暂无评论",
     "delete": "删除",
-    "deleteConfirm": "确定删除此评论？"
+    "deleteConfirm": "确定删除此评论？",
+    "submitting": "提交中..."
   },
   "points": {
     "title": "积分中心",
@@ -7472,7 +7474,11 @@
       "dependencies": "依赖",
       "transition": "状态转换",
       "reason": "原因",
-      "empty": "暂无任务"
+      "empty": "暂无任务",
+      "confirm": "确认",
+      "delete": "删除",
+      "cancel": "取消",
+      "reasonRequired": "请输入原因"
     }
   },
   "distribution": {
@@ -12505,6 +12511,8 @@
     "noPreviews": "暂无已保存预览",
     "loadPreview": "加载预览",
     "loadFailed": "加载预览失败",
+    "saved": "已保存「{name}」",
+    "saveFailed": "保存失败:{error}",
     "previewName": "预览名称",
     "componentTree": {
       "title": "组件树",
@@ -12515,7 +12523,8 @@
       "empty": "请先保存预览以查看评论",
       "noComments": "暂无评论",
       "loadingFailed": "加载评论失败",
-      "send": "发送评论"
+      "send": "发送评论",
+      "commented": "已评论"
     },
     "aiGenerate": {
       "button": "AI 生成",
@@ -12531,7 +12540,8 @@
       "exportButton": "导出代码",
       "exportReact": "React 组件",
       "exportVue": "Vue 组件",
-      "exportHtml": "纯 HTML"
+      "exportHtml": "纯 HTML",
+      "exportSuccess": "已导出 {filename}"
     },
     "responsive": {
       "customWidth": "自定义宽度",
