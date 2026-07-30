@@ -48,33 +48,31 @@ type PlusMenuAction = {
   setIdeTab?: 'editor' | 'document' | 'terminal' | 'browser' | 'code-changes' | 'figma' | 'agent' | 'mcp' | 'settings'
   /** 触发 WorkPanel 切换(可选,内置浏览器复用) */
   toggleWorkPanel?: boolean
-  /** 快捷键提示文案 */
-  shortcut?: string
 }
 
 const PLUS_MENU_GROUPS: Array<{ titleKey: 'groupView' | 'groupTools' | 'groupSettings'; items: PlusMenuAction[] }> = [
   {
     titleKey: 'groupView',
     items: [
-      { key: 'document', icon: FileText, href: '/docs', shortcut: 'G D' },
-      { key: 'browser', icon: Globe, toggleWorkPanel: true, shortcut: 'G B' },
+      { key: 'document', icon: FileText, href: '/docs' },
+      { key: 'browser', icon: Globe, toggleWorkPanel: true },
     ],
   },
   {
     titleKey: 'groupTools',
     items: [
-      { key: 'editor', icon: Code2, href: '/workspace', setIdeTab: 'editor', shortcut: 'G E' },
-      { key: 'terminal', icon: Terminal, href: '/workspace', setIdeTab: 'terminal', shortcut: 'G T' },
-      { key: 'codeChanges', icon: GitCompare, href: '/workspace', setIdeTab: 'code-changes', shortcut: 'G C' },
-      { key: 'agent', icon: Bot, href: '/workspace', setIdeTab: 'agent', shortcut: 'G A' },
-      { key: 'mcp', icon: Plug, href: '/workspace', setIdeTab: 'mcp', shortcut: 'G M' },
+      { key: 'editor', icon: Code2, href: '/workspace', setIdeTab: 'editor' },
+      { key: 'terminal', icon: Terminal, href: '/workspace', setIdeTab: 'terminal' },
+      { key: 'codeChanges', icon: GitCompare, href: '/workspace', setIdeTab: 'code-changes' },
+      { key: 'agent', icon: Bot, href: '/workspace', setIdeTab: 'agent' },
+      { key: 'mcp', icon: Plug, href: '/workspace', setIdeTab: 'mcp' },
     ],
   },
   {
     titleKey: 'groupSettings',
     items: [
-      { key: 'skill', icon: Sparkles, href: '/ai-skills', shortcut: 'G K' },
-      { key: 'settings', icon: Settings, href: '/settings', shortcut: 'G S' },
+      { key: 'skill', icon: Sparkles, href: '/ai-skills' },
+      { key: 'settings', icon: Settings, href: '/settings' },
     ],
   },
 ]
@@ -454,11 +452,6 @@ export function GlobalTopBar() {
                         >
                           <Icon className="h-3.5 w-3.5 shrink-0" />
                           <span className="flex-1 text-left">{t(`topBar.${item.key}`)}</span>
-                          {item.shortcut && (
-                            <span className="text-[10px] text-muted-foreground/80">
-                              {item.shortcut}
-                            </span>
-                          )}
                         </button>
                       )
                     })}
