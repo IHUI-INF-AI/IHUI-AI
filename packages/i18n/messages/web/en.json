@@ -191,6 +191,7 @@
     "teams": "Teams",
     "docs": "Docs",
     "search": "Search",
+    "openBrowser": "Open browser",
     "tags": "Tags",
     "oauthPlatform": "OAuth Platform",
     "selfMediaWechat": "WeChat MP",
@@ -333,7 +334,10 @@
       "resource": "Resource Center",
       "developer": "Developer Center",
       "saas": "SaaS Platform"
-    }
+    },
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore"
   },
   "home": {
     "announcement": {
@@ -8977,6 +8981,16 @@
     "suggest": "Suggestions",
     "clearAll": "Clear All",
     "noResults": "No results",
+    "quickSuggestions": [
+      "Settings",
+      "Profile",
+      "Projects",
+      "Conversations",
+      "Members",
+      "Workspaces",
+      "Shortcuts",
+      "AI Models"
+    ],
     "searchPlaceholder": "Search…",
     "searchHistory": "Search history",
     "clear": "Clear",
@@ -8996,17 +9010,7 @@
     "loading": "Searching...",
     "emptyResult": "No matching results",
     "open": "Open",
-    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})",
-    "quickSuggestions": [
-      "Settings",
-      "Profile",
-      "Projects",
-      "Conversations",
-      "Members",
-      "Workspaces",
-      "Shortcuts",
-      "AI Models"
-    ]
+    "resultsCount": "{total} results (Users {users} / Projects {projects} / Files {files})"
   },
   "footer": {
     "companyName": "Jilin Aizhihui AI Technology Co., Ltd.",
@@ -10215,43 +10219,43 @@
       "subtitle": "8-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
       "modelIntegration": {
         "title": "8-Platform Full-Stack Architecture",
-        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, broad full-stack, unified account seamless switching",
-        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration"
+        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration",
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension 6 + API/AI-Service 2, broad full-stack, unified account seamless switching"
       },
       "appStore": {
         "title": "100+ LLMs",
-        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + China 15+ (Qwen/GLM/DeepSeek) + Cloud 40+ providers, one API key for all",
-        "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API"
+        "benefit": "Save ¥180K/year total · replaces Claude Pro + GPT Plus + Cursor + multi-model API",
+        "description": "International 30+ (OpenAI/Claude/Gemini/Llama) + China 15+ (Qwen/GLM/DeepSeek) + Cloud 40+ providers, one API key for all"
       },
       "contentCreation": {
         "title": "Self-Developed CLI vs. Claude Code",
-        "description": "ACP Server embedded in Zed/VSCode/Cursor + 6 private extension methods (session repair/rewind/MCP calls) + 6-source config one-click import",
-        "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import"
+        "benefit": "Save Claude Pro ¥17000/year · 10× dev efficiency · 6-source config one-click import",
+        "description": "ACP Server embedded in Zed/VSCode/Cursor + 6 private extension methods (session repair/rewind/MCP calls) + 6-source config one-click import"
       },
       "edu": {
         "title": "Full-Stack AI Education",
-        "description": "Courses/Live/Exams/Certificates/Instructors/Classes 6 modules, free year-round courses, three progressive stages from AI tools to enterprise AI culture",
-        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages"
+        "benefit": "Save ¥100K/year training · whole-team AI upskilling · three progressive stages",
+        "description": "Courses/Live/Exams/Certificates/Instructors/Classes 6 modules, free year-round courses, three progressive stages from AI tools to enterprise AI culture"
       },
       "navigation": {
         "title": "Enterprise-Grade Workspace",
-        "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control + 99.9% SLA",
-        "benefit": "Zero data leakage · fully traceable audit · 99.9% SLA enterprise-grade zero risk"
+        "benefit": "Zero data leakage · fully traceable audit · 99.9% SLA enterprise-grade zero risk",
+        "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control + 99.9% SLA"
       },
       "agentSquare": {
         "title": "Agent Square",
-        "description": "General/industry/functional three categories, covering customer service/marketing/operations/HR/finance 5+ functions, ready to use, customizable",
-        "benefit": "Replaces 5+ manual roles · 7×24 non-stop · save ¥300K/year labor cost"
+        "benefit": "Replaces 5+ manual roles · 7×24 non-stop · save ¥300K/year labor cost",
+        "description": "General/industry/functional three categories, covering customer service/marketing/operations/HR/finance 5+ functions, ready to use, customizable"
       },
       "workflow": {
         "title": "LangGraph Workflow",
-        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple stack relatively rare",
-        "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare"
+        "benefit": "Complex task automation · replaces 5+ SaaS tools · triple stack relatively rare",
+        "description": "2 LangGraph workflows + 11 MCP tools + 5 A2A endpoints + 6 ACP extensions, triple stack relatively rare"
       },
       "multimodal": {
         "title": "Multimodal AI Input",
-        "description": "Image generation/voice synthesis/video generation/file parsing/digital human 5 modalities, one API key for all",
-        "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production"
+        "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production",
+        "description": "Image generation/voice synthesis/video generation/file parsing/digital human 5 modalities, one API key for all"
       }
     },
     "advantages": {
@@ -12414,11 +12418,23 @@
     },
     "topBar": {
       "editor": "Editor",
-      "close": "Close"
+      "close": "Close",
+      "document": "Docs",
+      "browser": "Built-in browser",
+      "terminal": "Terminal",
+      "codeChanges": "Code changes",
+      "agent": "Agent",
+      "mcp": "MCP",
+      "settings": "Settings",
+      "skill": "Skill",
+      "plus": "Add view"
     },
     "viewSwitcher": {
       "searchPlaceholder": "Search views...",
-      "noMatch": "No match"
+      "noMatch": "No match",
+      "groupView": "View",
+      "groupTools": "Tools",
+      "groupSettings": "Settings"
     },
     "layout": {
       "documentView": "Document View",
@@ -13324,6 +13340,13 @@
     "cardLabel": "API Pricing",
     "cardDesc": "Model prices & billing rules"
   },
+  "messageInput": {
+    "document": "File",
+    "removeFile": "Remove file",
+    "placeholder": "Type a message...",
+    "clear": "Clear",
+    "stop": "Stop"
+  },
   "a11y": {
     "searchOption": "Search options",
     "addAttachment": "Add attachment (image / video / file)",
@@ -13413,12 +13436,5 @@
     "title": "No Permission",
     "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
     "backToHome": "Back to Home"
-  },
-  "messageInput": {
-    "document": "File",
-    "removeFile": "Remove file",
-    "placeholder": "Type a message...",
-    "clear": "Clear",
-    "stop": "Stop"
   }
 }

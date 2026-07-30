@@ -1499,11 +1499,37 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ---
 
+## 全局顶栏(GlobalTopBar)整合 Plus 弹窗(2026-07-30 立,平台独占 web-only,AGENTS.md §9 显式标注)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/web`,其他 7 端(apps/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)不挂载 GlobalTopBar——因为 TagsView/Globe/Plus 弹窗是 web 专属 UI 概念,Tauri 桌面端有原生 chrome、Chrome extension 有 action popup、miniapp-taro 微信有原生 tabBar、cli 是 terminal 交互、mobile-rn 是 RN navigation,均无 MainShell 概念。用户已确认"8 端全端连通"语义=其他端维持现状不破坏。
+> 触发:用户反馈"项目页面打开右上角标签栏不显示,应该有常驻固定标签栏 + Plus 加号弹窗(内置浏览器/设置/文档/终端/代码编辑器/MCP/Skill)"。
+> 用户决策(已 AskUserQuestion 二次确认):① 严格全站显示(含 marketing/auth 路由);② 8 端全端连通语义=平台独占 web-only;③ Plus 弹窗的"内置浏览器"复用现有 Globe 入口(Globe 按钮移除,统一从 Plus 弹窗触发)。
+> 已有资产:`components/layout/TagsView.tsx`(标签栏)+ `MainShell.tsx`(含 Globe 入口)+ `components/ide/view-switcher.tsx`(IDE 内 Plus 弹窗)+ `ide-workspace store`(IDETabType 9 类型)+ `useWorkPanelStore`(WebWorkPanel toggle)。
+> 整合方案:从 MainShell 抽出顶栏(拖拽 + 窗口控制 + TagsView + Globe + 新加的 Plus 弹窗)为新 `components/layout/GlobalTopBar.tsx`,提升到 `app/layout.tsx` 的 `GlobalShell` 内 children 位置;MainShell 精简为仅"工作区卡片"容器(无顶栏,避免重复);路由组 layout 适配。
+
+### 硬性指标(H1-H6)
+
+- [ ] H1:新建 `GlobalTopBar.tsx` 整合 TagsView + Globe(改为 Plus 弹窗触发)+ Plus 弹窗(9 选项:文档 / 内置浏览器 / 终端 / 代码编辑器 / 代码变更 / Agent / MCP / 设置 / Skill)
+- [ ] H2:MainShell.tsx 拆除顶栏(拖拽 + 窗口控制 + TagsView + Globe),仅保留"工作区卡片"容器;与 GlobalTopBar 不重复
+- [ ] H3:`app/layout.tsx` 在 GlobalShell 内 children 位置上方挂 `<GlobalTopBar />`;`app/(main)/layout.tsx` 不再包 MainShell(避免双重容器)
+- [ ] H4:5 语言 i18n 补全 9 × 5 = 45 个 key(`topBar.plus` / `topBar.plusMenu.{document,browser,terminal,editor,codeChanges,agent,mcp,settings,skill}`),`check-i18n-keys.mjs` parity + `scan-i18n-zh-residue.mjs` 验证无残留
+- [ ] H5:`pnpm --filter @ihui/web typecheck` + `pnpm --filter @ihui/web build` 全绿;browser 4 状态截图(默认/hover/active/dark mode)覆盖 marketing 首页 `/` + chat `/chat` + admin `/admin` + login `/login` 4 路由
+- [ ] H6:commit + push 同步 origin/main(§20 五条全绿 + git-push-guard exit 0)+ README.md 同步"全局顶栏(GlobalTopBar)"章节
+
+### 进度记录
+
+- 轮次 1(本次):立项 + 决策确认 + 状态登记
+
+---
+
 ## 后续任务建议(2026-07-30 立,本任务范围内,符合 §10 一致性约束)
 
 - **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + README + typecheck 全绿
-- **P2-F.2**(下一批次,1-2 周):FeedbackScreen / SettingsScreen 适配层(P0 优先级,业务高频)
-- **P2-F.3**(中长期,1 月):剩余 7 屏共享组件适配层(OrderScreen/WalletScreen/MessageCenterScreen/StudyPlanScreen/CertificateScreen/NoteListScreen/NoteDetailScreen)
+- [x] ✅(2026-07-30) **P2-F.2** + **P2-F.3** 合并完成:9 屏共享组件 Taro 适配层一次性落地(9 subagent 并行派发,共 2921 行)
+  - FeedbackScreen(309 行)/ SettingsScreen(545 行)/ OrderScreen(360 行)/ WalletScreen(258 行)/ MessageCenterScreen(366 行)/ StudyPlanScreen(333 行)/ CertificateScreen(273 行)/ NoteListScreen(239 行)/ NoteDetailScreen(238 行)
+  - barrel 导出:index.ts 追加 9 屏 export;README.md 表格追加 9 行 + 架构原则 3.4 节补充
+  - 验证:typecheck exit 0 ✅ + lint exit 0 ✅
+  - 平台独占:仅 apps/miniapp-taro(§9 豁免,无跨端契约变更)
 - **P2-F.4**(评估触发):若适配层代码量 > 50% packages/app,启动 packages/app platform-agnostic 化重构评估
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
-- **README 同步**:README.md 当前无 miniapp-taro 适配层相关章节(跨端共享架构章节仅列 mobile-rn 151 wrapper),本批次未触及 README(§21 触发条件:"跨端契约变化" — 适配层在 miniapp-taro 端独立维护,不改变跨端契约,故豁免);若后续 P2-F.2~P2-F.3 完成后影响扩大,届时再补 README
+- **README 同步**:apps/miniapp-taro/src/components/adapters/README.md 已更新(表格 18 行 + 架构原则 3.4 节补充下拉刷新/文本截断/RN 专有 CSS 属性换算);§21 触发条件"跨端契约变化"未命中(平台独占),但 README 适配层文档同步属本任务交付物一部分

@@ -8,12 +8,13 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import SectionHeader from '@/components/SectionHeader'
 import ColorfulLoader from '@/components/ColorfulLoader'
 
 export default function CourseList() {
   const { t } = useI18n()
+  const tt = useTt()
   const router = useRouter()
   const initialKeyword = router.params.keyword || ''
   const [list, setList] = useState<Course[]>([])
@@ -101,7 +102,7 @@ export default function CourseList() {
 
       <View className="mb-3">
         <SectionHeader
-          title="精品课程"
+          title={tt('course.list.title', '精品课程')}
           subtitle={`${list.length} 个课程`}
           showMore={false}
         />

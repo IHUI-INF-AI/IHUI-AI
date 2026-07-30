@@ -23,7 +23,11 @@
     "wechatOnly": "WeChat 로그인만 지원됩니다",
     "ssoLogin": "SSO 로그인",
     "ssoLoginHint": "기업 계정 원클릭 로그인",
-    "agreement": "이용약관 및 개인정보처리방침에 동의합니다"
+    "agreement": "이용약관 및 개인정보처리방침에 동의합니다",
+    "smsTab": "SMS 인증 로그인",
+    "privacyPolicy": "《개인정보처리방침》",
+    "serviceAgreement": "《서비스 약관》",
+    "autoRegisterHint": "미가입 사용자는 자동으로 계정이 생성됩니다"
   },
   "forgot": {
     "title": "비밀번호 찾기",
@@ -100,7 +104,14 @@
       "subtitle": "{{n}}개 강의"
     },
     "ratingTitle": "코스 평가",
-    "ratingLabels": ["", "매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음"],
+    "ratingLabels": [
+      "",
+      "매우 나쁨",
+      "나쁨",
+      "보통",
+      "좋음",
+      "매우 좋음"
+    ],
     "ratingPlaceholder": "평가해주세요",
     "ratingDescLabel": "리뷰를 작성하세요",
     "ratingInputPlaceholder": "코스는 어땠나요? 생각을 공유하세요...",
@@ -441,7 +452,12 @@
       "timbre": "음색"
     },
     "image": {
-      "examples": ["귀여운 고양이", "일몰 산 풍경", "미래 도시", "추상 예술"],
+      "examples": [
+        "귀여운 고양이",
+        "일몰 산 풍경",
+        "미래 도시",
+        "추상 예술"
+      ],
       "emptyHint": "이미지 생성 설명 입력",
       "tryThese": "이것들 시도",
       "placeholder": "생성할 이미지 설명",
@@ -455,7 +471,14 @@
       "favorited": "즐겨찾기됨",
       "history": "기록",
       "empty": "생성 기록 없음",
-      "styles": ["실사", "애니메이션", "유화", "수채화", "3D", "픽셀"],
+      "styles": [
+        "실사",
+        "애니메이션",
+        "유화",
+        "수채화",
+        "3D",
+        "픽셀"
+      ],
       "generateFailed": "생성 실패, 재시도",
       "downloadSuccess": "앨범에 저장됨",
       "downloadFailed": "다운로드 실패, 재시도",
@@ -864,7 +887,10 @@
       "starting": "시험 입장 중…"
     },
     "answer": {
-      "judgmentOptions": ["맞음", "틀림"],
+      "judgmentOptions": [
+        "맞음",
+        "틀림"
+      ],
       "loadFailed": "문제 로딩 실패",
       "answerPlaceholder": "답 입력",
       "prev": "이전 문제",
@@ -1177,7 +1203,13 @@
       }
     },
     "appPermission": {
-      "names": ["앨범 권한", "카메라 권한", "마이크 권한", "위치 권한", "알림 권한"],
+      "names": [
+        "앨범 권한",
+        "카메라 권한",
+        "마이크 권한",
+        "위치 권한",
+        "알림 권한"
+      ],
       "descs": [
         "이미지를 앨범에 저장하고 업로드",
         "사진 촬영 및 동영상 녹화",
@@ -1517,8 +1549,18 @@
         "도움 요청",
         "경험 요약"
       ],
-      "levels": ["초급", "중급", "고급", "전문가"],
-      "budgets": ["1000위안 이하", "1000-5000위안", "5000-10000위안", "10000위안 이상"],
+      "levels": [
+        "초급",
+        "중급",
+        "고급",
+        "전문가"
+      ],
+      "budgets": [
+        "1000위안 이하",
+        "1000-5000위안",
+        "5000-10000위안",
+        "10000위안 이상"
+      ],
       "selectAtLeast": "최소 1개 선택",
       "saved": "저장됨",
       "directionTitle": "학습 방향",
@@ -1739,6 +1781,24 @@
       "loadFailed": "로딩 실패",
       "thresholdText": "{threshold} CNY 이상 결제 시",
       "expireText": "유효 기간: {time}"
+    },
+    "benefit": {
+      "unlimited": "무제한 대화",
+      "unlimitedDesc": "AI 대화 기능 무제한 사용"
+    },
+    "level": {
+      "normal": "일반 회원",
+      "normalThreshold": "가입 즉시 혜택",
+      "normalPerks": "기본 대화 / 제한 횟수",
+      "silver": "실버 회원",
+      "silverThreshold": "성장값 ≥ 1000",
+      "silverPerks": "대화 횟수 증가 / 우선 지원",
+      "gold": "골드 회원",
+      "goldThreshold": "성장값 ≥ 3000",
+      "goldPerks": "무제한 대화 / 전담 지원",
+      "diamond": "다이아몬드 회원",
+      "diamondThreshold": "성장값 ≥ 10000",
+      "diamondPerks": "전체 기능 잠금 해제 / VIP 대우"
     }
   },
   "pay": {
@@ -1833,7 +1893,11 @@
         "도움 요청",
         "경험 요약"
       ],
-      "visibilityOptions": ["공개", "친구만", "비공개"],
+      "visibilityOptions": [
+        "공개",
+        "친구만",
+        "비공개"
+      ],
       "enterTitle": "제목 입력",
       "enterContent": "내용 입력",
       "published": "게시됨",
@@ -2112,7 +2176,14 @@
       "bannerTitle": "VIP로 업그레이드",
       "bannerDesc": "더 많은 전용 특권 잠금 해제",
       "rightsTitle": "회원 혜택",
-      "rights": ["전용 고객지원", "우선 체험", "고급 기능", "광고 제거", "전용 배지", "할인 혜택"],
+      "rights": [
+        "전용 고객지원",
+        "우선 체험",
+        "고급 기능",
+        "광고 제거",
+        "전용 배지",
+        "할인 혜택"
+      ],
       "loadFailed": "로딩 실패",
       "operationFailed": "작업 실패",
       "originalPrice": "원가 ¥{{n}}",
@@ -2193,7 +2264,25 @@
     },
     "benefitsTitle": "멤버 혜택",
     "upgradeNow": "지금 업그레이드",
-    "hot": "인기"
+    "hot": "인기",
+    "plan": {
+      "monthly": "월간 회원",
+      "monthlyPeriod": "30일",
+      "quarterly": "분기 회원",
+      "quarterlyPeriod": "90일",
+      "yearly": "연간 회원",
+      "yearlyPeriod": "365일"
+    },
+    "feature": {
+      "aiCopywriting": "AI 카피라이팅",
+      "aiCopywritingDesc": "스마트 마케팅 문구 생성",
+      "aiDesign": "AI 디자인",
+      "aiDesignDesc": "스마트 이미지 및 디자인 생성",
+      "aiVideo": "AI 비디오",
+      "aiVideoDesc": "스마트 비디오 콘텐츠 생성",
+      "aiLive": "AI 라이브 어시스턴트",
+      "aiLiveDesc": "스마트 라이브 방송 도구"
+    }
   },
   "learnDevelop": {
     "title": "학습 및 개발",
@@ -2331,6 +2420,20 @@
   "notification": {
     "settings": "알림 설정"
   },
+  "messageInput": {
+    "placeholder": "메시지 입력...",
+    "send": "전송",
+    "stop": "중지",
+    "fullscreenBack": "접기",
+    "fullscreenHint": "전체화면 편집 모드",
+    "recording": "놓으면 전송, 위로 슬라이드하여 취소",
+    "voiceHint": "길게 눌러 말하기",
+    "document": "문서",
+    "video": "동영상",
+    "addFile": "첨부 파일 추가",
+    "releaseToSend": "놓으면 전송",
+    "holdToSpeak": "눌러서 말하기"
+  },
   "toolbar": {
     "traffic-service": "트래픽 운영 코칭",
     "device-service": "원스톱 기기 솔루션",
@@ -2340,5 +2443,18 @@
     "plaza": "플라자",
     "rank": "랭킹",
     "vip": "회원"
+  },
+  "index": {
+    "mock": {
+      "post1Title": "React Hooks 사용법은?",
+      "today": "오늘"
+    },
+    "feature": {
+      "superAgent": "심층 사고"
+    },
+    "toast": {
+      "loginRequired": "먼저 로그인하세요"
+    },
+    "title": "지후이 AI 커뮤니티"
   }
 }
