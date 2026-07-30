@@ -95,7 +95,9 @@
     "list": {
       "searchPlaceholder": "Search courses",
       "search": "Search",
-      "empty": "No courses"
+      "empty": "No courses",
+      "title": "Featured Courses",
+      "subtitle": "{{n}} courses"
     },
     "ratingTitle": "Rate Course",
     "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
@@ -272,7 +274,8 @@
     "commission": {
       "today": "Today's commission",
       "available": "Available commission",
-      "records": "Commission records"
+      "records": "Commission records",
+      "title": "Commission Details"
     }
   },
   "community": {
@@ -971,6 +974,40 @@
       "menuTeam": "Team",
       "menuCommission": "Commission",
       "menuWithdraw": "Withdraw"
+    },
+    "index": {
+      "title": "My Company",
+      "menuTeam": "My Team",
+      "menuOrders": "Distribution Orders",
+      "menuPlan": "Commission Plan",
+      "menuWithdraw": "Request Withdrawal",
+      "menuRank": "Promotion Ranking",
+      "menuQrCode": "My QR Code",
+      "tabDay": "Day",
+      "tabMonth": "Month",
+      "tabSum": "Total",
+      "columnEarnings": "Earnings",
+      "columnOrders": "Orders",
+      "columnInvites": "Invites",
+      "defaultName": "Operator",
+      "operator": "Operator",
+      "earnings": "Earnings",
+      "orders": "Orders",
+      "invites": "Invites",
+      "columnTitle": "Distribution Data",
+      "qrTitle": "My Share QR Code",
+      "share": "Share to friends",
+      "saveAlbum": "Save to album",
+      "verifyTitle": "Identity Verification",
+      "idPlaceholder": "Enter ID card number",
+      "namePlaceholder": "Enter name",
+      "confirm": "Confirm",
+      "qrLoadFail": "QR code load failed",
+      "qrLoading": "QR code generating",
+      "fillInfo": "Please fill in complete information",
+      "verifying": "Verifying",
+      "verifyOk": "Verification successful",
+      "verifyFail": "Verification failed"
     },
     "rankTitle": "Distribution Ranking",
     "rankEmpty": "No ranking data",
@@ -2320,5 +2357,15 @@
     "addFile": "Add file",
     "releaseToSend": "Release to send",
     "holdToSpeak": "Hold to speak"
+  },
+  "toolbar": {
+    "traffic-service": "Traffic Operations Coaching",
+    "device-service": "One-stop Device Solutions",
+    "ai-other-service": "AI Other Technical Services",
+    "ai": "AI Chat",
+    "course": "Courses",
+    "plaza": "Plaza",
+    "rank": "Ranking",
+    "vip": "VIP"
   }
 }
