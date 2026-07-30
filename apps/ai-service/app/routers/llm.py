@@ -1118,3 +1118,206 @@ async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResp
         "model": used_model,
         "usage": {"prompt_tokens": prompt_tokens, "total_tokens": total_tokens},
     }
+
+
+# ============================================================================
+# P0-2 协议互转端点(2026-07-30 立,对齐 OmniRoute 三协议互转)
+#
+# 暴露 Anthropic Messages 和 Gemini generateContent 协议端点,客户端可直接用
+# 对应厂商官方 SDK 调用 IHUI 网关,无需改 SDK 代码。内部用 ProtocolAdapter
+# 转成 OpenAI 格式走 llm_gateway 标准调用链,响应转回入站协议格式。
+#
+# 端点:
+# - POST /llm/anthropic/v1/messages          (Anthropic Messages 协议)
+# - POST /llm/gemini/v1beta/models/{model}:generateContent  (Gemini 协议)
+# ============================================================================
+
+
+@router.post("/llm/anthropic/v1/messages", response_model=None)
+async def anthropic_messages_endpoint(request: Request) -> dict[str, Any] | JSONResponse:
+    """Anthropic Messages 协议端点(对齐 OmniRoute 协议互转)。
+
+    客户端可直接用 Anthropic 官方 SDK:
+        from anthropic import Anthropic
+        client = Anthropic(api_key="ihui-relay-key", base_url="http://ai-service:8800/llm/anthropic")
+        resp = client.messages.create(model="claude-3.5-sonnet", max_tokens=1024, messages=[...])
+
+    内部流程:
+    1. 接收 Anthropic Messages 格式 payload
+    2. ProtocolAdapter 转成 OpenAI Chat Completions 格式
+    3. 调 llm_gateway.complete()(享受 Combo fallback / provider 适配器 / stub 降级)
+    4. 响应用 ProtocolAdapter 转回 Anthropic Messages 格式
+    """
+    try:
+        from ..services.protocol_adapter import (
+            ProtocolType,
+            protocol_converter,
+        )
+    except ImportError as e:
+        logger.error("ProtocolAdapter 加载失败: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"type": "error", "error": {"type": "service_unavailable", "message": "ProtocolAdapter unavailable"}},
+        )
+
+    try:
+        payload = await request.json()
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={"type": "error", "error": {"type": "invalid_request", "message": f"JSON 解析失败: {e}"}},
+        )
+
+    # Anthropic → OpenAI
+    openai_req = protocol_converter.convert_request(
+        payload, ProtocolType.ANTHROPIC, ProtocolType.OPENAI
+    )
+    model = openai_req.get("model") or payload.get("model") or settings.litellm_model
+    messages = openai_req.get("messages", [])
+    kwargs: dict[str, Any] = {}
+    for k in ("tools", "tool_choice", "temperature", "max_tokens"):
+        if k in openai_req:
+            kwargs[k] = openai_req[k]
+
+    result = await llm_gateway.complete(messages, model=model, **kwargs)
+    if result.get("error"):
+        err_msg = str(result.get("error_message") or "LLM 调用失败")
+        return JSONResponse(
+            status_code=502,
+            content={
+                "type": "error",
+                "error": {"type": "api_error", "message": err_msg},
+            },
+        )
+
+    # OpenAI 响应 → Anthropic 响应
+    openai_resp = {
+        "id": f"msg_{uuid.uuid4().hex[:24]}",
+        "object": "chat.completion",
+        "model": result.get("model", model),
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": result.get("content", ""),
+                "tool_calls": result.get("tool_calls"),
+            },
+            "finish_reason": "stop",
+        }],
+        "usage": result.get("usage", {}),
+    }
+    anthropic_resp = protocol_converter.convert_response(
+        openai_resp, ProtocolType.OPENAI, ProtocolType.ANTHROPIC
+    )
+    return anthropic_resp
+
+
+@router.post("/llm/gemini/v1beta/models/{model_name}:generateContent", response_model=None)
+async def gemini_generate_content_endpoint(
+    model_name: str,
+    request: Request,
+) -> dict[str, Any] | JSONResponse:
+    """Gemini generateContent 协议端点(对齐 OmniRoute 协议互转)。
+
+    客户端可直接用 Google Gen AI SDK:
+        from google import genai
+        client = genai.Client(api_key="ihui-relay-key", http_options={"base_url": "http://ai-service:8800/llm/gemini"})
+        resp = client.models.generate_content(model="gemini-1.5-pro", contents="Hello")
+
+    内部流程:
+    1. 接收 Gemini generateContent 格式 payload
+    2. ProtocolAdapter 转成 OpenAI Chat Completions 格式
+    3. 调 llm_gateway.complete()
+    4. 响应用 ProtocolAdapter 转回 Gemini generateContent 格式
+    """
+    try:
+        from ..services.protocol_adapter import (
+            ProtocolType,
+            protocol_converter,
+        )
+    except ImportError as e:
+        logger.error("ProtocolAdapter 加载失败: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"code": 503, "message": "ProtocolAdapter unavailable"}},
+        )
+
+    try:
+        payload = await request.json()
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"code": 400, "message": f"JSON 解析失败: {e}"}},
+        )
+
+    # Gemini → OpenAI
+    openai_req = protocol_converter.convert_request(
+        payload, ProtocolType.GEMINI, ProtocolType.OPENAI
+    )
+    # Gemini 的 model 在 URL path 中,需要补回
+    messages = openai_req.get("messages", [])
+    kwargs: dict[str, Any] = {}
+    for k in ("tools", "temperature", "max_tokens"):
+        if k in openai_req:
+            kwargs[k] = openai_req[k]
+    # topP → top_p(OpenAI 命名)
+    if "topP" in payload.get("generationConfig", {}):
+        kwargs["top_p"] = payload["generationConfig"]["topP"]
+
+    result = await llm_gateway.complete(messages, model=model_name, **kwargs)
+    if result.get("error"):
+        err_msg = str(result.get("error_message") or "LLM 调用失败")
+        return JSONResponse(
+            status_code=502,
+            content={"error": {"code": 502, "message": err_msg, "status": "INTERNAL"}},
+        )
+
+    # OpenAI 响应 → Gemini 响应
+    openai_resp = {
+        "object": "chat.completion",
+        "model": result.get("model", model_name),
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": result.get("content", ""),
+                "tool_calls": result.get("tool_calls"),
+            },
+            "finish_reason": "stop",
+        }],
+        "usage": result.get("usage", {}),
+    }
+    gemini_resp = protocol_converter.convert_response(
+        openai_resp, ProtocolType.OPENAI, ProtocolType.GEMINI
+    )
+    return gemini_resp
+
+
+@router.get("/llm/free-providers", response_model=None)
+async def list_free_providers() -> dict[str, Any]:
+    """免费 provider 注册表(对齐 OmniRoute 免费 provider 矩阵 + 超越)。
+
+    返回 30+ 免费 LLM provider 的申请入口、免费额度、限制、key 配置状态,
+    供前端 Dashboard 可视化展示"已配置 / 未配置 / 本地"三态。
+
+    超越 OmniRoute 的点:
+    - 本地 LLM 兜底(Ollama / LMStudio / LlamaCpp / vLLM)
+    - 国内 provider 全覆盖(中文场景优化)
+    - key 状态感知(从 .env 检测)
+    """
+    try:
+        from ..services.free_provider_registry import free_provider_registry
+    except ImportError as e:
+        logger.error("FreeProviderRegistry 加载失败: %s", e)
+        return {"providers": [], "total": 0, "error": "registry unavailable"}
+
+    providers = free_provider_registry.to_dashboard_dict()
+    configured = sum(1 for p in providers if p["status"] == "configured")
+    local_count = sum(1 for p in providers if p["status"] == "local")
+    return {
+        "providers": providers,
+        "total": len(providers),
+        "configured": configured,
+        "local": local_count,
+        "not_configured": len(providers) - configured - local_count,
+    }
