@@ -118,6 +118,28 @@ export interface CreateApiKeyRequest {
   permissions: ApiKeyPermission[]
   /** 每分钟请求上限,默认 60。 */
   rateLimit?: number
+  // --- P0-7 安全粒度字段(2026-07-31 立)---
+  /** 过期时间(ISO 字符串,null = 永不过期) */
+  expiresAt?: string | null
+  /** IP 白名单(null/空 = 不限制),支持 CIDR */
+  allowedIps?: string[] | null
+  /** 模型白名单(null/空 = 不限制),支持通配符 gpt-4* */
+  allowedModels?: string[] | null
+  /** 单次请求 token 上限(null = 不限制) */
+  maxTokensPerReq?: number | null
+}
+
+/** 更新 API Key 请求体(所有字段可选)。 */
+export interface UpdateApiKeyRequest {
+  name?: string
+  permissions?: ApiKeyPermission[]
+  rateLimit?: number
+  status?: ApiKeyStatus
+  // --- P0-7 安全粒度字段(2026-07-31 立)---
+  expiresAt?: string | null
+  allowedIps?: string[] | null
+  allowedModels?: string[] | null
+  maxTokensPerReq?: number | null
 }
 
 /** 创建 API Key 响应(secret 仅此一次返回)。 */
@@ -139,6 +161,11 @@ export interface ApiKeyInfo {
   rateLimit: number
   createdAt: string
   updatedAt: string
+  // --- P0-7 安全粒度字段(2026-07-31 立)---
+  expiresAt: string | null
+  allowedIps: string[] | null
+  allowedModels: string[] | null
+  maxTokensPerReq: number | null
 }
 
 /** 轮换 secret 响应。 */
@@ -164,6 +191,12 @@ export interface AuthenticatedApiKey {
   key: string
   permissions: ApiKeyPermission[]
   rateLimit: number
+  // --- P0-7 安全粒度字段(2026-07-31 立)---
+  /** 过期时间(Date 对象,null = 永不过期) */
+  expiresAt: Date | null
+  allowedIps: string[] | null
+  allowedModels: string[] | null
+  maxTokensPerReq: number | null
 }
 
 /** /v1/chat/completions 请求体(OpenAI 兼容格式子集)。 */
