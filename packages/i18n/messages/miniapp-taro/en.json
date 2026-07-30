@@ -388,6 +388,7 @@
     "agentLoadFailed": "Agent load failed",
     "generating": "Generating rapidly",
     "thinkingTip": "Tips: You can click the three dots in the top right to float the mini program, and come back later~",
+    "fileSelected": "{{count}} file(s) selected",
     "common": {
       "loading": "Loading…"
     },
@@ -411,6 +412,7 @@
       "stopSpeak": "Stop",
       "share": "Share",
       "viewDigitalHuman": "View Digital Human",
+      "digitalHuman": "Digital Human Generation →",
       "voiceMessage": "Voice Message",
       "downloading": "Downloading",
       "downloadSuccess": "Saved to album",
@@ -1072,9 +1074,6 @@
     "privacy": {
       "overviewTitle": "IHUI AI Privacy Policy Overview",
       "coreTitle": "Privacy policy key points:",
-      "mainTitle": "Privacy Policy",
-      "updateDate": "Updated: June 21, 2025",
-      "effectiveDate": "Effective: June 21, 2025",
       "s1": {
         "t1": "1.1 Registration and Login",
         "t2": "1.2 Intelligent Conversation Service",
@@ -1125,7 +1124,10 @@
         "t14": "9.14 Okio",
         "t15": "9.15 DCloud SDK",
         "t16": "9.16 MAC Address Collection"
-      }
+      },
+      "mainTitle": "Privacy Policy",
+      "updateDate": "Updated: June 21, 2025",
+      "effectiveDate": "Effective: June 21, 2025"
     },
     "help": {
       "title": "Help center",
