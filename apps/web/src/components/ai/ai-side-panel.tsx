@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Minus, Pin, PanelLeft, ChevronUp, ChevronDown } from 'lucide-react'
+import { X, Plus, Minus, Pin, PanelLeft, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -658,6 +658,8 @@ export function AISidePanel() {
 
   // 浮窗折叠态:只显示输入框 + 展开按钮,点击展开拉出完整面板
   // 用户交互:Pin → 折叠态(只看输入框)→ 点击展开 → 完整面板(对话历史+header)
+  // 2026-07-30:工具条与输入卡片融合(共享 border + bg-card),不再占独立行;
+  // 按钮无额外 px,左间距 = 容器 px-1.5(6px)= 上下 py-1.5(6px),四向一致。
   if (floatMode && floatCollapsed) {
     return (
       <>
@@ -676,47 +678,8 @@ export function AISidePanel() {
             aria-label={tc('title')}
             className="flex flex-col overflow-hidden rounded-xl bg-shell-panel"
           >
-            {/* 折叠态工具条:可拖拽 + 展开按钮 + 最小化 */}
-            <div
-              onPointerDown={handleFloatDragStart}
-              className="flex h-9 shrink-0 cursor-move items-center gap-1 px-2"
-            >
-              <button
-                type="button"
-                onClick={() => setFloatCollapsed(false)}
-                aria-label={tc('floatMode')}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <ChevronUp className="h-3.5 w-3.5" />
-                <span>{tc('floatMode')}</span>
-              </button>
-              <div className="flex-1" />
-              <Tooltip content={tc('dockPanel')}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFloatMode(false)
-                    setFloatCollapsed(false)
-                  }}
-                  aria-label={tc('dockPanel')}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <PanelLeft className="h-3.5 w-3.5" />
-                </button>
-              </Tooltip>
-              <Tooltip content={tc('minimize')}>
-                <button
-                  type="button"
-                  onClick={() => setFloatMinimized(true)}
-                  aria-label={tc('minimize')}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Minus className="h-3.5 w-3.5" />
-                </button>
-              </Tooltip>
-            </div>
-
-            {/* 输入区(直接渲染 MessageInput,无 MessageList) */}
+            {/* 输入区(直接渲染 MessageInput,无 MessageList)
+                floatHeader 融合在输入卡片内部最上方,与卡片共享 border + bg-card */}
             <MessageInput
               onSend={sendMessage}
               onStop={stop}
@@ -727,6 +690,46 @@ export function AISidePanel() {
               model={currentModel}
               onModelChange={setModel}
               modelLabel={t('model')}
+              floatHeader={
+                <div
+                  onPointerDown={handleFloatDragStart}
+                  className="flex cursor-move items-center gap-1 px-1.5 py-1.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setFloatCollapsed(false)}
+                    aria-label={tc('floatMode')}
+                    className="inline-flex items-center gap-1.5 rounded-md py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                    <span>{tc('floatMode')}</span>
+                  </button>
+                  <div className="flex-1" />
+                  <Tooltip content={tc('dockPanel')}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFloatMode(false)
+                        setFloatCollapsed(false)
+                      }}
+                      aria-label={tc('dockPanel')}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <PanelLeft className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={tc('minimize')}>
+                    <button
+                      type="button"
+                      onClick={() => setFloatMinimized(true)}
+                      aria-label={tc('minimize')}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                </div>
+              }
             />
           </aside>
         </div>
