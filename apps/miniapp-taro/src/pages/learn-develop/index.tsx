@@ -5,6 +5,15 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { Course } from '@/api'
 import { useI18n } from '@/i18n'
+import aiallIcon from '@/assets/remote/images/aiall.png'
+import kechengIcon from '@/assets/remote/images/kecheng.png'
+import rankoneIcon from '@/assets/remote/images/rankone.png'
+import chuangkeIcon from '@/assets/remote/images/chuangke.png'
+import useNumIcon from '@/assets/remote/images/useNum.png'
+
+function isImagePath(s: string): boolean {
+  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
+}
 
 interface LearnPath {
   id: string
@@ -18,7 +27,7 @@ interface LearnPath {
 const LEARN_PATHS: LearnPath[] = [
   {
     id: 'p1',
-    icon: '🚀',
+    icon: chuangkeIcon,
     nameKey: 'learnDevelop.pathFrontend',
     name: '前端工程师',
     courses: 12,
@@ -26,7 +35,7 @@ const LEARN_PATHS: LearnPath[] = [
   },
   {
     id: 'p2',
-    icon: '🤖',
+    icon: aiallIcon,
     nameKey: 'learnDevelop.pathAI',
     name: 'AI 应用开发',
     courses: 8,
@@ -34,7 +43,7 @@ const LEARN_PATHS: LearnPath[] = [
   },
   {
     id: 'p3',
-    icon: '📊',
+    icon: useNumIcon,
     nameKey: 'learnDevelop.pathData',
     name: '数据分析师',
     courses: 15,
@@ -94,7 +103,7 @@ export default function LearnDevelop() {
         {LEARN_PATHS.map((path) => (
           <View key={path.id} className="flex items-center p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
             <View className="w-[88rpx] h-[88rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[16rpx]">
-              <Text className="text-[48rpx]">{path.icon}</Text>
+              {isImagePath(path.icon) ? <Image src={path.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" /> : <Text className="text-[48rpx]">{path.icon}</Text>}
             </View>
             <View className="flex-1 flex flex-col">
               <Text className="text-[30rpx] font-semibold text-foreground">{tt(path.nameKey, path.name)}</Text>
@@ -136,7 +145,7 @@ export default function LearnDevelop() {
                 <Image className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted" src={item.coverUrl} mode="aspectFill" />
               ) : (
                 <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
-                  <Text className="text-[48rpx]">📚</Text>
+                  <Image src={kechengIcon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 </View>
               )}
               <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
@@ -163,7 +172,7 @@ export default function LearnDevelop() {
         {/* 学习排行榜入口 */}
         <View className="flex items-center justify-between p-[24rpx] bg-card rounded-[12rpx] mt-[24rpx]" onClick={onGoRank}>
           <View className="flex items-center">
-            <Text className="text-[40rpx] mr-[16rpx]">🏆</Text>
+            <Image src={rankoneIcon} className="w-[40rpx] h-[40rpx] mr-[16rpx]" mode="aspectFit" />
             <Text className="text-[28rpx] text-foreground font-semibold">{tt('learnDevelop.rankEntry', '学习排行榜')}</Text>
           </View>
           <Text className="text-[36rpx] text-muted-foreground">›</Text>

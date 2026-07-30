@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
-import { useI18n } from '@/i18n'
+import { useTt } from '@/i18n'
 import { formatDuration } from '@ihui/shared/utils'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
@@ -28,8 +28,7 @@ function formatBytes(n: number | null): string {
 }
 
 export default function LiveHost() {
-  const { t } = useI18n()
-  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const tt = useTt()
   const [streamTitle, setStreamTitle] = useState('')
   const [status, setStatus] = useState<StreamStatus>('idle')
   const [stream, setStream] = useState<SrsStream | null>(null)

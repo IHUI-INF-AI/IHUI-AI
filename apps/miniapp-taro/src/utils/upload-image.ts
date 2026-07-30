@@ -1,5 +1,6 @@
 import Taro from '@tarojs/taro'
-import { getExt, getMimeType } from '@ihui/shared/utils/file-helpers'
+import { getExt } from '@ihui/shared/utils/file-helpers'
+import { buildFileName, joinUrl, toBase64DataUrl } from '@ihui/shared/utils/image-helpers'
 import { BASE_URL } from './api-config'
 import { getToken } from './auth'
 import { readFileToBase64 } from './file-utils'
@@ -39,10 +40,9 @@ export function chooseImages(maxCount = 9): Promise<string[]> {
 export async function imagesToBase64(filePaths: string[]): Promise<UploadedPicture[]> {
   const pictures: UploadedPicture[] = []
   for (const filePath of filePaths) {
-    const ext = getExt(filePath)
-    const fileName = `img_${Date.now()}_${pictures.length}.${ext}`
+    const fileName = buildFileName('img', filePath, pictures.length)
     const base64Str = await readFileToBase64(filePath)
-    const base64Data = `data:${getMimeType(ext)};base64,` + base64Str
+    const base64Data = toBase64DataUrl(base64Str, getExt(filePath))
     pictures.push({ base64: base64Data, fileName })
   }
   return pictures
@@ -53,7 +53,7 @@ export function uploadImage(filePath: string, url = '/files/upload'): Promise<Up
     const token = getToken()
     const ext = getExt(filePath)
     const fileName = `img_${Date.now()}.${ext}`
-    const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
+    const fullUrl = joinUrl(BASE_URL, url)
 
     Taro.uploadFile({
       url: fullUrl,
