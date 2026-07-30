@@ -148,23 +148,22 @@ test.describe('Sidebar 视觉守门', () => {
   })
 
   test('语言切换 Popover 弹出后完整可见不被裁剪 + 触发器 Globe2 图标渲染', async ({ page }) => {
-    // 1. 找到侧边栏底部语言切换按钮(带 lucide Globe2 svg 的 ghost icon button)
-    // 2026-07-31 v2: 触发器由 Languages(用户反馈难看)改为 Globe2(带经纬线精致地球);
-    // 下拉项国旗 img 改为单色语言代码徽章(ZH/TW/EN/JA/KO)与项目线性风格统一。
-    // 注: lucide-react 的 Globe2 是 Earth 的别名,svg className 渲染为 lucide-earth。
+    // 1. 找到侧边栏底部语言切换按钮(带 lucide Flag svg 的 ghost icon button)
+    // 2026-07-31 v3: 触发器改为 Flag(用户要求"类似国旗"的图标);
+    // 下拉项保留单色语言代码徽章(ZH/TW/EN/JA/KO)不动。
     const langBtn = page
       .locator('aside button[aria-label]')
-      .filter({ has: page.locator('svg.lucide-earth') })
+      .filter({ has: page.locator('svg.lucide-flag') })
       .first()
     await expect(langBtn).toBeVisible()
 
-    // 2. 验证触发按钮里的 Globe2 svg 可见且有尺寸(非 0x0),btnClass [&_svg]:size-5 应渲染 20×20
-    const triggerIcon = langBtn.locator('svg.lucide-earth')
+    // 2. 验证触发按钮里的 Flag svg 可见且有尺寸(非 0x0),btnClass [&_svg]:size-5 应渲染 20×20
+    const triggerIcon = langBtn.locator('svg.lucide-flag')
     await expect(triggerIcon).toBeVisible()
     const iconBox = await triggerIcon.boundingBox()
     expect(iconBox).not.toBeNull()
-    expect(iconBox!.width, 'Globe2 svg 宽度应 > 0').toBeGreaterThan(0)
-    expect(iconBox!.height, 'Globe2 svg 高度应 > 0').toBeGreaterThan(0)
+    expect(iconBox!.width, 'Flag svg 宽度应 > 0').toBeGreaterThan(0)
+    expect(iconBox!.height, 'Flag svg 高度应 > 0').toBeGreaterThan(0)
     // [&_svg]:size-5 渲染为 20×20,允许 1px 误差
     expect(Math.abs(iconBox!.width - 20)).toBeLessThanOrEqual(1)
     expect(Math.abs(iconBox!.height - 20)).toBeLessThanOrEqual(1)

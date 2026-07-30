@@ -30,6 +30,15 @@ export const developerApiKeys = pgTable(
     tokenUsedTotal: bigint('token_used_total', { mode: 'number' }).default(0).notNull(),
     /** 已用成本累计(分,用于统计,不回退) */
     costUsedTotalCents: integer('cost_used_total_cents').default(0).notNull(),
+    // --- P0-7 API Key 安全粒度字段(2026-07-31 立,对齐 New API 行业标准)---
+    /** 过期时间(null = 永不过期),过期后 Key 自动失效 */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    /** IP 白名单(jsonb 字符串数组,null/空 = 不限制),支持 CIDR */
+    allowedIps: jsonb('allowed_ips'),
+    /** 模型白名单(jsonb 字符串数组,null/空 = 不限制),支持通配符 gpt-4* */
+    allowedModels: jsonb('allowed_models'),
+    /** 单次请求 token 上限(null = 不限制),超过拒绝 */
+    maxTokensPerReq: integer('max_tokens_per_req'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
