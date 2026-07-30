@@ -8,8 +8,13 @@ import { useI18n } from '@/i18n'
 import aiallIcon from '@/assets/remote/images/aiall.png'
 import kechengIcon from '@/assets/remote/images/kecheng.png'
 import rankoneIcon from '@/assets/remote/images/rankone.png'
-import chuangkeIcon from '@/assets/remote/images/chuangke.png'
 import useNumIcon from '@/assets/remote/images/useNum.png'
+
+// chuangke.png 体积 644 KB,直接 import 会被打包进 chunk 导致页面体积 887 KB。
+// 改为字符串路径,Taro copy 配置(src/static/ → dist/static/)会将其复制到
+// dist/static/images/chuangke.png,运行时通过 /static/images/chuangke.png 访问。
+// 对齐原项目 zhs_app-ZZ 的字符串路径引用模式(rankings.vue: /static/images/...)。
+const chuangkeIcon = '/static/images/chuangke.png'
 
 function isImagePath(s: string): boolean {
   return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
