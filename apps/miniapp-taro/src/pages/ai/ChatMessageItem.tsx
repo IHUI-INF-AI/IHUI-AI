@@ -1,8 +1,13 @@
 import { View, Text, Image, Video } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import type { ChatMessage } from '@/api'
 import { useI18n } from '@/i18n'
+import sikaoIcon from '@/assets/remote/images/sikao_icon.png'
+import eyeOpenIcon from '@/assets/remote/images/eye-gray.svg'
+import eyeClosedIcon from '@/assets/remote/images/eye-slash-gray.svg'
+import downloadIcon from '@/assets/remote/images/download.png'
+import copyIcon from '@/assets/remote/images/copy.png'
 
 export interface ChatMessageItemProps {
   msg: ChatMessage
@@ -16,6 +21,8 @@ export interface ChatMessageItemProps {
   onToggleFavorite?: () => void
   /** TTS 朗读(仅 AI 消息,对标原 ai_assistant.vue 朗读功能) */
   onSpeak?: (content: string) => void
+  /** 打开思考过程独立浮层(仅 AI 消息含 reasoning) */
+  onOpenReasoning?: () => void
 }
 
 /** 内容段类型(对标原 ai_assistant.vue formatContentSegments) */
@@ -64,10 +71,18 @@ function formatContentSegments(str: string): ContentSegment[] {
   return segments
 }
 
-/** 移除特殊字符(对标原 ai_assistant.vue removeSpecialChars) */
+/** 移除特殊字符(对标原 ai_assistant.vue removeSpecialChars,完整实现) */
 function removeSpecialChars(str: string): string {
   if (!str) return ''
-  return str.replace(/^#{1,6}\s*/gm, '')
+  // 移除 # 号(标题标记)
+  if (/#+/g.test(str)) str = str.replace(/#+/g, '')
+  // 移除 * 号(加粗/斜体标记)
+  if (/\*+/g.test(str)) str = str.replace(/\*+/g, '')
+  // 横线 → 列表符号 •
+  str = str.replace(/(^|\n)\s*[-–—_]+/g, '$1•')
+  // 圆点 → 列表符号 •
+  str = str.replace(/(^|\n)\s*[·⚫・]/g, '$1•')
+  return str
 }
 
 /** 格式化 token 消耗(对标原 ai_assistant.vue total_tokens 显示) */
@@ -76,7 +91,17 @@ function formatTokenDisplay(count: number): string {
   return String(count)
 }
 
-export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPress, onEdit, isFavorited, onToggleFavorite, onSpeak }: ChatMessageItemProps) {
+export default function ChatMessageItem({
+  msg,
+  onReuse,
+  onRegenerate,
+  onLongPress,
+  onEdit,
+  isFavorited,
+  onToggleFavorite,
+  onSpeak,
+  onOpenReasoning,
+}: ChatMessageItemProps) {
   const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
@@ -85,6 +110,10 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
   const [speaking, setSpeaking] = useState(false)
   // 语音气泡播放状态(对标原 ai_assistant.vue 语音消息播放)
   const [voicePlaying, setVoicePlaying] = useState(false)
+  // 显示/隐藏答案(对标原 ai_assistant.vue toggleAnswerVisibility + eye-closed/eye-open.svg)
+  const [answerHidden, setAnswerHidden] = useState(false)
+
+  const toggleAnswer = useCallback(() => setAnswerHidden((v) => !v), [])
 
   /** 内容段(对标原 ai_assistant.vue formatContentSegments) */
   const segments = useMemo(
@@ -93,7 +122,10 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
   )
 
   /** 数字人关键词检测(对标原 ai_assistant.vue 数字人跳转) */
-  const hasDigitalHuman = useMemo(() => /数字人|虚拟人|avatar|digital\s*human/i.test(msg.content || ''), [msg.content])
+  const hasDigitalHuman = useMemo(
+    () => /数字人|虚拟人|avatar|digital\s*human/i.test(msg.content || ''),
+    [msg.content],
+  )
 
   /** 语音消息 audioUrl(可选属性扩展,不破坏 ChatMessage 接口) */
   const audioUrl = (msg as { audioUrl?: string }).audioUrl
@@ -180,6 +212,45 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
     }
   }
 
+  /** 下载图片到相册(对标原 ai_assistant.vue downloadImages:含水印 URL + 相册保存 + 权限申请) */
+  async function downloadImages() {
+    const urls = msg.images || []
+    if (!urls.length) return
+    Taro.showLoading({ title: t('ai.chatMessageItem.downloading') || '下载中' })
+    try {
+      for (const url of urls) {
+        const res = await Taro.downloadFile({ url })
+        if (res.statusCode === 200) {
+          await Taro.saveImageToPhotosAlbum({ filePath: res.tempFilePath })
+        }
+      }
+      Taro.showToast({
+        title: t('ai.chatMessageItem.downloadSuccess') || '已保存到相册',
+        icon: 'success',
+      })
+    } catch (err) {
+      const errMsg = String((err as { errMsg?: string })?.errMsg || '')
+      if (errMsg.includes('auth deny')) {
+        Taro.showModal({
+          title: t('common.hint') || '提示',
+          content:
+            t('ai.chatMessageItem.needAlbumAuth') || '需要相册权限才能保存图片,请在设置中开启',
+          confirmText: t('common.goSettings') || '去设置',
+          success: (res) => {
+            if (res.confirm) Taro.openSetting()
+          },
+        })
+      } else {
+        Taro.showToast({
+          title: t('ai.chatMessageItem.downloadFailed') || '下载失败',
+          icon: 'none',
+        })
+      }
+    } finally {
+      Taro.hideLoading()
+    }
+  }
+
   return (
     <View className={`msg-item ${msg.role}`} onLongPress={handleLongPress}>
       <View className={`avatar ${msg.role}`}>
@@ -198,7 +269,10 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
 
         {/* 代码块(对标原 ai_assistant.vue content_code,可折叠 + 复制按钮) */}
         {msg.codeContent ? (
-          <View className="bubble-code-wrap" style={{ marginTop: '8rpx', borderRadius: '8rpx', overflow: 'hidden' }}>
+          <View
+            className="bubble-code-wrap"
+            style={{ marginTop: '8rpx', borderRadius: '8rpx', overflow: 'hidden' }}
+          >
             <View
               className="bubble-code-header"
               style={{
@@ -219,7 +293,10 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
               </Text>
               <Text
                 className="bubble-code-copy"
-                style={{ fontSize: '24rpx', color: codeCopied ? 'var(--color-success)' : 'var(--color-link)' }}
+                style={{
+                  fontSize: '24rpx',
+                  color: codeCopied ? 'var(--color-success)' : 'var(--color-link)',
+                }}
                 onClick={copyCode}
               >
                 {codeCopied ? t('ai.chatMessageItem.copy') + ' ✓' : t('ai.chatMessageItem.copy')}
@@ -228,7 +305,15 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             {!codeCollapsed ? (
               <Text
                 className="bubble-code"
-                style={{ color: 'var(--color-link)', display: 'block', padding: '12rpx 16rpx', fontSize: '26rpx', background: 'var(--color-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+                style={{
+                  color: 'var(--color-link)',
+                  display: 'block',
+                  padding: '12rpx 16rpx',
+                  fontSize: '26rpx',
+                  background: 'var(--color-muted)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                }}
               >
                 {msg.codeContent}
               </Text>
@@ -236,26 +321,44 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
           </View>
         ) : null}
 
-        {/* 内容段渲染(对标原 ai_assistant.vue formatContentSegments) */}
-        {segments.map((seg, idx) => (
-          <Text
-            key={idx}
-            className={`bubble-seg bubble-seg-${seg.type}`}
-            style={
-              seg.type === 'link'
-                ? { color: 'var(--color-link)' }
-                : seg.type === 'header'
-                  ? { fontWeight: 'bold', display: 'block', marginBottom: '20rpx' }
-                  : undefined
-            }
-            onClick={() => handleSegmentClick(seg)}
+        {/* 内容段渲染(对标原 ai_assistant.vue formatContentSegments,支持答案显隐) */}
+        {!answerHidden ? (
+          segments.map((seg, idx) => (
+            <Text
+              key={idx}
+              className={`bubble-seg bubble-seg-${seg.type}`}
+              style={
+                seg.type === 'link'
+                  ? { color: 'var(--color-link)' }
+                  : seg.type === 'header'
+                    ? { fontWeight: 'bold', display: 'block', marginBottom: '20rpx' }
+                    : undefined
+              }
+              onClick={() => handleSegmentClick(seg)}
+            >
+              {seg.value}
+            </Text>
+          ))
+        ) : (
+          <View
+            className="hidden-answer-container"
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '20rpx',
+            }}
           >
-            {seg.value}
-          </Text>
-        ))}
+            <Image
+              src={eyeClosedIcon}
+              style={{ width: '30rpx', height: '30rpx' }}
+              mode="aspectFit"
+            />
+          </View>
+        )}
 
-        {/* 图片展示(对标原 ai_assistant.vue imgUrlList) */}
-        {msg.images && msg.images.length > 0
+        {/* 图片展示(对标原 ai_assistant.vue imgUrlList,支持答案显隐 + 加载失败兜底) */}
+        {!answerHidden && msg.images && msg.images.length > 0
           ? msg.images.map((imgUrl, idx) => (
               <Image
                 key={`img-${idx}`}
@@ -264,12 +367,13 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
                 src={imgUrl}
                 mode="widthFix"
                 onClick={() => previewImage(imgUrl, msg.images!)}
+                onError={() => console.warn('Image load failed:', imgUrl)}
               />
             ))
           : null}
 
-        {/* 视频展示(对标原 ai_assistant.vue videoUrlList) */}
-        {msg.videos && msg.videos.length > 0
+        {/* 视频展示(对标原 ai_assistant.vue videoUrlList,支持答案显隐) */}
+        {!answerHidden && msg.videos && msg.videos.length > 0
           ? msg.videos.map((videoUrl, idx) => (
               <Video
                 key={`video-${idx}`}
@@ -289,13 +393,25 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
         {audioUrl ? (
           <View
             className={`voice-bubble ${msg.role}`}
-            style={{ display: 'flex', alignItems: 'center', gap: '16rpx', padding: '16rpx 24rpx', borderRadius: '12rpx', marginTop: '10rpx', background: msg.role === 'user' ? 'var(--color-chat-bubble-user)' : 'var(--color-muted)' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16rpx',
+              padding: '16rpx 24rpx',
+              borderRadius: '12rpx',
+              marginTop: '10rpx',
+              background:
+                msg.role === 'user' ? 'var(--color-chat-bubble-user)' : 'var(--color-muted)',
+            }}
             onClick={playVoice}
           >
             <Text className="voice-play-icon" style={{ fontSize: '36rpx' }}>
               {voicePlaying ? '⏸' : '▶'}
             </Text>
-            <Text className="voice-duration" style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
+            <Text
+              className="voice-duration"
+              style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
+            >
               {audioDuration ? `${audioDuration}"` : t('ai.chatMessageItem.voiceMessage')}
             </Text>
           </View>
@@ -305,35 +421,54 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
         {msg.role === 'assistant' && hasDigitalHuman ? (
           <View
             className="digital-human-btn"
-            style={{ marginTop: '12rpx', padding: '8rpx 16rpx', background: 'var(--color-link-bg)', color: 'var(--color-link)', borderRadius: '6rpx', fontSize: '24rpx', display: 'inline-flex', alignItems: 'center' }}
+            style={{
+              marginTop: '12rpx',
+              padding: '8rpx 16rpx',
+              background: 'var(--color-link-bg)',
+              color: 'var(--color-link)',
+              borderRadius: '6rpx',
+              fontSize: '24rpx',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
             onClick={goDigitalHuman}
           >
             {t('ai.chatMessageItem.viewDigitalHuman')} →
           </View>
         ) : null}
 
-        {/* 操作按钮区(对标原 ai_assistant.vue action-buttons) */}
-        <View className="bubble-actions" style={{ justifyContent: 'space-between', marginTop: '8rpx' }}>
-          {/* token 消耗(仅 AI 消息,对标原 ai_assistant.vue total_tokens) */}
+        {/* 操作按钮区(对标原 ai_assistant.vue .action-buttons:左 token 消耗 + 右图标按钮组) */}
+        <View className="bubble-actions">
+          {/* 左侧:token 消耗(仅 AI 消息,对标原 ai_assistant.vue "智汇AI生成 消耗智汇值:XXX") */}
           {msg.role === 'assistant' && msg.tokenCount !== undefined ? (
             <Text
               className="bubble-token"
-              style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)', lineHeight: '40rpx' }}
+              style={{
+                marginRight: '10rpx',
+                fontSize: '24rpx',
+                color: 'var(--color-muted-foreground)',
+                lineHeight: '40rpx',
+                opacity: answerHidden ? 0 : 1,
+              }}
             >
               {t('ai.chatMessageItem.aiGenerated')}
               {msg.tokenCount > 0
-                ? ` · ${t('ai.chatMessageItem.tokenCost', { n: formatTokenDisplay(msg.tokenCount) })}`
+                ? ` ${t('ai.chatMessageItem.tokenCost', { n: formatTokenDisplay(msg.tokenCount) })}`
                 : ''}
             </Text>
           ) : null}
 
-          {/* 复用 + 编辑按钮(仅用户消息) */}
+          {/* 左侧:用户消息复用 + 编辑按钮(对标原 ai_assistant.vue fuyong-btn) */}
           {msg.role === 'user' ? (
-            <View style={{ display: 'flex', gap: '20rpx' }}>
+            <View style={{ display: 'flex', alignItems: 'center' }}>
               {onReuse ? (
                 <Text
                   className="bubble-reuse"
-                  style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
+                  style={{
+                    fontSize: '24rpx',
+                    color: 'var(--color-link)',
+                    marginRight: '20rpx',
+                  }}
                   onClick={handleReuse}
                 >
                   {t('ai.chatMessageItem.reuse')}
@@ -351,20 +486,50 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             </View>
           ) : null}
 
-          {/* 复制 + 重新生成 + 收藏按钮(仅 AI 消息) */}
+          {/* 右侧:图标按钮组(仅 AI 消息,对标原 ai_assistant.vue display:flex justify-content:flex-end) */}
           {msg.role === 'assistant' && msg.content ? (
-            <View style={{ display: 'flex', gap: '20rpx' }}>
-              <Text
-                className="bubble-copy"
-                style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
+            <View className="bubble-actions-right">
+              {/* 答案显隐 eye 图标(对标原 eye-closed.svg / eye-open.svg) */}
+              <Image
+                src={answerHidden ? eyeOpenIcon : eyeClosedIcon}
+                className="action-btn-img"
+                mode="widthFix"
+                onClick={toggleAnswer}
+              />
+              {/* 思考回看 sikao 图标(仅 reasoning 存在时) */}
+              {onOpenReasoning && msg.reasoning ? (
+                <Image
+                  src={sikaoIcon}
+                  className="action-btn-img"
+                  mode="widthFix"
+                  onClick={onOpenReasoning}
+                />
+              ) : null}
+              {/* 复制图标 */}
+              <Image
+                src={copyIcon}
+                className="action-btn-img"
+                mode="widthFix"
                 onClick={() => copyContent(msg.content)}
-              >
-                {t('ai.chatMessageItem.copy')}
-              </Text>
+              />
+              {/* 下载图标(仅图片消息) */}
+              {msg.images && msg.images.length > 0 ? (
+                <Image
+                  src={downloadIcon}
+                  className="action-btn-img"
+                  mode="widthFix"
+                  onClick={downloadImages}
+                />
+              ) : null}
+              {/* 保留文字按钮:重新生成/收藏/朗读 */}
               {onRegenerate ? (
                 <Text
                   className="bubble-regenerate"
-                  style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
+                  style={{
+                    fontSize: '24rpx',
+                    color: 'var(--color-link)',
+                    marginLeft: '20rpx',
+                  }}
                   onClick={onRegenerate}
                 >
                   {t('ai.chatMessageItem.regenerate')}
@@ -373,17 +538,26 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
               {onToggleFavorite ? (
                 <Text
                   className="bubble-favorite"
-                  style={{ fontSize: '24rpx', color: isFavorited ? 'var(--color-destructive)' : 'var(--color-muted-foreground)' }}
+                  style={{
+                    fontSize: '24rpx',
+                    color: isFavorited
+                      ? 'var(--color-destructive)'
+                      : 'var(--color-muted-foreground)',
+                    marginLeft: '20rpx',
+                  }}
                   onClick={onToggleFavorite}
                 >
                   {isFavorited ? '♥' : '♡'}
                 </Text>
               ) : null}
-              {/* TTS 朗读按钮(对标原 ai_assistant.vue 朗读,仅 AI 消息) */}
               {onSpeak ? (
                 <Text
                   className="bubble-speak"
-                  style={{ fontSize: '24rpx', color: 'var(--color-link)', marginLeft: '20rpx' }}
+                  style={{
+                    fontSize: '24rpx',
+                    color: 'var(--color-link)',
+                    marginLeft: '20rpx',
+                  }}
                   onClick={handleSpeak}
                 >
                   🔊 {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}
