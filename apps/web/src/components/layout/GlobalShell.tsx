@@ -8,6 +8,7 @@ import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
+import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
 import { Button } from '@ihui/ui-react'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
@@ -203,6 +204,12 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-5 w-5" />
             </Button>
+            {/* 全局顶栏(2026-07-30 立):所有路由组((main)/marketing/auth/sso/forbidden)
+                都常驻显示。包含 TagsView + Plus 弹窗(9 项视图/工具/设置)+ 桌面端窗口控制。
+                桌面端拖拽/resize/主题跟随/托盘状态等副作用由 GlobalTopBar 内部管理。 */}
+            <React.Suspense fallback={null}>
+              <GlobalTopBar />
+            </React.Suspense>
             {children}
           </div>
           {/* 工作展示区(右侧固定面板):AI 对话内嵌浏览器 / URL 预览。
