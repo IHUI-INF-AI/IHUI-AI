@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { Alert, useColorScheme } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { register, sendSmsCode } from '@ihui/api-client'
@@ -27,11 +28,14 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  *
  * 2026-07-30 进一步接入:本地 FloatBox 浮层提示,覆盖注册成功 / 失败 / 自动登录失败
  * 三种状态(替代 Alert.alert,与共享 LoginScreen 风格对齐)。
+ *
+ * 2026-07-30 协议勾选:启用 enableAgreement(合规对齐 web 端),复用共享组件 AgreementRow。
  */
 export function RegisterScreen() {
   const { t } = useI18n()
   const { login } = useAuth()
   const navigation = useNavigation<NavigationProp>()
+  const colorScheme = useColorScheme()
   const accountRef = useRef('')
   const passwordRef = useRef('')
   const [verifyVisible, setVerifyVisible] = useState(false)
@@ -55,6 +59,7 @@ export function RegisterScreen() {
     type: 'account',
     enableCode: false,
     enableConfirmPassword: true,
+    enableAgreement: true,
     enableAutoLogin: true,
     registerApi: async (v) => {
       accountRef.current = v.account.trim()
@@ -110,6 +115,17 @@ export function RegisterScreen() {
     return err
   }
 
+  // 协议未勾选错误(form.error === 'auth.agreeRequired' 时显示协议错误红字)
+  const showAgreeErr = form.error === 'auth.agreeRequired'
+
+  // 服务条款 / 隐私政策点击:暂用 Alert 占位(未来可跳 webview 或路由)
+  const onOpenTerms = useCallback(() => {
+    Alert.alert(t('auth.termsOfService'))
+  }, [t])
+  const onOpenPrivacy = useCallback(() => {
+    Alert.alert(t('auth.privacyPolicy'))
+  }, [t])
+
   return (
     <>
       <SharedRegisterScreen
@@ -124,6 +140,13 @@ export function RegisterScreen() {
         onConfirmPasswordChange={form.setConfirmPassword}
         onRegister={form.register}
         onBack={() => navigation.goBack()}
+        colorScheme={colorScheme ?? 'light'}
+        enableAgreement
+        agreed={form.agreed}
+        onAgreedChange={form.setAgreed}
+        showAgreeErr={showAgreeErr}
+        onOpenTerms={onOpenTerms}
+        onOpenPrivacy={onOpenPrivacy}
       />
       <VerifyCodeModal
         visible={verifyVisible}

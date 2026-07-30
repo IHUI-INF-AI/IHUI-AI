@@ -118,7 +118,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             onPress={() => setDrawerVisible(true)}
             hitSlop={8}
-            accessibilityLabel="菜单"
+            accessibilityLabel={t('common.menu')}
           >
             <Text style={{ fontSize: 22, lineHeight: 24, color: tokens.text.primary }}>{'☰'}</Text>
           </TouchableOpacity>
