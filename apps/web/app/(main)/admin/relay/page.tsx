@@ -2,12 +2,29 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { Server, Package, KeyRound, Activity, Coins, ArrowRight } from 'lucide-react'
+import { toast } from 'sonner'
+import { Server, Package, KeyRound, Activity, Coins, ArrowRight, Pencil, Percent } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  Button,
+  Input,
+  Label,
+  Badge,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface ProviderDist {
@@ -24,6 +41,12 @@ interface RelayStats {
   last30dTokens: number
 }
 
+interface CommissionProvider {
+  providerCode: string
+  byokCommissionRate: number
+  isEnabled: boolean
+}
+
 const STATS = [
   { key: 'totalModels' as const, label: '模型总数', icon: Package, color: 'text-primary' },
   { key: 'publicModels' as const, label: '已上架', icon: Server, color: 'text-emerald-600 dark:text-emerald-400' },
@@ -33,6 +56,7 @@ const STATS = [
 
 export default function AdminRelayOverviewPage() {
   const locale = useLocale()
+  const qc = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'relay', 'stats'],
     queryFn: async () => {
@@ -41,6 +65,55 @@ export default function AdminRelayOverviewPage() {
       return r.data
     },
   })
+
+  // ===== BYOK 抽成配置 =====
+  const [editTarget, setEditTarget] = React.useState<CommissionProvider | null>(null)
+  const [rateInput, setRateInput] = React.useState<string>('10')
+  const commissionQ = useQuery({
+    queryKey: ['admin', 'relay', 'commission'],
+    queryFn: async () => {
+      const r = await fetchApi<{ providers: CommissionProvider[] }>(
+        '/api/admin/relay/commission',
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data.providers
+    },
+  })
+  const updateCommission = useMutation({
+    mutationFn: async (vars: { providerCode: string; rate: number }) => {
+      const r = await fetchApi<{ providerCode: string; byokCommissionRate: number }>(
+        `/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ byokCommissionRate: vars.rate }),
+        },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: () => {
+      toast.success('抽成率已更新')
+      setEditTarget(null)
+      qc.invalidateQueries({ queryKey: ['admin', 'relay', 'commission'] })
+    },
+    onError: (e: Error) => toast.error(e.message || '更新失败'),
+  })
+
+  const openCommissionEdit = (p: CommissionProvider) => {
+    setEditTarget(p)
+    setRateInput(String(Math.round(p.byokCommissionRate * 1000) / 10))
+  }
+  const submitCommissionEdit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTarget) return
+    const pct = Number(rateInput)
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      toast.error('抽成率必须在 0~100 之间')
+      return
+    }
+    updateCommission.mutate({ providerCode: editTarget.providerCode, rate: pct / 100 })
+  }
 
   const numFmt = new Intl.NumberFormat(locale)
   const stats = data ?? {
@@ -52,6 +125,7 @@ export default function AdminRelayOverviewPage() {
     last30dTokens: 0,
   }
   const maxProviderCount = Math.max(1, ...stats.providerDistribution.map((p) => p.count))
+  const commissionList = commissionQ.data ?? []
 
   return (
     <div className="space-y-4">
@@ -134,6 +208,69 @@ export default function AdminRelayOverviewPage() {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Percent className="h-4 w-4 text-primary" />
+            BYOK 平台抽成配置
+          </CardTitle>
+          <CardDescription className="text-xs">
+            用户自带 Key 调用时平台收取的服务费比例(免费 provider 不收费)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {commissionQ.isLoading ? (
+            <Skeleton className="h-20 w-full" />
+          ) : commissionList.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">暂无全局 provider 配置</p>
+          ) : (
+            <div className="overflow-hidden rounded-md border border-border">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Provider</th>
+                    <th className="px-3 py-2 text-right">抽成率</th>
+                    <th className="px-3 py-2 text-left">状态</th>
+                    <th className="px-3 py-2 text-right">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commissionList.map((p) => (
+                    <tr key={p.providerCode} className="border-t border-border">
+                      <td className="px-3 py-2 font-mono text-xs">{p.providerCode}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {(p.byokCommissionRate * 100).toFixed(1)}%
+                      </td>
+                      <td className="px-3 py-2">
+                        {p.isEnabled ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            启用
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">禁用</Badge>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => openCommissionEdit(p)}
+                        >
+                          <Pencil className="mr-1 h-3 w-3" />
+                          编辑
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { href: '/admin/relay/models', label: '模型管理', desc: '上下架 / 定价 / 排序', icon: Package },
@@ -157,6 +294,53 @@ export default function AdminRelayOverviewPage() {
           </Link>
         ))}
       </div>
+
+      <Dialog open={editTarget !== null} onOpenChange={(v) => !v && setEditTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>编辑 BYOK 抽成率</DialogTitle>
+            <DialogDescription>
+              {editTarget
+                ? `设置 ${editTarget.providerCode} 的平台服务费抽成比例`
+                : '设置 provider 的平台服务费抽成比例'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitCommissionEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="commission-rate" className="text-xs">
+                抽成率(%)
+              </Label>
+              <Input
+                id="commission-rate"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min={0}
+                max={100}
+                value={rateInput}
+                onChange={(e) => setRateInput(e.target.value)}
+                className="h-9"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">范围 0~100,支持 1 位小数(如 10.5 表示 10.5%)</p>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditTarget(null)}
+                disabled={updateCommission.isPending}
+              >
+                取消
+              </Button>
+              <Button type="submit" size="sm" disabled={updateCommission.isPending}>
+                {updateCommission.isPending ? '保存中…' : '保存'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
