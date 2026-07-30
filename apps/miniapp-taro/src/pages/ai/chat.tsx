@@ -3,7 +3,8 @@ import tishiIcon from '@/assets/remote/images/tishi_icon.png'
 import floderInputIcon from '@/assets/remote/images/floder_input.png'
 import skillsIcon from '@/assets/remote/images/add/skills.svg'
 import fileIcon from '@/assets/remote/images/file.png'
-import recordBackIcon from '@/assets/remote/images/record_back.png'
+// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
+const recordBackIcon = '/static/images/record_back.png'
 import Taro, { useRouter, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import {
