@@ -58,6 +58,10 @@ export interface RecordCallInput {
   mode?: 'relay' | 'byok'
   /** BYOK 模式下的平台抽成率(0.10=10%),未传时由 getByokCommissionRate 兜底读取全局默认 */
   commissionRate?: number
+  /** prompt cache 命中读取的 token 数(按 input price × 0.1 计费,OpenAI/Claude 标准) */
+  cacheReadTokens?: number
+  /** prompt cache 创建写入的 token 数(按 input price × 1.25 计费) */
+  cacheCreationTokens?: number
 }
 
 export interface RecordCallResult {
@@ -73,12 +77,16 @@ export interface RecordCallResult {
 }
 
 export interface CalculateCostResult {
-  /** 输入 token 成本(分) */
+  /** 输入 token 成本(分,不含 cache 部分) */
   inputCostCents: number
   /** 输出 token 成本(分) */
   outputCostCents: number
-  /** 总成本(分,= input + output) */
+  /** 总成本(分,= input + cacheRead + cacheCreation + output) */
   totalCostCents: number
+  /** prompt cache 命中读取成本(分,= cacheReadTokens × inputPrice × 0.1 × multiplier) */
+  cacheReadCostCents: number
+  /** prompt cache 创建写入成本(分,= cacheCreationTokens × inputPrice × 1.25 × multiplier) */
+  cacheCreationCostCents: number
   /** 中转站定价倍率(1.0 = 原价) */
   multiplier: number
   /** 基础输入单价(分/千 token,来自 aiPricing 或 aiModelConfigModels 兜底) */
@@ -87,6 +95,14 @@ export interface CalculateCostResult {
   baseOutputPricePer1k: number
   /** 定价来源:'ai_pricing' | 'model_config' | 'default' */
   source: 'ai_pricing' | 'model_config' | 'default'
+}
+
+/** calculateCost 第 4 个参数:cache 折扣计费选项 */
+export interface CalculateCostCacheOptions {
+  /** prompt cache 命中读取的 token 数(按 input price × 0.1 计费) */
+  cacheReadTokens?: number
+  /** prompt cache 创建写入的 token 数(按 input price × 1.25 计费) */
+  cacheCreationTokens?: number
 }
 
 // =============================================================================
@@ -210,6 +226,7 @@ export async function calculateCost(
   model: string,
   promptTokens: number,
   completionTokens: number,
+  options?: CalculateCostCacheOptions,
 ): Promise<CalculateCostResult> {
   // P0-5 修复(2026-07-30):去 LiteLLM 前缀(stepfun/agnes)再查 DB,
   // 因为 DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名。
@@ -266,16 +283,36 @@ export async function calculateCost(
 
   // 成本 = (inputPrice × promptTokens/1000 + outputPrice × completionTokens/1000) × multiplier
   // 单位:分(整数,Math.round 四舍五入避免浮点)
-  const rawInputCost = (baseInputPricePer1k * promptTokens) / 1000
+  //
+  // prompt cache 折扣计费(2026-07-31 立,OpenAI/Claude 标准):
+  //   - cacheReadTokens:按 input price × 0.1 计费(10% 折扣,命中已缓存的 prompt)
+  //   - cacheCreationTokens:按 input price × 1.25 计费(25% 加价,首次写入缓存)
+  //   - 普通 input tokens = promptTokens - cacheReadTokens - cacheCreationTokens(按原价)
+  //
+  // 边界保护:cacheReadTokens + cacheCreationTokens > promptTokens 时 clamp 到 promptTokens
+  // (异常输入防止负数普通 input tokens)
+  const rawCacheReadTokens = Math.max(0, options?.cacheReadTokens ?? 0)
+  const rawCacheCreationTokens = Math.max(0, options?.cacheCreationTokens ?? 0)
+  const cacheReadTokens = Math.min(rawCacheReadTokens, promptTokens)
+  const cacheCreationTokens = Math.min(rawCacheCreationTokens, Math.max(0, promptTokens - cacheReadTokens))
+  const normalInputTokens = Math.max(0, promptTokens - cacheReadTokens - cacheCreationTokens)
+
+  const rawNormalInputCost = (baseInputPricePer1k * normalInputTokens) / 1000
+  const rawCacheReadCost = (baseInputPricePer1k * cacheReadTokens * 0.1) / 1000
+  const rawCacheCreationCost = (baseInputPricePer1k * cacheCreationTokens * 1.25) / 1000
   const rawOutputCost = (baseOutputPricePer1k * completionTokens) / 1000
-  const inputCostCents = Math.round(rawInputCost * multiplier)
+  const inputCostCents = Math.round(rawNormalInputCost * multiplier)
+  const cacheReadCostCents = Math.round(rawCacheReadCost * multiplier)
+  const cacheCreationCostCents = Math.round(rawCacheCreationCost * multiplier)
   const outputCostCents = Math.round(rawOutputCost * multiplier)
-  const totalCostCents = inputCostCents + outputCostCents
+  const totalCostCents = inputCostCents + cacheReadCostCents + cacheCreationCostCents + outputCostCents
 
   return {
     inputCostCents,
     outputCostCents,
     totalCostCents,
+    cacheReadCostCents,
+    cacheCreationCostCents,
     multiplier,
     baseInputPricePer1k,
     baseOutputPricePer1k,
@@ -533,7 +570,10 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
     commissionRate = rate
   } else {
     // 中转站(默认)
-    const cost = await calculateCost(input.model, input.promptTokens, input.completionTokens)
+    const cost = await calculateCost(input.model, input.promptTokens, input.completionTokens, {
+      cacheReadTokens: input.cacheReadTokens,
+      cacheCreationTokens: input.cacheCreationTokens,
+    })
     costCentsToDeduct = cost.totalCostCents
     multiplier = cost.multiplier
     pricingSource = cost.source
@@ -571,6 +611,8 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
       promptTokens: input.promptTokens,
       completionTokens: input.completionTokens,
       totalTokens: input.totalTokens,
+      cacheReadTokens: input.cacheReadTokens ?? 0,
+      cacheCreationTokens: input.cacheCreationTokens ?? 0,
       latencyMs: input.latencyMs,
       status: input.status,
       errorMessage: input.errorMessage ?? null,
@@ -690,4 +732,46 @@ export async function adjustBalance(
   return updated
     ? { tokenBalance: updated.tokenBalance, costBalanceCents: updated.costBalanceCents }
     : null
+}
+
+// =============================================================================
+// 5. rechargeByKey — 兑换码充值(2026-07-31 立,P0-5 刮刮卡式裂变充值配套)
+// =============================================================================
+
+/**
+ * 给指定 API Key 充值 token 余额(2026-07-31 立,P0-5 兑换码充值用)。
+ *
+ * - apiKeyId: 用户当前活跃 Key
+ * - tokenAmount: 充值 token 数(必须 > 0)
+ * - 若 tokenBalance = -1(无限额度)→ 不操作,直接返回 -1
+ * - 若 tokenBalance = 0 或 >0 → 增加 tokenAmount
+ * - 原子操作:用 SQL CASE WHEN 在数据库层处理 -1 分支,避免读改写竞态
+ *
+ * 返回更新后的 tokenBalance;Key 不存在 → 返回 null。
+ */
+export async function rechargeByKey(
+  apiKeyId: string,
+  tokenAmount: number,
+): Promise<{ newTokenBalance: number } | null> {
+  if (tokenAmount <= 0) {
+    // 无效充值金额,直接读当前余额返回(不写库)
+    const [row] = await dbRead
+      .select({ tokenBalance: developerApiKeys.tokenBalance })
+      .from(developerApiKeys)
+      .where(eq(developerApiKeys.id, apiKeyId))
+      .limit(1)
+    return row ? { newTokenBalance: row.tokenBalance } : null
+  }
+
+  const [updated] = await db
+    .update(developerApiKeys)
+    .set({
+      // -1(无限额度)保持 -1,否则累加 tokenAmount
+      tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${tokenAmount} END`,
+      updatedAt: new Date(),
+    })
+    .where(eq(developerApiKeys.id, apiKeyId))
+    .returning({ tokenBalance: developerApiKeys.tokenBalance })
+
+  return updated ? { newTokenBalance: updated.tokenBalance } : null
 }
