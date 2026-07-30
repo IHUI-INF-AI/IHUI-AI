@@ -1,10 +1,16 @@
-import { useState, useCallback } from 'react'
+﻿import { useState, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
 import { useTt } from '@/i18n'
+import freeVipIcon from '@/assets/remote/images/xtk/free_vip_icon.png'
+import freeUseIcon from '@/assets/remote/images/xtk/free_use_icon.png'
+import freeTimeIcon from '@/assets/remote/images/xtk/free_time_icon.png'
+import buymonthIcon from '@/assets/remote/images/xtk/buymonth_icon.png'
+import hasbuyIcon from '@/assets/remote/images/xtk/hasbuy_icon.png'
+import agentAvatarFallbackIcon from '@/assets/remote/images/agent-avatar.png'
 
 /**
  * Taro 适配层:PayButton
@@ -54,7 +60,7 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
   freevip: {
     bg: (tk) => tk.warning.light,
     text: (tk) => tk.warning.deep,
-    icon: '👑',
+    icon: freeVipIcon,
     label: '会员免费',
     showPurchasePopup: false,
   },
@@ -301,7 +307,7 @@ export function PayButton({
   return (
     <View style={viewStyles.root()}>
       <View style={viewStyles.trigger(cfg.bg(tk), cfg.text(tk), disabled)} onTap={handleClick}>
-        <Text style={textStyles.icon()}>{cfg.icon}</Text>
+        <Image src={cfg.icon} style={{ width: toRpx(12), height: toRpx(12), marginRight: toRpx(4) }} mode="aspectFit" />
         <Text style={textStyles.label()}>{cfg.label}</Text>
       </View>
 
@@ -318,7 +324,7 @@ export function PayButton({
                 <Image src={agentAvatar} style={imageStyles.avatar()} mode="aspectFill" />
               ) : (
                 <View style={viewStyles.avatarFallback(tk)}>
-                  <Text>🤖</Text>
+                  <Image src={agentAvatarFallbackIcon} style={{ width: toRpx(20), height: toRpx(20) }} mode="aspectFit" />
                 </View>
               )}
               <View style={viewStyles.productText()}>
