@@ -6110,68 +6110,7 @@
     "profileDesc": "",
     "profileTitle": "",
     "securityDesc": "",
-    "securityTitle": "",
-    "gateway": {
-      "navLabel": "AI 网关",
-      "title": "AI 网关 Dashboard",
-      "subtitle": "Provider 健康状态、Combo 链管理、Token 压缩演示",
-      "tabs": {
-        "providers": "Provider 健康",
-        "combos": "Combo 链",
-        "compaction": "Token 压缩"
-      },
-      "providers": {
-        "summary": {
-          "total": "总计",
-          "configured": "已配置",
-          "local": "本地",
-          "notConfigured": "未配置"
-        },
-        "filter": {
-          "all": "全部",
-          "configured": "已配置",
-          "notConfigured": "未配置",
-          "local": "本地"
-        },
-        "cooldown": "冷却中",
-        "failures": "次失败",
-        "models": "个模型",
-        "refresh": "刷新"
-      },
-      "combos": {
-        "create": "新建 Combo",
-        "edit": "编辑",
-        "delete": "删除",
-        "name": "链名",
-        "strategy": "策略",
-        "chain": "调用链(每行一个)",
-        "judge": "Judge 模型(fusion 策略)",
-        "description": "描述",
-        "deleteConfirm": "确认删除 Combo \"{name}\"?",
-        "createSuccess": "Combo 创建成功",
-        "deleteSuccess": "Combo 删除成功",
-        "empty": "暂无 Combo 链,点击「新建 Combo」创建第一个"
-      },
-      "compaction": {
-        "input": "输入消息",
-        "inputPlaceholder": "输入要压缩的文本内容...",
-        "strategy": "压缩策略",
-        "keepRecent": "保留最近 N 条",
-        "run": "开始压缩",
-        "original": "原始 Token",
-        "compressed": "压缩后 Token",
-        "ratio": "压缩率",
-        "rtkMapSize": "RTK 映射表大小",
-        "compressedPreview": "压缩后预览",
-        "decompressedPreview": "解压结果",
-        "showDecompressed": "显示解压结果",
-        "hideDecompressed": "隐藏解压结果",
-        "excellent": "优秀",
-        "good": "良好",
-        "poor": "未达标",
-        "empty": "点击「开始压缩」查看效果"
-      }
-    }
+    "securityTitle": ""
   },
   "favorites": {
     "title": "收藏夹",
@@ -8967,8 +8906,6 @@
       "qwen": "通义千问"
     },
     "models": "大模型",
-    "internationalModels": "国际大模型",
-    "chineseModels": "国产大模型",
     "officialApp": "官方App",
     "officialWechat": "官方微信",
     "paymentPlatforms": "支付平台",
