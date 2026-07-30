@@ -40,6 +40,14 @@ export function AgreementCheckbox({
   return (
     <label className={cn('group flex cursor-pointer items-start gap-2 select-none', className)}>
       <span
+        onMouseDown={(e) => {
+          // 阻止 mousedown 默认行为,避免 label 把焦点转移给隐藏的 <input type="checkbox">。
+          // 根因:鼠标点击时浏览器默认会 focus label 的关联控件(本组件是 sr-only input),
+          //      焦点落在 input 后,用户按 Enter 触发的是 input 的 native toggle(取消勾选),
+          //      而不是 form submit,导致"按 Enter 没触发登录"。
+          // 阻止焦点转移后,焦点停留在上一个 input(如密码框),按 Enter 走 form 隐式 submit。
+          e.preventDefault()
+        }}
         onClick={(e) => {
           e.preventDefault()
           onChange(!checked)
@@ -80,6 +88,15 @@ export function AgreementCheckbox({
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         aria-hidden="true"
+        onKeyDown={(e) => {
+          // 兜底:即便 focus 因任何原因(屏幕阅读器 / 旧浏览器 quirk)落在 sr-only input 上,
+          // Enter 也走 form.requestSubmit 而不是 native toggle 把勾选取消。
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            const form = e.currentTarget.closest('form')
+            if (form instanceof HTMLFormElement) form.requestSubmit()
+          }
+        }}
       />
       <span className="text-xs leading-5 text-muted-foreground">
         {t('auth.agreePrefix')}
