@@ -18,9 +18,14 @@ from ..middleware.llm_metrics import (
     LLM_FALLBACK_FAILURE,
     LLM_FALLBACK_SUCCESS,
     LLM_FALLBACK_TRIGGERED,
+    LLM_TOKEN_COMPACTION_FAILURE,
+    LLM_TOKEN_COMPACTION_RATIO,
+    LLM_TOKEN_COMPACTION_SUCCESS,
+    LLM_TOKEN_COMPACTION_TRIGGERED,
     classify_fallback_reason,
 )
 from .config import settings
+from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
@@ -738,6 +743,92 @@ class LLMGateway:
             return db_result
         return self._resolve_provider(model)
 
+    async def _apply_token_compaction(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        *,
+        has_tools: bool = False,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        """可选 token 压缩步骤:trim_messages 之后、litellm.acompletion 之前。
+
+        启用条件(全部满足):
+        1. settings.token_compaction_enabled == True(默认 False,getattr 安全读取)
+        2. messages 总 token 数 > settings.token_compaction_min_tokens(默认 2000)
+        3. 非 stub 模式(stub 模式返回模拟响应,无需压缩)
+        4. 不含 tools 参数(function calling 对消息结构敏感,压缩可能破坏 tool_calls)
+
+        Args:
+            messages: trim_messages 后的消息列表(不会被修改,内部会做深拷贝)
+            model: 模型名(用于 Prometheus 指标标签)
+            has_tools: 是否含 tools 参数(True 时跳过压缩,保护 function calling)
+
+        Returns:
+            (compressed_messages, compaction_info) 二元组:
+            - 启用且成功:compressed_messages 为压缩后消息,info 含 original/compressed/ratio/strategy
+            - 未启用或跳过:返回原 messages,info 为 None
+            - 压缩失败:降级用原 messages(不阻塞主流程),info 为 None
+        """
+        enabled = bool(getattr(settings, "token_compaction_enabled", False))
+        if not enabled:
+            return messages, None
+
+        # stub 模式返回模拟响应,无需压缩
+        if self._is_stub_mode():
+            return messages, None
+
+        # tools 调用对消息结构敏感,压缩可能破坏 function calling
+        if has_tools:
+            return messages, None
+
+        # 阈值检查:总 token 数 ≤ min_tokens 时不压缩
+        min_tokens = int(getattr(settings, "token_compaction_min_tokens", 2000))
+        total_tokens = estimate_messages_tokens(messages)
+        if total_tokens <= min_tokens:
+            return messages, None
+
+        # 延迟导入避免 token_compaction 模块在 stub 模式下加载 tiktoken(首次 ~50ms)
+        from ..services.token_compaction import (
+            CompactionStrategy,
+            token_compactor,
+        )
+
+        strategy = CompactionStrategy.RTK_CAVEMAN
+        strategy_str = strategy.value
+        try:
+            LLM_TOKEN_COMPACTION_TRIGGERED.labels(strategy=strategy_str, model=model).inc()
+            result = token_compactor.compact_messages(
+                messages, strategy=strategy, keep_recent=6
+            )
+            LLM_TOKEN_COMPACTION_SUCCESS.labels(strategy=strategy_str, model=model).inc()
+            LLM_TOKEN_COMPACTION_RATIO.labels(strategy=strategy_str).observe(
+                result.compression_ratio
+            )
+            info: dict[str, Any] = {
+                "original_tokens": result.original_tokens,
+                "compressed_tokens": result.compressed_tokens,
+                "compression_ratio": result.compression_ratio,
+                "strategy": strategy_str,
+            }
+            # Message 类型 dict[str, object] → dict[str, Any](运行时同形状,
+            # litellm 期望 list[dict[str, Any]];cast 而非深拷贝,避免无谓开销)
+            return cast(list[dict[str, Any]], result.compressed_messages), info
+        except Exception as e:
+            logger.warning(
+                "Token compaction 失败,降级用原 messages(model=%s): %s",
+                model,
+                e,
+            )
+            try:
+                LLM_TOKEN_COMPACTION_FAILURE.labels(
+                    strategy=strategy_str,
+                    model=model,
+                    reason=type(e).__name__,
+                ).inc()
+            except Exception as metric_err:
+                logger.warning("LLM_TOKEN_COMPACTION_FAILURE 指标记录失败(忽略): %s", metric_err)
+            return messages, None
+
     async def complete(
         self,
         messages: list[dict[str, Any]],
@@ -765,6 +856,14 @@ class LLMGateway:
         if repair_removed > 0:
             logger.info("repair_messages 修复 %d 条异常消息", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
+
+        # 可选 token 压缩(P3-1,token_compaction.py 集成):
+        # 在 trim_messages 之后、litellm.acompletion 之前调用,压缩长上下文。
+        # 启用条件:settings.token_compaction_enabled=True 且 token 数 > 阈值 且 非 stub 且无 tools
+        # 失败时降级用原 messages,不阻塞主流程
+        trimmed_messages, compaction_info = await self._apply_token_compaction(
+            trimmed_messages, used_model, has_tools="tools" in kwargs
+        )
 
         # 厂商原生适配器(可选增强):当请求含 tools(function calling)时,
         # 优先用厂商原生 API 以保留格式差异(Anthropic tool_use / Gemini functionDeclarations 等),
@@ -834,6 +933,9 @@ class LLMGateway:
                 "usage": usage_dict,
                 "stub": False,
             }
+            # P3-1 token 压缩信息(仅在压缩启用且成功时存在,前端/监控可读)
+            if compaction_info is not None:
+                result["compaction"] = compaction_info
             reasoning = getattr(response.choices[0].message, "reasoning_content", None)
             if reasoning:
                 result["reasoning"] = reasoning
@@ -1074,6 +1176,11 @@ class LLMGateway:
             logger.info("repair_messages 修复 %d 条异常消息(astream)", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
 
+        # 可选 token 压缩(P3-1,与 complete() 同源):流式也要支持压缩
+        trimmed_messages, compaction_info = await self._apply_token_compaction(
+            trimmed_messages, used_model, has_tools="tools" in kwargs
+        )
+
         # 厂商原生适配器(可选增强):tools 存在时优先用厂商原生流式 API。
         # 流式场景不支持中途 fallback(已发送的 chunk 不可撤回),适配器内部自行处理错误。
         if "tools" in kwargs and not self._is_stub_mode():
@@ -1195,6 +1302,7 @@ class LLMGateway:
                 "model": final_model,
                 "usage": final_usage,
                 "stub": False,
+                **({"compaction": compaction_info} if compaction_info is not None else {}),
             }
         except Exception as e:
             safe_msg = str(e)
