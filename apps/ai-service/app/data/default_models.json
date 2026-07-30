@@ -1062,10 +1062,24 @@
 
     {
       "_seed_2026_07_22": "免费 / 试用 credits provider 模型(参考 cheahjs/free-llm-api-resources)",
-      "_note_2026_07_31": "Cloudflare Workers AI 已对 GLM-5.2 免费开放(见 https://mp.weixin.qq.com/s/fNuyKcGbFRyL3_poQfsVuA),列为通用公用主力免费模型",
-      "_verify_2026_07_31": "实测 Cloudflare Workers Free plan 调用 @cf/zai-org/glm-5.2 返回 5035 错误 'This model requires a Workers Paid plan',但同一 token 调 @cf/meta/llama-3.3-70b-instruct-fp8-fast 等其他 7 个 @cf/ 模型成功。GLM-5.2 可能需升级 Workers Paid($5/月),或 Cloudflare 政策在文章发布后调整。保留条目供升级后使用,免费层用户请用 Llama 3.3 70B Fast 等 7 个免费模型",
+      "_note_2026_07_31": "Cloudflare Workers AI 政策调整(2026-07-28 官方 changelog):GLM-5.2 + Kimi K2.6 + Kimi K2.7-Code 三个资源密集型模型从 Workers Free plan 移除,需 Workers Paid($5/月),原因减少 429/3040 容量错误。官方推荐免费替代:@cf/zai-org/glm-4.7-flash(GLM 系列)、@cf/google/gemma-4-26b-a4b-it、@cf/nvidia/nemotron-3-120b-a12b",
+      "_verify_2026_07_31": "实测 cfut_ token 调 @cf/zai-org/glm-5.2 返回 5035 'requires Workers Paid plan';调 @cf/zai-org/glm-4.7-flash 成功(neurons 1.15);调 @cf/google/gemma-4-26b-a4b-it 成功(neurons 1.02);调 @cf/meta/llama-3.3-70b-instruct-fp8-fast 成功(neurons 2.73)。免费层 6 个模型端到端验证通过",
       "id": "@cf/zai-org/glm-5.2",
-      "name": "GLM-5.2 (Cloudflare Workers AI,需 Workers Paid)",
+      "name": "GLM-5.2 (Cloudflare Workers AI,2026-07-28 起需 Workers Paid)",
+      "provider": "cloudflare_workers_ai",
+      "context_length": 262144,
+      "input_price": 0
+    },
+    {
+      "id": "@cf/zai-org/glm-4.7-flash",
+      "name": "GLM-4.7 Flash (Cloudflare Workers AI 免费,官方推荐 GLM-5.2 替代)",
+      "provider": "cloudflare_workers_ai",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "@cf/google/gemma-4-26b-a4b-it",
+      "name": "Gemma 4 26B (Cloudflare Workers AI 免费,官方推荐)",
       "provider": "cloudflare_workers_ai",
       "context_length": 128000,
       "input_price": 0
