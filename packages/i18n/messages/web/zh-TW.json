@@ -9292,6 +9292,7 @@
     "confirmDeleteConversation": "確認刪除該對話？刪除後無法恢復。",
     "deleteConversation": "刪除對話",
     "deleteFailed": "刪除失敗",
+    "deleteSuccess": "已刪除",
     "actions": {
       "menu": "更多操作",
       "delete": "刪除",

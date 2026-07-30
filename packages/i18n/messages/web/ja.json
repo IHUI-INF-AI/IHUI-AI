@@ -9369,6 +9369,7 @@
     "confirmDeleteConversation": "チャット？。",
     "deleteConversation": "チャット",
     "deleteFailed": "削除失敗",
+    "deleteSuccess": "削除しました",
     "actions": {
       "menu": "その他の操作",
       "delete": "削除",
