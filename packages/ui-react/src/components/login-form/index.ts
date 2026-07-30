@@ -12,8 +12,19 @@ export { QrTab } from './qr-tab'
 export { ThirdPartyLoginButtons } from './third-party-login-buttons'
 export { AgreementCheckbox } from './agreement-checkbox'
 export { AgreementNoticeDialog } from './agreement-notice-dialog'
+// 账号输入框 + 历史下拉(2026-07-30 抽到共享包,消除 web 端 B 版本功能差异)
+export { AccountHistoryInput } from './account-history-input'
 
-export type { LoginFormProps, LoginApiClient, LoginResult, LoginTab, ThirdPartyPlatform, ThirdPartyProvider, ThirdPartyConfig, QrPlatformConfig } from './types'
+export type {
+  LoginFormProps,
+  LoginApiClient,
+  LoginResult,
+  LoginTab,
+  ThirdPartyPlatform,
+  ThirdPartyProvider,
+  ThirdPartyConfig,
+  QrPlatformConfig,
+} from './types'
 export { ALL_THIRD_PARTY_PLATFORMS, isValidEmail, isValidPhone } from './types'
 
 export type { PasswordLoginFormProps } from './password-login-form'
@@ -23,3 +34,4 @@ export type { QrTabProps } from './qr-tab'
 export type { ThirdPartyLoginButtonsProps } from './third-party-login-buttons'
 export type { AgreementCheckboxProps } from './agreement-checkbox'
 export type { AgreementNoticeDialogProps } from './agreement-notice-dialog'
+export type { AccountHistoryInputProps } from './account-history-input'
