@@ -389,7 +389,8 @@
     "settings": "설정",
     "wallet": "지갑",
     "live": "라이브",
-    "courses": "강의"
+    "courses": "강의",
+    "earnings": "수익 센터"
   },
   "routes": {
     "aboutUs": "우리 소개",
