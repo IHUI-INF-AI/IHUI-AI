@@ -1,10 +1,10 @@
-﻿'use client'
+'use client'
 
 /**
- * 一键配置 API Key 弹窗
+ * 一键配置 API Key 弹窗(v2 API)
  *
  * 用途:从模型广场页 / 详情对话框触发,允许用户输入一个 API Key 即可
- *      为该模型所属厂商创建一个 LLM 配置(模板已预置 baseUrl / apiFormat)。
+ *      为该模型所属厂商创建一个 LLM provider + 默认 model(模板已预置 baseUrl / apiFormat)。
  *
  * 核心特性:
  *  - 1 个输入框(API Key)+ 1 个可选(模型 ID 自动用广场选的 / 模板默认)
@@ -17,7 +17,7 @@
  *  - 严格遵守 AGENTS.md §4 UI 约束(无 rounded-full、无蓝光描边、无单边 border 分割线)
  *  - 复用 packages/ui 的 Dialog / Button / Input / Label / Switch
  *  - 复用 lucide-react 图标
- *  - 复用 src/lib/user-llm-configs 的 API(与 /settings/llm 共享)
+ *  - v2 API:复用 settings/llm/helpers-v2(与 /settings/llm 主页一致)
  */
 
 import * as React from 'react'
@@ -48,15 +48,24 @@ import {
 
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { Tooltip } from '@/components/feedback'
-import {
-  createConfig,
-  fetchConfigs,
-  fetchTemplates,
-  previewTest,
-  type PlatformTemplate,
-  type UserLlmConfig,
-} from '@/lib/user-llm-configs'
+import { previewTest } from '@/lib/user-llm-configs'
+// TODO(v2-migration): v2 暂无 preview-test 端点,沿用 v1 previewTest;v2 提供后切换
 import { providerToTemplateCode } from '@/lib/llm-templates'
+
+import {
+  createModelV2,
+  createProviderV2,
+  fetchProvidersV2,
+  fetchTemplatesV2,
+} from '../settings/llm/helpers-v2'
+import {
+  EMPTY_MODEL_FORM,
+  EMPTY_PROVIDER_FORM,
+  type ModelFormState,
+  type PlatformTemplate,
+  type ProviderFormState,
+  type UserLlmProvider,
+} from '../settings/llm/types-v2'
 
 import { PROVIDER_KEY } from './helpers'
 import type { Model } from './types'
@@ -76,35 +85,38 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
 
   // 平台模板(15+ 预置,无需登录即可获取)
   const tplQuery = useQuery({
-    queryKey: ['user-llm-templates'],
-    queryFn: () => fetchTemplates(),
+    queryKey: ['v2-templates'],
+    queryFn: () => fetchTemplatesV2(),
     staleTime: 5 * 60_000,
   })
   const templates: PlatformTemplate[] = tplQuery.data?.templates ?? []
   const tplMap = React.useMemo(
-    () => Object.fromEntries(templates.map((t) => [t.code, t])),
+    () => Object.fromEntries(templates.map((tpl) => [tpl.code, tpl])),
     [templates],
   )
 
-  // 用户已保存的配置(用于判定"已配置"状态 + 拿 id 用于 update)
+  // 用户已保存的 provider(用于判定"已配置"状态)
   const cfgQuery = useQuery({
-    queryKey: ['user-llm-configs'],
-    queryFn: () => fetchConfigs(),
+    queryKey: ['v2-providers'],
+    queryFn: () => fetchProvidersV2(),
     enabled: open, // 弹窗打开时才拉
     retry: false,
     throwOnError: false,
   })
-  const userConfigs: UserLlmConfig[] = cfgQuery.data?.list ?? []
+  const userProviders: UserLlmProvider[] = React.useMemo(
+    () => cfgQuery.data?.groups.flatMap((g) => g.providers) ?? [],
+    [cfgQuery.data],
+  )
 
-  // 当前模型 → templateCode → 命中的 template + 已存在的 config
+  // 当前模型 → templateCode → 命中的 template + 已存在的 provider
   const templateCode = model ? providerToTemplateCode(model.provider) : null
   const tpl = templateCode ? tplMap[templateCode] : null
 
-  // 命中的用户配置(同 templateCode 且启用)
+  // 命中的用户 provider(同 templateCode 且启用)
   const existingConfig = React.useMemo(() => {
     if (!templateCode) return null
-    return userConfigs.find((c) => c.providerCode === templateCode && c.enabled) ?? null
-  }, [templateCode, userConfigs])
+    return userProviders.find((p) => p.providerCode === templateCode && p.enabled) ?? null
+  }, [templateCode, userProviders])
 
   // 表单状态(每次打开重置)
   const [apiKey, setApiKey] = React.useState('')
@@ -123,7 +135,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
   const isCustom = templateCode === 'custom'
   const isMissingTemplate = !templateCode
 
-  // 临时测试
+  // 临时测试(v1 preview-test,v2 暂无等效端点)
   const previewMut = useMutation({
     mutationFn: () => {
       if (!templateCode) throw new Error(t('quickKey.errSelectPlatform'))
@@ -149,7 +161,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
     },
   })
 
-  // 保存(创建或更新)
+  // 保存(v2:先创建 provider,再创建默认 model)
   const saveMut = useMutation({
     mutationFn: async () => {
       if (!templateCode) throw new Error(t('quickKey.errNoTemplate'))
@@ -157,20 +169,30 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
       if (!modelId.trim()) throw new Error(t('quickKey.errModelIdRequired'))
       const name = tpl?.name ?? model?.name ?? t('quickKey.defaultConfigName')
       const contextLength = tpl?.defaultContextLength ?? 32000
-      // 简化:这里只支持 create;update 走 /settings/llm 完整编辑流
-      return createConfig({
-        templateCode,
+      // v2:先创建 provider(幂等,已存在则返回既有 id),再创建默认 model
+      const providerForm: ProviderFormState = {
+        ...EMPTY_PROVIDER_FORM,
+        providerCode: templateCode,
         name,
         apiKey: apiKey.trim(),
+        apiFormat: tpl?.apiFormat ?? 'openai_chat',
+      }
+      const created = await createProviderV2(providerForm)
+      const modelForm: ModelFormState = {
+        ...EMPTY_MODEL_FORM,
         modelId: modelId.trim(),
         contextLength,
-      })
+        isDefault: true,
+      }
+      await createModelV2(created.id, modelForm)
+      return created
     },
     onSuccess: () => {
       toast.success(t('quickKey.saved'), {
         description: t('quickKey.savedDesc'),
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
       })
+      qc.invalidateQueries({ queryKey: ['v2-providers'] })
       qc.invalidateQueries({ queryKey: ['user-llm-configs'] })
       qc.invalidateQueries({ queryKey: ['llm-models'] })
       onSaved?.()
@@ -310,7 +332,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                 <div className="rounded-md bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
                   <span>{t('quickKey.fullConfigHint')}</span>
                   <a
-                    href={`/settings/llm?template=${templateCode}&model=${encodeURIComponent(modelId.trim())}&name=${encodeURIComponent(existingConfig.name)}&action=edit`}
+                    href="/settings/llm"
                     className="ml-1 text-primary hover:underline"
                     target="_blank"
                     rel="noreferrer"
