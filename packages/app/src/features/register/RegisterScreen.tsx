@@ -19,9 +19,16 @@ export function RegisterScreen({
   onRegister,
   onBack,
   colorScheme = 'light',
+  enableAgreement = false,
+  agreed = false,
+  onAgreedChange,
+  showAgreeErr = false,
+  onOpenTerms,
+  onOpenPrivacy,
 }: RegisterScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const onBrandText = tk.brand.DEFAULT === '#FFFFFF' ? '#000000' : '#FFFFFF'
 
   return (
     <View style={styles.container}>
@@ -60,6 +67,49 @@ export function RegisterScreen({
           secureTextEntry
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {enableAgreement ? (
+          <View style={styles.agreementRow}>
+            <View style={styles.agreementRowMain}>
+              <TouchableOpacity
+                style={[
+                  styles.checkbox,
+                  agreed ? styles.checkboxChecked : styles.checkboxUnchecked,
+                  showAgreeErr && !agreed ? styles.checkboxError : null,
+                ]}
+                onPress={() => onAgreedChange?.(!agreed)}
+                activeOpacity={0.7}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreed }}
+                accessibilityLabel={t('auth.agreePrefix')}
+              >
+                {agreed ? <Text style={[styles.checkmark, { color: onBrandText }]}>✓</Text> : null}
+              </TouchableOpacity>
+              <Text style={styles.agreementText}>
+                {t('auth.agreePrefix')}
+                <Text
+                  style={styles.agreementLink}
+                  onPress={onOpenTerms}
+                  accessibilityRole="link"
+                  accessibilityLabel={t('auth.termsOfService')}
+                >
+                  {t('auth.termsOfService')}
+                </Text>
+                {t('auth.and')}
+                <Text
+                  style={styles.agreementLink}
+                  onPress={onOpenPrivacy}
+                  accessibilityRole="link"
+                  accessibilityLabel={t('auth.privacyPolicy')}
+                >
+                  {t('auth.privacyPolicy')}
+                </Text>
+              </Text>
+            </View>
+            {showAgreeErr && !agreed ? (
+              <Text style={styles.agreementErrorText}>{t('auth.agreeRequired')}</Text>
+            ) : null}
+          </View>
+        ) : null}
         <TouchableOpacity
           style={[styles.submitBtn, loading && styles.btnDisabled]}
           onPress={onRegister}
@@ -92,6 +142,31 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     error: { fontSize: 13, color: tk.danger.DEFAULT, marginTop: 12 },
+    // ===== 协议同意行(对齐 LoginScreen AgreementRow 样式) =====
+    agreementRow: { marginTop: 16 },
+    agreementRowMain: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    checkbox: {
+      width: 16,
+      height: 16,
+      borderRadius: 4,
+      borderWidth: 1,
+      marginTop: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkboxUnchecked: {
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    checkboxChecked: {
+      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    checkboxError: { borderColor: 'rgba(220, 38, 38, 1)' },
+    checkmark: { fontSize: 11, fontWeight: '700', lineHeight: 14 },
+    agreementText: { flex: 1, fontSize: 12, lineHeight: 18, color: tk.text.secondary },
+    agreementLink: { color: tk.brand.DEFAULT },
+    agreementErrorText: { fontSize: 12, color: 'rgba(220, 38, 38, 1)', marginTop: 4 },
     submitBtn: {
       marginTop: 16,
       paddingVertical: 12,
