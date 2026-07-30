@@ -49,11 +49,23 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 const LOGO_SOURCE = require('../../assets/images/logo.png')
 
 // 第三方登录图标资源(8 平台)
-// 注意:Metro watch mode 在 pnpm isolated linker 下 file map 不完整,
-// 部分 PNG require 会报 "Unable to resolve"(Github.png/feishu.png 文件存在但 watch 未扫描到)。
-// 全部走首字母 fallback(共享 LoginScreen ThirdPartyLoginArea 组件:平台首字母圆形按钮),
-// 后续可补:安装 react-native-svg-transformer + 配置 metro.config.js 支持 SVG require。
-const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {}
+// 使用 require() 加载静态资源:Metro 默认将 .svg/.png 视为 asset(require 返回 number),
+// 共享 LoginScreen 组件通过 <Image source={number} /> 渲染(iOS 原生支持 SVG;Android
+// 依赖 RN Image 解码能力)。不使用 react-native-svg-transformer —— 它会把 SVG 转为
+// React 组件(非 number),与共享组件 <Image source={...} /> 不兼容,且 iconSource
+// 类型契约为 number | { uri: string }(packages/types/src/app.ts),无法接受组件。
+/* eslint-disable @typescript-eslint/no-require-imports */
+const THIRD_PARTY_ICONS: Record<ThirdPartyPlatform, number> = {
+  wechat: require('../../assets/images/common/wx.svg'),
+  google: require('../../assets/images/common/google.svg'),
+  github: require('../../assets/images/common/github.svg'),
+  feishu: require('../../assets/images/common/feishu.png'),
+  dingtalk: require('../../assets/images/dingtalk.svg'),
+  enterpriseWechat: require('../../assets/images/enterprise-wechat.svg'),
+  alipay: require('../../assets/images/common/ZFB.svg'),
+  apple: require('../../assets/images/common/apple.svg'),
+}
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 // 第三方登录配置(对齐 web use-third-party-config.tsx PROVIDER_DEFS,8 平台)
 // apple forceDisabled = true(对齐 web "Apple 登录即将上线")

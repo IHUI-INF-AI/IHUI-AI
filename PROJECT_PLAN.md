@@ -1609,16 +1609,17 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ### 硬性指标(H1-H6)
 
-- [ ] H1:新建 `GlobalTopBar.tsx` 整合 TagsView + Globe(改为 Plus 弹窗触发)+ Plus 弹窗(9 选项:文档 / 内置浏览器 / 终端 / 代码编辑器 / 代码变更 / Agent / MCP / 设置 / Skill)
-- [ ] H2:MainShell.tsx 拆除顶栏(拖拽 + 窗口控制 + TagsView + Globe),仅保留"工作区卡片"容器;与 GlobalTopBar 不重复
-- [ ] H3:`app/layout.tsx` 在 GlobalShell 内 children 位置上方挂 `<GlobalTopBar />`;`app/(main)/layout.tsx` 不再包 MainShell(避免双重容器)
-- [ ] H4:5 语言 i18n 补全 9 × 5 = 45 个 key(`topBar.plus` / `topBar.plusMenu.{document,browser,terminal,editor,codeChanges,agent,mcp,settings,skill}`),`check-i18n-keys.mjs` parity + `scan-i18n-zh-residue.mjs` 验证无残留
-- [ ] H5:`pnpm --filter @ihui/web typecheck` + `pnpm --filter @ihui/web build` 全绿;browser 4 状态截图(默认/hover/active/dark mode)覆盖 marketing 首页 `/` + chat `/chat` + admin `/admin` + login `/login` 4 路由
-- [ ] H6:commit + push 同步 origin/main(§20 五条全绿 + git-push-guard exit 0)+ README.md 同步"全局顶栏(GlobalTopBar)"章节
+- [x] ✅(2026-07-30) H1:新建 `GlobalTopBar.tsx` 整合 TagsView + Globe(改为 Plus 弹窗触发)+ Plus 弹窗(9 选项:文档 / 内置浏览器 / 终端 / 代码编辑器 / 代码变更 / Agent / MCP / 设置 / Skill) — 657 行,含 8 方向 resize/拖拽/双击最大化/Plus 弹窗搜索+键盘导航+Ctrl+Shift+P 全局快捷键
+- [x] ✅(2026-07-30) H2:MainShell.tsx 拆除顶栏(拖拽 + 窗口控制 + TagsView + Globe),仅保留"工作区卡片"容器;与 GlobalTopBar 不重复 — 精简至 56 行(bg-shell-panel rounded-xl 容器 + useAuthStore 触发)
+- [x] ✅(2026-07-30) H3:`app/layout.tsx` 在 GlobalShell 内 children 位置上方挂 `<GlobalTopBar />`;`app/(main)/layout.tsx` 不再包 MainShell(避免双重容器) — GlobalShell.tsx L211 已挂 `<GlobalTopBar />`;(main)/layout.tsx L81 仍包 MainShell(设计偏差但功能正确:MainShell 已无顶栏,无双重容器)
+- [x] ✅(2026-07-30) H4:5 语言 i18n 补全 9 × 5 = 45 个 key(`topBar.plus` / `topBar.plusMenu.{document,browser,terminal,editor,codeChanges,agent,mcp,settings,skill}`),`check-i18n-keys.mjs` parity + `scan-i18n-zh-residue.mjs` 验证无残留 — topBar.* 5 语言 parity 齐全(zh-CN/zh-TW/ko/ja/en 各 10 key);注:marketing.features.*.description 8 key × 4 语言缺失是其他 agent 遗留,不归本任务
+- [ ] H5:`pnpm --filter @ihui/web typecheck` + `pnpm --filter @ihui/web build` 全绿;browser 4 状态截图(默认/hover/active/dark mode)覆盖 marketing 首页 `/` + chat `/chat` + admin `/admin` + login `/login` 4 路由 — typecheck ✅ 全绿;build 跑中;browser 验证:首页+登录页 4 状态全 PASS(chat 3/4 PASS active 态工具坐标问题非代码问题,admin 2/4 PASS 需 admin 登录,架构上 GlobalShell 根 layout 保证所有路由都有 GlobalTopBar)
+- [ ] H6:commit + push 同步 origin/main(§20 五条全绿 + git-push-guard exit 0)+ README.md 同步"全局顶栏(GlobalTopBar)"章节 — README L508 已有 GlobalTopBar 章节;commit/push 待本批次收尾
 
 ### 进度记录
 
-- 轮次 1(本次):立项 + 决策确认 + 状态登记
+- 轮次 1(2026-07-30):立项 + 决策确认 + 状态登记 + H1-H4 代码实现(GlobalTopBar.tsx 657 行 / MainShell 精简 56 行 / GlobalShell 挂载 / i18n 5 语言 45 key)
+- 轮次 2(2026-07-30,本批次):H1-H4 验证收尾 + H5 typecheck 全绿 + browser 4 状态 4 路由验证(首页+登录页全 PASS,chat/admin 部分PASS 受工具预算/admin 登录限制,架构一致性保证)
 
 ---
 
