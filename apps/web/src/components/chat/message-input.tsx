@@ -59,6 +59,8 @@ interface MessageInputProps {
   model: string
   onModelChange: (model: string) => void
   modelLabel: string
+  /** 浮窗折叠态头部:渲染在输入卡片内部最上方,与卡片融合(共享 border + bg-card),不占独立行 */
+  floatHeader?: React.ReactNode
 }
 
 export function MessageInput({
@@ -71,6 +73,7 @@ export function MessageInput({
   model,
   onModelChange,
   modelLabel,
+  floatHeader,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -335,6 +338,8 @@ export function MessageInput({
                 <p className="text-sm font-medium text-primary">释放鼠标以添加附件(图片/视频)</p>
               </div>
             )}
+            {/* 浮窗折叠态头部:与输入卡片融合(共享 border + bg-card),不占独立行 */}
+            {floatHeader}
             <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
               {/* Agent 任务进度触发按钮已移至上方居中(v6) */}
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
