@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { BrushCleaning } from 'lucide-react'
+import { Brush } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
@@ -84,7 +84,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
       }),
       [resize],
     )
-    // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 BrushCleaning 清洁刷图标,
+    // 清除按钮(2026-07-30 用户规则:挪回 textarea 右上角,用 Brush 清洁刷图标,
     // 仅 hover textarea 容器时悬浮显示,避免占用 toolbar 槽位)
     return (
       <div className="group relative px-3 pt-2 pb-2">
@@ -135,7 +135,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
               'disabled:pointer-events-none',
             )}
           >
-            <BrushCleaning className="h-3.5 w-3.5" aria-hidden="true" />
+            <Brush className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         )}
         <div className="pointer-events-none absolute inset-x-3 bottom-2 flex items-center justify-end">
