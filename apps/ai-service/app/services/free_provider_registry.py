@@ -349,7 +349,7 @@ _REGISTRY: list[FreeProvider] = [
         rate_limit="50 RPM(免费层)",
         default_base_url="https://api.cloudflare.com/client/v4/accounts",
         key_env_vars=["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
-        default_models=["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/qwen/qwq-32b"],
+        default_models=["@cf/zai-org/glm-5.2", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/qwen/qwq-32b"],
         docs_url="https://developers.cloudflare.com/workers-ai",
         notes="边缘推理,需 account_id,模型名 @cf/ 前缀",
     ),
