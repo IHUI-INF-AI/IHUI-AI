@@ -1507,7 +1507,7 @@ IHUI-AI/
 
 **IHUI 差异化定位 — "AI 全家桶"而非单一网关**:OmniRoute 是聚焦 LLM 路由的开源网关项目(GitHub 27k stars,290+ provider 聚合),IHUI-AI 则是**8 端全栈 + Agent 编排 + RAG + 元学习 + 商业闭环 + 13 平台发布 + AI 教育全栈**的完整 AI 平台。AI 网关只是 IHUI 的一个子能力(对标并反超 OmniRoute),IHUI 的真正护城河在于:① **8 端全栈连通**(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli,共享 types/UI/schema);② **Agent 编排深度**(LangGraph + MCP + A2A + 10 subagent 并行 + invoke_parallel,而非单一 LLM 调用);③ **RAG + 元学习**(FTS5 + 向量检索 + 长期记忆衰减 + 差分隐私);④ **商业闭环**(VIP/钱包/积分/10 支付网关 + BYOK 抽成 + 中转站计费 + admin 成本治理);⑤ **13 平台自动发布**(CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音等,14 adapter);⑥ **AI 教育全栈**(45 张 edu schema 表 + 课程/题库/直播/证书/学习报告)。OmniRoute 与 IHUI 不是同维度的竞品,IHUI 是"AI 全家桶",OmniRoute 是"AI 网关"。
 
-**待补强**(P3 批次,需用户确认后启动):TLS stealth(防 provider 识别 IHUI 为中转)、Kiro 免费 Claude 接入(需法务评估 ToS 风险)、OpenRouter 403 区域限制代理方案(OpenAI/Anthropic/Google 三家直连中国 IP 被限)。
+**P3 补强已完成**(2026-07-30):① **P3-1 TLS stealth** — `apps/ai-service/app/services/tls_stealth.py` 新建,6 UA 池(Chrome/Firefox/Safari 轮换)+ Accept 池 + 浏览器头(Sec-Fetch-*/Cache-Control)+ `create_stealth_client()` 工厂,httpx 降级方案不引入新依赖,27 测试;② **P3-3 OpenRouter 403 代理 + failover** — `llm_gateway._is_openrouter_403_error` + `_failover_openrouter_to_agnes`(openrouter/→agnes/)+ `_openrouter_proxy_context`(临时 HTTPS_PROXY env var),`complete()`/`astream()` 集成:openrouter 403 自动 failover 到 agnes/ 中转,优先于 FallbackRouter,16 测试;③ **P3-2 Kiro 法务评估存档** — `free_provider_registry.py` 新增 kiro 条目,notes 明确标注"⚠️ ToS §3.2 禁止第三方集成/自动化调用/绕过 IDE 界面",仅作法务风险存档,不提供技术接入路径,引导用户走 `anthropic/` 或 `agnes/` 前缀,7 测试。**总计 223 测试全绿 + mypy 本任务文件全绿**。配置:`OPENROUTER_PROXY_URL`(代理地址)+ `OPENROUTER_FAILOVER_TO_AGNES=true`(403 自动 failover)在 `.env.example`。
 
 ### C. 内容创作与教育(面向创作者与教育者)
 
