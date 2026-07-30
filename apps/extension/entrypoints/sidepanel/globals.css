@@ -25,6 +25,17 @@
   box-sizing: border-box;
 }
 
+/* button 默认 outline 全局重置(2026-07-30 立,与 web 端 globals.css 同步)
+ *   根因:Tailwind v4 preflight 不重置 <button> 默认 outline,原生 <button> 在 :focus /
+ *        :focus-visible 启发式匹配时显示浏览器默认 outline(Chrome 2-3px 黑色描边)。
+ *   修复:全局移除 button 默认 outline,焦点可见性由组件自身 hover 背景色变化承担。
+ *        shadcn Button 自带的 focus-visible:ring-1 focus-visible:ring-ring 仍然生效。
+ */
+button:focus,
+button:focus-visible {
+  outline: none;
+}
+
 html {
   font-size: 14px;
 }

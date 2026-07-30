@@ -756,3 +756,19 @@ body::-webkit-scrollbar {
   height: 0 !important;
   display: none !important;
 }
+
+/* button 默认 outline 全局重置(2026-07-30 立,根治"按钮点击后取消时/弹窗 autofocus 时出现明显描边"bug)
+ *   根因:Tailwind v4 preflight 不重置 <button> 默认 outline,且项目中 80+ 处原生 <button>
+ *        (ConfirmDialog 的 Cancel/Confirm 按钮、IDE 系列面板、admin 表格操作等)未加
+ *        focus-visible:outline-none,导致 :focus / :focus-visible 启发式匹配时显示
+ *        浏览器默认 outline(Chrome 2-3px 黑色描边,很显眼)。
+ *   修复:全局移除 button 默认 outline,焦点可见性由组件自身的 hover 背景色变化承担
+ *        (用户规则:"有背景色区分不就可以了吗")。shadcn Button 自带的
+ *        focus-visible:ring-1 focus-visible:ring-ring 仍然生效(1px 灰色 ring,不显眼)。
+ *   影响场景:① Radix Dialog/Modal 打开时 autofocus 到 Cancel 按钮;
+ *        ② 鼠标点击 button 后保持 :focus 状态;③ 键盘 Tab 切换焦点。
+ */
+button:focus,
+button:focus-visible {
+  outline: none;
+}
