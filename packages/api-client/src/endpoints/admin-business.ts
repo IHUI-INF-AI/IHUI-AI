@@ -188,7 +188,7 @@ export async function listAdminMembers(
 }
 
 export async function getAdminMember(id: string): Promise<ApiResult<AdminMember>> {
-  return fetchApi<AdminMember>(`/api/admin/members/${id}`)
+  return fetchApi<AdminMember>(`/api/admin/members/by-id?id=${id}`)
 }
 
 export async function createAdminMember(body: Record<string, unknown>): Promise<ApiResult<AdminMember>> {
@@ -202,14 +202,14 @@ export async function updateAdminMember(
   id: string,
   body: Record<string, unknown>,
 ): Promise<ApiResult<AdminMember>> {
-  return fetchApi<AdminMember>(`/api/admin/members/${id}`, {
+  return fetchApi<AdminMember>('/api/admin/members', {
     method: 'PUT',
-    body: JSON.stringify(body),
+    body: JSON.stringify({ id, ...body }),
   })
 }
 
 export async function deleteAdminMember(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/admin/members/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/admin/members?id=${id}`, { method: 'DELETE' })
 }
 
 export async function getAdminMemberStatistics(): Promise<ApiResult<AdminMemberStatistics>> {
@@ -233,7 +233,7 @@ export async function batchImportAdminMembers(
 ): Promise<ApiResult<AdminImportResult>> {
   const form = new FormData()
   form.append('file', file)
-  return fetchApi<AdminImportResult>('/api/members/batch-import', {
+  return fetchApi<AdminImportResult>('/api/admin/members/batch-import', {
     method: 'POST',
     body: form,
   })
