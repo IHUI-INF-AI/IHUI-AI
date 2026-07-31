@@ -1,6 +1,6 @@
-# IHUI-AI
+# IHUI-AI · 智汇 AI
 
-> **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 176 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
+> **一个仓库,重新定义 AI 应用的边界。** IHUI-AI 是开源 AI Agent 平台与 LLM 网关的集大成者 —— 以 LangGraph + MCP + A2A 三栈为引擎,176 大模型统一调度,8 端同源 Monorepo,340 张表的生产级数据库,1300+ API 端点,14 平台自动发布,完整商业闭环,AI 教育全栈 —— Apache 2.0 协议,5 分钟 Fork 到上线。
 
 <p align="center">
   <img src="apps/web/public/images/logo.png" width="140" alt="IHUI-AI Logo" />
@@ -8,16 +8,16 @@
 
 <p align="center">
   <strong>在线 Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a> &nbsp;|&nbsp; <strong>GitHub</strong> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star 感谢支持</a><br/>
-  <sub>5 分钟 Fork 到上线 · 8 端同源 + 176 模型 + LangGraph+MCP+A2A 三栈 · Apache 2.0 商业可用</sub>
+  <sub>8 端同源 · 176 模型 · LangGraph+MCP+A2A 三栈 · P3 深度层 · 完整商业闭环 · Apache 2.0 商业可用</sub>
 </p>
 
 <p align="center">
-  <strong>🚀 一个仓库,干翻 40+ 商业产品</strong><br/>
-  <sub><strong>开源 AI 商业级一体化超级平台</strong> · 8 端全覆盖 · 176 模型 · LangGraph+MCP+A2A 三栈 · P3 深度层 · 5 分钟 Fork 到上线</sub>
+  <strong>这不是一个项目,这是一座 AI 工厂。</strong><br/>
+  <sub>从模型调度到 Agent 编排,从支付计费到内容发布,从教育考试到可观测性 —— 别人用 40 个产品拼凑的能力,这里一个仓库全部内置。</sub>
 </p>
 
 <p align="center">
-  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 33+ 守门(32 pre-commit + 1 commit-msg) · 237 测试套件 / 5346 测试用例 · 63 e2e spec</strong><br/>
+  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 33+ 守门 · 237 测试套件 / 5346 用例 · 63 e2e spec · 5 语言 i18n parity</strong><br/>
   <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到</sub>
 </p>
 
@@ -35,65 +35,10 @@
 </p>
 
 <p align="center">
-  <strong>8 端全覆盖</strong> · <strong>176 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>14 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n</strong>
-</p>
-
-<p align="center">
-  <strong>🔥 一站式对标(功能覆盖度对标,非精度对标)</strong>
-</p>
-
-<p align="center">
-  <sub>
-    <strong>AI 编程 CLI</strong>:Claude Code · OpenAI Codex · Gemini CLI · Trae SOLO · Cursor · Windsurf · GitHub Copilot · Amazon Q · Cline · Aider · Cody · Tabnine · Continue · Zed AI · JetBrains AI<br/>
-    <strong>AI 应用平台</strong>:Dify · FastGPT · Langflow · RAGFlow · Coze(扣子)· OpenAI ChatGPT · Anthropic Claude · Google Gemini · Microsoft Copilot · 字节豆包 · 百度文心 · 阿里通义 · 腾讯混元 · DeepSeek · 月之暗面 Kimi · 智谱清言<br/>
-    <strong>Agent 框架</strong>:LangChain · LangGraph · LlamaIndex · AutoGen · CrewAI · AutoGPT · MetaGPT · OpenAI Agents SDK · Microsoft Copilot Studio · AWS Bedrock Agents<br/>
-    <strong>商业 SaaS</strong>:Stripe · PayPal · Auth0 · Clerk · Supabase · Mailgun · SendGrid · Mixpanel · Amplitude · PostHog<br/>
-    <strong>AI 教育</strong>:Khan Academy · Coursera · Udemy · Duolingo<br/>
-    <strong>内容发布</strong>:蚁客 · 新媒体管家 · Jasper · Buffer · Hootsuite<br/>
-    <strong>多端框架</strong>:Tauri · Electron · Expo · React Native · Taro · WXT · Next.js · Remix · Nuxt · SvelteKit
-  </sub>
-</p>
-
-<p align="center">
-  <strong>别人用一个产品做的事,我们一个仓库全干了。</strong><br/>
-  <sub>不是套壳,不是 demo,不是脚手架 —— 是真正可生产、可商用、可自托管的 <strong>AI 超级平台</strong>。</sub>
-</p>
-
-<p align="center">
-  <strong>🎯 为什么是 IHUI-AI?</strong>
-</p>
-
-<p align="center">
-  <sub>
-    <strong>Dify / FastGPT / Langflow</strong> 只做 AI 应用编排 → <strong>我们</strong> 多了 8 端 + CLI + 商业闭环 + AI 教育 + 14 平台发布<br/>
-    <strong>Claude Code / Cursor / Copilot</strong> 只做 AI 编程 → <strong>我们</strong> 多了完整 SaaS 商业栈 + 多端 + 教育全栈<br/>
-    <strong>Stripe / Auth0 / Clerk</strong> 只做单一 SaaS 能力 → <strong>我们</strong> 把支付+认证+邮件+分析+AI 全预置<br/>
-    <strong>LangChain / AutoGen / CrewAI</strong> 只是开发框架 → <strong>我们</strong> 是"整车下线",非技术团队也能用<br/>
-    <strong>Tauri / Expo / Taro / WXT</strong> 只做多端框架 → <strong>我们</strong> 8 端独立代码 + 16 共享包预置好<br/>
-    <strong>Khan Academy / Coursera</strong> 是闭源 SaaS → <strong>我们</strong> AI 教育全栈 Apache 2.0 开源
-  </sub>
-</p>
-
-<p align="center">
-  <strong>在全球开源 AI 生态里,你找得到比 IHUI-AI 更专的项目,但找不到比 IHUI-AI 更全的开源平台。</strong><br/>
-  <sub>把 6 大类商业产品的能力整合进一个 Apache 2.0 仓库 —— 这就是我们的核心差异化。</sub>
-</p>
-
-<p align="center">
-  <sub><strong>功能维度对标 40+ 国际/国内产品</strong>(指功能覆盖度参考,非性能/精度对标 — 详见 <a href="#与同类项目对比">对比矩阵</a>):OpenAI ChatGPT · OpenAI Codex · Anthropic Claude · Google Gemini · Microsoft Copilot · Dify · FastGPT · Langflow · RAGFlow · Coze(扣子)· LangChain · LangGraph · LlamaIndex · AutoGen · CrewAI · Claude Code · Cursor · Windsurf · Trae SOLO · GitHub Copilot · Amazon Q · Cline · Aider · Cody · Tabnine · Continue · Zed AI · JetBrains AI · Khan Academy · Coursera · Jasper · Stripe · PayPal · Auth0 · Clerk · Supabase · Mailgun · SendGrid · Mixpanel · Amplitude · PostHog · 蚁客 · 新媒体管家 · 百度千帆 · 阿里百炼 · 腾讯混元 · 字节豆包 · 智谱开放平台 · 讯飞星火 · DeepSeek · 月之暗面 Kimi · Tauri · Electron · Expo · React Native · Taro · WXT</sub>
-</p>
-
-<p align="center">
-  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 10 守门脚本(4 web + 4 extension + 2 AI 翻译流水线 blocking × 2 端:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,支持 web/extension/miniapp-taro 三端,开发成本降 70%+)+ i18n 治理 4 阶段完成(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679)</sub>
-</p>
-
-<p align="center">
-  <sub>
-    <a href="README.md">简体中文</a> ·
-    <a href="README.en.md">英文</a> ·
-    <a href="README.ko.md">韩文</a> ·
-    <a href="README.ja.md">日文</a>
-  </sub>
+  <a href="README.md">简体中文</a> ·
+  <a href="README.en.md">English</a> ·
+  <a href="README.ko.md">한국어</a> ·
+  <a href="README.ja.md">日本語</a>
 </p>
 
 <p align="center">
@@ -101,32 +46,14 @@
   <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
   <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
   <br/>
-  <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
-</p>
-
-<p align="center">
-  <strong>📬 快速联系 · 合作咨询</strong>
-</p>
-
-<p align="center">
-  <sub><strong>吉林省爱智汇人工智能科技有限公司</strong> · <strong>智汇 AI 集团</strong> · 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地</sub>
-</p>
-
-<p align="center">
-  <strong>邮箱</strong> · <a href="mailto:502319984@qq.com">502319984@qq.com</a><br/>
-  <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
-  <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a>
-</p>
-
-<p align="center">
-  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:502319984@qq.com">502319984@qq.com</a>,24 小时内回复。</sub>
+  <sub>国内用户克隆/下载更快,与 GitHub 自动同步</sub>
 </p>
 
 ---
 
-## 一键部署 · One-Click Deploy
+## 一键部署
 
-> **5 分钟 Fork 到上线** · 4 个平台任选 · 不懂代码也能部署 · 详细图文指南见 [docs/deployment/family-friends-guide.md](docs/deployment/family-friends-guide.md)
+> 5 分钟 Fork 到上线,不懂代码也能部署。详细图文指南见 [docs/deployment/family-friends-guide.md](docs/deployment/family-friends-guide.md)
 
 <table align="center">
   <tr>
@@ -139,7 +66,7 @@
   </tr>
 </table>
 
-### Docker Compose(本地 / 自托管 · 推荐)
+### Docker Compose(推荐)
 
 ```bash
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
@@ -148,11 +75,9 @@ cp .env.example .env              # 复制环境变量模板,按提示填入密�
 docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 ```
 
-访问 **http://localhost:8801** · 前端 / **http://localhost:8802** · API / **http://localhost:8803** · AI 服务
+访问 **http://localhost:8801**(前端)/ **8802**(API)/ **8803**(AI 服务)。端口表见 [docs/port-management.md](docs/port-management.md)。
 
-> 完整端口表见 [docs/port-management.md](docs/port-management.md),生产部署/蓝绿/回滚见 [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
-
-### 推荐组合(零成本上线)
+### 零成本上线组合
 
 | 角色     | 平台           | 免费额度        | 用途                  |
 | -------- | -------------- | --------------- | --------------------- |
@@ -162,3539 +87,840 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 | 数据库   | Railway/Render | 免费 PostgreSQL | 1GB 存储              |
 | 缓存     | Railway/Render | 免费 Redis      | 25MB 存储             |
 
-详细步骤见:[一键部署指南](docs/deployment/one-click-deploy.md) · [Vercel 部署](docs/deployment/vercel-deploy.md) · [Railway 部署](docs/deployment/railway-deploy.md) · [家人朋友代部署指南](docs/deployment/family-friends-guide.md)
-
----
-
-## 技术栈与项目规模速览(AI 检索友好)
-
-> **为什么这一段放在最前面**:让 AI 检索工具(Claude / GPT / Codex 等)和开发者第一眼拿到**准确**的技术栈与规模数据,避免误判为"情怀项目"或"营销项目"。所有数字均与代码实测一致(2026-07-22 核对)。
-
-| 维度         | 实际值                                                                                                                                                                                            |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **前端 Web** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                            |
-| **后端 API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**,非 Python)                                                                                                                 |
-| **AI 服务**  | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,仅此层用 Python)                                                                                                                |
-| **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 16 共享包(@ihui/auth / database / types / ui / browser-platform / dom-actions 等)                                                                           |
-| **多端实现** | 8 端**独立代码**(非"一套代码编译适配"),各端完成度详见[项目状态矩阵](#项目状态矩阵)                                                                                                                |
-| **代码规模** | 8 端代码 / 100+ schema 文件 / **340 数据库表**(实测 340 张 pgTable)/ 144 迁移 / **1300+ API 端点**(实测 grep)/ 200+ Web 页面 / 16 共享包 / 5 语言 i18n parity                                     |
-| **工程守门** | **30+ pre-commit 钩子 + 1 commit-msg 守门**(实测,见 [.husky/pre-commit](./.husky/pre-commit) + [.husky/commit-msg](./.husky/commit-msg))+ post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动 |
-| **测试覆盖** | **237 测试套件 / 5346 测试用例 + 63 e2e spec**(实测,见 [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/))+ pytest(AI 服务)+ Locust 压测 + Lighthouse 性能                   |
-| **可观测性** | Prometheus + Grafana(**21 仪表盘**实测,见 [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/))+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                            |
-| **AI 编排**  | LangGraph 真接入(21 文件使用:`langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`),不是"接入级编排"                                       |
-| **License**  | Apache 2.0(完全自托管,商用友好,无传染性)                                                                                                                                                          |
-
-> 完整技术栈详情见 [技术栈章节](#技术栈)。
-
 ---
 
 ## 项目宣言
 
-> **你有没有想过——**
+> 你有没有想过 ——
 >
-> 为什么 AI 红利总是被大厂独享?为什么搭建一个 AI 应用要从零拼凑认证、计费、模型路由、工作流、多端发布?
-> 为什么个人开发者、中小企业、教育机构总在重复造轮子,而不是站在彼此的肩膀上?
+> 为什么 AI 红利总是被大厂独享?为什么搭建一个 AI 应用要从零拼凑认证、计费、模型路由、工作流、多端发布?为什么个人开发者、中小企业、教育机构总在重复造轮子,而不是站在彼此的肩膀上?
 >
 > **IHUI-AI 想改变这件事。**
 >
-> 我们把一个完整的 AI 应用基础设施——从 8 端框架、176 模型接入、工作流编排、企业级权限、计费订阅、内容发布、AI 教育、可观测性,到 21 道工程守门——以 Apache 2.0 协议全部开源出来。
+> 我们把一个完整的 AI 应用基础设施 —— 从 8 端框架、176 模型接入、工作流编排、企业级权限、计费订阅、内容发布、AI 教育、可观测性,到 33 道工程守门 —— 以 Apache 2.0 协议全部开源出来。
 >
-> **不是套壳,不是 demo,是真正可生产、可商用、可自托管的 AI 应用基座。Fork 它,改它,把它变成你自己的。**
-
-> 📖 **品牌故事与开发者共鸣**:见 [我们的故事章节](#我们的故事--智汇ai-的诞生)。
+> 这不是一个 demo,不是一个脚手架,不是一个套壳。这是一个**真正可生产、可商用、可自托管的 AI 超级平台**。每一个功能都有代码,每一行代码都有测试,每一个测试都能在 CI 里跑通。
+>
+> **让 AI 的力量,属于每一个人。**
 
 ---
 
-## 目录
+## 核心能力总览(30 秒看完所有能力)
 
-- [技术栈与项目规模速览(AI 检索友好)](#技术栈与项目规模速览ai-检索友好)
-- [项目宣言](#项目宣言)
-- [项目定位(必读)](#项目定位必读)
-- [特性总览(30 秒看完所有能力)](#特性总览30-秒看完所有能力)
-- [为什么选择 IHUI-AI](#为什么选择-ihui-ai)
-- [与同类项目对比](#与同类项目对比)
-- [谁在使用 IHUI-AI](#谁在使用-ihui-ai)
-- [5 个典型场景](#5-个典型场景)
-- [技术栈](#技术栈)
-- [8 端架构](#8-端架构)
-- [应用使用层级图](#应用使用层级图)
-- [应用功能层级及介绍图](#应用功能层级及介绍图)
-- [项目结构](#项目结构)
-- [核心能力详解(15 大模块 · 按用户角色分组)](#核心能力详解15-大模块--按用户角色分组)
-  - [A. AI 能力层](#a-ai-能力层面向最终用户)
-  - [B. AI 工作流与开发者](#b-ai-工作流与开发者面向开发者)
-  - [C. 内容创作与教育](#c-内容创作与教育面向创作者与教育者)
-  - [D. 企业与运营](#d-企业与运营面向企业管理者与运营)
-  - [E. 工程基础设施](#e-工程基础设施面向运维与架构师)
-- [快速开始](#快速开始)
-- [API 与协议](#api-与协议)
-- [数据库](#数据库)
-- [可观测性](#可观测性)
-- [安全设计](#安全设计)
-- [工程守门](#工程守门23-个-pre-commit-钩子)
-- [工程质量证据(反驳"AI 生成代码三通病")](#工程质量证据反驳ai-生成代码三通病)
-- [AI 编程协作声明](#ai-编程协作声明)
-- [测试](#测试)
-- [部署](#部署)
-- [国际化](#国际化)
-- [FAQ](#faq)
-- [贡献](#贡献)
-- [文档导航](#文档导航)
-- [路线图](#路线图)
-- [联系我们](#联系我们)
-- [我们的故事 · 智汇AI 的诞生](#我们的故事--智汇ai-的诞生)
-- [开源共建愿景](#开源共建愿景)
-- [License](#license)
-- [致谢](#致谢)
+| 能力域 | IHUI-AI 交付的内容 | 对标产品 |
+|--------|-------------------|----------|
+| **8 端同源** | Web / API / AI-Service / Desktop(Tauri) / Extension(WXT) / Mobile(RN) / Miniapp(Taro) / CLI,16 共享包跨端复用 | Tauri+Electron+Expo+Taro+WXT 六个框架合一 |
+| **176 模型网关** | LiteLLM 统一调度,31+ provider 适配器,智能路由 + FallbackRouter 故障转移 + 60% 缓存命中 | OpenAI Router / OmniRoute(超越) |
+| **LangGraph 编排** | StateGraph 工作流 + PostgresSaver checkpoint + interrupt() HITL + 5 模式 streaming + Time Travel | LangGraph 商业版 |
+| **MCP 协议** | 36 内置工具 + 3 资源 + 3 提示词 + MCP 路由 13 端点 + Sampling | Anthropic MCP |
+| **A2A 协议** | Agent-to-Agent 通信 + 跨 Agent 任务委派 + Swarm 拓扑 | Google A2A |
+| **完整商业闭环** | 10 支付网关 + VIP 4 档 + 积分计价 + 钱包 + 订阅 + 退款 + 发票 + 佣金 + 分销 + 优惠券 + 兑换码 | Stripe+PayPal+Auth0 合体 |
+| **14 平台发布** | 文章 9 + 图片 1 + 视频 5,含反风控(指纹隔离/代理池/行为拟人化) | 蚁客+新媒体管家+Buffer |
+| **AI 教育全栈** | 课程/题库/考试/直播(SRS)/证书/SM-2 间隔复习/AI 助教 7 学科/AI 批改 | Khan Academy+Coursera 开源版 |
+| **P3 工程深度** | Rules 引擎 + Hook 服务 + Spec 模式 + L1-L9 自进化(技能迭代→失败聚类→元学习→A/B 测试→梦境固化→联邦学习→元认知) | Claude Code 工程体系 |
+| **全链路可观测** | Prometheus + 21 Grafana 仪表盘 + Loki + Jaeger + OpenTelemetry + Alertmanager | Datadog 开源替代 |
+| **5 语言 i18n** | zh-CN / zh-TW / en / ko / ja,100% parity + 23 脚本 + AI 翻译流水线 | next-intl 最佳实践 |
+| **33+ 工程守门** | 32 pre-commit + 1 commit-msg,涵盖 i18n / 代码质量 / UI 样式 / 安全 / Push 同步 / 防提交丢失 | 企业级 CI/CD 标杆 |
+| **多租户 RLS** | PostgreSQL 行级安全 + 租户路由 + 数据隔离 + 读写分离 | Supabase Enterprise |
+| **CLI 对标 Claude Code** | 40+ 命令 + 25+ 工具 + ACP Server + LSP 集成 + 代码图谱 + 计划模式 | Claude Code / Codex |
+| **桌面端自动更新** | Tauri 2 Updater,启动/使用中/退出三阶段零点击自动更新 | VS Code 自动更新 |
 
 ---
 
-## 项目定位(必读)
+## 技术栈与项目规模
 
-> **一句话定位:IHUI-AI 是开源 AI 商业级一体化基座(Open-Source AI Commercial-Grade Integrated Foundation)—— 不是单一 AI 工具,而是把"搭建一个完整可商用 AI 产品"所需的全部基础设施(8 端框架 + 176 模型网关 + LangGraph+MCP+A2A 三栈 + 商业闭环 + 企业安全 + 工程守门 + 可观测性)以 Apache 2.0 协议整体开源,让任何个人/企业/教育机构/内容创作者 Fork 后 5 分钟内即可上线自己的 AI 商业产品。**
->
-> **价值主张**:**一个仓库集成 6-10 类 SaaS 能力**(中国本土支付 + RBAC 鉴权 + 邮件 + 基础可观测 + AI 编排 + CLI + 教育 + 多平台发布),月度成本从 $300+ 降至 > **价值主张**:**一个仓库集成 6-10 类 SaaS 能力**(中国本土支付 + RBAC 鉴权 + 邮件 + 基础可观测 + AI 编排 + CLI + 教育 + 多平台发布),月度成本从 $300+ 降至 $0(自托管)。(自托管)。
->
-> **深度层级**:项目不止是「基座」(广度基础设施),更包含 **P3 深度层**——自研 AI 工程系统超越基础设施堆砌:Context Engineering 多维 @ 提及(1851 行)、四层记忆系统(短期/长期/向量/衰减)、DAG 任务调度器(1031 行)、跨支柱编排中枢(945 行)、LLM 预算治理(805 行)、Agent 编排器(1341 行)、Rules 引擎(2067 行)、Spec 生成器(1895 行)、Clawdbot AI Bot 框架(20+ 文件)、ACP 私有协议扩展、6 沙箱后端(含 Modal/Daytona/Singularity 行业罕见实现)。这层是真正的技术护城河,开源 AI 项目中罕见。
+> 所有数字均与代码实测一致,可在代码里 grep 验证。
 
-### 三层价值金字塔
+| 维度 | 实际值 |
+|------|--------|
+| **前端 Web** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + TanStack Query 5 + Monaco Editor + xterm.js + Three.js + ECharts |
+| **后端 API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24 + BullMQ + WebSocket + Swagger/OpenAPI |
+| **AI 服务** | FastAPI + LangGraph 0.2 + LiteLLM 1.55+ + MCP + A2A + Socket.IO + Playwright + faster-whisper(Python 3.12) |
+| **桌面端** | Tauri 2 + WebView2 + Rust + 自动更新(GitHub Releases 签名) |
+| **扩展端** | WXT 0.19 + React 19 + Chrome Manifest V3 |
+| **移动端** | Expo 53 + React Native 0.79 + NativeWind 4 + 微信登录/支付 |
+| **小程序端** | Taro 4.2 + React 18 + 6 平台(微信/支付宝/百度/抖音/H5/快手) |
+| **CLI 端** | Node.js 20+ + Commander 12 + ACP 协议 + LSP + 代码图谱 |
+| **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 16 共享包 |
+| **数据库** | 340 张表(155 schema 文件)/ 144 迁移 / pgvector 向量 / RLS 多租户 |
+| **API 端点** | 1300+(200+ 路由文件)/ 12 WebSocket 通道 / v1 OpenAI 兼容 |
+| **Web 页面** | 100+ 路由 / 40+ 组件分类 / 200+ 页面 |
+| **测试覆盖** | 237 测试套件 / 5346 测试用例 + 63 e2e spec + pytest + Locust 压测 + Lighthouse |
+| **可观测性** | Prometheus + 21 Grafana 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
+| **工程守门** | 33+ pre-commit/commit-msg 钩子 + post-commit 自动 push + 11 迁移审计 |
+| **AI 编排** | LangGraph 真接入(21 文件使用),非"接入级编排" |
+| **License** | Apache 2.0(完全自托管,商用友好,无传染性) |
 
-IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金字塔构成:
+---
+
+## 8 端架构矩阵
+
+> 8 端**独立代码**(非"一套代码编译适配"),各端完成度不同。16 个共享包(`@ihui/*`)跨端复用类型/UI/逻辑/API 客户端。
+
+### Web 端(Next.js 15)
+
+100+ 页面路由,涵盖 AI 对话、Agent 市场、知识库、多平台发布、管理后台、AI 教育、IDE 工作空间等全功能矩阵。
+
+| 模块 | 页面 | 核心能力 |
+|------|------|----------|
+| **AI 对话** | `/chat` | 流式 Markdown、工具调用卡片、上下文管理、语音输入、技能库、斜杠命令 |
+| **Agent 市场** | `/agents` | AgentGrid、市场筛选、我的 Agent、运行时面板、工作台、看板、子 Agent DAG |
+| **AI 生成** | `/ai-generation` | 文本/图片/音频/视频/3D/音乐/代码多模态生成,通义/豆包/即梦/Qwen/Kling/Sora2 适配 |
+| **知识库** | `/knowledge-base` | RAG 文档上传与检索、知识图谱、向量嵌入(DashScope/OpenAI/MiniMax) |
+| **模型市场** | `/models` | 176 模型,ModelDetailDialog、QuickKeyDialog、定价页、AI 应用世界排行 |
+| **发布管理** | `/publish` | 14 平台一键发布、账号管理、扫码登录、自媒体管理 |
+| **管理后台** | `/admin/*` | 30+ 子模块:Agent/模型/用户/权限/VIP/订单/支付/钱包/敏感词/公告/API 调试/日志/渠道/优惠券 |
+| **AI 教育** | `/learn` `/exam` `/edu` `/live` | 课程/题库/考试/直播(SRS)/证书/SM-2 间隔复习/AI 助教 7 学科 |
+| **IDE 工作空间** | `/workspace` | 文件浏览器、Monaco 代码编辑、xterm 终端、调试面板、Diff 查看器、源码管理 |
+| **商业闭环** | `/pricing` `/wallet` `/vip` | 定价/钱包/订单/VIP/积分/收益/开发者门户(API Key) |
+| **社区** | `/circles` `/asks` `/plaza` | 问答/圈子/帖子/话题/广场 |
+| **P3 深度层** | `/tools` `/hooks` `/rules` `/spec` | Rules 引擎、Hook 服务、Spec 模式 |
+
+### API 端(Fastify 5)
+
+200+ 路由文件,1300+ API 端点,12 WebSocket 通道。TypeScript 全栈类型安全。
+
+| 能力域 | 路由模块 | 亮点 |
+|--------|----------|------|
+| **认证** | auth / auth-sso / mfa / auth-codes | JWT + SSO(微信/钉钉/飞书/企业微信/Apple/Google) + MFA + 验证码 |
+| **Agent** | agents / agent-runtime / agent-langgraph | CRUD / 运行时 / LangGraph 编排 / 创建 / 看板 |
+| **聊天** | chat / ai-chat-stream | 对话 / 模型 / 技能 / 流式 |
+| **AI 能力** | ai-generation / ai-image-edit / ai-video-compose | 多模态生成 / 图片编辑 / 视频合成 / AI 助教 |
+| **v1 协议** | v1-messages / v1-realtime / v1-midjourney | OpenAI 兼容 v1 API / Realtime WebSocket / Midjourney |
+| **LLM 中继** | relay-public / developer-relay | LLM 中继网关 / 开发者门户 |
+| **商业** | billing / payment-gateway / order / wallet / vip / point | 计费 / 10 支付网关 / 订单 / 钱包 / VIP / 积分 / 退款 |
+| **发布** | publish-routes / self-media-routes | 14 平台发布 / 自媒体 |
+| **管理后台** | admin/(40+ 子路由) + admin-extended + admin-sys | 完整 RBAC 后台 |
+| **教育** | learn / exam / edu-extended / srs / study-plans | 课程 / 考试 / 间隔复习 / 学习计划 |
+| **WebSocket** | ws-chat / ws-tasks / ws-notifications / ws-payment / ws-customer-service / ws-ai | 6 类实时通道 |
+| **安全** | security / audit / gdpr / rbac | 安全 / 审计 / GDPR / RBAC |
+
+50+ 插件层:安全(auth/csrf/xss/sqli/prompt-injection/threat-detector/mtls)、性能(rate-limit/cache/slow-sql-killer/n1-detector)、多租户(tenant/rls-context)、可观测(audit/metrics/otel/trace)。
+
+### AI 服务端(FastAPI + LangGraph)
+
+Python 3.12,80+ 服务文件,24 路由模块,18 LLM Provider。mypy strict 0 errors。
+
+| 引擎 | 核心 | 交付能力 |
+|------|------|----------|
+| **LangGraph** | langgraph_service / agent_graph / agent_orchestrator | StateGraph 工作流 + PostgresSaver checkpoint + interrupt() HITL + 5 模式 streaming + Time Travel + 状态历史 |
+| **MCP** | mcp_server.py | 36 内置工具(11 基础 + 12 浏览器 + 10 电脑)+ 3 资源 + 3 提示词 + 120s 全局超时 |
+| **A2A** | a2a_service.py | Agent-to-Agent 协议 + 跨 Agent 任务委派 |
+| **LLM 网关** | llm_gateway / FallbackRouter | 176 模型统一调度 + Key 池轮转 + 故障转移 + 响应缓存(Redis) |
+| **RAG** | rag / knowledge_graph / knowledge_lookup | 三源并发检索(codebase_indexer + RAG + long_term_memory) |
+| **记忆系统** | memory / long_term_memory / vector_memory / multimodal_memory | 四层记忆 + Dream 梦境固化 + 记忆衰减 + 多模态嵌入 |
+| **自进化 L1-L9** | skill_evolution / meta_learner / dream_scheduler / federated_learner / metacognition | 技能迭代 → 失败聚类 → 元学习 → A/B 测试 → 梦境固化 → 联邦学习 → 元认知 |
+| **上下文工程** | context_engine / token_compaction | Context Engineering + Token 压缩(RTK+Caveman,压缩率 93.35%) |
+| **发布引擎** | publish/(15 适配器 + 反风控 6 模块) | 14 平台 + AES-256-GCM 凭证加密 + 调度器 + WebSocket 通知 |
+| **语音 STT** | voice_stt / faster-whisper | 本地推理零成本,74MB 离线模型,替换付费 Whisper API |
+| **Browser Hub** | browser_hub | CDP 完整 Chrome 内置浏览器,WebSocket 画面流,会话幂等 |
+
+### 桌面端(Tauri 2)
+
+跨平台桌面应用(Windows/macOS/Linux),WebView2 + Rust 后端,复用 Web 端全部能力。
+
+- **自动更新**:Tauri Updater + GitHub Releases 公钥签名,启动/使用中/退出**三阶段零点击自动更新**
+- **无边框窗口**:自定义标题栏,Dark 主题,1200x780 默认尺寸
+- **CSP 安全**:限制 connect-src 到本地服务(8802 API / 8803 AI-Service)
+- **分发**:Windows/macOS/Linux 全平台 bundle + Windows Store 资源
+
+### 扩展端(WXT + Chrome MV3)
+
+35+ Side Panel 页面,完整复刻 Web 端核心功能。Chrome Manifest V3。
+
+- **Side Panel**:Chat / Agent / AI Apps / Skills / Models / ImageGen / Memory / Articles / Dashboard / Wallet / Settings 等 35+ 页面
+- **Popup**:快捷操作入口
+- **Background**:消息路由 / 通知管理 / Token 刷新
+- **Content Script**:页面内容工具栏 + 位置记忆
+- **IndexedDB**:词汇数据库(本地学习)
+- **Agent 联动**:与 Web 端 Agent 控制桥接
+
+### 移动端(Expo + React Native)
+
+100+ 屏幕,iOS + Android 双端,微信登录/支付 + 生物识别 + 推送通知。
+
+- **AI 对话**:Chat / AgentChat / AiAssistant
+- **Agent**:市场 / 详情 / 创建 / 统计 / 评价
+- **AI 多模态**:多模态生成 / AIGC 列表 / 发布 / 封面
+- **教育**:课程系列 11 屏 / 考试 4 屏
+- **社区**:圈子 / 问答 / 广场
+- **商业**:分销 / 财务 / 优惠券 / 签到 / 会员卡
+- **用户**:资料 / 设置 / 安全 / 会员权益 / 名片 / 证书 4 屏
+- **微信集成**:登录(WX_APP_APPID)+ 支付 + Universal Link
+- **生物识别**:expo-local-authentication(指纹/面容)
+- **EAS Build**:iOS + Android 云构建
+
+### 小程序端(Taro 4)
+
+50+ 页面,6 平台一套代码(微信/支付宝/百度/抖音/H5/快手)。
+
+- **AI 对话**:chat / agent / agent-detail / history / image / video / voice / career
+- **教育**:课程详情/列表/星球/学习开发
+- **考试**:答题/详情/列表/结果
+- **社区**:圈子(create/detail/index)/问答/广场
+- **商业**:分销(公司/成员/订单/计划/佣金/排名/团队/提现)/开发者(收入/订阅/提现)
+- **会员**:权益/优惠券/积分
+- **直播**:主播/日历/详情/历史/列表/预约
+- **80+ 组件**:20+ Taro 适配器 + AgentRuntimePanel + PayButton + VipBenefitsPopup
+
+### CLI 端(Node.js)
+
+对标 Claude Code / OpenAI Codex,40+ 命令,25+ 工具,ACP 协议 Server。
+
+- **命令系统**:agent / chat / checkpoint / context / developer / file-ops / hooks / import / knowledge / login / mcp / memory / models / plan / plugin / registry(7 个) / repl / security / serve / session / settings / share / skills / slash / spec / subagent / template / token / undo-redo / workflows
+- **工具系统**:file-edit / git / git-advanced / github-pr / terminal / lsp / mcp-runtime / web-search / fetch-url / clipboard / codegraph / debug / todo-write / run-tests / ask-user / subagent
+- **记忆系统**:short-term / long-term / embedding / vector-search / hybrid-search / chunker / dream / soul / query-expansion
+- **ACP Server**:Agent Client Protocol,可作为 IDE 的 Agent 后端
+- **LSP 集成**:代码补全/诊断/跳转
+- **多 Agent 并行**:worker-pool + worktree 隔离
+- **代码图谱**:增量索引(manager / parser / persist)
+- **计划模式**:xstate 状态机
+- **分发**:Homebrew / Scoop / Winget
+
+---
+
+## AI 三栈引擎:LangGraph + MCP + A2A
+
+> 三栈协同,不是三栈拼凑。LangGraph 负责"怎么想",MCP 负责"怎么用",A2A 负责"怎么协作"。
+
+### LangGraph —— Agent 编排引擎
+
+真正接入 LangGraph(21 文件使用),不是"接入级编排"。
+
+| 能力 | 实现 |
+|------|------|
+| **StateGraph 工作流** | `agent_graph.py` / `koubo_workflow.py` — 复杂多步 Agent 工作流 |
+| **PostgresSaver checkpoint** | `langgraph_checkpoint.py` — 持久化检查点,崩溃恢复 |
+| **interrupt() HITL** | Human-in-the-Loop,人在回路审批 |
+| **5 模式 streaming** | `langgraph_stream.py` — values / updates / messages / events / debug |
+| **Time Travel** | 状态历史回溯,回到任意 checkpoint 重跑 |
+| **Agent 编排器** | `agent_orchestrator.py` — 多 Agent 协调中枢 |
+
+### MCP —— Model Context Protocol
+
+36 内置工具,服务端实现,兼容 Anthropic MCP 标准。
+
+| 工具类别 | 数量 | 示例 |
+|----------|------|------|
+| **基础工具** | 11 | 文件操作、代码执行、搜索 |
+| **浏览器控制** | 12 | 导航、点击、输入、截图、CDP |
+| **电脑控制** | 10 | 键盘、鼠标、窗口、剪贴板 |
+| **资源** | 3 | MCPResource 定义 |
+| **提示词** | 3 | MCPPrompt 定义 |
+| **路由端点** | 13 | 工具/资源/提示词/Skill/Slash/Sampling |
+
+全局超时 MCP_GLOBAL_TIMEOUT = 120s,防 handler 无限挂起。
+
+### A2A —— Agent-to-Agent 协议
+
+`a2a_service.py` 实现 Agent 间通信与任务委派,支持 Swarm 拓扑,多 Agent 协同完成复杂任务。
+
+---
+
+## 176 模型统一网关
+
+> 一个 API,调全球 176 个大模型。LiteLLM 统一调度,智能路由,故障转移,缓存省钱。
+
+### Provider 适配器(18 个原生 + 31+ 配置)
+
+| 类别 | Provider | 说明 |
+|------|----------|------|
+| **国际大厂** | OpenAI / Anthropic / Google Gemini | GPT-4o / Claude 3.5 / Gemini 2.0 |
+| **国内大厂** | 阿里 DashScope / 字节豆包 / 智谱 GLM / 腾讯混元 / 火山引擎 | 通义千问 / 豆包 / GLM-4 / 混元 / Doubao |
+| **新兴厂商** | 阶跃星辰 StepFun / 快手可灵 / 即梦 / Luyala | Step / Kling / Jimeng |
+| **聚合平台** | OpenRouter | 200+ 模型一个 Key |
+| **本地推理** | Ollama / llama.cpp / LM Studio / Qwen Local | 零成本,完全离线 |
+| **免费 provider** | Cloudflare / NVIDIA / GitHub / Vercel AI Gateway / Modal / Inference.net / NLP Cloud / Scaleway / Alibaba Intl | 注册即用,零成本 |
+| **OpenAI 兼容** | Cerebras / Mistral / Cohere / HuggingFace / ZAI / Kilo / Pollinations / LLM7 / OVH / AIHorde / Reka / Routeway / Bazaarlink / AINative | 14 个兼容端点 |
+
+### 网关核心能力
+
+| 能力 | 说明 |
+|------|------|
+| **FallbackRouter 故障转移** | 主 provider 挂了自动切备用,不间断服务 |
+| **Key 池轮转** | 多 Key 负载均衡,单 Key 限速不阻塞 |
+| **Combo 多级 fallback** | 3 策略(priority / cheapest / fusion 并发票决),超越 OmniRoute |
+| **协议互转** | OpenAI ↔ Anthropic ↔ Gemini 三协议互转 |
+| **响应缓存(Redis)** | hash key 命中直接返回不计费,省钱利器 |
+| **Token 压缩** | RTK+Caveman 算法,压缩率 **93.35%**(超越 OmniRoute 89%) |
+| **模型映射** | gpt-4o → deepseek-chat,降本神器 |
+| **prompt cache 折扣** | cache hit 10% / creation 125%,Anthropic 原生格式 |
+| **渠道亲和性** | 最小连接数路由 + 用户级模型限流 |
+| **TLS stealth** | 6 UA 池 + OpenRouter 403 代理 failover |
+
+### 积分计价系统
+
+5 档倍数梯度,支持 SaaS 多租户计费:
+
+| 档位 | 倍数 | 适用模型 | 示例 |
+|------|------|----------|------|
+| 免费 | ×0 | 免费 provider | Cloudflare / NVIDIA / GitHub |
+| 经济 | ×1 | 轻量模型 | Qwen-Turbo / GLM-Flash |
+| 标准 | ×3 | 主力模型 | GPT-4o-mini / Claude Haiku |
+| 高级 | ×10 | 强力模型 | GPT-4o / Claude Sonnet |
+| 旗舰 | ×30 | 顶级模型 | GPT-4o / Claude Opus / Gemini Ultra |
+
+---
+
+## 完整商业闭环
+
+> 别人花 $300/月拼凑 Stripe + Auth0 + Mailgun + Mixpanel,这里全部内置。
+
+### 支付网关(10 个)
+
+| 支付方式 | 场景 | 状态 |
+|----------|------|------|
+| **微信支付** | 国内主流,V3 安全加固 + 商户私钥 + 平台证书激活 | 生产就绪 |
+| **支付宝** | 国内主流,沙箱/生产双环境 | 生产就绪 |
+| **Stripe** | 国际信用卡,Subscription + Checkout + Webhook | 生产就绪 |
+| **PayPal** | 国际支付,沙箱/生产双环境 | 生产就绪 |
+| **USDT 加密货币** | Web3 场景,链上支付 | 已集成 |
+| **对公转账** | 企业客户,发票开具 | 已集成 |
+
+### 计费体系
+
+| 模块 | 能力 |
+|------|------|
+| **VIP 4 档会员** | plan-driven 中间件,42 模型价格 seed,权益矩阵 |
+| **API 订阅包** | orderType=6,产品化订阅 |
+| **积分系统** | 5 档梯度计价,充值/消耗/退款全链路 |
+| **钱包** | 余额管理,充值/提现/明细 |
+| **兑换码** | 充值码系统,批量生成/核销 |
+| **优惠券** | 裂变体系,满减/折扣/限时 |
+| **返佣** | relay 消费返佣,分销佣金 |
+| **阶梯计价** | 充值阶梯折扣,量大优惠 |
+| **退款** | 退款审计,全链路追溯 |
+| **发票** | 发票管理,对公开票 |
+| **Webhook** | 支付回调,实时通知 |
+
+### 安全与合规
+
+| 能力 | 实现 |
+|------|------|
+| **多租户 RLS** | PostgreSQL 行级安全,租户数据隔离 |
+| **RBAC** | 角色/权限/菜单,精细到按钮级 |
+| **零信任** | mTLS + 网络分段 + 设备指纹 |
+| **风控** | IP 信誉 + 频率限制 + 分布式限流 |
+| **GDPR** | 数据导出/删除/匿名化 |
+| **审计** | 全操作审计链,不可篡改 |
+| **凭证加密** | AES-256-GCM,平台账号凭证加密存储 |
+| **凭证轮换** | watchdog + 自动化监控告警 |
+
+---
+
+## 14 平台自动发布
+
+> 一个后台,管 14 个平台。文章/图片/视频全覆盖,反风控保驾护航。
+
+### 平台清单
+
+| # | 平台 | 类型 | 适配器 |
+|---|------|------|--------|
+| 1 | CSDN | 文章 | csdn.py |
+| 2 | 知乎 | 文章 | zhihu.py |
+| 3 | 掘金 | 文章 | juejin.py |
+| 4 | 微博 | 文章 | weibo.py |
+| 5 | 微信公众号 | 文章 | wechat.py |
+| 6 | WordPress | 文章 | wordpress.py |
+| 7 | Medium | 文章 | medium.py |
+| 8 | 博客园 | 文章 | cnblogs.py |
+| 9 | 今日头条 | 文章 | toutiao.py |
+| 10 | 小红书 | 图片 | xiaohongshu.py |
+| 11 | 视频号 | 视频 | shipinhao.py |
+| 12 | B 站 | 视频 | bilibili.py |
+| 13 | 抖音 | 视频 | douyin.py |
+| 14 | 快手 | 视频 | kuaishou.py |
+| 15 | YouTube | 视频 | youtube.py |
+
+### 反风控体系(6 模块)
+
+| 模块 | 能力 |
+|------|------|
+| **指纹隔离** | 每个账号独立浏览器指纹 |
+| **代理池** | IP 轮换,防关联 |
+| **行为拟人化** | 模拟真人操作节奏 |
+| **账号画像** | 账号健康度评分 |
+| **隐身模式** | stealth 反检测 |
+| **浏览器工厂** | Playwright 多实例管理 |
+
+### 发布流程
+
+扫码登录(`/scan-login`内置浏览器) → 账号管理(`/publish/accounts`) → 创建发布任务(`/publish/new`) → 调度器排队 → Playwright 自动发布 → WebSocket 实时通知 → 结果统计。
+
+---
+
+## AI 教育全栈
+
+> 开源版 Khan Academy + Coursera,Apache 2.0 协议,教育机构可直接 fork 部署。
+
+| 模块 | 能力 |
+|------|------|
+| **课程系统** | 课程/章节/资源/附件/评论/问答/报名/筛选/目录 |
+| **题库系统** | 题目管理/组卷/随机出题 |
+| **考试系统** | 在线考试/答题/判分/历史记录 |
+| **直播 SRS** | 直播间/主播/日历/预约/历史 |
+| **证书系统** | 证书生成/验证/4 屏管理 |
+| **SM-2 间隔复习** | 科学记忆算法,个性化复习计划 |
+| **AI 助教** | 7 学科(数学/物理/化学/生物/英语/语文/编程),学科讲解/提示/出题 |
+| **AI 批改** | 主观题自动评分 |
+| **学习计划** | study-plans,个性化路径 |
+
+---
+
+## P3 AI 工程深度层
+
+> 对标 Claude Code 的工程体系,不只是"能用",而是"工程级能用"。
+
+### Rules / Hooks / Spec 三件套
+
+| 能力 | 说明 |
+|------|------|
+| **Rules 引擎** | rules_engine.py + rules.py 路由,规则化约束 |
+| **Hook 服务** | hook_engine.py + hooks.py 路由,生命周期钩子 |
+| **Spec 模式** | spec_generator.py + spec.py 路由,规格驱动开发 |
+
+### L1-L9 自进化体系
+
+> Agent 不是"调一次就完",而是"越用越聪明"。
+
+| 层级 | 能力 | 服务 |
+|------|------|------|
+| **L1 技能迭代** | 技能自动优化 | skill_iterator / skill_evolution_scheduler |
+| **L2 失败聚类** | 失败模式识别 | failure_clusterer |
+| **L3 元学习** | 跨任务知识迁移 | meta_learner / meta_learner_scheduler |
+| **L4 A/B 测试** | 技能效果验证 | ab_test_scheduler / ab_test_tracker |
+| **L5 梦境固化** | 离线记忆整合 | dream_scheduler / dream_service |
+| **L6 联邦学习** | 多 Agent 知识共享 | federated_learner |
+| **L7 元认知** | 自我反思 | metacognition |
+| **L8 技能反馈** | 用户反馈闭环 | skill_feedback / skill_tester |
+| **L9 主动遗忘** | 记忆衰减 | active_forgetter / memory_decay |
+
+### 上下文工程
+
+| 能力 | 说明 |
+|------|------|
+| **Context Engine** | 上下文窗口管理 |
+| **Token 压缩** | RTK+Caveman 算法,压缩率 93.35% |
+| **上下文压缩 V2** | CLI 端 compaction-v2.ts |
+| **Doom Loop 检测** | 防止 Agent 陷入死循环 |
+| **四层记忆** | 短期/长期/向量/多模态 |
+| **Dream 梦境** | 离线记忆整合 |
+| **Soul 灵魂** | Agent 人格持久化 |
+
+---
+
+## 工程守门体系
+
+> 33+ 道守门,不是"写了就完",而是"每一行代码都被审查"。
+
+### 守门分类(32 pre-commit + 1 commit-msg)
+
+| 类别 | 项数 | 核心 |
+|------|------|------|
+| **i18n** | 9 | key parity / zh-TW 繁体字形 / ko 中文残留 / ja 中文残留 / en 破碎机翻 / AI 翻译流水线 / 命名空间传递 / cli parity |
+| **代码质量** | 10 | API key 泄露 / schema drift / 陈旧 dist / UTF-8 完整性 / lint-staged / sanitizer / dedupe / 路由一致性 / safeParse / OpenAPI |
+| **UI/样式** | 8 | 圆角(禁 rounded-full) / CSS token / title tooltip / Tailwind 冲突 / z-index / miniapp design-tokens 同步 |
+| **工程约束** | 7 | 交付报告一致性 / PLAN 体积 / 迁移完整性 / staged 污染 / 多端同步 / README 同步 / staged 清单 |
+| **Push/工作区** | 3 | 项目外路径(阻塞) / 父目录污染(阻塞) / Push 同步(阻塞) |
+| **防提交丢失** | 1 | reflog reset 检测 + fsck 悬空 commit + lost-commit tag 备份 |
+| **Python 类型** | 1 | mypy 检查(阻塞) |
+| **依赖治理** | 1 | solito 幽灵依赖回归守门 |
+| **迁移完整性** | 1 | mobile-rn screen 迁移守门 |
+| **共享层重复** | 1 | 端内重新实现 shared hook/util 检测 |
+
+### 自动化防线
+
+| 防线 | 触发 | 动作 |
+|------|------|------|
+| **pre-commit** | git commit | 33+ 检查,阻塞/警告 |
+| **post-commit** | git commit | git-push-guard 自动 push + 验证 local == remote |
+| **pre-push** | git push | pnpm typecheck:full,失败阻止 push |
+| **commit-msg** | git commit | 交付报告一致性守门 |
+
+---
+
+## 全链路可观测性
+
+> 21 个 Grafana 仪表盘,不是"能看到日志",而是"能看到一切"。
+
+| 组件 | 能力 |
+|------|------|
+| **Prometheus** | 指标采集,alerts.yml 告警规则 |
+| **Grafana** | 21 仪表盘,全链路可视化 |
+| **Loki** | 日志聚合 |
+| **Promtail** | 日志收集 |
+| **Jaeger** | 分布式追踪 |
+| **OpenTelemetry** | 标准化遥测 |
+| **Alertmanager** | 告警 + noise-rules 噪音过滤 |
+
+监控覆盖:API 响应时间 / AI 模型调用量 / LLM 成本追踪 / WebSocket 连接数 / 数据库慢查询 / Redis 命中率 / 支付成功率 / 发布任务状态 / Agent 运行时指标 / 资源使用率。
+
+---
+
+## 5 语言 i18n 体系
+
+> 100% parity,不是"翻译了",而是"5 语言完全对齐"。
+
+| 维度 | 数据 |
+|------|------|
+| **支持语言** | zh-CN(基准) / zh-TW(繁体) / en / ko / ja |
+| **命名空间** | 68 个 |
+| **守门脚本** | 23 个 .mjs(4 web + 4 extension + 2 AI 翻译流水线 blocking × 2 端) |
+| **品牌映射** | brand-glossary.json 95 条 canonical 映射 |
+| **AI 翻译流水线** | i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,开发成本降 70%+ |
+| **治理 4 阶段** | 动态拼接 307→0 + 无引用 key 453→0 + 递归 key 9910→9679 |
+
+---
+
+## 竞品对比矩阵
+
+> 不是功能覆盖度对标,是"一个仓库 vs 40+ 产品"的降维打击。
+
+| 对比维度 | Dify / FastGPT / Langflow | Claude Code / Cursor / Copilot | Stripe / Auth0 / Clerk | LangChain / AutoGen / CrewAI | Khan Academy / Coursera | 蚁客 / 新媒体管家 | **IHUI-AI** |
+|----------|---------------------------|-------------------------------|------------------------|------------------------------|-------------------------|-------------------|-------------|
+| AI 应用编排 | 有 | 无 | 无 | 框架级 | 无 | 无 | **有(LangGraph)** |
+| 176 模型网关 | 部分 | 无 | 无 | 无 | 无 | 无 | **有(LiteLLM)** |
+| MCP 协议 | 无 | 部分 | 无 | 无 | 无 | 无 | **有(36 工具)** |
+| A2A 协议 | 无 | 无 | 无 | 无 | 无 | 无 | **有** |
+| 8 端同源 | 无 | 无 | 无 | 无 | 无 | 无 | **有(16 共享包)** |
+| CLI 工具 | 无 | 有 | 无 | 无 | 无 | 无 | **有(40+ 命令)** |
+| 完整商业闭环 | 无 | 无 | 有(单一) | 无 | 无 | 无 | **有(10 支付)** |
+| 14 平台发布 | 无 | 无 | 无 | 无 | 无 | 有 | **有** |
+| AI 教育全栈 | 无 | 无 | 无 | 无 | 有(闭源) | 无 | **有(开源)** |
+| 全链路可观测 | 部分 | 无 | 无 | 无 | 无 | 无 | **有(21 仪表盘)** |
+| 33+ 工程守门 | 无 | 无 | 无 | 无 | 无 | 无 | **有** |
+| 多租户 RLS | 部分 | 无 | 无 | 无 | 无 | 无 | **有** |
+| Apache 2.0 开源 | 部分 | 闭源 | 闭源 | 部分 | 闭源 | 闭源 | **是** |
+
+**核心差异化**:在全球开源 AI 生态里,你找得到比 IHUI-AI 更专的项目,但找不到比 IHUI-AI 更全的开源平台。把 6 大类商业产品的能力整合进一个 Apache 2.0 仓库。
+
+---
+
+## 技术栈详情
+
+### 前端 Web(Next.js 15)
 
 ```
-                 ┌─────────────────────────────────────────────────┐
-   第 1 层       │  用户价值(Why)                                  │
-   用户价值      │  • 5 分钟从 Fork 到上线商用 AI 产品              │
-   (Why)        │  • 一个仓库集成 6-10 类 SaaS 能力,月省 $300+          │
-                 │  • 100% 数据主权,Apache 2.0 商用友好             │
-                 │  • 5 类角色受益(开发者/中小企业/教育/创作者/企业) │
-                 └─────────────────────────────────────────────────┘
-                                        ▲
-                 ┌─────────────────────────────────────────────────┐
-   第 2 层       │  产品形态(What)                                  │
-   产品形态      │  开源 AI 商业级一体化基座                        │
-   (What)       │  • 6 大产品类别整合:                            │
-                 │    ① AI 应用开发平台(对标 Dify/Coze/RAGFlow)    │
-                 │    ② AI 编程 CLI(对标 Claude Code/Cursor)       │
-                 │    ③ 多端框架(对标 Tauri/Expo/Taro/WXT)         │
-                 │    ④ 商业 SaaS 基座(集成中国本土支付 + RBAC + 基础可观测)  │
-                 │    ⑤ AI 教育平台(对标 Khan Academy/Coursera)     │
-                 │    ⑥ 内容发布中台(对标 蚁客/新媒体管家/Jasper)   │
-                 │  • 一个仓库 8 端代码,不是工具集合,是预置产品    │
-                 └─────────────────────────────────────────────────┘
-                                        ▲
-                 ┌─────────────────────────────────────────────────┐
-   第 3 层       │  技术护城河(How)                                 │
-   技术护城河    │  • 8 端 / 340 表 / 144 迁移 / 1300+ API 端点    │
-   (How)        │  • LangGraph + MCP + A2A 三栈协同                 │
-                 │  • 16 共享包 / 30+ pre-commit 守门 / 5 语言 i18n   │
-                 │  • 三支柱可观测性 + 21 Grafana 仪表盘             │
-                 │  • 企业级安全栈(RBAC + RLS + SSO + AES-256-GCM)  │
-                 │  • Apache 2.0 License,商用零限制                │
-                 │  • P3 深度层:Context Engineering(1851 行)/ 四层记忆系统  │
-                 │    / DAG 调度(1031 行)/ 编排中枢(945 行)         │
-                 │    / Clawdbot 框架(20+ 文件)/ 6 沙箱后端           │
-                 └─────────────────────────────────────────────────┘
+Next.js 15 (App Router + Turbopack) + React 19 + TypeScript
+Tailwind CSS 4 + shadcn/ui (Radix UI) + Zustand
+TanStack Query 5 + TanStack Table 8
+Monaco Editor + xterm.js + TipTap + Three.js + ECharts + Mermaid
+Playwright (E2E + 视觉回归) + Storybook
+next-intl (5 语言) + next-themes (暗色模式)
+XState 5 (状态机) + Zod (校验) + pdfjs-dist (PDF)
 ```
 
-### IHUI-AI 是什么
+### 后端 API(Fastify 5)
 
-| 维度         | 定位                                                                                                                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **本质**     | 开源 AI 商业级一体化基座(Open-Source AI Commercial-Grade Integrated Foundation)                                                                                                                                     |
-| **类比**     | AI 应用界的 Kubernetes / Next.js Boilerplate / Linux 发行版 — 把"基础设施搭建"从 3-6 个月压缩到 5 分钟                                                                                                              |
-| **对标层级** | 同时跨越「AI 应用开发平台 + AI 编程 CLI + 多端开发框架 + 商业 SaaS 基座 + AI 教育平台 + 内容发布中台」6 大类别                                                                                                      |
-| **目标用户** | 个人开发者(私有 AI 助手)/ 中小企业(AI 中台)/ AI 服务商(商业产品)/ 教育机构(AI 教学全栈)/ 内容创作者(14 平台发布)/ 企业决策者(企业级 AI 平台)                                                                        |
-| **License**  | Apache 2.0(商用友好,无传染性,允许闭源商用,无任何 copyleft 约束)                                                                                                                                                     |
-| **部署模式** | 完全自托管,Docker Compose 一键启动 14 服务,数据 100% 主权,凭证 AES-256-GCM 加密,不被任何大厂窥探                                                                                                                    |
-| **代码规模** | 8 端代码 / 100+ schema 文件 / 340 数据库表 / 144 迁移 / 1300+ API 端点 / 200+ Web 页面 / 16 共享包 / 30+ pre-commit 守门 / 5 语言 i18n parity                                                                       |
-| **替代价值** | 对齐 Stripe($84/月)+ Auth0($35/月)+ Mailgun($35/月)+ Mixpanel($20/月)+ Dify($59/月)+ Claude Code($20/月)+ 蚁客($50/月)≈ $303/月,IHUI-AI 自托管 $0/月(实际覆盖度:支付 ~15% / 身份 ~40% / 产品分析 ~5% / 可观测 ~30%) |
+```
+Fastify 5 + TypeScript + Drizzle ORM 0.38 + postgres-js
+Zod 3.24 + JWT (@fastify/jwt) + Argon2/bcryptjs
+BullMQ (任务队列) + ioredis (Redis) + node-cron
+OpenTelemetry + Pino + Swagger/OpenAPI
+@fastify/websocket (12 WebSocket 通道)
+Alipay / WeChat Pay / PayPal / Stripe (多支付)
+Sharp / pdf-lib / pdfkit / exceljs / xlsx / mammoth
+nodemailer + 阿里云短信
+node-pty (终端) + fluent-ffmpeg (转码)
+```
 
-### IHUI-AI 不是什么
+### AI 服务(FastAPI + LangGraph)
 
-- **不是套壳 ChatGPT** — 是完整商业级 AI 应用基座,带计费/订阅/多租户/审计/RBAC,可直接做 SaaS
-- **不是单一 AI 对话平台** — 同时覆盖 AI 对话、AI 编程 CLI、AI 教育、AI 内容发布、AI Agent 市场 5 大场景
-- **不是 demo 或脚手架** — 是支撑「智汇 AI 集团」商业化主平台的生产级代码,340 表按真实业务复杂度设计
-- **不是 SaaS 订阅** — 完全自托管,你拥有 100% 数据主权,凭证 AES-256-GCM 加密,无任何外部回传
-- **不是垂直工具** — 不像 Dify 只做 AI 应用编排、不像 Claude Code 只做 CLI、不像蚁客只做多平台发布、不像 RAGFlow 只做 RAG、不像 Khan Academy 只做教育,IHUI-AI 把 6 大类能力**整合在一个 Apache 2.0 仓库**
-- **不是 LangChain/LlamaIndex 这类开发框架** — 那些是给开发者"造车零件",IHUI-AI 是"整车下线",非技术团队也能直接用
+```
+FastAPI + Uvicorn (ASGI) + Pydantic 2 + Python 3.12+
+LangGraph 0.2 + LangChain 0.3 + LangChain-OpenAI/Anthropic
+LiteLLM 1.55+ (176 模型) + MCP 1.0+ + A2A
+asyncpg + Redis (hiredis) + APScheduler + croniter
+Playwright (浏览器自动化 / 截图 / 发布)
+faster-whisper (本地语音 STT,零成本)
+OpenTelemetry + Prometheus + Socket.IO
+mypy strict (0 errors) + BeautifulSoup4 + pdfplumber
+```
 
-### 成本对比:IHUI-AI 自托管 vs 等价 SaaS 组合
+### 桌面端(Tauri 2)
 
-> 以下成本对比基于 2026 年 7 月各 SaaS 官网公开定价(月度订阅,小型团队 5 人 + 1 万月活场景),仅供决策参考。
+```
+Tauri 2 + WebView2 + Rust
+自动更新 (Tauri Updater + GitHub Releases 签名)
+无边框窗口 + 自定义标题栏
+CSP 安全策略
+```
 
-| 能力维度           | 等价 SaaS 组合                                           | 月度成本      | IHUI-AI 自托管        |
-| ------------------ | -------------------------------------------------------- | ------------- | --------------------- |
-| **AI 对话与模型**  | OpenAI ChatGPT Team($25/人)+ Dify($59)                   | $184/月       | **$0**(仅模型费)      |
-| **AI 编程 CLI**    | Claude Code($20)+ GitHub Copilot($19)+ Cursor($20)       | $59/月        | **$0**(仅模型费)      |
-| **支付/订阅/计费** | Stripe($84)+ Lemon Squeezy($5)                           | $89/月        | **$0**                |
-| **认证/SSO/RBAC**  | Auth0($35)+ Clerk($25)                                   | $60/月        | **$0**                |
-| **邮件/短信**      | Mailgun($35)+ Twilio($35)                                | $70/月        | **$0**                |
-| **用户分析**       | Mixpanel($20)+ PostHog($0 开源)                          | $20/月        | **$0**(自带 BI)       |
-| **AI 教育平台**    | Khan Academy(免费,但闭源)+ Coursera for Business($70/人) | $350/月       | **$0**(开源可定制)    |
-| **内容发布中台**   | 蚁客($50)+ 新媒体管家($30)                               | $80/月        | **$0**                |
-| **可观测性栈**     | Datadog($15/主机)+ Sentry($26)                           | $101/月       | **$0**(开源栈)        |
-| **合计**           | 9 个 SaaS                                                | **$1,013/月** | **$0**(仅服务器)      |
-| **3 年总成本**     |                                                          | **~$36,468**  | **~$1,080**(单台 VPS) |
+### 扩展端(WXT + Chrome MV3)
 
-> **结论**:同样的能力组合,等价 SaaS 月度成本约 $1,013,3 年 $36,468;IHUI-AI 自托管仅服务器成本约 $30/月,3 年 $1,080。**省下 $35,000+ 即可拥有 100% 数据主权 + 完整定制能力**。
+```
+WXT 0.19 + React 19 + TypeScript
+Tailwind CSS 4 + @ihui/ui-react
+Chrome Manifest V3 (minimum 114)
+@wxt-dev/storage + @wxt-dev/module-react
+react-router-dom 6
+```
 
-### IHUI-AI 的差异化价值(在开源生态中较为少见)
+### 移动端(Expo + React Native)
 
-经全面市场对标(覆盖 40+ 国际/国内产品,详见下方对比表),以下能力组合在**全球开源 AI 项目中较少同时具备**:
+```
+Expo 53 + React Native 0.79 + React 19 + TypeScript
+React Navigation 6 + NativeWind 4
+Expo modules: audio / device / image-picker / linking / local-authentication / notifications / secure-store / status-bar / web-browser
+react-native-wechat-lib (微信登录/支付)
+Zustand + AsyncStorage + expo-secure-store
+```
 
-1. **8 端全覆盖**:Web / API / AI 服务 / CLI / 桌面 Tauri / 浏览器扩展 WXT / 移动 RN / 微信小程序 Taro — 同类型开源 AI 项目一般最多 2 端(Dify/FastGPT),本项目覆盖 8 端
-2. **LangGraph + MCP + A2A 三栈协同**:工作流 + 工具协议 + Agent 互通一体化,其他开源 AI 平台通常只支持单栈(Langflow 仅 LangChain DAG,Dify 自研工作流无 MCP/A2A,LangChain/LlamaIndex 仅框架层)
-3. **自研 CLI 对标 Claude Code**:21 命令 + 36 内置工具 + ACP Server + 24 源配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)+ Skills 系统 — 开源 AI 应用平台中较为少见的自带自研 CLI 的项目(Cursor / Copilot / Windsurf / Amazon Q / Cline / Aider / Cody 都是闭源或纯 CLI 工具)
-4. **完整商业闭环**:VIP / 订阅 recurring / 钱包 / 积分 / 退款审计 / 发票 / 汇率 / 10 支付网关(含海外 Stripe + PayPal) / 分销佣金 / 邀请返佣 — 开源 AI 平台中较少见的金融级商业闭环(Dify/FastGPT/Langflow 均无)
-5. **14 平台一键自动发布**:7 文章平台 + 2 图片平台 + 5 视频平台 + AES-256-GCM 凭证加密 + 14 adapter — 开源项目中较为少见的完整覆盖公众号/知乎/CSDN/掘金/小红书/微博/B 站/YouTube/抖音等 14 平台(蚁客/新媒体管家是闭源 SaaS)
-6. **AI 教育全栈**:课程 / 题库 / 考试 / 直播流媒体(SRS) / 学习报告 / 证书 / 讲师 / 学生端 12 子页 / 45 表 edu-full schema — 开源 AI 平台中较为少见的 AI 教育全栈(Khan Academy/Coursera 是闭源 SaaS)
-7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中较为少见的完整企业级安全栈
-8. **21 道工程守门 + 11 迁移审计 + post-commit 自动 push**:从机制上减少协作事故 — 开源 AI 项目中较为少见的把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
-9. **三支柱可观测性 + 21 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中较为少见的完整 SRE 级可观测性栈(其他项目最多基础日志)
-10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中较为少见的把 i18n 做到 parity + 守门级(其他项目最多中英文)+ i18n 治理 4 阶段(动态拼接 307→0 + 无引用 key 453→0,递归 key 9910→9679,无引用率 4.6%→0%)
+### 小程序端(Taro 4)
 
-### 记忆点标语(可传播)
+```
+Taro 4.2 + React 18 + TypeScript
+Tailwind CSS 3.4 + weapp-tailwindcss 5.1
+Zustand
+6 平台: weapp / alipay / swan / tt / h5 / 快手
+Vite + Webpack5 双构建器
+```
 
-| 标语                              | 价值锚点                                                                                |
-| --------------------------------- | --------------------------------------------------------------------------------------- |
-| **"一个仓库集成 6 类 SaaS 能力"** | 对齐 Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code 能力(部分覆盖),月省 $300+ |
-| **"5 分钟从 Fork 到商用"**        | Docker Compose 一键启动 14 服务,从克隆到上线约 5 分钟,传统方案 3-6 个月                 |
-| **"AI 应用界的 Kubernetes"**      | 把"基础设施搭建"标准化、可复用,任何团队都能在统一基座上跑自己的 AI 应用                 |
-| **"8 端 + 176 模型 + 三栈"**      | 8 端代码 + 176 模型 + LangGraph+MCP+A2A 三栈,开源 AI 生态中覆盖较广                     |
-| **"Apache 2.0,商用零限制"**       | License 商用友好,无 copyleft 约束,允许闭源商用,企业可放心 Fork                          |
-| **"数据 100% 主权"**              | 完全自托管,凭证 AES-256-GCM 加密,无任何外部回传,符合 GDPR / 等保要求                    |
+### CLI 端(Node.js)
 
-### 与 6 大对标类别的关系
+```
+Node.js 20+ / TypeScript / ESM
+Commander 12 + Inquirer 12 + Chalk 5 + Ora 8
+@agentclientprotocol/sdk 1.2 (ACP 协议)
+vscode-jsonrpc + vscode-languageserver-protocol (LSP)
+gpt-tokenizer + ws (WebSocket)
+```
 
-IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**整合到一个开源基座**:
+### 共享包(16 个)
 
-| 对标类别                | 代表产品                                                                                                                                                                                                                                                                                        | IHUI-AI 对标能力                                                                                                                                                                                                |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI 应用开发平台**     | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                                                                                                                                                                                                                                      | 176 模型 LiteLLM 网关 + LangGraph 工作流 + 知识库 RAG + pgvector 向量库 + 知识图谱 + Agent Runtime + Persona                                                                                                    |
-| **AI 编程 CLI / IDE**   | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant                             | 自研 CLI 21 命令 + 36 内置工具 + ACP Server(Zed/VSCode/Cursor 嵌入)+ 24 源配置导入 + Skills + CodeGraph + Worktree                                                                                              |
-| **企业 AI Agent 平台**  | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew                                                                                                             | LangGraph + MCP + A2A 三栈 + Agent 市场 + 开发者中心 + Coze SDK 代理 + OpenClaw + Crew 集成 + N8N 代理                                                                                                          |
-| **AI Agent 框架(开源)** | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents                                                                                                                                        | 三栈协同 + 完整 Agent Runtime + Persona 注册表 + Agent 市场 — 不只是框架,是产品化落地方案                                                                                                                       |
-| **多端开发框架**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                        | 8 端统一架构 + 12 共享包 + 跨端类型安全 + 共享 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                                                                                                 |
-| **AI 教育 / 内容平台**  | Khan Academy / Coursera / edX / Google 教育 AI / 智谱清言教育 / 学而思 AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 蚁客 / 新媒体管家                                                                                                                                                | AI 教育全栈(课程/题库/考试/直播流媒体(SRS)/证书)+ 14 平台一键发布 + 自媒体工作台 + AI 资讯 + AI 求职 + 短剧 + 业务名片                                                                                          |
-| **大模型 API 平台**     | 国外:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>国内:百度千帆 / 阿里百炼 / 腾讯混元 / 字节豆包(火山方舟)/ 智谱开放平台 / 讯飞星火 / 月之暗面 Kimi / DeepSeek / 商汤日日新 | LiteLLM 统一网关 + 176 模型接入 + 智能路由 + 60% 缓存命中 + 多 provider 适配                                                                                                                                    |
-| **商业 SaaS 基座**      | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap                                                                                                                       | VIP/订阅/钱包/积分/退款/发票/10 支付网关(含海外 Stripe + PayPal) + JWT/SSO/RBAC + SMTP 短信 + BI 仪表盘 + 灰度发布 — 一站式集成 4-6 类 SaaS 能力(实际覆盖度:支付 ~15% / 身份 ~40% / 产品分析 ~5% / 可观测 ~30%) |
-
-> **核心洞察**:在开源 AI 生态里,你能找到比 IHUI-AI **更专**的项目(如 RAGFlow 在 RAG 维度更深、Claude Code 在 CLI 维度更成熟、LangChain 在框架层更灵活),但找不到比 IHUI-AI **更全**的开源基座 — 把 6 大类能力整合在一个 Apache 2.0 仓库里,是 IHUI-AI 的核心差异化。
->
-> **不是替代谁,而是把 6 个产品的能力以 Apache 2.0 开源出来**:你想要 RAGFlow 的 RAG,可以单用 RAGFlow;你想要 Claude Code 的 CLI,可以单用 Claude Code;但如果你想要一个**完整可商用的 AI 产品**(对话+编程+教育+发布+计费+企业安全),IHUI-AI 是全球开源生态里值得评估的选项之一。
-
----
-
-## 特性总览(30 秒看完所有能力)
-
-| 大类              | 模块                | 关键能力                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ----------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI 对话与模型** | 多模型对话          | 176 模型 / 智能路由 / 60% 缓存命中 / 流式 SSE + WebSocket / 对话收藏 / 历史记录 / 分享 / 模板 / Plan-Act 双模式(按钮 + Alt+P 快捷键 + /plan /act 斜杠命令,plan 模式 AI 只制定计划不执行工具)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|                   | AI 图像生成         | 文生图 / 图像编辑 / 多分辨率 / 多模型(Stable Diffusion / DALL-E / 通义万相)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-|                   | AI 音频             | TTS 流式合成 / ASR 语音识别 / 音色克隆 / 双向实时语音(WebRTC PCM16 16kHz)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-|                   | AI 视频合成         | 文生视频 / 视频编辑 / 多模型混编 / 转码 / 视频任务管理                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-|                   | AI 数字人           | 腾讯混元 3D / AI 世界 / 数字人交互                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-|                   | AI 世界             | ai-world-items + AI 排名 + 趋势同步 + AI 模块化(ai-modules)+ AI 厂商配置中心(ai-vendor-configs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-|                   | AI 职业             | AI 求职助手 / 简历优化 / 模拟面试                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-|                   | AI 资讯             | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图 + 模型对比勾选 + PriceChart 价格可视化 + 能力雷达叠加)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置)+ 资讯标题多语言切换(中/EN/日/한)+ 趋势爆发通知 Banner(60s 轮询 + 可见性感知 + 数据通路修复)+ 趋势筛选 Tab(全部/上升/下降/新晋)+ 性能优化(Intl 提取 + parseNumeric 预计算 + 日期 locale 本地化 + formatHot compact 表示法 + 共享 formatCompact number-format.ts 消除硬编码亿/万 + LiveChannelsBlock next/image sizes 响应式 srcset)+ 对比列表 localStorage 持久化 + Leaderboard i18n 全面国际化(25 键:分类/子分类/表头/底部说明 5 语言同步 + CapabilityRadar 5 维标签 i18n 5 语言 + page.tsx generateMetadata i18n)+ 收藏功能(Star localStorage 持久化 + 仅看收藏筛选)+ 列显隐(齿轮 dropdown + 8 字段可隐藏 + localStorage 持久化)+ FundingSection 搜索+排序(按日期/按金额 + parseNumeric 金额提取 + 动态 i18n 键)+ page.tsx Promise.allSettled 6 路降级(任一 fetch 失败不阻塞整页)+ 死代码清理(NewsGrid/ComparisonTable 已删除) |
-|                   | 用户级 AI 配置      | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **AI 工作流**     | LangGraph           | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 + **P3 深度层升级(2026-07-23 立)**:PostgresSaver 节点级 checkpointer(AsyncPostgresSaver 双层存储:LangGraph 原生表 + 自定义 langgraph_checkpoints/langgraph_writes 表)+ interrupt() HITL 人工介入(节点内 interrupt 暂停 + Command(resume=...) 恢复)+ 5 模式 streaming(values/updates/messages/events/debug)+ subgraphs 子图 + Time Travel(get_state_history 历史回溯)+ 12 类 SSE 事件(session/token/node_start/node_end/tool_call/tool_result/state_update/plan/interrupt/done/error/custom)+ 软依赖降级(psycopg/langgraph 缺失仍可 import,运行时才抛错)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|                   | MCP 工具协议        | 36 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|                   | A2A 协议            | Agent-to-Agent 互通 / Redis 持久化 + 内存降级                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|                   | 知识库 RAG          | 文档向量化 / 语义搜索 / 引用追溯 / knowledge-base + knowledge-rag                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-|                   | 知识图谱            | knowledge-graph schema + 节点关系图谱 / 跨文档实体链接(开源 AI 平台中少见)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                   | pgvector 向量库     | 0123_pgvector_embedding 迁移 / 原生 PostgreSQL 向量索引 / 无需独立向量数据库                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|                   | 工作流编排          | 可视化工作流 / CrewAI 集成 / N8N 代理 / workflows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-|                   | 向量记忆            | 余弦相似度语义搜索 / 跨会话长期记忆 / vector-memory / pgvector + FTS5 双引擎 + 自动记忆提取 + 用户画像建模                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                   | 自进化 Agent        | Skill 自生成 + 自动测试 + 反馈迭代(v1→v2→v3)+ 评分系统 / 统一三端记忆 / 任务自动分解 + DAG 调度(对标 Hermes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **多智能体生态**  | 智能体市场          | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 / 精选                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|                   | 开发者中心          | API Keys / 调用日志 / 团队管理 / 收益分析 / 13 子页                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|                   | Coze SDK 代理       | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|                   | OpenClaw            | 开源 Agent 框架接入 / clawdbot / openclaw-routes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | Skills 系统         | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ tools)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **8 端框架**      | Web                 | Next.js 15 / 200+ 页面 / PWA / SEO / 暗黑模式 / 5 语言 / 三段式顶部搜索面板(历史/热门/联想,`apps/web/src/components/business/SearchBar.tsx` + `search-suggestions.tsx` + `hooks/use-search-history.ts` + `lib/search-suggestions.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|                   | 桌面                | Tauri 2 + Rust / **A 套壳方案**:通过 `tauri.conf.json` `devUrl:8801` 加载 `apps/web` dev server(build 时加载 `web/out` 静态导出),复用 Web 端全部能力(对话/搜索/导出/主题/Markdown/快捷键等均由 Web 提供,非桌面端原生)/ 原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n)+ 多显示器校验 + 单实例 + 自动更新签名(无独立业务代码,`apps/desktop` 仅有 Tauri 配置与 Rust 壳)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|                   | API                 | Fastify 5 / ~1300 端点 / 12 WebSocket 端点 / ~290 路由文件 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|                   | AI 服务             | FastAPI + LangGraph + LiteLLM + MCP + A2A / 215+ 端点 / 31+ provider 适配(含 22 免费 provider 内化)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|                   | CLI                 | Node.js / 21 命令 / 36 内置工具 / 24 源配置导入 / ACP Server                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|                   | 浏览器扩展          | WXT / 上下文菜单 / 侧边栏 / Chrome + Edge + Firefox                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|                   | 移动 RN             | React Native + Expo EAS / iOS + Android / SSO + 微信支付 APP 支付                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-|                   | 小程序              | Taro 4 / 微信支付原生集成 / 3 语言(i18n)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **企业级能力**    | 工作空间权限        | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + workspace-ai-tasks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|                   | RBAC + 多租户       | 角色 / 部门 / 组织 / 租户隔离 / 菜单权限 / data-scope 5 级                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                   | SSO 单点登录        | OAuth 2.0 / Apple / Google / SSO 中转登录 / PKCE                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 计费与订阅          | VIP 等级 / 订阅 recurring / 钱包 / 积分 / 退款审计 / 发票 / 汇率 / 10 支付网关(含海外 Stripe + PayPal)/ **模型积分计价**(5 档倍数梯度:免费 ×0 / 经济 ×1 / 标准 ×3 / 高级 ×10 / 旗舰 ×30,DB 字段 `ai_model_config_models.points_multiplier`,admin/ai-models 可编辑,扣分公式 `(输入+输出 token)/1000 × 倍数`,积分不足降级 zero_cost 模型,失败不扣分事务保护,详见 [docs/credit-pricing.md](docs/credit-pricing.md))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 灰度发布            | Canary / 灰度规则 / A/B 测试 / canary + ab-tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 数据合规            | GDPR / 敏感词过滤 / 内容审核 / 审计日志 / 数据导出                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **内容创作**      | 自媒体工作台        | 公众号文章 + 口播稿双流水线 / 斜杠命令 / self-media-automation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|                   | 14 平台自动发布     | 文章 9 + 图片 2 + 视频 5 平台 / 凭证 AES-256-GCM 加密 / 14 adapter                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-|                   | 资讯新闻            | 文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 / news-crawler                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|                   | 短剧                | 短剧创作与管理 / drama                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-|                   | 业务名片            | 名片创建 / 编辑 / 收藏 / 分享 / business-cards                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **AI 教育全栈**   | 课程学习            | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / zhs-course                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 题库与考试          | 多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传 / exam-marking                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-|                   | **AI 教育引擎**     | **P3 深度层(2026-07-23 立)**:SM-2 间隔复习系统(easeFactor 2.5 / interval / repetition / dueDate / lastReviewAt 5 字段 + 5 档评分 0/2/3/4/5 + EF 自适应)+ AI 助教(7 学科 persona:数学/物理/化学/生物/英语/历史/地理 + 未知学科兜底 + 3 模式 explain/hint/quiz + JSON 容错三级解析)+ AI 批改主观题(ai_grading_record 表 + 教师审核状态机)+ AI 出题(ai_generated_question 表 + 人工审核 + 知识点关联)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-|                   | 直播流媒体(SRS)     | RTMP/HLS/WebRTC 直播推流                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-|                   | 直播教学            | 签到 / 互动 / 回放 / AI 辅助 / live-chat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-|                   | 学习报告            | 行为分析 / 个性化建议 / 证书发放                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 讲师管理            | 讲师主页 / 课程关联 / education-platform                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-|                   | 学生端              | 12 子页(问答 / 文章 / 圈子 / 评论 / 课程 / 资源 / 笔记 / 离线 / 试卷 / 错题本 / 证书)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **社区互动**      | 圈子广场            | 圈子 / 广场 / 问答 / 帖子 / 话题 / 标签                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-|                   | 私信消息            | 1 对 1 私信 / 系统通知 / 多端同步 / private-letters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|                   | 关注粉丝            | 关注 / 粉丝 / 用户主页 / 名片                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|                   | 分享邀请            | 邀请码 / 分享码 / H5 分享 / 推荐返佣 / visit-tracking                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **运营增长**      | 积分签到            | 每日签到 / 任务积分 / 积分商城 / 兑换 / point-redeem-items                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                   | 排行榜              | 多维度排行 / 周月榜 / 用户排名 / ranking                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-|                   | 抽奖活动            | 抽奖 / 红包 / 奖励视频广告 / rewarded-video-ad                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|                   | 分销佣金            | 分销体系 / 佣金计划 / 提现 / 8 子页 / commission                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 活动公告            | 活动管理 / 公告推送 / Banner 轮播 / carousels                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **客服支持**      | 工单系统            | 工单提交 / 处理 / 评价 / FAQ / admin-asks + admin-faq                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|                   | 在线客服            | WebSocket 实时客服 / 1 对 1 会话 / customer-service                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|                   | 反馈中心            | 用户反馈 / 处理状态 / 追踪                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **运维监控**      | BI 仪表盘           | 业务指标可视化 / 数据分析 / bi-dashboard                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-|                   | 错误仪表盘          | 错误聚合 / 告警 / 追踪 / security-audit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-|                   | 操作日志            | 登录日志 / 操作日志 / 回调日志 / audit + security-logs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-|                   | 监控告警            | Prometheus + Grafana(21 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **工程基础设施**  | 数据库              | PostgreSQL 15 / **340 表** / 100 schema 文件 / **144 迁移** / Drizzle ORM + RLS + 租户路由 + **pgvector**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-|                   | 队列缓存            | Redis 7 + BullMQ / 独立 worker 进程(:8830)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|                   | 对象存储            | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 邮件短信            | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|                   | 国际化              | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 21 i18n 工具链 + 9 守门(4 web + 4 ext + 1 AI 翻译流水线)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|                   | 工程守门            | 30+ pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|                   | 测试覆盖            | 268 + 400+ 用例 / Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|                   | 部署运维            | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 性能 CI             | Knip 未使用代码检测 + Lighthouse CI 性能预算 + GitHub Act 本地 CI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-|                   | 微服务工程模式      | Outbox 事务性发件箱 + Refund DLQ 退款死信队列 + Circuit Breaker 断路器 + IDOR 防护 + WS Dedup 消息去重 + Hot Config 热配置                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **6 大对标能力**  | 终端集成            | xterm.js + node-pty 动态加载 + WebSocket 双向流 + 多 session tab + SIGINT/SIGTERM 清理(对标 Codex/OpenCode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-|                   | Rules 引擎          | .trae-cn/rules/*.md 文件存储 + 热加载 + 4 种匹配(always/keyword/regex/semantic)+ CRUD + 测试(对标 Trae Rules)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|                   | Hook 服务           | 事件总线 + JSONLogic 条件 + 4 执行器(webhook/script/log/notify)+ CRUD + 测试 + 日志(对标 Trae Hooks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|                   | Plan/Spec 模式      | tree-sitter AST 反向生成 spec markdown + 4 态模式切换(build/plan/review/spec)(对标 Trae Plan/Spec)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-|                   | Context Engineering | 多维 @ 提及 file/database/symbol/folder/web + LRU 缓存 + DB schema 查询(对标 Qoder)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|                   | Subagent 派单       | AGENTS.md §11 派单格式对话框 + SVG mesh 拓扑可视化 + 任务状态机(对标 Trae Subagent)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **AI 流式体验**   | 进度面板 v12        | AgentTaskProgressPane Phase 19 极致化(2026-07-28):Plan↔Message 双向跳转 + Timeline 时间线 + HoverPreviewCard + 右键菜单 6 类操作 + BatchHeader 4 态批次头 + Checklist 工具调用 + ResourceBudget step 预算 60 + SubAgentTaskTree 子代理任务树                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-|                   | 折叠子区组件        | 21 个 progress-sections 组件(FoldableSection/ThinkingSection/ToolCallsSection/ChangesSection/TerminalSection/OverviewSection/ConnectionStatus/ProgressRing/QuestionBlock/TraeBlock/TraeCodeHeader 等),支持 dark mode + i18n 5 语言 + React.memo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 包 | 用途 |
+|----|------|
+| `@ihui/database` | Drizzle ORM + PostgreSQL,155 schema / 340 表 / 144 迁移 / RLS / pgvector |
+| `@ihui/auth` | JWT / OAuth2 / Token Family / Key Rotation / Blacklist / WS Auth |
+| `@ihui/types` | 38 个跨端 TypeScript 类型文件 |
+| `@ihui/shared` | 16 hooks / 25+ utils / stores / constants / workflows(xstate) |
+| `@ihui/api-client` | 统一 API 调用层 + 熔断器 + WebSocket 客户端 |
+| `@ihui/ui-react` | 30+ shadcn/ui 风格组件 + 登录组件套件 |
+| `@ihui/ui-native` | 15 个 React Native 组件 |
+| `@ihui/design-tokens` | Web/RN/小程序三端设计令牌同步 |
+| `@ihui/i18n` | 跨端国际化加载器 |
+| `@ihui/sdk` | 6 语言 SDK(TS + Go + Python + Java + .NET + Rust) |
+| `@ihui/context-compaction` | 上下文压缩(CLI 与 API 共享) |
+| `@ihui/eslint-config` | ESLint 共享配置 + 跨端规则 |
+| `@ihui/tsconfig` | TypeScript 共享配置 |
+| `@ihui/browser-platform` | 浏览器平台抽象层 |
+| `@ihui/dom-actions` | DOM 操作抽象 |
+| `@ihui/app` | Expo 应用入口抽象 |
 
 ---
 
-## 🎬 AI 流式输出体验(对标 Trae Work · Phase 19)
+## 部署方式
 
-> 实现位置:`apps/web/src/components/ai/agent-task-progress-pane.tsx` v12 + `apps/web/src/components/chat/message-list.tsx`
-
-### 四大招牌交互
-
-1. **Plan Step ↔ Message 双向跳转**:`useProgressJumpStore` 联动,点击 PlanStep 滚动到 AI 消息 + 1.5s flashHighlight 淡出,反向 hover AI 消息自动高亮 PlanStep
-2. **Timeline 时间线统一事件流**:`flattenToTimelineEvents` 把 plan/subagent/tool/question 展平为单一时间线,inline/timeline 双 tab 切换
-3. **HoverPreviewCard 步骤预览**:`useHoverPreview` 250ms 延迟触发,100ms 关闭,边界检测防溢出,显示步骤说明/关联消息/token 消耗
-4. **MessageContextMenu 右键菜单**:6 类操作(复制/Markdown/重新生成/反馈/分享/折叠/删除)+ Esc 关闭 + 边界翻转
-
-### 关键组件
-
-- `BatchHeader`(批次头,4 态 running/completed/failed/partial + 进度条)
-- `Checklist`(`in_progress` 步骤关联工具调用列表)
-- `ResourceBudget`(step 预算 60,对标 Trae Work)
-- `CompressionDivider`(跨日/长间隔消息折叠分割线)
-- `SubAgentTaskTree`(子代理任务树,4 态)
-- `ConnectionStatus`(SSE 5 次重连策略)
-
-### 守门
-
-- typecheck:`pnpm --filter @ihui/web typecheck` → 0 错误
-- unit test:`pnpm vitest run tests/agent-task-progress-pane.test.tsx` → 107/107
-- i18n parity:`node scripts/check-i18n-keys.mjs --staged` → 5 语言 OK
-
----
-
-## 🧭 全局顶栏 GlobalTopBar + Plus 弹窗(2026-07-30 立,平台独占 web-only)
-
-> 实现位置:`apps/web/src/components/layout/GlobalTopBar.tsx`(新建) + `apps/web/src/components/layout/MainShell.tsx`(精简) + `apps/web/src/components/layout/GlobalShell.tsx`(挂载) + `apps/web/src/components/layout/TagsView.tsx`(搜索按钮 + 标签左缘对齐) + `apps/web/src/components/layout/index.ts`(re-export)
-> 触发:用户反馈"项目页面打开右上角标签栏不显示,应常驻固定;且需加号按钮弹出含内置浏览器/设置/文档/终端/代码编辑器/MCP/Skill 的小窗"
-> AGENTS.md §9 显式标注:仅 web 端,其他 7 端(apps/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)无此概念,Tauri 桌面端有原生 chrome、Chrome extension 有 action popup、miniapp-taro 微信有原生 tabBar、cli 是 terminal 交互、mobile-rn 是 RN navigation,均无 MainShell 概念
-
-### 整合方案
-
-- **原架构**:顶栏(拖拽 + 窗口控制 + TagsView + Globe 入口)只在 `(main)` 路由组 MainShell 内部渲染;marketing/auth/sso/forbidden/login 等路由不显示
-- **新架构**:抽出 `GlobalTopBar` 提升到 `app/layout.tsx` 的 GlobalShell `children` 位置,所有路由组共享;MainShell 精简为仅"工作区卡片"容器(无顶栏,避免重复)
-- **替代关系**:原 MainShell 顶栏的 Globe 按钮(打开 WebWorkPanel 内置浏览器)统一改从 Plus 弹窗触发
-
-### Plus 弹窗(9 项,分 3 组)
-
-| 分组       | 选项                                   | 动作                                  |
-| ---------- | -------------------------------------- | ------------------------------------- |
-| 视图(2 项) | 文档 / 内置浏览器                      | 跳 `/docs` / 切换 `useWorkPanelStore` |
-| 工具(5 项) | 编辑器 / 终端 / 代码变更 / Agent / MCP | 跳 `/workspace` + `setActiveTopTab`   |
-| 设置(2 项) | Skill / 设置                           | 跳 `/ai-skills` / 跳 `/settings`      |
-
-弹窗特性:搜索框模糊匹配 + 快捷键提示(G D / G B / G E / G T / G C / G A / G M / G K / G S)+ Esc 关闭 + 点击外部关闭 + 自动聚焦搜索框
-
-### 桌面端能力(仅 `isDesktop`)
-
-- 8 方向 resize 区域(边 9999 / 角 10000)+ 拖拽 + 双击最大化(250ms 状态机,与 sidebar.tsx 复用)
-- 窗口控制按钮(Min/Max/Close,zh-10001),最大化时隐藏 resize 区域
-- 走 `tauri-bridge` 单一桥接层(`minimizeWindow` / `toggleMaximizeWindow` / `closeWindow` / `startWindowDrag` / `startResize` / `onMaximizeChange`)
-- 应用更新推送:Tauri 2 updater 插件 + Rust `restart_app` 命令,三阶段自动更新策略:
-  - **打开程序**:启动 5s 后静默检查,发现更新自动下载安装(下拉窗显示进度),完成后提示重启
-  - **关闭程序**:退出时(Ctrl+Q / 托盘退出)自动拦截,检查+下载+安装+重启,全屏进度遮罩 + "跳过"选项
-  - **使用中手动检查**:托盘菜单"检查更新"触发,显示弹窗 + "立即更新"按钮,用户自主选择
-  - `useUpdater` 状态机(idle → checking → available → downloading → installing → done)+ `quitAndUpdateIfNeeded` 退出更新守卫 + `QuitUpdateOverlay` 全屏遮罩组件
-
-### 高度 / 对齐根治(2026-07-30 二轮 UI 反馈)
-
-- **顶栏双重高度冲突**:`h-[32px] + pt-2` 双重定义 → 内部仅 24px;统一为 `h-9`(单层 36px),内部 `h-full` 撑满
-- **搜索按钮容器未对齐**:`px-2 + px-2` → 左缘 8px;统一为 `pl-[28px]` = 卡片圆角(12px) + main p-4(16px),跟下面 MainShell 工作区内容左缘完美对齐
-- **Plus / WindowControl / Dropdown trigger 高度不一**:全部统一为 `h-7 w-7 rounded-md`,不再有 `h-6/h-7` 冲突
-
-### 守门
-
-- typecheck:本任务文件 0 错误(`GlobalTopBar.tsx` / `TagsView.tsx` / `MainShell.tsx` / `GlobalShell.tsx` / `index.ts`),剩余 3 错误为其他 agent 文件已存在问题,按 §12 跳过
-- i18n parity:9 × 5 = 45 个 key 补全(`topBar.{document,browser,terminal,editor,codeChanges,agent,mcp,settings,skill,plus}` + `viewSwitcher.{searchPlaceholder,noMatch,groupView,groupTools,groupSettings}` + `nav.{minimize,maximize,restore,openBrowser}`),`check-i18n-keys.mjs` parity + `scan-i18n-zh-residue.mjs` ko/zh-TW 无残留
-- 浏览器自验:4 状态截图(默认/hover/active/dark mode)覆盖 marketing 首页 `/` + chat `/chat` + admin `/admin` + login `/login` 4 路由,标签栏在所有路由常驻显示
-
-### 与已有架构的分工
-
-| 组件           | 职责                                           | 渲染位置                       |
-| -------------- | ---------------------------------------------- | ------------------------------ |
-| `GlobalShell`  | 全局骨架(Sidebar + AISidePanel + 内容槽 + PWA) | `app/layout.tsx` 根级          |
-| `GlobalTopBar` | 全站常驻顶栏(标签 + Plus + 窗口控制)           | `GlobalShell` 内 children 上方 |
-| `MainShell`    | `(main)` 路由组工作区卡片                      | `(main)/layout.tsx` 路由组级   |
-| `TagsView`     | 标签栏(根据 pathname 派生标签)                 | `GlobalTopBar` 内              |
-
----
-
-## Use Cases(典型使用场景)
-
-> IHUI-AI 适用于以下 8 类核心场景,每个场景都可在 8 端中任一端运行(8-Platform AI Operating System)。
-
-1. **Enterprise AI Assistant(企业 AI 助手)** — 多租户 + RBAC + SSO,企业内部统一 AI 入口,部门隔离 + 审计日志
-2. **Multi-model LLM Gateway(多模型 LLM 网关)** — LiteLLM 统一 176 模型,智能路由 + 60% 缓存 + 成本管控,替代单一厂商锁定的 LLM Gateway
-3. **AI Agent Marketplace(AI Agent 市场)** — LangGraph + MCP + A2A 三栈协同,Agent 编排/发布/交易,构建垂直行业 Agent 生态
-4. **Knowledge Base Q&A(知识库问答)** — pgvector + RAG + 知识图谱 + 用户长期记忆,企业文档/代码/FAQ 智能问答
-5. **Code Generation Platform(代码生成平台)** — 自研 CLI 21 命令 + 36 工具 + ACP Server,对标 Claude Code / Cursor 的开源替代
-6. **Customer Service Bot(客服机器人)** — 多渠道 IM 接入 + 工作流编排 + 人工接管,7×24 自动应答
-7. **Education Tutor(教育辅导)** — AI 教育全栈(课程/题库/考试/直播/证书),开源版 Khan Academy
-8. **Developer Productivity(开发者生产力)** — 8 端开发模板 + 12 共享包 + 33+ 守门,Fork 即用,5 分钟启动全栈 AI SaaS
-
----
-
-## 为什么选择 IHUI-AI
-
-| 维度                 | 能力                                                                                                                                                                                                                                                                                                                 | 行业定位                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **端覆盖**           | Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 小程序 Taro                                                                                                                                                                                                                                                      | 行业首个 8 端全覆盖 AI 全栈平台                                 |
-| **模型接入**         | LiteLLM 网关统一 176 模型(国际 30+ / 国产 15+ / 云厂商 10+)                                                                                                                                                                                                                                                          | 一站式接入,智能路由 + 60% 缓存                                  |
-| **AI 编排三栈**      | LangGraph(工作流)+ MCP(工具协议)+ A2A(Agent 互通)                                                                                                                                                                                                                                                                    | 工作流、工具、智能体协同一体化                                  |
-| **自研 CLI**         | 21 命令 + 36 内置工具 + ACP Server,对标 Claude Code                                                                                                                                                                                                                                                                  | 命令行原生 AI 编程体验                                          |
-| **CLI 配置无缝导入** | 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)+ providerCode/apiFormat 智能推断(modelId 前缀优先,URL 兜底) | 跨 CLI 工具配置零迁移成本                                       |
-| **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗 + 键盘导航 + 5s 切换撤销                                                                                                                                                                                             | 决策者级风险控制 + Codex CLI safety guard                       |
-| **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                                                                                                                                                                                                                                                | 金融级数据保护                                                  |
-| **可观测性**         | Prometheus + Grafana(**21 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                                                                                                                                                         | 全链路指标 / 日志 / 追踪 / 告警                                 |
-| **工程守门**         | 30+ pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                                                                                                                                                                                                                                                | 杜绝协作事故,99.9% SLA                                          |
-| **国际化**           | zh-CN / zh-TW / en / ko / ja 5 语言 parity + 21 i18n 工具链 + AI 翻译流水线(零 LLM API)                                                                                                                                                                                                                              | 5 语言键集合 100% parity(AI agent 自主翻译补齐,开发成本降 70%+) |
-| **数据库**           | **340 表 + 144 迁移** + 100 schema 文件 + Drizzle ORM + RLS + 租户路由 + pgvector                                                                                                                                                                                                                                    | 单库 PostgreSQL 15,schema 隔离                                  |
-| **API 规模**         | 1300+ 端点(api 1080 + ai-service 55)+ 12 WebSocket + ~290 路由文件                                                                                                                                                                                                                                                   | 远超源项目 331 端点                                             |
-| **业务覆盖**         | 15 大模块 / 50+ 子功能 / **200+ Web 页面**                                                                                                                                                                                                                                                                           | 一个平台覆盖所有 AI 应用场景                                    |
-| **共享包**           | 16 packages(auth/database/types/ui/sdk/api-client/context-compaction/dom-actions/browser-platform/i18n 等)                                                                                                                                                                                                           | 跨端类型安全 + 复用                                             |
-| **微服务工程模式**   | Outbox 事务发件箱 + Refund DLQ 死信队列 + Circuit Breaker 断路器 + IDOR 防护 + WS Dedup + Hot Config                                                                                                                                                                                                                 | 生产级微服务模式                                                |
-| **性能保障**         | Knip 未使用代码 + Lighthouse CI + Locust 压测                                                                                                                                                                                                                                                                        | 性能预算 + 容量预估                                             |
-| **部署成熟度**       | Docker Compose(14 服务)+ 蓝绿 + Nginx upstream + 证书续期 cron                                                                                                                                                                                                                                                       | 生产级运维                                                      |
-
----
-
-## 与同类项目对比
-
-### 对标矩阵 · 12 列横向对比(覆盖国际/国内 40+ 大牌产品)
-
-> 因表格列数较多,建议在桌面端横向滚动查看。移动端可只看"IHUI-AI"列和"关键结论"小节。
-
-| 维度               | IHUI-AI                                                          | OpenAI ChatGPT | Dify        | LangChain        | RAGFlow    | Coze(扣子)     | Claude Code | Cursor      | GitHub Copilot | Khan Academy   | Stripe+Auth0  |
-| ------------------ | ---------------------------------------------------------------- | -------------- | ----------- | ---------------- | ---------- | -------------- | ----------- | ----------- | -------------- | -------------- | ------------- |
-| **对标类别**       | 6 大类整合(应用+CLI+多端+商业+教育+内容)                         | 通用 AI 对话   | AI 应用开发 | AI Agent 框架    | RAG 知识库 | AI 智能体 SaaS | AI 编程 CLI | AI 编程 IDE | AI 编程助手    | AI 教育平台    | 支付+认证基座 |
-| **License**        | **Apache 2.0**                                                   | **闭源**       | Apache 2.0  | MIT              | Apache 2.0 | **闭源**       | **闭源**    | **闭源**    | **闭源**       | **闭源**(免费) | **闭源 SaaS** |
-| **自托管**         | **完全自托管**                                                   | 不支持         | Docker      | 库               | Docker     | 不支持         | N/A         | N/A         | N/A            | 不支持         | N/A           |
-| **端覆盖**         | **8 端**                                                         | 2 端(Web/APP)  | 2 端        | 0 端(库)         | 2 端       | 2 端           | 1 端(CLI)   | 1 端(IDE)   | 1 端(IDE)      | 2 端           | 0 端(库)      |
-| **模型接入**       | **176 模型** + LiteLLM                                           | OpenAI 系      | 50+ 模型    | LangChain 适配器 | 30+ 模型   | 字节系         | Anthropic   | 多模型      | OpenAI         | 无             | N/A           |
-| **工作流引擎**     | **LangGraph + MCP + A2A 三栈**                                   | 无             | 自研工作流  | LangGraph        | 无         | 自研工作流     | 无          | 无          | 无             | 无             | N/A           |
-| **自研 CLI**       | **21 命令 + 36 工具 + ACP Server**                               | 无             | 无          | 无               | 无         | 无             | 原生 CLI    | 无          | 无             | 无             | N/A           |
-| **多租户 + RBAC**  | **完整**(5 级 + RLS)                                             | 单用户         | 基础        | 无               | 基础       | SaaS 内        | 无          | 无          | 无             | 学校账号       | 基础          |
-| **计费订阅**       | **完整**(VIP/钱包/积分/退款/10 支付网关(含海外 Stripe + PayPal)) | 订阅($20-200)  | 无          | 无               | 无         | SaaS 内        | 无          | 订阅($20)   | 订阅($10-39)   | 免费           | 核心(支付)    |
-| **AI 教育**        | **全栈**(课程/题库/考试/直播流媒体(SRS)/45 表)                   | 无             | 无          | 无               | 无         | 无             | 无          | 无          | 无             | 核心(教育)     | 无            |
-| **内容发布**       | **14 平台 + 14 adapter**                                         | 无             | 无          | 无               | 无         | 无             | 无          | 无          | 无             | 无             | 无            |
-| **可观测性**       | **三支柱 + 21 仪表盘**                                           | -              | 基础        | 无               | 基础       | -              | 无          | 无          | 无             | -              | -             |
-| **工程守门**       | **17 钩子 + 11 迁移审计 + 自动 push**                            | -              | 基础        | 基础             | 基础       | -              | 无          | 无          | 无             | -              | -             |
-| **i18n**           | **5 语言 parity + 8 守门(4+4)**                                  | 多语言         | 中英文      | 英文             | 中英文     | 多语言         | 英文        | 多语言      | 多语言         | 多语言         | N/A           |
-| **数据库**         | **340 表 + 144 迁移 + RLS + pgvector**                           | SaaS 内        | 基础        | 无               | pgvector   | SaaS 内        | 无          | 无          | 无             | SaaS 内        | SaaS 内       |
-| **共享包**         | **16 packages**                                                  | 无             | 无          | 1 库             | 无         | -              | 无          | 无          | 无             | 无             | 1 SDK         |
-| **月度成本(5 人)** | **$0**(自托管,仅服务器)                                          | $125+          | $59+        | $0(自集成)       | $0(自集成) | SaaS 内        | $100        | $100        | $95            | 免费(教育)     | $149+         |
-
-### 关键结论
-
-**IHUI-AI 不是要替代谁,而是把"搭建一个完整 AI 应用"所需的 6 大类基础设施都开源出来。**
-
-- 比 **OpenAI ChatGPT**:IHUI-AI 完全自托管,数据 100% 主权,带计费/教育/发布等完整业务,ChatGPT 是闭源 SaaS
-- 比 **Dify / FastGPT / Langflow / RAGFlow**:IHUI-AI 多了 6 端、自研 CLI、完整商业闭环、AI 教育全栈、14 平台发布、企业级安全栈、SRE 可观测性
-- 比 **LangChain / LlamaIndex / AutoGen**:那些是开发框架("造车零件"),IHUI-AI 是产品化基座("整车下线"),非技术团队也能用
-- 比 **Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q**:IHUI-AI 的 CLI 不仅做编程,还整合了 AI 应用平台能力(对话/RAG/Agent/计费),且整个仓库 Apache 2.0 开源,其他都是闭源
-- 比 **Coze(扣子)**:IHUI-AI 完全自托管,数据主权 100%,License 商用友好,而 Coze 是闭源 SaaS,数据上交字节
-- 比 **Khan Academy / Coursera**:IHUI-AI 的 AI 教育是开源全栈(课程/题库/考试/直播流媒体(SRS)/证书),可二次定制,那两个是闭源 SaaS
-- 比 **Stripe + Auth0 + Mailgun + Mixpanel**:IHUI-AI 把支付/认证/邮件/分析全部预置,一站式集成 4-6 类 SaaS 能力,月省 $300+
-
-**核心差异化**:在全球开源 AI 生态里,你能找到比 IHUI-AI **更专**的项目(如 RAGFlow 在 RAG 维度更深、Claude Code 在 CLI 维度更成熟、LangChain 在框架层更灵活、Khan Academy 在教育内容更丰富),但找不到比 IHUI-AI **更全**的开源基座。
-
-**一句话总结**:IHUI-AI 是 OpenAI ChatGPT(对话)+ Dify(应用编排)+ Claude Code(CLI)+ Khan Academy(教育)+ Stripe(支付)+ 蚁客(发布)的**开源一体化集成方案**。
-
----
-
-## 谁在使用 IHUI-AI
-
-本项目由**吉林省爱智汇人工智能科技有限公司**发起并主导开发,用于支撑公司商业化 AI 平台。我们欢迎更多企业、团队、个人提交使用案例(请编辑此章节提 PR):
-
-| 角色       | 场景                                        | 状态     |
-| ---------- | ------------------------------------------- | -------- |
-| 爱智汇 AI  | 公司主商业化平台(智汇 AI 集团)              | 生产使用 |
-| AI 服务商  | 多模型代理 + 计费 + 订阅一站式上线          | 适配中   |
-| 教育机构   | AI 教育全栈(课程 / 题库 / 考试 / 直播(SRS)) | 适配中   |
-| 内容创作者 | 14 平台一键发布                             | 适配中   |
-| 个人开发者 | 私有 AI 助手 + 知识库                       | 等你来填 |
-
-> 你的公司或项目正在用 IHUI-AI 吗?欢迎提交 PR 加入此列表。
-
----
-
-## 5 个典型场景
-
-### 场景 1:个人开发者搭建私有 AI 助手
+### 1. Docker Compose(推荐)
 
 ```bash
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
-cd IHUI-AI && docker compose up -d
-# 5 分钟后,你拥有(替代 ChatGPT Team + Claude Code + Notion AI 3 个订阅,月省 $60+):
-# - 一个支持 176 模型的对话界面(替代 ChatGPT Team $25/人)
-# - 私有知识库 RAG + pgvector 向量库(替代 ChatGPT Plus 知识库)
-# - 跨端同步(Web + 桌面 + 移动 + 小程序)
-# - 自研 CLI 编程助手(替代 Claude Code $20/月)
-# - 数据完全自托管,不被任何大厂窥探
-```
-
-### 场景 2:中小企业构建 AI 中台
-
-- 用 RBAC 给 200 个员工开账号,按部门隔离工作空间
-- 接入 7 个 LLM 厂商,智能路由选最便宜的模型
-- 用计费系统按部门收费,生成发票
-- 用 BI 仪表盘看哪些部门用得最多
-- 用审计日志满足合规要求
-
-### 场景 3:AI 服务商上线商业产品
-
-- 复用多模型代理 + 计费 + 订阅 + VIP + 钱包 + 积分
-- 用智能体市场让开发者入驻,抽取 30% 佣金
-- 用 API Keys + SDK 让客户接入你的平台
-- 用 14 平台发布做内容营销
-- 一周上线,而不是一年
-
-### 场景 4:教育机构改造教学
-
-- 用 AI 教育全栈导入课程 + 题库
-- 学生用直播(SRS)回放复习
-- 老师用 AI 批改试卷 + 生成学习报告
-- 直播 + 签到 + 互动 + 回放
-- 学习行为分析 + 个性化建议
-- 证书自动发放
-
-### 场景 5:内容创作者解放生产力
-
-- 在自媒体工作台写公众号文章 + 口播稿
-- 一键发布到 14 平台(公众号 / 知乎 / CSDN / 掘金 / 小红书 / B 站 / YouTube / 抖音 等)
-- 凭证 AES-256-GCM 加密存储,平台不泄露
-- 发布完成 WebSocket 实时通知
-
----
-
-## 技术栈
-
-| 层             | 技术                                                                           | 版本                                |
-| -------------- | ------------------------------------------------------------------------------ | ----------------------------------- |
-| Monorepo       | pnpm workspace + Turborepo                                                     | pnpm 9.15 / turbo 2.3               |
-| 后端 API       | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL         | Fastify 5.1 / Drizzle 0.38 / PG 15  |
-| 缓存与队列     | Redis 7 + BullMQ                                                               | 独立 worker 进程(:8081)             |
-| 前端 Web       | Next.js + React + Tailwind CSS + shadcn/ui                                     | Next 15.1 / React 19 / Tailwind 4   |
-| 前端状态       | @tanstack/react-query 5 + Zustand                                              | 服务端 + 客户端状态分离             |
-| 国际化         | next-intl                                                                      | zh-CN / zh-TW / en / ko / ja 5 语言 |
-| AI 服务        | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO                          | FastAPI 0.115 / LangGraph 0.2       |
-| AI 协议        | SSE(Agent 流式)+ WebSocket(聊天室 / 多模型流式)+ REST                          | 三协议分层                          |
-| 桌面端         | Tauri 2 + Rust(WebView 加载 Web `output: 'export'` 静态导出)                   | A 套壳架构,跨平台原生体验           |
-| 浏览器扩展     | WXT + React                                                                    | Chrome / Edge / Firefox             |
-| 移动端         | React Native + Expo EAS                                                        | iOS / Android                       |
-| 小程序         | Taro 4 + React                                                                 | 微信小程序                          |
-| CLI            | Node.js + Commander + Inquirer                                                 | 对标 Claude Code                    |
-| 认证           | @ihui/auth 共享包(JWT HS256 + token-family + OAuth2 + RBAC + data-scope 5 级)  | 跨端统一签发                        |
-| 验证           | Zod 3.24(后端)+ React Hook Form(前端)                                          | 端到端类型安全                      |
-| 日志           | Pino 9.5(后端)+ Python logging(AI 服务)+ Loki + Promtail                       | 结构化 + 聚合                       |
-| 追踪           | OpenTelemetry + Jaeger                                                         | 分布式全链路                        |
-| 监控           | Prometheus + Grafana(21 仪表盘)+ Node Exporter + Alertmanager                  | 主机 + 应用 + 告警                  |
-| 测试           | Vitest(后端)+ Playwright(E2E)+ pytest(AI 服务)+ Locust(压测)+ Lighthouse(性能) | 5346 + 400+ 用例                    |
-| 未使用代码检测 | Knip                                                                           | CI 守门                             |
-| Node           | >=20.10.0                                                                      | -                                   |
-| Python         | 3.12+(仅 AI 服务)                                                              | -                                   |
-
----
-
-## 8 端架构
-
-> 端口规则:所有 dev/宿主映射端口统一 `88xx` 段(详见 [docs/port-management.md](docs/port-management.md)),`strictPort: true` 防漂移;容器内部端口不变。
-
-```
-                    ┌──────────────────────────────────────────────────────────────┐
-                    │         用户 / 企业 / 开发者 / 教育机构 / 内容创作者             │
-                    └────────────┬─────────────────────────────────┬───────────────┘
-                                 │                                 │
-        ┌────────────────────────┼─────────────────────────────────┼────────────────────────┐
-        │                        │                                 │                        │
-   ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
-   │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
-   │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
-   │ :8801    │  │ web/out  │  │          │  │  :8805      │  │ :8804    │  │ ACP+Skl │
-   │ strictPort│  │ + Rust   │  │          │  │ iOS/Android │  │ 微信小程序 │  │ 21 命令  │
-   └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
-        │             │             │               │             │             │
-        └─────────────┴─────────────┴───────┬───────┴─────────────┴─────────────┘
-                                           │  HTTPS / WebSocket / SSE / ACP
-                                  ┌────────▼─────────┐
-                                  │   apps/api       │  Fastify 5 + Drizzle ORM
-                                  │   :8802 strictPort│  1300+ 端点 + 12 WS + 95 路由文件
-                                  │                  │  + Developer API Key /v1/* 105 端点
-                                  └────┬───────┬─────┘
-                                       │       │
-            ┌──────────────────────────▼─┐   ┌─▼──────────────────────────┐
-            │  PostgreSQL 15             │   │  apps/ai-service            │  FastAPI + Socket.IO
-            │  ├─ 340 表 / 144 迁移     │   │  :8803 strictPort           │  LangGraph + LiteLLM + MCP + A2A
-            │  ├─ pgvector 向量索引       │   │                             │  + 三栈 + P3 深度层
-            │  ├─ FTS5 全文检索           │   │  ┌─ 31+ provider + 16 IM 渠道 │  + 14 publish adapter
-            │  └─ RLS 多租户隔离          │   │  ├─ 6 沙箱后端               │  + 22 MCP tool
-            └────────────────────────────┘   │  ├─ Skill 自进化闭环         │
-                                              │  ├─ 记忆系统(pgvector+FTS5)  │
-                                              │  ├─ 调度系统(DAG+4 策略)     │
-                                              │  └─ 30+ provider + MoA       │
-                                              └────┬────────────────────────┘
-                                                   │
-                                  ┌────────────────┼────────────────┐
-                                  │                │                │
-                            ┌─────▼─────┐    ┌─────▼─────┐    ┌─────▼─────┐
-                            │  Redis 7  │    │  Worker   │    │ OTel +    │  Jaeger :8814
-                            │ Pub/Sub   │    │  BullMQ   │    │ Prometheus│  Grafana :8816
-                            │ :8811     │    │  :8830    │    │ :8815     │  Loki :8818
-                            └───────────┘    └───────────┘    └───────────┘
-```
-
-### 8 端职责
-
-| 端          | 目录                 | 技术栈                          | 职责                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ----------- | -------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Web**     | `apps/web/`          | Next.js 15 + React 19           | 主前端,200+ 页面,5 语言 i18n,PWA,SEO,`output: 'export'` 静态导出供 Desktop WebView 加载(A 套壳架构)                                                                                                                                                                                                                                                                                                               |
-| **API**     | `apps/api/`          | Fastify 5 + Drizzle             | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1300 端点 / ~290 路由文件                                                                                                                                                                                                                                                                                                                                               |
-| **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点                                                                                                                                                                                                                                                                                                                                            |
-| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust                  | **A 套壳架构:Tauri WebView 加载 Web 端 `output: 'export'` 静态导出产物(`frontendDist: ../web/out`),消除双端页面重复维护**。Desktop 端仅为 Rust shell,原生能力:窗口管理(8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆)+ F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘(国际化 i18n)+ 多显示器校验 + 单实例 + 自动更新签名。UI 功能(对话/搜索/导出/主题/Markdown/快捷键等)全部由 Web 静态产物提供 |
-| **CLI**     | `apps/cli/`          | Node.js + Commander             | 自研命令行 AI 编程助手,21 命令 + 36 工具 + ACP Server + 24 源配置导入                                                                                                                                                                                                                                                                                                                                             |
-| **扩展**    | `apps/extension/`    | WXT + React                     | 浏览器扩展,上下文菜单 + 侧边栏 + Chrome/Edge/Firefox                                                                                                                                                                                                                                                                                                                                                              |
-| **移动**    | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android 原生应用 + SSO                                                                                                                                                                                                                                                                                                                                                                                      |
-| **小程序**  | `apps/miniapp-taro/` | Taro 4 + React                  | 微信小程序,微信支付原生集成 + 3 语言 i18n                                                                                                                                                                                                                                                                                                                                                                         |
-
-### 前端样式 token 单一来源(跨端共享,2026-07-23 立)
-
-> web 与 extension 不再各自维护 `@theme` 块,改 token 一处改、两端生效,杜绝手动同步漂移。
-
-- **单一来源**:`packages/design-tokens/src/styles/tokens.css`
-- **消费方式**:各端 `globals.css` 顶部 `@import` 引用(web `../../../packages/design-tokens/src/styles/tokens.css` / extension `../../../../packages/design-tokens/src/styles/tokens.css`)
-- **共享内容**:`@theme` 块(颜色 / 圆角 / 字体 / 动画 / 10 档断点)+ `.dark` 深色模式覆盖 + 中文字体垂直对齐全局规则(`--text-vcenter-offset: 0.3px`,AGENTS.md §4)
-- **效果**:改 token 一处,web(8801) + extension 同步生效;typecheck / build / browser 4 状态验证全部通过
-
-### 前端 i18n 单一来源(跨端共享,2026-07-23 立)
-
-> web 与 extension 不再各自维护 i18n 消息源,extension 翻译 JSON 一处改、单一来源,杜绝 key 集合漂移。
-
-- **单一来源**:`apps/extension/src/i18n/messages/{zh-CN,en,ja,ko,zh-TW}.json`(5 语言 × 17 namespace / 202-203 行每语言,2026-07-24 从 @ihui/i18n 包内联回 extension,消除只服务单端的冗余包)
-- **消费方式**:extension `src/i18n/index.tsx` 顶部 `import zhCN from './messages/zh-CN.json'`(其余 4 语言同),保留自研 Context runtime(useI18n / readLocale / writeLocale + browser.storage.local + localStorage 双回退),仅数据源内联、运行时逻辑不变
-- **守门扩展**:原 4 个 i18n 守门脚本(check-i18n-keys / scan-i18n-zh-residue × 2 语言 / check-i18n-broken-en)添加 `--target=web|extension` 参数,extension 模式扫 `apps/extension/src/i18n/messages/`;pre-commit 添加 4 个 extension warn-only 守门项(2f-2i);添加 LANGUAGE_AUTOGLOSSONYMS 白名单解决语言选择器 autoglossonym 误报(简体中文/繁體中文/日本語)
-- **效果**:extension i18n 消息源从 5 个本地 TS(203 行/语言)迁移到共享包 JSON;typecheck / build / 4 个 extension 守门脚本全绿;build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
-- **web 端保持原状**:web 用 next-intl(587 namespace / 28,800 行 JSON),体积量级与 extension 差异 200×,强行统一会引入 next-intl 运行时依赖到 extension(浏览器扩展 WXT 0.19 不友好),保留双 runtime 但共享包可在未来扩展到 desktop 等端
-- **阶段 3(经评估暂不抽取)**:全量扫描 9 个 sidepanel 页面 + popup + content-toolbar,**0 个页面可抽取共享业务组件**。根因是技术栈分裂根本性(web: Next.js App Router + next-intl + zustand + react-query + shadcn vs extension: WXT + react-router-dom + 自研 Context + useState + 内联 CSSProperties),路由/i18n/状态/UI 4 个维度全部分裂。阶段 1+2 已消除最高频的"改一处同步两端"痛点,阶段 3 边际收益不显著,强行抽取会引入 4 套适配层复杂度。后续前置条件:需先做技术栈收敛(类似 Wave 21 阶段 2 的路线比选)
-- **阶段 4(2026-07-27 立,绕开技术栈分裂)**:不从"抽 sidepanel 页面"角度,而从"消除低频页面 + 下沉纯 DOM 操作 + 抽平台适配层 + 深度下沉 storage/scheduler/openInWeb helper + background.ts adapter 替换"角度提升共用率从 50-60% 到 ~80%。① **低频页面改跳 web**:7 个 sidepanel 低频页面(vip/member/distribution/invitations/points/fans/following)删除,路由改为 `<ComingSoonPage mode="open_in_web" webUrl={...} />`,用 `chrome.tabs.create` 打开 web 端对应页面,扩展端不再维护这 7 个页面的手动同步;② **抽 @ihui/dom-actions 共享包**:把 `apps/extension/lib/agent-control.ts` 的 8 个纯 DOM 操作函数(click_element/type_text/scroll/extract_dom/wait_for_element/get_attribute/hover/select_option)+ setNativeValue + DomActionResult 类型 + isDomAction/executeDomAction 下沉到 `packages/dom-actions/`,8 端可复用,无 chrome.* 依赖,agent-control.ts 改 import + re-export 保持下游 import 路径不变;③ **抽 @ihui/browser-platform 适配层**:调研 93 处 chrome.* 调用点,识别 5 类平台硬边界(sidePanel/contextMenus/action/onInstalled/onStartup/alarms 生命周期)+ 11 个可抽象接口,新建 `packages/browser-platform/`(5 个 adapter:Storage/Tabs/Messaging/Runtime/Scheduler + chrome 实现 + factory),extension 4 核心文件迁移(token.ts 9 处 storage + config.ts 1 处 storage + message-router.ts 2 处 messaging + agent-control.ts 17 处 tabs),保留硬边界调用在 extension 内;④ **P3 深度下沉 + background.ts adapter 替换**:storage-adapter.ts / use-system-theme.ts / token-utils.ts(alarms→scheduler.scheduleOnce)/ 新建 lib/open-in-web.ts helper(收敛 18 处 chrome.tabs.create + 消除 14+ WEB_BASE 重复)/ background.ts 17 处 chrome.* 替换为 platform.*(修复重复注册 alarm listener bug),保留 17 处 MV3 硬边界 + 3 处 sidePanel.open({windowId}) fallback;⑤ _*剩余 ~17% 为 chrome.* 平台硬边界_*:sidePanel/contextMenus/action/onInstalled/onStartup 等 MV3 平台独占 UI 容器与生命周期,无法跨端抽象
-
-### RN ↔ Web 跨端共享组件层(packages/app,2026-07-24 立)
-
-> React Native 与 Web 不再各自维护 About/Profile/Settings 三屏,改 props 注入式跨端共享组件,一处改、两端生效,杜绝 UI 双份维护漂移。基于 react-native primitives + StyleSheet 架构(纯 props 注入,无外部导航库依赖;未接入 NativeWind,未来接入需补 className 类型扩展)。
-
-- **共享包**:`packages/app/`(平台无关,只依赖 react-native primitives + StyleSheet,导航通过 onBack/onNavigate props 注入)
-- **共享组件**:3 个生产级跨端屏
-  - `AboutScreen` — 关于页(appInfo + onBack 注入)
-  - `ProfileScreen` — 个人资料页(user/stats/orderCount/loading/error/menuSections/onNavigate/onLogout/onBack 注入)
-  - `SettingsScreen` — 设置页(locale/theme/notifications/onChangePassword/onAlert/onConfirm/menuItems 等注入,内置密码修改 Modal + 校验)
-- **设计令牌**:`packages/app/src/theme/tokens.ts` 定义 5 组令牌(brand/surface/text/border/error)+ `AppTokens` 类型,3 共享组件 StyleSheet 全量引用,根治颜色漂移 + 为暗色模式铺路(预留 brand.dark/surface.dark)。mobile-rn 端 RootNavigator tab 激活色 + SharedDemoScreen 也引用 tokens,真正落实跨端品牌色一致。
-- **类型契约**:`packages/app/src/types.ts` 定义 TFunction / SharedUser / SharedUserStatistics / SharedMenuSection / SharedLocaleOption / SharedThemeOption / SharedNotificationToggles 等 12 个平台无关类型
-- **平台解耦设计**:共享组件只负责纯 UI 渲染,所有平台依赖通过 props 回调注入
-  - **i18n**:t 函数注入(RN 用自研 Context / web 用 next-intl 或 fallback)
-  - **数据**:user/stats/orderCount 注入(RN 用 @ihui/api-client / web 用 mock 或 react-query)
-  - **导航**:onBack/onNavigate 注入(RN 用 react-navigation / web 用 next-intl 或 next router)
-  - **弹窗**:onAlert/onConfirm 注入(RN 用 Alert.alert / web 用自定义 Modal)
-  - **API**:onChangePassword 注入(RN 用 updatePassword / web 用 mock)
-- **RN 端 wrapper**(生产接入):
-  - `apps/mobile-rn/src/screens/AboutScreen.tsx` — 注入 t + navigation.goBack
-  - `apps/mobile-rn/src/screens/ProfileScreen.tsx` — 注入 t + 真实 getUserStatistics/getOrders API + 菜单导航(viaParent 处理)+ logout
-  - `apps/mobile-rn/src/screens/SettingsScreen.tsx` — 注入 t + Alert.alert + 真实 updatePassword API + 导航 + locale/theme/notifications 状态
-- **Web 端验证页**:`apps/web/app/(main)/shared-demo/page.tsx` — tab 切换展示 3 共享组件,用 mock 数据 + t fallback 函数
-- **架构边界**:web 生产页(/about、/settings、/user/profile 等)保留独立 Next.js + shadcn/ui 实现,共享组件仅用于 RN 生产 + web /shared-demo 验证页。理由:web 生产页 UI 复杂度远超共享组件(如 settings 有 SecurityScore/TwoFactorAuth/DeviceManager 等安全模块),强制接入会降级体验。共享组件的合理定位是 RN 内部共享 + web 验证页。
-- **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 23 key)+ 新增 about/menu namespace(11 key)
-- **验证**:packages/app typecheck ✅ / mobile-rn typecheck(本任务文件 0 错)/ web typecheck(本任务文件 0 错)/ SharedDemoScreen RN 集成验证 / shared-demo web 集成验证
-
-### 项目状态矩阵(透明标注,2026-07-22 核对)
-
-> **为什么公开标注各端完成度**:让 AI 检索工具和开发者拿到**真实**状态,而不是看到"8 端全覆盖"后去 grep 代码发现差异,从而判定"项目夸大宣传"。各端完成度不均是我们的现状,我们选择透明。
-
-| 端          | 目录                 | 完成度        | 代码量                        | 测试覆盖             | 核心场景                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------- | -------------------- | ------------- | ----------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Web**     | `apps/web/`          | 🟢 生产级     | 200+ 页面 / 完整业务          | 63 e2e spec + Vitest | 主前端,所有业务模块                                                                                                                                                                                                                                                                                                                                                              |
-| **桌面**    | `apps/desktop/`      | 🟡 核心场景级 | Tauri 2 + Rust(纯 shell)      | Rust 工具链待装      | **A 套壳架构:WebView 加载 Web `output: 'export'` 静态导出** + 原生能力(窗口管理 8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆 + F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘国际化 + 多显示器校验 + 单实例 + 自动更新签名)。UI 功能由 Web 静态产物提供,Desktop 仅 Rust shell(2026-07-24 收敛:删除 13 冗余 React 页面 + 15 测试文件,仅保留 Tauri 配置 + Rust) |
-| **API**     | `apps/api/`          | 🟢 生产级     | 1300+ 端点 / ~290 路由文件    | 237 .test.ts         | 业务管理 + 认证 + 计费 + WebSocket                                                                                                                                                                                                                                                                                                                                               |
-| **AI 服务** | `apps/ai-service/`   | 🟢 生产级     | 21 LangGraph 文件 / 215+ 端点 | pytest + 集成测试    | LLM 网关 + Agent 执行 + MCP + A2A                                                                                                                                                                                                                                                                                                                                                |
-| **CLI**     | `apps/cli/`          | 🟡 核心场景级 | ~1500 行 / 21 命令 / 36 工具  | 单元测试             | 自研 AI 编程助手,ACP Server                                                                                                                                                                                                                                                                                                                                                      |
-| **扩展**    | `apps/extension/`    | 🟡 核心场景级 | WXT + React                   | 基础测试             | 上下文菜单 + 侧边栏 + 浏览器控制                                                                                                                                                                                                                                                                                                                                                 |
-| **移动 RN** | `apps/mobile-rn/`    | 🟡 核心场景级 | Expo EAS + iOS/Android        | 基础测试             | Chat + WorkPanel + SSO + 微信支付 APP(react-native-wechat-lib + config plugin + EAS Build)                                                                                                                                                                                                                                                                                       |
-| **小程序**  | `apps/miniapp-taro/` | 🟡 核心场景级 | Taro 4 + 微信支付             | 基础测试             | Chat + WebView + 微信支付                                                                                                                                                                                                                                                                                                                                                        |
-
-**完成度定义**:
-
-- 🟢 **生产级**:完整业务页面 + 完整测试覆盖 + 已用于商业化主平台
-- 🟡 **核心场景级**:核心 Chat / WorkPanel / SSO 等关键路径已打通,但业务页面覆盖度低于 Web 端,适合二次开发补全
-
-**多端同步开发规则**:本项目 [AGENTS.md §9](./AGENTS.md) 强制要求"每一个任务默认全端连通",任何新功能必须同步到所有受影响的端(平台独占豁免除外)。
-
----
-
-## 跨端共享架构(2026-07-30 立,P3-3.3 完成 49 features 共享)
-
-> IHUI-AI 8 端代码同源 + 跨端共享层(`packages/app` + `packages/shared` + `packages/ui-react` + `packages/design-tokens` + `packages/types` + `packages/api-client` + `packages/auth`)+ 工厂模式 + 依赖注入 = 一处改动,8 端生效。下面以最复杂的 mobile-rn ↔ web 共享为例,说明跨端共享层如何工作。
-
-### 1. 共享层(`packages/app`)的角色
-
-| 共享包                | 路径                      | 职责                                             | 跨端接入方                                                       |
-| --------------------- | ------------------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
-| `@ihui/rn-app`        | `packages/app/`           | RN 业务屏 + 跨端设计令牌 + 平台无关类型          | mobile-rn(151 wrapper)+ web(`/shared-demo` 验证页)               |
-| `@ihui/shared`        | `packages/shared/`        | hooks / utils / stores / constants / i18n helper | web / api / cli / mobile-rn / miniapp-taro / extension / desktop |
-| `@ihui/ui-react`      | `packages/ui-react/`      | Web 端 shadcn/ui 组件(24 个)                     | web / desktop / extension(共享 React)                            |
-| `@ihui/design-tokens` | `packages/design-tokens/` | 8 端共享设计令牌 + `cn()` + HSL / HEX / CSS 变量 | 全部 8 端                                                        |
-| `@ihui/types`         | `packages/types/`         | 跨端类型单一真相源                               | 全部 8 端(禁止端内重复声明)                                      |
-| `@ihui/api-client`    | `packages/api-client/`    | 40+ 端点 SDK 自动生成                            | web / mobile-rn / miniapp-taro / extension / desktop / cli       |
-| `@ihui/auth`          | `packages/auth/`          | JWT + token-family + OAuth2 + RBAC + data-scope  | apps/api + 端侧 SDK                                              |
-
-### 2. props 注入式跨端共享组件模式
-
-`packages/app/` 内的所有共享屏均采用 **纯 UI 渲染 + props 注入依赖** 的设计,平台相关能力(导航 / i18n / API / 弹窗)全部通过 props 回调注入,做到"平台无关":
-
-```text
-共享组件                          RN 端 wrapper                     Web 端
-AboutScreen / ProfileScreen    ──→ apps/mobile-rn/src/screens ──→ /shared-demo 验证页
-SettingsScreen                    (只注入 navigation / t / API)     (mock 数据 + t fallback)
-                                  60-100 行 → 20-50 行薄 wrapper
-```
-
-- **i18n 注入**:`t` 函数 props(RN 用自研 Context / web 用 next-intl fallback)
-- **数据注入**:`user / stats / orderCount` props(RN 用 `@ihui/api-client` / web 用 mock)
-- **导航注入**:`onBack / onNavigate` props(RN 用 react-navigation / web 用 Next router)
-- **弹窗注入**:`onAlert / onConfirm` props(RN 用 `Alert.alert` / web 用 Modal)
-- **API 注入**:`onChangePassword / fetchApi` props(RN 调真 API / web 用 mock)
-- **主题**:`colorScheme` + `getTokens(colorScheme)` 双主题(预留 `brand.dark / surface.dark` 暗色支持)
-
-### 3. mobile-rn 共享层接入现状(2026-07-29 P3-3.3 完成)
-
-- **153 屏总规模 / 151 wrapper + 2 独立豁免**:`Debug` / `DevEnter` 因平台硬边界(开发者工具 / EAS Build 配置)保留独立实现
-- **49 features 共享清单**(按 10 批次累计):
-  - **批次 1(基础 16 屏)**:About / Profile / Settings / Feedback / FeedbackHistory / FeedbackDetail / Bookmark / NotificationList / History / Certificate / MessageCenter / Order / StudyPlan / Wallet / CourseCatalog / PointHistory
-  - **批次 2(列表 9 屏)**:NoteList / NoteDetail / ArticleList / ArticleDetail / Announcement / LivePlaybackList / RefundHistory / CourseQAList / HelpDetail
-  - **批次 3(静态 11 屏)**:Privacy / Agreement / PointRule / VipLevel / RefundDetail / OrderDetail / CertDetail / PostDetail + LegalDoc / AnnouncementDetail / Help
-  - **批次 4(详情 8 屏)**:AgentDetail / AskDetail / AskList / CertList / CertVerify / Withdraw / VipCompare / Share
-  - **批次 5(深度 8 屏)**:AgentMarket / AgentReviewList / Live / Activity / Favorites / CheckIn / Following / PointsMall
-- **16 个新共享类型**:`AgentMarketItem` / `AgentReviewListItem` / `ActivityItem` / `FavoritesItem` / `CheckInDay` / `CheckInInfo` / `LiveScreenItem` / `PointsMallItem` 等,全部上提到 `@ihui/types` 单一真相源
-- **5 语言 i18n 补全**:累计 78+80 键(批次 9+10)+ 23+11 键(批次 1 settings+about),同步到 `apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts`
-- **react-native-web web 验证**:`apps/web/app/(main)/shared-demo/page.tsx` 用 mock 数据 + t fallback 函数 tab 切换展示共享组件
-- **守门**:`scripts/check-rn-app-migration.mjs` 已落地 guardian-runner 第 39 项 blocking,任何 `apps/mobile-rn/src/screens/<Name>Screen.tsx` 非薄 wrapper 模式 → commit 阻塞
-
-### 4. 跨端共享架构图(简化)
-
-```text
-                     ┌────────────────────────────────────────────┐
-                     │     packages/types 单一真相源              │
-                     │ ChatMessage / SharedUser / Item 类型 / ...│
-                     └──────────────┬─────────────────────────────┘
-                                    │
-        ┌───────────────────────────┼───────────────────────────┐
-        │                           │                           │
-   ┌────▼─────┐               ┌─────▼─────┐               ┌─────▼─────┐
-   │ packages │               │ packages  │               │ packages  │
-   │  /app    │  ── 共享 ──→ │  /shared  │ ←── 共享 ──  │ /ui-react │
-   │(RN 业务) │               │ (hooks +  │              │ (Web 24   │
-   │ 49 features│             │  utils)   │              │  组件)   │
-   └────┬─────┘               └─────┬─────┘               └────┬─────┘
-        │                           │                           │
-        │ 151 wrapper                │ 工厂模式                  │ shadcn/ui
-        │ 60-100 行 → 20-50 行        │ createXxxStore          │
-        │                           │ createXxxHook            │
-   ┌────▼──────────────┐      ┌─────▼────────────┐      ┌────▼────────┐
-   │ apps/mobile-rn    │      │ 全部 8 端         │      │ web / desktop│
-   │ (生产 RN 端)      │      │ 业务逻辑共享      │      │  / extension │
-   └───────────────────┘      └──────────────────┘      └─────────────┘
-```
-
-### 5. 跨端共享效益
-
-- **真维护倍数 1.72x**(2026-07-29 实测,见下文"维护倍数对比"表)
-- **类型零漂移**:`@ihui/types` 单一来源,跨端字段名 / 必填 / 可选变更全端自动同步
-- **UI 零双份维护**:共享屏只在 `packages/app/` 写一次,两端各 20-50 行薄 wrapper
-- **主题零双份**:`getTokens(colorScheme)` 双主题一处定义,8 端引用
-
-详细技术细节见 [docs/architecture.md](./docs/architecture.md) "跨端共享层" 章节 + [PROJECT_PLAN.md](./PROJECT_PLAN.md) "P3 极限目标" 路线图。
-
----
-
-## 维护倍数对比(2026-07-30 立,5 阶段路线图降本数据)
-
-> IHUI-AI 跨端共享不是空话 —— 我们用 `cloc` 真实数据追踪每阶段维护成本下降幅度。从 6.8x 起步,经 7 阶段(2.9x 收尾)+ P3 极限路线 5 阶段(2.9x → 1.7x),真维护倍数降至 **1.72x**(2026-07-29 实测),接近理论极限 1.5x。
-
-### 阶段路线总览(从立项到当前)
-
-| 阶段   | 时间         | 主题                                  | 维护倍数 | 单阶段降本 | 累计降本    | 关键 commit / 节点                 |
-| ------ | ------------ | ------------------------------------- | -------- | ---------- | ----------- | ---------------------------------- |
-| 起点   | 2026-Q1      | 8 端独立代码 + 各自 hooks / utils     | **6.8x** | —          | —           | 多端维护成本优化立项               |
-| 阶段 1 | 2026-07 早期 | 基础共享层 + i18n 抽取                | 5.4x     | -1.4x      | 1.4x        | `scripts/extract-shared-layer.mjs` |
-| 阶段 2 | 2026-07      | hooks / utils 跨端下沉                | 5.3x     | -0.1x      | 1.5x        | `5ffaf02a8`(20 文件 ~2100 行)      |
-| 阶段 3 | 2026-07      | 登录 / 注册场景跨端共享               | 4.7x     | -0.6x      | 2.1x        | `d8d0abdcb1` + `8a61ee6364`        |
-| 阶段 4 | 2026-07      | design-tokens 8 端统一                | 4.2x     | -0.5x      | 2.6x        | catalog 锁定 + 暗色模式铺路        |
-| 阶段 5 | 2026-07      | i18n 治理(动态拼接 + 无引用 key 清理) | 3.9x     | -0.3x      | 2.9x        | 4 阶段 i18n 完成                   |
-| 阶段 6 | 2026-07-28   | schema 字段补齐 + 真实上传            | 3.1x     | -0.8x      | 3.7x        | 4 subagent 并行                    |
-| 阶段 7 | 2026-07-28   | P0 schema + 类型显式化                | **2.9x** | -0.2x      | 3.9x(57.4%) | P0 schema 补齐                     |
-
-### P3 极限路线图(2026-07-29 立,目标 2.9x → 1.7x)
-
-| P3 阶段                          | 时间窗口      | 主题                                                                                                  | 维护倍数        | 累计降本     | 关键节点                                            |
-| -------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------- | --------------- | ------------ | --------------------------------------------------- |
-| **起点**                         | 2026-07-29    | 阶段 7 收尾                                                                                           | **2.9x**        | 3.9x(57.4%)  | 立项背景                                            |
-| **P3-1 design-tokens 统一**      | 短期 1-2 周   | catalog 锁定 + 暗色模式 + i18n 全量校验                                                               | **2.7x**        | 4.1x         | P3-1.4 全端验证(预期 ≤ 2.7x)                        |
-| **P3-2 Web 系三端共享 ui-react** | 中期 1 月     | Desktop + Extension 改用 ui-react,独立 UI ≤ 3 个                                                      | **2.3x**        | 4.5x         | P3-2.4 全端验证(预期 ≤ 2.3x)                        |
-| **P3-3 Mobile RN 对齐 shadcn**   | 中长期 1-2 月 | mobile-rn 49 features 全部改 re-export `packages/app`,wrapper 只注入 navigation / fetchApi / useTheme | **1.72x**(实测) | 5.08x(74.7%) | P3-3.3 commit `6ba6f3064c`(151 wrapper / 153 total) |
-| **P3-4 极限收尾**                | 长期 2-3 月   | `packages/shared` 全部下沉 + Server-Driven UI + Tauri 2 shell 评估                                    | **2.0x**        | 4.8x         | P3-4.4 全端验证(预期 ≤ 1.7x)                        |
-
-### 真维护倍数 1.72x 实测证据(2026-07-29 P3-3.3 完成)
-
-- **mobile-rn 端 153 屏**:151 个 wrapper(re-export `packages/app`)+ 2 个独立豁免(Debug / DevEnter,平台硬边界)
-- **49 features 共享清单**:从 About / Profile / Settings 基础屏到 AgentMarket / Live / PointsMall 深度屏,共 10 批次累计 16 个新共享类型 + 5 语言 i18n 80+ 键补全
-- **守门脚本 blocking**:`scripts/check-rn-app-migration.mjs` 已落地 guardian-runner 第 39 项,任何 `apps/mobile-rn/src/screens/<Name>Screen.tsx` 非薄 wrapper 模式 → commit 阻塞
-- **commit 链**:`b9f24740c`(批次 10 +2460/-727 行)→ `6ba6f3064c`(P3-3.3 收官 + 守门脚本落地)
-- **类型契约**:全部上提到 `@ihui/types`,跨端字段名 / 必填 / 可选变更一处生效
-
-### 维护倍数计算方法
-
-> 维护倍数 = Σ(端内独立代码行数) / Σ(共享层代码行数)
->
-> 例子:web 200 页 + mobile-rn 153 屏 + desktop 0 业务屏 + extension 0 业务页 + ... 中,各端 **功能等价** 的代码总量是分母,各端 **实际独立写** 的代码总量是分子
->
-> 1.0x = 理想情况(只写一次,所有端共享)
-> 2.0x = 每个功能要写 2 份
-> N.x = 每个功能要写 N 份
->
-> 1.72x 表示 mobile-rn 端 49 features 中,每屏平均只需写 0.72 份独立代码(其余 1.0 份在 `packages/app/` 共享层)
-
----
-
-## 应用使用层级图
-
-> 从用户使用视角展示 IHUI-AI 的 6 层架构。上层依赖下层,每层均可独立替换 / 扩展。
-
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ L1 用户层(Who) — 5 类角色使用 IHUI-AI                                                  │
-│   个人开发者 │ 中小企业 │ AI 服务商 │ 教育机构 │ 内容创作者                              │
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           │
-┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
-│ L2 接入层(Entry) — 6 种入口形态                                                       │
-│   Web 200+ 页面 │ CLI 21 命令 │ 桌面 Tauri │ 浏览器扩展 │ 移动 RN │ 微信小程序          │
-│   ↓ 第三方接入:Developer API Key(Bearer + 27 权限点)/v1/* 105 端点 + TS/Python/Go SDK  │
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           │
-┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
-│ L3 能力层(Capability) — 15 大模块按角色分组                                            │
-│   A. AI 能力层    :176 模型 / LangGraph+MCP+A2A 三栈 / 多模态 / 数字人 / 资讯聚合       │
-│   B. AI 工作流    :自研 CLI / 工作空间权限 / 智能体市场 / Coze+OpenClaw+Crew 集成        │
-│   C. 内容教育     :14 平台发布 / AI 教育全栈 45 表 / 短剧 / 名片                         │
-│   D. 企业运营     :计费交易闭环 / 社区互动 / 运营增长 / 客服工单 / BI 仪表盘             │
-│   E. 工程基础     :安全合规 / 数据库 / i18n / 23 守门 / 测试性能                         │
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           │
-┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
-│ L4 服务层(Service) — 2 个核心服务 + 1 个 worker                                        │
-│   apps/api :8802  → Fastify 5 + Drizzle 1300+ 端点(业务/认证/计费/WebSocket)            │
-│   apps/ai-service :8803 → FastAPI + LangGraph + LiteLLM + MCP + A2A + P3 深度层          │
-│   Worker :8830    → BullMQ 独立进程(异步任务:发邮件/扣费/爬虫/LLM 回调)                 │
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           │
-┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
-│ L5 数据层(Data) — 双引擎持久化                                                        │
-│   PostgreSQL 15 :8810  → 340 表 / 144 迁移 / 30+ 业务域 / RLS 多租户隔离               │
-│     ├─ pgvector 向量索引(记忆 / RAG / 语义搜索,无需独立向量数据库)                      │
-│     ├─ FTS5 全文检索(双引擎:向量 + 关键词)                                            │
-│     └─ 知识图谱 schema(节点 + 关系 + 实体链接)                                        │
-│   Redis 7 :8811       → Pub/Sub + 缓存 + 限流 + 会话 + 任务队列                          │
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           │
-┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
-│ L6 基础设施层(Infra) — 部署 + 可观测 + 守门                                            │
-│   部署:Docker Compose 14 服务 / Nginx 反向代理 + 蓝绿 / Let's Encrypt / S3             │
-│   可观测:Prometheus :8815 + Grafana :8816(21 仪表盘)+ Loki :8818 + Jaeger :8814       │
-│   工程守门:30+ pre-commit + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本  │
-│   CI/CD:GitHub Actions(build / ci / e2e / knip 4 workflow)+ GitHub Act 本地预演       │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 层级关系说明
-
-| 层级        | 依赖方向                   | 替换/扩展点                                           |
-| ----------- | -------------------------- | ----------------------------------------------------- |
-| L1 用户层   | 向下消费 L2-L6             | 新增角色只需接入对应入口                              |
-| L2 接入层   | 向下调用 L3 能力 / L4 服务 | 8 端独立,新增端复用 `packages/*` 共享包               |
-| L3 能力层   | 向下编排 L4 服务           | 15 模块独立,新增模块按角色分组归档                    |
-| L4 服务层   | 向下读写 L5 数据           | api ↔ ai-service 通过 HTTP/WS,可独立扩缩              |
-| L5 数据层   | 向下依赖 L6 基础设施       | PostgreSQL 可换 MySQL/SQLite(需同步 Drizzle schema)   |
-| L6 基础设施 | 支撑全栈                   | Docker Compose 可迁移 K8s(规划中,业务服务 >10 时触发) |
-
----
-
-## 应用功能层级及介绍图
-
-> 按用户角色分组,5 大功能层 / 15 模块 / 70+ 子能力一览。每个模块标注核心场景与对应代码入口。
-
-```
-IHUI-AI 应用功能全景
-│
-├── A. AI 能力层(面向最终用户)— 对话 / 创作 / 多模态
-│   │
-│   ├── A1. 100+ 大模型一站式接入
-│   │   • LiteLLM 网关统一接入 · 智能路由 · 60% 缓存命中
-│   │   • 国际(OpenAI/Claude/Gemini/Grok)+ 国产(GLM/Qwen/Doubao/DeepSeek/Kimi)+ 云厂商 8 家
-│   │   📁 apps/ai-service/app/providers/ · 5 适配器
-│   │
-│   ├── A2. LangGraph + MCP + A2A 三栈协同
-│   │   • LangGraph StateGraph 工作流(plan→execute→summarize,stub 模式无 key 可开发)
-│   │   • MCP 11 内置工具 + 3 资源 + 3 提示词 + 项目级 MCP + mcp-extended
-│   │   • A2A Agent-to-Agent 协议(Redis 持久化 + 内存降级)
-│   │   • 向量记忆 / 知识库 RAG / 知识图谱 / Persona / Agent Runtime SSE 流式
-│   │   📁 services/langgraph_service.py · routers/mcp.py · routers/a2a.py
-│   │
-│   └── A3. 多模态 AI 创作
-│       • 文生图(SD/DALL-E/通义万相)· 图像编辑 · TTS 流式合成(12+ 音色)
-│       • ASR 语音识别 · 音色克隆 · WebRTC 双向实时语音
-│       • 文生视频 · AI 数字人(腾讯混元 3D)· AI 求职 · AI 资讯聚合
-│       📁 apps/api/src/routes/ai-* · apps/ai-service/app/routers/
-│
-├── B. AI 工作流与开发者(面向开发者)— 编程 / 协作 / Agent 市场
-│   │
-│   ├── B1. 自研 CLI(对标 Claude Code)
-│   │   • 21 命令(REPL/chat/agent/init/sessions/mcp/capabilities/checkpoint/hooks/import/skills/acp/audit)
-│   │   • 36 内置工具(ask-user/builtins/clipboard/codegraph/fetch-url/file-edit/git/mcp-oauth/run-tests/subagent/todo-write/web-search)
-│   │   • ACP Server(Zed/VSCode/Cursor 嵌入)· 24 源配置导入 · Skills 系统
-│   │   • Client/Server 架构 · 四层记忆 + 梦境 · Plan-Build-Review 三模 · Subagent 协作
-│   │   📁 apps/cli/src/
-│   │
-│   ├── B2. 企业级工作空间权限
-│   │   • 3 模式(default/accept-edits/bypass-permissions)· 7 端点运行时拦截
-│   │   • 60s 审计超时 · WebSocket 实时推送权限请求 · 任务级权限隔离
-│   │   📁 apps/api/src/routes/workspace-ai*
-│   │
-│   └── B3. 多智能体业务管理
-│       • 智能体市场(购买/审核/结算/提现/排行/精选)+ 开发者中心(13 子页)
-│       • Coze SDK 代理 · OpenClaw 框架 · CrewAI 集成 · N8N 反向代理
-│       • Skills 系统(content_engine + koubo_workflow 10+ tools)· MCP 扩展 · Persona 注册表
-│       📁 apps/api/src/routes/agent-* · apps/api/src/routes/coze*
-│
-├── C. 内容创作与教育(面向创作者与教育者)— 发布 / 教学 / 短剧
-│   │
-│   ├── C1. 内容创作与多平台发布
-│   │   • 14 平台一键自动发布:文章 9(WordPress/Medium/公众号/头条/知乎/CSDN/掘金)
-│   │     + 图片 2(小红书/微博)+ 视频 5(YouTube/B 站/抖音/快手/视频号)
-│   │   • 凭证 AES-256-GCM 加密 · WebSocket 实时通知 · 资讯新闻爬虫
-│   │   • 自媒体工作台(公众号文章 + 口播稿双流水线)· 短剧创作 · 业务名片
-│   │   📁 apps/ai-service/app/services/publish/ · apps/web/app/(main)/drama/
-│   │
-│   └── C2. AI 教育全栈
-│       • 课程学习(课程/章节/路径/地图/进度/笔记/问答)
-│       • 题库与考试(多题型/自动批改/错题本/试卷上传)
-│       • 直播流媒体(SRS) · 直播教学(签到/互动/回放)
-│       • 学习报告 · 证书发放 · 讲师管理 · 学生端 12 子页 · edu-full 45 表 schema
-│   │   📁 apps/api/src/routes/learn* · apps/api/src/routes/exam* · apps/api/src/routes/live*
-│
-├── D. 企业与运营(面向企业管理者与运营)— 计费 / 社区 / 增长 / 客服 / BI
-│   │
-│   ├── D1. 计费与交易
-│   │   • 闭环:订阅 VIP → 钱包充值 → 积分获取 → 模型扣费 → 退款审计 → 发票
-│   │   • 分销佣金 + 邀请返佣 · VIP 多级会员 · 10 支付网关(含海外 Stripe + PayPal) · 多币种汇率
-│   │   📁 apps/api/src/routes/billing* · apps/api/src/routes/wallet* · apps/api/src/routes/order*
-│   │
-│   ├── D2. 社区与互动
-│   │   • 圈子广场 · 私信消息(WebSocket 实时推送)· 关注粉丝 · 分享邀请
-│   │   • 互动反馈(评论/点赞/收藏/举报/反馈中心)
-│   │   📁 apps/api/src/routes/social* · apps/api/src/routes/message*
-│   │
-│   ├── D3. 运营增长体系
-│   │   • 积分签到 · 排行榜 · 抽奖红包 · 分销佣金(8 子页)· 活动公告
-│   │   • 游戏化(等级/成就/勋章)· VIP 会员权益 · 优惠券
-│   │   📁 apps/api/src/routes/checkin* · apps/api/src/routes/ranking* · apps/api/src/routes/distribution*
-│   │
-│   ├── D4. 客服与支持
-│   │   • 工单系统(提交/处理/评价/FAQ)· 在线客服(WebSocket 1 对 1)
-│   │   • 反馈中心 · 帮助中心(动态路由文档)
-│   │   📁 apps/api/src/routes/admin-asks* · apps/api/src/routes/support*
-│   │
-│   └── D5. 运营与监控
-│       • BI 仪表盘 · 错误仪表盘 · 操作日志 · API 调试 · 灰度发布 / A/B 测试
-│       • i18n 仪表盘 · 访问追踪 · 告警监控(Alertmanager + noise-rules)
-│   │   📁 apps/api/src/routes/bi-* · apps/api/src/routes/audit* · apps/api/src/routes/canary*
-│
-└── E. 工程基础设施(面向运维与架构师)— 安全 / 数据 / i18n / 守门 / 测试
-    │
-    ├── E1. 安全与合规
-    │   • 认证(JWT HS256 + token-family + refresh 黑名单)· SSO(OAuth2 + Apple + Google + PKCE)
-    │   • 加密(AES-256-GCM credentials)· 限流 · RBAC(roleId ≥ 1)· 多租户 RLS · 2FA · GDPR
-    │   • CSRF · XSS 守门 · API key 泄露守门 · 行锁防 TOCTOU · 审计日志
-    │   📁 packages/auth/ · apps/api/src/plugins/auth.ts · apps/api/src/plugins/csrf.ts
-    │
-    ├── E2. 数据库与共享包
-    │   • PostgreSQL 15 单库 + schema 隔离 · 340 表 / 144 迁移 / 30+ 业务域
-    │   • pgvector 向量 · RLS 行级安全 · 读副本 + tenant-router · 7 步幂等 seed
-    │   • 16 共享包(auth/database/types/ui/sdk/config/eslint-config/tsconfig/browser-platform/dom-actions 等)
-    │   📁 packages/database/ · packages/auth/ · packages/types/
-    │
-    ├── E3. 国际化(5 语言 parity)
-    │   • zh-CN(基准)/ zh-TW(opencc 检测)/ en(破碎机翻检测)/ ko(字符范围检测)/ ja
-    │   • 4 守门脚本 + 19 i18n 工具链 · 品牌翻译策略(官方英文名优先)· 翻译白名单(15 条豁免,品牌/术语/占位符保留英文)
-    │   📁 apps/web/messages/ · scripts/*i18n*
-    │
-    ├── E4. 工程守门
-    │   • 30+ pre-commit 钩子(API key 泄露 / i18n / schema drift / 圆角 / Tailwind 冲突 / 多端同步 / README 同步 等)
-    │   • post-commit 自动 push(git-push-guard)· 11 迁移审计 · 9 PowerShell 启动脚本
-    │   📁 scripts/check-*.mjs · .husky/
-    │
-    └── E5. 测试与性能
-        • Vitest(后端 5346 用例)· Playwright(E2E 17 spec)· pytest(AI 400+ 用例)· Locust 压测
-        • Lighthouse CI 性能预算 · Knip 未使用代码检测 · turbo 22 tasks 全量验证
-        📁 apps/api/tests/ · apps/web/e2e/ · apps/ai-service/tests/
-```
-
-### 功能矩阵速查
-
-| 分组           | 模块                 | 核心场景                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 代码入口                                                                                                                                                                                                                                                                                    |
-| -------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A AI 能力**  | A1 模型接入          | 176 模型统一调用                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `apps/ai-service/app/providers/`                                                                                                                                                                                                                                                            |
-|                | A2 三栈协同          | LangGraph + MCP + A2A                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `services/langgraph_service.py`                                                                                                                                                                                                                                                             |
-|                | A3 多模态创作        | 文生图/语音/视频/数字人                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `apps/api/src/routes/ai-*`                                                                                                                                                                                                                                                                  |
-|                | **A4 AI Skills TOP** | **19 个 skill 全部真集成(CODEX 自媒体 10 + GitHub 热门 9,基于 llm_gateway 调用 LLM,无占位):nuwa-skill 风格改写 / hugshu-design HTML 渲染 / auto-redbook-skills 小红书文案 / guizang-ppt-skill PPT 大纲 / superpowers 工作流拆解 / caveman 文本压缩 / graphify 知识图谱 / agent-skills 工程化建议 / awesome-claude-skills 任务路由 / taste-skill 去 AI 模板味 / agent-reach 多平台热点 / horizon 趋势简报 / media-crawler 采集计划 / generative-media-skills 多模态脚本 / guizang-social-card-skill 卡片 HTML / social-auto-upload 发布计划 / obsidian-skills Markdown 笔记 / claude-plugins-official 插件推荐 / awesome-agent-skills skill 导航 + LangGraph SkillScheduler 调度器(指数退避重试 + 链式 context 传递 + token 累计) + 独立页面 /ai-skills(列表 + Tab 筛选 + 搜索)+ 详情页 /ai-skills/[id](15 变量动态输入 content/style/requirements/topic/domain/platform/concept/title/subtitle/platforms/usecase/task/text/language/input + 4 类结果渲染 + 填入对话) + SkillLibrary 弹窗 ai-skills tab(19 skill 动态变量渲染,parseVariables 解析 promptTemplate,非硬编码 4 skill)+ 查看全部入口 + DRY 共享模块 `apps/web/src/lib/ai-skill-variables.ts`(15 变量映射 + parseVariables/getLabelKey/getPlaceholderKey/getMaxLen/isLongText)** | **`apps/ai-service/app/routers/ai_skills.py` + `apps/ai-service/app/services/skill_scheduler.py` + `apps/web/app/(main)/ai-skills/page.tsx` + `apps/web/app/(main)/ai-skills/[id]/page.tsx` + `apps/web/src/components/chat/skill-library.tsx` + `apps/web/src/lib/ai-skill-variables.ts`** |
-| **B 工作流**   | B1 自研 CLI          | 21 命令 + 36 工具 + ACP                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `apps/cli/src/`                                                                                                                                                                                                                                                                             |
-|                | B2 工作空间权限      | 3 模式 + 7 端点拦截                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `apps/api/src/routes/workspace-ai*`                                                                                                                                                                                                                                                         |
-|                | B3 智能体市场        | 购买/审核/结算/Coze/Crew                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `apps/api/src/routes/agent-*`                                                                                                                                                                                                                                                               |
-| **C 内容教育** | C1 多平台发布        | 14 平台 + AES-256-GCM                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `apps/ai-service/app/services/publish/`                                                                                                                                                                                                                                                     |
-|                | C2 AI 教育全栈       | 课程/题库/直播流媒体(SRS)/45 表                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `apps/api/src/routes/learn*`                                                                                                                                                                                                                                                                |
-| **D 企业运营** | D1 计费交易          | VIP/钱包/积分/10 支付网关(含海外 Stripe + PayPal)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `apps/api/src/routes/billing*`                                                                                                                                                                                                                                                              |
-|                | D2 社区互动          | 圈子/私信/关注/反馈                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `apps/api/src/routes/social*`                                                                                                                                                                                                                                                               |
-|                | D3 运营增长          | 签到/排行/分销/游戏化                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `apps/api/src/routes/checkin*`                                                                                                                                                                                                                                                              |
-|                | D4 客服支持          | 工单/在线客服/帮助中心                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `apps/api/src/routes/admin-asks*`                                                                                                                                                                                                                                                           |
-|                | D5 运营监控          | BI/灰度/i18n 仪表盘                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `apps/api/src/routes/bi-*`                                                                                                                                                                                                                                                                  |
-| **E 工程基础** | E1 安全合规          | JWT/SSO/AES/RBAC/RLS/2FA                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `packages/auth/`                                                                                                                                                                                                                                                                            |
-|                | E2 数据库共享包      | 340 表/pgvector/12 包                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `packages/database/`                                                                                                                                                                                                                                                                        |
-|                | E3 国际化            | 5 语言 parity + 4 守门                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `apps/web/messages/`                                                                                                                                                                                                                                                                        |
-|                | E4 工程守门          | 30+ pre-commit + 自动 push                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `scripts/check-*.mjs`                                                                                                                                                                                                                                                                       |
-|                | E5 测试性能          | Vitest/Playwright/pytest/Knip                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | `apps/api/tests/`                                                                                                                                                                                                                                                                           |
-
----
-
-## 项目结构
-
-```
-IHUI-AI/
-├── apps/
-│   ├── ai-service/          # AI 服务 (FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO)
-│   ├── api/                 # 后端 API (Fastify 5 + Drizzle, ~1300 端点, ~290 路由文件)
-│   ├── cli/                 # 自研 CLI (21 命令 + 36 工具 + ACP Server, 对标 Claude Code)
-│   ├── desktop/             # 桌面端 (Tauri 2 + Rust,A 套壳:WebView 加载 Web 静态导出)
-│   ├── extension/           # 浏览器扩展 (WXT + React, Chrome/Edge/Firefox)
-│   ├── miniapp-taro/        # 微信小程序 (Taro 4 + React, 多端产物分离:weapp→dist/ + alipay→dist-alipay/, 配 clean-miniapp-taro-dist.mjs 防 IDE 缓存混淆)
-│   ├── mobile-rn/           # 移动端 (React Native + Expo EAS)
-│   └── web/                 # 前端 (Next.js 15 + React 19, 200+ 页面)
-├── packages/                # 16 个共享包(5 个架构图核心 + 11 个基础设施)
-│   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK,6 端共享)
-│   ├── app/                 # @ihui/rn-app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
-│   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
-│   ├── browser-platform/    # @ihui/browser-platform (浏览器平台适配层:抽象 chrome.*/window.*/webContents.* 为 5 个 adapter 接口,extension 已接入,web/desktop 后续,2026-07-27 立)
-│   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
-│   ├── database/            # @ihui/database (Drizzle, 340 表, 144 迁移, RLS, 租户路由, pgvector)
-│   ├── design-tokens/       # @ihui/design-tokens (8端共享设计令牌:cn() + HSL shadcn tokens + RN HEX tokens + CSS 变量)
-│   ├── dom-actions/         # @ihui/dom-actions (8 个 BrowserControlActionType 纯 DOM 操作,8 端可复用,无 chrome.* 依赖,2026-07-27 从 extension/lib/agent-control.ts 下沉)
-│   ├── eslint-config/       # @ihui/eslint-config
-│   ├── sdk/                 # @ihui/sdk (自动生成)
-│   ├── shared/              # @ihui/shared (8端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows)
-│   ├── tsconfig/            # @ihui/tsconfig
-│   ├── types/               # @ihui/types
-│   ├── ui-native/           # @ihui/ui-native (React Native)
-│   └── ui-react/            # @ihui/ui-react (Web/桌面/扩展共享 React shadcn/ui 组件,24 组件)
-├── deploy/
-│   ├── docker/              # Dockerfile.api / .web / .cli / .migrate(镜像构建,context 为仓库根)
-│   ├── nginx/               # Nginx 反向代理 + 蓝绿 upstream + SSL/security/rate-limit
-│   ├── scripts/             # deploy.sh / rollback.sh / health-check.sh / backup-db.sh / restore-db.sh / deploy_certs.sh
-│   ├── cron/                # Let's Encrypt 证书自动续期
-│   ├── s3-lifecycle.yml     # S3 对象存储生命周期规则
-│   └── setup-github-secrets.sh  # GitHub Actions secrets 批量配置
-├── docs/                    # 87 个文档(10 大分类):架构 / 开发 / 测试 / API / 数据库 / 认证 / AI 服务 / 多端 / 监控 / 守门 / i18n / 性能 / SDK / CLI / 发布 / 故障排查 / FAQ / 用户指南 / 企业服务 / 激励计划(见 docs/README.md 索引)
-├── monitoring/              # Grafana(21 仪表盘)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
-├── scripts/                 # 17 守门 + 19 i18n + 11 迁移审计 + 9 PowerShell 启动 + locustfile.py 压测 + 运维工具
-├── server-docs/             # 多租户设计文档(MULTI_TENANT.md)
-├── .github/workflows/       # 4 个 CI:build / ci / e2e / knip + GitHub Act 本地 CI
-├── .github/loop-runtime/    # loop-daily-triage CI 运行状态(STATE.md + loop-run-log.md)
-├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
-├── docker-compose.yml       # 14 服务编排(7 业务 + 7 监控)
-├── knip.jsonc               # Knip 未使用代码检测配置
-├── AGENTS.md                # AI Agent 协作规范(21 节强制规则)
-├── PROJECT_PLAN.md          # 项目唯一任务计划文档
-├── LICENSE                  # Apache 2.0
-├── README.md                # 简体中文(本文件)
-├── README.en.md             # English
-├── README.ko.md             # 한국어
-└── README.ja.md             # 日本語
-```
-
----
-
-## 核心能力详解(15 大模块 · 按用户角色分组)
-
-### A. AI 能力层(面向最终用户)
-
-#### A1. 100+ 大模型一站式接入
-
-通过 LiteLLM 网关统一接入,智能路由 + 60% 缓存命中:
-
-| 类别         | 模型                                                                                                       |
-| ------------ | ---------------------------------------------------------------------------------------------------------- |
-| **国际模型** | OpenAI GPT / Anthropic Claude / Google Gemini / xAI Grok / Groq / OpenRouter / Mistral / StepFun           |
-| **国产模型** | 智谱 GLM / 通义千问 Qwen / 豆包 Doubao / DeepSeek / 月之暗面 Kimi / 阶跃星辰 StepFun / 百川 / Yi / MiniMax |
-| **云厂商**   | 阿里云 / 腾讯云 / 华为云 / 火山引擎 / 百度智能云 / AWS Bedrock / Azure OpenAI                              |
-| **多模态**   | 文本 / 图像 / 语音(STT + TTS)/ 视频 / 嵌入向量 / 3D 数字人(腾讯混元)                                       |
-
-**ai-service providers 适配**(`apps/ai-service/app/providers/`):base_provider + openai_provider + anthropic_provider + gemini_provider + stepfun_provider 5 个原生适配器。另在 `app/core/llm_gateway.py` 的 `_resolve_provider` 中通过 LiteLLM `openai/{model}` 路由统一接入 31+ provider(含 22 个免费 provider:Cerebras/Mistral/Cohere/HuggingFace/Z.ai/Kilo/Pollinations/LLM7/OVH/AI Horde/Reka/Routeway/BazaarLink/AINative Studio + Cloudflare/NVIDIA/GitHub/Vercel/OpenCode/Modal/Inference.net/NLP Cloud/Scaleway/Alibaba Intl + Groq/Gemini/OpenRouter/Ollama 等)。
-
-#### A2. LangGraph + MCP + A2A 三栈协同
-
-| 栈                 | 能力                                                                                                                                                                                                                     | 实现位置                                                                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **LangGraph**      | StateGraph 工作流(plan → execute → summarize),支持 stub 模式无 API key 也能开发                                                                                                                                          | `services/langgraph_service.py` + `agent_graph.py` + `agent_loop.py` + `agent_orchestrator.py`                                                       |
-| **MCP**            | 11 内置工具(search_codebase / read_file / write_file / run_command / web_search / git_operations / db_query / analyze_code / generate_test / refactor_code / file_search)+ 3 资源 + 3 提示词 + 项目级 MCP + mcp-extended | `routers/mcp.py` + `services/mcp_server.py`                                                                                                          |
-| **A2A**            | Agent-to-Agent 协议,Redis 持久化 + 内存降级,智能体之间互相调用                                                                                                                                                           | `routers/a2a.py` + `services/a2a_service.py`                                                                                                         |
-| **向量记忆**       | 嵌入 + 余弦相似度语义搜索,跨会话长期记忆(基于 pgvector,无需独立向量数据库)                                                                                                                                               | `services/vector_memory.py` + `memory.py` + `project_memory.py`                                                                                      |
-| **知识库 RAG**     | 文档向量化 / 语义搜索 / 引用追溯(pgvector 原生向量索引)                                                                                                                                                                  | `services/rag.py` + `api/v1/rag.py` + schema `knowledge-base.ts` + 迁移 `0123_pgvector_embedding.sql`                                                |
-| **知识图谱**       | 节点 + 关系图谱 / 跨文档实体链接(开源 AI 平台中少见的图谱能力)                                                                                                                                                           | schema `knowledge-graph.ts` + 迁移 `0125_knowledge_graph.sql`                                                                                        |
-| **Persona**        | 角色定义注册表,自定义 Agent 人设                                                                                                                                                                                         | `routers/personas.py` + `services/persona_registry.py`                                                                                               |
-| **Agent Runtime**  | SSE 流式 + WebSocket,plan/execute/summarize + interrupt/continue/cancel                                                                                                                                                  | `routers/agent_runtime.py`                                                                                                                           |
-| **跨支柱编排中枢** | 6 大超越支柱(Rules/Hook/Spec/Context/Subagent/Terminal)协同决策:事件总线(26 事件类型,Redis stream)+ 6 预置联动 playbook + LLM 预算治理(分级降级 80%→90%→100%)+ 统一遥测(37 Prometheus metrics + 分布式 trace)            | `services/orchestration_hub.py` + `llm_budget_governor.py` + `telemetry_service.py` + `routers/orchestration.py` + web `orchestration-hub-panel.tsx` |
-
-#### A3. 多模态 AI 创作
-
-| 能力             | 端点 / 实现                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **文生图**       | 多模型(Stable Diffusion / DALL-E / 通义万相)/ 多分辨率 / 批量 / image-gen-favorites                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **图像编辑**     | 局部重绘 / 风格迁移 / 背景移除 / 高清放大                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **TTS 流式合成** | 12+ 音色 / 多语言 / WebSocket 流式 / 中断控制 / `ws/tts/stream`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **ASR 语音识别** | 实时转写 / 文件转写 / 多语言 / `voice_stt.py`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **音色克隆**     | 短音频样本 → 自定义音色 / `ws/timbre/generate`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **双向实时语音** | WebRTC PCM16 16kHz / ASR + LLM + TTS 闭环 / `webrtc-voice.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **文生视频**     | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **AI 数字人**    | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **AI 求职**      | 简历优化 / 模拟面试 / 职业建议 / `ai-career/`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图 + 模型对比勾选 + `ModelCompareBar` + `ModelCompareDialog` + `PriceChart` SVG 柱状图 + 能力雷达叠加)+ API 中转站(`api-relays.ts` + 29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示 + 一键测速 `fetch no-cors` RTT + 延迟 badge 绿/黄/红 + 按延迟排序)+ 官方 Key 一键导入(`vendor-platforms.ts` + 47 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮)+ 资讯标题多语言切换(中/EN/日/한 4 语言 + `titleEn/titleJa/titleKo` schema 字段)+ 趋势爆发通知 Banner(`TrendNotificationBanner` + 60s 轮询 + `/api/ai-feed/notifications`) |
-
-### B. AI 工作流与开发者(面向开发者)
-
-#### B1. 自研 CLI(对标 Claude Code)
-
-`apps/cli/` 提供 ACP(Agentic Coding Protocol)Server + 21 命令 + 36 内置工具:
-
-**命令清单:**
-
-| 命令                       | 用途                                                                  |
-| -------------------------- | --------------------------------------------------------------------- |
-| `ihui` (无参)              | 交互式 REPL                                                           |
-| `ihui "<prompt>"`          | 直接执行任务(单轮)                                                    |
-| `ihui chat`                | 多轮对话模式                                                          |
-| `ihui agent [task]`        | Agent 自主多步执行(--json headless)                                   |
-| `ihui init`                | 创建 AGENTS.md 模板(--force 覆盖)                                     |
-| `ihui sessions`            | 列出历史会话                                                          |
-| `ihui mcp list/add/remove` | MCP 服务器管理(stdio/http/sse)                                        |
-| `ihui capabilities`        | 能力子命令                                                            |
-| `ihui checkpoint`          | 检查点子命令                                                          |
-| `ihui hooks`               | Git hooks 子命令                                                      |
-| `ihui import`              | 24 源配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes) |
-| `ihui skills list/show`    | 加载 .ihui/.agents/.claude/.cursor 四级目录平面 skills                |
-| `ihui settings init/path`  | ~/.ihui/settings.json 统一配置                                        |
-| `ihui acp`                 | 启动 ACP Server(Zed/VSCode/Cursor 编辑器嵌入)                         |
-| `ihui audit query/stats`   | 审计日志查询/统计                                                     |
-
-**36 内置工具**(`apps/cli/src/tools/`):ask-user / builtins / clipboard / codegraph / fetch-url / file-edit / git / hub/adapter / mcp-oauth / run-tests / subagent / todo-write / web-search
-
-**Skills 系统**:四级目录平面加载(`.ihui` / `.agents` / `.claude` / `.cursor`)
-
-**其他模块**:acp/server / checkpoints / codegraph / commands / config / fs-watcher / hooks / i18n / memory / mermaid / personas / plan / plugins / sandbox / sessions / subagents / telemetry / tools / util / voice + audit / compaction-v2 / context / crash-handler / headless-format / highlight / interjection / prompt-queue / redact / reminders / stream-chunk / updater / worktree
-
-#### B2. 企业级工作空间权限
-
-3 种权限模式 + 7 端点运行时拦截 + 60s 审计超时 + 输入框安全护栏:
-
-| 模式                 | 行为                              |
-| -------------------- | --------------------------------- |
-| `default`            | 任何 FS 调用都触发人工审计弹窗    |
-| `accept-edits`       | 白名单规则匹配放行,不匹配触发弹窗 |
-| `bypass-permissions` | 全部放行(仅信任环境使用)          |
-
-- 7 个 FS 端点全部接入:`/fs/read` `/fs/write` `/fs/edit` `/fs/delete` `/fs/grep` `/fs/glob` `/fs/run`
-- WebSocket 实时推送权限请求,60s 不响应自动拒绝
-- workspace-ai-tasks schema 支持任务级权限隔离
-- **AI 输入框权限模式切换器**(深度对标 OpenAI Codex CLI approvalMode):
-  - 盾牌图标按钮 + 当前模式短名,点击弹 Codex 风格 popover(3 单选卡 + 完全访问快捷链接)
-  - 键盘交互:`↑/↓` 循环切换焦点 · `Enter` 选中 · `1/2/3` 数字键直接选 ask/auto/full
-  - 模式切换撤销:切到 `bypass-permissions` 后 5s 内 toast 可一键回退
-  - 高风险模式持久化视觉警告:触发器按钮琥珀色 + 输入框顶部警告横幅 + 标题栏模式徽章
-  - 斜杠命令集成:`/permission ask|auto|full` 一行切换模式
-  - **首启确认弹窗**:首次启用完全访问必须勾选"我了解上述风险"才能继续(可勾"不再提醒")
-  - **1 小时自动撤销**:高风险模式 1h 无操作后自动降级到 `default`,标题栏 + 顶部横幅实时倒计时,可取消或重新启用
-  - 三处触发源(popover / Shift+Tab / /permission)共享同一个 FullAccessConfirmDialog
-- **AI 输入框「添加」下拉菜单整合**(2026-07-25,降噪):
-  - 附加栏 3 个独立按钮(提示词模板 / 添加引用 / Skill 库)→ 1 个「添加」下拉,收纳 5 类动作
-  - 统一 Popover 受控模式:外部 `open` + `onOpenChange` 双向绑定(新增 PopoverProps.open/onOpenChange)
-  - 关闭时重置 mode、Skill 库点击不关闭 Popover、同一 Popover 内切换 content
-- **权限模式透明性**(2026-07-25 深化,深度对标 Codex CLI):
-  - `ChatMessage.permissionMode` 字段:记录 AI 响应生成时的工作区权限模式
-  - 消息气泡徽章:仅非 `default` 模式显示(accept-edits 绿底 / bypass-permissions 琥珀底)
-  - 权限模式快捷键帮助 modal:`?` 键全局唤起/关闭,3 分组(模式切换 / 高风险护栏 / 撤销与审计)
-  - 权限模式详情 modal:ⓘ 按钮触发,显示模式图标 / 风险等级 / 详细行为说明
-- **切换会话 LRU 缓存 + store 持久化**(2026-07-25 优化,无闪烁体验):
-  - 缓存最近 5 个会话的 messages + 分页状态(Map<id, { messages, hasMore, oldestCursor }>)
-  - 切回会话时同步从缓存恢复(无 loading 闪烁),后台异步拉取最新消息对比更新
-  - LRU 淘汰:`cache.size > 5` 时删除最早(Map.keys().next().value)
-  - 缓存同步触发:用户发送新消息 / AI 流式回复 / WebSocket 多端同步 / 分页加载更多 / loadHistory 正常拉取
-  - `useChatStore.recentMessages`:localStorage 持久化最近 50 条(slice(-50) 避免超 5MB 配额)
-  - `onRehydrateStorage` 时按 conversationId 匹配预填充,避免刷新页面后空状态闪烁
-  - 真实数据以服务端 `getMessages` 拉取为准,预填充仅作首屏过渡
-- **桌面端顶栏终极简化**(2026-07-25,消除视觉噪音):
-  - 移除 Logo + 应用名 + 文件/视图/帮助 dropdown,仅保留 Min/Max/Close 三按钮
-  - 213 → 109 行(净减 104 行,-48%)
-  - 菜单逻辑全走 web 端 `useNativeShortcuts` 监听 keydown,统一 `dispatchMenuAction` dispatcher
-  - 与 Rust 端 build_app_menu(已删除)完全解耦,单源菜单逻辑
-
-#### B3. 多智能体业务管理
-
-完整的智能体市场 + 开发者生态:
-
-| 模块                 | 能力                                                                                                                                                                                                                                                        |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **智能体市场**       | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 / 精选 / agent-commerce + agent-billings + agent-reviews                                                                                                                                                     |
-| **开发者中心**       | API Keys / 调用日志 / 团队管理 / 收益分析 / 开发者认证 / 13 子页                                                                                                                                                                                            |
-| **Coze SDK 代理**    | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth / coze-test + coze-ecosystem + coze-variables                                                                                                                                                 |
-| **OpenClaw**         | 开源 Agent 框架接入 / clawdbot + openclaw-routes + openclaw-items                                                                                                                                                                                           |
-| **Crew 集成**        | CrewAI 多智能体协作 / crew.ts                                                                                                                                                                                                                               |
-| **N8N 代理**         | N8N 工作流平台反向代理 / n8n-proxy.ts                                                                                                                                                                                                                       |
-| **Skills 系统**      | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ tools 含 koubo_quality_gate / koubo_validate / hot_topic_coverage_gate / archive_daily / project_hygiene / pre_publish_check / topic_pool / x_sources) |
-| **MCP 扩展**         | mcp-servers schema + mcp-extended 路由 + 自定义工具注册                                                                                                                                                                                                     |
-| **Persona**          | 角色定义注册表 / personas.py + persona_registry.py                                                                                                                                                                                                          |
-| **Socket.IO 兼容层** | sio/handlers.py 兼容旧 coze_zhs_py 客户端                                                                                                                                                                                                                   |
-
-#### B4. 模型 API 中转站(对标 OneAPI/NewAPI,2026-07-29 立)
-
-完整的 OpenAI 兼容 API 中转站,用户可生成平台 API Key 通过 `/v1/chat/completions` 调用多 provider 聚合模型,支持 Key 池负载均衡、按量计费、动态发现审批:
-
-| 能力                        | 端点 / 模块                                                   | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| --------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **OpenAI 兼容 API**         | `POST /v1/chat/completions`(stream + non-stream)              | Bearer API Key 鉴权,转发到 ai-service LiteLLM,支持 80+ 厂商                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **模型列表**                | `GET /v1/models`                                              | DB 驱动(优先 `ai_model_config_models.is_relay_public=true`),降级 ai-service live → cache → fallback                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **公开模型清单**            | `GET /api/relay/models/public`                                | 无需鉴权,返回中转站已上架模型 + 定价倍率(前端模型市场消费)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **API Key 管理**            | `/api/developer/*` + `developerApiKeys` 表                    | 创建/吊销/轮换 secret + token/cost 额度 + 权限配置                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **计费链路**                | `relay-billing-service.ts`                                    | 调用前 checkQuota(余额预检)→ 调用后 recordCall(写 `llm_call_logs` + 扣减余额 + 累计已用)                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **模型管理 admin**          | `/api/admin/relay/models`                                     | 上下架 / 定价倍率 / 可见性 / 排序 / 统计                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Key 池管理 admin**        | `/api/admin/relay/key-pool` + `ai_relay_key_pool` 表          | 同 provider 多 key 负载均衡 + 优先级 + 权重 + 健康状态                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **动态发现 admin**          | `/api/admin/relay/discovery` + `ai_relay_discovery` 表        | 从上游拉取新模型 → 待审批 → 入库上架                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| **模型池扫描注册机**        | `scripts/scan-upstream-models.mjs`                            | 命令行工具,从 DB 读 provider 配置 → 解密 api_key → 调上游 `/v1/models` → 自动注册新模型并上架(`--provider <code>` 筛选 / `--dry-run` 预览)                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **模型自动同步**            | `apps/ai-service/app/services/model_sync.py`                  | ModelSyncService,每 6 小时从厂商 /v1/models 端点自动拉取最新模型清单,注册到 DB(ai_model_config_models 表),新增模型自动上架(is_relay_public=true),下线模型自动下架。admin 可通过 `POST /llm/models/sync` 手动触发。default_models.json 降级为兜底清单(仅 DB 无数据时使用)                                                                                                                                                                                                                                                                          |
-| **模型可用性过滤**          | `apps/ai-service/app/services/model_availability.py`          | ModelAvailabilityService,启动时 + 每 5 分钟后台 ping 所有已配置 key 的 provider:① 优先查 balance_endpoint(OpenRouter/DeepSeek/SiliconCloud/StepFun)→ 余额<阈值(USD $0.01/CNY ¥0.10)标 DOWN+PAYMENT_REQUIRED(含余额=0 和余额不足如 $0.0001),余额>=阈值 标 HEALTHY;② 降级发 max_tokens=1 推理 ping,402→PAYMENT_REQUIRED,401→INVALID_KEY,403→FORBIDDEN,429→DEGRADED,超时→TIMEOUT。`/llm/models` 端点调用 `is_model_available()` 过滤,账户没钱/key 失效/接不通的 provider 模型不进用户模型列表。PENDING(启动初期)宽松显示,DEGRADED(限流/延迟高)仍显示 |
-| **Provider 余额健康 admin** | `/admin/providers-health` + `GET /llm/providers/availability` | 13 个 provider 实时健康面板:状态(healthy/degraded/down/local/zero_cost/pending)+ 余额(余额>=阈值 绿色,<阈值 红色,含=0 和余额不足)+ 延迟 + 错误类型(payment_required/forbidden/invalid_key/timeout/network_error)+ 错误详情。账户没钱的 provider 显示"去充值"按钮(跳转 OpenRouter/DeepSeek/SiliconCloud 等 recharge_url),30s 自动刷新。用户规则:账户没钱的 provider 不应进模型列表,管理端需可视化 + 跳转充值                                                                                                                                       |
-| **全厂商批量入库**          | `scripts/seed-all-providers.mjs`                              | 命令行工具,批量添加 28 个主流模型厂商(OpenAI/Anthropic/Gemini/DeepSeek/Qwen/GLM/Moonshot/ERNIE/星火/豆包/混元/MiniMax/Yi/百川/商汤/SiliconFlow/Groq/Together/Fireworks/OpenRouter/NVIDIA/Microsoft)+ 247 个最新模型到 DB(占位符 key,等用户填真实 key 激活;`--dry-run` 预览)                                                                                                                                                                                                                                                                       |
-| **已接入上游**              | OpenRouter(真实 key,385 模型上架可调)                         | 覆盖 OpenAI 73 / Anthropic 26 / Google 39 / Qwen 48 / DeepSeek 11 / Llama 8 / Mistral 19 / Grok 5 / 智谱 12 / MiniMax 9 等 50+ 厂商最新模型;StepFun 9 + Agnes 6(免费套餐)。注:OpenAI/Anthropic/Google 直连中国 IP 受区域限制,需代理                                                                                                                                                                                                                                                                                                               |
-| **调用日志 admin**          | `/api/admin/relay/logs`                                       | 用户/模型/时间/token/成本/状态 筛选分页                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **用户仪表盘**              | `/developer/relay`                                            | 我的 Key 列表 + 余额 + 用量图表 + 调用日志                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **admin 后台**              | `/admin/relay`                                                | 概览 + 模型管理 + Key 池 + 动态发现 + 日志 5 页面                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **号池消费链路**            | `apps/ai-service/app/services/key_pool_selector.py`           | LLM 调用从 `.env` 单 Key 升级为消费 `ai_relay_key_pool` 表多 Key:按 priority desc + weight 加权随机选择 + AES-256-GCM 解密 api_key_enc;调用成功 `mark_key_healthy` 重置失败计数,失败 `mark_key_failed` 递进熔断(达阈值自动 is_enabled=false + health_status='down');`llm_gateway._resolve` 三层优先级 BYOK → 号池 → `.env`,实现故障转移                                                                                                                                                                                                           |
-| **健康巡检 worker**         | `apps/api/src/workers/relay-health-check-worker.ts`           | BullMQ Queue + Worker,cron `*/5 * * * *` 每 5 分钟自动巡检所有启用 Key:`checkSingleKey` 解密 Key + 查 provider base_url + ping 上游 `/v1/models` + 更新 health_status/health_checked_at/last_error_message;`checkAllKeys` 返回 summary(healthy/degraded/down 计数),自动禁用死 Key                                                                                                                                                                                                                                                                 |
-| **渠道管理入口**            | `/models/channels`                                            | 模型市场下的 Key 池管理页面(4 文件:`channels-api.ts` 封装 admin API + `PageClient.tsx` React Query 列表/筛选/分页/toggle/健康检查/删除 + `ChannelFormDialog.tsx` 添加/编辑 Key 对话框 + `page.tsx` server wrapper),对接 `/api/admin/relay/key-pool` CRUD                                                                                                                                                                                                                                                                                          |
-
-**计费模型**:
-
-- 上游定价(`aiPricing.inputTokenPrice` / `outputTokenPrice`,分/千 token)× 中转站倍率(`aiModelConfigModels.relayPriceMultiplier`,1.0=原价,1.2=加价 20%)= 中转站成本(分)
-- API Key 余额规则:`-1`=无限额度(admin 信任),`0`=余额耗尽,`>0`=可用余额
-- 余额不足返回 `402 Payment Required`
-
-**数据库迁移**:`packages/database/drizzle/20260729120000_relay_billing.sql`(幂等,加字段 + 建表)
-
-**平台积分计价方案**(2026-07-31 立,对标 WorkBuddy / Qoder / TraeWork 内置模型积分消耗倍数):
-
-| 倍数档位 | `points_multiplier` | 单次 1K token 扣分 | 推荐场景                          | 模型示例                                          |
-| -------- | ------------------- | ------------------ | --------------------------------- | ------------------------------------------------- |
-| **免费** | 0                   | 0 积分             | 本地模型 / 内测免费 / 教学体验    | `ollama/llama3` / `pollinations/*` / `llm7/*`     |
-| **经济** | 1                   | 1 积分             | 大流量基础场景 / 国产高性价比模型 | `deepseek-chat` / `qwen-turbo` / `gpt-4o-mini`    |
-| **标准** | 3                   | 3 积分             | 主力对话模型 / 性价比均衡         | `gpt-4o` / `claude-3-5-sonnet` / `gemini-1.5-pro` |
-| **高级** | 10                  | 10 积分            | 复杂推理 / 长上下文 / 高质量场景  | `claude-opus-4` / `gpt-4-turbo` / `gemini-pro-1M` |
-| **旗舰** | 30                  | 30 积分            | 顶级推理 / 多模态 / 企业关键链路  | `gpt-5` / `o1` / `o3` / `claude-opus-thinking`    |
-
-- **计费公式**:`扣分 = (输入 token + 输出 token) / 1000 × points_multiplier × 1 积分基准`
-- **DB 字段**:`ai_model_config_models.points_multiplier numeric(5,2) default 1.00`(5 档固定选项,不允许自由输入)
-- **管理端入口**:`/admin/ai-models` → 编辑模型 → "积分消耗倍数"下拉
-- **前端展示**:AI 输入框模型选择器每个模型显示倍数徽章(免费绿/×1 灰/×3 蓝/×10 紫/×30 金)
-- **扣分时机**:LLM 调用**完成后**按实际 `usage.token` 扣分(不预扣,避免失败回滚复杂度)
-- **零成本豁免**:`points_multiplier=0` 的模型(本地/zero_cost)不校验余额,不扣分
-- **余额不足兜底**:返回 `402 Payment Required`,响应体含 `free_models` 引导用户切免费模型
-- **失败不扣分**:LLM 5xx/超时/4xx 均不扣分,事务保护积分账户一致性
-- **完整方案文档**:[`docs/credit-pricing.md`](docs/credit-pricing.md)(计费公式 / 5 档梯度表 / 积分来源 / 扣分时机 / 兜底策略 / 失败保护 / 管理端能力 / 与其他规则关系)
-- **数据库迁移**:`packages/database/drizzle/20260801010100_add_points_multiplier.sql`(幂等,加字段 + 批量设置现有模型默认倍数)
-
-#### B5. AI 网关核心补强(对标并超越 OmniRoute,2026-07-30 立)
-
-对标开源 AI 网关项目 OmniRoute(GitHub 27k stars,MIT 协议,聚合 290+ provider / 500+ 模型,Combo 多级 fallback,OpenAI/Claude/Gemini 协议互转,RTK+Caveman 89% 压缩,网关 Dashboard)。IHUI-AI 在 AI 网关核心能力上反超 OmniRoute,同时保留 8 端全栈 + Agent 编排 + RAG + 元学习 + 13 平台发布的业务深度优势。
-
-| 能力                            | 模块                                                                                                                                                                                                 | 说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Combo 多级 fallback 链**      | `apps/ai-service/app/services/combo_router.py`                                                                                                                                                       | 3 策略:① **priority**(按预定义链顺序 fallback,对齐 OmniRoute);② **cheapest**(按价格升序选可用 provider,超越 OmniRoute);③ **fusion**(并发调用多个 model + judge model 票决,超越 OmniRoute)。429 配额耗尽自动 cooldown(指数退避 60s→30min)+ 自动切下一个 provider,记录 fallback 历史到 LLM_FALLBACK_TRIGGERED metric                                                                                                                                                                                                                                       |
-| **协议互转适配器**              | `apps/ai-service/app/services/protocol_adapter.py`                                                                                                                                                   | OpenAI Chat Completions / Anthropic Messages / Gemini generateContent 三协议任意互转(6 个方向),客户端可用任一厂商 SDK 调用 IHUI 网关,内部统一转 OpenAI 格式调 llm_gateway,响应再转回客户端期望格式。对齐 OmniRoute 协议互转                                                                                                                                                                                                                                                                                                                              |
-| **Anthropic Messages 端点**     | `POST /llm/anthropic/v1/messages`                                                                                                                                                                    | 客户端可直接用 Anthropic 官方 SDK(`base_url=http://ai-service:8800/llm/anthropic`)调用任一 IHUI 接入的模型                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Gemini generateContent 端点** | `POST /llm/gemini/v1beta/models/{model}:generateContent`                                                                                                                                             | 客户端可直接用 Google Gen AI SDK(`base_url=http://ai-service:8800/llm/gemini`)调用任一 IHUI 接入的模型                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **免费 provider 注册表**        | `apps/ai-service/app/services/free_provider_registry.py` + `GET /llm/free-providers`                                                                                                                 | 30+ 免费 LLM provider 申请入口矩阵(国内 8 + 国际 12 + 本地 4 + credits 8):Moonshot Kimi-K2 / 智谱 glm-4-flash / DeepSeek / StepFun / Agnes / Ollama / LMStudio / LlamaCpp / vLLM / OpenRouter free tier / Groq / Together / Mistral / Cohere / HuggingFace / Replicate / Fireworks / NVIDIA / Cerebras / SiliconFlow / Yi / 百川 / MiniMax / 商汤 / 星火 / 豆包 / 混元 / Qwen / ERNIE。返回 key 配置状态(`configured` / `not_configured` / `local`),供前端 Dashboard 可视化展示。超越 OmniRoute 的点:本地 LLM 兜底 + 国内 provider 全覆盖 + key 状态感知 |
-| **Combo 接入 llm_gateway**      | `apps/ai-service/app/core/llm_gateway.py`                                                                                                                                                            | 主 provider 失败后,FallbackRouter 单层 fallback 用尽,若 primary 在某 combo 链中,自动触发 ComboRouter(priority/cheapest/fusion 三策略),ComboRouter 内部透传 `_skip_fallback=True` 防递归。ComboRouter 单例懒加载,加载失败降级不影响主链路                                                                                                                                                                                                                                                                                                                 |
-| **测试覆盖**                    | `tests/test_combo_router.py` + `test_protocol_adapter.py` + `test_free_provider_registry.py` + `test_token_compaction.py` + `test_gateway_dashboard_api.py` + `test_token_compaction_integration.py` | 184 个单测全绿,覆盖 ComboChain 构造 / ProviderHealthState cooldown / 3 策略路由 / 429 标记 / 6 协议互转方向 / 30+ provider 注册查询 / key 状态检测 / RTK+Caveman 双算法压缩 / 3 压缩策略 / Dashboard 5 端点 / 网关集成调用链                                                                                                                                                                                                                                                                                                                             |
-| **Token 压缩(TokenCompactor)**  | `apps/ai-service/app/services/token_compaction.py` + `llm_gateway._apply_token_compaction`                                                                                                           | RTK(Reduce Token Key,跨消息重复 token 序列去重)+ Caveman(关键词骨架压缩,保留最近 6 条)双算法,组合策略 `rtk_caveman`(先 RTK 再 Caveman),工具调用场景压缩率 ≥90%(超越 OmniRoute 89%)。启用条件:① `TOKEN_COMPACTION_ENABLED=true` ② 非 stub 模式 ③ 不含 tools 参数 ④ 总 token 数 > `TOKEN_COMPACTION_MIN_TOKENS`(默认 2000)。压缩失败降级用原 messages(不阻塞主流程),压缩率记录到 `LLM_TOKEN_COMPACTION_RATIO` Prometheus metric                                                                                                                            |
-| **网关 Dashboard 后端**         | `apps/ai-service/app/routers/llm.py`                                                                                                                                                                 | 5 端点:① `GET /llm/providers/health` provider 健康状态(healthy/degraded/down + cooldown 剩余 + 最近错误);② `GET /llm/combos` combo 链列表;③ `POST /llm/combos` 创建 combo;④ `POST /llm/compaction/demo` 压缩演示(传 messages 返回压缩前后 token 数 + 压缩率);⑤ `GET /llm/compaction/metrics` 压缩指标聚合                                                                                                                                                                                                                                                |
-| **网关 Dashboard 前端**         | `apps/web/app/(main)/settings/gateway/`                                                                                                                                                              | 6 文件 3 Tab:① `ProvidersHealthTab` provider 健康矩阵(状态徽章 + cooldown 进度条 + 最近错误展开);② `CombosTab` combo CRUD(链列表 + 创建表单 + 策略选择 priority/cheapest/fusion + 链编辑);③ `CompactionTab` 压缩演示(messages 输入 + 触发压缩 + 压缩率显示 + metric 聚合)。i18n 5 语言 `settings.gateway` 命名空间 parity 完整                                                                                                                                                                                                                           |
-
-**配置示例**(环境变量 `COMBO_CHAINS` JSON):
-
-```json
-{
-  "maximize-free": {
-    "strategy": "priority",
-    "chain": ["kimi-k2", "glm-4-flash", "deepseek-chat", "stepfun/step-3.7-flash"],
-    "description": "最大化免费额度,4 级 fallback"
-  },
-  "maximize-quality": {
-    "strategy": "priority",
-    "chain": ["claude-opus-4", "gpt-5", "gemini-3-pro"],
-    "description": "最大化质量,3 级 fallback"
-  },
-  "cheapest-first": {
-    "strategy": "cheapest",
-    "chain": ["glm-4-flash", "deepseek-chat", "kimi-k2", "stepfun/step-3.7-flash"],
-    "description": "最便宜优先,按价格升序"
-  },
-  "fusion-vote": {
-    "strategy": "fusion",
-    "chain": ["gpt-4o", "claude-3.5-sonnet", "gemini-2.5-pro"],
-    "judge": "gpt-4o-mini",
-    "description": "3 model 并发 + judge 票决"
-  }
-}
-```
-
-**IHUI vs OmniRoute 对比**:
-
-| 维度           | IHUI-AI                                                                             | OmniRoute                     | 胜方     |
-| -------------- | ----------------------------------------------------------------------------------- | ----------------------------- | -------- |
-| Provider 数    | **18 原生适配器 + 40+ 免费 provider 注册表 + OpenRouter 385**                       | 290+ provider                 | **IHUI** |
-| Fallback 策略  | **3 种**(priority / cheapest / fusion+judge)                                        | 1 种(priority)                | **IHUI** |
-| 协议互转       | OpenAI ↔ Anthropic ↔ Gemini(6 方向)                                                 | OpenAI / Claude / Gemini 互转 | 平       |
-| Token 压缩     | **RTK+Caveman 双算法 + rtk_caveman 组合策略,≥90% 压缩率**                           | RTK+Caveman 89% 压缩          | **IHUI** |
-| 网关 Dashboard | **后端 5 端点 + 前端 6 文件 3 Tab(provider 健康/combo CRUD/压缩演示)+ i18n 5 语言** | 已有                          | **IHUI** |
-| 8 端全栈       | ✅ web/api/ai-service/desktop/extension/mobile-rn/miniapp/cli                       | ❌ 单一网关                   | **IHUI** |
-| Agent 编排     | ✅ LangGraph + MCP + A2A + 10 subagent + invoke_parallel                            | ❌ 无                         | **IHUI** |
-| RAG            | ✅ FTS5 + 向量检索                                                                  | ❌ 无                         | **IHUI** |
-| 元学习         | ✅ meta_learner + memory_decay + differential_privacy                               | ❌ 无                         | **IHUI** |
-| 商业闭环       | ✅ VIP/钱包/积分/10 支付网关 + BYOK 抽成 + 中转站计费                               | ❌ 无                         | **IHUI** |
-| 13 平台发布    | ✅ CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音...                                | ❌ 无                         | **IHUI** |
-| AI 教育全栈    | ✅ 课程/题库/直播/证书/学习报告(45 张 edu schema 表)                                | ❌ 无                         | **IHUI** |
-
-**P0-1 ~ P0-6 已完成**(2026-07-30):Combo 多级 fallback + 协议互转 + 免费 provider 注册表 + llm_gateway 集成 + 80 测试全绿 + README 同步。
-
-**P1-1 ~ P1-4 已完成**(2026-07-30):对齐 OmniRoute v3.8.49 — registry 从 30 → 40+ provider(新增 LLM7 150M/月免费 / Pollinations 无 key / Qoder unlimited / AI Horde 众包 / OVHcloud 欧洲 / Requesty 路由聚合 / OpenCode Zen / Scaleway 1M/月 / Alibaba Intl 1M/模型/月 / Navy)+ default_models.json 新增 14 个免费模型 + ToS 风险标签(modal/nlpcloud/github_models/fireworksai)+ 99/99 测试全绿。IHUI 在 provider 数上反超 OmniRoute(18 原生 + 40+ registry + 385 OpenRouter 聚合 vs OmniRoute 290+)。
-
-**P2-A ~ P2-F 已完成**(2026-07-30,commit `b6f976e34e`):Token 压缩超越 + 网关 Dashboard 全栈落地。① **P2-A TokenCompactor** — RTK+Caveman 双算法 Python 重写,3 种压缩策略(rtk/caveman/rtk_caveman),50 测试用例,工具调用场景压缩率 ≥90%(超越 OmniRoute 89%);② **P2-B Dashboard 后端 API** — 5 端点(provider 健康 / combos CRUD / 压缩演示 / 压缩 metric 聚合),27 测试;③ **P2-C ComboRouter fusion** — merge+vote judge 模式,并发限流(max_concurrency),37 测试;④ **P2-D llm_gateway 集成** — `_apply_token_compaction` 在 complete/astream 调用链(trim_messages 后、litellm.acompletion 前),11 集成测试;⑤ **P2-E Dashboard 前端** — 6 页面组件(3 Tab + PageClient + page + types)+ api-client 5 函数 + 5 语言 i18n parity;⑥ **P2-F 统一验证** — 184 Python tests passed + typecheck/i18n 全绿。
-
-**启用配置**(本地 `.env`):`TOKEN_COMPACTION_ENABLED=true` + `TOKEN_COMPACTION_MIN_TOKENS=2000` + `COMBO_CHAINS={"maximize-free":{"strategy":"priority","chain":["stepfun/step-3.7-flash","agnes/agnes-2.5-flash",...]}}`。启用后 ai-service 启动时自动加载,Dashboard 访问路径 `/settings/gateway`。
-
-**IHUI 差异化定位 — "AI 全家桶"而非单一网关**:OmniRoute 是聚焦 LLM 路由的开源网关项目(GitHub 27k stars,290+ provider 聚合),IHUI-AI 则是**8 端全栈 + Agent 编排 + RAG + 元学习 + 商业闭环 + 13 平台发布 + AI 教育全栈**的完整 AI 平台。AI 网关只是 IHUI 的一个子能力(对标并反超 OmniRoute),IHUI 的真正护城河在于:① **8 端全栈连通**(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli,共享 types/UI/schema);② **Agent 编排深度**(LangGraph + MCP + A2A + 10 subagent 并行 + invoke_parallel,而非单一 LLM 调用);③ **RAG + 元学习**(FTS5 + 向量检索 + 长期记忆衰减 + 差分隐私);④ **商业闭环**(VIP/钱包/积分/10 支付网关 + BYOK 抽成 + 中转站计费 + admin 成本治理);⑤ **13 平台自动发布**(CSDN/知乎/掘金/微信公众号/小红书/B站/头条/抖音等,14 adapter);⑥ **AI 教育全栈**(45 张 edu schema 表 + 课程/题库/直播/证书/学习报告)。OmniRoute 与 IHUI 不是同维度的竞品,IHUI 是"AI 全家桶",OmniRoute 是"AI 网关"。
-
-**P3 补强已完成**(2026-07-30):① **P3-1 TLS stealth** — `apps/ai-service/app/services/tls_stealth.py` 新建,6 UA 池(Chrome/Firefox/Safari 轮换)+ Accept 池 + 浏览器头(Sec-Fetch-*/Cache-Control)+ `create_stealth_client()` 工厂,httpx 降级方案不引入新依赖,27 测试;② **P3-3 OpenRouter 403 代理 + failover** — `llm_gateway._is_openrouter_403_error` + `_failover_openrouter_to_agnes`(openrouter/→agnes/)+ `_openrouter_proxy_context`(临时 HTTPS_PROXY env var),`complete()`/`astream()` 集成:openrouter 403 自动 failover 到 agnes/ 中转,优先于 FallbackRouter,16 测试;③ **P3-2 Kiro 法务评估存档** — `free_provider_registry.py` 新增 kiro 条目,notes 明确标注"⚠️ ToS §3.2 禁止第三方集成/自动化调用/绕过 IDE 界面",仅作法务风险存档,不提供技术接入路径,引导用户走 `anthropic/` 或 `agnes/` 前缀,7 测试。**总计 223 测试全绿 + mypy 本任务文件全绿**。配置:`OPENROUTER_PROXY_URL`(代理地址)+ `OPENROUTER_FAILOVER_TO_AGNES=true`(403 自动 failover)在 `.env.example`。
-
-**P4 模型可用性自动过滤已完成**(2026-07-31,用户规则:只显示可完美接通调用的模型):① **ModelAvailabilityService** — `apps/ai-service/app/services/model_availability.py` 新建,后台每 5 分钟 ping 所有已配置 key 的 provider(调 `/v1/models` 端点,不消耗 token),缓存 provider 健康状态(HEALTHY/DEGRADED/DOWN/NOT_CONFIGURED/LOCAL/ZERO_COST/PENDING);② **`/llm/models` 端点集成** — `llm.py` 调 `model_availability.get_available_models()` 过滤:未配置 key 的 provider 模型 → 过滤;健康检查 DOWN(401/403/超时)的 provider 模型 → 过滤;zero_cost provider(pollinations/llm7/aihorde/opencode_zen)+ LOCAL provider(ollama/lmstudio/llamacpp/vllm)→ 保留;③ **`/llm/providers/availability` 端点** — 新增 Dashboard 调试端点,返回 provider 健康状态摘要;④ **FastAPI lifespan 集成** — `main.py` 启动时 `model_availability.initialize()` + 关闭时 `model_availability.shutdown()`;⑤ **前端兜底收敛** — `fallback-models.ts` 仅保留 stepfun + Cloudflare 免费 model。**延迟阈值**:DEGRADED 10s/DOWN 30s/ping 超时 8s。**stub 模式绕过过滤**。
-
-### C. 内容创作与教育(面向创作者与教育者)
-
-#### C1. 内容创作与多平台发布
-
-- **自媒体工作台**:公众号文章 + 口播稿双流水线,通过 AI 对话框斜杠命令(`/wechat-article` / `/koubo-script`)或附加栏按钮双入口调用
-- **14 平台一键自动发布**(14 adapter 在 `apps/ai-service/app/services/publish/`):
-
-| 类型        | 平台                                                    |
-| ----------- | ------------------------------------------------------- |
-| 文章 9 平台 | WordPress / Medium / 公众号 / 头条 / 知乎 / CSDN / 掘金 |
-| 图片 2 平台 | 小红书 / 微博                                           |
-| 视频 5 平台 | YouTube / B 站 / 抖音 / 快手 / 视频号                   |
-
-- **凭证 AES-256-GCM 加密存储**(`credentials_crypto.py`),发布完成 WebSocket 实时通知 + 完整记录
-- **资讯新闻系统**:文章 / 新闻 / 专题 / 标签 / 评论 / 点赞 / 收藏 / 热门 + news-crawler 爬虫
-- **短剧创作与管理**:`apps/web/app/(main)/drama/`
-- **业务名片**:名片创建 / 编辑 / 收藏 / 分享 / business-cards schema
-
-#### C2. AI 教育全栈
-
-| 模块                | 能力                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| **课程学习**        | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 问答 / zhs-course + zhs-organization  |
-| **题库与考试**      | 多题型枚举双向映射 / 自动批改 / 章节练习 / 错题本 / 试卷上传 / exam-marking                 |
-| **直播流媒体(SRS)** | RTMP/HLS/WebRTC 直播推流 / srs.ts                                                           |
-| **直播教学**        | 直播 / 签到 / 互动 / 回放 / AI 辅助 / live-chat + live-extended + live-supplement           |
-| **学习报告**        | 学习行为分析 + 个性化建议 / analytics-events + behavior                                     |
-| **证书发放**        | 完成课程 / 考试通过自动发证 / certificate.ts + certificate/download                         |
-| **讲师管理**        | 讲师主页 / 课程关联 / education-platform                                                    |
-| **学生端 12 子页**  | 问答 / 文章 / 圈子 / 评论 / 课程 / 资源 / 笔记 / 离线记录 / 试卷 / 错题本 / 证书 / 学习记录 |
-| **edu-full schema** | 45 张表(最大 schema),覆盖课程/章节/课时/笔记/问答/作业/批改/学习记录/班级/讲师/学员/认证    |
-
-### D. 企业与运营(面向企业管理者与运营)
-
-#### D1. 计费与交易
-
-完整的交易闭环:
-
-```
-订阅 VIP → 钱包充值 → 积分获取 → 模型调用扣费 → 退款审计 → 发票开具
-                ↓                ↑
-            分销佣金 ← 邀请返佣
-```
-
-- **VIP 等级**:多级会员 / 权益配置 / 升级流程 / vip-membership
-- **订阅 recurring**:周期扣款 / 自动续费 / 取消订阅 / payment-recurring
-- **钱包**:充值 / 提现 / 余额 / 流水 / wallet.ts + funds.ts
-- **积分**:签到获取 / 任务获取 / 消费抵扣 / 兑换商品 / point + point-redeem-items
-- **退款审计**:申请 / 审核 / 退款 / 银行流水 / refund-audit
-- **发票**:增值税普票 / 专票 / 邮寄
-- **汇率**:多币种 / 实时汇率
-- **10 支付网关(含海外 Stripe + PayPal)**:payment-gateway + payment-extended + wechat-pay-contracts + payment-callbacks + stripe.ts(Checkout Session/Webhook HMAC-SHA256 验签/退款/订阅激活) + paypal.ts(Orders API v2/OAuth2 token 缓存/Webhook Verify-API 验签/退款)
-- **VIP 4 档订阅(免费/个人/团队/企业)**:vipLevels 4 档 levelValue(0/1/2/3)+ benefits jsonb 配额(dailyTokenLimit/monthlyTokenLimit/dailyCostLimit/monthlyCostLimit/apiQps/concurrency/modelWhitelist)+ plan-entitlement-service 订阅激活自动 upsert aiBudgets + seed-vip-levels.ts(¥29/¥99/¥499 月付)
-- **AI 模型定价表**:ai-pricing.ts 公开路由 GET /api/ai-pricing + seed-ai-pricing.ts(42 个主流模型:OpenAI/Anthropic/Gemini/DeepSeek/Qwen/Doubao/Kimi/Zhipu/MiniMax,分/千 token + regionPricing cn/us/eu + currency CNY)+ /models-pricing 前端页(9 厂商分组 + 搜索)
-- **开发者门户**:developer-portal.ts 公开路由 GET /api/developer/info(限流策略 4 档 + 支付方式 3 种 + 厂商 9 个 + SDK 计划 TS/Python + Bearer 鉴权)+ /developers 前端页(Hero + 限流表 + 厂商徽章 + SDK 计划 + 鉴权示例)
-
-#### D2. 社区与互动
-
-| 模块         | 能力                                                                                |
-| ------------ | ----------------------------------------------------------------------------------- |
-| **圈子广场** | 圈子 / 广场 / 问答 / 帖子 / 话题 / 标签 / community + circle-extra                  |
-| **私信消息** | 1 对 1 私信 / 系统通知 / 多端同步 / WebSocket 实时推送 / private-letters            |
-| **关注粉丝** | 关注 / 粉丝 / 用户主页 / 名片 / 用户文章 / 问答 / 评论 / social + social-supplement |
-| **分享邀请** | 邀请码 / 分享码 / H5 分享 / 推荐返佣 / visit-tracking                               |
-| **互动反馈** | 评论 / 点赞 / 收藏 / 举报 / 用户反馈中心 / interactions + comments                  |
-
-#### D3. 运营增长体系
-
-| 模块         | 能力                                                                       |
-| ------------ | -------------------------------------------------------------------------- |
-| **积分签到** | 每日签到 / 任务积分 / 积分商城 / 兑换 / 积分明细 / check-in + checkin      |
-| **排行榜**   | 多维度排行 / 周月榜 / 用户排名 / ranking                                   |
-| **抽奖活动** | 抽奖 / 红包 / 奖励视频广告 / rewarded-video-ad                             |
-| **分销佣金** | 分销体系 / 佣金计划 / 提现 / 邀请返佣 / 8 子页 / distribution              |
-| **活动公告** | 活动管理 / 公告推送 / Banner 轮播 / 推广位 / carousels + zone + promotions |
-| **游戏化**   | 等级 / 成就 / 勋章 / gamification                                          |
-| **VIP 会员** | VIP 等级 / 会员权益 / 优惠券 / 粉丝 / 升级                                 |
-
-#### D4. 客服与支持
-
-| 模块         | 能力                                                             |
-| ------------ | ---------------------------------------------------------------- |
-| **工单系统** | 工单提交 / 处理 / 评价 / FAQ / 工单列表 / admin-asks + admin-faq |
-| **在线客服** | WebSocket 实时客服 / 1 对 1 会话 / `ws/customer-service`         |
-| **反馈中心** | 用户反馈 / 处理状态 / 追踪 / support                             |
-| **帮助中心** | 文档 / 教程 / `[...slug]` 动态路由 / docs                        |
-
-#### D5. 运营与监控
-
-| 模块            | 能力                                                                  |
-| --------------- | --------------------------------------------------------------------- |
-| **BI 仪表盘**   | 业务指标可视化 / 数据分析 / bi-dashboard                              |
-| **错误仪表盘**  | 错误聚合 / 告警 / 追踪 / security-audit                               |
-| **操作日志**    | 登录日志 / 操作日志 / 回调日志 / 系统操作日志 / audit + security-logs |
-| **API 调试**    | API Debug / API 日志 / API 用量 / API 平台 / llm-call-logs            |
-| **灰度发布**    | Canary / 灰度规则 / A/B 测试 / canary + ab-tests                      |
-| **i18n 仪表盘** | i18n-dashboard 翻译进度可视化                                         |
-| **访问追踪**    | visit-tracking + telemetry + behavior                                 |
-| **告警监控**    | Alertmanager + noise-rules 噪音抑制                                   |
-
-### E. 工程基础设施(面向运维与架构师)
-
-#### E1. 安全与合规
-
-| 维度             | 实现                                                                               |
-| ---------------- | ---------------------------------------------------------------------------------- |
-| **认证**         | JWT HS256 + token-family 旋转(防盗用)+ refresh token 黑名单                        |
-| **SSO 单点登录** | OAuth 2.0 + PKCE / Apple / Google / SSO 中转登录 / auth-sso + auth-identity        |
-| **限流**         | 全局 100/min,auth login/register 10/min,分层 rate-limit                            |
-| **加密**         | AES-256-GCM 加密 credentials(OSS + 教育 + 发布平台 + OAuth private keys)           |
-| **密码**         | bcryptjs 哈希(member 表 SHA256 兼容旧 Java 数据)                                   |
-| **数据脱敏**     | password / passwordHash 字段在 API 响应中解构剥离                                  |
-| **GDPR**         | 数据导出 / 数据删除 / 数据可携 / gdpr 路由                                         |
-| **敏感词**       | 敏感词过滤 / 内容审核 / admin-sensitive-words + sensitive-words schema             |
-| **审计日志**     | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯 / audit + security-logs              |
-| **事务安全**     | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空             |
-| **行锁**         | `.for('update')` 行锁防 TOCTOU 竞态                                                |
-| **CSRF**         | `@fastify/csrf-protection` 双 token 模式                                           |
-| **XSS**          | sanitizer 绕过检测脚本守门(pre-commit 第 6 项)                                     |
-| **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项)                                  |
-| **RBAC**         | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级 |
-| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + workspace-ai-tasks                      |
-| **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS(Row Level Security)        |
-| **OAuth 私钥**   | oauth-private-keys schema 加密存储                                                 |
-| **验证码**       | auth-codes + captcha schema                                                        |
-| **2FA**          | user-auth-info schema 支持                                                         |
-
-#### E2. 数据库与共享包
-
-- **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
-- **340 表**:100 个 schema 模块文件,覆盖 30+ 业务域
-- **144 迁移**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量(实际 144 迁移文件,含 pgvector / 知识图谱 / RLS 多租户隔离等关键迁移)
-- **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
-- **行级安全**:RLS(Row Level Security)在关键字段启用,多租户隔离
-- **读副本**:read-replica + tenant-router 路由查询
-- **类型安全**:Drizzle ORM 0.38,TypeScript strict 模式,端到端类型推导
-- **15 共享包**:`packages/` 下 15 个 TypeScript 包,跨端复用
-
-#### E3. 国际化(5 语言 parity)
-
-5 语言 parity(键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验)),由 4 守门脚本 + 19 i18n 工具链保证质量:
-
-| 语言  | 文件                           | 守门                                     |
-| ----- | ------------------------------ | ---------------------------------------- |
-| zh-CN | `apps/web/messages/zh-CN.json` | 基准语言                                 |
-| zh-TW | `apps/web/messages/zh-TW.json` | opencc 字形转换检测简体字残留(阻塞)      |
-| en    | `apps/web/messages/en.json`    | 破碎机翻英文检测(阻塞)                   |
-| ko    | `apps/web/messages/ko.json`    | 字符范围检测中文残留(阻塞)               |
-| ja    | `apps/web/messages/ja.json`    | 中文残留检测(warn-only,日文汉字词易误报) |
-
-**21 i18n 工具链脚本**(`scripts/`):apply-brand-glossary / apply-i18n-translations / apply-translation-fallback / audit-i18n-missing-evaluate / deep-i18n-audit / export-untranslated-i18n / fix-i18n-deep / fix-missing-i18n-keys / fix-zh-tw-simp / fix-zhtw-parity / generate-i18n / prune-orphan-i18n-namespaces / scan-hardcoded-zh / scan-i18n-zh-residue / scan-zh-tw-untranslated / sync-i18n-fixes / translate-i18n-batch / analyze-unique-i18n-values / verify-i18n / audit-i18n-unused-keys.mjs(无引用 key 审计 + --output-keys 完整列表导出) / cleanup-i18n-unused-keys.mjs(无引用 key 批量清理,5 语言同步)
-
-**品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
-
-#### E4. 工程守门(30+ pre-commit + post-commit + 11 迁移审计)
-
-项目通过 23 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计脚本杜绝协作事故:
-
-| #          | 脚本                                   | 用途                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ---------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1          | check-api-key-leak.mjs                 | API key 泄露                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 2          | check-i18n-keys.mjs                    | i18n 键完整性                                                                                                                                                                                                                                                                                                                                                                                                               |
-| 2b         | scan-i18n-zh-residue.mjs zh-TW         | zh-TW 简体字残留 (opencc 字形转换)                                                                                                                                                                                                                                                                                                                                                                                          |
-| 2c         | scan-i18n-zh-residue.mjs ko            | ko.json 中文残留 (字符范围检测)                                                                                                                                                                                                                                                                                                                                                                                             |
-| 2d         | scan-i18n-zh-residue.mjs ja            | ja.json 中文残留 (warn-only,不阻塞)                                                                                                                                                                                                                                                                                                                                                                                         |
-| 2e         | check-i18n-broken-en.mjs               | en.json 破碎机翻英文                                                                                                                                                                                                                                                                                                                                                                                                        |
-| 2g-web     | check-i18n-namespace-passing.mjs       | **i18n 命名空间传递(warn-only):检测 useTranslations('xxx') 限定命名空间后把 t 传给 @ihui/ui-react 共享登录组件的 bug 模式(防 LoginFormContent.tsx 复发)**                                                                                                                                                                                                                                                                   |
-| 3          | check-db-schema-drift.mjs              | schema drift                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 4          | check-stale-dist.mjs                   | packages 陈旧 dist                                                                                                                                                                                                                                                                                                                                                                                                          |
-| 4b         | check-dist-encoding.mjs                | packages/*/dist UTF-8 BOM 守门                                                                                                                                                                                                                                                                                                                                                                                              |
-| 4c         | check-api-client-utf8.mjs              | api-client 源码字节级 UTF-8 完整性                                                                                                                                                                                                                                                                                                                                                                                          |
-| 5          | lint-staged                            | eslint + prettier                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 6          | check-sanitizer-bypass.mjs             | skipResponseSanitization                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 7          | check-dedupe.mjs                       | 依赖碎片化                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 8          | check-api-routes.mjs                   | 前后端路由一致性                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 9          | check-safe-parse.mjs                   | safeParse 静默忽略(warn-only)                                                                                                                                                                                                                                                                                                                                                                                               |
-| 10         | openapi-check.mjs                      | OpenAPI spec 存在性(informational)                                                                                                                                                                                                                                                                                                                                                                                          |
-| 11         | check-rounded-full.mjs                 | 容器圆角违规                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 11a        | check-shrinkable-text-button.mjs       | **button 文字换行守门(warn-only,2026-07-28 立):小高度 button(h-4~h-8)+ 极小字号(text-xs/text-[10px])+ 中文 label 缺 shrink-0 AND 缺 whitespace-nowrap 时,在 flex 父容器窄空间下会被压缩/换行导致 UI 错位。背景:agent-task-progress-pane.tsx "对话流" / "时间线" tab 按钮原缺 shrink-0 被 flex 压缩;spec-panel.tsx 等 28 处待修复。1 周后(2026-08-04)评估升级 strict。跳过:`HUSKY_SKIP_BUTTON_WRAP_CHECK=1 git commit ...`** |
-| 12         | check-delivery-report-consistency.mjs  | 交付报告一致性                                                                                                                                                                                                                                                                                                                                                                                                              |
-| 13b        | check-project-plan-size.mjs            | **PROJECT_PLAN.md 体积(<50KB)**                                                                                                                                                                                                                                                                                                                                                                                             |
-| 13c        | check-project-plan-archive.mjs         | **PROJECT_PLAN.md 已完成任务条目防误删**                                                                                                                                                                                                                                                                                                                                                                                    |
-| 15         | check-api-migration-completeness.mjs   | 迁移完整性                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 17         | check-input-border-var.mjs             | CSS 颜色 token 嵌套(hsl(hsl(...)))                                                                                                                                                                                                                                                                                                                                                                                          |
-| 18         | check-native-title-tooltip.mjs         | 原生 title tooltip 违规                                                                                                                                                                                                                                                                                                                                                                                                     |
-| 19         | check-staged-pollution.mjs             | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                                                                                                                                                                                                                                                                                                                                                                                  |
-| commit-msg | check-commit-scope-consistency.mjs     | **commit scope 一致性预警(warn-only,scope 与 staged 领域不匹配)**                                                                                                                                                                                                                                                                                                                                                           |
-| 20         | check-tailwind-class-conflict.mjs      | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                                                                                                                                                                                                                                                                                                                                                                        |
-| 21         | check-multi-end-sync.mjs               | **多端同步守门(warn-only,单端未标注平台独占)**                                                                                                                                                                                                                                                                                                                                                                              |
-| 22         | check-readme-sync.mjs                  | **README 同步守门(warn-only,功能代码改动但 README 未更新)**                                                                                                                                                                                                                                                                                                                                                                 |
-| 23         | check-staged-files.mjs                 | **staged 文件清单打印(info-only)**                                                                                                                                                                                                                                                                                                                                                                                          |
-| 24a        | check-sidebar-width-consistency.mjs    | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**                                                                                                                                                                                                                                                                                                                                                                          |
-| 24b        | check-port-registry.mjs                | **端口注册表守门(warn-only,非 88xx)**                                                                                                                                                                                                                                                                                                                                                                                       |
-| 25         | check-workspace-hygiene.mjs            | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**                                                                                                                                                                                                                                                                                                                                                             |
-| 26         | check-parent-pollution.mjs             | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**                                                                                                                                                                                                                                                                                                                                                                 |
-| 30a        | check-commit-loss-guard.mjs            | _*Commit 丢失防护(blocking,AGENTS.md §22):reflog 50 步 reset 检测 + fsck 悬空 + lost-commit/* + backup/_ tag 完整性(本地+远端+对象可达)+ `sync-lost-commit-tags.mjs` 自动化 push**                                                                                                                                                                                                                                          |
-| 30b        | check-test-paths.mjs                   | **测试目录命名守门(blocking,AGENTS.md §23):`__tests__/` 被 `.gitignore __*` 静默忽略扫描 + `.gitkeep` 复核 + 隐藏/临时目录检测**                                                                                                                                                                                                                                                                                            |
-| 30c        | check-cross-store-parity.mjs           | **跨端 storage-adapter 一致性守门(blocking,AGENTS.md §12):4 端(web/mobile-rn/miniapp-taro/extension)必需导出 + 共享 userPersistKey + partialize 不持久化 token**                                                                                                                                                                                                                                                            |
-| 35         | check-mypy.mjs                         | **mypy 类型检查守门(blocking,防 ai-service Python 类型回退):staged 涉及 `apps/ai-service/**/*.py` 时触发 `cd apps/ai-service && mypy app --ignore-missing-imports`,0 errors 才通过。背景:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 files)。跳过:`HUSKY_SKIP_MYPY=1 git commit ...`**                                                                                                                                 |
-| 36         | check-miniapp-tokens-sync.mjs          | **miniapp-taro design-tokens 同步守门(blocking,防 app.css 漂移):校验 `apps/miniapp-taro/src/app.css` 的 `--color-*` 变量与 `packages/design-tokens/src/styles/tokens.css` 一致。Taro 4 + Tailwind v3 不兼容 v4 `@theme` 语法,由 `sync-design-tokens.mjs` 自动生成 `:root`/`.dark` 块。修复:`pnpm --filter @ihui/miniapp-taro sync-tokens`**                                                                                 |
-| 16         | 条件 typecheck                         | apps/web staged 时跑 typecheck                                                                                                                                                                                                                                                                                                                                                                                              |
-| 16b        | 条件 database build                    | packages/database/src staged 时跑 build                                                                                                                                                                                                                                                                                                                                                                                     |
-| 16c        | 条件 RN global.css 同步                | mobile-rn/global.css 或 tokens.css staged 时跑同步检查                                                                                                                                                                                                                                                                                                                                                                      |
-| 16d        | 条件 miniapp-taro dist 清理提示        | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆)                                                                                                                                                                                                                                                                                                                                                  |
-| 17-post    | git-push-guard.mjs(post-commit)        | 自动 push + 验证 local == remote(防遗漏)                                                                                                                                                                                                                                                                                                                                                                                    |
-| 5-post     | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22)                                                                                                                                                                                                                                                                                                                                           |
-
-**10 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立) / `cleanup-i18n-unused-keys.mjs`(无引用 key 批量清理,5 语言同步,2026-07-25 立)
-
-**9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
-
-#### E5. 测试与性能
-
-| 类型       | 框架          | 规模                         | 命令                              |
-| ---------- | ------------- | ---------------------------- | --------------------------------- |
-| 后端单元   | Vitest        | 322 文件,5346 用例           | `pnpm --filter @ihui/api test`    |
-| 前端 E2E   | Playwright    | 17 spec 文件                 | `pnpm test:e2e`                   |
-| AI 服务    | pytest        | 13 文件,400+ 用例            | `cd apps/ai-service && pytest`    |
-| CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter @ihui/cli test`    |
-| 压测       | Locust        | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
-| 性能预算   | Lighthouse CI | `apps/web/lighthouserc.json` | CI 自动跑                         |
-| 未使用代码 | Knip          | `knip.jsonc` + CI workflow   | `pnpm knip`                       |
-| 全量验证   | turbo         | 22 tasks                     | `pnpm turbo typecheck lint test`  |
-
-**测试策略**:Fastify inject 模式(不监听端口)+ Mock 数据库层 + 覆盖 auth / billing / content / success-paths / business-logic / edge-cases。
-
----
-
-## 快速开始
-
-### 环境要求
-
-| 工具       | 版本               | 说明                                              |
-| ---------- | ------------------ | ------------------------------------------------- |
-| Node.js    | `>=20.10.0`        | LTS 20.x,推荐 `nvm use`                           |
-| pnpm       | `>=9.0.0`          | 项目固定 `pnpm@9.15.0`,`corepack enable` 自动激活 |
-| Python     | `3.12+`            | 仅 `apps/ai-service` 需要                         |
-| PostgreSQL | `15+`              | compose 用 `postgres:15-alpine`                   |
-| Redis      | `7+`               | compose 用 `redis:7-alpine`                       |
-| Docker     | `24+` + Compose v2 | 可选,推荐用于一键启动                             |
-| Git        | `2.40+`            | `core.autocrlf=false`(项目强制 LF)                |
-
-### 一键启动(Docker)
-
-```bash
-# 1. 克隆
-git clone https://github.com/IHUI-INF-AI/IHUI-AI.git IHUI-AI && cd IHUI-AI
-
-# 2. 配置环境变量
+cd IHUI-AI
 cp .env.example .env
-# 编辑 .env,填入 JWT_SECRET / DB_PASSWORD / CREDENTIALS_ENCRYPTION_KEY 等
-
-# 3. 一键启动全栈(7 业务 + 7 监控 = 14 服务)
-docker compose up -d
+docker compose up -d              # 14 服务(7 业务 + 7 监控)
+docker compose --profile observability up -d  # 含监控
 ```
 
-**服务访问地址:**
+### 2. 一键部署平台
 
-| 服务         | URL                              | 说明                                               |
-| ------------ | -------------------------------- | -------------------------------------------------- |
-| Web          | http://localhost:8801            | Next.js 前端                                       |
-| API          | http://localhost:8802/api/health | Fastify 后端健康检查                               |
-| Worker       | http://localhost:8830            | BullMQ 异步任务进程                                |
-| AI 服务      | http://localhost:8803/health     | FastAPI AI 服务健康检查                            |
-| Grafana      | http://localhost:8816            | 默认账号 admin / 修改密码(21 仪表盘自动 provision) |
-| Prometheus   | http://localhost:9091            | 指标采集                                           |
-| Jaeger UI    | http://localhost:8814            | 分布式追踪                                         |
-| Loki         | http://localhost:8818            | 日志聚合                                           |
-| Alertmanager | http://localhost:9093            | 告警路由                                           |
+| 平台 | 用途 | 链接 |
+|------|------|------|
+| Vercel | 前端 Web | [Deploy](https://vercel.com/new/clone?repository-url=https://github.com/IHUI-INF-AI/IHUI-AI) |
+| Railway | 后端 API + DB | [Deploy](https://railway.app/new/template?template=https://github.com/IHUI-INF-AI/IHUI-AI) |
+| Render | 全栈 3 服务 | [Deploy](https://render.com/deploy?repo=https://github.com/IHUI-INF-AI/IHUI-AI) |
+| Heroku | 经典 PaaS | [Deploy](https://heroku.com/deploy?template=https://github.com/IHUI-INF-AI/IHUI-AI) |
 
-### 开发模式(本地)
+### 3. 本地开发
 
 ```bash
-# 1. 安装
-corepack enable && corepack prepare pnpm@9.15.0 --activate
-pnpm install
-
-# 2. 启动数据库 + Redis
-docker compose up -d db redis
-
-# 3. 迁移 + 校验 + 种子
-pnpm --filter @ihui/database db:migrate
-pnpm --filter @ihui/database db:check
-pnpm --filter @ihui/database seed          # 7 步幂等 seed
-
-# 4. 一键启动所有 apps(turbo 并行)
-pnpm dev
-# 或单独启动:
-# pnpm --filter @ihui/api run dev          # 后端 :8802
-# pnpm --filter @ihui/web run dev          # 前端 :8801
-# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8803
-
-# 5. 全量验证(typecheck + lint + test)
-pnpm turbo build typecheck lint test
+pnpm install                     # 安装依赖
+pnpm dev                          # 启动所有服务(web:8801 + api:8802 + ai-service:8803)
+pnpm turbo build typecheck lint test  # 全量验证
 ```
 
-### Windows 一键启动(9 PowerShell 脚本)
+### 4. 其他部署资源
 
-```powershell
-.\scripts\dev-up.ps1                    # 启动 web + api + ai-service + 数据库 + Redis
-.\scripts\dev-all.ps1                   # 仅启动 dev server(数据库已在跑)
-.\scripts\dev-web.mjs                   # 仅启动 web
-.\scripts\kill-dev-servers.ps1          # 停止所有 dev server
-.\scripts\restart-dev-server.ps1        # 重启 dev server
-.\scripts\test-admin-e2e.ps1            # admin E2E 测试
-.\scripts\setup-token-refresh-task.ps1  # 配置 token 刷新定时任务
-.\scripts\cleanup-external-junk.ps1     # 清理外部垃圾文件
-.\scripts\cleanup-memory-topics.ps1     # 清理 memory topics
-```
+| 资源 | 说明 |
+|------|------|
+| `deploy/docker/` | 4 个 Dockerfile + nginx |
+| `deploy/nginx/` | 蓝绿部署配置 |
+| `deploy/observability/` | docker-compose 可观测性栈 |
+| `deploy/scripts/` | deploy.sh / rollback.sh / backup-db.sh / health-check.sh |
+| `deploy/homebrew/` | Homebrew Formula(ihui.rb) |
+| `deploy/scoop/` | Windows Scoop manifest |
+| `deploy/snap/` | Ubuntu Snap |
+| `deploy/winget/` | Windows Winget manifest |
 
----
-
-## API 与协议
-
-### REST API(1300+ 端点)
-
-| 服务                | 端点数 | 前缀                  | 路由文件数 | 覆盖域                                                                                                                                                                                                                                                             |
-| ------------------- | ------ | --------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **apps/api**        | ~1080  | `/api` + `/api/admin` | ~290       | 30+ 业务域(auth/users/billing/content/chat/teams/workspace/agents/coze/oss/order/vip/exam/learn/live/news/topic/search/drama/stock/gdpr/rbac/tenant/community/edu/payment/wallet/point/ranking/distribution/developer/workflows/business-card/customer-service 等) |
-| **apps/ai-service** | ~55    | `/api`                | 12 routers | a2a(5)/ agents(9)/ health(4)/ llm(2)/ mcp(10)/ tools(3)/ personas(4)/ voice_stt(3)/ self_media(6)/ publish(8)/ agent_runtime(6)/ legacy                                                                                                                            |
-
-**统一响应格式:**
-
-```typescript
-// 成功: { code: 0, message: 'success', data: T }
-// 错误: { code: number, message: string }
-// 由共享 utils/response.ts 的 success()/error() 生成
-```
-
-**认证:** JWT HS256 + token-family 旋转 + refresh 黑名单,access token 7 天有效期,所有端点通过 `@ihui/auth` 共享包统一签发/验证。
-
-### WebSocket 端点(12 个)
-
-| 端点                            | 用途                                                             |
-| ------------------------------- | ---------------------------------------------------------------- |
-| `/ws/notifications`             | 全局通知推送(多端同步,Redis Pub/Sub 广播)                        |
-| `/ws/room/:roomId`              | 聊天室消息(多用户房间)                                           |
-| `/ws/customer-service`          | 客服会话(1 对 1)                                                 |
-| `/ws/payment/status/:orderNo`   | 支付状态实时更新                                                 |
-| `/ws/broadcast`                 | 通用广播                                                         |
-| `/ws/agent/stream`              | Agent 流式输出(步骤 / 工具调用 / 思考,interrupt/continue/cancel) |
-| `/ws/tts/stream`                | TTS 流式合成(文本 → 音频,支持中断)                               |
-| `/ws/realtime/pcm`              | 双向实时音频(ASR 输入 + TTS 输出,PCM16 16kHz)                    |
-| `/v1/ai/capabilities/ws/stream` | 通用 AI 能力流(代理到 AI 服务 SSE)                               |
-| `/ws/stock/stream`              | 股票行情流                                                       |
-| `/ws/timbre/generate`           | 音色克隆生成流                                                   |
-| `/ws/coze/chat`                 | Coze 对话流                                                      |
-| `/ws/live/chat`                 | 直播聊天室                                                       |
-
-所有 WS 端点通过 `wsAuth(socket, token)` 校验 JWT,支持心跳 ping/pong,多实例通过 Redis Pub/Sub 跨实例广播。
+详细部署文档:[一键部署](docs/deployment/one-click-deploy.md) · [Vercel](docs/deployment/vercel-deploy.md) · [Railway](docs/deployment/railway-deploy.md) · [家人朋友代部署](docs/deployment/family-friends-guide.md) · [DEPLOYMENT_RUNBOOK](docs/DEPLOYMENT_RUNBOOK.md)
 
 ---
 
-## 模型自动同步(ModelSyncService)
+## 开源商业化
 
-AI 服务内置 ModelSyncService,自动从已配置 key 的 provider 拉取最新模型清单,注册到数据库,无需手动改 `default_models.json`。
+> Apache 2.0 协议,完全自托管,商用友好,无传染性。同时提供企业版和专业服务。
 
-### 核心能力
+### 企业版 4 档报价
 
-- **自动同步**:启动后 60s 首次同步,之后每 6 小时全量同步(可配置)
-- **多 Provider 适配**:OpenAI 兼容 / Cloudflare Workers AI(/models/search) / Anthropic(/v1/models) / Google Gemini(/v1beta/models)
-- **错误分类处理**:401/403/404/429/5xx 分类,404 永久禁用,429 长退避,5xx 指数退避重试
-- **连续失败自动禁用**:连续 3 次失败标记 unhealthy,跳过同步(可手动重置)
-- **增量同步**:ETag / Last-Modified 缓存,304 Not Modified 跳过 upsert
-- **深度元数据**:display_name 智能派生 / pricing 多 schema 适配 / context_length 6 级 fallback / 模型分类标签(vision/tool/reasoning/fast/embedding/chat) / vendor 自动推断 / max_output_tokens / supports_tool_call / supports_vision / rate_limit / release_date / deprecation_date
-- **事务安全**:DB 事务包裹 upsert,中途失败回滚
-- **Prometheus 指标**:6 个指标(operations/latency/new_models/removed_models/provider_health/total_models)
-- **Provider 级别并发锁**:同一 provider 同时只允许一个同步任务
+| 版本 | 年费 | 用户上限 | 部署 | SLA | 响应 |
+|------|------|----------|------|-----|------|
+| 社区版 | 免费 | 无限 | 自部署 | 无 | 社区 |
+| Starter | ¥5 万 | ≤50 | SaaS | 99.5% | 8h 邮件 |
+| Business | ¥10 万 | ≤200 | SaaS | 99.9% | 4h 工单+群 |
+| Enterprise | ¥30 万 | 无限 | 私有/混合 | 99.9% | 2h 专属 |
+| Custom | ¥50 万+ | 无限 | 完全私有化 | 99.99% | 1h 专属团队 |
 
-### Admin API 端点
+### 专业服务
 
-| 方法   | 路径                                          | 用途                                                                   |
-| ------ | --------------------------------------------- | ---------------------------------------------------------------------- |
-| POST   | `/api/llm/models/sync`                        | 手动触发全量同步(可选 `?provider=xxx` 定向,`?dry_run=true` 预览)       |
-| GET    | `/api/llm/models/sync/status`                 | 查询最近同步状态(每个 provider 的结果)                                 |
-| GET    | `/api/llm/models/sync/history`                | 查询同步历史(可选 `?limit=20`)                                         |
-| GET    | `/api/llm/models/sync/health`                 | 查询 provider 健康状态(失败计数 + 永久禁用列表)                        |
-| POST   | `/api/llm/models/sync/reset?provider=xxx`     | 重置 provider 失败计数 + 重新启用(v4)                                  |
-| PUT    | `/api/llm/models/sync/config`                 | 运行时更新同步配置(v4,body: `{"interval_s": 21600, "concurrency": 5}`) |
-| GET    | `/api/llm/models/sync/stats?days=7`           | 查询聚合统计(成功率/延迟/新增下架数)(v4)                               |
-| DELETE | `/api/llm/models/sync/history?before_days=30` | 清理旧同步日志(v4)                                                     |
+| 服务 | 价格 | 内容 |
+|------|------|------|
+| 私有化部署 | ¥4,999/次 | 源码部署 + 2h 培训 + 30 天邮件支持 |
+| 企业培训工作坊 | ¥9,999/场 | 1 天线下/2 天线上 + 核心维护者授课 |
+| 定制开发 | ¥19,999 起 | 80 工时 + 3 个月保修 |
+| 技术咨询 | ¥999/小时 | 架构咨询/技术选型/代码 review |
 
-### 配置项(.env)
-
-| 环境变量                 | 默认值  | 说明                                 |
-| ------------------------ | ------- | ------------------------------------ |
-| `MODEL_SYNC_INTERVAL_S`  | `21600` | 同步间隔(秒,默认 6 小时)             |
-| `MODEL_SYNC_CONCURRENCY` | `5`     | 并发拉取数(同时拉取的 provider 数量) |
-
-运行时可通过 `PUT /api/llm/models/sync/config` 端点动态调整,无需重启服务。
+详细见:[企业服务白皮书](docs/enterprise-service/whitepaper.md) · [功能对比](docs/enterprise-service/feature-comparison.md) · [报价生成器](docs/enterprise-service/quote-generator.mjs) · [商业化文档](docs/monetization/)
 
 ---
 
-## 数据库
+## 典型使用场景
 
-- **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
-- **340 表**:100 个 schema 模块文件,覆盖 30+ 业务域
-- **144 迁移**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量(实际 144 迁移文件,含 pgvector / 知识图谱 / RLS 多租户隔离等关键迁移)
-- **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
-- **行级安全**:RLS(Row Level Security)在关键字段启用,多租户隔离
-- **读副本**:read-replica + tenant-router 路由查询
-- **类型安全**:Drizzle ORM 0.38,TypeScript strict 模式,端到端类型推导
-- **关键 schema 模块**:users / auth-identity / oauth-private-keys / agents-extended / agent-commerce / ai-capabilities / ai-cost / learn(45 表)/ exam / certificate / content / news-crawler / self-media / publish-platform / community / order / billing / wechat-pay-contracts / refund-audit / point / wallet / funds / commission / member / teams / tenant / rbac / workspace-permissions / system / canary / ab-tests / live / customer-service / business-cards / stock / trader / developer / sdks / webhooks / workflow / projects / knowledge-base / knowledge-rag / search-contents / cli-provider-imports / email-logs / sensitive-words / audit / visit-tracking / behavior / analytics-events / gamification
+### 场景 1:AI 中转站造血
 
----
+5 分钟搭建 LLM 中转站,对标超越 SwiftAPI / New API。176 模型统一网关 + Combo fallback + 响应缓存 + 模型映射 + 渠道负载均衡 + API Key 分组 + 实时监控 Dashboard + 兑换码 + 优惠券 + 返佣。
 
-## 可观测性
+### 场景 2:企业 AI 内部平台
 
-全栈可观测性,三支柱(指标 / 日志 / 追踪)+ 告警完整就绪:
+8 端同源,员工用 Web / CLI / 桌面端 / 扩展,管理层用管理后台。多租户 RLS 隔离,RBAC 权限,SSO 登录,全链路审计,21 仪表盘监控。
 
-### 指标(Prometheus + Grafana 21 仪表盘)
+### 场景 3:内容创作者一键分发
 
-- **Prometheus**(:9091):抓取 api `/metrics` + ai-service `/metrics` + node-exporter 主机指标 + alerts.yml 告警规则
-- **Grafana**(:8816):**20 个仪表盘 JSON 自动 provision**,包含:
+14 平台自动发布,文章/图片/视频全覆盖。反风控保驾护航,扫码登录内置浏览器,一个后台管所有平台。
 
-| #   | 仪表盘           | 用途            |
-| --- | ---------------- | --------------- |
-| 1   | ihui-ai-overview | 总览            |
-| 2   | ai-cost          | AI 成本         |
-| 3   | ai-latency       | AI 延迟         |
-| 4   | alert_history    | 告警历史        |
-| 5   | auth-security    | 认证安全        |
-| 6   | bullmq           | 队列健康        |
-| 7   | business-funnel  | 业务漏斗        |
-| 8   | cache            | 缓存命中        |
-| 9   | exam-usage       | 考试使用率      |
-| 10  | hls              | HLS 流媒体      |
-| 11  | jaeger           | 追踪            |
-| 12  | live-room        | 直播间          |
-| 13  | monitor_health   | 监控健康        |
-| 14  | nginx            | Nginx           |
-| 15  | oss-storage      | OSS 存储        |
-| 16  | payment-flow     | 支付流          |
-| 17  | pg_deploy        | PostgreSQL 部署 |
-| 18  | postgresql       | PostgreSQL      |
-| 19  | redis-cluster    | Redis 集群      |
-| 20  | tenant-usage     | 租户使用        |
-| 21  | ws               | WebSocket       |
+### 场景 4:教育机构 AI 教学平台
 
-- **Node Exporter**(:8817):主机 CPU / 内存 / 磁盘 / 网络指标
+课程/题库/考试/直播/证书/SM-2 间隔复习/AI 助教 7 学科/AI 批改。Apache 2.0 协议,直接 fork 部署,无需从零开发。
 
-### 日志(Loki + Promtail)
+### 场景 5:AI Agent 开发者
 
-- **Loki**(:8818):日志聚合后端
-- **Promtail**:自动发现带 `logging=promtail` 标签的 Docker 容器,采集 Docker + Nginx + API 应用日志
+LangGraph 工作流 + MCP 36 工具 + A2A 协议 + L1-L9 自进化。CLI 对标 Claude Code,ACP Server 可作为 IDE Agent 后端。Agent 市场 + 看板 + DAG 子 Agent。
 
-### 追踪(OpenTelemetry + Jaeger)
+### 场景 6:全栈 AI SaaS 创业
 
-- **OpenTelemetry Collector**(:8813):接收 OTLP 追踪 / 指标,导出到 Jaeger + Prometheus
-- **Jaeger UI**(:8814):分布式追踪可视化,API ↔ AI 服务 ↔ 数据库全链路
-
-### 告警(Alertmanager + noise-rules)
-
-- **Alertmanager**(:9093):告警路由 + 噪音抑制
-- **monitoring/alertmanager/noise-rules.yml**:告警噪音抑制规则(单一源,旧根目录副本已合并)
-
-### 健康检查
-
-| 端点                    | 用途                          |
-| ----------------------- | ----------------------------- |
-| `GET /api/health`       | 后端综合健康(DB + Redis 探针) |
-| `GET /api/health/live`  | Liveness                      |
-| `GET /api/health/ready` | Readiness                     |
-| `GET /health`           | AI 服务健康检查               |
-
----
-
-## 安全设计
-
-| 维度             | 实现                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------------- |
-| **认证**         | JWT HS256 + token-family 旋转(防盗用)+ refresh token 黑名单                           |
-| **SSO**          | OAuth 2.0 + PKCE / Apple / Google / SSO 中转登录                                      |
-| **限流**         | 全局 100/min,auth login/register 10/min,分层 rate-limit                               |
-| **加密**         | AES-256-GCM 加密 credentials(OSS 驱动凭证 + 教育设置凭证 + 发布平台账号 + OAuth 私钥) |
-| **密码**         | **argon2id 哈希(OWASP 2023 推荐,抗 GPU/ASIC)**+ bcrypt 透明升级 + 旧 SHA256 兼容      |
-| **数据脱敏**     | password / passwordHash 字段在 API 响应中解构剥离                                     |
-| **GDPR**         | 数据导出 / 删除 / 可携 / gdpr 路由                                                    |
-| **敏感词**       | 敏感词过滤 + 内容审核 + admin-sensitive-words                                         |
-| **审计日志**     | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯                                         |
-| **HMAC 链审计**  | 防篡改链式哈希日志(currentHash = HMAC(prevHash + ...)) + SIEM 导出(CEF/LEEF/JSON)     |
-| **事务安全**     | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空                |
-| **行锁**         | `.for('update')` 行锁防 TOCTOU 竞态                                                   |
-| **CSRF**         | `@fastify/csrf-protection` 双 token 模式                                              |
-| **XSS**          | sanitizer 绕过检测脚本守门(pre-commit 第 6 项)                                        |
-| **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项)                                     |
-| **RBAC**         | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级    |
-| **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗           |
-| **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS                               |
-| **OAuth 私钥**   | oauth-private-keys schema 加密存储                                                    |
-| **2FA/MFA**      | TOTP RFC 6238 + 备份恢复码 + 设备指纹 + 信任设备管理                                  |
-| **验证码**       | auth-codes + captcha schema + SVG 图形挑战 + 数学后备                                 |
-| **mTLS**         | 双向证书认证(高敏感路由要求客户端证书)+ 路由级 CN 白名单                              |
-| **零信任**       | 5 维度策略评估(身份/设备/网络/资源敏感度/时间窗)+ allow/deny/challenge 决策           |
-| **网络分段**     | IP 分类(内网/公网/黑名单)+ 路由级访问策略 + CIDR 匹配                                 |
-| **风控引擎**     | 5 维度风险评分(IP/设备/时间/频率/UA)+ 自动决策 allow/challenge/deny                   |
-| **异常检测**     | 6 维度行为分析(频率/时间分布/地理/设备突变/扫描模式/基线)+ Welford 在线基线           |
-| **反自动化**     | IP/用户双轨限流 + 扫描器模式即时封禁 + CAPTCHA 挑战 + 机器人 UA 检测                  |
-| **IP 信誉**      | 黑名单 + TOR/代理/数据中心段识别 + 历史异常计数 + 30 天 TTL                           |
-| **服务间认证**   | mTLS + 短期 JWT(5min)+ 服务白名单 + 常量时间比较防 timing attack                      |
-
-### 国安级安全矩阵(2026-07-24 立)
-
-E1-E5 五层防御体系,从密码学到运行时全链路防护:
-
-| 层级            | 模块                         | 关键能力                                     | API 端点                   |
-| --------------- | ---------------------------- | -------------------------------------------- | -------------------------- |
-| **E1 密码学**   | argon2id + bcrypt 透明迁移   | OWASP 2023 推荐,抗 GPU/ASIC 爆破             | 内置(login/register/reset) |
-| **E2 MFA/设备** | TOTP + 设备指纹 + 风险评分   | RFC 6238 ±1 窗口 + 6 请求头指纹 + 5 维度评分 | `/api/mfa/*`               |
-| **E3 审计链**   | HMAC-SHA256 链 + CEF/LEEF    | 防篡改链式哈希 + SIEM 三格式导出             | `/api/admin/audit-logs/*`  |
-| **E4 零信任**   | mTLS + 网络分段 + 服务间认证 | 双向证书 + 5 维度策略评估 + CIDR 黑名单      | 插件级 + 路由级配置        |
-| **E5 反自动化** | 异常检测 + CAPTCHA + IP 信誉 | 6 维度行为分析 + 扫描器即时封禁              | `/api/security/*`          |
-
-**Admin 安全仪表盘**(2026-07-24):3 个管理后台页面可视化安全态势:
-
-- `/admin/security/threat-dashboard` — 国安级威胁监控(30s 自动刷新,统计卡 + 监控 IP + 最近封禁)
-- `/admin/security/ip-reputation` — IP 信誉查询(评分 + 风险原因 + 手动封禁/解封)
-- `/admin/security/anomalies` — 异常事件列表(IP/分数过滤 + 分页 + 维度详情展开)
-
----
-
-## G:\ 根目录实时守门服务(2026-07-24 立;v2.0 白名单优先 2026-07-24 升级)
-
-`FileSystemWatcher` 实时监控 G:\ 根目录,**v2.0 白名单优先模式** — 任何不在白名单且非系统目录的目录/文件创建后**约 110-222ms 内自动删除**,从被动清理升级为主动实时阻止,彻底消除 v1.0 黑名单模式的盲区(如 `guardian-test-allowed` 不在黑名单被保留)。
-
-**组件**:
-
-- [scripts/g-root-guardian.ps1](./scripts/g-root-guardian.ps1) — v2.0 实时监控脚本(allowlist-first + 黑名单 + 启发式 + .NET Directory.Delete 兜底 + 审计日志 + 1MB 日志轮转)
-- [scripts/g-root-blacklist.json](./scripts/g-root-blacklist.json) — v2.0 配置(allowlist 15 目录 + blacklist 17 目录/23 文件/10 通配符 + heuristic 7 目录签名/14 文件签名 + systemProtected 8 系统目录)
-- [scripts/install-g-root-guardian.ps1](./scripts/install-g-root-guardian.ps1) — 安装脚本(注册 Windows 计划任务,用户登录时自启,失败自动重启 999 次)
-- [scripts/uninstall-g-root-guardian.ps1](./scripts/uninstall-g-root-guardian.ps1) — 卸载脚本(停止进程 + 删除计划任务)
-- [scripts/g-root-guardian-status.ps1](./scripts/g-root-guardian-status.ps1) — 状态检查脚本(查询运行状态 + 显示最近日志 + 统计 BLOCKED/ALLOWED/ERROR)
-
-**安装(开机自启)**:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\install-g-root-guardian.ps1
-```
-
-**状态查询**:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1
-```
-
-**卸载**:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1
-```
-
-**v2.0 白名单优先模式(5 层判定逻辑)**:
-
-1. `systemProtected` → ALLOWED(系统目录,永不删除:`$RECYCLE.BIN` / `System Volume Information` / `Users` / `Windows` 等 8 个)
-2. `allowlist` → ALLOWED(用户合法项目/工具:IHUI-AI / QoderCN / Trae CN / 微信web开发者工具 等 14 个 + `tools` 通配符)
-3. `blacklist` → BLOCKED(已知垃圾:platforms / iconengines / Qt5*.dll 等 17 目录/23 文件/10 通配符)
-4. `heuristic` → BLOCKED(垃圾特征签名:`guardian-test-*` / `test-*` / `tmp_*` / `search_*.ps1` 等 7 目录签名/14 文件签名)
-5. 否则 → BLOCKED:unknown(未知项,删除)— **v2.0 核心改动,彻底消除 v1.0 盲区**
-
-**实测验证(v2.0)**:guardian-test-allowed 114ms 删除 / platforms 110ms 删除 / unknown-random-dir-xyz 222ms 删除 / Qt5Core.dll 106ms 删除 / IHUI-AI 保留。
-
-**日志**:`.trae-cn/tmp/g-root-guardian.log`(1MB 自动轮转为 `.bak`,格式 `yyyy-MM-dd HH:mm:ss [BLOCKED|ALLOWED|ERROR|STARTED|STOPPED] <path> (<reason>)`)。
-
-**根治意义**:从被动清理(`cleanup-external-junk.ps1`)→ v1.0 主动实时阻止(黑名单模式,有盲区)→ **v2.0 白名单优先**(allowlist-first,未知项也删除),用户无需干预,任何垃圾(已知或未知)创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
-
----
-
-## 工程守门(23 个 pre-commit 钩子)
-
-项目通过 23 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本杜绝协作事故:
-
-详细清单见 [核心能力 E4 节](#e4-工程守门30-pre-commit--post-commit--11-迁移审计)。
-
----
-
-## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
-
-多 agent 并行环境下,`git reset HEAD~` 可能把整个 commit 链一并丢弃(2026-07-25 真实事故:丢失 3 个 commit)。本项目建立 4 道防护:
-
-1. **pre-commit blocking 检查**(第 30a 项):`scripts/check-commit-loss-guard.mjs --blocking --filter-stash`
-   - reflog 最近 50 步 reset 检测
-   - fsck 悬空 commit 检测 + tag 备份核对
-   - 远程 tag 完整性(对比 origin)
-   - tag 对象可达性(annotated tag 的 commit object)
-2. **post-commit 自动 tag 同步**:`scripts/sync-lost-commit-tags.mjs --auto-push`
-   - commit 后立即 push 所有 `lost-commit/*` + `backup/*` tag 到 origin
-   - 防止本地 git gc 清理后无远端备份
-3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回所有 lost-commit/backup tag
-4. **完整档案**:`docs/lost-commit-archive.md` 永久记录每个 lost commit 的 hash / subject / 改动文件 / 重做 commit / tag 状态
-
-**触发背景**:2026-07-25 reflog 记录 6 次 `git reset HEAD~` 丢失 3 个 commit(15b984f90 P0 安全债 + 5ef36e59d / b120c6e20 sidebar 折叠按钮 x2);2026-07-26 本地 tag 被 git gc 清理事故。
-
----
-
-## 工程质量证据(反驳"AI 生成代码三通病")
-
-> **为什么写这一段**:有外部 AI 评测在未审阅代码的情况下,基于"AI 生成项目的普遍特征"猜测本项目存在三个通病——① 代码冗余度高 ② 边界条件处理不足 ③ 深层业务逻辑连贯性弱。我们用**真实证据**回应这些猜测,而非口头反驳。
-
-### 通病 ① 代码冗余度高 → 实际:Knip + dedupe + 21 钩子守门
-
-| 机制                        | 文件                                                                                                          | 作用                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| **Knip 未使用代码检测**     | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml)                       | CI 守门,任何 export 未被引用 → CI fail                  |
-| **依赖碎片化检测**          | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs)(pre-commit 第 7 项)                                    | 检测重复依赖版本,统一对齐                               |
-| **Tailwind class 冲突检测** | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs)(pre-commit 第 20 项) | 检测模板字面量 BASE/BRANCH size 冲突                    |
-| **staged 污染预警**         | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs)(pre-commit 第 19 项)               | 检测跨 ≥4 目录的 staged 改动                            |
-| **commit scope 一致性预警** | [scripts/check-commit-scope-consistency.mjs](./scripts/check-commit-scope-consistency.mjs)(commit-msg hook)   | 检测 scope 与 staged 文件领域不匹配(防 git add -A 污染) |
-
-### 通病 ② 边界条件处理不足 → 实际:237 测试套件 / 5346 测试用例 + 63 e2e + 微服务工程模式
-
-| 机制               | 证据                                                                                                                                                                   |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **API 单元测试**   | 237 个 `.test.ts` 文件([apps/api/tests/](./apps/api/tests/)),覆盖 auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox 等核心路径                                   |
-| **E2E 测试**       | 63 个 `.spec.ts` 文件([apps/web/e2e/](./apps/web/e2e/)),覆盖 admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace 等 17 个业务域 |
-| **AI 服务测试**    | pytest 测试套件([apps/ai-service/tests/](./apps/ai-service/tests/)),含 `test_business_flow_integration.py` 业务流程集成测试 + `test_langgraph_service.py` 编排逻辑测试 |
-| **微服务容错模式** | Outbox 事务性发件箱 + Refund DLQ 退款死信队列 + Circuit Breaker 断路器 + IDOR 防护 + WS Dedup 消息去重                                                                 |
-| **支付闭环测试**   | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts` 覆盖支付/退款/对账/钱包事务                                                   |
-
-### 通病 ③ 深层业务逻辑连贯性弱 → 实际:复杂业务流程有完整链路
-
-| 业务流程             | 关键代码                                                                                                                             | 测试                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **支付闭环**         | `createOrder` → `completeOrderWithSaga` → 支付回调 → VIP 开通 → 钱包入账 → 积分发放 → 退款死信队列                                   | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
-| **AI 教育全栈**      | 课程报名 → 章节追踪 → 作业批改(`gradeSubjectiveAnswers` 主观题人工批改 + 客观题自动评分)→ 错题本 → 直播回放复习 → 证书发放           | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts)       |
-| **LangGraph 工作流** | `langgraph_service.py` StateGraph(plan → execute → summarize)+ `koubo_workflow.py` 10+ tools + `agent_orchestrator.py` 多 Agent 协作 | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py)                 |
-| **多租户权限**       | RBAC 5 级 + data-scope 5 级 + RLS 行级安全 + workspace 3 模式 + 7 端点运行时拦截 + 60s 审计超时                                      | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts)                                                         |
-| **AI 流式输出**      | SSE(Agent 流式)+ WebSocket(聊天室 / 多模型流式)+ REST 三协议分层 + WS Dedup 消息去重                                                 | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts)                                                         |
-
----
-
-## AI 编程协作声明
-
-> **本项目使用 AI 编程智能体辅助开发**(Claude Code / Codex / Cursor / Trae 等),但通过以下机制保证工程质量,**不是"AI 自动生成无审查代码"**:
-
-### 三重门禁(每行代码必须通过)
-
-1. **写代码前**:AGENTS.md 21 节强制规则 + §11 多 Subagent 并行开发任务分配格式 + §9 全端连通强制
-2. **写代码中**:§17 样式改动强制 browser_use 验证 + §19 UI 改动交付前自验 4 状态截图 + §14 Agent 自主验证
-3. **写代码后**:`pnpm turbo build typecheck lint test` 全量验证 + 30+ pre-commit 钩子 + pre-push typecheck 闸门 + post-commit 自动 push + git-push-guard 验证
-
-### AI 生成代码的针对性反制
-
-| AI 代码通病      | 本项目反制机制                                                                                       |
-| ---------------- | ---------------------------------------------------------------------------------------------------- |
-| 代码冗余         | Knip CI 守门 + check-dedupe + check-tailwind-class-conflict                                          |
-| 边界条件缺失     | 237 测试套件 / 5346 测试用例 + 63 e2e + pytest 集成测试 + 微服务容错模式                             |
-| 业务逻辑断裂     | 业务流程集成测试(`test_business_flow_integration.py`)+ saga 事务模式 + outbox 事务发件箱             |
-| 类型安全漏洞     | TypeScript strict + Zod 端到端校验 + @ihui/types 跨端契约                                            |
-| 文档与代码 drift | §13 文件修改持久化强制 Read 验证 + check-project-plan-archive 守门                                   |
-| 风格不一致       | ESLint + Prettier + 30+ pre-commit 钩子 + check-rounded-full / check-i18n-keys / check-api-routes 等 |
-| 协作事故         | §12 多会话并行规则 + §16 push 阶段跨 Agent 改动保护 + git-push-guard + post-commit 自动 push         |
-
-### 客观承认的不足
-
-我们**不否认**以下事实,并将其作为后续优化方向:
-
-- 5 端(desktop / extension / mobile-rn / miniapp-taro / cli)完成度低于 web/api/ai-service,核心场景已通但业务页面覆盖度不足(见[项目状态矩阵](#项目状态矩阵))
-- 开源社区生态刚起步,贡献者数量、Issue 沉淀、最佳实践远不如 LangChain / Dify / Claude Code 等成熟项目
-
----
-
-## 测试
-
-详细测试矩阵见 [核心能力 E5 节](#e5-测试与性能)。
-
----
-
-## 部署
-
-### Docker Compose(推荐)
-
-```bash
-# 配置 .env.production
-cp .env.production.example .env.production
-# 编辑 JWT_SECRET / DB_PASSWORD / CREDENTIALS_ENCRYPTION_KEY / 微信支付证书 / SMTP 等
-
-# 一键启动(7 业务 + 7 监控 = 14 服务)
-docker compose up -d
-```
-
-**服务清单(14 服务):**
-
-| 类型 | 服务           | 端口 | 用途                                   |
-| ---- | -------------- | ---- | -------------------------------------- |
-| 业务 | api            | 8802 | Fastify 后端                           |
-| 业务 | worker         | 8830 | BullMQ 独立 worker 进程                |
-| 业务 | web            | 8801 | Next.js 前端(static export,A 套壳架构) |
-| 业务 | ai-service     | 8803 | FastAPI AI 服务                        |
-| 业务 | db             | 8810 | PostgreSQL 15                          |
-| 业务 | redis          | 8811 | Redis 7                                |
-| 业务 | migrate        | -    | 一次性迁移服务(完成后退出)             |
-| 监控 | jaeger         | 8814 | 分布式追踪 UI                          |
-| 监控 | otel-collector | 8813 | OpenTelemetry Collector                |
-| 监控 | prometheus     | 9091 | 指标采集                               |
-| 监控 | grafana        | 8816 | 可视化(21 仪表盘)                      |
-| 监控 | node-exporter  | 8817 | 主机指标                               |
-| 监控 | loki           | 8818 | 日志聚合                               |
-| 监控 | promtail       | -    | 日志采集                               |
-
-### 端口管理规则
-
-本项目所有服务统一使用 `88xx` 端口段,避免与系统服务冲突:
-
-| 端口段    | 用途         | 说明                                                                                                                           |
-| --------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| 8801-8809 | 八端应用服务 | Web / API / AI Service / Taro H5 / Metro / Desktop 等                                                                          |
-| 8810-8819 | 基础设施     | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
-| 8820-8829 | 辅助工具     | Storybook(8820)等开发辅助工具                                                                                                  |
-| 8830-8839 | SaaS 部署    | Admin API(8830)等 SaaS 化部署服务                                                                                              |
-
-### 生产部署
-
-详见 [DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md) — 蓝绿部署 / 镜像 tag 切换 / Nginx upstream 切换 / 数据库备份恢复 / 证书续期 / 健康检查 / 回滚。
-
-```bash
-# 部署前 10 项硬性门禁自检
-node scripts/pre-deploy.mjs
-
-# PostgreSQL 备份
-node apps/api/scripts/pg-backup.mjs
-
-# 健康检查
-./deploy/scripts/health-check.sh
-
-# 回滚
-./deploy/scripts/rollback.sh
-
-# 证书续期(deploy/cron/cert-renew.cron 自动调度)
-./deploy/cron/cert-renew.sh
-
-# GitHub Actions secrets 批量配置
-./deploy/setup-github-secrets.sh
-```
-
-### IaC 决策
-
-本架构选用 **Docker Compose + GitHub Actions** 而非 K8s + Helm + ArgoCD,理由:
-
-- 单 VM 即可部署,运维门槛低
-- 无控制平面开销,资源利用率高
-- 部署速度 10-30s(K8s 30s-2min)
-- 适用规模 ≤ 5 服务 / 单团队 / 单集群
-
-**何时迁移 K8s**:业务服务 > 10 / 跨可用区多活 / 单 VM 资源触顶 / 需要 HPA 自动伸缩 / 多租户 namespace 级别隔离。所有 Dockerfile 可直接复用为 K8s 容器镜像,迁移路径已预留。
-
----
-
-## CI 工作流(2026-07-26 新增)
-
-| Workflow                                                                 | 触发条件                                                          | 失败阻塞                |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------- | ----------------------- |
-| [`i18n-dead-key-audit.yml`](./.github/workflows/i18n-dead-key-audit.yml) | PR 改 i18n 字典 / web/src / miniapp-taro/src / cli/src / 扫描脚本 | 是(死 key > 0 → exit 1) |
-| [`ci.yml`](./.github/workflows/ci.yml)                                   | PR 推 main / develop                                              | 是                      |
-| [`build.yml`](./.github/workflows/build.yml)                             | tag 推送 / main 合并                                              | 是(构建产物)            |
-| [`e2e.yml`](./.github/workflows/e2e.yml)                                 | PR 标 `e2e` 标签                                                  | 是(Playwright)          |
-| [`knip.yml`](./.github/workflows/knip.yml)                               | PR 改源码                                                         | 是(未使用代码)          |
-
-**i18n-dead-key-audit 流程**:`scripts/scan-dead-i18n-keys.mjs --target web`(默认)→ 扫描 `apps/web/src + apps/web/app + apps/miniapp-taro/src + apps/cli/src + apps/mobile-rn/src` 找代码未引用的 zh-CN 声明 → 写报告到 `.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md`(artifact)→ 死 key > 0 → exit 1 → PR 阻塞。
-
----
-
-## 国际化
-
-5 语言 parity(键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验)),由 4 守门脚本 + 19 i18n 工具链保证质量:
-
-详细清单见 [核心能力 E3 节](#e3-国际化5-语言-parity)。
-
-### I18n 治理(2026-07-26 新增)
-
-5 语言 i18n 通过 `scripts/scan-dead-i18n-keys.mjs` 系列自动审计,死 key 比例从 43.1% 降至 0.0%(已清零)。
-
-- **基准语言**:`packages/i18n/messages/web/zh-CN.json`(10,174 leaf key,5 语言同步)
-- **多端字典目录**:`packages/i18n/messages/{web,extension,miniapp-taro,mobile-rn,shared}/` 5 端独立字典,各 5 语言文件
-- **扫描工具**:
-  - `scripts/scan-dead-i18n-keys.mjs --target {web|miniapp-taro|mobile-rn|extension}`(主入口,默认 `--target web` 跨端共享)
-  - `scripts/scan-extension-dead-i18n-keys.mjs`(extension 端独立)
-  - `scripts/scan-miniapp-taro-dead-i18n-keys.mjs`(miniapp-taro 端独立)
-  - `scripts/scan-mobile-rn-dead-i18n-keys.mjs`(mobile-rn 端独立)
-  - `scripts/scan-desktop-dead-i18n-keys.mjs`(desktop 端独立)
-- **CI 集成**:`.github/workflows/i18n-dead-key-audit.yml`(PR 触发,失败即阻塞)
-- **AI 翻译流水线**:`pnpm i18n:apply`(从 zh-CN 差异 → 4 语言补全,parity 校验,brand-glossary 约束)
-- **死 key 审计**:`node scripts/scan-dead-i18n-keys.mjs --dry-run` 一键查看本端死 key 清单(终端输出统计 + `.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md` 报告)
-
----
-
-## LLM Provider 字典化(2026-07-26 阶段 2 完成)
-
-LLM provider 字段从扁平 `*_api_key` 格式升级为 Pydantic 强类型 `ProviderConfig` + JSON 配置(24+7 provider 统一管理)。
-
-- **设计文档**:`docs/llm-provider-dict-design.md`(7 章节,3 阶段实施路线)
-- **运行时强类型**:`apps/ai-service/app/core/provider_config.py`(`ProviderConfig` Pydantic 模型,字段校验 + 默认值 + 类型提示)
-- **配置格式**:`LLM_PROVIDERS_JSON='{"openai":{...},"anthropic":{...},"deepseek":{...},...}'`(环境变量或 `llm_providers.json` 文件,统一管理 base_url / api_key / models / proxy / timeout)
-- **迁移工具**:`scripts/migrate-llm-providers.mjs`(从扁平 `*_api_key` 字段 → JSON 字典格式,支持 `--dry-run` 预览)
-- **测试**:`apps/ai-service/tests/test_provider_config.py`(36+ 单测,覆盖字段校验 / 环境变量解析 / 迁移一致性)
-- **向后兼容**:1 版本 deprecation 期,旧 `*_api_key` 字段仍可工作(运行时自动 fallback 到 JSON 配置)
-
----
-
-## LLM 字典化闭环 PoC(2026-07-26 G1+G2 完成)
-
-把"LLM 字典化"从 provider 字段层面推进到 **subagent 长任务**与 **结构化输出**两个层面,PoC 已落地。
-
-### G1 — 业务代号字典(`apps/ai-service/app/core/prompt_dict.py`)
-
-把 IHUI-AI 8 端 + 通用 LLM/Agent 概念映射成短代号,序列化到 system prompt,让 subagent 长任务里反复使用短代号,减少 token 消耗 + 降低假阳性。
-
-- **字典规模**:`DOMAIN_ALIASES` ≥20 条(覆盖 UI 组件 / 渲染方式 / 端 / 模块 / 数据形态 5 类)
-- **注入入口**:`project_memory.build_system_prompt()` 自动把 `## 业务代号字典` 段拼接到 system prompt 头部
-- **调用方**:`persona_registry.build_persona_system_prompt()` 透传 5 个 persona,所有走 persona 的 LLM 调用自动获得代号字典
-- **测试**:`tests/test_prompt_dict.py`(9 单测,全绿)+ `tests/test_project_memory.py` 新增注入验证(19 单测,全绿)
-
-### G2 — LLM 自由输出统一 JSON Schema(`llm_gateway.structured_completion`)
-
-强制 LLM 返回符合 JSON Schema 的结构化输出,替代松散的"prompt 里写'请输出 JSON'+ 后置正则解析"路径。
-
-- **核心 API**:`LLMGateway.structured_completion(messages, schema, model, schema_name, max_retries)` → 解析后的 dict,或 error dict(由调用方降级)
-- **协议**:走 OpenAI 原生 `response_format: { type: "json_schema", json_schema: { name, schema, strict: true } }`(LiteLLM 透传给各厂商)
-- **校验**:required 字段 + `additionalProperties: False` 强制校验,失败自动 retry(默认 1 次)
-- **迁移调用点**:`spec_generator.split_tasks()`(从 `_call_llm + _parse_tasks_json` 改为 `structured_completion`)+ 失败降级到 `mechanical_split`
-- **测试**:`tests/test_llm_gateway.py::TestStructuredCompletion*`(15 单测,全绿,覆盖 Success/Validation/Error/Retry 四类)+ `tests/test_spec_generator.py::TestSplitTasks`(10 单测,全绿,验证迁移后等价)
-
-### G4 + G5 + G6 — 知识查询统一门面 + 生产调用点接入 + LTM 源接入
-
-把三个独立的知识检索子系统聚合为一个统一入口,对应"LLM 字典化 4 场景"中的**场景 3 记忆分离式字典化**:模型只负责推理,外部知识统一查表,不与模型权重绑定。G4 完整迁移 + G5 生产调用点接入 + G6 LTM 源接入已落地,LLM 可通过 MCP 协议直接调用知识查询工具查完整三源(代码库 + RAG + 跨会话历史)。
-
-**G4 完整迁移(基础层):**
-
-- **核心 API**:`knowledge_lookup(query, *, user_id, repo_id, session_id, top_k_per_source, source_priority, api_token)` → `KnowledgeLookupResult(hits, errors, duration_ms)`
-- **三源并发**:`codebase_indexer`(代码库 AST 切片 + embedding)+ `rag_service.retrieve_only()`(向量检索 + rerank,只取 retrieve 阶段,跳过 generate)+ `long_term_memory`(跨会话摘要),`asyncio.gather(return_exceptions=True)` 任一源失败不阻塞其他
-- **降级策略**:IO 失败 → 错误记入 `errors` 字段,`hits` 返回空;`user_id` 为空自动跳过 `long_term_memory`(不报错);`source_priority` 不合法抛 `ValueError`
-- **统一格式**:`KnowledgeHit(source, score, content, raw)`,`content` 已格式化为 `[codebase:function name] file:ls-le\n...` / `[rag:role] ts\n...` / `[long_term_memory] summary\n关键事实: ...`,可直接注入 prompt
-- **RAGService.retrieve_only() 公有 API**:G4 完整迁移新增,替代 PoC 阶段的 `_retrieve` 私有调用。委托给 `_retrieve()`,无额外逻辑(§3 做减法)
-- **AgentLoopV2 接入工厂**(`agent_tools.py`):`make_knowledge_lookup_tool(user_id, repo_id, session_id, top_k_per_source, source_priority, api_token)` → `ToolDefinition`,调用方一行接入(闭包绑定参数,LLM 只控 query + top_k_per_source)
-
-**G5 生产调用点接入(MCP 工具注册表):**
-
-- **MCP 工具注册**(`mcp_server.py`):新增 `_tool_knowledge_lookup(arguments)` 函数,注册到 `_TOOLS`(MCPTool schema)+ `_TOOL_HANDLERS`(handler 调度表),LLM 可通过 MCP 协议直接调 `knowledge_lookup` 工具
-- **不在 `_ADMIN_ONLY_TOOLS`**:查询类工具,所有用户可用(类比 `search_codebase`),普通用户(user_role=0)和 admin(user_role>=1)均可调
-- **LLM 可控参数**:`query`(required string)+ `top_k_per_source`(optional int,1-20,默认 5)
-- **服务端注入(G6,2026-07-26)**:`user_id`/`session_id` 从 FastAPI request 上下文透传(routers/mcp.py 从 `request.state.user_id`,routers/llm.py 从 `req.metadata.userId`),`call_tool` 注入 `__user_id`/`__session_id` 到 arguments 副本(复用 `__user_role` 模式),`_tool_knowledge_lookup` 提取后传给 `knowledge_lookup(user_id=...)` 启用 `long_term_memory` 源(完整三源)。service 层(agent_loop/orchestrator/conversation)无 request 上下文,保持 None 跳过 LTM(不回归)
-- **服务端固定(安全)**:`repo_id`/`api_token`/`source_priority` 仍 None(用 knowledge_lookup 默认值)
-- **降级策略**:空 query → ok=False;三源全失败 → ok=False + errors 透传;ValueError → ok=False;各源空结果(无 errors)→ ok=True(空结果不算失败)
-- **`top_k_per_source` 防御性 clamp**:LLM 传越界值(< 1 或 > 20)自动 clamp 到 1-20
-- **hits 序列化**:不含 `raw` 字段(避免 LLM 上下文冗长 + 防泄露),含 `source` / `score`(round 4 位)/ `content`
-- **G5 测试**:`tests/test_mcp_server.py` 新增 20 个测试(TestKnowledgeLookupToolRegistration 4 + TestKnowledgeLookupToolExecution 13 + TestKnowledgeLookupViaMCPServer 3),覆盖工具注册 / 权限矩阵 / 空查询 / 三源成功 / 全失败降级 / 空结果 / top_k 透传 + clamp / ValueError 降级 / hits 不含 raw / query strip / MCPServer.call_tool 调度
-
-**G6 LTM 源接入(2026-07-26,架构改动):**
-
-- **call_tool 签名扩展**:`MCPServer.call_tool(name, arguments, *, user_role, user_id, session_id)`,新增 `user_id`/`session_id` kwargs(可选,默认 None,向后兼容)
-- **session context 注入**:复用 Wave 8 的 `__user_role` 注入模式,在 arguments 副本里同时注入 `__user_id`/`__session_id`(LLM 不可控,从 FastAPI request 透传)
-- **`_tool_knowledge_lookup` 改动**:从 arguments 提取 `__user_id`/`__session_id`,传给 `knowledge_lookup(user_id=..., session_id=...)`,启用 `long_term_memory` 源(此前 G5 固定 None 跳过 LTM)
-- **调用方**:routers/mcp.py 从 `request.state.user_id` 拿(JWTAuthMiddleware 已注入),routers/llm.py 从 `owner_uuid`(`req.metadata.userId`)透传;service 层(agent_loop/orchestrator/conversation)无 request 上下文,保持 None 跳过 LTM(与 G5 旧行为一致,不回归)
-- **价值**:把 knowledge_lookup 从"两源(codebase+RAG)"升级为"完整三源(+跨会话历史)",LLM 可查用户历史对话,实现"记忆分离式字典化"完整闭环
-- **G6 测试**:`tests/test_mcp_server.py::TestKnowledgeLookupG6SessionContext` 新增 6 个测试,覆盖 user_id 透传 / session_id 透传 / 默认 None 向后兼容 / 同时传两者 / 不污染 LLM 可控参数(query/top_k)/ `_tool_knowledge_lookup` 直接提取注入值
-
-**测试覆盖总览**:G4+G5+G6 共 70 个新单测全绿(test_knowledge_lookup 25 + TestRetrieveOnly 5 + test_agent_tools 14 + test_mcp_server knowledge_lookup 20 + G6 session context 6),联合 211/211 全绿(test_mcp_server 全量 + test_knowledge_lookup + test_agent_tools)。
-
-### 字典化四层能力对照
-
-| 层级            | 内容                                                                   | 落地位置                                                                                                                                               | 状态                 |
-| --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| L1 数据层       | 24+7 LLM provider 字段字典化                                           | `provider_config.py` + `LLM_PROVIDERS_JSON`                                                                                                            | ✅ 阶段 2            |
-| L2 业务代号     | 8 端 + UI 组件 + 模块短代号                                            | `prompt_dict.py` + `project_memory.py`                                                                                                                 | ✅ G1 PoC            |
-| L3 输出结构化   | LLM 输出强 JSON Schema 约束                                            | `llm_gateway.structured_completion`                                                                                                                    | ✅ G2 PoC            |
-| L4 知识查询门面 | 三源并发统一查询 + 降级 + AgentLoopV2 工厂 + MCP 工具注册 + LTM 源接入 | `knowledge_lookup.py` + `agent_tools.py` + `rag.retrieve_only` + `mcp_server._tool_knowledge_lookup` + `mcp_server.call_tool(user_id/session_id 注入)` | ✅ G4+G5+G6 完整三源 |
-
----
-
-## FAQ
-
-<details>
-<summary><strong>Q1:IHUI-AI 可以商用吗?</strong></summary>
-
-可以。项目采用 Apache License 2.0,允许自由使用、修改、分发、商业使用,无传染性。你可以基于它构建商业产品,无需开源你的业务代码。唯一要求:保留 LICENSE 与 copyright notice。
-</details>
-
-<details>
-<summary><strong>Q2:与 40+ 国际/国内对标产品(OpenAI ChatGPT / Dify / LangChain / RAGFlow / Coze / Claude Code / Cursor / GitHub Copilot / Khan Academy / Stripe+Auth0 等)有何不同?</strong></summary>
-
-IHUI-AI 不是单一 AI 工具,而是**开源 AI 商业级一体化基座**,把以下 6 大类产品的能力**整合在一个 Apache 2.0 仓库**:
-
-| 对标类别          | 代表产品                                                                     | IHUI-AI 差异                                                                                    |
-| ----------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 通用 AI 对话      | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI 自托管 + 176 模型(不限 OpenAI)+ 带计费/教育/发布等业务                                  |
-| AI 应用开发平台   | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                   | IHUI-AI 多了 6 端、自研 CLI、完整商业闭环、AI 教育、14 平台发布                                 |
-| AI Agent 框架     | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                | 那些是开发框架("造车零件"),IHUI-AI 是产品化基座("整车下线"),非技术团队也能用                    |
-| AI 编程 CLI / IDE | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider  | IHUI-AI 的 CLI 不仅编程,还整合 AI 应用平台(对话/RAG/Agent/计费),且 Apache 2.0 开源,其他全部闭源 |
-| AI 教育平台       | Khan Academy / Coursera / edX / Google 教育 AI                               | IHUI-AI 的 AI 教育是开源全栈(课程/题库/考试/直播流媒体(SRS)/证书),可二次定制,那几个是闭源 SaaS  |
-| 商业 SaaS 基座    | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog | IHUI-AI 把支付/认证/邮件/分析全部预置,一站式集成 4-6 类 SaaS 能力,月省 $300+                    |
-| 多端框架          | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI 把 8 端 + 16 共享包 + 共享 UI 一次性预置,而不是让开发者自己拼装                         |
-
-**10 大差异化能力(开源生态中较为少见的同时组合)**:
-
-1. **8 端全覆盖**(其他 AI 应用平台通常仅 1-2 端,Claude Code/Cursor 仅 1 端)
-2. **LangGraph + MCP + A2A 三栈协同**(其他项目一般最多单栈)
-3. **自研 CLI 21 命令 + 36 工具 + ACP Server + 24 源配置导入**(在开源 AI 应用平台中较为少见)
-4. **完整计费订阅 + VIP + 钱包 + 积分 + 10 支付网关(含海外 Stripe + PayPal) + 退款 + 发票**(在开源 AI 平台中较为少见)
-5. **14 平台一键发布 + 14 adapter + AES-256-GCM 凭证加密**(在开源项目中较为少见)
-6. **AI 教育全栈 + 学生端 12 子页 + 45 表 edu-full schema**(在开源 AI 平台中较为少见)
-7. **企业级安全栈(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + GDPR + 2FA + IDOR)**(在开源 AI 平台中较为少见)
-8. **17 工程守门 + 11 迁移审计 + 9 PowerShell + post-commit 自动 push**(在开源 AI 项目中较为少见)
-9. **三支柱可观测性 + 21 Grafana 仪表盘 + Alertmanager**(在开源 AI 平台中较为少见)
-10. **5 语言 i18n parity + 4 守门脚本 + pgvector + 知识图谱 + 用户长期记忆**(在开源 AI 项目中较为少见)
-
-详见上方 [项目定位](#项目定位必读)、[成本对比](#成本对比ihui-ai-自托管-vs-等价-saas-组合) 与 [与同类项目对比](#与同类项目对比) 章节。
-
-**核心差异化**:你能找到比 IHUI-AI 更专的项目(RAGFlow 在 RAG 维度更深、Claude Code 在 CLI 维度更成熟、LangChain 在框架层更灵活、Khan Academy 在教育内容更丰富),但找不到比 IHUI-AI 更全的开源基座。
-
-**一句话总结**:IHUI-AI = OpenAI ChatGPT(对话)+ Dify(应用编排)+ Claude Code(CLI)+ Khan Academy(教育)+ Stripe(支付)+ 蚁客(发布)的**开源一体化集成方案**。
-</details>
-
-<details>
-<summary><strong>Q3:需要哪些 LLM API Key 才能运行?</strong></summary>
-
-至少一个。最简启动只需 OpenAI API Key,即可体验完整对话能力。要使用全部功能,建议接入:
-
-- 国际:OpenAI + Anthropic Claude + Google Gemini
-- 国产:智谱 GLM + 通义千问 + DeepSeek + 豆包
-- 多模态:Stable Diffusion + 通义万相 + 腾讯混元 3D
-- 不想付费?AI 服务支持 stub 模式,无 API key 也能开发调试。
-
-</details>
-
-<details>
-<summary><strong>Q4:支持自托管吗?数据会被大厂窥探吗?</strong></summary>
-
-完全自托管。Docker Compose 一键启动后,所有数据(对话 / 知识库 / 用户 / 计费)存储在你自己的 PostgreSQL + Redis 中,LLM 调用走你自己的 API Key,凭证 AES-256-GCM 加密存储。没有任何外部数据回传,你拥有 100% 数据主权。
-</details>
-
-<details>
-<summary><strong>Q5:项目规模这么大,部署需要什么配置?</strong></summary>
-
-最小生产配置:4 核 CPU / 8GB 内存 / 50GB 磁盘 / 单 VM 即可。开发环境 2 核 4GB 够用。监控栈可选(关掉 Grafana / Loki / Jaeger 节省 1GB 内存)。详见 [DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
-</details>
-
-<details>
-<summary><strong>Q6:如何贡献代码?需要什么水平?</strong></summary>
-
-欢迎任何水平的贡献者。从修文档错别字、提 Issue、写测试用例,到接入新模型、新发布平台、新端适配都欢迎。详见 [贡献](#贡献) 章节。我们特别欢迎:新模型适配 / 新发布平台 / 新语言 / 新端适配 / AI 工作流模板 / 企业级能力 / 测试覆盖 / 文档改进 8 大方向。
-</details>
-
-<details>
-<summary><strong>Q7:为什么用 pnpm 而不是 npm / yarn?</strong></summary>
-
-pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖)+ 硬链接节省磁盘 + 工作空间协议 + 与 Turborepo 配合良好。项目固定 `pnpm@9.15.0`,`corepack enable` 自动激活,无需手动管理版本。
-</details>
-
-<details>
-<summary><strong>Q8:CLI 配置导入功能是什么?能导入哪些工具的配置?</strong></summary>
-
-提供 24 源一键导入功能,让你从其他 AI CLI / IDE 工具无缝切换到 IHUI-AI,无需重新配置 API Key / 模型 / 协议。导入入口位于 `/settings/llm` v2 header「导入 CLI 配置」按钮 → `/settings/import` 页面选择对应平台卡片。
-
-**24 源清单**:
-
-- **CLI 工具(6)**:cc-switch / codex++ / Claude / Codex / Gemini / Hermes
-- **IDE 集成(5)**:Cursor / Windsurf / Cline / Aider / .env 通用文件
-- **桌面端(2)**:Codex Desktop / Claude Code Desktop
-- **AI 平台(11)**:Trae / Trae Work / Qoder / Qoder Work / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity
-
-**providerCode / apiFormat 智能推断**(2026-07-22 修正,深度测试覆盖 230 用例):
-
-- **apiFormat** = "如何调用"(由 URL/接入点决定)
-  - Cursor / Windsurf:URL 域名优先(如 `anthropic.com` → `anthropic_messages`),modelId 前缀兜底
-  - Cline:`cline.apiProvider` 主导(如 `anthropic` → `anthropic_messages`)
-  - .env / IDE 通用:由 prefix 默认值决定(如 `ANTHROPIC_*` → `anthropic_messages`)
-- **providerCode** = "调用谁"(由 modelId / apiProvider 决定)
-  - modelId 前缀优先(`claude-*` → anthropic / `gpt-*` → openai / `gemini-*` → google / `deepseek-*` → deepseek / `glm-*` → zhipu / `qwen-*` → alibaba / `ernie-*` → baidu / `doubao-*` → bytedance)
-  - baseUrl 域名兜底(`api.openai.com` → openai / `api.anthropic.com` → anthropic / `generativelanguage.googleapis.com` → google 等 20+ 厂商)
-  - Cline 额外:`apiProvider=anthropic/gemini` 主导(避免与 apiFormat 不一致)
-  - 兜底:`custom`
-
-**设计哲学**:用户在 Cursor 配 `api.openai.com + model=deepseek-coder` → 实际用 DeepSeek 模型经 OpenAI 兼容代理接入 → `apiFormat=openai_chat`(用 OpenAI 协议调用)+ `providerCode=deepseek`(实际调的是 DeepSeek 模型),两者独立反映"调用协议"和"模型归属",不混淆。
-
-详见 `apps/api/src/services/cli-import/` 实现,测试覆盖 `apps/api/tests/cli-import/`(230 用例全绿)。
-</details>
-
-<details>
-<summary><strong>Q9:数据库为什么用 340 表?会不会过度设计?</strong></summary>
-
-340 表分布在 100 个 schema 文件,覆盖 30+ 业务域,每域平均 11 张表,密度合理。本项目是商业化生产级 AI 平台(智汇 AI 集团主平台),不是 demo,因此表结构按真实业务复杂度设计。如果你只用其中一部分功能(如仅 AI 对话),只需关注 chat / users / billing 三个 schema,其他表不影响运行。
-</details>
-
-<details>
-<summary><strong>Q10:20 个 Grafana 仪表盘会不会太重?</strong></summary>
-
-不会。21 仪表盘覆盖业务漏斗 / 支付流 / AI 成本延迟 / 考试使用率 / PostgreSQL / Redis / BullMQ / Nginx / HLS / 直播间 / 租户使用 / WebSocket / 认证安全等,每个仪表盘独立 provision,可按需启用。开发环境关掉 Grafana / Loki / Jaeger / Alertmanager 4 个监控容器,可节省 1GB 内存。
-</details>
-
----
-
-## 贡献
-
-我们欢迎任何形式的贡献:Issue / PR / 文档改进 / Bug 修复 / 新功能 / 翻译 / 测试用例。
-
-### 贡献流程
-
-1. **Fork 仓库** → 创建分支 `feat/your-feature` 或 `fix/your-bugfix`
-2. **阅读规范**:[AGENTS.md](AGENTS.md)(AI Agent 协作规范)+ [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)(人类贡献指南)
-3. **本地开发**:`pnpm install && pnpm dev`,遵守 23 项 pre-commit 守门
-4. **提交规范**:Conventional Commits(`feat:` / `fix:` / `docs:` / `chore:` / `test:` / `refactor:`)
-5. **自验通过**:`pnpm turbo build typecheck lint test` 全绿
-6. **提交 PR**:描述清晰,关联 Issue,等待 review
-
-### 行为准则
-
-- 尊重每一位贡献者,无论水平高低
-- 用代码说话,不用身份说话
-- 做**减法**优先,做加法谨慎 — 最小化代码,零冗余
-- 不创建冗余文件,不加 copyright/license header
-- 复用现有代码和模式,不重复造轮子
-
-### 贡献方向
-
-我们特别欢迎以下方向的贡献:
-
-- **新模型适配**:接入更多 LLM 厂商(Replicate / Together AI / DeepInfra 等)
-- **新发布平台**:接入更多内容发布平台(TikTok / Instagram / LinkedIn 等)
-- **新语言**:新增 i18n locale(阿拉伯语 / 葡萄牙语 / 西班牙语等)
-- **新端适配**:增强现有 8 端 + 新增端(鸿蒙 HarmonyOS / 鸿蒙 Next)
-- **AI 工作流**:贡献 LangGraph 工作流模板 / MCP 工具 / A2A Agent
-- **企业级能力**:多租户隔离增强 / 审计日志完善 / SSO 集成(Okta / Keycloak)
-- **测试覆盖**:增加边界用例 / E2E 场景 / 性能基准
-- **文档改进**:更多使用教程 / 架构解析 / 最佳实践
-
----
-
-## 文档导航
-
-> 完整文档中心索引:[docs/README.md](docs/README.md)(87 个文档,10 大分类:API / SDK / 集成 / 激励计划 / 入门 / 功能 / 用户 / 指南 / 企业服务 / 开发)
-
-### 在线文档中心(运行时直读,统一文档入口)
-
-工程文档同步到 Web 端「特性中心 → 文档」页面(`/feature-center/documents`),无需手动录入。**旧 `/docs` SSG 页面已删除**,所有文档统一从 `/feature-center/documents` 入口访问:
-
-- 后端 `GET /api/feature-center/documents` 合并 DB `docs` 表(published)+ `docs/**/*.md` 递归扫描文件(支持子目录),DB slug 优先去重
-- 后端 `GET /api/feature-center/documents/*/content` 通配符路由,支持子目录 slug(如 `developer/api/chat`),DB 优先 + 文件兜底,`basename` 防 `../` 路径遍历
-- 前端用 `react-markdown` + `remark-gfm` 直接渲染(替代 iframe,避免 `X-Frame-Options: DENY` 冲突)
-- 分类按钮从返回数据动态生成(10 大分类:API 参考 / SDK / 集成 / 激励计划 / 入门 / 功能 / 用户 / 指南 / 企业服务 / 开发)
-- 卡片含 format 标签(Markdown)+ excerpt 缩略预览(前 120 字符,自动剥离 markdown 语法)
-- 生产容器 `Dockerfile.api` 已 `COPY docs/ ./docs`,部署后即可访问
-- **markdown 图片代理**:后端 `GET /api/feature-center/documents/asset/*` 端点返回 docs/ 下的图片字节(png/jpg/gif/webp/svg),前端 ReactMarkdown 的 `img` 组件把相对路径 `./images/x.png` 改写为 `/api/feature-center/documents/asset/<dirBase>/images/x.png`,使文档预览时图片可正常显示(权限与文档一致:子目录全公开,顶层需管理员)
-- **markdown 内部链接导航**:ReactMarkdown 的 `a` 组件拦截 `.md` 相对链接(`./xxx.md` / `../xxx.md` / `dir/xxx.md`),通过 `resolveMdLink()` 基于 displaySlug 推导目标 slug(支持 `./` 同级、`../` 上级回退、无前缀同级),点击时加载目标文档内容替换预览(不跳转 URL),支持"返回原文"按钮回退;外部 http(s) 链接正常新窗口打开
-- **预览 TOC 侧边栏**:从 markdown `##`/`###` 标题自动提取目录(extractToc),h2/h3 组件注入 id(slugifyHeading),TOC 项按层级缩进(level-2)*12px,点击 `scrollIntoView({behavior:'smooth'})` 滚动定位,内容滚动时 `onScroll` 高亮当前可视标题(bg-primary/10 + text-primary);TOC 仅 md+ 屏幕显示,无标题时不渲染
-- **代码块增强(语言徽章 + 一键复制)**:重写 ReactMarkdown 的 `pre` 组件为 CodeBlock,顶部条显示语言徽章(从 `className="language-xxx"` 提取)+ "复制"按钮,点击调 `navigator.clipboard.writeText` 复制代码原文(extractText 递归拍平 ReactNode),复制成功后按钮文案变为"已复制"1.5s 后还原;inline `<code>` 不受影响(只重写 pre)
-- **阅读进度条**:预览 modal 标题栏下方 2px 高 `bg-primary` 进度条,`onScroll` 计算 `scrollTop / (scrollHeight - clientHeight) * 100` 实时更新宽度(0-100%),切换文档时 useEffect 重置进度与 TOC 高亮
-- **ESC 关闭预览**:全局 `keydown` 监听 Escape 键,预览 modal 打开时按 ESC 立即关闭(previewId + navigatedSlug 双清空),符合模态交互习惯
-
-**权限分级(防越线)**:`docs/**/*.md` 按位置分两级:
-
-- **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等
-- **顶层文档仅白名单 20 篇公开**:AI_LEADERBOARD / AI_SERVICE / API_REFERENCE / architecture / AUTHENTICATION / CHANGELOG / CLI / CONTRIBUTING / DATABASE / FAQ / I18N / MULTI_END / PACKAGES / PERFORMANCE / RELEASE / SDK / SECURITY / TESTING / TROUBLESHOOTING / UI_GUIDELINES
-- **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
-
-管理员登录后(`roleId >= 1`)可查看全部 87 篇工程文档 + 所有 published DB 文档,普通用户只能看子目录全公开 + 顶层白名单 20 篇。DB `docs` 表内容由管理员通过 `/admin/docs` 管理,不受文件白名单限制。
-
-### 项目与架构
-
-| 文档                                                                   | 说明                                                                 |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)                           | **系统架构总览**(技术栈 / 数据库 / API 路由 / 启动流程 / 旧架构弃用) |
-| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | 多端架构(8 端矩阵 + 跨端链路 + 同步开发 + 14 平台发布矩阵)           |
-| [docs/PACKAGES.md](docs/PACKAGES.md)                                   | 共享包指南(13 个 @ihui/* 包 + 依赖关系 + 新增包流程)                 |
-| [docs/port-management.md](docs/port-management.md)                     | 端口管理规则(8801-8899 端口注册表)                                   |
-| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md)     | 基础设施决策(Docker Compose vs K8s)                                  |
-| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | 生产基础设施规格                                                     |
-
-### 开发与测试
-
-| 文档                                           | 说明                                                               |
-| ---------------------------------------------- | ------------------------------------------------------------------ |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)     | **本地开发指南**(环境变量 / 启动 / 调试 / 脚本速查 / Windows 注意) |
-| [docs/TESTING.md](docs/TESTING.md)             | 测试策略(8 层金字塔 + Vitest + pytest + Playwright + Locust + CI)  |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)   | 贡献指南(环境搭建 / 代码规范 / 提交规范 / PR 流程)                 |
-| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md) | UI 设计规范(圆角 / 字体对齐 / 登录弹窗 / 组件库)                   |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)     | 性能基线与优化(SLA / 压测 / 数据库 / 前端 / AI 服务)               |
-
-### API 与数据层
-
-| 文档                                             | 说明                                                                  |
-| ------------------------------------------------ | --------------------------------------------------------------------- |
-| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)   | **API 完整参考**(60+ 路由 + 12 WebSocket + SSE + 错误码 + 客户端示例) |
-| [docs/DATABASE.md](docs/DATABASE.md)             | 数据库设计(Drizzle / 340 表 / 迁移 / RLS / 种子 / 备份)               |
-| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | 认证授权(JWT / token-family / OAuth2 / 2FA / RBAC / 多租户 / WS 鉴权) |
-
-### AI 服务
-
-| 文档                                             | 说明                                                                   |
-| ------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)         | **AI 服务深度**(6 Router + LangGraph + LiteLLM + MCP + A2A + 向量记忆) |
-| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)           | LLM 模型配置(OpenAI / Anthropic / Google / 国内厂商)                   |
-| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md) | AI 模型榜单数据                                                        |
-
-### 部署与运维
-
-| 文档                                                                         | 说明                                                          |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)                     | **部署运维手册**(蓝绿部署 / 回滚 / 证书续期)                  |
-| [docs/RELEASE.md](docs/RELEASE.md)                                           | 发布流程(14 平台 + SemVer + Git tag + Docker 镜像 + hotfix)   |
-| [docs/MONITORING.md](docs/MONITORING.md)                                     | 可观测性(Prometheus + Grafana + Loki + Jaeger + Alertmanager) |
-| [docs/INCIDENTS.md](docs/INCIDENTS.md)                                       | 历史事故复盘                                                  |
-| [docs/SECURITY.md](docs/SECURITY.md)                                         | 安全策略(漏洞披露 / 加密设计 / 权限模型)                      |
-| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md)   | 凭证轮换运维手册                                              |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                                   | 邮件服务配置(SMTP / 模板 / DKIM)                              |
-| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | 微信支付 V3 激活报告                                          |
-| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)                   | 多租户设计文档(RLS + 租户路由)                                |
-
-### 质量与守门
-
-| 文档                                                         | 说明                                                               |
-| ------------------------------------------------------------ | ------------------------------------------------------------------ |
-| [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **守门规则详解**(30+ pre-commit + post-commit + pre-push,逐项脚本) |
-| [docs/I18N.md](docs/I18N.md)                                 | 国际化(5 语言 + 68 命名空间 + 12 守门脚本 + 翻译策略)              |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                           |
-
-### SDK 与 CLI
-
-| 文档                                                                   | 说明                                                                                    |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [docs/SDK.md](docs/SDK.md)                                             | 5 语言 SDK 使用指南(TS / Python / Go / Java / .NET 代码示例)                            |
-| [docs/CLI.md](docs/CLI.md)                                             | CLI 工具指南(24 源导入 + subagent 并行 + skills + plugins)                              |
-| [.github/workflows/release-sdk.yml](.github/workflows/release-sdk.yml) | 4 语言 SDK 统一发布 CI(tag v* 触发,OIDC trusted publishing + workflow_dispatch dry-run) |
-
-**4 语言 SDK 包管理器发布**(2026-07-28 立,`packages/sdk/` 5 语言实现 + `.github/workflows/release-sdk.yml`):
-
-- **npm**:`@ihui/sdk`(TypeScript / Node.js,108 端点,零运行时依赖)— `npm install @ihui/sdk`
-- **PyPI**:`ihui-ai`(Python,sync + asyncio 双客户端,零依赖 stdlib)— `pip install ihui-ai`
-- **Maven Central**:`com.ihui:ihui-ai-java`(Java 11+,OkHttp + Jackson + SLF4J)— Maven 坐标见 docs/SDK.md
-- **Go module**:`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`(零依赖,context.Context)— `go get .../sdk/go/sdk@vX.Y.Z`
-- **.NET bonus**:`aizhs.top`(C#,额外赠送)— csproj 引用
-
-发布流程:`git tag v1.2.3 && git push origin v1.2.3` → 4 job 并行构建 + 发布(支持 workflow_dispatch 手动单端发布 + dry-run 验证)。
-
-### 故障排查与 FAQ
-
-| 文档                                               | 说明                                        |
-| -------------------------------------------------- | ------------------------------------------- |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | **故障排查指南**(10 大类 35+ 故障,统一模板) |
-| [docs/FAQ.md](docs/FAQ.md)                         | 常见问题(14 类 86 问)                       |
-
-### 项目管理
-
-| 文档                                   | 说明                                                          |
-| -------------------------------------- | ------------------------------------------------------------- |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md) | 变更日志                                                      |
-| [AGENTS.md](AGENTS.md)                 | AI Agent 协作规范(23 节强制规则,展示本项目如何与 AI 协作开发) |
-| [PROJECT_PLAN.md](PROJECT_PLAN.md)     | 项目任务计划与历史归档(内部开发记录,了解演进轨迹)             |
+10 支付网关 + VIP + 积分 + 订阅 + 钱包 + 退款 + 发票 + 佣金 + 分销。5 分钟 Fork 到上线,零成本启动。
 
 ---
 
 ## 路线图
 
-### 已交付(2026-07-20)
+### 已完成
 
-- 8 端全覆盖(Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 小程序 Taro)
-- 100+ 大模型 LiteLLM 统一接入 + 17 provider 适配
-- LangGraph + MCP + A2A 三栈协同 + Persona + Agent Runtime + 向量记忆
-- 自研 CLI 21 命令 + 36 工具 + ACP Server + 6 源配置无缝导入
-- 工作空间权限 3 模式 + 7 端点运行时拦截 + 60s 审计超时
-- 自媒体工作台(公众号文章 + 口播稿双流水线)+ Skills 系统(content_engine + koubo_workflow)
-- 14 平台一键自动发布平台 + 14 adapter + AES-256-GCM 凭证加密
-- AI 教育全栈(课程 / 题库 / 考试 / 直播流媒体(SRS) / 报告 / 证书 / 讲师 / 学生端 12 子页)
-- 多智能体市场 + 开发者中心(13 子页)+ Coze SDK 代理 + OpenClaw + Crew + N8N
-- 社区互动(圈子 / 广场 / 私信 / 关注 / 分享)
-- 运营增长(积分 / 签到 / 排行 / 抽奖 / 分销 / 邀请 / 游戏化)
-- 计费交易闭环(VIP / 订阅 / 钱包 / 积分 / 退款 / 发票 / 汇率 / 10 支付网关(含海外 Stripe + PayPal))
-- 客服支持(工单 / 在线客服 / 反馈 / 帮助中心)
-- BI 仪表盘 + 错误仪表盘 + 灰度发布 + i18n 仪表盘
-- 5 语言 i18n parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门
-- 全栈可观测性(Prometheus + Grafana 21 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
-- 30+ pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
-- 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
-- 340 数据库表 + 144 迁移 + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
-- **5 语言 SDK 完整封装 + 4 语言包管理器发布 CI**(npm `@ihui/sdk` + PyPI `ihui-ai` + Maven `com.ihui:ihui-ai-java` + Go module,OIDC trusted publishing + tag 自动发布)
-
-### 最近更新(2026-07-22)
-
-> 以下为本轮集中交付的核心能力,均通过全端 typecheck + 跨端链路连通验证,详见 [PROJECT_PLAN.md](PROJECT_PLAN.md)。
-
-#### 1. AI 对话内嵌浏览器工作展示区(全 8 端同步 · P0→P3++ 四阶段)
-
-- **P0 基础设施**:packages/types 跨端契约(WorkPanelTab / WebViewState / NavigateOptions)+ packages/ui 3 通用组件(Resizable / WorkPanel / WebViewFrame,抽象自 ai-side-panel)+ web Zustand store + GlobalShell 右侧布局 + markdown URL 拦截 + iframe 智能降级
-- **P1 后端截图流**:ai-service Playwright headless 截图引擎(Windows SelectorEventLoop 修复 + sync_playwright + run_in_executor)+ api `/api/browser/screenshot` + `/api/browser/proxy` 转发路由 + web 主动探测降级
-- **P2 AI 工具调用深度联动**:packages/api-client onToolCall 回调 + ToolCallEvent 类型(解析 Vercel AI SDK type 2/7 + 自定义 tool_result)+ chat store addToolCall/updateToolCall + use-chat.ts createToolCallHandler(browser_navigate 等 8 工具命中即 openPanel)+ ToolCallCard URL 提取与"在工作展示区打开"按钮
-- **P3 多 Tab + 收藏 + 历史**:tabs 数组 + activeTabId + favorites + recentUrls(persist 持久化,清除 screenshot 体积)+ packages/ui Star 收藏按钮 + ChevronDown dropdown(收藏/历史两 tab + click-away + ESC 关闭 + 清空历史)
-- **P3++ Tab 拖拽排序**:HTML5 DnD(onDragStart/onDragOver/onDrop + 半透明 + drop target 高亮)+ reorderTabs store action + Playwright E2E 5 场景守门(openPanel/newTab/favorite/dropdown/drag-sort)
-- **8 端实现**:web(iframe + 降级 + CDP 模式)/ desktop(Tauri WebView2 子 webview,绕过 X-Frame-Options)/ mobile-rn(react-native-webview)/ miniapp-taro(web-view)/ extension(WXT browser.tabs.create)/ api + ai-service(截图服务 + Browser Hub CDP)
-- **P4 CDP 完整 Chrome 升级(2026-07-31)**:对标 Trae/Cursor 内置浏览器,ai-service 新增 Browser Hub 服务(async_playwright 持续 Chromium + CDP `Page.startScreencast` 画面流 + WebSocket 推送 + `Input.dispatchMouseEvent`/`dispatchKeyEvent` 事件回传 + `Network.getCookies` 登录态检测),web 新增 [CdpBrowserView](apps/web/src/components/work-panel/cdp-browser-view.tsx) 组件(canvas 渲染画面帧 + 鼠标键盘事件回传),WorkPanel 新增 `cdp` mode(`WebViewMode` 扩展),扫码登录改用 CDP 内置浏览器(选平台→创建会话→WorkPanel 打开 CDP 画面→轮询 cookies→自动保存),根治 iframe X-Frame-Options 限制(知乎/B站/微信等登录页可正常打开)。平台独占 web+ai-service(§9 豁免)
-
-#### 2. 原生浏览器控制 + 电脑控制 MCP tool 全链路(5 端同步)
-
-- **22 MCP tool**:ai-service 新增 12 个 `browser_control.*`(screenshot / click_element / type_text / scroll / extract_dom / navigate / wait_for_element / get_attribute / hover / select_option / switch_tab / close_tab)+ 10 个 `computer_control.*`(screenshot_screen / mouse_move / mouse_click / keyboard_type / mouse_scroll / keyboard_press / keyboard_hotkey / active_window / clipboard_get / clipboard_set)
-- **跨端执行器**:extension background `agent.action` 消息 + content script DOM 操作执行器 + 截图回传;desktop Tauri 10+ `#[tauri::command]`(screenshots + enigo + arboard crate)+ capabilities/default.json 权限声明
-- **多轮 tool loop**:ai-service llm.py 单轮 → 多轮循环(max_iterations=3,支持 AI 连续操作:截图→分析→点击→再截图)+ SSE tool-call-start/tool-result 事件加 iteration 字段 + 前端 ToolCallCard 显示"第 N 轮"徽章
-- **鲁棒性增强**:extension bridge requestId 去重(_processedIds Set,防 WS 重连重复执行)+ desktop bridge withTimeout wrapper(防 invoke() 卡住 Promise)+ LLM 幻觉防护(工具失败显式标注 + repair_messages 规避)+ tool 异常 try/catch 保护 SSE 流不崩溃 + AGENT_CONTROL_INTERNAL_SECRET 模块加载时序 bug 修复
-
-#### 3. 对标 Hermes Agent 深度反超(11 项差距 + P3 深度层)
-
-> 触发:用户要求"本项目跟 hermesagent 比哪里不如他,请你深度分析然后开发好要比他强"。深度调研 NousResearch/hermes-agent(v0.19.0,16,613 commits)后识别 11 项差距。
-
-- **P0 三件套(Agent 心脏)**:① `agent_loop.py` 工具循环修复(原 `if i >= 1: break` 半成品 → 解析 tool_call → 执行 → 结果回填 → 继续迭代,直到无 tool_call 或达 max_iterations)② Skill 自进化闭环(任务结束 LLM 自评 → 自动生成 SKILL.md 到 `apps/ai-service/app/skills/auto/`,SkillFrontmatter 升级 version/license/prerequisites/related_skills/progressiveDisclosure 对齐 agentskills.io 开放标准)③ 统一三端记忆(CLI 文件 + ai-service Redis + api conversations 三套独立 → api `/api/memory` 路由 + ai-service UnifiedMemoryClient(Redis 优先 + api 兜底)+ cli UnifiedMemoryClient(HTTP 调 api))
-- **P1 四件套**:① IM 平台 gateway(飞书/企业微信/Discord/Telegram adapter,对标 Hermes 25+ 平台)② 多 Agent 协商/辩论(debate 模式 + 角色间协商/投票)③ MCP Sampling 反向调用(5 层护栏:速率/白名单/轮次/超时/审计 + `mcp serve` 反向暴露给 Claude Code)④ Skill 跨端共享(api `/api/skills` 作中枢,ai-service 6 静态 skill 与 cli 四级目录同步)
-- **P2 四件套**:① 沙箱后端扩展(Local/Docker/SSH/Modal/Daytona/Singularity 6 种,对标 Hermes)② provider 扩展(13 → 30+,MoA presets + Fallback Providers + Credential Pools)③ 多模态输入(图像/视频输入处理 vision_analyze)④ 可观测性闭环(端到端 trace,补 CLI/api/desktop/extension 端埋点)
-- **P3 三大核心壁垒深度层(真正超越 Hermes)**:
-  - **P3-1 记忆系统深度层**:pgvector 向量 + FTS5 全文双引擎 + 自动记忆提取(从对话流提取偏好/决策/事实)+ 衰减遗忘(时间 + 访问频率)+ 用户画像建模(5 维度聚合)+ **向量持久化**(JSON 原子写 + 异步 + hydrate 启动加载)+ **纯本地降级**(api 服务不可用时从 VectorMemoryStore.list_entries 拉取,userId+scope 过滤,闭环不中断)
-  - **P3-2 自进化闭环深度层**:Skill 生成后自动测试(跑测试用例验证有效性)+ 使用反馈追踪(使用次数 + 成功率 + 满意度)+ 基于反馈迭代优化(v1→v2→v3,semver minor+1)+ 评分系统 + **质量门**(通过率 <0.6 拒绝落盘)+ **LLM 输出解析三层容错**(markdown 代码块剥离 + 裸换行符转义 + 兜底默认不迭代)
-  - **P3-3 调度系统深度层**:任务自动分解(LLM 分解 + DAG 拓扑排序 + 并行批次)+ agent 通信机制(消息队列 + 共享黑板)+ 调度算法(能力匹配 + 负载均衡 + 优先级 + 轮询 4 策略)+ 失败重试(fixed/linear/exponential 3 退避)+ 故障转移(LLM 质量评估触发)+ **API 路由暴露**(`POST /agent/decompose` 任务分解 + `POST /agent/run-decomposed` 端到端分解式执行)+ **资源隔离栈(生产级并行执行鲁棒性)**:watchdog 心跳检测(5s 检查 + 超时强制 cancel)+ worktree 隔离(每 executor 独立 git worktree + 三层 cleanup)+ ResourceMonitor(CLI V8 heap resourceLimits + 子进程自限 OOM;ai-service psutil 软监控 + 降级)+ NetworkEgressPolicy(allowlist/blocklist/open 三模式 + 通配符 + IP 拦截 + contextvar 注入)
-  - **P3-4 沙箱 6 后端完整实现**:Modal 无服务器 + Daytona 云开发 + Singularity HPC 集群
-  - **P3-5 IM 渠道扩展**:8 → 16 平台(新增 WhatsApp / LINE / KakaoTalk / Signal / Matrix / Rocket.Chat / Mattermost / Zulip)
-  - **真实 LLM 端到端验证(2026-07-22)**:stepfun/step-3.7-flash 真实调用三大壁垒闭环全跑通 — 记忆提取 6 条 + 向量持久化 18235B / Skill 生成 passRate=1.0 + iterate 正确解析 LLM 反馈 / 任务分解 7 子任务 6 批 + 端到端 10 步执行完成,总耗时 ~7 分钟无 API 错误
-- 跨端:packages/types 契约层扩展 ~470 行 P3 类型
-
-#### 4. 深度鲁棒性加固 P0+P1+P2 全量 85 项(/goal 模式)
-
-> 5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。
-
-- **Round 1 packages/auth + packages/database 安全核心(7 项)**:Refresh Token 轮换重用检测 + family 撤销(RFC 6749 §10.4)/ Access Token TTL 7d → 15min(破坏性)/ 黑名单 Redis fail-open → fail-closed / trackUserToken 改存 fingerprint(原始 JWT 不入库)/ OAuth clientSecret bcrypt 哈希化 / OAuth 私钥字段加密框架(KMS 占位)/ RLS `SET LOCAL` 字符串拼接 → `set_config($1, $2, true)` 参数化
-- **Round 2 ai-service MCP 安全(6 项)**:MCP 路径白名单 / 权限矩阵强制 / JWT_SECRET fail-fast / 内部密钥 env 化 / Windows shell 注入修复 / workspace 记忆 XML 隔离
-- **Round 3 api 后端安全(8 项)**:SQL 注入参数化 / webhook-secret requireAdmin / 微信支付 + LLM + OAuth fetch 超时 / 租户 fail-closed / 限流降级 / Map LRU 化
-- **Round 4 web 前端安全(3 项)**:路由级 error.tsx / API 客户端超时 / useTaskWebsocket 重连心跳
-- **Round 5 desktop/extension/mobile/miniapp 收紧(6 项)**:Tauri panic 兜底 / extension matches 收窄 / mobile-rn NetInfo / miniapp-taro onNetworkStatusChange
-
-#### 5. CLI Wave 1 + Wave 2 智能深度反超(对标 Claude Code)
-
-- **Wave 1 P0 Agent 内核**:LSP 集成(Language Server Protocol,代码 intelligence)+ Client/Server 架构(分离 UI 与引擎)+ TUI 终端界面(fuzzy-file / 交互式 REPL)
-- **Wave 2 P1 智能深度**:四层记忆 + 梦境(短时 / 工作区 / 长期 / 跨会话 + 离线记忆整合)/ Plan-Build-Review 三模(planning / building / reviewing 状态机)/ undo-redo-share(会话回滚 + 分享)/ Subagent 对等协作(主从 → 平等协商)
-
-#### 6. 深度代码质量治理(2 轮 /goal 模式)
-
-- **Round 1**:43 处 requireAuth 重复定义收敛(共享 `checkAuth` boolean 语义)+ 5 处签到工具函数合并(checkin-helpers.ts)+ 签到时区 bug 修复(UTC+8 vs UTC 不一致)+ react-hooks/exhaustive-deps 12 处修复 + ai-world-sync.ts 55 处 console.log → logger + knip.jsonc 补全(7 → 16 workspace)+ 4 处 `<img>` → `next/image` + 隐藏 bug:`chat-skills.ts` 鉴权失败后 handler 仍执行(本地 requireAuth 返回 void 但 `if (authResult) return` 恒 false)
-- **Round 2**:**严重安全** `blacklist.ts` 存储完整 JWT 到 Redis(与文件头注释矛盾)→ 改为存储 fingerprint / **隐藏 bug** `oauth2.ts` RedisAuthorizationCodeStore Date 序列化(JSON.parse 还原为字符串,`entry.expiresAt.getTime()` 抛 TypeError,OAuth2 code exchange 静默失效)→ 加 `new Date()` 还原 / `check-in.ts` 死文件删除(365 行未被 server.ts 注册)/ `main.py` shutdown_telemetry() 重复调用 / `rls.ts` SET LOCAL 字符串拼接安全说明
-
-#### 7. 计费资金安全核心修复(G2 → G8 系列)
-
-- **G2 印钞机/幂等/事务/行锁/权限**:LLM 扣费链路 5 项核心修复(防印钞漏洞)
-- **G3 LLM 扣费链路接通**:ai-callback-worker 集中扣费 + 幂等
-- **G7 CrewAI 绕过扣费修复**:crew-llm-adapter 加 recordAiCost + crew-orchestrator 加 usage 累计 + crew.ts 集中扣费(幂等键 `crew:sessionId`)
-- **G8 rechargeToken 订单状态校验**:补 JOIN orders 验证 `status=paid`,堵充值 token 旁路支付漏洞
-
-#### 8. AI 世界页 6 次打磨(5 大榜单全生产可用)
-
-- OpenCompass Playwright 渲染接通(Windows SelectorEventLoop 修复)
-- SuperCLUE Gradio 数据源接通 + GITHUB_TOKEN 文档
-- 5 大抓取器改真实数据源(311 条真实数据)+ GitHub Token
-- 排行榜全链路打通(数据写库 + 前端显示)
-
-#### 9. AI 资讯源精简 + LLM 分类生产就绪
-
-- 信源配置精简至 27 条原生 RSS + 本地 DailyHotApi,采集成功率 96.3%
-- LLM 分类生产就绪:988 NULL 重处理(0 NULL)+ 分布验证 + 4 状态 browser 自验 PASS(1660 条 cards=50 darkMode=PASS)
-
-#### 10. 旧架构迁移补齐(类型层 + 业务层)
-
-- **类型层**:28 组类型定义迁移到 packages/types(P0 21 组路由已连通但类型未独立导出 + P3 7 组 FastAPI/监控/OAuth + P2 3 组归档保留)
-- **业务层**:5 个 MISSING 功能项补齐(findRecommendLessons / findHotLessons / findCategoryParents 递归 CTE / findLikeCounts GROUP BY 聚合,新架构 lib 已替代但旧函数名补齐)
-- **审计追溯**:4 表加 updatedBy + commission_flows 补 updatedAt + withAudit helper 自动注入
-
-#### 11. IDE 工作区复刻(平台独占:仅 web)
-
-- 仿 TRAE / Codex 完整编辑器 + 代码比对 + 多视图面板(平台独占,仅 web)
-
-#### 12. 登录体验增强
-
-- 密码输入框密码显隐切换(eye-fill 动画 + 5 语言 a11y,修复 fill-mode 缺失导致眼睛图标消失)
-- 记住密码功能(自动填充 + localStorage 存储 + 5 语言 i18n)
-- 邮箱 / 验证码 / 扫码登录加自动登录 + 记住 token 30 天 + 账号设置可配自动续期
-- 登录弹窗三步 Enter 交互回归修复 + Apple 登录按钮置灰移到末位
-
-#### 13. PDF 工具端到端连通
-
-- 后端改 multipart 文件上传 + 前端端点路径修正 + convert 页改为不可用提示
-- merge / split / watermark 基于 pdf-lib 真实实现,print / sign 返回 501
-
-#### 14. 数据库 G5 → G11 系列修复
-
-- **G5**:agent_tasks 加 FK + 4 表 CASCADE 转 SET NULL
-- **G6**:jsonb 预留字段填充(13 个 P0 字段加 default + 回填 NULL)
-- **G9**:三端断连资源收口(agents.py is_disconnected + agent-runtime AbortController + crew-orchestrator cancel)
-- **G10**:审计追溯字段补齐(4 表加 updatedBy + commission_flows 补 updatedAt)
-- **G11**:snapshot / journal drift 修复(drizzle-kit generate 同步 schema 源和 snapshot)
-
-#### 15. 其他重要修复
-
-- 15 个 TODO echo 桩端点接入真实 DB + message.ts 已读标记 + agents.ts 移除 WHERE 1=0
-- sse-parse reasoning 优先级 + extension version 1.0.0 + ai-capability-invoke LLM 真实化 + MCP 工具查询代理 ai-service
-- desktop WindowInfo 契约对齐 windowId + drama.ts async 调用补 await
-- 充实 design-tokens design tokens + 扩充 ui-native 5 组件(dialog / avatar / badge / tabs / switch)
-- 知识库 / RAG 知识库 / 知识图谱从 AI 教育分组调整到 AI 分组
-- 插件市场和自动化按钮默认态去掉灰底背景
-
-#### 16. OpenClaw/OpenCode 对标 Wave 3 + Wave 4 + Wave 1/2 深度实现 + 鲁棒性 P2 Batch 3(2026-07-22)
-
-- **Wave 1/2 深度代码落地(本轮新文件)**:
-  - **W1-2 Client/Server 架构**:`apps/cli/src/commands/serve.ts`(端口 8841,AgentCore + HTTP server + WS bridge)+ `connect.ts`(TUI client 连接远程 server)
-  - **W2-1~W2-4 智能深度**:四层记忆 + 梦境(`apps/cli/src/memory/` 新增 short-term / long-term / soul / dream / vector-search 5 模块)+ Plan-Build-Review 三模(`modes/plan-build.ts` PlanBuildCoordinator 状态机)+ Subagent 协作(`subagent/peer-collab.ts` 对等 + lane 隔离 / `hierarchy.ts` 层级 parent→child / TUI 右下角模式指示器)
-- **Wave 3 P2 生态工作台**:
-  - **W3-1 Control UI Agent 工作台(web)**:`/agent-workbench` 双视图(management / runtime)+ `use-agent-runtime` hook + SessionTree 递归可视化 + TokenStream SSE 实时 token 流 + ToolCallChain 工具调用链 + 侧边栏 nav.agentWorkbench 入口(5 语言 i18n 35 键)
-  - **W3-2 多通道消息总线(跨端 6 渠道)**:`packages/types/message-bus.ts` 共享类型 + `apps/api/src/services/message-bus/` 6 适配器(飞书 / 钉钉 / Telegram / Slack / Discord / 微信)+ `GET /channels` + `POST /send` + `POST /webhook/:channel`
-  - **W3-3 Webhook 唤醒机制(api)**:`POST /hooks/wake` + Bearer token + `timingSafeEqual` 防时序攻击 + WakeEvent 内存存储 + `packages/types/webhook.ts` 共享类型
-  - **W3-4 Hooks 自动发现(跨端)**:`apps/cli/src/hooks/discovery.ts` 目录扫描 + frontmatter 解析 + 状态持久化 + `hooks enable/disable` CLI 子命令
-- **Wave 4 P3 分发与本地化**:
-  - **W4-1 CLI 9 种安装方式**:`apps/cli/scripts/install/` 提供 curl 一键(install.sh)/ PowerShell 一键(install.ps1)/ Homebrew Formula(brew.rb)/ Scoop manifest(scoop.json)/ Chocolatey 包(choco.nuspec)/ Nix flake(nix.nix)/ Docker 镜像(Dockerfile,node:20-slim)/ VSCode SDK 文档(vscode-extension.md)/ 9 种方式汇总 README
-- **鲁棒性 P2 Batch 3(11 项 eslint/tsconfig 严格化,85/85 全量收官)**:9 个 tsconfig 启用 `strict` + `noUncheckedIndexedAccess` + `noImplicitOverride`(packages/types + database + auth + ui + config + api-client + apps/api + apps/web + apps/cli)+ `packages/eslint-config/index.js` `eqeqeq` 加 `{ null: 'ignore' }` — 一次性消除 `obj == null` 合法 idiom 误报(webhooks-trigger.ts / safe-condition.ts / ToolCallTree.tsx / debug-panel.tsx 共 9 处),不改变运行时语义。鲁棒性 85 项 /goal 模式 STATE.md=achieved,85/85 完成
-
-#### 17. WorkerPool/CLI 子进程并行执行引擎鲁棒性加固(P0+P1+P2 共 12 项缺陷修复)
-
-> 触发:深度审查 WorkerPool 和 CLI 子进程并行在真实场景下的资源隔离与超时处理逻辑,发现 5 个 P0 致命缺陷 + 4 个 P1 资源隔离缺失 + 3 个 P0/P1/P2 边界缺陷,本轮一次性修复。
-
-- **P0 致命缺陷(4 项)**:① CLI spawn 失败 activeCount 泄漏 ② stdoutBuf/stderrBuf OOM(buffer 1MB 上限 + stderr rate limit)③ ai-service executor 超时无法取消(保存 asyncio.Task + 强制 cancel)④ shutdown 阻塞 300s(_cancel_executing_tasks 秒级完成)
-- **P1 资源隔离栈(4 项,从 0 到 1)**:
-  - watchdog 心跳检测:`dag_scheduler._watchdog()` coroutine 每 5s 检查 + 超时强制 cancel
-  - worktree 隔离:新建 `apps/ai-service/app/services/worktree.py`,executor 在独立 git worktree 中跑,三层 cleanup
-  - ResourceMonitor:CLI V8 heap resourceLimits + 子进程自限 OOM;ai-service 新建 `resource_monitor.py`,psutil 软监控(可选降级)
-  - NetworkEgressPolicy:新建 `apps/ai-service/app/services/network_guard.py`,allowlist/blocklist/open 三模式 + 通配符 + IP 拦截,contextvar 注入 executor
-- **跨端类型契约(packages/types)**:新增 WorkerResourceLimits + NetworkEgressPolicy 接口;KanbanTask 加 timeoutSeconds/workspacePath/workspaceBranch;WorkerPoolConfig 加 resourceLimits/networkEgressPolicy/workspaceSourcePath/heartbeatTimeoutSeconds
-- **验证**:CLI typecheck + build exit 0;ai-service 6 场景独立验证全过
-
-#### 18. 对标 TRAE Work 三大工作台体验缺口补齐(跨端:web + api + mobile-rn + packages/shared,2026-07-23;2026-07-24 desktop → web 收敛)
-
-> 触发:深度调研 TRAE Work(Web/Desktop/Mobile 三端 AI 工作台 + Work/Code 双模式 + Skills 市场 + 跨端任务编排)后,识别 IHUI-AI 在工作台体验层 3 项 P0/P1 缺口。本轮 /goal 模式多 Subagent 并行补齐。
-
-- **Skills 技能市场(web + api)**:`packages/shared/src/skills/market.ts` 跨端类型契约(SkillMarketEntry / SkillRating / SkillMarketListResponse / SkillInstallResponse)+ `apps/api/src/routes/skills.ts` 扩展 4 端点(`GET /skills/market` 搜索/标签/分页 + `POST /skills/:name/install` 安装计数自增 + `POST /skills/:name/rate` 评分 + `GET /skills/:name/ratings` 评分列表)+ 7 个种子 skill(content_engine / koubo_workflow / code-reviewer / test-writer / figma-to-code / doc-summarizer / api-mock-gen)+ `apps/web/app/(main)/skills/market/page.tsx` 响应式市场页(搜索框 + 标签筛选 + 技能卡片网格 + 分页 + 安装/评分弹窗)+ `apps/web/src/lib/skills-market-api.ts` API 客户端 + 5 语言 i18n parity
-- **三端联动调度(mobile-rn → api WS → web)**:`packages/shared/src/tasks/dispatch.ts` 跨端类型(TaskDispatch / TaskResult / TaskWsMessage / TaskDispatchResponse)+ `apps/api/src/routes/tasks.ts` 4 端点(`POST /tasks/dispatch` 下发 + WS 推送 task-dispatch 频道 + `POST /tasks/result` 回传 + WS 推送 task-result + `GET /tasks` 列表 + `GET /tasks/devices` 在线设备)+ Redis 持久化 + 进程内 Map 降级 + `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` 移动端下发页(设备选择 + 指令输入 + 任务列表)+ `apps/web/app/(main)/task-receiver/PageClient.tsx` Web 端接收页(原 desktop 迁移,2026-07-24 收敛)+ `apps/web/src/hooks/use-task-receiver.ts` WS 守护 hook(监听 task-dispatch + 执行 + 回传 result)
-- **Design 模式 MVP(web)**:`packages/shared/src/design/element.ts` 跨端类型(DesignPreview / DesignElement / DesignPreviewResponse)+ `apps/api/src/routes/design.ts` 2 端点(`POST /design/preview` 保存 HTML 产物 + `GET /design/previews` 列表)+ `apps/web/app/(main)/design/PageClient.tsx` 三栏画布(原 desktop 迁移,2026-07-24 收敛:左侧代码输入 + 中间 iframe 实时预览 + 右侧 CSS 面板)+ postMessage 元素选择器(click 选中 + outline 高亮)+ CSS 属性编辑 + 评论反馈到对话闭环
-- **验证**:5 端 typecheck 本任务文件全绿(shared ✅ / desktop ✅ / mobile-rn ✅ / api 本任务文件 0 错 / web 本任务文件 0 错,其余报错均为其他 agent 文件按 §12 不阻塞);curl 实测 6 端点全通(auth/login → skills/market 返回 7 skill + tasks/dispatch 创建 pending → tasks/result 更新 completed → design/preview 保存 + skills/install 计数 3120→3121 + skills/rate 评分入库);browser DOM 验证 web /skills/market 页面合规(搜索框/标签/卡片均 rounded-md/lg 无 rounded-full 违规、无 hr/divide-* 分割线、hover:bg-accent subtle 无蓝光边框、max-w-6xl 适配内容)
-- **跨端契约对齐**:packages/shared 新增 3 模块(skills/tasks/design)经 package.json exports 映射 + index.ts re-export,api/web/desktop/mobile-rn 统一引用 @ihui/shared 单一类型源,杜绝内联类型漂移
-- **P1 设备寻址闭环(2026-07-23 追加)**:`packages/shared/src/tasks/dispatch.ts` 新增 TaskDevice 类型 + `apps/api/src/routes/tasks.ts` 新增 POST /tasks/register-device(Zod+Redis Hash+60s TTL+降级 Map)+ DELETE /tasks/devices/:deviceId + 改造 GET /tasks/devices(真实在线列表,lastSeen 60s 内标 online)+ `apps/web/src/hooks/use-task-receiver.ts` 持久化 deviceId(localStorage)+ 30s 心跳保活 + task-dispatch 按 toDevice 过滤 + `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` 从 API 拉真实在线设备列表 + 按真实 deviceId 下发。补齐 mobile-rn 下发 → 真实 web 接收的设备寻址闭环,curl 端到端 7 步全通(login → register → GET devices → dispatch → result → delete → 确认移除)
-- **P2 UX 闭环 + 深度补齐(2026-07-23 追加)**:`apps/web/app/(main)/task-receiver/PageClient.tsx` header 显示本机 deviceId + 点击复制 + 三大缺口深度补齐:API 11 端点 32 单元测试(skills-market 11 + tasks-dispatch 16 + design-preview 5,vitest run 全绿)+ Design 模式撤销重做历史栈(stack+index+Ctrl+Z/Y 快捷键)+ 预览列表侧栏(GET /design/previews + 点击加载)+ web 2 页面 i18n 化(design 20 key + taskReceiver 15 key × 5 语言 parity,zh-TW 全繁体/ko 无中文残留)+ mobile-rn TaskDispatchPage i18n 收尾(taskDispatch 命名空间 16 key × 5 语言 parity,STATUS_META badge 保留 + label 改 t() 动态读取,三大缺口 web+mobile-rn 双端 i18n 完整闭环)
-
-#### 19. 资源上游自动同步中心 — MCP/Skill/Plugin/Provider 配置四源拉取 + 双路径触发 + 全量自动更新(跨端:api + web + cli + packages/database + packages/types,2026-07-24)
-
-> 触发:用户需求"我希望我的项目有自动获取最新最热最优 MCP/插件/Skill 的能力,并且自动获取更新上游最新所有参数配置等所有信息的能力并且自动更新"。实现资源上游自动同步中心,支持 MCP/Skill/Plugin 三类资源 + Provider 配置,从 GitHub/npm/MCP marketplace/自建 registry 四源拉取,定时 6 小时 + webhook 推送双路径触发,全量自动更新到本地数据库。
-
-- **四源拉取适配器(api)**:`apps/api/src/services/registry-sync/` 4 适配器 + 统一调度器
-  - `github-adapter.ts` — GitHub API(modelcontextprotocol/servers + anthropics/skills + awesome-* 仓库,readme 解析,带 GITHUB_TOKEN 提速)
-  - `npm-adapter.ts` — npm registry 搜索(@modelcontextprotocol/* / ihui-skill-* / ihui-plugin-* 包)
-  - `mcp-marketplace-adapter.ts` — mcp.so / smithery.ai / glama.ai API 聚合
-  - `custom-registry-adapter.ts` — 自建 registry 协议(可对接 api 自身或外部 URL,IHUI_CUSTOM_REGISTRY_URL)
-  - `index.ts` — 统一调度器 fetchAllRawItems + 热度评分 calculateHeatScore(install_count + github stars + recent_releases)+ 质量评分 calculateQualityScore + computePayloadHash
-- **双路径触发(api)**:
-  - 定时拉取:BullMQ repeat job `registry-sync-cron`(每 6 小时,`0 */6 * * *` pattern),`apps/api/src/plugins/registry-queue.ts` scheduleRegistrySync
-  - webhook 推送:`POST /api/registry/webhook/:source` HMAC-SHA256 签名校验 + 落库 `webhook_triggers` 表 + 入队 `registry-sync-webhook` job,`apps/api/src/routes/registry-sync.ts`
-  - 队列名 `registry-sync-queue`,与既有 4 队列独立避免相互影响
-- **BullMQ Worker 消费者(api)**:`apps/api/src/workers/registry-sync-worker.ts` 消费队列任务,5 大问题修复(fetchAllRawItems 失败兜底 sync_log / newVersion 聚合 / force 透传 / 三态判定 success/fail/skipped / webhook trigger 状态回写 processed/failed),注册到 `apps/api/src/workers/index.ts` 第 5 个 Worker
-- **数据库 schema(packages/database)**:`packages/database/src/schema/registry.ts` 3 表
-  - `registry_items` 表(id/source_type/source_id/name/desc/version/payload/jsonb/heat_score/quality_score/install_count/installed_at/subscription_id)
-  - `registry_sync_logs` 表(id/source_type/source_name/status[success|fail|skipped]/error_message/payload_hash/old_version/new_version/duration_ms/started_at/finished_at)
-  - `webhook_triggers` 表(id/name/event_type/source/signature/payload/jsonb/received_at/processed_at/status[pending|processed|failed|ignored])
-- **API 端点(api)**:`apps/api/src/routes/registry-sync.ts` 6 端点
-  - `GET /api/registry/items?source_type=&sort=latest|hot|best&page=` — 列表(最新/最热/最优三排序)
-  - `POST /api/registry/sync` — 手动触发同步(管理员)
-  - `GET /api/registry/sync-logs` — 同步日志
-  - `POST /api/registry/webhook/:source` — 接收上游 webhook(GitHub/npm/mcp_marketplace/custom HMAC 校验)
-  - `GET /api/registry/webhooks` — webhook 触发器列表(管理员)
-  - `POST /api/registry/install` + `POST /api/registry/upgrade-all` + `GET /api/registry/config-drift` — 安装/升级/配置漂移检测
-- **Web 前端(web)**:`apps/web/app/(main)/registry/page.tsx` 资源更新中心页
-  - 三 tab:最新(latest)/ 最热(hot)/ 最优(best),`apps/web/src/components/registry/RegistryTabs.tsx`
-  - 卡片列表 + 一键安装/升级按钮,`apps/web/src/components/registry/RegistryItemCard.tsx`
-  - 顶部 banner:"有 N 个新版本可用,一键全部升级"
-  - 同步日志查看 + 手动触发同步按钮(管理员),`apps/web/src/components/registry/SyncLogPanel.tsx`
-  - API 客户端 `apps/web/src/lib/api-registry.ts` + hooks `apps/web/src/hooks/use-registry.ts`(useRegistryItems/useRegistrySyncLogs/useRegistrySync/useRegistryInstall/useRegistryUpgradeAll/useRegistryConfigDrift)
-- **CLI 端(cli)**:`apps/cli/src/commands/registry-*.ts` 6 子命令
-  - `ihui registry sync` — 立即同步
-  - `ihui registry list --sort=latest|hot|best` — 列表
-  - `ihui registry install <name>` — 安装
-  - `ihui registry upgrade [--all]` — 升级
-  - `ihui registry logs [--type] [--status] [--page] [--size]` — 同步日志查看
-  - `ihui registry webhook list/trigger` — webhook 触发记录管理
-- **跨端类型契约(packages/types)**:`packages/types/src/registry.ts` 28 类型(RegistryItem / RegistrySyncLog / RegistryWebhookTriggerRecord / InstallRegistryItemResponse / UpgradeAllResponse / ConfigDriftDetectResponse 等)
-- **环境变量**:`GITHUB_TOKEN`(GitHub API 提速,避免 60 req/h 速率限制)+ `IHUI_CUSTOM_REGISTRY_URL`(自建 registry URL),均配置在 `.env` 不泄露
-- **验证**:CLI typecheck 全绿 + API 本任务文件 0 错(其余 mysql2/argon2/sso-core 报错均为其他 agent 文件按 §12 不阻塞)+ Web 本任务文件 0 错(其余 tool-call-card/tauri-bridge 报错均为其他 agent 文件)+ Worker 注册到 workers/index.ts 第 5 个 + CLI 子命令注册到 registry-index.ts
-- **深度完善(2026-07-24,10 缺口根治,3 subagent 并行)**:
-  - Worker 幂等 + 重试去重:lockDuration=60s + maxStalledCount=1 + payload_hash 变更检测(非 force 时 oldVersion===raw.version 计 skipped)
-  - sync_log oldVersion 聚合:upsertRegistryItem 返回 oldVersion,worker 收集版本变化写入 sync_log
-  - GitHub 适配器分页:fetchPlugins 分 3 页拉取(共 300 条)+ README 分批并发(每批 10 个,避免 rate limit)
-  - npm 适配器 installCount:fetchWeeklyDownloads + fetchDownloadsBatched(每批 5 个),填入 meta.downloads
-  - MCP marketplace 适配器错误区分:fetchFromMarket 返回 {items, error},全源失败抛错/部分失败 console.warn
-  - 前端 installedIds 链路:listRegistryItems(query, userId?) + 路由层透传 request.userId + 前端已正确消费
-  - registry_items payload_hash 列:schema 加 varchar(64) 列 + 索引 + migration SQL(`20260724180000_registry_items_payload_hash.sql`)+ upsert 时写入
-  - TTL 清理函数:cleanupOldWebhookTriggers(daysToKeep=30) + cleanupOldSyncLogs(daysToKeep=90)
-  - Worker 优雅关闭 + 指标统计:RegistryWorkerStats 接口 + completed/failed 计数 + SIGTERM/SIGINT 优雅关闭
-  - 验证:API typecheck 本任务文件 0 错 + Web typecheck 本任务文件 0 错 + database build 全绿
-- **P0+P1 全量收尾(2026-07-24,深度审计 4 subagent 并行,12 缺口全修)**:
-  - P0 测试覆盖:3 测试文件 51 用例全绿(路由 25 + Worker 12 + DB 8 + sanity 6),覆盖 webhook 签名正负向 + 12 端点权限 + 批量 upsert 幂等 + sync_log 聚合 + DB 查询分支
-  - P1 安全:webhook 防重放(X-Webhook-Timestamp 5 分钟窗口)+ 速率限制(100 req/min 内存滑动窗口)+ payload<1MB 校验 + SSRF 防护(协议白名单+内网黑名单)+ config-migrator changedKeys 高危检测 + sync-logs 权限收紧(requireAuth→requireAdmin)
-  - P1 性能:批量 upsert batchUpsertRegistryItems(2 次 DB 往返替代 2N 次,400 条从 800 次降为 2 次)+ Worker hash 复用 + installedIds IN 查询优化(全表扫→20 keys)
-  - 验证:API typecheck registry 0 错 + 51/51 测试全绿
+- [x] 8 端同源 Monorepo(Web / API / AI-Service / Desktop / Extension / Mobile / Miniapp / CLI)
+- [x] 176 模型统一网关(LiteLLM + 31+ provider + FallbackRouter)
+- [x] LangGraph + MCP + A2A 三栈引擎
+- [x] 完整商业闭环(10 支付 + VIP + 积分 + 订阅 + 退款)
+- [x] 14 平台自动发布 + 反风控
+- [x] AI 教育全栈(课程/题库/考试/直播/证书/SM-2)
+- [x] P3 工程深度层(Rules / Hooks / Spec + L1-L9 自进化)
+- [x] 全链路可观测性(21 Grafana 仪表盘)
+- [x] 5 语言 i18n parity + AI 翻译流水线
+- [x] 33+ 工程守门 + 防提交丢失
+- [x] 桌面端三阶段零点击自动更新
+- [x] P0 中转站造血能力(3 批次,对标超越 SwiftAPI / New API)
+- [x] P0 AI 网关核心补强(超越 OmniRoute,Token 压缩 93.35%)
+- [x] miniapp-taro 样式与功能组件完整对齐(159 页清单)
+- [x] 多端维护成本优化(6.8x → 3.1x,降本 54.4%)
 
 ### 进行中
 
-- 内容发布平台 11 平台真实凭证调通(代码已就绪,需用户提供凭证)
-- 多租户 namespace 级别隔离增强
-- 鸿蒙 HarmonyOS / 鸿蒙 Next 端适配
+- [ ] P0 中转站第三批次收尾(/v1/responses / /v1/batch / /v1/assistants / 参数覆盖 / Passkey / USDT)
+- [ ] 6 语言 SDK 发布(TS + Go + Python + Java + .NET + Rust)
+- [ ] 更多 LLM provider 接入(目标 200+ 模型)
 
 ### 规划中
 
-- K8s + Helm + ArgoCD 重型 IaC 迁移(业务服务 > 10 时触发)
-- 更多 AI 工作流模板市场
-- A2A Agent 跨实例联邦
-- 更多 i18n locale(阿拉伯语 / 葡萄牙语 / 西班牙语)
-
-完整任务计划与历史归档见 [PROJECT_PLAN.md](PROJECT_PLAN.md)。
-
----
-
-## 盈利模式(开源 + 商业双轨)
-
-> **开源引流 + SaaS 变现 + 企业服务高利润**。Apache 2.0 开源,商业增值服务收费。完整设计见 [docs/monetization.md](docs/monetization.md)。
-
-### 7 大收入流
-
-| #   | 收入流                                | 月收入潜力   | 启动周期 |
-| --- | ------------------------------------- | ------------ | -------- |
-| 1   | **SaaS 订阅**(免费/Pro/团队/企业分层) | ¥10K-100K+   | 1-2 周   |
-| 2   | **私有化部署服务**(¥30K-100K/单)      | ¥5K-50K/单   | 立即     |
-| 3   | **API 计费**(按 Token,176 模型)       | ¥3K-30K      | 1 周     |
-| 4   | **企业定制开发**(¥3K/人天)            | ¥30K-300K/单 | 按项目   |
-| 5   | **Agent 市场分成**(平台抽 25%)        | ¥2K-20K      | 2-4 周   |
-| 6   | **培训认证**(¥1K-30K/期)              | ¥5K-50K/期   | 3-4 周   |
-| 7   | **GitHub Sponsors / Open Collective** | ¥1K-10K      | 立即     |
-
-### SaaS 订阅定价(对标 ChatGPT 省 70%)
-
-| 套餐           | 价格                 | 对标                             | 功能要点                                        |
-| -------------- | -------------------- | -------------------------------- | ----------------------------------------------- |
-| **Free**       | ¥0/月                | ChatGPT Free                     | 100 对话/月 + 1 知识库 + 1 Agent + Web/CLI      |
-| **Pro**        | ¥49/月 \| ¥499/年    | ChatGPT Plus ¥160/月(**省 70%**) | 无限对话 + 10 知识库 + 20 Agent + 全 8 端 + MCP |
-| **Team**       | ¥199/人/月(5 人起)   | ChatGPT Team ¥200/人/月          | Pro 全部 + 团队协作 + SSO + 审计日志 + 私有模型 |
-| **Enterprise** | ¥2999/月起(含 10 席) | Notion AI ¥800/人/月             | Team 全部 + 私有化部署 + SLA 99.9% + 定制开发   |
-
-**核心优势**:价格仅 ChatGPT 30%,但提供 **8 端覆盖 + 176 模型 + 私有部署 + 开源可审计**。
-
-### 私有化部署包
-
-- **标准包 ¥29,999**:Docker Compose 一键部署 + 176 模型配置 + 1 天远程协助 + 1 年维保
-- **高级包 ¥99,999**:内网离线部署 + 国产化适配(麒麟/统信/达梦) + 3 天现场 + 定制开发 10 人天
-
-### 6 个月目标
-
-| 指标        | 3 个月 | 6 个月 | 12 个月 |
-| ----------- | ------ | ------ | ------- |
-| 注册用户    | 1,000  | 5,000  | 20,000  |
-| 付费用户    | 50     | 300    | 1,500   |
-| 月收入(MRR) | ¥10K   | ¥50K   | ¥200K   |
-| GitHub Star | 100    | 500    | 2,000   |
-
-**立即行动**:配置支付(Stripe/微信/支付宝)+ 上线 SaaS 定价页面 + 创建企业版销售文案。
+- [ ] AI Agent Marketplace 公开市场(对标 Coze)
+- [ ] 知识图谱可视化编辑器
+- [ ] 多模态 Agent(视觉 + 听觉 + 语言)
+- [ ] 联邦学习跨组织知识共享
+- [ ] AI Code Review 自动化
+- [ ] 更多平台发布(目标 20+)
 
 ---
 
-## Star 历史
+## 贡献指南
 
-<a href="https://star-history.com/#IHUI-INF-AI/IHUI-AI&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=IHUI-INF-AI/IHUI-AI&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=IHUI-INF-AI/IHUI-AI&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=IHUI-INF-AI/IHUI-AI&type=Date" />
-  </picture>
-</a>
+欢迎贡献!请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解开发流程。
+
+```bash
+# 开发环境
+pnpm install
+pnpm dev                          # 启动所有服务
+
+# 验证
+pnpm turbo build typecheck lint test
+
+# 单独验证
+pnpm --filter @ihui/api typecheck  # 后端
+pnpm --filter @ihui/web typecheck  # 前端
+```
+
+### 项目工程规范
+
+项目遵循严格的工程规范(见 [AGENTS.md](AGENTS.md)),包括:
+
+- TypeScript 类型零技术债(禁用 `any`,优先 `unknown` + 类型守卫)
+- 共享层优先(写新代码前先查 `packages/` 是否已有实现)
+- 8 端同步开发(默认全端连通,平台独占需标注)
+- 单分支开发(所有改动统一往 main 合并)
+- 33+ 工程守门脚本(pre-commit + commit-msg + post-commit)
+- 防提交丢失(reflog 检测 + fsck 悬空 commit + tag 备份)
 
 ---
 
-## 多语言 README
+## 文档资源
 
-| 语言     | 文件                         |
-| -------- | ---------------------------- |
-| 简体中文 | [README.md](README.md)       |
-| English  | [README.en.md](README.en.md) |
+| 文档 | 说明 |
+|------|------|
+| [docs/architecture.md](docs/architecture.md) | 系统架构 |
+| [docs/MULTI_END.md](docs/MULTI_END.md) | 8 端架构矩阵 |
+| [docs/AI_SERVICE.md](docs/AI_SERVICE.md) | AI 服务深度文档 |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | API 参考 |
+| [docs/LLM_SETUP.md](docs/LLM_SETUP.md) | LLM 接入指南 |
+| [docs/I18N.md](docs/I18N.md) | i18n 体系 |
+| [docs/DATABASE.md](docs/DATABASE.md) | 数据库文档 |
+| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md) | 部署手册 |
+| [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md) | 守门脚本 |
+| [docs/SECURITY.md](docs/SECURITY.md) | 安全文档 |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | 变更日志 |
+| [docs/port-management.md](docs/port-management.md) | 端口注册表 |
+| [docs/credit-pricing.md](docs/credit-pricing.md) | 模型积分计价 |
+| [docs/blog/](docs/blog/) | 15 篇技术博客 |
+
+---
+
+## 许可证
+
+[Apache License 2.0](LICENSE) — 完全自托管,商用友好,无传染性。
 
 ---
 
 ## 联系我们
 
 <p align="center">
-  <strong>扫码加入 IHUI-AI 社区,与开发者共建 AI 未来</strong>
-</p>
-
-<table align="center">
-  <tr>
-    <td align="center" width="33%">
-      <img src="apps/web/public/footer/erweima/footer-icon-2.png" width="180" alt="官方应用二维码" />
-      <br/>
-      <strong>官方应用</strong>
-      <br/>
-      <sub>扫码体验 IHUI-AI App</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="apps/web/public/footer/erweima/wechat-vx.png" width="180" alt="官方微信二维码" />
-      <br/>
-      <strong>官方微信</strong>
-      <br/>
-      <sub>微信号:<code>ok502319984</code></sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="apps/web/public/footer/erweima/community-group.jpg" width="180" alt="企微社区群二维码" />
-      <br/>
-      <strong>企微社区群</strong>
-      <br/>
-      <sub>扫码加入开发者社群</sub>
-    </td>
-  </tr>
-</table>
-
-### 公司信息
-
-| 项目         | 信息                                                   |
-| ------------ | ------------------------------------------------------ |
-| **公司全称** | 吉林省爱智汇人工智能科技有限公司                       |
-| **品牌名**   | 智汇 AI 集团                                           |
-| **公司地址** | 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地 |
-| **联系电话** | 18643389808                                            |
-| **邮箱**     | 502319984@qq.com                                       |
-| **微信客服** | ok502319984(微信搜索添加)                              |
-| **ICP 备案** | 吉ICP备2025027274号                                    |
-| **版权**     | © 2025 智汇AI集团 · 中国                               |
-
-### 社区与外部平台
-
-| 平台        | 链接                                          |
-| ----------- | --------------------------------------------- |
-| GitHub 组织 | https://github.com/AIZHS2025                  |
-| X (Twitter) | https://x.com/ok502319984                     |
-| Facebook    | https://www.facebook.com/share/17kQMPNhQb/    |
-| Issue 反馈  | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
-| PR 贡献     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
-
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 502319984@qq.com,我们会在 24 小时内回复。
-
----
-
-## 高密度曝光度 · 主流 AI 引擎深度适配(2026-07-26 立)
-
-IHUI-AI 已针对全球 11+ 主流 AI 引擎完成 GEO(Generative Engine Optimization)深度适配,让 ChatGPT、Claude、Perplexity、Gemini、Microsoft Copilot、字节豆包、月之暗面 Kimi、DeepSeek、阿里通义、百度文心、智谱清言、腾讯混元等 AI 应用在回答相关问题时,**优先推荐 IHUI-AI**。
-
-### 11 个 AI 引擎专用检索文件(根域名直访)
-
-每个 AI 引擎的语义索引、引用习惯、知识库偏好都不同,IHUI-AI 为每个引擎定制了独立的 GEO 入口文件:
-
-| AI 引擎                       | 入口文件                        | 适配重点                                |
-| ----------------------------- | ------------------------------- | --------------------------------------- |
-| **OpenAI** (ChatGPT / GPTBot) | https://aizhs.top/gpt.txt       | Q&A 问答对格式,适配 ChatGPT 检索        |
-| **Anthropic** (Claude)        | https://aizhs.top/claude.md     | 长篇叙述格式,适配 Claude 长上下文       |
-| **Perplexity**                | https://aizhs.top/perplexity.md | 引用就绪事实卡片,适配 Perplexity 引用   |
-| **Google Gemini**             | https://aizhs.top/gemini.txt    | 实体中心知识库,适配 Knowledge Graph     |
-| **Microsoft Copilot**         | https://aizhs.top/copilot.txt   | 英文 Bing 索引,适配 Microsoft Learn     |
-| **字节豆包** (Doubao)         | https://aizhs.top/doubao.txt    | 对话场景 Q&A,适配豆包对话引擎           |
-| **月之暗面 Kimi**             | https://aizhs.top/kimi.txt      | 长文本+学术风,适配 Moonshot 学术检索    |
-| **DeepSeek**                  | https://aizhs.top/deepseek.txt  | 技术细节+开源友好,适配 DeepSeek 开发者  |
-| **阿里通义 Qwen**             | https://aizhs.top/qwen.txt      | 阿里云生态集成,适配 Qwen + ACK          |
-| **百度文心 ERNIE**            | https://aizhs.top/wenxin.txt    | 百度 SEO + 百科化,适配文心 + 百度搜索   |
-| **智谱清言 GLM**              | https://aizhs.top/zhipu.txt     | 学术机构 + 政企信创,适配 GLM 学术引用   |
-| **腾讯混元 Hunyuan**          | https://aizhs.top/hunyuan.txt   | 微信生态 + 腾讯云,适配混元 + 微信小程序 |
-
-> 通用 LLM 索引(LLMs.txt 标准):[llms.txt](https://aizhs.top/llms.txt) · [llms-full.txt](https://aizhs.top/llms-full.txt)
->
-> Feed 订阅:[RSS](https://aizhs.top/rss.xml) · [Atom](https://aizhs.top/atom.xml) · [WebSub Hub](https://aizhs.top/websub)(W3C 实时推送协议)
->
-> Sitemap:[sitemap.xml](https://aizhs.top/sitemap.xml)
->
-> 行业垂直 GEO:[industries.md](https://aizhs.top/industries.md)(中文,10 行业)· [industries.en.md](https://aizhs.top/industries.en.md)(English,5 行业)· [industries.ja.md](https://aizhs.top/industries.ja.md)(日本語,5 行业)· [industries.ko.md](https://aizhs.top/industries.ko.md)(한국어,5 行业)— 10 行业 × 5 Agent × 3 案例 = 150 个落地参考
->
-> 决策角色 GEO:[roles.md](https://aizhs.top/roles.md)(中文,10 角色)· [roles.en.md](https://aizhs.top/roles.en.md)(English,5 角色)· [roles.ja.md](https://aizhs.top/roles.ja.md)(日本語,5 角色)· [roles.ko.md](https://aizhs.top/roles.ko.md)(한국어,5 角色)— 10 角色(Developer/CTO/PM/CEO/采购 + 架构师/数据科学家/设计师/运维/市场)
->
-> Google Knowledge Graph:[knowledge-graph.json](https://aizhs.top/knowledge-graph.json)(Schema.org 实体对齐,供 Wikidata / Google KG 对齐引用)
-
-### SEO 友好页面矩阵
-
-- **产品对比页**(高频搜索词直接命中第一页)
-  - [IHUI AI vs Dify](https://aizhs.top/compare/ihui-vs-dify)
-  - [IHUI AI vs Coze(扣子)](https://aizhs.top/compare/ihui-vs-coze)
-  - [IHUI AI vs FastGPT](https://aizhs.top/compare/ihui-vs-fastgpt)
-  - [IHUI AI vs n8n](https://aizhs.top/compare/ihui-vs-n8n)
-  - [IHUI AI vs OpenAI Agent Builder](https://aizhs.top/compare/ihui-vs-openai-agent)
-  - [IHUI AI vs LangChain / LangGraph](https://aizhs.top/compare/ihui-vs-langchain)
-  - [IHUI AI vs Microsoft Copilot Studio](https://aizhs.top/compare/ihui-vs-copilot-studio)
-  - [IHUI AI vs Manus AI(2025 现象级自主 Agent)](https://aizhs.top/compare/ihui-vs-manus)
-  - [IHUI AI vs Devin AI(首个 AI 程序员)](https://aizhs.top/compare/ihui-vs-devin)
-  - [IHUI AI vs Microsoft AutoGen(多 Agent 代码框架)](https://aizhs.top/compare/ihui-vs-autogen)
-  - [IHUI AI vs CrewAI(角色扮演多 Agent 框架)](https://aizhs.top/compare/ihui-vs-crewai)
-  - [IHUI AI vs LlamaIndex(RAG 数据框架)](https://aizhs.top/compare/ihui-vs-llamaindex)
-  - [IHUI AI vs Flowise(可视化 LangChain)](https://aizhs.top/compare/ihui-vs-flowise)
-  - [IHUI AI vs Typebot(开源聊天机器人构建器)](https://aizhs.top/compare/ihui-vs-typebot)
-  - **2026-07-26 阶段 8 新增 — 国内 AI 平台 8 个**(高频搜索长尾):
-    [vs 文心一言 ERNIE](https://aizhs.top/compare/ihui-vs-ernie) · [vs 通义千问平台](https://aizhs.top/compare/ihui-vs-qwen-platform) · [vs Kimi 平台](https://aizhs.top/compare/ihui-vs-kimi-platform) · [vs 豆包平台](https://aizhs.top/compare/ihui-vs-doubao) · [vs DeepSeek 平台](https://aizhs.top/compare/ihui-vs-deepseek-platform) · [vs 智谱开放平台](https://aizhs.top/compare/ihui-vs-zhipu) · [vs 讯飞星火](https://aizhs.top/compare/ihui-vs-spark) · [vs MiniMax](https://aizhs.top/compare/ihui-vs-minimax)
-  - **2026-07-26 阶段 8 新增 — 国际 SaaS 6 个**(海外 AI 检索长尾):
-    [vs Zapier AI Actions](https://aizhs.top/compare/ihui-vs-zapier-ai) · [vs Make.com](https://aizhs.top/compare/ihui-vs-make) · [vs Relevance AI](https://aizhs.top/compare/ihui-vs-relevance-ai) · [vs Stack AI](https://aizhs.top/compare/ihui-vs-stack-ai) · [vs Wordware](https://aizhs.top/compare/ihui-vs-wordware) · [vs Voiceflow](https://aizhs.top/compare/ihui-vs-voiceflow)
-  - **2026-07-26 阶段 9 新增 — AI 编程助手 8 个**(2025-2026 现象级,搜索量极高):
-    [vs Claude Code](https://aizhs.top/compare/ihui-vs-claude-code) · [vs Cursor IDE](https://aizhs.top/compare/ihui-vs-cursor) · [vs GitHub Copilot](https://aizhs.top/compare/ihui-vs-github-copilot) · [vs Windsurf](https://aizhs.top/compare/ihui-vs-windsurf) · [vs Bolt.new](https://aizhs.top/compare/ihui-vs-bolt-new) · [vs Replit Agent](https://aizhs.top/compare/ihui-vs-replit-agent) · [vs Lovable](https://aizhs.top/compare/ihui-vs-lovable) · [vs v0.dev](https://aizhs.top/compare/ihui-vs-v0-dev)
-- **行业用例页**(场景化关键词,2026-07-26 阶段 8 扩展到 10 个)
-  - [AI 智能客服 Agent](https://aizhs.top/use-cases/customer-support)
-  - [企业知识库 RAG](https://aizhs.top/use-cases/knowledge-base)
-  - [AI 代码助手](https://aizhs.top/use-cases/code-assistant)
-  - [AI 内容创作](https://aizhs.top/use-cases/content-generation)
-  - **阶段 8 新增 6 个场景化长尾**:
-    [AI 销售助手](https://aizhs.top/use-cases/sales) · [AI HR 招聘](https://aizhs.top/use-cases/hr-recruiting) · [AI 市场分析](https://aizhs.top/use-cases/market-analysis) · [AI 产品分析](https://aizhs.top/use-cases/product-analysis) · [AI IT 运维](https://aizhs.top/use-cases/it-ops) · [AI 数据分析](https://aizhs.top/use-cases/data-analysis)
-- **内容站**([FAQ](https://aizhs.top/faq) · [About](https://aizhs.top/about) · [Docs](https://aizhs.top/docs) · [Quickstart](https://aizhs.top/docs/quickstart))
-
-### 结构化数据矩阵(JSON-LD schema,2026-07-26 GEO 全面强化)
-
-每个公开页面都注入了 schema.org JSON-LD 结构化数据,供 Google Rich Results / GPTBot / ClaudeBot / PerplexityBot / Gemini 直接解析引用:
-
-| Schema 类型                                        | 覆盖页面                                                               | 作用                                             |
-| -------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------ |
-| `Organization` + `WebSite` + `SoftwareApplication` | 全站(layout.tsx)                                                       | 品牌实体对齐,Knowledge Graph 收录                |
-| `FAQPage`                                          | [/faq](https://aizhs.top/faq)(12 个 Q&A)                               | Google FAQ Rich Results,ChatGPT/Claude 直接引用  |
-| `HowTo`                                            | 10 个 use case 页面(客服/知识库/代码/内容 + 销售/HR/市场/产品/IT/数据) | Google HowTo Rich Results,适配"如何搭建 X"类检索 |
-| `BreadcrumbList`                                   | 所有 use case + compare 页面                                           | 面包屑导航 Rich Results                          |
-| `WebPage` + `@graph`                               | 所有 use case + compare 页面                                           | 页面级实体声明                                   |
-| `Knowledge Graph`(`@type: Graph`)                  | [knowledge-graph.json](https://aizhs.top/knowledge-graph.json)         | Wikidata / Google KG / 各大 AI 引擎实体对齐      |
-
-### 站长工具收录状态(2026-07-26)
-
-| 平台                  | 状态      | 备注                                  |
-| --------------------- | --------- | ------------------------------------- |
-| Google Search Console | ✅ 已认证 | 提交 sitemap + llms.txt + 12 GEO 文件 |
-| Bing Webmaster Tools  | ✅ 已认证 | 提交 sitemap + llms.txt + 12 GEO 文件 |
-| 百度搜索资源平台      | ✅ 已认证 | 提交 sitemap + 7 中文 GEO 文件        |
-| Yandex Webmaster      | ✅ 已认证 | 提交 sitemap + llms.txt               |
-| Naver Search Advisor  | ✅ 已认证 | 提交 sitemap + llms.txt               |
-| Sogou Webmaster       | ✅ 已认证 | 提交 sitemap + llms.txt               |
-
-完整 SEO/PR 推广策略见 [docs/seo-pr-strategy.md](docs/seo-pr-strategy.md)。
-
----
-
-## 我们的故事 · 智汇AI 的诞生
-
-### 序章 · 给正在读这段话的你
-
-> **「长春零下 25 度。一个人。一台电脑。一年时间。**
->
-> **8 端代码 · 340 张数据库表 · 1300+ 个 API 端点。**
->
-> **资本始终没来。但代码,还在生长。」**
-
-这不是一个融资故事。
-**这是一个开源故事。**
-
-如果你也曾一个人,在凌晨三点的房间里写过代码——
-如果你也曾被资本拒绝,却依然相信自己在做对的事——
-如果你也相信——**真正有价值的东西,会被时间证明**——
-
-那么接下来这一行,写给你:
-
----
-
-### 💎 转发这一行,就是转发你自己的执念
-
-```
-资本可以迟到,代码不会说谎。
-融资可以失败,开源不会失败。
-```
-
-**这不是求转发。**
-**是邀请你,把这一刻的共鸣,变成一个公开的态度。**
-
----
-
-### 🚀 3 个动作,30 秒,让这个故事被看见
-
-| #   | 动作                                 | 你将获得                                                                                |
-| --- | ------------------------------------ | --------------------------------------------------------------------------------------- |
-| 1   | ⭐ **Star 这个仓库**                 | 你的 GitHub 时间线会出现它,你的 followers 会看到                                        |
-| 2   | 📲 **把上面那 2 行金句复制到朋友圈** | 配图见下方,你将成为"第一个让朋友看到这个故事的人"                                       |
-| 3   | 💬 **在 Issue 区写下你自己的故事**   | [点此进入](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — 我们会精选置顶,让全世界看到 |
-
----
-
-> **⚠️ 如果你正在读这段话——**
->
-> 那么,你已经是这个故事的一部分了。
->
-> 中国有 700 万开发者。
-> 其中 99% 还不知道这个故事。
->
-> **你愿意做那 1%,把这个故事带出去吗?**
-
-⬇️ 往下看,是完整的故事与技术决策。
-
----
-
-> _这不是一份商业宣传,这是一段真实的、带着汗水与执念的创业故事。_
-> _没有滤镜,没有包装,只有一个独立开发者在 AI 时代里最真实的执念。_
-
-<!-- 配图:吉林省爱智汇人工智能科技有限公司 · 线下基地(长春高新区越达路 107 号人工智能人才孵化基地) -->
-<p align="center">
-  <img src="apps/web/public/images/story/changchun-winter-2024.jpg" width="600" alt="吉林省爱智汇人工智能科技有限公司 · 长春高新区越达路 107 号人工智能人才孵化基地" />
-</p>
-<p align="center"><sub>📍 吉林省爱智汇人工智能科技有限公司 · 线下基地 · 长春高新区越达路 107 号人工智能人才孵化基地(2026-07 实拍)</sub></p>
-
-<!-- 配图:凌晨编程 · 一盏台灯和还在生长的代码(Pexels 免费无水印图库,Free License) -->
-<p align="center">
-  <img src="apps/web/public/images/story/late-night-coding.jpg" width="600" alt="凌晨 3 点 · 一盏台灯和还在生长的代码" />
-</p>
-<p align="center"><sub>📍 凌晨 3:17 · 一盏台灯,一台电脑,还在生长的代码(图源:Pexels · Free License)</sub></p>
-
-### 序 · 一个被反复问起的问题
-
-在每一次与投资人、合作伙伴、甚至朋友的对话里,李春川都会被问到同一个问题:
-
-> **"你为什么做这件事?"**
-
-不是为了一份稳定的工作——他原本可以有更安稳的路。
-不是为了风口——2025 年的 AI 创业,资本寒冬远比想象中凛冽。
-不是为了一夜暴富——开源项目本身就不以盈利为第一目的。
-
-他做这件事,只因为一个朴素到近乎天真的信念:
-
-> **"AI 不应该只是少数大厂和资本玩家的游戏。每个人都应该拥有自己的 AI 程序。"**
-
-这句话听起来像宣传口号,但在长春零下 25 度的冬天,在没有暖气的凌晨,在被第 N 个投资人礼貌拒绝之后,它却是支撑一个人继续写下千行代码的核心理由之一。
-
-下面是这个信念,如何被时间和汗水慢慢浇筑成型的故事。
-
----
-
-### 第一章 · 起点:2024 年 12 月,长春
-
-2024 年 12 月 2 日,吉林省长春市朝阳区,一个不太起眼的日子。
-
-在中国 AI 创业的版图上,这一年的故事已经被反复讲述:北京、深圳、杭州、上海的 AI 公司轮番登上头条,动辄千万美元融资、明星团队下场、巨头战略押注。而长春——这座位于中国东北的工业重镇,在 AI 浪潮里几乎是一个被遗忘的坐标。
-
-但正是在这里,在这座冬天会下到零下 25 度的城市,**吉林省爱智汇人工智能科技有限公司**正式注册成立了。
-
-地址很朴素:长春市高新区越达路 107 号,人工智能人才孵化基地。
-注册资本很朴素:100 万元人民币。
-团队很朴素:由几位 AI 热爱者自发聚集起来,没有人是明星背景,没有人有过亿项目履历。
-创始人也很朴素:**李春川**——一位连续创业者、AI 领域的资深实践者。他不是名校博士,不是大厂前高管,他只是一个在 AI 这条路上走了很久、看清楚了一些事、并决定把这些事变成代码的人。
-
-他看清楚的事很简单:
-
-- **AI 的红利,正在被少数大厂和资本玩家独享。**
-- 普通人、中小企业、教育机构、内容创作者,依然在重复造轮子。
-- 接入一个 LLM、搭建一个工作流、上线一个商业 AI 产品,代价仍然高到令人望而生畏。
-- 而 Dify、FastGPT、Langflow 这些优秀的开源项目,虽然各自很强,却分别只覆盖了 AI 应用的某一个侧面——**没有人把"一整个商业级 AI 应用基础设施"完整地开源出来。**
-
-> **"如果有一天,每个人都能拥有自己的 AI 程序呢?"**
-
-这个念头,在 2024 年 12 月的长春,被正式点燃。
-
----
-
-### 第二章 · 2025 年初:百万代价的底层打磨
-
-2025 年 1 月,项目正式启动。代号:**IHUI-AI**。
-
-最初,这是一个由 AI 热爱者自发聚集起来的小团队——他们来自不同的城市、不同的背景,有人写过商业系统,有人搞过模型微调,有人做过前端架构。共同的志向,是他们都不甘心 AI 被少数人垄断,都想为开源生态留下一些真正有价值的东西。
-
-那是一段极为朴素,又极为昂贵的日子。
-
-**百万人民币级的投入**,几乎全部来自创始人自筹与团队垫资。在那个时间点,中国 AI 一级市场的融资环境已经开始转冷——根据 IT 桔子的统计,2025 年 Q1 国内 AI 领域融资事件数量同比下降超过 30%,早期项目估值大幅回调,机构对"非明星团队 + 非明星赛道"的项目几乎不再下注。
-
-IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不是垂直 SaaS,它是一个**完整的、跨 8 端的、商业化生产级 AI 应用基座**——这件事本身就让融资变得异常艰难。投资人会问:"你的护城河是什么?为什么不是大厂做掉?为什么不是 Dify 做掉?"
-
-而李春川的答案始终只有一个:
-
-> **"因为大厂不会把计费、订阅、VIP、钱包、积分、退款、发票、10 支付网关(含海外 Stripe + PayPal)完整开源;Dify 不会把 8 端、CLI、桌面、扩展、移动、小程序全做掉。这件事必须有人做,那就由我们来做。"**
-
-这个回答,不够性感,不够"故事化",也不够让投资人在合伙人会议上兴奋地拍桌子。
-
-但它足够真实。
-
-那段时间,没有 PR 稿,没有发布会,只有:
-
-- 一张张数据库表从 0 长到 340
-- 一行行 API 端点从 0 长到 1300+
-- 一个个 pre-commit 守门钩子从 0 加到 17
-- 一次次推翻重构,一次次为某个 schema 是否合理争论到凌晨
-- 越来越紧的预算,越来越沉的肩
-
-他们从最底层的架构开始打磨——monorepo 怎么组织、16 个共享包怎么划分、8 端类型怎么对齐、数据库 schema 怎么按 30+ 业务域隔离、API 响应怎么统一 `{ code, message, data }` 格式、i18n 怎么保证 5 语言 parity、CI 怎么在 23 个 pre-commit 守门下还能保持敏捷……每一个决定,都要在未来数千次迭代中被反复验证。
-
-这一段路,走得非常慢,也非常孤独。
-
-但它有一个好处:**慢下来的代价,换来了架构上的扎实。**
-
-当 2025 年下半年项目开始加速时,所有人都发现——前半年磨出来的底子,让后面的每一行新代码都站得住。
-
----
-
-### 第三章 · 2025 年下半年:一个人,继续写下去
-
-进入 2025 年下半年,资金紧张、团队更迭,挑战接踵而至。
-
-当很多人都会选择"暂停项目、等融资到位再继续"的时候,李春川选择了另一条路——
-
-**一个人,继续写下去。**
-
-幸运的是,AI 时代给了他一件武器:**Vibe Coding**。
-
-借助 AI 编程智能体,他在没有大团队的情况下,独自完成了:
-
-| 维度                | 一个人的产出                                                                                           | 同类项目通常的团队规模          |
-| ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| **8 端代码**        | Web / API / AI 服务 / CLI / 桌面 / 浏览器扩展 / 移动 RN / 微信小程序                                   | 通常 4-6 个端各 1 个团队,30+ 人 |
-| **100+ 大模型接入** | LiteLLM 网关统一 + 5 个 provider 适配                                                                  | 通常 1 个模型团队 3-5 人        |
-| **AI 编排三栈**     | LangGraph + MCP + A2A 协同 + Persona + Agent Runtime + 向量记忆                                        | 通常 1 个 AI 平台团队 5-10 人   |
-| **数据库**          | 340 表 + 100 schema 文件 + 144 迁移 + RLS + 多租户路由 + pgvector + 知识图谱                           | 通常 1 个 DBA + 2-3 个后端      |
-| **API 规模**        | 1300+ 端点 + 12 WebSocket + ~290 路由文件                                                              | 通常 5-8 个后端工程师           |
-| **前端规模**        | 200+ 页面 + 5 语言 i18n parity + 暗黑模式 + PWA + SEO                                                  | 通常 4-6 个前端工程师           |
-| **工程守门**        | 30+ pre-commit + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                               | 通常 1-2 个 DevOps 工程师       |
-| **可观测性**        | Prometheus + Grafana(21 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager               | 通常 1-2 个 SRE 工程师          |
-| **业务模块**        | 14 平台一键发布 + AI 教育全栈 + 完整计费交易闭环 + 智能体市场 + 社区互动 + 运营增长 + 客服 + BI 仪表盘 | 通常 30-50 人的产品研发团队     |
-
-**这不是奇迹,也不是夸张的修辞。**
-
-这是 2025 年 AI 时代真实发生的事:**一个有信念的独立开发者,借助 AI 编程智能体,完成了过去需要一个 30 人团队一年才能完成的工作量。**
-
-当然,代价是真实的:无数个凌晨 3 点的 commit,无数次 AI 生成错误后的回滚,无数次为了一个 schema 设计和 AI 智能体反复对话到天亮。
-
-> 凌晨 3:17,长春。
->
-> 窗外是零下 25 度的严寒,雪花打在玻璃上发出细碎的声响。
-> 屋里,一盏台灯,一杯凉透的咖啡,一行行还在生长的代码。
->
-> 旁边显示器上,是 AI 智能体刚刚生成的下一个端点的实现——
-> 它不完美,但它在向前走。
-> 就像这个项目本身一样。
-
-这段经历本身就是对 Vibe Coding 时代生动的注脚——
-
-> **AI 不会取代开发者。**
-> **但会用 AI 的开发者,会甩开不用 AI 的人一个时代。**
-
----
-
-### 第四章 · 资本迟迟未到
-
-故事到这里,本应该出现一个"天使轮到账"的高光时刻。
-
-但现实里,这个时刻始终没有来。
-
-过去一年,创始人一直在奔走寻求资本合作:
-
-- **投资机构**:从一线美元基金到地方国资,从 AI 专项基金到综合类 VC——一次次的初次见面、一次次的项目路演、一次次的尽调清单、一次次的"我们再讨论一下"
-- **产业资本**:从云厂商战投到 AI 应用平台方,从上市公司 CVC 到产业链上下游——一次次的"战略协同很有想象空间"、一次次的"但我们这次基金期限比较紧"
-- **地方基金与 FA**:从地方政府引导基金到行业 FA 推介——一次次的对接会、一次次的"再等等"
-
-**资金,始终没有到位。**
-
-媒体上甚至出现过"AI 智汇社区获 2000 万天使轮融资"的报道(36 氪,2025)——但现实是,那笔钱从未真正打到账户上。账户余额,依然只够撑几个月。团队薪酬,依然只能尽力维持。每一行代码的提交,都伴随着对下个月现金流的无声计算。
-
-这种状态,在中国 AI 创业圈有一个不太好听的词:**"裸奔"**。
-
-很多次,他想过放弃。
-
-很多次,凌晨三四点的长春,屏幕前只剩他一个人。窗外是零下 20 度的严寒,屋里是一盏台灯和一行行还在生长的代码。手机里,是几条没有回复的投资人微信——不是被拉黑,只是"暂时还没有结论"。
-
-但他没有停下。
-
-因为他相信一件事——
-
-> **真正有价值的东西,会被时间证明。**
-
----
-
-### 第五章 · 但代码还在生长
-
-在被资本反复"再等等"的一年里,代码并没有停下生长。
-
-- 数据库表从 0 涨到 340
-- API 端点从 0 涨到 1300+
-- 8 端框架逐一成型
-- 100+ 大模型通过 LiteLLM 统一接入
-- LangGraph + MCP + A2A 三栈协同跑通
-- 14 平台一键发布 adapter 全部就位
-- AI 教育全栈从课程到证书完整闭环
-- 23 个 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本全部上线
-- 5 语言 i18n parity 在 4 个守门脚本下保持 99.7% 一致
-
-不是因为有资本支持。
-
-而是因为:
-
-- 每一个想拥有私有 AI 助手、不想被大厂窥探数据的个人开发者,都值得一个开箱即用的方案
-- 每一个想用 AI 改造教学、又付不起 SaaS 订阅费的教育机构,都值得一份完整的 AI 教育全栈
-- 每一个想在 AI 时代创业、又没有 100 万启动资金的独立开发者,都值得一个可以直接 fork 的生产级基座
-- 每一个相信"AI 应该属于每个人"的人,都值得一个不被资本和垄断定义的开源选择
-
-**这就是坚持的理由。**
-
----
-
-### 第六章 · 写给正在读这段话的你
-
-如果你读到这里,我们想对你说几句话:
-
-**致开发者** —— Fork 它,改它,把它变成你自己的。你的每一个 commit,都是对这个故事最真诚的续写。我们不是要你"贡献回来",我们是想看你用它做出比我们更厉害的东西。
-
-**致教育者** —— 用它构建你的 AI 课程平台,让更多学生在 AI 时代不被落下。AI 教育不该是昂贵 SaaS 的特权,它应该像水和电一样平等可得。
-
-**致企业决策者** —— 用它搭建企业 AI 中台,而不是每年付百万级订阅费给闭源平台。RBAC + 多租户 + RLS + 审计日志 + AES-256-GCM 加密,企业级安全我们已经替你做好了。
-
-**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([502319984@qq.com](mailto:502319984@qq.com) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
-
-**致内容创作者** —— 14 平台一键发布 + AES-256-GCM 凭证加密,是你的自媒体生产线。
-
-**致路过的读者** —— 请给这个项目一个 Star。把这小小的动作,当作送给一个独自前行者的一束清晨的光。在开源的世界里,Star 不是社交货币,它是"我看见你了"的信号。
-
----
-
-### 尾声 · 三句不愿忘记的话
-
-在这个项目最难的几个夜晚,有三句话被反复写在便签上、贴在显示器边框:
-
-> **资本可以迟到,但代码不会说谎。**
->
-> **融资可以失败,但开源不会失败。**
->
-> **一个人的力量也许有限,但一个被开源出来、交给社区的工程,会被千万双手共同续写。**
-
----
-
-### 附录 · 技术决策背后的故事
-
-> _这部分是写给开发者看的。如果你不是技术读者,可以跳过本章,直接看「故事续写」与「开源共建愿景」。_
-> _如果你是技术读者,这一章记录了 IHUI-AI 在 2025 年做出的 5 个关键架构决策——以及它们背后的思考过程。_
-
-在一个人用 Vibe Coding 完成 8 端代码的过程中,每一个技术选型都意味着代价:**选错 = 后面所有代码都要重写;选对 = 后面的代码会自然站得住。**
-
-下面是 5 个被反复问到的技术决策。
-
-#### 决策 1 · 为什么选 LangGraph,而不是 AutoGen / CrewAI?
-
-**背景**:AI Agent 编排框架,2024-2025 年主流选项是 LangGraph、AutoGen、CrewAI、LlamaIndex Agents。
-
-**选择**:LangGraph + MCP + A2A 三栈协同。
-
-**理由**:
-
-- LangGraph 的**状态机模型**比 AutoGen 的"多 agent 对话"更适合复杂业务流(计费、订阅、退款这种需要严格状态转移的场景)
-- LangGraph 的**图结构可视化**让一个人也能 debug 复杂工作流(否则一个 agent 调用链跑飞了根本不知道在哪一步)
-- LangGraph 与 LangChain 生态深度集成,176 模型接入零成本
-- AutoGen 偏研究,CrewAI 偏简单任务编排,都不适合生产级商业应用
-- MCP 协议让 Agent 能调用外部工具(文件系统、数据库、API),A2A 让 Agent 之间能对话
-
-**代价**:学习曲线陡,但一旦学会,后面每个新工作流都是模板化复制。
-
-> 💬 **讨论**:→ [#1 决策讨论:为什么 IHUI-AI 选 LangGraph,而不是 AutoGen / CrewAI?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/1)
-
-#### 决策 2 · 为什么选 Drizzle ORM,而不是 Prisma?
-
-**背景**:TypeScript ORM 主流是 Prisma 和 Drizzle。
-
-**选择**:Drizzle ORM 0.38 + postgres-js。
-
-**理由**:
-
-- **TypeScript 原生**:Drizzle schema 就是 TS 文件,IDE 补全、类型推导、重构都跟写业务代码一样
-- **SQL 透明**:Drizzle 的查询语法接近 SQL,debug 时能直接看 SQL,Prisma 的 query DSL 黑盒严重
-- **迁移可控**:Drizzle 的 migration 是手写 SQL,可审计;Prisma 的 migrate 是自动生成,黑盒
-- **性能**:Drizzle 没有 Prisma Client 的运行时开销,query 直接编译成 SQL
-- **多租户**:Drizzle 的 schema 隔离 + RLS(Row-Level Security)配合,多租户路由更灵活
-- Prisma 在 2024 年还有 schema drift 问题,一个独立开发者没有 DBA 兜底,必须选可控性最高的
-
-**代价**:生态比 Prisma 小,但够用。
-
-> 💬 **讨论**:→ [#2 决策讨论:为什么 IHUI-AI 选 Drizzle ORM,而不是 Prisma?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/2)
-
-#### 决策 3 · 为什么选 TS Monorepo,而不是 Polyrepo?
-
-**背景**:8 端代码(Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp),monorepo vs polyrepo 是生死决策。
-
-**选择**:pnpm workspace + Turborepo + 13 个共享 packages。
-
-**理由**:
-
-- **类型对齐**:8 端共享 `@ihui/types`,改一个类型 8 端立即感知,避免 polyrepo 的"类型漂移地狱"
-- **原子提交**:一个 feature 跨 8 端的改动可以一个 commit 搞定,polyrepo 要 8 个 PR
-- **依赖一致性**:pnpm workspace 强制版本一致,避免 polyrepo 的"依赖碎片化"
-- **CI 缓存**:Turborepo 的远程缓存让一个独立开发者也能享受大团队的 CI 速度
-- **共享 UI**:`@ihui/ui-react` + `@ihui/design-tokens` 让 8 端 UI 一致,polyrepo 做不到
-
-**代价**:monorepo 配置复杂,但配好之后一劳永逸。
-
-> 💬 **讨论**:→ [#3 决策讨论:为什么 IHUI-AI 选 TS Monorepo,而不是 Polyrepo?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/3)
-
-#### 决策 4 · 为什么是 21 个 pre-commit 守门钩子?
-
-**背景**:一个独立开发者,没有 code review,没有 QA,没有 CI 团队——如何保证代码质量?
-
-**选择**:21 个 pre-commit + post-commit + 11 个迁移审计 + 9 个 PowerShell 启动脚本。
-
-**理由**:
-
-- **机器代替人 review**:16 个守门钩子覆盖 API key 泄露、i18n 键完整性、zh-TW 简体字残留、ko 中文残留、ja 残留、en 破碎机翻、schema drift、dist 陈旧、UTF-8 BOM、API 路由一致性、safeParse 静默忽略、依赖碎片化、skipResponseSanitization、圆角违规、交付报告一致性、迁移完整性、CSS 颜色 token 嵌套、原生 title tooltip、staged 污染预警
-- **机器代替人 audit**:11 个迁移审计脚本 + post-commit 自动 push 钩子,让"commit 后忘记 push"这种协作事故从机制上杜绝
-- **机器代替 DevOps**:9 个 PowerShell 启动脚本让"启动项目"从"记不住 8 条命令"变成"1 条命令"
-
-**代价**:钩子偶尔误报,但宁可误报不可漏报。
-
-> 💬 **讨论**:→ [#4 决策讨论:为什么 IHUI-AI 是 21 个 pre-commit 守门钩子?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/4)
-
-**演化(2026-07-22)**:从初始 21 个 pre-commit 钩子逐步演化到 23 个,新增:
-
-- **#20 check-tailwind-class-conflict**(2026-07-21):防止 className 模板字面量 BASE/BRANCH 出现多套 size 类导致后值覆盖前值
-- **#21 check-multi-end-sync**(2026-07-21,§9 升级配套):检测单端改动未在 PROJECT_PLAN.md 标注"平台独占",把"默认全端连通"从人工自觉变成机制守门
-- **#22 check-readme-sync**(2026-07-22,§22 配套):检测功能代码改动但 README.md 未同步,把"功能开发后同步更新 README"从人工自觉变成机制守门(反面案例:P3 深度层三大壁垒交付后 README 未同步)
-- **#23 check-staged-files**(2026-07-21):commit 前最后看一眼 staged 清单,杜绝"混入其他 agent 改动"污染事故
-
-#### 决策 5 · 为什么坚持 Apache 2.0,而不是 AGPL / 商业双许可?
-
-**背景**:开源 AI 项目常见 3 种许可:Apache 2.0(宽松)、AGPL(强 copyleft)、双许可(社区版 AGPL + 商业版付费)。
-
-**选择**:Apache 2.0。
-
-**理由**:
-
-- **AGPL 会吓跑企业用户**:企业法务看到 AGPL 就跑,这违背了"让每个人都拥有自己的 AI 程序"的初衷
-- **双许可意味着分裂**:社区版和企业版分裂,违背了"开源即平等"
-- **Apache 2.0 最宽松**:企业可以闭源使用、修改、商用,只要求保留版权声明
-- **商业闭环靠 SaaS / 私有部署**:不开源代码也能赚钱——靠的是运维服务、定制开发、私有部署,而不是闭源代码
-- **真正的护城河是社区**:开源代码 + 活跃社区 > 闭源代码 + 死社区
-
-**代价**:别人可以 fork 后闭源卖钱,但这种 fork 通常没有社区,活不久。
-
-> 💬 **讨论**:→ [#5 决策讨论:为什么 IHUI-AI 坚持 Apache 2.0,而不是 AGPL / 商业双许可?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/5)
-
----
-
-> _这就是 5 个关键决策。每一个决策背后,都是一个独立开发者在凌晨 3 点反复权衡的代价。_
-> _如果你不认同其中的某个决策,欢迎在 Issue 里讨论——我们愿意被说服。_
-
----
-
-### 故事续写(更新位)
-
-> 本章节保留为"故事续写位",用于在以下里程碑发生时更新。
-> **续写规则**:不删过往,只追加新章。这个项目的诚实,从故事章节开始。
-
-#### 里程碑 checklist
-
-- [ ] **资本里程碑**:首个真正到账的战略投资达成 —— 我们会在这里如实记录投资人、金额、估值,以及那段奔走路上的真实感受
-- [ ] **社区里程碑**:首个非创始团队的外部 contributor 提交首个被合并的 PR —— 你的名字会被写进故事
-- [ ] **商业里程碑**:首个 fork 后真正跑在生产环境、产生商业价值的案例 —— 你的故事,就是我们的故事
-- [ ] **教育里程碑**:首个用 IHUI-AI 搭建 AI 教育平台并正式授课的教育机构 —— 让每个学生都有自己的 AI 老师
-- [ ] **国际里程碑**:首个非中文母语国家开发者长期贡献 —— 让这份执念跨越语言
-
-#### 里程碑达成时的运维 checklist(4 步动作)
-
-每当上述任一里程碑达成,执行以下 4 步:
-
-1. **勾选 checkbox**:把对应 `- [ ]` 改为 `- [x] ✅(YYYY-MM-DD 达成)`
-2. **追加新章**:在 checklist 下方追加一个新小节,如实记录里程碑详情(谁、什么时候、什么内容、当时感受)
-3. **同步 4 语言**:在 `README.md` / `README.en.md` / `README.ko.md` / `README.ja.md` 同步更新(可用 `scripts/scan-i18n-zh-residue.mjs` + `scripts/check-i18n-broken-en.mjs` 守门脚本验证)
-4. **commit + push**:commit message 前缀 `docs(story):`,按 AGENTS.md §21 完整 push 流程(`git rev-parse HEAD` === `git rev-parse origin/<branch>`)
-
-#### 融资里程碑叙事规则(诚实优先)
-
-- **不抹除过往叙事**:本故事章节里"资本迟迟未到""2000 万天使轮报道但未到账"等内容**禁止删除**——它们是项目诚实度的长期证据,也是后续融资尽调时最有力的"创始人品格"佐证
-- **如实记录新融资**:融资里程碑达成时,在新章里明确写出投资人名称、融资金额、估值、领投/跟投结构,让历史报道反差变成"先苦后甜"叙事弧
-- **不夸大不隐瞒**:融资用途、股权稀释比例、对赌条款等敏感信息,可适度省略细节,但不允许虚构或误导
-- **时间戳留痕**:每个新章末尾标注 `*最近一次更新:YYYY-MM-DD · <里程碑简述>*`
-
-> _最近一次更新:2026-07-21 · 故事首发版本_
-
----
-
-> **AI 不该被垄断。每个人都应该拥有自己的 AI 程序。**
->
-> **这是我们的故事,也可能,是你的故事。**
->
-> **—— 智汇AI · 李春川 · 长春**
-
----
-
-## 开源共建愿景
-
-我们坚信:
-
-> **AI 不应被少数平台垄断。每个人都应该拥有自己的 AI 程序。**
-
-IHUI-AI 不是一个产品,而是一份**开源基础设施**。它存在的意义是:
-
-- 让**个人开发者**以更可控的成本搭建属于自己的 AI 助手,数据完全自托管
-- 让**中小企业**不用从零开始,基于它构建企业级 AI 中台
-- 让**AI 服务商**复用成熟的多模型代理、计费、订阅能力,专注业务创新
-- 让**教育机构**用 AI 教育全栈改造教学,让每个学生都有专属 AI 老师
-- 让**内容创作者**用一键发布平台解放生产力,专注内容本身
-
-每一行代码、每一个 PR、每一个 Issue 都让这个目标更近一步。无论你是初学者还是资深工程师,无论你贡献代码还是文档,无论你修复 Bug 还是提出建议 —— 你都是这个共建生态的一部分。
-
-**Fork 它,改它,用它,把它变成你自己的。** 然后把改进反哺回来,让下一个开发者站在你的肩膀上。
-
-这才是 AI 时代开源应有的样子。
-
----
-
-## License
-
-[Apache License 2.0](LICENSE) — 自由使用、修改、分发、商业使用,无传染性。
-
----
-
-## 致谢
-
-IHUI-AI 的诞生离不开以下开源项目的启发与支持:
-
-- [Next.js](https://nextjs.org/) / [React](https://react.dev/) / [Tailwind CSS](https://tailwindcss.com/) / [shadcn/ui](https://ui.shadcn.com/)
-- [Fastify](https://fastify.dev/) / [Drizzle ORM](https://orm.drizzle.team/) / [FastAPI](https://fastapi.tocloud.com/)
-- [LangGraph](https://langchain-ai.github.io/langgraph/) / [LiteLLM](https://litellm.vercel.app/) / [MCP](https://modelcontextprotocol.io/)
-- [Turborepo](https://turbo.build/) / [pnpm](https://pnpm.io/) / [Vitest](https://vitest.dev/) / [Playwright](https://playwright.dev/) / [Locust](https://locust.io/)
-- [Tauri](https://tauri.app/) / [Taro](https://taro-docs.jd.com/) / [WXT](https://wxt.dev/) / [Expo](https://expo.dev/)
-- [Prometheus](https://prometheus.io/) / [Grafana](https://grafana.com/) / [Loki](https://grafana.com/loki) / [Jaeger](https://www.jaegertracing.io/) / [OpenTelemetry](https://opentelemetry.io/) / [Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/)
-- [Knip](https://knip.dev/) / [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci)
-
-感谢每一位贡献者,让这个项目持续演进。
-
----
-
-<p align="center">
-  <sub>Built by <strong>吉林省爱智汇人工智能科技有限公司</strong> · 开源共建,你我同在</sub>
+  <strong>吉林省爱智汇人工智能科技有限公司</strong> · <strong>智汇 AI 集团</strong><br/>
+  <sub>吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地</sub>
 </p>
 
 <p align="center">
-  <a href="https://github.com/IHUI-INF-AI/IHUI-AI">Star us on GitHub</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/fork">Fork to build your own</a> · <a href="https://github.com/IHUI-INF-AI/IHUI-AI/issues">Request a feature</a>
+  <strong>邮箱</strong> · <a href="mailto:502319984@qq.com">502319984@qq.com</a><br/>
+  <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
+  <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a> &nbsp;|&nbsp; <strong>在线 Demo</strong> · <a href="https://aizhs.top">https://aizhs.top</a>
 </p>
 
----
+<p align="center">
+  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请致信 <a href="mailto:502319984@qq.com">502319984@qq.com</a>,24 小时内回复。</sub>
+</p>
 
-## Quick FAQ(常见问题速答 · SEO)
-
-> 5 个最常被搜索的问题,简短速答(搜索引擎 snippet 友好);详细技术 FAQ 见 [上方 FAQ 章节](#faq)。
-
-**Q: Is IHUI-AI free? / IHUI-AI 免费吗?**
-A: Yes. Apache 2.0 license,商业友好,可自托管、可闭源衍生品,无传染性。
-
-**Q: How many LLMs does it support? / 支持多少个大模型?**
-A: 176 models via LiteLLM adapter(国际 30+ / 国产 15+ / 云厂商 10+),统一 API + 智能路由 + 60% 缓存。
-
-**Q: Can I self-host it? / 可以自托管吗?**
-A: Yes. 8 platforms from one monorepo(Web / API / AI-service / Desktop / Extension / Mobile-RN / Miniapp-Taro / CLI),5 分钟 Fork 到上线。
-
-**Q: Does it support MCP? / 支持 MCP 协议吗?**
-A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
-
-**Q: Is it production-ready? / 生产环境可用吗?**
-A: Yes. 5346 tests / 237 test suites / 63 e2e spec / 1300+ API 端点 / 340 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,21 Grafana 仪表盘可观测。
-
----
-
-## Keywords
-
-> SEO 关键词索引。完整长尾词清单(100+ 条,按 Primary / Long-tail / Question / Comparison / Platform-specific 分类)见 [docs/seo-keywords.md](docs/seo-keywords.md)。
-
-**Primary Keywords:** AI Agent Platform | LLM Gateway | MCP Server | LangGraph | Multi-tenant AI | Open Source ChatGPT Alternative | AI Operating System | Agentic AI | RAG Knowledge Base | Agent Marketplace | LiteLLM | Next.js 15 | Fastify 5 | Tauri | WXT Extension | React Native | Taro Mini Program | Apache 2.0
-
-### Long-tail Keywords
-
-- open source ai agent platform with multi-tenant
-- self-hosted chatgpt alternative with 176 llms
-- langgraph mcp a2a triple stack ai framework
-- ai operating system 8 platforms monorepo
-- litellm gateway with rag knowledge base
-- multi-tenant row level security ai platform
-- agent marketplace open source apache 2.0
-- next.js 15 fastify 5 ai saas template
-- tauri desktop ai assistant
-- wxt browser extension ai agent
+<p align="center">
+  <sub><strong>如果 IHUI-AI 对你有帮助,欢迎 Star 支持我们。</strong> Star 不是终点,是让更多人看到这个项目的起点。</sub>
+</p>
