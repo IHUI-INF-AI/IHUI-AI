@@ -984,7 +984,44 @@
     "modeReviewDesc": "AI 將唯讀審查程式碼",
     "modeSpecDesc": "AI 將從程式碼反向生成 spec 檔案",
     "loginRequiredTitle": "登入後開始 AI 對話",
-    "loginRequiredDesc": "登入後即可與 AI 智慧體對話，支援多模型切換、附件上傳、深度思考等功能"
+    "loginRequiredDesc": "登入後即可與 AI 智慧體對話，支援多模型切換、附件上傳、深度思考等功能",
+    "dropAttachmentHint": "釋放滑鼠以新增附件(圖片/影片)",
+    "referenceCount": "{count} 個引用",
+    "providerHealthTip": "延遲 {latency}ms · {count} 個模型可用",
+    "stepThinking": "思考",
+    "stepAnswer": "回答",
+    "toolCallSkipped": "已跳過(重複呼叫)",
+    "timelineUserMessage": "使用者訊息",
+    "timelineAiReply": "AI 回覆",
+    "gapInterval": "{gap} 間隔",
+    "loginRequired": "請先登入",
+    "loginExpired": "登入已過期",
+    "loginExpiredDesc": "請重新登入後繼續對話",
+    "createConversationFailed": "建立對話失敗",
+    "contextCompacted": "上下文已自動壓縮",
+    "contextCompactedDesc": "{before} → {after}(移除 {removed} 條歷史)",
+    "mentionPopover": {
+      "removeLabel": "移除 {label}"
+    },
+    "contextMenu": {
+      "copyText": "複製文字",
+      "copyMarkdown": "複製為 Markdown",
+      "regenerate": "重新生成",
+      "feedback": "回饋",
+      "deleteMessage": "刪除訊息"
+    },
+    "toast": {
+      "copiedText": "已複製文字",
+      "copiedMarkdown": "已複製 Markdown",
+      "regenerating": "正在重新生成…",
+      "feedbackRecorded": "已記錄回饋,感謝支持",
+      "messageDeleted": "已刪除訊息",
+      "operationFailed": "操作失敗"
+    },
+    "errors": {
+      "timeout15s": "AI 回應逾時(15 秒內未收到任何內容),請稍後重試",
+      "timeout60s": "AI 思考逾時(60 秒內未產出回答內容,可能 reasoning 模型思考過長),請稍後重試或改用一般模型"
+    }
   },
   "learn": {
     "title": "學習中心",
@@ -13176,7 +13213,10 @@
       "result": "結果",
       "stop": "停止",
       "clear": "清空",
-      "taskId": "任務 ID"
+      "taskId": "任務 ID",
+      "modelDefault": "預設",
+      "unknownFile": "(未知檔案)",
+      "executeFailed": "執行失敗"
     },
     "mcpPane": {
       "tools": "工具",
@@ -13349,7 +13389,8 @@
       "debug": "除錯",
       "recentRuns": "最近執行",
       "typeTerminal": "終端",
-      "runFailed": "執行失敗,請重試"
+      "runFailed": "執行失敗,請重試",
+      "justNow": "剛剛"
     },
     "statusBar": {
       "sync": "同步",
@@ -14248,41 +14289,13 @@
     "clear": "清空",
     "stop": "停止"
   },
-  "a11y": {
-    "pieChart": "圓餅圖",
-    "send": "傳送",
-    "uploadAvatar": "上傳大頭貼",
-    "copyCode": "複製程式碼",
-    "collapse": "摺疊"
-  },
   "auth": {
-    "loginSubtitle": "登入您的賬號",
-    "noAccount": "還沒有賬號？",
-    "registerTitle": "建立賬號",
-    "registerSubtitle": "註冊一個新賬號",
-    "sendCode": "獲取驗證碼",
-    "resendCode": "{seconds}s 後重發",
-    "hasAccount": "已有賬號？",
-    "registerSuccess": "註冊成功，請登入",
-    "resetPassword": "重置密碼",
-    "resetSuccess": "密碼重置成功，請重新登入",
-    "username": "使用者名",
-    "usernamePlaceholder": "請輸入使用者名",
-    "invalidUsername": "使用者名至少 3 位",
-    "googleNotConfigured": "Google 登入未配置",
-    "invalidCredentials": "賬號或密碼錯誤",
-    "qrRefresh": "重新整理二維碼",
-    "qrSdkLoadFailed": "二維碼元件載入失敗",
-    "qrNotConfigured": "{platform} 掃碼登入未設定,請聯絡管理員",
-    "qrScanTipPlatform": "請使用 {platform} APP 掃描二維碼登入",
-    "accountPlaceholder": "手機號 / 郵箱 / 帳號",
-    "agreementNoticeDesc": "為了保障您的帳號安全，請閱讀並同意以下協議後繼續登入",
-    "getVerificationCode": "獲取驗證碼",
     "emailLogin": "郵箱登入",
     "phoneCodeLogin": "手機驗證碼登入",
     "passwordLogin": "賬號密碼登入",
     "qrLogin": "掃碼登入",
     "account": "賬號",
+    "accountPlaceholder": "手機號 / 郵箱 / 帳號",
     "password": "密碼",
     "passwordPlaceholder": "請輸入密碼",
     "phone": "手機號",
@@ -14308,12 +14321,19 @@
     "agreeRequired": "請先同意使用者協議",
     "loginBtn": "登入",
     "registerBtn": "註冊",
+    "sendCode": "獲取驗證碼",
+    "getVerificationCode": "獲取驗證碼",
+    "resendCode": "{seconds}s 後重發",
     "forgotPassword": "忘記密碼",
+    "resetPassword": "重置密碼",
     "registerNow": "立即註冊",
+    "noAccount": "還沒有賬號？",
+    "hasAccount": "已有賬號？",
     "toLogin": "去登入",
     "phoneRegister": "手機註冊",
     "emailRegister": "郵箱註冊",
     "codeSent": "驗證碼已傳送",
+    "registerSuccess": "註冊成功，請登入",
     "passwordWeak": "弱",
     "passwordMedium": "中",
     "passwordStrong": "強",
@@ -14323,12 +14343,16 @@
     "autoLogin": "自動登入",
     "thirdPartyLogin": "第三方登入",
     "appleComingSoon": "Apple 登入即將上線",
+    "googleNotConfigured": "Google 登入未配置",
+    "qrScanTipPlatform": "請使用 {platform} APP 掃描二維碼登入",
+    "qrRefresh": "重新整理二維碼",
     "qrSwitchMethod": "切換登入方式",
     "agreePrefix": "我已閱讀並同意",
     "termsOfService": "服務條款",
     "and": "和",
     "privacyPolicy": "隱私政策",
     "agreementNoticeTitle": "使用者協議",
+    "agreementNoticeDesc": "為了保障您的帳號安全，請閱讀並同意以下協議後繼續登入",
     "agreementNoticeSafe": "我們重視您的隱私安全",
     "agreementNoticeDisagree": "不同意",
     "agreementNoticeAgree": "同意並繼續",
@@ -14337,6 +14361,9 @@
     "clearHistory": "清除歷史記錄",
     "noHistory": "暫無歷史記錄",
     "loginTitle": "登入",
+    "registerTitle": "建立賬號",
+    "loginSubtitle": "登入您的賬號",
+    "registerSubtitle": "註冊一個新賬號",
     "forgotSubtitle": "重置您的密碼",
     "accountHistory": "accountHistory",
     "alipayLogin": "alipayLogin",
@@ -14346,7 +14373,57 @@
     "feishuLogin": "feishuLogin",
     "githubLogin": "githubLogin",
     "googleLogin": "googleLogin",
-    "wechatLogin": "wechatLogin"
+    "invalidCredentials": "賬號或密碼錯誤",
+    "invalidUsername": "使用者名至少 3 位",
+    "qrNotConfigured": "{platform} 掃碼登入未設定,請聯絡管理員",
+    "qrSdkLoadFailed": "二維碼元件載入失敗",
+    "resetSuccess": "密碼重置成功，請重新登入",
+    "username": "使用者名",
+    "usernamePlaceholder": "請輸入使用者名",
+    "wechatLogin": "wechatLogin",
+    "loginSuccess": "登入成功",
+    "errors": {
+      "bootstrapFailed": "引導失敗"
+    },
+    "thirdParty": {
+      "loginNotEnabled": "{platform}登入未啟用",
+      "loginStartFailed": "{platform}登入啟動失敗",
+      "loginSuccess": "{platform}登入成功",
+      "loginHandleFailed": "{platform}登入處理失敗",
+      "loginFailed": "{platform}登入失敗",
+      "loginFailedShort": "登入失敗",
+      "missingCode": "缺少必要的 code 參數",
+      "stateValidationFailed": "state 參數驗證失敗",
+      "backendFailedLocalFallback": "{platform}後端登入失敗,已啟用本地回退",
+      "loginExceptionLocalFallback": "{platform}登入異常,已啟用本地回退",
+      "loginMultipleFailed": "{platform}登入多次失敗,建議嘗試其他登入方式",
+      "tooManyRetries": "重試次數過多,請嘗試其他登入方式",
+      "loginCancelled": "已取消{platform}登入",
+      "bindSuccess": "{platform}帳號綁定成功",
+      "bindFailed": "{platform}帳號綁定失敗",
+      "boundAccountNotFound": "未找到{platform}綁定的帳號",
+      "unbindSuccess": "{platform}帳號解綁成功",
+      "unbindFailed": "{platform}帳號解綁失敗",
+      "oneTapInitFailed": "Google One Tap 初始化失敗",
+      "missingClientId": "缺少 client_id",
+      "gisLoadFailed": "GIS 載入失敗",
+      "gisLoadFailedToast": "Google GIS 載入失敗",
+      "oneTapNotInitialized": "Google One Tap 尚未初始化",
+      "oneTapNotDisplayed": "Google One Tap 未顯示"
+    }
+  },
+  "title": "管理後臺",
+  "modelFree": "免費",
+  "modelPointsMultiplier": "積分消耗倍數",
+  "errors": {
+    "requestFailed": "請求失敗"
+  },
+  "a11y": {
+    "pieChart": "圓餅圖",
+    "send": "傳送",
+    "uploadAvatar": "上傳大頭貼",
+    "copyCode": "複製程式碼",
+    "collapse": "摺疊"
   },
   "help": {
     "title": "幫助中心",
@@ -14373,8 +14450,5 @@
   "forbidden": {
     "title": "無許可權造訪",
     "description": "抱歉，您沒有造訪該頁面的許可權。如需開通許可權，請聯絡管理員。"
-  },
-  "modelFree": "免費",
-  "modelPointsMultiplier": "積分消耗倍數",
-  "title": "管理後臺"
+  }
 }
