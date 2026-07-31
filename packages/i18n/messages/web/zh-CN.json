@@ -966,7 +966,44 @@
     "modeReviewDesc": "AI 将只读审查代码",
     "modeSpecDesc": "AI 将从代码反向生成 spec 文档",
     "loginRequiredTitle": "登录后开始 AI 对话",
-    "loginRequiredDesc": "登录后即可与 AI 智能体对话,支持多模型切换、附件上传、深度思考等功能"
+    "loginRequiredDesc": "登录后即可与 AI 智能体对话,支持多模型切换、附件上传、深度思考等功能",
+    "dropAttachmentHint": "释放鼠标以添加附件(图片/视频)",
+    "referenceCount": "{count} 个引用",
+    "providerHealthTip": "延迟 {latency}ms · {count} 个模型可用",
+    "stepThinking": "思考",
+    "stepAnswer": "回答",
+    "toolCallSkipped": "已跳过(重复调用)",
+    "timelineUserMessage": "用户消息",
+    "timelineAiReply": "AI 回复",
+    "gapInterval": "{gap} 间隔",
+    "loginRequired": "请先登录",
+    "loginExpired": "登录已过期",
+    "loginExpiredDesc": "请重新登录后继续对话",
+    "createConversationFailed": "创建会话失败",
+    "contextCompacted": "上下文已自动压缩",
+    "contextCompactedDesc": "{before} → {after}(移除 {removed} 条历史)",
+    "mentionPopover": {
+      "removeLabel": "移除 {label}"
+    },
+    "contextMenu": {
+      "copyText": "复制文本",
+      "copyMarkdown": "复制为 Markdown",
+      "regenerate": "重新生成",
+      "feedback": "反馈",
+      "deleteMessage": "删除消息"
+    },
+    "toast": {
+      "copiedText": "已复制文本",
+      "copiedMarkdown": "已复制 Markdown",
+      "regenerating": "正在重新生成…",
+      "feedbackRecorded": "已记录反馈,感谢支持",
+      "messageDeleted": "已删除消息",
+      "operationFailed": "操作失败"
+    },
+    "errors": {
+      "timeout15s": "AI 响应超时(15 秒内未收到任何内容),请稍后重试",
+      "timeout60s": "AI 思考超时(60 秒内未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型"
+    }
   },
   "learn": {
     "title": "学习中心",
@@ -13108,7 +13145,10 @@
       "result": "结果",
       "stop": "停止",
       "clear": "清空",
-      "taskId": "任务 ID"
+      "taskId": "任务 ID",
+      "modelDefault": "默认",
+      "unknownFile": "(未知文件)",
+      "executeFailed": "执行失败"
     },
     "mcpPane": {
       "tools": "工具",
@@ -13281,7 +13321,8 @@
       "debug": "调试",
       "recentRuns": "最近运行",
       "typeTerminal": "终端",
-      "runFailed": "运行失败,请重试"
+      "runFailed": "运行失败,请重试",
+      "justNow": "刚刚"
     },
     "statusBar": {
       "sync": "同步",
@@ -14271,9 +14312,42 @@
     "resetSuccess": "密码重置成功，请重新登入",
     "username": "使用者名",
     "usernamePlaceholder": "请输入使用者名",
-    "wechatLogin": "微信"
+    "wechatLogin": "微信",
+    "loginSuccess": "登录成功",
+    "errors": {
+      "bootstrapFailed": "引导失败"
+    },
+    "thirdParty": {
+      "loginNotEnabled": "{platform}登录未启用",
+      "loginStartFailed": "{platform}登录启动失败",
+      "loginSuccess": "{platform}登录成功",
+      "loginHandleFailed": "{platform}登录处理失败",
+      "loginFailed": "{platform}登录失败",
+      "loginFailedShort": "登录失败",
+      "missingCode": "缺少必要的 code 参数",
+      "stateValidationFailed": "state 参数验证失败",
+      "backendFailedLocalFallback": "{platform}后端登录失败,已启用本地回退",
+      "loginExceptionLocalFallback": "{platform}登录异常,已启用本地回退",
+      "loginMultipleFailed": "{platform}登录多次失败,建议尝试其他登录方式",
+      "tooManyRetries": "重试次数过多,请尝试其他登录方式",
+      "loginCancelled": "已取消{platform}登录",
+      "bindSuccess": "{platform}账号绑定成功",
+      "bindFailed": "{platform}账号绑定失败",
+      "boundAccountNotFound": "未找到{platform}绑定的账号",
+      "unbindSuccess": "{platform}账号解绑成功",
+      "unbindFailed": "{platform}账号解绑失败",
+      "oneTapInitFailed": "Google One Tap 初始化失败",
+      "missingClientId": "缺少 client_id",
+      "gisLoadFailed": "GIS 加载失败",
+      "gisLoadFailedToast": "Google GIS 加载失败",
+      "oneTapNotInitialized": "Google One Tap 尚未初始化",
+      "oneTapNotDisplayed": "Google One Tap 未显示"
+    }
   },
   "title": "管理后台",
   "modelFree": "免费",
-  "modelPointsMultiplier": "积分消耗倍数"
+  "modelPointsMultiplier": "积分消耗倍数",
+  "errors": {
+    "requestFailed": "请求失败"
+  }
 }

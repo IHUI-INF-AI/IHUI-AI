@@ -29,6 +29,11 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'tools', description: '列出可用工具', usage: '/tools', category: 'basic' },
   { name: 'init', description: '创建 AGENTS.md 模板', usage: '/init', category: 'basic' },
   { name: 'mcp', description: '列出已配置的 MCP 服务器', usage: '/mcp', category: 'basic' },
+  // P0 CLI 友好度优化(2026-07-31):4 个新命令,对标 codex/claude-code/mimo code
+  { name: 'config', description: 'REPL 内查看/修改 settings.json 配置', usage: '/config [list|get <key>|set <key> <value>|path|edit|help]', category: 'basic' },
+  { name: 'tasks', description: '持久化任务列表(全局 ~/.ihui/tasks.json + 项目隔离)', usage: '/tasks [list|add <内容>|done <id>|undone <id>|remove <id>|clear|help]', category: 'basic' },
+  { name: 'status', description: '综合状态面板(模型/权限/MCP/skills/memory/todo/context)', usage: '/status', category: 'basic' },
+  { name: 'quickstart', description: '5 个典型场景示例(修复 bug/重构/测试/文档/性能)', usage: '/quickstart [1-5|help]', category: 'basic' },
   { name: 'skills', description: '列出已加载的 skills', usage: '/skills', category: 'session' },
   { name: 'skill', description: '查看 skill 内容', usage: '/skill <name>', category: 'session' },
   { name: 'memory', description: '管理跨会话记忆', usage: '/memory [on|off|show|add|clear|search]', category: 'session' },
@@ -139,4 +144,40 @@ function levenshtein(a: string, b: string): number {
     for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
   }
   return prev[b.length]!;
+}
+
+// === P0 CLI 友好度优化(2026-07-31):Tab 补全 completer ===
+
+/** 获取所有 slash 命令名(含别名),用于 Tab 补全 */
+export function getAllSlashNames(): string[] {
+  const names: string[] = [];
+  for (const c of SLASH_COMMANDS) {
+    names.push('/' + c.name);
+    if (c.aliases) {
+      for (const a of c.aliases) names.push('/' + a);
+    }
+  }
+  return names.sort();
+}
+
+/**
+ * readline completer:Tab 自动补全 slash 命令 + 别名。
+ *
+ * 行为:
+ *   - 输入 "/" 或 "/m" → 列出所有以 /m 开头的命令(/model /models /memory /mcp ...)
+ *   - 输入 "/tasks " → 已匹配到 /tasks,不再补全(返回空,让 readline 默认行为)
+ *   - 无 "/" 前缀 → 返回空(让 readline 用默认文件名补全)
+ */
+export function slashCompleter(line: string): { completions: string[]; hits: string[] } {
+  if (!line.startsWith('/')) {
+    return { completions: [], hits: [] };
+  }
+  const prefix = line.slice(1).toLowerCase();
+  // 已输入空格,说明命令名已结束,不补全命令名
+  if (prefix.includes(' ')) {
+    return { completions: [], hits: [] };
+  }
+  const allNames = getAllSlashNames();
+  const hits = allNames.filter((n) => n.toLowerCase().startsWith('/' + prefix));
+  return { completions: allNames, hits };
 }

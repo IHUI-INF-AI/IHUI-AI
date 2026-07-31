@@ -10,8 +10,6 @@ import {
   Loader2,
   Check,
   ListTodo,
-  MessageSquare,
-  ListTree,
   ChevronsUpDown,
   ChevronsDownUp,
   ArrowDown,
@@ -31,7 +29,8 @@ import {
 } from '@/stores/agent-progress-pane'
 import { useChatStore } from '@/stores/chat'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
-import { useTimelineStore, type TimelineTabName } from '@/stores/timeline-store'
+import { useTimelineStore } from '@/stores/timeline-store'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
@@ -57,7 +56,7 @@ import { HoverPreviewCard } from './progress-sections/hover-preview-card'
 import { BatchHeader, type BatchStatus } from './progress-sections/batch-header'
 import { Checklist, type ChecklistItemData } from './progress-sections/checklist'
 import { ResourceBudget } from './progress-sections/resource-budget'
-import { TimelineTab, flattenToTimelineEvents } from './progress-sections/timeline-tab'
+import { flattenToTimelineEvents } from './progress-sections/timeline-tab'
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 
 /**
@@ -184,17 +183,6 @@ interface PlanStepPreviewData {
   linkedMessagePreview: string | null
   relatedToolCount: number
 }
-
-// ─── Tab 切换按钮配置(模块级,避免打破 React.memo 优化) ───────────────
-const TAB_BUTTONS: ReadonlyArray<{
-  id: TimelineTabName
-  /** i18n key — 模块级 const 无法直接调 t(),在 render 内用 key 调用 */
-  i18nKey: 'tabInline' | 'tabTimeline'
-  Icon: React.ComponentType<{ className?: string }>
-}> = [
-  { id: 'inline', i18nKey: 'tabInline', Icon: MessageSquare },
-  { id: 'timeline', i18nKey: 'tabTimeline', Icon: ListTree },
-]
 
 // ─── 单个 plan step 渲染(v13:i18n 化 hover 预览) ────────────────────
 const PlanStepItem = React.memo(function PlanStepItem({
@@ -839,10 +827,6 @@ export function AgentTaskProgressPane() {
     [hoveredPlanStepId, hoveredMessageId],
   )
 
-  // Phase 19: Timeline tab state
-  const activeTab = useTimelineStore((s) => s.activeTab)
-  const setActiveTab = useTimelineStore((s) => s.setActiveTab)
-
   // Esc 关闭(unpin 状态下生效) + 帮助面板关闭
   React.useEffect(() => {
     if (!open) return
@@ -970,12 +954,6 @@ export function AgentTaskProgressPane() {
     setAutoScroll(true)
   }, [])
 
-  // 切换 tab 回调
-  const onTabChange = React.useCallback(
-    (tab: TimelineTabName) => () => setActiveTab(tab),
-    [setActiveTab],
-  )
-
   // v15: 滚动到首个失败项(subagent/tool/terminal)
   const scrollToFirstFailure = React.useCallback(() => {
     const failedSubagent = paneRef.current?.querySelector(
@@ -1085,8 +1063,12 @@ export function AgentTaskProgressPane() {
     right: 8,
   }
 
+  // 登录弹窗打开时隐藏 pane(避免 z-popover 2001 浮在 z-modal 2000 遮罩之上)
+  const isLoginOpen = useLoginDialogStore((s) => s.isOpen)
+
   // v18:删除 `if (!paneAnchor) return null`(没有 portal anchor 概念了)
   if (!open || !mounted) return null
+  if (isLoginOpen) return null
 
   // Phase 23(2026-07-29):最小化模式 — 渲染摘要条替代完整面板
   if (isMinimized) {
@@ -1207,32 +1189,6 @@ export function AgentTaskProgressPane() {
           </span>
         )}
         <div className="flex-1" />
-        {/* Phase 19: tab 切换(对话流/时间线) */}
-        {TAB_BUTTONS.map((tab) => {
-          const TabIcon = tab.Icon
-          const active = activeTab === tab.id
-          const label = t(tab.i18nKey)
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={onTabChange(tab.id)}
-              className={cn(
-                'inline-flex h-5 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-sm px-1 text-[10px] font-medium transition-colors',
-                active
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
-              )}
-              data-testid={`pane-tab-${tab.id}`}
-              title={label}
-            >
-              <TabIcon className="h-2.5 w-2.5" aria-hidden />
-              <span>{label}</span>
-            </button>
-          )
-        })}
         <button
           type="button"
           onClick={() => setExpandAll(expandAll === true ? false : true)}
@@ -1393,181 +1349,170 @@ export function AgentTaskProgressPane() {
         </div>
       )}
 
-      {/* 内容区:根据 activeTab 切换 内联详情 vs 时间线视图 */}
+      {/* 内容区:统一显示对话流详情(plan steps + sections) */}
       <div
         ref={scrollRef}
         onScroll={onScroll}
         className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
         data-testid="plan-list"
       >
-        {/* Phase 19: 时间线视图(tab='timeline' 时) */}
-        {activeTab === 'timeline' && (
-          <TimelineTab showTabs={false} className="min-h-0" data-testid="pane-timeline-view" />
+        {!threadId && (
+          <div
+            className="flex flex-col items-center gap-1.5 px-3 py-5 text-center"
+            data-testid="pane-empty-state"
+          >
+            <ListTodo
+              className="h-6 w-6 text-muted-foreground/30"
+              aria-hidden
+              data-testid="pane-empty-icon"
+            />
+            <div className="space-y-0.5">
+              <div
+                className="text-[12px] font-medium text-foreground/80"
+                data-testid="pane-empty-title"
+              >
+                {t('emptyTitle')}
+              </div>
+              <div className="text-[10px] leading-relaxed text-muted-foreground/60">
+                {t('emptySubtitle')}
+              </div>
+            </div>
+            {/* v13: 3 个快速开始提示,引导用户理解 pane 用途 */}
+            <ul
+              className="mt-1 w-full space-y-0.5 text-left text-[10px] text-muted-foreground/60"
+              data-testid="pane-empty-hints"
+              aria-label={t('emptyHintsLabel')}
+            >
+              <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                <span className="shrink-0 text-primary/80">1.</span>
+                <span>{t('emptyHint1')}</span>
+              </li>
+              <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                <span className="shrink-0 text-primary/80">2.</span>
+                <span>{t('emptyHint2')}</span>
+              </li>
+              <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                <span className="shrink-0 text-primary/80">3.</span>
+                <span>{t('emptyHint3')}</span>
+              </li>
+            </ul>
+          </div>
         )}
 
-        {/* Phase 19: 对话流视图(tab='inline' 或 'all' 时,显示原有内容)
-            - 'all' tab 由 message-list 自身渲染整合视图,本 pane 兜底显示对话流内容避免空 */}
-        {(activeTab === 'inline' || activeTab === 'all') && (
-          <>
-            {!threadId && (
-              <div
-                className="flex flex-col items-center gap-1.5 px-3 py-5 text-center"
-                data-testid="pane-empty-state"
-              >
-                <ListTodo
-                  className="h-6 w-6 text-muted-foreground/30"
-                  aria-hidden
-                  data-testid="pane-empty-icon"
+        {threadId && planSteps.length === 0 && (
+          // v13: skeleton 行数 3 → 4,加 `animate-skeleton` shimmer 渐变动画
+          <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
+            {Array.from({ length: PLAN_SKELETON_ROWS }, (_, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className="h-3 w-3 shrink-0 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]" />
+                <div
+                  className="h-2.5 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]"
+                  style={{ width: `${50 + i * 12}%` }}
                 />
-                <div className="space-y-0.5">
-                  <div
-                    className="text-[12px] font-medium text-foreground/80"
-                    data-testid="pane-empty-title"
-                  >
-                    {t('emptyTitle')}
-                  </div>
-                  <div className="text-[10px] leading-relaxed text-muted-foreground/60">
-                    {t('emptySubtitle')}
-                  </div>
-                </div>
-                {/* v13: 3 个快速开始提示,引导用户理解 pane 用途 */}
-                <ul
-                  className="mt-1 w-full space-y-0.5 text-left text-[10px] text-muted-foreground/60"
-                  data-testid="pane-empty-hints"
-                  aria-label={t('emptyHintsLabel')}
-                >
-                  <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
-                    <span className="shrink-0 text-primary/80">1.</span>
-                    <span>{t('emptyHint1')}</span>
-                  </li>
-                  <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
-                    <span className="shrink-0 text-primary/80">2.</span>
-                    <span>{t('emptyHint2')}</span>
-                  </li>
-                  <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
-                    <span className="shrink-0 text-primary/80">3.</span>
-                    <span>{t('emptyHint3')}</span>
-                  </li>
-                </ul>
               </div>
-            )}
+            ))}
+          </div>
+        )}
 
-            {threadId && planSteps.length === 0 && (
-              // v13: skeleton 行数 3 → 4,加 `animate-skeleton` shimmer 渐变动画
-              <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
-                {Array.from({ length: PLAN_SKELETON_ROWS }, (_, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <div className="h-3 w-3 shrink-0 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]" />
-                    <div
-                      className="h-2.5 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]"
-                      style={{ width: `${50 + i * 12}%` }}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {planSteps.length > 0 && (
-              <>
-                <div role="list" aria-label={t('planListLabel')}>
-                  {planSteps.map((step, idx) => {
-                    const link = planStepLinkMap.get(step.id) ?? null
-                    return (
-                      <PlanStepItem
-                        key={step.id}
-                        step={step}
-                        index={idx}
-                        linkedMessageId={link?.messageId ?? null}
-                        linkedMessagePreview={link?.preview ?? null}
-                        relatedTools={toolsByStep.get(step.id) ?? EMPTY_TOOLS}
-                        isHighlighted={isStepHighlighted(step.id, link?.messageId ?? null)}
-                      />
-                    )
-                  })}
-                </div>
-                <div
-                  className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  <span className="flex items-center gap-1">
-                    <span>
-                      {t('completedCount', { done: completedCount, total: planSteps.length })}
-                    </span>
-                    <CopyButton
-                      text={planSteps.map((s, i) => `${i + 1}. [${s.status}] ${s.step}`).join('\n')}
-                      aria-label={t('copyPlan')}
-                      data-testid="copy-plan-btn"
-                    />
-                  </span>
-                  {isStreaming && (
-                    <span className="flex items-center gap-0.5 text-primary" role="status">
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                      {t('executing')}
-                    </span>
-                  )}
-                </div>
-              </>
-            )}
-
-            {threadId && (
-              <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
-                <div
-                  onKeyDown={onSectionsKeyDown}
-                  role="toolbar"
-                  aria-label={t('sectionsToolbarLabel')}
-                  data-testid="sections-container"
-                  className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-                >
-                  <ThinkingSection
-                    content={overview.content}
-                    currentNode={overview.currentNode}
-                    isStreaming={isStreaming}
+        {planSteps.length > 0 && (
+          <>
+            <div role="list" aria-label={t('planListLabel')}>
+              {planSteps.map((step, idx) => {
+                const link = planStepLinkMap.get(step.id) ?? null
+                return (
+                  <PlanStepItem
+                    key={step.id}
+                    step={step}
+                    index={idx}
+                    linkedMessageId={link?.messageId ?? null}
+                    linkedMessagePreview={link?.preview ?? null}
+                    relatedTools={toolsByStep.get(step.id) ?? EMPTY_TOOLS}
+                    isHighlighted={isStepHighlighted(step.id, link?.messageId ?? null)}
                   />
-                  <ToolCallsSection tools={tools} />
-                  {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
-                  {subagents.length > 0 && (
-                    <>
-                      <BatchHeader
-                        batchIndex={1}
-                        title={t('subagentBatch')}
-                        agentCount={subagentBatchStats.agentCount}
-                        completedCount={subagentBatchStats.completedCount}
-                        failedCount={subagentBatchStats.failedCount}
-                        status={subagentBatchStats.status}
-                        collapsed={batchCollapsed}
-                        onCollapsedChange={onBatchCollapsedChange}
-                        defaultCollapsed={true}
-                        className="mx-1.5 mt-1.5"
-                        data-testid="subagent-batch-header"
-                      />
-                      {!batchCollapsed && (
-                        <div className="mx-1.5 mt-1 space-y-1" data-testid="subagent-batch-body">
-                          {subagents.map((sa: Subagent) => (
-                            <SubAgentTaskTree
-                              key={sa.id}
-                              subagent={sa}
-                              data-testid={`subagent-task-tree-${sa.id}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                  <ChangesSection changes={changes} />
-                  <TerminalSection terminals={terminals} />
-                  <OverviewSection
-                    overview={overview}
-                    isStreaming={isStreaming}
-                    totalTokens={totalTokens}
-                    tokenRate={tokenRate}
-                    etaMs={etaMs}
-                    contextUsage={contextUsage}
-                  />
-                </div>
-              </FoldableSectionProvider>
-            )}
+                )
+              })}
+            </div>
+            <div
+              className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <span className="flex items-center gap-1">
+                <span>
+                  {t('completedCount', { done: completedCount, total: planSteps.length })}
+                </span>
+                <CopyButton
+                  text={planSteps.map((s, i) => `${i + 1}. [${s.status}] ${s.step}`).join('\n')}
+                  aria-label={t('copyPlan')}
+                  data-testid="copy-plan-btn"
+                />
+              </span>
+              {isStreaming && (
+                <span className="flex items-center gap-0.5 text-primary" role="status">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                  {t('executing')}
+                </span>
+              )}
+            </div>
           </>
+        )}
+
+        {threadId && (
+          <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
+            <div
+              onKeyDown={onSectionsKeyDown}
+              role="toolbar"
+              aria-label={t('sectionsToolbarLabel')}
+              data-testid="sections-container"
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+            >
+              <ThinkingSection
+                content={overview.content}
+                currentNode={overview.currentNode}
+                isStreaming={isStreaming}
+              />
+              <ToolCallsSection tools={tools} />
+              {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
+              {subagents.length > 0 && (
+                <>
+                  <BatchHeader
+                    batchIndex={1}
+                    title={t('subagentBatch')}
+                    agentCount={subagentBatchStats.agentCount}
+                    completedCount={subagentBatchStats.completedCount}
+                    failedCount={subagentBatchStats.failedCount}
+                    status={subagentBatchStats.status}
+                    collapsed={batchCollapsed}
+                    onCollapsedChange={onBatchCollapsedChange}
+                    defaultCollapsed={true}
+                    className="mx-1.5 mt-1.5"
+                    data-testid="subagent-batch-header"
+                  />
+                  {!batchCollapsed && (
+                    <div className="mx-1.5 mt-1 space-y-1" data-testid="subagent-batch-body">
+                      {subagents.map((sa: Subagent) => (
+                        <SubAgentTaskTree
+                          key={sa.id}
+                          subagent={sa}
+                          data-testid={`subagent-task-tree-${sa.id}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              <ChangesSection changes={changes} />
+              <TerminalSection terminals={terminals} />
+              <OverviewSection
+                overview={overview}
+                isStreaming={isStreaming}
+                totalTokens={totalTokens}
+                tokenRate={tokenRate}
+                etaMs={etaMs}
+                contextUsage={contextUsage}
+              />
+            </div>
+          </FoldableSectionProvider>
         )}
 
         {/* Phase 17: 跳到最新按钮 */}
