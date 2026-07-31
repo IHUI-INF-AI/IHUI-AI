@@ -1006,6 +1006,64 @@
     "mentionPopover": {
       "removeLabel": "{label} 제거"
     },
+    "vendor": {
+      "stepfun": "StepFun",
+      "cloudflareWorkersAi": "Cloudflare Workers AI"
+    },
+    "commandArg": {
+      "goalFixTs": {
+        "label": "모든 TypeScript 오류 수정",
+        "description": "pnpm typecheck 실행, 모든 오류 수정하여 초록색 될 때까지(종료 코드 0)"
+      },
+      "goalPassTests": {
+        "label": "모든 단위 테스트 통과",
+        "description": "pnpm test 실행, 실패 케이스 수정하여 모두 통과할 때까지"
+      },
+      "goalRefactor": {
+        "label": "중복 제거 모듈 리팩터링",
+        "description": "중복 코드 식별, 공유 유틸리티 함수 추출, 동작 유지"
+      },
+      "goalLint": {
+        "label": "lint 모두 통과",
+        "description": "pnpm lint 실행, 모든 lint 오류 및 경고 수정"
+      },
+      "goalMigrateShared": {
+        "label": "기능을 공유 계층으로 마이그레이션",
+        "description": "플랫폼 고유 컴포넌트를 packages/app으로 승격, 멀티 플랫폼 재사용, 동작 일치 유지"
+      },
+      "goalBenchmark": {
+        "label": "제품 인터랙션 심층 벤치마크",
+        "description": "대상 제품 인터랙션 세부 사항 참조, 항목별 구현 정렬, 4상태 자체 검증"
+      },
+      "goalDeadCode": {
+        "label": "데드 코드 정리",
+        "description": "참조되지 않은 export/컴포넌트/유틸리티 함수 스캔, 의존성 없음 확인 후 삭제"
+      },
+      "goalE2e": {
+        "label": "E2E 테스트 보완",
+        "description": "중요 경로에 E2E 테스트 추가, 커버리지 80% 이상으로 향상"
+      },
+      "loopOn": {
+        "label": "루프 활성화",
+        "description": "루프 실행 모드 활성화, AI가 목표 달성까지 지속적으로 반복"
+      },
+      "loopOff": {
+        "label": "루프 비활성화",
+        "description": "루프 실행 모드 비활성화, 단일 실행으로 복원"
+      },
+      "loop5": {
+        "label": "5회 루프",
+        "description": "최대 반복 횟수 5로 설정"
+      },
+      "loop10": {
+        "label": "10회 루프",
+        "description": "최대 반복 횟수 10으로 설정"
+      },
+      "loop20": {
+        "label": "20회 루프",
+        "description": "최대 반복 횟수 20으로 설정(고위험, 인간 감독 필요)"
+      }
+    },
     "contextMenu": {
       "copyText": "텍스트 복사",
       "copyMarkdown": "Markdown으로 복사",
@@ -13487,7 +13545,10 @@
       "newTerminalAria": "새 터미널",
       "loading": "로딩 중...",
       "empty": "터미널 세션이 없습니다",
-      "closeTerminalAria": "터미널 닫기"
+      "closeTerminalAria": "터미널 닫기",
+      "statusActive": "실행 중",
+      "statusExited": "종료됨",
+      "statusClosed": "닫힘"
     }
   },
   "aiSkillsPage": {
