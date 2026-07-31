@@ -9,44 +9,13 @@
  *   - 读操作(status/diff/log)不接 hooks 阻断,写操作(add/commit)接 hooks
  */
 
-import { spawnSync } from 'node:child_process';
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 // Wave 8:高级 Git 工具(branch/merge/rebase/stash/conflict/tag/remote)+ GitHub PR 工具
 import { GIT_ADVANCED_TOOLS } from './git-advanced.js';
 import { GITHUB_PR_TOOLS } from './github-pr.js';
-
-interface GitExecResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number | null;
-}
-
-export function execGit(args: string[], cwd: string, timeoutMs = 30_000): GitExecResult {
-  const result = spawnSync('git', args, {
-    cwd,
-    encoding: 'utf-8',
-    timeout: timeoutMs,
-    maxBuffer: 1024 * 1024,
-    windowsHide: true,
-  });
-  return {
-    stdout: (result.stdout as string) ?? '',
-    stderr: (result.stderr as string) ?? '',
-    exitCode: result.status,
-  };
-}
-
-export function formatGitResult(r: GitExecResult, successOnZero = true): ToolResult {
-  const parts: string[] = [];
-  if (r.stdout.trim()) parts.push(r.stdout.trimEnd());
-  if (r.stderr.trim()) parts.push(`[stderr] ${r.stderr.trimEnd()}`);
-  return {
-    success: successOnZero ? r.exitCode === 0 : true,
-    output: parts.join('\n') || '(无输出)',
-    error: r.exitCode !== null && r.exitCode !== 0 ? `git 退出码 ${r.exitCode}` : undefined,
-  };
-}
+// execGit / formatGitResult 抽到 git-shared.ts(2026-07-31,打破 git.ts ↔ git-advanced.ts 循环依赖)
+import { execGit, formatGitResult } from './git-shared.js';
 
 const git_status: Tool = {
   name: 'git_status',
