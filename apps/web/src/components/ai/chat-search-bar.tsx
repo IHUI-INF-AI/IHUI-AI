@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import { Input } from '@ihui/ui-react'
 import type { SearchResult } from '@/hooks/use-chat-search'
@@ -52,6 +53,7 @@ export function ChatSearchBar({
   onSearch,
   onScrollToMessage,
 }: ChatSearchBarProps) {
+  const t = useTranslations('chatSearchBar')
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (show) inputRef.current?.focus()
@@ -66,8 +68,8 @@ export function ChatSearchBar({
           ref={inputRef}
           value={value}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="搜索对话内容..."
-          aria-label="搜索对话内容"
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchAriaLabel')}
           className="h-7 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
         />
       </div>

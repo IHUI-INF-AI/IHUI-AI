@@ -18,6 +18,7 @@
  */
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -227,6 +228,7 @@ export function DispatchSubagentDialog({ open, onOpenChange }: DispatchSubagentD
 // ===========================================================================
 
 function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
+  const t = useTranslations('dispatchDialog')
   const queryClient = useQueryClient()
 
   const [goal, setGoal] = React.useState('')
@@ -372,7 +374,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           rows={2}
-          placeholder="一句话描述任务目标"
+          placeholder={t('taskGoalPlaceholder')}
           className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
@@ -522,7 +524,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
                     type="text"
                     value={node.task}
                     onChange={(e) => updateDagNode(node.id, 'task', e.target.value)}
-                    placeholder="任务描述"
+                    placeholder={t('taskDescPlaceholder')}
                     className="h-6 flex-1 rounded-sm border border-input bg-transparent px-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                   <button
@@ -576,7 +578,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
                     type="text"
                     value={edge.condition}
                     onChange={(e) => updateDagEdge(idx, 'condition', e.target.value)}
-                    placeholder="条件"
+                    placeholder={t('conditionPlaceholder')}
                     className="h-6 flex-1 rounded-sm border border-input bg-transparent px-1.5 font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                   <button
@@ -710,6 +712,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
 // ===========================================================================
 
 function AutoPlanPanel() {
+  const t = useTranslations('dispatchDialog')
   const [task, setTask] = React.useState('')
   const [maxAgents, setMaxAgents] = React.useState<number | ''>('')
   const [isPlanning, setIsPlanning] = React.useState(false)
@@ -746,7 +749,7 @@ function AutoPlanPanel() {
           value={task}
           onChange={(e) => setTask(e.target.value)}
           rows={3}
-          placeholder="重构用户认证模块,支持 OAuth2"
+          placeholder={t('examplePlaceholder')}
           className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
@@ -822,6 +825,7 @@ function AutoPlanPanel() {
 // ===========================================================================
 
 function CustomRolesPanel() {
+  const t = useTranslations('dispatchDialog')
   const [roles, setRoles] = React.useState<CustomRole[]>([])
   const [loading, setLoading] = React.useState(false)
   const [editingRole, setEditingRole] = React.useState<CustomRole | null>(null)
@@ -945,7 +949,7 @@ function CustomRolesPanel() {
           value={autoGenTask}
           onChange={(e) => setAutoGenTask(e.target.value)}
           rows={2}
-          placeholder="描述任务,LLM 将生成定制角色(如:Drizzle ORM 迁移)"
+          placeholder={t('roleDescPlaceholder')}
           className="w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5 text-[11px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <Button
