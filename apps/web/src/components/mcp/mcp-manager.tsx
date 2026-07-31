@@ -25,6 +25,7 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export interface McpServer {
   id: string
@@ -131,6 +132,7 @@ function AddServerDialog({ open, onOpenChange, onSubmit, submitting }: AddServer
 
 export function McpManager() {
   const t = useTranslations('mcp')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
@@ -187,8 +189,8 @@ export function McpManager() {
     onError: (err: Error) => toast.error(err.message),
   })
 
-  const handleDelete = (server: McpServer) => {
-    if (window.confirm(t('deleteConfirm'))) {
+  const handleDelete = async (server: McpServer) => {
+    if (await confirm({ title: t('deleteConfirm'), variant: 'destructive' })) {
       deleteMutation.mutate(server.id)
     }
   }
@@ -279,6 +281,7 @@ export function McpManager() {
         onSubmit={(v) => createMutation.mutate(v)}
         submitting={createMutation.isPending}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }
