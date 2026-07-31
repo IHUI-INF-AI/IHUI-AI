@@ -55,7 +55,7 @@ export function IDETopBar() {
       </button>
       <ViewSwitcher />
       {activeTopTab !== 'editor' && (
-        <div className="group flex items-center gap-1.5 rounded-md bg-background px-3 py-1 text-xs font-medium text-foreground">
+        <div className="group flex items-center gap-1.5 rounded-md bg-background px-3 py-1 text-xs font-medium text-foreground [&>span]:translate-y-[0.7px]">
           <Icon className="h-3.5 w-3.5" />
           <span>{configLabel}</span>
           <button
