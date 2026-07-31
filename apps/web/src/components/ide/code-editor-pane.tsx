@@ -194,6 +194,7 @@ export function CodeEditorPane() {
                 onChange={(v) => updateTabContent(activeTab.id, v)}
                 onSelectionChange={handleSelectionChange}
                 onMount={handleEditorMount}
+                showMinimap
                 className="flex-1"
               />
             )}
