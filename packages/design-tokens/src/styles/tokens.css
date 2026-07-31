@@ -1,8 +1,12 @@
+/* Token 单一真相源 - 修改此处后跑 pnpm check:design-tokens 验证三端一致 */
 /**
  * 共享 design token — web / extension / desktop 等所有端单一来源(2026-07-23 立)。
  *
  * 作用:消除 web globals.css 与 extension globals.css 的手动 token 同步副本。
  * 各端 globals.css 只需 @import 本文件,改 token 改这一处全端生效。
+ *
+ * 元数据层:packages/design-tokens/src/token-registry.ts(P3-1.1 立)提供 token 名称
+ * + 类型 + 默认值的 TS 注册表,与本文件互为校验。改 token 时同步更新注册表。
  *
  * 内容:
  * 1. @theme 块(颜色/圆角/字体/动画/断点/vcenter 偏移)
