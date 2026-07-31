@@ -673,6 +673,13 @@ class LLMGateway:
         - bedrock/*  → AWS_ACCESS_KEY_ID 等(LiteLLM 原生)
         - gpt-*/o1-* 等 → OPENAI_API_KEY(默认)
         """
+        # 2026-07-31 立:'auto' 或空 model 路由到默认模型(防御性根治)
+        # 前端 web 已降级,但其他端(mobile-rn/miniapp-taro/cli)或第三方 OpenAI SDK 可能仍发 'auto',
+        # 此处兜底路由到 settings.litellm_model,避免 MODEL_NOT_CONFIGURED 错误。
+        if model == "auto" or not model:
+            real_model = settings.litellm_model or "stepfun/step-router-v1"
+            logger.info("[llm_gateway] model=%r 路由到默认模型 %r", model, real_model)
+            model = real_model
         m = model.lower()
         if m.startswith("stepfun/"):
             real_model = model.split("/", 1)[1]
@@ -993,7 +1000,8 @@ class LLMGateway:
         Returns:
             包含 content/model/usage/stub 字段的字典。
         """
-        used_model = model or settings.litellm_model
+        # 2026-07-31 立:'auto' 模型路由到默认模型(防御性根治,与 _resolve_provider 同源)
+        used_model = model if model and model != "auto" else settings.litellm_model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
         repaired_messages, repair_removed, _ = repair_messages(messages)
         if repair_removed > 0:
@@ -1371,7 +1379,8 @@ class LLMGateway:
             - {"type": "done", "model": ..., "usage": ..., "stub": bool}
             - {"type": "error", "message": ...}
         """
-        used_model = model or settings.litellm_model
+        # 2026-07-31 立:'auto' 模型路由到默认模型(防御性根治,与 _resolve_provider 同源)
+        used_model = model if model and model != "auto" else settings.litellm_model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
         repaired_messages, repair_removed, _ = repair_messages(messages)
         if repair_removed > 0:
