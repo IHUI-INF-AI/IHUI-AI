@@ -89,6 +89,8 @@ export * from './endpoints/crew'
 export * from './endpoints/developer'
 // 浏览器降级端点(2026-07-22 立,P1 WorkPanel iframe 降级)
 export * from './endpoints/browser'
+// Browser Hub CDP 端点(2026-07-31 立,P0 WorkPanel CDP 完整 Chrome 升级)
+export * from './endpoints/browser-hub'
 export {
   type CommissionOverview,
   type InviteInfo,
