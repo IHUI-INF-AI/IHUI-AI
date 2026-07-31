@@ -201,7 +201,7 @@
     "lecturers": "講師",
     "schedule": "スケジュール",
     "topics": "トピック",
-    "asks": "Q\u0026A",
+    "asks": "Q&A",
     "circles": "サークル",
     "resources": "リソース",
     "news": "ニュース",
@@ -294,7 +294,7 @@
     "eduCertificates": "証明書",
     "eduSchedule": "スケジュール",
     "eduNotes": "ノート",
-    "eduQa": "Q\u0026A",
+    "eduQa": "Q&A",
     "eduProgress": "進捗",
     "memberDashboard": "会員ハブ",
     "memberBenefits": "特典",
@@ -372,7 +372,7 @@
       "slide1Subtitle": "パーソナライズ学習パス、AI チュータリングで効率的成長",
       "slide1Title": "AI スマート学習プラットフォーム",
       "slide2Cta": "配信ルームへ",
-      "slide2Subtitle": "専門家によるライブ配信、リアルタイム Q\u0026A",
+      "slide2Subtitle": "専門家によるライブ配信、リアルタイム Q&A",
       "slide2Title": "リアルタイムインタラクティブ配信",
       "slide3Cta": "評価を開始",
       "slide3Subtitle": "スマート出題、学習成果を精緻に評価",
@@ -390,7 +390,7 @@
       "loginNow": "今すぐログイン",
       "allCourses": "全コース",
       "featuredArticles": "注目記事",
-      "askCommunity": "Q\u0026Aコミュニティ",
+      "askCommunity": "Q&Aコミュニティ",
       "learningCircle": "学習サークル",
       "defaultUser": "ユーザー"
     },
@@ -522,7 +522,7 @@
       "nativePick": "システムピッカー",
       "nativePickHint": "「{name}」を選択しました。ブラウザのセキュリティ制限により完全パスを取得できません。上の入力欄に完全パス(例: G:\\IHUI-AI)を入力して Enter を押してください",
       "nativePickResolved": "「{path}」に移動しました。対象フォルダーを選択して「開く」をクリックしてください",
-      "nativePickNotFound": "現在のディレクトリに \u0027{name}\u0027 が見つかりません。完全パスを手動入力するか、正しいディレクトリに移動してください",
+      "nativePickNotFound": "現在のディレクトリに '{name}' が見つかりません。完全パスを手動入力するか、正しいディレクトリに移動してください",
       "computer": "この PC",
       "parent": "親ディレクトリ",
       "rootHint": "このレベルでドライブを選択するか、上に完全なパスを入力してください",
@@ -647,6 +647,8 @@
     "manageModels": "カスタムモデル設定",
     "modelAuto": "自動",
     "modelAutoDescription": "最適なモデルを自動選択",
+    "modelFree": "無料",
+    "modelPointsMultiplier": "ポイント消費倍率",
     "slashCmd": {
       "plan": "計画モードに切り替え(AIは計画のみ立案し、ツールを実行しません)",
       "act": "実行モードに切り替え(AIは正常にツールを実行します、デフォルト)",
@@ -770,6 +772,26 @@
     "searchNext": "次へ",
     "searchPrev": "前へ",
     "searchClose": "検索を閉じる",
+    "plan": {
+      "title": "実行プラン",
+      "ariaLabel": "実行プランステップ",
+      "stepThinking": "思考",
+      "stepAnswer": "回答",
+      "statusInProgress": "進行中",
+      "statusCompleted": "完了",
+      "statusPending": "待機中",
+      "summaryAllDone": "すべて完了",
+      "summaryErrorCount": "エラー {count}",
+      "totalDuration": "合計 {duration}",
+      "progressPercent": "{percent}%",
+      "copyReasoning": "推論をコピー",
+      "reasoningCopied": "推論をコピーしました",
+      "reasoningCopyFailed": "コピーに失敗しました",
+      "expandReasoning": "推論を展開",
+      "collapseReasoning": "推論を折りたたむ",
+      "jumpToMessage": "メッセージにジャンプ",
+      "stepError": "失败"
+    },
     "question": {
       "title": "AIが回答を待っています",
       "submit": "回答を送信",
@@ -1076,7 +1098,7 @@
     "circlesTab": "コミュニティ",
     "asksTab": "Ｑ＆Ａ",
     "viewAllCircles": "すべてのサークルを",
-    "viewAllAsks": "すべてのQ\u0026Aを"
+    "viewAllAsks": "すべてのQ&Aを"
   },
   "vip": {
     "title": "VIP",
@@ -1110,7 +1132,7 @@
       "lifetime": "終身権益",
       "distributionQualification": "販売資格",
       "aiCourses": "AIコース",
-      "founderQa": "創設者Q\u0026A",
+      "founderQa": "創設者Q&A",
       "agentBeta": "Agentベータ",
       "vipMaxDiscount": "VIP最大割引",
       "customAgentDiscount": "カスタムAgent割引",
@@ -3349,7 +3371,7 @@
           "expired": "期限切れ"
         },
         "source": {
-          "letsencrypt": "Let\u0027s Encrypt",
+          "letsencrypt": "Let's Encrypt",
           "selfSigned": "自己署名",
           "custom": "カスタム"
         },
@@ -4960,18 +4982,18 @@
       "colTime": "視聴時間"
     },
     "asks": {
-      "title": "Q\u0026A",
+      "title": "Q&A",
       "subtitle": "ユーザーのとを",
       "loading": "読み込み中...",
       "noData": "データなし",
-      "create": "新建Q\u0026A",
+      "create": "新建Q&A",
       "edit": "編集",
       "audit": "審査",
       "delete": "削除",
       "save": "保存",
       "cancel": "キャンセル",
-      "createTitle": "新建Q\u0026A",
-      "editTitle": "編集Q\u0026A",
+      "createTitle": "新建Q&A",
+      "editTitle": "編集Q&A",
       "createDesc": "しいレコードを",
       "deleteConfirm": "このをしますか?",
       "auditConfirm": "このをしますか?",
@@ -5579,6 +5601,506 @@
       "vipApplies": "申請回数",
       "vipTotalDiscounted": "割引総額",
       "vipLevel": "VIP {level}"
+    },
+    "shop": {
+      "funds": {
+        "title": "資金アカウント管理",
+        "subtitle": "ユーザー資金アカウントと取引",
+        "totalBalance": "総残高",
+        "totalFrozen": "総凍結",
+        "accountCount": "アカウント数",
+        "tabAccounts": "アカウント",
+        "tabFlows": "取引",
+        "allTypes": "すべてのタイプ",
+        "noAccounts": "アカウントなし",
+        "noFlows": "取引なし",
+        "type": {
+          "recharge": "チャージ",
+          "consume": "消費",
+          "refund": "返金",
+          "withdraw": "引き出し"
+        },
+        "table": {
+          "user": "ユーザー",
+          "balance": "残高",
+          "frozen": "凍結",
+          "totalRecharge": "累計チャージ",
+          "totalConsume": "累計消費",
+          "updatedAt": "更新日時",
+          "type": "タイプ",
+          "amount": "金額",
+          "remark": "備考",
+          "time": "時間"
+        }
+      },
+      "payments": {
+        "title": "支払い注文",
+        "subtitle": "モール注文と配送状態の管理",
+        "searchPlaceholder": "注文番号/ユーザー/商品を検索",
+        "allStatus": "すべてのステータス",
+        "noData": "注文データなし",
+        "ship": "発送",
+        "total": "合計 {total}件 · {page}/{totalPages} ページ",
+        "prev": "前へ",
+        "next": "次へ",
+        "status": {
+          "pending": "未払い",
+          "paid": "支払済",
+          "shipped": "発送済",
+          "completed": "完了",
+          "cancelled": "キャンセル",
+          "refunded": "返金済"
+        },
+        "table": {
+          "orderNo": "注文番号",
+          "user": "ユーザー",
+          "product": "商品",
+          "amount": "金額",
+          "status": "ステータス",
+          "time": "時間",
+          "action": "操作"
+        }
+      },
+      "products": {
+        "title": "商品管理",
+        "subtitle": "モール商品情報の管理",
+        "export": {
+          "id": "ID",
+          "name": "商品名",
+          "price": "価格",
+          "stock": "在庫",
+          "sales": "販売数",
+          "category": "カテゴリ",
+          "desc": "説明",
+          "status": "ステータス",
+          "type": "タイプ",
+          "denomination": "額面",
+          "denominationVip": "VIP額面",
+          "denominationOperate": "運営額面"
+        },
+        "create": "商品追加",
+        "total": "計 {total} 件",
+        "prev": "前へ",
+        "next": "次へ",
+        "exportFilename": "商品リスト",
+        "confirmDelete": "商品「{name}」を削除しますか？",
+        "loading": "読み込み中...",
+        "noData": "商品データなし",
+        "status": {
+          "online": "公開",
+          "offline": "非公開"
+        },
+        "toggleOnline": "公開",
+        "toggleOffline": "非公開",
+        "editTooltip": "編集",
+        "deleteTooltip": "削除",
+        "allStatus": "すべてのステータス",
+        "reset": "リセット",
+        "searchName": "検索商品名",
+        "searchCategory": "検索カテゴリ",
+        "searchType": "検索タイプ",
+        "statusPlaceholder": "ステータス",
+        "toast": {
+          "updated": "商品を更新しました",
+          "created": "商品を作成しました",
+          "deleted": "商品を削除しました"
+        },
+        "validation": {
+          "nameRequired": "商品名を入力してください",
+          "priceInvalid": "価格は負の値にできません",
+          "stockInvalid": "在庫は負の値にできません",
+          "salesInvalid": "販売数は負の値にできません",
+          "categoryRequired": "商品カテゴリを入力してください",
+          "typeRequired": "商品タイプを入力してください"
+        },
+        "table": {
+          "product": "商品",
+          "category": "カテゴリ",
+          "price": "価格",
+          "stock": "在庫",
+          "sales": "販売数",
+          "type": "タイプ",
+          "denomination": "額面",
+          "denominationVip": "VIP額面",
+          "denominationOperate": "運営額面",
+          "images": "画像",
+          "status": "ステータス",
+          "action": "操作"
+        },
+        "dialog": {
+          "editTitle": "商品編集",
+          "createTitle": "商品追加",
+          "description": "商品情報を入力",
+          "name": "商品名",
+          "namePlaceholder": "商品名を入力してください",
+          "category": "カテゴリ",
+          "categoryPlaceholder": "カテゴリを入力",
+          "price": "価格（分）",
+          "stock": "在庫",
+          "sales": "販売数",
+          "type": "タイプ",
+          "typePlaceholder": "タイプを入力",
+          "denomination": "額面",
+          "denominationPlaceholder": "額面を入力",
+          "denominationVip": "VIP額面",
+          "denominationVipPlaceholder": "VIP額面を入力",
+          "denominationOperate": "運営額面",
+          "denominationOperatePlaceholder": "運営額面を入力",
+          "desc": "説明",
+          "descPlaceholder": "説明を入力",
+          "images": "画像",
+          "cancel": "キャンセル",
+          "save": "保存"
+        }
+      },
+      "withdrawals": {
+        "title": "引き出し管理",
+        "subtitle": "ユーザー引き出し申請と取引の管理",
+        "tabDetail": "引き出し詳細",
+        "tabFlow": "引き出し取引",
+        "allStatus": "すべてのステータス",
+        "reset": "リセット",
+        "export": "エクスポート",
+        "create": "追加",
+        "total": "合計 {total}件 · {page}/{totalPages} ページ",
+        "prev": "前へ",
+        "next": "次へ",
+        "channel": {
+          "alipay": "Alipay",
+          "wechat": "WeChat",
+          "bank": "銀行カード"
+        },
+        "status": {
+          "pending": "審査待ち",
+          "approved": "承認済",
+          "rejected": "却下済",
+          "completed": "完了",
+          "failed": "失敗"
+        },
+        "flowStatus": {
+          "processing": "処理中",
+          "success": "成功",
+          "failed": "失敗"
+        },
+        "detail": {
+          "searchUser": "ユーザー",
+          "searchUserName": "ユーザー名",
+          "searchOutBillNo": "外部番号",
+          "searchReviewer": "審査者",
+          "amountRange": "金額範囲",
+          "amountMin": "最小",
+          "amountMax": "最大",
+          "noData": "引き出し詳細なし",
+          "approve": "承認",
+          "reject": "却下",
+          "review": "審査",
+          "table": {
+            "user": "ユーザー",
+            "amount": "金額",
+            "channel": "チャネル",
+            "account": "アカウント",
+            "status": "ステータス",
+            "reviewer": "審査者",
+            "createdAt": "作成日時",
+            "action": "操作"
+          },
+          "dialog": {
+            "editTitle": "引き出し詳細編集",
+            "createTitle": "引き出し詳細追加",
+            "user": "ユーザー",
+            "amount": "金額",
+            "channel": "チャネル",
+            "account": "アカウント",
+            "status": "ステータス",
+            "cancel": "キャンセル",
+            "save": "保存"
+          },
+          "toast": {
+            "updated": "引き出し詳細を更新しました",
+            "created": "引き出し詳細を作成しました",
+            "deleted": "引き出し詳細を削除しました",
+            "reviewed": "審査完了"
+          },
+          "validation": {
+            "userRequired": "ユーザーを入力してください"
+          },
+          "confirmDelete": "出金記録 {id} を削除しますか？",
+          "export": {
+            "id": "ID",
+            "user": "ユーザー",
+            "amount": "金額",
+            "channel": "チャネル",
+            "account": "アカウント",
+            "status": "ステータス",
+            "reviewer": "審査者",
+            "createdAt": "作成日時"
+          }
+        },
+        "flow": {
+          "searchUserId": "ユーザーID",
+          "searchAmount": "金額",
+          "amountPlaceholder": "金額を入力",
+          "searchOutBillNo": "外部番号",
+          "searchCreatedAt": "作成日時",
+          "searchUpdatedAt": "更新日時",
+          "searchTransferDetail": "送金詳細",
+          "noData": "取引データなし",
+          "table": {
+            "userId": "ユーザーID",
+            "amount": "金額",
+            "outBillNo": "外部番号",
+            "status": "ステータス",
+            "createdAt": "作成日時",
+            "updatedAt": "更新日時",
+            "transferDetail": "送金詳細",
+            "action": "操作"
+          },
+          "dialog": {
+            "editTitle": "引き出し取引編集",
+            "createTitle": "引き出し取引追加",
+            "userId": "ユーザーID",
+            "amount": "金額",
+            "outBillNo": "外部番号",
+            "status": "ステータス",
+            "transferDetail": "送金詳細",
+            "cancel": "キャンセル",
+            "save": "保存"
+          },
+          "toast": {
+            "updated": "引き出し取引を更新しました",
+            "created": "引き出し取引を作成しました",
+            "deleted": "引き出し取引を削除しました"
+          },
+          "validation": {
+            "userIdRequired": "ユーザーIDを入力してください"
+          },
+          "confirmDelete": "取引記録 {id} を削除しますか？",
+          "export": {
+            "id": "ID",
+            "userId": "ユーザーID",
+            "amount": "金額",
+            "outBillNo": "外部番号",
+            "status": "ステータス",
+            "createdAt": "作成日時",
+            "updatedAt": "更新日時",
+            "transferDetail": "送金詳細"
+          }
+        },
+        "review": {
+          "title": "引き出し審査",
+          "description": "ユーザー引き出し申請を審査",
+          "notes": "審査メモ",
+          "notesPlaceholder": "審査メモを入力",
+          "trace": "WeChatコールバックtrace",
+          "close": "閉じる",
+          "return": "却下",
+          "approve": "承認"
+        }
+      }
+    },
+    "system": {
+      "common": {
+        "search": "検索",
+        "reset": "リセット",
+        "delete": "削除",
+        "clean": "クリア",
+        "export": "エクスポート",
+        "detail": "詳細",
+        "close": "閉じる",
+        "noData": "データなし",
+        "total": "計 {total} 件 · {page}/{totalPages}",
+        "confirmDelete": "選択した {count} 件の記録を削除しますか？",
+        "deleteSuccess": "削除しました",
+        "cleanSuccess": "クリアしました",
+        "exportSuccess": "エクスポートしました",
+        "exportFailed": "エクスポート失敗",
+        "all": "すべて",
+        "actions": "操作"
+      },
+      "loginLogs": {
+        "title": "ログインログ",
+        "confirmClean": "すべてのログインログをクリアしますか？",
+        "filter": {
+          "user": "ユーザー",
+          "userPlaceholder": "ユーザー識別子",
+          "platform": "プラットフォーム",
+          "platformPlaceholder": "プラットフォーム",
+          "location": "位置",
+          "locationPlaceholder": "ログイン位置",
+          "startDate": "開始日",
+          "endDate": "終了日"
+        },
+        "table": {
+          "id": "ID",
+          "user": "ユーザー",
+          "type": "タイプ",
+          "platform": "プラットフォーム",
+          "ip": "IP",
+          "location": "位置",
+          "ua": "UA",
+          "loginTime": "ログイン時間",
+          "message": "メッセージ"
+        },
+        "export": {
+          "loginType": "ログインタイプ"
+        }
+      },
+      "operationLogs": {
+        "title": "操作ログ",
+        "confirmClean": "すべての操作ログをクリアしますか？",
+        "bizType": {
+          "other": "その他",
+          "insert": "追加",
+          "update": "変更",
+          "delete": "削除",
+          "grant": "認可",
+          "export": "エクスポート",
+          "import": "インポート",
+          "forceLogout": "強制ログアウト",
+          "genCode": "コード生成",
+          "cleanData": "データクリア"
+        },
+        "status": {
+          "success": "成功",
+          "failed": "失敗"
+        },
+        "filter": {
+          "module": "モジュール",
+          "modulePlaceholder": "操作モジュール",
+          "operName": "操作者",
+          "operNamePlaceholder": "操作者",
+          "type": "タイプ"
+        },
+        "table": {
+          "id": "ID",
+          "module": "モジュール",
+          "type": "タイプ",
+          "operName": "操作者",
+          "requestMethod": "メソッド",
+          "ip": "IP",
+          "location": "位置",
+          "status": "ステータス",
+          "operTime": "操作日時",
+          "costTime": "所要時間"
+        },
+        "detail": {
+          "title": "操作ログ詳細",
+          "module": "モジュール：",
+          "type": "タイプ：",
+          "operName": "操作者：",
+          "ip": "IP：",
+          "operUrl": "リクエストURL：",
+          "requestMethod": "メソッド：",
+          "costTime": "所要時間：",
+          "status": "ステータス：",
+          "operTime": "操作日時：",
+          "operParam": "リクエストパラメータ：",
+          "jsonResult": "レスポンス：",
+          "errorMsg": "エラー情報："
+        },
+        "export": {
+          "operUrl": "URL",
+          "requestMethod": "メソッド",
+          "costTime": "所要時間(ms)"
+        }
+      },
+      "tasks": {
+        "title": "システムタスク",
+        "subtitle": "スケジュールタスクとバックグラウンドジョブ管理",
+        "type": {
+          "cron": "Cron",
+          "interval": "間隔",
+          "once": "一回"
+        },
+        "status": {
+          "running": "実行中",
+          "paused": "一時停止中",
+          "idle": "アイドル",
+          "failed": "失敗"
+        },
+        "filter": {
+          "status": "ステータス",
+          "allStatus": "すべてのステータス"
+        },
+        "table": {
+          "name": "タスク名",
+          "type": "タイプ",
+          "schedule": "スケジュール",
+          "status": "ステータス",
+          "lastRun": "前回実行",
+          "nextRun": "次回実行",
+          "costTime": "所要時間"
+        },
+        "noTasks": "なしタスク",
+        "actions": {
+          "run": "実行",
+          "start": "開始",
+          "pause": "一時停止"
+        }
+      },
+      "tasksLog": {
+        "title": "タスクログ",
+        "confirmClean": "すべてのタスクログをクリアしますか？",
+        "status": {
+          "success": "成功",
+          "failed": "失敗"
+        },
+        "filter": {
+          "jobName": "タスク名",
+          "jobNamePlaceholder": "タスク名",
+          "jobGroup": "タスクグループ",
+          "jobGroupPlaceholder": "タスクグループ",
+          "status": "ステータス"
+        },
+        "table": {
+          "id": "ID",
+          "jobName": "タスク名",
+          "jobGroup": "タスクグループ",
+          "invokeTarget": "呼び出し対象",
+          "jobMessage": "ログ情報",
+          "status": "ステータス",
+          "startTime": "開始時間",
+          "costTime": "所要時間"
+        },
+        "detail": {
+          "title": "タスクログ詳細",
+          "id": "ログID：",
+          "jobName": "タスク名：",
+          "jobGroup": "タスクグループ：",
+          "status": "ステータス：",
+          "invokeTarget": "呼び出し対象：",
+          "startTime": "開始時間：",
+          "stopTime": "停止時間：",
+          "costTime": "所要時間：",
+          "jobMessage": "ログ情報：",
+          "exceptionInfo": "例外情報："
+        },
+        "export": {
+          "stopTime": "停止時間",
+          "costTime": "所要時間(ms)"
+        }
+      },
+      "monitor": {
+        "title": "システム監視",
+        "subtitle": "システムリソースとサービス状態",
+        "cpu": "CPU",
+        "memory": "メモリ",
+        "disk": "ディスク",
+        "processes": "プロセス数",
+        "uptimeFormat": "{days}日 {hours}時間",
+        "systemInfo": "システム情報",
+        "uptime": "稼働時間",
+        "loadAvg": "負荷平均 (1/5/15分)",
+        "networkIn": "ネットワーク受信",
+        "networkOut": "ネットワーク送信",
+        "services": "サービス",
+        "noServices": "サービスデータなし",
+        "status": {
+          "running": "実行中",
+          "stopped": "停止済み",
+          "error": "エラー"
+        }
+      }
     }
   },
   "knowledgeGraph": {
@@ -5634,10 +6156,10 @@
       "saved": "しました"
     },
     "security": {
-      "passwordHint": "6-20文字、\u003c \u003e \" \u0027 | \\ などの特殊文字は使用不可",
+      "passwordHint": "6-20文字、< > \" ' | \\ などの特殊文字は使用不可",
       "passwordTooShort": "パスワードは6文字以上で入力してください",
       "passwordTooLong": "パスワードは20文字以内で入力してください",
-      "passwordInvalidChar": "パスワードに \u003c \u003e \" \u0027 | \\ などの特殊文字は使用できません",
+      "passwordInvalidChar": "パスワードに < > \" ' | \\ などの特殊文字は使用できません",
       "passwordNotMatch": "2回入力したパスワードが一致しません",
       "pwUpdated": "パスワードをしました",
       "phone": "しいをしてください",
@@ -5784,7 +6306,7 @@
       "unfollowSuccess": "フォローを解除しました"
     },
     "ask": {
-      "title": "マイQ\u0026A",
+      "title": "マイQ&A",
       "empty": "データがありません",
       "loading": "読み込み中..."
     },
@@ -5942,7 +6464,7 @@
       "note2": "すべてのタスクはデフォルトで dry-run モードであり、WeChat の下書きに実際にプッシュしません。手動でトリガーするか、設定で dry-run をオフにしてください。",
       "note3": "タスク実行履歴は直近 30 件(メモリ内)を保持し、サービス再起動後にクリアされます。",
       "note4": "タイムゾーン:東 8 区(Asia/Shanghai)。",
-      "note5": "Cron 式は標準 5 フィールド構文 \u003ccode\u003e分 時 日 月 曜\u003c/code\u003e に従います。例: \u003ccode\u003e0 9 * * 1\u003c/code\u003e は毎週月曜 9 時に実行されます。",
+      "note5": "Cron 式は標準 5 フィールド構文 <code>分 時 日 月 曜</code> に従います。例: <code>0 9 * * 1</code> は毎週月曜 9 時に実行されます。",
       "examplesTitle": "自動化サンプル",
       "examplesDesc": "テンプレートをクリックして類似タスクを素早く設定",
       "useRefTemplate": "このテンプレートを参考にする",
@@ -8450,8 +8972,8 @@
     "valueEnterpriseTitle": "エンタープライズ級セキュリティ",
     "valueEnterpriseDesc": "SSO/OAuth、監査ログ、ロール権限、セルフホスト展開、複数の上場企業にサービス提供。",
     "platformTitle": "フルスタック AI オペレーティングシステム",
-    "platformAgentsTitle": "Agent マーケット \u0026 オーケストレーション",
-    "platformAgentsDesc": "ビジュアルドラッグ\u0026ドロップで AI Agent を構築、200+ テンプレート、プラグイン/MCP ツール、ワンクリックで全クライアントに发布。",
+    "platformAgentsTitle": "Agent マーケット & オーケストレーション",
+    "platformAgentsDesc": "ビジュアルドラッグ&ドロップで AI Agent を構築、200+ テンプレート、プラグイン/MCP ツール、ワンクリックで全クライアントに发布。",
     "platformRagTitle": "ナレッジベース RAG",
     "platformRagDesc": "PDF/Word/Markdown/Web 解析、ベクトル+BM25 ハイブリッド検索、中国語対応、ナレッジグラフ。",
     "platformModelsTitle": "マルチモデル統合スケジューリング",
@@ -8485,7 +9007,7 @@
     "q1Question": "智匯 AI とは何ですか?",
     "q1Answer": "智匯 AI(英語名 IHUI AI)はワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム协作とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
     "q2Question": "智匯 AI と Dify、Coze、FastGPT の違いは?",
-    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q\u0026A 中心。智匯 AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム协作 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
+    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。智匯 AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム协作 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
     "q3Question": "智匯 AI は誰向けですか?",
     "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、6クライアントへのワンクリック发布)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー协作、統一ナレッジベース、統一課金)。",
     "q4Question": "どの AI モデルに対応していますか?",
@@ -8499,7 +9021,7 @@
     "q8Question": "クレジットはどのように計算されますか? 返金できますか?",
     "q8Answer": "クレジットはモデル呼び出しごとに課金され、モデルごとに消費率が異なります(価格ページ参照)。チャージしたクレジット: 未使用なら7日以内に全額返金、使用済み部分は按分返金。サブスクリプションプラン: 未使用月は按分返金。詳細は返金ポリシーページを参照。",
     "q9Question": "セルフホストは対応していますか?",
-    "q9Answer": "対応、Apache 2.0 オープンソース、セルフホストのライセンス料ゼロ。Docker Compose 単一ノードワンクリック展開(5分)、Kubernetes マルチノード展開(Helm Chart 対応)。Enterprise 版は追加で高可用性、バックアップ \u0026 リカバリー、カナリアアップグレード、専任技術サポートを提供。",
+    "q9Answer": "対応、Apache 2.0 オープンソース、セルフホストのライセンス料ゼロ。Docker Compose 単一ノードワンクリック展開(5分)、Kubernetes マルチノード展開(Helm Chart 対応)。Enterprise 版は追加で高可用性、バックアップ & リカバリー、カナリアアップグレード、専任技術サポートを提供。",
     "q10Question": "セルフホストに必要なハードウェアは?",
     "q10Answer": "最小構成: 2コア CPU / 4GB RAM / 20GB ディスク、10-50同時ユーザー対応。推奨構成: 4コア CPU / 8GB RAM / 50GB SSD、200同時ユーザー対応。GPU は不要(LLM 推論はクラウド API 実行); ローカルモデル(7B-13B)を実行する場合は24GB VRAM のシングルカードが必要。",
     "q11Question": "私のデータは安全ですか?",
@@ -8510,10 +9032,10 @@
     "ctaDesc": "技術チームまでご連絡ください、2時間以内に返信します。",
     "ctaButton": "テクニカルサポートに連絡",
     "heroSubtitle": "IHUI AI に関する12のよくある質問、30秒で答えが見つかります。",
-    "categoryTech": "技術 \u0026 開発",
-    "categoryPricing": "価格 \u0026 課金",
-    "categoryDeploy": "展開 \u0026 運用",
-    "categoryPrivacy": "データ \u0026 セキュリティ"
+    "categoryTech": "技術 & 開発",
+    "categoryPricing": "価格 & 課金",
+    "categoryDeploy": "展開 & 運用",
+    "categoryPrivacy": "データ & セキュリティ"
   },
   "articles": {
     "title": "記事",
@@ -9149,32 +9671,55 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search"]
+        "keywords": [
+          "検索",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
   },
@@ -9573,19 +10118,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -9706,25 +10263,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ\u0026A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -10264,7 +10833,7 @@
   },
   "edu": {
     "qa": {
-      "title": "Q\u0026A センター",
+      "title": "Q&A センター",
       "subtitle": "学習の疑問を質問・回答",
       "askPlaceholder": "質問を入力...",
       "askBtn": "質問",
@@ -10302,7 +10871,7 @@
         "💎 VIP 会員 30% オフ、100+ エージェント無制限",
         "🌍 多言語サポート:5 言語でリアルタイム翻訳",
         "🎨 テーマセンター 50+ テーマ、ワンクリックで切替",
-        "📚 ナレッジ RAG 提供開始、文書をスマート Q\u0026A に"
+        "📚 ナレッジ RAG 提供開始、文書をスマート Q&A に"
       ]
     },
     "welcome": {
@@ -10452,7 +11021,7 @@
       "professional": {
         "title": "エンジニアリング厳格 · 業界標竿",
         "description": "17 項目 pre-commit ガード + 4 husky フック + 122+ migrations + 12 共有 packages、コード品質は同類 95% 超え",
-        "evidence": "証拠:17 ガード \u003e 業界平均 3 項目 / 122 migrations \u003e 平均 30 / 12 packages \u003e 平均 4 → 99.9% エラーフリー"
+        "evidence": "証拠:17 ガード > 業界平均 3 項目 / 122 migrations > 平均 30 / 12 packages > 平均 4 → 99.9% エラーフリー"
       },
       "efficient": {
         "title": "スマートルーティング · 大幅コスト削減",
@@ -10462,7 +11031,7 @@
       "reliable": {
         "title": "企業級セキュリティ · ゼロリスク",
         "description": "99.9% SLA + AES-256-GCM 暗号化 + RBAC ボタンレベル権限 + 5 言語 i18n parity + 不満の場合は全額返金",
-        "evidence": "AES-256-GCM = 銀行級暗号化 / RBAC 粒度はボタン級 = 金融業界超え / 99.9% SLA = 年間停止 \u003c 8.76 時間"
+        "evidence": "AES-256-GCM = 銀行級暗号化 / RBAC 粒度はボタン級 = 金融業界超え / 99.9% SLA = 年間停止 < 8.76 時間"
       },
       "innovative": {
         "title": "トリプルスタック · 業界最先端",
@@ -11317,7 +11886,7 @@
       "government": "政務・公共",
       "marketingService": "マーケティング・サービス",
       "productionManufacturing": "生産・製造",
-      "rdInnovation": "R\u0026D イノベーション",
+      "rdInnovation": "R&D イノベーション",
       "officeCollaboration": "オフィス協業",
       "unknown": "その他ツール"
     }
@@ -11332,7 +11901,15 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -11476,8 +12053,18 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -11993,7 +12580,7 @@
     "notePlaceholder": "ノート内容を入力...",
     "saveNote": "ノートを保存",
     "sections": "セクション目次",
-    "qa": "Q\u0026A",
+    "qa": "Q&A",
     "qaPlaceholder": "質問する...",
     "qaEmpty": "質問はまだありません"
   },
@@ -13045,7 +13632,7 @@
       "name": "IHUI AI チャージパッケージ",
       "description": "IHUI AI フルスタック AI OS の API チャージパッケージ。個人開発者/小規模チーム/エンタープライズに対応し、従量課金と月額プランをサポート。",
       "brand": "IHUI AI",
-      "category": "Software \u003e AI Development Platform \u003e API Credits",
+      "category": "Software > AI Development Platform > API Credits",
       "currency": "JPY",
       "offers": {
         "starter": {
@@ -13676,8 +14263,8 @@
     "langCurl": "cURL",
     "langNode": "Node.js",
     "langPython": "Python",
-    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d \u0027{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\" }\n    ],\n    \"temperature\": 0.7\n  }\u0027",
-    "codeNode": "import OpenAI from \u0027openai\u0027\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: \u0027https://api.ihui-ai.com/v1\u0027,\n})\n\nconst completion = await client.chat.completions.create({\n  model: \u0027gpt-4o\u0027,\n  messages: [\n    { role: \u0027user\u0027, content: \u0027こんにちは、自己紹介してください\u0027 },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// コスト追跡\nconst usage = completion.usage\nconsole.log(`使用量:${usage.total_tokens} トークン`)",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: 'こんにちは、自己紹介してください' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// コスト追跡\nconst usage = completion.usage\nconsole.log(`使用量:${usage.total_tokens} トークン`)",
     "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# コスト追跡\nusage = response.usage\nprint(f\"使用量:{usage.total_tokens} トークン\")",
     "copyAria": "コードをコピー",
     "toastCopied": "コードをコピーしました",

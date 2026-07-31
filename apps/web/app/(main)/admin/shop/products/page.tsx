@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, Package, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -12,10 +13,11 @@ import { Button } from '@ihui/ui-react'
 import { ProductFilter } from './ProductFilter'
 import { ProductTable } from './ProductTable'
 import { ProductDialog } from './ProductDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, productToForm } from './helpers'
+import { PAGE_SIZE, api, EMPTY_FORM, getExportColumns, productToForm } from './helpers'
 import type { Product, ListData, ProductForm, ProductSearch } from './types'
 
 export default function AdminShopProductsPage() {
+  const t = useTranslations('admin.shop')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState<ProductSearch>({
     name: '',
@@ -76,7 +78,7 @@ export default function AdminShopProductsPage() {
         : api('/api/admin/shop/products', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(editing ? '更新成功' : '新增成功')
+      toast.success(editing ? t('products.toast.updated') : t('products.toast.created'))
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'products'] })
       closeDialog()
     },
@@ -96,7 +98,7 @@ export default function AdminShopProductsPage() {
   const delMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/shop/products/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('products.toast.deleted'))
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'products'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -123,16 +125,16 @@ export default function AdminShopProductsPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.name.trim()) return setErr('请输入商品名称')
-    if (form.price === '' || Number(form.price) < 0) return setErr('请输入有效价格')
-    if (form.stock === '' || Number(form.stock) < 0) return setErr('请输入有效库存')
-    if (form.sales === '' || Number(form.sales) < 0) return setErr('请输入有效销量')
-    if (!form.category.trim()) return setErr('请输入分类')
-    if (!form.type.trim()) return setErr('请输入类型')
+    if (!form.name.trim()) return setErr(t('products.validation.nameRequired'))
+    if (form.price === '' || Number(form.price) < 0) return setErr(t('products.validation.priceInvalid'))
+    if (form.stock === '' || Number(form.stock) < 0) return setErr(t('products.validation.stockInvalid'))
+    if (form.sales === '' || Number(form.sales) < 0) return setErr(t('products.validation.salesInvalid'))
+    if (!form.category.trim()) return setErr(t('products.validation.categoryRequired'))
+    if (!form.type.trim()) return setErr(t('products.validation.typeRequired'))
     saveMut.mutate()
   }
   function handleDelete(p: Product) {
-    if (!window.confirm(`确认删除 "${p.name}" ?`)) return
+    if (!window.confirm(t('products.confirmDelete', { name: p.name }))) return
     delMut.mutate(p.id)
   }
   function handleReset() {
@@ -140,8 +142,8 @@ export default function AdminShopProductsPage() {
   }
   function handleExport() {
     exportToExcel(
-      '商品',
-      EXPORT_COLUMNS,
+      t('products.exportFilename'),
+      getExportColumns(t),
       (data?.list ?? []) as unknown as Record<string, unknown>[],
     )
   }
@@ -156,19 +158,19 @@ export default function AdminShopProductsPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Package className="h-6 w-6 text-primary" />
-            商品管理
+            {t('products.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">商品列表、分类与上下架</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('products.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('products.export')}
           </Button>
           <HasPermi code="ai:zhs_product:add">
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4" />
-              新建商品
+              {t('products.create')}
             </Button>
           </HasPermi>
         </div>
@@ -186,7 +188,7 @@ export default function AdminShopProductsPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('products.total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -195,7 +197,7 @@ export default function AdminShopProductsPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            {t('products.prev')}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -206,7 +208,7 @@ export default function AdminShopProductsPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('products.next')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
