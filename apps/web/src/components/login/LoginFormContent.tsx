@@ -161,7 +161,7 @@ function QrCodeLoginEmbedded({
 }
 
 export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
-  // 共享 @ihui/ui-react.LoginForm 内部调用 t('auth.xxx') 长 key 路径,
+  // 共享 @ihui/ui-react.LoginForm 内部调用完整路径的 auth 键,
   // 必须用无命名空间的 useTranslations() 让 t 能解析完整路径;
   // 若用 useTranslations('auth'),t('auth.emailLogin') 会查找 auth.auth.emailLogin 失败并回退显示 key 名。
   const t = useTranslations()
