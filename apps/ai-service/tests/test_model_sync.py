@@ -174,6 +174,29 @@ _skip_if_no_incremental_sync = pytest.mark.skipif(
 
 
 # =============================================================================
+# v4 接口存在性检测(2026-07-31 立,深度优化 v4 运维控制配套)
+# =============================================================================
+
+_F5_RESET_PROVIDER_READY: bool = hasattr(ModelSyncService, "reset_provider")
+_F5_UPDATE_CONFIG_READY: bool = hasattr(ModelSyncService, "update_config")
+_F5_AGGREGATED_STATS_READY: bool = hasattr(ModelSyncService, "get_aggregated_stats")
+_F5_CLEANUP_OLD_LOGS_READY: bool = hasattr(ModelSyncService, "cleanup_old_logs")
+
+_skip_if_no_reset_provider = pytest.mark.skipif(
+    not _F5_RESET_PROVIDER_READY, reason="等待 F5 实现 reset_provider"
+)
+_skip_if_no_update_config = pytest.mark.skipif(
+    not _F5_UPDATE_CONFIG_READY, reason="等待 F5 实现 update_config"
+)
+_skip_if_no_aggregated_stats = pytest.mark.skipif(
+    not _F5_AGGREGATED_STATS_READY, reason="等待 F5 实现 get_aggregated_stats"
+)
+_skip_if_no_cleanup_old_logs = pytest.mark.skipif(
+    not _F5_CLEANUP_OLD_LOGS_READY, reason="等待 F5 实现 cleanup_old_logs"
+)
+
+
+# =============================================================================
 # _parse_price(原方法,已存在)— $/token -> cents/1k tokens
 # =============================================================================
 
@@ -1131,3 +1154,263 @@ class TestIncrementalSync:
             )
         # Last-Modified 应被缓存到 _provider_last_modified[provider_code]
         assert service._provider_last_modified.get("openrouter") == "Wed, 22 Oct 2024 10:00:00 GMT"
+
+
+# =============================================================================
+# v4 运维控制:reset_provider(重置 provider 失败计数 + 移除禁用 + 清缓存)
+# =============================================================================
+
+
+@_skip_if_no_reset_provider
+class TestResetProvider:
+    """F5.1 reset_provider() 单元测试。
+
+    用途:重置 provider 失败计数 + 从永久禁用列表移除 + 清除 ETag/Last-Modified 缓存。
+    返回:{"provider_code": "xxx", "reset": True, "previous_failures": N, "was_disabled": bool}
+    """
+
+    def test_reset_provider_clears_failure_counter(self) -> None:
+        """重置后失败计数归零。"""
+        svc = ModelSyncService()
+        svc._provider_failure_counter["test_provider"] = 5
+        result = svc.reset_provider("test_provider")
+        assert result["provider_code"] == "test_provider"
+        assert result["reset"] is True
+        assert result["previous_failures"] == 5
+        # 实现用 pop() 删除 key(等价于归零),用 get 兼容两种行为
+        assert svc._provider_failure_counter.get("test_provider", 0) == 0
+
+    def test_reset_provider_removes_from_disabled(self) -> None:
+        """重置后从永久禁用列表移除。"""
+        svc = ModelSyncService()
+        svc._permanently_disabled_providers.add("test_provider")
+        svc._provider_failure_counter["test_provider"] = 3
+        result = svc.reset_provider("test_provider")
+        assert result["was_disabled"] is True
+        assert "test_provider" not in svc._permanently_disabled_providers
+
+    def test_reset_provider_was_not_disabled(self) -> None:
+        """重置未禁用的 provider,was_disabled=False。"""
+        svc = ModelSyncService()
+        result = svc.reset_provider("never_disabled")
+        assert result["was_disabled"] is False
+        assert result["previous_failures"] == 0
+        assert result["reset"] is True
+
+    def test_reset_provider_clears_etag_cache(self) -> None:
+        """重置后清除 ETag/Last-Modified 缓存。"""
+        svc = ModelSyncService()
+        svc._provider_etag["test_provider"] = "etag123"
+        svc._provider_last_modified["test_provider"] = "Mon, 01 Jan 2026 00:00:00 GMT"
+        svc.reset_provider("test_provider")
+        assert "test_provider" not in svc._provider_etag
+        assert "test_provider" not in svc._provider_last_modified
+
+    def test_reset_provider_idempotent(self) -> None:
+        """多次重置同一 provider 不报错。"""
+        svc = ModelSyncService()
+        svc.reset_provider("test_provider")
+        result = svc.reset_provider("test_provider")
+        assert result["reset"] is True
+        assert result["previous_failures"] == 0
+
+
+# =============================================================================
+# v4 运维控制:update_config(运行时更新同步间隔 + 并发限流)
+# =============================================================================
+
+
+@_skip_if_no_update_config
+class TestUpdateConfig:
+    """F5.2 update_config() 单元测试。
+
+    用途:运行时更新同步间隔 + 并发限流。
+    参数:interval_s / concurrency 都可选,但至少传一个(都不传 raise ValueError)。
+    校验:interval_s 必须 > 0 且 <= 86400;concurrency 必须 > 0 且 <= 20。
+    返回:{"interval_s": N, "concurrency": N, "applied": True}
+    """
+
+    def test_update_interval_only(self) -> None:
+        """只更新 interval_s。"""
+        svc = ModelSyncService()
+        result = svc.update_config(interval_s=3600)
+        assert result["applied"] is True
+        assert result["interval_s"] == 3600
+
+    def test_update_concurrency_only(self) -> None:
+        """只更新 concurrency。"""
+        svc = ModelSyncService()
+        result = svc.update_config(concurrency=10)
+        assert result["applied"] is True
+        assert result["concurrency"] == 10
+
+    def test_update_both(self) -> None:
+        """同时更新 interval_s 和 concurrency。"""
+        svc = ModelSyncService()
+        result = svc.update_config(interval_s=7200, concurrency=8)
+        assert result["applied"] is True
+        assert result["interval_s"] == 7200
+        assert result["concurrency"] == 8
+
+    def test_update_no_params_raises(self) -> None:
+        """不传任何参数应 raise ValueError。"""
+        svc = ModelSyncService()
+        with pytest.raises(ValueError):
+            svc.update_config()
+
+    def test_update_invalid_interval_zero(self) -> None:
+        """interval_s=0 应 raise ValueError。"""
+        svc = ModelSyncService()
+        with pytest.raises(ValueError):
+            svc.update_config(interval_s=0)
+
+    def test_update_invalid_interval_negative(self) -> None:
+        """interval_s 负数应 raise ValueError。"""
+        svc = ModelSyncService()
+        with pytest.raises(ValueError):
+            svc.update_config(interval_s=-1)
+
+    def test_update_invalid_interval_too_large(self) -> None:
+        """interval_s > 86400 应 raise ValueError。"""
+        svc = ModelSyncService()
+        with pytest.raises(ValueError):
+            svc.update_config(interval_s=86401)
+
+    def test_update_invalid_concurrency_zero(self) -> None:
+        """concurrency=0 应 raise ValueError。"""
+        svc = ModelSyncService()
+        with pytest.raises(ValueError):
+            svc.update_config(concurrency=0)
+
+    def test_update_invalid_concurrency_too_large(self) -> None:
+        """concurrency > 20 应 raise ValueError。"""
+        svc = ModelSyncService()
+        with pytest.raises(ValueError):
+            svc.update_config(concurrency=21)
+
+    def test_update_persists_to_runtime_fields(self) -> None:
+        """配置更新应写入 _runtime_interval_s / _runtime_concurrency。"""
+        svc = ModelSyncService()
+        svc.update_config(interval_s=1800, concurrency=3)
+        assert svc._runtime_interval_s == 1800
+        assert svc._runtime_concurrency == 3
+
+
+# =============================================================================
+# v4 运维控制:get_aggregated_stats(查询最近 N 天聚合统计)
+# =============================================================================
+
+
+@_skip_if_no_aggregated_stats
+class TestGetAggregatedStats:
+    """F5.3 get_aggregated_stats() 单元测试。
+
+    用途:查询最近 N 天的聚合统计(从 ai_model_sync_log 表)。
+    参数:days 默认 7,最大 90(超出截断为 90)。
+    行为:表不存在或查询失败时返回零值 dict(不抛异常)。
+    """
+
+    @pytest.mark.asyncio
+    async def test_stats_returns_valid_structure(self) -> None:
+        """返回 dict 结构正确(含所有必需字段 + 正确类型),不依赖 DB 数据状态。"""
+        svc = ModelSyncService()
+        result = await svc.get_aggregated_stats(days=7)
+        assert result["days"] == 7
+        assert isinstance(result["total_syncs"], int)
+        assert isinstance(result["success_count"], int)
+        assert isinstance(result["failure_count"], int)
+        assert isinstance(result["success_rate"], (int, float))
+        assert isinstance(result["avg_latency_ms"], int)
+        assert isinstance(result["max_latency_ms"], int)
+        assert isinstance(result["min_latency_ms"], int)
+        assert isinstance(result["total_new_models"], int)
+        assert isinstance(result["total_removed_models"], int)
+        assert isinstance(result["by_provider"], list)
+
+    @pytest.mark.asyncio
+    async def test_stats_default_days(self) -> None:
+        """默认 days=7。"""
+        svc = ModelSyncService()
+        result = await svc.get_aggregated_stats()
+        assert result["days"] == 7
+
+    @pytest.mark.asyncio
+    async def test_stats_custom_days(self) -> None:
+        """自定义 days=30。"""
+        svc = ModelSyncService()
+        result = await svc.get_aggregated_stats(days=30)
+        assert result["days"] == 30
+
+    @pytest.mark.asyncio
+    async def test_stats_max_days_capped(self) -> None:
+        """days > 90 应被截断为 90。"""
+        svc = ModelSyncService()
+        result = await svc.get_aggregated_stats(days=120)
+        assert result["days"] == 90
+
+    @pytest.mark.asyncio
+    async def test_stats_returns_all_required_fields(self) -> None:
+        """返回 dict 必须包含所有必需字段。"""
+        svc = ModelSyncService()
+        result = await svc.get_aggregated_stats(days=7)
+        required_keys = {
+            "days", "total_syncs", "success_count", "failure_count",
+            "success_rate", "avg_latency_ms", "max_latency_ms", "min_latency_ms",
+            "total_new_models", "total_removed_models", "by_provider",
+        }
+        assert required_keys.issubset(result.keys())
+
+
+# =============================================================================
+# v4 运维控制:cleanup_old_logs(清理 N 天前的同步日志)
+# =============================================================================
+
+
+@_skip_if_no_cleanup_old_logs
+class TestCleanupOldLogs:
+    """F5.4 cleanup_old_logs() 单元测试。
+
+    用途:清理 N 天前的同步日志。
+    参数:before_days 默认 30,最小 1。
+    行为:表不存在时返回 deleted_count=0(不抛异常)。
+    返回:{"deleted_count": N, "before_days": N}
+    """
+
+    @pytest.mark.asyncio
+    async def test_cleanup_returns_zero_when_no_table(self) -> None:
+        """表不存在时返回 deleted_count=0(不抛异常)。"""
+        svc = ModelSyncService()
+        result = await svc.cleanup_old_logs(before_days=30)
+        assert result["deleted_count"] == 0
+        assert result["before_days"] == 30
+
+    @pytest.mark.asyncio
+    async def test_cleanup_default_before_days(self) -> None:
+        """默认 before_days=30。"""
+        svc = ModelSyncService()
+        result = await svc.cleanup_old_logs()
+        assert result["before_days"] == 30
+
+    @pytest.mark.asyncio
+    async def test_cleanup_custom_before_days(self) -> None:
+        """自定义 before_days=7。"""
+        svc = ModelSyncService()
+        result = await svc.cleanup_old_logs(before_days=7)
+        assert result["before_days"] == 7
+
+    @pytest.mark.asyncio
+    async def test_cleanup_min_before_days(self) -> None:
+        """before_days=1 应该正常工作(最小值)。"""
+        svc = ModelSyncService()
+        result = await svc.cleanup_old_logs(before_days=1)
+        assert result["before_days"] == 1
+
+    @pytest.mark.asyncio
+    async def test_cleanup_returns_dict_structure(self) -> None:
+        """返回 dict 必须包含 deleted_count 和 before_days。"""
+        svc = ModelSyncService()
+        result = await svc.cleanup_old_logs(before_days=14)
+        assert "deleted_count" in result
+        assert "before_days" in result
+        assert isinstance(result["deleted_count"], int)
+        assert isinstance(result["before_days"], int)
