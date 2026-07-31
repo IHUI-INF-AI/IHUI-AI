@@ -9750,8 +9750,8 @@
       "qwen": "通义千问"
     },
     "models": "大模型",
-    "officialApp": "官方App",
-    "officialWechat": "官方微信",
+    "officialApp": "公众号",
+    "officialWechat": "我的微信",
     "paymentPlatforms": "支付平台",
     "payments": {
       "alipay": "支付宝",
