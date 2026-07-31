@@ -6,6 +6,8 @@
  * 2. recordChannelResult(keyPoolId, success, latencyMs): 记录调用结果,更新熔断状态
  * 3. 熔断状态机(内存 Map,进程级,不持久化):closed → open(连续 3 次失败)→ half-open(60s 后)→ closed/open
  * 4. 负载均衡策略:weight(加权随机)/ round-robin(轮询)/ least-latency(最少延迟)
+ *    + session-affinity(渠道亲和性,2026-07-31 立,TTL 10min,fallback round-robin)
+ *    + least-connections(最小连接数,2026-07-31 立,适合 Realtime WebSocket 等长连接)
  *
  * 按模型路由流程:
  *   aiModelConfigModels(modelId) → aiModelConfig(configId, providerCode, baseUrl)
@@ -33,6 +35,10 @@ import { decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
 const CIRCUIT_FAILURE_THRESHOLD = 3 // 连续 3 次失败 → open
 const CIRCUIT_OPEN_DURATION_MS = 60_000 // 熔断 60s 后转 half-open
 const MAX_RECENT_CALLS = 10 // 最近调用记录上限(用于 least-latency 策略 + 统计)
+// session-affinity:亲和性缓存 TTL(10 分钟,过期后重新选渠道,避免粘到已下线渠道)
+const SESSION_AFFINITY_TTL_MS = 10 * 60 * 1000
+// session-affinity:定期清理周期(与 TTL 一致,清理过期亲和性条目,防止内存泄漏)
+const SESSION_AFFINITY_SWEEP_INTERVAL_MS = SESSION_AFFINITY_TTL_MS
 
 // ============================================================================
 // 类型定义
@@ -94,6 +100,24 @@ interface WeightedItem {
 const circuitMap = new Map<string, CircuitState>()
 const recentCallsMap = new Map<string, CallRecord[]>()
 const roundRobinIndexMap = new Map<string, number>()
+
+// session-affinity:亲和性缓存,key = affinityKey(userId|apiKeyId),value = { channelId, expireAt }
+const sessionAffinityMap = new Map<string, { channelId: string; expireAt: number }>()
+// least-connections:每个渠道的当前活跃连接数(请求开始 +1,响应结束 -1)
+const activeConnectionsMap = new Map<string, number>()
+
+// session-affinity:定期清理过期亲和性条目(防止一次性用户导致内存泄漏)
+// unref 确保定时器不会阻止进程退出
+if (typeof setInterval !== 'undefined') {
+  const sweepTimer = setInterval(() => {
+    const now = Date.now()
+    for (const [key, val] of sessionAffinityMap) {
+      if (now > val.expireAt) sessionAffinityMap.delete(key)
+    }
+  }, SESSION_AFFINITY_SWEEP_INTERVAL_MS)
+  // Node.js 环境下 unref,浏览器/测试环境忽略
+  if (typeof sweepTimer.unref === 'function') sweepTimer.unref()
+}
 
 // ============================================================================
 // 工具函数
@@ -237,14 +261,120 @@ function selectByLeastLatency(items: WeightedItem[]): WeightedItem | null {
   return scored[0]?.item ?? null
 }
 
+// ----------------------------------------------------------------------------
+// session-affinity 策略(2026-07-31 立)
+// ----------------------------------------------------------------------------
+/**
+ * session-affinity 策略:相同 user_id 或 api_key_id 的请求尽量走同一渠道(减少冷启动)。
+ *
+ * 流程:
+ * 1. 查亲和性缓存,若命中且渠道在可用列表中 → 直接返回(亲和性命中)
+ * 2. 缓存过期 / 渠道不可用(熔断 open / 已移除)→ fallback 到 round-robin 选新渠道
+ * 3. 选中新渠道后写入缓存(TTL 10 分钟)
+ *
+ * 命中亲和性时不修改 circuitMap(熔断状态仅由 recordChannelResult 更新),正常计费。
+ *
+ * @param affinityKey 亲和性 key(userId 或 apiKeyId),空时退化为 groupId(无亲和性效果)
+ * @param items 当前可用的 key_pool 条目(已过滤熔断 open)
+ * @param groupId 组 id(fallback round-robin 用)
+ */
+function selectBySessionAffinity(
+  affinityKey: string,
+  items: WeightedItem[],
+  groupId: string,
+): WeightedItem | null {
+  if (items.length === 0) return null
+
+  // 1. 查亲和性缓存(惰性清理过期条目)
+  const cached = sessionAffinityMap.get(affinityKey)
+  if (cached) {
+    if (Date.now() > cached.expireAt) {
+      // 过期 → 清理,走 fallback
+      sessionAffinityMap.delete(affinityKey)
+    } else {
+      // 缓存有效,检查对应渠道是否仍在可用列表中
+      const hit = items.find((i) => i.keyPoolId === cached.channelId)
+      if (hit) {
+        // 亲和性命中:走同一渠道,不触碰 circuitMap
+        return hit
+      }
+      // 渠道不可用(熔断/禁用/移除)→ fallback 到 round-robin 选新渠道
+    }
+  }
+
+  // 2. 无有效亲和性 → fallback 到 round-robin
+  const selected = selectByRoundRobin(groupId, items)
+  if (selected) {
+    // 3. 写入缓存(TTL 10 分钟)
+    sessionAffinityMap.set(affinityKey, {
+      channelId: selected.keyPoolId,
+      expireAt: Date.now() + SESSION_AFFINITY_TTL_MS,
+    })
+  }
+  return selected
+}
+
+// ----------------------------------------------------------------------------
+// least-connections 策略(2026-07-31 立)
+// ----------------------------------------------------------------------------
+/**
+ * least-connections 策略:优先转发给当前活跃连接最少的渠道。
+ * 适合长连接场景(如 Realtime WebSocket),避免单渠道连接堆积。
+ *
+ * 连接数通过 trackConnectionStart / trackConnectionEnd 手动维护:
+ * - 请求/连接开始时调 trackConnectionStart(channelId)
+ * - 请求/连接结束时调 trackConnectionEnd(channelId)
+ */
+function selectByLeastConnections(items: WeightedItem[]): WeightedItem | null {
+  if (items.length === 0) return null
+  let best: WeightedItem | null = null
+  let bestCount = Infinity
+  for (const item of items) {
+    const count = activeConnectionsMap.get(item.keyPoolId) ?? 0
+    if (count < bestCount) {
+      bestCount = count
+      best = item
+    }
+  }
+  return best
+}
+
+/**
+ * 记录渠道连接开始(活跃连接数 +1)。
+ * 供长连接/流式请求处理器在连接建立时调用。
+ */
+export function trackConnectionStart(channelId: string): void {
+  const current = activeConnectionsMap.get(channelId) ?? 0
+  activeConnectionsMap.set(channelId, current + 1)
+}
+
+/**
+ * 记录渠道连接结束(活跃连接数 -1,降到 0 时清理条目)。
+ * 供长连接/流式请求处理器在连接关闭时调用。
+ * 必须与 trackConnectionStart 配对调用(建议在 finally 块中调用)。
+ */
+export function trackConnectionEnd(channelId: string): void {
+  const current = activeConnectionsMap.get(channelId) ?? 0
+  if (current <= 1) {
+    activeConnectionsMap.delete(channelId)
+  } else {
+    activeConnectionsMap.set(channelId, current - 1)
+  }
+}
+
 /** 按策略选 key。 */
 function selectByStrategy(
   groupId: string,
   strategy: string,
   items: WeightedItem[],
+  affinityKey?: string,
 ): WeightedItem | null {
   if (strategy === 'round-robin') return selectByRoundRobin(groupId, items)
   if (strategy === 'least-latency') return selectByLeastLatency(items)
+  if (strategy === 'session-affinity') {
+    return selectBySessionAffinity(affinityKey ?? groupId, items, groupId)
+  }
+  if (strategy === 'least-connections') return selectByLeastConnections(items)
   // weight (default)
   return selectByWeight(items)
 }
@@ -266,15 +396,17 @@ function selectByStrategy(
  * 8. 所有组都失败 → fallback 到 weight 策略在所有可用 key 中选(默认组)
  *
  * @param model 模型 id(如 'gpt-4o')
- * @param userId 预留:未来按用户分级路由(当前未使用)
+ * @param userId 预留:未来按用户分级路由(当前未使用,session-affinity 时可作亲和性 key)
+ * @param affinityKey 亲和性 key(userId 或 api_key_id,session-affinity 策略用);未传时回退到 userId
  * @returns 选定的 key 信息,或 null(无可用 key)
  */
 export async function selectChannelKey(
   model: string,
   userId?: string,
+  affinityKey?: string,
 ): Promise<SelectedChannelKey | null> {
-  // 预留:未来按用户分级路由(当前不影响选 key)
-  void userId
+  // session-affinity 策略的亲和性 key:优先用传入的 affinityKey,否则回退到 userId
+  const effectiveAffinityKey = affinityKey ?? userId
 
   // 1. 查 model → configId
   const modelRows = await dbRead
@@ -317,10 +449,7 @@ export async function selectChannelKey(
     })
     .from(aiRelayKeyPool)
     .where(
-      and(
-        eq(aiRelayKeyPool.providerCode, config.providerCode),
-        eq(aiRelayKeyPool.isEnabled, true),
-      ),
+      and(eq(aiRelayKeyPool.providerCode, config.providerCode), eq(aiRelayKeyPool.isEnabled, true)),
     )
   if (keys.length === 0) return null
 
@@ -353,10 +482,7 @@ export async function selectChannelKey(
       })
       .from(aiRelayChannelGroups)
       .where(
-        and(
-          inArray(aiRelayChannelGroups.id, groupIds),
-          eq(aiRelayChannelGroups.enabled, true),
-        ),
+        and(inArray(aiRelayChannelGroups.id, groupIds), eq(aiRelayChannelGroups.enabled, true)),
       )
     groups = groupRows
   }
@@ -374,7 +500,12 @@ export async function selectChannelKey(
       keyPoolId: m.keyPoolId,
       weight: m.weight,
     }))
-    const selected = selectByStrategy(group.id, group.loadBalanceStrategy, items)
+    const selected = selectByStrategy(
+      group.id,
+      group.loadBalanceStrategy,
+      items,
+      effectiveAffinityKey,
+    )
     if (!selected) continue
 
     const keyData = availableKeys.find((k) => k.id === selected.keyPoolId)
