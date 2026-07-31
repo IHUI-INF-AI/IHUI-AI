@@ -1,7 +1,5 @@
-export { ThirdPartyLoginButtons } from './ThirdPartyLoginButtons'
 export { PasswordStrengthIndicator, calculateStrength } from './PasswordStrengthIndicator'
 export type { PasswordStrength } from './PasswordStrengthIndicator'
-export { CaptchaCanvas } from './CaptchaCanvas'
 export { QrCodeLogin } from './QrCodeLogin'
 export { ForgotPasswordForm } from './ForgotPasswordForm'
 export { LoginDialog } from './LoginDialog'
@@ -12,9 +10,11 @@ export { EmailRegisterForm } from './EmailRegisterForm'
 export { LoginRedirectListener } from './LoginRedirectListener'
 export { PasswordInput } from './PasswordInput'
 export { AccountHistoryInput } from './AccountHistoryInput'
-export { PasswordLoginForm } from './PasswordLoginForm'
-export { EmailCodeLoginForm } from './EmailCodeLoginForm'
-export { PhoneCodeLoginForm } from './PhoneCodeLoginForm'
-export { UsernameLoginForm } from './UsernameLoginForm'
-export { phoneSchema, accountSchema, loginSchema, emailSchema, usernameSchema } from './login-schemas'
+export {
+  phoneSchema,
+  accountSchema,
+  loginSchema,
+  emailSchema,
+  usernameSchema,
+} from './login-schemas'
 export type { LoginValues, TokenResult } from './login-schemas'
