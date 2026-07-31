@@ -570,20 +570,22 @@ async def list_models() -> dict[str, Any]:
             "[llm/models] availability filter: %d → %d (filtered out %d unavailable)",
             total_before, len(default_models), filtered_out,
         )
-    # P0 Phase A(2026-07-31):为每个模型附加 caps 字段(provider capability 声明),
-    # 从 provider_caps.get_provider_cap(model.provider) 取,模型级 context_length 可覆盖 max_context。
-    # 不改 default_models.json 文件本身,只在端点返回时动态注入。
+    # H5(Phase C,2026-08-01):为每个模型附加 caps 字段(provider capability 声明)。
+    # 优先用 default_models.json 中已静态声明的 caps(H5 已给每个模型条目加 caps),
+    # DB 同步的模型(无 caps 字段)按 provider_code 从 PROVIDER_CAPS 动态推导。
     # P0(2026-07-31):同步附加 points_multiplier 字段(积分消耗倍数,5 档梯度),
     # 由 free_provider_registry.infer_points_multiplier(model.id) 推断,前端按倍数显示积分消耗。
     from ..services.free_provider_registry import infer_points_multiplier
     for m in default_models:
-        provider_code = str(m.get("provider") or "")
-        cap = get_provider_cap(provider_code)
-        # 模型级 context_length 覆盖 provider 默认 max_context
-        ctx_len = m.get("context_length")
-        if isinstance(ctx_len, int) and ctx_len > 0:
-            cap = cap_with_max_context(cap, ctx_len)
-        m["caps"] = cap_to_dict(cap)
+        if not m.get("caps"):
+            # DB 同步的模型无 caps 字段,按 provider_code 动态推导
+            provider_code = str(m.get("provider") or "")
+            cap = get_provider_cap(provider_code)
+            # 模型级 context_length 覆盖 provider 默认 max_context
+            ctx_len = m.get("context_length")
+            if isinstance(ctx_len, int) and ctx_len > 0:
+                cap = cap_with_max_context(cap, ctx_len)
+            m["caps"] = cap_to_dict(cap)
         # 积分消耗倍数(0.0 免费 / 1.0 经济 / 3.0 标准 / 10.0 高级 / 30.0 旗舰)
         m["points_multiplier"] = infer_points_multiplier(str(m.get("id") or ""))
     return {
@@ -2096,8 +2098,8 @@ def _aggregate_provider_health(default_models: list[str]) -> tuple[bool, int]:
 async def list_providers_health() -> dict[str, Any]:
     """所有已配置 provider 的实时健康状态(主动预检,供 Dashboard 可视化)。
 
-    2026-07-31 P0 Phase B 升级:从静态注册表读取改为主动预检 —
-    对每个已配置 api_key 的 provider 并发发 GET {api_base}/models 验证 key 有效性。
+    H3(Phase B,2026-08-01 升级):主动预检版 —
+    对每个已配置 provider 并发发 GET {api_base}/models 验证 key 有效性 + 连通性。
 
     返回结构(_wrap_ok 信封):
     {
@@ -2106,12 +2108,13 @@ async def list_providers_health() -> dict[str, Any]:
         "providers": [
           {
             "provider": "openai",
-            "status": "ok"|"invalid_key"|"unreachable",
+            "status": "ok"|"invalid_key"|"unreachable"|"not_configured",
             "latency_ms": 123,
             "model_count": 42,
-            "last_check": "2026-07-31T12:00:00Z",
-            "display_name": "OpenAI",        // 从 free_provider_registry 注入
-            "category": "international",      // domestic/international/local/credits
+            "error": null,
+            "last_check": "2026-08-01T12:00:00Z",
+            "display_name": "OpenAI",        // 从 free_provider_registry 注入(兼容旧 Dashboard)
+            "category": "international",
             "free_quota": "$5 credits",
             "default_models": ["gpt-4o"],
             "default_base_url": "https://api.openai.com/v1",
@@ -2119,26 +2122,24 @@ async def list_providers_health() -> dict[str, Any]:
             "consecutive_failures": 0
           }
         ],
-        "summary": {
-          "total": 5, "ok": 3, "invalid_key": 1, "unreachable": 1,
-          "configured": 4, "local": 0, "not_configured": 0  // 兼容旧 Dashboard
-        }
+        "total": 5,
+        "healthy_count": 3,
+        "checked_at": "2026-08-01T12:00:00Z",
+        "summary": { ... }  // 兼容旧 Dashboard 统计字段
       }
     }
 
     status 判定:
     - HTTP 200 → ok(从响应 data 数组长度取 model_count)
     - HTTP 401/403 → invalid_key(key 无效或过期)
-    - 连接失败/超时/其他 HTTP 错误 → unreachable
+    - 超时/连接失败/其他 HTTP 错误 → unreachable
+    - api_key 为空 → not_configured
 
-    display_name/category/free_quota/default_models/default_base_url 从
-    free_provider_registry 推断;provider 不在 registry 中时设为空字符串/空数组。
-    is_in_cooldown/consecutive_failures 默认 False/0(新 schema 未实现 cooldown)。
-
-    并发用 asyncio.gather,单 provider timeout=8s,总耗时 < 10s。
-    仅检查 api_key + api_base 均非空的 provider(无 api_base 的标记 skipped_no_base)。
+    并发用 asyncio.gather + asyncio.timeout(5s),总耗时 < 10s。
+    复用 settings.get_provider_config(code) 获取配置 + llm_gateway.get_http_client() 复用连接池。
     """
-    # 解析 LLM_PROVIDERS JSON,收集所有 api_key 非空的 provider
+    # 解析 LLM_PROVIDERS JSON 获取所有 provider 名称(枚举),
+    # 再用 settings.get_provider_config(code) 获取强类型配置(H3 复用要求)
     try:
         providers_json = json.loads(settings.llm_providers) if settings.llm_providers else {}
     except (json.JSONDecodeError, TypeError):
@@ -2146,46 +2147,58 @@ async def list_providers_health() -> dict[str, Any]:
     if not isinstance(providers_json, dict):
         providers_json = {}
 
-    # 收集待检查 provider(name → (api_key, api_base))
+    # 收集待检查 provider + 未配置 provider(not_configured 状态)
     to_check: list[tuple[str, str, str]] = []
-    skipped_no_base: list[str] = []
-    for name, cfg_raw in providers_json.items():
-        if not isinstance(cfg_raw, dict):
+    not_configured_results: list[dict[str, Any]] = []
+    for name in providers_json:
+        if not isinstance(providers_json.get(name), dict):
             continue
-        api_key = str(cfg_raw.get("api_key") or "").strip()
+        # H3:复用 settings.get_provider_config(code) 获取强类型配置
+        cfg = settings.get_provider_config(name)
+        api_key = (cfg.api_key or "").strip()
+        api_base = (cfg.api_base or "").strip() if cfg.api_base else ""
         if not api_key:
-            continue  # 未配置 key 的 provider 不检查
-        api_base = cfg_raw.get("api_base")
-        api_base = str(api_base).strip() if api_base else ""
+            # api_key 为空 → not_configured(H3 新增状态)
+            not_configured_results.append({
+                "provider": name,
+                "status": "not_configured",
+                "latency_ms": 0,
+                "model_count": 0,
+                "error": "api_key not configured",
+            })
+            continue
         if not api_base:
-            skipped_no_base.append(name)
+            # api_key 已配置但 api_base 为空 → not_configured(无法预检)
+            not_configured_results.append({
+                "provider": name,
+                "status": "not_configured",
+                "latency_ms": 0,
+                "model_count": 0,
+                "error": "api_base not configured, cannot pre-check",
+            })
             continue
         to_check.append((name, api_key, api_base))
 
-    # 并发预检所有 provider
-    tasks = [_check_single_provider(name, api_key, api_base) for name, api_key, api_base in to_check]
-    results = await asyncio.gather(*tasks, return_exceptions=False)
+    # H3:复用 llm_gateway.get_http_client() 全局共享 httpx client(连接池复用)
+    from ..core.llm_gateway import get_http_client
+    client = get_http_client()
 
-    # 合并 skipped_no_base(无 api_base,无法预检)
-    now_iso = datetime.now(timezone.utc).isoformat()
-    for name in skipped_no_base:
-        results.append({
-            "provider": name,
-            "status": "unreachable",
-            "latency_ms": 0,
-            "model_count": 0,
-            "last_check": now_iso,
-            "note": "no api_base configured, cannot pre-check",
-        })
+    # 并发预检所有已配置 provider(asyncio.gather,单 provider asyncio.timeout 5s)
+    tasks = [_check_single_provider(name, api_key, api_base, client) for name, api_key, api_base in to_check]
+    checked_results = await asyncio.gather(*tasks, return_exceptions=False)
+
+    # 合并结果
+    results = checked_results + not_configured_results
+    checked_at = datetime.now(timezone.utc).isoformat()
 
     # 汇总统计
     ok_count = sum(1 for r in results if r["status"] == "ok")
     invalid_count = sum(1 for r in results if r["status"] == "invalid_key")
     unreachable_count = sum(1 for r in results if r["status"] == "unreachable")
+    not_configured_count = sum(1 for r in results if r["status"] == "not_configured")
 
-    # 补注入 free_provider_registry 展示字段(P0 Phase B,兼容旧 Dashboard 消费)。
-    # 新 schema 主动预检只返回 status/latency_ms/model_count,旧 Dashboard 还需
-    # display_name/category/free_quota/default_models/default_base_url 等字段渲染,
+    # 补注入 free_provider_registry 展示字段(兼容旧 Dashboard 消费)。
+    # 旧 Dashboard 需 display_name/category/free_quota/default_models/default_base_url 等字段渲染,
     # 不补回会导致前端网关 Dashboard 渲染 undefined。
     try:
         from ..services.free_provider_registry import free_provider_registry as _registry
@@ -2201,40 +2214,51 @@ async def list_providers_health() -> dict[str, Any]:
         r["default_base_url"] = info.default_base_url if info else ""
         r["is_in_cooldown"] = False  # 新 schema 未实现 cooldown,默认 False
         r["consecutive_failures"] = 0  # 新 schema 未实现,默认 0
+        # 补 last_check 字段(兼容旧 Dashboard,checked_at 是新字段)
+        if "last_check" not in r:
+            r["last_check"] = checked_at
 
     return _wrap_ok({
         "providers": results,
+        # H3(Phase B)新字段:total / healthy_count / checked_at
+        "total": len(results),
+        "healthy_count": ok_count,
+        "checked_at": checked_at,
+        # 兼容旧 Dashboard 统计字段(summary 子对象)
         "summary": {
             "total": len(results),
             "ok": ok_count,
             "invalid_key": invalid_count,
             "unreachable": unreachable_count,
-            # 兼容旧 Dashboard 统计字段(P0 Phase B)
+            "not_configured": not_configured_count,
             "configured": ok_count + invalid_count,  # 已配置 api_key 的(ok + invalid_key)
             "local": 0,  # 新 schema 无 local 概念
-            "not_configured": 0,
         },
     })
 
 
 async def _check_single_provider(
-    provider_name: str, api_key: str, api_base: str
+    provider_name: str, api_key: str, api_base: str, client: httpx.AsyncClient
 ) -> dict[str, Any]:
     """对单个 provider 发 GET {api_base}/models 主动预检 key 有效性。
+
+    H3(Phase B):复用全局共享 httpx client(连接池复用)+ asyncio.timeout(5s) 单 provider 超时。
 
     Args:
         provider_name: provider 唯一标识(如 "openai" / "anthropic")。
         api_key: API 凭证。
         api_base: API endpoint URL(已去尾部 /)。
+        client: 全局共享 httpx.AsyncClient(由 llm_gateway.get_http_client() 提供)。
 
     Returns:
-        {provider, status, latency_ms, model_count, last_check} 健康状态条目。
+        {provider, status, latency_ms, model_count, error, last_check} 健康状态条目。
     """
     url = f"{api_base}/models"
     headers = {"Authorization": f"Bearer {api_key}"}
     start = asyncio.get_event_loop().time()
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        # H3:单个 provider 5s 超时(asyncio.timeout,Python 3.11+)
+        async with asyncio.timeout(5.0):
             resp = await client.get(url, headers=headers)
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -2256,6 +2280,7 @@ async def _check_single_provider(
                 "status": "ok",
                 "latency_ms": latency_ms,
                 "model_count": model_count,
+                "error": None,
                 "last_check": now_iso,
             }
         if resp.status_code in (401, 403):
@@ -2264,6 +2289,7 @@ async def _check_single_provider(
                 "status": "invalid_key",
                 "latency_ms": latency_ms,
                 "model_count": 0,
+                "error": f"HTTP {resp.status_code}",
                 "last_check": now_iso,
             }
         # 其他 HTTP 错误(429/5xx 等)视为不可达
@@ -2272,18 +2298,29 @@ async def _check_single_provider(
             "status": "unreachable",
             "latency_ms": latency_ms,
             "model_count": 0,
+            "error": f"HTTP {resp.status_code}",
             "last_check": now_iso,
-            "note": f"HTTP {resp.status_code}",
         }
-    except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError) as e:
+    except TimeoutError:
+        # asyncio.timeout 超时(Python 3.11+ TimeoutError)
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
         return {
             "provider": provider_name,
             "status": "unreachable",
             "latency_ms": latency_ms,
             "model_count": 0,
+            "error": "timeout (5s)",
             "last_check": datetime.now(timezone.utc).isoformat(),
-            "note": f"{type(e).__name__}: {str(e)[:100]}",
+        }
+    except (httpx.ConnectError, httpx.HTTPError) as e:
+        latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
+        return {
+            "provider": provider_name,
+            "status": "unreachable",
+            "latency_ms": latency_ms,
+            "model_count": 0,
+            "error": f"{type(e).__name__}: {str(e)[:100]}",
+            "last_check": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
@@ -2292,8 +2329,8 @@ async def _check_single_provider(
             "status": "unreachable",
             "latency_ms": latency_ms,
             "model_count": 0,
+            "error": f"{type(e).__name__}: {str(e)[:100]}",
             "last_check": datetime.now(timezone.utc).isoformat(),
-            "note": f"{type(e).__name__}: {str(e)[:100]}",
         }
 
 
