@@ -1007,6 +1007,64 @@
     "mentionPopover": {
       "removeLabel": "Remove {label}"
     },
+    "vendor": {
+      "stepfun": "StepFun",
+      "cloudflareWorkersAi": "Cloudflare Workers AI"
+    },
+    "commandArg": {
+      "goalFixTs": {
+        "label": "Fix all TypeScript errors",
+        "description": "Run pnpm typecheck, fix all errors until green (exit code 0)"
+      },
+      "goalPassTests": {
+        "label": "Pass all unit tests",
+        "description": "Run pnpm test, fix failing cases until all pass"
+      },
+      "goalRefactor": {
+        "label": "Refactor modules to eliminate duplication",
+        "description": "Identify duplicate code, extract shared utility functions, keep behavior unchanged"
+      },
+      "goalLint": {
+        "label": "Achieve all-green lint",
+        "description": "Run pnpm lint, fix all lint errors and warnings"
+      },
+      "goalMigrateShared": {
+        "label": "Migrate features to shared layer",
+        "description": "Promote platform-specific components to packages/app for multi-platform reuse, keeping behavior consistent"
+      },
+      "goalBenchmark": {
+        "label": "Deeply benchmark product interactions",
+        "description": "Reference target product interaction details, align implementation item by item, self-verify 4 states"
+      },
+      "goalDeadCode": {
+        "label": "Clean up dead code",
+        "description": "Scan unreferenced exports/components/utility functions, delete after confirming no dependencies"
+      },
+      "goalE2e": {
+        "label": "Complete E2E tests",
+        "description": "Add E2E tests for critical paths, increase coverage to 80%+"
+      },
+      "loopOn": {
+        "label": "Enable loop",
+        "description": "Enable loop execution mode, AI will iterate continuously until goal is achieved"
+      },
+      "loopOff": {
+        "label": "Disable loop",
+        "description": "Disable loop execution mode, restore single execution"
+      },
+      "loop5": {
+        "label": "Loop 5 times",
+        "description": "Set max iteration count to 5"
+      },
+      "loop10": {
+        "label": "Loop 10 times",
+        "description": "Set max iteration count to 10"
+      },
+      "loop20": {
+        "label": "Loop 20 times",
+        "description": "Set max iteration count to 20 (high risk, requires human supervision)"
+      }
+    },
     "contextMenu": {
       "copyText": "Copy text",
       "copyMarkdown": "Copy as Markdown",
@@ -13506,7 +13564,10 @@
       "newTerminalAria": "New terminal",
       "loading": "Loading...",
       "empty": "No terminal sessions",
-      "closeTerminalAria": "Close terminal"
+      "closeTerminalAria": "Close terminal",
+      "statusActive": "Running",
+      "statusExited": "Exited",
+      "statusClosed": "Closed"
     }
   },
   "aiSkillsPage": {
