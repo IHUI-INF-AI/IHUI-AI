@@ -5924,8 +5924,6 @@
   "publish": {
     "title": "멀티 플랫폼 게시",
     "subtitle": "md/docx/html/pdf/이미지/비디오 지원 → 14 플랫폼 원클릭 게시",
-    "cancel": "취소",
-    "close": "닫기",
     "accounts": {
       "title": "플랫폼 계정 관리",
       "subtitle": "각 플랫폼의 로그인 자격 증명 구성(암호화 저장)",
