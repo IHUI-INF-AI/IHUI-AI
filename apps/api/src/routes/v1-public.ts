@@ -44,9 +44,21 @@ import {
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
-import { checkQuota, recordCall, isByokCall, modelToProviderCode } from '../services/relay-billing-service.js'
+import {
+  checkQuota,
+  recordCall,
+  isByokCall,
+  modelToProviderCode,
+} from '../services/relay-billing-service.js'
 // P0 中转站造血能力批次(2026-07-31 立):模型映射解析(Key 级 > 用户级 > 全局)
 import { resolveModelMapping } from '../services/model-mapping-service.js'
+// P0 第二批次(2026-07-31 立):响应缓存(Redis)省钱大法,对非流式 chat completions 启用
+import {
+  getRelayResponseCache,
+  computeCacheKey,
+  shouldSkipCache,
+  type CacheableMessage,
+} from '../services/relay-response-cache.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -409,9 +421,10 @@ function extractStreamText(line: string): string | null {
  * - Anthropic:usage.cache_read_input_tokens → cacheReadTokens / cache_creation_input_tokens → cacheCreationTokens
  * 兼容两者混用(取较大值)。
  */
-function parseCacheTokens(
-  usage: unknown,
-): { cacheReadTokens: number; cacheCreationTokens: number } {
+function parseCacheTokens(usage: unknown): {
+  cacheReadTokens: number
+  cacheCreationTokens: number
+} {
   if (!usage || typeof usage !== 'object') return { cacheReadTokens: 0, cacheCreationTokens: 0 }
   const u = usage as Record<string, unknown>
   const details = u.prompt_tokens_details as Record<string, unknown> | undefined
@@ -623,7 +636,8 @@ async function streamChatCompletion(
         providerCode: opts.providerCode,
         clientIp: opts.clientIp,
         httpStatus: upstreamHttpStatus ?? undefined,
-        ttftMs: firstTokenTime !== null ? firstTokenTime - (opts.startTime ?? firstTokenTime) : undefined,
+        ttftMs:
+          firstTokenTime !== null ? firstTokenTime - (opts.startTime ?? firstTokenTime) : undefined,
       }).catch(() => {})
     }
   }
@@ -992,6 +1006,56 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
       // 非流式:转发到 ai-service /api/llm/complete
       try {
+        // P0 第二批次响应缓存(2026-07-31 立):对非流式 chat completions 启用 Redis 缓存。
+        // 跳过条件:stream/tools/media/超大请求/X-Cache-Bypass header(见 shouldSkipCache)
+        // 命中:直接返回缓存结果,加 X-Cache: HIT header,recordCall 记 cacheHit:true(成本为 0)
+        // 未命中:正常调用上游,成功后写入缓存,加 X-Cache: MISS header
+        const cache = getRelayResponseCache()
+        let cacheKey: string | null = null
+        if (cache) {
+          const skip = shouldSkipCache({
+            stream: false,
+            bypassHeader: request.headers['x-cache-bypass'] as string | undefined,
+            tools: (request.body as { tools?: unknown }).tools,
+            messages: messages as CacheableMessage[],
+          })
+          if (!skip.skip) {
+            cacheKey = computeCacheKey({
+              model: resolvedModel,
+              messages: messages as CacheableMessage[],
+              temperature,
+              max_tokens: maxTokens,
+            })
+            const cached = await cache.get<V1ChatCompletionResponse>(cacheKey)
+            if (cached.hit) {
+              // 缓存命中:成本为 0,记录 cacheHit 标志供统计
+              reply.header('X-Cache', 'HIT')
+              if (apiKey) {
+                void recordCall({
+                  apiKeyId: apiKey.id,
+                  userId: apiKey.userId,
+                  model: resolvedModel,
+                  prompt: promptText,
+                  response: cached.data.choices[0]?.message?.content ?? '',
+                  promptTokens: cached.data.usage?.prompt_tokens ?? 0,
+                  completionTokens: cached.data.usage?.completion_tokens ?? 0,
+                  totalTokens: cached.data.usage?.total_tokens ?? 0,
+                  latencyMs: Date.now() - startTime,
+                  status: 'success',
+                  mode,
+                  providerCode: modelToProviderCode(resolvedModel),
+                  clientIp: request.ip,
+                  httpStatus: 200,
+                  metadata: { cacheHit: true, ...(modelMappingMeta ?? {}) },
+                }).catch((e) => {
+                  console.error('[v1/chat] cache hit recordCall FAIL', e?.message || e)
+                })
+              }
+              return reply.send(cached.data)
+            }
+          }
+        }
+
         const body: Record<string, unknown> = { messages, model: resolvedModel }
         if (temperature !== undefined) body.temperature = temperature
         if (maxTokens !== undefined) body.max_tokens = maxTokens
@@ -1125,6 +1189,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             console.error('[v1/chat] recordCall FAIL', e?.message || e)
           })
         }
+
+        // P0 第二批次响应缓存(2026-07-31 立):未命中时成功响应后写入缓存,下次同样请求直接命中
+        if (cache && cacheKey) {
+          void cache.set(cacheKey, result).catch((e) => {
+            console.error('[v1/chat] cache set FAIL', e?.message || e)
+          })
+        }
+        reply.header('X-Cache', 'MISS')
 
         return reply.send(result)
       } catch (e) {
