@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Code2, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -249,6 +250,7 @@ function maskKey(k: string): string {
 }
 
 export function SdkExamples(): React.JSX.Element {
+  const t = useTranslations('models.apiDocs')
   const { copy } = useClipboard()
   const [reveal, setReveal] = React.useState(false)
   const [copiedId, setCopiedId] = React.useState<string | null>(null)
@@ -322,7 +324,7 @@ export function SdkExamples(): React.JSX.Element {
                       <button
                         onClick={() => handleCopy(id, code)}
                         className="absolute right-2 top-2 rounded-md bg-zinc-800 p-1.5 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
-                        aria-label="复制代码"
+                        aria-label={t('copyCodeAriaLabel')}
                       >
                         {copied ? (
                           <Check className="h-3.5 w-3.5 text-emerald-400" />
