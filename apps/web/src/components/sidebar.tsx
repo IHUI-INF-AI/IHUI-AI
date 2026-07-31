@@ -1857,16 +1857,24 @@ export function Sidebar({
         />
       )}
 
-      {/* 移动端抽屉 */}
+      {/* 移动端抽屉 — 2026-07-31 修复:
+          - 宽度从 desktop SIDEBAR_WIDTH(130px)改为响应式 min(85vw, 320px):
+            130px 在 375px iPhone 上只占 35% 屏宽,菜单项(新建任务/插件市场/导航)文字被挤压/截断;
+            改为 min(85vw, 320px)后,iPhone SE(320px)占满 272px、iPhone 14(390px)占 320px、
+            iPhone Pro Max(430px)占 320px — 内容完整可见 + 右侧留出 50-110px 给工作区预览。
+          - 加 shadow-xl + 右侧 1px border-border 描边,跟 work-area 形成明确层级
+            (避免抽屉"飘"在背景上的廉价感,与暗色模式 bg-background 区分)。
+          - 仍走 transition-transform + translate-x-full → translate-x-0,
+            200ms 平滑从左侧滑出整个抽屉。 */}
       <aside
         aria-modal="true"
         aria-label={t('mainNav')}
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-visible bg-background transition-transform duration-200 lg:hidden',
+          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-y-auto overflow-x-hidden border-r border-border bg-background shadow-xl transition-transform duration-200 ease-out lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
-        style={{ width: SIDEBAR_WIDTH }}
+        style={{ width: 'min(85vw, 320px)' }}
       >
         {header}
         {navContent(mobileNavId, mobileNavRef, 'mobile')}
