@@ -441,6 +441,33 @@ async def list_providers_availability() -> dict[str, Any]:
     return _wrap_ok(model_availability.get_health_summary())
 
 
+@router.post("/llm/models/sync", response_model=None)
+async def sync_models() -> dict[str, Any]:
+    """手动触发模型自动同步(从所有已配置 key 的 provider 拉取最新模型清单)。
+
+    并发拉取 /v1/models → 注册新增模型(自动上架)→ 下架移除模型(自动下架)
+    → 触发 ModelAvailabilityService 健康检查刷新。
+    返回同步状态(含每个 provider 的结果:新增数 / 移除数 / 耗时)。
+    """
+    from ..services.model_sync import model_sync_service
+    return _wrap_ok(await model_sync_service.sync_all_providers())
+
+
+@router.get("/llm/models/sync/status", response_model=None)
+async def get_models_sync_status() -> dict[str, Any]:
+    """查询模型同步状态(最近一次同步时间 + 每个 provider 的结果)。
+
+    返回字段:
+    - last_sync_at: ISO 8601 时间戳
+    - last_sync_duration_ms: 同步耗时
+    - total_providers / total_new_models / total_removed_models: 汇总计数
+    - is_syncing: 当前是否正在同步(防止并发触发)
+    - results[]: 每个 provider 的同步结果
+    """
+    from ..services.model_sync import model_sync_service
+    return _wrap_ok(model_sync_service.get_status())
+
+
 @router.post("/llm/complete/stream", response_model=None)
 async def complete_stream(req: LLMCompleteRequest, request: Request) -> StreamingResponse | JSONResponse:
     """流式 LLM 调用(原生 token 级流式 + SSE event 字段 + 心跳保活)。
