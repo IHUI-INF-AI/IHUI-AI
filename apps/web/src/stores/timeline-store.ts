@@ -26,7 +26,7 @@ export interface TimelineEvent {
   meta?: Record<string, unknown>
 }
 
-export type TimelineTabName = 'inline' | 'timeline'
+export type TimelineTabName = 'inline' | 'timeline' | 'all'
 
 interface TimelineState {
   activeTab: TimelineTabName
