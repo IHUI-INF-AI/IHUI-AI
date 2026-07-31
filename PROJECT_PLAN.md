@@ -1328,6 +1328,7 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 - [~] 🔶(2026-08-01) `applyParamOps` 集成转 **P0-20b** 独立立项(架构调研发现 relay-channel-router.ts 不转发请求,真正转发点是 v1-public.ts,需设计 paramOps 配置 schema + admin UI + 多端同步,见下方 P0-20b 章节)
 - [x] ✅(2026-08-01) 修复 `apps/web/src/components/layout/AdminNav.tsx` 第 598 行 `labelKey: 'dashboard'` → `labelKey: 'topupConfig'`(P0-21 菜单显示 bug)
 - [x] ✅(2026-08-01) v1-batches 暂不注册(BullMQ queue 模块未建,注册会暴露 mock 端点),标记 TODO 待 BullMQ 落地
+- [x] ✅(2026-08-01) P0-18 v1-batches 路由注册完成:BullMQ queue 模块(`apps/api/src/queue/batch-queue.ts` + `index.ts`)+ batch-worker.ts(OpenAI/Anthropic 批处理 + 50% 折扣计费)+ workers/index.ts 注册 startBatchWorker + routes/index.ts 注册 v1Batches(prefix='/v1')
 
 ## P0-20b 参数覆盖系统转发层集成(2026-08-01 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
 
@@ -1403,14 +1404,14 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 
 ### 硬性指标(H1-H8)
 
-- [ ] H1(Phase A):Provider Capability Registry 落地 — 新建 `apps/ai-service/app/core/provider_caps.py`,声明每个 provider 的 `supports_stream_usage / supports_tools / supports_vision / supports_response_format / default_timeout / max_context / protocol`,覆盖现有全部 provider(nvidia/cloudflare/openai/anthropic/stepfun/agnes/openrouter/groq/gemini/ollama 等 20+)
-- [ ] H2(Phase A):llm_gateway 消灭硬编码 `if nvidia/` — 流式 + 非流式路径调用前按 cap 自动过滤参数(stream_usage / timeout / tools / response_format),`grep -n "if.*nvidia\|if.*cloudflare" apps/ai-service/app/core/llm_gateway.py` 返回 0 处条件判断(保留 _PREFIX_TO_PROVIDER_CODE 路由 dict)
+- [x] ✅(2026-08-01) H1(Phase A):Provider Capability Registry 落地 — `apps/ai-service/app/core/provider_caps.py` 已建,ProviderCap dataclass + PROVIDER_CAPS dict 覆盖 nvidia/cloudflare/openai/anthropic/stepfun/agnes/openrouter/gemini/google/groq/ollama/mistral/cohere/vertexai/bedrock 14 provider,filter_call_kwargs + cap_to_dict + cap_with_max_context 3 函数
+- [x] ✅(2026-08-01) H2(Phase A):llm_gateway 消灭硬编码 `if nvidia/` / `if cloudflare/` — 流式 + 非流式路径调用 filter_call_kwargs 自动过滤参数(L1082 + L1464),timeout 用 cap.default_timeout(L1077);11 个免费 provider 的 if 链提取到 _FREE_PROVIDER_ENDPOINT_RESOLVERS dict 查表;`grep -n "if.*nvidia\|if.*cloudflare" apps/ai-service/app/core/llm_gateway.py` 返回 0 处
 - [ ] H3(Phase B):/llm/providers/health 升级为主动预检 — 对每个已配置 provider 发 `/models` 请求验证 key 有效性 + 连通性,返回 `{provider, status: ok/invalid_key/unreachable, latency_ms, model_count}`,耗时 < 10s(并发预检)
 - [ ] H4(Phase B):前端模型广场显示 provider 状态 — 调 /llm/providers/health,绿(可用)/红(key 无效)/灰(未配置)三态徽章,hover 显示延迟 + 模型数
 - [ ] H5(Phase C):default_models.json 加 provider_caps 字段 — 每个模型条目含 `caps`(继承 provider cap + 模型级覆盖),后端 /llm/models 返回带 cap 的模型清单
 - [ ] H6(Phase C):fallback-models.ts 收敛为纯降级 — 仅保留 2-3 个兜底模型(stepfun 主力),移除所有 hardcode 厂商列表,前端从 /llm/models 动态拉取
 - [ ] H7(Phase D):DB 占位符 key 清理 — ai_model_config 表所有 `api_key_enc LIKE '<%' OR api_key_enc LIKE 'sk-placeholder%'` 的记录 `enabled=false`,并加逻辑"占位符 key 不覆盖 .env"
-- [ ] H8(Phase D):配置优先级文档 — `.env.example` 顶部注释说明配置优先级(DB owner match > DB global > .env > stub)+ provider 接入指南(新增 provider 3 步:加 cap + 加 .env + 加 default_models)
+- [x] ✅(2026-08-01) H8(Phase D):配置优先级文档 — `.env.example` 顶部 L5-19 已加配置优先级(DB owner match > DB global > .env > stub)+ provider 接入指南(3 步:加 cap + 加 .env + 加 default_models)+ 占位符 key 规则说明
 
 ### 4 Phase 任务分解(多 subagent 并行)
 
