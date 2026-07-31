@@ -1308,9 +1308,9 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 
 ### 主 agent 后续整合(8 subagent 全部交付后)
 
-- [ ] 在 `apps/api/src/routes/index.ts` 注册 v1-responses / v1-batches / v1-assistants / v1-protocol-completeness 4 个新对外端点路由
-- [ ] 在 `apps/api/src/services/relay-billing-service.ts` 追加 responses/batches/assistants/translations/variations/fine_tuning 计费分支(batch 按 50% 折扣,fine_tuning 按次计费,translations 按 audio 秒数计费)
-- [ ] 在 `apps/api/src/services/relay-channel-router.ts` 集成 relay-param-ops(在 selectByStrategy 后、调用上游前应用参数覆盖规则)
+- [x] ✅(2026-08-01) 在 `apps/api/src/routes/index.ts` 注册 v1-responses / v1-assistants / v1-protocol-completeness 3 个新对外端点路由(v1-batches 按计划不注册,BullMQ queue 模块未建,注册会暴露 mock 端点)
+- [x] ✅(2026-08-01) 在 `apps/api/src/services/relay-billing-service.ts` 计费:已注册的 3 路由(v1-responses/v1-assistants/v1-protocol-completeness)直接调用 `recordCall` 走通用计费透传 model/promptTokens/completionTokens,无需新增分支;v1-batches 50% 折扣待 BullMQ 落地后实现(透传 metadata `{batch:true, discount:0.5}`)
+- [~] 🔶(2026-08-01) `relay-param-ops.ts` 纯函数库已交付(15 种 op + 条件判断 + JSON 路径),集成到转发层立项为 **P0-20b**(见下方独立章节,架构调研发现 `relay-channel-router.ts` 不转发请求,真正转发点是 `v1-public.ts` chat completion,需设计 paramOps 配置 schema + admin UI + 多端同步)
 - [x] ✅(2026-07-31) 在 `apps/web/app/(main)/developer/api-docs/page.tsx` 同步 5 个新端点文档 + 错误码表追加(responses/batches/assistants/fine_tuning/files 相关错误码)
 - [x] ✅(2026-07-31) 全链路 typecheck 全绿(api + web) + commit + push + git-push-guard 验证(§20 五条全绿)
 
@@ -1318,24 +1318,35 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 
 > **触发**:subagent 交付了 P0-17~P0-24 的代码文件,但主 agent 整合清单(第 1311-1313 行)漏列了 auth-passkey / payment-usdt / admin-topup-config 路由注册,且 schema drift / 依赖未装 / provider 未导出等问题导致文件处于"已写未集成"状态。本批次完成全部整合。
 
-- [ ] 在 `apps/api/src/routes/index.ts` 注册 authPasskeyRoutes(P0-22)+ adminTopupConfigRoutes(P0-21)+ paymentUsdtRoutes(P0-23)3 个遗漏路由
-- [ ] 修正 `packages/database/src/schema/user-passkeys.ts` 字段与 migration 对齐(以 migration 为准:publicKey bytea / counter bigint / transports text[] / id uuid / 补 aaguid)
-- [ ] 修正 `packages/database/src/schema/usdt-payments.ts` 字段与 service 对齐(以 service 为准:orderId / address / expiresAt / amountPaid / id uuid)
-- [ ] `packages/auth/package.json` 添加 `@simplewebauthn/server` 依赖 + `pnpm install`
-- [ ] `packages/auth/src/providers/index.ts` 添加 `export * from './passkey.js'`
-- [ ] 删除 `auth-passkey.ts` 中 3 处 `@ts-ignore`
-- [ ] 在 `apps/api/src/routes/wallet.ts` 或 `payment-gateway.ts` 集成 `calculateTopupBonus` + `validateTopupAmount`(P0-21 充值阶梯折扣生效)
-- [ ] 在 `apps/api/src/services/relay-channel-router.ts` 集成 `applyParamOps`(P0-20 参数覆盖系统生效)
-- [ ] 修复 `apps/web/src/components/layout/AdminNav.tsx` 第 598 行 `labelKey: 'dashboard'` → 真实 i18n key(P0-21 菜单显示 bug)
-- [ ] v1-batches 暂不注册(BullMQ queue 模块未建,注册会暴露 mock 端点),标记 TODO 待 BullMQ 落地
+- [x] ✅(2026-08-01) 在 `apps/api/src/routes/index.ts` 注册 authPasskeyRoutes(P0-22)+ adminTopupConfigRoutes(P0-21)+ paymentUsdtRoutes(P0-23)3 个遗漏路由
+- [x] ✅(2026-08-01) 修正 `packages/database/src/schema/user-passkeys.ts` 字段与 migration 对齐(以 migration 为准:publicKey bytea / counter bigint / transports text[] / id uuid / 补 aaguid)
+- [x] ✅(2026-08-01) 修正 `packages/database/src/schema/usdt-payments.ts` 字段与 service 对齐(以 service 为准:orderId / address / expiresAt / amountPaid / id uuid)
+- [x] ✅(2026-08-01) `packages/auth/package.json` 添加 `@simplewebauthn/server` 依赖 + `pnpm install`
+- [x] ✅(2026-08-01) `packages/auth/src/providers/index.ts` 添加 `export * from './passkey.js'`
+- [x] ✅(2026-08-01) 删除 `auth-passkey.ts` 中 3 处 `@ts-ignore`
+- [x] ✅(2026-08-01) 在 `apps/api/src/routes/wallet.ts`(validateTopupAmount L101)+ `payment-gateway.ts`(calculateTopupBonus L153)集成充值阶梯折扣(P0-21 生效)
+- [~] 🔶(2026-08-01) `applyParamOps` 集成转 **P0-20b** 独立立项(架构调研发现 relay-channel-router.ts 不转发请求,真正转发点是 v1-public.ts,需设计 paramOps 配置 schema + admin UI + 多端同步,见下方 P0-20b 章节)
+- [x] ✅(2026-08-01) 修复 `apps/web/src/components/layout/AdminNav.tsx` 第 598 行 `labelKey: 'dashboard'` → `labelKey: 'topupConfig'`(P0-21 菜单显示 bug)
+- [x] ✅(2026-08-01) v1-batches 暂不注册(BullMQ queue 模块未建,注册会暴露 mock 端点),标记 TODO 待 BullMQ 落地
+
+## P0-20b 参数覆盖系统转发层集成(2026-08-01 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
+
+> **触发**:P0-20 的 `relay-param-ops.ts` 纯函数库已交付(15 种 op + 条件判断 + JSON 路径 + 内置变量),但架构调研发现 PROJECT_PLAN.md 原计划"在 relay-channel-router.ts 集成 applyParamOps"基于错误假设 — `relay-channel-router.ts` 的 `selectChannelKey` 只选 key 不转发请求(且当前是孤儿函数,无调用方)。真正转发请求的是 `v1-public.ts` 第 554-569 行 chat completion 转发逻辑。集成需要设计 paramOps 配置来源 + 多端同步,工作量超出"补全整合清单"范围,独立立项。
+
+- [ ] 设计 paramOps 配置 schema(存 `system_configs` 表 category='relay_param_ops',按 channel_id / model / global 三级优先级匹配)
+- [ ] 新建 `apps/api/src/routes/admin/relay-param-ops.ts`(admin CRUD:GET/POST/PUT/DELETE 配置 + dry_run 预览)
+- [ ] 在 `apps/api/src/routes/v1-public.ts` chat completion 转发点(第 554 行构造 body 后、第 569 行 fetch 前)调用 `applyParamOps(body, ops)`
+- [ ] 在 `apps/api/src/routes/v1-messages.ts` / `v1-responses.ts` 等其他转发点同步集成
+- [ ] 新建 `apps/web/app/(main)/admin/relay-param-ops/page.tsx`(admin 配置 UI:JSON 编辑器 + dry_run 测试 + 匹配规则可视化)
+- [ ] i18n 5 语言同步 + typecheck + e2e 测试 + README 同步
 
 ## P1 公开状态页(2026-08-01 立,平台独占:apps/web + apps/api,AGENTS.md §24 用户已确认)
 
 > **触发**:工作区存在完整可用的 `apps/web/app/status/` 状态页(405 行,SSR + revalidate 60s),但后端 `/api/public/status/{overview,models,incidents}` 3 接口需对齐,未立项。
 
-- [ ] 确认 `apps/api/src/routes/` 是否已有 `/api/public/status/*` 接口实现,未实现则补建(overview: 核心服务在线状态;models: 模型可用性 + P95 延迟/错误率;incidents: 最近 30 天事件记录)
-- [ ] 端到端验证 status 页可访问 + 数据正确渲染
-- [ ] README.md 在"功能特性"章节加"公开状态页"一行(§21 同步)
+- [x] ✅(2026-08-01) 确认 `apps/api/src/routes/public-status.ts` 已实现 3 接口(overview/models/incidents),已在 `routes/index.ts:1070` 注册(prefix='/api/public')
+- [ ] 端到端验证 status 页可访问 + 数据正确渲染(待 dev server 启动后 browser 验证)
+- [x] ✅(2026-08-01) README.md "功能特性 → 运维监控 → BI 仪表盘"行已加"公开状态页"一行(§21 同步)
 
 ## 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x)
 
@@ -2016,7 +2027,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ### 第二批扩展(2026-07-31)— 平台 26→38 + 反风控强化 + UI 精装修
 
 - [x] ✅(2026-07-31) P1-5:第二批 12 平台扩展 — 百度知道/百度贴吧/豆瓣/36氪/虎嗅网/钛媒体/AcFun/LOFTER/知乎日报/人民网/中国新闻网/虎扑社区(均为 browser_cookie + Playwright + 反风控五层防线)。后端 12 adapter + base_adapter 注册 + platform_rules 12 规则 + platform_formatter 4 媒体专属排版(36kr/huxiu/tmtmedia/people)+ 前端 platform-schemas 12 schema + helpers 12 PLATFORM_KEY + i18n 5 语言 12 key
-- [x] ✅(2026-07-31) P1-6:反风控五层防线端到端强化 — 4 新模块(risk_scoring.py 6 维度评分 + cooldown_manager.py 4 级冷却策略 + cross_account_guard.py 4 维度跨账号隔离检查 + audit_logger.py JSONL 审计日志)+ 5 强化模块(proxy_pool 健康检查+自动剔除+区域匹配 / behavior_humanizer 5 类发布专属行为 / stealth WebRTC+permissions+噪声 / __init__ 导出 / scheduler 集成冷却检查+风险评分拦截+失败关键词检测+自动冷却)
+- [x] ✅(2026-07-31) P1-6:反风控五层防线端到端强化 — 4 新模块(risk_scoring.py 6 维度评分 + cooldown_manager.py 4 级冷却策略 + cross_account_guard.py 4 维度跨账号隔离检查 + audit_logger.py JSONL 审计日志)+ 5 强化模块(proxy_pool 健康检查+自动剔除+区域匹配 / behavior_humanizer 5 类发布专属行为 / stealth WebRTC+permissions+噪声 / **init** 导出 / scheduler 集成冷却检查+风险评分拦截+失败关键词检测+自动冷却)
 - [x] ✅(2026-07-31) P1-7:前端 UI 精装修 — 11 新组件(RiskBadge 5 色风控徽章 + CountdownTimer 倒计时 + UploadProgress XHR 真实进度 + TaskProgressBar 双色任务进度 + 4 new 子组件 + 3 history 子组件)+ 6 修改文件(new/page 409→186 行 / history/page 342→124 行 / accounts 集成 RiskBadge / ScanLoginDialog 集成 CountdownTimer / layout Tab 增强 / zh-CN.json +15 i18n key)
 
 ### 执行顺序(用户指定:先扩平台后精装修)
