@@ -10,6 +10,7 @@ import {
   WORK_PANEL_MIN_WIDTH,
 } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
+import { useIsMobile } from '@/hooks/use-media-query'
 
 import { CdpBrowserView } from './cdp-browser-view'
 
@@ -24,6 +25,8 @@ import { CdpBrowserView } from './cdp-browser-view'
  */
 export function WebWorkPanel() {
   const mounted = useMounted()
+  // 移动端适配(2026-07-31):移动端 WebWorkPanel 改为全屏覆盖,不参与 flex 流
+  const isMobile = useIsMobile()
   // 性能修复(2026-07-25):原 25+ 字段全解构 `useWorkPanelStore()` 等价于订阅整个 state,
   // 任何字段(tabs 切换 / addressInput 输入 / recentUrls 追加)变化都会触发 WebWorkPanel 重渲染,
   // 内含 iframe/WebViewFrame 重建开销极大。改用 useShallow 浅比较,只对返回对象做浅层 diff,
@@ -152,12 +155,13 @@ export function WebWorkPanel() {
   }, [mounted])
 
   // 空间严重不足时自动关闭 WebWorkPanel(避免挤压 work-area 至 0 宽度)
+  // 2026-07-31 移动端适配:移动端 WebWorkPanel 改为 fixed 全屏覆盖,不占 flex 空间,跳过自动关闭
   React.useEffect(() => {
-    if (!mounted || !open) return
+    if (!mounted || !open || isMobile) return
     if (maxAvailableWidth < WORK_PANEL_MIN_WIDTH) {
       closePanel()
     }
-  }, [mounted, open, maxAvailableWidth, closePanel])
+  }, [mounted, open, maxAvailableWidth, closePanel, isMobile])
 
   // SSR / 首帧:用默认宽度占位,避免 hydration mismatch
   // 运行时:width 不超过 maxAvailableWidth(空间不足时自动缩小)
@@ -206,10 +210,19 @@ export function WebWorkPanel() {
     //   mb-2 底部 8px 跟 MainShell 的 pb-2 对齐;mr-2 右侧 8px 跟 MainShell 的 pr-2 对齐;
     //   h-[calc(100%-58px)] = 100% - 50(顶部) - 8(底部),保证底部 8px 可见不被 overflow-hidden 裁剪。
     // - WebWorkPanel 关闭时 return null,不影响布局。
-    <div className="mt-[50px] mb-2 mr-2 h-[calc(100%-58px)] shrink-0">
+    // 2026-07-31 移动端深度适配:移动端 WebWorkPanel 改为 fixed 全屏覆盖,
+    // 不参与 flex 流(避免在 390px 视口占 480px 把 work-area 挤到 0)。
+    // 桌面端保持 flex 流内布局(mt-[50px] 对齐 GlobalTopBar 下方)。
+    <div
+      className={
+        isMobile
+          ? 'fixed inset-0 z-sticky' // 移动端:全屏覆盖
+          : 'mt-[50px] mb-2 mr-2 h-[calc(100%-58px)] shrink-0' // 桌面端:flex 流内
+      }
+    >
       <WorkPanel
         open={effectiveOpen}
-        width={effectiveWidth}
+        width={isMobile ? (typeof window !== 'undefined' ? window.innerWidth : 375) : effectiveWidth}
         onResize={handleResize}
         onResizeStart={() => setResizing(true)}
         onResizeEnd={() => setResizing(false)}
