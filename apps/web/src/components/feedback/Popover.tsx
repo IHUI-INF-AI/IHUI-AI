@@ -260,11 +260,15 @@ export function Popover({
         }
 
   // 抓 trigger DOM 节点(用 callback ref 赋值给 triggerElRef)
+  // 2026-07-31 React 19 兼容:原 `children.ref` 在 React 19 标记 deprecated(console.error
+  // "Accessing element.ref was removed in React 19"),改为 `children.props.ref` 兼容两版。
+  // React 16.3+ forwardRef 起所有 React 元素都能从 props 访问 ref,所以两版等价。
   const childWithRef = React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
     ref: (node: HTMLElement | null) => {
       triggerElRef.current = node
-      // 保留 children 自带的 ref 行为
-      const childRef = (children as unknown as { ref?: React.Ref<HTMLElement> }).ref
+      // 保留 children 自带的 ref 行为(React 18/19 兼容写法)
+      const childProps = (children as React.ReactElement<{ ref?: React.Ref<HTMLElement> }>).props
+      const childRef = childProps?.ref
       if (typeof childRef === 'function') childRef(node)
       else if (childRef && typeof childRef === 'object') {
         ;(childRef as React.MutableRefObject<HTMLElement | null>).current = node
