@@ -12518,11 +12518,34 @@
       "tabTimeline": "時間線",
       "searchPlaceholder": "搜尋檔案",
       "newFile": "新建檔案",
+      "newFolder": "新建資料夾",
       "refresh": "重新整理",
       "noMatch": "無符合檔案",
       "justNow": "剛剛",
       "minutesAgo": "{count} 分鐘前",
-      "hoursAgo": "{count} 小時前"
+      "hoursAgo": "{count} 小時前",
+      "fileNamePlaceholder": "檔案名稱...",
+      "folderNamePlaceholder": "資料夾名稱...",
+      "fileCreated": "檔案已建立",
+      "folderCreated": "資料夾已建立",
+      "renamed": "已重新命名",
+      "deleted": "已刪除",
+      "confirmDelete": "確定刪除?",
+      "confirm": "確定",
+      "cancel": "取消",
+      "rename": "重新命名",
+      "delete": "刪除"
+    },
+    "fileTreeNode": {
+      "open": "開啟",
+      "rename": "重新命名",
+      "delete": "刪除",
+      "copyPath": "複製路徑",
+      "renamed": "已重新命名",
+      "deleted": "已刪除",
+      "confirmDelete": "確定刪除?",
+      "confirm": "確定",
+      "cancel": "取消"
     },
     "codeEditor": {
       "zoomOut": "縮小字號",
@@ -12593,7 +12616,14 @@
       "unstage": "取消暫存",
       "stage": "暫存",
       "refresh": "重新整理",
-      "more": "更多"
+      "more": "更多",
+      "push": "推送",
+      "pull": "拉取",
+      "commitMessageRequired": "請輸入提交訊息",
+      "commitSuccess": "提交成功",
+      "pushSuccess": "推送成功",
+      "pullSuccess": "拉取成功",
+      "branchSwitched": "已切換到 {branch}"
     },
     "debug": {
       "start": "開始",

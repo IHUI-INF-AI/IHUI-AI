@@ -1,8 +1,10 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import type { FileNode } from '@ihui/types'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { runCommand } from '@ihui/api-client'
 import { getFileIcon, getFileColor } from './file-icons'
 import { ChevronRight, Folder, FolderOpen, FileText, Pencil, Trash2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -13,20 +15,38 @@ interface FileTreeNodeProps {
   searchTerm?: string
 }
 
+/** 计算重命名后的新路径(替换最后一段路径分量) */
+function getRenamedPath(oldPath: string, newName: string): string {
+  const lastSep = Math.max(oldPath.lastIndexOf('/'), oldPath.lastIndexOf('\\'))
+  return lastSep >= 0 ? `${oldPath.substring(0, lastSep)}/${newName}` : newName
+}
+
+/** 刷新文件树(清除 loadedFolders 强制重新加载已展开文件夹子项) */
+function refreshFileTree() {
+  useIDEWorkspace.setState({ loadedFolders: new Set<string>() })
+  void useIDEWorkspace.getState().fetchFileTree()
+}
+
 export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps) {
   const t = useTranslations('ide')
-  const { expandedFolders, selectedFileId, toggleFolder, openFile, selectFile } = useIDEWorkspace()
+  const { expandedFolders, selectedFileId, toggleFolder, openFile, selectFile, workspacePath } = useIDEWorkspace()
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null)
+  const [renaming, setRenaming] = React.useState(false)
+  const [renameValue, setRenameValue] = React.useState('')
+  const [deleting, setDeleting] = React.useState(false)
+  const renameInputRef = React.useRef<HTMLInputElement>(null)
   const isExpanded = node.type === 'folder' && expandedFolders.has(node.id)
   const isSelected = selectedFileId === node.id
   const Icon = node.type === 'folder' ? (isExpanded ? FolderOpen : Folder) : getFileIcon(node.name)
 
   const handleClick = () => {
+    if (renaming || deleting) return
     if (node.type === 'folder') toggleFolder(node.id)
     else { selectFile(node.id); openFile(node) }
   }
 
   const handleContextMenu = (e: React.MouseEvent) => {
+    if (renaming || deleting) return
     e.preventDefault()
     e.stopPropagation()
     setMenuPos({ x: e.clientX, y: e.clientY })
@@ -43,9 +63,74 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
     }
   }, [menuPos])
 
+  // 重命名输入框自动聚焦 + 选中文本
+  React.useEffect(() => {
+    if (renaming) {
+      requestAnimationFrame(() => {
+        renameInputRef.current?.focus()
+        renameInputRef.current?.select()
+      })
+    }
+  }, [renaming])
+
   const handleCopyPath = async () => {
     try { await navigator.clipboard?.writeText(node.path) } catch { /* ignore */ }
     setMenuPos(null)
+  }
+
+  const startRename = () => {
+    setRenaming(true)
+    setRenameValue(node.name)
+    setMenuPos(null)
+  }
+
+  const startDelete = () => {
+    setDeleting(true)
+    setMenuPos(null)
+  }
+
+  const handleRename = async () => {
+    const newName = renameValue.trim()
+    if (!newName || newName === node.name || !workspacePath) {
+      setRenaming(false)
+      return
+    }
+    const newPath = getRenamedPath(node.path, newName)
+    try {
+      const result = await runCommand({
+        command: `mv "${node.path}" "${newPath}"`,
+        workspacePath,
+        mode: 'workspace-write',
+      })
+      if (result.success) {
+        toast.success(t('fileTreeNode.renamed'))
+        setRenaming(false)
+        refreshFileTree()
+      } else {
+        toast.error(result.error)
+      }
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!workspacePath) return
+    const command = node.type === 'folder'
+      ? `rm -rf "${node.path}"`
+      : `rm "${node.path}"`
+    try {
+      const result = await runCommand({ command, workspacePath, mode: 'workspace-write' })
+      if (result.success) {
+        toast.success(t('fileTreeNode.deleted'))
+        setDeleting(false)
+        refreshFileTree()
+      } else {
+        toast.error(result.error)
+      }
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
   }
 
   const renderName = () => {
@@ -63,8 +148,8 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
 
   const menuItems = [
     { labelKey: 'fileTreeNode.open', icon: FileText, action: () => { if (node.type === 'file') { selectFile(node.id); openFile(node) } } },
-    { labelKey: 'fileTreeNode.rename', icon: Pencil, action: () => {} },
-    { labelKey: 'fileTreeNode.delete', icon: Trash2, action: () => {} },
+    { labelKey: 'fileTreeNode.rename', icon: Pencil, action: startRename },
+    { labelKey: 'fileTreeNode.delete', icon: Trash2, action: startDelete },
     { labelKey: 'fileTreeNode.copyPath', icon: Copy, action: handleCopyPath },
   ]
 
@@ -92,7 +177,33 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
           <span className="w-3 shrink-0" />
         )}
         <Icon className={cn('h-3.5 w-3.5 shrink-0', node.type === 'file' && getFileColor(node.name))} />
-        {renderName()}
+        {renaming ? (
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); void handleRename() }
+              if (e.key === 'Escape') { setRenaming(false) }
+            }}
+            className="w-full rounded-sm border border-border bg-background px-1 text-xs focus:outline-none"
+          />
+        ) : deleting ? (
+          <div className="flex flex-1 items-center gap-1">
+            <span className="truncate text-red-500">{t('fileTreeNode.confirmDelete')}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); void handleDelete() }}
+              className="rounded-sm bg-red-500 px-1.5 py-0.5 text-xs text-white hover:bg-red-600"
+            >{t('fileTreeNode.confirm')}</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setDeleting(false) }}
+              className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+            >{t('fileTreeNode.cancel')}</button>
+          </div>
+        ) : (
+          renderName()
+        )}
       </div>
 
       {node.type === 'folder' && (
