@@ -12,7 +12,9 @@
 import asyncio
 import json
 import logging
+import time
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -31,7 +33,7 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
-from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze
+from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze, get_registered_tool_names
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -67,6 +69,165 @@ def _error_json(message: str, status_code: int, **extra: Any) -> JSONResponse:
 
 # 默认模型清单 JSON 文件路径(运行时按需加载,修改无需重启)
 _DEFAULT_MODELS_FILE = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
+
+
+# ===== 工具来源派生(2026-07-31 立,A2 任务:ToolCallCard 区分原生/MCP/插件工具)=====
+# _BUILTIN_AGENT_TOOLS:核心 builtin 工具名集合(对标 apps/web/src/hooks/use-chat.ts 的 AGENT_TOOLS,
+#   剔除 browser_*/computer_*——这些属于插件接入类,由 _PLUGIN_TOOL_NAMES 覆盖)。
+# _PLUGIN_TOOL_NAMES:插件市场接入的工具名集合(对标 use-chat.ts 的 PLUGIN_ID_TO_TOOLS 反查表,
+#   browser_* 由 playwright-mcp/puppeteer/browser-use 等 13 个浏览器插件共用,
+#   computer_* 由 anthropic-computer-use/open-interpreter/auto-gpt/babyagi 等 4 个电脑控制插件共用)。
+# _MCP_TOOL_NAMES:mcp_server.py 注册表中的全部工具名(模块加载时求值一次)。
+_BUILTIN_AGENT_TOOLS: frozenset[str] = frozenset({
+    "read_file", "search_codebase", "file_search", "analyze_code", "generate_test",
+    "web_search", "search_web", "vision_analyze", "knowledge_lookup", "dispatch_subagent",
+    "summarize_artifacts", "proactive_suggestion",
+})
+_PLUGIN_TOOL_NAMES: frozenset[str] = frozenset({
+    # 12 browser tools(所有浏览器类插件共用)
+    "browser_screenshot", "browser_click_element", "browser_type_text", "browser_scroll",
+    "browser_navigate", "browser_extract_dom", "browser_wait_for_element",
+    "browser_get_attribute", "browser_hover", "browser_select_option",
+    "browser_switch_tab", "browser_close_tab",
+    # 10 computer tools(所有电脑控制类插件共用)
+    "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
+    "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
+    "computer_keyboard_hotkey", "computer_active_window",
+    "computer_clipboard_get", "computer_clipboard_set",
+})
+_MCP_TOOL_NAMES: set[str] = get_registered_tool_names()
+
+
+def resolve_tool_source(tool_name: str) -> tuple[str, str | None, str | None]:
+    """派生工具来源(2026-07-31 立,为 tool-call-start/tool-result SSE 事件提供 serverSource 字段)。
+
+    派生规则(按优先级,命中即返回):
+    1. tool_name 在 _BUILTIN_AGENT_TOOLS(核心 builtin 工具)→ ('builtin', None, None)
+    2. tool_name 在 _PLUGIN_TOOL_NAMES(插件接入类 browser_*/computer_*)→ ('plugin', None, None)
+       注:plugins 不区分具体 server,serverId/serverName 为 None。
+    3. tool_name 在 _MCP_TOOL_NAMES(mcp_server 注册表)→ ('mcp', None, None)
+       注:当前所有工具均为本地实现,server_id/server_name 暂为 None;
+       未来接入外部 MCP server(如 context7/filesystem)后扩展为返回真实 server 信息。
+    4. 兜底 → ('builtin', None, None)
+
+    Returns:
+        tuple (serverSource, serverId, serverName):
+        - serverSource: 'builtin' | 'plugin' | 'mcp'
+        - serverId: serverSource='mcp' 时为外部 MCP server ID,否则 None
+        - serverName: serverSource='mcp' 时为外部 MCP server 显示名,否则 None
+    """
+    if tool_name in _BUILTIN_AGENT_TOOLS:
+        return ("builtin", None, None)
+    if tool_name in _PLUGIN_TOOL_NAMES:
+        return ("plugin", None, None)
+    if tool_name in _MCP_TOOL_NAMES:
+        return ("mcp", None, None)
+    return ("builtin", None, None)
+
+
+# ===== tool-summary SSE 事件聚合统计(2026-07-31 立,A2 任务:AI 对话可视化深度接入)=====
+
+def calculate_added_lines(tool_call: dict[str, Any]) -> int:
+    """从 tool_call 的 args 中提取新增行数(用于 tool-summary 的 linesAdded 统计)。
+
+    实现策略(先简单实现,后续可扩展):
+    - args 含 `diff` 字符串:统计以 `+` 开头但不以 `+++` 开头的行数(unified diff 的 added 行)
+    - args 含 `content` 字符串:统计行数(整体写入,全部算 added)
+    - args 含 `new_string` 字符串(file_edit 工具):统计 new_string 行数
+    - 其他:返回 0
+    """
+    args = tool_call.get("args") or {}
+    if not isinstance(args, dict):
+        return 0
+    diff = args.get("diff")
+    if isinstance(diff, str) and diff:
+        return sum(
+            1 for line in diff.splitlines()
+            if line.startswith("+") and not line.startswith("+++")
+        )
+    content = args.get("content")
+    if isinstance(content, str) and content:
+        return len(content.splitlines())
+    new_string = args.get("new_string")
+    if isinstance(new_string, str) and new_string:
+        return len(new_string.splitlines())
+    return 0
+
+
+def calculate_deleted_lines(tool_call: dict[str, Any]) -> int:
+    """从 tool_call 的 args 中提取删除行数(用于 tool-summary 的 linesDeleted 统计)。
+
+    实现策略:
+    - args 含 `diff` 字符串:统计以 `-` 开头但不以 `---` 开头的行数(unified diff 的 deleted 行)
+    - args 含 `old_string` 字符串(file_edit 工具):统计 old_string 行数
+    - args 含 `content` 字符串(write_file 整体写入,无删除):返回 0
+    - 其他:返回 0
+    """
+    args = tool_call.get("args") or {}
+    if not isinstance(args, dict):
+        return 0
+    diff = args.get("diff")
+    if isinstance(diff, str) and diff:
+        return sum(
+            1 for line in diff.splitlines()
+            if line.startswith("-") and not line.startswith("---")
+        )
+    old_string = args.get("old_string")
+    if isinstance(old_string, str) and old_string:
+        return len(old_string.splitlines())
+    return 0
+
+
+def _build_tool_summary(tool_calls_history: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """聚合本轮所有工具调用统计(用于 tool-summary SSE 事件)。
+
+    Returns:
+        包含 filesSearched/webSearched/filesModified/linesAdded/linesDeleted/
+        toolsByCategory/totalCalls/totalDurationMs 的统计 dict,无工具调用时返回 None。
+    """
+    if not tool_calls_history:
+        return None
+    _FILE_SEARCH_TOOLS = frozenset({"read_file", "search_codebase", "file_search"})
+    _WEB_SEARCH_TOOLS = frozenset({"web_search", "search_web"})
+    _FILE_MODIFY_TOOLS = frozenset({"file_edit", "write_file"})
+    files_modified: set[str] = set()
+    for tc in tool_calls_history:
+        if tc.get("toolName") in _FILE_MODIFY_TOOLS:
+            args = tc.get("args") or {}
+            if isinstance(args, dict):
+                fp = args.get("file_path") or args.get("path")
+                if isinstance(fp, str) and fp:
+                    files_modified.add(fp)
+    return {
+        "filesSearched": sum(
+            1 for tc in tool_calls_history if tc.get("toolName") in _FILE_SEARCH_TOOLS
+        ),
+        "webSearched": sum(
+            1 for tc in tool_calls_history if tc.get("toolName") in _WEB_SEARCH_TOOLS
+        ),
+        "filesModified": len(files_modified),
+        "linesAdded": sum(
+            calculate_added_lines(tc)
+            for tc in tool_calls_history
+            if tc.get("toolName") in _FILE_MODIFY_TOOLS
+        ),
+        "linesDeleted": sum(
+            calculate_deleted_lines(tc)
+            for tc in tool_calls_history
+            if tc.get("toolName") in _FILE_MODIFY_TOOLS
+        ),
+        "toolsByCategory": dict(Counter(tc.get("toolName", "") for tc in tool_calls_history)),
+        "totalCalls": len(tool_calls_history),
+        "totalDurationMs": sum(int(tc.get("durationMs", 0) or 0) for tc in tool_calls_history),
+    }
+
+
+def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str | None:
+    """构造 tool-summary SSE 事件字符串,无工具调用时返回 None(避免无意义事件)。"""
+    summary = _build_tool_summary(tool_calls_history)
+    if summary is None:
+        return None
+    return f"event: tool-summary\ndata: {json.dumps(summary, ensure_ascii=False)}\n\n"
 
 
 def _inject_workspace_memory(
@@ -669,6 +830,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 提问标记解析器:检测 LLM 输出中的 [[ASK_USER:JSON]] 标记,转换为结构化 question 事件
         # 标记本身从内容中剥离,不污染对话文本;跨 chunk 分片自动累积
         question_parser = QuestionStreamParser()
+        # 工具调用历史(2026-07-31 立,A2 任务:tool-summary SSE 事件聚合统计用)
+        # 每次 tool-call-start 事件发出时 append 一条记录,tool-result 事件到达时更新 result/durationMs/isError。
+        # 在 SSE 流末尾(每个 done 事件之前)聚合统计,发出 tool-summary 事件。
+        tool_calls_history: list[dict[str, Any]] = []
         try:
             # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
             if compaction_info and compaction_info.get("compressed"):
@@ -772,6 +937,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 }
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
+                                # 2026-07-31 A2:done 之前发出 tool-summary(无工具调用时为 no-op)
+                                _ts_str = _format_tool_summary_event(tool_calls_history)
+                                if _ts_str:
+                                    yield _ts_str
                                 yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
                                 has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                                 if has_association and not accumulated.get("error") and not await request.is_disconnected():
@@ -800,14 +969,34 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 args = {"_raw": raw_args}
 
                             # 推送 tool-call-start 事件(前端 onToolCall 回调)
+                            # 2026-07-31 A2:补齐 serverSource/serverId/serverName 字段(ToolCallCard 区分原生/MCP/插件)
+                            _src, _sid, _sname = resolve_tool_source(tool_name)
+                            _tc_start_ts = time.time()
                             tc_start = {
                                 "type": "tool-call-start",
                                 "toolCallId": tc.get("id", ""),
                                 "toolName": tool_name,
                                 "args": args,
                                 "iteration": _tool_iter + 1,
+                                "serverSource": _src,
+                                "serverId": _sid,
+                                "serverName": _sname,
                             }
                             yield f"event: tool-call-start\ndata: {json.dumps(tc_start, ensure_ascii=False)}\n\n"
+                            # 记录到 tool_calls_history(tool-summary 聚合统计用)
+                            tool_calls_history.append({
+                                "toolCallId": tc.get("id", ""),
+                                "toolName": tool_name,
+                                "args": args,
+                                "iteration": _tool_iter + 1,
+                                "serverSource": _src,
+                                "serverId": _sid,
+                                "serverName": _sname,
+                                "startTimeMs": _tc_start_ts * 1000.0,
+                                "durationMs": 0,
+                                "isError": False,
+                                "result": None,
+                            })
 
                             # Subagent 派发生成事件(2026-07-28 立,对标 Trae Work 自动派发):
                             # dispatch_subagent 工具执行前,解析 args.tasks 数组或 args.name+args.task 单任务,
@@ -855,6 +1044,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 ok = True
                                 tool_exec_tracker.append(ok)
                                 # 推送 tool-result 事件(带 repeated: True 标记,让前端可见 LLM 决策了但被去重)
+                                # 2026-07-31 A2:补齐 serverSource/serverId/serverName 字段
+                                _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
                                 tc_result_evt = {
                                     "type": "tool-result",
                                     "toolCallId": tc.get("id", ""),
@@ -864,8 +1055,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "isError": False,
                                     "iteration": _tool_iter + 1,
                                     "repeated": True,
+                                    "serverSource": _r_src,
+                                    "serverId": _r_sid,
+                                    "serverName": _r_sname,
                                 }
                                 yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                                # 更新 tool_calls_history 中对应记录(去重分支:durationMs≈0)
+                                _hist_idx = len(tool_calls_history) - 1
+                                if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tc.get("id", ""):
+                                    tool_calls_history[_hist_idx].update({
+                                        "result": exec_result,
+                                        "isError": False,
+                                        "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                    })
                                 # 回灌工具结果(简短提示,让 LLM 知道工具被跳过,完整结果见之前 tool 消息)
                                 result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
                                 messages.append({
@@ -897,6 +1099,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 直接调用 _tool_dispatch_subagent(绕过 _mcp.call_tool 通用接口),
                             # 注入 progress_callback → asyncio.Queue → 实时 yield subagent_progress SSE 事件,
                             # 让前端进度面板在 subagent 执行期间看到 thinking/tool_call/tool_result/output_ready。
+                            #
+                            # 4 phase 发出时机(2026-07-31 A2 验证:均已正确发出,无需修复):
+                            # - thinking:agent_orchestrator.py _run_agent 每轮迭代开始时发出(含 iteration 字段)
+                            # - tool_call:agent_orchestrator.py 在 mcp_server.call_tool 调用前发出(含 tool 字段)
+                            # - tool_result:agent_orchestrator.py 在 mcp_server.call_tool 返回后发出(含 tool + ok 字段)
+                            # - output_ready:agent_orchestrator.py 在 3 个出口发出(无 tool_calls break / 最后一轮总结 / loop else)
+                            # _progress_cb 实时转发所有 phase 到 _progress_queue → SSE yield,不延迟到 subagent_end。
                             if tool_name == "dispatch_subagent" and _spawned_sub_ids:
                                 # task_index → subagent_id 映射(并行模式多 task,单模式只有 1 个)
                                 _sub_id_by_index: dict[int, str] = {
@@ -971,6 +1180,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             tool_exec_tracker.append(ok)
 
                             # 推送 tool-result 事件
+                            # 2026-07-31 A2:补齐 serverSource/serverId/serverName 字段
+                            _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
                             tc_result_evt = {
                                 "type": "tool-result",
                                 "toolCallId": tc.get("id", ""),
@@ -979,8 +1190,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "result": exec_result,
                                 "isError": not ok,
                                 "iteration": _tool_iter + 1,
+                                "serverSource": _r_src,
+                                "serverId": _r_sid,
+                                "serverName": _r_sname,
                             }
                             yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                            # 更新 tool_calls_history 中对应记录(正常分支:含真实 durationMs)
+                            _hist_idx = len(tool_calls_history) - 1
+                            if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tc.get("id", ""):
+                                tool_calls_history[_hist_idx].update({
+                                    "result": exec_result,
+                                    "isError": not ok,
+                                    "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                })
 
                             # Subagent 派发结束事件(2026-07-28 立,对标 Trae Work 自动派发):
                             # dispatch_subagent 工具执行后,为每个已 spawn 的 sub_id 发 subagent_end 事件,
@@ -1078,6 +1300,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             }
                             if req.metadata:
                                 done_event["metadata"] = req.metadata
+                            # 2026-07-31 A2:done 之前发出 tool-summary(全部工具失败场景,tool_calls_history 非空)
+                            _ts_str = _format_tool_summary_event(tool_calls_history)
+                            if _ts_str:
+                                yield _ts_str
                             yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
                             has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                             if has_association and not accumulated.get("error") and not await request.is_disconnected():
@@ -1153,6 +1379,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 在 done 事件中透传 metadata
                     if req.metadata:
                         event["metadata"] = req.metadata
+                    # 2026-07-31 A2:done 之前发出 tool-summary(tool loop 完成后走 astream 的场景)
+                    _ts_str = _format_tool_summary_event(tool_calls_history)
+                    if _ts_str:
+                        yield _ts_str
                 yield f"event: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             logger.info("SSE generator cancelled by client disconnect")
