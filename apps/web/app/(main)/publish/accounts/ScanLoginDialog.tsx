@@ -289,7 +289,7 @@ export function ScanLoginDialog({
         <DialogFooter>
           {phase === 'idle' && (
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {t('cancel', { ns: 'common' })}
+              {t('cancel')}
             </Button>
           )}
           {phase === 'polling' && (
@@ -304,7 +304,7 @@ export function ScanLoginDialog({
                 onOpenChange(false)
               }}
             >
-              {t('accounts.close', { defaultValue: '关闭' })}
+              {t('close')}
             </Button>
           )}
         </DialogFooter>
