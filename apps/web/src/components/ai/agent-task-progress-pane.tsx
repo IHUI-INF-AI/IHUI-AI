@@ -20,6 +20,8 @@ import {
   Timer,
   AlertCircle,
   GripVertical,
+  MessageSquare,
+  ListTree,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
