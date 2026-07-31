@@ -119,8 +119,8 @@ export function FoldableSection({
   return (
     <div
       className={cn(
-        'mx-1.5 mt-1.5 rounded-sm border border-border/60 bg-muted/40 transition-colors',
-        open && 'bg-muted/60',
+        'mx-1.5 mt-1.5 rounded-md border border-border/50 bg-muted/30 transition-colors',
+        open && 'bg-muted/50',
       )}
       data-testid={testId}
     >
@@ -130,21 +130,21 @@ export function FoldableSection({
         aria-expanded={open}
         aria-label={ariaLabel ?? title}
         data-section-header="true"
-        className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
       >
         <ChevronRight
           className={cn(
-            'h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform duration-150',
+            'h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform duration-150',
             open && 'rotate-90',
           )}
         />
-        {Icon && <Icon className="h-3 w-3 shrink-0 text-muted-foreground/60" />}
+        {Icon && <Icon className="h-3 w-3 shrink-0 text-muted-foreground/50" />}
         <span className="flex-1 text-left">{title}</span>
         {hasProgress && (
           <span
             className={cn(
-              'shrink-0 tabular-nums text-[10px]',
-              allDone ? 'font-medium text-emerald-500' : 'text-muted-foreground/70',
+              'shrink-0 tabular-nums text-[10px] font-medium',
+              allDone ? 'text-emerald-500' : 'text-primary/80',
             )}
             data-testid={`${testId ?? 'foldable'}-progress-text`}
           >
@@ -154,7 +154,7 @@ export function FoldableSection({
         {count !== undefined && count > 0 && (
           <span
             className={cn(
-              'shrink-0 rounded-sm px-1 text-[10px] tabular-nums text-muted-foreground/80',
+              'shrink-0 rounded px-1 text-[10px] tabular-nums text-muted-foreground/60',
               hasProgress && 'ml-0.5',
             )}
           >
@@ -175,17 +175,18 @@ export function FoldableSection({
           </span>
         )}
       </button>
-      {/* v15: 完成度小条(若有 doneCount)— 全完成时 emerald,部分 primary,无 muted */}
+      {/* v15: 完成度小条(若有 doneCount)— 全完成时 emerald,部分 primary,无 muted
+          精美化(2026-07-31):圆角 + 渐变色 + 更明显的高度 */}
       {hasProgress && (
         <div
-          className="mx-2 h-0.5 -mt-0.5 overflow-hidden rounded-b-sm bg-muted/50"
+          className="mx-2.5 h-1 -mt-0.5 overflow-hidden rounded-full bg-muted/60"
           aria-hidden
           data-testid={`${testId ?? 'foldable'}-progress-bar`}
         >
           <div
             className={cn(
-              'h-full transition-all duration-300',
-              allDone ? 'bg-emerald-500/70' : 'bg-primary/60',
+              'h-full rounded-full transition-all duration-300 ease-out',
+              allDone ? 'bg-emerald-500/80' : 'bg-primary/70',
             )}
             style={{ width: `${progressPct}%` }}
           />
