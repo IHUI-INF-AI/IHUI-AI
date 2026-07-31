@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Menu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
@@ -10,6 +11,7 @@ import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt } from '@/components/co
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
 import { Button } from '@ihui/ui-react'
+import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
@@ -203,16 +205,25 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             <React.Suspense fallback={null}>
               <GlobalTopBar
                 mobileMenu={
-                  // 2026-07-31 第十四次微调(用户反馈"按钮贴左边 / 图标太大"):
-                  // - ml-1.5 (6px) 与下方工作区卡片 6px 间距对齐,跟其他顶栏按钮视觉一致
-                  // - icon h-5 w-5 (20px) → h-3.5 w-3.5 (14px),与顶栏 Plus / 搜索 / 窗口控制
-                  //   按钮(TOPBAR_BTN_BASE + h-3.5 w-3.5 图标)完全统一
+                  // 2026-07-31 第十八次微调(用户反馈"button 这个图标和 X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
+                  // - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
+                  //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
+                  // - 去掉之前单独加的 `border border-border` 和 `hover:text-foreground` —— web 顶栏的
+                  //   4 类按钮都没 border,移动端"凭空多出边框"是视觉不一致的根因
+                  // - icon 仍用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一
+                  // - h-9 w-9 通过 TOPBAR_BTN_W9 自动应用,跟顶栏 h-9 父容器 + h-full 子元素视觉等价
+                  // - ml-1.5 (6px) 跟其他顶栏按钮 gap-1 (4px) + 按钮视觉中心对齐
+                  // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setMobileOpen((o) => !o)}
                     aria-label={t('menu')}
-                    className="ml-1.5 h-full w-9 shrink-0 lg:hidden rounded-md border border-border bg-card text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    className={cn(
+                      'ml-1.5 h-9 w-9 shrink-0 lg:hidden',
+                      TOPBAR_BTN_BASE,
+                      TOPBAR_BTN_W9,
+                    )}
                   >
                     <Menu className="h-3.5 w-3.5" />
                   </Button>
