@@ -5,15 +5,14 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 
 import { useThirdPartyAuth } from './use-third-party-auth'
-import type {
-  ThirdPartyConfig,
-  ThirdPartyPlatform,
-  ThirdPartyProvider,
-} from '@ihui/ui-react'
+import type { ThirdPartyConfig, ThirdPartyPlatform, ThirdPartyProvider } from '@ihui/ui-react'
 
 /**
- * 8 平台 provider 静态定义(对标 web 端 ThirdPartyLoginButtons.tsx 3x3 网格铺排)
+ * 8 平台 provider 静态定义(对标共享 ThirdPartyLoginButtons 3x3 网格铺排)
  * 顺序:微信/Google/GitHub → 飞书/钉钉/企业微信 → 支付宝/Apple
+ * 2026-07-31 备注:web 端本地 ThirdPartyLoginButtons.tsx 已删除(dead code,
+ * LoginDialog 走共享包 LoginForm → 共享 ThirdPartyLoginButtons),本 hook
+ * 提供的 8 平台 provider 通过 config 注入到共享包渲染层。
  */
 const PROVIDER_DEFS: ReadonlyArray<{
   key: ThirdPartyPlatform
@@ -24,7 +23,12 @@ const PROVIDER_DEFS: ReadonlyArray<{
 }> = [
   { key: 'wechat', labelKey: 'wechatLogin', icon: '/images/oauth-providers/wechat.svg' },
   { key: 'google', labelKey: 'googleLogin', icon: '/images/oauth-providers/google.svg' },
-  { key: 'github', labelKey: 'githubLogin', icon: '/images/oauth-providers/github.svg', mono: true },
+  {
+    key: 'github',
+    labelKey: 'githubLogin',
+    icon: '/images/oauth-providers/github.svg',
+    mono: true,
+  },
   { key: 'feishu', labelKey: 'feishuLogin', icon: '/images/loginSANFANG/feishu.png' },
   { key: 'dingtalk', labelKey: 'dingtalkLogin', icon: '/images/oauth-providers/dingtalk.svg' },
   {
@@ -70,8 +74,7 @@ const KNOWN_CALLBACK_PLATFORMS: readonly ThirdPartyPlatform[] = [
  */
 export function useThirdPartyConfig(): ThirdPartyConfig {
   const t = useTranslations('auth')
-  const { startLogin, handleCallback, isPlatformEnabled, currentPlatform } =
-    useThirdPartyAuth()
+  const { startLogin, handleCallback, isPlatformEnabled, currentPlatform } = useThirdPartyAuth()
 
   // URL OAuth 回调处理(从原 local ThirdPartyLoginButtons.tsx 移过来)
   // ⚠️ /callback 路径下跳过,避免与 OAuthCallbackHandler 双重处理导致 state 校验失败
