@@ -19,6 +19,8 @@ import {
   textModelBody,
   multimodalBody,
 } from './_shared.js'
+import { spendPoints } from '../../services/points-service.js'
+import { findUserPoints } from '../../db/gamification-queries.js'
 
 const dashscopeImageEditBody = z.object({
   prompt: z.string().optional(),
@@ -37,6 +39,118 @@ const doubaoImageEditBody = z.object({
   size: z.string().optional(),
   strength: z.number().optional(),
 })
+
+/** 根据 model_id 推断积分消耗倍数(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
+export function inferPointsMultiplier(modelId: string): number {
+  const mid = (modelId || '').toLowerCase()
+  // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
+  if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
+  // 旗舰(30x)
+  if (['opus', 'thinking', 'o1-preview', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k))) return 30
+  // 高级(10x)
+  if (
+    ['gpt-4-turbo', 'gpt-4.5', 'claude-3-opus', 'gemini-pro', 'o1-mini', 'o3-mini', 'qwen-max-longcontext'].some(
+      (k) => mid.includes(k),
+    )
+  )
+    return 10
+  // 标准(3x)
+  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k))) return 3
+  // 经济(1x)
+  if (['mini', 'flash', 'lite', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
+  // 免费(0x)
+  if (['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) => mid.includes(k))) return 0
+  // 默认经济(1x)
+  return 1
+}
+
+/** LLM token 用量(兼容 OpenAI usage 与 Gemini usageMetadata) */
+interface TokenUsage {
+  promptTokens: number
+  completionTokens: number
+}
+
+/** 从 LLM 响应中安全提取 token 用量(unknown + 类型守卫,禁用 any) */
+function extractTokenUsage(data: unknown): TokenUsage {
+  if (typeof data !== 'object' || data === null) return { promptTokens: 0, completionTokens: 0 }
+  const obj = data as Record<string, unknown>
+  // OpenAI 兼容格式:usage.prompt_tokens / usage.completion_tokens
+  const usage = obj.usage
+  if (typeof usage === 'object' && usage !== null) {
+    const u = usage as Record<string, unknown>
+    return {
+      promptTokens: typeof u.prompt_tokens === 'number' ? u.prompt_tokens : 0,
+      completionTokens: typeof u.completion_tokens === 'number' ? u.completion_tokens : 0,
+    }
+  }
+  // Gemini 格式:usageMetadata.promptTokenCount / candidatesTokenCount
+  const meta = obj.usageMetadata
+  if (typeof meta === 'object' && meta !== null) {
+    const m = meta as Record<string, unknown>
+    return {
+      promptTokens: typeof m.promptTokenCount === 'number' ? m.promptTokenCount : 0,
+      completionTokens: typeof m.candidatesTokenCount === 'number' ? m.candidatesTokenCount : 0,
+    }
+  }
+  return { promptTokens: 0, completionTokens: 0 }
+}
+
+/**
+ * 调用前余额检查:零成本模型(multiplier=0)豁免;余额<=0 返回 402 引导充值。
+ * 返回 false 表示已响应,调用方需 return。
+ */
+async function ensurePointsBalance(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  modelId: string,
+): Promise<boolean> {
+  if (inferPointsMultiplier(modelId) === 0) return true // 零成本模型不校验余额
+  const userId = request.userId
+  if (!userId) return true // 未登录交由 requireAuth 处理
+  const points = await findUserPoints(userId)
+  const balance = points?.points ?? 0
+  if (balance <= 0) {
+    reply.status(402).send({
+      code: 402,
+      message: '积分不足,请充值或使用免费模型',
+      data: { balance, free_models: ['ollama/*', 'llm7/*'] },
+    })
+    return false
+  }
+  return true
+}
+
+/**
+ * 调用后按实际 token 数扣分:零成本豁免;无 token 信息跳过;扣分失败不阻塞响应。
+ * 公式:扣分 = ceil((prompt+completion) / 1000 × multiplier × 1 积分基准),向上取整。
+ */
+async function chargePointsForCall(
+  request: FastifyRequest,
+  modelId: string,
+  data: unknown,
+  referenceId: string,
+): Promise<void> {
+  const multiplier = inferPointsMultiplier(modelId)
+  if (multiplier === 0) return // 零成本模型不扣分
+  const userId = request.userId
+  if (!userId) return
+  const { promptTokens, completionTokens } = extractTokenUsage(data)
+  const totalTokens = promptTokens + completionTokens
+  if (totalTokens <= 0) return // 无 token 用量信息,跳过避免误扣
+  const amount = Math.ceil((totalTokens / 1000) * multiplier)
+  if (amount <= 0) return
+  try {
+    await spendPoints(
+      userId,
+      amount,
+      'ai_call',
+      `LLM 调用扣分(model=${modelId}, tokens=${totalTokens}, multiplier=${multiplier})`,
+      referenceId,
+    )
+  } catch {
+    // 扣分失败不阻塞响应(已通过 pre-call 余额检查;并发竞态由 spendPoints 事务兜底)
+  }
+}
 
 export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -57,6 +171,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = chatBody.parse(request.body)
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
@@ -65,6 +180,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
+      await chargePointsForCall(request, body.model ?? '', data, request.id)
       return reply.send(success(data))
     },
   )
@@ -297,6 +413,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = chatBody.parse(request.body)
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const data = await callVendor(
         'doubao',
         'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
@@ -305,6 +422,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'doubao')
+      await chargePointsForCall(request, body.model ?? '', data, request.id)
       return reply.send(success(data))
     },
   )
@@ -529,6 +647,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = multimodalBody.parse(request.body)
       const model = body.model ?? 'gemini-2.0-flash'
+      if (!(await ensurePointsBalance(request, reply, model))) return
       const data = await callVendor(
         'gemini',
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -537,6 +656,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'gemini')
+      await chargePointsForCall(request, model, data, request.id)
       return reply.send(success(data))
     },
   )
@@ -718,6 +838,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = multimodalBody.parse(request.body)
       const model = body.model ?? 'gemini-2.0-flash'
+      if (!(await ensurePointsBalance(request, reply, model))) return
       const data = await callVendor(
         'gemini',
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -726,6 +847,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'gemini')
+      await chargePointsForCall(request, model, data, request.id)
       return reply.send(success(data))
     },
   )
@@ -751,6 +873,7 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = chatBody.parse(request.body)
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const data = await newCallVendor(
         'dashscope',
         { method: 'POST', endpoint: '/compatible-mode/v1/chat/completions', body },
@@ -758,6 +881,7 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
+      await chargePointsForCall(request, body.model ?? '', data, request.id)
       return reply.send(success(data))
     },
   )
@@ -844,6 +968,7 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = chatBody.parse(request.body)
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const data = await newCallVendor(
         'doubao',
         { method: 'POST', endpoint: '/api/v3/chat/completions', body },
@@ -851,6 +976,7 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'doubao')
+      await chargePointsForCall(request, body.model ?? '', data, request.id)
       return reply.send(success(data))
     },
   )
@@ -868,6 +994,7 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = multimodalBody.parse(request.body)
       const model = body.model ?? 'gemini-2.0-flash'
+      if (!(await ensurePointsBalance(request, reply, model))) return
       const data = await newCallVendor(
         'gemini',
         {
@@ -880,6 +1007,7 @@ export const llmVendorV2Routes: FastifyPluginAsync = async (server) => {
       )
       if (data === null) return
       recordUsage(request.userId!, 'gemini')
+      await chargePointsForCall(request, model, data, request.id)
       return reply.send(success(data))
     },
   )
