@@ -165,3 +165,37 @@ export async function fetchScanLoginQr(taskId: string): Promise<Blob> {
 export async function cancelScanLogin(taskId: string): Promise<ApiResult<{ task_id: string; cancelled: boolean }>> {
   return fetchApi(`/api/publish/scan-login/${encodeURIComponent(taskId)}/cancel`, { method: 'POST' })
 }
+
+// =============================================================================
+// CDP 扫码登录(2026-07-31 新增,WorkPanel 内置浏览器 CDP 模式)
+// =============================================================================
+/** CDP 登录检测结果 */
+export interface CdpDetectResult {
+  /** 是否检测到登录成功 cookies */
+  detected: boolean
+  /** 当前会话 cookies 总数 */
+  cookies_count: number
+  /** 保存到的账号 ID(detected=true 时有值) */
+  account_id: number | null
+  /** 错误信息(detected=false 时可能有) */
+  error?: string | null
+}
+
+/**
+ * 从 BrowserHub CDP 会话检测登录态 + 自动保存账号。
+ *
+ * WorkPanel CDP 扫码登录流程(前端轮询调用):
+ * 1. createBrowserSession(url=平台登录页) → WorkPanel 打开 CDP 画面
+ * 2. 用户在 CDP 画面里扫码登录
+ * 3. 每 3s 调本函数 → 后端从 BrowserHub 拿 cookies → 检测 success_cookies
+ * 4. detected=true → 命中则加密保存 → 前端 closeBrowserSession + 刷新账号列表
+ */
+export async function detectLoginFromCdp(
+  sessionId: string,
+  platform: string,
+): Promise<ApiResult<CdpDetectResult>> {
+  return fetchApi<CdpDetectResult>('/api/publish/scan-login/detect-from-cdp', {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, platform }),
+  })
+}

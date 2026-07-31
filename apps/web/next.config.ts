@@ -169,6 +169,16 @@ const nextConfig: NextConfig = {
           source: '/api/agents/:path*',
           destination: 'http://localhost:8803/api/agents/:path*',
         },
+        // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
+        // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),
+        // 完整路径 /api/browser/sessions/*。若走默认 /api/:path* → 8802(api server)会 404。
+        // 注意:旧的 /api/browser/screenshot 和 /api/browser/probe 仍走 8802(api server 转发),
+        // 此规则只匹配 /api/browser/sessions/*,不影响旧端点。
+        // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
+        {
+          source: '/api/browser/sessions/:path*',
+          destination: 'http://localhost:8803/api/browser/sessions/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',

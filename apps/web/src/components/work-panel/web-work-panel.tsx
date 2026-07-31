@@ -11,6 +11,8 @@ import {
 } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 
+import { CdpBrowserView } from './cdp-browser-view'
+
 /**
  * Web 端工作展示区(右侧固定面板)。
  * - 渲染 @ihui/ui-react 的 WorkPanel 容器 + WebViewFrame(iframe + 降级)
@@ -53,6 +55,7 @@ export function WebWorkPanel() {
     setAddressInput,
     onLoaded,
     onFailed,
+    onCdpNavigation,
   } = useWorkPanelStore(
     useShallow((s) => ({
       open: s.open,
@@ -81,6 +84,7 @@ export function WebWorkPanel() {
       setAddressInput: s.setAddressInput,
       onLoaded: s.onLoaded,
       onFailed: s.onFailed,
+      onCdpNavigation: s.onCdpNavigation,
     })),
   )
 
@@ -93,9 +97,15 @@ export function WebWorkPanel() {
   // 从 active tab 派生展示字段
   const url = activeTab?.url ?? ''
   const status = activeTab?.state.status ?? 'idle'
-  // WebViewFrame 只支持 iframe/screenshot/external,native(Tauri)映射为 external
+  // WebViewFrame 只支持 iframe/screenshot/external,native/cdp 映射为 external
+  // cdp 模式由 CdpBrowserView 渲染(canvas + WebSocket),不走 WebViewFrame
   const rawMode = activeTab?.state.mode ?? 'iframe'
-  const mode: 'iframe' | 'screenshot' | 'external' = rawMode === 'native' ? 'external' : rawMode
+  const sessionId = activeTab?.state.sessionId
+  const isCdpMode = rawMode === 'cdp' && !!sessionId
+  const mode: 'iframe' | 'screenshot' | 'external' =
+    rawMode === 'native' || rawMode === 'cdp'
+      ? 'external'
+      : (rawMode as 'iframe' | 'screenshot' | 'external')
   const screenshot = activeTab?.state.screenshot
   const title = activeTab?.state.title
   const error = activeTab?.state.error
@@ -231,18 +241,27 @@ export function WebWorkPanel() {
         onNewTab={() => newTab()}
         className={isResizing ? 'select-none' : undefined}
       >
-        <WebViewFrame
-          url={url}
-          mode={mode}
-          status={status}
-          screenshot={screenshot}
-          title={title}
-          error={error}
-          onLoad={onLoaded}
-          onError={onFailed}
-          onOpenExternal={handleOpenExternal}
-          onRetry={reload}
-        />
+        {isCdpMode && sessionId ? (
+          <CdpBrowserView
+            sessionId={sessionId}
+            onNavigation={onCdpNavigation}
+            onLoaded={onLoaded}
+            onFailed={onFailed}
+          />
+        ) : (
+          <WebViewFrame
+            url={url}
+            mode={mode}
+            status={status}
+            screenshot={screenshot}
+            title={title}
+            error={error}
+            onLoad={onLoaded}
+            onError={onFailed}
+            onOpenExternal={handleOpenExternal}
+            onRetry={reload}
+          />
+        )}
       </WorkPanel>
     </div>
   )
