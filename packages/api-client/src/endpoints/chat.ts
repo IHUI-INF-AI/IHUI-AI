@@ -145,6 +145,24 @@ export function deleteConversation(id: string) {
   })
 }
 
+/** 批量操作对话 action 类型(2026-07-31 立,对话历史批量删除/收藏/归档) */
+export type BatchConversationAction = 'delete' | 'favorite' | 'unfavorite' | 'archive' | 'unarchive'
+
+export interface BatchOperateResult {
+  action: BatchConversationAction
+  affected: number
+}
+
+/** 批量操作对话(删除/收藏/取消收藏/归档/取消归档)
+ *  用户归属校验由后端 userId + inArray(ids) 一次过滤,防越权
+ *  单次最多 100 个 ids */
+export function batchOperateConversations(action: BatchConversationAction, ids: string[]) {
+  return fetchApi<BatchOperateResult>('/api/chat/conversations/batch', {
+    method: 'POST',
+    body: JSON.stringify({ action, ids }),
+  })
+}
+
 /** 清空对话消息（保留对话本身） */
 export function clearMessages(id: string) {
   return fetchApi<{ cleared: boolean }>(`/api/chat/conversations/${encodeURIComponent(id)}/clear`, {
