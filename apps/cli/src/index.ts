@@ -42,6 +42,15 @@ import { registerMemoryCommand } from './commands/memory.js';
 import { registerWorkflowsCommand } from './commands/workflows.js';
 import { registerSpecCommand } from './commands/spec.js';
 import { registerPlanCommand } from './commands/plan.js';
+import { registerAgentsCommand } from './commands/agents.js';
+import { registerAiSkillsCommand } from './commands/ai-skills.js';
+import { attachChatSubcommands } from './commands/chat-subcommands.js';
+import { registerContextCommand } from './commands/context.js';
+import { registerDeveloperCommand, registerPlaygroundCommand } from './commands/developer.js';
+import { registerKnowledgeCommand, registerRagCommand } from './commands/knowledge.js';
+import { registerMcpMarketCommand } from './commands/mcp-market.js';
+import { registerModelsCommand } from './commands/models.js';
+import { registerSecurityCommand } from './commands/security.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
@@ -329,7 +338,7 @@ program
   });
 
 // chat 子命令
-program
+const chatCmd = program
   .command('chat')
   .description('进入对话模式 (多轮)')
   .action(async () => {
@@ -359,6 +368,9 @@ program
       permissionMode: cfg.permissionMode,
     });
   });
+
+// chat 子命令挂载:history/favorites/templates/settings — 对齐 Web 端 /chat 4 页功能
+attachChatSubcommands(chatCmd);
 
 // agent 子命令
 program
@@ -499,6 +511,36 @@ registerSpecCommand(program);
 
 // plan 子命令组 — 对齐 Web 端 /plan(init/list/show/delete 本地文档管理)
 registerPlanCommand(program);
+
+// agents 子命令组 — 对齐 Web 端 /agents(list/my/show/create/stats 5 页)
+registerAgentsCommand(program);
+
+// ai-skills 子命令组 — 对齐 Web 端 /ai-skills(list/show/invoke/install/remove)
+registerAiSkillsCommand(program);
+
+// context 子命令组 — 对齐 Web 端 /context(list/add/remove/clear 上下文文件管理)
+registerContextCommand(program);
+
+// developer 子命令组 — 对齐 Web 端 /developer(IDE/keys/logs/team)
+registerDeveloperCommand(program);
+
+// playground 子命令组 — 对齐 Web 端 /playground(AI 玩具箱)
+registerPlaygroundCommand(program);
+
+// knowledge 子命令组 — 对齐 Web 端 /knowledge-base(list/show/create/delete)
+registerKnowledgeCommand(program);
+
+// rag 子命令组 — 对齐 Web 端 /knowledge-rag(search/index)
+registerRagCommand(program);
+
+// mcp-market 子命令组 — 对齐 Web 端 /mcp-projects(list/search/show/install/remove)
+registerMcpMarketCommand(program);
+
+// models 子命令组 — 对齐 Web 端 /models(list/keys/usage/billing/groups 10+ 页)
+registerModelsCommand(program);
+
+// security 子命令组 — 对齐 Web 端 /security-audit(audit/scan/report)
+registerSecurityCommand(program);
 
 // checkpoint 子命令组
 registerCheckpointCommand(program);
