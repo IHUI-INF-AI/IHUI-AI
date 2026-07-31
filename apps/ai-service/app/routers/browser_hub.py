@@ -230,16 +230,18 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
     logger.info(f"[browser_hub] WebSocket 连接: session={session_id}")
 
     # 导航监听:页面加载完成后推送导航事件
-    async def on_navigation(frame: Any) -> None:
+    # (set_navigation_handler 在 executor 线程注册 sync page.on,
+    #  回调通过 run_coroutine_threadsafe 传递到 main loop 执行)
+    async def on_navigation(url: str, title: str | None) -> None:
         try:
-            if frame == session.page.main_frame:
-                url = session.page.url
-                title = await session.page.title()
-                await ws.send_json({"type": "navigation", "url": url, "title": title})
+            # title 在 sync 线程取可能为空,这里补取
+            if not title:
+                title = await session.get_title()
+            await ws.send_json({"type": "navigation", "url": url, "title": title})
         except Exception:
             pass
 
-    session.page.on("framenavigated", lambda f: asyncio.create_task(on_navigation(f)))
+    await session.set_navigation_handler(on_navigation)
 
     # 画面帧回调
     async def on_frame(data_b64: str, metadata: dict) -> None:
