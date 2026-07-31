@@ -17,6 +17,7 @@ import {
   RefreshCw,
   ArrowDown,
   Search,
+  Layers,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -1386,11 +1387,17 @@ export function MessageList({
     ? Math.max(0, (offsets[messages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
     : 0
 
-  // 时间线 tab 切换按钮(2026-07-28 立,Phase 19 集成)
-  // 与 TimelineTab 组件功能一致,但本组件使用自有 tab UI(避免与已有 AI 面板 tab 样式冲突)
+  // 时间线 tab 切换按钮(2026-07-28 立,Phase 19 集成;2026-07-31 立,去容器背景/描边、按钮放大、新增"全部"tab)
+  // - 容器无背景色无描边(融入父级)
+  // - 按钮放大:rounded-md + px-3 py-1 + text-xs,选中态 bg-muted + shadow-sm,hover 用 accent/50 subtle 变化
+  // - "全部"tab(2026-07-31 立):整合对话流 + 时间线在同一视图呈现
+  const tabButtonBase =
+    'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/40'
+  const tabButtonActive = 'bg-muted text-foreground shadow-sm'
+  const tabButtonIdle = 'text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground'
   const tablistNode = (
     <div
-      className="sticky top-0 z-10 flex shrink-0 items-center gap-1 border-b border-border/40 bg-background/80 px-3 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      className="sticky top-0 z-10 flex shrink-0 items-center gap-1 px-3 py-1.5"
       role="tablist"
       aria-label="对话视图切换"
       data-testid="message-list-tablist"
@@ -1401,15 +1408,10 @@ export function MessageList({
         aria-selected={activeTab === 'inline'}
         aria-controls="message-list-panel-inline"
         onClick={() => setActiveTab('inline')}
-        className={cn(
-          'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
-          activeTab === 'inline'
-            ? 'bg-muted text-foreground shadow-sm'
-            : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
-        )}
+        className={cn(tabButtonBase, activeTab === 'inline' ? tabButtonActive : tabButtonIdle)}
         data-testid="message-list-tab-inline"
       >
-        <MessageSquare className="h-3 w-3" aria-hidden />
+        <MessageSquare className="h-3.5 w-3.5" aria-hidden />
         对话流
       </button>
       <button
@@ -1418,24 +1420,31 @@ export function MessageList({
         aria-selected={activeTab === 'timeline'}
         aria-controls="message-list-panel-timeline"
         onClick={() => setActiveTab('timeline')}
-        className={cn(
-          'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
-          activeTab === 'timeline'
-            ? 'bg-muted text-foreground shadow-sm'
-            : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',
-        )}
+        className={cn(tabButtonBase, activeTab === 'timeline' ? tabButtonActive : tabButtonIdle)}
         data-testid="message-list-tab-timeline"
       >
-        <ListTree className="h-3 w-3" aria-hidden />
+        <ListTree className="h-3.5 w-3.5" aria-hidden />
         时间线
         {(timelineEvents.length > 0 || derivedEvents.length > 0) && (
           <span
-            className="ml-0.5 rounded-sm bg-muted px-1 text-[9px] tabular-nums text-muted-foreground/80"
+            className="ml-0.5 rounded-sm bg-muted px-1 text-[10px] tabular-nums text-muted-foreground/80"
             data-testid="message-list-timeline-count"
           >
             {timelineEvents.length || derivedEvents.length}
           </span>
         )}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'all'}
+        aria-controls="message-list-panel-all"
+        onClick={() => setActiveTab('all')}
+        className={cn(tabButtonBase, activeTab === 'all' ? tabButtonActive : tabButtonIdle)}
+        data-testid="message-list-tab-all"
+      >
+        <Layers className="h-3.5 w-3.5" aria-hidden />
+        全部
       </button>
     </div>
   )
@@ -1462,10 +1471,142 @@ export function MessageList({
     </div>
   )
 
+  // 对话流 tab 面板(2026-07-31 立:抽取为变量,供 'inline' 和 'all' tab 复用)
+  // - 添加 h-full 以适应 'all' tab 中的嵌套布局(flex-1 在非 flex 父级中无效)
+  const inlinePanelNode = (
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      id="message-list-panel-inline"
+      role="tabpanel"
+      className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
+      data-testid="message-list-inline-panel"
+    >
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+        {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
+        {fallbackNotice && (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+            <span>
+              {t('fallbackNotice', {
+                primary: fallbackNotice.primaryModel,
+                backup: fallbackNotice.backupModel,
+              })}
+            </span>
+            {onClearFallbackNotice && (
+              <button
+                type="button"
+                onClick={onClearFallbackNotice}
+                className="shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+                aria-label="close"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
+        {/* #8 顶部加载更多历史指示器 */}
+        {loadingMoreHistory && (
+          <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t('loading')}
+          </div>
+        )}
+        {/* #7 虚拟滚动顶部占位(未渲染消息的高度填充) */}
+        {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
+        {renderItems.map((m, idx) => {
+          const realIdx = enableVirtual ? visibleRange.start + idx : idx
+          const prev = realIdx > 0 ? messages[realIdx - 1] : undefined
+          // 消息间隔超过 5 分钟 → 插入 CompressionDivider
+          const gapMs =
+            prev && m && typeof prev.createdAt === 'number' && typeof m.createdAt === 'number'
+              ? m.createdAt - prev.createdAt
+              : 0
+          const showCompression = gapMs > 5 * 60 * 1000
+          return (
+            <React.Fragment key={m.id}>
+              {showCompression && prev && (
+                <CompressionDivider
+                  count={1}
+                  label={`${formatGap(gapMs)} 间隔`}
+                  expandable={false}
+                  data-testid={`message-compression-divider-${m.id}`}
+                />
+              )}
+              <div ref={enableVirtual ? measureItem(m.id) : undefined}>
+                {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
+                <MessageItem
+                  message={m}
+                  isLast={realIdx === messages.length - 1}
+                  isStreaming={isStreaming}
+                  assistantLabel={assistantLabel}
+                  onApplyDiff={onApplyDiff}
+                  onRejectDiff={onRejectDiff}
+                  isHighlighted={highlightedMessageId === m.id}
+                  isHovered={hoveredMessageId === m.id}
+                  isFocused={focusedIndex === realIdx}
+                  linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
+                  onMessageHover={handleMessageHover}
+                  isSearchMatch={searchResultSet.has(m.id)}
+                  isSearchCurrent={searchCurrentId === m.id}
+                  onContextMenu={(e) => {
+                    contextMenu.setData(m)
+                    contextMenu.contextMenuHandlers.onContextMenu(e)
+                  }}
+                />
+                {/* Phase 19: 最后一个 assistant 消息下挂载关联的 SubAgentTaskTree */}
+                {!m.error && m.id === lastAssistantMessageId && linkedSubagents.length > 0 && (
+                  <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
+                    {linkedSubagents.map((sub) => (
+                      <SubAgentTaskTree
+                        key={sub.id}
+                        subagent={sub}
+                        defaultCollapsed
+                        data-testid={`message-subagent-tree-${sub.id}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </React.Fragment>
+          )
+        })}
+        {/* #7 虚拟滚动底部占位 */}
+        {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  )
+
+  // "全部"tab 面板(2026-07-31 立):整合对话流 + 时间线在同一视图呈现
+  // - 上下分栏:上面对话流(占 3/5),下面时间线(占 2/5)
+  // - 用 gap-2 分隔(不使用 border-t,符合 AGENTS.md 禁止分割线规则)
+  // - 时间线区域用 bg-muted/20 背景做视觉区分
+  const allPanelNode = (
+    <div
+      id="message-list-panel-all"
+      role="tabpanel"
+      aria-label="全部面板"
+      className="flex min-h-0 flex-1 flex-col gap-2 px-3 py-2"
+      data-testid="message-list-all-panel"
+    >
+      {/* 上:对话流(占 3/5) */}
+      <div className="flex min-h-0 flex-[3] flex-col overflow-hidden rounded-md bg-background">
+        {inlinePanelNode}
+      </div>
+      {/* 下:时间线(占 2/5) */}
+      <div
+        className="min-h-0 flex-[2] overflow-hidden rounded-md bg-muted/20"
+        data-testid="message-list-all-timeline-wrapper"
+      >
+        {timelinePanelNode}
+      </div>
+    </div>
+  )
+
   return (
     <div className="flex h-full flex-col">
       {tablistNode}
-      {activeTab === 'inline' && (
+      {(activeTab === 'inline' || activeTab === 'all') && (
         <MessageSearchBar
           visible={searchBarVisible}
           onClose={handleSearchClose}
@@ -1475,119 +1616,17 @@ export function MessageList({
           onNavigate={handleSearchNavigate}
         />
       )}
-      {activeTab === 'inline' ? (
-        // 2026-07-21 AI 面板滚动条:加 hover-scroll 完全隐藏滚动条(不占布局空间),
-        // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
-        <div
-          ref={containerRef}
-          onScroll={handleScroll}
-          id="message-list-panel-inline"
-          role="tabpanel"
-          className="hover-scroll min-h-0 flex-1 overflow-y-auto"
-          data-testid="message-list-inline-panel"
-        >
-          <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
-            {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
-            {fallbackNotice && (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-                <span>
-                  {t('fallbackNotice', {
-                    primary: fallbackNotice.primaryModel,
-                    backup: fallbackNotice.backupModel,
-                  })}
-                </span>
-                {onClearFallbackNotice && (
-                  <button
-                    type="button"
-                    onClick={onClearFallbackNotice}
-                    className="shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
-                    aria-label="close"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            )}
-            {/* #8 顶部加载更多历史指示器 */}
-            {loadingMoreHistory && (
-              <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {t('loading')}
-              </div>
-            )}
-            {/* #7 虚拟滚动顶部占位(未渲染消息的高度填充) */}
-            {paddingTop > 0 && <div style={{ height: paddingTop, flexShrink: 0 }} />}
-            {renderItems.map((m, idx) => {
-              const realIdx = enableVirtual ? visibleRange.start + idx : idx
-              const prev = realIdx > 0 ? messages[realIdx - 1] : undefined
-              // 消息间隔超过 5 分钟 → 插入 CompressionDivider
-              const gapMs =
-                prev && m && typeof prev.createdAt === 'number' && typeof m.createdAt === 'number'
-                  ? m.createdAt - prev.createdAt
-                  : 0
-              const showCompression = gapMs > 5 * 60 * 1000
-              return (
-                <React.Fragment key={m.id}>
-                  {showCompression && prev && (
-                    <CompressionDivider
-                      count={1}
-                      label={`${formatGap(gapMs)} 间隔`}
-                      expandable={false}
-                      data-testid={`message-compression-divider-${m.id}`}
-                    />
-                  )}
-                  <div ref={enableVirtual ? measureItem(m.id) : undefined}>
-                    {/* P0 流式性能优化(2026-07-23):React.memo 避免非目标消息重渲染 */}
-                    <MessageItem
-                      message={m}
-                      isLast={realIdx === messages.length - 1}
-                      isStreaming={isStreaming}
-                      assistantLabel={assistantLabel}
-                      onApplyDiff={onApplyDiff}
-                      onRejectDiff={onRejectDiff}
-                      isHighlighted={highlightedMessageId === m.id}
-                      isHovered={hoveredMessageId === m.id}
-                      isFocused={focusedIndex === realIdx}
-                      linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
-                      onMessageHover={handleMessageHover}
-                      isSearchMatch={searchResultSet.has(m.id)}
-                      isSearchCurrent={searchCurrentId === m.id}
-                      onContextMenu={(e) => {
-                        contextMenu.setData(m)
-                        contextMenu.contextMenuHandlers.onContextMenu(e)
-                      }}
-                    />
-                    {/* Phase 19: 最后一个 assistant 消息下挂载关联的 SubAgentTaskTree */}
-                    {!m.error && m.id === lastAssistantMessageId && linkedSubagents.length > 0 && (
-                      <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
-                        {linkedSubagents.map((sub) => (
-                          <SubAgentTaskTree
-                            key={sub.id}
-                            subagent={sub}
-                            defaultCollapsed
-                            data-testid={`message-subagent-tree-${sub.id}`}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </React.Fragment>
-              )
-            })}
-            {/* #7 虚拟滚动底部占位 */}
-            {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
-            <div ref={bottomRef} />
-          </div>
-        </div>
-      ) : (
-        timelinePanelNode
-      )}
+      {activeTab === 'inline'
+        ? inlinePanelNode
+        : activeTab === 'timeline'
+          ? timelinePanelNode
+          : allPanelNode}
       {/* 2026-07-28 立(深度对标 Trae Work):Scroll-to-bottom 浮动按钮
         - 当 userScrolledUp 为 true(用户已向上滚动超过 120px)时显示
         - 点击 → scrollIntoView 到 bottomRef + 重置 userScrolledUp
         - 浮在 message list 容器右下角,固定定位(不随消息滚动)
         - 与 streaming 联动:有未读新消息时显示红点徽章 */}
-      {activeTab === 'inline' && userScrolledUp && (
+      {(activeTab === 'inline' || activeTab === 'all') && userScrolledUp && (
         <button
           type="button"
           onClick={handleJumpToLatest}
