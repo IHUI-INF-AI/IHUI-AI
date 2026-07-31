@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, Search } from 'lucide-react'
 import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -51,6 +52,7 @@ export function MentionSearch({
   selectedId,
   className,
 }: MentionSearchProps) {
+  const t = useTranslations('mentionSearch')
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       <div className="relative">
@@ -60,14 +62,14 @@ export function MentionSearch({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={`搜索${TYPE_TABS.find((t) => t.value === activeType)?.label ?? ''}…`}
           className="pl-9"
-          aria-label="搜索关键词"
+          aria-label={t('keywordAriaLabel')}
         />
         {isLoading && (
           <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1" role="tablist" aria-label="提及类型">
+      <div className="flex flex-wrap gap-1" role="tablist" aria-label={t('mentionTypeAriaLabel')}>
         {TYPE_TABS.map((t) => (
           <button
             key={t.value}

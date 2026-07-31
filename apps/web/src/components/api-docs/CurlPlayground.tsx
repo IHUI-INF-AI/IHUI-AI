@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Play, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -96,6 +97,7 @@ function utf8ToBase64(str: string): string {
 }
 
 export function CurlPlayground(): React.JSX.Element {
+  const t = useTranslations('models.apiDocs')
   const router = useRouter()
   const [curl, setCurl] = React.useState(SAMPLE_CURL)
 
@@ -125,7 +127,7 @@ export function CurlPlayground(): React.JSX.Element {
           onChange={(e) => setCurl(e.target.value)}
           spellCheck={false}
           className="min-h-[140px] w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring"
-          placeholder="粘贴 curl 命令..."
+          placeholder={t('curlPlaceholder')}
         />
 
         <div className="flex items-center justify-end gap-2">
