@@ -40,6 +40,8 @@ import {
   cleanupExpiredCodes,
 } from '../utils/code-store.js'
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
+import { evaluateLoginRisk } from '../services/risk-engine-service.js'
+import { verifyTurnstile } from '../services/turnstile-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -220,6 +222,28 @@ function parseLoginPreferences(list: { key: string; value: string | null }[]): {
 // =============================================================================
 
 export const authRoutes: FastifyPluginAsync = async (server) => {
+  // P0-30 配套(2026-08-01):登录端点 Turnstile 人机验证
+  // 覆盖 /login /login/sms /login/email,未配置 TURNSTILE_SECRET_KEY 时 verifyTurnstile 内部放行
+  // 客户端未提供 turnstileToken 时放行(兼容未启用 Turnstile 的旧客户端)
+  server.addHook('preHandler', async (request, reply) => {
+    const loginPaths = new Set(['/login', '/login/sms', '/login/email'])
+    const routeUrl = request.routeOptions?.url
+    if (!routeUrl || !loginPaths.has(routeUrl)) return
+
+    const body = request.body as Record<string, unknown> | undefined
+    const token = body?.turnstileToken
+    if (typeof token !== 'string' || !token) return
+
+    try {
+      const result = await verifyTurnstile(token, request.ip)
+      if (!result.success) {
+        return reply.code(403).send({ code: 403, message: '人机验证失败,请重试' })
+      }
+    } catch {
+      return reply.code(403).send({ code: 403, message: '人机验证服务异常,请重试' })
+    }
+  })
+
   // POST /api/auth/send-code - 发送手机验证码
   server.post(
     '/send-code',
@@ -634,8 +658,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
-      // 风控评估：异常 IP / 异地登录检测
-      const risk = server.riskEngine.evaluateRisk({
+      // 风控评估：异常 IP / 异地登录检测（命中异地登录/异常 IP 时异步触发登录异常通知）
+      const risk = evaluateLoginRisk({
         userId: String(user.id),
         ip: request.ip,
       })
@@ -761,7 +785,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       await clearLoginFailures(phone, ip)
 
-      const risk = server.riskEngine.evaluateRisk({
+      // 风控评估（命中异地登录/异常 IP 时异步触发登录异常通知）
+      const risk = evaluateLoginRisk({
         userId: String(user.id),
         ip: request.ip,
       })
