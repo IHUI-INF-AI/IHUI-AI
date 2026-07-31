@@ -53,6 +53,9 @@ import {
   MessageSquare,
   Lock,
   Search as SearchIcon,
+  Chrome as ChromeIcon,
+  FileSpreadsheet,
+  Presentation,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -374,7 +377,8 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
     name: 'Browser Use',
     description: 'AI 浏览器控制开源框架,LLM 直接操控网页,自然语言指令完成复杂任务',
     url: 'https://browser-use.com',
-    fallbackIcon: MousePointer2,
+    vendor: 'chrome',
+    fallbackIcon: ChromeIcon,
     tags: ['浏览器', 'AI'],
     category: 'browser',
     free: true,
@@ -2501,6 +2505,55 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
     category: 'data',
     free: true,
   },
+
+  // ========================================
+  // ★ Codex 必装 10 插件补全(2026-07-31 新增,4 个 catalog 缺失项)
+  // ========================================
+  {
+    id: 'build-web-apps',
+    name: 'Build Web Apps',
+    description:
+      'AI 一句话生成前端网页应用,React / Vue / Next.js / Tailwind / shadcn 全栈项目脚手架',
+    url: 'https://vercel.com',
+    vendor: 'vercel',
+    fallbackIcon: Globe,
+    tags: ['构建', 'Web', '脚手架'],
+    category: 'creation',
+    free: true,
+    official: true,
+  },
+  {
+    id: 'documents',
+    name: 'Documents',
+    description: 'AI 帮你交付正式文档,Word / Markdown / PDF / 合同 / 报告 / API 文档模板化生成',
+    url: 'https://www.notion.com/product/ai',
+    vendor: 'notion',
+    fallbackIcon: FileText,
+    tags: ['文档', 'AI 写作'],
+    category: 'creation',
+    free: true,
+  },
+  {
+    id: 'presentations',
+    name: 'Presentations',
+    description: 'AI 帮你生成高质量 PPT,大纲 → 排版 → 配图 → 导出 PPTX / Google Slides 一气呵成',
+    url: 'https://gamma.app',
+    fallbackIcon: Presentation,
+    tags: ['PPT', '演示'],
+    category: 'creation',
+    free: true,
+  },
+  {
+    id: 'spreadsheets',
+    name: 'Spreadsheets',
+    description: 'AI 数据分析师,Excel / Google Sheets 公式生成 / 数据透视 / 图表可视化 / 数据清洗',
+    url: 'https://sheets.google.com',
+    vendor: 'google',
+    fallbackIcon: FileSpreadsheet,
+    tags: ['表格', '数据分析'],
+    category: 'data',
+    free: true,
+  },
 ]
 
 // ============================================================================
@@ -2511,11 +2564,26 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
 /** ai-service 后端有对应 MCP 工具(可真实调用,非纯 prompt 意图)的 plugin id */
 const REAL_INTEGRATED_IDS = new Set<string>([
   // 浏览器控制(12)→ 走 ai-service 12 个 browser_* MCP 工具(桥接到 extension 端)
-  'playwright-mcp', 'puppeteer', 'browser-use', 'browserbase', 'stagehand',
-  'skyvern', 'browserless', 'selenium', 'playwright', 'multion', 'axiom', 'brightdata',
+  'playwright-mcp',
+  'puppeteer',
+  'browser-use',
+  'browserbase',
+  'stagehand',
+  'skyvern',
+  'browserless',
+  'selenium',
+  'playwright',
+  'multion',
+  'axiom',
+  'brightdata',
   // 电脑控制(7)→ 走 ai-service 10 个 computer_* MCP 工具(桥接到 desktop 端)
-  'anthropic-computer-use', 'claude-desktop', 'self-operating-computer', 'openadapt',
-  'adept-act', 'agsafety-agent', 'openai-operator',
+  'anthropic-computer-use',
+  'claude-desktop',
+  'self-operating-computer',
+  'openadapt',
+  'adept-act',
+  'agsafety-agent',
+  'openai-operator',
   // 文件系统(1)
   'filesystem-mcp',
   // 数据库(1)→ ai-service db_query MCP 工具(只读 SELECT/WITH)
@@ -2523,7 +2591,10 @@ const REAL_INTEGRATED_IDS = new Set<string>([
   // 搜索(1)→ ai-service search_web / web_search MCP 工具
   'duckduckgo',
   // 代码执行(2)
-  'code-interpreter-mcp', 'e2b',
+  'code-interpreter-mcp',
+  'e2b',
+  // Build Web Apps(走 e2b/code-interpreter MCP 真实调用)
+  'build-web-apps',
   // git(1)→ ai-service git_operations MCP 工具
   'github-mcp',
   // LangGraph 已用
@@ -2533,17 +2604,47 @@ const REAL_INTEGRATED_IDS = new Set<string>([
 /** LiteLLM 已接入的模型供应商 plugin id(需用户配 .env 激活) */
 const MODEL_INTEGRATED_IDS = new Set<string>([
   // 原生 provider 适配器(14 个)
-  'claude-skills', 'doubao', 'zhipu', 'qwen', 'hunyuan', 'volcengine',
-  'kling', 'openrouter',
+  'claude-skills',
+  'doubao',
+  'zhipu',
+  'qwen',
+  'hunyuan',
+  'volcengine',
+  'kling',
+  'openrouter',
   // LiteLLM catchall(模型前缀路由,60+ env key)
-  'grok', 'mistral', 'cohere', 'perplexity', 'deepseek', 'moonshot',
-  'baidu-ernie', 'minimax', 'yi', 'spark', 'baichuan',
-  'together-ai', 'fireworks-ai', 'groq', 'replicate',
-  'ollama', 'lm-studio', 'jan',
-  'cerebras', 'sambanova', 'siliconcloud', 'modelscope', 'bailian', 'alibaba-cloud-bailian',
-  'aws-bedrock', 'azure-ai', 'vertex-ai', 'watsonx',
-  'huggingface-models', 'huggingface-spaces',
-  'workers-ai', 'github-models',
+  'grok',
+  'mistral',
+  'cohere',
+  'perplexity',
+  'deepseek',
+  'moonshot',
+  'baidu-ernie',
+  'minimax',
+  'yi',
+  'spark',
+  'baichuan',
+  'together-ai',
+  'fireworks-ai',
+  'groq',
+  'replicate',
+  'ollama',
+  'lm-studio',
+  'jan',
+  'cerebras',
+  'sambanova',
+  'siliconcloud',
+  'modelscope',
+  'bailian',
+  'alibaba-cloud-bailian',
+  'aws-bedrock',
+  'azure-ai',
+  'vertex-ai',
+  'watsonx',
+  'huggingface-models',
+  'huggingface-spaces',
+  'workers-ai',
+  'github-models',
 ])
 
 /** 查询 plugin 的真实集成度
