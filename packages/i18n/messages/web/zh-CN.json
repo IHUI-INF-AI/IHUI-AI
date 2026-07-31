@@ -12401,11 +12401,34 @@
       "tabTimeline": "时间线",
       "searchPlaceholder": "搜索文件",
       "newFile": "新建文件",
+      "newFolder": "新建文件夹",
       "refresh": "刷新",
       "noMatch": "无匹配文件",
       "justNow": "刚刚",
       "minutesAgo": "{count} 分钟前",
-      "hoursAgo": "{count} 小时前"
+      "hoursAgo": "{count} 小时前",
+      "fileNamePlaceholder": "文件名...",
+      "folderNamePlaceholder": "文件夹名...",
+      "fileCreated": "文件已创建",
+      "folderCreated": "文件夹已创建",
+      "renamed": "已重命名",
+      "deleted": "已删除",
+      "confirmDelete": "确定删除?",
+      "confirm": "确定",
+      "cancel": "取消",
+      "rename": "重命名",
+      "delete": "删除"
+    },
+    "fileTreeNode": {
+      "open": "打开",
+      "rename": "重命名",
+      "delete": "删除",
+      "copyPath": "复制路径",
+      "renamed": "已重命名",
+      "deleted": "已删除",
+      "confirmDelete": "确定删除?",
+      "confirm": "确定",
+      "cancel": "取消"
     },
     "codeEditor": {
       "zoomOut": "缩小字号",
@@ -12476,7 +12499,14 @@
       "unstage": "取消暂存",
       "stage": "暂存",
       "refresh": "刷新",
-      "more": "更多"
+      "more": "更多",
+      "push": "推送",
+      "pull": "拉取",
+      "commitMessageRequired": "请输入提交信息",
+      "commitSuccess": "提交成功",
+      "pushSuccess": "推送成功",
+      "pullSuccess": "拉取成功",
+      "branchSwitched": "已切换到 {branch}"
     },
     "debug": {
       "start": "开始",
