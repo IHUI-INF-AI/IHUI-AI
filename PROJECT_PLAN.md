@@ -156,6 +156,30 @@
   - **check-multi-end-sync.mjs(§9 多端同步)**:保留 warn。多端同步是开发流程问题不是硬约束;升级会阻塞合法单端紧急修复(hotfix);§9 已有平台独占白名单 + PROJECT_PLAN.md 显式标注机制
   - **check-readme-sync.mjs(§21 README 同步)**:保留 warn。脚本无法区分"纯 bug 修复"vs"新功能"(无 commit message 解析能力),升级会大规模阻塞合法 commit(误报率 >60%);§21 已有 §24 "新增功能须用户确认"做硬约束
   - **check-staged-pollution.mjs(§12 staged 污染)**:保留 warn。多 agent 并行是项目常态,升级会阻塞所有并行开发(误报率 ~100%);check-commit-scope-consistency.mjs 已做 blocking 检测覆盖核心场景
+
+---
+
+## 当前活跃任务:桌面端更新推送功能(2026-07-31 立,平台独占:apps/desktop + apps/web 桌面端 UI)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/desktop`(Rust)+ `apps/web`(桌面端 Tauri WebView 内 UI),不参与 api/ai-service/其他端跨端契约同步。
+> AGENTS.md §24:用户在本轮对话已明确要求开发,无需再次确认。
+
+### 目标
+
+为桌面端(Tauri 2)实现完整的应用更新推送功能:
+- Rust 端 updater 插件已配置(tauri.conf.json endpoints + pubkey + plugin 注册 + capabilities updater:default 已授权)
+- 前端补全:updater JS 封装 + useUpdater hook + 下拉窗提示组件 + 精美动画更新按钮
+- 触发来源:① 托盘菜单"检查更新"(已 emit desktop-tray-action,需接入监听)② 应用启动静默自动检查 ③ 下拉窗手动触发
+- UI:从顶部下滑出现的下拉窗 + 带进度环/shimmer 光泽的动画更新按钮
+
+### 硬性指标
+
+- [x] ✅(2026-07-31) H1:tauri-bridge.ts 新增 updater 封装(checkForUpdates/downloadAndInstall/restartApp)+ Rust 新增 restart_app 命令
+- [x] ✅(2026-07-31) H2:use-updater.ts hook(状态机 idle/checking/available/downloading/installing/error + 启动静默检查 + 进度回调)
+- [x] ✅(2026-07-31) H3:UpdatePrompt.tsx 下拉窗 + 精美动画按钮(shimmer 光泽流动 + 进度环 + 完成勾选动画)
+- [x] ✅(2026-07-31) H4:GlobalHooksProvider 调用 useDesktopEvents()(修复遗漏)+ 监听 desktop-check-update 触发检查;GlobalShell 挂载 UpdatePrompt
+- [x] ✅(2026-07-31) H5:i18n 5 语言新增 common.update 命名空间(zh-CN/zh-TW/en/ja/ko parity)
+- [x] ✅(2026-07-31) H6:typecheck + lint — 本任务文件 0 错误(剩余 1 error 在 AdminNav.tsx 为其他 agent 已存在,§12 隔离)
   - **结论**:3 个守门脚本的核心问题不是"warn vs blocking",而是"规则成熟度 + 误报率"。当前 warn-only 是合理选择,继续保留;后续如需升级,先增强脚本的 commit message 解析能力(识别 chore/fix/refactor 等 scope)和豁免场景识别
 - [x] ✅(2026-07-27) 技术债收尾批次 — rebase 集成 + 冲突修复 + console.log 扩面(commit `adf32a32e` + `21a22f656`)。**触发**:rebase 集成 61 个 origin/main 提交时的冲突修复 + console.log 收尾 v2(a3cfde443)的悬空 commit 恢复。**改动**:① `apps/ai-service/app/skills/content_engine/lib/csdn_publish.py` rebase 冲突解决:移除硬编码 `CSDN_APP_KEY='203803574'` 和重复 `_load_env()` 调用,统一为 `os.getenv('CSDN_APP_KEY', '')` + `os.getenv('CSDN_APP_SECRET', '')` 单次加载;② `apps/api/src/plugins/registry-queue.ts` 3 console → `logger`(info/error)+ `{ err: err as Error }` 元数据包装;③ `apps/api/src/services/token-service.ts` 2 console → `logger`(warn/error,security family reuse detection + revocation failed);④ `apps/web/src/hooks/use-task-receiver.ts` 2 console.error → `logger.error`(register failed + unregister error);⑤ `apps/web/src/lib/models-api.ts` 2 console.warn → `logger.warn`(getMarketModels + getAiNewsFeed fallback 失败);⑥ `apps/web/src/components/ide/terminal-panel.tsx` xterm 强类型改造:补 `import type { Terminal } from '@xterm/xterm'` + `import type { FitAddon } from '@xterm/addon-fit'`,消除 145 行中的 `: any` 残留;⑦ `apps/web/src/components/layout/GlobalShell.tsx` 右列布局 `flex-col` → `flex-row` 修复工作区被 WebWorkPanel 覆盖塌缩;⑧ `apps/api/tests/embedding-provider.test.ts` + `apps/api/tests/tbox.test.ts` 测试硬编码密钥 → `process.env.X || 'fallback'` 形式(§守门 P1-1 落地);⑨ `apps/web/src/components/rules/rules-manager.tsx` 9 处 `eslint-disable jsx-a11y` 添加 ESLint 8+ `--` 原因注释(模态遮罩点击外部关闭,键盘用户通过关闭按钮 X 提供等价交互)。**验证**:`pnpm --filter @ihui/api typecheck` exit 0 + `pnpm --filter @ihui/web typecheck` exit 0 + git-push-guard exit 0(local HEAD `21a22f656` == remote HEAD `21a22f656`)§20 五条全绿
 - [x] ✅(2026-07-27) P0/P1 技术债统一清理批次 — 端口统一/异常日志/路由注册/构建守门恢复/a11y/孤儿文件清理(commit `eb02bedaa`,36 文件 +141/-591 净 -450 行)。**10 类改动**:① **端口统一**(3001/8000 → 8802/8803):CLI defaults.ts + settings.ts apiUrl 改 8802 + user-llm-configs-v2.ts AI_SERVICE_URL 改 8803 + 5 文档(AUTHENTICATION/AI_SERVICE/DEVELOPMENT/TROUBLESHOOTING/en-launch-post)+ RELEASE_NOTES_v1.0.md 共 14+ 处 3001 → 8802;② **Python 异常静默 → 结构化日志**(19 处):agent_runtime.py Redis session save + hook_engine.py 5 处 + rules_engine.py 7 处 + spec_generator.py 7 处,全部 `except: pass` → `logger.exception()` + 上下文;③ **print → logger**(3 处 docstring 示例):agent_loop_v2.py + knowledge_lookup.py + model_router.py;④ **构建守门恢复**:next.config.ts 还原 `typescript.ignoreBuildErrors` / `eslint.ignoreDuringBuilds` 为 false(撤销 2026-07-22 临时绕过),恢复构建时 TS+ESLint 检查;⑤ **API 路由注册**:routes/index.ts 挂载 subagentsExtendedRoutes + aiTutorRoutes(此前未挂载,前端调用 404);⑥ **a11y 可访问性修复**(ESLint 恢复后暴露):MemoryForm.tsx 6 处 label htmlFor + DispatchForm.tsx 14 处 label htmlFor + useId + QueueList.tsx 列表项 role/tabIndex/onKeyDown 键盘支持 + memory/[id]/PageClient.tsx 编辑表单 + design/PageClient.tsx 模态遮罩;⑦ **测试 @ts-ignore 清理**(TS 守门恢复后暴露):api.test.ts 改 `import type * as Api` + 3 个 **tests** 文件移除 `@ts-ignore`;⑧ **守门脚本假阳性修复**:check-verify-tmp-files.mjs EXCLUDE_DIRS 加 'scripts' + check-port-registry.mjs EXEMPT_PATH_PATTERNS 加 `/^docs\//`;⑨ **孤儿文件清理**(5 个 + 1 临时脚本归档):UserApiService.tsx(57 行)+ UserStudyBar.tsx(44 行)+ api-server.ts(67 行)+ saas-admin-proxy.ts(94 行)+ schema-software-source-code.ts(186 行)共 5 个无引用孤儿 + verify-0066.mjs(44 行,归档至 .trae-cn/tmp/verify-0066/);⑩ **README.md 技术债清理**:移除 25+ 项虚假 desktop 能力描述 + 修正测试用例统计矛盾 + 更新路由数量(95+ → ~290)。**验证**:全量 `pnpm turbo build typecheck lint test` 全绿 + mypy 226 文件 0 error + e2e typecheck 通过 + git-push-guard exit 0(local HEAD `eb02bedaa` == remote HEAD `eb02bedaa`)§20 五条全绿;**协作隔离**:其他 agent 并行的 miniapp-taro 重构(36 文件)+ scripts/tests/*.test.mjs(11 个未跟踪测试)不在本任务范围,未纳入本 commit,由对应 agent 自行 push

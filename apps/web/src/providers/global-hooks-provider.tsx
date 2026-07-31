@@ -7,6 +7,7 @@ import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import { useDesktopEvents } from '@/hooks/use-desktop'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 
 const SHORTCUT_ROUTES: Record<string, string> = {
@@ -40,6 +41,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // 应用启动时从 Cookie 恢复登录态(modal 模式 + mock cookie + 真后端 token 三种路径)
   // ready 仅供子组件读 useAuthBootstrap().ready 用,这里只是触发副作用
   useAuthBootstrap()
+  // 桌面端事件监听:托盘菜单 + 系统级快捷键(浏览器端 no-op,仅在 Tauri 环境注册监听)
+  useDesktopEvents()
   const { setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 
