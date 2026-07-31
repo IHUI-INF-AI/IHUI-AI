@@ -10,7 +10,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 /**
- * 多平台一键发布系统(2026-07-20 新增)。
+ * 多平台一键发布系统(2026-07-20 新增,2026-07-31 扩展至 25 平台)。
  *
  * 4 张表(与 ai-service app/services/publish/* 代码字段名严格对齐):
  *   - publish_accounts:       平台账号(凭证 AES-256-GCM 加密存储)
@@ -18,10 +18,17 @@ import {
  *   - publish_history:        发布历史(每个平台一条记录)
  *   - publish_notifications:  发布完成通知(DB 持久化 + Socket.IO 推送双通道)
  *
- * 14 平台清单:
- *   文章 7: wordpress / medium / wechat / toutiao / zhihu / csdn / juejin
- *   图片 2: xiaohongshu / weibo
- *   视频 5: youtube / bilibili / douyin / kuaishou / shipinhao
+ * 25 平台清单(与 platform-schemas.ts / base_adapter.list_all_adapter_classes 对齐):
+ *   - 国际平台 3:    wordpress / medium / youtube
+ *   - 视频平台 6:    bilibili / douyin / kuaishou / xigua / haokan / shipinhao
+ *   - 图文社交 4:    wechat / toutiao / weibo / xiaohongshu
+ *   - 技术社区 7:    zhihu / csdn / juejin / cnblogs / segmentfault / oschina / jianshu
+ *   - 六大号 6:      baijiahao / qq / dayihao / netease / sohu / sina
+ *
+ * 凭证 authType 分类:
+ *   - api_key         — HTTP API + 密钥/应用密码(wordpress/medium/wechat/cnblogs/segmentfault/oschina)
+ *   - oauth           — 开放平台 OAuth 授权(youtube)
+ *   - browser_cookie  — 浏览器抓 Cookie(其余 18 平台,Playwright + 反风控五层防线)
  *
  * 注意:
  * - 使用 bigserial 主键(对齐 ai-service asyncpg 代码,ai-service 不通过 ORM 操作)
