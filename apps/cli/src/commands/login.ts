@@ -19,6 +19,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { loadSettings, getSettingsPath, type Settings } from './settings.js';
@@ -271,4 +272,38 @@ export async function runLogin(opts: LoginOptions): Promise<boolean> {
   console.info(chalk.dim(`  Access Token 有效期: ${expiryText}(过期自动续期,无需重登录)`));
   console.info(chalk.dim(`  Refresh Token 有效期: ${refreshExpiryText}(到期需重新 ihui login)\n`));
   return true;
+}
+
+// === CLI 命令注册(对齐 capabilities/memory 等已有命令模式) ===
+
+interface CliLoginOptions {
+  account?: string;
+  password?: string;
+  apiUrl?: string;
+  check?: boolean;
+  logout?: boolean;
+}
+
+/**
+ * 在根 program 上注册 `login` 命令。
+ * 用法:
+ *   ihui login                         # 交互式
+ *   ihui login -a admin                # 命令行指定账号
+ *   ihui login -a admin -p admin123    # 全自动
+ *   ihui login --check                 # 检查 token
+ *   ihui login --logout                # 清除 token
+ */
+export function registerLoginCommand(program: Command): void {
+  program
+    .command('login')
+    .description('用户名/邮箱/手机号 + 密码登录,获取 JWT(写入 settings.json)')
+    .option('-a, --account <account>', '账号(用户名/手机号/邮箱)')
+    .option('-p, --password <password>', '密码(会暴露在进程列表,推荐交互式输入)')
+    .option('--api-url <url>', '后端 API 地址(默认读 settings.json)')
+    .option('--check', '检查当前 token 是否有效')
+    .option('--logout', '清除本地 token(settings.json 的 apiKey 字段)')
+    .action(async (opts: CliLoginOptions) => {
+      const ok = await runLogin(opts);
+      if (!ok) process.exitCode = 1;
+    });
 }
