@@ -4041,6 +4041,18 @@ _TOOLS: list[MCPTool] = [
     ),
 ]
 
+
+def get_registered_tool_names() -> set[str]:
+    """返回所有已注册工具的名字集合(只读 helper,2026-07-31 立)。
+
+    供 llm.py 的 resolve_tool_source() 派生工具来源(serverSource)使用:
+    - 工具名在本集合中且不属于 builtin/plugin → serverSource='mcp'
+    - 当前所有工具均为本地实现(无外部 MCP server 注册),server_id/server_name 暂为 None
+    - 未来接入外部 MCP server(如 context7/filesystem)后,扩展本函数返回 (name, server_id, server_name) 三元组
+    """
+    return {t.name for t in _TOOLS}
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     "search_codebase": _tool_search_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
