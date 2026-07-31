@@ -104,6 +104,28 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
 
+  server.get('/auth-find-info/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db
+      .select()
+      .from(userAuthInfo)
+      .where(eq(userAuthInfo.userUuid, p.data.id))
+      .limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(
+      success({
+        id: r.userUuid,
+        userUuid: r.userUuid,
+        card: r.idCard,
+        belong: r.authSource,
+        title: r.realName,
+        message: r.rejectReason,
+        createdAt: r.createdAt,
+      }),
+    )
+  })
+
   server.post('/auth-find-info', async (request, reply) => {
     const b = request.body as Record<string, unknown>
     const [row] = await db
@@ -204,6 +226,14 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: rows.map(mapMargin), total, page, pageSize }))
   })
 
+  server.get('/auth-user-margin/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db.select().from(userMargins).where(eq(userMargins.userId, p.data.id)).limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(mapMargin(r)))
+  })
+
   server.post('/auth-user-margin', async (request, reply) => {
     const b = request.body as Record<string, unknown>
     const [row] = await db
@@ -277,6 +307,28 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       createdAt: r.createdAt,
     }))
     return reply.send(success({ list, total }))
+  })
+
+  server.get('/auth-veri-codes/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db.select().from(captchas).where(eq(captchas.id, p.data.id)).limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(
+      success({
+        id: r.id,
+        userId: null,
+        phone: null,
+        code: r.code,
+        type: null,
+        platform: null,
+        ip: null,
+        expiresAt: r.expiresAt,
+        used: false,
+        usedAt: null,
+        createdAt: r.createdAt,
+      }),
+    )
   })
 
   server.delete('/auth-veri-codes/:id', async (request, reply) => {
@@ -456,6 +508,14 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: rows.map(mapClass), total, page, pageSize }))
   })
 
+  server.get('/edu/classes/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db.select().from(lessons).where(eq(lessons.id, p.data.id)).limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(mapClass(r)))
+  })
+
   server.post('/edu/classes', async (request, reply) => {
     const b = request.body as Record<string, unknown>
     const [row] = await db
@@ -529,6 +589,14 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: rows.map(mapSchedule), total, page, pageSize }))
   })
 
+  server.get('/edu/classes/schedules/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db.select().from(lessonChapters).where(eq(lessonChapters.id, p.data.id)).limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(mapSchedule(r)))
+  })
+
   server.post('/edu/classes/schedules', async (request, reply) => {
     const b = request.body as Record<string, unknown>
     const [row] = await db
@@ -596,6 +664,14 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
           .where(where)
       )[0]?.c ?? 0
     return reply.send(success({ list: rows.map(mapMaterial), total, page, pageSize }))
+  })
+
+  server.get('/learn/materials/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db.select().from(resources).where(eq(resources.id, p.data.id)).limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(mapMaterial(r)))
   })
 
   server.post('/learn/materials', async (request, reply) => {
@@ -674,6 +750,14 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: rows.map(mapPlan), total, page, pageSize }))
   })
 
+  server.get('/learn/plans/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db.select().from(learnMaps).where(eq(learnMaps.id, p.data.id)).limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(mapPlan(r)))
+  })
+
   server.post('/learn/plans', async (request, reply) => {
     const b = request.body as Record<string, unknown>
     const [row] = await db
@@ -743,6 +827,18 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
           .where(where)
       )[0]?.c ?? 0
     return reply.send(success({ list: rows.map(mapRemind), total, page, pageSize }))
+  })
+
+  server.get('/learn/reminds/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [r] = await db
+      .select()
+      .from(eduNotification)
+      .where(eq(eduNotification.id, Number(p.data.id)))
+      .limit(1)
+    if (!r) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(mapRemind(r)))
   })
 
   server.post('/learn/reminds', async (request, reply) => {

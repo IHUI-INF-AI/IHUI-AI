@@ -90,6 +90,20 @@ export const adminZoneRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ tree: buildTree(all, null) }))
   })
 
+  server.get('/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [row] = await db
+      .select()
+      .from(zhsZone)
+      .where(eq(zhsZone.id, parsed.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '区域不存在'))
+    return reply.send(success(row))
+  })
+
   server.post('/', async (request, reply) => {
     const parsed = createZoneSchema.safeParse(request.body)
     if (!parsed.success) {

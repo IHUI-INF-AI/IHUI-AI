@@ -1,7 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { eq } from 'drizzle-orm'
+import { dbRead } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { zhsExchangeRate } from '@ihui/database'
 import {
   findExchangeRates,
   findRate,
@@ -92,6 +95,21 @@ export const adminExchangeRateRoutes: FastifyPluginAsync = async (server) => {
     }
     const result = await findExchangeRates(parsed.data)
     return reply.send(success(result))
+  })
+
+  // GET /exchange-rates/:id — 详情
+  server.get('/exchange-rates/:id', async (request, reply) => {
+    const parsedParams = idParamSchema.safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [row] = await dbRead
+      .select()
+      .from(zhsExchangeRate)
+      .where(eq(zhsExchangeRate.id, parsedParams.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '汇率记录不存在'))
+    return reply.send(success(row))
   })
 
   // POST /exchange-rates — 创建
