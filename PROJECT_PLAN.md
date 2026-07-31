@@ -1496,8 +1496,40 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 - `e973c0b00a` fix(web): 移除 AccountHistoryInput 非必要 ChevronDown + admin 凭证 30 天持久化
 - `652afb933e` fix(web): /chat 路由未登录时显示友好引导,避免被登录弹窗挡 AI 对话内容(同时附 ide 3 panel + i18n 5 文件补全)
 - `ef18409100` fix(i18n): 补齐 /chat 路由 chat.loginRequiredTitle/Desc 5 语言 key(parity)
-- 本任务最终 local HEAD `ef184091005def9880dfd22314cd0f63f3089fc8` == origin/main `ef184091005def9880dfd22314cd0f63f3089fc8` ✅
-- `node scripts/git-push-guard.mjs` exit 0 ✅
+- `3e37ca201b` fix(ui-react): 共享层 AccountHistoryInput 移除 ChevronDown 按钮(共享包版本)
+- `d0d9dddeea` docs(web+ui-react): AccountHistoryInput 注释同步 — 明确移除 ChevronDown 行为
+- `a12d54abd1` fix(web): MessageInput 输入框 border-border → border-input + LoginDialog 移除双层圆角 + 旧 Radix 策略
+- 本任务最终 local HEAD `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` == origin/main `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` ✅
+- `node scripts/git-push-guard.mjs` exit 0 ✅(tag 同步失败为非阻塞告警,branch push 成功)
+
+## web 端 AI 对话页 UI 一致性 2 轮细化修复(2026-07-31,已完成 ✅)
+
+> 触发背景:用户多次反馈"AI 对话页跟历史项目根本不一致"、"你深度分析比对"。
+> AGENTS.md §24:本任务为"现有功能的细化优化/适配",不引入新能力,豁免 AskUserQuestion 确认。
+
+### 本轮修复内容(subagent 浏览器 SSR HTML 抓取 + DOM 静态分析发现)
+
+- [x] **MessageInput 输入框描边色升级**:`apps/web/src/components/chat/message-input.tsx:339` 改 `border-border` (89.8% L / 22% L) → `border-input` (91% L / 26% L),对齐 tokens.css `--color-input` 设计意图。亮色下输入框在白底卡片上视觉边界更柔和(用户偏好"light mode colors to be whiter"),暗色下与卡片 10% L 背景对比度提升 4%,用户更易找到光标位置
+- [x] **LoginDialog 双层圆角消除**:`apps/web/src/components/login/LoginDialog.tsx:55-69` 移除 DialogContent 的 `sm:rounded-xl`(AuthShell 内部已 `rounded-xl`),小屏(<640px)不再双层圆角叠加视觉割裂
+- [x] **LoginDialog 旧 Radix pointer-events 策略移除**:同文件 DialogContent 移除 `pointer-events-none [&>div]:pointer-events-auto`,2026 Radix UI 已默认全启用,旧策略会导致子元素事件穿透。LoginDialog 账号/密码输入响应更可靠
+
+### Git 同步证据
+
+- 本任务最终 commit `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` == origin/main `a12d54abd16702a820f6f4cfc63a40d9e7e408ea` ✅
+- 单独 typecheck(`pnpm --filter @ihui/web typecheck`)+ eslint 2 文件 0 errors
+
+### 影响文件(共 2 个)
+
+- `apps/web/src/components/chat/message-input.tsx`
+- `apps/web/src/components/login/LoginDialog.tsx`
+
+### 未完成项(本环境能力限制)
+
+- ⚠️ **浏览器 4 状态视觉自验未完成**:主 agent + subagent 工具集均无 `browser_*` 工具(系统提示"browser is currently locked"但无解锁能力),无法实际渲染截图。dev server 持续运行在 8801 端口(已 HTTP 200 验证),用户可在 TRAE 浏览器面板打开 `http://localhost:8801/chat` 实际验证 3 项修复的视觉效果
+- subagent 静态分析已发现的 P1 待修复项(不动):
+  - P1 #1 web 端 5 个独立登录表单是 dead code(高风险删除,需主 agent 评估)
+  - P1 #3 AI 面板首屏 400px 在 mobile 视口下的入口问题(需产品决策)
+  - P1 #4 第三方登录双 grid 合并(实际 web 端 ThirdPartyLoginButtons 是 dead code,无实际渲染影响)
 
 ### 影响文件(共 9 个)
 
