@@ -1529,7 +1529,7 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 - subagent 静态分析已发现的 P1 待修复项(不动):
   - P1 #1 web 端 5 个独立登录表单是 dead code(高风险删除,需主 agent 评估)
   - P1 #3 AI 面板首屏 400px 在 mobile 视口下的入口问题(需产品决策)
-  - P1 #4 第三方登录双 grid 合并(实际 web 端 ThirdPartyLoginButtons 是 dead code,无实际渲染影响)
+  - P1 #4 **已作废**(2026-07-31 深度分析发现):原"第三方登录双 grid 合并"经 subagent 验证实际是 web 端 `ThirdPartyLoginButtons` 整个文件 dead code,无双层 grid 渲染;无实际用户可见影响。**改写为**:P1:删除 web 端 dead code 7 文件(ThirdPartyLoginButtons + 5 个独立登录表单 + ...),需主 agent 评估删除安全(§7 三问)
 
 ### 影响文件(共 9 个)
 
