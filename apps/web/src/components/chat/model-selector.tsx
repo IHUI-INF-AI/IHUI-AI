@@ -169,8 +169,11 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
 
   // 性能修复(2026-07-25):用 useMemo 缓存 find + groupByVendor 结果,
   // 避免 ModelSelector 每次父级重渲染(由根因 #2 AISidePanel 高频渲染带动)都重算分组。
+  // 2026-07-31:'auto' 降级到 stepfun/step-router-v1 后,value 永远不是 'auto'。
+  // 当 value === 'stepfun/step-router-v1' 时优先匹配 AUTO_OPTION(用户选的是"自动"),
+  // 即使该模型也在 options 列表里(FALLBACK_MODELS 含此项),也显示"自动"而非裸模型名。
   const current = React.useMemo(
-    () => (value === 'auto' ? AUTO_OPTION : options.find((m) => m.value === value)),
+    () => (value === 'stepfun/step-router-v1' ? AUTO_OPTION : options.find((m) => m.value === value)),
     [options, value],
   )
   const grouped = React.useMemo(() => groupByVendor(options), [options])
@@ -285,7 +288,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               2026-07-30 用户反馈"智能路由"措辞太复杂,简化为"自动" */}
           <DropdownMenu.Group>
             <DropdownMenu.Item
-              onSelect={() => onChange(AUTO_OPTION.value)}
+              onSelect={() => onChange('stepfun/step-router-v1')}
               className={cn(
                 'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
                 'focus:bg-accent focus:text-accent-foreground',
@@ -293,7 +296,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               )}
             >
               <Check
-                className={cn('h-4 w-4 shrink-0', value === AUTO_OPTION.value ? 'opacity-100' : 'opacity-0')}
+                className={cn('h-4 w-4 shrink-0', value === 'stepfun/step-router-v1' ? 'opacity-100' : 'opacity-0')}
               />
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               <div className="flex min-w-0 flex-1 flex-col">
@@ -316,7 +319,9 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
               </DropdownMenu.Label>
               {items.map((opt) => {
-                const active = opt.value === value
+                // 2026-07-31:'stepfun/step-router-v1' 已被 Auto 选项占用(降级映射),
+                // 排除避免 Auto + 常规项双勾(FALLBACK_MODELS 含此模型)
+                const active = opt.value === value && value !== 'stepfun/step-router-v1'
                 // 计算当前模型选项的配置状态(根据 vendor 映射到 templateCode)
                 const optTemplateCode = opt.vendor
                   ? providerToTemplateCode(opt.vendor)
