@@ -383,6 +383,8 @@ import publicStatusRoutes from './public-status.js'
 import apiKeySharesRoutes from './api-key-shares.js'
 import exportCsvRoutes from './admin/export-csv.js'
 import relayConversationsRoutes from './relay-conversations.js'
+// P0-28 配套(2026-08-01 立):渠道配额管理 admin 端点(GET/PATCH /api/admin/relay/channels)
+import channelQuotaAdminRoutes from './admin/channel-quota.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -1053,4 +1055,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(exportCsvRoutes, { prefix: '/api/admin' })
   // /api/developer/conversations(中转站用户会话历史保存,B 端协作场景)
   server.register(relayConversationsRoutes, { prefix: '/api' })
+  // P0-28 配套:渠道配额管理 admin 端点(GET/PATCH /api/admin/relay/channels)
+  server.register(channelQuotaAdminRoutes, { prefix: '/api/admin' })
 }
