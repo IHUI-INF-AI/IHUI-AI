@@ -190,7 +190,9 @@ export const useChatStore = create<ChatState>()(
       selectedTools: [],
       recentMessages: null,
 
-      setModel: (model) => set({ currentModel: model }),
+      // 2026-07-31:'auto' 模型后端不支持(MODEL_NOT_CONFIGURED),降级到 stepfun/step-router-v1
+      // (智能路由模型,符合"自动"语义)。用户选"自动"时 UI 仍显示 AUTO_OPTION,底层存 step-router-v1。
+      setModel: (model) => set({ currentModel: model === 'auto' ? 'stepfun/step-router-v1' : model }),
       addSelectedTool: (pluginId) =>
         set((s) =>
           s.selectedTools.includes(pluginId)
