@@ -61,26 +61,21 @@ async function start() {
     server.log.warn({ err }, 'AI 厂商配置初始化跳过（数据库/表未就绪）')
   })
 
-  try {
-    await server.listen({ port: PORT, host: HOST })
-    server.log.info(`🚀 API server listening on http://${HOST}:${PORT}`)
-  } catch (err) {
-    server.log.error({ err }, 'Failed to start server')
-    process.exit(1)
-  }
-
-  // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
-  if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
-    startAiWorldSyncScheduler()
-  }
-
-  const shutdown = async (signal: string) => {
+  const shutdown = async (signal: string, exitCode = 0): Promise<never> => {
     server.log.info({ signal }, 'Shutting down...')
-    stopAiWorldSyncScheduler()
+    try {
+      stopAiWorldSyncScheduler()
+    } catch {}
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
-    try { stopAutoRollbackMonitor() } catch {}
-    try { routineManager.stopScheduler() } catch {}
-    try { stopScheduledWarmup() } catch {}
+    try {
+      stopAutoRollbackMonitor()
+    } catch {}
+    try {
+      routineManager.stopScheduler()
+    } catch {}
+    try {
+      stopScheduledWarmup()
+    } catch {}
     if (workers) {
       await Promise.allSettled(workers.map((w) => w.close()))
     }
@@ -88,10 +83,37 @@ async function start() {
       await schedulerWorker.close()
     }
     await server.close()
-    process.exit(0)
+    process.exit(exitCode)
   }
+
+  try {
+    await server.listen({ port: PORT, host: HOST })
+    server.log.info(`🚀 API server listening on http://${HOST}:${PORT}`)
+  } catch (err) {
+    // P0 修复(2026-07-31):listen 失败时必须清理已启动的 workers / schedulers,
+    // 否则 BullMQ worker 持有的 ioredis 连接、scheduler cron 句柄会泄露,
+    // tsx watch 重启时会累积(死进程句柄 3791 的事故根因之一)。
+    server.log.error({ err }, 'Failed to start server')
+    await shutdown('listen-failure', 1)
+  }
+
+  // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
+  if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
+    startAiWorldSyncScheduler()
+  }
+
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
 }
+
+// P0 修复(2026-07-31):全局未捕获错误处理 — 记录明确日志便于诊断,
+// 避免进程静默卡死导致 tsx watch 主进程残留(死进程持续占用文件监听句柄)。
+process.on('unhandledRejection', (err) => {
+  logger.error({ err }, 'Unhandled promise rejection (process still alive, investigate)')
+})
+process.on('uncaughtException', (err) => {
+  logger.error({ err }, 'Uncaught exception, exiting to let tsx watch / pm2 restart')
+  process.exit(1)
+})
 
 start()
