@@ -10,6 +10,11 @@
 - pdf → text → html: 用 `pdfplumber`
 - image → 不解析,直接返回 None(html 字段保持空)
 - video → 不解析,直接返回 None
+
+平台专属排版(R7):
+- format_for_platform(html, platform, content) -> str:主入口
+- 5 平台专属规则:知乎卡片 / 公众号富文本 / CSDN 代码块 / 小红书 emoji / 掘金主题
+- 实现在 platform_formatter.py,本模块只 re-export + 提供 enrich_content_for_platform
 """
 from __future__ import annotations
 
@@ -18,6 +23,9 @@ from pathlib import Path
 from typing import Any, Optional, cast
 
 from app.core.logging import get_logger
+
+# R7:平台专属排版(从 platform_formatter re-export,保持单一入口)
+from .platform_formatter import format_for_platform, supported_platforms
 
 logger = get_logger(__name__)
 
@@ -171,3 +179,57 @@ def enrich_content(content: Any) -> Any:
         # 解析失败不阻塞,适配器可自行处理(如 image/video 不需要 html)
         content.html = content.html or ""
     return content
+
+
+def enrich_content_for_platform(content: Any, platform: str) -> Any:
+    """解析内容并按平台专属规则排版(R7 一体化入口)。
+
+    流程:
+    1. enrich_content:md/docx/html/pdf → 统一 HTML
+    2. format_for_platform:按平台规则做排版变换
+       - zhihu:图片卡片 + 引用美化 + 链接卡片
+       - wechat:行内 style 富文本
+       - csdn:代码块强制标语言
+       - xiaohongshu:emoji 装饰 + 短段落
+       - juejin:代码块主题高亮
+       - 其他平台:原样返回(无专属规则)
+
+    Args:
+        content: PublishContent 对象(format/text/file_path/html 等字段)
+        platform: 目标平台 ID(如 'zhihu' / 'wechat' / 'csdn')
+
+    Returns:
+        content(原地修改 html 字段)
+
+    诚实边界:
+    - 仅做排版/样式调整,不修改内容语义
+    - 平台无专属规则时,返回原始解析 HTML
+    - beautifulsoup4 缺失时,记录警告并回退原 HTML
+    """
+    # Step 1: 先解析为统一 HTML
+    enrich_content(content)
+    # Step 2: 按平台专属规则排版
+    if content.html and platform:
+        try:
+            content.html = format_for_platform(content.html, platform, content)
+        except Exception as e:
+            logger.warning(
+                "[content_parser] format_for_platform failed platform=%s: %s",
+                platform,
+                e,
+            )
+    return content
+
+
+# R7:平台专属排版 re-export(供 router/scheduler 直接调用)
+__all__ = [
+    "parse_md",
+    "parse_docx",
+    "parse_html",
+    "parse_pdf",
+    "parse_to_html",
+    "enrich_content",
+    "enrich_content_for_platform",
+    "format_for_platform",
+    "supported_platforms",
+]
