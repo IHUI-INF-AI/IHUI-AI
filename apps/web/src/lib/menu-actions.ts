@@ -1,7 +1,7 @@
 import {
   type MenuActionId,
   openAdminWindow,
-  quitApp,
+  quitAndUpdateIfNeeded,
   toggleAlwaysOnTop,
   toggleDevtools,
   toggleFullscreen,
@@ -39,7 +39,8 @@ export async function dispatchMenuAction(id: MenuActionId): Promise<void> {
       await openAdminWindow()
       return
     case 'file.quit':
-      await quitApp()
+      // 2026-07-31:退出前自动检查并安装更新,有更新则下载+安装+重启,无更新则正常退出
+      await quitAndUpdateIfNeeded()
       return
     case 'view.reload':
       // Tauri WebView 内 Ctrl+R 可能被 webview 拦截,显式 reload 兜底;
