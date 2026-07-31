@@ -109,7 +109,10 @@
       "quitDownloading": "正在下載更新...",
       "quitRestarting": "更新完成，正在重啟...",
       "quitQuitting": "正在退出...",
-      "quitSkip": "跳過，直接退出"
+      "quitSkip": "跳過，直接退出",
+      "autoRestart": "即將自動重啟...",
+      "preparing": "正在準備更新...",
+      "autoRetrying": "更新失敗，自動重試中..."
     },
     "logout": "退出登入",
     "create": "建立",

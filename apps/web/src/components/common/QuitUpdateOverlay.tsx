@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { RefreshCw, Download, Check, X } from 'lucide-react'
+import { RefreshCw, Download, Check } from 'lucide-react'
 import { useQuitUpdateGuard } from '@/hooks/use-quit-update-guard'
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@/lib/tauri-bridge'
@@ -16,8 +16,8 @@ import { formatFileSize } from '@/lib/tauri-bridge'
  * - restarting: 更新完成,正在重启(勾选图标 + "正在重启...")
  * - quitting: 正常退出中(旋转图标 + "正在退出...")
  *
- * checking / downloading 状态显示"跳过,直接退出"按钮,让用户可选择不更新直接退出。
- * restarting / quitting 状态不显示跳过按钮(进程即将结束,无法取消)。
+ * checking / downloading 状态不显示任何按钮(强制更新,不可跳过)。
+ * restarting / quitting 状态同样无按钮(进程即将结束)。
  *
  * 浏览器端 useQuitUpdateGuard 返回 visible=false,组件渲染 null。
  * AGENTS.md §4 UI 约束:rounded-xl、无蓝色发光边框、无分割线、无渐变遮罩。
@@ -33,8 +33,6 @@ export function QuitUpdateOverlay() {
   const isChecking = status === 'checking'
   const isDownloading = status === 'downloading'
   const isRestarting = status === 'restarting'
-  // 重启 / 退出中不显示跳过按钮(进程即将结束)
-  const canSkip = isChecking || isDownloading
 
   const statusText = isChecking
     ? t('quitChecking')
@@ -92,22 +90,6 @@ export function QuitUpdateOverlay() {
                 style={{ width: `${Math.max(progress * 100, 2)}%` }}
               />
             </div>
-          )}
-
-          {/* 跳过按钮 */}
-          {canSkip && (
-            <button
-              onClick={guard.skip}
-              className={cn(
-                'mt-4 flex h-9 w-full items-center justify-center gap-1.5',
-                'rounded-lg border border-border bg-transparent px-4 text-sm font-medium text-muted-foreground',
-                'transition-colors hover:bg-accent hover:text-foreground',
-                'focus:outline-none',
-              )}
-            >
-              <X className="h-4 w-4" />
-              <span>{t('quitSkip')}</span>
-            </button>
           )}
         </div>
       </div>
