@@ -12,6 +12,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { zodToJsonSchema } from 'zod-to-json-schema'
 import { sql, desc } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { dbRead } from '../../db/index.js'
@@ -89,7 +90,10 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
     Body: z.infer<typeof updateQuotaBodySchema>
   }>(
     '/relay/channels/:id',
-    { preHandler: requireAdmin, schema: { body: updateQuotaBodySchema } },
+    {
+      preHandler: requireAdmin,
+      schema: { body: zodToJsonSchema(updateQuotaBodySchema, { target: 'openApi3' }) },
+    },
     async (req, reply) => {
       const { id } = req.params
       const body = req.body
