@@ -110,9 +110,10 @@ const sessionAffinityMap = new Map<string, { channelId: string; expireAt: number
 const activeConnectionsMap = new Map<string, number>()
 
 // session-affinity:定期清理过期亲和性条目(防止一次性用户导致内存泄漏)
-// unref 确保定时器不会阻止进程退出
+// unref 确保定时器不会阻止进程退出;stopRelayChannelRouterSweep 供 index.ts shutdown 显式清理
+let sweepTimer: ReturnType<typeof setInterval> | null = null
 if (typeof setInterval !== 'undefined') {
-  const sweepTimer = setInterval(() => {
+  sweepTimer = setInterval(() => {
     const now = Date.now()
     for (const [key, val] of sessionAffinityMap) {
       if (now > val.expireAt) sessionAffinityMap.delete(key)
@@ -120,6 +121,14 @@ if (typeof setInterval !== 'undefined') {
   }, SESSION_AFFINITY_SWEEP_INTERVAL_MS)
   // Node.js 环境下 unref,浏览器/测试环境忽略
   if (typeof sweepTimer.unref === 'function') sweepTimer.unref()
+}
+
+/** P2 修复(2026-07-31):显式停止定时器,避免 vitest/HMR 场景下累积。 */
+export function stopRelayChannelRouterSweep(): void {
+  if (sweepTimer) {
+    clearInterval(sweepTimer)
+    sweepTimer = null
+  }
 }
 
 // ============================================================================

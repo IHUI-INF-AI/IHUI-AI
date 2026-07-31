@@ -73,7 +73,13 @@ const poolTracker = setInterval(() => {
   }
 }, POOL_TRACK_INTERVAL_MS)
 // unref:不阻止进程退出,进程结束时 timer 自动清理
+// P2 修复(2026-07-31):导出 stopPoolTracker 供 index.ts shutdown 显式清理
 poolTracker.unref()
+
+/** 显式停止 poolTracker,避免 vitest/HMR 场景下累积。 */
+export function stopPoolTracker(): void {
+  clearInterval(poolTracker)
+}
 
 export type { Database }
 
