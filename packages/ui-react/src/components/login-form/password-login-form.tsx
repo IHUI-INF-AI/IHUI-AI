@@ -233,6 +233,8 @@ export function PasswordLoginForm({
             name="username"
             type="text"
             autoComplete="username"
+            required
+            aria-required
             placeholder={t('auth.accountPlaceholder')}
             className={cn('h-10', inputClassName)}
             value={account}
@@ -262,6 +264,8 @@ export function PasswordLoginForm({
             name="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
+            required
+            aria-required
             placeholder={t('auth.passwordPlaceholder')}
             className={cn('h-10 pr-10', inputClassName)}
             value={password}
@@ -294,6 +298,8 @@ export function PasswordLoginForm({
               name="captcha"
               placeholder={t('auth.captchaPlaceholder')}
               autoComplete="off"
+              required
+              aria-required
               className={cn('h-10 flex-1', inputClassName)}
               value={captcha}
               onChange={(e) => {
