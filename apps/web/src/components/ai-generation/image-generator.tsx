@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { Image as ImageIcon, Download } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
 import type { ImageProvider } from '../ai/types'
@@ -25,6 +26,7 @@ const SIZES = [
 
 /** ImageGenerator - 图像生成器 */
 export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
+  const t = useTranslations('aiGeneration')
   const [prompt, setPrompt] = React.useState('')
   const [provider, setProvider] = React.useState<ImageProvider>('qwen')
   const [size, setSize] = React.useState<string>('1024x1024')
@@ -37,22 +39,22 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
 
   return (
     <GenerationFrame
-      title="图像生成"
+      title={t('imageTitle')}
       icon={<ImageIcon className="h-4 w-4 text-violet-500" />}
       status={result.status}
       error={result.error}
       onGenerate={handleGenerate}
       canGenerate={!!prompt.trim()}
-      generateLabel="生成图像"
+      generateLabel={t('generateImage')}
       options={
         <div className="flex flex-wrap items-center gap-3">
           <OptionSelect
-            label="服务商"
+            label={t('provider')}
             value={provider}
             onChange={setProvider}
             options={PROVIDERS}
           />
-          <OptionSelect label="尺寸" value={size} onChange={setSize} options={SIZES} />
+          <OptionSelect label={t('size')} value={size} onChange={setSize} options={SIZES} />
         </div>
       }
       result={
@@ -72,13 +74,13 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <Download className="h-3 w-3" />
-              下载
+              {t('download')}
             </a>
           </div>
         ) : null
       }
     >
-      <PromptInput value={prompt} onChange={setPrompt} placeholder="描述要生成的图像..." />
+      <PromptInput value={prompt} onChange={setPrompt} placeholder={t('imagePromptPlaceholder')} />
     </GenerationFrame>
   )
 }

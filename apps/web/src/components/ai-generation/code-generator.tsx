@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Code2, Copy, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useTranslations } from 'next-intl'
 import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 // P2 中期增强:按主题切换语法高亮样式(dark → oneDark,其他 → oneLight)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -84,6 +85,7 @@ const LANGUAGE_OPTIONS = [
 
 /** CodeGenerator - 代码生成器 */
 export function CodeGenerator({ onGenerate }: CodeGeneratorProps) {
+  const t = useTranslations('aiGeneration')
   const [prompt, setPrompt] = React.useState('')
   const [language, setLanguage] = React.useState<string>('typescript')
   const [copied, setCopied] = React.useState(false)
@@ -107,16 +109,16 @@ export function CodeGenerator({ onGenerate }: CodeGeneratorProps) {
 
   return (
     <GenerationFrame
-      title="代码生成"
+      title={t('codeTitle')}
       icon={<Code2 className="h-4 w-4 text-emerald-500" />}
       status={result.status}
       error={result.error}
       onGenerate={handleGenerate}
       canGenerate={!!prompt.trim()}
-      generateLabel="生成代码"
+      generateLabel={t('generateCode')}
       options={
         <OptionSelect
-          label="语言"
+          label={t('language')}
           value={language}
           onChange={setLanguage}
           options={LANGUAGE_OPTIONS}
@@ -133,7 +135,7 @@ export function CodeGenerator({ onGenerate }: CodeGeneratorProps) {
         ) : null
       }
     >
-      <PromptInput value={prompt} onChange={setPrompt} placeholder="描述要生成的代码功能..." />
+      <PromptInput value={prompt} onChange={setPrompt} placeholder={t('codePromptPlaceholder')} />
     </GenerationFrame>
   )
 }
