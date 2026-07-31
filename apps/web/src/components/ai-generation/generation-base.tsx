@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Sparkles, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 
@@ -61,11 +62,12 @@ export function GenerationFrame({
   error,
   onGenerate,
   canGenerate = true,
-  generateLabel = '生成',
+  generateLabel,
   children,
   result,
   options,
 }: GenerationFrameProps) {
+  const t = useTranslations('aiGeneration')
   const isLoading = status === 'loading'
   return (
     <Card>
@@ -78,12 +80,24 @@ export function GenerationFrame({
       <CardContent className="space-y-3">
         {children}
         {options}
-        <Button onClick={onGenerate} disabled={isLoading || !canGenerate} size="sm" aria-busy={isLoading}>
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {isLoading ? '生成中...' : generateLabel}
+        <Button
+          onClick={onGenerate}
+          disabled={isLoading || !canGenerate}
+          size="sm"
+          aria-busy={isLoading}
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {isLoading ? t('generating') : (generateLabel ?? t('generate'))}
         </Button>
         {status === 'error' && error && (
-          <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+          <div
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive"
+          >
             {error}
           </div>
         )}
@@ -97,9 +111,9 @@ export function GenerationFrame({
 export function PromptInput({
   value,
   onChange,
-  placeholder = '描述你想要生成的内容...',
+  placeholder,
   rows = 3,
-  'aria-label': ariaLabel = '生成内容输入框',
+  'aria-label': ariaLabel,
 }: {
   value: string
   onChange: (v: string) => void
@@ -107,13 +121,14 @@ export function PromptInput({
   rows?: number
   'aria-label'?: string
 }) {
+  const t = useTranslations('aiGeneration')
   return (
     <textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
+      placeholder={placeholder ?? t('defaultPromptPlaceholder')}
       rows={rows}
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? t('promptAriaLabel')}
       className="w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
     />
   )

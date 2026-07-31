@@ -2,12 +2,14 @@
 
 import * as React from 'react'
 import { Loader2, Pencil, Play, Plus, ScrollText, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Button, Card, Input, Switch } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/components/common/Empty'
 import { formatDate } from '@/lib/date-utils'
 import { useHooks, useHookLogs } from '@/hooks/use-hooks'
+import { useConfirm } from '@/hooks/use-confirm'
 import {
   draftToCreateInput,
   draftToUpdateInput,
@@ -103,6 +105,8 @@ export function HooksManager() {
     isTesting,
   } = useHooks()
   const store = useHooksStore()
+  const t = useTranslations('hooks')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
 
   const handleSave = async () => {
     const draft = store.draft
@@ -155,7 +159,10 @@ export function HooksManager() {
   }
 
   const handleDelete = async (hook: Hook) => {
-    if (!window.confirm(`确定删除 Hook "${hook.name}" 吗?`)) return
+    if (
+      !(await confirm({ title: t('deleteConfirm', { name: hook.name }), variant: 'destructive' }))
+    )
+      return
     try {
       await deleteHook(hook.id)
     } catch {
@@ -218,6 +225,7 @@ export function HooksManager() {
       {store.viewingLogsHookId && (
         <HookLogsDialog hookId={store.viewingLogsHookId} onClose={() => store.closeLogs()} />
       )}
+      <ConfirmDialogRenderer />
     </div>
   )
 }

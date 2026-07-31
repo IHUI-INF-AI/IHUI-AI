@@ -45,6 +45,7 @@ import {
   listAiSkills,
 } from '@ihui/api-client/endpoints/ai-skills'
 import { useAuthStore } from '@/stores/auth'
+import { useConfirm } from '@/hooks/use-confirm'
 
 /**
  * Skill 库弹窗 — 2026-07-21 新增
@@ -114,6 +115,7 @@ const SCENARIO_LABEL_KEY: Record<ChatSkillScenario, string> = {
 
 export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
   const t = useTranslations('chat.skillLibrary')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [activeTab, setActiveTab] = React.useState<TabKey>('all')
   const [keyword, setKeyword] = React.useState('')
   const [customSkills, setCustomSkills] = React.useState<ChatSkill[]>([])
@@ -346,7 +348,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
   }
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(t('confirmDelete'))) return
+    if (!(await confirm({ title: t('confirmDelete'), variant: 'destructive' }))) return
     const res = await deleteChatSkill(id)
     if (res.success) {
       setCustomSkills((prev) => prev.filter((s) => s.id !== id))
@@ -539,11 +541,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
                 )
               })
               .map((skill) => (
-                <AiSkillItem
-                  key={skill.id}
-                  skill={skill}
-                  onPick={() => setInvokingSkill(skill)}
-                />
+                <AiSkillItem key={skill.id} skill={skill} onPick={() => setInvokingSkill(skill)} />
               ))}
           </>
         )}
@@ -602,6 +600,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
           }}
         />
       )}
+      <ConfirmDialogRenderer />
     </div>
   )
 }
@@ -837,9 +836,7 @@ function AiSkillItem({ skill, onPick }: AiSkillItemProps) {
             {skill.available ? t('statusAvailable') : t('statusComingSoon')}
           </span>
         </div>
-        <div className="line-clamp-2 text-[11px] text-muted-foreground">
-          {skill.description}
-        </div>
+        <div className="line-clamp-2 text-[11px] text-muted-foreground">{skill.description}</div>
         {skill.tags.length > 0 && (
           <div className="line-clamp-1 text-[10px] text-muted-foreground/70">
             {skill.tags.slice(0, 3).join(' · ')}
@@ -979,10 +976,7 @@ function AiSkillInvokeDialog({
         const val = variables[key] ?? ''
         return (
           <div key={key} className="space-y-1">
-            <label
-              htmlFor={`inv-var-${key}`}
-              className="text-[10px] font-medium text-foreground"
-            >
+            <label htmlFor={`inv-var-${key}`} className="text-[10px] font-medium text-foreground">
               {td(labelKey)}
             </label>
             {long ? (
