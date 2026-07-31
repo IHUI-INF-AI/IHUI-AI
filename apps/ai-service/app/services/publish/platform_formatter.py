@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from app.core.logging import get_logger
 
@@ -363,17 +363,114 @@ def _format_juejin(html: str, content: Any) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 6. 媒体平台通用排版(36氪/虎嗅/钛媒体/人民网 — 代码块标语言 + 引用块美化)
+# ---------------------------------------------------------------------------
+
+
+# 媒体平台引用块样式(行内 style,灰色左边框 + 浅色背景)
+_MEDIA_BLOCKQUOTE_STYLE = (
+    "margin: 12px 0; padding: 10px 16px; "
+    "border-left: 4px solid #2b6cb0; background: #f0f4f8; "
+    "color: #4a5568; font-size: 15px; line-height: 1.7;"
+)
+_MEDIA_PRE_STYLE = (
+    "margin: 12px 0; padding: 12px 16px; "
+    "background: #1e293b; border-radius: 6px; "
+    "overflow-x: auto; font-family: Consolas, Monaco, monospace; "
+    "font-size: 14px; line-height: 1.6; color: #e2e8f0;"
+)
+_MEDIA_CODE_INLINE_STYLE = (
+    "padding: 2px 6px; background: #edf2f7; border-radius: 3px; "
+    "font-family: Consolas, Monaco, monospace; "
+    "font-size: 14px; color: #d53f8c;"
+)
+
+
+def _format_media_common(html: str, content: Any, class_prefix: str) -> str:
+    """媒体平台通用排版:代码块强制标语言 + 引用块美化 + 行内 style。
+
+    36氪/虎嗅/钛媒体/人民网等科技/新闻媒体平台共享此逻辑:
+    - 代码块:<pre><code class="language-xxx"> 强制标语言(媒体编辑器需要)
+    - 引用块:行内 style 美化(灰色左边框 + 浅蓝背景)
+    - 行内 code:浅色背景 pill 样式
+    """
+    soup = _ensure_soup(html)
+    if soup is None:
+        return html
+
+    # 1. 代码块强制标语言(复用 CSDN 逻辑)
+    for pre in soup.find_all("pre"):
+        code = pre.find("code")
+        if code is None:
+            code = soup.new_tag("code")
+            for child in list(pre.children):
+                code.append(child.extract())
+            pre.append(code)
+        classes = code.get("class") or []
+        has_lang = any(_LANG_PATTERN.match(c) for c in classes)
+        if not has_lang:
+            lang = _detect_lang(code)
+            if lang == "text":
+                pre_classes = pre.get("class") or []
+                for pc in pre_classes:
+                    m = _LANG_PATTERN.match(pc)
+                    if m:
+                        lang = m.group(1).lower()
+                        break
+            code["class"] = classes + [f"language-{lang}"]
+        # pre 加媒体平台样式
+        pre["style"] = _MEDIA_PRE_STYLE
+
+    # 2. 行内 code 样式(排除 pre 内的)
+    for code in soup.find_all("code"):
+        if not code.find_parent("pre"):
+            code["style"] = _MEDIA_CODE_INLINE_STYLE
+
+    # 3. 引用块美化
+    for bq in soup.find_all("blockquote"):
+        bq["style"] = _MEDIA_BLOCKQUOTE_STYLE
+        bq["class"] = (bq.get("class") or []) + [f"{class_prefix}-quote"]
+
+    return _soup_to_str(soup)
+
+
+def _format_36kr(html: str, content: Any) -> str:
+    """36氪:代码块标语言 + 引用块美化。"""
+    return _format_media_common(html, content, "36kr")
+
+
+def _format_huxiu(html: str, content: Any) -> str:
+    """虎嗅:代码块标语言 + 引用块美化。"""
+    return _format_media_common(html, content, "huxiu")
+
+
+def _format_tmtmedia(html: str, content: Any) -> str:
+    """钛媒体:代码块标语言 + 引用块美化。"""
+    return _format_media_common(html, content, "tmtmedia")
+
+
+def _format_people(html: str, content: Any) -> str:
+    """人民网:代码块标语言 + 引用块美化(新闻媒体风格)。"""
+    return _format_media_common(html, content, "people")
+
+
+# ---------------------------------------------------------------------------
 # 主入口:format_for_platform
 # ---------------------------------------------------------------------------
 
 
 # 平台 → 格式化函数映射
-_FORMATTERS: dict[str, Any] = {
+_FORMATTERS: dict[str, Callable[[str, Optional[Any]], str]] = {
     "zhihu": _format_zhihu,
     "wechat": _format_wechat,
     "csdn": _format_csdn,
     "xiaohongshu": _format_xiaohongshu,
     "juejin": _format_juejin,
+    # 第四批:媒体平台专属排版(2026-07-31 立)
+    "36kr": _format_36kr,
+    "huxiu": _format_huxiu,
+    "tmtmedia": _format_tmtmedia,
+    "people": _format_people,
 }
 
 
