@@ -4,11 +4,7 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-import type {
-  SubagentSpawnEvent,
-  SubagentEndEvent,
-  SubagentProgressEvent,
-} from '@ihui/api-client'
+import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 
 export type { ChatRole } from '@ihui/shared'
@@ -410,7 +406,7 @@ export const useChatStore = create<ChatState>()(
                   ]
                 : a.completedSteps
             const toolCallsCount =
-              event.phase === 'tool_result' ? (a.toolCallsCount ?? 0) + 1 : a.toolCallsCount ?? 0
+              event.phase === 'tool_result' ? (a.toolCallsCount ?? 0) + 1 : (a.toolCallsCount ?? 0)
             return {
               ...a,
               currentStep: stepText,
@@ -519,12 +515,22 @@ export const useChatStore = create<ChatState>()(
       // 2026-07-24 立:旧版本无 version,localStorage 中 currentModel='stepfun/step-3.7-flash'
       // 是历史默认值(非显式选择)。version=2 migrate 把旧默认值升级到 step-router-v1。
       // 用户若显式选了其他模型(gpt-4o / claude 等),migrate 不动,保留原值。
-      version: 2,
+      // 2026-07-31 立:version=3 migrate 把 'auto' 迁移到 stepfun/step-3.7-flash。
+      // 原因:后端不支持 'auto' 模型,返回 MODEL_NOT_CONFIGURED 错误,导致 AI 对话无回复。
+      // 'auto' 来源:早期 UI 允许选择 'auto' 或用户手动选择后被持久化。
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
-        if (version < 2 && persisted && typeof persisted === 'object') {
+        if (persisted && typeof persisted === 'object') {
           const s = persisted as { currentModel?: string }
-          if (s.currentModel === 'stepfun/step-3.7-flash') {
+          if (version < 2 && s.currentModel === 'stepfun/step-3.7-flash') {
             s.currentModel = 'stepfun/step-router-v1'
+          }
+          // version < 3:'auto' 模型后端不支持,迁移到已验证连通的 stepfun/step-3.7-flash
+          if (
+            version < 3 &&
+            (s.currentModel === 'auto' || s.currentModel === '' || !s.currentModel)
+          ) {
+            s.currentModel = 'stepfun/step-3.7-flash'
           }
         }
         return persisted
