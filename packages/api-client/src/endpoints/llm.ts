@@ -39,24 +39,37 @@ export async function fetchModels(): Promise<FetchModelsResult> {
 
 // ============= AI 网关 Dashboard API =============
 
-export type ProviderStatus = 'configured' | 'not_configured' | 'local'
+export type ProviderStatus = 'ok' | 'invalid_key' | 'unreachable'
 export type ProviderCategory = 'domestic' | 'international' | 'local' | 'credits'
 
 export interface GatewayProvider {
-  provider_code: string
-  display_name: string
+  // 新 schema(健康状态,后端 /llm/providers/health 返回)
+  provider: string
   status: ProviderStatus
-  category: ProviderCategory
-  free_quota: string
-  default_base_url: string
-  default_models: string[]
-  is_in_cooldown: boolean
-  consecutive_failures: number
+  latency_ms: number
+  model_count: number
+  last_check?: string
+  // 旧 schema(配置状态,后端补返回,可选)
+  display_name?: string
+  category?: ProviderCategory
+  free_quota?: string
+  default_base_url?: string
+  default_models?: string[]
+  is_in_cooldown?: boolean
+  consecutive_failures?: number
 }
 
 export interface ProvidersHealthResult {
   providers: GatewayProvider[]
-  summary: { total: number; configured: number; local: number; not_configured: number }
+  summary: {
+    total: number
+    ok: number
+    invalid_key: number
+    unreachable: number
+    configured?: number
+    local?: number
+    not_configured?: number
+  }
 }
 
 export type ComboStrategy = 'priority' | 'cheapest' | 'fusion'
