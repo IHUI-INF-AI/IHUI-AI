@@ -93,6 +93,19 @@
     "pin": "ピン留め",
     "unpin": "ピン留め解除",
     "unsaved": "未保存",
+    "update": {
+      "available": "新バージョンがあります",
+      "downloading": "ダウンロード中",
+      "installing": "インストール中",
+      "done": "更新完了",
+      "restart": "アプリを再起動",
+      "updateNow": "今すぐ更新",
+      "retry": "再試行",
+      "error": "更新に失敗しました",
+      "errorDesc": "更新中にエラーが発生しました。再試行してください。",
+      "checkFailed": "更新の確認に失敗しました。ネットワークを確認して再試行してください。",
+      "dismiss": "閉じる"
+    },
     "resize": "ドラッグで幅を調整",
     "noPosts": "まだ投稿がありません",
     "noAnswers": "まだ回答がありません",
@@ -110,20 +123,7 @@
     "deleteSuccess": "しました",
     "withdraw": "出金",
     "viewDetail": "詳細を見る",
-    "colToken": "トークン",
-    "update": {
-      "available": "新バージョンがあります",
-      "downloading": "ダウンロード中",
-      "installing": "インストール中",
-      "done": "更新完了",
-      "restart": "アプリを再起動",
-      "updateNow": "今すぐ更新",
-      "retry": "再試行",
-      "error": "更新に失敗しました",
-      "errorDesc": "更新中にエラーが発生しました。再試行してください。",
-      "checkFailed": "更新の確認に失敗しました。ネットワークを確認して再試行してください。",
-      "dismiss": "閉じる"
-    }
+    "colToken": "トークン"
   },
   "taskReceiver": {
     "title": "タスク受信",
@@ -6459,7 +6459,23 @@
     "unfavorite": "favorite",
     "viewFavorites": "おにりを",
     "backToHistory": "にる",
-    "loginRequired": "ログインしてください"
+    "loginRequired": "ログインしてください",
+    "select": "選択",
+    "selectAll": "すべて選択",
+    "invertSelection": "反転",
+    "selectedCount": "{count} 件選択中",
+    "batchDelete": "削除",
+    "batchFavorite": "お気に入り",
+    "batchUnfavorite": "お気に入り解除",
+    "batchArchive": "アーカイブ",
+    "batchUnarchive": "アーカイブ解除",
+    "cancelSelection": "キャンセル",
+    "confirmBatchDelete": "{count} 件の会話を完全に削除します。この操作は元に戻せません。",
+    "batchDeleteSuccess": "一括削除成功",
+    "batchFavoriteSuccess": "一括お気に入り成功",
+    "batchUnfavoriteSuccess": "一括お気に入り解除成功",
+    "batchArchiveSuccess": "一括アーカイブ成功",
+    "batchUnarchiveSuccess": "一括アーカイブ解除成功"
   },
   "models": {
     "title": "モデルマーケット",
@@ -9062,32 +9078,55 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search"]
+        "keywords": [
+          "検索",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
   },
@@ -9486,19 +9525,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -9619,25 +9670,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -11245,7 +11308,15 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -11389,8 +11460,18 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -12650,7 +12731,8 @@
       "noResults": "結果が見つかりません",
       "recentSearches": "最近の検索",
       "remove": "削除",
-      "inputHint": "キーワードを入力して検索"
+      "inputHint": "キーワードを入力して検索",
+      "searchFailed": "検索に失敗しました。再試行してください"
     },
     "sourceControl": {
       "commitPlaceholder": "コミットメッセージ",
@@ -12670,7 +12752,8 @@
       "commitSuccess": "コミット成功",
       "pushSuccess": "プッシュ成功",
       "pullSuccess": "プル成功",
-      "branchSwitched": "{branch} に切り替えました"
+      "branchSwitched": "{branch} に切り替えました",
+      "committing": "コミット中..."
     },
     "debug": {
       "start": "開始",
@@ -12703,7 +12786,8 @@
       "run": "実行",
       "debug": "デバッグ",
       "recentRuns": "最近の実行",
-      "typeTerminal": "ターミナル"
+      "typeTerminal": "ターミナル",
+      "runFailed": "実行に失敗しました。再試行してください"
     },
     "statusBar": {
       "sync": "同期",

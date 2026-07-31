@@ -1,6 +1,7 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { runCommand } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
@@ -99,6 +100,7 @@ export function ApplicationsPanel() {
       setHistory((prev) => prev.map((h, i) =>
         i === 0 ? { ...h, exitCode: -1 } : h,
       ))
+      toast.error(t('applications.runFailed'))
     }
   }
 
