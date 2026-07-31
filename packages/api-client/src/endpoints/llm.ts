@@ -348,3 +348,26 @@ export async function fetchModelSyncHistory(
   }
   return res.data ?? []
 }
+
+/** F4.13:模型同步健康度(GET /llm/models/sync/health 返回)
+ *  - failure_counters:每个 provider 的连续失败计数(provider_code -> count)
+ *  - permanently_disabled:已达阈值被永久禁用的 provider_code 列表
+ *  - failure_threshold:后端配置的失败计数阈值(达到即永久禁用) */
+export interface ModelSyncHealth {
+  failure_counters: Record<string, number>
+  permanently_disabled: string[]
+  failure_threshold: number
+}
+
+/** F4.13:查询模型同步健康度 — GET /llm/models/sync/health
+ *  用于前端"同步健康度面板":展示连续失败计数 + 永久禁用列表。
+ *  若后端尚未实现该端点(404),调用方应 try/catch 静默降级,不显示面板。 */
+export async function fetchModelSyncHealth(): Promise<ModelSyncHealth> {
+  const res = await fetchApi<ModelSyncHealth>('/llm/models/sync/health', {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取模型同步健康度失败')
+  }
+  return res.data
+}
