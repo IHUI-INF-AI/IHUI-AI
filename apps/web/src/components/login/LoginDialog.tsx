@@ -10,6 +10,7 @@ import { AuthShell } from '@/components/auth/AuthShell'
 import { LoginFormContent } from './LoginFormContent'
 import { RegisterFormContent } from './RegisterFormContent'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
+import { LoginWithTurnstile } from './LoginWithTurnstile'
 
 /**
  * 主站统一登录/注册/找回密码弹窗(2026-07-20 重做 / 2026-07-20 修订)
@@ -71,7 +72,9 @@ export function LoginDialog() {
 
         <AuthShell onClose={close}>
           {mode === 'login' ? (
-            <LoginFormContent onSuccess={handleLoginSuccess} />
+            <LoginWithTurnstile>
+              <LoginFormContent onSuccess={handleLoginSuccess} />
+            </LoginWithTurnstile>
           ) : mode === 'register' ? (
             <RegisterFormContent onSuccess={() => setMode('login')} />
           ) : (
