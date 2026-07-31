@@ -235,6 +235,17 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// 重启应用(2026-07-31 立,updater 安装完成后调用)。
+/// Tauri 2 标准 API `app.restart()`:终止当前进程并以新进程拉起同路径可执行文件。
+/// 用于 updater 下载安装完毕后让新版本立即生效,无需用户手动关闭再打开。
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    // 持久化窗口状态后再重启,避免重启后窗口位置丢失
+    let _ = save_window_state(Some("main".to_string()), app.clone());
+    let _ = save_window_state(Some("admin".to_string()), app.clone());
+    app.restart();
+}
+
 /// 唤起 / 创建 admin 窗口(2026-07-25 立,供前端 menu dispatcher 调用)。
 /// admin 已存在则 show + focus;否则按 tauri.conf.json admin 配置新建。
 /// 2026-07-27 立:新建后恢复 admin 窗口上次位置/尺寸(若有保存)+ 添加窗口阴影。
@@ -1233,6 +1244,7 @@ pub fn run() {
             get_admin_window_info,
             toggle_devtools,
             quit_app,
+            restart_app,
             open_admin_window,
             start_resize,
             toggle_fullscreen,
