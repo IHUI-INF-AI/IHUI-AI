@@ -14359,9 +14359,9 @@
   },
   "auth": {
     "emailLogin": "이메일",
-    "phoneCodeLogin": "인증코드 로그인",
-    "passwordLogin": "비밀번호 로그인",
-    "qrLogin": "QR코드 로그인",
+    "phoneCodeLogin": "핸드폰",
+    "passwordLogin": "비밀번호",
+    "qrLogin": "QR코드",
     "account": "계정",
     "accountPlaceholder": "계정 입력",
     "password": "비밀번호",
