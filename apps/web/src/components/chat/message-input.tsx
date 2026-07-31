@@ -345,7 +345,7 @@ export function MessageInput({
           >
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
             {isDragOver && (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-primary/5">
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-primary/10">
                 <p className="text-sm font-medium text-primary">释放鼠标以添加附件(图片/视频)</p>
               </div>
             )}
@@ -365,7 +365,7 @@ export function MessageInput({
                 {floatHeader}
               </div>
             )}
-            <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
+            <div className="flex items-center gap-1 bg-muted/50 px-2 py-1.5">
               {/* Agent 任务进度触发按钮已移至上方居中(v6) */}
               {/* 权限模式切换(2026-07-25 立,深度对标 Codex approval mode):
                   盾牌图标 + 当前模式短名(完全访问 / 请求批准 / 替我审批),
@@ -630,7 +630,7 @@ export function MessageInput({
                     <div
                       role="status"
                       aria-live="polite"
-                      className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2"
+                      className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2"
                     >
                       <span
                         aria-hidden="true"
