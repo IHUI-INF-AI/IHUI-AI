@@ -170,6 +170,7 @@
     "hotModelImport": "모델 설정 가져오기",
     "aiGroupLabel": "AI 에이전트",
     "adminGroupLabel": "관리",
+    "topupConfig": "충전 구성",
     "eduGroup": "AI 교육",
     "contentGroup": "콘텐츠",
     "tradeGroup": "거래",
