@@ -62,6 +62,8 @@ const I18N_MAP: Record<string, string> = {
   'plan.statusInProgress': '正在',
   'plan.statusCompleted': '已完成',
   'plan.statusPending': '待开始',
+  'plan.stepError': '失败',
+  'plan.progressPercent': '{percent}%',
   'plan.summaryAllDone': '全部完成',
   'plan.summaryErrorCount': '错误 {count}',
   'plan.totalDuration': '总 {duration}',
@@ -82,6 +84,32 @@ vi.mock('next-intl', () => ({
 vi.mock('@/components/media/MarkdownViewer', () => ({
   MarkdownViewer: ({ content }: { content: string }) => (
     <div data-testid="markdown-viewer">{content}</div>
+  ),
+}))
+
+// ─── @ihui/ui-react mock:渲染 TooltipContent 内容(不依赖 Radix Portal) ──
+vi.mock('@ihui/ui-react', () => ({
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="tooltip-provider">{children}</div>
+  ),
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    asChild: _asChild,
+  }: {
+    children: React.ReactNode
+    asChild?: boolean
+  }) => <div data-testid="tooltip-trigger">{children}</div>,
+  TooltipContent: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode
+    side?: string
+  }) => (
+    <div data-testid="tooltip-content" data-side={props.side ?? 'top'}>
+      {children}
+    </div>
   ),
 }))
 
@@ -164,9 +192,10 @@ describe('PlanStepsCard', () => {
       makeStep({ id: 's3', step: '运行测试' }),
     ]
     render(<PlanStepsCard steps={steps} />)
-    expect(screen.getByText('分析需求')).toBeTruthy()
-    expect(screen.getByText('编写代码')).toBeTruthy()
-    expect(screen.getByText('运行测试')).toBeTruthy()
+    // 步骤名同时出现在 Tooltip 浮层 + 步骤列表中,用 getAllByText
+    expect(screen.getAllByText('分析需求').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('编写代码').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('运行测试').length).toBeGreaterThanOrEqual(1)
   })
 
   it('点击 header 切换展开/折叠(aria-expanded)', () => {
@@ -426,5 +455,61 @@ describe('PlanStepsCard', () => {
     // 复制按钮应出现
     const copyBtn = screen.getByTestId('plan-steps-card-copy-reasoning-s1')
     expect(copyBtn).toBeTruthy()
+  })
+
+  // ─── Tooltip 富文本浮层(2026-07-31 升级 native title → shadcn Tooltip) ──
+
+  it('分段进度条段落 hover 显示 Tooltip 富文本(步骤名 + 状态 + 耗时)', () => {
+    const steps = [
+      makeStep({ id: 's1', step: '分析需求', status: 'completed', durationMs: 1500 }),
+    ]
+    render(<PlanStepsCard steps={steps} />)
+    const tooltipContent = screen.getByTestId('tooltip-content')
+    expect(tooltipContent.textContent).toContain('分析需求')
+    expect(tooltipContent.textContent).toContain('已完成')
+    expect(tooltipContent.textContent).toContain('1.5s')
+  })
+
+  it('段落 Tooltip 内容使用 i18n 状态文案(stepError / statusInProgress / statusCompleted / statusPending)', () => {
+    const steps = [
+      makeStep({ id: 's1', step: '步骤一', status: 'pending' }),
+      makeStep({ id: 's2', step: '步骤二', status: 'in_progress' }),
+      makeStep({ id: 's3', step: '步骤三', status: 'completed' }),
+    ]
+    render(<PlanStepsCard steps={steps} />)
+    const contents = screen.getAllByTestId('tooltip-content')
+    expect(contents).toHaveLength(3)
+    expect(contents[0]!.textContent).toContain('待开始')
+    expect(contents[1]!.textContent).toContain('正在')
+    expect(contents[2]!.textContent).toContain('已完成')
+  })
+
+  it('段落 Tooltip 在 error=true 时显示错误状态文案', () => {
+    const steps = [
+      makeStep({ id: 's1', step: '连接数据库', status: 'completed', error: true }),
+    ]
+    render(<PlanStepsCard steps={steps} />)
+    const tooltipContent = screen.getByTestId('tooltip-content')
+    expect(tooltipContent.textContent).toContain('失败')
+    expect(tooltipContent.textContent).toContain('连接数据库')
+  })
+
+  it('段落 Tooltip 在有 durationMs 时显示耗时', () => {
+    const steps = [
+      makeStep({ id: 's1', step: '执行中步骤', status: 'in_progress', durationMs: 65000 }),
+    ]
+    render(<PlanStepsCard steps={steps} />)
+    const tooltipContent = screen.getByTestId('tooltip-content')
+    expect(tooltipContent.textContent).toContain('1m5s')
+  })
+
+  it('段落 Tooltip 在无 durationMs 时不显示耗时', () => {
+    const steps = [
+      makeStep({ id: 's1', step: '分析需求', status: 'pending' }),
+    ]
+    render(<PlanStepsCard steps={steps} />)
+    const tooltipContent = screen.getByTestId('tooltip-content')
+    expect(tooltipContent.textContent).toContain('待开始')
+    expect(tooltipContent.textContent).not.toContain('·')
   })
 })

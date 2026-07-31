@@ -319,7 +319,7 @@ const MessageItem = React.memo(function MessageItem({
       className={cn(
         'group/msg relative flex w-full gap-3 rounded-md transition-colors duration-300',
         isUser ? 'flex-row-reverse' : 'flex-row',
-        isHighlighted && 'bg-primary/5 ring-1 ring-primary/30',
+        isHighlighted && 'bg-primary/5 ring-1 ring-primary/30 animate-message-highlight-pulse',
         isHovered && !isHighlighted && 'bg-accent/20',
         isFocused && 'ring-1 ring-primary/40',
         // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1)

@@ -3,6 +3,12 @@
 import * as React from 'react'
 import { AlertCircle, Check, Clock, Copy, ListTodo, Loader2, ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { FoldableSection, formatDuration } from '@/components/ai/progress-sections/foldable-section'
 import { MarkdownViewer } from '@/components/media/MarkdownViewer'
@@ -118,17 +124,18 @@ export function PlanStepsCard({
   )
 
   return (
-    <FoldableSection
-      title={t('plan.title')}
-      count={steps.length}
-      doneCount={doneCount}
-      defaultOpen={autoOpen}
-      icon={ListTodo}
-      aria-label={t('plan.title')}
-      data-testid={rootTestId}
-      summary={summary}
-      headerExtra={totalDurationBadge}
-    >
+    <TooltipProvider delayDuration={200}>
+      <FoldableSection
+        title={t('plan.title')}
+        count={steps.length}
+        doneCount={doneCount}
+        defaultOpen={autoOpen}
+        icon={ListTodo}
+        aria-label={t('plan.title')}
+        data-testid={rootTestId}
+        summary={summary}
+        headerExtra={totalDurationBadge}
+      >
       {/* 分段进度条(每个步骤一段 + 百分比) */}
       <SegmentedProgressBar
         steps={steps}
@@ -169,7 +176,8 @@ export function PlanStepsCard({
           )
         })}
       </ol>
-    </FoldableSection>
+      </FoldableSection>
+    </TooltipProvider>
   )
 }
 
@@ -187,6 +195,7 @@ function SegmentedProgressBar({
   progressPct,
   className,
 }: SegmentedProgressBarProps) {
+  const t = useTranslations('chat')
   return (
     <div
       className={cn('flex items-center gap-1', className)}
@@ -197,17 +206,53 @@ function SegmentedProgressBar({
         role="img"
         aria-hidden
       >
-        {steps.map((s) => (
-          <div
-            key={s.id}
-            className={cn(
-              'h-full flex-1 rounded-sm transition-all duration-300',
-              s.error ? 'bg-red-500/70' : STATUS_BAR_CLS[s.status],
-              s.status === 'in_progress' && !s.error && 'animate-pulse',
-            )}
-            title={`${s.step}: ${s.error ? '错误' : s.status}`}
-          />
-        ))}
+        {steps.map((s) => {
+          const statusLabel = s.error
+            ? t('plan.stepError')
+            : s.status === 'in_progress'
+              ? t('plan.statusInProgress')
+              : s.status === 'completed'
+                ? t('plan.statusCompleted')
+                : t('plan.statusPending')
+          const durationText =
+            s.durationMs !== undefined && s.durationMs > 0
+              ? ` · ${formatDuration(s.durationMs)}`
+              : ''
+          return (
+            <Tooltip key={s.id}>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn(
+                    'h-full flex-1 rounded-sm transition-all duration-300 cursor-help',
+                    s.error ? 'bg-red-500/70' : STATUS_BAR_CLS[s.status],
+                    s.status === 'in_progress' && !s.error && 'animate-pulse',
+                  )}
+                  data-testid={`${rootTestId}-segment-${s.id}`}
+                />
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                sideOffset={6}
+                className="text-[11px] leading-relaxed"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      'inline-block h-1.5 w-1.5 rounded-full',
+                      s.error ? 'bg-red-500' : STATUS_BAR_CLS[s.status],
+                    )}
+                    aria-hidden
+                  />
+                  <span className="font-medium">{s.step}</span>
+                </div>
+                <div className="text-muted-foreground/80">
+                  {statusLabel}
+                  {durationText}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
       </div>
       <span
         className="shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground/70"
