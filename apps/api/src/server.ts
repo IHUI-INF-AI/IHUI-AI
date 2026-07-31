@@ -73,6 +73,8 @@ import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
 import canaryRouterPlugin from './plugins/canary-router.js'
 import { startAutoRollbackMonitor } from './services/auto-rollback.js'
+// P0 第二批次(2026-07-31 立):响应缓存初始化(RELAY_CACHE_ENABLED=true 时启用)
+import { initRelayResponseCache } from './services/relay-response-cache.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
 import watchAspectPlugin from './plugins/watch-aspect.js'
 import pointAspectPlugin from './plugins/point-aspect.js'
@@ -158,14 +160,26 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // 敏感业务路由前缀(需网络分段保护,但允许公网访问;strict 模式下 unknown IP 拒绝)
   const SENSITIVE_BUSINESS_PREFIXES = [
-    '/api/auth/', '/api/users/', '/api/wallet/', '/api/finance/',
-    '/api/order/', '/api/payment/', '/api/fund/', '/api/billing/',
-    '/api/withdrawal/', '/api/settings/',
+    '/api/auth/',
+    '/api/users/',
+    '/api/wallet/',
+    '/api/finance/',
+    '/api/order/',
+    '/api/payment/',
+    '/api/fund/',
+    '/api/billing/',
+    '/api/withdrawal/',
+    '/api/settings/',
   ]
   // 公开路由前缀(不注入网络分段,保持公网可达)
   const PUBLIC_PREFIXES = [
-    '/api/health', '/api/landing', '/api/public/', '/api/oss/public/',
-    '/api/metrics', '/business-metrics', '/api/csrf-token',
+    '/api/health',
+    '/api/landing',
+    '/api/public/',
+    '/api/oss/public/',
+    '/api/metrics',
+    '/business-metrics',
+    '/api/csrf-token',
   ]
 
   server.addHook('onRoute', (routeOptions) => {
@@ -203,6 +217,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 注入到统一 logger，使 service/util 层可通过 fastify pino 输出日志
   setFastify(server)
 
+  // P0 第二批次响应缓存(2026-07-31 立):非流式 chat completions Redis 缓存
+  // RELAY_CACHE_ENABLED=true 时启用,未启用 / Redis 不可用时为 no-op
+  initRelayResponseCache()
+
   // 启动金丝雀自动回滚监控（CANARY_ENABLED=true 时生效，默认空操作）
   startAutoRollbackMonitor()
 
@@ -221,7 +239,9 @@ async function registerPlugins(server: FastifyInstance) {
         const bodyStr = typeof body === 'string' ? body : String(body ?? '')
         const params = new URLSearchParams(bodyStr)
         const obj: Record<string, string> = {}
-        params.forEach((value, key) => { obj[key] = value })
+        params.forEach((value, key) => {
+          obj[key] = value
+        })
         done(null, obj)
       } catch (err) {
         done(err as Error)
