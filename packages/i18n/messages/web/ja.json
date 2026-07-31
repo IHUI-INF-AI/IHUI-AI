@@ -109,7 +109,10 @@
       "quitDownloading": "更新をダウンロード中...",
       "quitRestarting": "更新完了、再起動中...",
       "quitQuitting": "終了中...",
-      "quitSkip": "スキップして終了"
+      "quitSkip": "スキップして終了",
+      "autoRestart": "自動再起動中...",
+      "preparing": "アップデートの準備中...",
+      "autoRetrying": "アップデート失敗、自動リトライ中..."
     },
     "resize": "ドラッグで幅を調整",
     "noPosts": "まだ投稿がありません",
