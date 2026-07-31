@@ -114,6 +114,8 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       allowedIps: developerApiKeys.allowedIps,
       allowedModels: developerApiKeys.allowedModels,
       maxTokensPerReq: developerApiKeys.maxTokensPerReq,
+      // 多租户关联字段(与 schema 同步,保证 SafeApiKey 类型完整)
+      tenantId: developerApiKeys.tenantId,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })
