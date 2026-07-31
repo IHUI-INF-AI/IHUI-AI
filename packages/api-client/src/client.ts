@@ -485,6 +485,11 @@ export interface StreamChatOptions {
    *  - toolCallResult:type 7(tool-result)或自定义 tool_result 事件
    *  触发 WorkPanel.openPanel({ url, source: 'ai-tool' }) */
   onToolCall?: (event: ToolCallEvent) => void
+  /** 工具调用汇总回调(2026-07-31 立,AI 对话可视化深度接入):
+   *  后端在 SSE 流末尾发出 `type: 'tool-summary'` 聚合事件时触发,前端写入 message.toolCallSummary。
+   *  缺失时前端可降级从 onToolCall 累加的 toolCalls 数组本地聚合。
+   *  注意:本回调仅扩展类型签名,streamChat 实现解析逻辑由 A2/A3 任务补齐。 */
+  onToolSummary?: (summary: ToolSummaryEvent) => void
   /** Subagent 自动派发回调(2026-07-28 立,对标 Trae Work):
    *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn/end SSE 事件,
    *  前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。 */
@@ -549,6 +554,12 @@ export type ToolCallEvent =
       toolCallId: string
       toolName: string
       args?: Record<string, unknown>
+      /** 工具来源(2026-07-31 立,ToolCallCard 区分原生/MCP 工具):builtin=内置 / plugin=插件市场 / mcp=MCP server */
+      serverSource?: 'builtin' | 'plugin' | 'mcp'
+      /** MCP server ID(serverSource='mcp' 时由后端透传,如 'context7' / 'filesystem' / 'github') */
+      serverId?: string
+      /** MCP server 显示名(serverSource='mcp' 时由后端透传,如 'Context7 MCP' / 'Filesystem MCP') */
+      serverName?: string
     }
   | {
       type: 'tool-result'
@@ -557,7 +568,28 @@ export type ToolCallEvent =
       args?: Record<string, unknown>
       result?: unknown
       isError?: boolean
+      /** 工具来源(2026-07-31 立,与 tool-call-start 一致;tool-result 事件可复用同一标识) */
+      serverSource?: 'builtin' | 'plugin' | 'mcp'
+      serverId?: string
+      serverName?: string
     }
+
+/**
+ * 工具调用汇总 SSE 事件(2026-07-31 立,AI 对话可视化深度接入)。
+ * 在 SSE 流末尾由后端聚合发出(`type: 'tool-summary'`),前端收到后直接写入 message.toolCallSummary。
+ * 字段与 @ihui/types/ai 的 ToolCallSummary 对齐,但此处作为 SSE 线上传输契约独立定义。
+ * 未收到时前端可降级从 toolCalls 数组本地聚合。
+ */
+export interface ToolSummaryEvent {
+  filesSearched: number
+  webSearched: number
+  filesModified: number
+  linesAdded: number
+  linesDeleted: number
+  toolsByCategory: Record<string, number>
+  totalCalls: number
+  totalDurationMs?: number
+}
 
 export function parseStreamLine(line: string): string | null {
   if (!line || line.startsWith(':')) return null
@@ -1199,6 +1231,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         typeof opts.onSubagentSpawn === 'function' ||
         typeof opts.onSubagentEnd === 'function' ||
         typeof opts.onSubagentProgress === 'function'
+      // 工具调用汇总(2026-07-31 立,AI 对话可视化):SSE 流末尾发出 type='tool-summary' 事件
+      const hasToolSummary = typeof opts.onToolSummary === 'function'
 
       // ===== Dedupe 机制(isRetry 时启用) =====
       // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
@@ -1383,6 +1417,28 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         if (data.startsWith('{')) {
           try {
             const json = JSON.parse(data) as Record<string, unknown>
+            // 2026-07-31 立,提取工具来源字段(兼容 snake_case / camelCase)
+            const serverSource = (
+              json.serverSource ??
+              json.server_source ??
+              ''
+            ) as string
+            const validServerSource =
+              serverSource === 'builtin' || serverSource === 'plugin' || serverSource === 'mcp'
+                ? serverSource
+                : undefined
+            const serverId =
+              typeof json.serverId === 'string'
+                ? json.serverId
+                : typeof json.server_id === 'string'
+                  ? json.server_id
+                  : undefined
+            const serverName =
+              typeof json.serverName === 'string'
+                ? json.serverName
+                : typeof json.server_name === 'string'
+                  ? json.server_name
+                  : undefined
             if (json?.type === 'tool_result' && json?.toolCallId) {
               opts.onToolCall!({
                 type: 'tool-result',
@@ -1391,6 +1447,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 args: json.args as Record<string, unknown> | undefined,
                 result: json.result,
                 isError: json.isError === true,
+                serverSource: validServerSource,
+                serverId,
+                serverName,
               })
             } else if (json?.type === 'tool-call-start' && json?.toolCallId) {
               opts.onToolCall!({
@@ -1398,6 +1457,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 toolCallId: String(json.toolCallId),
                 toolName: typeof json.toolName === 'string' ? json.toolName : '',
                 args: json.args as Record<string, unknown> | undefined,
+                serverSource: validServerSource,
+                serverId,
+                serverName,
               })
             } else if (json?.type === 'tool-result' && json?.toolCallId) {
               opts.onToolCall!({
@@ -1407,6 +1469,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 args: json.args as Record<string, unknown> | undefined,
                 result: json.result,
                 isError: json.isError === true,
+                serverSource: validServerSource,
+                serverId,
+                serverName,
               })
             }
           } catch {
@@ -1480,6 +1545,55 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** 解析工具调用汇总事件(2026-07-31 立,AI 对话可视化深度接入):
+       *  - 后端在 SSE 流末尾(done 之前)发出 type='tool-summary' 事件
+       *  - 聚合本轮所有工具调用统计(搜索文件次数/网页次数/修改文件数/行数变更/工具分类)
+       *  - 前端收到后直接写入 message.toolCallSummary,无需本地重复聚合
+       *  - 兼容后端 snake_case 字段(server_source/server_id/server_name)与 camelCase */
+      const tryParseToolSummary = (line: string): void => {
+        if (!hasToolSummary) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'tool-summary') return
+          // 兼容 snake_case / camelCase 字段(后端 SSE 序列化策略)
+          const numOr = (v: unknown): number =>
+            typeof v === 'number' && Number.isFinite(v) ? v : 0
+          const toolsByCategory = json.toolsByCategory ?? json.tools_by_category
+          const safeToolsByCategory =
+            toolsByCategory && typeof toolsByCategory === 'object'
+              ? (toolsByCategory as Record<string, number>)
+              : {}
+          const totalDurationMsRaw = json.totalDurationMs ?? json.total_duration_ms
+          opts.onToolSummary!({
+            filesSearched: numOr(json.filesSearched ?? json.files_searched),
+            webSearched: numOr(json.webSearched ?? json.web_searched),
+            filesModified: numOr(json.filesModified ?? json.files_modified),
+            linesAdded: numOr(json.linesAdded ?? json.lines_added),
+            linesDeleted: numOr(json.linesDeleted ?? json.lines_deleted),
+            toolsByCategory: safeToolsByCategory,
+            totalCalls: numOr(json.totalCalls ?? json.total_calls),
+            totalDurationMs:
+              typeof totalDurationMsRaw === 'number' && Number.isFinite(totalDurationMsRaw)
+                ? totalDurationMsRaw
+                : undefined,
+          })
+        } catch {
+          /* 非 JSON 或非 tool-summary 事件忽略 */
+        }
+      }
+
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -1494,6 +1608,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseQuestion(line)
           tryParseToolCall(line)
           tryParseSubagent(line)
+          tryParseToolSummary(line)
           // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
           if (hasFallback) {
             const fbEvt = parseFallbackEvent(line)
@@ -1520,6 +1635,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseQuestion(buffer)
         tryParseToolCall(buffer)
         tryParseSubagent(buffer)
+        tryParseToolSummary(buffer)
         // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
           const fbEvt = parseFallbackEvent(buffer)
