@@ -37,6 +37,7 @@ import {
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { TagsView, TagsViewSearchButton, TagsViewChevronButton } from './TagsView'
 import { Tooltip } from '@/components/feedback'
+import { useIsMobile } from '@/hooks/use-media-query'
 
 type PlusMenuAction = {
   /** 唯一 key,i18n 标签用 `topBar.<key>` 解析 */
@@ -144,6 +145,7 @@ const PLUS_MENU_GROUPS: Array<{
  */
 export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = {}) {
   const { isDesktop } = useDesktop()
+  const isMobile = useIsMobile()
   const t = useTranslations('ide')
   const tNav = useTranslations('nav')
   const router = useRouter()
@@ -518,7 +520,11 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                     left: plusRect.left,
                     zIndex: 50,
                   }}
-                  className="w-72 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                  className={cn(
+                    'rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
+                    // 移动端:弹窗宽度约束为视口宽度减去边距,最大 288px
+                    isMobile ? 'w-[calc(100vw-2rem)] max-w-72' : 'w-72',
+                  )}
                 >
                   {/* 搜索框 */}
                   <div className="px-1 pb-1 pt-0.5">
