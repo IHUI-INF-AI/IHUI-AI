@@ -47,7 +47,13 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         <main
           id="main"
           tabIndex={-1}
-          className="no-scrollbar flex-1 overflow-y-auto p-4 md:p-6 lg:p-8"
+          // 2026-07-31 移动端深度适配:padding 按断点渐进放大
+          // - <375px(小手机):12px — 最大化内容区
+          // - ≥375px(标准手机):16px
+          // - ≥768px(平板):20px
+          // - ≥1024px(大平板/小桌面):24px
+          // - ≥1280px(桌面):32px
+          className="no-scrollbar flex-1 overflow-y-auto p-3 sm:p-4 tablet:p-5 tablet-lg:p-6 laptop:p-8"
         >
           {children}
         </main>

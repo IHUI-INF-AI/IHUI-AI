@@ -2245,3 +2245,55 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - **Git 同步证据**:local HEAD b4257f933f == remote HEAD b4257f933f
 - **总轮次**:1 轮(审计 + 修复 + 验证 + 交付)
 - **目标状态**:achieved ✅(STATE.md + loop-run-log.md 已清理)
+
+## Web 端移动端/平板深度适配(2026-07-31 立,平台独占 web-only,AGENTS.md §9 显式标注)
+
+> 用户反馈:"本项目 web 端在移动端手机/平板尺寸的适配做的非常差 几乎没有做,请深度适配所有容器内容,特别是 AI 对话框现在有几种显示方式应该最合理的利用上"
+
+### 现状调研结论
+
+- 断点配置异常:`--breakpoint-lg: 576px`(非默认 1024px),导致 576px 以上即显示桌面三列布局,平板(768px)和大手机横屏严重挤压
+- AI 对话框有 5 种显示模式(Docked/Floating/Float Collapsed/Float Minimized FAB/Closed),但移动端无自动切换逻辑
+- JS 响应式 hooks(useIsMobile/useIsTablet/useIsDesktop)定义了却零引用
+- 三列 flex 布局(Sidebar + AISidePanel + work-area + WebWorkPanel)横向并列,移动端溢出
+- 共享组件(Card/Dialog/Sheet/Drawer)padding 固定 p-6,小屏内容区偏窄
+
+### 已完成改动(本任务)
+
+- [x] ✅(2026-07-31) AI 对话框移动端深度适配(`apps/web/src/components/ai/ai-side-panel.tsx`)
+  - 引入 `useIsMobile` hook,移动端(<768px)自动切换到浮窗 FAB 模式(不破坏桌面端 docked 体验)
+  - FAB 按钮移动端位置优化为右下角(`h-14 w-14 bottom-4 right-4` 适合触屏),桌面端保持 48px + floatPosition 控制
+  - 浮窗折叠态移动端全屏覆盖(`fixed inset-0`),桌面端保持浮窗 + 品牌色光晕
+  - 浮窗完整面板移动端全屏覆盖,内层 aside 去掉圆角(`rounded-none`),header 禁用拖拽
+  - 拖拽手柄在移动端浮窗全屏模式下隐藏(`isMobile && floatMode && 'hidden'`)
+  - 解决 400px 浮窗在 390px 视口溢出问题
+- [x] ✅(2026-07-31) WebWorkPanel 移动端全屏覆盖(`apps/web/src/components/work-panel/web-work-panel.tsx`)
+  - 移动端改为 `fixed inset-0 z-sticky` 全屏覆盖,不参与 flex 流
+  - 跳过自动关闭逻辑(移动端全屏不占 flex 空间,无需触发空间不足自动关闭)
+  - 宽度移动端用 `window.innerWidth`,桌面端保持 effectiveWidth
+- [x] ✅(2026-07-31) GlobalTopBar Plus 弹窗移动端宽度约束(`apps/web/src/components/layout/GlobalTopBar.tsx`)
+  - Plus 弹窗移动端宽度约束为 `w-[calc(100vw-2rem)] max-w-72`,桌面端保持 `w-72`
+- [x] ✅(2026-07-31) MainShell padding 响应式(`apps/web/src/components/layout/MainShell.tsx`)
+  - main padding 按断点渐进放大:`p-3 sm:p-4 tablet:p-5 tablet-lg:p-6 laptop:p-8`
+  - <375px(小手机):12px / ≥375px(标准手机):16px / ≥768px(平板):20px / ≥1024px:24px / ≥1280px:32px
+- [x] ✅(2026-07-31) globals.css 移动端全局样式(`apps/web/app/globals.css`)
+  - `@media (max-width: 767px)` 块:AI 面板全屏 aside 安全区适配(env(safe-area-inset-*))
+  - 移动端输入框最小 16px(防止 iOS Safari 自动缩放)
+  - 移除移动端点击灰色高亮(`-webkit-tap-highlight-color: transparent`)
+  - 浮窗拖拽 header 禁用触摸滚动(`touch-action: none`)
+  - 全局兜底:`body overflow-x: hidden` + 长文本 `overflow-wrap: break-word` + 表格横滚兜底 + `.no-scrollbar` 隐藏滚动条
+- [x] ✅(2026-07-31) Card 组件 padding 响应式(`packages/ui-react/src/components/card.tsx`)
+  - CardHeader/Content/Footer 从 `p-6` 改为 `p-4 sm:p-6`(移动端 16px,≥375px 恢复 24px)
+- [x] ✅(2026-07-31) Dialog 组件 padding/gap 响应式(`packages/ui-react/src/components/dialog.tsx`)
+  - DialogContent 从 `p-6 gap-4` 改为 `p-4 gap-3 sm:p-6 sm:gap-4`(移动端 16px/12px,≥375px 恢复 24px/16px)
+- [x] ✅(2026-07-31) Sheet 组件 padding + 宽度响应式(`packages/ui-react/src/components/sheet.tsx`)
+  - sheetSideVariants 从 `p-6 gap-4` 改为 `p-4 gap-3 sm:p-6 sm:gap-4`
+  - left/right 移动端 `w-[90vw]` 充分利用视口,sm 起恢复 `w-3/4 sm:max-w-sm`
+- [x] ✅(2026-07-31) Drawer 组件宽度响应式(`packages/ui-react/src/components/drawer.tsx`)
+  - left/right 移动端 `w-[90vw]`,sm 起恢复 `w-3/4 sm:max-w-sm`(原 w-3/4 在 375px 屏仅 281px 偏窄)
+
+### 验证
+
+- `pnpm --filter @ihui/web typecheck` exit 0(全量 typecheck 全绿)
+- browser_use 验证:FAB 按钮位置正确(bottom: 16px, right: 16px)、浮窗全屏覆盖(position: fixed, borderRadius: 0px)、暗色模式切换正常、平板 768x1024 无白屏
+- 截图存档:`.trae-cn/tmp/mobile-home-default.png` / `mobile-fab.png` / `mobile-ai-fullscreen.png` / `mobile-dark.png` / `tablet-768.png`
