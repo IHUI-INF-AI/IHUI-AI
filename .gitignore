@@ -4,6 +4,8 @@
 logs/
 tmp/
 apps/web/out/
+# Monaco Editor self-host 静态资源(postinstall 从 node_modules/monaco-editor/min/vs 复制)
+apps/web/public/vs/
 *.log
 test_*.json
 test_*.log
