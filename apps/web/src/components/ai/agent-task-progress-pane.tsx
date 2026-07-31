@@ -1405,8 +1405,9 @@ export function AgentTaskProgressPane() {
           <TimelineTab showTabs={false} className="min-h-0" data-testid="pane-timeline-view" />
         )}
 
-        {/* Phase 19: 对话流视图(tab='inline' 时,显示原有内容) */}
-        {activeTab === 'inline' && (
+        {/* Phase 19: 对话流视图(tab='inline' 或 'all' 时,显示原有内容)
+            - 'all' tab 由 message-list 自身渲染整合视图,本 pane 兜底显示对话流内容避免空 */}
+        {(activeTab === 'inline' || activeTab === 'all') && (
           <>
             {!threadId && (
               <div
