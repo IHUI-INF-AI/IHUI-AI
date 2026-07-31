@@ -10,6 +10,7 @@ const DrawerTrigger = DialogPrimitive.Trigger
 const DrawerClose = DialogPrimitive.Close
 
 const drawerSideVariants = cva(
+  // 2026-07-31 移动端适配:left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口
   'fixed z-modal flex flex-col bg-background shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
   {
     variants: {
@@ -17,9 +18,9 @@ const drawerSideVariants = cva(
         top: 'inset-x-0 top-0 w-full border-b rounded-b-lg data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
         bottom:
           'inset-x-0 bottom-0 w-full border-t rounded-t-lg data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-        left: 'inset-y-0 left-0 h-full w-3/4 border-r rounded-r-lg data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm',
+        left: 'inset-y-0 left-0 h-full w-[90vw] border-r rounded-r-lg data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:w-3/4 sm:max-w-sm',
         right:
-          'inset-y-0 right-0 h-full w-3/4 border-l rounded-l-lg data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm',
+          'inset-y-0 right-0 h-full w-[90vw] border-l rounded-l-lg data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:w-3/4 sm:max-w-sm',
       },
     },
     defaultVariants: {

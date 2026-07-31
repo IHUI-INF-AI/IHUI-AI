@@ -926,6 +926,18 @@ cd IHUI-AI && docker compose up -d
 - **共享内容**:`@theme` 块(颜色 / 圆角 / 字体 / 动画 / 10 档断点)+ `.dark` 深色模式覆盖 + 中文字体垂直对齐全局规则(`--text-vcenter-offset: 0.3px`,AGENTS.md §4)
 - **效果**:改 token 一处,web(8801) + extension 同步生效;typecheck / build / browser 4 状态验证全部通过
 
+### Web 端移动端/平板深度适配(2026-07-31 立,平台独占 web-only)
+
+> 启用闲置的 `useIsMobile/useIsTablet/useIsDesktop` hooks,让 AI 对话框 5 种显示模式在移动端自动切换到 FAB + 全屏覆盖,共享组件 padding/width 响应式降级。
+
+- **AI 对话框**:移动端(<768px)自动从 docked 切换到浮窗 FAB 模式(`h-14 w-14 bottom-4 right-4` 右下角触屏按钮),点击展开为全屏覆盖(`fixed inset-0`,aside 去圆角,header 禁拖拽,拖拽手柄隐藏),解决 400px 浮窗在 390px 视口溢出问题
+- **WebWorkPanel**:移动端改为 `fixed inset-0 z-sticky` 全屏覆盖,不参与 flex 流,跳过空间不足自动关闭逻辑
+- **GlobalTopBar**:Plus 弹窗移动端宽度 `w-[calc(100vw-2rem)] max-w-72`(桌面端 `w-72`)
+- **MainShell**:main padding 渐进放大 `p-3 sm:p-4 tablet:p-5 tablet-lg:p-6 laptop:p-8`(12→16→20→24→32px)
+- **globals.css 移动端块**:safe-area 安全区适配 + 输入框最小 16px(防 iOS Safari 缩放) + 移除点击灰色高亮 + 浮窗 header 禁触摸滚动 + 全局 `body overflow-x: hidden` + 长文本断行 + 表格横滚兜底
+- **共享组件响应式 padding/width**:Card `p-4 sm:p-6` / Dialog `p-4 gap-3 sm:p-6 sm:gap-4` / Sheet 同 + left/right `w-[90vw] sm:w-3/4 sm:max-w-sm` / Drawer left/right `w-[90vw] sm:w-3/4 sm:max-w-sm`(原 w-3/4 在 375px 屏仅 281px 偏窄)
+- **不破坏桌面端**:docked 模式的 `hidden lg:block` 保持原样,移动端所有切换通过 `isMobile` 条件渲染,桌面端无任何视觉变化
+
 ### 前端 i18n 单一来源(跨端共享,2026-07-23 立)
 
 > web 与 extension 不再各自维护 i18n 消息源,extension 翻译 JSON 一处改、单一来源,杜绝 key 集合漂移。
