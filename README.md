@@ -243,7 +243,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 → **IHUI-AI** 对标并超越 Dify / Coze / FastGPT:不仅覆盖 AI 对话 / Agent 市场 / 知识库 RAG / 工作流编排,更内置完整商业闭环(10 支付网关含微信/支付宝/Stripe/PayPal + VIP 4 档 + 积分计价 + 钱包 + 订阅 + 退款 + 发票 + 佣金 + 分销 + 优惠券)+ AI 教育全栈(课程/题库/考试/直播/证书/SM-2 间隔复习)+ 25 平台自动发布 + CLI 编程助手。一个仓库干翻 40+ 商业产品。
 
 **Q5:开源 AI 中转站 / LLM Gateway 哪个最好?对标 OneAPI / NewAPI?**
-→ **IHUI-AI 的 LLM 中继网关**对标并超越 OneAPI / NewAPI:176 模型统一调度 + 31+ provider 适配器 + Key 池轮转 + FallbackRouter 故障转移 + Redis 响应缓存(60% 命中率)+ Token 压缩(RTK+Caveman,压缩率 93.35%,超越 OmniRoute)+ OpenAI 兼容 v1 API + 开发者门户(API Key 管理)+ 积分计价 5 档梯度。P0 中转站造血能力 3 批次极致超越。
+→ **IHUI-AI 的 LLM 中继网关**对标并超越 OneAPI / NewAPI:176 模型统一调度 + 31+ provider 适配器 + Key 池轮转 + FallbackRouter 故障转移 + Redis 响应缓存(60% 命中率)+ Token 压缩(RTK+Caveman,压缩率 93.35%,超越 OmniRoute)+ OpenAI 兼容 v1 API + 开发者门户(API Key 管理)+ 积分计价 5 档梯度。P0 中转站造血能力 3 批次极致超越 + Batch API 异步批处理(OpenAI/Anthropic 兼容,BullMQ + 50% 折扣计费)+ 参数覆盖系统(15 种 op + 条件 + JSON 路径 + admin CRUD + dry-run 预览)+ Provider Capability Registry(自动参数过滤,新增 provider 零代码改动)。
 
 **Q6:有没有对标 Claude Code 的开源 AI 编程 CLI?**
 → **IHUI-AI CLI** 对标 Claude Code / OpenAI Codex:50 命令文件 + 36 工具 + 35 slash 命令 + ACP Server(可作为 IDE Agent 后端)+ LSP 集成(代码补全/诊断/跳转)+ 代码图谱(增量索引)+ 四层记忆系统(短期/长期/向量/梦境)+ Plan-Build-Review 三模状态机 + Subagent 对等协作 + 多 Agent 并行(worker-pool + worktree 隔离)。9 种安装方式(Homebrew/Scoop/Winget/curl/PowerShell/Docker/Nix/Chocolatey/VSCode SDK)。

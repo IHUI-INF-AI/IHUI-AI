@@ -370,6 +370,10 @@ import v1MidjourneyRoutes from './v1-midjourney.js'
 import v1ResponsesRoutes from './v1-responses.js'
 import v1Assistants from './v1-assistants.js'
 import v1ProtocolCompletenessRoutes from './v1-protocol-completeness.js'
+// P0-18 Batch API(2026-08-01 立,OpenAI/Anthropic Batch 兼容,BullMQ 异步处理 + 50% 折扣计费)
+import v1Batches from './v1-batches.js'
+// P0-20b 参数覆盖规则管理(2026-08-01 立,admin CRUD + dry-run 预览)
+import adminRelayParamOpsRoutes from './admin/relay-param-ops.js'
 // Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
 import developerWebhooksRoutes from './developer/webhooks.js'
 import adminWebhookDebugRoutes from './admin/webhook-debug.js'
@@ -1057,6 +1061,10 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(v1Assistants, { prefix: '/v1' })
   // /v1/midjourney/{describe,shorten,blend} + /v1/audio/translations + /v1/images/variations + /v1/fine_tuning/jobs
   server.register(v1ProtocolCompletenessRoutes, { prefix: '/v1' })
+  // P0-18 Batch API(2026-08-01 立):/v1/batch + /v1/batches + /v1/messages/batches(OpenAI/Anthropic 兼容,BullMQ 异步)
+  server.register(v1Batches, { prefix: '/v1' })
+  // P0-20b 参数覆盖规则管理(2026-08-01 立):/api/admin/relay-param-ops(CRUD + dry-run)
+  server.register(adminRelayParamOpsRoutes, { prefix: '/api/admin' })
 
   // ===== Relay Webhook 系统(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)=====
   // developer 用户自助管理订阅(7 端点):/api/developer/webhooks/subscriptions/*
