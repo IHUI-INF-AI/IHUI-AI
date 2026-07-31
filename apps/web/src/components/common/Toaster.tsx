@@ -67,5 +67,26 @@ export function Toaster(props: ToasterProps) {
     window.addEventListener(TOAST_EVENT, handler)
     return () => window.removeEventListener(TOAST_EVENT, handler)
   }, [])
-  return <SonnerToaster {...props} />
+  // 深度对标 Trae/Codex/Claude Code 通知细节(2026-07-31):
+  // - richColors: success/error/warning 用语义色背景,而非统一灰白
+  // - closeButton: 每条通知可手动关闭(对标程序标配)
+  // - theme: 跟随系统主题(light/dark/system)
+  // - duration: 4s(对标程序默认值,比 sonner 默认 3s 多 1s 保证可读)
+  // - position: top-center(对标 Trae/Codex 通知位置,避免遮挡底部输入框)
+  // - toastOptions: 圆角对齐 §4 规范(rounded-lg=8px)
+  return (
+    <SonnerToaster
+      richColors
+      closeButton
+      theme="system"
+      duration={4000}
+      position="top-center"
+      toastOptions={{
+        style: {
+          borderRadius: '8px',
+        },
+      }}
+      {...props}
+    />
+  )
 }
