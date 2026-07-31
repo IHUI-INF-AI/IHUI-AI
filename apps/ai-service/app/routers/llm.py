@@ -1712,10 +1712,20 @@ async def list_providers_health() -> dict[str, Any]:
             "status": "ok"|"invalid_key"|"unreachable",
             "latency_ms": 123,
             "model_count": 42,
-            "last_check": "2026-07-31T12:00:00Z"
+            "last_check": "2026-07-31T12:00:00Z",
+            "display_name": "OpenAI",        // 从 free_provider_registry 注入
+            "category": "international",      // domestic/international/local/credits
+            "free_quota": "$5 credits",
+            "default_models": ["gpt-4o"],
+            "default_base_url": "https://api.openai.com/v1",
+            "is_in_cooldown": false,
+            "consecutive_failures": 0
           }
         ],
-        "summary": {"total": 5, "ok": 3, "invalid_key": 1, "unreachable": 1}
+        "summary": {
+          "total": 5, "ok": 3, "invalid_key": 1, "unreachable": 1,
+          "configured": 4, "local": 0, "not_configured": 0  // 兼容旧 Dashboard
+        }
       }
     }
 
@@ -1723,6 +1733,10 @@ async def list_providers_health() -> dict[str, Any]:
     - HTTP 200 → ok(从响应 data 数组长度取 model_count)
     - HTTP 401/403 → invalid_key(key 无效或过期)
     - 连接失败/超时/其他 HTTP 错误 → unreachable
+
+    display_name/category/free_quota/default_models/default_base_url 从
+    free_provider_registry 推断;provider 不在 registry 中时设为空字符串/空数组。
+    is_in_cooldown/consecutive_failures 默认 False/0(新 schema 未实现 cooldown)。
 
     并发用 asyncio.gather,单 provider timeout=8s,总耗时 < 10s。
     仅检查 api_key + api_base 均非空的 provider(无 api_base 的标记 skipped_no_base)。
@@ -1736,7 +1750,7 @@ async def list_providers_health() -> dict[str, Any]:
         providers_json = {}
 
     # 收集待检查 provider(name → (api_key, api_base))
-    to_check: list[tuple[str, str, str | None]] = []
+    to_check: list[tuple[str, str, str]] = []
     skipped_no_base: list[str] = []
     for name, cfg_raw in providers_json.items():
         if not isinstance(cfg_raw, dict):
@@ -1772,6 +1786,25 @@ async def list_providers_health() -> dict[str, Any]:
     invalid_count = sum(1 for r in results if r["status"] == "invalid_key")
     unreachable_count = sum(1 for r in results if r["status"] == "unreachable")
 
+    # 补注入 free_provider_registry 展示字段(P0 Phase B,兼容旧 Dashboard 消费)。
+    # 新 schema 主动预检只返回 status/latency_ms/model_count,旧 Dashboard 还需
+    # display_name/category/free_quota/default_models/default_base_url 等字段渲染,
+    # 不补回会导致前端网关 Dashboard 渲染 undefined。
+    try:
+        from ..services.free_provider_registry import free_provider_registry as _registry
+    except ImportError:
+        _registry = None  # type: ignore[assignment]
+    for r in results:
+        provider_code = str(r.get("provider") or "")
+        info = _registry.get_by_code(provider_code) if _registry else None
+        r["display_name"] = info.display_name if info else provider_code
+        r["category"] = info.category.value if info else ""
+        r["free_quota"] = info.free_quota if info else ""
+        r["default_models"] = list(info.default_models) if info else []
+        r["default_base_url"] = info.default_base_url if info else ""
+        r["is_in_cooldown"] = False  # 新 schema 未实现 cooldown,默认 False
+        r["consecutive_failures"] = 0  # 新 schema 未实现,默认 0
+
     return _wrap_ok({
         "providers": results,
         "summary": {
@@ -1779,6 +1812,10 @@ async def list_providers_health() -> dict[str, Any]:
             "ok": ok_count,
             "invalid_key": invalid_count,
             "unreachable": unreachable_count,
+            # 兼容旧 Dashboard 统计字段(P0 Phase B)
+            "configured": ok_count + invalid_count,  # 已配置 api_key 的(ok + invalid_key)
+            "local": 0,  # 新 schema 无 local 概念
+            "not_configured": 0,
         },
     })
 
