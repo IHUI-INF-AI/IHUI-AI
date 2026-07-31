@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_issuer: str = "ihui-ai"
     # 不验签的白名单路径(正则匹配)
-    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics"
+    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics,/api/browser/"
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
 
