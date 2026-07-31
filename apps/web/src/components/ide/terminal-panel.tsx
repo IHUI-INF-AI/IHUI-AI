@@ -1383,7 +1383,7 @@ function TerminalViewport({
             disabled={!contextMenu.hasSelection}
           >
             <Copy className="h-3 w-3" />
-            <span>复制选中</span>
+            <span>{t('terminalPanel.copySelection')}</span>
             <span className="ml-auto text-[10px] opacity-50">Ctrl+Shift+C</span>
           </button>
           <button
@@ -1392,7 +1392,7 @@ function TerminalViewport({
             onClick={handlePaste}
           >
             <ClipboardPaste className="h-3 w-3" />
-            <span>粘贴</span>
+            <span>{t('terminalPanel.paste')}</span>
             <span className="ml-auto text-[10px] opacity-50">Ctrl+Shift+V</span>
           </button>
           <button
@@ -1401,7 +1401,7 @@ function TerminalViewport({
             onClick={handleSearchFromMenu}
           >
             <SearchIcon className="h-3 w-3" />
-            <span>搜索</span>
+            <span>{t('terminalPanel.search')}</span>
             <span className="ml-auto text-[10px] opacity-50">Ctrl+F</span>
           </button>
           <button
@@ -1410,7 +1410,7 @@ function TerminalViewport({
             onClick={() => handleSplitFromMenu('vertical')}
           >
             <Columns2 className="h-3 w-3" />
-            <span>垂直分屏</span>
+            <span>{t('terminalPanel.splitVertical')}</span>
             <span className="ml-auto text-[10px] opacity-50">Ctrl+Shift+D</span>
           </button>
           <button
@@ -1419,7 +1419,7 @@ function TerminalViewport({
             onClick={() => handleSplitFromMenu('horizontal')}
           >
             <Rows2 className="h-3 w-3" />
-            <span>水平分屏</span>
+            <span>{t('terminalPanel.splitHorizontal')}</span>
             <span className="ml-auto text-[10px] opacity-50">Ctrl+Shift+H</span>
           </button>
           <button
@@ -1428,7 +1428,7 @@ function TerminalViewport({
             onClick={handleClear}
           >
             <Eraser className="h-3 w-3" />
-            <span>清屏</span>
+            <span>{t('terminalPanel.clear')}</span>
           </button>
         </div>
       )}
