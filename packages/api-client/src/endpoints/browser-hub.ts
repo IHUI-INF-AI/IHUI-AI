@@ -139,6 +139,11 @@ export async function browserHubReload(
  *
  * 必须在客户端调用(依赖 window/location)。
  */
+
+// Node 环境(tsconfig 无 DOM lib)无 window 全局,显式声明类型避免 TS2304。
+// 运行时 typeof window === 'undefined' 判定仍正确(Node 下返回 'undefined')。
+declare const window: { location: { protocol: string; host: string } } | undefined;
+
 export function buildBrowserWsUrl(sessionId: string): string {
   if (typeof window === 'undefined') {
     // SSR 防护:返回占位 URL,实际不应在 SSR 调用
