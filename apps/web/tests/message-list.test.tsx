@@ -79,6 +79,8 @@ vi.mock('lucide-react', () => {
     Check: Icon,
     RefreshCw: Icon,
     ArrowDown: Icon,
+    Search: Icon,
+    Layers: Icon,
   }
 })
 
@@ -121,7 +123,7 @@ vi.mock('@/stores/progress-jump-store', () => ({
 
 // timeline-store mock
 const timelineStoreState = {
-  activeTab: 'inline' as 'inline' | 'timeline',
+  activeTab: 'inline' as 'inline' | 'timeline' | 'all',
   events: [] as unknown[],
   setActiveTab: vi.fn(),
   setEvents: vi.fn(),
@@ -177,8 +179,10 @@ vi.mock('@/components/ai/progress-sections/sub-agent-task-tree', () => ({
 // MessageContextMenu mock
 vi.mock('@/components/ai/progress-sections/message-context-menu', () => ({
   MessageContextMenu: () => null,
+  MessageSearchBar: () => null,
   plainTextForClipboard: (s: string) => s,
   markdownForClipboard: (s: string) => s,
+  normalizeMarkdown: (s: string) => s,
 }))
 
 // TimelineEventRow mock
@@ -573,7 +577,10 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
   // ─── 5. 时间戳 footer ─────────────────────────────────────────
   describe('时间戳 footer', () => {
     it('hover 消息时显示时间戳', () => {
-      const ts = new Date('2026-07-28T10:30:00').getTime()
+      // 用"今天 10:30"避免 sameDay 判定受当前日期影响(原硬编码 2026-07-28 在 07-31 跑会失败)
+      const today = new Date()
+      today.setHours(10, 30, 0, 0)
+      const ts = today.getTime()
       const msg = makeAssistantMsg('m-ts', 'content', { createdAt: ts })
       render(<MessageList {...baseProps} messages={[msg]} />)
       const item = document.querySelector('[data-message-id="m-ts"]')!
