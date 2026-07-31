@@ -29,6 +29,7 @@ import { WorkspacePermissionDialog } from '@/components/workspace/workspace-perm
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { getConversation, getMessages } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
@@ -87,6 +88,12 @@ export function AISidePanel() {
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
   // ChatMode 4 态(2026-07-28 移除独立 PlanActToggle):订阅 currentMode 用于动态切换输入框 placeholder
   const currentMode = useModeStore((s) => s.currentMode)
+  // 登录弹窗打开状态(2026-07-31 立,双重保险):
+  // AgentTaskProgressPane 内部已订阅 isLoginOpen 并 return null,但用户反馈"修了好几遍"
+  // 仍未生效(可能 HMR 边界 / 父组件未订阅导致 zustand 通知链断裂)。
+  // 父组件 AISidePanel 也订阅 isLoginOpen,登录弹窗打开时不渲染 AgentTaskProgressPane,
+  // 双重保险确保 pane 不会浮在 z-modal(2000) 遮罩之上清晰高亮显示。
+  const isLoginOpen = useLoginDialogStore((s) => s.isOpen)
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
 
@@ -1034,8 +1041,10 @@ export function AISidePanel() {
               }
             />
             {/* Agent 任务进度 popover(v14:absolute 锚定到本容器右上角,不再 fixed 到视口)
-                由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store */}
-            <AgentTaskProgressPane />
+                由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store
+                双重保险(2026-07-31):父组件 AISidePanel 也检查 isLoginOpen,
+                登录弹窗打开时不渲染 pane,避免 z-popover(2001) 浮在 z-modal(2000) 遮罩之上 */}
+            {!isLoginOpen && <AgentTaskProgressPane />}
           </div>
 
           {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
