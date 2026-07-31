@@ -1,13 +1,7 @@
 ﻿'use client'
 
 import * as React from 'react'
-import {
-  Send,
-  Square,
-  SquareSlash,
-  AtSign,
-  Info,
-} from 'lucide-react'
+import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -20,7 +14,10 @@ import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
 import { WebInputCore, MAX_LENGTH, type WebInputCoreHandle } from './web-input-core'
-import { PermissionModePopover, isHighRiskPermissionMode } from '@/components/ai/permission-mode-popover'
+import {
+  PermissionModePopover,
+  isHighRiskPermissionMode,
+} from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
@@ -120,13 +117,8 @@ export function MessageInput({
   // - addFileReference / addTextReference / addCodeReference 三种类型添加
   // - removeReference 移除 + 释放 objectURL
   // - resetReferences 发送后清空
-  const {
-    references,
-    addFileReference,
-    addTextReference,
-    removeReference,
-    resetReferences,
-  } = useMessageReferences()
+  const { references, addFileReference, addTextReference, removeReference, resetReferences } =
+    useMessageReferences()
   // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
   const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
   // 发送 / 拖拽 / 粘贴 / 文件输入 handler(2026-07-30 提取到 useMessageSend hook):
@@ -277,6 +269,15 @@ export function MessageInput({
       e.preventDefault()
       void cyclePermissionMode()
     }
+    // Esc 清空草稿(2026-07-31 对标 Trae/Codex/Claude Code):
+    // - 斜杠/提及面板打开时 Esc 由面板自己处理(不清空)
+    // - 流式生成中禁用(避免误清下一条草稿)
+    // - 有内容时清空并 resize textarea 高度
+    if (e.key === 'Escape' && !slashOpen && !mentionOpen && !isStreaming && value.length > 0) {
+      e.preventDefault()
+      setValue('')
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
+    }
   }
 
   // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
@@ -353,7 +354,10 @@ export function MessageInput({
                 onPointerDown={onFloatDragStart}
                 className="flex cursor-move items-center gap-1 px-1.5 py-1.5"
               >
-                <AgentProgressTrigger className="border-0 bg-transparent px-0" onTriggerClick={onTriggerClick} />
+                <AgentProgressTrigger
+                  className="border-0 bg-transparent px-0"
+                  onTriggerClick={onTriggerClick}
+                />
                 {floatHeader}
               </div>
             )}
