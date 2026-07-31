@@ -490,6 +490,19 @@ async def get_models_sync_status() -> dict[str, Any]:
     return _wrap_ok(model_sync_service.get_status())
 
 
+@router.get("/llm/models/sync/health", response_model=None)
+async def get_sync_health() -> dict[str, Any]:
+    """查询每个 provider 的健康状态(F4.7 连续失败计数 + 永久禁用列表)。
+
+    返回字段:
+    - failure_counters: {provider_code: 连续失败次数, ...}
+    - permanently_disabled: [provider_code, ...] 永久禁用的 provider 列表
+    - failure_threshold: 触发 unhealthy 的连续失败阈值(默认 3)
+    """
+    from ..services.model_sync import model_sync_service
+    return _wrap_ok(model_sync_service.get_health())
+
+
 @router.post("/llm/complete/stream", response_model=None)
 async def complete_stream(req: LLMCompleteRequest, request: Request) -> StreamingResponse | JSONResponse:
     """流式 LLM 调用(原生 token 级流式 + SSE event 字段 + 心跳保活)。
