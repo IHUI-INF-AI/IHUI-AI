@@ -14,17 +14,20 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
 /**
  * UpdatePrompt — 桌面端应用更新下拉提示窗(2026-07-31 立,平台独占:仅桌面端)。
  *
- * 设计:
- * - 从屏幕顶部滑入的下拉卡片(fixed top center)
- * - 精美动画更新按钮:shimmer 光泽流动 + 进度环 + 完成勾选动画
- * - 触发:useUpdater hook(启动静默检查 + 托盘菜单 desktop-check-update 事件)
+ * 设计(v2 增强动效版):
+ * - 从屏幕顶部滑入 + 缩放 + 淡入(0.45s 弹性入场)
+ * - 整卡发光呼吸:品牌色光晕 2.4s 周期脉冲扩散
+ * - 卡片边框旋转光环:conic-gradient 渐变 4s/圈沿边框旋转
+ * - 按钮旋转光环:conic-gradient 双段光环 2.5s/圈 + 外发光模糊
+ * - 图标微脉动:2s 周期 1→1.08 缩放
+ * - 无顶部彩条(已移除,改为整卡动效)
  *
  * 状态:
- * - available:下拉窗 + shimmer "立即更新" 按钮
+ * - available:下拉窗 + 旋转光环"立即更新"按钮
  * - downloading:进度环 + 百分比 + 下载量
  * - installing:旋转图标 + "安装中"
- * - done:勾选动画 + "重启应用" 按钮
- * - error:错误提示 + "重试" 按钮
+ * - done:勾选动画 + "重启应用"按钮
+ * - error:错误提示 + "重试"按钮
  *
  * 浏览器端 useUpdater 返回 idle,组件渲染 null。
  * AGENTS.md §4 UI 约束:compact 紧凑、rounded-xl、无蓝色发光边框、无分割线、无渐变遮罩。
@@ -78,8 +81,10 @@ export function UpdatePrompt() {
   const version = session?.info.version ?? ''
   const notes = session?.info.notes ?? ''
   const percent = Math.round(progress * 100)
-  // 进度环 strokeDashoffset:circumference * (1 - progress)
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress)
+
+  // 是否显示持续性动效(available 状态时整卡+按钮+图标都有动效)
+  const isAnimated = status === 'available'
 
   return (
     <div
@@ -92,23 +97,11 @@ export function UpdatePrompt() {
     >
       <div
         className={cn(
-          'animate-update-slide-down overflow-hidden rounded-xl border border-border bg-card shadow-lg',
-          'transition-shadow',
+          'animate-update-slide-in update-orbit-border overflow-hidden rounded-xl border border-border bg-card',
+          isAnimated && 'update-card-glow',
         )}
       >
-        {/* 顶部彩条:根据状态变色 */}
-        <div
-          className={cn(
-            'h-0.5 w-full',
-            status === 'error'
-              ? 'bg-red-500'
-              : status === 'done'
-                ? 'bg-green-500'
-                : 'bg-primary',
-          )}
-        />
-
-        <div className="p-4">
+        <div className="relative z-10 p-4">
           {/* 头部:图标 + 标题 + 版本号 + 关闭按钮 */}
           <div className="flex items-center gap-2.5">
             <div
@@ -119,6 +112,7 @@ export function UpdatePrompt() {
                   : status === 'done'
                     ? 'bg-green-500/10 text-green-500'
                     : 'bg-primary/10 text-primary',
+                isAnimated && 'animate-update-icon-pulse',
               )}
             >
               {status === 'error' ? (
@@ -173,18 +167,20 @@ export function UpdatePrompt() {
           {/* 操作按钮区 */}
           <div className="mt-3.5 flex items-center gap-2.5">
             {status === 'available' && (
-              <button
-                onClick={handleUpdate}
-                className={cn(
-                  'update-btn-shimmer flex h-9 flex-1 items-center justify-center gap-1.5',
-                  'rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground',
-                  'transition-colors hover:bg-primary/90 active:bg-primary/80',
-                  'focus:outline-none focus-visible:bg-primary/90',
-                )}
-              >
-                <Download className="h-4 w-4" />
-                <span>{t('updateNow')}</span>
-              </button>
+              <div className="update-btn-orbit-glow flex-1">
+                <button
+                  onClick={handleUpdate}
+                  className={cn(
+                    'update-btn-orbit flex h-9 w-full items-center justify-center gap-1.5',
+                    'rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground',
+                    'transition-colors hover:brightness-110 active:brightness-95',
+                    'focus:outline-none',
+                  )}
+                >
+                  <Download className="h-4 w-4" />
+                  <span>{t('updateNow')}</span>
+                </button>
+              </div>
             )}
 
             {status === 'downloading' && (

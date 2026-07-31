@@ -47,6 +47,50 @@ const INITIAL_STATE: UpdaterState = {
 const SILENT_CHECK_DELAY_MS = 5000
 
 /**
+ * 开发环境测试模式(仅 development):
+ * - Tauri 开发环境:自动启用(无需 URL 参数),因为桌面端无法手动加参数
+ * - 浏览器开发环境:需 URL 参数 ?dev-update=1
+ * 生产环境永远返回 false。
+ */
+function isDevUpdateTest(): boolean {
+  if (typeof window === 'undefined') return false
+  // Turbopack 浏览器端不内联 process.env.NODE_ENV,改用 hostname 检测开发环境
+  const isLocalhost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+  const devParam = new URLSearchParams(window.location.search).get('dev-update')
+  const tauri = isTauri()
+  if (!isLocalhost) return false
+  // Tauri 开发环境:自动启用测试模式
+  if (tauri) return true
+  // 浏览器开发环境:需 URL 参数
+  return devParam === '1'
+}
+
+/** 模拟更新会话(开发测试用,15.2MB 假包,~4s 下载完)。 */
+function createMockSession(): UpdateSession {
+  const total = Math.round(15.2 * 1024 * 1024)
+  return {
+    info: {
+      version: '0.2.0',
+      date: new Date().toISOString(),
+      notes: '新增更新推送功能,支持下拉窗提示和精美动画按钮\n优化桌面端启动性能\n修复若干已知问题',
+    },
+    downloadAndInstall: async (onProgress?: (p: UpdateProgress) => void) => {
+      let downloaded = 0
+      onProgress?.({ downloaded: 0, total })
+      const chunkSize = total / 25
+      for (let i = 0; i < 25; i++) {
+        await new Promise((r) => setTimeout(r, 150))
+        downloaded = Math.min(downloaded + chunkSize, total)
+        onProgress?.({ downloaded, total })
+      }
+      onProgress?.({ downloaded: total, total })
+    },
+  }
+}
+
+/**
  * useUpdater — 桌面端应用更新状态机(2026-07-31 立,平台独占:仅桌面端)。
  *
  * 状态流转:
@@ -73,6 +117,15 @@ export function useUpdater() {
 
   /** 检查更新。silent=true 时不显示 error(静默启动检查)。 */
   const checkForUpdate = React.useCallback(async (silent = false) => {
+    // 开发测试模式:不依赖 Tauri,直接返回模拟更新
+    if (isDevUpdateTest()) {
+      setState({ ...INITIAL_STATE, status: 'checking' })
+      await new Promise((r) => setTimeout(r, 800))
+      if (!mountedRef.current) return
+      setState({ ...INITIAL_STATE, status: 'available', session: createMockSession() })
+      return
+    }
+
     if (!isTauri()) return
     setState({ ...INITIAL_STATE, status: 'checking' })
     const session = await checkForUpdates()
@@ -121,6 +174,10 @@ export function useUpdater() {
 
   /** 重启应用(安装完成后调用)。 */
   const restart = React.useCallback(async () => {
+    if (isDevUpdateTest()) {
+      setState(INITIAL_STATE)
+      return
+    }
     await restartApp()
   }, [])
 
@@ -129,8 +186,12 @@ export function useUpdater() {
     setState(INITIAL_STATE)
   }, [])
 
-  // 启动静默检查(5 秒后)
+  // 启动静默检查(Tauri 环境 5 秒后,开发测试模式 1 秒后)
   React.useEffect(() => {
+    if (isDevUpdateTest()) {
+      const timer = setTimeout(() => void checkForUpdate(true), 1000)
+      return () => clearTimeout(timer)
+    }
     if (!isTauri()) return
     const timer = setTimeout(() => {
       void checkForUpdate(true)
@@ -140,7 +201,7 @@ export function useUpdater() {
 
   // 监听托盘菜单 "检查更新" 事件(由 useDesktopEvents 转发的 CustomEvent)
   React.useEffect(() => {
-    if (!isTauri()) return
+    if (!isTauri() && !isDevUpdateTest()) return
     const handler = () => void checkForUpdate(false)
     window.addEventListener('desktop-check-update', handler)
     return () => window.removeEventListener('desktop-check-update', handler)
