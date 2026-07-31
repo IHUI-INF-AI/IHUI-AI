@@ -279,6 +279,49 @@ if ($AutoClean) {
 }
 
 # ============================================================================
+# Rule 6: Orphaned tsx watch (child dead, parent alive) — 2026-07-31 立
+# ============================================================================
+# 真实事故(2026-07-31):
+#   - apps/api/src/routes/admin/system-login-logs.ts:153 重复注册 GET /courses/:id
+#     导致 Fastify FST_ERR_DUPLICATED_ROUTE,API 子进程 exit 1
+#   - tsx watch 主进程不退出(持续监听文件等待重启),子进程已死
+#   - 死进程 PID 5260 累积 3791 个 chokidar 文件监听句柄
+#   - 计划任务 IHUI-AI-DevProcessCleanup 指向不存在的 cleanup-dev-processes.ps1
+#     (空指针任务),所以没有任何机制清理
+#
+# 检测:tsx watch 主进程存在 + 无活子进程 + 启动 > 2 分钟 = 死进程
+# 阈值 2 分钟:给 tsx watch 正常重启子进程留时间,避免误杀刚启动的 tsx watch
+Write-Log 'INFO' "Rule 6: scanning orphaned tsx watch processes (child dead, parent alive > 2min)"
+
+$tsxWatchProcs = $allProcs | Where-Object {
+    $_.Name -eq 'node.exe' -and $_.CommandLine -match 'tsx.*watch'
+}
+
+foreach ($tsx in $tsxWatchProcs) {
+    # 实时查 tsx watch 主进程的所有子进程(不用 $allProcs 快照,避免 tsx watch 重启子进程后误判)
+    $livingChildren = 0
+    try {
+        $children = Get-CimInstance Win32_Process -Filter "ParentProcessId=$($tsx.ProcessId)" -ErrorAction SilentlyContinue
+        if ($children) {
+            foreach ($child in @($children)) {
+                if (Get-Process -Id $child.ProcessId -ErrorAction SilentlyContinue) { $livingChildren++ }
+            }
+        }
+    } catch {}
+    if ($livingChildren -eq 0) {
+        $tsxProc = Get-Process -Id $tsx.ProcessId -ErrorAction SilentlyContinue
+        if (-not $tsxProc) { continue }
+        $ageMin = Get-ProcessAgeMins -Process $tsxProc
+        # 仅 kill 启动超过 2 分钟的孤儿 tsx watch(给正常重启留时间)
+        if ($ageMin -gt 2) {
+            $handles = $tsxProc.HandleCount
+            $killed = Kill-Process -Id $tsx.ProcessId -Reason "orphaned tsx watch (no living child, age=${ageMin}min, handles=${handles})"
+            if ($killed) { $killedCount++; $cleanupPerformed = $true }
+        }
+    }
+}
+
+# ============================================================================
 # Summary + memory snapshot
 # ============================================================================
 $os = Get-CimInstance Win32_OperatingSystem
