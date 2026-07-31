@@ -742,11 +742,14 @@ export function AISidePanel() {
   // 2026-07-30 彻底根治:容器从 fixed 改为 flex 子元素(relative + shrink-0),
   // width:0 使容器在 flex 流中不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
   // py-2 与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)。
+  // 2026-07-31 移动端适配:加 hidden lg:block 让 docked 关闭态(手柄)在 < 1024px 隐藏,
+  // 避免 AISidePanel 在 mobile 视口下占 400px 宽把 work-area 推到 viewport 外。
+  // mobile 下 AI 面板入口改用浮窗 FAB(由 floatMode 路径独立渲染,不受此规则影响)。
   if (!open) {
     return (
       <>
         {workspaceNameSync}
-        <div className="relative h-full shrink-0 py-2" style={{ width: 0 }}>
+        <div className="relative hidden h-full shrink-0 py-2 lg:block" style={{ width: 0 }}>
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
           (容器右边缘 +4px ~ +12px),与 Sidebar 自身手柄(Sidebar 右边缘 -4px ~ +4px)空间错开,
           两个手柄各保留完整 8px 命中区,互不重叠冲突。
@@ -796,12 +799,16 @@ export function AISidePanel() {
         // - float 模式:fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
         //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
         // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
+        // 2026-07-31 移动端适配(根治):docked 模式加 hidden lg:block,
+        // 避免 AISidePanel 在 mobile 视口(< 1024px)下占 400px 宽把 work-area 推到 viewport 外,
+        // 导致 mobile button (x=406) 在 iPhone 14 (390px) 视口外不可见。
+        // mobile 下 AI 面板入口改用浮窗 FAB(floatMode 路径独立渲染,不受此规则影响)。
         data-testid="ai-panel-root"
         className={cn(
           'ai-panel-root',
           floatMode
             ? 'fixed z-sticky ai-float-glow rounded-xl'
-            : 'relative h-full shrink-0 mr-1.5 py-2',
+            : 'relative hidden h-full shrink-0 lg:block mr-1.5 py-2',
         )}
         style={
           floatMode
