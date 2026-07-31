@@ -640,6 +640,38 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - unit test:`pnpm vitest run tests/agent-task-progress-pane.test.tsx` → 107/107
 - i18n parity:`node scripts/check-i18n-keys.mjs --staged` → 5 语言 OK
 
+### inline 深度接入(2026-07-31 立,对标 Codex/Trae Work)
+
+> 触发:用户反馈"AI 对话过程中各种工具调用 / 思考过程 / 进度 / 时间线 / 命令使用 / 插件使用 / 交互 / subagent 工作内容实时更新刷新做得都太差了,有的甚至都没有"。
+> 实现位置:`apps/web/src/components/chat/message-list.tsx` + `apps/web/src/components/ai/tool-call-card.tsx` + `apps/web/src/components/ai/progress-sections/tool-call-summary-card.tsx`(新建)+ `apps/api` / `apps/ai-service` SSE 事件增强 + `packages/types` / `packages/api-client` 类型契约扩展
+
+把原藏在右上角 popover 内的富 UI 组件直接 inline 到消息气泡主流,无需主动点击即可见实时进度:
+
+| 接入项 | 渲染位置 | 数据来源 | 关键交互 |
+| --- | --- | --- | --- |
+| **思考过程折叠面板**(`ThinkingSection`) | 消息气泡内 reasoning 区 | `m.reasoning` + SSE `reasoning` 流 | 折叠/展开,流式 token 实时追加 |
+| **工具调用统计卡片**(`ToolCallSummaryCard`) | 消息气泡末尾 | SSE `tool-summary` 事件 | 5 项指标 chip:搜索文件 / 搜索网页 / 修改文件 / 新增行数 / 删除行数 |
+| **时间线**(`TimelineTab`) | 对话底部 inline | `useTimelineStore.events` | `showTabs={false}` 单一事件流,实时追加 |
+| **工具来源徽章**(plugin/mcp) | `ToolCallCard` 标题右侧 | SSE `tool-call` 事件 `server_source` 字段 | builtin 默认无徽章;plugin 紫底"插件";mcp 蓝底"MCP · {serverName}" |
+
+#### 类型契约扩展(packages/types + packages/api-client)
+
+- `ToolCallSource = 'builtin' | 'plugin' | 'mcp'`:工具来源三态枚举
+- `ToolCallSummary`:6 项指标接口(`filesSearched` / `webSearched` / `filesModified` / `linesAdded` / `linesDeleted` / `totalCalls` + 可选 `toolsByCategory` / `totalDurationMs`)
+- `streamChat` 新增 `onToolSummary` 回调 + `tool-summary` SSE 事件解析(兼容 snake_case / camelCase 字段)
+- `ChatMessage` 扩展 `toolCallSummary?: ToolCallSummary` + `totalDurationMs?: number` 字段
+
+#### 后端 SSE 增强(ai-service)
+
+- `tool-summary` 事件:LLM tool loop 结束时聚合工具调用历史,统计 6 项指标
+- `tool-call` 事件新增 `server_source` / `server_id` / `server_name` 字段:由 `resolve_tool_source()` 辅助函数判定(builtin / plugin / mcp 三态)
+
+#### 守门
+
+- typecheck:`pnpm --filter @ihui/web typecheck` → 0 错误(清理未使用 import 后通过)
+- 浏览器自验:web 8801 在线,4 状态截图(默认/hover/active/dark)+ dark mode 切换通过 + 控制台 0 错误
+- §17 豁免:api / ai-service 启动受阻(docker / pnpm 不在 session PATH),按 §17 豁免项③降级验证(源码 Grep + Read 确认组件 inline + typecheck 全绿 + 控制台 0 错误)
+
 ---
 
 ## 🧭 全局顶栏 GlobalTopBar + Plus 弹窗(2026-07-30 立,平台独占 web-only)
