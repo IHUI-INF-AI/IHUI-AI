@@ -67,8 +67,11 @@ class Settings(BaseSettings):
     # JWT 验证(与 apps/api 共享 JWT_SECRET,用于 SSO 跨服务认证)
     jwt_secret: str = ""
     jwt_issuer: str = "ihui-ai"
-    # 不验签的白名单路径(正则匹配)
-    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics,/api/browser/"
+    # 不验签的白名单路径(前缀匹配,path.startswith(p))
+    # /api/browser/ - Browser Hub CDP 端点(会话管理 + WebSocket,扫码登录前置)
+    # /api/publish/scan-login/platforms - 平台列表(公开信息,前端弹窗加载时用户可能未登录)
+    # 注意:scan-login 的 /start /detect-from-cdp /{task_id}/* 不在白名单,仍需认证
+    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics,/api/browser/,/api/publish/scan-login/platforms"
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
 
