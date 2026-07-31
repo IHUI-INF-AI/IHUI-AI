@@ -9872,8 +9872,8 @@
       "qwen": "Qwen"
     },
     "models": "LLM Models",
-    "officialApp": "Official App",
-    "officialWechat": "Official WeChat",
+    "officialApp": "Official Account",
+    "officialWechat": "My WeChat",
     "paymentPlatforms": "Payment Platforms",
     "payments": {
       "alipay": "Alipay",
