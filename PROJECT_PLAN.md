@@ -2005,6 +2005,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - [x] ✅(2026-07-31) C4:验证通过 — ① typecheck CDP 相关文件 0 错误(2 个历史遗留错误 client.ts blob / DagGraph any 与 CDP 无关,按 §12 不阻塞);② 后端 CDP hub 测试全通过:Chromium 启动 + 会话创建 + 画面流 5 帧(首帧 43984 chars)+ cookies 9 个 + 导航(百度→知乎 /signin 登录页,X-Frame-Options 不再受限);③ 前端 ScanLoginDialog UI 渲染正常;④ 完整扫码流程需用户登录后手动测(扫码是物理动作无法自动化)
 - [x] ✅(2026-07-31) C5:README 同步(架构章节 + 内置浏览器能力清单更新,§21 触发)
 - [x] ✅(2026-07-31) C6:commit + push 同步 origin/main(local HEAD `fb7c0c3` == remote HEAD `fb7c0c3`,§20 五条全绿 + git-push-guard exit 0)。WorkPanel 完美化增量已 commit `8d5f286446`(hover 支持 + 右键菜单 + 请求去重)
+- [x] ✅(2026-07-31) C7:后端会话幂等性 — browser_hub.py `create_session` 新增 URL 级去重(同一 URL 10s 内复用已有会话),根治单次点击创建 5 个重复 CDP 会话问题(前端三重去重锁未完全生效的兜底)。验证:3 次快速同 URL 请求→1 个会话;ScanLoginDialog 单次点击→1 个会话(修复前 5 个)
 
 ### 实施阶段
 
