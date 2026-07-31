@@ -24,7 +24,6 @@ import {
   Star,
   Tag,
   Rss,
-  X,
   Package,
   Award,
   Calendar,
@@ -1820,7 +1819,7 @@ export function Sidebar({
         )}
         aria-label={tc('close')}
       >
-        <X className="h-3.5 w-3.5" />
+        <PanelLeftClose className="h-3.5 w-3.5" />
       </Button>
     </div>
   )
