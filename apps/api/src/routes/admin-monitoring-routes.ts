@@ -1,15 +1,15 @@
 /**
- * 管理后台监控/统计路由（19 个端点）。
+ * 管理后台监控/统计路由（21 个端点）。
  * 替代 admin-missing-routes.ts 中的 19 个 registerEmptyStub 空桩。
  * 全部基于现有数据库表聚合，无新表。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { sql, desc, eq, gte, count } from 'drizzle-orm'
+import { sql, desc, eq, gte, count, and, ilike, type SQL } from 'drizzle-orm'
 import * as os from 'node:os'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
-import { success } from '../utils/response.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
 import {
   apiLogs,
   systemEvents,
@@ -22,17 +22,64 @@ import {
 async function getPerf() {
   const totalMem = os.totalmem()
   const freeMem = os.freemem()
+  // CPU 平均使用率:基于 os.cpus() 的 idle/total 比例(自启动以来的平均值)
+  const cpus = os.cpus()
+  let totalIdle = 0
+  let totalTick = 0
+  for (const cpu of cpus) {
+    const { user, nice, sys, idle, irq } = cpu.times
+    const tick = user + nice + sys + idle + irq
+    totalIdle += idle
+    totalTick += tick
+  }
+  const cpuUsage =
+    totalTick > 0 ? Number((((totalTick - totalIdle) / totalTick) * 100).toFixed(2)) : 0
   return {
-    cpu: 0,
+    cpu: cpuUsage,
     memory: Number((((totalMem - freeMem) / totalMem) * 100).toFixed(2)),
     qps: 0,
     avgResponse: 0,
+    // diskUsage:无跨平台磁盘检测库,保持 0(如需真实数据可引入 node-disk-info)
     diskUsage: 0,
   }
 }
 
+const apiLogQuerySchema = z.object({
+  page: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).default(1)),
+  pageSize: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(100).default(20)),
+  status: z.preprocess(emptyToUndefined, z.enum(['2xx', '4xx', '5xx', 'all']).optional()),
+  endpoint: z.preprocess(emptyToUndefined, z.string().max(512).optional()),
+  method: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
+})
+
 export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
+
+  /** 服务健康检测:DB(SELECT 1)、Redis(ping);api/web/ai-service 标记运行中 */
+  async function checkServiceHealth(srv: typeof server) {
+    const services: { name: string; status: string; latency: number }[] = []
+    // api/web/ai-service:当前进程标记运行中
+    services.push({ name: 'api', status: 'running', latency: 0 })
+    services.push({ name: 'web', status: 'running', latency: 0 })
+    services.push({ name: 'ai-service', status: 'running', latency: 0 })
+    // postgres:SELECT 1 检查连通性
+    try {
+      const start = Date.now()
+      await db.execute(sql`SELECT 1`)
+      services.push({ name: 'postgres', status: 'healthy', latency: Date.now() - start })
+    } catch {
+      services.push({ name: 'postgres', status: 'unhealthy', latency: 0 })
+    }
+    // redis:尝试 ping(若插件未注册则 ping 调用抛异常,捕获后标记 unhealthy)
+    try {
+      const start = Date.now()
+      await srv.redis.ping()
+      services.push({ name: 'redis', status: 'healthy', latency: Date.now() - start })
+    } catch {
+      services.push({ name: 'redis', status: 'unhealthy', latency: 0 })
+    }
+    return services
+  }
 
   server.get('/api-usage/day', async (_req, reply) => {
     const rows = await db
@@ -149,34 +196,100 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/db-opt/suggestions', async (_req, reply) => {
-    return reply.send(
-      success([
-        {
-          id: '1',
+    try {
+      // 尝试从 pg_stat_statements 获取慢查询(mean_exec_time > 100ms)
+      const slowQueries = await db.execute(sql`
+        select
+          md5(query) as id,
+          query,
+          coalesce(mean_exec_time, 0) as latency,
+          calls
+        from pg_stat_statements
+        where mean_exec_time > 100
+        order by mean_exec_time desc
+        limit 20
+      `)
+      const rows = (slowQueries as Record<string, unknown>[]) ?? []
+
+      // 基于慢查询生成索引建议(启发式:从 SQL 提取 WHERE 条件列名 + 表名)
+      const suggestions = rows.map((row, idx) => {
+        const queryStr = String(row.query ?? '')
+        const latency = Number(row.latency ?? 0)
+        const calls = Number(row.calls ?? 0)
+        const whereMatch = queryStr.match(/where\s+(\w+)/i)
+        const tableMatch = queryStr.match(/from\s+(\w+)/i)
+        const tableName = tableMatch?.[1] ?? 'unknown'
+        const columnName = whereMatch?.[1] ?? 'unknown'
+        return {
+          id: `sq_${idx + 1}`,
           type: 'index',
-          title: 'api_logs_created_at_idx',
-          description: 'Add index on api_logs(created_at) for time-range queries',
-        },
-        {
-          id: '2',
-          type: 'index',
-          title: 'audit_logs_user_id_idx',
-          description: 'Add index on audit_logs(user_id) for user audit trail',
-        },
-        {
-          id: '3',
-          type: 'rewrite',
-          title: 'N+1 in agents list',
-          description: 'Batch load agent categories instead of per-row query',
-        },
-        {
-          id: '4',
-          type: 'archive',
-          title: 'Old api_logs',
-          description: 'Archive api_logs older than 90 days',
-        },
-      ]),
-    )
+          title: `${tableName}_${columnName}_idx`,
+          description: `慢查询(平均 ${latency.toFixed(0)}ms,调用 ${calls} 次):建议在 ${tableName}(${columnName}) 上添加索引`,
+        }
+      })
+
+      if (suggestions.length > 0) return reply.send(success(suggestions))
+
+      // pg_stat_statements 可用但无慢查询,返回通用建议
+      return reply.send(
+        success([
+          {
+            id: '1',
+            type: 'index',
+            title: 'api_logs_created_at_idx',
+            description: 'Add index on api_logs(created_at) for time-range queries',
+          },
+          {
+            id: '2',
+            type: 'index',
+            title: 'api_logs_path_method_idx',
+            description: 'Add index on api_logs(path, method) for endpoint analytics',
+          },
+          {
+            id: '3',
+            type: 'archive',
+            title: 'Old api_logs',
+            description: 'Archive api_logs older than 90 days to reduce table size',
+          },
+        ]),
+      )
+    } catch {
+      // pg_stat_statements 不可用,降级为查询 apiLogs 表的长耗时请求生成建议
+      const slowApiLogs = await db
+        .select({
+          path: apiLogs.path,
+          method: apiLogs.method,
+          latency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)`,
+          calls: sql<number>`count(*)::int`,
+        })
+        .from(apiLogs)
+        .where(gte(apiLogs.duration, 1000))
+        .groupBy(apiLogs.path, apiLogs.method)
+        .orderBy(desc(sql`avg(${apiLogs.duration})`))
+        .limit(10)
+
+      const suggestions = slowApiLogs.map((row, idx) => ({
+        id: `slow_${idx + 1}`,
+        type: 'index',
+        title: `api_logs_${row.method.toLowerCase()}_${row.path.replace(/[^a-z0-9]/gi, '_').slice(0, 30)}_idx`,
+        description: `慢请求(平均 ${Number(row.latency).toFixed(0)}ms,调用 ${row.calls} 次):${row.method} ${row.path} — 建议优化查询或添加索引`,
+      }))
+
+      return reply.send(
+        success(
+          suggestions.length > 0
+            ? suggestions
+            : [
+                {
+                  id: '1',
+                  type: 'index',
+                  title: 'api_logs_created_at_idx',
+                  description: 'Add index on api_logs(created_at) for time-range queries',
+                },
+              ],
+        ),
+      )
+    }
   })
 
   server.get('/db-opt/tables', async (_req, reply) => {
@@ -227,29 +340,13 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
   server.get('/monitoring/perf', async (_req, reply) => reply.send(success(await getPerf())))
 
   server.get('/monitor/services', async (_req, reply) => {
-    return reply.send(
-      success({
-        list: [
-          { name: 'api', status: 'healthy', latency: 0 },
-          { name: 'web', status: 'healthy', latency: 0 },
-          { name: 'ai-service', status: 'healthy', latency: 0 },
-          { name: 'postgres', status: 'healthy', latency: 0 },
-          { name: 'redis', status: 'healthy', latency: 0 },
-        ],
-      }),
-    )
+    const list = await checkServiceHealth(server)
+    return reply.send(success({ list }))
   })
 
   server.get('/monitoring/services', async (_req, reply) => {
-    return reply.send(
-      success([
-        { name: 'api', status: 'healthy', latency: 0 },
-        { name: 'web', status: 'healthy', latency: 0 },
-        { name: 'ai-service', status: 'healthy', latency: 0 },
-        { name: 'postgres', status: 'healthy', latency: 0 },
-        { name: 'redis', status: 'healthy', latency: 0 },
-      ]),
-    )
+    const list = await checkServiceHealth(server)
+    return reply.send(success({ list }))
   })
 
   server.get('/performance-dashboard/endpoints', async (_req, reply) => {
@@ -298,21 +395,30 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/system/monitor/services', async (_req, reply) => {
-    return reply.send(
-      success({
-        list: [
-          {
-            name: 'api',
-            status: 'running',
-            pid: process.pid,
-            memory: process.memoryUsage().rss,
-            cpu: 0,
-          },
-          { name: 'postgres', status: 'running', pid: 0, memory: 0, cpu: 0 },
-          { name: 'redis', status: 'running', pid: 0, memory: 0, cpu: 0 },
-        ],
-      }),
-    )
+    const list: { name: string; status: string; pid: number; memory: number; cpu: number }[] = []
+    // api:当前进程真实数据
+    list.push({
+      name: 'api',
+      status: 'running',
+      pid: process.pid,
+      memory: process.memoryUsage().rss,
+      cpu: 0,
+    })
+    // postgres:SELECT 1 检查连通性
+    try {
+      await db.execute(sql`SELECT 1`)
+      list.push({ name: 'postgres', status: 'running', pid: 0, memory: 0, cpu: 0 })
+    } catch {
+      list.push({ name: 'postgres', status: 'stopped', pid: 0, memory: 0, cpu: 0 })
+    }
+    // redis:尝试 ping
+    try {
+      await server.redis.ping()
+      list.push({ name: 'redis', status: 'running', pid: 0, memory: 0, cpu: 0 })
+    } catch {
+      list.push({ name: 'redis', status: 'stopped', pid: 0, memory: 0, cpu: 0 })
+    }
+    return reply.send(success({ list }))
   })
 
   server.get('/finance/statistics', async (request, reply) => {
@@ -370,5 +476,41 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
         byMonth,
       }),
     )
+  })
+
+  // GET /api-logs — API 日志列表(分页 + status/endpoint/method 筛选)
+  server.get('/api-logs', async (request, reply) => {
+    const q = apiLogQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize, status, endpoint, method } = q.data
+    const conds: (SQL | undefined)[] = []
+    if (status === '2xx')
+      conds.push(sql`${apiLogs.statusCode} >= 200 and ${apiLogs.statusCode} < 300`)
+    if (status === '4xx')
+      conds.push(sql`${apiLogs.statusCode} >= 400 and ${apiLogs.statusCode} < 500`)
+    if (status === '5xx') conds.push(sql`${apiLogs.statusCode} >= 500`)
+    if (endpoint) conds.push(ilike(apiLogs.path, `%${endpoint}%`))
+    if (method) conds.push(eq(apiLogs.method, method))
+    const where = conds.length ? and(...conds) : undefined
+
+    const [list, totalRow] = await Promise.all([
+      db
+        .select({
+          id: apiLogs.id,
+          method: apiLogs.method,
+          path: apiLogs.path,
+          statusCode: apiLogs.statusCode,
+          duration: apiLogs.duration,
+          createdAt: apiLogs.createdAt,
+        })
+        .from(apiLogs)
+        .where(where)
+        .orderBy(desc(apiLogs.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db.select({ c: sql<number>`count(*)::int` }).from(apiLogs).where(where),
+    ])
+    return reply.send(success({ list, total: totalRow[0]?.c ?? 0 }))
   })
 }

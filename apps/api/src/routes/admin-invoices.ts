@@ -73,6 +73,18 @@ export const adminInvoicesRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: rows, total, page, pageSize }))
   })
 
+  // 详情查询
+  server.get('/invoices/titles/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const [row] = await db
+      .select()
+      .from(eduInvoiceTitles)
+      .where(eq(eduInvoiceTitles.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '发票抬头不存在'))
+    return reply.send(success(row))
+  })
+
   // 2. 创建发票抬头
   server.post('/invoices/titles', async (request: FastifyRequest, reply: FastifyReply) => {
     const body = parseOrThrow(createBodySchema, request.body)
