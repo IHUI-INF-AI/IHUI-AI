@@ -9908,8 +9908,8 @@
       "qwen": "Qwen"
     },
     "models": "大規模モデル",
-    "officialApp": "公式App",
-    "officialWechat": "公式WeChat",
+    "officialApp": "公式アカウント",
+    "officialWechat": "マイWeChat",
     "paymentPlatforms": "決済プラットフォーム",
     "payments": {
       "alipay": "Alipay",
