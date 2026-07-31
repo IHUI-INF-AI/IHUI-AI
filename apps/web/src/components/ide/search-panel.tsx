@@ -1,6 +1,7 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { grepFiles } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
@@ -133,6 +134,7 @@ export function SearchPanel() {
     } catch (e) {
       console.error('search error:', e)
       setResults([])
+      toast.error(t('searchPanel.searchFailed'))
     } finally {
       setLoading(false)
     }
