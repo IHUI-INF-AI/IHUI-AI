@@ -5927,8 +5927,6 @@
   "publish": {
     "title": "Multi-Platform Publishing",
     "subtitle": "Supports md/docx/html/pdf/image/video → 14 platforms one-click publishing",
-    "cancel": "Cancel",
-    "close": "Close",
     "accounts": {
       "title": "Account Management",
       "subtitle": "Configure login credentials for each platform (encrypted storage)",
