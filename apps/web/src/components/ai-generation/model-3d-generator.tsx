@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Box, Download } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
 
@@ -18,6 +19,7 @@ const FORMATS = [
 
 /** Model3DGenerator - 3D 模型生成器 */
 export function Model3DGenerator({ onGenerate }: Model3DGeneratorProps) {
+  const t = useTranslations('aiGeneration')
   const [prompt, setPrompt] = React.useState('')
   const [format, setFormat] = React.useState<string>('glb')
   const { result, start } = useGeneration<string>()
@@ -29,14 +31,16 @@ export function Model3DGenerator({ onGenerate }: Model3DGeneratorProps) {
 
   return (
     <GenerationFrame
-      title="3D 模型生成"
+      title={t('model3dTitle')}
       icon={<Box className="h-4 w-4 text-orange-500" />}
       status={result.status}
       error={result.error}
       onGenerate={handleGenerate}
       canGenerate={!!prompt.trim()}
-      generateLabel="生成模型"
-      options={<OptionSelect label="格式" value={format} onChange={setFormat} options={FORMATS} />}
+      generateLabel={t('generateModel3d')}
+      options={
+        <OptionSelect label={t('format')} value={format} onChange={setFormat} options={FORMATS} />
+      }
       result={
         result.status === 'success' && result.data ? (
           <div className="space-y-2">
@@ -50,13 +54,17 @@ export function Model3DGenerator({ onGenerate }: Model3DGeneratorProps) {
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <Download className="h-3 w-3" />
-              下载模型
+              {t('downloadModel')}
             </a>
           </div>
         ) : null
       }
     >
-      <PromptInput value={prompt} onChange={setPrompt} placeholder="描述要生成的 3D 模型..." />
+      <PromptInput
+        value={prompt}
+        onChange={setPrompt}
+        placeholder={t('model3dPromptPlaceholder')}
+      />
     </GenerationFrame>
   )
 }
