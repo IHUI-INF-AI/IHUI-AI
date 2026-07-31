@@ -272,6 +272,27 @@ export interface ModelSyncResult {
   removed_models: number
   error: string
   latency_ms: number
+  /** F4.1:本次同步新增的模型 id 列表(后端 F2.2 dry_run 返回,或从 history 端点获取) */
+  new_model_ids?: string[]
+  /** F4.1:本次同步下架的模型 id 列表 */
+  removed_model_ids?: string[]
+  /** F3.4:模型分类标签 */
+  tags?: string[]
+}
+
+/** F4.4:单条同步历史记录(GET /llm/models/sync/history 返回) */
+export interface ModelSyncHistoryRecord {
+  id: number
+  provider_code: string
+  sync_started_at: string
+  sync_finished_at: string
+  success: boolean
+  total_models: number
+  new_models: number
+  removed_models: number
+  error: string
+  latency_ms: number
+  sync_type: 'full' | 'single' | 'dry_run'
 }
 
 /** 模型同步状态 */
@@ -286,9 +307,18 @@ export interface ModelSyncStatus {
 }
 
 /** 触发模型自动同步 — POST /llm/models/sync
- *  返回同步状态(含每个 provider 的结果) */
-export async function triggerModelSync(): Promise<ModelSyncStatus> {
-  const res = await fetchApi<ModelSyncStatus>('/llm/models/sync', { method: 'POST' })
+ *  返回同步状态(含每个 provider 的结果)。
+ *  - options.provider:仅同步指定 provider(单 provider 同步,F4.2)
+ *  - options.dry_run:true 时只预览不实际落库,返回的 results 含 new_model_ids/removed_model_ids(F4.3) */
+export async function triggerModelSync(options?: {
+  provider?: string
+  dry_run?: boolean
+}): Promise<ModelSyncStatus> {
+  const params = new URLSearchParams()
+  if (options?.provider) params.set('provider', options.provider)
+  if (options?.dry_run) params.set('dry_run', 'true')
+  const query = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetchApi<ModelSyncStatus>(`/llm/models/sync${query}`, { method: 'POST' })
   if (!res.success) {
     throw new Error(res.error || '触发模型同步失败')
   }
@@ -302,4 +332,19 @@ export async function fetchModelSyncStatus(): Promise<ModelSyncStatus> {
     throw new Error(res.error || '获取模型同步状态失败')
   }
   return res.data
+}
+
+/** F4.4:查询同步历史 — GET /llm/models/sync/history?limit=N
+ *  返回最近 N 次同步记录(按 sync_started_at DESC)。 */
+export async function fetchModelSyncHistory(
+  limit: number = 10,
+): Promise<ModelSyncHistoryRecord[]> {
+  const res = await fetchApi<ModelSyncHistoryRecord[]>(
+    `/llm/models/sync/history?limit=${limit}`,
+    { method: 'GET' },
+  )
+  if (!res.success) {
+    throw new Error(res.error || '获取同步历史失败')
+  }
+  return res.data ?? []
 }

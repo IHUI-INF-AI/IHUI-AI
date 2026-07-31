@@ -144,6 +144,11 @@ class Settings(BaseSettings):
     # 现在通过 settings.combo_chains 字段加载,main.py 同步到 os.environ 让 combo_router 读到。
     combo_chains: str = ""
 
+    # 模型自动同步(2026-07-31 立,ModelSyncService 配套,F2.3/F2.4)
+    # 同步间隔(秒),默认 6 小时(21600);admin 可通过 .env 的 MODEL_SYNC_INTERVAL_S 调整
+    model_sync_interval_s: int = 21600
+    # 并发拉取数(同时拉取的 provider 数量),默认 5
+    model_sync_concurrency: int = 5
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     def validate_cors_origin(self) -> None:
