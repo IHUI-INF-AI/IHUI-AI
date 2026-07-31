@@ -66,6 +66,19 @@ function getRedisClient(): Redis {
   return redisClient
 }
 
+/** 进程信号钩子:优雅关闭 Redis 连接。
+ *  不调用 process.exit(),让 index.ts shutdown() 统一管理进程退出。 */
+function closeTpmRedis(): void {
+  if (redisClient) {
+    redisClient.quit().catch(() => {
+      /* ignore — 进程退出中 */
+    })
+    redisClient = null
+  }
+}
+process.once('SIGTERM', closeTpmRedis)
+process.once('SIGINT', closeTpmRedis)
+
 // ============================================================================
 // 工具函数
 // ============================================================================

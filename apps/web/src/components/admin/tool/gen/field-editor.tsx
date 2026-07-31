@@ -28,6 +28,7 @@ const FIELD_TYPE_OPTIONS: GenField['type'][] = ['string', 'number', 'boolean', '
 
 export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEditorProps) {
   const tA11y = useTranslations('a11y')
+  const t = useTranslations('adminTool')
   const supported = FIELD_TYPE_OPTIONS.filter((t) => fieldTypes.includes(t))
 
   function add() {
@@ -73,7 +74,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
                   id={`f-label-${i}`}
                   value={f.label ?? ''}
                   onChange={(e) => update(i, { label: e.target.value })}
-                  placeholder="用户名"
+                  placeholder={t('usernamePlaceholder')}
                   disabled={disabled}
                 />
               </div>

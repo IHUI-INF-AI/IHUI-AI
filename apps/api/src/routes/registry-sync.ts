@@ -28,6 +28,7 @@
  * 触发机制:定时拉取(每 6 小时一次 cron 任务,表达式见 registry-queue.ts)+ webhook 推送,均入队 registry-sync-queue。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import type { Worker } from 'bullmq'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { sql, and, eq, desc } from 'drizzle-orm'
 import { z } from 'zod'
@@ -214,7 +215,8 @@ function checkWebhookRateLimit(source: RegistryUpstreamSource, ip: string): bool
 }
 
 // 定时清理过期条目(每 5 分钟)
-setInterval(
+// unref 确保不阻止进程退出;stopRegistryRateLimitSweep 供 index.ts shutdown 显式清理
+let rateLimitSweepTimer: ReturnType<typeof setInterval> | null = setInterval(
   () => {
     const now = Date.now()
     for (const [key, entry] of webhookRateLimitMap) {
@@ -222,7 +224,16 @@ setInterval(
     }
   },
   5 * 60 * 1000,
-).unref()
+)
+rateLimitSweepTimer?.unref()
+
+/** P2 修复(2026-07-31):显式停止定时器,避免 vitest/HMR 场景下累积。 */
+export function stopRegistryRateLimitSweep(): void {
+  if (rateLimitSweepTimer) {
+    clearInterval(rateLimitSweepTimer)
+    rateLimitSweepTimer = null
+  }
+}
 
 // =============================================================================
 // 路由插件
@@ -231,6 +242,7 @@ setInterval(
 export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
   // 启动时注册定时同步 job(每 6 小时一次) + 每日清理 job(凌晨 3:00) + 清理 Worker。
   // index.ts 不可改,用 onReady hook 触发。
+  let cleanupWorker: Worker | null = null
   server.addHook('onReady', async () => {
     try {
       await scheduleRegistrySync(server.redisForQueue)
@@ -240,10 +252,23 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
     }
     try {
       await scheduleRegistryCleanup(server.redisForQueue)
-      startRegistryCleanupWorker(server.redisForQueue)
+      cleanupWorker = startRegistryCleanupWorker(server.redisForQueue)
       server.log.info('registry cleanup scheduled (cron 0 3 * * *) + worker started')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule registry cleanup')
+    }
+  })
+
+  // P1 修复(2026-07-31):onClose 时关闭 BullMQ Worker,避免其持有的 ioredis 连接泄露。
+  // 历史问题:Worker 句柄丢失,tsx watch 重启时累积 Redis 连接。
+  server.addHook('onClose', async () => {
+    if (cleanupWorker) {
+      try {
+        await cleanupWorker.close()
+      } catch {
+        /* ignore — 进程退出中 */
+      }
+      cleanupWorker = null
     }
   })
 

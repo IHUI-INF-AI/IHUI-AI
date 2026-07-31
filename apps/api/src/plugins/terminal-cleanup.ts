@@ -1,11 +1,19 @@
 /**
  * 终端 PTY 进程退出清理插件 — 防止僵尸 PTY。
  *
- * 在 Fastify onClose + process SIGINT/SIGTERM 时 kill 所有 PTY session。
- * 注册为 Fastify 插件,hook onClose。
+ * 仅通过 Fastify onClose 钩子清理 PTY session。
  *
- * 注意:process.on('SIGINT'/'SIGTERM') 直接调用 killAllSessions(),
- * 因为 process 退出时 Fastify onClose 钩子可能来不及执行。
+ * 历史教训(2026-07-31 P0 资源泄露根因):
+ * 早期版本在此处 `process.once('SIGINT'/'SIGTERM', () => { ...; process.exit(0) })`,
+ * 由于插件在 buildServer() 期间加载,信号监听器**先于** apps/api/src/index.ts
+ * 的 `process.on('SIGTERM', () => shutdown(...))` 注册。Node 按注册顺序调用监听器,
+ * 这里的 `process.exit(0)` 会立即终止进程,导致 index.ts 的 shutdown() 根本不执行,
+ * 所有 Fastify onClose 钩子(Redis/Queue/tenant-db/Worker/ws-*)全部跳过 →
+ * tsx watch 频繁重启时连接句柄持续累积,出现 3791 chokidar 句柄泄露事故。
+ *
+ * 正确做法:进程信号统一由 index.ts / worker-entry.ts 的 shutdown() 接管,
+ * shutdown() 会 `await server.close()`,触发本插件的 onClose 钩子调用 killAllSessions()。
+ * 任何插件都不得自行调用 `process.exit()`,以免中断 shutdown 链路。
  */
 
 import type { FastifyPluginAsync } from 'fastify'
@@ -13,7 +21,8 @@ import fp from 'fastify-plugin'
 import { killAllSessions, getActiveSessionCount } from '../services/terminal-service.js'
 
 const terminalCleanupPlugin: FastifyPluginAsync = async (server) => {
-  // Fastify 关闭时清理
+  // Fastify 关闭时清理 PTY session
+  // shutdown() 调用 `await server.close()` 时触发,确保连接清理链路完整
   server.addHook('onClose', async () => {
     const count = getActiveSessionCount()
     if (count > 0) {
@@ -22,34 +31,6 @@ const terminalCleanupPlugin: FastifyPluginAsync = async (server) => {
     }
   })
 }
-
-// 进程信号钩子(防 SIGINT/SIGTERM 时 PTY 僵尸)
-// 使用 once 避免重复注册(热重载场景)
-let signalHandlersRegistered = false
-function registerSignalHandlers(): void {
-  if (signalHandlersRegistered) return
-  signalHandlersRegistered = true
-
-  const cleanup = (signal: string) => {
-    try {
-      const count = getActiveSessionCount()
-      if (count > 0) {
-        // eslint-disable-next-line no-console -- 进程信号钩子内 server.log 不可用,用 console 兜底
-        console.log(`[terminal-cleanup] ${signal}: killing ${count} PTY sessions`)
-        killAllSessions()
-      }
-    } catch {
-      /* ignore */
-    }
-    // 允许进程退出(不阻止默认行为)
-    process.exit(0)
-  }
-
-  process.once('SIGINT', () => cleanup('SIGINT'))
-  process.once('SIGTERM', () => cleanup('SIGTERM'))
-}
-
-registerSignalHandlers()
 
 export const terminalCleanup = fp(terminalCleanupPlugin, {
   name: 'terminal-cleanup',
