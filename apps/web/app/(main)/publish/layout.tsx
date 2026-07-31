@@ -42,8 +42,8 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
               className={cn(
                 'inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors',
                 active
-                  ? 'border-primary text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground',
+                  ? 'border-primary bg-accent/50 text-foreground'
+                  : 'border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground',
               )}
             >
               <Icon className="h-4 w-4" />
