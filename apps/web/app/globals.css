@@ -277,6 +277,92 @@ iframe::-webkit-scrollbar {
   display: none !important;
 }
 
+/* ============================================================
+ * 桌面端更新提示动画 (2026-07-31 立,平台独占:仅桌面端)
+ * ============================================================
+ * - update-shimmer:更新按钮光泽流动(背景渐变扫光,非 mask 遮罩)
+ * - update-slide-down:下拉窗从顶部滑入
+ * - update-checkmark:完成勾选 SVG path 描边动画
+ * - update-ring-pulse:进度环外圈微脉动
+ * 命名加 ihui- 前缀避免冲突。 */
+
+/* 更新按钮光泽流动:一道高光从左到右扫过按钮表面 */
+@keyframes ihui-update-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.update-btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.update-btn-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: ihui-update-shimmer 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 下拉窗从顶部滑入 */
+@keyframes ihui-update-slide-down {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-update-slide-down {
+  animation: ihui-update-slide-down 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 完成勾选 SVG path 描边 */
+@keyframes ihui-update-checkmark {
+  0% {
+    stroke-dashoffset: 30;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+.animate-update-checkmark {
+  stroke-dasharray: 30;
+  animation: ihui-update-checkmark 0.5s ease-out 0.15s both;
+}
+
+/* 进度环外圈微脉动 */
+@keyframes ihui-update-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+.animate-update-ring-pulse {
+  animation: ihui-update-ring-pulse 1.8s ease-in-out infinite;
+}
+
 /* ============ AI 浮窗品牌微光(2026-07-30 方案B)============
  * 浮窗模式(floatMode)下,面板需要有视觉悬浮感区分于背景。
  * 设计:品牌色(#6366f1 亮 / #818cf8 暗)微光描边 + 同色系柔光投影。

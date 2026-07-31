@@ -107,7 +107,20 @@
     "total": "총",
     "loadFailed": "로딩 실패",
     "deleteSuccess": "삭제 성공",
-    "colToken": "토큰"
+    "colToken": "토큰",
+    "update": {
+      "available": "새 버전이 있습니다",
+      "downloading": "다운로드 중",
+      "installing": "설치 중",
+      "done": "업데이트 완료",
+      "restart": "앱 재시작",
+      "updateNow": "지금 업데이트",
+      "retry": "재시도",
+      "error": "업데이트 실패",
+      "errorDesc": "업데이트 중 오류가 발생했습니다. 다시 시도해 주세요.",
+      "checkFailed": "업데이트 확인에 실패했습니다. 네트워크를 확인 후 재시도해 주세요.",
+      "dismiss": "닫기"
+    }
   },
   "taskReceiver": {
     "title": "작업 수신기",
