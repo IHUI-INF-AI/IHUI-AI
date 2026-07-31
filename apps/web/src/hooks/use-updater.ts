@@ -5,6 +5,8 @@ import {
   isTauri,
   checkForUpdates,
   restartApp,
+  markUpdateInstalled,
+  setAvailableUpdateSession,
   type UpdateSession,
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
@@ -98,9 +100,14 @@ function createMockSession(): UpdateSession {
  *   任意阶段失败 → error → idle
  *
  * 触发来源:
- * - 启动静默检查(挂载后 5s 自动 check)
- * - 托盘菜单 "检查更新"(desktop-check-update 事件)
+ * - 启动静默检查 + 自动下载安装(挂载后 5s 自动 check + autoInstall,发现更新直接下载)
+ * - 托盘菜单 "检查更新"(desktop-check-update 事件,手动检查不自动安装,显示弹窗)
  * - 组件手动触发 checkForUpdate()
+ *
+ * 自动更新策略(2026-07-31 立):
+ * - 打开程序:启动 5s 后静默检查,发现更新自动下载安装(弹出进度提示),完成后显示"重启应用"
+ * - 关闭程序:由 quitAndUpdateIfNeeded() 拦截退出流程,自动检查+下载+安装+重启
+ * - 使用中手动检查:托盘菜单触发,显示弹窗 + "立即更新"按钮,用户自主选择
  *
  * 浏览器端 isTauri()=false,此 hook 不执行任何副作用,返回 idle 状态。
  */
@@ -115,14 +122,22 @@ export function useUpdater() {
     }
   }, [])
 
-  /** 检查更新。silent=true 时不显示 error(静默启动检查)。 */
-  const checkForUpdate = React.useCallback(async (silent = false) => {
+  /** 检查更新。silent=true 时不显示 error(静默启动检查)。autoInstall=true 时发现更新后自动下载安装。 */
+  const checkForUpdate = React.useCallback(async (silent = false, autoInstall = false) => {
     // 开发测试模式:不依赖 Tauri,直接返回模拟更新
     if (isDevUpdateTest()) {
       setState({ ...INITIAL_STATE, status: 'checking' })
       await new Promise((r) => setTimeout(r, 800))
       if (!mountedRef.current) return
-      setState({ ...INITIAL_STATE, status: 'available', session: createMockSession() })
+      const mockSession = createMockSession()
+      if (autoInstall) {
+        // 自动安装:跳过 available 状态,直接进入下载
+        setAvailableUpdateSession(mockSession)
+        void startDownload(mockSession)
+      } else {
+        setAvailableUpdateSession(mockSession)
+        setState({ ...INITIAL_STATE, status: 'available', session: mockSession })
+      }
       return
     }
 
@@ -132,22 +147,29 @@ export function useUpdater() {
     if (!mountedRef.current) return
     if (!session) {
       // 已是最新或检查失败
+      setAvailableUpdateSession(null)
       setState({ ...INITIAL_STATE, status: 'idle', error: silent ? null : 'check_failed' })
       return
     }
-    setState({
-      ...INITIAL_STATE,
-      status: 'available',
-      session,
-    })
+    if (autoInstall) {
+      // 自动安装:跳过 available 状态,直接进入下载
+      setAvailableUpdateSession(session)
+      void startDownload(session)
+    } else {
+      setAvailableUpdateSession(session)
+      setState({
+        ...INITIAL_STATE,
+        status: 'available',
+        session,
+      })
+    }
   }, [])
 
-  /** 下载并安装更新。 */
-  const downloadAndInstall = React.useCallback(async () => {
-    if (!state.session) return
+  /** 下载并安装更新(内部核心逻辑,接受 session 参数避免依赖异步 state)。 */
+  const startDownload = React.useCallback(async (session: UpdateSession) => {
     setState((prev) => ({ ...prev, status: 'downloading', progress: 0 }))
     try {
-      await state.session.downloadAndInstall((p: UpdateProgress) => {
+      await session.downloadAndInstall((p: UpdateProgress) => {
         if (!mountedRef.current) return
         const ratio = p.total > 0 ? p.downloaded / p.total : 0
         setState((prev) => ({
@@ -159,6 +181,9 @@ export function useUpdater() {
         }))
       })
       if (!mountedRef.current) return
+      // 安装完成,标记待重启(供退出时自动更新使用)
+      markUpdateInstalled()
+      setAvailableUpdateSession(null)
       setState((prev) => ({ ...prev, status: 'installing', progress: 1 }))
       // 安装完成,等待用户点击重启或自动重启
       setState((prev) => ({ ...prev, status: 'done' }))
@@ -170,7 +195,13 @@ export function useUpdater() {
         error: e instanceof Error ? e.message : String(e),
       }))
     }
-  }, [state.session])
+  }, [])
+
+  /** 下载并安装更新(公开方法,使用当前 state 中的 session)。 */
+  const downloadAndInstall = React.useCallback(async () => {
+    if (!state.session) return
+    await startDownload(state.session)
+  }, [state.session, startDownload])
 
   /** 重启应用(安装完成后调用)。 */
   const restart = React.useCallback(async () => {
@@ -183,18 +214,20 @@ export function useUpdater() {
 
   /** 关闭提示(回到 idle)。 */
   const dismiss = React.useCallback(() => {
+    setAvailableUpdateSession(null)
     setState(INITIAL_STATE)
   }, [])
 
-  // 启动静默检查(Tauri 环境 5 秒后,开发测试模式 1 秒后)
+  // 启动静默检查 + 自动下载安装(Tauri 环境 5 秒后,开发测试模式 1 秒后)
+  // autoInstall=true:发现更新后自动开始下载安装,不需要用户手动点击"立即更新"
   React.useEffect(() => {
     if (isDevUpdateTest()) {
-      const timer = setTimeout(() => void checkForUpdate(true), 1000)
+      const timer = setTimeout(() => void checkForUpdate(true, true), 1000)
       return () => clearTimeout(timer)
     }
     if (!isTauri()) return
     const timer = setTimeout(() => {
-      void checkForUpdate(true)
+      void checkForUpdate(true, true)
     }, SILENT_CHECK_DELAY_MS)
     return () => clearTimeout(timer)
   }, [checkForUpdate])
