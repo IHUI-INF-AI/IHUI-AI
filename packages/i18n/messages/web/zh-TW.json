@@ -952,7 +952,9 @@
     "modeBuildDesc": "AI 將正常執行,全工具開放",
     "modePlanDesc": "AI 將只制定計劃,不執行工具",
     "modeReviewDesc": "AI 將唯讀審查程式碼",
-    "modeSpecDesc": "AI 將從程式碼反向生成 spec 文件"
+    "modeSpecDesc": "AI 將從程式碼反向生成 spec 文件",
+    "loginRequiredTitle": "登入後開始 AI 對話",
+    "loginRequiredDesc": "登入後即可與 AI 智能體對話，支援多模型切換、附件上傳、深度思考等功能"
   },
   "learn": {
     "title": "學習中心",
@@ -1145,13 +1147,7 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": [
-          "每月 1000 積分",
-          "所有 AI 模型",
-          "所有 6 個用戶端",
-          "API 存取",
-          "社群支援"
-        ]
+        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個用戶端", "API 存取", "社群支援"]
       },
       "pro": {
         "name": "專業版",
@@ -1168,13 +1164,7 @@
         "name": "企業版",
         "contactSales": "聯繫銷售",
         "cta": "聯繫銷售",
-        "features": [
-          "不限積分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "稽核日誌",
-          "專屬技術支援"
-        ]
+        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
       }
     },
     "checkout": {
@@ -6102,6 +6092,48 @@
         "good": "良好",
         "poor": "未達標",
         "empty": "點擊「開始壓縮」查看效果"
+      },
+      "modelSync": {
+        "title": "模型自動同步",
+        "lastSync": "最近同步",
+        "neverSynced": "從未同步",
+        "providers": "個 provider",
+        "newModels": "新增",
+        "removedModels": "下架",
+        "totalModels": "總數",
+        "syncing": "同步中...",
+        "syncNow": "立即同步",
+        "sync": "同步",
+        "previewSync": "預覽同步",
+        "previewSyncTooltip": "預覽同步(dry-run,不實際落庫)",
+        "syncProviderOnly": "僅同步 {provider}",
+        "syncFailed": "同步失敗",
+        "previewFailed": "預覽失敗",
+        "unknownError": "未知錯誤",
+        "failed": "失敗",
+        "success": "成功",
+        "noDiff": "無差異(本次同步無新增/下架)",
+        "dryRunTitle": "預覽同步結果(dry-run)",
+        "dryRunDescription": "以下模型將被新增 / 下架,實際不會寫入資料庫",
+        "willAddModels": "將新增 {count} 個模型",
+        "willRemoveModels": "將下架 {count} 個模型",
+        "noChanges": "無變化",
+        "noData": "無資料",
+        "cancel": "取消",
+        "confirmSync": "立即同步",
+        "history": "同步歷史",
+        "loading": "載入中...",
+        "loadFailed": "載入失敗",
+        "noHistory": "無歷史記錄",
+        "all": "全部",
+        "search": "搜尋 model_id...",
+        "health": "健康度",
+        "failureCounter": "連續失敗次數",
+        "permanentlyDisabled": "永久停用",
+        "noProvidersDisabled": "無永久停用的 provider",
+        "disabled": "已停用",
+        "resetCounter": "重設失敗計數",
+        "threshold": "閾值"
       }
     },
     "activityLoading": "加載中...",
@@ -9014,56 +9046,32 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": [
-          "對話",
-          "聊天",
-          "AI"
-        ]
+        "keywords": ["對話", "聊天", "AI"]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": [
-          "短劇",
-          "視頻",
-          "AI"
-        ]
+        "keywords": ["短劇", "視頻", "AI"]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": [
-          "搜尋",
-          "查找",
-          "search"
-        ]
+        "keywords": ["搜尋", "查找", "search"]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "應用"
-        ]
+        "keywords": ["AI", "世界", "應用"]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": [
-          "個人",
-          "資料",
-          "設置"
-        ]
+        "keywords": ["個人", "資料", "設置"]
       },
       "settings": {
         "label": "系統設置",
         "description": "系統偏好與配置",
-        "keywords": [
-          "設置",
-          "偏好",
-          "配置"
-        ]
+        "keywords": ["設置", "偏好", "配置"]
       }
     }
   },
@@ -9462,31 +9470,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": [
-            "系統化課程",
-            "實踐探索",
-            "社群互助"
-          ]
+          "features": ["系統化課程", "實踐探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": [
-            "交流平臺",
-            "經驗共享",
-            "資源對接"
-          ]
+          "features": ["交流平臺", "經驗共享", "資源對接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": [
-            "專業大模型",
-            "智能體服務",
-            "諮詢服務"
-          ]
+          "features": ["專業大模型", "智能體服務", "諮詢服務"]
         }
       ]
     },
@@ -9607,37 +9603,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": [
-            "知識問答",
-            "流程自動化"
-          ]
+          "examples": ["知識問答", "流程自動化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": [
-            "數據分析",
-            "決策支持"
-          ]
+          "examples": ["數據分析", "決策支持"]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": [
-            "會議安排",
-            "審批流程"
-          ]
+          "examples": ["會議安排", "審批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": [
-            "營銷自動化",
-            "多智能體協同"
-          ]
+          "examples": ["營銷自動化", "多智能體協同"]
         }
       ]
     },
@@ -11113,11 +11097,7 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": [
-        "全年所有課程免費參加",
-        "線下探索活動優先參與名額",
-        "智匯 AI 會員社群無限次互動"
-      ]
+      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
     },
     "enterprise": {
       "name": "企業服務",
@@ -11245,15 +11225,7 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": [
-      "週一",
-      "週二",
-      "週三",
-      "週四",
-      "週五",
-      "週六",
-      "週日"
-    ],
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -11397,18 +11369,8 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": [
-        "重點中學",
-        "普通中學",
-        "國際學校",
-        "私立學校"
-      ],
-      "classLevel": [
-        "優秀(班級前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(後 30%)"
-      ],
+      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
+      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -12730,6 +12692,104 @@
       "sync": "同步",
       "toggleTheme": "切換主題",
       "unsynced": ""
+    },
+    "terminalPanel": {
+      "loadFailed": "終端載入失敗: {message}",
+      "aiSuggestTitle": "AI 命令建議",
+      "splitVerticalTitle": "垂直分割 (Ctrl+Shift+D)",
+      "splitVerticalAria": "垂直分割",
+      "splitHorizontalTitle": "水平分割 (Ctrl+Shift+H)",
+      "splitHorizontalAria": "水平分割",
+      "closePane": "關閉分割",
+      "searchPlaceholder": "搜尋終端輸出...",
+      "searchRegexPlaceholder": "輸入正規表示式...",
+      "searchAria": "搜尋終端",
+      "prevMatchAria": "上一個符合",
+      "prevMatchTitle": "上一個 (Shift+Enter)",
+      "nextMatchAria": "下一個符合",
+      "nextMatchTitle": "下一個 (Enter)",
+      "closeSearchAria": "關閉搜尋",
+      "closeSearchTitle": "關閉 (Esc)",
+      "regexModeTitle": "正規表示式模式",
+      "regexMode": "正規",
+      "wholeWordTitle": "全字符合",
+      "wholeWord": "全字",
+      "caseSensitiveTitle": "大小寫敏感",
+      "caseSensitive": "大小寫",
+      "regexModeHint": "正規表示式模式(全字已停用)",
+      "refreshSuggest": "重新整理建議",
+      "close": "關閉",
+      "aiServiceUnavailable": "AI 服務暫不可用,請稍後重試",
+      "generatingSuggest": "正在產生建議...",
+      "noSuggestHint": "暫無建議。嘗試執行命令後點擊重新整理。",
+      "insertSuggestTitle": "點擊插入到終端",
+      "aiDiagnoseTitle": "AI 錯誤診斷",
+      "diagnosing": "正在診斷錯誤...",
+      "diagnosisLabel": "診斷:",
+      "rootCauseLabel": "根因:",
+      "suggestedFixLabel": "建議:",
+      "autoFixTitle": "一鍵執行修復命令",
+      "autoFix": "一鍵修復",
+      "noDiagnosis": "暫無診斷結果",
+      "historySearchPlaceholder": "搜尋命令歷史(依相關性排序)...",
+      "historySearchAria": "搜尋命令歷史",
+      "noHistoryHint": "暫無歷史。執行命令後會自動記錄。",
+      "noMatchHistory": "無符合命令。",
+      "exitCode": "退出{code}",
+      "connected": "已連線",
+      "connectionError": "連線錯誤",
+      "connecting": "連線中...",
+      "copySelection": "複製選取",
+      "paste": "貼上",
+      "search": "搜尋",
+      "splitVertical": "垂直分割",
+      "splitHorizontal": "水平分割",
+      "clear": "清空螢幕",
+      "loginRequired": "請先登入以使用終端",
+      "creatingTerminal": "正在建立終端...",
+      "createHint": "點擊 + 新增終端工作階段"
+    },
+    "terminalTabBar": {
+      "errHostRequired": "主機地址不能為空",
+      "errPortRange": "連接埠範圍 1-65535",
+      "errUsernameRequired": "使用者名稱不能為空",
+      "errPasswordRequired": "密碼不能為空",
+      "errPrivateKeyRequired": "私鑰內容不能為空",
+      "errPrivateKeyReadFailed": "私鑰檔案讀取失敗",
+      "recording": "正在錄製",
+      "renameAria": "重新命名終端",
+      "renameHint": "雙擊重新命名",
+      "exited": "(已退出)",
+      "closeTerminalAria": "關閉終端",
+      "newTerminalAria": "新增終端",
+      "newTerminalTitle": "新增終端 ({shell})",
+      "selectConnectType": "選擇連線類型",
+      "connectType": "連線類型",
+      "local": "本機",
+      "sshRemote": "SSH 遠端",
+      "shellType": "Shell 類型",
+      "host": "主機",
+      "hostPlaceholder": "example.com 或 192.168.1.1",
+      "port": "連接埠",
+      "username": "使用者名稱",
+      "password": "密碼",
+      "privateKey": "私鑰",
+      "privateKeyPem": "私鑰(PEM)",
+      "selectPrivateKeyFile": "選擇私鑰檔案",
+      "privateKeyPassphrase": "私鑰 passphrase(選填)",
+      "newSession": "新增工作階段",
+      "newSshSession": "新增 SSH 工作階段",
+      "creating": "建立中...",
+      "playing": "重播中",
+      "stopRecording": "停止錄製",
+      "startRecording": "開始錄製",
+      "recordingList": "錄製清單",
+      "recordingListWithCount": "錄製清單({count})",
+      "noRecordingsHint": "暫無錄製。點擊錄製按鈕(左側 Video 圖示)開始錄製終端操作。",
+      "defaultRecTitle": "錄製 {time}",
+      "eventCount": "{count} 個事件",
+      "play": "重播",
+      "delete": "刪除"
     }
   },
   "aiSkillsPage": {
@@ -12838,12 +12898,7 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": [
-          "1M tokens 額度",
-          "基礎模型可用",
-          "5 個 API 令牌",
-          "社群支援"
-        ]
+        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
       },
       "pro": {
         "features": [
@@ -13285,13 +13340,7 @@
         "price": "¥999",
         "unit": "/小時",
         "desc": "架構諮詢 / 技術選型 / 程式碼 review",
-        "features": [
-          "視訊會議 / 遠端桌面",
-          "2 小時起",
-          "故障排除",
-          "增值稅發票",
-          "回應 SLA 24h"
-        ]
+        "features": ["視訊會議 / 遠端桌面", "2 小時起", "故障排除", "增值稅發票", "回應 SLA 24h"]
       }
     },
     "socialProof": {

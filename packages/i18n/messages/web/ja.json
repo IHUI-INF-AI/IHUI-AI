@@ -952,7 +952,9 @@
     "modeBuildDesc": "AIが全ツールを有効にして正常実行します",
     "modePlanDesc": "AIがツールを実行せず計画のみ行います",
     "modeReviewDesc": "AIがコードを読取専用でレビューします",
-    "modeSpecDesc": "AIがコードから spec ドキュメントを逆方向生成します"
+    "modeSpecDesc": "AIがコードから spec ドキュメントを逆方向生成します",
+    "loginRequiredTitle": "ログイン後に AI チャットを開始",
+    "loginRequiredDesc": "ログインすれば AI エージェントと会話でき、モデル切替・添付アップロード・深い思考などに対応します。"
   },
   "learn": {
     "title": "APIテスト",
@@ -6122,6 +6124,48 @@
         "good": "良好",
         "poor": "未達",
         "empty": "「圧縮実行」をクリックして結果を確認"
+      },
+      "modelSync": {
+        "title": "モデル自動同期",
+        "lastSync": "最近の同期",
+        "neverSynced": "同期履歴なし",
+        "providers": "プロバイダー",
+        "newModels": "追加",
+        "removedModels": "削除",
+        "totalModels": "合計",
+        "syncing": "同期中...",
+        "syncNow": "今すぐ同期",
+        "sync": "同期",
+        "previewSync": "同期プレビュー",
+        "previewSyncTooltip": "同期プレビュー(dry-run、実際に保存しない)",
+        "syncProviderOnly": "{provider}のみ同期",
+        "syncFailed": "同期失敗",
+        "previewFailed": "プレビュー失敗",
+        "unknownError": "不明なエラー",
+        "failed": "失敗",
+        "success": "成功",
+        "noDiff": "差分なし(今回の同期で追加/削除なし)",
+        "dryRunTitle": "同期プレビュー(dry-run)",
+        "dryRunDescription": "以下のモデルが追加 / 削除されます。実際にデータベースへ書き込みません",
+        "willAddModels": "{count}件のモデルを追加",
+        "willRemoveModels": "{count}件のモデルを削除",
+        "noChanges": "変更なし",
+        "noData": "データなし",
+        "cancel": "キャンセル",
+        "confirmSync": "今すぐ同期",
+        "history": "同期履歴",
+        "loading": "読み込み中...",
+        "loadFailed": "読み込み失敗",
+        "noHistory": "履歴なし",
+        "all": "すべて",
+        "search": "model_id を検索...",
+        "health": "健全性",
+        "failureCounter": "連続失敗回数",
+        "permanentlyDisabled": "永久無効化",
+        "noProvidersDisabled": "無効化された provider なし",
+        "disabled": "無効",
+        "resetCounter": "失敗カウントをリセット",
+        "threshold": "しきい値"
       }
     },
     "activityLoading": "読み込み中...",
@@ -9078,55 +9122,32 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": [
-          "チャット",
-          "会話",
-          "AI"
-        ]
+        "keywords": ["チャット", "会話", "AI"]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": [
-          "ドラマ",
-          "ビデオ",
-          "AI"
-        ]
+        "keywords": ["ドラマ", "ビデオ", "AI"]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": [
-          "検索",
-          "search"
-        ]
+        "keywords": ["検索", "search"]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": [
-          "AI",
-          "ワールド",
-          "アプリ"
-        ]
+        "keywords": ["AI", "ワールド", "アプリ"]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": [
-          "プロフィール",
-          "ユーザー",
-          "設定"
-        ]
+        "keywords": ["プロフィール", "ユーザー", "設定"]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": [
-          "設定",
-          "環境設定",
-          "構成"
-        ]
+        "keywords": ["設定", "環境設定", "構成"]
       }
     }
   },
@@ -9525,31 +9546,19 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ]
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ]
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ]
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
         }
       ]
     },
@@ -9670,37 +9679,25 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ]
+          "examples": ["ナレッジQ&A", "プロセス自動化"]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ]
+          "examples": ["データ分析", "意思決定サポート"]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ]
+          "examples": ["会議調整", "承認プロセス"]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ]
+          "examples": ["マーケティング自動化", "マルチエージェント連携"]
         }
       ]
     },
@@ -11308,15 +11305,7 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": [
-      "月",
-      "火",
-      "水",
-      "木",
-      "金",
-      "土",
-      "日"
-    ],
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -11460,18 +11449,8 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": [
-        "重点中学校",
-        "普通中学校",
-        "インターナショナルスクール",
-        "私立学校"
-      ],
-      "classLevel": [
-        "優秀(クラス上位 10%)",
-        "良好(10-30%)",
-        "普通(30-70%)",
-        "やや劣る(下位 30%)"
-      ],
+      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
+      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -12793,6 +12772,104 @@
       "sync": "同期",
       "toggleTheme": "テーマ切替",
       "unsynced": ""
+    },
+    "terminalPanel": {
+      "loadFailed": "ターミナルの読み込みに失敗しました: {message}",
+      "aiSuggestTitle": "AI コマンド提案",
+      "splitVerticalTitle": "垂直分割 (Ctrl+Shift+D)",
+      "splitVerticalAria": "垂直分割",
+      "splitHorizontalTitle": "水平分割 (Ctrl+Shift+H)",
+      "splitHorizontalAria": "水平分割",
+      "closePane": "ペインを閉じる",
+      "searchPlaceholder": "ターミナル出力を検索...",
+      "searchRegexPlaceholder": "正規表現を入力...",
+      "searchAria": "ターミナルを検索",
+      "prevMatchAria": "前の一致",
+      "prevMatchTitle": "前へ (Shift+Enter)",
+      "nextMatchAria": "次の一致",
+      "nextMatchTitle": "次へ (Enter)",
+      "closeSearchAria": "検索を閉じる",
+      "closeSearchTitle": "閉じる (Esc)",
+      "regexModeTitle": "正規表現モード",
+      "regexMode": "正規",
+      "wholeWordTitle": "単語単位",
+      "wholeWord": "単語",
+      "caseSensitiveTitle": "大文字小文字区別",
+      "caseSensitive": "大小",
+      "regexModeHint": "正規表現モード(単語単位は無効)",
+      "refreshSuggest": "提案を更新",
+      "close": "閉じる",
+      "aiServiceUnavailable": "AIサービスは一時的に利用できません。後でもう一度お試しください",
+      "generatingSuggest": "提案を生成中...",
+      "noSuggestHint": "提案はありません。コマンドを実行してから更新してください。",
+      "insertSuggestTitle": "クリックしてターミナルに挿入",
+      "aiDiagnoseTitle": "AI エラー診断",
+      "diagnosing": "エラーを診断中...",
+      "diagnosisLabel": "診断:",
+      "rootCauseLabel": "根本原因:",
+      "suggestedFixLabel": "提案:",
+      "autoFixTitle": "修正コマンドを実行",
+      "autoFix": "自動修正",
+      "noDiagnosis": "診断結果はありません",
+      "historySearchPlaceholder": "コマンド履歴を検索(関連度順)...",
+      "historySearchAria": "コマンド履歴を検索",
+      "noHistoryHint": "履歴はありません。コマンドを実行すると自動的に記録されます。",
+      "noMatchHistory": "一致するコマンドはありません。",
+      "exitCode": "終了 {code}",
+      "connected": "接続済み",
+      "connectionError": "接続エラー",
+      "connecting": "接続中...",
+      "copySelection": "選択範囲をコピー",
+      "paste": "貼り付け",
+      "search": "検索",
+      "splitVertical": "垂直分割",
+      "splitHorizontal": "水平分割",
+      "clear": "画面クリア",
+      "loginRequired": "ターミナルを使用するにはログインしてください",
+      "creatingTerminal": "ターミナルを作成中...",
+      "createHint": "+ をクリックしてターミナルセッションを作成"
+    },
+    "terminalTabBar": {
+      "errHostRequired": "ホストアドレスは必須です",
+      "errPortRange": "ポート範囲 1-65535",
+      "errUsernameRequired": "ユーザー名は必須です",
+      "errPasswordRequired": "パスワードは必須です",
+      "errPrivateKeyRequired": "秘密鍵の内容は必須です",
+      "errPrivateKeyReadFailed": "秘密鍵ファイルの読み込みに失敗しました",
+      "recording": "録画中",
+      "renameAria": "ターミナルの名前を変更",
+      "renameHint": "ダブルクリックで名前変更",
+      "exited": "(終了済み)",
+      "closeTerminalAria": "ターミナルを閉じる",
+      "newTerminalAria": "新規ターミナル",
+      "newTerminalTitle": "新規ターミナル ({shell})",
+      "selectConnectType": "接続タイプを選択",
+      "connectType": "接続タイプ",
+      "local": "ローカル",
+      "sshRemote": "SSH リモート",
+      "shellType": "Shell タイプ",
+      "host": "ホスト",
+      "hostPlaceholder": "example.com または 192.168.1.1",
+      "port": "ポート",
+      "username": "ユーザー名",
+      "password": "パスワード",
+      "privateKey": "秘密鍵",
+      "privateKeyPem": "秘密鍵 (PEM)",
+      "selectPrivateKeyFile": "秘密鍵ファイルを選択",
+      "privateKeyPassphrase": "秘密鍵 passphrase(任意)",
+      "newSession": "新規セッション",
+      "newSshSession": "新規 SSH セッション",
+      "creating": "作成中...",
+      "playing": "再生中",
+      "stopRecording": "録画を停止",
+      "startRecording": "録画を開始",
+      "recordingList": "録画リスト",
+      "recordingListWithCount": "録画リスト({count})",
+      "noRecordingsHint": "録画はありません。録画ボタン(左側の Video アイコン)をクリックしてターミナル操作の録画を開始します。",
+      "defaultRecTitle": "録画 {time}",
+      "eventCount": "{count} イベント",
+      "play": "再生",
+      "delete": "削除"
     }
   },
   "aiSkillsPage": {
