@@ -233,7 +233,7 @@ export async function batchImportAdminMembers(
 ): Promise<ApiResult<AdminImportResult>> {
   const form = new FormData()
   form.append('file', file)
-  return fetchApi<AdminImportResult>('/api/admin/members/batch-import', {
+  return fetchApi<AdminImportResult>('/api/members/batch-import', {
     method: 'POST',
     body: form,
   })
