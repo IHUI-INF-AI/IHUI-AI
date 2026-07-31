@@ -151,6 +151,8 @@
     "downloadTitle": "下载客户端",
     "mainNav": "主导航",
     "pluginMarket": "插件市场",
+    "hotGroupLabel": "热门",
+    "hotModelImport": "模型配置导入",
     "aiGroupLabel": "AI 智能体",
     "adminGroupLabel": "管理",
     "eduGroup": "AI 教育",
