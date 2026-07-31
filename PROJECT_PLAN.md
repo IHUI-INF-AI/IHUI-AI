@@ -1193,6 +1193,29 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 
 本批次 5 项最优下一步建议已全部闭环(2 项取消因前提不成立 + 3 项实施完成),无遗留事项。
 
+## P0 中转站造血能力极致超越 SwiftAPI + New API 第二批次(2026-07-31 立,8 subagent 并行,平台独占:apps/api + apps/web + packages/database + packages/auth,AGENTS.md §24 用户已确认)
+
+> **触发**:用户要求"还要超越到极致 让人追不上 再深度仔细比对细节 所有内容 肯定还有遗漏的人家有我们没有的"。深度调研 SwiftAPI + New API + One API 全部功能矩阵后发现 12 项真实遗漏。**8 subagent 并行**:每个 subagent 独立新建文件(零冲突),主 agent 后续统一路由注册 + 计费集成 + 文档同步 + 全链路验证。
+
+### 任务清单(8 项,8 subagent 并行,均独立新建文件)
+
+- [x] ✅(2026-07-31) **P0-9 /v1/rerank + /v1/moderations 端点**(subagent-1,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-rerank-moderations.ts`,实现 `/v1/rerank`(Cohere/Jina 兼容,接收 query/documents/top_n,走 relay-channel-router 调用上游)和 `/v1/moderations`(OpenAI 兼容,接收 input,返回 categories/category_scores)。两个端点都接 api-key-auth 鉴权 + relay-billing-service 计费
+- [x] ✅(2026-07-31) **P0-10 /v1/realtime WebSocket 标准端点**(subagent-2,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-realtime.ts`,实现 OpenAI Realtime API 兼容的 WebSocket 端点(`/v1/realtime?model=xxx`),支持 audio_delta/audio_transcript_delta 增量事件,走 relay-channel-router 选择上游 OpenAI Compatible realtime 渠道
+- [x] ✅(2026-07-31) **P0-11 响应缓存(Redis)省钱大法**(subagent-3,平台独占:apps/api)— 新建 `apps/api/src/services/relay-response-cache.ts`,实现基于 Redis 的响应缓存:对非流式 /v1/chat/completions 请求,以 `model+messages+params` hash 为 cache key,命中缓存直接返回(不调用上游不计费),支持 TTL 配置 + 缓存跳过 header `X-Cache-Bypass: true` + 管理端统计(命中数/节省成本)
+- [x] ✅(2026-07-31) **P0-12 渠道亲和性 + 最小连接数路由 + 用户级模型限流**(subagent-4,平台独占:apps/api)— 修改 `apps/api/src/services/relay-channel-router.ts` 追加 2 个路由策略(`session-affinity` 相同用户走同一渠道 + `least-connections` 最小连接数);修改 `apps/api/src/plugins/api-key-auth.ts` 追加 per-user model rate limit(每个 API Key 单模型 RPM/TPM 限制,防单用户刷爆)
+- [x] ✅(2026-07-31) **P0-13 渠道批量启停 + 连通性测试**(subagent-5,平台独占:apps/api + apps/web)— 修改 `apps/api/src/routes/admin/relay-channels.ts` 追加 `POST /admin/relay/channels/batch-toggle`(批量启停)+ `POST /admin/relay/channels/:id/test`(连通性测试,模拟一次 /v1/chat/completions 探活);修改 `apps/web/app/(main)/admin/relay/channels/page.tsx` 增加批量操作工具栏 + 测试按钮
+- [x] ✅(2026-07-31) **P0-14 OIDC + Discord / LinuxDO / Telegram 社交登录**(subagent-6,平台独占:apps/api + packages/auth + apps/web)— 修改 `apps/api/src/routes/auth-extended.ts` 追加 4 个 OAuth handler(`/auth/oauth/oidc` / `/auth/oauth/discord` / `/auth/oauth/linuxdo` / `/auth/oauth/telegram`);新建 `packages/auth/src/providers/oidc.ts` / `discord.ts` / `linuxdo.ts` / `telegram.ts` 4 个 provider;修改 `apps/web/src/components/login/ThirdPartyLoginButtons.tsx` 添加 4 个登录按钮;修改 `.env.example` 追加 4 组 OAuth 配置
+- [x] ✅(2026-07-31) **P0-15 日志脱敏 + MCP 网关对外暴露**(subagent-7,平台独占:apps/api)— 新建 `apps/api/src/services/log-sanitizer.ts`(对调用日志中的 API Key/user content/email/phone 做 redaction);修改 `apps/api/src/routes/admin/relay-logs.ts` 集成脱敏(默认开启,admin 可关闭查看原始);新建 `apps/api/src/routes/v1-mcp-gateway.ts`(对外暴露 `/v1/mcp/tools` + `/v1/mcp/tools/call`,鉴权走 api-key-auth,内部转发到 ai-service 的 MCP server)
+- [x] ✅(2026-07-31) **P0-16 Midjourney-Proxy 标准接口 + 多租户 API Key 关联**(subagent-8,平台独占:apps/api + packages/database)— 新建 `apps/api/src/routes/v1-midjourney.ts`(对接 midjourney-proxy 的 `/mj/submit/imagine` + `/mj/task/:id` 转换成 OpenAI `/v1/images/generations` 格式);新建 `packages/database/drizzle/20260801010010_add_tenant_id_to_developer_api_keys.sql`(developer_api_keys 表加 `tenant_id` 字段 + 外键);修改 `packages/database/src/schema/developer-api-keys.ts` 同步字段;修改 `apps/api/src/routes/admin/relay-api-keys.ts` 支持按 tenant 过滤 + 关联
+
+### 主 agent 后续整合(8 subagent 全部交付后)
+
+- [x] ✅(2026-07-31) 在 `apps/api/src/routes/index.ts` 注册 v1-rerank-moderations / v1-realtime / v1-mcp-gateway / v1-midjourney 4 个新路由
+- [x] ✅(2026-07-31) 在 `apps/api/src/routes/v1-public.ts` 集成 relay-response-cache(对非流式 chat completions 启用缓存)
+- [x] ✅(2026-07-31) 在 `apps/api/src/services/relay-billing-service.ts` 追加 rerank/moderations/cache hit 计费分支
+- [x] ✅(2026-07-31) 在 `apps/web/app/(main)/developer/api-docs/page.tsx` 同步 4 个新端点文档 + 错误码表追加
+- [x] ✅(2026-07-31) 全链路 typecheck 全绿(api + web) + commit + push + git-push-guard 验证(§20 五条全绿)
+
 ## 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x)
 
 ### [x] ✅(2026-07-28) 阶段6 完成(3.3x->3.1x,8 screen mock 数据替换为真实 API,4 subagent 并行)
