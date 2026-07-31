@@ -20,6 +20,10 @@
  * 存储:任务元数据存 Redis(key = `batch:task:<taskId>`,TTL 30 天)。
  * 计费:批量任务按 50% 折扣,recordCall 传入 metadata { batch: true, discount: 0.5 }。
  *
+ * 异步处理(2026-08-01 立):创建任务后通过 addBatchTask 入队 BullMQ batch-queue,
+ * workers/batch-worker.ts 消费队列逐请求调用 ai-service /api/llm/complete,
+ * 每条调用 recordCall(metadata.discount=0.5)→ 更新状态/结果。
+ *
  * 待主 agent 在 routes/index.ts 注册:
  *   import v1Batches from './v1-batches.js'
  *   server.register(v1Batches, { prefix: '/v1' })
@@ -28,18 +32,20 @@
  * 错误格式:{ code, message } + HTTP 状态码(400/401/404)。
  */
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
-import type { Redis } from 'ioredis'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
-import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
-
-// TODO(batch-queue): ../queue/index.js 队列模块尚未创建,当前用 setTimeout 模拟异步处理。
-// 主 agent 创建 src/queue/index.js(BullMQ Queue + Worker)后,替换 setTimeout 为:
-//   import { batchQueue } from '../queue/index.js'
-//   await batchQueue.add('process-batch', { taskId, type: 'openai' | 'anthropic', apiKeyId, userId })
-// Worker 中实现:逐请求调用上游 LLM → recordCall(metadata.discount=0.5)→ 更新状态/结果。
+import {
+  type BatchTaskStatus,
+  type OpenAIBatchTask,
+  type AnthropicBatchTask,
+  type AnthropicBatchRequestItem,
+  BATCH_KEY_PREFIX,
+  saveTask,
+  getTask,
+  addBatchTask,
+} from '../queue/batch-queue.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 v1-public.ts ApiKeyContext 结构一致) */
 interface ApiKeyContext {
@@ -51,91 +57,7 @@ interface ApiKeyContext {
 }
 
 // =============================================================================
-// 类型定义(OpenAI/Anthropic 兼容,inline 定义避免污染 @ihui/types)
-// =============================================================================
-
-/** 任务状态机:validating → in_progress → finalizing → completed/failed/expired/cancelled */
-type BatchTaskStatus =
-  'validating' | 'in_progress' | 'finalizing' | 'completed' | 'failed' | 'expired' | 'cancelled'
-
-/** OpenAI Batch 支持的端点 */
-type OpenAIEndpoint = '/v1/chat/completions' | '/v1/embeddings' | '/v1/completions'
-
-/** OpenAI Batch 请求计数 */
-interface BatchRequestCounts {
-  total: number
-  completed: number
-  failed: number
-}
-
-/** OpenAI Batch 任务(完整元数据,存 Redis;_ 前缀字段为内部字段,不暴露给客户端) */
-interface OpenAIBatchTask {
-  id: string
-  object: 'batch'
-  endpoint: OpenAIEndpoint
-  input_file_id: string
-  completion_window: '24h'
-  status: BatchTaskStatus
-  output_file_id: string | null
-  error_file_id: string | null
-  created_at: number
-  in_progress_at: number | null
-  expires_at: number | null
-  finalizing_at: number | null
-  completed_at: number | null
-  failed_at: number | null
-  expired_at: number | null
-  cancelled_at: number | null
-  request_counts: BatchRequestCounts | null
-  metadata: Record<string, unknown> | null
-  /** 内部字段:API Key ID + User ID(异步计费用) */
-  _apiKeyId: string
-  _userId: string
-  /** 内部字段:输出结果 JSONL(生产环境应存对象存储,此处简化存 Redis) */
-  _outputContent: string | null
-}
-
-/** Anthropic Batch 请求计数 */
-interface AnthropicRequestCounts {
-  processing: number
-  succeeded: number
-  errored: number
-  canceled: number
-  expired: number
-}
-
-/** Anthropic Batch 单个结果 */
-interface AnthropicBatchResultItem {
-  custom_id: string
-  result: {
-    type: 'succeeded' | 'errored' | 'canceled' | 'expired'
-    message?: unknown
-    error?: { type: string; message: string }
-  }
-}
-
-/** Anthropic Batch 任务(完整元数据,存 Redis) */
-interface AnthropicBatchTask {
-  id: string
-  type: 'message_batch'
-  status: BatchTaskStatus
-  created_at: string
-  expires_at: string
-  archived_at: string | null
-  cancel_initiated_at: string | null
-  processing_started_at: string | null
-  ended_at: string | null
-  request_counts: AnthropicRequestCounts | null
-  results: AnthropicBatchResultItem[]
-  /** 内部字段 */
-  _apiKeyId: string
-  _userId: string
-  /** 内部字段:原始请求数组(Worker 逐请求处理用) */
-  _requests: AnthropicBatchRequestItem[]
-}
-
-// =============================================================================
-// Zod schemas(请求体校验)+ 推断类型
+// Zod schemas(请求体校验)
 // =============================================================================
 
 const openAICreateBatchSchema = z.object({
@@ -170,34 +92,9 @@ const anthropicCreateBatchSchema = z.object({
   requests: z.array(anthropicBatchRequestSchema).min(1).max(100000),
 })
 
-/** Anthropic Batch 请求项(Zod 推断类型,含 passthrough 的 [k: string]: unknown) */
-type AnthropicBatchRequestItem = z.infer<typeof anthropicBatchRequestSchema>
-
 // =============================================================================
-// Redis 存储辅助(key = `batch:task:<taskId>`,TTL 30 天)
+// 列表查询辅助(SCAN + 过滤,按创建时间降序)
 // =============================================================================
-
-const BATCH_TTL_SECONDS = 30 * 24 * 60 * 60 // 30 天 = 2,592,000 秒
-const BATCH_KEY_PREFIX = 'batch:task:'
-
-/** 存储任务元数据到 Redis(TTL 30 天) */
-async function saveTask(redis: Redis, task: OpenAIBatchTask | AnthropicBatchTask): Promise<void> {
-  await redis.set(BATCH_KEY_PREFIX + task.id, JSON.stringify(task), 'EX', BATCH_TTL_SECONDS)
-}
-
-/** 从 Redis 读取任务元数据(不存在返回 null) */
-async function getTask<T extends OpenAIBatchTask | AnthropicBatchTask>(
-  redis: Redis,
-  taskId: string,
-): Promise<T | null> {
-  const raw = await redis.get(BATCH_KEY_PREFIX + taskId)
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    return null
-  }
-}
 
 /**
  * 列出指定 API Key 的任务(SCAN + 过滤,按创建时间降序)。
@@ -206,7 +103,7 @@ async function getTask<T extends OpenAIBatchTask | AnthropicBatchTask>(
  * @param afterId 游标(上一页最后一条任务 ID,返回此 ID 之后的任务)
  */
 async function listTasksByUser<T extends OpenAIBatchTask | AnthropicBatchTask>(
-  redis: Redis,
+  redis: Parameters<FastifyPluginAsync>[0]['redis'],
   apiKeyId: string,
   filter: (task: T) => boolean,
   limit: number,
@@ -252,176 +149,6 @@ async function listTasksByUser<T extends OpenAIBatchTask | AnthropicBatchTask>(
     if (idx >= 0) startIdx = idx + 1
   }
   return results.slice(startIdx, startIdx + limit)
-}
-
-// =============================================================================
-// 异步处理模拟(setTimeout,待替换为 BullMQ Worker)
-// =============================================================================
-
-/** setTimeout Promise 化(用于 async/await 链式状态转换) */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/**
- * 模拟 OpenAI Batch 异步处理:validating → in_progress → finalizing → completed。
- *
- * TODO(batch-queue): 替换为 BullMQ Worker:
- *   1. 读取 input_file_id 对应的 JSONL 文件(每行一个 OpenAI 请求)
- *   2. 逐行调用上游 LLM(chat/completions、embeddings、completions)
- *   3. 每个请求调用 recordCall({ metadata: { batch: true, discount: 0.5, batchId } })
- *   4. 汇总结果写入 output JSONL
- *   5. 更新任务状态 + request_counts
- */
-async function simulateOpenAIBatchProcessing(redis: Redis, task: OpenAIBatchTask): Promise<void> {
-  try {
-    // validating → in_progress
-    await delay(100)
-    let current = await getTask<OpenAIBatchTask>(redis, task.id)
-    if (!current || current.status !== 'validating') return
-    current.status = 'in_progress'
-    current.in_progress_at = Date.now()
-    await saveTask(redis, current)
-
-    // in_progress → finalizing
-    await delay(200)
-    current = await getTask<OpenAIBatchTask>(redis, task.id)
-    if (!current || current.status !== 'in_progress') return
-    current.status = 'finalizing'
-    current.finalizing_at = Date.now()
-    await saveTask(redis, current)
-
-    // finalizing → completed
-    await delay(300)
-    current = await getTask<OpenAIBatchTask>(redis, task.id)
-    if (!current || current.status !== 'finalizing') return
-    current.status = 'completed'
-    current.completed_at = Date.now()
-    current.output_file_id = `batch_output_${current.id}`
-    current.request_counts = { total: 1, completed: 1, failed: 0 }
-    // 模拟输出 JSONL(每行一个 JSON 对象:id + custom_id + response)
-    current._outputContent = JSON.stringify({
-      id: `batch_req_${randomUUID()}`,
-      custom_id: 'request-1',
-      response: {
-        status_code: 200,
-        body: {
-          id: `chatcmpl-${randomUUID()}`,
-          object: 'chat.completion',
-          choices: [],
-        },
-      },
-    })
-    await saveTask(redis, current)
-
-    // 计费:批量任务按 50% 折扣,recordCall 传入 metadata { batch: true, discount: 0.5 }
-    // TODO(batch-billing): 真实 Worker 中,每个请求调用上游后应单独 recordCall(含真实 token 数)。
-    // 当前模拟:汇总记录一次,0 tokens(无真实 LLM 调用,不产生实际扣费)。
-    // TODO(billing-discount): recordCall 当前不支持 metadata.discount 自动折扣,
-    //   主 agent 需在 relay-billing-service.ts 的 recordCall 中添加:
-    //   if (input.metadata?.discount) { costCentsToDeduct = Math.round(costCentsToDeduct * (1 - input.metadata.discount)) }
-    void recordCall({
-      apiKeyId: current._apiKeyId,
-      userId: current._userId,
-      model: 'batch-processing',
-      prompt: `batch:${current.id}`,
-      response: null,
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      latencyMs: 0,
-      status: 'success',
-      providerCode: 'openai',
-      clientIp: '',
-      metadata: { batch: true, discount: 0.5, batchId: current.id, simulated: true },
-    }).catch((e: unknown) => {
-      console.error('[batch:openai] recordCall FAIL', (e as Error)?.message || e)
-    })
-  } catch (e) {
-    console.error('[batch:openai] processing FAIL', (e as Error)?.message || e)
-  }
-}
-
-/**
- * 模拟 Anthropic Messages Batch 异步处理。
- *
- * TODO(batch-queue): 替换为 BullMQ Worker,逐请求调用 Anthropic Messages API。
- */
-async function simulateAnthropicBatchProcessing(
-  redis: Redis,
-  task: AnthropicBatchTask,
-): Promise<void> {
-  try {
-    // validating → in_progress
-    await delay(100)
-    let current = await getTask<AnthropicBatchTask>(redis, task.id)
-    if (!current || current.status !== 'validating') return
-    current.status = 'in_progress'
-    current.processing_started_at = new Date().toISOString()
-    await saveTask(redis, current)
-
-    // in_progress → finalizing
-    await delay(200)
-    current = await getTask<AnthropicBatchTask>(redis, task.id)
-    if (!current || current.status !== 'in_progress') return
-    current.status = 'finalizing'
-    await saveTask(redis, current)
-
-    // finalizing → completed
-    await delay(200)
-    current = await getTask<AnthropicBatchTask>(redis, task.id)
-    if (!current || current.status !== 'finalizing') return
-    current.status = 'completed'
-    current.ended_at = new Date().toISOString()
-    current.request_counts = {
-      processing: 0,
-      succeeded: current._requests.length,
-      errored: 0,
-      canceled: 0,
-      expired: 0,
-    }
-    // 模拟结果(每个请求一个 succeeded 结果)
-    current.results = current._requests.map((req) => ({
-      custom_id: req.custom_id,
-      result: {
-        type: 'succeeded' as const,
-        message: {
-          id: `msg_${randomUUID()}`,
-          type: 'message',
-          role: 'assistant',
-          model: req.params.model,
-          content: [{ type: 'text', text: 'Simulated batch response' }],
-          stop_reason: 'end_turn',
-          usage: { input_tokens: 0, output_tokens: 0 },
-        },
-      },
-    }))
-    await saveTask(redis, current)
-
-    // 计费:批量任务按 50% 折扣,recordCall 传入 metadata { batch: true, discount: 0.5 }
-    // TODO(batch-billing): 真实 Worker 中,每个请求调用上游后应单独 recordCall(含真实 token 数)。
-    // 当前模拟:汇总记录一次,0 tokens(无真实 LLM 调用,不产生实际扣费)。
-    const firstModel = current._requests[0]?.params.model ?? 'claude-3-5-sonnet-20241022'
-    void recordCall({
-      apiKeyId: current._apiKeyId,
-      userId: current._userId,
-      model: firstModel,
-      prompt: `batch:${current.id}`,
-      response: null,
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      latencyMs: 0,
-      status: 'success',
-      providerCode: modelToProviderCode(firstModel),
-      clientIp: '',
-      metadata: { batch: true, discount: 0.5, batchId: current.id, simulated: true },
-    }).catch((e: unknown) => {
-      console.error('[batch:anthropic] recordCall FAIL', (e as Error)?.message || e)
-    })
-  } catch (e) {
-    console.error('[batch:anthropic] processing FAIL', (e as Error)?.message || e)
-  }
 }
 
 // =============================================================================
@@ -474,6 +201,7 @@ function toAnthropicBatchResponse(task: AnthropicBatchTask): Record<string, unkn
 
 const v1Batches: FastifyPluginAsync = async (server) => {
   const redis = server.redis
+  const queueConnection = server.redisForQueue
 
   // ===== OpenAI Batch API(5 个端点)=====
 
@@ -537,9 +265,8 @@ const v1Batches: FastifyPluginAsync = async (server) => {
         _outputContent: null,
       }
 
-      await saveTask(redis, task)
-      // 启动异步处理(模拟,待替换为 BullMQ)
-      void simulateOpenAIBatchProcessing(redis, task)
+      // 入队 BullMQ batch-queue(addBatchTask 内部保存任务到 Redis + 入队)
+      await addBatchTask(redis, queueConnection, task, 'openai')
 
       return reply.send(toOpenAIBatchResponse(task))
     },
@@ -729,8 +456,8 @@ const v1Batches: FastifyPluginAsync = async (server) => {
         _requests: requests as AnthropicBatchRequestItem[],
       }
 
-      await saveTask(redis, task)
-      void simulateAnthropicBatchProcessing(redis, task)
+      // 入队 BullMQ batch-queue(addBatchTask 内部保存任务到 Redis + 入队)
+      await addBatchTask(redis, queueConnection, task, 'anthropic')
 
       return reply.send(toAnthropicBatchResponse(task))
     },
