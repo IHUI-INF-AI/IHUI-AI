@@ -5,6 +5,7 @@
  *  - 'image': 图形验证码(纯 SVG 生成,4-6 位字符 + 干扰线 + 字符旋转),零依赖
  *  - 'math':  数学题后备(如 "2 + 3 = ?"),用于无 SVG 渲染能力的客户端
  *  - 'recaptcha': reCAPTCHA v3 验证(需配置 RECAPTCHA_SECRET,未配置则降级 math)
+ *  - 'turnstile': Cloudflare Turnstile 人机验证(需配置 TURNSTILE_SITE_KEY,未配置则降级 math)
  *
  * 验证:verifyChallenge 用常量时间比较 (timingSafeEqual),验证后立即删除(单次使用)。
  * 存储:Redis key=captcha:{challengeId} → JSON{answer,type} TTL 5min。
@@ -16,12 +17,13 @@
 import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { logger } from '../utils/logger.js'
+import { verifyTurnstile } from './turnstile-service.js'
 
 /* -------------------------------------------------------------------------- */
 /* 类型                                                                        */
 /* -------------------------------------------------------------------------- */
 
-export type ChallengeType = 'image' | 'math' | 'recaptcha'
+export type ChallengeType = 'image' | 'math' | 'recaptcha' | 'turnstile'
 
 export interface Challenge {
   challengeId: string
@@ -84,8 +86,12 @@ export class CaptchaService {
     const expiresAt = Date.now() + CHALLENGE_TTL_SEC * 1000
 
     // reCAPTCHA 未配置 secret 时降级为 math
+    // Turnstile 未配置 siteKey 时降级为 math
     let actualType = type
     if (type === 'recaptcha' && !process.env.RECAPTCHA_SECRET) {
+      actualType = 'math'
+    }
+    if (type === 'turnstile' && !process.env.TURNSTILE_SITE_KEY) {
       actualType = 'math'
     }
 
@@ -102,6 +108,10 @@ export class CaptchaService {
       question = text
       answer = String(result)
       imageData = renderMathSvg(text)
+    } else if (actualType === 'turnstile') {
+      // turnstile:客户端应自行渲染 Cloudflare Turnstile widget,此处仅登记 challengeId 占位
+      answer = ''
+      imageData = ''
     } else {
       // recaptcha:客户端应自行渲染 Google reCAPTCHA,此处仅登记 challengeId 占位
       answer = ''
@@ -124,8 +134,13 @@ export class CaptchaService {
   /**
    * 验证挑战答案。常量时间比较,验证后立即删除(单次使用)。
    * 通过则下发临时 token。
+   * @param ip  调用方 IP(可选),用于 recaptcha / turnstile 服务端校验
    */
-  async verifyChallenge(challengeId: string, answer: string): Promise<VerifyResult> {
+  async verifyChallenge(
+    challengeId: string,
+    answer: string,
+    ip?: string,
+  ): Promise<VerifyResult> {
     if (!challengeId || !answer) {
       return { valid: false, reason: 'missing-challenge-or-answer' }
     }
@@ -140,8 +155,18 @@ export class CaptchaService {
 
     // recaptcha 类型:answer 应为 Google token,需走 verifyRecaptcha
     if (stored.type === 'recaptcha') {
-      const ok = await this.verifyRecaptcha(answer, undefined)
+      const ok = await this.verifyRecaptcha(answer, ip)
       if (!ok) return { valid: false, reason: 'recaptcha-verification-failed' }
+      const token = await this.issueToken()
+      return { valid: true, token }
+    }
+
+    // turnstile 类型:answer 应为 Cloudflare Turnstile token,委托 turnstile-service 校验
+    if (stored.type === 'turnstile') {
+      const result = await verifyTurnstile(answer, ip ?? '')
+      if (!result.success) {
+        return { valid: false, reason: 'turnstile-verification-failed' }
+      }
       const token = await this.issueToken()
       return { valid: true, token }
     }
