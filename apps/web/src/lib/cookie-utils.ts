@@ -12,8 +12,12 @@ const REFRESH_TOKEN_COOKIE = 'refresh_token'
 const AUTH_TOKEN_COOKIE = 'auth_token'
 /** 自动登录时 refreshToken cookie 有效期:30 天(与后端 refresh TTL 对齐) */
 export const REMEMBER_MAX_AGE = 30 * 24 * 60 * 60
-/** 2026-07-28:accessToken cookie 默认 7 天(原 session cookie 关闭浏览器失效) */
-const ACCESS_TOKEN_DEFAULT_MAX_AGE = 7 * 24 * 60 * 60
+/** 2026-07-31 升级:accessToken cookie 默认 30 天(原 7 天,因 admin 测试账号用户偏好"长持久化,
+ *  避免每周都要重新登录,完整覆盖 30 天 refreshToken 周期)。
+ *  关键安全说明:accessToken cookie 走 document.cookie(非 httpOnly),
+ *  任何 XSS 都能读取。30 天延长是用户可接受的风险(本项目 XSS 防护已就位),
+ *  如果项目有独立用户要求更短 TTL,可改回 7 天(平衡用户体验与安全)。 */
+const ACCESS_TOKEN_DEFAULT_MAX_AGE = 30 * 24 * 60 * 60
 
 export function getAuthCookieDomain(): string | undefined {
   if (typeof window === 'undefined') return undefined
