@@ -58,6 +58,7 @@ import type { Locale } from './i18n/index.js';
 import { parseToolList, type PermissionRules } from './tools/permissions.js';
 import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
+import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
 
 // P1-16 在所有模块加载后立即安装 crash handler(全局兜底未捕获异常)
 installCrashHandler();
@@ -101,7 +102,8 @@ program
   .option('--tools <list>', 'P0-7 工具白名单(逗号分隔,如 read_file,grep,glob)。非空时仅允许这些工具')
   .option('--disallowed-tools <list>', 'P0-7 工具黑名单(逗号分隔,如 delete_file,git_commit)。始终拒绝这些工具')
   .option('--permission-mode <mode>', '权限模式: default|acceptEdits|bypassPermissions|plan|manual')
-  .option('--no-update-check', 'P1-15 禁用启动时版本检查(默认每 24h 检查一次 npm registry)');
+  .option('--no-update-check', 'P1-15 禁用启动时版本检查(默认每 24h 检查一次 npm registry)')
+  .option('--no-setup', '跳过首次运行引导(无 ~/.ihui/settings.json 时不弹交互式问答)');
 
 interface ResolvedSession {
   sessionId?: string;
@@ -249,8 +251,13 @@ async function runAgentAndExit(
   }
 }
 
-program.hook('preAction', () => {
+program.hook('preAction', async () => {
   const opts = program.opts();
+  // 首次运行引导:无 ~/.ihui/settings.json 时自动跑交互式问答生成配置
+  // (对标 claude / codex CLI 首次启动体验,--no-setup 可跳过)
+  if (opts.setup !== false && needsFirstRunSetup()) {
+    await runFirstRunSetup();
+  }
   const settingsLocale = loadSettings().locale;
   const effectiveLocale =
     (typeof opts.locale === 'string' && opts.locale) ||
