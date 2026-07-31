@@ -1,7 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import { probeEmbed, takeScreenshot } from '@ihui/api-client'
+import {
+  browserHubBack,
+  browserHubForward,
+  browserHubReload,
+  closeBrowserSession,
+  createBrowserSession,
+  probeEmbed,
+  takeScreenshot,
+} from '@ihui/api-client'
 import type { WebViewMode, WebViewStatus, WorkPanelTab } from '@ihui/types'
 
 import { createPersistConfig } from './persist-helpers'
@@ -156,6 +164,10 @@ interface WorkPanelState {
   onFailed: (error?: string) => void
   /** 设置截图模式 */
   setScreenshot: (screenshot: string, title?: string) => void
+  /** CDP 浏览器导航完成(后端推送 navigation 事件时调用,更新 tab url + title + 地址栏) */
+  onCdpNavigation: (url: string, title: string) => void
+  /** 直接用已有 sessionId 打开 CDP tab(扫码登录用,跳过 probeEmbed 探测 + createBrowserSession) */
+  openCdpSession: (url: string, sessionId: string, title?: string) => void
   /** 重置到 idle */
   reset: () => void
 }
@@ -248,9 +260,9 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         get().loadUrl(url)
       },
 
-      // P1-3:主动探测嵌入能力,不可嵌入直接走截图模式
+      // P1-3:主动探测嵌入能力,不可嵌入 → CDP 完整 Chrome 模式(对标 Trae/Cursor)
       // 浏览器对 X-Frame-Options/CSP frame-ancestors 拦截的站点不触发 iframe onError,
-      // 必须主动调后端 probeEmbed 预判
+      // 必须主动调后端 probeEmbed 预判。CDP 失败时降级到截图模式(保证可用性)。
       loadUrl: (url) => {
         void (async () => {
           let canEmbed = true
@@ -268,7 +280,40 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             return
           }
 
-          // 不可嵌入 → 直接走截图模式(不等 iframe 静默失败)
+          // 不可嵌入 → CDP 模式(可交互,对标 Trae/Cursor 内置浏览器)
+          const { tabs: preTabs, activeTabId: preId } = get()
+          if (!preId) return
+
+          // 先关闭旧 CDP 会话(同 tab 重新导航时)
+          const preTab = preTabs.find((t) => t.id === preId)
+          if (preTab?.state.sessionId) {
+            void closeBrowserSession(preTab.state.sessionId)
+          }
+
+          const cdpResult = await createBrowserSession({
+            url,
+            viewport_width: 1280,
+            viewport_height: 720,
+          })
+
+          const { tabs: cdpTabs, activeTabId: cdpId } = get()
+          if (!cdpId) return
+
+          if (cdpResult.success && cdpResult.data?.session_id) {
+            set({
+              tabs: patchActiveTabState(cdpTabs, cdpId, {
+                status: 'loaded',
+                mode: 'cdp',
+                sessionId: cdpResult.data.session_id,
+                title: cdpResult.data.title || url,
+                error: undefined,
+                screenshot: undefined,
+              }),
+            })
+            return
+          }
+
+          // CDP 失败 → 降级到截图模式(保证可用性)
           const result = await takeScreenshot({
             url,
             width: 1280,
@@ -296,7 +341,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
               tabs: patchActiveTabState(tabs, activeTabId, {
                 status: 'failed',
                 mode: 'external',
-                error: result.error || '截图失败,该网站禁止嵌入',
+                error: result.error || 'CDP 和截图均失败,该网站禁止嵌入',
               }),
             })
           }
@@ -308,6 +353,14 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         if (!activeTabId) return
         const tab = tabs.find((t) => t.id === activeTabId)
         if (!tab || tab.historyIndex <= 0) return
+
+        // CDP 模式:后端浏览器后退(navigation 事件会更新地址栏 + title)
+        if (tab.state.mode === 'cdp' && tab.state.sessionId) {
+          void browserHubBack(tab.state.sessionId)
+          return
+        }
+
+        // iframe 模式:本地历史栈
         const newIndex = tab.historyIndex - 1
         const url = tab.history[newIndex]!
         set({
@@ -330,6 +383,14 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         if (!activeTabId) return
         const tab = tabs.find((t) => t.id === activeTabId)
         if (!tab || tab.historyIndex >= tab.history.length - 1) return
+
+        // CDP 模式:后端浏览器前进
+        if (tab.state.mode === 'cdp' && tab.state.sessionId) {
+          void browserHubForward(tab.state.sessionId)
+          return
+        }
+
+        // iframe 模式:本地历史栈
         const newIndex = tab.historyIndex + 1
         const url = tab.history[newIndex]!
         set({
@@ -352,6 +413,14 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         if (!activeTabId) return
         const tab = tabs.find((t) => t.id === activeTabId)
         if (!tab || !tab.url) return
+
+        // CDP 模式:后端浏览器刷新
+        if (tab.state.mode === 'cdp' && tab.state.sessionId) {
+          void browserHubReload(tab.state.sessionId)
+          return
+        }
+
+        // iframe 模式
         set({
           tabs: patchActiveTabState(tabs, activeTabId, {
             status: 'loading',
@@ -398,6 +467,12 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         const { tabs, activeTabId } = get()
         const idx = tabs.findIndex((t) => t.id === tabId)
         if (idx < 0) return
+
+        // CDP 模式:关闭后端会话(异步,不阻塞 UI)
+        const closingTab = tabs[idx]
+        if (closingTab?.state.mode === 'cdp' && closingTab.state.sessionId) {
+          void closeBrowserSession(closingTab.state.sessionId)
+        }
 
         const newTabs = tabs.filter((t) => t.id !== tabId)
 
@@ -486,7 +561,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       },
 
       onFailed: (error) => {
-        // iframe 失败 → 自动调后端 Playwright 截图(降级到 screenshot 模式)
+        // iframe 失败 → CDP 模式优先(可交互),CDP 失败降级截图
         const { tabs, activeTabId } = get()
         if (!activeTabId) return
 
@@ -502,7 +577,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           return
         }
 
-        // 保留 loading 状态(截图期间仍显示 loading)
+        // 保留 loading 状态(CDP/截图期间仍显示 loading)
         set({
           tabs: patchActiveTabState(tabs, activeTabId, {
             status: 'loading',
@@ -512,6 +587,31 @@ export const useWorkPanelStore = create<WorkPanelState>()(
 
         const url = tab.url
         void (async () => {
+          // CDP 模式优先(可交互,对标 Trae/Cursor)
+          const cdpResult = await createBrowserSession({
+            url,
+            viewport_width: 1280,
+            viewport_height: 720,
+          })
+
+          const { tabs: curTabs, activeTabId: curId } = get()
+          if (!curId) return
+
+          if (cdpResult.success && cdpResult.data?.session_id) {
+            set({
+              tabs: patchActiveTabState(curTabs, curId, {
+                status: 'loaded',
+                mode: 'cdp',
+                sessionId: cdpResult.data.session_id,
+                title: cdpResult.data.title || url,
+                error: undefined,
+                screenshot: undefined,
+              }),
+            })
+            return
+          }
+
+          // CDP 失败 → 降级截图
           const result = await takeScreenshot({
             url,
             width: 1280,
@@ -521,12 +621,12 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             timeout: 15000,
           })
 
-          const { tabs: curTabs, activeTabId: curId } = get()
-          if (!curId) return
+          const { tabs: failTabs, activeTabId: failId } = get()
+          if (!failId) return
 
           if (result.success && result.data?.screenshot) {
             set({
-              tabs: patchActiveTabState(curTabs, curId, {
+              tabs: patchActiveTabState(failTabs, failId, {
                 status: 'screenshot',
                 mode: 'screenshot',
                 screenshot: result.data.screenshot,
@@ -536,10 +636,10 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             })
           } else {
             set({
-              tabs: patchActiveTabState(curTabs, curId, {
+              tabs: patchActiveTabState(failTabs, failId, {
                 status: 'failed',
                 mode: 'external',
-                error: result.error || error || '截图失败,该网站禁止嵌入',
+                error: result.error || error || 'CDP 和截图均失败,该网站禁止嵌入',
               }),
             })
           }
@@ -556,6 +656,42 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             screenshot,
             title,
           }),
+        })
+      },
+
+      onCdpNavigation: (url, title) => {
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
+        set({
+          tabs: patchActiveTabState(tabs, activeTabId, {
+            url,
+            title: title || url,
+            status: 'loaded',
+          }),
+          addressInput: url,
+        })
+      },
+
+      openCdpSession: (url, sessionId, title) => {
+        const { tabs, recentUrls } = get()
+        const tab = createTab(url, title)
+        // 覆盖默认 iframe state,直接绑定为 cdp 模式(复用外部已创建的 BrowserHub 会话)
+        tab.state = {
+          status: 'loaded',
+          url,
+          mode: 'cdp',
+          sessionId,
+          title: title ?? url,
+        }
+        set({
+          open: true,
+          tabs: [...tabs, tab],
+          activeTabId: tab.id,
+          addressInput: url,
+          recentUrls: [
+            { url, title: title ?? url, visitedAt: Date.now() },
+            ...recentUrls.filter((r) => r.url !== url),
+          ].slice(0, MAX_RECENT_URLS),
         })
       },
 

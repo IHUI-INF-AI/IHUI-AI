@@ -4,6 +4,9 @@
  * 账号管理 hook:封装 publish accounts 的 CRUD + 验证操作 + toast 反馈
  * 与 apps/api POST/GET/PUT/DELETE /api/publish/accounts 契约对齐
  * 后端透传到 ai-service,字段名 display_name(非 nickname)、user_id 从 JWT 取
+ *
+ * 2026-07-31 修复:401 静默(符合懒触发策略 —— GET 401 不打扰用户,
+ * 非 GET 401 由 fetchApi 层统一弹登录框,此处不重复 toast)。
  */
 
 import * as React from 'react'
@@ -29,10 +32,26 @@ export interface AccountInput {
 
 type ListResponse = { items?: PublishAccount[]; list?: PublishAccount[] } | PublishAccount[]
 
+/** 带 status 的错误类型,供 catch 判断 401 静默 */
+interface ApiError extends Error {
+  status?: number
+}
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
+  if (!r.success) {
+    const err = new Error(r.error) as ApiError
+    err.status = r.status
+    throw err
+  }
   return r.data
+}
+
+/** 401 静默(懒触发策略:不打扰未登录用户),非 401 才 toast 提示 */
+function reportError(toast: ReturnType<typeof useToast>, e: unknown) {
+  const err = e as ApiError
+  if (err.status === 401) return
+  toast.error(err.message)
 }
 
 export function usePublishAccounts() {
@@ -49,7 +68,7 @@ export function usePublishAccounts() {
       const list = Array.isArray(data) ? data : (data.items ?? data.list ?? [])
       setAccounts(list)
     } catch (e) {
-      toast.error((e as Error).message)
+      reportError(toast, e)
     } finally {
       setLoading(false)
     }
@@ -72,7 +91,7 @@ export function usePublishAccounts() {
         await load()
         return true
       } catch (e) {
-        toast.error((e as Error).message)
+        reportError(toast, e)
         return false
       } finally {
         setSaving(false)
@@ -98,7 +117,7 @@ export function usePublishAccounts() {
         await load()
         return true
       } catch (e) {
-        toast.error((e as Error).message)
+        reportError(toast, e)
         return false
       } finally {
         setSaving(false)
@@ -115,7 +134,7 @@ export function usePublishAccounts() {
         toast.success('验证通过')
         await load()
       } catch (e) {
-        toast.error('验证失败', (e as Error).message)
+        reportError(toast, e)
       } finally {
         setVerifyingId(null)
       }
@@ -131,7 +150,7 @@ export function usePublishAccounts() {
         await load()
         return true
       } catch (e) {
-        toast.error((e as Error).message)
+        reportError(toast, e)
         return false
       }
     },
