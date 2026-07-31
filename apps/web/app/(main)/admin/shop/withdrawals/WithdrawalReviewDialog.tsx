@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import {
   Dialog,
@@ -29,6 +30,8 @@ export function WithdrawalReviewDialog(props: Props) {
     reviewMut,
   } = props
 
+  const t = useTranslations('admin.shop')
+
   return (
     <Dialog
       open={reviewOpen}
@@ -36,8 +39,8 @@ export function WithdrawalReviewDialog(props: Props) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>审核提现</DialogTitle>
-          <DialogDescription>审核提现申请并填写备注</DialogDescription>
+          <DialogTitle>{t('withdrawals.review.title')}</DialogTitle>
+          <DialogDescription>{t('withdrawals.review.description')}</DialogDescription>
         </DialogHeader>
         {reviewErr && (
           <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -49,22 +52,22 @@ export function WithdrawalReviewDialog(props: Props) {
             <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
               <div className="font-medium">{reviewForm.user ?? reviewForm.userName ?? '-'}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                ¥{(reviewForm.amount / 100).toFixed(2)} · {CHANNEL_LABEL[reviewForm.channel] ?? '-'}
+                ¥{(reviewForm.amount / 100).toFixed(2)} · {t(CHANNEL_LABEL[reviewForm.channel] ?? '')}
               </div>
             </div>
             <div className="space-y-2">
-              <Label>审核备注</Label>
+              <Label>{t('withdrawals.review.notes')}</Label>
               <textarea
                 className={textareaClass}
                 rows={4}
                 value={reviewForm.notes ?? ''}
                 onChange={(e) => setReviewForm({ ...reviewForm, notes: e.target.value })}
-                placeholder="请输入审核备注"
+                placeholder={t('withdrawals.review.notesPlaceholder')}
               />
             </div>
             {reviewForm.weChatMsg && (
               <div className="space-y-2">
-                <Label>提现记录(溯源)</Label>
+                <Label>{t('withdrawals.review.trace')}</Label>
                 <textarea
                   className={textareaClass}
                   rows={6}
@@ -77,17 +80,17 @@ export function WithdrawalReviewDialog(props: Props) {
         )}
         <DialogFooter>
           <Button variant="outline" onClick={() => setReviewOpen(false)}>
-            关闭
+            {t('withdrawals.review.close')}
           </Button>
           <Button
             variant="destructive"
             disabled={reviewMut.isPending}
             onClick={() => submitReview('reject')}
           >
-            退回
+            {t('withdrawals.review.return')}
           </Button>
           <Button disabled={reviewMut.isPending} onClick={() => submitReview('approve')}>
-            {reviewMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}通过
+            {reviewMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t('withdrawals.review.approve')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,6 +1,7 @@
 'use client'
 
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { FundAccount } from './types'
@@ -11,13 +12,14 @@ interface Props {
 }
 
 export function FundsHeader({ accounts }: Props) {
+  const t = useTranslations('admin.shop')
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
   const totalFrozen = accounts.reduce((s, a) => s + a.frozen, 0)
   const cards = [
-    { label: '总余额', value: totalBalance, icon: Wallet, cls: 'text-primary' },
-    { label: '总冻结', value: totalFrozen, icon: TrendingDown, cls: 'text-amber-600' },
+    { label: t('funds.totalBalance'), value: totalBalance, icon: Wallet, cls: 'text-primary' },
+    { label: t('funds.totalFrozen'), value: totalFrozen, icon: TrendingDown, cls: 'text-amber-600' },
     {
-      label: '账户数',
+      label: t('funds.accountCount'),
       value: accounts.length,
       icon: TrendingUp,
       cls: 'text-emerald-600',
@@ -29,9 +31,9 @@ export function FundsHeader({ accounts }: Props) {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Wallet className="h-6 w-6 text-primary" />
-          资金账户管理
+          {t('funds.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">用户资金账户与流水</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('funds.subtitle')}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {cards.map((c) => {

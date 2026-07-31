@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { inputCls } from './helpers'
 import type { LoginLogSearch } from './types'
@@ -14,37 +15,38 @@ interface Props {
 }
 
 export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) {
+  const t = useTranslations('admin.system')
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
       <div className="space-y-1.5">
-        <Label className="text-xs">用户</Label>
+        <Label className="text-xs">{t('loginLogs.filter.user')}</Label>
         <Input
           value={search.userUuid}
           onChange={(e) => setSearch({ ...search, userUuid: e.target.value })}
-          placeholder="用户标识"
+          placeholder={t('loginLogs.filter.userPlaceholder')}
           className={inputCls}
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">平台</Label>
+        <Label className="text-xs">{t('loginLogs.filter.platform')}</Label>
         <Input
           value={search.platform}
           onChange={(e) => setSearch({ ...search, platform: e.target.value })}
-          placeholder="平台"
+          placeholder={t('loginLogs.filter.platformPlaceholder')}
           className={inputCls}
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">位置</Label>
+        <Label className="text-xs">{t('loginLogs.filter.location')}</Label>
         <Input
           value={search.location}
           onChange={(e) => setSearch({ ...search, location: e.target.value })}
-          placeholder="登录位置"
+          placeholder={t('loginLogs.filter.locationPlaceholder')}
           className={inputCls}
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">开始日期</Label>
+        <Label className="text-xs">{t('loginLogs.filter.startDate')}</Label>
         <Input
           type="date"
           value={search.startTime}
@@ -53,7 +55,7 @@ export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) 
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">结束日期</Label>
+        <Label className="text-xs">{t('loginLogs.filter.endDate')}</Label>
         <Input
           type="date"
           value={search.endTime}
@@ -64,10 +66,10 @@ export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) 
       <div className="flex gap-2">
         <Button size="sm" onClick={onSearch}>
           <Search className="h-4 w-4" />
-          搜索
+          {t('common.search')}
         </Button>
         <Button size="sm" variant="outline" onClick={onReset}>
-          重置
+          {t('common.reset')}
         </Button>
       </div>
     </div>

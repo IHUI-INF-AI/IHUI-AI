@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Wallet } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 
@@ -14,9 +15,10 @@ import { WithdrawalFlowTable } from './WithdrawalFlowTable'
 import { WithdrawalFlowDialog } from './WithdrawalFlowDialog'
 
 export default function AdminShopWithdrawalsPage() {
+  const t = useTranslations('admin.shop')
   const [tab, setTab] = React.useState<'detail' | 'flow'>('detail')
-  const detail = useWithdrawalDetail(tab === 'detail')
-  const flow = useWithdrawalFlow(tab === 'flow')
+  const detail = useWithdrawalDetail(tab === 'detail', t)
+  const flow = useWithdrawalFlow(tab === 'flow', t)
 
   const tabCls = (active: boolean) =>
     cn(
@@ -31,17 +33,17 @@ export default function AdminShopWithdrawalsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Wallet className="h-6 w-6 text-primary" />
-          提现管理
+          {t('withdrawals.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">审核与处理用户提现申请</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('withdrawals.subtitle')}</p>
       </div>
 
       <div className="flex w-fit gap-1 rounded-lg border bg-muted/30 p-1">
         <button onClick={() => setTab('detail')} className={tabCls(tab === 'detail')}>
-          提现详情
+          {t('withdrawals.tabDetail')}
         </button>
         <button onClick={() => setTab('flow')} className={tabCls(tab === 'flow')}>
-          提现流水
+          {t('withdrawals.tabFlow')}
         </button>
       </div>
 
