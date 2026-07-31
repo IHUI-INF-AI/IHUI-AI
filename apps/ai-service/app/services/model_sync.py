@@ -1171,6 +1171,10 @@ class ModelSyncService:
                 placeholders.append(f"${idx}")
                 params.append(param_value)
                 idx += 1
+        # last_synced_at(INSERT 时也写入 now(),新模型也有同步时间)
+        if columns.get("last_synced_at", False):
+            fields.append("last_synced_at")
+            placeholders.append("now()")  # SQL 函数,不需要 placeholder
 
         # ON CONFLICT DO UPDATE:更新存在的字段
         update_parts = ["is_relay_public = true", "enabled = true", "context_length = $4", "updated_at = now()"]
@@ -1184,6 +1188,9 @@ class ModelSyncService:
             if columns.get(col_name, False):
                 update_parts.append(f"{col_name} = ${update_idx}")
                 update_idx += 1
+        # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
+        if columns.get("last_synced_at", False):
+            update_parts.append("last_synced_at = now()")
 
         fields_str = ", ".join(fields)
         placeholders_str = ", ".join(placeholders)
@@ -1249,6 +1256,9 @@ class ModelSyncService:
                 set_parts.append(f"{col_name} = ${idx}")
                 params.append(param_value)
                 idx += 1
+        # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
+        if columns.get("last_synced_at", False):
+            set_parts.append("last_synced_at = now()")
 
         set_str = ", ".join(set_parts)
         sql = (
@@ -1620,14 +1630,14 @@ class ModelSyncService:
         return ""
 
     @staticmethod
-    def _extract_vendor(model_id: str, model: dict[str, Any]) -> str:
+    def _extract_vendor(model_id: str, model: dict[str, Any]) -> Optional[str]:
         """F4.5 提取模型厂商。
 
         优先级:
         1. model.metadata.vendor(上游显式声明,lower())
         2. model_id 含 "/" → 取前缀(openai/gpt-4o → openai,anthropic/claude-... → anthropic)
         3. model_id 关键词前缀匹配(gpt → openai,claude → anthropic,llama → meta 等)
-        4. 无法推断 → 空字符串
+        4. 无法推断 → None(让 DB 存 NULL)
         """
         # 1. 上游 metadata.vendor
         meta = model.get("metadata")
@@ -1659,7 +1669,7 @@ class ModelSyncService:
         for prefix, vendor in vendor_prefixes.items():
             if mid.startswith(prefix):
                 return vendor
-        return ""
+        return None  # 无法推断 → None(让 DB 存 NULL,COUNT 统计正确)
 
     @staticmethod
     def _extract_max_output_tokens(model: dict[str, Any]) -> int:

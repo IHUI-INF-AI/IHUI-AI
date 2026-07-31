@@ -28,6 +28,8 @@ export interface ModelOption {
   vendor?: string
   /** 自定义图标 URL(可选,优先于 vendor) */
   iconUrl?: string
+  /** 积分消耗倍数(0=免费/1=经济/3=标准/10=高级/30=旗舰),未设置则不显示徽章 */
+  pointsMultiplier?: number
 }
 
 /** 自动模式(value='auto'):后端根据任务类型自动选择最优模型
@@ -50,7 +52,27 @@ interface ModelSelectorProps {
 
 /** 将 FallbackModel 转换为 ModelOption */
 function toOption(m: FallbackModel): ModelOption {
-  return { value: m.value, label: m.label, vendor: m.vendor, descriptionKey: m.descriptionKey }
+  return {
+    value: m.value,
+    label: m.label,
+    vendor: m.vendor,
+    descriptionKey: m.descriptionKey,
+    pointsMultiplier: inferPointsMultiplier(m.value),
+  }
+}
+
+/** 积分消耗倍数前端兜底推断(API 未返回 pointsMultiplier 时按 modelId 关键词推断)
+ *  档位:0=免费 / 1=经济 / 3=标准 / 10=高级 / 30=旗舰 */
+function inferPointsMultiplier(modelId: string): number {
+  const mid = (modelId || '').toLowerCase()
+  // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
+  if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
+  if (['opus', 'thinking', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k))) return 30
+  if (['gpt-4-turbo', 'gpt-4.5', 'claude-3-opus', 'gemini-pro'].some((k) => mid.includes(k))) return 10
+  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k))) return 3
+  if (['mini', 'flash', 'lite', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
+  if (['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) => mid.includes(k))) return 0
+  return 1
 }
 
 /** Provider 健康状态 → 圆点徽章 + tooltip(Phase C+D 三态:绿/红/灰,装饰点豁免 rounded-full)
@@ -69,6 +91,53 @@ function ProviderHealthDot({ health }: { health: ProviderHealth }) {
       )}
     />
   )
+}
+
+/** 积分消耗倍数徽章(0=免费/1=经济/3=标准/10=高级/30=旗舰)
+ *  2026-07-31 立:模型选择器内显示每个模型的扣分倍数,帮助用户直观判断成本
+ *  颜色:免费绿/经济灰/标准蓝/高级紫/旗舰金;圆角 rounded-md(6px);无发光边框 */
+function PointsMultiplierBadge({ multiplier }: { multiplier: number }) {
+  const t = useTranslations('chat')
+  const tip = t('modelPointsMultiplier')
+  if (multiplier === 0) {
+    return (
+      <span
+        title={tip}
+        className="shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+      >
+        {t('modelFree')}
+      </span>
+    )
+  }
+  if (multiplier === 1) {
+    return (
+      <span title={tip} className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+        ×1
+      </span>
+    )
+  }
+  if (multiplier === 3) {
+    return (
+      <span title={tip} className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+        ×3
+      </span>
+    )
+  }
+  if (multiplier === 10) {
+    return (
+      <span title={tip} className="shrink-0 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-400">
+        ×10
+      </span>
+    )
+  }
+  if (multiplier >= 30) {
+    return (
+      <span title={tip} className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+        ×30
+      </span>
+    )
+  }
+  return null
 }
 
 /** 按厂商分组模型,返回有序的 [vendor, items[]] 数组 */
@@ -134,6 +203,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
             value: m.id,
             label: m.name || m.id,
             vendor: inferVendor(m.id) ?? m.provider,
+            pointsMultiplier: inferPointsMultiplier(m.id),
           })),
         )
       })
@@ -348,7 +418,12 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                       className="shrink-0 text-muted-foreground"
                     />
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-medium">{opt.label}</span>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-medium">{opt.label}</span>
+                        {typeof opt.pointsMultiplier === 'number' && (
+                          <PointsMultiplierBadge multiplier={opt.pointsMultiplier} />
+                        )}
+                      </div>
                       {opt.descriptionKey && (
                         <span className="truncate text-xs text-muted-foreground">
                           {t(opt.descriptionKey)}
