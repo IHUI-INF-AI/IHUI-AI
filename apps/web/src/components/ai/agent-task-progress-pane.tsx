@@ -1074,7 +1074,7 @@ export function AgentTaskProgressPane() {
   if (isMinimized) {
     return (
       <div
-        className="absolute z-popover"
+        className="absolute z-sticky"
         style={positionStyle}
         data-testid="pane-minimized-container"
       >
@@ -1096,7 +1096,9 @@ export function AgentTaskProgressPane() {
     <div
       ref={paneRef}
       className={cn(
-        'absolute z-popover',
+        // z-sticky(990) < z-modal(2000):登录弹窗遮罩盖住 pane,CSS 层级保底
+        // (2026-07-31 根因修复:原 z-popover=2001 > z-modal=2000,pane 浮在登录框之上)
+        'absolute z-sticky',
         'flex w-[280px] max-h-[60vh] flex-col',
         'overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
       )}
