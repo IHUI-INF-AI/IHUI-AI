@@ -508,6 +508,106 @@ async def get_sync_health() -> dict[str, Any]:
     return _wrap_ok(model_sync_service.get_health())
 
 
+class SyncConfigUpdateRequest(BaseModel):
+    """同步配置运行时更新请求(v4 深度优化)。
+
+    两个字段都可选,但至少传一个。由 PUT /llm/models/sync/config 端点接收。
+    """
+
+    interval_s: int | None = Field(None, description="同步间隔(秒),>0 且 <=86400(最大 24 小时)")
+    concurrency: int | None = Field(None, description="并发限流,>0 且 <=20")
+
+
+@router.post("/llm/models/sync/reset", response_model=None)
+async def reset_sync_provider(provider: str) -> dict[str, Any] | JSONResponse:
+    """重置 provider 的失败计数 + 从永久禁用列表移除,允许重新同步(v4 深度优化)。
+
+    用途:provider 因连续失败被永久禁用后,admin 调此端点重置状态,
+    允许下次同步周期重新拉取。
+
+    Query param:
+        provider: provider_code(必填),如 stepfun / openai / cloudflare_workers_ai。
+
+    返回字段:
+        - provider_code: 重置的 provider 标识
+        - reset: True(固定)
+        - previous_failures: 重置前的连续失败次数
+        - was_disabled: 重置前是否在永久禁用列表中
+    """
+    from ..services.model_sync import model_sync_service
+    data = model_sync_service.reset_provider(provider)
+    return _wrap_ok(data)
+
+
+@router.put("/llm/models/sync/config", response_model=None)
+async def update_sync_config(req: SyncConfigUpdateRequest) -> dict[str, Any] | JSONResponse:
+    """运行时更新同步间隔 + 并发限流(无需重启 ai-service,v4 深度优化)。
+
+    请求体(两个字段都可选,但至少传一个):
+        {"interval_s": 21600, "concurrency": 5}
+
+    参数校验:
+        - interval_s: 必须 > 0 且 <= 86400(最大 24 小时)
+        - concurrency: 必须 > 0 且 <= 20
+
+    返回字段:
+        - interval_s: 当前生效的同步间隔(秒)
+        - concurrency: 当前生效的并发限流
+        - applied: True(固定)
+
+    错误:
+        - 400: 参数校验失败(interval_s 超出范围 / concurrency 超出范围 / 两个字段都为 None)
+    """
+    if req.interval_s is None and req.concurrency is None:
+        return _error_json("interval_s 和 concurrency 至少传一个", 400)
+    from ..services.model_sync import model_sync_service
+    try:
+        data = model_sync_service.update_config(
+            interval_s=req.interval_s, concurrency=req.concurrency
+        )
+        return _wrap_ok(data)
+    except ValueError as e:
+        return _error_json(str(e), 400)
+
+
+@router.get("/llm/models/sync/stats", response_model=None)
+async def get_sync_stats(days: int = 7) -> dict[str, Any]:
+    """查询最近 N 天的聚合统计(成功率、平均延迟、新增/下架模型数,v4 深度优化)。
+
+    查询 ai_model_sync_log 表,聚合计算同步成功率、平均/最大/最小延迟、
+    新增/下架模型总数,并按 provider_code 分组输出 by_provider 列表。
+
+    Query param:
+        days: 查询天数(可选,默认 7,最大 90)。
+
+    返回字段:
+        - days: 实际查询天数
+        - total_syncs / success_count / failure_count / success_rate: 同步结果汇总
+        - avg_latency_ms / max_latency_ms / min_latency_ms: 延迟统计
+        - total_new_models / total_removed_models: 模型变更汇总
+        - by_provider[]: 按 provider_code 分组的聚合统计(含 last_sync_at)
+    """
+    from ..services.model_sync import model_sync_service
+    data = await model_sync_service.get_aggregated_stats(days=days)
+    return _wrap_ok(data)
+
+
+@router.delete("/llm/models/sync/history", response_model=None)
+async def delete_sync_history(before_days: int = 30) -> dict[str, Any]:
+    """清理 N 天前的同步日志(防止 ai_model_sync_log 表无限增长,v4 深度优化)。
+
+    Query param:
+        before_days: 清理多少天前的日志(可选,默认 30,最小 1)。
+
+    返回字段:
+        - deleted_count: 删除的记录数
+        - before_days: 清理的天数阈值
+    """
+    from ..services.model_sync import model_sync_service
+    data = await model_sync_service.cleanup_old_logs(before_days=before_days)
+    return _wrap_ok(data)
+
+
 @router.post("/llm/complete/stream", response_model=None)
 async def complete_stream(req: LLMCompleteRequest, request: Request) -> StreamingResponse | JSONResponse:
     """流式 LLM 调用(原生 token 级流式 + SSE event 字段 + 心跳保活)。
