@@ -32,6 +32,8 @@ import { z } from 'zod'
 import { config } from '../config/index.js'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { checkQuota, recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
+// P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
+import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 v1-public.ts ApiKeyContext 结构一致) */
@@ -519,10 +521,17 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
         openaiBody.metadata = { userId: apiKey.userId }
       }
 
+      // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
+      const paramOpsResult = await applyParamOpsToBody(openaiBody, {
+        model,
+        original_model: model,
+      })
+      const modifiedOpenaiBody = paramOpsResult.body
+
       // 流式
       if (stream) {
         return streamResponses(request, reply, {
-          openaiBody,
+          openaiBody: modifiedOpenaiBody,
           model,
           apiKeyId: apiKey?.id,
           userId: apiKey?.userId,
@@ -538,7 +547,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(openaiBody),
+          body: JSON.stringify(modifiedOpenaiBody),
         })
 
         if (!resp.ok) {
