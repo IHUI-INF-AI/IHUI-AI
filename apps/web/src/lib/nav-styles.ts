@@ -98,7 +98,7 @@ export const HEADER_BAR_CLASS =
  *  - close 变体保留红色 hover(WindowControlButton variant='close'),在 base 之后追加覆盖
  */
 export const TOPBAR_BTN_BASE =
-  'inline-flex h-full shrink-0 items-center justify-center rounded-md bg-card text-foreground/80 transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent'
+  'inline-flex h-full shrink-0 items-center justify-center rounded-md bg-card text-foreground/80 transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent [&>svg]:!h-3.5 [&>svg]:!w-3.5'
 
 /** 顶栏按钮/标签宽度(2026-07-30 第十轮"做减法 v6"用户反馈"搜索/chevron-down/Plus 按钮应一致 + 正方形"后升级 w-7 → w-9)
  *  - Plus 按钮 / 窗口控制按钮 / Dropdown trigger / 搜索按钮 4 类全部统一 36×36 正方形
