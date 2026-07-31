@@ -1,16 +1,18 @@
-"""Browser Hub 服务(2026-07-31 新增)。
+"""Browser Hub 服务(2026-07-31 新增,2026-07-31 重构为 sync_playwright)。
 
 需求:用户要求内置浏览器是"完整 Chrome",对标 Trae/Cursor。
 当前 WorkPanel 是 iframe 架构,受 X-Frame-Options 限制无法打开第三方平台登录页。
 本服务用 CDP(Chrome DevTools Protocol)远程控制真实 Chromium,通过 WebSocket
 推送画面帧 + 接收鼠标键盘事件,实现"内置完整 Chrome"体验。
 
-架构:
-- 单例 BrowserHub:管理持续运行的 Chromium 实例(async_playwright)
-- BrowserSession:每个 WorkPanel tab 对应一个 BrowserContext + Page + CDP session
-- WebSocket 推送画面帧(CDP Page.startScreencast)
-- WebSocket 接收鼠标键盘事件(CDP Input.dispatchMouseEvent / dispatchKeyEvent)
-- REST API:创建会话/导航/获取 cookies/关闭
+架构(2026-07-31 重构):
+- 用 sync_playwright + ThreadPoolExecutor(max_workers=1) 运行所有 Playwright 操作
+- 原因:uvicorn --reload 模式下,子进程的 event loop 是 SelectorEventLoop,
+  async_playwright().start() 需要 asyncio.create_subprocess_exec 启动 node driver,
+  SelectorEventLoop 不支持 → NotImplementedError。
+  sync_playwright 用 subprocess.Popen,不依赖 asyncio subprocess,无此问题。
+- 对外保持 async 接口不变(用 loop.run_in_executor 包装 sync 调用)
+- screencast/navigation 回调用 asyncio.run_coroutine_threadsafe 跨线程传递到 main loop
 
 CDP 关键 API:
 - Page.startScreencast - 推送 JPEG/PNG 画面帧
@@ -23,12 +25,13 @@ CDP 关键 API:
 from __future__ import annotations
 
 import asyncio
-import base64
 import logging
+import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Awaitable, Callable, Optional
 
-from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
 from ..core.logging import get_logger
 
@@ -72,213 +75,6 @@ def _find_chromium_executable() -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# BrowserSession:单个浏览器会话
-# ---------------------------------------------------------------------------
-class BrowserSession:
-    """单个浏览器会话:一个 BrowserContext + Page + CDP session。
-
-    每个 WorkPanel tab 对应一个 BrowserSession。
-    """
-
-    def __init__(self, session_id: str, context: BrowserContext, page: Page) -> None:
-        self.session_id = session_id
-        self.context = context
-        self.page = page
-        self._cdp: Any | None = None  # CDPSession
-        self._screencast_running = False
-        self._frame_handlers: list[Callable[[str, dict], Awaitable[None]]] = []
-        self._lock = asyncio.Lock()
-
-    async def init_cdp(self) -> Any:
-        """初始化 CDP session(懒加载)。"""
-        if self._cdp is None:
-            self._cdp = await self.context.new_cdp_session(self.page)
-        return self._cdp
-
-    async def navigate(self, url: str, wait_until: str = "domcontentloaded", timeout: int = 30000) -> dict:
-        """导航到指定 URL。"""
-        try:
-            response = await self.page.goto(url, wait_until=wait_until, timeout=timeout)
-            return {
-                "url": self.page.url,
-                "title": await self.page.title(),
-                "status": response.status if response else None,
-            }
-        except Exception as e:
-            logger.warning(f"[browser_hub] session {self.session_id} 导航失败: {url} - {e}")
-            return {"url": self.page.url, "title": "", "status": None, "error": str(e)[:200]}
-
-    async def start_screencast(self, on_frame: Callable[[str, dict], Awaitable[None]]) -> None:
-        """开始推流截图帧。
-
-        on_frame 回调签名: async def on_frame(data_b64: str, metadata: dict) -> None
-        - data_b64: base64 编码的 JPEG 图片
-        - metadata: CDP 元数据(包含 sessionId、timestamp 等)
-        """
-        cdp = await self.init_cdp()
-        self._frame_handlers.append(on_frame)
-
-        if self._screencast_running:
-            # 已在推流,只追加 handler
-            return
-
-        async def handle_frame(params: dict) -> None:
-            """CDP Page.screencastFrame 事件回调。"""
-            data_b64 = params.get("data", "")
-            metadata = params.get("metadata", {})
-            # 必须回 ack,否则后续帧不再推送
-            await cdp.send("Page.screencastFrameAck", {"sessionId": params.get("sessionId", 0)})
-            # 通知所有 handler
-            for handler in list(self._frame_handlers):
-                try:
-                    await handler(data_b64, metadata)
-                except Exception as e:
-                    logger.debug(f"[browser_hub] frame handler 异常: {e}")
-
-        cdp.on("Page.screencastFrame", handle_frame)
-
-        await cdp.send("Page.startScreencast", {
-            "format": "jpeg",
-            "quality": 70,
-            "maxWidth": 1280,
-            "maxHeight": 720,
-            "everyNthFrame": 1,
-        })
-        self._screencast_running = True
-        logger.info(f"[browser_hub] session {self.session_id} screencast 已启动")
-
-    async def stop_screencast(self) -> None:
-        """停止推流截图帧。"""
-        if not self._screencast_running:
-            return
-        try:
-            cdp = await self.init_cdp()
-            await cdp.send("Page.stopScreencast")
-        except Exception as e:
-            logger.debug(f"[browser_hub] stop_screencast 异常: {e}")
-        finally:
-            self._screencast_running = False
-            self._frame_handlers.clear()
-
-    async def remove_frame_handler(self, on_frame: Callable) -> None:
-        """移除指定的 frame handler(WebSocket 断开时调用)。"""
-        try:
-            self._frame_handlers.remove(on_frame)
-        except ValueError:
-            pass
-        if not self._frame_handlers:
-            await self.stop_screencast()
-
-    async def dispatch_mouse(
-        self,
-        x: float,
-        y: float,
-        button: str = "left",
-        event_type: str = "mousePressed",
-        click_count: int = 1,
-        modifiers: int = 0,
-    ) -> None:
-        """鼠标事件(CDP Input.dispatchMouseEvent)。
-
-        event_type: "mousePressed" | "mouseReleased" | "mouseMoved"
-        button: "left" | "right" | "middle" | "none"
-        modifiers: 0=none, 1=alt, 2=ctrl, 4=meta, 8=shift
-        """
-        cdp = await self.init_cdp()
-        await cdp.send("Input.dispatchMouseEvent", {
-            "type": event_type,
-            "x": x,
-            "y": y,
-            "button": button,
-            "clickCount": click_count,
-            "modifiers": modifiers,
-        })
-
-    async def dispatch_mouse_wheel(self, x: float, y: float, delta_x: float = 0, delta_y: float = 0) -> None:
-        """滚轮事件(CDP Input.dispatchMouseEvent with mouseWheel)。"""
-        cdp = await self.init_cdp()
-        await cdp.send("Input.dispatchMouseEvent", {
-            "type": "mouseWheel",
-            "x": x,
-            "y": y,
-            "deltaX": delta_x,
-            "deltaY": delta_y,
-        })
-
-    async def dispatch_key(
-        self,
-        key: str,
-        event_type: str = "keyDown",
-        modifiers: int = 0,
-        text: str | None = None,
-    ) -> None:
-        """键盘事件(CDP Input.dispatchKeyEvent)。
-
-        event_type: "keyDown" | "keyUp" | "rawKeyDown" | "char"
-        key: 键名(如 "Enter", "Tab", "Backspace", "a")
-        """
-        cdp = await self.init_cdp()
-        params: dict[str, Any] = {
-            "type": event_type,
-            "key": key,
-            "modifiers": modifiers,
-            "windowsVirtualKeyCode": _key_to_vk_code(key),
-        }
-        if text:
-            params["text"] = text
-        await cdp.send("Input.dispatchKeyEvent", params)
-
-    async def type_text(self, text: str) -> None:
-        """输入文本(逐字符发送 char 事件)。"""
-        cdp = await self.init_cdp()
-        for char in text:
-            await cdp.send("Input.dispatchKeyEvent", {
-                "type": "char",
-                "text": char,
-            })
-
-    async def get_cookies(self, urls: list[str] | None = None) -> list[dict]:
-        """获取 cookies(扫码登录后检测登录态)。"""
-        return await self.context.cookies(urls)
-
-    async def get_current_url(self) -> str:
-        return self.page.url
-
-    async def get_title(self) -> str:
-        return await self.page.title()
-
-    async def screenshot(self, full_page: bool = False) -> bytes:
-        """一次性截图(PNG)。"""
-        return await self.page.screenshot(type="png", full_page=full_page)
-
-    async def execute_js(self, script: str) -> Any:
-        """执行 JavaScript。"""
-        return await self.page.evaluate(script)
-
-    async def go_back(self) -> bool:
-        return await self.page.go_back()
-
-    async def go_forward(self) -> bool:
-        return await self.page.go_forward()
-
-    async def reload(self) -> None:
-        await self.page.reload()
-
-    async def close(self) -> None:
-        """关闭会话。"""
-        await self.stop_screencast()
-        if self._cdp:
-            try:
-                await self._cdp.detach()
-            except Exception:
-                pass
-        try:
-            await self.context.close()
-        except Exception:
-            pass
-
-
-# ---------------------------------------------------------------------------
 # 键名 → Windows Virtual Key Code 映射(常用键)
 # ---------------------------------------------------------------------------
 def _key_to_vk_code(key: str) -> int:
@@ -310,9 +106,284 @@ def _key_to_vk_code(key: str) -> int:
     if key in vk_map:
         return vk_map[key]
     if len(key) == 1:
-        # 单字符:A-Z, 0-9 等
         return ord(key.upper())
     return 0
+
+
+# ---------------------------------------------------------------------------
+# BrowserSession:单个浏览器会话(sync_playwright 对象,async 接口)
+# ---------------------------------------------------------------------------
+class BrowserSession:
+    """单个浏览器会话:一个 BrowserContext + Page + CDP session。
+
+    sync_playwright 对象必须在创建它的线程里使用,因此所有操作通过
+    ThreadPoolExecutor(max_workers=1) 串行执行。
+    对外暴露 async 接口(用 loop.run_in_executor 包装)。
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        context: BrowserContext,
+        page: Page,
+        executor: ThreadPoolExecutor,
+        main_loop: asyncio.AbstractEventLoop,
+    ) -> None:
+        self.session_id = session_id
+        self._context = context
+        self._page = page
+        self._executor = executor
+        self._main_loop = main_loop
+        self._cdp: Any | None = None  # sync CDPSession
+        self._screencast_running = False
+        self._on_frame: Optional[Callable[[str, dict], Awaitable[None]]] = None
+        self._on_navigation: Optional[Callable[[str, str | None], Awaitable[None]]] = None
+        self._lock = threading.Lock()
+
+    # ---- 内部辅助 ----
+    async def _run_sync(self, func: Callable[[], Any]) -> Any:
+        """在专用 executor 线程运行 sync 函数,返回结果。"""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, func)
+
+    def _schedule_coro(self, coro: Awaitable[None]) -> None:
+        """从 executor 线程向 main loop 提交 coroutine(screencast/navigation 回调用)。"""
+        asyncio.run_coroutine_threadsafe(coro, self._main_loop)
+
+    # ---- 导航 ----
+    async def navigate(self, url: str, wait_until: str = "domcontentloaded", timeout: int = 30000) -> dict:
+        """导航到指定 URL。"""
+        def _sync() -> dict:
+            try:
+                response = self._page.goto(url, wait_until=wait_until, timeout=timeout)
+                return {
+                    "url": self._page.url,
+                    "title": self._page.title(),
+                    "status": response.status if response else None,
+                }
+            except Exception as e:
+                logger.warning(f"[browser_hub] session {self.session_id} 导航失败: {url} - {e}")
+                return {"url": self._page.url, "title": "", "status": None, "error": str(e)[:200]}
+        return await self._run_sync(_sync)
+
+    async def get_current_url(self) -> str:
+        def _sync() -> str:
+            return self._page.url
+        return await self._run_sync(_sync)
+
+    async def get_title(self) -> str:
+        def _sync() -> str:
+            return self._page.title()
+        return await self._run_sync(_sync)
+
+    async def go_back(self) -> bool:
+        def _sync() -> bool:
+            return self._page.go_back()
+        return await self._run_sync(_sync)
+
+    async def go_forward(self) -> bool:
+        def _sync() -> bool:
+            return self._page.go_forward()
+        return await self._run_sync(_sync)
+
+    async def reload(self) -> None:
+        def _sync() -> None:
+            self._page.reload()
+        await self._run_sync(_sync)
+
+    # ---- Cookies / 截图 / JS ----
+    async def get_cookies(self, urls: list[str] | None = None) -> list[dict]:
+        def _sync() -> list[dict]:
+            return self._context.cookies(urls)
+        return await self._run_sync(_sync)
+
+    async def screenshot(self, full_page: bool = False) -> bytes:
+        def _sync() -> bytes:
+            return self._page.screenshot(type="png", full_page=full_page)
+        return await self._run_sync(_sync)
+
+    async def execute_js(self, script: str) -> Any:
+        def _sync() -> Any:
+            return self._page.evaluate(script)
+        return await self._run_sync(_sync)
+
+    # ---- 导航事件监听 ----
+    async def set_navigation_handler(
+        self, on_nav: Callable[[str, str | None], Awaitable[None]]
+    ) -> None:
+        """注册导航事件回调(页面加载完成时触发)。
+
+        on_nav: async 函数(url, title) -> None,在 main loop 执行。
+        """
+        self._on_navigation = on_nav
+
+        def _register() -> None:
+            def _on_frame_navigated(frame: Any) -> None:
+                try:
+                    if frame == self._page.main_frame:
+                        url = self._page.url
+                        handler = self._on_navigation
+                        if handler:
+                            # title 在 sync 线程取可能为空,延迟到 main loop 取
+                            self._schedule_coro(handler(url, None))
+                except Exception as e:
+                    logger.debug(f"[browser_hub] navigation 回调异常: {e}")
+            self._page.on("framenavigated", _on_frame_navigated)
+        await self._run_sync(_register)
+
+    # ---- CDP Screencast(画面流)----
+    async def start_screencast(
+        self, on_frame: Callable[[str, dict], Awaitable[None]]
+    ) -> None:
+        """开始推流截图帧。
+
+        on_frame: async 函数(data_b64: str, metadata: dict) -> None,在 main loop 执行。
+        - data_b64: base64 编码的 JPEG 图片
+        - metadata: CDP 元数据(包含 deviceWidth/deviceHeight/timestamp 等)
+        """
+        self._on_frame = on_frame
+
+        def _sync_start() -> None:
+            with self._lock:
+                if self._screencast_running:
+                    return
+                if self._cdp is None:
+                    self._cdp = self._context.new_cdp_session(self._page)
+
+                def _handle_frame(params: dict) -> None:
+                    """CDP Page.screencastFrame 事件回调(sync,在 executor 线程触发)。"""
+                    data_b64 = params.get("data", "")
+                    metadata = params.get("metadata", {})
+                    # 必须立即 ack,否则后续帧不再推送
+                    try:
+                        self._cdp.send("Page.screencastFrameAck", {"sessionId": params.get("sessionId", 0)})
+                    except Exception as e:
+                        logger.debug(f"[browser_hub] screencast ack 异常: {e}")
+                    # 传递到 main loop(非阻塞)
+                    handler = self._on_frame
+                    if handler:
+                        self._schedule_coro(handler(data_b64, metadata))
+
+                self._cdp.on("Page.screencastFrame", _handle_frame)
+                self._cdp.send("Page.startScreencast", {
+                    "format": "jpeg",
+                    "quality": 70,
+                    "maxWidth": 1280,
+                    "maxHeight": 720,
+                    "everyNthFrame": 1,
+                })
+                self._screencast_running = True
+                logger.info(f"[browser_hub] session {self.session_id} screencast 已启动")
+        await self._run_sync(_sync_start)
+
+    async def stop_screencast(self) -> None:
+        def _sync_stop() -> None:
+            with self._lock:
+                if not self._screencast_running:
+                    return
+                try:
+                    if self._cdp:
+                        self._cdp.send("Page.stopScreencast")
+                except Exception as e:
+                    logger.debug(f"[browser_hub] stop_screencast 异常: {e}")
+                finally:
+                    self._screencast_running = False
+                    self._on_frame = None
+        await self._run_sync(_sync_stop)
+
+    async def remove_frame_handler(self, on_frame: Callable) -> None:
+        """移除指定的 frame handler(WebSocket 断开时调用)。"""
+        await self.stop_screencast()
+
+    # ---- CDP 输入事件(鼠标/键盘/滚轮)----
+    async def dispatch_mouse(
+        self,
+        x: float,
+        y: float,
+        button: str = "left",
+        event_type: str = "mousePressed",
+        click_count: int = 1,
+        modifiers: int = 0,
+    ) -> None:
+        """鼠标事件(CDP Input.dispatchMouseEvent)。"""
+        def _sync() -> None:
+            cdp = self._ensure_cdp()
+            cdp.send("Input.dispatchMouseEvent", {
+                "type": event_type,
+                "x": x,
+                "y": y,
+                "button": button,
+                "clickCount": click_count,
+                "modifiers": modifiers,
+            })
+        await self._run_sync(_sync)
+
+    async def dispatch_mouse_wheel(self, x: float, y: float, delta_x: float = 0, delta_y: float = 0) -> None:
+        """滚轮事件(CDP Input.dispatchMouseEvent with mouseWheel)。"""
+        def _sync() -> None:
+            cdp = self._ensure_cdp()
+            cdp.send("Input.dispatchMouseEvent", {
+                "type": "mouseWheel",
+                "x": x,
+                "y": y,
+                "deltaX": delta_x,
+                "deltaY": delta_y,
+            })
+        await self._run_sync(_sync)
+
+    async def dispatch_key(
+        self,
+        key: str,
+        event_type: str = "keyDown",
+        modifiers: int = 0,
+        text: str | None = None,
+    ) -> None:
+        """键盘事件(CDP Input.dispatchKeyEvent)。"""
+        def _sync() -> None:
+            cdp = self._ensure_cdp()
+            params: dict[str, Any] = {
+                "type": event_type,
+                "key": key,
+                "modifiers": modifiers,
+                "windowsVirtualKeyCode": _key_to_vk_code(key),
+            }
+            if text:
+                params["text"] = text
+            cdp.send("Input.dispatchKeyEvent", params)
+        await self._run_sync(_sync)
+
+    async def type_text(self, text: str) -> None:
+        """输入文本(逐字符发送 char 事件)。"""
+        def _sync() -> None:
+            cdp = self._ensure_cdp()
+            for char in text:
+                cdp.send("Input.dispatchKeyEvent", {
+                    "type": "char",
+                    "text": char,
+                })
+        await self._run_sync(_sync)
+
+    def _ensure_cdp(self) -> Any:
+        """获取或创建 CDP session(必须在 executor 线程调用)。"""
+        if self._cdp is None:
+            self._cdp = self._context.new_cdp_session(self._page)
+        return self._cdp
+
+    # ---- 关闭 ----
+    async def close(self) -> None:
+        """关闭会话。"""
+        await self.stop_screencast()
+        def _sync_close() -> None:
+            if self._cdp:
+                try:
+                    self._cdp.detach()
+                except Exception:
+                    pass
+            try:
+                self._context.close()
+            except Exception:
+                pass
+        await self._run_sync(_sync_close)
 
 
 # ---------------------------------------------------------------------------
@@ -321,19 +392,19 @@ def _key_to_vk_code(key: str) -> int:
 class BrowserHub:
     """浏览器中枢:管理持续运行的 Chromium 实例 + 多 session。
 
-    生命周期:
-    - 应用启动时(startup event)调用 hub.start()
-    - 应用关闭时(shutdown event)调用 hub.stop()
-    - 每个 WorkPanel tab 调用 create_session 创建会话
-    - tab 关闭时调用 close_session
+    用 sync_playwright + ThreadPoolExecutor(max_workers=1):
+    - 所有 Playwright 操作在同一个线程执行(sync_playwright 对象非线程安全)
+    - 对外 async 接口不变(用 loop.run_in_executor 包装)
     """
 
     def __init__(self) -> None:
         self._playwright: Any | None = None
         self._browser: Browser | None = None
         self._sessions: dict[str, BrowserSession] = {}
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="playwright")
         self._lock = asyncio.Lock()
         self._started = False
+        self._main_loop: asyncio.AbstractEventLoop | None = None
 
     async def start(self) -> None:
         """启动 Chromium 实例(应用启动时调用)。"""
@@ -342,41 +413,46 @@ class BrowserHub:
         async with self._lock:
             if self._started:
                 return
-            logger.info("[browser_hub] 启动 Chromium 实例...")
-            self._playwright = await async_playwright().start()
-            chromium_path = _find_chromium_executable()
-            logger.info(f"[browser_hub] Chromium 路径: {chromium_path or '(Playwright 默认)'}")
-            self._browser = await self._playwright.chromium.launch(
-                executable_path=chromium_path,
-                headless=True,  # 后端 headless,前端通过 CDP screencast 看画面
-                args=[
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--disable-blink-features=AutomationControlled",  # 反检测
-                ],
-            )
+            self._main_loop = asyncio.get_running_loop()
+            logger.info("[browser_hub] 启动 Chromium 实例(sync_playwright + 专用线程)...")
+
+            def _sync_start() -> None:
+                self._playwright = sync_playwright().start()
+                chromium_path = _find_chromium_executable()
+                logger.info(f"[browser_hub] Chromium 路径: {chromium_path or '(Playwright 默认)'}")
+                self._browser = self._playwright.chromium.launch(
+                    executable_path=chromium_path,
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--disable-blink-features=AutomationControlled",
+                    ],
+                )
+            await asyncio.get_running_loop().run_in_executor(self._executor, _sync_start)
             self._started = True
             logger.info("[browser_hub] Chromium 实例已启动")
 
     async def stop(self) -> None:
         """关闭 Chromium 实例(应用关闭时调用)。"""
         async with self._lock:
-            # 关闭所有 session
             for session_id in list(self._sessions.keys()):
                 await self._close_session_internal(session_id)
-            # 关闭浏览器
             if self._browser:
-                try:
-                    await self._browser.close()
-                except Exception as e:
-                    logger.warning(f"[browser_hub] 关闭浏览器异常: {e}")
-            if self._playwright:
-                try:
-                    await self._playwright.stop()
-                except Exception as e:
-                    logger.warning(f"[browser_hub] 关闭 playwright 异常: {e}")
+                def _sync_stop_browser() -> None:
+                    try:
+                        self._browser.close()
+                    except Exception as e:
+                        logger.warning(f"[browser_hub] 关闭浏览器异常: {e}")
+                    if self._playwright:
+                        try:
+                            self._playwright.stop()
+                        except Exception as e:
+                            logger.warning(f"[browser_hub] 关闭 playwright 异常: {e}")
+                if self._main_loop:
+                    await self._main_loop.run_in_executor(self._executor, _sync_stop_browser)
             self._browser = None
             self._playwright = None
             self._started = False
@@ -389,26 +465,31 @@ class BrowserHub:
         viewport: dict[str, int] | None = None,
         user_agent: str | None = None,
     ) -> BrowserSession:
-        """创建新的浏览器会话。
-
-        每个 session = 独立的 BrowserContext(隔离 cookies/缓存) + Page。
-        """
+        """创建新的浏览器会话。"""
         if not self._started or not self._browser:
             await self.start()
         assert self._browser is not None
 
+        self._main_loop = asyncio.get_running_loop()
         session_id = session_id or str(uuid.uuid4())
-        context = await self._browser.new_context(
-            viewport=viewport or {"width": 1280, "height": 720},
-            locale="zh-CN",
-            timezone_id="Asia/Shanghai",
-            user_agent=user_agent or (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            ),
+        vp = viewport or {"width": 1280, "height": 720}
+        ua = user_agent or (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
-        page = await context.new_page()
-        session = BrowserSession(session_id, context, page)
+
+        def _sync_create() -> tuple[BrowserContext, Page]:
+            context = self._browser.new_context(
+                viewport=vp,
+                locale="zh-CN",
+                timezone_id="Asia/Shanghai",
+                user_agent=ua,
+            )
+            page = context.new_page()
+            return context, page
+        context, page = await asyncio.get_running_loop().run_in_executor(self._executor, _sync_create)
+
+        session = BrowserSession(session_id, context, page, self._executor, self._main_loop)
 
         if url:
             await session.navigate(url)
@@ -424,12 +505,10 @@ class BrowserHub:
         return list(self._sessions.keys())
 
     async def close_session(self, session_id: str) -> bool:
-        """关闭会话。"""
         async with self._lock:
             return await self._close_session_internal(session_id)
 
     async def _close_session_internal(self, session_id: str) -> bool:
-        """内部关闭(不加锁,由调用方加锁)。"""
         session = self._sessions.pop(session_id, None)
         if not session:
             return False
