@@ -166,6 +166,8 @@
     "downloadTitle": "앱 다운로드",
     "mainNav": "메인 내비게이션",
     "pluginMarket": "플러그인 마켓",
+    "hotGroupLabel": "인기",
+    "hotModelImport": "모델 설정 가져오기",
     "aiGroupLabel": "AI 에이전트",
     "adminGroupLabel": "관리",
     "eduGroup": "AI 교육",
