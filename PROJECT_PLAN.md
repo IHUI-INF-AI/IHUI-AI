@@ -1913,6 +1913,43 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - 无新增依赖(taro 4 + react 18 + @ihui/design-tokens + @ihui/types 全部已在 miniapp-taro package.json 中)
 - 跨端契约保持:SectionHeaderProps / PayButtonType / SelecterType / SelecterOption 等 props 与 packages/app 完全一致,业务代码 import 路径统一为 `@/components/adapters`
 
+---
+
+## P0 一键发布平台扩展 + 反风控工程批次(2026-07-31 立,平台独占:apps/ai-service,AGENTS.md §24 用户已确认)
+
+> **背景**:现有 14 平台适配器是"能提交上去"级别,非"按平台规则精细适配"。用户要求:(1)三批全做—扩平台+精装修;(2)先扩平台后精装修;(3)反风控是最高优先级硬约束,必须做好反风控/反交叉检测,不能让用户账号有被风控风险。
+> **诚实边界**:"零风险"技术上不可达(平台风控黑盒且进化),目标为"工业级低风险"—让自动化行为与真人操作在统计特征上无法区分,风险压到接近真人手动操作水平。
+> **平台独占**:apps/ai-service(适配器+反风控基础设施)+ apps/web(平台列表 UI)+ packages/api-client(接口契约),无 mobile-rn/miniapp-taro/cli 跨端契约。
+> **用户需提供**:住宅代理 IP 池(每账号固定 IP,数据中心 IP 秒被识别);各平台已实名账号。
+
+### 反风控五层架构(所有 Playwright 适配器的地基)
+
+1. **浏览器指纹隔离**:每账号独立持久化 BrowserContext + 真实指纹(Canvas/WebGL/AudioContext/字体/屏幕/时区)+ 隐藏 webdriver/CDP 特征
+2. **网络隔离**:每账号绑定固定住宅代理 IP,同账号同 IP,不同账号不同 IP
+3. **行为人类化**:贝塞尔曲线鼠标轨迹 + 逐字符输入(80-220ms 随机间隔)+ 阅读停顿 30s-3min + 发布前模拟浏览
+4. **反交叉检测**:不同账号零共享(IP/指纹/Cookie/UA/屏幕/时区)+ 时间错开 ≥15min + 设备画像差异化
+5. **环境加固**:Playwright stealth + 真实 UA/Accept-Language/Sec-CH-UA + TLS 指纹一致
+
+### 硬性指标(R1-R10)
+
+- [x] ✅(2026-07-31) R1:反风控基础设施模块 — `apps/ai-service/app/services/publish/anti_risk/`(stealth.py 12类反检测点 + fingerprint_isolation.py 8维确定性指纹 + behavior_humanizer.py 贝塞尔曲线鼠标+逐字符输入 + proxy_pool.py 每账号固定IP + account_profile.py 跨会话持久化 + browser_factory.py 统一入口)。验证:import OK + 指纹确定性(同账号同指纹 seed 稳定)+ stealth 脚本 8569 字符含 webdriver/Canvas/AudioContext/WebGL + profile 持久化到 .trae-cn/tmp/anti-profiles/
+- [x] ✅(2026-07-31) R2:友好 API 平台 4 个 — cnblogs.py + segmentfault.py + oschina.py + jianshu.py(HTTP API,不涉风控)。已注册到 base_adapter.list_all_adapter_classes
+- [x] ✅(2026-07-31) R3:视频平台 2 个 — xigua.py + haokan.py(Playwright + 反风控五层防线 + 视频上传 + 元数据填写)
+- [x] ✅(2026-07-31) R4:六大号平台 6 个 — baijiahao.py + qq.py + dayihao.py + netease.py + sohu.py + sina.py(Playwright + 反风控五层防线 + 人类化操作 + try/finally 统一清理)
+- [x] ✅(2026-07-31) R5:账号隔离验证 — 全部 Playwright 适配器统一调 create_stealth_browser_context(account_id, platform) 每账号独立 BrowserContext + 独立确定性指纹(seed 由 account_id 派生)+ 独立代理 IP + 独立 profile 持久化路径,反交叉检测零共享
+- [x] ✅(2026-07-31) R6:图片图床上传 — image_uploader.py 实现 process_external_images(html, platform, credentials):抽取外链 → 下载临时目录 → 平台图床上传 → 替换 src,根治裂图
+- [x] ✅(2026-07-31) R7:平台专属排版 — platform_formatter.py 实现 5 平台专属变换:知乎 figure 卡片+链接卡片+引用美化 / 公众号行内 style 富文本(section+border+background)/ CSDN 代码块强制标 language-xxx / 小红书 emoji 装饰+短段落+代码块转引用+链接转文本 / 掘金 theme-darcula 代码主题。content_parser.py 提供 enrich_content_for_platform 一体化入口 + re-export format_for_platform。验证:7 测试用例全 PASS + mypy 0 错误
+- [x] ✅(2026-07-31) R8:平台规则适配 — platform_rules.py 定义 PlatformRule + 25 平台规则(字数/标题/标签/分类/封面/视频限制)+ validate_content 发布前预检 + detect_sensitive_words 敏感词检测(5 类:政治/色情/暴力/广告/违法)+ truncate_to_platform 自动截断
+- [ ] R9:全链路验证 — /publish/new 提交 → 多平台并行发布 → 真实出内容(需用户凭证)
+- [ ] R10:交付报告 + Git 同步(local HEAD == remote HEAD)
+
+### 执行顺序(用户指定:先扩平台后精装修)
+
+**第一批·扩平台(友好 API + 反风控地基)**:R1(反风控基础设施)→ R2(4 友好平台)→ R3(2 视频平台)
+**第二批·扩平台(六大号)**:R4(6 六大号平台,依赖 R1 地基)
+**第三批·精装修**:R5(反风控验证)+ R6(图床)+ R7(排版)+ R8(规则)
+**收尾**:R9(全链路)+ R10(交付)
+
 ### 后续计划(本批次范围外,标注以备追踪)
 
 - 9 个 packages/app 共享组件(FeedbackScreen / SettingsScreen / ProfileScreen / OrderScreen / WalletScreen / MessageCenterScreen / StudyPlanScreen / CertificateScreen / NoteListScreen)逐个添加 `.taro.tsx` 适配层
