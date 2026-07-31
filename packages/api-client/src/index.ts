@@ -176,3 +176,6 @@ export * from './endpoints/publish'
 
 // Coze 平台 API 端点(2026-07-27 立,PAT 直连 Coze 官方 API,跨端共享)
 export * from './endpoints/coze'
+
+// IM 渠道管理 API 端点(2026-07-31 立,P0 admin/im-channels 16 平台管理配套)
+export * from './endpoints/im-channel'
