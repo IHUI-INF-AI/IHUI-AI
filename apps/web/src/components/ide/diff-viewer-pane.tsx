@@ -3,24 +3,100 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { DiffFile } from '@ihui/types'
+import { runCommand, readFile } from '@ihui/api-client'
 import { DiffStatsBar, type DiffFilterType } from './diff-stats-bar'
 import { DiffFileList } from './diff-file-list'
 import { DiffPreview } from '@/components/ai/diff-preview'
 import { InlineDiffViewer } from '@/components/ai/inline-diff-viewer'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, ChevronUp, Maximize2, Minimize2, Plus, Minus } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, Maximize2, Minimize2, Plus, Minus, Loader2 } from 'lucide-react'
+
+type DiffContent = { oldContent: string; newContent: string }
 
 export function DiffViewerPane() {
-  const { diffFiles, activeDiffFileId, diffViewMode, setActiveDiffFile } = useIDEWorkspace()
+  const { diffFiles, activeDiffFileId, diffViewMode, setActiveDiffFile, workspacePath } = useIDEWorkspace()
   const t = useTranslations('ide')
   const [showFileList, setShowFileList] = React.useState(true)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [filter, setFilter] = React.useState<DiffFilterType>('all')
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
+  const [contentCache, setContentCache] = React.useState<Map<string, DiffContent>>(new Map())
+  const [loadingFileId, setLoadingFileId] = React.useState<string | null>(null)
 
   const activeIdx = diffFiles.findIndex((f) => f.id === activeDiffFileId)
   const activeDiff = activeIdx >= 0 ? diffFiles[activeIdx] : undefined
   const showList = showFileList && !isFullscreen
+
+  const activeFileId = activeDiff?.id
+  const activeFilename = activeDiff?.filename
+  const activeStatus = activeDiff?.status
+
+  // ref 镜像缓存,供 effect 内"命中检查"使用,避免把缓存放进 deps 触发重复请求
+  const contentCacheRef = React.useRef(contentCache)
+  contentCacheRef.current = contentCache
+
+  // 选中文件变化时拉取真实 diff 内容(old/new),缓存避免重复请求
+  React.useEffect(() => {
+    if (!activeFileId || !activeFilename || !activeStatus || !workspacePath) return
+    if (contentCacheRef.current.has(activeFileId)) return
+
+    let cancelled = false
+    setLoadingFileId(activeFileId)
+
+    const fetchContent = async () => {
+      let oldContent = ''
+      let newContent = ''
+
+      // oldContent: 上一次提交版本(新增文件跳过)
+      if (activeStatus !== 'added') {
+        try {
+          const oldResult = await runCommand({
+            command: `git show HEAD:"${activeFilename}"`,
+            workspacePath,
+            mode: 'read-only',
+          })
+          if (oldResult.success) oldContent = oldResult.data.stdout
+        } catch {
+          // 失败保持空字符串
+        }
+      }
+
+      // newContent: 工作区文件(删除文件跳过)
+      if (activeStatus !== 'deleted') {
+        try {
+          const newResult = await readFile({
+            path: `${workspacePath}/${activeFilename}`,
+            workspacePath,
+          })
+          if (newResult.success) newContent = newResult.data.content
+        } catch {
+          // 失败保持空字符串
+        }
+      }
+
+      if (cancelled) return
+      setContentCache((prev) => {
+        const next = new Map(prev)
+        next.set(activeFileId, { oldContent, newContent })
+        return next
+      })
+      setLoadingFileId((curr) => (curr === activeFileId ? null : curr))
+    }
+
+    void fetchContent()
+    return () => {
+      cancelled = true
+    }
+  }, [activeFileId, activeFilename, activeStatus, workspacePath])
+
+  // 当前活动文件的有效内容(优先用缓存,回退到 DiffFile 原始字段)
+  const cached = activeDiff ? contentCache.get(activeDiff.id) : undefined
+  const effectiveOld = cached?.oldContent ?? activeDiff?.oldContent ?? ''
+  const effectiveNew = cached?.newContent ?? activeDiff?.newContent ?? ''
+  const isLoading = loadingFileId !== null && loadingFileId === activeDiffFileId
+  const effectiveDiff: DiffFile | undefined = activeDiff
+    ? { ...activeDiff, oldContent: effectiveOld, newContent: effectiveNew }
+    : undefined
 
   const goPrev = () => {
     const prev = diffFiles[activeIdx - 1]
@@ -63,23 +139,29 @@ export function DiffViewerPane() {
             )}
             <button onClick={() => setIsFullscreen(!isFullscreen)} className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground">{isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}</button>
           </div>
-          {activeDiff && <ChangeSummary file={activeDiff} />}
+          {effectiveDiff && <ChangeSummary file={effectiveDiff} />}
           <div className="flex-1 overflow-auto">
-            {activeDiff && diffViewMode === 'split' && (
+            {isLoading && (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                {t('mcpPane.loading')}
+              </div>
+            )}
+            {!isLoading && effectiveDiff && diffViewMode === 'split' && (
               <DiffPreview
-                oldContent={activeDiff.oldContent}
-                newContent={activeDiff.newContent}
-                language={activeDiff.language}
-                filename={activeDiff.filename}
+                oldContent={effectiveOld}
+                newContent={effectiveNew}
+                language={effectiveDiff.language}
+                filename={effectiveDiff.filename}
               />
             )}
-            {activeDiff && diffViewMode === 'unified' && (
+            {!isLoading && effectiveDiff && diffViewMode === 'unified' && (
               <InlineDiffViewer
-                content={generateUnifiedDiff(activeDiff.oldContent, activeDiff.newContent)}
-                filename={activeDiff.filename}
+                content={generateUnifiedDiff(effectiveOld, effectiveNew)}
+                filename={effectiveDiff.filename}
               />
             )}
-            {!activeDiff && (
+            {!isLoading && !effectiveDiff && (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 {t('diffViewer.selectToCompare')}
               </div>

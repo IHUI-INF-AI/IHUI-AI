@@ -12583,11 +12583,34 @@
       "tabTimeline": "Timeline",
       "searchPlaceholder": "Search files",
       "newFile": "New File",
+      "newFolder": "New Folder",
       "refresh": "Refresh",
       "noMatch": "No matching files",
       "justNow": "Just now",
       "minutesAgo": "{count} minutes ago",
-      "hoursAgo": "{count} hours ago"
+      "hoursAgo": "{count} hours ago",
+      "fileNamePlaceholder": "File name...",
+      "folderNamePlaceholder": "Folder name...",
+      "fileCreated": "File created",
+      "folderCreated": "Folder created",
+      "renamed": "Renamed",
+      "deleted": "Deleted",
+      "confirmDelete": "Confirm delete?",
+      "confirm": "OK",
+      "cancel": "Cancel",
+      "rename": "Rename",
+      "delete": "Delete"
+    },
+    "fileTreeNode": {
+      "open": "Open",
+      "rename": "Rename",
+      "delete": "Delete",
+      "copyPath": "Copy Path",
+      "renamed": "Renamed",
+      "deleted": "Deleted",
+      "confirmDelete": "Confirm delete?",
+      "confirm": "OK",
+      "cancel": "Cancel"
     },
     "codeEditor": {
       "zoomOut": "Zoom out",
@@ -12658,7 +12681,14 @@
       "unstage": "Unstage",
       "stage": "Stage",
       "refresh": "Refresh",
-      "more": "More"
+      "more": "More",
+      "push": "Push",
+      "pull": "Pull",
+      "commitMessageRequired": "Please enter a commit message",
+      "commitSuccess": "Committed successfully",
+      "pushSuccess": "Pushed successfully",
+      "pullSuccess": "Pulled successfully",
+      "branchSwitched": "Switched to {branch}"
     },
     "debug": {
       "start": "Start",
