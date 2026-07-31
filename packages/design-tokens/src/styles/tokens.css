@@ -279,7 +279,16 @@
   transform: translateY(0.7px);
 }
 
+/* color-scheme 属性(2026-07-31 对标 Trae/Codex/Claude Code):
+ * 帮助浏览器原生控件(scrollbar/input/date picker/form control)适配暗色模式,
+ * 无需手动为每个原生控件写暗色样式。WCAG 2.4.x 推荐配置。
+ * 三端(web/extension/desktop)共用,放在共享层 tokens.css 单一来源。 */
+:root {
+  color-scheme: light;
+}
+
 .dark {
+  color-scheme: dark;
   --color-background: hsl(0 0% 14%);
   --color-foreground: hsl(0 0% 98%);
   --color-card: hsl(0 0% 10%);
