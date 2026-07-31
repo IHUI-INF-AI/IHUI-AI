@@ -7,14 +7,26 @@
  * 鼠标/键盘/滚轮事件回传 WebSocket → 后端转发到真实 Chromium。
  *
  * 数据流:
- * - 后端 CDP Page.startScreencast → WebSocket 推送 JPEG base64 帧
+ * - 后端定时截图轮询 → WebSocket 推送 JPEG base64 帧
  * - 前端 Image 解码 → canvas drawImage
  * - 鼠标事件 → 坐标转换(显示→设备) → WebSocket → CDP Input.dispatchMouseEvent
  * - 键盘事件 → key 映射 → WebSocket → CDP Input.dispatchKeyEvent
+ *
+ * 2026-07-31 完美化:
+ * - hover 支持:mouseMoved 不再限于拖拽,节流 60ms 推送(覆盖 CSS hover/dropdown)
+ * - 右键菜单:Back/Forward/Reload/Copy URL/Open External(对标 Chrome 右键菜单)
  */
 
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import {
+  Loader2,
+  ArrowLeft,
+  ArrowRight,
+  RotateCw,
+  Copy,
+  ExternalLink,
+} from 'lucide-react'
 
 import { buildBrowserWsUrl } from '@ihui/api-client'
 
@@ -27,6 +39,16 @@ export interface CdpBrowserViewProps {
   onLoaded?: () => void
   /** 连接失败回调(等价于 iframe 的 onError) */
   onFailed?: (error: string) => void
+  /** 右键菜单 - 后退(不传则隐藏该项) */
+  onBack?: () => void
+  /** 右键菜单 - 前进(不传则隐藏该项) */
+  onForward?: () => void
+  /** 右键菜单 - 刷新(不传则隐藏该项) */
+  onReload?: () => void
+  /** 右键菜单 - 在外部浏览器打开(不传则隐藏该项) */
+  onOpenExternal?: () => void
+  /** 当前 URL(用于右键菜单"复制链接") */
+  currentUrl?: string
 }
 
 /** 计算修饰键 bitmask(CDP 协议:Alt=1, Ctrl=2, Meta=4, Shift=8) */
@@ -70,6 +92,11 @@ export function CdpBrowserView({
   onNavigation,
   onLoaded,
   onFailed,
+  onBack,
+  onForward,
+  onReload,
+  onOpenExternal,
+  currentUrl,
 }: CdpBrowserViewProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const wsRef = React.useRef<WebSocket | null>(null)
@@ -77,6 +104,14 @@ export function CdpBrowserView({
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const hasFirstFrame = React.useRef(false)
+
+  // hover 节流:last mouseMoved 发送时间(ms),60ms 节流覆盖 CSS hover/dropdown
+  const lastMoveRef = React.useRef(0)
+  const MOUSE_MOVE_THROTTLE_MS = 60
+
+  // 右键菜单状态
+  const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number } | null>(null)
+  const [copied, setCopied] = React.useState(false)
 
   // 回调 ref(避免 effect 依赖变化导致 WebSocket 重连)
   const cbRefs = React.useRef({ onNavigation, onLoaded, onFailed })
@@ -215,8 +250,16 @@ export function CdpBrowserView({
 
   const handleMouseMove = React.useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      // 仅拖拽时发送 mouseMoved(降低频率,hover 场景暂不支持)
-      if (e.buttons === 0) return
+      // 2026-07-31 完美化:hover 支持
+      // 原实现仅拖拽时发送 mouseMoved(buttons===0 跳过),导致 CSS hover/dropdown 无法触发
+      // 现改为:始终发送,但节流 60ms(~16fps),避免高频 mouseMoved 淹没 WebSocket
+      // 拖拽时(buttons>0)不节流,保证拖拽轨迹流畅
+      const now = Date.now()
+      if (e.buttons === 0) {
+        // 纯 hover:节流
+        if (now - lastMoveRef.current < MOUSE_MOVE_THROTTLE_MS) return
+        lastMoveRef.current = now
+      }
       sendMouse(e, 'mouseMoved', 0)
     },
     [sendMouse],
@@ -281,6 +324,110 @@ export function CdpBrowserView({
     [],
   )
 
+  // 右键菜单:阻止默认 + 弹出自定义菜单
+  const handleContextMenu = React.useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      e.preventDefault()
+      // 先发送右键点击到 CDP(让页面触发 contextmenu 事件)
+      sendMouse(e, 'mousePressed', 1)
+      // 弹出菜单(fixed 定位,避免 overflow 裁剪)
+      setCtxMenu({ x: e.clientX, y: e.clientY })
+    },
+    [sendMouse],
+  )
+
+  // 右键菜单:点击外部/ESC 关闭
+  React.useEffect(() => {
+    if (!ctxMenu) return
+    const close = () => setCtxMenu(null)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCtxMenu(null)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [ctxMenu])
+
+  // 右键菜单:复制链接
+  const handleCopyUrl = React.useCallback(async () => {
+    if (!currentUrl) return
+    try {
+      await navigator.clipboard.writeText(currentUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard 不可用时静默
+    }
+    setCtxMenu(null)
+  }, [currentUrl])
+
+  // 右键菜单项
+  const menuItems = React.useMemo(() => {
+    const items: Array<{
+      key: string
+      label: string
+      icon: typeof ArrowLeft
+      onClick: () => void
+      disabled?: boolean
+    }> = []
+    if (onBack) {
+      items.push({
+        key: 'back',
+        label: '后退',
+        icon: ArrowLeft,
+        onClick: () => {
+          onBack()
+          setCtxMenu(null)
+        },
+      })
+    }
+    if (onForward) {
+      items.push({
+        key: 'forward',
+        label: '前进',
+        icon: ArrowRight,
+        onClick: () => {
+          onForward()
+          setCtxMenu(null)
+        },
+      })
+    }
+    if (onReload) {
+      items.push({
+        key: 'reload',
+        label: '刷新',
+        icon: RotateCw,
+        onClick: () => {
+          onReload()
+          setCtxMenu(null)
+        },
+      })
+    }
+    if (currentUrl) {
+      items.push({
+        key: 'copy',
+        label: copied ? '已复制' : '复制链接地址',
+        icon: Copy,
+        onClick: handleCopyUrl,
+      })
+    }
+    if (onOpenExternal) {
+      items.push({
+        key: 'external',
+        label: '在外部浏览器打开',
+        icon: ExternalLink,
+        onClick: () => {
+          onOpenExternal()
+          setCtxMenu(null)
+        },
+      })
+    }
+    return items
+  }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl])
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
       <canvas
@@ -292,7 +439,7 @@ export function CdpBrowserView({
         onWheel={handleWheel}
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={handleContextMenu}
         tabIndex={0}
       />
       {loading && !error && (
@@ -305,6 +452,35 @@ export function CdpBrowserView({
           <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
+      {/* 右键菜单(portal 到 body,避免 overflow 裁剪) */}
+      {ctxMenu && menuItems.length > 0 && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            role="menu"
+            tabIndex={-1}
+            className="fixed z-[10000] min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95 duration-100 focus:outline-none"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {menuItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="menuitem"
+                  disabled={item.disabled}
+                  onClick={item.onClick}
+                  className="flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
