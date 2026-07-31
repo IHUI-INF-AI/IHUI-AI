@@ -3,10 +3,8 @@
 import * as React from 'react'
 import { Check, Clock, ListTodo, Loader2, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  FoldableSection,
-  formatDuration,
-} from '@/components/ai/progress-sections/foldable-section'
+import { FoldableSection, formatDuration } from '@/components/ai/progress-sections/foldable-section'
+import { MarkdownViewer } from '@/components/media/MarkdownViewer'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
 
 interface PlanStepsCardProps {
@@ -62,6 +60,17 @@ export function PlanStepsCard({
 
   const doneCount = steps.filter((s) => s.status === 'completed').length
 
+  // 借鉴 Trae Thinking Process:折叠态显示当前步骤摘要,无需展开即可知进度
+  // 优先显示 in_progress 步骤;若无,则显示最后一个步骤
+  const currentStep = steps.find((s) => s.status === 'in_progress') ?? steps[steps.length - 1]
+  const summary = currentStep
+    ? currentStep.status === 'in_progress'
+      ? `正在:${currentStep.step}`
+      : currentStep.status === 'completed'
+        ? `已完成:${currentStep.step}`
+        : `待开始:${currentStep.step}`
+    : undefined
+
   return (
     <FoldableSection
       title="执行计划"
@@ -71,16 +80,11 @@ export function PlanStepsCard({
       icon={ListTodo}
       aria-label="执行计划"
       data-testid={rootTestId}
+      summary={summary}
     >
-      <ol
-        className={cn('relative space-y-0.5 pl-1', className)}
-        data-testid={`${rootTestId}-list`}
-      >
+      <ol className={cn('relative space-y-0.5 pl-1', className)} data-testid={`${rootTestId}-list`}>
         {/* 时间线竖直连接线(绝对定位,贯穿所有步骤) */}
-        <span
-          className="absolute left-[7px] top-2 bottom-2 w-px bg-border/50"
-          aria-hidden
-        />
+        <span className="absolute left-[7px] top-2 bottom-2 w-px bg-border/50" aria-hidden />
         {steps.map((s, idx) => {
           const Icon = STATUS_ICON[s.status]
           const isLast = idx === steps.length - 1
@@ -91,6 +95,7 @@ export function PlanStepsCard({
               icon={Icon}
               isLast={isLast}
               rootTestId={rootTestId}
+              index={idx + 1}
             />
           )
         })}
@@ -105,9 +110,11 @@ interface PlanStepItemProps {
   icon: React.ComponentType<{ className?: string }>
   isLast: boolean
   rootTestId: string
+  /** 步骤编号(1-based) */
+  index: number
 }
 
-function PlanStepItem({ step: s, icon: Icon, isLast, rootTestId }: PlanStepItemProps) {
+function PlanStepItem({ step: s, icon: Icon, isLast, rootTestId, index }: PlanStepItemProps) {
   // reasoning 可点击展开(超过 100 字符才有展开价值)
   const [expanded, setExpanded] = React.useState(false)
   const hasLongExplanation = (s.explanation?.length ?? 0) > 100
@@ -118,7 +125,8 @@ function PlanStepItem({ step: s, icon: Icon, isLast, rootTestId }: PlanStepItemP
       className={cn(
         'relative flex items-start gap-2 py-1',
         // 最后一个步骤不显示下方连接线段
-        !isLast && 'before:absolute before:left-[7px] before:top-3 before:bottom-0 before:w-px before:bg-border/50',
+        !isLast &&
+          'before:absolute before:left-[7px] before:top-3 before:bottom-0 before:w-px before:bg-border/50',
       )}
       aria-label={s.step}
       data-status={s.status}
@@ -162,6 +170,13 @@ function PlanStepItem({ step: s, icon: Icon, isLast, rootTestId }: PlanStepItemP
               : undefined
           }
         >
+          {/* 步骤编号(借鉴 Codex plan 编号显示,提升可读性) */}
+          <span
+            className="shrink-0 tabular-nums text-[10px] font-medium text-muted-foreground/40"
+            aria-hidden
+          >
+            {index}.
+          </span>
           <span
             className={cn(
               'flex-1 break-all transition-colors',
@@ -190,7 +205,7 @@ function PlanStepItem({ step: s, icon: Icon, isLast, rootTestId }: PlanStepItemP
           )}
         </div>
 
-        {/* explanation:短的直接显示,长的可展开 */}
+        {/* explanation:短文本直接显示,长文本用 MarkdownViewer 渲染(支持代码块/列表等) */}
         {s.explanation && (
           <div
             className={cn(
@@ -198,7 +213,14 @@ function PlanStepItem({ step: s, icon: Icon, isLast, rootTestId }: PlanStepItemP
               hasLongExplanation && !expanded && 'line-clamp-2',
             )}
           >
-            {s.explanation}
+            {hasLongExplanation || s.step === '思考' ? (
+              <MarkdownViewer
+                content={s.explanation}
+                className="!text-[11px] prose-p:my-0.5 prose-pre:my-1 prose-code:!text-[10px] prose-code:!px-1 prose-code:!py-0"
+              />
+            ) : (
+              s.explanation
+            )}
           </div>
         )}
       </div>
