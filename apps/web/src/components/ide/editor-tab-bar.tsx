@@ -15,10 +15,7 @@ interface ContextMenuState {
 
 /** 根据文件名长度计算 tab 宽度(80–200px),中文按 2 字宽计算 */
 function calcTabWidth(filename: string): number {
-  const charWidth = [...filename].reduce(
-    (s, ch) => s + (ch.charCodeAt(0) > 127 ? 14 : 7),
-    0,
-  )
+  const charWidth = [...filename].reduce((s, ch) => s + (ch.charCodeAt(0) > 127 ? 14 : 7), 0)
   return Math.max(80, Math.min(200, charWidth + 48))
 }
 
@@ -157,7 +154,12 @@ export function EditorTabBar() {
             onDrop={handleDrop(tab.id)}
             onDragEnd={handleDragEnd}
             onClick={() => setActiveTab(tab.id)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab(tab.id) } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setActiveTab(tab.id)
+              }
+            }}
             onContextMenu={(e) => {
               e.preventDefault()
               setMenu({ x: e.clientX, y: e.clientY, tabId: tab.id })
@@ -168,7 +170,11 @@ export function EditorTabBar() {
               isActive
                 ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:bg-muted/40',
-              overId === tab.id && dragId && dragId !== tab.id && 'bg-muted/60',
+              // 拖拽视觉反馈增强(2026-07-31 对标 VSCode/Trae):drop 目标左右边框高亮
+              overId === tab.id &&
+                dragId &&
+                dragId !== tab.id &&
+                'bg-muted/60 ring-1 ring-inset ring-foreground/20',
               dragId === tab.id && 'opacity-50',
             )}
           >
@@ -178,7 +184,8 @@ export function EditorTabBar() {
               <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(tab.filename))} />
             )}
             <span className="min-w-0 flex-1 truncate">{tab.filename}</span>
-            {isPinned ? null : tab.isDirty ? (
+            {/* pinned tab 也支持 hover 关闭按钮(2026-07-31 对标 VSCode):pinned 且无 dirty 时显示 X */}
+            {tab.isDirty ? (
               <Circle className="h-2 w-2 shrink-0 fill-current opacity-60" />
             ) : (
               <button
@@ -192,9 +199,8 @@ export function EditorTabBar() {
                 <X className="h-3 w-3" />
               </button>
             )}
-            {isActive && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-            )}
+            {/* active 指示线(2026-07-31 对标 VSCode/Trae):h-0.5=2px,符合 IDE 标签页指示线规范 */}
+            {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
           </div>
         )
       })}
@@ -209,19 +215,49 @@ export function EditorTabBar() {
             e.stopPropagation()
           }}
         >
-          <MenuItem icon={Pin} onClick={() => { togglePin(menuTab.id); setMenu(null) }}>
+          <MenuItem
+            icon={Pin}
+            onClick={() => {
+              togglePin(menuTab.id)
+              setMenu(null)
+            }}
+          >
             {isMenuPinned ? t('editorTabBar.unpin') : t('editorTabBar.pin')}
           </MenuItem>
-          <MenuItem icon={X} onClick={() => { closeTab(menuTab.id); setMenu(null) }}>
+          <MenuItem
+            icon={X}
+            onClick={() => {
+              closeTab(menuTab.id)
+              setMenu(null)
+            }}
+          >
             {t('editorTabBar.close')}
           </MenuItem>
-          <MenuItem icon={XCircle} onClick={() => { closeOthers(menuTab.id); setMenu(null) }}>
+          <MenuItem
+            icon={XCircle}
+            onClick={() => {
+              closeOthers(menuTab.id)
+              setMenu(null)
+            }}
+          >
             {t('editorTabBar.closeOthers')}
           </MenuItem>
-          <MenuItem icon={Files} onClick={() => { closeAll(); setMenu(null) }}>
+          <MenuItem
+            icon={Files}
+            onClick={() => {
+              closeAll()
+              setMenu(null)
+            }}
+          >
             {t('editorTabBar.closeAll')}
           </MenuItem>
-          <MenuItem icon={Copy} onClick={() => { void copyPath(menuTab); setMenu(null) }}>
+          <MenuItem
+            icon={Copy}
+            onClick={() => {
+              void copyPath(menuTab)
+              setMenu(null)
+            }}
+          >
             {t('editorTabBar.copyPath')}
           </MenuItem>
         </div>
