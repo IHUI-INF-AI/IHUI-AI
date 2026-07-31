@@ -5,9 +5,7 @@ import { toast } from 'sonner'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { runCommand } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
-import {
-  Play, Plus, Terminal, Globe, Bug, X, Check, History,
-} from 'lucide-react'
+import { Play, Plus, Terminal, Globe, Bug, X, Check, History } from 'lucide-react'
 
 type ConfigType = 'node' | 'python' | 'web' | 'terminal'
 
@@ -85,21 +83,23 @@ export function ApplicationsPanel() {
 
   const runConfig = async (config: AppConfig) => {
     if (!workspacePath) return
-    setHistory((prev) => [{ name: config.name, time: '刚刚' }, ...prev].slice(0, 5))
+    setHistory((prev) =>
+      [{ name: config.name, time: t('applications.justNow') }, ...prev].slice(0, 5),
+    )
     try {
       const result = await runCommand({
         command: config.command,
         workspacePath,
         mode: 'workspace-write',
       })
-      setHistory((prev) => prev.map((h, i) =>
-        i === 0 ? { ...h, exitCode: result.success ? result.data.exitCode : -1 } : h,
-      ))
+      setHistory((prev) =>
+        prev.map((h, i) =>
+          i === 0 ? { ...h, exitCode: result.success ? result.data.exitCode : -1 } : h,
+        ),
+      )
     } catch (e) {
       console.error('runConfig error:', e)
-      setHistory((prev) => prev.map((h, i) =>
-        i === 0 ? { ...h, exitCode: -1 } : h,
-      ))
+      setHistory((prev) => prev.map((h, i) => (i === 0 ? { ...h, exitCode: -1 } : h)))
       toast.error(t('applications.runFailed'))
     }
   }
@@ -117,7 +117,10 @@ export function ApplicationsPanel() {
         <span className="text-xs font-medium">{t('applications.title')}</span>
         <button
           onClick={() => setShowForm(!showForm)}
-          className={cn('ml-auto rounded p-1 transition-colors', showForm ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50')}
+          className={cn(
+            'ml-auto rounded p-1 transition-colors',
+            showForm ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50',
+          )}
           aria-label={t('applications.newConfig')}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -141,7 +144,9 @@ export function ApplicationsPanel() {
                   onClick={() => setForm({ ...form, type: typeKey })}
                   className={cn(
                     'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors',
-                    form.type === typeKey ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50',
+                    form.type === typeKey
+                      ? 'bg-muted text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/50',
                   )}
                 >
                   <Icon className={cn('h-3 w-3', TYPE_META[typeKey].color)} />
@@ -158,10 +163,17 @@ export function ApplicationsPanel() {
             className="mb-1.5 w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
           />
           <div className="flex justify-end gap-1">
-            <button onClick={() => setShowForm(false)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('applications.cancel')}>
+            <button
+              onClick={() => setShowForm(false)}
+              className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+              aria-label={t('applications.cancel')}
+            >
               <X className="h-3.5 w-3.5" />
             </button>
-            <button onClick={submitForm} className="flex items-center gap-1 rounded bg-foreground px-2 py-1 text-xs text-background hover:bg-foreground/90">
+            <button
+              onClick={submitForm}
+              className="flex items-center gap-1 rounded bg-foreground px-2 py-1 text-xs text-background hover:bg-foreground/90"
+            >
               <Check className="h-3 w-3" />
               <span>{t('applications.add')}</span>
             </button>
@@ -170,12 +182,17 @@ export function ApplicationsPanel() {
       )}
 
       <div className="flex-1 overflow-auto p-1">
-        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{t('applications.launchConfigs')}</div>
+        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+          {t('applications.launchConfigs')}
+        </div>
         {configs.map((config) => {
           const meta = TYPE_META[config.type]
           const Icon = meta.icon
           return (
-            <div key={config.id} className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/30">
+            <div
+              key={config.id}
+              className="group flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/30"
+            >
               <Icon className={cn('h-3.5 w-3.5 shrink-0', meta.color)} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-medium">{config.name}</div>
@@ -208,7 +225,10 @@ export function ApplicationsPanel() {
               <span>{t('applications.recentRuns')}</span>
             </div>
             {history.map((h, i) => (
-              <div key={i} className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30">
+              <div
+                key={i}
+                className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30"
+              >
                 <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
                 <span className="truncate">{h.name}</span>
                 <span className="ml-auto shrink-0 text-muted-foreground">{h.time}</span>

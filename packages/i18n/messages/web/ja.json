@@ -1009,6 +1009,64 @@
     "mentionPopover": {
       "removeLabel": "{label}を削除"
     },
+    "vendor": {
+      "stepfun": "StepFun",
+      "cloudflareWorkersAi": "Cloudflare Workers AI"
+    },
+    "commandArg": {
+      "goalFixTs": {
+        "label": "すべての TypeScript エラーを修正",
+        "description": "pnpm typecheckを実行し、すべてのエラーを修正してグリーンになるまで(終了コード0)"
+      },
+      "goalPassTests": {
+        "label": "すべてのユニットテストに合格",
+        "description": "pnpm testを実行し、失敗したケースをすべて合格するまで修正"
+      },
+      "goalRefactor": {
+        "label": "重複を排除するモジュールリファクタリング",
+        "description": "重複コードを特定し、共有ユーティリティ関数を抽出し、動作を維持"
+      },
+      "goalLint": {
+        "label": "lintをすべてグリーンに",
+        "description": "pnpm lintを実行し、すべてのlintエラーと警告を修正"
+      },
+      "goalMigrateShared": {
+        "label": "機能を共有層に移行",
+        "description": "プラットフォーム固有のコンポーネントをpackages/appに引き上げ、マルチプラットフォームで再利用し、動作を一致に保つ"
+      },
+      "goalBenchmark": {
+        "label": "製品のインタラクションを深くベンチマーク",
+        "description": "対象製品のインタラクション詳細を参考に、項目ごとに実装を合わせ、4状態を自己検証"
+      },
+      "goalDeadCode": {
+        "label": "デッドコードをクリーンアップ",
+        "description": "未参照のエクスポート/コンポーネント/ユーティリティ関数をスキャンし、依存なしを確認後に削除"
+      },
+      "goalE2e": {
+        "label": "E2Eテストを補完",
+        "description": "重要パスにE2Eテストを追加し、カバレッジを80%以上に向上"
+      },
+      "loopOn": {
+        "label": "ループを有効化",
+        "description": "ループ実行モードを有効化、AIが目標達成まで継続的に反復"
+      },
+      "loopOff": {
+        "label": "ループを無効化",
+        "description": "ループ実行モードを無効化、単一実行に復元"
+      },
+      "loop5": {
+        "label": "5回ループ",
+        "description": "最大反復回数を5に設定"
+      },
+      "loop10": {
+        "label": "10回ループ",
+        "description": "最大反復回数を10に設定"
+      },
+      "loop20": {
+        "label": "20回ループ",
+        "description": "最大反復回数を20に設定(高リスク、人間の監視が必要)"
+      }
+    },
     "contextMenu": {
       "copyText": "テキストをコピー",
       "copyMarkdown": "Markdown としてコピー",
@@ -13532,7 +13590,10 @@
       "newTerminalAria": "新規ターミナル",
       "loading": "読み込み中...",
       "empty": "ターミナルセッションがありません",
-      "closeTerminalAria": "ターミナルを閉じる"
+      "closeTerminalAria": "ターミナルを閉じる",
+      "statusActive": "実行中",
+      "statusExited": "終了済み",
+      "statusClosed": "閉じた"
     }
   },
   "aiSkillsPage": {
