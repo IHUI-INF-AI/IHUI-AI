@@ -46,6 +46,8 @@ from app.routers import rules, hooks, spec
 from app.routers import orchestration
 # Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
 from app.services.context_engine import router as context_engine_router
+# IM 桥接服务(2026-07-31 立,消费 Redis im:inbound 队列 → LLM 回复 → 调 apps/api im-gateway/send)
+from app.services.im_bridge import im_bridge_service
 from app.routers.legacy import router as legacy_router
 # P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
 from app.routers.ai_tutor import router as ai_tutor_router
@@ -121,6 +123,11 @@ async def lifespan(app: FastAPI) -> Any:
     # 从已配置 key 的 provider /v1/models 拉取模型清单,注册到 DB(自动上架/下架)
     from app.services.model_sync import model_sync_service
     await model_sync_service.initialize()
+
+    # 启动 IM 桥接服务(2026-07-31 立)
+    # 消费 Redis im:inbound 队列 → 调 LLM 生成回复 → 调 apps/api im-gateway/send 回复到 IM 平台
+    # Redis 不可用时降级为 no-op(不阻塞 lifespan)
+    await im_bridge_service.initialize()
 
     # 配置 FallbackRouter 故障转移(2026-07-24 立)
     # StepFun 故障(timeout/overloaded/rate_limited)时自动切 agnes/gpt-4o 兜底
@@ -224,6 +231,9 @@ async def lifespan(app: FastAPI) -> Any:
     # 关闭模型自动同步服务(取消定时同步任务,2026-07-31 立)
     from app.services.model_sync import model_sync_service
     await model_sync_service.shutdown()
+
+    # 关闭 IM 桥接服务(取消消费任务 + 关闭 Redis 连接,2026-07-31 立)
+    await im_bridge_service.shutdown()
 
     # 关闭梦境固化调度器(等待进行中的用户固化任务完成)
     from app.services.dream_scheduler import dream_scheduler
