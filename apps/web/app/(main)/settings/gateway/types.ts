@@ -22,6 +22,13 @@ export type {
   ModelSyncHistoryRecord,
   // F4.13:同步健康度面板
   ModelSyncHealth,
+  // v4:模型同步运维端点(2026-07-31 立,ModelSyncService 可视化运维)
+  ResetProviderResult,
+  SyncConfigUpdate,
+  SyncConfigResult,
+  SyncStatsResult,
+  SyncStatsByProvider,
+  CleanupResult,
 } from '@ihui/api-client'
 
 export type GatewayTab = 'providers' | 'combos' | 'compaction'
