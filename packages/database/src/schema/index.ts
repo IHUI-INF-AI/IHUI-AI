@@ -206,3 +206,11 @@ export * from './webhook-subscriptions.js'
 export * from './api-key-groups.js'
 // 模型价格历史 + 限时折扣调度(2026-08-01 立,价格趋势曲线 + 预设折扣 + 动态调价建议)
 export * from './model-price-history.js'
+// USDT 加密货币支付网关(2026-08-01 立,TRC20/ERC20 充值订单 + 区块链到账确认 + 钱包入账)
+export * from './usdt-payments.js'
+// Passkey 无密码登录(2026-08-01 立,WebAuthn/FIDO2 凭证存储 + counter 防重放)
+export * from './user-passkeys.js'
+// API Key 临时分享(2026-08-01 立,P0-26 限时 token + scope 限定 + 速率限制 + 自动过期)
+export * from './api-key-shares.js'
+// 中转站用户会话历史(2026-08-01 立,P0-32 conversation_id 关联 + 消息列表 + 归属隔离)
+export * from './relay-conversations.js'
