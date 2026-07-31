@@ -6,16 +6,27 @@
 - verify_credentials: 打开 https://creator.xiaohongshu.com 检查登录态
 - publish: 打开 https://creator.xiaohongshu.com/publish/publish → 上传图片 → 填内容 → 点发布
 
+反风控:接入 anti_risk 五层防线,所有输入/点击走 human_*。
+
 注意:
 - 小红书创作者中心仅支持图片笔记和视频笔记,不支持纯文本
 - 笔记图片最多 9 张,正文 ≤1000 字,标题 ≤20 字
 """
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
+from ..anti_risk import (
+    create_stealth_browser_context,
+    human_click,
+    human_pause,
+    human_type,
+    simulate_reading,
+)
+from ..anti_risk.browser_factory import close_stealth_context
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
@@ -48,6 +59,11 @@ class XiaohongshuAdapter(BasePlatformAdapter):
             "sameSite": "Lax",
         }]
 
+    def _account_id(self, credentials: dict[str, Any]) -> str:
+        """从凭证推导账号唯一 ID(用于反风控 profile 持久化,跨会话稳定)。"""
+        first_cred = next((v for v in credentials.values() if v), "default")
+        return f"{self.platform_id}_{hashlib.md5(str(first_cred).encode()).hexdigest()[:8]}"
+
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         if not _HAS_PLAYWRIGHT:
             return False, "Playwright not installed. Run: pip install playwright && playwright install chromium"
@@ -57,20 +73,27 @@ class XiaohongshuAdapter(BasePlatformAdapter):
 
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context()
-                await context.add_cookies(self._cookies(credentials))
-                page = await context.new_page()
-                await page.goto(
-                    "https://creator.xiaohongshu.com/creator/home",
-                    wait_until="networkidle",
-                    timeout=30000,
+                browser, context = await create_stealth_browser_context(
+                    account_id=self._account_id(credentials),
+                    platform=self.platform_id,
+                    playwright_instance=p,
+                    headless=True,
                 )
-                url = page.url
-                await browser.close()
-                if "login" in url.lower():
-                    return False, "cookie expired (redirected to login)"
-                return True, "connected (web_session valid)"
+                try:
+                    await context.add_cookies(self._cookies(credentials))
+                    page = await context.new_page()
+                    await human_pause(1.0, 2.0)
+                    await page.goto(
+                        "https://creator.xiaohongshu.com/creator/home",
+                        wait_until="networkidle",
+                        timeout=30000,
+                    )
+                    url = page.url
+                    if "login" in url.lower():
+                        return False, "cookie expired (redirected to login)"
+                    return True, "connected (web_session valid)"
+                finally:
+                    await close_stealth_context(browser, context)
         except Exception as e:
             return False, f"verify failed: {type(e).__name__}: {e}"
 
@@ -117,125 +140,130 @@ class XiaohongshuAdapter(BasePlatformAdapter):
 
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context()
-                await context.add_cookies(self._cookies(credentials))
-                page = await context.new_page()
-
-                # 打开发布页
-                await page.goto(
-                    "https://creator.xiaohongshu.com/publish/publish",
-                    wait_until="networkidle",
-                    timeout=60000,
+                browser, context = await create_stealth_browser_context(
+                    account_id=self._account_id(credentials),
+                    platform=self.platform_id,
+                    playwright_instance=p,
+                    headless=True,
                 )
-                if "login" in page.url.lower():
-                    await browser.close()
-                    return PublishResult(
-                        success=False, platform=self.platform_id,
-                        error_message="cookie expired, please refresh web_session",
-                    )
-
-                # 上传图片或视频
-                if video_path:
-                    # 视频笔记
-                    upload_tab = page.locator('div:has-text("上传视频"), .tab:has-text("视频")').first
-                    if await upload_tab.count() > 0:
-                        await upload_tab.click()
-                        await page.wait_for_timeout(500)
-                    file_input = page.locator('input[type="file"]').first
-                    await file_input.set_input_files(video_path)
-                else:
-                    # 图文笔记
-                    file_input = page.locator('input[type="file"]').first
-                    valid_images = [str(Path(p)) for p in images if p and Path(p).is_file()]
-                    if not valid_images:
-                        await browser.close()
-                        return PublishResult(
-                            success=False, platform=self.platform_id,
-                            error_message=f"no valid image files: {images}",
-                        )
-                    await file_input.set_input_files(valid_images[:9])
-
-                # 等待上传完成
-                await page.wait_for_timeout(3000)
-
-                # 填标题
-                title_input = page.locator(
-                    'input[placeholder*="标题"], #title, .title-input input'
-                ).first
-                if await title_input.count() > 0:
-                    await title_input.fill(title)
-
-                # 填正文
-                editor = page.locator(
-                    'div[contenteditable="true"], textarea[placeholder*="描述"], #desc'
-                ).first
-                if await editor.count() > 0:
-                    if await editor.evaluate("el => el.tagName") == "TEXTAREA":
-                        await editor.fill(text)
-                    else:
-                        await editor.click()
-                        await page.evaluate(
-                            """(text) => {
-                                const ed = document.querySelector('div[contenteditable="true"], #desc');
-                                if (ed) { ed.focus(); document.execCommand('insertText', false, text); }
-                            }""",
-                            text,
-                        )
-
-                # 填话题标签(简化:在文末追加 #标签#)
-                if tags:
-                    tag_text = " ".join(f"#{t}#" for t in tags[:10])
-                    full_text = (text + " " + tag_text)[:1000]
-                    if await editor.count() > 0:
-                        if await editor.evaluate("el => el.tagName") == "TEXTAREA":
-                            await editor.fill(full_text)
-
-                # 点发布
-                publish_btn = page.locator(
-                    'button:has-text("发布"), .publishBtn, button.publish'
-                ).first
-                if await publish_btn.count() == 0:
-                    await browser.close()
-                    return PublishResult(
-                        success=False, platform=self.platform_id,
-                        error_message="publish button not found",
-                    )
-                await publish_btn.click()
-
-                # 等待跳转或成功提示
                 try:
-                    await page.wait_for_url(
-                        "**/publish/success**", timeout=30000
+                    await context.add_cookies(self._cookies(credentials))
+                    page = await context.new_page()
+
+                    # 打开发布页
+                    await human_pause(1.5, 3.0)
+                    await page.goto(
+                        "https://creator.xiaohongshu.com/publish/publish",
+                        wait_until="networkidle",
+                        timeout=60000,
                     )
-                except Exception:
-                    # 也可能弹出 toast
-                    success_toast = page.locator(
-                        '.toast:has-text("成功"), .message:has-text("成功")'
-                    ).first
-                    if await success_toast.count() > 0:
-                        pass
-                    else:
-                        await browser.close()
+                    if "login" in page.url.lower():
                         return PublishResult(
                             success=False, platform=self.platform_id,
-                            error_message="publish timeout (no success indication)",
+                            error_message="cookie expired, please refresh web_session",
                         )
 
-                await browser.close()
-                # 小红书不直接返回笔记 URL,需要在创作者后台查看
-                return PublishResult(
-                    success=True, platform=self.platform_id,
-                    published_url="",
-                    platform_content_id="",
-                    payload={
-                        "title": title,
-                        "tags": tags,
-                        "images_count": len(images),
-                        "is_video": bool(video_path),
-                        "note": "笔记已发布,审核通过后可在小红书 App 查看",
-                    },
-                )
+                    await simulate_reading(page, min_s=3.0, max_s=8.0)
+
+                    # 上传图片或视频
+                    if video_path:
+                        # 视频笔记
+                        upload_tab_selector = 'div:has-text("上传视频"), .tab:has-text("视频")'
+                        if await page.locator(upload_tab_selector).count() > 0:
+                            await human_click(page, upload_tab_selector)
+                            await page.wait_for_timeout(500)
+                        file_input = page.locator('input[type="file"]').first
+                        await file_input.set_input_files(video_path)
+                    else:
+                        # 图文笔记
+                        file_input = page.locator('input[type="file"]').first
+                        valid_images = [str(Path(p)) for p in images if p and Path(p).is_file()]
+                        if not valid_images:
+                            return PublishResult(
+                                success=False, platform=self.platform_id,
+                                error_message=f"no valid image files: {images}",
+                            )
+                        await file_input.set_input_files(valid_images[:9])
+
+                    # 等待上传完成
+                    await page.wait_for_timeout(3000)
+                    await human_pause(1.0, 2.0)
+
+                    # 填标题(人类化逐字符)
+                    title_selector = 'input[placeholder*="标题"], #title, .title-input input'
+                    if await page.locator(title_selector).count() > 0:
+                        await human_type(page, title, title_selector)
+                        await human_pause(0.5, 1.0)
+
+                    # 填正文 + 话题标签(人类化)
+                    editor_selector = 'div[contenteditable="true"], textarea[placeholder*="描述"], #desc'
+                    if await page.locator(editor_selector).count() > 0:
+                        tag_name = await page.locator(editor_selector).first.evaluate("el => el.tagName")
+                        if tag_name == "TEXTAREA":
+                            # 标签追加到正文末尾(保留原逻辑)
+                            tag_text = " ".join(f"#{t}#" for t in tags[:10]) if tags else ""
+                            full_text = (text + " " + tag_text).strip()[:1000] if tag_text else text[:1000]
+                            await page.locator(editor_selector).first.click()
+                            paragraphs = full_text.split("\n")
+                            for i, para in enumerate(paragraphs):
+                                if i > 0:
+                                    await page.keyboard.press("Enter")
+                                    await human_pause(0.3, 0.6)
+                                await human_type(page, para, None)
+                        else:
+                            # contenteditable:仅插入正文(保留原逻辑,不追加标签)
+                            await page.locator(editor_selector).first.click()
+                            await human_pause(0.3, 0.6)
+                            await page.evaluate(
+                                """(text) => {
+                                    const ed = document.querySelector('div[contenteditable="true"], #desc');
+                                    if (ed) { ed.focus(); document.execCommand('insertText', false, text); }
+                                }""",
+                                text,
+                            )
+
+                    # 模拟阅读检查(人类发布前预览)
+                    await simulate_reading(page, min_s=2.0, max_s=5.0)
+                    await human_pause(1.0, 2.0)
+
+                    # 点发布(人类化)
+                    publish_selector = 'button:has-text("发布"), .publishBtn, button.publish'
+                    if await page.locator(publish_selector).count() == 0:
+                        return PublishResult(
+                            success=False, platform=self.platform_id,
+                            error_message="publish button not found",
+                        )
+                    await human_click(page, publish_selector)
+
+                    # 等待跳转或成功提示
+                    try:
+                        await page.wait_for_url("**/publish/success**", timeout=30000)
+                    except Exception:
+                        # 也可能弹出 toast
+                        success_toast = page.locator('.toast:has-text("成功"), .message:has-text("成功")').first
+                        if await success_toast.count() > 0:
+                            pass
+                        else:
+                            return PublishResult(
+                                success=False, platform=self.platform_id,
+                                error_message="publish timeout (no success indication)",
+                            )
+
+                    # 小红书不直接返回笔记 URL,需要在创作者后台查看
+                    return PublishResult(
+                        success=True, platform=self.platform_id,
+                        published_url="",
+                        platform_content_id="",
+                        payload={
+                            "title": title,
+                            "tags": tags,
+                            "images_count": len(images),
+                            "is_video": bool(video_path),
+                            "note": "笔记已发布,审核通过后可在小红书 App 查看",
+                        },
+                    )
+                finally:
+                    await close_stealth_context(browser, context)
         except Exception as e:
             return PublishResult(
                 success=False, platform=self.platform_id,
