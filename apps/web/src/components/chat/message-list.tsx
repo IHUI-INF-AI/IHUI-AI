@@ -1531,7 +1531,7 @@ export function MessageList({
                   (planSteps.length > 0 || linkedSubagents.length > 0) && (
                     <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
                       {planSteps.length > 0 && (
-                        <PlanStepsCard steps={planSteps} data-testid="message-plan-steps-card" />
+                        <PlanStepsCard steps={planSteps} isStreaming={isStreaming} data-testid="message-plan-steps-card" />
                       )}
                       {linkedSubagents.map((sub) => (
                         <SubAgentTaskTree
