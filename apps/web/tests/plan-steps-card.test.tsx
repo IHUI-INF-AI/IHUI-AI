@@ -37,6 +37,13 @@ vi.mock('lucide-react', () => {
   }
 })
 
+// MarkdownViewer mock:测试环境避免加载 react-markdown/syntax-highlighter 重依赖
+vi.mock('@/components/media/MarkdownViewer', () => ({
+  MarkdownViewer: ({ content }: { content: string }) => (
+    <div data-testid="markdown-viewer">{content}</div>
+  ),
+}))
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -118,9 +125,7 @@ describe('PlanStepsCard', () => {
 
   it('in_progress 步骤图标带 animate-spin 类', () => {
     const { container } = render(
-      <PlanStepsCard
-        steps={[makeStep({ id: 's1', status: 'in_progress' })]}
-      />,
+      <PlanStepsCard steps={[makeStep({ id: 's1', status: 'in_progress' })]} />,
     )
     const li = container.querySelector('[data-status="in_progress"]')
     expect(li).toBeTruthy()
@@ -132,13 +137,9 @@ describe('PlanStepsCard', () => {
 
   it('completed 步骤图标为 emerald 色', () => {
     const { container } = render(
-      <PlanStepsCard
-        steps={[makeStep({ id: 's1', status: 'completed' })]}
-      />,
+      <PlanStepsCard steps={[makeStep({ id: 's1', status: 'completed' })]} />,
     )
-    const icon = container.querySelector(
-      '[data-status="completed"] [data-testid="icon-Check"]',
-    )
+    const icon = container.querySelector('[data-status="completed"] [data-testid="icon-Check"]')
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('text-emerald-500')
   })
@@ -165,9 +166,7 @@ describe('PlanStepsCard', () => {
   })
 
   it('有 explanation 时渲染说明文本', () => {
-    const steps = [
-      makeStep({ id: 's1', step: '分析需求', explanation: '这是详细说明' }),
-    ]
+    const steps = [makeStep({ id: 's1', step: '分析需求', explanation: '这是详细说明' })]
     render(<PlanStepsCard steps={steps} />)
     expect(screen.getByText('这是详细说明')).toBeTruthy()
   })
