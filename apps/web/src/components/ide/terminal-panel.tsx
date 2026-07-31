@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useTheme } from 'next-themes'
+import { useTranslations } from 'next-intl'
 import '@xterm/xterm/css/xterm.css'
 import { TerminalTabBar } from './terminal-tab-bar'
 import { useTerminalSession } from '@/hooks/use-terminal-session'
@@ -162,6 +163,7 @@ function TerminalViewport({
   onFocusPane: () => void
 }) {
   const { resolvedTheme } = useTheme()
+  const t = useTranslations('ide')
   const containerRef = React.useRef<HTMLDivElement>(null)
   const {
     connectWS,
@@ -498,14 +500,24 @@ function TerminalViewport({
         // - Ctrl+R → 智能历史搜索(2026-07-23 立)
         term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
           // Ctrl+F → 搜索
-          if ((event.ctrlKey || event.metaKey) && event.key === 'f' && !event.shiftKey && !event.altKey) {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.key === 'f' &&
+            !event.shiftKey &&
+            !event.altKey
+          ) {
             if (event.type === 'keydown') {
               setSearchOpen(true)
             }
             return false
           }
           // Ctrl+R → 智能历史搜索(仅活跃 pane 响应)
-          if ((event.ctrlKey || event.metaKey) && event.key === 'r' && !event.shiftKey && !event.altKey) {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.key === 'r' &&
+            !event.shiftKey &&
+            !event.altKey
+          ) {
             if (event.type === 'keydown' && isActive) {
               setHistoryOpen(true)
               // 拉取智能历史(相关性打分排序)
@@ -535,7 +547,11 @@ function TerminalViewport({
             return false
           }
           // Ctrl+Shift+C 复制选中文本
-          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'c' || event.key === 'C')) {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.shiftKey &&
+            (event.key === 'c' || event.key === 'C')
+          ) {
             if (event.type === 'keydown') {
               const sel = term.getSelection()
               if (sel) {
@@ -545,7 +561,11 @@ function TerminalViewport({
             return false
           }
           // Ctrl+Shift+V 粘贴
-          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'v' || event.key === 'V')) {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.shiftKey &&
+            (event.key === 'v' || event.key === 'V')
+          ) {
             if (event.type === 'keydown') {
               void navigator.clipboard.readText().then((text) => {
                 term.paste(text)
@@ -554,14 +574,22 @@ function TerminalViewport({
             return false
           }
           // Ctrl+Shift+D → 垂直分屏(列并排)
-          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'd' || event.key === 'D')) {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.shiftKey &&
+            (event.key === 'd' || event.key === 'D')
+          ) {
             if (event.type === 'keydown') {
               onSplitRequest('vertical')
             }
             return false
           }
           // Ctrl+Shift+H → 水平分屏(行堆叠)
-          if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'h' || event.key === 'H')) {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.shiftKey &&
+            (event.key === 'h' || event.key === 'H')
+          ) {
             if (event.type === 'keydown') {
               onSplitRequest('horizontal')
             }
@@ -696,7 +724,7 @@ function TerminalViewport({
         }
       })
       .catch((e) => {
-        setWsError(`终端加载失败: ${(e as Error).message}`)
+        setWsError(t('terminalPanel.loadFailed', { message: (e as Error).message }))
       })
 
     return () => {
@@ -752,13 +780,16 @@ function TerminalViewport({
   }, [clearDecorations])
 
   /** 右键菜单:复制选中 / 粘贴 / 清屏 / 搜索 / 分屏 */
-  const handleContextMenu = React.useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    onFocusPane()
-    const t = termRef.current
-    const hasSelection = !!(t && t.getSelection && t.getSelection())
-    setContextMenu({ x: e.clientX, y: e.clientY, hasSelection })
-  }, [onFocusPane])
+  const handleContextMenu = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      onFocusPane()
+      const t = termRef.current
+      const hasSelection = !!(t && t.getSelection && t.getSelection())
+      setContextMenu({ x: e.clientX, y: e.clientY, hasSelection })
+    },
+    [onFocusPane],
+  )
 
   const handleCopy = React.useCallback(() => {
     const t = termRef.current
@@ -820,12 +851,15 @@ function TerminalViewport({
   }, [sessionId, suggestCommand])
 
   /** 插入建议命令到终端(term.paste 触发 onData → WS input) */
-  const handleInsertSuggestion = React.useCallback((command: string) => {
-    const t = termRef.current
-    if (!t) return
-    t.paste?.(command)
-    setAiSuggestOpen(false)
-  }, [setAiSuggestOpen])
+  const handleInsertSuggestion = React.useCallback(
+    (command: string) => {
+      const t = termRef.current
+      if (!t) return
+      t.paste?.(command)
+      setAiSuggestOpen(false)
+    },
+    [setAiSuggestOpen],
+  )
 
   /** 一键修复(把 fixCommand 写入 PTY 执行) */
   const handleAutoFix = React.useCallback(() => {
@@ -899,8 +933,8 @@ function TerminalViewport({
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
               onClick={handleOpenSuggest}
-              title="AI 命令建议"
-              aria-label="AI 命令建议"
+              title={t('terminalPanel.aiSuggestTitle')}
+              aria-label={t('terminalPanel.aiSuggestTitle')}
             >
               <Sparkles className="h-3 w-3" />
             </button>
@@ -909,8 +943,8 @@ function TerminalViewport({
             type="button"
             className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={() => onSplitRequest('vertical')}
-            title="垂直分屏 (Ctrl+Shift+D)"
-            aria-label="垂直分屏"
+            title={t('terminalPanel.splitVerticalTitle')}
+            aria-label={t('terminalPanel.splitVerticalAria')}
           >
             <Columns2 className="h-3 w-3" />
           </button>
@@ -918,8 +952,8 @@ function TerminalViewport({
             type="button"
             className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={() => onSplitRequest('horizontal')}
-            title="水平分屏 (Ctrl+Shift+H)"
-            aria-label="水平分屏"
+            title={t('terminalPanel.splitHorizontalTitle')}
+            aria-label={t('terminalPanel.splitHorizontalAria')}
           >
             <Rows2 className="h-3 w-3" />
           </button>
@@ -928,8 +962,8 @@ function TerminalViewport({
               type="button"
               className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
               onClick={onClosePane}
-              title="关闭分屏"
-              aria-label="关闭分屏"
+              title={t('terminalPanel.closePane')}
+              aria-label={t('terminalPanel.closePane')}
             >
               <X className="h-3 w-3" />
             </button>
@@ -958,9 +992,13 @@ function TerminalViewport({
                   clearDecorations()
                 }
               }}
-              placeholder={searchOpts.regex ? '输入正则表达式...' : '搜索终端输出...'}
+              placeholder={
+                searchOpts.regex
+                  ? t('terminalPanel.searchRegexPlaceholder')
+                  : t('terminalPanel.searchPlaceholder')
+              }
               className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
-              aria-label="搜索终端"
+              aria-label={t('terminalPanel.searchAria')}
             />
             <span className="shrink-0 text-[10px] text-muted-foreground">
               {matchTotal > 0 ? `${matchIndex}/${matchTotal}` : '0/0'}
@@ -970,8 +1008,8 @@ function TerminalViewport({
               className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
               onClick={() => doSearch(false)}
               disabled={!searchTerm}
-              aria-label="上一个匹配"
-              title="上一个 (Shift+Enter)"
+              aria-label={t('terminalPanel.prevMatchAria')}
+              title={t('terminalPanel.prevMatchTitle')}
             >
               <ChevronUp className="h-3.5 w-3.5" />
             </button>
@@ -980,8 +1018,8 @@ function TerminalViewport({
               className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
               onClick={() => doSearch(true)}
               disabled={!searchTerm}
-              aria-label="下一个匹配"
-              title="下一个 (Enter)"
+              aria-label={t('terminalPanel.nextMatchAria')}
+              title={t('terminalPanel.nextMatchTitle')}
             >
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
@@ -993,8 +1031,8 @@ function TerminalViewport({
                 setSearchTerm('')
                 clearDecorations()
               }}
-              aria-label="关闭搜索"
-              title="关闭 (Esc)"
+              aria-label={t('terminalPanel.closeSearchAria')}
+              title={t('terminalPanel.closeSearchTitle')}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -1010,10 +1048,10 @@ function TerminalViewport({
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
               onClick={() => setSearchOpts((p) => ({ ...p, regex: !p.regex, wholeWord: false }))}
-              title="正则模式"
+              title={t('terminalPanel.regexModeTitle')}
             >
               <span>.*</span>
-              <span>正则</span>
+              <span>{t('terminalPanel.regexMode')}</span>
             </button>
             <button
               type="button"
@@ -1023,11 +1061,13 @@ function TerminalViewport({
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
-              onClick={() => setSearchOpts((p) => ({ ...p, wholeWord: !p.wholeWord, regex: false }))}
-              title="全字匹配"
+              onClick={() =>
+                setSearchOpts((p) => ({ ...p, wholeWord: !p.wholeWord, regex: false }))
+              }
+              title={t('terminalPanel.wholeWordTitle')}
             >
               <span>W</span>
-              <span>全字</span>
+              <span>{t('terminalPanel.wholeWord')}</span>
             </button>
             <button
               type="button"
@@ -1038,14 +1078,14 @@ function TerminalViewport({
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
               onClick={() => setSearchOpts((p) => ({ ...p, caseSensitive: !p.caseSensitive }))}
-              title="大小写敏感"
+              title={t('terminalPanel.caseSensitiveTitle')}
             >
               <span>Aa</span>
-              <span>大小写</span>
+              <span>{t('terminalPanel.caseSensitive')}</span>
             </button>
             {searchOpts.regex && (
               <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                正则模式(全字已禁用)
+                {t('terminalPanel.regexModeHint')}
               </span>
             )}
           </div>
@@ -1054,11 +1094,7 @@ function TerminalViewport({
 
       {/* xterm 容器 */}
       <div className="min-h-0 flex-1">
-        <div
-          ref={containerRef}
-          className="h-full w-full"
-          style={{ padding: '4px 8px' }}
-        />
+        <div ref={containerRef} className="h-full w-full" style={{ padding: '4px 8px' }} />
       </div>
 
       {/* ==================== AI 建议浮层(2026-07-23 立,仅活跃 pane) ==================== */}
@@ -1067,7 +1103,9 @@ function TerminalViewport({
           <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
             <div className="flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">AI 命令建议</span>
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {t('terminalPanel.aiSuggestTitle')}
+              </span>
             </div>
             <div className="flex items-center gap-0.5">
               <button
@@ -1075,8 +1113,8 @@ function TerminalViewport({
                 className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
                 onClick={handleRefreshSuggest}
                 disabled={aiSuggestLoading}
-                aria-label="刷新建议"
-                title="刷新建议"
+                aria-label={t('terminalPanel.refreshSuggest')}
+                title={t('terminalPanel.refreshSuggest')}
               >
                 <RefreshCw className={cn('h-3 w-3', aiSuggestLoading && 'animate-spin')} />
               </button>
@@ -1084,8 +1122,8 @@ function TerminalViewport({
                 type="button"
                 className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => setAiSuggestOpen(false)}
-                aria-label="关闭"
-                title="关闭"
+                aria-label={t('terminalPanel.close')}
+                title={t('terminalPanel.close')}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -1095,16 +1133,18 @@ function TerminalViewport({
             {aiError ? (
               <div className="px-2.5 py-3 text-center text-xs text-destructive">
                 {aiError}
-                <div className="mt-1 text-[10px] text-muted-foreground">AI 服务暂不可用,请稍后重试</div>
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  {t('terminalPanel.aiServiceUnavailable')}
+                </div>
               </div>
             ) : aiSuggestLoading ? (
               <div className="flex items-center gap-1.5 px-2.5 py-3 text-xs text-muted-foreground">
                 <RefreshCw className="h-3 w-3 animate-spin" />
-                <span>正在生成建议...</span>
+                <span>{t('terminalPanel.generatingSuggest')}</span>
               </div>
             ) : aiSuggestions.length === 0 ? (
               <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
-                暂无建议。尝试执行命令后点击刷新。
+                {t('terminalPanel.noSuggestHint')}
               </div>
             ) : (
               aiSuggestions.map((s, i) => (
@@ -1113,7 +1153,7 @@ function TerminalViewport({
                   type="button"
                   className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent"
                   onClick={() => handleInsertSuggestion(s.command)}
-                  title="点击插入到终端"
+                  title={t('terminalPanel.insertSuggestTitle')}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <code className="truncate font-mono text-foreground">{s.command}</code>
@@ -1137,14 +1177,16 @@ function TerminalViewport({
           <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
             <div className="flex items-center gap-1.5">
               <Stethoscope className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">AI 错误诊断</span>
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {t('terminalPanel.aiDiagnoseTitle')}
+              </span>
             </div>
             <button
               type="button"
               className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => setAiDiagnoseOpen(false)}
-              aria-label="关闭"
-              title="关闭"
+              aria-label={t('terminalPanel.close')}
+              title={t('terminalPanel.close')}
             >
               <X className="h-3 w-3" />
             </button>
@@ -1153,25 +1195,33 @@ function TerminalViewport({
             {aiError ? (
               <div className="text-center text-destructive">
                 {aiError}
-                <div className="mt-1 text-[10px] text-muted-foreground">AI 服务暂不可用,请稍后重试</div>
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  {t('terminalPanel.aiServiceUnavailable')}
+                </div>
               </div>
             ) : aiDiagnoseLoading ? (
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <RefreshCw className="h-3 w-3 animate-spin" />
-                <span>正在诊断错误...</span>
+                <span>{t('terminalPanel.diagnosing')}</span>
               </div>
             ) : aiDiagnoseResult ? (
               <div className="flex flex-col gap-1.5">
                 <div>
-                  <span className="font-medium text-foreground">诊断:</span>
+                  <span className="font-medium text-foreground">
+                    {t('terminalPanel.diagnosisLabel')}
+                  </span>
                   <span className="text-muted-foreground"> {aiDiagnoseResult.diagnosis}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">根因:</span>
+                  <span className="font-medium text-foreground">
+                    {t('terminalPanel.rootCauseLabel')}
+                  </span>
                   <span className="text-muted-foreground"> {aiDiagnoseResult.rootCause}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">建议:</span>
+                  <span className="font-medium text-foreground">
+                    {t('terminalPanel.suggestedFixLabel')}
+                  </span>
                   <span className="text-muted-foreground"> {aiDiagnoseResult.suggestedFix}</span>
                 </div>
                 {aiDiagnoseResult.fixCommand && (
@@ -1183,16 +1233,18 @@ function TerminalViewport({
                       type="button"
                       className="flex shrink-0 items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground transition-colors hover:bg-accent/80"
                       onClick={handleAutoFix}
-                      title="一键执行修复命令"
+                      title={t('terminalPanel.autoFixTitle')}
                     >
                       <Wand2 className="h-2.5 w-2.5" />
-                      <span>一键修复</span>
+                      <span>{t('terminalPanel.autoFix')}</span>
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center text-muted-foreground">暂无诊断结果</div>
+              <div className="text-center text-muted-foreground">
+                {t('terminalPanel.noDiagnosis')}
+              </div>
             )}
           </div>
         </div>
@@ -1227,9 +1279,9 @@ function TerminalViewport({
                   handleHistoryClose()
                 }
               }}
-              placeholder="搜索命令历史(按相关性排序)..."
+              placeholder={t('terminalPanel.historySearchPlaceholder')}
               className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
-              aria-label="搜索命令历史"
+              aria-label={t('terminalPanel.historySearchAria')}
             />
             <span className="shrink-0 text-[10px] text-muted-foreground">
               {filteredHistory.length > 0 ? `${historyIndex + 1}/${filteredHistory.length}` : '0/0'}
@@ -1238,8 +1290,8 @@ function TerminalViewport({
               type="button"
               className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={handleHistoryClose}
-              aria-label="关闭"
-              title="关闭 (Esc)"
+              aria-label={t('terminalPanel.close')}
+              title={t('terminalPanel.closeSearchTitle')}
             >
               <X className="h-3 w-3" />
             </button>
@@ -1247,7 +1299,9 @@ function TerminalViewport({
           <div className="max-h-60 overflow-y-auto">
             {filteredHistory.length === 0 ? (
               <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
-                {commandHistory.length === 0 ? '暂无历史。执行命令后会自动记录。' : '无匹配命令。'}
+                {commandHistory.length === 0
+                  ? t('terminalPanel.noHistoryHint')
+                  : t('terminalPanel.noMatchHistory')}
               </div>
             ) : (
               filteredHistory.map((entry, i) => (
@@ -1263,13 +1317,19 @@ function TerminalViewport({
                 >
                   <code className="flex-1 truncate font-mono">{entry.command}</code>
                   {entry.exitCode !== 0 && (
-                    <span className="shrink-0 text-[10px] text-red-500">退出{entry.exitCode}</span>
+                    <span className="shrink-0 text-[10px] text-red-500">
+                      {t('terminalPanel.exitCode', { code: entry.exitCode })}
+                    </span>
                   )}
                   {entry.frequency > 1 && (
-                    <span className="shrink-0 text-[10px] text-muted-foreground">×{entry.frequency}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      ×{entry.frequency}
+                    </span>
                   )}
                   {entry.gitBranch && (
-                    <span className="shrink-0 text-[10px] text-muted-foreground">{entry.gitBranch}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {entry.gitBranch}
+                    </span>
                   )}
                 </button>
               ))
@@ -1288,7 +1348,11 @@ function TerminalViewport({
           style={{ borderRadius: '50%' }}
         />
         <span>
-          {connected ? '已连接' : wsError ? '连接错误' : '连接中...'}
+          {connected
+            ? t('terminalPanel.connected')
+            : wsError
+              ? t('terminalPanel.connectionError')
+              : t('terminalPanel.connecting')}
         </span>
       </div>
 
@@ -1456,8 +1520,22 @@ function SplitPaneContainer({
   // 多 pane 用 CSS Grid 布局
   const gridStyle: React.CSSProperties =
     direction === 'vertical'
-      ? { display: 'grid', gridTemplateColumns: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, hsl(var(--border)))', height: '100%', width: '100%' }
-      : { display: 'grid', gridTemplateRows: `repeat(${paneIds.length}, 1fr)`, gap: '1px', background: 'var(--border, hsl(var(--border)))', height: '100%', width: '100%' }
+      ? {
+          display: 'grid',
+          gridTemplateColumns: `repeat(${paneIds.length}, 1fr)`,
+          gap: '1px',
+          background: 'var(--border, hsl(var(--border)))',
+          height: '100%',
+          width: '100%',
+        }
+      : {
+          display: 'grid',
+          gridTemplateRows: `repeat(${paneIds.length}, 1fr)`,
+          gap: '1px',
+          background: 'var(--border, hsl(var(--border)))',
+          height: '100%',
+          width: '100%',
+        }
 
   return (
     <div style={gridStyle}>
@@ -1509,6 +1587,7 @@ export function TerminalPanel() {
     playRecording,
     deleteRecording,
   } = useTerminalSession()
+  const t = useTranslations('ide')
 
   // 全局字号状态(所有 session/pane 共享)
   const [fontSize, setFontSize] = React.useState<number>(FONT_SIZE_DEFAULT)
@@ -1614,7 +1693,7 @@ export function TerminalPanel() {
   if (!hasToken) {
     return (
       <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-        请先登录以使用终端
+        {t('terminalPanel.loginRequired')}
       </div>
     )
   }
@@ -1652,7 +1731,7 @@ export function TerminalPanel() {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-            {loading ? '正在创建终端...' : '点击 + 新建终端会话'}
+            {loading ? t('terminalPanel.creatingTerminal') : t('terminalPanel.createHint')}
           </div>
         )}
       </div>
