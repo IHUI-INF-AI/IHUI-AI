@@ -55,6 +55,19 @@ PING_TIMEOUT_S = 8.0
 # 缓存刷新间隔(秒)— 5 分钟刷新一次全量 provider 健康状态
 REFRESH_INTERVAL_S = 300
 
+# 余额不足阈值(按币种)— 低于此值视为"账户没钱",标 DOWN + PAYMENT_REQUIRED
+# 2026-07-31 立:OpenRouter 实测余额 $0.0001 仍标 HEALTHY,但实际无法调用任何模型
+# (最便宜模型 gpt-4o-mini 输入 $0.00001/token,0.0001 美元只够 10 token,无法完成一次对话)
+# 阈值设计:低于此值 = 一次最小调用都凑不齐 = 视为没钱
+MIN_BALANCE_THRESHOLDS: dict[str, float] = {
+    "USD": 0.01,   # $0.01 = 1 美分(最便宜模型约 1000 token)
+    "CNY": 0.10,   # ¥0.10 = 1 角(国内 provider 最小调用成本)
+    "EUR": 0.01,
+    "GBP": 0.01,
+}
+# 默认阈值(币种未在映射里时使用)
+MIN_BALANCE_DEFAULT = 0.01
+
 # 并发 ping 限流(避免一次启动几十个并发请求)
 PING_CONCURRENCY = 10
 
@@ -433,9 +446,10 @@ class ModelAvailabilityService:
         """ping 单个 provider:先查余额端点(若支持),降级推理请求 ping。
 
         2026-07-31 v2 升级(用户规则:账户没钱需过滤 + 可视化 + 跳转充值):
-        - 策略 1:若 provider 有 balance_endpoint,优先查余额
-          - 余额 > 0 → HEALTHY(附带余额信息)
-          - 余额 = 0 → DOWN + error_type=PAYMENT_REQUIRED(账户没钱,管理端显示"去充值")
+        - 策略 1:若 provider 有 balance_endpoint,优先查余额(按币种阈值判定)
+          - 余额 >= 阈值(USD $0.01 / CNY ¥0.10)→ HEALTHY(附带余额信息)
+          - 0 < 余额 < 阈值 → DOWN + PAYMENT_REQUIRED(余额不足,接近耗尽,管理端显示"去充值")
+          - 余额 = 0 → DOWN + PAYMENT_REQUIRED(账户没钱,管理端显示"去充值")
           - 余额查询失败 → 降级到策略 2
         - 策略 2:发送 max_tokens=1 推理请求(消耗 1 token,实测可用性)
           - 200 + 延迟 ≤ 10s  → HEALTHY
@@ -460,7 +474,9 @@ class ModelAvailabilityService:
                     )
                     latency = int((time.monotonic() - start) * 1000)
                     if err_type == ProviderErrorType.NONE and balance is not None:
-                        if balance > 0:
+                        # 2026-07-31 升级:按币种阈值判定(OpenRouter 余额 $0.0001 实际无法调用任何模型)
+                        threshold = MIN_BALANCE_THRESHOLDS.get(currency or "", MIN_BALANCE_DEFAULT)
+                        if balance >= threshold:
                             return ProviderHealth(
                                 status=ProviderHealthStatus.HEALTHY,
                                 latency_ms=latency,
@@ -469,11 +485,16 @@ class ModelAvailabilityService:
                                 balance_currency=currency,
                                 recharge_url=recharge_url,
                             )
+                        # 余额低于阈值:余额为 0 或接近耗尽(如 $0.0001),都无法完成一次最小调用
+                        if balance > 0:
+                            err_msg = f"余额不足: {balance} {currency or 'unknown'} < 阈值 {threshold}(无法完成一次最小调用),需充值"
+                        else:
+                            err_msg = f"余额为 0({currency or 'unknown'}),账户没钱"
                         return ProviderHealth(
                             status=ProviderHealthStatus.DOWN,
                             latency_ms=latency,
                             last_check=time.time(),
-                            error=f"余额为 0({currency or 'unknown'}),账户没钱",
+                            error=err_msg,
                             error_type=ProviderErrorType.PAYMENT_REQUIRED,
                             balance=balance,
                             balance_currency=currency,
