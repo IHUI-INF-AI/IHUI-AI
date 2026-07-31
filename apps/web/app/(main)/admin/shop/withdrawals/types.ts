@@ -15,16 +15,16 @@ export const inputSm =
   'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 export const CHANNEL_LABEL: Record<WithdrawalItem['channel'], string> = {
-  alipay: '支付宝',
-  wechat: '微信',
-  bank: '银行卡',
+  alipay: 'withdrawals.channel.alipay',
+  wechat: 'withdrawals.channel.wechat',
+  bank: 'withdrawals.channel.bank',
 }
 export const STATUS_LABEL: Record<WithdrawalItem['status'], string> = {
-  pending: '待审核',
-  approved: '已通过',
-  rejected: '已驳回',
-  completed: '已完成',
-  failed: '已失败',
+  pending: 'withdrawals.status.pending',
+  approved: 'withdrawals.status.approved',
+  rejected: 'withdrawals.status.rejected',
+  completed: 'withdrawals.status.completed',
+  failed: 'withdrawals.status.failed',
 }
 export const STATUS_STYLE: Record<WithdrawalItem['status'], string> = {
   pending: 'bg-amber-500/10 text-amber-600',
@@ -33,7 +33,7 @@ export const STATUS_STYLE: Record<WithdrawalItem['status'], string> = {
   completed: 'bg-emerald-500/10 text-emerald-600',
   failed: 'bg-red-500/10 text-red-600',
 }
-export const FLOW_STATUS: Record<number, string> = { 0: '处理中', 1: '成功', 2: '失败' }
+export const FLOW_STATUS: Record<number, string> = { 0: 'withdrawals.flowStatus.processing', 1: 'withdrawals.flowStatus.success', 2: 'withdrawals.flowStatus.failed' }
 export const FLOW_STATUS_STYLE: Record<number, string> = {
   0: 'bg-amber-500/10 text-amber-600',
   1: 'bg-emerald-500/10 text-emerald-600',
@@ -55,23 +55,27 @@ export const EMPTY_FLOW = {
   transferDetail: '',
 }
 
-export const DETAIL_EXPORT = [
-  { key: 'id', title: 'ID' },
-  { key: 'user', title: '用户' },
-  { key: 'amount', title: '金额(分)' },
-  { key: 'channel', title: '渠道' },
-  { key: 'account', title: '账户' },
-  { key: 'status', title: '状态' },
-  { key: 'reviewer', title: '审核人' },
-  { key: 'createdAt', title: '申请时间' },
-]
-export const FLOW_EXPORT = [
-  { key: 'id', title: 'ID' },
-  { key: 'userId', title: '用户ID' },
-  { key: 'amount', title: '金额(分)' },
-  { key: 'outBillNo', title: '外部单号' },
-  { key: 'status', title: '状态' },
-  { key: 'createdAt', title: '创建时间' },
-  { key: 'updatedAt', title: '更新时间' },
-  { key: 'transferDetail', title: '转账详情' },
-]
+export function getDetailExport(t: (key: string) => string) {
+  return [
+    { key: 'id', title: t('withdrawals.detail.export.id') },
+    { key: 'user', title: t('withdrawals.detail.export.user') },
+    { key: 'amount', title: t('withdrawals.detail.export.amount') },
+    { key: 'channel', title: t('withdrawals.detail.export.channel') },
+    { key: 'account', title: t('withdrawals.detail.export.account') },
+    { key: 'status', title: t('withdrawals.detail.export.status') },
+    { key: 'reviewer', title: t('withdrawals.detail.export.reviewer') },
+    { key: 'createdAt', title: t('withdrawals.detail.export.createdAt') },
+  ]
+}
+export function getFlowExport(t: (key: string) => string) {
+  return [
+    { key: 'id', title: t('withdrawals.flow.export.id') },
+    { key: 'userId', title: t('withdrawals.flow.export.userId') },
+    { key: 'amount', title: t('withdrawals.flow.export.amount') },
+    { key: 'outBillNo', title: t('withdrawals.flow.export.outBillNo') },
+    { key: 'status', title: t('withdrawals.flow.export.status') },
+    { key: 'createdAt', title: t('withdrawals.flow.export.createdAt') },
+    { key: 'updatedAt', title: t('withdrawals.flow.export.updatedAt') },
+    { key: 'transferDetail', title: t('withdrawals.flow.export.transferDetail') },
+  ]
+}
