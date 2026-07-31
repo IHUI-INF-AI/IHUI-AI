@@ -14383,9 +14383,9 @@
   },
   "auth": {
     "emailLogin": "Email",
-    "phoneCodeLogin": "Code Login",
-    "passwordLogin": "Password Login",
-    "qrLogin": "Scan QR",
+    "phoneCodeLogin": "Phone",
+    "passwordLogin": "Password",
+    "qrLogin": "QR Code",
     "account": "Account",
     "accountPlaceholder": "Enter account/phone/email",
     "password": "Password",
