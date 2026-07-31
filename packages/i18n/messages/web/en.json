@@ -109,7 +109,10 @@
       "quitDownloading": "Downloading update...",
       "quitRestarting": "Update complete, restarting...",
       "quitQuitting": "Quitting...",
-      "quitSkip": "Skip and quit"
+      "quitSkip": "Skip and quit",
+      "autoRestart": "Auto-restarting...",
+      "preparing": "Preparing update...",
+      "autoRetrying": "Update failed, auto-retrying..."
     },
     "resize": "Drag to resize",
     "payTime": "Pay Time",
