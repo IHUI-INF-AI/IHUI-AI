@@ -30,6 +30,7 @@ from ..services.tls_stealth import create_stealth_client, get_stealth_headers
 from .config import settings
 from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
+from .provider_caps import filter_call_kwargs, get_provider_cap
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
 # 延迟导入避免循环依赖(combo_router.py 内部反向 import llm_gateway)
@@ -1062,11 +1063,15 @@ class LLMGateway:
             call_kwargs["api_key"] = api_key
             if api_base:
                 call_kwargs["api_base"] = api_base
-            # NVIDIA NIM 免费层 worker 池容量有限(16 个),并发请求排队等待时
-            # 默认 30s 不够;OpenAI/Anthropic 等快 provider 仍用 30s
-            call_kwargs["timeout"] = 120 if used_model.lower().startswith("nvidia/") else 30
+            # 按 provider capability 设默认 timeout(NVIDIA NIM=120s / Cloudflare=60s / 其他=30s)
+            # 替代旧硬编码 `if used_model.startswith("nvidia/"): 120 else 30`(P0 Phase A)
+            provider_code = _model_to_provider_code(used_model)
+            cap = get_provider_cap(provider_code)
+            call_kwargs["timeout"] = cap.default_timeout
             call_kwargs["num_retries"] = 2
             call_kwargs.update(kwargs)
+            # 按 capability 过滤不支持的参数(stream_usage/tools/response_format/temperature)
+            filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
             with _openrouter_proxy_context(used_model):
                 response = await litellm.acompletion(**call_kwargs)
@@ -1432,19 +1437,22 @@ class LLMGateway:
                 "messages": trimmed_messages,
                 "stream": True,
             }
-            # NVIDIA NIM endpoint 不支持 stream_usage 参数(BadRequest 400),
-            # 其他 OpenAI 兼容 endpoint 默认开启用于流式 usage 统计
-            if not used_model.lower().startswith("nvidia/"):
-                call_kwargs["stream_usage"] = True
-            # NVIDIA NIM 免费层 worker 池容量有限(16 个),并发请求排队等待时
-            # 默认 30s 不够;OpenAI/Anthropic 等快 provider 仍用 30s(与非流式路径一致)
-            call_kwargs["timeout"] = 120 if used_model.lower().startswith("nvidia/") else 30
+            # 默认开启 stream_usage 用于流式 usage 统计,
+            # 不支持的 provider(NVIDIA/StepFun/Agnes/Ollama/CF)由下方 filter_call_kwargs 自动移除
+            call_kwargs["stream_usage"] = True
+            # 按 provider capability 设默认 timeout(NVIDIA NIM=120s / Cloudflare=60s / 其他=30s)
+            # 替代旧硬编码 `if used_model.startswith("nvidia/"): 120 else 30`(P0 Phase A)
+            provider_code = _model_to_provider_code(used_model)
+            cap = get_provider_cap(provider_code)
+            call_kwargs["timeout"] = cap.default_timeout
             # 免费 provider (api_key 为占位符) 不传 api_key,走匿名访问避免 402
             if api_key and api_key not in ("no-key-required", "free"):
                 call_kwargs["api_key"] = api_key
             if api_base:
                 call_kwargs["api_base"] = api_base
             call_kwargs.update(kwargs)
+            # 按 capability 过滤不支持的参数(stream_usage/tools/response_format/temperature)
+            filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
             with _openrouter_proxy_context(used_model):
                 response = await litellm.acompletion(**call_kwargs)
