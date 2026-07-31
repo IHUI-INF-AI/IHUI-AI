@@ -5,6 +5,7 @@ import { db } from '../db/index.js'
 import { zhsAiModelInfo } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { inferPointsMultiplier } from './ai-vendors/proxy-llm.js'
 
 /**
  * 特殊 UUID 列表:这些用户可见额外模型(如内部测试模型)。
@@ -56,6 +57,35 @@ export interface AiModelInfoItem {
   status: number
   createdAt: string | null
   updatedAt: string | null
+  /** 积分消耗倍数(由 modelCode/code/name 推断:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
+  pointsMultiplier: number
+}
+
+/** 为 ai-service 返回的模型列表安全附加 points_multiplier(兼容数组 / {models|data|items: []}) */
+function attachPointsMultiplier(data: unknown): unknown {
+  const withMultiplier = (m: unknown): unknown => {
+    if (typeof m !== 'object' || m === null) return m
+    const obj = m as Record<string, unknown>
+    const id =
+      typeof obj.id === 'string'
+        ? obj.id
+        : typeof obj.model === 'string'
+          ? obj.model
+          : typeof obj.name === 'string'
+            ? obj.name
+            : ''
+    return { ...obj, points_multiplier: inferPointsMultiplier(id) }
+  }
+  if (Array.isArray(data)) return data.map(withMultiplier)
+  if (typeof data === 'object' && data !== null) {
+    const obj = data as Record<string, unknown>
+    for (const key of ['models', 'data', 'items'] as const) {
+      if (Array.isArray(obj[key])) {
+        return { ...obj, [key]: (obj[key] as unknown[]).map(withMultiplier) }
+      }
+    }
+  }
+  return data
 }
 
 export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
@@ -84,7 +114,7 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const data = await resp.json()
-      return reply.send(success(data))
+      return reply.send(success(attachPointsMultiplier(data)))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message || 'AI service unavailable'))
     }
@@ -186,6 +216,7 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
         status: m.status,
         createdAt: m.createdAt ? m.createdAt.toISOString() : null,
         updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
+        pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
       }))
 
       return reply.send(success({ items, total: items.length }))
@@ -235,6 +266,7 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
         status: m.status,
         createdAt: m.createdAt ? m.createdAt.toISOString() : null,
         updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
+        pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
       }
 
       return reply.send(success(item))
