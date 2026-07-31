@@ -96,6 +96,12 @@ class FreeProvider:
     notes: str = ""
     zero_cost: bool = False
     free_tier: bool = False
+    # 2026-07-31 新增(用户规则:账户没钱需在管理端可视化 + 跳转充值按钮)
+    # 充值/billing 页面 URL(管理端"去充值"按钮跳转;未配置时降级用 signup_url)
+    recharge_url: str = ""
+    # 余额查询端点路径(支持 openrouter/deepseek/siliconcloud 等;空表示该 provider 无余额端点,降级用推理请求 ping)
+    # 完整 URL 或相对路径(若相对路径,自动拼接到 default_base_url)
+    balance_endpoint: str = ""
 
 
 # ============================================================================
@@ -142,6 +148,8 @@ _REGISTRY: list[FreeProvider] = [
         default_models=["deepseek-chat", "deepseek-reasoner"],
         docs_url="https://platform.deepseek.com/docs",
         notes="R1 推理模型对标 o1,价格仅 OpenAI 1/30",
+        recharge_url="https://platform.deepseek.com/usage",
+        balance_endpoint="https://api.deepseek.com/user/balance",
     ),
     FreeProvider(
         provider_code="minimax",
@@ -246,6 +254,8 @@ _REGISTRY: list[FreeProvider] = [
         default_models=["Qwen/Qwen2.5-7B-Instruct", "deepseek-ai/DeepSeek-V2-Chat"],
         docs_url="https://docs.siliconflow.cn",
         notes="国内聚合平台,聚合 200+ 国内外模型",
+        recharge_url="https://cloud.siliconflow.cn/account/billing",
+        balance_endpoint="https://api.siliconflow.cn/v1/user/info",
     ),
     FreeProvider(
         provider_code="modelscope",
@@ -339,6 +349,8 @@ _REGISTRY: list[FreeProvider] = [
         default_models=["meta-llama/llama-3.3-70b-instruct:free", "google/gemini-flash-1.5:free"],
         docs_url="https://openrouter.ai/docs",
         notes="聚合 290+ 模型,:free 后缀完全免费",
+        recharge_url="https://openrouter.ai/credits",
+        balance_endpoint="https://openrouter.ai/api/v1/credits",
     ),
     FreeProvider(
         provider_code="cloudflare_workers_ai",
@@ -362,9 +374,16 @@ _REGISTRY: list[FreeProvider] = [
         rate_limit="40 RPM(免费层)",
         default_base_url="https://integrate.api.nvidia.com/v1",
         key_env_vars=["NVIDIA_API_KEY", "NIM_API_KEY"],
-        default_models=["meta/llama-3.3-70b-instruct", "deepseek-ai/deepseek-r1"],
+        default_models=["deepseek-ai/deepseek-v4-pro", "deepseek-ai/deepseek-v4-flash", "meta/llama-3.3-70b-instruct"],
         docs_url="https://docs.api.nvidia.com",
-        notes="NVIDIA DGX 推理,Llama / DeepSeek / Qwen 全系列",
+        notes=(
+            "NVIDIA DGX 推理,Llama / DeepSeek / Qwen 全系列。"
+            "⚠️ 2026-07-31 实测:deepseek-v4-pro 200 OK ✅(主力推荐);"
+            "deepseek-r1 / qwen2.5-7b 间歇性 502(provider 限流,模型未下线);"
+            "llama-3.3-70b 间歇性超时(大模型冷启动,模型可用);"
+            "nemotron-4-340b-instruct 需 nvidia/nvidia/ 前缀且 NIM 1.14 docs 未列出(可能已下线,改用 llama-3.1-nemotron-70b-instruct)。"
+            "模型清单由 ModelSyncService 从 NVIDIA /v1/models 自动同步。"
+        ),
     ),
     FreeProvider(
         provider_code="github_models",
@@ -563,9 +582,16 @@ _REGISTRY: list[FreeProvider] = [
         rate_limit="无明确限制(共享池)",
         default_base_url="https://api.llm7.io/v1",
         key_env_vars=[],  # 无需 key
-        default_models=["gpt-4o", "gpt-4.1", "gpt-5.6", "claude-sonnet-4.5"],
+        default_models=["qwen3-235b", "mistral-small-3.2", "codestral-latest"],
         docs_url="https://llm7.io",
-        notes="OmniRoute 第二大免费 token 来源(150M/月);免费镜像服务,有下线风险,建议兜底用",
+        notes=(
+            "OmniRoute 第二大免费 token 来源(150M/月);免费镜像服务,有下线风险,建议兜底用。"
+            "2026-07-31 修复:旧模型名 gpt-4o/gpt-4.1/gpt-5.6/claude-sonnet-4.5 已不可用"
+            "(返回 'Model currently unavailable')。从 /v1/models 实时拉取的免费(无 tier=pro 标记)模型:"
+            "qwen3-235b / mistral-small-3.2 / codestral-latest / devstral-small-2:24b。"
+            "Pro 模型(kimi-k2.6/minimax-m2.7/deepseek-v4-flash 等)需 dash.llm7.io 申请 key。"
+            "匿名限 500K tokens/天, 60 r/h, 10 r/m, 1 r/s。"
+        ),
     ),
     FreeProvider(
         provider_code="pollinations",
@@ -576,9 +602,15 @@ _REGISTRY: list[FreeProvider] = [
         rate_limit="1 req/6-15 秒(匿名,极低速率)",
         default_base_url="https://text.pollinations.ai/openai",
         key_env_vars=[],  # 无需 key
-        default_models=["gpt-5", "claude", "deepseek", "llama-4", "gemini"],
+        default_models=["openai-fast"],
         docs_url="https://pollinations.ai/docs",
-        notes="OmniRoute 11 forever free 之一;无 key 免费顶级模型,速率极低仅适合兜底验证",
+        notes=(
+            "OmniRoute 11 forever free 之一;无 key 免费顶级模型,速率极低仅适合兜底验证。"
+            "2026-07-31 修复:模型清单从 /models 端点实时获取,当前唯一可用免费模型为 openai-fast"
+            "(GPT-OSS 20B Reasoning LLM by OVH,别名 openai/gpt-oss/gpt-oss-20b/ovh-reasoning)。"
+            "旧模型名 gpt-5/claude/deepseek/llama-4/gemini 已下线(返回 404 Model not found)。"
+            "text.pollinations.ai 为 legacy API,enter.pollinations.ai 为新平台(需 sk_ key,无速率限制)。"
+        ),
     ),
     FreeProvider(
         provider_code="qoder",
@@ -604,7 +636,14 @@ _REGISTRY: list[FreeProvider] = [
         key_env_vars=["AIHORDE_API_KEY"],  # 可选,匿名也可用
         default_models=["auto"],  # 众包模型随机
         docs_url="https://github.com/Haidra-Org/horde-sdk",
-        notes="OmniRoute v3.8.49 新增;众包 GPU,模型随机,适合低成本兜底",
+        notes=(
+            "OmniRoute v3.8.49 新增;众包 GPU,模型随机,适合低成本兜底。"
+            "⚠️ 2026-07-31 评估:AI Horde 不是 OpenAI 兼容协议,使用异步流程"
+            "(POST /api/v2/generate/text/async → 轮询 /api/v2/generate/text/status/{id}),"
+            "LiteLLM openai/ 路径无法调通(返回 404)。需专用 SDK(horde-sdk / @zeldafan0225/ai_horde)"
+            "或原生 provider 适配器才能使用。当前 llm_gateway._resolve_provider 路由不可用,待移除/重写。"
+            "服务本身仍在线(https://aihorde.net),仅协议不兼容。"
+        ),
     ),
     FreeProvider(
         provider_code="ovhcloud",
@@ -639,13 +678,19 @@ _REGISTRY: list[FreeProvider] = [
         display_name="OpenCode Zen(免费编码模型)",
         category=ProviderCategory.INTERNATIONAL,
         signup_url="https://opencode.ai/auth",
-        free_quota="recurring-uncapped(轮换免费编码模型,7 个免费模型)",
+        free_quota="recurring-uncapped(轮换免费编码模型,实际免费模型 2 个)",
         rate_limit="无明确限制",
         default_base_url="https://opencode.ai/zen/v1",
-        key_env_vars=[],  # 无需 key(免费模型层已验证无 key 可调,返回 thinking 内容)
-        default_models=["deepseek-v4-flash-free", "mimo-v2.5-free", "qwen3.6-plus-free", "minimax-m3-free", "big-pickle"],
+        key_env_vars=[],  # 无需 key(免费模型层已验证无 key 可调)
+        default_models=["big-pickle", "glm-4.7-free"],
         docs_url="https://opencode.ai/docs/zen",
-        notes="OmniRoute 标注 recurring-uncapped;正确 base_url 为 https://opencode.ai/zen/v1(非 api.opencode.ai);含 7 个免费模型,无 key 已验证可调",
+        notes=(
+            "OmniRoute 标注 recurring-uncapped;正确 base_url 为 https://opencode.ai/zen/v1(非 api.opencode.ai)。"
+            "2026-07-31 修复:从 /zen/v1/models 实时拉取,当前实际免费模型仅 2 个:big-pickle / glm-4.7-free。"
+            "旧 default_models 中的 deepseek-v4-flash-free / mimo-v2.5-free / qwen3.6-plus-free / minimax-m3-free"
+            "不在实际模型列表中(返回 'Not Found')。big-pickle-stealth 也不存在,正确名为 big-pickle。"
+            "其他模型(gpt-5.x/claude-*/gemini-*/kimi-k2/qwen3-coder/glm-4.6 等)需 OPENCODE_API_KEY 付费调用。"
+        ),
     ),
     FreeProvider(
         provider_code="scaleway",
@@ -842,6 +887,41 @@ class FreeProviderRegistry:
         """获取 provider 的推荐免费模型列表。"""
         p = self._by_code.get(provider_code)
         return p.default_models if p else []
+
+    def get_recharge_url(self, provider_code: str) -> str:
+        """获取 provider 的充值/billing 页面 URL(管理端"去充值"按钮跳转用)。
+
+        降级策略(2026-07-31 立,用户规则:账户没钱需可视化 + 跳转充值):
+        1. 优先用 FreeProvider.recharge_url(显式配置的充值页)
+        2. 降级用 FreeProvider.signup_url(注册/控制台页,通常也能找到充值入口)
+        3. 都没有 → 返回空字符串(管理端"去充值"按钮不显示)
+
+        本地 LLM / zero_cost provider 返回空(无需充值)。
+        """
+        p = self._by_code.get(provider_code)
+        if not p:
+            return ""
+        if p.category == ProviderCategory.LOCAL or p.zero_cost:
+            return ""
+        return p.recharge_url or p.signup_url or ""
+
+    def get_balance_endpoint(self, provider_code: str) -> str:
+        """获取 provider 的余额查询端点 URL(完整 URL,用于 HTTP 调用)。
+
+        返回空字符串表示该 provider 不支持余额查询,应降级到推理请求 ping。
+        balance_endpoint 字段可以是完整 URL 或相对路径(自动拼接到 default_base_url)。
+        """
+        p = self._by_code.get(provider_code)
+        if not p:
+            return ""
+        ep = p.balance_endpoint
+        if not ep:
+            return ""
+        if ep.startswith(("http://", "https://")):
+            return ep
+        if not p.default_base_url:
+            return ""
+        return p.default_base_url.rstrip("/") + "/" + ep.lstrip("/")
 
     def is_key_configured(self, provider_code: str) -> ProviderStatus:
         """检测 provider 的 key 配置状态。
