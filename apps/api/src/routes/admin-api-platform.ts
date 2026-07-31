@@ -92,6 +92,27 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
+  server.get('/api-platform/apps/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const [row] = await dbRead
+      .select({
+        id: developerApiKeys.id,
+        name: developerApiKeys.name,
+        userId: developerApiKeys.userId,
+        key: developerApiKeys.key,
+        permissions: developerApiKeys.permissions,
+        status: developerApiKeys.status,
+        rateLimit: developerApiKeys.rateLimit,
+        lastUsedAt: developerApiKeys.lastUsedAt,
+        createdAt: developerApiKeys.createdAt,
+      })
+      .from(developerApiKeys)
+      .where(eq(developerApiKeys.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '应用不存在'))
+    return reply.send(success(row))
+  })
+
   server.post('/api-platform/apps', async (request, reply) => {
     const parsed = createAppSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -153,6 +174,13 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
   server.get('/api-platform/packages', async (_request, reply) => {
     const list = await dbRead.select().from(plans).orderBy(plans.sortOrder)
     return reply.send(success({ list }))
+  })
+
+  server.get('/api-platform/packages/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const [row] = await dbRead.select().from(plans).where(eq(plans.id, id)).limit(1)
+    if (!row) return reply.status(404).send(error(404, '套餐不存在'))
+    return reply.send(success(row))
   })
 
   server.post('/api-platform/packages', async (request, reply) => {

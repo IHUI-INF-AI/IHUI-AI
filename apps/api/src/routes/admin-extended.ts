@@ -46,6 +46,16 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success((rows as Record<string, unknown>[]) ?? []))
   })
 
+  server.get('/menu/:id', async (request, reply) => {
+    const { id } = idParam.parse(request.params)
+    const [row] = await db.execute(sql`
+      SELECT id, name, icon, path, sort, parent_id, visible, created_at, updated_at
+      FROM admin_menus WHERE id = ${id}
+    `)
+    if (!row) return reply.status(404).send(error(404, '菜单不存在'))
+    return reply.send(success(row))
+  })
+
   server.post('/menu', async (request, reply) => {
     const parsed = menuSchema.safeParse(request.body)
     if (!parsed.success) {
