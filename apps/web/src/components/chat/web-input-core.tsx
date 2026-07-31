@@ -142,8 +142,12 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           <span
             aria-live="polite"
             className={cn(
-              'text-[10px] tabular-nums text-muted-foreground/60',
+              'text-[10px] tabular-nums text-muted-foreground/60 transition-colors',
+              // 渐进式字符计数警告(2026-07-31 对标 Trae/Codex/Claude Code):
+              // - 90%+ 橙色警告(接近上限,提醒用户精简输入)
+              // - 100% 红色错误(已达上限,禁止继续输入)
               text.length >= MAX_LENGTH && 'text-destructive',
+              text.length >= MAX_LENGTH * 0.9 && text.length < MAX_LENGTH && 'text-amber-500',
             )}
           >
             {text.length}/{MAX_LENGTH}
