@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, ilike, sql, lt, gt, isNull } from 'drizzle-orm'
+import { eq, and, desc, asc, ilike, sql, lt, gt, isNull, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   chatConversations,
@@ -178,6 +178,62 @@ export async function patchConversationMetadata(
 
 export async function deleteConversation(id: string): Promise<void> {
   await db.delete(chatConversations).where(eq(chatConversations.id, id))
+}
+
+// =============================================================================
+// 批量操作(2026-07-31 立,对话历史批量删除/收藏/归档)
+// 统一用 userId + inArray(ids) 一次过滤,防越权操作他人对话
+// =============================================================================
+
+/** 批量删除对话(级联删除消息 + 收藏,由 schema onDelete: cascade 保证) */
+export async function deleteConversationsBatch(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const rows = await db
+    .delete(chatConversations)
+    .where(and(eq(chatConversations.userId, userId), inArray(chatConversations.id, ids)))
+    .returning({ id: chatConversations.id })
+  return rows.length
+}
+
+/** 批量收藏对话(只收藏属于自己的对话,onConflictDoNothing 防重复) */
+export async function favoriteConversationsBatch(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  // 先过滤属于自己的 ids,防止收藏他人对话
+  const owned = await db
+    .select({ id: chatConversations.id })
+    .from(chatConversations)
+    .where(and(eq(chatConversations.userId, userId), inArray(chatConversations.id, ids)))
+  if (owned.length === 0) return 0
+  await db
+    .insert(chatFavorites)
+    .values(owned.map((r) => ({ userId, conversationId: r.id })))
+    .onConflictDoNothing({ target: [chatFavorites.userId, chatFavorites.conversationId] })
+  return owned.length
+}
+
+/** 批量取消收藏(只删自己的 favorites 行,安全) */
+export async function unfavoriteConversationsBatch(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const rows = await db
+    .delete(chatFavorites)
+    .where(and(eq(chatFavorites.userId, userId), inArray(chatFavorites.conversationId, ids)))
+    .returning({ id: chatFavorites.id })
+  return rows.length
+}
+
+/** 批量归档/取消归档对话(只更新自己的对话) */
+export async function setConversationsArchivedBatch(
+  userId: string,
+  ids: string[],
+  archived: boolean,
+): Promise<number> {
+  if (ids.length === 0) return 0
+  const rows = await db
+    .update(chatConversations)
+    .set({ archivedAt: archived ? sql`now()` : null, updatedAt: new Date() })
+    .where(and(eq(chatConversations.userId, userId), inArray(chatConversations.id, ids)))
+    .returning({ id: chatConversations.id })
+  return rows.length
 }
 
 export async function archiveConversation(id: string): Promise<ChatConversation> {
