@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Checkbox } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TruncatedText } from '@/components/common'
@@ -27,6 +28,7 @@ export function LoginLogTable({
   onToggleOne,
   onSort,
 }: Props) {
+  const t = useTranslations('admin.system')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -39,19 +41,20 @@ export function LoginLogTable({
               />
             </th>
             <th className={th}>ID</th>
-            <th className={th}>用户</th>
-            <th className={th}>类型</th>
-            <th className={th}>平台</th>
+            <th className={th}>{t('loginLogs.table.user')}</th>
+            <th className={th}>{t('loginLogs.table.type')}</th>
+            <th className={th}>{t('loginLogs.table.platform')}</th>
             <th className={th}>IP</th>
-            <th className={th}>位置</th>
+            <th className={th}>{t('loginLogs.table.location')}</th>
             <th className={th}>UA</th>
             <th
               className={cn(th, 'cursor-pointer select-none')}
               onClick={() => onSort('loginTime')}
             >
-              登录时间 {sort.col === 'loginTime' && (sort.dir === 'desc' ? '↓' : '↑')}
+              {t('loginLogs.table.loginTime')}{' '}
+              {sort.col === 'loginTime' && (sort.dir === 'desc' ? '↓' : '↑')}
             </th>
-            <th className={th}>消息</th>
+            <th className={th}>{t('loginLogs.table.message')}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -64,7 +67,7 @@ export function LoginLogTable({
           ) : list.length === 0 ? (
             <tr>
               <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
-                暂无数据
+                {t('common.noData')}
               </td>
             </tr>
           ) : (

@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import { api, PAGE_SIZE, EMPTY_DETAIL, type ListData, type WithdrawalItem } from './types'
 
-export function useWithdrawalDetail(enabled: boolean) {
+export function useWithdrawalDetail(enabled: boolean, t: (key: string, params?: Record<string, string | number>) => string) {
   const qc = useQueryClient()
 
   const [dStatus, setDStatus] = React.useState('all')
@@ -67,7 +67,7 @@ export function useWithdrawalDetail(enabled: boolean) {
         : api('/api/admin/shop/withdrawals', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(dEditing ? '更新成功' : '新增成功')
+      toast.success(dEditing ? t('withdrawals.detail.toast.updated') : t('withdrawals.detail.toast.created'))
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'withdrawals'] })
       closeDetail()
     },
@@ -77,7 +77,7 @@ export function useWithdrawalDetail(enabled: boolean) {
   const dDeleteMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/shop/withdrawals/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('withdrawals.detail.toast.deleted'))
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'withdrawals'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -99,7 +99,7 @@ export function useWithdrawalDetail(enabled: boolean) {
       })
     },
     onSuccess: () => {
-      toast.success('审核完成')
+      toast.success(t('withdrawals.detail.toast.reviewed'))
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'withdrawals'] })
       setReviewOpen(false)
       setReviewForm(null)
@@ -135,13 +135,13 @@ export function useWithdrawalDetail(enabled: boolean) {
     e.preventDefault()
     setDErr(null)
     if (!dForm.user.trim()) {
-      setDErr('请输入用户')
+      setDErr(t('withdrawals.detail.validation.userRequired'))
       return
     }
     dSaveMut.mutate()
   }
   function handleDeleteDetail(w: WithdrawalItem) {
-    if (!confirm(`确认删除提现记录 "${w.id}"?`)) return
+    if (!confirm(t('withdrawals.detail.confirmDelete', { id: w.id }))) return
     dDeleteMut.mutate(w.id)
   }
   function openReview(w: WithdrawalItem) {

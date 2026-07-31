@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -26,23 +27,24 @@ export function ProductTable({
   onEdit,
   onDelete,
 }: Props) {
+  const t = useTranslations('admin.shop')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">商品</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">分类</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">价格</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">库存</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">销量</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">类型</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">面额</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">VIP面额</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">运营商面额</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">图片</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">状态</TableHead>
-            <TableHead className="px-3 py-2.5 text-right text-xs uppercase">操作</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.product')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.category')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.price')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.stock')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.sales')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.type')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.denomination')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.denominationVip')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.denominationOperate')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.images')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.status')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-right text-xs uppercase">{t('products.table.action')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="divide-y">
@@ -50,13 +52,13 @@ export function ProductTable({
             <TableRow>
               <TableCell colSpan={12} className="px-3 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                加载中…
+                {t('products.loading')}
               </TableCell>
             </TableRow>
           ) : list.length === 0 ? (
             <TableRow>
               <TableCell colSpan={12} className="px-3 py-10 text-center text-muted-foreground">
-                暂无商品
+                {t('products.noData')}
               </TableCell>
             </TableRow>
           ) : (
@@ -116,7 +118,7 @@ export function ProductTable({
                           p.status === 'online' ? 'bg-emerald-500' : 'bg-muted-foreground',
                         )}
                       />
-                      {p.status === 'online' ? '上架' : '下架'}
+                      {p.status === 'online' ? t('products.status.online') : t('products.status.offline')}
                     </span>
                   </TableCell>
                   <TableCell className="px-3 py-2.5 text-right">
@@ -127,17 +129,17 @@ export function ProductTable({
                         onClick={() => onToggle(p)}
                         disabled={togglePending}
                       >
-                        {p.status === 'online' ? '下架' : '上架'}
+                        {p.status === 'online' ? t('products.toggleOffline') : t('products.toggleOnline')}
                       </Button>
                       <HasPermi code="ai:zhs_product:edit">
-                        <Tooltip content="编辑">
+                        <Tooltip content={t('products.editTooltip')}>
                           <Button size="sm" variant="ghost" onClick={() => onEdit(p)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </Tooltip>
                       </HasPermi>
                       <HasPermi code="ai:zhs_product:remove">
-                        <Tooltip content="删除">
+                        <Tooltip content={t('products.deleteTooltip')}>
                           <Button
                             size="sm"
                             variant="ghost"

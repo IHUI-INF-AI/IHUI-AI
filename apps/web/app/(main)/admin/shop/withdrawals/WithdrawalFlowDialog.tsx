@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import {
   Dialog,
@@ -27,12 +28,14 @@ export function WithdrawalFlowDialog(props: Props) {
   const { fOpen, setFOpen, fEditing, fForm, setFForm, fErr, closeFlow, submitFlow, fSaveMut } =
     props
 
+  const t = useTranslations('admin.shop')
+
   return (
     <Dialog open={fOpen} onOpenChange={(o) => (o ? setFOpen(true) : closeFlow())}>
       <DialogContent>
         <form onSubmit={submitFlow} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{fEditing ? '编辑流水' : '新增流水'}</DialogTitle>
+            <DialogTitle>{fEditing ? t('withdrawals.flow.dialog.editTitle') : t('withdrawals.flow.dialog.createTitle')}</DialogTitle>
           </DialogHeader>
           {fErr && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -40,7 +43,7 @@ export function WithdrawalFlowDialog(props: Props) {
             </div>
           )}
           <div className="space-y-2">
-            <Label>用户ID *</Label>
+            <Label>{t('withdrawals.flow.dialog.userId')} *</Label>
             <Input
               className={inputSm}
               value={fForm.userId}
@@ -48,7 +51,7 @@ export function WithdrawalFlowDialog(props: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label>金额(分) *</Label>
+            <Label>{t('withdrawals.flow.dialog.amount')} *</Label>
             <Input
               className={inputSm}
               type="number"
@@ -57,7 +60,7 @@ export function WithdrawalFlowDialog(props: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label>外部单号 *</Label>
+            <Label>{t('withdrawals.flow.dialog.outBillNo')} *</Label>
             <Input
               className={inputSm}
               value={fForm.outBillNo}
@@ -65,7 +68,7 @@ export function WithdrawalFlowDialog(props: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label>状态</Label>
+            <Label>{t('withdrawals.flow.dialog.status')}</Label>
             <Select value={fForm.status} onValueChange={(v) => setFForm({ ...fForm, status: v })}>
               <SelectTrigger className={selectClass}>
                 <SelectValue />
@@ -73,14 +76,14 @@ export function WithdrawalFlowDialog(props: Props) {
               <SelectContent>
                 {Object.entries(FLOW_STATUS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
-                    {v}
+                    {t(v)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>转账详情</Label>
+            <Label>{t('withdrawals.flow.dialog.transferDetail')}</Label>
             <textarea
               className={textareaClass}
               rows={3}
@@ -95,10 +98,10 @@ export function WithdrawalFlowDialog(props: Props) {
               onClick={closeFlow}
               disabled={fSaveMut.isPending}
             >
-              取消
+              {t('withdrawals.flow.dialog.cancel')}
             </Button>
             <Button type="submit" disabled={fSaveMut.isPending}>
-              {fSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {fSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t('withdrawals.flow.dialog.save')}
             </Button>
           </DialogFooter>
         </form>
