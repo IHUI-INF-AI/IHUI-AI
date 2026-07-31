@@ -93,6 +93,19 @@
     "pin": "固定",
     "unpin": "取消固定",
     "unsaved": "未儲存",
+    "update": {
+      "available": "發現新版本",
+      "downloading": "下載中",
+      "installing": "安裝中",
+      "done": "更新完成",
+      "restart": "重啟應用",
+      "updateNow": "立即更新",
+      "retry": "重試",
+      "error": "更新失敗",
+      "errorDesc": "更新過程中出現錯誤,請重試",
+      "checkFailed": "檢查更新失敗,請檢查網路後重試",
+      "dismiss": "關閉"
+    },
     "logout": "退出登入",
     "create": "創建",
     "reset": "重置",
@@ -109,20 +122,7 @@
     "total": "總的",
     "view": "查看",
     "loadFailed": "加載失敗",
-    "viewDetail": "查看詳情",
-    "update": {
-      "available": "發現新版本",
-      "downloading": "下載中",
-      "installing": "安裝中",
-      "done": "更新完成",
-      "restart": "重啟應用",
-      "updateNow": "立即更新",
-      "retry": "重試",
-      "error": "更新失敗",
-      "errorDesc": "更新過程中出現錯誤,請重試",
-      "checkFailed": "檢查更新失敗,請檢查網路後重試",
-      "dismiss": "關閉"
-    }
+    "viewDetail": "查看詳情"
   },
   "taskReceiver": {
     "title": "任務接收",
@@ -645,6 +645,8 @@
     "modelConfigured": "當前模型 API Key 已配置",
     "modelNotConfigured": "當前模型 API Key 未配置,前往模型廣場頁一鍵配置",
     "manageModels": "自訂配置模型",
+    "modelAuto": "自動",
+    "modelAutoDescription": "自動選擇最優模型",
     "slashCmd": {
       "plan": "切換到規劃模式(AI 只制定計畫,不執行工具)",
       "act": "切換到執行模式(AI 正常執行工具,預設)",
@@ -1143,7 +1145,13 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個用戶端", "API 存取", "社群支援"]
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個用戶端",
+          "API 存取",
+          "社群支援"
+        ]
       },
       "pro": {
         "name": "專業版",
@@ -1160,7 +1168,13 @@
         "name": "企業版",
         "contactSales": "聯繫銷售",
         "cta": "聯繫銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "稽核日誌",
+          "專屬技術支援"
+        ]
       }
     },
     "checkout": {
@@ -6391,7 +6405,23 @@
     "unfavorite": "取消收藏",
     "viewFavorites": "查看收藏",
     "backToHistory": "返回歷史",
-    "loginRequired": "請先登入"
+    "loginRequired": "請先登入",
+    "select": "選擇",
+    "selectAll": "全選",
+    "invertSelection": "反選",
+    "selectedCount": "已選 {count} 項",
+    "batchDelete": "批量刪除",
+    "batchFavorite": "批量收藏",
+    "batchUnfavorite": "批量取消收藏",
+    "batchArchive": "批量歸檔",
+    "batchUnarchive": "批量取消歸檔",
+    "cancelSelection": "取消選擇",
+    "confirmBatchDelete": "將永久刪除 {count} 個對話,此操作不可撤銷",
+    "batchDeleteSuccess": "批量刪除成功",
+    "batchFavoriteSuccess": "批量收藏成功",
+    "batchUnfavoriteSuccess": "批量取消收藏成功",
+    "batchArchiveSuccess": "批量歸檔成功",
+    "batchUnarchiveSuccess": "批量取消歸檔成功"
   },
   "models": {
     "title": "模型市場",
@@ -8984,32 +9014,56 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI"]
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI"]
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": ["搜尋", "查找", "search"]
+        "keywords": [
+          "搜尋",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": ["個人", "資料", "設置"]
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ]
       },
       "settings": {
         "label": "系統設置",
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"]
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -9408,19 +9462,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -9541,25 +9607,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -11035,7 +11113,11 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動"
+      ]
     },
     "enterprise": {
       "name": "企業服務",
@@ -11163,7 +11245,15 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -11307,8 +11397,18 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -12444,6 +12544,39 @@
       "mcpView": "MCP 檢視",
       "settingsView": "設定檢視"
     },
+    "agentPane": {
+      "plan": "計劃",
+      "placeholder": "描述你想讓 AI 完成的編碼任務...",
+      "modelSelect": "選擇模型",
+      "execute": "執行",
+      "emptyHint": "輸入任務後點擊執行,AI 將自主完成編碼",
+      "result": "結果",
+      "stop": "停止",
+      "clear": "清空",
+      "taskId": "任務 ID"
+    },
+    "mcpPane": {
+      "tools": "工具",
+      "resources": "資源",
+      "prompts": "提示詞",
+      "skills": "技能",
+      "slash": "命令",
+      "refresh": "重新整理",
+      "searchPlaceholder": "搜尋...",
+      "empty": "暫無資料",
+      "selectHint": "選擇左側列表項查看詳情",
+      "result": "呼叫結果",
+      "copy": "複製",
+      "call": "呼叫",
+      "resourceUri": "資源 URI",
+      "parameters": "參數",
+      "noParams": "無參數",
+      "skillTemplate": "Skill 範本",
+      "loading": "載入中...",
+      "noTemplate": "暫無範本",
+      "slashArgs": "命令參數",
+      "slashArgsHint": "多個參數用空格分隔"
+    },
     "fileExplorer": {
       "tabFiles": "檔案",
       "tabOutline": "大綱",
@@ -12535,7 +12668,8 @@
       "noResults": "未找到結果",
       "recentSearches": "最近搜尋",
       "remove": "移除",
-      "inputHint": "輸入關鍵字搜尋"
+      "inputHint": "輸入關鍵字搜尋",
+      "searchFailed": "搜尋失敗,請重試"
     },
     "sourceControl": {
       "commitPlaceholder": "提交訊息",
@@ -12555,7 +12689,8 @@
       "commitSuccess": "提交成功",
       "pushSuccess": "推送成功",
       "pullSuccess": "拉取成功",
-      "branchSwitched": "已切換到 {branch}"
+      "branchSwitched": "已切換到 {branch}",
+      "committing": "提交中..."
     },
     "debug": {
       "start": "開始",
@@ -12588,7 +12723,8 @@
       "run": "執行",
       "debug": "除錯",
       "recentRuns": "最近執行",
-      "typeTerminal": "終端"
+      "typeTerminal": "終端",
+      "runFailed": "執行失敗,請重試"
     },
     "statusBar": {
       "sync": "同步",
@@ -12702,7 +12838,12 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社群支援"
+        ]
       },
       "pro": {
         "features": [
@@ -13144,7 +13285,13 @@
         "price": "¥999",
         "unit": "/小時",
         "desc": "架構諮詢 / 技術選型 / 程式碼 review",
-        "features": ["視訊會議 / 遠端桌面", "2 小時起", "故障排除", "增值稅發票", "回應 SLA 24h"]
+        "features": [
+          "視訊會議 / 遠端桌面",
+          "2 小時起",
+          "故障排除",
+          "增值稅發票",
+          "回應 SLA 24h"
+        ]
       }
     },
     "socialProof": {
