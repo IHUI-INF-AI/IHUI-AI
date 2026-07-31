@@ -430,52 +430,123 @@ def _schedule_account_save(task: ScanTask) -> None:
     threading.Thread(target=_save, daemon=True).start()
 
 
-async def _save_account_async(task: ScanTask) -> None:
-    """调用后端 API 更新账号凭据。"""
-    import httpx
+async def _save_account_to_db(
+    user_id: str,
+    platform: str,
+    credentials_dict: dict[str, str],
+    platform_name: str,
+) -> int:
+    """加密保存账号到 DB,返回 account_id(扫码登录 + CDP 检测复用)。
 
-    # 1. 查后端 API 拿到对应平台账号
-    api_url = "http://localhost:8802"  # TODO: 从 settings 读
-    headers = {"Authorization": f"Bearer {task.user_id}"}  # 占位,实际用 service token
-
-    # 简化:直接调 ai-service 内部 DB 更新
+    - 已存在同 user + platform → UPDATE credentials + status=active
+    - 不存在 → INSERT 新账号
+    """
     from ..core.db import get_db_conn
     from .publish.credentials_crypto import encrypt
     import json as _json
 
-    credentials = dict(task.all_relevant_cookies)
-    credentials.update(task.cookies)
-    credentials_json = _json.dumps(credentials, ensure_ascii=False)
+    credentials_json = _json.dumps(credentials_dict, ensure_ascii=False)
     encrypted = encrypt(credentials_json)
+    display_name = f"{platform_name}(扫码登录 {time.strftime('%Y-%m-%d %H:%M')})"
 
     conn = await get_db_conn()
     try:
-        # 查现有账号
         row = await conn.fetchrow(
             "SELECT id FROM publish_accounts WHERE user_id=$1 AND platform=$2 ORDER BY id LIMIT 1",
-            task.user_id, task.platform,
+            user_id, platform,
         )
         if row:
             await conn.execute(
                 """UPDATE publish_accounts
                    SET credentials_enc=$1, display_name=$2, status='active', updated_at=NOW()
                    WHERE id=$3""",
-                encrypted, f"{PLATFORM_SCAN_CONFIG[task.platform]['name']}(扫码登录 {time.strftime('%Y-%m-%d %H:%M')})", row["id"],
+                encrypted, display_name, row["id"],
             )
-            task.account_id = row["id"]
-            logger.info(f"[scan_login] 更新账号 {row['id']}({task.platform})")
-        else:
-            new_id = await conn.fetchval(
-                """INSERT INTO publish_accounts(user_id, platform, display_name, credentials_enc, status)
-                   VALUES($1, $2, $3, $4, 'active') RETURNING id""",
-                task.user_id, task.platform,
-                f"{PLATFORM_SCAN_CONFIG[task.platform]['name']}(扫码登录 {time.strftime('%Y-%m-%d %H:%M')})",
-                encrypted,
-            )
-            task.account_id = new_id
-            logger.info(f"[scan_login] 创建账号 {new_id}({task.platform})")
+            logger.info(f"[scan_login] 更新账号 {row['id']}({platform})")
+            return row["id"]
+        new_id = await conn.fetchval(
+            """INSERT INTO publish_accounts(user_id, platform, display_name, credentials_enc, status)
+               VALUES($1, $2, $3, $4, 'active') RETURNING id""",
+            user_id, platform, display_name, encrypted,
+        )
+        logger.info(f"[scan_login] 创建账号 {new_id}({platform})")
+        return new_id
     finally:
         await conn.close()
+
+
+async def _save_account_async(task: ScanTask) -> None:
+    """把扫码结果保存到后端账号(独立线程,不阻塞扫码任务)。"""
+    try:
+        credentials = dict(task.all_relevant_cookies)
+        credentials.update(task.cookies)
+        task.account_id = await _save_account_to_db(
+            task.user_id,
+            task.platform,
+            credentials,
+            PLATFORM_SCAN_CONFIG[task.platform]["name"],
+        )
+    except Exception as e:
+        logger.exception(f"[scan_login] 保存账号失败:{e}")
+
+
+async def detect_login_from_cdp_session(
+    session_id: str,
+    platform: str,
+    user_id: str,
+) -> dict[str, Any]:
+    """从 BrowserHub CDP 会话检测登录态 + 保存账号(2026-07-31 新增,CDP 扫码登录模式)。
+
+    供前端 WorkPanel CDP 扫码登录轮询调用:
+    - 前端 createBrowserSession 打开平台登录页 → 用户在 WorkPanel CDP 画面里扫码
+    - 前端每 3s 调本函数 → 检测 success_cookies → 命中则加密保存到 DB
+    - 返回 detected=True 时前端关闭会话 + 刷新账号列表
+
+    Returns:
+        {"detected": bool, "cookies_count": int, "account_id": int|None, "error": str|None}
+    """
+    if platform not in PLATFORM_SCAN_CONFIG:
+        return {"detected": False, "cookies_count": 0, "account_id": None,
+                "error": f"不支持的平台: {platform}"}
+
+    from .browser_hub import hub
+    session = hub.get_session(session_id)
+    if not session:
+        return {"detected": False, "cookies_count": 0, "account_id": None,
+                "error": "浏览器会话不存在或已关闭"}
+
+    config = PLATFORM_SCAN_CONFIG[platform]
+    cookies = await session.get_cookies()
+    cookies_dict = {c["name"]: c["value"] for c in cookies if c.get("value")}
+
+    # 检测 success_cookies 是否命中(值长度 > 5 视为有效)
+    hit = [
+        target for target in config["success_cookies"]
+        if target in cookies_dict and len(cookies_dict.get(target, "")) > 5
+    ]
+    if not hit:
+        return {"detected": False, "cookies_count": len(cookies_dict),
+                "account_id": None, "error": None}
+
+    # 命中 → 收集相关 cookies(剔除统计类)+ 保存
+    all_relevant = {
+        k: v for k, v in cookies_dict.items()
+        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
+    }
+    try:
+        account_id = await _save_account_to_db(
+            user_id, platform, all_relevant, config["name"]
+        )
+        logger.info(
+            f"[scan_login] CDP 检测成功: platform={platform}, "
+            f"account_id={account_id}, cookies={len(all_relevant)}"
+        )
+        return {"detected": True, "cookies_count": len(all_relevant),
+                "account_id": account_id, "error": None}
+    except Exception as e:
+        logger.exception(f"[scan_login] CDP 保存账号失败:{e}")
+        return {"detected": False, "cookies_count": len(cookies_dict),
+                "account_id": None, "error": f"保存账号失败: {e}"}
 
 
 # ---------------------------------------------------------------------------

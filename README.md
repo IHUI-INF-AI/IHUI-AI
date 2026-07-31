@@ -2654,7 +2654,8 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **P2 AI 工具调用深度联动**:packages/api-client onToolCall 回调 + ToolCallEvent 类型(解析 Vercel AI SDK type 2/7 + 自定义 tool_result)+ chat store addToolCall/updateToolCall + use-chat.ts createToolCallHandler(browser_navigate 等 8 工具命中即 openPanel)+ ToolCallCard URL 提取与"在工作展示区打开"按钮
 - **P3 多 Tab + 收藏 + 历史**:tabs 数组 + activeTabId + favorites + recentUrls(persist 持久化,清除 screenshot 体积)+ packages/ui Star 收藏按钮 + ChevronDown dropdown(收藏/历史两 tab + click-away + ESC 关闭 + 清空历史)
 - **P3++ Tab 拖拽排序**:HTML5 DnD(onDragStart/onDragOver/onDrop + 半透明 + drop target 高亮)+ reorderTabs store action + Playwright E2E 5 场景守门(openPanel/newTab/favorite/dropdown/drag-sort)
-- **8 端实现**:web(iframe + 降级)/ desktop(Tauri WebView2 子 webview,绕过 X-Frame-Options)/ mobile-rn(react-native-webview)/ miniapp-taro(web-view)/ extension(WXT browser.tabs.create)/ api + ai-service(截图服务)
+- **8 端实现**:web(iframe + 降级 + CDP 模式)/ desktop(Tauri WebView2 子 webview,绕过 X-Frame-Options)/ mobile-rn(react-native-webview)/ miniapp-taro(web-view)/ extension(WXT browser.tabs.create)/ api + ai-service(截图服务 + Browser Hub CDP)
+- **P4 CDP 完整 Chrome 升级(2026-07-31)**:对标 Trae/Cursor 内置浏览器,ai-service 新增 Browser Hub 服务(async_playwright 持续 Chromium + CDP `Page.startScreencast` 画面流 + WebSocket 推送 + `Input.dispatchMouseEvent`/`dispatchKeyEvent` 事件回传 + `Network.getCookies` 登录态检测),web 新增 [CdpBrowserView](apps/web/src/components/work-panel/cdp-browser-view.tsx) 组件(canvas 渲染画面帧 + 鼠标键盘事件回传),WorkPanel 新增 `cdp` mode(`WebViewMode` 扩展),扫码登录改用 CDP 内置浏览器(选平台→创建会话→WorkPanel 打开 CDP 画面→轮询 cookies→自动保存),根治 iframe X-Frame-Options 限制(知乎/B站/微信等登录页可正常打开)。平台独占 web+ai-service(§9 豁免)
 
 #### 2. 原生浏览器控制 + 电脑控制 MCP tool 全链路(5 端同步)
 
