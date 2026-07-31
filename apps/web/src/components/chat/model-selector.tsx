@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { fetchModels } from '@ihui/api-client'
 
 import { cn } from '@/lib/utils'
+import { fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import {
   FALLBACK_MODELS,
@@ -52,6 +53,24 @@ function toOption(m: FallbackModel): ModelOption {
   return { value: m.value, label: m.label, vendor: m.vendor, descriptionKey: m.descriptionKey }
 }
 
+/** Provider 健康状态 → 圆点徽章 + tooltip(Phase C+D 三态:绿/红/灰,装饰点豁免 rounded-full)
+ *  hover 显示 "延迟 Xms · N 个模型可用"(用原生 title 属性,避免新建 Tooltip 组件) */
+function ProviderHealthDot({ health }: { health: ProviderHealth }) {
+  const tip = `延迟 ${health.latency_ms}ms · ${health.model_count} 个模型可用`
+  return (
+    <span
+      title={tip}
+      aria-label={tip}
+      className={cn(
+        'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+        health.status === 'ok' && 'bg-green-500',
+        health.status === 'invalid_key' && 'bg-red-500',
+        health.status === 'unreachable' && 'bg-muted-foreground/40',
+      )}
+    />
+  )
+}
+
 /** 按厂商分组模型,返回有序的 [vendor, items[]] 数组 */
 function groupByVendor(options: ModelOption[]): Array<[string, ModelOption[]]> {
   const map = new Map<string, ModelOption[]>()
@@ -77,6 +96,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   const router = useRouter()
   const [options, setOptions] = React.useState<ModelOption[]>(() => FALLBACK_MODELS.map(toOption))
   const [loading, setLoading] = React.useState(true)
+  // Phase C+D:provider 健康状态(provider → ProviderHealth),mount 时拉取一次,空对象时不渲染徽章
+  const [healthByVendor, setHealthByVendor] = React.useState<Record<string, ProviderHealth>>({})
 
   // 拉取用户已保存的 LLM 配置(用于在 model-selector 里显示 ✓/⚠ 配置感知徽章)
   // retry: false + throwOnError: false:未登录或网络异常时静默失败,不阻塞选择器渲染
@@ -121,6 +142,25 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Phase C+D:mount 时拉取一次 provider 健康状态(不轮询,30s 缓存在 models-api 层)
+  // 失败静默:healthByVendor 保持空对象 → 不渲染徽章,不阻塞选择器
+  React.useEffect(() => {
+    let cancelled = false
+    fetchProvidersHealth()
+      .then((list) => {
+        if (cancelled) return
+        const map: Record<string, ProviderHealth> = {}
+        for (const h of list) map[h.provider] = h
+        if (!cancelled) setHealthByVendor(map)
+      })
+      .catch(() => {
+        // 静默:无徽章渲染
       })
     return () => {
       cancelled = true
@@ -272,7 +312,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 )}
               >
                 <BrandIcon vendor={vendor} size={12} className="text-muted-foreground" />
-                {VENDOR_LABEL[vendor] || vendor}
+                <span className="flex-1 truncate">{VENDOR_LABEL[vendor] || vendor}</span>
+                {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
               </DropdownMenu.Label>
               {items.map((opt) => {
                 const active = opt.value === value

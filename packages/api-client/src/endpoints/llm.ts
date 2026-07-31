@@ -1,11 +1,25 @@
 import { fetchApi } from '../client'
 
+/** 模型能力位(Phase C+D:后端 /llm/models 返回的 caps 字段,可选,旧端点无此字段时缺失) */
+export interface LlmModelCaps {
+  supports_stream_usage?: boolean
+  supports_tools?: boolean
+  supports_vision?: boolean
+  supports_response_format?: boolean
+  supports_temperature?: boolean
+  default_timeout?: number
+  max_context?: number
+  protocol?: string
+}
+
 export interface LlmModel {
   id: string
   name: string
   provider: string
   context_length: number
   input_price: number
+  /** 模型能力位(可选,后端 /llm/models 升级后返回) */
+  caps?: LlmModelCaps
 }
 
 export interface FetchModelsResult {
@@ -146,4 +160,28 @@ export async function demoCompaction(input: CompactionDemoInput): Promise<Compac
     throw new Error(res.error || 'Token 压缩演示失败')
   }
   return res.data
+}
+
+// ============= Phase C+D:Provider 健康状态(模型选择器三态徽章)==============
+
+/** Provider 健康状态(轻量版,新 schema,Phase C+D 模型选择器消费)
+ *  与旧版 GatewayProvider(网关 Dashboard 用)字段不同,本类型聚焦三态徽章所需最小信息 */
+export interface ProviderHealth {
+  provider: string
+  status: 'ok' | 'invalid_key' | 'unreachable'
+  latency_ms: number
+  model_count: number
+  last_check?: string
+}
+
+/** 获取 Provider 健康状态(轻量版)— GET /llm/providers/health
+ *  返回 ProviderHealth[](provider/status/latency_ms/model_count/last_check)
+ *  与旧版 fetchProvidersHealth(返回 ProvidersHealthResult,网关 Dashboard 用)并存,互不影响。
+ *  后端 /llm/providers/health 升级后返回 {code:0, data:{providers:[...]}},fetchApi 解析信封取 data.providers */
+export async function fetchProvidersHealthLite(): Promise<ProviderHealth[]> {
+  const res = await fetchApi<{ providers: ProviderHealth[] }>('/llm/providers/health', { method: 'GET' })
+  if (!res.success) {
+    throw new Error(res.error || '获取 Provider 健康状态失败')
+  }
+  return res.data?.providers ?? []
 }
