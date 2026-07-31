@@ -15,6 +15,9 @@ export type {
   CompactionStrategy,
   CompactionDemoInput,
   CompactionDemoResult,
+  // 模型自动同步(ModelSyncService)
+  ModelSyncResult,
+  ModelSyncStatus,
 } from '@ihui/api-client'
 
 export type GatewayTab = 'providers' | 'combos' | 'compaction'
