@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { fetchProvidersHealth } from '@ihui/api-client'
+import { fetchModelSyncStatus, fetchProvidersHealth, triggerModelSync } from '@ihui/api-client'
 import { Card, CardContent, Badge, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { Loader2, RefreshCw } from 'lucide-react'
@@ -30,6 +30,22 @@ export function ProvidersHealthTab() {
     queryKey: ['gateway-providers-health'],
     queryFn: fetchProvidersHealth,
     refetchInterval: 30_000,
+  })
+
+  const { data: syncStatus } = useQuery({
+    queryKey: ['model-sync-status'],
+    queryFn: fetchModelSyncStatus,
+    refetchInterval: 10_000,
+  })
+
+  const queryClient = useQueryClient()
+  const syncMutation = useMutation({
+    mutationFn: triggerModelSync,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['model-sync-status'] })
+      queryClient.invalidateQueries({ queryKey: ['gateway-providers-health'] })
+      queryClient.invalidateQueries({ queryKey: ['llm-models'] })
+    },
   })
 
   const [filter, setFilter] = React.useState<'all' | ProviderStatus>('all')
@@ -76,6 +92,72 @@ export function ProvidersHealthTab() {
           {t('refresh')}
         </Button>
       </div>
+
+      {/* 模型自动同步 */}
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1">
+              <p className="text-sm font-medium">模型自动同步</p>
+              <p className="text-[11px] text-muted-foreground">
+                {syncStatus?.last_sync_at
+                  ? `最近同步:${new Date(syncStatus.last_sync_at).toLocaleString()} · ${syncStatus.total_providers} 个 provider · +${syncStatus.total_new_models} 新增 / -${syncStatus.total_removed_models} 下架 · ${syncStatus.last_sync_duration_ms}ms`
+                  : '从未同步'}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending || syncStatus?.is_syncing}
+              className="h-7 px-2.5 text-xs"
+            >
+              {syncMutation.isPending || syncStatus?.is_syncing ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+              )}
+              {syncStatus?.is_syncing ? '同步中...' : '立即同步'}
+            </Button>
+          </div>
+          {syncMutation.isError && (
+            <p className="mt-2 text-[11px] text-red-600 dark:text-red-500">
+              同步失败:{syncMutation.error instanceof Error ? syncMutation.error.message : '未知错误'}
+            </p>
+          )}
+          {syncStatus?.results && syncStatus.results.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {syncStatus.results.map((r) => (
+                <div key={r.provider_code} className="flex items-center gap-2 text-[11px]">
+                  <span className="font-medium">{r.provider_code}</span>
+                  {r.success ? (
+                    <>
+                      <Badge variant="outline" className="text-[10px]">
+                        {r.total_models} 总数
+                      </Badge>
+                      {r.new_models > 0 && (
+                        <Badge className="border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-500 text-[10px]">
+                          +{r.new_models} 新增
+                        </Badge>
+                      )}
+                      {r.removed_models > 0 && (
+                        <Badge className="border-transparent bg-red-500/15 text-red-600 dark:text-red-500 text-[10px]">
+                          -{r.removed_models} 下架
+                        </Badge>
+                      )}
+                      <span className="text-muted-foreground">{r.latency_ms}ms</span>
+                    </>
+                  ) : (
+                    <Badge className="border-transparent bg-red-500/15 text-red-600 dark:text-red-500 text-[10px]">
+                      失败:{r.error}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Loading */}
       {isLoading && (
