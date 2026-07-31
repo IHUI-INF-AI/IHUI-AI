@@ -83,6 +83,7 @@ vi.mock('lucide-react', () => {
     Layers: Icon,
     Clock: Icon,
     ListTodo: Icon,
+    ChevronRight: Icon,
   }
 })
 
@@ -614,6 +615,61 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
       const msgs = [makeUserMsg('u1', '问题'), makeAssistantMsg('a1', '回答')]
       render(<MessageList {...baseProps} messages={msgs} />)
       expect(document.querySelectorAll('[data-message-id]').length).toBe(2)
+    })
+  })
+
+  // ─── PlanStepsCard 派生(2026-07-31 增强)──────────────────────────
+  describe('PlanStepsCard 派生', () => {
+    it('纯文本对话(有 content):显示"回答"步骤', () => {
+      const msgs = [makeAssistantMsg('a1', '这是回答')]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      const card = screen.queryByTestId('message-plan-steps-card')
+      expect(card).toBeTruthy()
+      expect(card?.textContent).toContain('回答')
+    })
+
+    it('有 reasoning + content:显示"思考"+"回答"两个步骤', () => {
+      const msgs = [
+        makeAssistantMsg('a1', '最终答案', { reasoning: '我在思考...' }),
+      ]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      const card = screen.getByTestId('message-plan-steps-card')
+      expect(card.textContent).toContain('思考')
+      expect(card.textContent).toContain('回答')
+    })
+
+    it('有 toolCalls:显示工具调用步骤', () => {
+      const msgs = [
+        makeAssistantMsg('a1', '已执行', {
+          toolCalls: [
+            {
+              id: 'tc1',
+              toolName: 'read_file',
+              args: {},
+              status: 'success',
+              startedAt: Date.now(),
+            },
+          ],
+        }),
+      ]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      const card = screen.getByTestId('message-plan-steps-card')
+      expect(card.textContent).toContain('read_file')
+    })
+
+    it('streaming 中最后一条 assistant 的"回答"步骤为 in_progress', () => {
+      const msgs = [makeAssistantMsg('a1', '部分回答')]
+      render(<MessageList {...baseProps} messages={msgs} isStreaming={true} />)
+      const card = screen.getByTestId('message-plan-steps-card')
+      // in_progress 状态会渲染 Loader2 动画图标(spinner)
+      // 完成度显示 "0/1"(只有"回答"步骤,未完成)
+      expect(card.textContent).toContain('0/1')
+    })
+
+    it('空 assistant 消息(无 reasoning/toolCalls/content):不显示 PlanStepsCard', () => {
+      const msgs = [makeAssistantMsg('a1', '')]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      expect(screen.queryByTestId('message-plan-steps-card')).toBeNull()
     })
   })
 })
