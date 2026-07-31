@@ -38,6 +38,7 @@
  * ```
  */
 import * as React from 'react'
+import type { BaseToolCall as TypesBaseToolCall, ToolCallSummary } from '@ihui/types/ai'
 
 /**
  * 消息角色
@@ -47,27 +48,31 @@ export type ChatRole = 'user' | 'assistant' | 'system'
 /**
  * 工具调用基础类型(各端可扩展端独占字段)。
  *
+ * 继承 @ihui/types/ai 的 BaseToolCall(2026-07-31 立,AI 对话可视化深度接入),
+ * 自动获得 serverSource / serverId / serverName / durationMs / isError 等跨端字段。
+ *
  * 各端扩展示例:
  * ```ts
  * import type { ToolCall as BaseToolCall } from '@ihui/shared/hooks'
  * interface WebToolCall extends BaseToolCall { diffInfo?: ...; applyStatus?: ... }
  * ```
  */
-export interface ToolCall {
-  id: string
-  toolName: string
+export interface ToolCall extends TypesBaseToolCall {
+  /** 工具调用参数(收窄 BaseToolCall.args 为必填,保持原 ToolCall 契约向后兼容) */
   args: Record<string, unknown>
-  result?: unknown
-  status: 'running' | 'success' | 'error'
+  /** @deprecated 旧字段,新代码用 BaseToolCall.durationMs;向后兼容保留 */
   duration?: number
+  /** 工具调用错误信息(端独占,与 BaseToolCall.isError 互补) */
   error?: string
-  /** 多轮 tool loop 的轮次(1-based,undefined 或 1 表示单轮) */
-  iteration?: number
-  /** 后端重复调用检测命中时标记(同 tool_name + 同 args 已执行过,跳过实际调用) */
-  repeated?: boolean
   /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
   image_url?: string
 }
+
+/**
+ * 跨端共享的 BaseToolCall re-export(2026-07-31 立)。
+ * 各端可从 @ihui/shared/hooks 或 @ihui/types/ai 任一处 import,语义一致。
+ */
+export type BaseToolCall = TypesBaseToolCall
 
 /**
  * 聊天消息基础类型(各端可扩展)。
@@ -95,6 +100,10 @@ export interface ChatMessage {
   reasoning?: string
   /** 工具调用列表(SSE tool-call 事件累加) */
   toolCalls?: ToolCall[]
+  /** 工具调用汇总(2026-07-31 立,SSE tool-summary 事件聚合结果;缺失时前端可从 toolCalls 本地降级聚合) */
+  toolCallSummary?: ToolCallSummary
+  /** 整条消息耗时 ms(2026-07-31 立,从 streamChat 开始到 done;仅 assistant 流式消息有意义) */
+  totalDurationMs?: number
   /** 附加元数据(各端自定义,如 agentId / tokens 等) */
   meta?: Record<string, unknown>
 }
