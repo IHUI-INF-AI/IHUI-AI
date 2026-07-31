@@ -6,7 +6,7 @@ import fileIcon from '@/assets/remote/images/file.png'
 // record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
 const recordBackIcon = '/static/images/record_back.png'
 import Taro, { useRouter, useDidShow, useShareAppMessage } from '@tarojs/taro'
-import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   chatStream,
   type ChatMessage,
@@ -677,15 +677,7 @@ export default function ChatPage() {
   }, [])
 
   return (
-    <View
-      className="page"
-      style={
-        {
-          '--ai-chat-bg': 'linear-gradient(180deg, #93D2F3, #93D2E2, #9bd1d1)',
-          background: 'var(--ai-chat-bg)',
-        } as CSSProperties
-      }
-    >
+    <View className="page">
       <View
         className="nav-bar safe-area-bottom"
         style={{ background: 'transparent', display: navBarHidden ? 'none' : 'flex' }}
@@ -774,8 +766,6 @@ export default function ChatPage() {
                 onRecharge={handleRecharge}
               />
             ) : null}
-            <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
-            <Text className="welcome-desc">{t('ai.welcomeDesc')}</Text>
             <View className="suggest-list">
               {suggestions.map((s, i) => (
                 <View key={i} className="suggest-item" onClick={() => handleSuggestion(s)}>
