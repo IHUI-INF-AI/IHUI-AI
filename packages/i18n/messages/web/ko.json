@@ -109,7 +109,10 @@
       "quitDownloading": "업데이트 다운로드 중...",
       "quitRestarting": "업데이트 완료, 재시작 중...",
       "quitQuitting": "종료 중...",
-      "quitSkip": "건너뛰고 종료"
+      "quitSkip": "건너뛰고 종료",
+      "autoRestart": "자동 재시작 중...",
+      "preparing": "업데이트 준비 중...",
+      "autoRetrying": "업데이트 실패, 자동 재시도 중..."
     },
     "resize": "드래그하여 너비 조절",
     "create": "생성",
