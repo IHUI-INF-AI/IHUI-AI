@@ -846,6 +846,44 @@ cd IHUI-AI && docker compose up -d
 
 ---
 
+## 💬 联系我们(看完了?聊两句?)
+
+> 如果你看完上面 5 个场景觉得"这玩意儿有点意思" —— 别停在 README 里,直接来找作者。
+> 一个人做的项目,你扫码加好友,和你聊的就是写代码的那个人,不是客服,不是运营,不是 Bot。
+
+<p align="center">
+  <strong>微信号 <code>ok502319984</code></strong> · <strong>公众号「智汇AI」</strong> · <strong>企微社群扫码进群</strong>
+</p>
+
+<details>
+<summary>📍 扫码联系(点击展开三个二维码)</summary>
+
+<table align="center">
+  <tr>
+    <td align="center" width="33%">
+      <img src="apps/web/public/footer/erweima/wechat-vx.png" width="160" alt="作者微信二维码" /><br/>
+      <sub><strong>👤 作者微信</strong></sub><br/>
+      <sub>扫码或搜索 <code>ok502319984</code></sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="apps/web/public/footer/erweima/footer-icon-2.png" width="160" alt="公众号二维码" /><br/>
+      <sub><strong>📢 官方公众号</strong></sub><br/>
+      <sub>关注「智汇AI」</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="apps/web/public/footer/erweima/community-group.jpg" width="160" alt="企微社群二维码" /><br/>
+      <sub><strong>💬 企微社群</strong></sub><br/>
+      <sub>扫码进群,和开发者直接聊</sub>
+    </td>
+  </tr>
+</table>
+
+</details>
+
+> 想看完整的「加入我们」说明?跳到 [文末加入我们章节](#-加入我们join-us)。
+
+---
+
 ## 技术栈
 
 | 层             | 技术                                                                           | 版本                                |
