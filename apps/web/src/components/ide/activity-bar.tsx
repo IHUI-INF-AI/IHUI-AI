@@ -11,17 +11,27 @@ type Item = { id: ViewPanelType; icon: typeof FileSearch; labelKey: string; shor
 const ITEMS: Item[] = [
   { id: 'files', icon: FileSearch, labelKey: 'activityBar.files', shortcut: 'Ctrl+Shift+E' },
   { id: 'search', icon: Search, labelKey: 'activityBar.search', shortcut: 'Ctrl+Shift+F' },
-  { id: 'source-control', icon: GitBranch, labelKey: 'activityBar.sourceControl', shortcut: 'Ctrl+Shift+G' },
+  {
+    id: 'source-control',
+    icon: GitBranch,
+    labelKey: 'activityBar.sourceControl',
+    shortcut: 'Ctrl+Shift+G',
+  },
   { id: 'debug', icon: Bug, labelKey: 'activityBar.debug', shortcut: 'Ctrl+Shift+D' },
-  { id: 'applications', icon: AppWindow, labelKey: 'activityBar.applications', shortcut: 'Ctrl+Shift+A' },
+  {
+    id: 'applications',
+    icon: AppWindow,
+    labelKey: 'activityBar.applications',
+    shortcut: 'Ctrl+Shift+A',
+  },
 ]
 
 function Tooltip({ label, shortcut }: { label: string; shortcut: string }) {
   return (
     <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 translate-x-1 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
-      <div className="flex items-center gap-2 whitespace-nowrap">
+      <div className="flex items-center gap-1 whitespace-nowrap">
         <span>{label}</span>
-        <span className="text-[10px] text-muted-foreground">{shortcut}</span>
+        <span className="text-[10px] text-muted-foreground">({shortcut})</span>
       </div>
     </div>
   )
