@@ -9,6 +9,10 @@ import {
   findConversationById,
   updateConversation,
   deleteConversation,
+  deleteConversationsBatch,
+  favoriteConversationsBatch,
+  unfavoriteConversationsBatch,
+  setConversationsArchivedBatch,
   findMessages,
   createMessage,
   findMessageById,
@@ -144,6 +148,12 @@ const compressSchema = z.object({
     .refine((n) => COMPRESS_TARGETS.includes(n), {
       message: `targetChars 必须是以下值之一: ${COMPRESS_TARGETS.join(', ')}`,
     }),
+})
+
+// 批量操作 schema(2026-07-31 立,对话历史批量删除/收藏/归档)
+const batchActionSchema = z.object({
+  action: z.enum(['delete', 'favorite', 'unfavorite', 'archive', 'unarchive']),
+  ids: z.array(z.string().uuid()).min(1, '至少选择一个对话').max(100, '单次最多 100 个对话'),
 })
 
 // =============================================================================
@@ -423,6 +433,48 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     await deleteConversation(id)
     return reply.send(success({ deleted: true }))
+  })
+
+  // POST /conversations/batch - 批量操作对话(删除/收藏/取消收藏/归档/取消归档)
+  // 用户归属校验由 DB 层 userId + inArray(ids) 一次过滤,防越权
+  // 批量导出由前端循环单条 export + 逐个下载,不在此接口
+  server.post('/conversations/batch', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const parsed = batchActionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const { action, ids } = parsed.data
+
+    try {
+      let affected = 0
+      switch (action) {
+        case 'delete':
+          affected = await deleteConversationsBatch(userId, ids)
+          break
+        case 'favorite':
+          affected = await favoriteConversationsBatch(userId, ids)
+          break
+        case 'unfavorite':
+          affected = await unfavoriteConversationsBatch(userId, ids)
+          break
+        case 'archive':
+          affected = await setConversationsArchivedBatch(userId, ids, true)
+          break
+        case 'unarchive':
+          affected = await setConversationsArchivedBatch(userId, ids, false)
+          break
+      }
+      return reply.send(success({ action, affected }))
+    } catch (err) {
+      request.log.error({ err }, '批量操作失败')
+      const msg = err instanceof Error ? err.message : '批量操作失败'
+      return reply.code(500).send(error(500, msg))
+    }
   })
 
   // GET /conversations/:id/messages - 消息列表（分页/游标，按时间正序）

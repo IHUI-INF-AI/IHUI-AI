@@ -26,6 +26,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -44,9 +45,11 @@ import { Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
 import {
   archiveConversation,
+  batchOperateConversations,
   compressConversation,
   exportConversation,
   unarchiveConversation,
+  type BatchConversationAction,
 } from '@ihui/api-client'
 
 export interface Conversation {
@@ -73,6 +76,9 @@ export function ConversationList({ items }: { items: Conversation[] }) {
   const [pendingRenameId, setPendingRenameId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [pendingBatchDelete, setPendingBatchDelete] = useState(false)
+  const [batchBusy, setBatchBusy] = useState(false)
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     month: '2-digit',
@@ -166,6 +172,77 @@ export function ConversationList({ items }: { items: Conversation[] }) {
     onSuccess: () => invalidateAll(),
   })
 
+  // 批量操作 mutation(2026-07-31 立,对话历史批量删除/收藏/归档)
+  const batchMutation = useMutation({
+    mutationFn: ({ action, ids }: { action: BatchConversationAction; ids: string[] }) =>
+      batchOperateConversations(action, ids),
+    onSuccess: (_data, { action }) => {
+      invalidateAll()
+      const msgMap: Record<BatchConversationAction, string> = {
+        delete: t('batchDeleteSuccess'),
+        favorite: t('batchFavoriteSuccess'),
+        unfavorite: t('batchUnfavoriteSuccess'),
+        archive: t('batchArchiveSuccess'),
+        unarchive: t('batchUnarchiveSuccess'),
+      }
+      success(msgMap[action])
+      if (action === 'delete') setSelectedIds(new Set())
+    },
+    onError: (err: Error) => error(err.message || tc('deleteFailed')),
+  })
+
+  const allSelected = items.length > 0 && selectedIds.size === items.length
+  const someSelected = selectedIds.size > 0 && !allSelected
+
+  const toggleSelection = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
+  const toggleAll = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(items.map((i) => i.id)) : new Set())
+  }
+
+  const invertSelection = () => {
+    setSelectedIds((prev) => {
+      const next = new Set<string>()
+      for (const item of items) {
+        if (!prev.has(item.id)) next.add(item.id)
+      }
+      return next
+    })
+  }
+
+  const runBatch = (action: BatchConversationAction) => {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    if (action === 'delete') {
+      setPendingBatchDelete(true)
+      return
+    }
+    setBatchBusy(true)
+    batchMutation.mutate({ action, ids }, { onSettled: () => setBatchBusy(false) })
+  }
+
+  const confirmBatchDelete = () => {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    setBatchBusy(true)
+    batchMutation.mutate(
+      { action: 'delete', ids },
+      {
+        onSettled: () => {
+          setBatchBusy(false)
+          setPendingBatchDelete(false)
+        },
+      },
+    )
+  }
+
   const handleRename = (item: Conversation) => {
     setPendingRenameId(item.id)
     setRenameValue(item.title)
@@ -254,12 +331,94 @@ export function ConversationList({ items }: { items: Conversation[] }) {
 
   return (
     <>
+      {selectedIds.size > 0 && (
+        <div className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-sm">
+          <Checkbox
+            checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+            onCheckedChange={(checked) => toggleAll(checked === true)}
+            aria-label={t('selectAll')}
+          />
+          <span className="text-sm font-medium tabular-nums">
+            {t('selectedCount', { count: selectedIds.size })}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={invertSelection}
+            disabled={batchMutation.isPending || batchBusy}
+          >
+            {t('invertSelection')}
+          </Button>
+          <div className="ml-auto flex flex-wrap items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => runBatch('favorite')}
+              disabled={batchMutation.isPending || batchBusy}
+            >
+              <Star className="mr-1 h-3.5 w-3.5" />
+              {t('batchFavorite')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => runBatch('unfavorite')}
+              disabled={batchMutation.isPending || batchBusy}
+            >
+              {t('batchUnfavorite')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => runBatch('archive')}
+              disabled={batchMutation.isPending || batchBusy}
+            >
+              <Archive className="mr-1 h-3.5 w-3.5" />
+              {t('batchArchive')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => runBatch('unarchive')}
+              disabled={batchMutation.isPending || batchBusy}
+            >
+              <ArchiveRestore className="mr-1 h-3.5 w-3.5" />
+              {t('batchUnarchive')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              onClick={() => setPendingBatchDelete(true)}
+              disabled={batchMutation.isPending || batchBusy}
+              data-testid="batch-delete-btn"
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              {t('batchDelete')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={batchMutation.isPending || batchBusy}
+            >
+              {t('cancelSelection')}
+            </Button>
+          </div>
+        </div>
+      )}
       <ul className="space-y-1 rounded-lg border p-1">
         {items.map((item) => (
           <li
             key={item.id}
             className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
           >
+            <Checkbox
+              checked={selectedIds.has(item.id)}
+              onCheckedChange={(checked) => toggleSelection(item.id, checked === true)}
+              aria-label={t('select')}
+              data-testid={`conversation-checkbox-${item.id}`}
+            />
             <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
             <button
               type="button"
@@ -426,6 +585,18 @@ export function ConversationList({ items }: { items: Conversation[] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={pendingBatchDelete}
+        title={t('batchDelete')}
+        content={t('confirmBatchDelete', { count: selectedIds.size })}
+        confirmText={t('batchDelete')}
+        cancelText={t('cancelSelection')}
+        variant="danger"
+        loading={batchMutation.isPending || batchBusy}
+        onConfirm={confirmBatchDelete}
+        onCancel={() => setPendingBatchDelete(false)}
+      />
     </>
   )
 }
