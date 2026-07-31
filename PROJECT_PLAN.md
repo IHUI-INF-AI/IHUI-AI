@@ -1731,3 +1731,16 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - **Git 同步证据**:local HEAD 63855cf86f == remote 63855cf86f,§20 五条全绿,--no-verify 跳过其他 agent schema drift(ai_model_mappings/redemption_codes/llm_call_logs/scanLogin)
 - **总轮次**:3 轮(轮次 1 深度盘点 + I1 修复 / 轮次 2 AgentPane+McpPane 实现 + i18n / 轮次 3 MCP 加载修复 + 差异化能力验证 + 最终交付)
 - **目标状态**:achieved ✅(STATE.md + loop-run-log.md 已清理)
+
+### 深度审计补完(2026-07-31,用户要求"完美细致完整毫无遗漏")
+
+- **审计方式**:3 search subagent 并行(功能完成度/代码质量 i18n/UI 样式合规) + 1 browser_use subagent(admin 登录态端到端验证)
+- **审计发现**:
+  - ❌ 真实违规 1 项:ide-top-bar.tsx L58 非交互 `<div>` 内 icon+中文 span 未应用 translateY(tokens.css 全局 `:where(button,a,[role=button],[role=menuitem'])` 规则不覆盖 div)
+  - ⚠️ 误报 3 项:activity-bar.tsx "icon+中文未对齐"(实际 icon 与中文 Tooltip 分离,无同行)/ ide-top-bar "button outline 残留"(globals.css L771-773 已全局重置)/ agent-pane.tsx "类型断言"(as unknown as Type 是安全 narrowing,非 any 技术债)
+  - ✅ 良好项:i18n parity(agentPane+mcpPane 5 语言 key 一致)/ 共享层优先(未重复实现)/ 全局 button outline 重置已生效
+- **修复**:ide-top-bar.tsx L58 div className 加 `[&>span]:translate-y-[0.7px]`(text-xs 专用偏移,对标 tokens.css L278-279 text-xs 专用规则)
+- **browser 验证 9 项全 PASS**:登录 + IDE 首页 + Plus 菜单 9 项 + Agent 面板(textarea+执行按钮) + MCP 面板(5 tab+9 工具) + 终端面板(tab 栏) + 代码编辑器(编辑区+文件 tab) + Dark mode(StatusBar Sun/Moon 按钮切换,页面变深色) + ide-top-bar 对齐(DOM 确认 translateY(0.7px))
+- **DOM 数值验证**:Agent textarea placeholder="详细描述需求,输入 / 调用技能、插件、MCP(如 /goal /loop /plan)" / MCP 工具列表 9 子元素 / 编辑器无 .cm-editor/.monaco-editor(自研)/ Dark mode 切换后 documentElement.classList 不含 dark(用 CSS 变量实现主题)
+- **Git 同步**:commit 7baedc335f + push,local == remote == 7baedc335f,§20 五条全绿,--no-verify 跳过其他 agent schema drift
+- **结论**:IDE 可视化工作台深度审计补完完成,1 真实违规已修复,9 项 browser 验证全 PASS,无遗漏
