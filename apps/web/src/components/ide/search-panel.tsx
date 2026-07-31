@@ -219,9 +219,9 @@ export function SearchPanel() {
 
       <div className="flex-1 overflow-auto">
         {!workspacePath ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">请先打开工作区</div>
+          <div className="px-3 py-2 text-xs text-muted-foreground">{t('searchPanel.openWorkspaceHint')}</div>
         ) : loading ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">搜索中...</div>
+          <div className="px-3 py-2 text-xs text-muted-foreground">{t('searchPanel.searching')}</div>
         ) : query && totalMatches > 0 ? (
           <div className="px-2 py-1">
             <div className="mb-1 text-xs text-muted-foreground">
