@@ -104,6 +104,8 @@ import {
   NAV_ITEM_EXPANDED_CLASS,
   NAV_CHILD_CLASS,
   BTN_NEW_CONVERSATION_CLASS,
+  TOPBAR_BTN_BASE,
+  TOPBAR_BTN_W9,
 } from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui-react'
 import { useAuthStore } from '@/stores/auth'
@@ -566,14 +568,19 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
     createdAt: n.createdAt,
   }))
 
-  // 按钮统一 h-[26px] w-[26px] + svg size-5 (20×20):
-  // 图标尺寸与 NavLink 导航项 (h-5 w-5=20px) 完全一致,避免底部工具栏图标过小不一致;
-  // 4 个按钮 + 3 个 gap-0.5 (6px) = 110px,正好填满 130px 默认宽度 (扣 px-1.5 + p-1 = 20px padding);
-  // [&_svg]:size-5 覆盖 Button 默认的 [&_svg]:size-4,让 svg 渲染为 20×20 与导航项图标尺寸一致。
-  // 2026-07-30 修订:去掉独立容器背景色(bg-white/dark:bg-black),
-  // 让按钮透出侧边栏底背景色(用户要求),仅保留 hover 微反馈 + 键盘 focus ring。
-  const btnClass =
-    'h-[26px] w-[26px] shrink-0 p-0 [&_svg]:size-5 text-foreground outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-foreground/30 dark:hover:bg-accent/50 dark:focus-visible:ring-foreground/30'
+  // 按钮统一 h-[26px] w-[26px] + svg 14×14 (跟 web 端顶栏 Plus / X / Min 14px 图标一致):
+  // - 130px 宽侧边栏放不下 4 个 36×36 按钮(需 144+px),保留 26×26 紧凑布局
+  // - 改用 TOPBAR_BTN_BASE 共享 bg-card + hover:bg-accent + text-foreground/80 样式,
+  //   跟 web 端顶栏按钮视觉统一(原来用 hover:bg-accent/50 50% 不透明度,亮色下 88% L
+  //   跟背景 96% L 差距仅 8% 视觉对比弱;改用 bg-accent 后 88% L 对比明显)
+  // - 移除原 [&_svg]:size-5 (20px) 覆盖,改用 [&>svg]:h-3.5 [&>svg]:w-3.5 (14px) 强制统一,
+  //   Flag(原来 20px)现在跟其他 3 个按钮(原本就 14px)完全一致
+  // 2026-07-31 立:用户反馈"底部按钮跟 web 端不一致,为什么要单独配置图标"
+  const btnClass = cn(
+    TOPBAR_BTN_BASE,
+    'h-[26px] w-[26px] p-0',
+    '[&>svg]:h-3.5 [&>svg]:w-3.5',
+  )
 
   return (
     <div
@@ -768,7 +775,7 @@ function SidebarUserRow({
             'flex w-full items-center justify-center gap-1.5 rounded-md p-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
-          <LogIn className="h-4 w-4 shrink-0" />
+          <LogIn className="h-3.5 w-3.5 shrink-0" />
           {!collapsed && <span>{tc('login')}</span>}
         </button>
       </div>
@@ -1770,35 +1777,50 @@ export function Sidebar({
           variant="ghost"
           size="icon"
           onClick={onToggleCollapse}
-          // h-9 w-9 (36×36) 与新建任务按钮/主导航项统一;hover 用 foreground/20 与新建任务按钮一致;
-          // 默认无背景,仅 hover 出现 (2026-07-20 用户反馈:默认 bg-foreground/10 让按钮视觉过重)
-          // 图标尺寸 20×20 (size-5):覆盖 Button 默认的 [&_svg]:size-4,纯图标按钮无文字标签,16×16 视觉过小
-          // (2026-07-25 用户反馈);h-4 仍保留在 SVG 上作为防御性兜底,即便父级 override 丢失也保持 16×16 默认。
+          // 2026-07-31 立:桌面端折叠按钮改用 TOPBAR_BTN_BASE + TOPBAR_BTN_W9 共享样式,
+          // 跟移动端关闭按钮 / 顶栏 Plus 按钮同源(bg-card + hover:bg-accent + text-foreground/80)
+          // 统一按钮风格,杜绝"桌面端用 hover:bg-foreground/20 / 移动端用 hover:bg-accent"风格漂移
+          // h-9 显式覆盖 TOPBAR_BTN_BASE 的 h-full(父容器 h-[44px] 用 h-full 会撑到 44px,跟其他元素不对齐)
           className={cn(
-            'flex-shrink-0 p-0 text-foreground hover:bg-foreground/20 [&_svg]:size-5',
-            'hidden lg:flex',
+            TOPBAR_BTN_BASE,
+            TOPBAR_BTN_W9,
+            'h-9 p-0 hidden lg:flex',
           )}
           aria-label={collapsed ? t('expand') : t('collapse')}
         >
+          {/* 图标统一 14px (h-3.5 w-3.5),跟 web 端顶栏 Plus / X / Min 完全一致 */}
           {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
+            <PanelLeftOpen className="h-3.5 w-3.5" />
           ) : (
-            <PanelLeftClose className="h-4 w-4" />
+            <PanelLeftClose className="h-3.5 w-3.5" />
           )}
         </Button>
       </Tooltip>
-      {/* 2026-07-31 第十四次微调(用户反馈"侧边栏关闭按钮不对,应该跟正常尺寸对齐"):
-          - h-9 w-9 (36×36) + bg-card 跟 GlobalTopBar 的 TOPBAR_BTN_BASE 完全统一
-          - 移 p-0(p-0 让按钮塌成 16×16 极小方块,跟顶栏 36×36 视觉参差)
-          - icon h-4 w-4 (16px) 跟顶栏 chevron/搜索按钮图标尺寸一致 */}
+      {/* 2026-07-31 第十八次微调(用户反馈"X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
+          - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
+            的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / rounded-md / focus-visible:bg-accent)
+          - 去掉之前单独加的 `border border-border` 和 `hover:text-foreground` —— web 顶栏的
+            4 类按钮都没 border,移动端"凭空多出边框"是视觉不一致的根因
+          - icon h-3.5 w-3.5 (14px) 跟顶栏窗口控制 X (h-3.5 w-3.5) + Plus (h-3.5 w-3.5) 完全统一,
+            不再单独配 h-4 w-4 (16px) 跟顶栏不一致
+          - h-9 w-9 通过 TOPBAR_BTN_W9 自动应用(原 h-9 w-9 也对,TOPBAR_BTN_BASE 是 h-full,
+            移动端 wrapper 没 h-9 父容器,所以在移动端实例上加 h-9 让按钮自身 36×36,跟桌面端 h-9
+            父容器 + h-full 子元素等价)
+          - 跟顶栏按钮共用 base 后,改一处生效所有同源按钮,杜绝"漏改"漂移 */}
       <Button
         variant="ghost"
         size="icon"
         onClick={onCloseMobile}
-        className="ml-auto h-9 w-9 shrink-0 rounded-md border border-border bg-card text-foreground/80 transition-colors hover:bg-accent hover:text-foreground lg:hidden"
+        className={cn(
+          // h-9 w-9 已被 Button size="icon" + TOPBAR_BTN_W9 覆盖,无需重复声明
+          // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
+          'ml-auto shrink-0 lg:hidden',
+          TOPBAR_BTN_BASE,
+          TOPBAR_BTN_W9,
+        )}
         aria-label={tc('close')}
       >
-        <X className="h-4 w-4" />
+        <X className="h-3.5 w-3.5" />
       </Button>
     </div>
   )
@@ -1859,28 +1881,55 @@ export function Sidebar({
         />
       )}
 
-      {/* 移动端抽屉 — 2026-07-31 修复:
-          - 宽度从 desktop SIDEBAR_WIDTH(130px)改为响应式 min(85vw, 320px):
-            130px 在 375px iPhone 上只占 35% 屏宽,菜单项(新建任务/插件市场/导航)文字被挤压/截断;
-            改为 min(85vw, 320px)后,iPhone SE(320px)占满 272px、iPhone 14(390px)占 320px、
-            iPhone Pro Max(430px)占 320px — 内容完整可见 + 右侧留出 50-110px 给工作区预览。
-          - 加 shadow-xl + 右侧 1px border-border 描边,跟 work-area 形成明确层级
-            (避免抽屉"飘"在背景上的廉价感,与暗色模式 bg-background 区分)。
-          - 仍走 transition-transform + translate-x-full → translate-x-0,
-            200ms 平滑从左侧滑出整个抽屉。 */}
+      {/* 移动端抽屉 — 2026-07-31 第十五次微调(用户反馈"侧边栏太宽,要跟 web 设定尺寸一样,可以拉伸"):
+          - 宽度从 min(85vw, 320px) 改为复用 desktop 共享的 sidebarWidth state (默认 130px = SIDEBAR_WIDTH,
+            跟 web 桌面端默认宽度字节级一致),范围 130-180px = SIDEBAR_MIN_WIDTH-SIDEBAR_MAX_WIDTH
+          - 复用 desktop handleResizeStart(pointermove/pointerup 兼容触屏,无需额外 touch 事件)
+          - 加 resize 手柄(结构跟 desktop 一致:外层 w-2 命中区 + 内层 w-0.5 可见细线)
+          - 跟 desktop aside 共享 sidebarWidth state + localStorage 持久化
+            (用户在任一端拖过宽度,另一端下次打开自动同步)
+          - 仍走 transition-transform 200ms 从左滑出,resize 时 width 200ms 平滑过渡 */}
       <aside
         aria-modal="true"
         aria-label={t('mainNav')}
         role="dialog"
         className={cn(
-          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-y-auto overflow-x-hidden border-r border-border bg-background shadow-xl transition-transform duration-200 ease-out lg:hidden',
+          // 2026-07-31 第十七次微调(用户反馈"底部语言/通知/登录按钮没显示在侧边栏底部"):
+          // 改 overflow-y-auto → overflow-hidden,让 nav 自己处理 overflow-y-auto
+          // 之前 aside 整体 overflow-y-auto,内容超长时 footer 被推下屏幕外不可见
+          // 现在 footer (shrink-0) 固定在底部,nav (flex-1 overflow-y-auto) 独立滚动
+          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden border-r border-border bg-background shadow-xl transition-transform duration-200 ease-out lg:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
-        style={{ width: 'min(85vw, 320px)' }}
+        style={{
+          width: sidebarWidth,
+          transition: isResizing
+            ? 'none'
+            : 'width 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s ease-out',
+        }}
       >
         {header}
         {navContent(mobileNavId, mobileNavRef, 'mobile')}
         {footer}
+        {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构
+            - onPointerDown 兼容鼠标 + 触屏,无需额外 touch event listener
+            - 命中区 w-2 (8px),right-[-4px] 跨越 aside 右边缘
+            - 内层 w-0.5 可见细线,默认 opacity:0,hover/拖拽时显渐变色
+            - 范围自动跟随 SIDEBAR_MIN_WIDTH-SIDEBAR_MAX_WIDTH (130-180),跟 web 统一 */}
+        <div
+          onPointerDown={handleResizeStart}
+          className="group absolute right-[-4px] top-0 bottom-0 z-20 w-2 cursor-col-resize"
+        >
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={tc('resize')}
+            className={cn(
+              'absolute left-[calc(50%-0.25px)] top-0 bottom-0 w-0.5 -translate-x-1/2 resize-handle-line',
+              isResizing && 'is-resizing',
+            )}
+          />
+        </div>
       </aside>
     </>
   )
