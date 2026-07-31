@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
-import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt } from '@/components/common'
+import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt, QuitUpdateOverlay } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
 import { Button } from '@ihui/ui-react'
@@ -256,6 +256,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
       {/* 桌面端应用更新下拉提示(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
           内部调用 useUpdater hook,启动静默检查 + 监听托盘菜单 desktop-check-update 事件。 */}
       <UpdatePrompt />
+      {/* 桌面端退出时自动更新遮罩(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
+          拦截退出流程(Ctrl+Q / 托盘退出),自动检查+下载+安装+重启,显示全屏进度遮罩。 */}
+      <QuitUpdateOverlay />
       {/*
         Agent 任务进度 popover(2026-07-27 v6):
         trigger + popover 已内嵌到 MessageInput 输入框附加栏(上方居中),
