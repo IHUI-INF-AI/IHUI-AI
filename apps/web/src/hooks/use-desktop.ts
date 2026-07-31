@@ -242,6 +242,10 @@ export function useDesktopEvents(): void {
           case 'check_update':
             window.dispatchEvent(new CustomEvent('desktop-check-update'))
             break
+          case 'quit':
+            // 2026-07-31:托盘退出 → 前端拦截,检查更新后退出或重启
+            window.dispatchEvent(new CustomEvent('desktop-quit-request'))
+            break
         }
       })
 

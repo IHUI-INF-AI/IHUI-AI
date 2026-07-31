@@ -104,7 +104,12 @@
       "error": "更新に失敗しました",
       "errorDesc": "更新中にエラーが発生しました。再試行してください。",
       "checkFailed": "更新の確認に失敗しました。ネットワークを確認して再試行してください。",
-      "dismiss": "閉じる"
+      "dismiss": "閉じる",
+      "quitChecking": "更新を確認中...",
+      "quitDownloading": "更新をダウンロード中...",
+      "quitRestarting": "更新完了、再起動中...",
+      "quitQuitting": "終了中...",
+      "quitSkip": "スキップして終了"
     },
     "resize": "ドラッグで幅を調整",
     "noPosts": "まだ投稿がありません",
@@ -13594,7 +13599,8 @@
     },
     "templates": {
       "title": "テンプレート"
-    }
+    },
+    "commented": "コメント済み {tagName}#{elementId}: {comment}"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 先月",
@@ -14354,7 +14360,32 @@
     "agreementNoticeSafe": "情報は暗号化チャネルを通じて安全に送信されます",
     "and": "と",
     "getVerificationCode": "コード取得",
-    "alipayLogin": "Alipayログイン"
+    "alipayLogin": "Alipayログイン",
+    "passwordLogin": "パスワードログイン",
+    "account": "アカウント",
+    "password": "パスワード",
+    "phone": "電話番号",
+    "email": "メール",
+    "invalidAccount": "正しいアカウントを入力してください",
+    "loginBtn": "ログイン",
+    "toLogin": "ログインへ",
+    "phoneRegister": "電話登録",
+    "emailRegister": "メール登録",
+    "passwordWeak": "弱",
+    "passwordMedium": "中",
+    "passwordStrong": "強",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを非表示",
+    "autoLogin": "自動ログイン",
+    "thirdPartyLogin": "サードパーティログイン",
+    "privacyPolicy": "プライバシーポリシー",
+    "agreementNoticeDisagree": "同意しない",
+    "agreementNoticeAgree": "同意して続行",
+    "agreementNoticeEnterHint": "「同意して続行」をクリックすると同意したことになります",
+    "loginTitle": "ログイン",
+    "loginSubtitle": "アカウントにログインして続行",
+    "forgotSubtitle": "パスワードをリセット",
+    "accountHistory": "アカウント履歴"
   },
   "help": {
     "title": "APIテスト",
@@ -14402,5 +14433,6 @@
     "backToHome": "ホームへ戻る"
   },
   "modelFree": "無料",
-  "modelPointsMultiplier": "クレジット倍率"
+  "modelPointsMultiplier": "クレジット倍率",
+  "title": "管理ダッシュボード"
 }
