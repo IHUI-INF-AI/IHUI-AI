@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 
 export interface UseToastReturn {
@@ -10,17 +11,41 @@ export interface UseToastReturn {
   info: (message: string, description?: string) => void
 }
 
+/**
+ * 稳定引用的 toast hook(2026-07-31 修复:防止消费者 useCallback 依赖无限循环)。
+ *
+ * 根因:原实现每次 render 返回新对象 + 新函数,导致依赖 `toast` 的 useCallback
+ * 每次失效,进而触发 useEffect 无限重跑(如 usePublishAccounts 在未登录时疯狂
+ * 重发 GET /api/publish/accounts/me → 100+ 次 toast.error("Authentication required"))。
+ *
+ * 修复:4 个 wrapper 用 useCallback([]) 固化,返回对象用 useMemo 固化。
+ * sonner 的 `toast` 本身是模块级稳定引用,无需处理。
+ */
 export function useToast(): UseToastReturn {
-  const success = (message: string, description?: string) =>
-    toast.success(message, description ? { description } : undefined)
-  const error = (message: string, description?: string) =>
-    toast.error(message, description ? { description } : undefined)
-  const warning = (message: string, description?: string) =>
-    toast.warning(message, description ? { description } : undefined)
-  const info = (message: string, description?: string) =>
-    toast.info(message, description ? { description } : undefined)
-
-  return { toast, success, error, warning, info }
+  const success = useCallback(
+    (message: string, description?: string) =>
+      toast.success(message, description ? { description } : undefined),
+    [],
+  )
+  const error = useCallback(
+    (message: string, description?: string) =>
+      toast.error(message, description ? { description } : undefined),
+    [],
+  )
+  const warning = useCallback(
+    (message: string, description?: string) =>
+      toast.warning(message, description ? { description } : undefined),
+    [],
+  )
+  const info = useCallback(
+    (message: string, description?: string) =>
+      toast.info(message, description ? { description } : undefined),
+    [],
+  )
+  return useMemo(
+    () => ({ toast, success, error, warning, info }),
+    [success, error, warning, info],
+  )
 }
 
 // 加载状态管理
