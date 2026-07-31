@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
@@ -324,7 +324,11 @@ export function MessageInput({
             </div>
           )}
           {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
-              高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告 */}
+              高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告
+              2026-07-31 升级:默认边框从 border-border 改为 border-input,
+              对齐 tokens.css --color-input 设计意图(亮色 91% L 更柔和,暗色 26% L 与卡片 10% L 区分更明显)。
+              之前 border-border(89.8% L / 22% L)在亮色下与白底卡片几乎无可见边界,
+              暗色下 22% vs 卡片 10% 仅 12% 差距,输入框边界感丢失。*/}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -336,7 +340,7 @@ export function MessageInput({
                 ? 'border-primary ring-2 ring-primary/20'
                 : isHighRisk
                   ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
-                  : 'border-border',
+                  : 'border-input',
             )}
           >
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
