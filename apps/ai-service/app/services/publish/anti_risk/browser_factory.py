@@ -33,6 +33,7 @@ from typing import Any
 from app.core.logging import get_logger
 from .account_profile import get_account_profile
 from .stealth import apply_stealth
+from .stealth_advanced import apply_advanced_stealth
 
 logger = get_logger(__name__)
 
@@ -129,8 +130,13 @@ async def create_stealth_browser_context(
     # 5. 注入反检测脚本(必须在任何 page.goto 之前)
     await apply_stealth(context, fingerprint.fingerprint_seed)
 
+    # 6. 注入高级反检测脚本(2026-08-01 深度强化,20 类深度检测点)
+    # 在 apply_stealth 之后注入,增强字体/WebGL/Battery/Sensor 等深度检测点
+    await apply_advanced_stealth(context, account_id)
+
     logger.info(
-        "[browser_factory] 反风控 context 就绪:account=%s seed=%d stealth=已注入",
+        "[browser_factory] 反风控 context 就绪:account=%s seed=%d "
+        "stealth=已注入(基础17类+高级20类=37类检测点)",
         account_id, fingerprint.fingerprint_seed,
     )
 

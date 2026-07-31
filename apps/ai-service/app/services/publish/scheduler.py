@@ -39,6 +39,13 @@ from .anti_risk import (
     RiskScorer,
     RiskScore,
     cooldown_duration_for_error,
+    # 深度强化层(2026-08-01 新增)
+    CookieHealthMonitor,
+    ContentDeduplicator,
+    CaptchaSolver,
+    get_deduplicator,
+    get_monitor,
+    get_solver,
 )
 
 logger = get_logger(__name__)
@@ -464,10 +471,24 @@ class PublishScheduler:
                 platform, type(e).__name__, e,
             )
 
+        # ===== Anti-Risk:内容差异化(2026-08-01 深度强化)=====
+        # 同内容多平台发布会被识别为机器操作,用 SimHash + 同义词改写做差异化
+        account_id_str = str(account_id) if account_id is not None else ""
+        if account_id_str:
+            try:
+                deduplicator = get_deduplicator()
+                platform_content = deduplicator.diversify_for_platform(
+                    platform_content, platform, account_id_str,
+                )
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s content diversify failed: %s: %s",
+                    platform, type(e).__name__, e,
+                )
+
         # ===== Anti-Risk:发布前冷却检查 + 风险评分检查(2026-07-31 强化)=====
         # 检查账号是否在冷却中(平台风控触发后自动冷却)
         # 检查账号风险评分(高频/高失败率/指纹变化等 → 强制冷却)
-        account_id_str = str(account_id) if account_id is not None else ""
         risk_score: Optional[RiskScore] = None
         if account_id_str and platform:
             try:
@@ -542,6 +563,47 @@ class PublishScheduler:
                     platform, type(e).__name__, e,
                 )
 
+        # ===== Anti-Risk:Cookie 健康度检查(2026-08-01 深度强化)=====
+        # 发布前检查 Cookie 是否过期/即将过期,避免发布时才发现失效
+        if account_id_str and platform:
+            try:
+                cookie_monitor = get_monitor()
+                cookie_health = await cookie_monitor.check_cookie_health(
+                    account_id_str, platform, credentials,
+                )
+                if cookie_health.status in ("expired", "invalid"):
+                    err_msg = "Cookie 已过期或无效,请重新登录"
+                    logger.warning(
+                        "[publish.scheduler] %s account %s cookie %s",
+                        platform, account_id_str, cookie_health.status,
+                    )
+                    result = PublishResult(
+                        success=False, platform=platform,
+                        error_message=err_msg,
+                    )
+                    await self._write_history(task_id, user_id, result)
+                    try:
+                        await notifications.notify_progress(
+                            task_id, user_id, platform, "failed", err_msg,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "publish.scheduler 进度通知(cookie)失败: %s",
+                            e, exc_info=True,
+                        )
+                    return result
+                if cookie_health.status == "expiring_soon":
+                    # 即将过期:记录但不阻塞(适配器发布时会自动续期)
+                    logger.info(
+                        "[publish.scheduler] %s account %s cookie 即将过期(剩余 %d 天)",
+                        platform, account_id_str, cookie_health.days_until_expiry,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s cookie health check error: %s: %s",
+                    platform, type(e).__name__, e,
+                )
+
         started = datetime.now(timezone.utc)
         try:
             result = await adapter.publish(platform_content, credentials, platform_config)
@@ -552,6 +614,38 @@ class PublishScheduler:
             )
         elapsed = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
         result.duration_ms = elapsed
+
+        # ===== Anti-Risk:验证码失败重试(2026-08-01 深度强化)=====
+        # 发布失败且错误含验证码关键词时,记录验证码事件(供适配器后续处理)
+        # 注意:scheduler 无 Page 访问权限,实际验证码解决需适配器集成 CaptchaSolver
+        if not result.success and account_id_str:
+            error_msg = result.error_message or ""
+            captcha_keywords = ("验证", "captcha", "slider", "滑块", "人机")
+            if any(kw in error_msg.lower() or kw in error_msg for kw in captcha_keywords):
+                logger.info(
+                    "[publish.scheduler] %s account %s 发布遇到验证码,记录事件",
+                    platform, account_id_str,
+                )
+                try:
+                    solver = get_solver()
+                    # 记录验证码事件到风险评分(提高该账号风险等级)
+                    scorer = RiskScorer.get_instance()
+                    scorer.record_risk_event(
+                        account_id_str, platform, "platform_risk_trigger",
+                        {"error": error_msg, "captcha_detected": True},
+                    )
+                    # 若配置了第三方打码服务,记录可用性(适配器可读取此标志)
+                    if solver._provider != "none":
+                        logger.info(
+                            "[publish.scheduler] %s 第三方打码服务已配置(%s),"
+                            "适配器可集成 CaptchaSolver 自动处理",
+                            platform, solver._provider,
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "[publish.scheduler] %s captcha event record failed: %s",
+                        platform, e,
+                    )
 
         # ===== Anti-Risk:发布后审计 + 风险事件记录 + 失败关键词检测(2026-07-31 强化)=====
         # 成功:记录 publish_success 事件(风险评分衰减)
