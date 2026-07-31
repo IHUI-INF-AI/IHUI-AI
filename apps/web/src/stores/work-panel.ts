@@ -28,6 +28,16 @@ const MAX_RECENT_URLS = 30
 /** 最大收藏数 */
 const MAX_FAVORITES = 100
 
+/**
+ * 2026-07-31 完美化:loadUrl 去重锁
+ * 防止同一 URL 在短时间内被多次触发 createBrowserSession
+ * (React StrictMode 双渲染 / 用户快速双击 / 电路断路器重试 都可能触发)
+ * 当 _inFlightUrl === url 时,后续相同 URL 的 loadUrl 调用直接跳过
+ */
+let _inFlightUrl: string | null = null
+let _inFlightTs = 0
+const IN_FLIGHT_TTL_MS = 10000 // 10s 超时自动释放(防死锁)
+
 /** 收藏项 */
 export interface FavoriteItem {
   url: string
@@ -264,86 +274,106 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       // 浏览器对 X-Frame-Options/CSP frame-ancestors 拦截的站点不触发 iframe onError,
       // 必须主动调后端 probeEmbed 预判。CDP 失败时降级到截图模式(保证可用性)。
       loadUrl: (url) => {
+        // 2026-07-31 完美化:去重锁
+        // 同一 URL 在 IN_FLIGHT_TTL_MS 内重复调用直接跳过,防止多次 createBrowserSession
+        const now = Date.now()
+        if (_inFlightUrl === url && now - _inFlightTs < IN_FLIGHT_TTL_MS) {
+          return
+        }
+        // 超时清理(防死锁:如果上一次 loadUrl 异常未释放锁)
+        if (_inFlightUrl && now - _inFlightTs >= IN_FLIGHT_TTL_MS) {
+          _inFlightUrl = null
+        }
+        _inFlightUrl = url
+        _inFlightTs = now
+
         void (async () => {
-          let canEmbed = true
           try {
-            const probe = await probeEmbed(url)
-            if (probe.success && probe.data) {
-              canEmbed = probe.data.canEmbed
+            let canEmbed = true
+            try {
+              const probe = await probeEmbed(url)
+              if (probe.success && probe.data) {
+                canEmbed = probe.data.canEmbed
+              }
+            } catch {
+              // 探测失败 → 默认尝试 iframe(保留 onFailed 兜底)
             }
-          } catch {
-            // 探测失败 → 默认尝试 iframe(保留 onFailed 兜底)
-          }
 
-          if (canEmbed) {
-            // 可嵌入 → 保持 iframe 模式,等 iframe onLoad 触发 onLoaded
-            return
-          }
+            if (canEmbed) {
+              // 可嵌入 → 保持 iframe 模式,等 iframe onLoad 触发 onLoaded
+              return
+            }
 
-          // 不可嵌入 → CDP 模式(可交互,对标 Trae/Cursor 内置浏览器)
-          const { tabs: preTabs, activeTabId: preId } = get()
-          if (!preId) return
+            // 不可嵌入 → CDP 模式(可交互,对标 Trae/Cursor 内置浏览器)
+            const { tabs: preTabs, activeTabId: preId } = get()
+            if (!preId) return
 
-          // 先关闭旧 CDP 会话(同 tab 重新导航时)
-          const preTab = preTabs.find((t) => t.id === preId)
-          if (preTab?.state.sessionId) {
-            void closeBrowserSession(preTab.state.sessionId)
-          }
+            // 先关闭旧 CDP 会话(同 tab 重新导航时)
+            const preTab = preTabs.find((t) => t.id === preId)
+            if (preTab?.state.sessionId) {
+              void closeBrowserSession(preTab.state.sessionId)
+            }
 
-          const cdpResult = await createBrowserSession({
-            url,
-            viewport_width: 1280,
-            viewport_height: 720,
-          })
-
-          const { tabs: cdpTabs, activeTabId: cdpId } = get()
-          if (!cdpId) return
-
-          if (cdpResult.success && cdpResult.data?.session_id) {
-            set({
-              tabs: patchActiveTabState(cdpTabs, cdpId, {
-                status: 'loaded',
-                mode: 'cdp',
-                sessionId: cdpResult.data.session_id,
-                title: cdpResult.data.title || url,
-                error: undefined,
-                screenshot: undefined,
-              }),
+            const cdpResult = await createBrowserSession({
+              url,
+              viewport_width: 1280,
+              viewport_height: 720,
             })
-            return
-          }
 
-          // CDP 失败 → 降级到截图模式(保证可用性)
-          const result = await takeScreenshot({
-            url,
-            width: 1280,
-            height: 720,
-            fullPage: false,
-            waitUntil: 'load',
-            timeout: 15000,
-          })
+            const { tabs: cdpTabs, activeTabId: cdpId } = get()
+            if (!cdpId) return
 
-          const { tabs, activeTabId } = get()
-          if (!activeTabId) return
+            if (cdpResult.success && cdpResult.data?.session_id) {
+              set({
+                tabs: patchActiveTabState(cdpTabs, cdpId, {
+                  status: 'loaded',
+                  mode: 'cdp',
+                  sessionId: cdpResult.data.session_id,
+                  title: cdpResult.data.title || url,
+                  error: undefined,
+                  screenshot: undefined,
+                }),
+              })
+              return
+            }
 
-          if (result.success && result.data?.screenshot) {
-            set({
-              tabs: patchActiveTabState(tabs, activeTabId, {
-                status: 'screenshot',
-                mode: 'screenshot',
-                screenshot: result.data.screenshot,
-                title: result.data.title,
-                error: undefined,
-              }),
+            // CDP 失败 → 降级到截图模式(保证可用性)
+            const result = await takeScreenshot({
+              url,
+              width: 1280,
+              height: 720,
+              fullPage: false,
+              waitUntil: 'load',
+              timeout: 15000,
             })
-          } else {
-            set({
-              tabs: patchActiveTabState(tabs, activeTabId, {
-                status: 'failed',
-                mode: 'external',
-                error: result.error || 'CDP 和截图均失败,该网站禁止嵌入',
-              }),
-            })
+
+            const { tabs, activeTabId } = get()
+            if (!activeTabId) return
+
+            if (result.success && result.data?.screenshot) {
+              set({
+                tabs: patchActiveTabState(tabs, activeTabId, {
+                  status: 'screenshot',
+                  mode: 'screenshot',
+                  screenshot: result.data.screenshot,
+                  title: result.data.title,
+                  error: undefined,
+                }),
+              })
+            } else {
+              set({
+                tabs: patchActiveTabState(tabs, activeTabId, {
+                  status: 'failed',
+                  mode: 'external',
+                  error: result.error || 'CDP 和截图均失败,该网站禁止嵌入',
+                }),
+              })
+            }
+          } finally {
+            // 释放锁:无论成功/失败/异常,都清除 in-flight 状态
+            if (_inFlightUrl === url) {
+              _inFlightUrl = null
+            }
           }
         })()
       },
