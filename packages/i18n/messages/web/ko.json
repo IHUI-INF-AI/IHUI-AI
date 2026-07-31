@@ -949,7 +949,9 @@
     "modeBuildDesc": "AI가 모든 도구를 활성화하여 정상 실행합니다",
     "modePlanDesc": "AI가 도구를 실행하지 않고 계획만 수행합니다",
     "modeReviewDesc": "AI가 코드를 읽기 전용으로 리뷰합니다",
-    "modeSpecDesc": "AI가 코드에서 spec 문서를 역방향 생성합니다"
+    "modeSpecDesc": "AI가 코드에서 spec 문서를 역방향 생성합니다",
+    "loginRequiredTitle": "로그인 후 AI 대화 시작",
+    "loginRequiredDesc": "로그인 후 AI 에이전트와 대화하고, 모델 전환, 첨부 업로드, 깊은 사고 등 기능을 사용할 수 있습니다."
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -1165,13 +1167,7 @@
         "name": "기업판",
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": [
-          "무제한 크레딧",
-          "사설 배포",
-          "SSO/SAML 2.0",
-          "감사 로그",
-          "전담 기술 지원"
-        ]
+        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"]
       }
     },
     "checkout": {
@@ -6106,6 +6102,48 @@
         "good": "양호",
         "poor": "미달",
         "empty": "\"압축 실행\"을 클릭하여 결과를 확인하세요"
+      },
+      "modelSync": {
+        "title": "모델 자동 동기화",
+        "lastSync": "최근 동기화",
+        "neverSynced": "동기화 없음",
+        "providers": "개 provider",
+        "newModels": "신규",
+        "removedModels": "제거",
+        "totalModels": "전체",
+        "syncing": "동기화 중...",
+        "syncNow": "지금 동기화",
+        "sync": "동기화",
+        "previewSync": "미리보기 동기화",
+        "previewSyncTooltip": "동기화 미리보기(dry-run, 실제 저장 안 함)",
+        "syncProviderOnly": "{provider}만 동기화",
+        "syncFailed": "동기화 실패",
+        "previewFailed": "미리보기 실패",
+        "unknownError": "알 수 없는 오류",
+        "failed": "실패",
+        "success": "성공",
+        "noDiff": "변경 없음(이번 동기화에 추가/제거 없음)",
+        "dryRunTitle": "동기화 미리보기(dry-run)",
+        "dryRunDescription": "다음 모델이 추가 / 제거됩니다. 실제로 데이터베이스에 쓰지 않습니다",
+        "willAddModels": "{count}개 모델 추가 예정",
+        "willRemoveModels": "{count}개 모델 제거 예정",
+        "noChanges": "변경 사항 없음",
+        "noData": "데이터 없음",
+        "cancel": "취소",
+        "confirmSync": "지금 동기화",
+        "history": "동기화 기록",
+        "loading": "로딩 중...",
+        "loadFailed": "로딩 실패",
+        "noHistory": "기록 없음",
+        "all": "전체",
+        "search": "model_id 검색...",
+        "health": "건강도",
+        "failureCounter": "연속 실패 횟수",
+        "permanentlyDisabled": "영구 비활성화",
+        "noProvidersDisabled": "비활성화된 provider 없음",
+        "disabled": "비활성화됨",
+        "resetCounter": "실패 카운터 초기화",
+        "threshold": "임계값"
       }
     },
     "activityLoading": "로딩 중...",
@@ -9039,56 +9077,32 @@
       "chat": {
         "label": "AI 채팅",
         "description": "AI 어시스턴트와 대화",
-        "keywords": [
-          "채팅",
-          "대화",
-          "AI"
-        ]
+        "keywords": ["채팅", "대화", "AI"]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 생성 단편 드라마",
-        "keywords": [
-          "드라마",
-          "비디오",
-          "AI"
-        ]
+        "keywords": ["드라마", "비디오", "AI"]
       },
       "search": {
         "label": "검색",
         "description": "전역 콘텐츠 검색",
-        "keywords": [
-          "검색",
-          "찾기",
-          "search"
-        ]
+        "keywords": ["검색", "찾기", "search"]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": [
-          "AI",
-          "월드",
-          "앱"
-        ]
+        "keywords": ["AI", "월드", "앱"]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 및 설정 관리",
-        "keywords": [
-          "프로필",
-          "사용자",
-          "설정"
-        ]
+        "keywords": ["프로필", "사용자", "설정"]
       },
       "settings": {
         "label": "설정",
         "description": "시스템 환경 설정 및 구성",
-        "keywords": [
-          "설정",
-          "환경설정",
-          "구성"
-        ]
+        "keywords": ["설정", "환경설정", "구성"]
       }
     }
   },
@@ -9487,31 +9501,19 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": [
-            "체계적 과정",
-            "실천 탐구",
-            "커뮤니티 상호 지원"
-          ]
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": [
-            "소통 플랫폼",
-            "경험 공유",
-            "자원 연결"
-          ]
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": [
-            "전문 대형 모델",
-            "에이전트 서비스",
-            "컨설팅 서비스"
-          ]
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
         }
       ]
     },
@@ -9632,37 +9634,25 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": [
-            "지식 Q&A",
-            "프로세스 자동화"
-          ]
+          "examples": ["지식 Q&A", "프로세스 자동화"]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": [
-            "데이터 분석",
-            "의사결정 지원"
-          ]
+          "examples": ["데이터 분석", "의사결정 지원"]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": [
-            "회의 일정",
-            "승인 프로세스"
-          ]
+          "examples": ["회의 일정", "승인 프로세스"]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": [
-            "마케팅 자동화",
-            "멀티에이전트 협업"
-          ]
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
         }
       ]
     },
@@ -11270,15 +11260,7 @@
       "sessions": "세션 수",
       "crashRate": "크래시율"
     },
-    "weekdays": [
-      "월",
-      "화",
-      "수",
-      "목",
-      "금",
-      "토",
-      "일"
-    ],
+    "weekdays": ["월", "화", "수", "목", "금", "토", "일"],
     "dauTrend": {
       "title": "최근 7일 DAU 추이",
       "subtitle": "일일 활성 사용자 수 변화 곡선"
@@ -11422,18 +11404,8 @@
     "title": "AI 진로 지도",
     "subtitle": "자녀의 학습 상황을 입력하면 AI가 맞춤형 진로 지도를 생성합니다",
     "options": {
-      "school": [
-        "주요 중학교",
-        "일반 중학교",
-        "국제 학교",
-        "사립 학교"
-      ],
-      "classLevel": [
-        "우수(학급 상위 10%)",
-        "양호(10-30%)",
-        "보통(30-70%)",
-        "미흡(하위 30%)"
-      ],
+      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"],
+      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -12755,6 +12727,104 @@
       "sync": "동기화",
       "toggleTheme": "테마 전환",
       "unsynced": ""
+    },
+    "terminalPanel": {
+      "loadFailed": "터미널 로드 실패: {message}",
+      "aiSuggestTitle": "AI 명령어 제안",
+      "splitVerticalTitle": "수직 분할 (Ctrl+Shift+D)",
+      "splitVerticalAria": "수직 분할",
+      "splitHorizontalTitle": "수평 분할 (Ctrl+Shift+H)",
+      "splitHorizontalAria": "수평 분할",
+      "closePane": "분할 닫기",
+      "searchPlaceholder": "터미널 출력 검색...",
+      "searchRegexPlaceholder": "정규식 입력...",
+      "searchAria": "터미널 검색",
+      "prevMatchAria": "이전 일치",
+      "prevMatchTitle": "이전 (Shift+Enter)",
+      "nextMatchAria": "다음 일치",
+      "nextMatchTitle": "다음 (Enter)",
+      "closeSearchAria": "검색 닫기",
+      "closeSearchTitle": "닫기 (Esc)",
+      "regexModeTitle": "정규식 모드",
+      "regexMode": "정규식",
+      "wholeWordTitle": "단어 단위",
+      "wholeWord": "단어",
+      "caseSensitiveTitle": "대소문자 구분",
+      "caseSensitive": "대소문자",
+      "regexModeHint": "정규식 모드(단어 단위 비활성화)",
+      "refreshSuggest": "제안 새로고침",
+      "close": "닫기",
+      "aiServiceUnavailable": "AI 서비스를 일시적으로 사용할 수 없습니다. 나중에 다시 시도해 주세요",
+      "generatingSuggest": "제안 생성 중...",
+      "noSuggestHint": "제안이 없습니다. 명령어를 실행한 후 새로고침을 클릭하세요.",
+      "insertSuggestTitle": "클릭하여 터미널에 삽입",
+      "aiDiagnoseTitle": "AI 오류 진단",
+      "diagnosing": "오류 진단 중...",
+      "diagnosisLabel": "진단:",
+      "rootCauseLabel": "근본 원인:",
+      "suggestedFixLabel": "제안:",
+      "autoFixTitle": "수정 명령어 실행",
+      "autoFix": "자동 수정",
+      "noDiagnosis": "진단 결과 없음",
+      "historySearchPlaceholder": "명령어 기록 검색(관련도순)...",
+      "historySearchAria": "명령어 기록 검색",
+      "noHistoryHint": "기록이 없습니다. 명령어를 실행하면 자동으로 기록됩니다.",
+      "noMatchHistory": "일치하는 명령어가 없습니다.",
+      "exitCode": "종료 {code}",
+      "connected": "연결됨",
+      "connectionError": "연결 오류",
+      "connecting": "연결 중...",
+      "copySelection": "선택 영역 복사",
+      "paste": "붙여넣기",
+      "search": "검색",
+      "splitVertical": "수직 분할",
+      "splitHorizontal": "수평 분할",
+      "clear": "화면 지우기",
+      "loginRequired": "터미널을 사용하려면 로그인하세요",
+      "creatingTerminal": "터미널 생성 중...",
+      "createHint": "+를 클릭하여 터미널 세션을 만드세요"
+    },
+    "terminalTabBar": {
+      "errHostRequired": "호스트 주소는 필수입니다",
+      "errPortRange": "포트 범위 1-65535",
+      "errUsernameRequired": "사용자 이름은 필수입니다",
+      "errPasswordRequired": "비밀번호는 필수입니다",
+      "errPrivateKeyRequired": "개인 키 내용은 필수입니다",
+      "errPrivateKeyReadFailed": "개인 키 파일 읽기 실패",
+      "recording": "녹화 중",
+      "renameAria": "터미널 이름 변경",
+      "renameHint": "더블 클릭하여 이름 변경",
+      "exited": "(종료됨)",
+      "closeTerminalAria": "터미널 닫기",
+      "newTerminalAria": "새 터미널",
+      "newTerminalTitle": "새 터미널 ({shell})",
+      "selectConnectType": "연결 유형 선택",
+      "connectType": "연결 유형",
+      "local": "로컬",
+      "sshRemote": "SSH 원격",
+      "shellType": "Shell 유형",
+      "host": "호스트",
+      "hostPlaceholder": "example.com 또는 192.168.1.1",
+      "port": "포트",
+      "username": "사용자 이름",
+      "password": "비밀번호",
+      "privateKey": "개인 키",
+      "privateKeyPem": "개인 키 (PEM)",
+      "selectPrivateKeyFile": "개인 키 파일 선택",
+      "privateKeyPassphrase": "개인 키 passphrase(선택)",
+      "newSession": "새 세션",
+      "newSshSession": "새 SSH 세션",
+      "creating": "생성 중...",
+      "playing": "재생 중",
+      "stopRecording": "녹화 중지",
+      "startRecording": "녹화 시작",
+      "recordingList": "녹화 목록",
+      "recordingListWithCount": "녹화 목록({count})",
+      "noRecordingsHint": "녹화가 없습니다. 녹화 버튼(왼쪽 Video 아이콘)을 클릭하여 터미널 작업 녹화를 시작하세요.",
+      "defaultRecTitle": "녹화 {time}",
+      "eventCount": "{count}개 이벤트",
+      "play": "재생",
+      "delete": "삭제"
     }
   },
   "aiSkillsPage": {
@@ -12863,12 +12933,7 @@
     "rechargeCount": "총 {n}회 충전",
     "packages": {
       "starter": {
-        "features": [
-          "1M 토큰 한도",
-          "기본 모델 사용 가능",
-          "5개 API 토큰",
-          "커뮤니티 지원"
-        ]
+        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
       },
       "pro": {
         "features": [
