@@ -1,4 +1,5 @@
 import { fetchApi } from '@/lib/api'
+import { type ExportColumn } from '@/lib/export-utils'
 import type { SearchState, SortState } from './types'
 
 export const RESOURCE = '/api/admin/system/tasks/logs'
@@ -9,24 +10,32 @@ export const inputCls =
 
 export const th = 'px-4 py-2.5 text-left font-medium text-xs uppercase text-muted-foreground'
 
+/** Maps status number to { label: i18n key, cls: css class } */
 export const STATUS_LABEL: Record<number, { label: string; cls: string }> = {
-  0: { label: '成功', cls: 'bg-emerald-500/10 text-emerald-600' },
-  1: { label: '失败', cls: 'bg-red-500/10 text-red-600' },
+  0: { label: 'tasksLog.status.success', cls: 'bg-emerald-500/10 text-emerald-600' },
+  1: { label: 'tasksLog.status.failed', cls: 'bg-red-500/10 text-red-600' },
 }
 
 export const EMPTY_SEARCH: SearchState = { jobName: '', jobGroup: '', status: '' }
 
-export const EXPORT_COLUMNS = [
-  { key: 'id', title: 'ID' },
-  { key: 'jobName', title: '任务名称' },
-  { key: 'jobGroup', title: '任务组' },
-  { key: 'invokeTarget', title: '调用目标' },
-  { key: 'jobMessage', title: '日志信息' },
-  { key: 'status', title: '状态', formatter: (v: unknown) => STATUS_LABEL[Number(v)]?.label ?? '' },
-  { key: 'startTime', title: '开始时间' },
-  { key: 'stopTime', title: '停止时间' },
-  { key: 'costTime', title: '耗时(ms)' },
-]
+/** i18n key prefix: admin.system */
+export function getExportColumns(t: (key: string) => string): ExportColumn[] {
+  return [
+    { key: 'id', title: t('tasksLog.table.id') },
+    { key: 'jobName', title: t('tasksLog.table.jobName') },
+    { key: 'jobGroup', title: t('tasksLog.table.jobGroup') },
+    { key: 'invokeTarget', title: t('tasksLog.table.invokeTarget') },
+    { key: 'jobMessage', title: t('tasksLog.table.jobMessage') },
+    {
+      key: 'status',
+      title: t('tasksLog.table.status'),
+      formatter: (v: unknown) => t(STATUS_LABEL[Number(v)]?.label ?? ''),
+    },
+    { key: 'startTime', title: t('tasksLog.table.startTime') },
+    { key: 'stopTime', title: t('tasksLog.export.stopTime') },
+    { key: 'costTime', title: t('tasksLog.export.costTime') },
+  ]
+}
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)

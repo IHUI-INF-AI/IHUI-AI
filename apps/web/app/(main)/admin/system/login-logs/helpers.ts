@@ -23,13 +23,16 @@ export const EMPTY_SEARCH: LoginLogSearch = {
   endTime: '',
 }
 
-export const EXPORT_COLUMNS: ExportColumn[] = [
-  { key: 'id', title: 'ID' },
-  { key: 'userUuid', title: '用户' },
-  { key: 'loginType', title: '登录类型' },
-  { key: 'platform', title: '平台' },
-  { key: 'ip', title: 'IP' },
-  { key: 'location', title: '位置' },
-  { key: 'loginTime', title: '登录时间' },
-  { key: 'message', title: '消息' },
-]
+/** i18n key prefix: admin.system */
+export function getExportColumns(t: (key: string) => string): ExportColumn[] {
+  return [
+    { key: 'id', title: 'ID' },
+    { key: 'userUuid', title: t('loginLogs.table.user') },
+    { key: 'loginType', title: t('loginLogs.export.loginType') },
+    { key: 'platform', title: t('loginLogs.table.platform') },
+    { key: 'ip', title: 'IP' },
+    { key: 'location', title: t('loginLogs.table.location') },
+    { key: 'loginTime', title: t('loginLogs.table.loginTime') },
+    { key: 'message', title: t('loginLogs.table.message') },
+  ]
+}
