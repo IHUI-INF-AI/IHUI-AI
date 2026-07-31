@@ -749,10 +749,7 @@ export function AISidePanel() {
     return (
       <>
         {workspaceNameSync}
-        <div
-          className="relative hidden shrink-0 lg:block mt-[50px] mb-2 h-[calc(100%-58px)]"
-          style={{ width: 0 }}
-        >
+        <div className="relative hidden h-full shrink-0 py-2 lg:block" style={{ width: 0 }}>
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
           (容器右边缘 +4px ~ +12px),与 Sidebar 自身手柄(Sidebar 右边缘 -4px ~ +4px)空间错开,
           两个手柄各保留完整 8px 命中区,互不重叠冲突。
@@ -811,7 +808,7 @@ export function AISidePanel() {
           'ai-panel-root',
           floatMode
             ? 'fixed z-sticky ai-float-glow rounded-xl'
-            : 'relative hidden shrink-0 lg:block mr-1.5 mt-[50px] mb-2 h-[calc(100%-58px)]',
+            : 'relative hidden h-full shrink-0 lg:block mr-1.5 py-2',
         )}
         style={
           floatMode
