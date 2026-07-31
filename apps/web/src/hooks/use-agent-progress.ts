@@ -35,6 +35,12 @@ export interface PlanStep {
   durationMs?: number
   /** Codex:step 累计 token 消耗(可选,由 status 事件更新) */
   tokenUsage?: number
+  /** 2026-07-31 深度优化:错误标记(toolCalls error 时为 true,PlanStepsCard 显示红色错误样式) */
+  error?: boolean
+  /** 2026-07-31 深度优化:关联消息 ID(用于点击步骤跳转消息 + hover 联动) */
+  sourceMessageId?: string
+  /** 2026-07-31 深度优化:步骤分组编号(同一条 assistant 消息的步骤同组,组间视觉分隔) */
+  groupIndex?: number
 }
 
 /** 子代理状态(spawned → running → done/failed,失败/完成保留为 dead) */
