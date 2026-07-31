@@ -194,25 +194,31 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             id="work-area-portal-root"
             className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
           >
-            {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉)
-                2026-07-31 修复:原 variant="ghost" 在亮色背景下按钮完全透明,与内容融为一体,
-                用户在手机上找不到触发入口。改为显式 bg-card + hover:bg-accent,
-                与 GlobalTopBar TOPBAR_BTN_BASE 风格统一(card 比 bg 高 4% L / 暗色深 4% L,
-                跟背景明显区分;hover 用 accent 加深,无蓝色发光边框)。 */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMobileOpen((o) => !o)}
-              className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden rounded-md border border-border bg-card text-foreground/80 shadow-sm transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={t('menu')}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            {/* 全局顶栏(2026-07-30 立):所有路由组((main)/marketing/auth/sso/forbidden)
-                都常驻显示。包含 TagsView + Plus 弹窗(9 项视图/工具/设置)+ 桌面端窗口控制。
-                桌面端拖拽/resize/主题跟随/托盘状态等副作用由 GlobalTopBar 内部管理。 */}
+            {/* 移动端菜单按钮(2026-07-31 第十三次重写,改用 GlobalTopBar 注入方式):
+                - 原方案:absolute left-2 top-2 z-modal,在 work-area 内绝对定位
+                  → 根因:与 TagsViewSearchButton (36x36 bg-card,同位置 left:0) 物理重叠,
+                    即使 z-modal 也无法在所有 stacking context 下稳定覆盖
+                - 新方案:作为 GlobalTopBar flex 流的第 0 个元素,物理上不重叠任何现有按钮
+                - 桌面端 lg:flex 隐藏,移动端 lg 以下显示 */}
             <React.Suspense fallback={null}>
-              <GlobalTopBar />
+              <GlobalTopBar
+                mobileMenu={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMobileOpen((o) => !o)}
+                    aria-label={t('menu')}
+                    // 2026-07-31 修复(用户反馈"按钮不应该是透明的"):
+                    // 改为显式 bg-card + hover:bg-accent + border + shadow-sm,
+                    // 跟顶栏 TOPBAR_BTN_BASE 风格统一(card 比 bg 高 4% L / 暗色深 4% L,
+                    // 跟背景明显区分;hover 用 accent 加深,无蓝色发光边框)。
+                    // h-full 跟顶栏 h-9=36px 严格一致,形成 36x36 正方形。
+                    className="h-full w-9 shrink-0 lg:hidden rounded-md border border-border bg-card text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                }
+              />
             </React.Suspense>
             {children}
           </div>
