@@ -18,6 +18,8 @@ export type {
   // 模型自动同步(ModelSyncService)
   ModelSyncResult,
   ModelSyncStatus,
+  // F4.4:同步历史时间轴
+  ModelSyncHistoryRecord,
 } from '@ihui/api-client'
 
 export type GatewayTab = 'providers' | 'combos' | 'compaction'
