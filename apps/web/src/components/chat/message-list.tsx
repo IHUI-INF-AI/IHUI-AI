@@ -1040,7 +1040,7 @@ export function MessageList({
       if (msg.reasoning && msg.reasoning.trim().length > 0) {
         steps.push({
           id: `${msg.id}-reasoning`,
-          step: '思考',
+          step: t('stepThinking'),
           status: isStreamingThis && !msg.content ? 'in_progress' : 'completed',
           explanation: msg.reasoning,
           sourceMessageId: msg.id,
@@ -1058,7 +1058,7 @@ export function MessageList({
             status: tc.status === 'running' ? 'in_progress' : 'completed',
             durationMs: tc.duration,
             error: isError,
-            explanation: tc.error || (tc.repeated ? '已跳过(重复调用)' : undefined),
+            explanation: tc.error || (tc.repeated ? t('toolCallSkipped') : undefined),
             sourceMessageId: msg.id,
             groupIndex,
           })
@@ -1069,7 +1069,7 @@ export function MessageList({
       if (msg.content && msg.content.trim().length > 0) {
         steps.push({
           id: `${msg.id}-answer`,
-          step: '回答',
+          step: t('stepAnswer'),
           status: isStreamingThis ? 'in_progress' : 'completed',
           sourceMessageId: msg.id,
           groupIndex,
@@ -1099,7 +1099,7 @@ export function MessageList({
         id: `msg-${m.id}`,
         type: m.role === 'user' ? 'reference' : 'thinking',
         timestamp: new Date(m.createdAt).toISOString(),
-        title: m.role === 'user' ? '用户消息' : 'AI 回复',
+        title: m.role === 'user' ? t('timelineUserMessage') : t('timelineAiReply'),
         description: m.content.slice(0, 80),
         status: m.error ? 'failed' : 'done',
         messageId: m.id,
@@ -1263,12 +1263,12 @@ export function MessageList({
       return [
         {
           id: 'copy',
-          label: '复制文本',
+          label: t('contextMenu.copyText'),
           action: 'copy',
         },
         {
           id: 'copyMarkdown',
-          label: '复制为 Markdown',
+          label: t('contextMenu.copyMarkdown'),
           action: 'copyMarkdown',
           disabled: !isAssistant,
         },
@@ -1282,20 +1282,20 @@ export function MessageList({
         { id: 'sep-1', label: '', separator: true },
         {
           id: 'regenerate',
-          label: '重新生成',
+          label: t('contextMenu.regenerate'),
           action: 'regenerate',
           disabled: !isAssistant,
         },
         {
           id: 'feedback',
-          label: '反馈',
+          label: t('contextMenu.feedback'),
           action: 'feedback',
           disabled: !isAssistant,
         },
         { id: 'sep-2', label: '', separator: true },
         {
           id: 'delete',
-          label: '删除消息',
+          label: t('contextMenu.deleteMessage'),
           action: 'delete',
           danger: true,
         },
@@ -1314,23 +1314,23 @@ export function MessageList({
           const text = plainTextForClipboard(msg.content)
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text)
-            toast.success('已复制文本')
+            toast.success(t('toast.copiedText'))
           }
         } else if (action === 'copyMarkdown') {
           const md = normalizeMarkdown(msg.content)
           if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(md)
-            toast.success('已复制 Markdown')
+            toast.success(t('toast.copiedMarkdown'))
           }
         } else if (action === 'regenerate') {
           // 重新生成:转发到全局事件,由 message-input 监听后触发 sendAnswer
           window.dispatchEvent(
             new CustomEvent('ihui:regenerate-message', { detail: { messageId: msg.id } }),
           )
-          toast.info('正在重新生成…')
+          toast.info(t('toast.regenerating'))
         } else if (action === 'feedback') {
           // 反馈:简单 toast 兜底(深度反馈系统不在本任务范围)
-          toast.success('已记录反馈,感谢支持')
+          toast.success(t('toast.feedbackRecorded'))
         } else if (action === 'search') {
           // Phase 23:打开搜索栏(等同于 Ctrl+F)
           setSearchBarVisible(true)
@@ -1340,11 +1340,11 @@ export function MessageList({
           const next = store.messages.filter((m) => m.id !== msg.id)
           if (next.length !== store.messages.length) {
             useChatStore.setState({ messages: next })
-            toast.success('已删除消息')
+            toast.success(t('toast.messageDeleted'))
           }
         }
       } catch (err) {
-        toast.error('操作失败', {
+        toast.error(t('toast.operationFailed'), {
           description: err instanceof Error ? err.message : String(err),
         })
       }
@@ -1548,7 +1548,11 @@ export function MessageList({
                   (planSteps.length > 0 || linkedSubagents.length > 0) && (
                     <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
                       {planSteps.length > 0 && (
-                        <PlanStepsCard steps={planSteps} isStreaming={isStreaming} data-testid="message-plan-steps-card" />
+                        <PlanStepsCard
+                          steps={planSteps}
+                          isStreaming={isStreaming}
+                          data-testid="message-plan-steps-card"
+                        />
                       )}
                       {linkedSubagents.map((sub) => (
                         <SubAgentTaskTree

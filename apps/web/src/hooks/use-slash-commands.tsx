@@ -18,8 +18,8 @@ import {
 import type { AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import type { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import {
-  GOAL_ARG_TEMPLATES,
-  LOOP_ARG_OPTIONS,
+  createGoalArgTemplates,
+  createLoopArgOptions,
 } from '@/components/chat/command-arg-templates'
 import { SLASH_COMMAND_IDS } from '@/components/chat/slash-command-data'
 
@@ -58,10 +58,7 @@ type SlashCommand = React.ComponentProps<typeof SlashCommandPalette>['commands']
  * - permission-* 子命令被 use-chat.ts 的 tryHandlePermissionSlash 拦截,纯本地 UI 状态切换
  * - 翻译函数使用 'chat' namespace(与原组件一致)
  */
-export function useSlashCommands(
-  aiSkills: AiSkillMeta[],
-  skillsLoading: boolean,
-): SlashCommand[] {
+export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean): SlashCommand[] {
   const t = useTranslations('chat')
   return React.useMemo<SlashCommand[]>(
     () => [
@@ -79,7 +76,7 @@ export function useSlashCommands(
         icon: <Target className="h-4 w-4" />,
         hasArgs: true,
         argsTitle: t('slashCmd.goalArgTitle'),
-        argsSuggestions: GOAL_ARG_TEMPLATES,
+        argsSuggestions: createGoalArgTemplates(t),
       },
       {
         id: 'loop',
@@ -91,7 +88,7 @@ export function useSlashCommands(
         icon: <Repeat className="h-4 w-4" />,
         hasArgs: true,
         argsTitle: t('slashCmd.loopArgTitle'),
-        argsSuggestions: LOOP_ARG_OPTIONS,
+        argsSuggestions: createLoopArgOptions(t),
       },
       // ⚡ 模式切换(2026-07-25 立,对标 Trae SOLO Plan 模式):切换 plan/act 模式
       {
