@@ -416,6 +416,32 @@ iframe::-webkit-scrollbar {
   animation: ihui-update-ring-pulse 1.8s ease-in-out infinite;
 }
 
+/* ============ 消息高亮脉冲动画(2026-07-31 立,对标 Trae + Codex 跳转反馈)============
+ * PlanStepsCard 点击步骤跳转消息后,目标消息需要 1.5s 视觉脉冲反馈,
+ * 让用户感知"跳到了这个消息"。
+ * - 使用品牌色(--color-brand)做 box-shadow + border 双重脉冲
+ * - 1.5s 周期,2 次脉冲(iteration-count: 2)
+ * - 浅色 + 暗色模式都清晰(--color-brand 暗色值 #818cf8 自动提亮)
+ * - 配合 prefers-reduced-motion(第 455-464 行全局规则)自动禁用
+ * §4 合规:不使用 mask-image / -webkit-mask 渐变遮罩。 */
+@keyframes ihui-message-highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand) 35%, transparent);
+    background-color: color-mix(in srgb, var(--color-brand) 8%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-brand) 0%, transparent);
+    background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand) 0%, transparent);
+    background-color: color-mix(in srgb, var(--color-brand) 8%, transparent);
+  }
+}
+.animate-message-highlight-pulse {
+  animation: ihui-message-highlight-pulse 0.75s ease-out 2;
+}
+
 /* ============ AI 浮窗品牌微光(2026-07-30 方案B)============
  * 浮窗模式(floatMode)下,面板需要有视觉悬浮感区分于背景。
  * 设计:品牌色(#6366f1 亮 / #818cf8 暗)微光描边 + 同色系柔光投影。
