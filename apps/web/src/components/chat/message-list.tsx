@@ -1016,46 +1016,51 @@ export function MessageList({
     return null
   }, [messages])
 
-  // PlanStepsCard 数据源(2026-07-31 重构 + 增强):
+  // PlanStepsCard 数据源(2026-07-31 深度优化,对标 Codex /plan + Trae Thinking Process):
   // 普通对话走 streamChat → /api/ai/chat/stream → /api/llm/complete/stream,
   // 不经过 LangGraph agent,因此 useAgentProgress.start() 即使接通也得不到 plan events
   // (且 graph 未注册时返回 503)。改为基于 messages 派生 planSteps,覆盖 3 类步骤:
-  //   ① reasoning(推理模型思考过程)→ "思考" 步骤
-  //   ② toolCalls(工具调用)→ 每个工具一个步骤
+  //   ① reasoning(推理模型思考过程)→ "思考" 步骤(完整保留 explanation,不截断)
+  //   ② toolCalls(工具调用)→ 每个工具一个步骤(带 error 标记 + 完整 duration)
   //   ③ content(最终回答)→ "回答" 步骤
-  // 这样 PlanStepsCard 在普通文本对话(有 reasoning)和工具调用对话中都能显示,
-  // 无需 LangGraph agent。最后一条 assistant 消息的步骤状态随 isStreaming 动态变化。
+  // 深度优化字段:
+  //   - error: toolCalls status=error 时为 true,PlanStepsCard 显示红色错误样式
+  //   - sourceMessageId: 关联消息 ID,用于点击步骤跳转消息 + hover 联动
+  //   - groupIndex: 同一条 assistant 消息的步骤同组,组间视觉分隔
   const planSteps = React.useMemo<PlanStep[]>(() => {
     const steps: PlanStep[] = []
-    for (const msg of messages) {
-      if (msg.role !== 'assistant') continue
+    const assistantMsgs = messages.filter((m) => m.role === 'assistant')
+    assistantMsgs.forEach((msg, idx) => {
+      const groupIndex = idx
       const isLast = msg.id === lastAssistantMessageId
       const isStreamingThis = isLast && isStreaming
 
       // ① reasoning → "思考" 步骤(reasoning 模型输出,如 o1/R1)
+      //    explanation 完整保留(不截断),PlanStepsCard 内部用 MarkdownViewer 渲染
       if (msg.reasoning && msg.reasoning.trim().length > 0) {
         steps.push({
           id: `${msg.id}-reasoning`,
           step: '思考',
           status: isStreamingThis && !msg.content ? 'in_progress' : 'completed',
-          startedAt: new Date(msg.createdAt ?? Date.now()).toISOString(),
-          explanation:
-            msg.reasoning.length > 100
-              ? `${msg.reasoning.slice(0, 100)}…`
-              : msg.reasoning,
+          explanation: msg.reasoning,
+          sourceMessageId: msg.id,
+          groupIndex,
         })
       }
 
-      // ② toolCalls → 每个工具调用一个步骤
+      // ② toolCalls → 每个工具调用一个步骤(带 error 标记)
       if (msg.toolCalls?.length) {
         for (const tc of msg.toolCalls) {
+          const isError = tc.status === 'error'
           steps.push({
             id: tc.id,
             step: tc.toolName,
             status: tc.status === 'running' ? 'in_progress' : 'completed',
-            startedAt: new Date(msg.createdAt ?? Date.now()).toISOString(),
             durationMs: tc.duration,
+            error: isError,
             explanation: tc.error || (tc.repeated ? '已跳过(重复调用)' : undefined),
+            sourceMessageId: msg.id,
+            groupIndex,
           })
         }
       }
@@ -1066,12 +1071,24 @@ export function MessageList({
           id: `${msg.id}-answer`,
           step: '回答',
           status: isStreamingThis ? 'in_progress' : 'completed',
-          startedAt: new Date(msg.createdAt ?? Date.now()).toISOString(),
+          sourceMessageId: msg.id,
+          groupIndex,
         })
       }
-    }
+    })
     return steps
   }, [messages, lastAssistantMessageId, isStreaming])
+
+  // Phase 19 集成(2026-07-31 立):把 planStep → message 映射写入 ProgressJumpStore
+  // 供 PlanStepsCard 点击步骤跳转 + hover 联动 + message-list 反向高亮
+  const linkPlanStepToMessage = useProgressJumpStore((s) => s.linkPlanStepToMessage)
+  React.useEffect(() => {
+    for (const step of planSteps) {
+      if (step.sourceMessageId) {
+        linkPlanStepToMessage(step.id, step.sourceMessageId)
+      }
+    }
+  }, [planSteps, linkPlanStepToMessage])
 
   // 从 messages + subAgentActivities 派生 TimelineEvent 列表
   // 上游没传 events 时,本地基于 messages 派生供右侧时间线 tab 渲染
