@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { Input } from '../input'
 import { cn } from '../../lib/utils'
@@ -102,12 +102,13 @@ export function AccountHistoryInput({
     innerRef.current?.focus()
   }
 
-  const toggleHistory = () => {
+  // 2026-07-31:移除 ChevronDown 按钮后,toggleHistory 仅在双击时调用
+  const toggleHistory = React.useCallback(() => {
     setShowHistory((v) => {
       if (!v) setActiveHistoryIndex(-1)
       return !v
     })
-  }
+  }, [])
 
   return (
     <div
@@ -155,15 +156,12 @@ export function AccountHistoryInput({
           }
         }}
       />
-      <button
-        type="button"
-        tabIndex={-1}
-        onClick={toggleHistory}
-        className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground hover:text-foreground"
-        aria-label={t('auth.accountHistory')}
-      >
-        <ChevronDown className={cn('h-4 w-4 transition-transform', showHistory && 'rotate-180')} />
-      </button>
+      {/*
+        2026-07-31 修复:移除右侧 ChevronDown 按钮(用户偏好"不显示非必要 chevron",
+        与 user profile 中"dislikes chevron arrows for user info containers when functionality is obvious" 一致)。
+        保留双击输入框 + 键盘 ArrowDown 的展开方式,功能不变。
+        历史账号可在输入框获得焦点后双击展开,或键入字符时按 ArrowDown 打开。
+      */}
       {showHistory && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
           {loginHistory.length > 0 ? (
