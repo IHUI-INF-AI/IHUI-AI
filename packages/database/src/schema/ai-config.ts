@@ -128,6 +128,24 @@ export const aiModelConfigModels = pgTable(
     relaySortOrder: integer('relay_sort_order').default(0).notNull(),
     /** 中转站展示名(为空时用 displayName/modelId) */
     relayDisplayName: varchar('relay_display_name', { length: 256 }),
+    // --- ModelSyncService v3 元数据字段(2026-07-31 立) ---
+    tags: text('tags').array().default([]),
+    description: text('description'),
+    vendor: varchar('vendor', { length: 64 }),
+    maxOutputTokens: integer('max_output_tokens'),
+    supportsToolCall: boolean('supports_tool_call').default(false),
+    supportsVision: boolean('supports_vision').default(false),
+    supportsStreaming: boolean('supports_streaming').default(true),
+    rateLimitRpm: integer('rate_limit_rpm'),
+    rateLimitTpd: integer('rate_limit_tpd'),
+    releaseDate: varchar('release_date', { length: 32 }),
+    deprecationDate: varchar('deprecation_date', { length: 32 }),
+    upstreamETag: varchar('upstream_etag', { length: 255 }),
+    upstreamLastModified: varchar('upstream_last_modified', { length: 64 }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    // --- 积分消耗倍数(2026-07-31 立,用户规则:平台内置模型积分消耗倍数) ---
+    /** 积分消耗倍数(1.00=基准,0=免费,10=高级,30=旗舰)。扣分=token/1000×倍数。见 POINTS_MULTIPLIER_TIERS */
+    pointsMultiplier: numeric('points_multiplier', { precision: 5, scale: 2 }).default('1.00').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -141,6 +159,29 @@ export const aiModelConfigModels = pgTable(
     relayPublicIdx: index('ai_model_config_models_relay_public_idx').on(t.isRelayPublic),
   }),
 )
+
+/**
+ * 积分消耗倍数档位常量(2026-07-31 立,用户规则:平台内置模型积分消耗倍数)
+ *
+ * 计费公式:扣分 = (输入token + 输出token) / 1000 × points_multiplier × 1 积分基准
+ * - 免费模型(zero_cost/local):0x(不扣分)
+ * - 经济模型(mini/flash):1x(1千token=1积分)
+ * - 标准模型(standard):3x(1千token=3积分)
+ * - 高级模型(pro/max):10x(1千token=10积分)
+ * - 旗舰模型(opus/thinking):30x(1千token=30积分)
+ *
+ * 字段:ai_model_config_models.points_multiplier numeric(5,2) default 1.00
+ * 兜底:积分不足时降级到 zero_cost 模型(类似 Cursor slow request)
+ */
+export const POINTS_MULTIPLIER_TIERS = {
+  FREE: 0,        // 免费模型(本地/zero_cost)
+  ECONOMY: 1,     // 经济模型(mini/flash)
+  STANDARD: 3,    // 标准模型
+  PREMIUM: 10,    // 高级模型(pro/max)
+  FLAGSHIP: 30,   // 旗舰模型(opus/thinking)
+} as const
+
+export type PointsMultiplierTier = typeof POINTS_MULTIPLIER_TIERS[keyof typeof POINTS_MULTIPLIER_TIERS]
 
 /**
  * AI 模型配置 - 用户自定义分组表(Phase 1,2026-07-22)
