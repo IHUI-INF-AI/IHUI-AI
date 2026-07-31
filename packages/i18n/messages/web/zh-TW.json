@@ -5918,8 +5918,6 @@
   "publish": {
     "title": "多平臺一鍵發布",
     "subtitle": "支援 md/docx/html/pdf/圖片/視頻 → 14 平臺一鍵發布",
-    "cancel": "取消",
-    "close": "關閉",
     "accounts": {
       "title": "平臺帳號管理",
       "subtitle": "配置各平臺的登入憑證(加密儲存)",
