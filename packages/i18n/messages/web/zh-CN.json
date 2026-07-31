@@ -629,6 +629,8 @@
     "manageModels": "自定义配置模型",
     "modelAuto": "自动",
     "modelAutoDescription": "自动选择最优模型",
+    "modelFree": "免费",
+    "modelPointsMultiplier": "积分消耗倍数",
     "slashCmd": {
       "plan": "切换到规划模式(AI 只制定计划,不执行工具)",
       "act": "切换到执行模式(AI 正常执行工具,默认)",
@@ -12581,7 +12583,9 @@
       "recentSearches": "最近搜索",
       "remove": "移除",
       "inputHint": "输入关键词搜索",
-      "searchFailed": "搜索失败,请重试"
+      "searchFailed": "搜索失败,请重试",
+      "openWorkspaceHint": "请先打开工作区",
+      "searching": "搜索中..."
     },
     "sourceControl": {
       "commitPlaceholder": "提交信息",
@@ -12740,6 +12744,13 @@
       "eventCount": "{count} 事件",
       "play": "回放",
       "delete": "删除"
+    },
+    "terminalSessionList": {
+      "title": "终端会话",
+      "newTerminalAria": "新建终端",
+      "loading": "加载中...",
+      "empty": "暂无终端会话",
+      "closeTerminalAria": "关闭终端"
     }
   },
   "aiSkillsPage": {

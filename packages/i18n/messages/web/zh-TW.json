@@ -12631,7 +12631,9 @@
       "recentSearches": "最近搜尋",
       "remove": "移除",
       "inputHint": "輸入關鍵字搜尋",
-      "searchFailed": "搜尋失敗,請重試"
+      "searchFailed": "搜尋失敗,請重試",
+      "openWorkspaceHint": "請先開啟工作區",
+      "searching": "搜尋中..."
     },
     "sourceControl": {
       "commitPlaceholder": "提交訊息",
@@ -12790,6 +12792,13 @@
       "eventCount": "{count} 個事件",
       "play": "重播",
       "delete": "刪除"
+    },
+    "terminalSessionList": {
+      "title": "終端工作階段",
+      "newTerminalAria": "新增終端",
+      "loading": "載入中...",
+      "empty": "暫無終端工作階段",
+      "closeTerminalAria": "關閉終端"
     }
   },
   "aiSkillsPage": {
