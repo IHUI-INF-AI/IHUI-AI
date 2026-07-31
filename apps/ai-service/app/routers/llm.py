@@ -25,6 +25,11 @@ from pydantic import BaseModel, Field
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.context_compaction import compress_messages_if_needed
+from ..core.provider_caps import (
+    cap_to_dict,
+    cap_with_max_context,
+    get_provider_cap,
+)
 from ..core.question_parser import QuestionStreamParser
 from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze
 from ..services.project_memory import build_system_prompt
@@ -343,11 +348,21 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any] | JSONResponse
 
 @router.get("/llm/models")
 async def list_models() -> dict[str, Any]:
-    """返回可用模型列表。
+    """返回可用模型列表(已按 provider 健康状态自动过滤)。
 
-    从 data/default_models.json + ai_model_config_models 表合并加载,按 id 去重。
-    stub 模式下返回默认列表。
+    过滤规则(2026-07-31 立,用户规则:只显示可完美接通调用的模型):
+    - 加载 data/default_models.json + ai_model_config_models 表合并清单
+    - 调 model_availability.get_available_models() 过滤:
+      * 未配置 key 的 provider 模型 → 过滤
+      * 健康检查 DOWN(401/403/超时/网络错误)的 provider 模型 → 过滤
+      * zero_cost provider(pollinations/llm7/aihorde/opencode_zen)→ 保留
+      * LOCAL provider(ollama/lmstudio/llamacpp/vllm)→ 保留
+      * PENDING(尚未检测)/ DEGRADED(延迟高但仍可用)→ 保留
+    - stub 模式下绕过过滤(本地开发无 key,返回默认列表)
+    - 健康状态由 ModelAvailabilityService 后台每 5 分钟刷新一次(不阻塞请求)
+
     前端 /models 页面通过 API 代理调用此端点获取动态模型清单。
+    Dashboard 可调 GET /llm/providers/availability 查看 provider 健康状态详情。
     """
     default_models = _load_default_models()
     # 从数据库加载额外模型(ai_model_config_models 表,is_relay_public=true)
@@ -381,11 +396,49 @@ async def list_models() -> dict[str, Any]:
                 seen.add(mid)
     except Exception as e:
         logger.warning("从数据库加载模型失败: %s", e)
+
+    # 模型可用性过滤(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
+    # stub 模式下绕过过滤(本地开发无 key,所有模型都不可用会被过滤光)
+    stub_mode = llm_gateway._is_stub_mode()
+    total_before = len(default_models)
+    if not stub_mode:
+        from ..services.model_availability import model_availability
+        default_models = model_availability.get_available_models(default_models)
+        filtered_out = total_before - len(default_models)
+        logger.info(
+            "[llm/models] availability filter: %d → %d (filtered out %d unavailable)",
+            total_before, len(default_models), filtered_out,
+        )
+    # P0 Phase A(2026-07-31):为每个模型附加 caps 字段(provider capability 声明),
+    # 从 provider_caps.get_provider_cap(model.provider) 取,模型级 context_length 可覆盖 max_context。
+    # 不改 default_models.json 文件本身,只在端点返回时动态注入。
+    for m in default_models:
+        provider_code = str(m.get("provider") or "")
+        cap = get_provider_cap(provider_code)
+        # 模型级 context_length 覆盖 provider 默认 max_context
+        ctx_len = m.get("context_length")
+        if isinstance(ctx_len, int) and ctx_len > 0:
+            cap = cap_with_max_context(cap, ctx_len)
+        m["caps"] = cap_to_dict(cap)
     return {
         "models": default_models,
         "default": settings.litellm_model,
-        "stub_mode": llm_gateway._is_stub_mode(),
+        "stub_mode": stub_mode,
     }
+
+
+@router.get("/llm/providers/availability", response_model=None)
+async def list_providers_availability() -> dict[str, Any]:
+    """模型可用性服务健康状态摘要(供 Dashboard 调试 + 用户透明可见)。
+
+    返回 ModelAvailabilityService 缓存的 provider 健康状态:
+    - providers[]:每个 provider 的 status/latency_ms/last_check/error
+    - summary:healthy/degraded/down/local/zero_cost 计数
+
+    用于让用户理解"为什么某些模型不显示"——因为对应 provider 健康检查失败。
+    """
+    from ..services.model_availability import model_availability
+    return _wrap_ok(model_availability.get_health_summary())
 
 
 @router.post("/llm/complete/stream", response_model=None)
@@ -1644,69 +1697,170 @@ def _aggregate_provider_health(default_models: list[str]) -> tuple[bool, int]:
 
 @router.get("/llm/providers/health", response_model=None)
 async def list_providers_health() -> dict[str, Any]:
-    """所有免费 provider 的健康状态(供 Dashboard 可视化)。
+    """所有已配置 provider 的实时健康状态(主动预检,供 Dashboard 可视化)。
 
-    返回结构:
+    2026-07-31 P0 Phase B 升级:从静态注册表读取改为主动预检 —
+    对每个已配置 api_key 的 provider 并发发 GET {api_base}/models 验证 key 有效性。
+
+    返回结构(_wrap_ok 信封):
     {
-      "providers": [
-        {
-          "provider_code": "moonshot",
-          "display_name": "Moonshot Kimi",
-          "status": "configured",
-          "category": "domestic",
-          "free_quota": "Kimi-K2 免费",
-          "default_base_url": "https://api.moonshot.cn/v1",
-          "default_models": ["kimi-k2"],
-          "is_in_cooldown": false,
-          "consecutive_failures": 0,
-        }
-      ],
-      "summary": {"total": 40, "configured": 5, "local": 4, "not_configured": 31}
+      "code": 0,
+      "data": {
+        "providers": [
+          {
+            "provider": "openai",
+            "status": "ok"|"invalid_key"|"unreachable",
+            "latency_ms": 123,
+            "model_count": 42,
+            "last_check": "2026-07-31T12:00:00Z"
+          }
+        ],
+        "summary": {"total": 5, "ok": 3, "invalid_key": 1, "unreachable": 1}
+      }
     }
 
-    实现:调 free_provider_registry.list_all() + 检查 ComboRouter 的 _health 字典。
+    status 判定:
+    - HTTP 200 → ok(从响应 data 数组长度取 model_count)
+    - HTTP 401/403 → invalid_key(key 无效或过期)
+    - 连接失败/超时/其他 HTTP 错误 → unreachable
+
+    并发用 asyncio.gather,单 provider timeout=8s,总耗时 < 10s。
+    仅检查 api_key + api_base 均非空的 provider(无 api_base 的标记 skipped_no_base)。
     """
+    # 解析 LLM_PROVIDERS JSON,收集所有 api_key 非空的 provider
     try:
-        from ..services.free_provider_registry import free_provider_registry
-    except ImportError as e:
-        logger.error("FreeProviderRegistry 加载失败: %s", e)
-        return _wrap_ok({
-            "providers": [],
-            "summary": {"total": 0, "configured": 0, "local": 0, "not_configured": 0},
+        providers_json = json.loads(settings.llm_providers) if settings.llm_providers else {}
+    except (json.JSONDecodeError, TypeError):
+        providers_json = {}
+    if not isinstance(providers_json, dict):
+        providers_json = {}
+
+    # 收集待检查 provider(name → (api_key, api_base))
+    to_check: list[tuple[str, str, str | None]] = []
+    skipped_no_base: list[str] = []
+    for name, cfg_raw in providers_json.items():
+        if not isinstance(cfg_raw, dict):
+            continue
+        api_key = str(cfg_raw.get("api_key") or "").strip()
+        if not api_key:
+            continue  # 未配置 key 的 provider 不检查
+        api_base = cfg_raw.get("api_base")
+        api_base = str(api_base).strip() if api_base else ""
+        if not api_base:
+            skipped_no_base.append(name)
+            continue
+        to_check.append((name, api_key, api_base))
+
+    # 并发预检所有 provider
+    tasks = [_check_single_provider(name, api_key, api_base) for name, api_key, api_base in to_check]
+    results = await asyncio.gather(*tasks, return_exceptions=False)
+
+    # 合并 skipped_no_base(无 api_base,无法预检)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for name in skipped_no_base:
+        results.append({
+            "provider": name,
+            "status": "unreachable",
+            "latency_ms": 0,
+            "model_count": 0,
+            "last_check": now_iso,
+            "note": "no api_base configured, cannot pre-check",
         })
 
-    providers_data: list[dict[str, Any]] = []
-    configured_count = 0
-    local_count = 0
-    for p in free_provider_registry.list_all():
-        status = free_provider_registry.is_key_configured(p.provider_code).value
-        is_in_cooldown, consecutive_failures = _aggregate_provider_health(p.default_models)
-        providers_data.append({
-            "provider_code": p.provider_code,
-            "display_name": p.display_name,
-            "status": status,
-            "category": p.category.value,
-            "free_quota": p.free_quota,
-            "default_base_url": p.default_base_url,
-            "default_models": p.default_models,
-            "is_in_cooldown": is_in_cooldown,
-            "consecutive_failures": consecutive_failures,
-        })
-        if status == "configured":
-            configured_count += 1
-        elif status == "local":
-            local_count += 1
+    # 汇总统计
+    ok_count = sum(1 for r in results if r["status"] == "ok")
+    invalid_count = sum(1 for r in results if r["status"] == "invalid_key")
+    unreachable_count = sum(1 for r in results if r["status"] == "unreachable")
 
-    total = len(providers_data)
     return _wrap_ok({
-        "providers": providers_data,
+        "providers": results,
         "summary": {
-            "total": total,
-            "configured": configured_count,
-            "local": local_count,
-            "not_configured": total - configured_count - local_count,
+            "total": len(results),
+            "ok": ok_count,
+            "invalid_key": invalid_count,
+            "unreachable": unreachable_count,
         },
     })
+
+
+async def _check_single_provider(
+    provider_name: str, api_key: str, api_base: str
+) -> dict[str, Any]:
+    """对单个 provider 发 GET {api_base}/models 主动预检 key 有效性。
+
+    Args:
+        provider_name: provider 唯一标识(如 "openai" / "anthropic")。
+        api_key: API 凭证。
+        api_base: API endpoint URL(已去尾部 /)。
+
+    Returns:
+        {provider, status, latency_ms, model_count, last_check} 健康状态条目。
+    """
+    url = f"{api_base}/models"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    start = asyncio.get_event_loop().time()
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(url, headers=headers)
+        latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if resp.status_code == 200:
+            # 从响应提取 model_count(OpenAI 兼容格式:{"data": [...]})
+            model_count = 0
+            try:
+                body = resp.json()
+                if isinstance(body, dict):
+                    data = body.get("data")
+                    if isinstance(data, list):
+                        model_count = len(data)
+                    elif isinstance(body.get("models"), list):
+                        model_count = len(body["models"])
+            except (json.JSONDecodeError, ValueError):
+                pass
+            return {
+                "provider": provider_name,
+                "status": "ok",
+                "latency_ms": latency_ms,
+                "model_count": model_count,
+                "last_check": now_iso,
+            }
+        if resp.status_code in (401, 403):
+            return {
+                "provider": provider_name,
+                "status": "invalid_key",
+                "latency_ms": latency_ms,
+                "model_count": 0,
+                "last_check": now_iso,
+            }
+        # 其他 HTTP 错误(429/5xx 等)视为不可达
+        return {
+            "provider": provider_name,
+            "status": "unreachable",
+            "latency_ms": latency_ms,
+            "model_count": 0,
+            "last_check": now_iso,
+            "note": f"HTTP {resp.status_code}",
+        }
+    except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError) as e:
+        latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
+        return {
+            "provider": provider_name,
+            "status": "unreachable",
+            "latency_ms": latency_ms,
+            "model_count": 0,
+            "last_check": datetime.now(timezone.utc).isoformat(),
+            "note": f"{type(e).__name__}: {str(e)[:100]}",
+        }
+    except Exception as e:
+        latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
+        return {
+            "provider": provider_name,
+            "status": "unreachable",
+            "latency_ms": latency_ms,
+            "model_count": 0,
+            "last_check": datetime.now(timezone.utc).isoformat(),
+            "note": f"{type(e).__name__}: {str(e)[:100]}",
+        }
 
 
 @router.get("/llm/combos", response_model=None)
