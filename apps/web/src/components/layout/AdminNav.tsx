@@ -86,6 +86,7 @@ import {
   Layers,
   Zap,
   Shuffle,
+  TrendingUp,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -584,6 +585,9 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
       // P0 中转站造血能力对标批次(2026-07-31 立):模型映射(渠道管理)
       { href: '/admin/relay/channels', labelKey: 'adminRelayModelMappings', icon: Shuffle },
+      // P0 第四批次(2026-08-01 立):渠道配额 + 充值阶梯折扣
+      { href: '/admin/channel-quota', labelKey: 'dashboard', icon: Gauge, dynamicLabel: 'Channel Quota' },
+      { href: '/admin/topup-config', labelKey: 'dashboard', icon: TrendingUp, dynamicLabel: 'Topup Config' },
     ],
   },
   // 营销直播

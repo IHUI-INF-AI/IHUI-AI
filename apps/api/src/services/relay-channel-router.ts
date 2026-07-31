@@ -28,6 +28,7 @@ import {
   aiRelayChannelGroupMembers,
 } from '@ihui/database'
 import { decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
+import { checkQuota } from './channel-quota-service.js'
 
 // ============================================================================
 // 常量
@@ -39,6 +40,8 @@ const MAX_RECENT_CALLS = 10 // 最近调用记录上限(用于 least-latency 策
 const SESSION_AFFINITY_TTL_MS = 10 * 60 * 1000
 // session-affinity:定期清理周期(与 TTL 一致,清理过期亲和性条目,防止内存泄漏)
 const SESSION_AFFINITY_SWEEP_INTERVAL_MS = SESSION_AFFINITY_TTL_MS
+// 渠道配额检查:组内单次选 key 的最大重试次数(配额超限则剔除该 key 重选,避免死循环)
+const MAX_QUOTA_RETRY = 3
 
 // ============================================================================
 // 类型定义
@@ -496,20 +499,78 @@ export async function selectChannelKey(
     const availableMembers = groupMembers.filter((m) => !isCircuitOpen(m.keyPoolId))
     if (availableMembers.length === 0) continue
 
-    const items: WeightedItem[] = availableMembers.map((m) => ({
+    let items: WeightedItem[] = availableMembers.map((m) => ({
       keyPoolId: m.keyPoolId,
       weight: m.weight,
     }))
-    const selected = selectByStrategy(
-      group.id,
-      group.loadBalanceStrategy,
-      items,
-      effectiveAffinityKey,
-    )
-    if (!selected) continue
 
-    const keyData = availableKeys.find((k) => k.id === selected.keyPoolId)
-    if (!keyData) continue
+    // 组内按策略选 key,选定后检查渠道配额;配额超限则剔除该 key 重选(最多 MAX_QUOTA_RETRY 次)
+    for (let attempt = 0; attempt < MAX_QUOTA_RETRY && items.length > 0; attempt++) {
+      const selected = selectByStrategy(
+        group.id,
+        group.loadBalanceStrategy,
+        items,
+        effectiveAffinityKey,
+      )
+      if (!selected) break
+
+      const keyData = availableKeys.find((k) => k.id === selected.keyPoolId)
+      if (!keyData) {
+        // keyData 缺失,从候选列表移除避免死循环
+        items = items.filter((i) => i.keyPoolId !== selected.keyPoolId)
+        continue
+      }
+
+      // 渠道配额检查:超限则跳过该 key,尝试组内下一个
+      const quotaResult = await checkQuota(keyData.id)
+      if (!quotaResult.allowed) {
+        console.warn(
+          `[relay-router] channel quota exceeded, skip key ${keyData.id} in group ${group.name}`,
+          { reason: quotaResult.reason ?? 'unknown' },
+        )
+        items = items.filter((i) => i.keyPoolId !== selected.keyPoolId)
+        continue
+      }
+
+      return {
+        keyPoolId: keyData.id,
+        apiKey: decryptApiKey(keyData.apiKeyEnc),
+        baseUrl: config.baseUrl,
+        providerCode: config.providerCode,
+        configId: String(config.id),
+        groupId: group.id,
+        groupName: group.name,
+      }
+    }
+    // 组内所有 key 都超额或不可用 → 降级到下一优先级组
+  }
+
+  // 8. 无组配置或所有组都失败 → fallback 到 weight 策略(默认组),同样检查渠道配额
+  let fallbackItems: WeightedItem[] = availableKeys.map((k) => ({
+    keyPoolId: k.id,
+    weight: k.weight,
+  }))
+
+  for (let attempt = 0; attempt < MAX_QUOTA_RETRY && fallbackItems.length > 0; attempt++) {
+    const fallbackSelected = selectByWeight(fallbackItems)
+    if (!fallbackSelected) break
+
+    const keyData = availableKeys.find((k) => k.id === fallbackSelected.keyPoolId)
+    if (!keyData) {
+      fallbackItems = fallbackItems.filter((i) => i.keyPoolId !== fallbackSelected.keyPoolId)
+      continue
+    }
+
+    // fallback 渠道同样需检查配额
+    const quotaResult = await checkQuota(keyData.id)
+    if (!quotaResult.allowed) {
+      console.warn(
+        `[relay-router] fallback channel quota exceeded, skip key ${keyData.id}`,
+        { reason: quotaResult.reason ?? 'unknown' },
+      )
+      fallbackItems = fallbackItems.filter((i) => i.keyPoolId !== fallbackSelected.keyPoolId)
+      continue
+    }
 
     return {
       keyPoolId: keyData.id,
@@ -517,31 +578,12 @@ export async function selectChannelKey(
       baseUrl: config.baseUrl,
       providerCode: config.providerCode,
       configId: String(config.id),
-      groupId: group.id,
-      groupName: group.name,
+      groupId: '',
+      groupName: '(default)',
     }
   }
 
-  // 8. 无组配置或所有组都失败 → fallback 到 weight 策略(默认组)
-  const fallbackItems: WeightedItem[] = availableKeys.map((k) => ({
-    keyPoolId: k.id,
-    weight: k.weight,
-  }))
-  const fallbackSelected = selectByWeight(fallbackItems)
-  if (!fallbackSelected) return null
-
-  const keyData = availableKeys.find((k) => k.id === fallbackSelected.keyPoolId)
-  if (!keyData) return null
-
-  return {
-    keyPoolId: keyData.id,
-    apiKey: decryptApiKey(keyData.apiKeyEnc),
-    baseUrl: config.baseUrl,
-    providerCode: config.providerCode,
-    configId: String(config.id),
-    groupId: '',
-    groupName: '(default)',
-  }
+  return null
 }
 
 // ============================================================================
