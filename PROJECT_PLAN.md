@@ -1767,3 +1767,48 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - **DOM 数值验证**:Agent textarea placeholder="详细描述需求,输入 / 调用技能、插件、MCP(如 /goal /loop /plan)" / MCP 工具列表 9 子元素 / 编辑器无 .cm-editor/.monaco-editor(自研)/ Dark mode 切换后 documentElement.classList 不含 dark(用 CSS 变量实现主题)
 - **Git 同步**:commit 7baedc335f + push,local == remote == 7baedc335f,§20 五条全绿,--no-verify 跳过其他 agent schema drift
 - **结论**:IDE 可视化工作台深度审计补完完成,1 真实违规已修复,9 项 browser 验证全 PASS,无遗漏
+
+## WorkPanel CDP 完整 Chrome 升级(2026-07-31 立,P0,平台独占 web+ai-service,AGENTS.md §9 显式标注)
+
+> 触发:用户反馈内置浏览器最初要求是"完整 Chrome",当前 WorkPanel 是 iframe 架构([web-work-panel.tsx:96-100](apps/web/src/components/work-panel/web-work-panel.tsx)),受 X-Frame-Options 限制无法打开第三方平台登录页(知乎/B站等),扫码登录只能走后端截图流折中方案(/scan-login 页面)。
+> 目标:升级 WorkPanel 为 CDP(Chrome DevTools Protocol)远程控制真实 Chromium,对标 Trae/Cursor 内置浏览器,根治 iframe 限制。
+> 平台独占:apps/web + apps/ai-service(§9 豁免,内置浏览器是 web 专属能力,其他端无 WorkPanel 概念)
+
+### 硬性指标(C1-C6)
+
+- [x] ✅(2026-07-31) C1:后端 Browser Hub 服务(apps/ai-service/app/services/browser_hub.py),持续 Chromium 实例(async_playwright headed) + WebSocket 画面流(CDP Page.startScreencast) + REST API(创建会话/导航/获取 cookies/关闭)。commit `1b74b0f3c7`
+- [x] ✅(2026-07-31) C2:前端 WorkPanel 新增 cdp mode(packages/types WebViewMode 加 'cdp' + apps/web 新建 [CdpBrowserView](apps/web/src/components/work-panel/cdp-browser-view.tsx) 组件 canvas 渲染画面帧 + 鼠标键盘事件回传 WebSocket + 地址栏/导航基于 CDP)。work-panel store 新增 `openCdpSession` 方法
+- [x] ✅(2026-07-31) C3:扫码登录 CDP 模式重写([ScanLoginDialog.tsx](apps/web/app/(main)/publish/accounts/ScanLoginDialog.tsx) 从弹窗截图模式改为 CDP 内置浏览器模式:选平台→createBrowserSession→openCdpSession 在 WorkPanel 打开→每 3s 调 detectLoginFromCdp 轮询 cookies→自动保存。/scan-login 页面保留但不再依赖,向后兼容)
+- [x] ✅(2026-07-31) C4:验证通过 — ① typecheck CDP 相关文件 0 错误(2 个历史遗留错误 client.ts blob / DagGraph any 与 CDP 无关,按 §12 不阻塞);② 后端 CDP hub 测试全通过:Chromium 启动 + 会话创建 + 画面流 5 帧(首帧 43984 chars)+ cookies 9 个 + 导航(百度→知乎 /signin 登录页,X-Frame-Options 不再受限);③ 前端 ScanLoginDialog UI 渲染正常;④ 完整扫码流程需用户登录后手动测(扫码是物理动作无法自动化)
+- [x] ✅(2026-07-31) C5:README 同步(架构章节 + 内置浏览器能力清单更新,§21 触发)
+- [x] ✅(2026-07-31) C6:commit + push 同步 origin/main(local HEAD `3fd3d93b5d` == remote HEAD `3fd3d93b5d`,§20 五条全绿,git-push-guard exit 0。rebase 整合远程 9 commit,解决 PROJECT_PLAN.md + ScanLoginDialog.tsx 冲突)
+
+### 实施阶段
+
+- **阶段 1**:后端 Browser Hub MVP(async_playwright 持续 Chromium + WebSocket 画面流 + REST API + 多 session 管理)
+- **阶段 2**:前端 WorkPanel CDP 渲染(canvas + 事件回传 + 地址栏 + WebViewMode 类型扩展)
+- **阶段 3**:扫码登录简化(删除 /scan-login + ScanLoginDialog 直接 navigate + CDP cookies 检测)
+- **阶段 4**:集成测试 + README + PROJECT_PLAN 收尾
+
+### 技术方案
+
+```
+前端 (apps/web)                    后端 (apps/ai-service)
+┌─────────────────┐                ┌─────────────────────────┐
+│ WorkPanel       │ WebSocket      │ Browser Hub              │
+│  ┌───────────┐  │ ←──────────→  │  async_playwright        │
+│  │ canvas    │  │ 画面帧+事件    │  Chromium (headed)       │
+│  │ 渲染      │  │                │  ┌────────────────────┐ │
+│  └───────────┘  │                │  │ 真实网页(可交互)    │ │
+│  鼠标/键盘事件   │                │  │ X-Frame-Options 无效│ │
+│  → 回传后端     │                │  └────────────────────┘ │
+│  地址栏/导航     │                │  CDP: screencast/input  │
+│  → REST API     │                │  cookies/navigation API │
+└─────────────────┘                └─────────────────────────┘
+```
+
+CDP 关键 API:
+- `Page.startScreencast` - 推送 JPEG/PNG 画面帧
+- `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` - 鼠标键盘事件
+- `Network.getCookies` - 获取 cookies(扫码登录后检测)
+- `Page.navigate` - 导航
