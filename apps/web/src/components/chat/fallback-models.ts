@@ -35,8 +35,9 @@ export const FALLBACK_MODELS: FallbackModel[] = [
   },
 ]
 
-/** 厂商代码 → 显示名(仅保留兜底用到的 2 个 vendor;动态拉取的模型 vendor 缺失时回退到原始字符串) */
+/** 厂商代码 → i18n key(仅保留兜底用到的 2 个 vendor;动态拉取的模型 vendor 缺失时回退到原始字符串)
+ * 渲染处用 t() 转换 key 为本地化显示名 */
 export const VENDOR_LABEL: Record<string, string> = {
-  stepfun: '阶跃星辰',
-  cloudflare_workers_ai: 'Cloudflare Workers AI',
+  stepfun: 'vendor.stepfun',
+  cloudflare_workers_ai: 'vendor.cloudflareWorkersAi',
 }
