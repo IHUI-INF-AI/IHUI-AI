@@ -442,15 +442,37 @@ async def list_providers_availability() -> dict[str, Any]:
 
 
 @router.post("/llm/models/sync", response_model=None)
-async def sync_models() -> dict[str, Any]:
-    """手动触发模型自动同步(从所有已配置 key 的 provider 拉取最新模型清单)。
+async def sync_models(provider: str | None = None, dry_run: bool = False) -> dict[str, Any]:
+    """手动触发模型自动同步(可选 provider 定向 + dry_run 预览)。
 
-    并发拉取 /v1/models → 注册新增模型(自动上架)→ 下架移除模型(自动下架)
-    → 触发 ModelAvailabilityService 健康检查刷新。
-    返回同步状态(含每个 provider 的结果:新增数 / 移除数 / 耗时)。
+    - 不传 provider:全量同步所有已配置 key 的 provider
+    - 传 provider=xxx:只同步该 provider(F2.1)
+    - dry_run=true:只预览不写入 DB,返回将新增/下架的 model_id 列表(F2.2)
+
+    返回同步状态(含每个 provider 的结果 + preview 字段)。
     """
     from ..services.model_sync import model_sync_service
-    return _wrap_ok(await model_sync_service.sync_all_providers())
+    if provider:
+        status = await model_sync_service.sync_single_provider(provider, dry_run=dry_run)
+    else:
+        status = await model_sync_service.sync_all_providers(dry_run=dry_run)
+    return _wrap_ok(status)
+
+
+@router.get("/llm/models/sync/history", response_model=None)
+async def get_sync_history(limit: int = 20) -> dict[str, Any]:
+    """查询同步历史记录(最近 N 次,从 ai_model_sync_log 表读取,F1.3)。
+
+    返回字段:
+    - provider_code: provider 唯一标识
+    - sync_started_at / sync_finished_at: ISO 8601 时间戳
+    - success: 是否成功
+    - total_models / new_models / removed_models: 模型计数
+    - error: 错误信息(成功时为空)
+    - latency_ms: 同步耗时
+    """
+    from ..services.model_sync import model_sync_service
+    return _wrap_ok(await model_sync_service.get_history(limit=limit))
 
 
 @router.get("/llm/models/sync/status", response_model=None)

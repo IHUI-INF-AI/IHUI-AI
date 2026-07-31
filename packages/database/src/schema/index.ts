@@ -214,3 +214,5 @@ export * from './user-passkeys.js'
 export * from './api-key-shares.js'
 // 中转站用户会话历史(2026-08-01 立,P0-32 conversation_id 关联 + 消息列表 + 归属隔离)
 export * from './relay-conversations.js'
+// AI 模型同步日志表(2026-07-31 立,P0 ModelSyncService 持久化:每次同步结果入库,供 admin 历史查询)
+export * from './ai-model-sync-log.js'
