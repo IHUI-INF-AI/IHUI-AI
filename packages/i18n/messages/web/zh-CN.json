@@ -752,6 +752,26 @@
     "searchNext": "下一个",
     "searchPrev": "上一个",
     "searchClose": "关闭搜索",
+    "plan": {
+      "title": "执行计划",
+      "ariaLabel": "执行计划步骤",
+      "stepThinking": "思考",
+      "stepAnswer": "回答",
+      "statusInProgress": "正在",
+      "statusCompleted": "已完成",
+      "statusPending": "待开始",
+      "summaryAllDone": "全部完成",
+      "summaryErrorCount": "错误 {count}",
+      "totalDuration": "总 {duration}",
+      "progressPercent": "{percent}%",
+      "copyReasoning": "复制推理过程",
+      "reasoningCopied": "推理过程已复制",
+      "reasoningCopyFailed": "复制失败",
+      "expandReasoning": "展开推理过程",
+      "collapseReasoning": "折叠推理过程",
+      "jumpToMessage": "跳转到对应消息",
+      "stepError": "失败"
+    },
     "question": {
       "title": "AI 需要你的回答",
       "submit": "提交回答",
@@ -6327,7 +6347,23 @@
     "unfavorite": "取消收藏",
     "viewFavorites": "查看收藏",
     "backToHistory": "返回任务列表",
-    "loginRequired": "请先登录"
+    "loginRequired": "请先登录",
+    "select": "选择",
+    "selectAll": "全选",
+    "invertSelection": "反选",
+    "selectedCount": "已选 {count} 项",
+    "batchDelete": "批量删除",
+    "batchFavorite": "批量收藏",
+    "batchUnfavorite": "批量取消收藏",
+    "batchArchive": "批量归档",
+    "batchUnarchive": "批量取消归档",
+    "cancelSelection": "取消选择",
+    "confirmBatchDelete": "将永久删除 {count} 个对话，此操作不可撤销",
+    "batchDeleteSuccess": "批量删除成功",
+    "batchFavoriteSuccess": "批量收藏成功",
+    "batchUnfavoriteSuccess": "批量取消收藏成功",
+    "batchArchiveSuccess": "批量归档成功",
+    "batchUnarchiveSuccess": "批量取消归档成功"
   },
   "models": {
     "title": "模型市场",
@@ -12500,7 +12536,8 @@
       "noResults": "未找到结果",
       "recentSearches": "最近搜索",
       "remove": "移除",
-      "inputHint": "输入关键词搜索"
+      "inputHint": "输入关键词搜索",
+      "searchFailed": "搜索失败,请重试"
     },
     "sourceControl": {
       "commitPlaceholder": "提交信息",
@@ -12520,7 +12557,8 @@
       "commitSuccess": "提交成功",
       "pushSuccess": "推送成功",
       "pullSuccess": "拉取成功",
-      "branchSwitched": "已切换到 {branch}"
+      "branchSwitched": "已切换到 {branch}",
+      "committing": "提交中..."
     },
     "debug": {
       "start": "开始",
@@ -12553,7 +12591,8 @@
       "run": "运行",
       "debug": "调试",
       "recentRuns": "最近运行",
-      "typeTerminal": "终端"
+      "typeTerminal": "终端",
+      "runFailed": "运行失败,请重试"
     },
     "statusBar": {
       "sync": "同步",
