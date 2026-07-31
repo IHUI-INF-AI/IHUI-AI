@@ -23,6 +23,7 @@ export type {
   FormattedSSEError,
   FetchApiOptions,
   ToolCallEvent,
+  ToolSummaryEvent,
   FallbackEvent,
   SubagentSpawnEvent,
   SubagentEndEvent,
