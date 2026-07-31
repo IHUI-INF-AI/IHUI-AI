@@ -20,7 +20,12 @@
 
 import { fetchApi } from './api'
 import { logger } from './logger'
+import { fetchProvidersHealthLite } from '@ihui/api-client'
+import type { ProviderHealth } from '@ihui/api-client'
 import type { Model } from '../../app/(main)/models/types'
+
+// Provider 健康状态类型(Phase C+D,从共享层 re-export,供模型选择器消费)
+export type { ProviderHealth } from '@ihui/api-client'
 
 // ============================================================================
 // 类型定义
@@ -182,5 +187,35 @@ function toAiNewsItem(a: ApiArticle): AiNewsItem {
     publishedAt,
     relatedModelIds: inferRelatedModelIds(title),
     source: 'api',
+  }
+}
+
+// ============================================================================
+// Provider 健康状态(Phase C+D 模型选择器三态徽章)
+// ============================================================================
+
+const PROVIDERS_HEALTH_TTL = 30_000 // 30s 缓存,避免模型选择器每次 mount 都打后端
+let providersHealthCache: { data: ProviderHealth[]; ts: number } | null = null
+
+/**
+ * 拉取 Provider 健康状态(带 30s 缓存,Phase C+D 模型选择器三态徽章用)
+ * - 调共享层 fetchProvidersHealthLite(GET /llm/providers/health)
+ * - 30s 内复用缓存,避免频繁请求
+ * - 失败/超时 → 返回空数组(调用方按"无徽章"渲染,不阻塞选择器)
+ */
+export async function fetchProvidersHealth(force = false): Promise<ProviderHealth[]> {
+  const now = Date.now()
+  if (!force && providersHealthCache && now - providersHealthCache.ts < PROVIDERS_HEALTH_TTL) {
+    return providersHealthCache.data
+  }
+  try {
+    const data = await fetchProvidersHealthLite()
+    providersHealthCache = { data, ts: now }
+    return data
+  } catch (err) {
+    if (typeof window !== 'undefined') {
+      logger.warn('[models-api] fetchProvidersHealth 失败,返回空数组', err)
+    }
+    return []
   }
 }
