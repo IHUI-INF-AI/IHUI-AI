@@ -1,79 +1,75 @@
 'use client'
 
 import * as React from 'react'
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
+import { useTranslations } from 'next-intl'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from '@ihui/ui-react'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
-interface ConfirmState {
-  open: boolean
-  message: string
+// ===== useConfirm =====
+
+interface ConfirmConfig {
+  title: string
+  description?: string
+  confirmText?: string
+  cancelText?: string
+  variant?: 'default' | 'destructive'
+  hideCancel?: boolean
+}
+
+interface ConfirmState extends ConfirmConfig {
   resolve: ((value: boolean) => void) | null
 }
 
 export interface UseConfirmReturn {
-  confirm: (message: string) => Promise<boolean>
-  ConfirmDialog: React.FC
-}
-
-function ConfirmDialogInner({
-  open,
-  message,
-  onConfirm,
-  onCancel,
-}: {
-  open: boolean
-  message: string
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{message}</DialogTitle>
-        </DialogHeader>
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="ghost" size="sm" className="bg-muted" onClick={onCancel}>
-            取消
-          </Button>
-          <Button size="sm" onClick={onConfirm}>
-            确认
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
+  confirm: (config: ConfirmConfig) => Promise<boolean>
+  ConfirmDialogRenderer: React.FC
 }
 
 export function useConfirm(): UseConfirmReturn {
-  const [state, setState] = React.useState<ConfirmState>({
-    open: false,
-    message: '',
-    resolve: null,
-  })
-  const stateRef = React.useRef(state)
+  const t = useTranslations('common')
+  const [state, setState] = React.useState<ConfirmState | null>(null)
+  const stateRef = React.useRef<ConfirmState | null>(state)
   stateRef.current = state
+  const tRef = React.useRef(t)
+  tRef.current = t
 
-  const confirm = React.useCallback((message: string): Promise<boolean> => {
+  const confirm = React.useCallback((config: ConfirmConfig): Promise<boolean> => {
     return new Promise<boolean>((resolve) => {
-      setState({ open: true, message, resolve })
+      setState({ ...config, resolve })
     })
   }, [])
 
   const handleClose = React.useCallback((result: boolean) => {
     setState((prev) => {
-      prev.resolve?.(result)
-      return { open: false, message: '', resolve: null }
+      prev?.resolve?.(result)
+      return null
     })
   }, [])
 
-  const ConfirmDialog = React.useMemo<React.FC>(
+  const ConfirmDialogRenderer = React.useMemo<React.FC>(
     () =>
-      function ConfirmDialog() {
+      function ConfirmDialogRenderer() {
         const s = stateRef.current
+        const ct = tRef.current
+        if (!s) return null
         return (
-          <ConfirmDialogInner
-            open={s.open}
-            message={s.message}
+          <ConfirmDialog
+            open={true}
+            title={s.title}
+            description={s.description}
+            confirmText={s.confirmText ?? ct('confirm')}
+            cancelText={s.cancelText ?? ct('cancel')}
+            variant={s.variant}
+            hideCancel={s.hideCancel}
             onConfirm={() => handleClose(true)}
             onCancel={() => handleClose(false)}
           />
@@ -82,5 +78,90 @@ export function useConfirm(): UseConfirmReturn {
     [handleClose],
   )
 
-  return { confirm, ConfirmDialog }
+  return { confirm, ConfirmDialogRenderer }
+}
+
+// ===== usePrompt =====
+
+interface PromptConfig {
+  title: string
+  description?: string
+  defaultValue?: string
+  placeholder?: string
+  confirmText?: string
+  cancelText?: string
+}
+
+interface PromptState extends PromptConfig {
+  resolve: ((value: string | null) => void) | null
+}
+
+export interface UsePromptReturn {
+  prompt: (config: PromptConfig) => Promise<string | null>
+  PromptDialogRenderer: React.FC
+}
+
+export function usePrompt(): UsePromptReturn {
+  const t = useTranslations('common')
+  const [state, setState] = React.useState<PromptState | null>(null)
+  const [value, setValue] = React.useState('')
+  const stateRef = React.useRef<PromptState | null>(state)
+  stateRef.current = state
+  const valueRef = React.useRef(value)
+  valueRef.current = value
+  const tRef = React.useRef(t)
+  tRef.current = t
+
+  const prompt = React.useCallback((config: PromptConfig): Promise<string | null> => {
+    return new Promise<string | null>((resolve) => {
+      setState({ ...config, resolve })
+      setValue(config.defaultValue ?? '')
+    })
+  }, [])
+
+  const handleClose = React.useCallback((result: string | null) => {
+    setState((prev) => {
+      prev?.resolve?.(result)
+      return null
+    })
+  }, [])
+
+  const PromptDialogRenderer = React.useMemo<React.FC>(
+    () =>
+      function PromptDialogRenderer() {
+        const s = stateRef.current
+        const v = valueRef.current
+        const ct = tRef.current
+        if (!s) return null
+        return (
+          <Dialog open={true} onOpenChange={(o) => !o && handleClose(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{s.title}</DialogTitle>
+                {s.description ? <DialogDescription>{s.description}</DialogDescription> : null}
+              </DialogHeader>
+              <Input
+                value={v}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={s.placeholder}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- prompt dialog 打开后立即聚焦输入框是合理 UX
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleClose(v)
+                }}
+              />
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => handleClose(null)}>
+                  {s.cancelText ?? ct('cancel')}
+                </Button>
+                <Button onClick={() => handleClose(v)}>{s.confirmText ?? ct('confirm')}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      },
+    [handleClose],
+  )
+
+  return { prompt, PromptDialogRenderer }
 }

@@ -13,6 +13,7 @@ import {
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { getFileColor, getFileIcon } from './file-icons'
 import { cn } from '@/lib/utils'
+import { usePrompt } from '@/hooks/use-confirm'
 import type { FileNode } from '@ihui/types'
 
 const SHORTCUTS = [
@@ -36,8 +37,20 @@ const QUICK_ACTIONS = [
 ]
 
 export function EditorEmptyState() {
-  const { setActiveView, openFile, fileTree, openTabs, workspacePath, setWorkspacePath, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches } = useIDEWorkspace()
+  const {
+    setActiveView,
+    openFile,
+    fileTree,
+    openTabs,
+    workspacePath,
+    setWorkspacePath,
+    fetchFileTree,
+    fetchDiffFiles,
+    fetchGitLog,
+    fetchGitBranches,
+  } = useIDEWorkspace()
   const t = useTranslations('ide')
+  const { prompt, PromptDialogRenderer } = usePrompt()
 
   // 最近打开的文件:openTabs 优先,不足时从文件树补齐(最多 5 项)
   const recentFiles = React.useMemo<RecentFile[]>(() => {
@@ -80,9 +93,7 @@ export function EditorEmptyState() {
 
   // 打开文件夹:通过 prompt 获取路径,设置工作区并 fetch 数据
   const handleOpenFolder = async () => {
-    const path = typeof window !== 'undefined'
-      ? window.prompt(t('editorEmpty.subtitle')) ?? ''
-      : ''
+    const path = await prompt({ title: t('editorEmpty.subtitle') })
     if (!path) return
     setWorkspacePath(path)
     if (typeof window !== 'undefined') localStorage.setItem('ide:workspacePath', path)
@@ -93,90 +104,93 @@ export function EditorEmptyState() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center overflow-auto bg-muted/10 p-8">
-      <div className="flex w-full max-w-2xl gap-8">
-        {/* 左侧:品牌标识 + 引导 + 快捷操作 */}
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
-          <div className="rounded-2xl bg-gradient-to-br from-muted/60 to-muted/20 p-5">
-            <Code2 className="h-14 w-14 text-muted-foreground/70" />
-          </div>
-          <div className="text-center">
-            <p className="text-base font-semibold text-foreground">{t('editorEmpty.title')}</p>
-            <p className="mt-1 text-xs text-muted-foreground/80">
-              {t('editorEmpty.subtitle')}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {!workspacePath && (
-              <button
-                onClick={handleOpenFolder}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/40"
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
-                <span>{t('editorEmpty.browseFiles')}</span>
-              </button>
-            )}
-            {QUICK_ACTIONS.map((item) => (
-              <button
-                key={item.labelKey}
-                onClick={() => setActiveView(item.view)}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-              >
-                <item.icon className="h-3.5 w-3.5" />
-                <span>{t(item.labelKey)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 右侧:最近打开文件 + 快捷键提示 */}
-        <div className="flex w-72 flex-col gap-4">
-          {recentFiles.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">{t('editorEmpty.recentFiles')}</p>
-              <div className="flex flex-col gap-0.5">
-                {recentFiles.map((file) => {
-                  const Icon = getFileIcon(file.name)
-                  return (
-                    <button
-                      key={file.id}
-                      onClick={() => handleOpen(file.id)}
-                      className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                    >
-                      <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.name))} />
-                      <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                      <ChevronRight className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-                    </button>
-                  )
-                })}
-              </div>
+    <>
+      <div className="flex flex-1 items-center justify-center overflow-auto bg-muted/10 p-8">
+        <div className="flex w-full max-w-2xl gap-8">
+          {/* 左侧:品牌标识 + 引导 + 快捷操作 */}
+          <div className="flex flex-1 flex-col items-center justify-center gap-4">
+            <div className="rounded-2xl bg-gradient-to-br from-muted/60 to-muted/20 p-5">
+              <Code2 className="h-14 w-14 text-muted-foreground/70" />
             </div>
-          )}
-          <div>
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Keyboard className="h-3.5 w-3.5" />
-              <span>{t('editorEmpty.shortcuts')}</span>
-            </p>
-            <div className="flex flex-col gap-1.5">
-              {SHORTCUTS.map((s) => (
-                <div key={s.labelKey} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground/80">{t(s.labelKey)}</span>
-                  <div className="flex items-center gap-0.5">
-                    {s.keys.map((k, i) => (
-                      <React.Fragment key={i}>
-                        {i > 0 && <span className="text-muted-foreground/50">+</span>}
-                        <kbd className="rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                          {k}
-                        </kbd>
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
+            <div className="text-center">
+              <p className="text-base font-semibold text-foreground">{t('editorEmpty.title')}</p>
+              <p className="mt-1 text-xs text-muted-foreground/80">{t('editorEmpty.subtitle')}</p>
+            </div>
+            <div className="flex gap-2">
+              {!workspacePath && (
+                <button
+                  onClick={handleOpenFolder}
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/40"
+                >
+                  <FolderOpen className="h-3.5 w-3.5" />
+                  <span>{t('editorEmpty.browseFiles')}</span>
+                </button>
+              )}
+              {QUICK_ACTIONS.map((item) => (
+                <button
+                  key={item.labelKey}
+                  onClick={() => setActiveView(item.view)}
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  <item.icon className="h-3.5 w-3.5" />
+                  <span>{t(item.labelKey)}</span>
+                </button>
               ))}
+            </div>
+          </div>
+
+          {/* 右侧:最近打开文件 + 快捷键提示 */}
+          <div className="flex w-72 flex-col gap-4">
+            {recentFiles.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  {t('editorEmpty.recentFiles')}
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  {recentFiles.map((file) => {
+                    const Icon = getFileIcon(file.name)
+                    return (
+                      <button
+                        key={file.id}
+                        onClick={() => handleOpen(file.id)}
+                        className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                      >
+                        <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(file.name))} />
+                        <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                        <ChevronRight className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Keyboard className="h-3.5 w-3.5" />
+                <span>{t('editorEmpty.shortcuts')}</span>
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {SHORTCUTS.map((s) => (
+                  <div key={s.labelKey} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground/80">{t(s.labelKey)}</span>
+                    <div className="flex items-center gap-0.5">
+                      {s.keys.map((k, i) => (
+                        <React.Fragment key={i}>
+                          {i > 0 && <span className="text-muted-foreground/50">+</span>}
+                          <kbd className="rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            {k}
+                          </kbd>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <PromptDialogRenderer />
+    </>
   )
 }

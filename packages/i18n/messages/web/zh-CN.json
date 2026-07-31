@@ -46,8 +46,14 @@
       "subscribeFailed": "操作失败"
     }
   },
+  "hooks": {
+    "deleteConfirm": "确定删除 Hook \"{{name}}\" 吗？"
+  },
   "common": {
     "refundTime": "退款时间",
+    "confirmTitle": "确认操作",
+    "confirm": "确认",
+    "cancel": "取消",
     "tools": {
       "title": "工具中心",
       "subtitle": "浏览并使用平台提供的各类工具",
@@ -985,6 +991,10 @@
     "mentionPopover": {
       "removeLabel": "移除 {label}"
     },
+    "vendor": {
+      "stepfun": "阶跃星辰",
+      "cloudflareWorkersAi": "Cloudflare Workers AI"
+    },
     "contextMenu": {
       "copyText": "复制文本",
       "copyMarkdown": "复制为 Markdown",
@@ -1196,13 +1206,7 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": [
-          "每月 1000 积分",
-          "所有 AI 模型",
-          "所有 6 个客户端",
-          "API 访问",
-          "社区支持"
-        ]
+        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
       },
       "pro": {
         "name": "专业版",
@@ -1219,13 +1223,7 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": [
-          "不限积分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "审计日志",
-          "专属技术支持"
-        ]
+        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
       }
     },
     "checkout": {
@@ -8821,7 +8819,35 @@
     "pageSubtitle": "选择类型，生成文本、图像、视频、音频、3D 模型等内容",
     "clear": "清除",
     "tabCode": "",
-    "tabText": ""
+    "tabText": "",
+    "defaultPromptPlaceholder": "描述你想要生成的内容...",
+    "promptAriaLabel": "生成内容输入框",
+    "imageTitle": "图像生成",
+    "codeTitle": "代码生成",
+    "textTitle": "文本生成",
+    "audioTitle": "语音合成",
+    "model3dTitle": "3D 模型生成",
+    "generateImage": "生成图像",
+    "generateCode": "生成代码",
+    "generateText": "生成文本",
+    "generateAudio": "合成语音",
+    "generateModel3d": "生成模型",
+    "imagePromptPlaceholder": "描述要生成的图像...",
+    "codePromptPlaceholder": "描述要生成的代码功能...",
+    "textPromptPlaceholder": "描述要生成的文本...",
+    "audioPromptPlaceholder": "输入要合成的文本...",
+    "model3dPromptPlaceholder": "描述要生成的 3D 模型...",
+    "provider": "服务商",
+    "voice": "音色",
+    "format": "格式",
+    "language": "语言",
+    "maleVoice": "男声",
+    "femaleVoice": "女声",
+    "trebleVoice": "童声",
+    "styleNormal": "普通",
+    "styleFormal": "正式",
+    "styleCreative": "创意",
+    "styleAcademic": "学术"
   },
   "mcp": {
     "noParameters": "该工具没有参数",
@@ -9582,58 +9608,32 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": [
-          "对话",
-          "聊天",
-          "AI",
-          "chat"
-        ]
+        "keywords": ["对话", "聊天", "AI", "chat"]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": [
-          "短剧",
-          "视频",
-          "AI",
-          "drama"
-        ]
+        "keywords": ["短剧", "视频", "AI", "drama"]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ]
+        "keywords": ["搜索", "查找", "search"]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "应用"
-        ]
+        "keywords": ["AI", "世界", "应用"]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": [
-          "个人",
-          "资料",
-          "设置"
-        ]
+        "keywords": ["个人", "资料", "设置"]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": [
-          "设置",
-          "偏好",
-          "配置"
-        ]
+        "keywords": ["设置", "偏好", "配置"]
       }
     }
   },
@@ -10032,31 +10032,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": [
-            "系统化课程",
-            "实践探索",
-            "社群互助"
-          ]
+          "features": ["系统化课程", "实践探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": [
-            "交流平台",
-            "经验共享",
-            "资源对接"
-          ]
+          "features": ["交流平台", "经验共享", "资源对接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": [
-            "专业大模型",
-            "智能体服务",
-            "咨询服务"
-          ]
+          "features": ["专业大模型", "智能体服务", "咨询服务"]
         }
       ]
     },
@@ -10177,37 +10165,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": [
-            "知识问答",
-            "流程自动化"
-          ]
+          "examples": ["知识问答", "流程自动化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": [
-            "数据分析",
-            "决策支持"
-          ]
+          "examples": ["数据分析", "决策支持"]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": [
-            "会议安排",
-            "审批流程"
-          ]
+          "examples": ["会议安排", "审批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": [
-            "营销自动化",
-            "多智能体协同"
-          ]
+          "examples": ["营销自动化", "多智能体协同"]
         }
       ]
     },
@@ -11683,11 +11659,7 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": [
-        "全年所有课程免费参加",
-        "线下探索活动优先参与名额",
-        "智汇 AI 会员社群无限次互动"
-      ]
+      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
     },
     "enterprise": {
       "name": "企业服务",
@@ -11815,15 +11787,7 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": [
-      "周一",
-      "周二",
-      "周三",
-      "周四",
-      "周五",
-      "周六",
-      "周日"
-    ],
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -11967,18 +11931,8 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": [
-        "重点中学",
-        "普通中学",
-        "国际学校",
-        "私立学校"
-      ],
-      "classLevel": [
-        "优秀(班级前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(后 30%)"
-      ],
+      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
+      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -13432,7 +13386,10 @@
       "newTerminalAria": "新建终端",
       "loading": "加载中...",
       "empty": "暂无终端会话",
-      "closeTerminalAria": "关闭终端"
+      "closeTerminalAria": "关闭终端",
+      "statusActive": "运行中",
+      "statusExited": "已退出",
+      "statusClosed": "已关闭"
     }
   },
   "aiSkillsPage": {
@@ -13542,12 +13499,7 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": [
-          "1M tokens 额度",
-          "基础模型可用",
-          "5 个 API 令牌",
-          "社区支持"
-        ]
+        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
       },
       "pro": {
         "features": [
@@ -13989,13 +13941,7 @@
         "price": "¥999",
         "unit": "/小时",
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": [
-          "视频会议 / 远程桌面",
-          "2 小时起",
-          "故障排查",
-          "增值税发票",
-          "响应 SLA 24h"
-        ]
+        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
       }
     },
     "socialProof": {
