@@ -246,10 +246,13 @@ function deriveDiffInfoFromArgs(
 
 const CHANGE_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 
-/** 从 SSE 事件提取 PlanStep(支持 plan_updated / node_start / node_end) */
+/** 从 SSE 事件提取 PlanStep(支持 plan_updated / plan / node_start / node_end) */
 function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
   // 优先:Codex 风格 plan_updated 事件(权威快照)
-  const planSnapshots = events.filter((e) => (e.type as string) === 'plan_updated')
+  // 兼容 ai-service langgraph_stream.py 发出的 plan 事件(update 中含 "plan" 字段)
+  const planSnapshots = events.filter(
+    (e) => (e.type as string) === 'plan_updated' || (e.type as string) === 'plan',
+  )
   if (planSnapshots.length > 0) {
     const lastSnapshot = planSnapshots[planSnapshots.length - 1]
     if (!lastSnapshot) return []
@@ -499,8 +502,7 @@ function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
       })
     } else if ((evt.type as string) === 'terminal_end') {
       const data = evt.data as
-        | { id?: string; status?: TerminalStatus; output?: string; exitCode?: number }
-        | undefined
+        { id?: string; status?: TerminalStatus; output?: string; exitCode?: number } | undefined
       const id = data?.id ?? ''
       const existing = id ? map.get(id) : undefined
       if (existing) {
@@ -538,7 +540,16 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     autoReconnect: true,
   })
 
-  const { events, isStreaming, currentNode, content, lastPlan, error, interruptEvent, reconnectAttempt } = stream
+  const {
+    events,
+    isStreaming,
+    currentNode,
+    content,
+    lastPlan,
+    error,
+    interruptEvent,
+    reconnectAttempt,
+  } = stream
 
   // 聚合 planSteps(Codex 三状态 + explanation + 最多一个 in_progress 硬规则)
   const planSteps = React.useMemo<PlanStep[]>(() => extractPlanFromEvents(events), [events])
