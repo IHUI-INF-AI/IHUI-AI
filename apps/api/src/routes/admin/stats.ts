@@ -414,6 +414,8 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.get('/stats/dashboard', async (request, reply) => {
     try {
+      const sevenDaysAgo = sql`now() - interval '7 days'`
+
       const [pvRow, uvRow, ordersRow, revenueRow] = await Promise.all([
         db.select({ c: sql<number>`count(*)::int` }).from(visitLogs),
         db
@@ -435,11 +437,37 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       const revenueCents = revenueRow[0]?.total ?? 0
       const revenue = Number((revenueCents / 100).toFixed(2))
 
+      // 7 日访问趋势(按天聚合 visitLogs count)
+      const trendRows = await db
+        .select({
+          label: sql<string>`to_char(${visitLogs.createdAt}, 'MM-DD')`,
+          value: sql<number>`count(*)::int`,
+        })
+        .from(visitLogs)
+        .where(gte(visitLogs.createdAt, sevenDaysAgo))
+        .groupBy(sql`to_char(${visitLogs.createdAt}, 'YYYY-MM-DD')`)
+        .orderBy(sql`to_char(${visitLogs.createdAt}, 'YYYY-MM-DD')`)
+
+      // 订单状态占比
+      const ratioRows = await db
+        .select({
+          label: sql<string>`coalesce(${orders.status}, 'unknown')`,
+          value: sql<number>`count(*)::int`,
+        })
+        .from(orders)
+        .groupBy(orders.status)
+
       return reply.send(
         success({
           overview: { pv, uv, orders: ordersCount, revenue },
-          trend: [],
-          metrics: [],
+          trend: trendRows.map((r) => ({ label: r.label, value: Number(r.value) })),
+          metrics: [
+            { label: 'PV', value: pv },
+            { label: 'UV', value: uv },
+            { label: '订单', value: ordersCount },
+            { label: '营收', value: revenue },
+          ],
+          ratios: ratioRows.map((r) => ({ label: r.label, value: Number(r.value) })),
         }),
       )
     } catch (e) {
@@ -450,6 +478,7 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
           overview: { pv: 0, uv: 0, orders: 0, revenue: 0 },
           trend: [],
           metrics: [],
+          ratios: [],
         }),
       )
     }
