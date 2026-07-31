@@ -505,6 +505,7 @@
   width: 100%;
   background: none;
   border-radius: 30rpx;
+  overflow: hidden;
   box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
   transition: box-shadow 0.3s ease;
   animation: inputAreaBackAnimation 2s linear infinite;
@@ -538,13 +539,17 @@
 .search-box {
   display: flex;
   align-items: flex-end;
+  width: 100%;
+  background-color: #fff;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border-radius: 30rpx;
+  padding: 0 15rpx 0 25rpx;
+  height: auto;
+  box-sizing: border-box;
   flex-wrap: wrap;
   position: relative;
-  border-radius: 30rpx;
-  padding: 10rpx 15rpx 10rpx 25rpx;
-  box-sizing: border-box;
-  width: 100%;
-  border: 1rpx solid rgba(223, 138, 248, 0.384);
+  min-height: 0 !important;
 }
 
 /* ============ textarea 原生样式重置(对标原项目 textarea.search-input) ============ */
@@ -588,11 +593,19 @@
 .imgs-list {
   display: flex;
   flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
   gap: 10rpx;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  width: 100%;
+  padding: 0 0 20rpx 0;
+  box-sizing: border-box;
   overflow-x: auto;
-  padding: 0 0 20rpx;
+  flex: none;
+  border-bottom: 1px solid #D8D8D8;
   margin-bottom: 20rpx;
-  border-bottom: 1rpx solid #d8d8d8;
   white-space: nowrap;
 }
 .imgs-list-item {
@@ -1166,7 +1179,8 @@
 
 /* ============ search-box 紫色描边圆角(对标原 .search_box_bor) ============ */
 .search-box-bor {
-  border: 1rpx solid rgba(223, 138, 248, 0.384);
+  padding: 10rpx 15rpx 10rpx 25rpx;
+  border: 1px solid rgba(223, 138, 248, 0.384);
 }
 
 /* 放大态 search-box 子容器(对标原 .search_boxa:height 100% + space-between + flex-end) */
@@ -1183,7 +1197,7 @@
   padding: 0;
   background: transparent;
   width: 100%;
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
   box-sizing: border-box;
 }
@@ -1218,7 +1232,9 @@
     sans-serif;
   font-weight: normal;
   line-height: 40rpx;
-  flex: 1;
+  flex: none;
+  width: 70%;
+  height: auto;
   min-height: 44rpx;
 }
 
@@ -1229,12 +1245,17 @@
 
 /* ============ 右侧图标组(对标原 .search-right 绝对定位) ============ */
 .search-right {
-  position: absolute;
-  right: 6rpx;
-  bottom: calc(50% - 26rpx);
+  width: auto;
+  height: auto;
+  margin-right: 0;
+  border-radius: 0px 26px 26px 0px;
+  box-sizing: border-box;
   display: flex;
   justify-content: space-around;
   align-items: center;
+  position: absolute;
+  right: 6rpx;
+  bottom: calc(50% - 26rpx);
   z-index: 2;
 }
 
@@ -1242,12 +1263,6 @@
 .search-box2 {
   width: 44rpx;
   height: 44rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 1;
-  transition: opacity 0.3s;
-  flex: none;
 }
 .search-box2-img {
   width: 44rpx;
@@ -1262,10 +1277,9 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  flex: none;
 }
 .search-box3-img {
-  width: 50rpx;
-  height: 50rpx;
+  width: 40rpx;
+  height: 23rpx;
   display: block;
 }
