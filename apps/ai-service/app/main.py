@@ -284,6 +284,46 @@ async def lifespan(app: FastAPI) -> Any:
     from app.core.db_pool import close_shared_pool
     await close_shared_pool()
 
+    # P1 修复(2026-07-31 资源泄露):关闭各 service 持有的独立连接池 / Redis 客户端。
+    # 这些单例有自己的 close() 方法但此前未被 lifespan 调用,导致 uvicorn 重启时
+    # asyncpg / psycopg / Redis 连接累积,PostgreSQL pg_stat_activity 与 Redis CLIENT LIST 持续增长。
+    try:
+        from app.services.knowledge_graph import graph_store
+        if hasattr(graph_store, "close"):
+            await graph_store.close()
+            logger.info("[shutdown] knowledge_graph closed")
+    except Exception as e:
+        logger.warning("[shutdown] knowledge_graph.close 失败(忽略): %s", e)
+
+    try:
+        from app.services.langgraph_checkpoint import get_langgraph_checkpoint_manager
+        await get_langgraph_checkpoint_manager().close()
+        logger.info("[shutdown] langgraph_checkpoint closed")
+    except Exception as e:
+        logger.warning("[shutdown] langgraph_checkpoint.close 失败(忽略): %s", e)
+
+    try:
+        from app.services.agent_checkpoint import get_agent_checkpoint_manager
+        await get_agent_checkpoint_manager().close()
+        logger.info("[shutdown] agent_checkpoint closed")
+    except Exception as e:
+        logger.warning("[shutdown] agent_checkpoint.close 失败(忽略): %s", e)
+
+    # 关闭旧版 app.core.db 独立 pool(若已被 db_pool.py 取代则为 no-op)
+    try:
+        from app.core.db import close_db_pool
+        await close_db_pool()
+    except Exception as e:
+        logger.warning("[shutdown] close_db_pool 失败(忽略): %s", e)
+
+    # 关闭 Socket.IO AsyncServer(显式 disconnect,确保所有客户端收到 disconnect 事件 +
+    # 释放 EngineIO 资源;uvicorn ASGI lifespan 也会清理,但显式调用更安全)
+    try:
+        await sio.disconnect()
+        logger.info("[shutdown] socket.io disconnected")
+    except Exception as e:
+        logger.warning("[shutdown] sio.disconnect 失败(忽略): %s", e)
+
     shutdown_telemetry()
 
 
