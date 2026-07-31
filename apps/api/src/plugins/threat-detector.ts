@@ -110,6 +110,11 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
   }, 60_000)
   cleanupInterval.unref()
 
+  // P2 修复(2026-07-31):onClose 时显式 clearInterval,与 db-keepalive/slow-sql-killer 同模式
+  server.addHook('onClose', async () => {
+    clearInterval(cleanupInterval)
+  })
+
   server.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
     if (SKIP_PATHS.has(path)) return
