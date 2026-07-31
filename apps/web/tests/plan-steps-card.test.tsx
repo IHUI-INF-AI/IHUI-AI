@@ -33,6 +33,7 @@ vi.mock('lucide-react', () => {
     Clock: make('Clock'),
     Loader2: make('Loader2'),
     ChevronRight: make('ChevronRight'),
+    ChevronDown: make('ChevronDown'),
   }
 })
 
