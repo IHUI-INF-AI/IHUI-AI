@@ -30,7 +30,7 @@ import {
   eduRefunds,
   visitLogs,
 } from '@ihui/database'
-import { eq, ilike, desc, sql, and, gte, lte } from 'drizzle-orm'
+import { eq, ilike, desc, sql, and, gte, lte, lt } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -532,6 +532,18 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       const netRevenue = Number((totalRevenue - refundAmount).toFixed(2))
       const arpu = paidOrders > 0 ? Number((totalRevenue / paidOrders).toFixed(2)) : 0
 
+      // 营收趋势(最近 30 天按天分组,amount 单位:分)
+      const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      const trendRows = await db
+        .select({
+          label: sql<string>`to_char(${orders.createdAt}, 'MM-DD')`,
+          value: sql<number>`coalesce(sum(${orders.amount}), 0)::int`,
+        })
+        .from(orders)
+        .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, since30d)))
+        .groupBy(sql`to_char(${orders.createdAt}, 'YYYY-MM-DD')`)
+        .orderBy(sql`to_char(${orders.createdAt}, 'YYYY-MM-DD')`)
+
       return reply.send(
         success({
           overview: {
@@ -545,9 +557,9 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
             netRevenue,
             arpu,
           },
-          trend: [],
-          byChannel: [],
-          byProduct: [],
+          trend: trendRows,
+          byChannel: [], // orders 表无 channel 字段,暂保持空
+          byProduct: [], // orders 表无商品维度聚合字段,暂保持空
         }),
       )
     } catch (e) {
@@ -640,9 +652,62 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       const dau = dauRow[0]?.c ?? 0
       const mau = mauRow[0]?.c ?? 0
 
-      // 留存率计算(简化版,需复杂 SQL 跨表关联 users + visitLogs 按注册日 + 活跃日,保留 0 占位)
-      const retention7d = 0
-      const retention30d = 0
+      // 留存率:7天/30天前注册的同期用户中,今日有 visitLogs 记录的占比(%)
+      const retention7dCohortStart = new Date(todayStart.getTime() - 8 * 24 * 60 * 60 * 1000)
+      const retention7dCohortEnd = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const retention30dCohortStart = new Date(todayStart.getTime() - 31 * 24 * 60 * 60 * 1000)
+      const retention30dCohortEnd = new Date(todayStart.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+      const [retention7dRow, retention7dBaseRow, retention30dRow, retention30dBaseRow] =
+        await Promise.all([
+          db
+            .select({ c: sql<number>`count(distinct ${visitLogs.userId})::int` })
+            .from(visitLogs)
+            .innerJoin(users, eq(users.id, visitLogs.userId))
+            .where(
+              and(
+                gte(users.createdAt, retention7dCohortStart),
+                lt(users.createdAt, retention7dCohortEnd),
+                gte(visitLogs.createdAt, todayStart),
+              ),
+            ),
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(users)
+            .where(
+              and(
+                gte(users.createdAt, retention7dCohortStart),
+                lt(users.createdAt, retention7dCohortEnd),
+              ),
+            ),
+          db
+            .select({ c: sql<number>`count(distinct ${visitLogs.userId})::int` })
+            .from(visitLogs)
+            .innerJoin(users, eq(users.id, visitLogs.userId))
+            .where(
+              and(
+                gte(users.createdAt, retention30dCohortStart),
+                lt(users.createdAt, retention30dCohortEnd),
+                gte(visitLogs.createdAt, todayStart),
+              ),
+            ),
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(users)
+            .where(
+              and(
+                gte(users.createdAt, retention30dCohortStart),
+                lt(users.createdAt, retention30dCohortEnd),
+              ),
+            ),
+        ])
+
+      const retention7d = retention7dBaseRow[0]?.c
+        ? Number(((retention7dRow[0]?.c ?? 0) / retention7dBaseRow[0].c * 100).toFixed(2))
+        : 0
+      const retention30d = retention30dBaseRow[0]?.c
+        ? Number(((retention30dRow[0]?.c ?? 0) / retention30dBaseRow[0].c * 100).toFixed(2))
+        : 0
 
       return reply.send(
         success({
