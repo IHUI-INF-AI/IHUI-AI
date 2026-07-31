@@ -1333,6 +1333,21 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 - **Phase C+D 前端(web TS,Subagent 2)**:fallback-models.ts 收敛 + 模型广场 provider 状态展示 + api-client 适配
 - **Phase D DB+文档(主 agent)**:DB 占位符清理 + .env.example 文档 + 跨端契约对齐 + 最终验证 + commit/push
   - apps/mobile-rn/src/screens/LiveHostScreen.tsx:移除 readNumber 类型守卫,改用强类型字段直接转换
+
+### [x] ✅(2026-07-31) 模型名自动更新(ModelSyncService,Phase E 增量,用户反馈"模型名应该是自动更新啊 怎么还需要手动去调呢 这要开发好")
+
+> **背景**:用户反馈模型名应自动同步,不应依赖手动改 `default_models.json`。本任务服务化 `scripts/scan-upstream-models.mjs`(一次性 CLI 扫描脚本)为 Python 后台服务,定时从厂商 `/v1/models` 端点拉取最新模型清单,自动注册到 DB(`ai_model_config_models` 表),实现"模型名自动更新,新增 provider 只需在 `free_provider_registry.py` 登记 + 配置 api_key,无需手动改任何文件"。
+
+- [x] `apps/ai-service/app/services/model_sync.py`(新增):`ModelSyncService` 单例,启动后 60s 首次同步 + 每 6h 全量同步;并发信号量限流(5 个 provider 同时拉);DB upsert(新增模型 `is_relay_public=true` 自动上架,移除模型 `is_relay_public=false` 自动下架,不删行保留历史);同步后触发 `model_availability._refresh_all_providers()` 立即刷新健康状态
+- [x] Cloudflare Workers AI 适配(非标准 API):`/v1/models` 端点返回 405 → 改用 `/models/search` + 响应 `result` 字段(非 `data`);剥离 trailing `/v1` 后缀避免用户配置 `api_base` 习惯性带 `/v1` 拼出错误端点
+- [x] `apps/ai-service/app/main.py`:lifespan startup 调 `model_sync_service.initialize()` 启动后台任务,shutdown 调 `shutdown()` 取消任务
+- [x] `apps/ai-service/app/routers/llm.py`:新增 2 个 admin 端点 — `POST /api/llm/models/sync`(手动触发全量同步)+ `GET /api/llm/models/sync/status`(查询同步状态,含每个 provider 的 success/total_models/new_models/removed_models/error/latency_ms)
+- [x] `packages/api-client/src/endpoints/llm.ts`(已在 commit `04e5054339` 中):新增 `ModelSyncResult` / `ModelSyncStatus` 接口 + `triggerModelSync()` / `fetchModelSyncStatus()` API 函数
+- [x] `apps/web/app/(main)/settings/gateway/ProvidersHealthTab.tsx`:集成 useQuery(10s refetch 同步状态)+ useMutation(触发同步),UI Card 显示最近同步时间 + 5 个 provider 同步结果(Badge 标识总数/+新增/-下架/latency),"立即同步"按钮(spinner + disabled 状态)
+- [x] `apps/web/app/(main)/settings/gateway/types.ts`:re-export `ModelSyncResult` / `ModelSyncStatus` 类型
+- [x] `apps/ai-service/app/data/default_models.json`:降级为兜底清单(每 provider 1-2 个推荐模型),头部加 `_doc_2026_07_31` 字段说明"实际模型清单由 ModelSyncService 自动同步到 DB,无需手动改本文件"
+- [x] 端到端验证:ai-service 启动后 60s 自动触发首次同步,实测 7.4s 同步完成 5 个 provider — stepfun(9) / agnes(6) / openrouter(364) / nvidia_nim(102) / cloudflare_workers_ai(61,修复 405 后);GET `/api/llm/models/sync/status` 返回 200 + 完整 status JSON;前端 DOM 快照验证 "模型自动同步" Card + "立即同步" 按钮可点击 + 无蓝色发光边框
+- [x] typecheck 全绿:`pnpm --filter @ihui/web typecheck` exit 0;`python -m py_compile` 全文件 exit 0
 - [x] Subagent D(AigcPublishScreen 真实文件上传):
   - 安装 expo-image-picker ~8.1.0(与 expo 53 兼容)
   - packages/api-client/src/endpoints/files.ts(新建):uploadFileMultipart/UploadedFile/resolveFileUrl
