@@ -70,7 +70,7 @@ export function LoginDialog() {
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{subtitle}</DialogDescription>
 
-        <AuthShell onClose={close}>
+        <AuthShell>
           {mode === 'login' ? (
             <LoginWithTurnstile>
               <LoginFormContent onSuccess={handleLoginSuccess} />
