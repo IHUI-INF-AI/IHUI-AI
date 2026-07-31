@@ -3,11 +3,12 @@
  *
  * 端点清单:
  * 1. GET    /admin/relay/key-pool          — Key 池列表(分页 + 筛选 provider/启用状态/搜索)
+ * 1b. GET   /admin/relay/key-pool/:id      — 单个 Key 详情(apiKeyEnc 脱敏)
  * 2. POST   /admin/relay/key-pool          — 添加 Key(加密 apiKeyEnc)
  * 3. PUT    /admin/relay/key-pool/:id      — 更新(priority/weight/启用/名称)
  * 4. DELETE /admin/relay/key-pool/:id      — 删除 Key
  * 5. POST   /admin/relay/key-pool/:id/toggle — 启用/禁用切换
- * 6. POST   /admin/relay/key-pool/:id/health — 触发健康检查(简易 ping 上游)
+ * 6. POST   /admin/relay/key-pool/:id/health — 触发健康检查(真实 ping 上游 /v1/models)
  *
  * 复用 ai_relay_key_pool 表;加密用 utils/crypto.ts 的 encryptJSON。
  */
@@ -21,6 +22,7 @@ import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 import { encryptJSON } from '../../utils/crypto.js'
+import { checkSingleKey } from '../../services/relay-health-check-service.js'
 
 const listQuerySchema = paginationSchema.extend({
   provider: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
@@ -108,6 +110,41 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询 Key 池列表失败'))
+    }
+  })
+
+  // ===== 1b. GET /admin/relay/key-pool/:id — 单个 Key 详情(apiKeyEnc 脱敏,不返回) =====
+  server.get('/admin/relay/key-pool/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const [row] = await dbRead
+        .select({
+          id: aiRelayKeyPool.id,
+          providerCode: aiRelayKeyPool.providerCode,
+          name: aiRelayKeyPool.name,
+          keyPrefix: aiRelayKeyPool.keyPrefix,
+          priority: aiRelayKeyPool.priority,
+          weight: aiRelayKeyPool.weight,
+          isEnabled: aiRelayKeyPool.isEnabled,
+          healthStatus: aiRelayKeyPool.healthStatus,
+          healthCheckedAt: aiRelayKeyPool.healthCheckedAt,
+          lastErrorMessage: aiRelayKeyPool.lastErrorMessage,
+          balanceCents: aiRelayKeyPool.balanceCents,
+          remark: aiRelayKeyPool.remark,
+          createdAt: aiRelayKeyPool.createdAt,
+          updatedAt: aiRelayKeyPool.updatedAt,
+        })
+        .from(aiRelayKeyPool)
+        .where(eq(aiRelayKeyPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, 'Key 不存在'))
+      // 脱敏:不返回 apiKeyEnc;keyPrefix 已是脱敏前缀,跳过响应脱敏避免误伤
+      request.skipResponseSanitization = true
+      return reply.send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询 Key 详情失败'))
     }
   })
 
@@ -233,28 +270,33 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // ===== 6. POST /admin/relay/key-pool/:id/health — 触发简易健康检查 =====
+  // ===== 6. POST /admin/relay/key-pool/:id/health — 触发真实健康检查 =====
   server.post('/admin/relay/key-pool/:id/health', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     try {
-      // 简易健康检查:标记为 healthy + 更新检查时间(真实 ping 上游逻辑待后续接入)
-      const [updated] = await db
-        .update(aiRelayKeyPool)
-        .set({
-          healthStatus: 'healthy',
-          healthCheckedAt: new Date(),
-          lastErrorMessage: null,
-          updatedAt: new Date(),
-        })
+      // 先检查 Key 是否存在(避免 checkSingleKey 返回 'down' 与真实 key 失效混淆)
+      const [existing] = await dbRead
+        .select({ id: aiRelayKeyPool.id })
+        .from(aiRelayKeyPool)
         .where(eq(aiRelayKeyPool.id, p.data.id))
-        .returning({
-          id: aiRelayKeyPool.id,
-          healthStatus: aiRelayKeyPool.healthStatus,
-          healthCheckedAt: aiRelayKeyPool.healthCheckedAt,
-        })
-      if (!updated) return reply.status(404).send(error(404, 'Key 不存在'))
-      return reply.send(success(updated))
+        .limit(1)
+      if (!existing) return reply.status(404).send(error(404, 'Key 不存在'))
+
+      // 使用 relay-health-check-service 的 checkSingleKey:
+      // 解密 apiKeyEnc → 按 providerCode 查 ai_model_config.base_url → fetch /v1/models(AbortController 超时 10s)
+      // 状态映射:healthy=上游 200 OK,degraded=限流/超时/网络错误,down=key 失效(401/403)/解密失败
+      // 服务层自动持久化 health_status + last_error_message + extra_metadata.consecutiveFailures
+      const result = await checkSingleKey(p.data.id)
+      return reply.send(
+        success({
+          id: result.keyId,
+          healthStatus: result.status,
+          healthCheckedAt: new Date(),
+          lastErrorMessage: result.errorMessage ?? null,
+          latencyMs: result.latencyMs,
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '健康检查失败'))

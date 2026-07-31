@@ -103,6 +103,35 @@ export const adminAskRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
   })
 
+  server.get('/asks/:id', async (request, reply) => {
+    const parsed = uuidParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [row] = await dbRead
+      .select({
+        id: asks.id,
+        userId: asks.userId,
+        title: asks.title,
+        content: asks.content,
+        tags: asks.tags,
+        viewCount: asks.viewCount,
+        answerCount: asks.answerCount,
+        likeCount: asks.likeCount,
+        isResolved: asks.isResolved,
+        status: asks.status,
+        createdAt: asks.createdAt,
+        updatedAt: asks.updatedAt,
+        userName: users.nickname,
+      })
+      .from(asks)
+      .leftJoin(users, eq(users.id, asks.userId))
+      .where(eq(asks.id, parsed.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '问答不存在'))
+    return reply.send(success(row))
+  })
+
   server.post('/asks', async (request, reply) => {
     const body = createSchema.safeParse(request.body)
     if (!body.success) {
