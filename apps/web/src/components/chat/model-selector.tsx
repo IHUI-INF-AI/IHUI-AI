@@ -4,7 +4,15 @@ import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { Check, CheckCircle2, ChevronDown, Loader2, Settings, Sparkles, TriangleAlert } from 'lucide-react'
+import {
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  Settings,
+  Sparkles,
+  TriangleAlert,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { fetchModels } from '@ihui/api-client'
@@ -68,17 +76,25 @@ function inferPointsMultiplier(modelId: string): number {
   // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
   if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
   if (['opus', 'thinking', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k))) return 30
-  if (['gpt-4-turbo', 'gpt-4.5', 'claude-3-opus', 'gemini-pro'].some((k) => mid.includes(k))) return 10
-  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k))) return 3
+  if (['gpt-4-turbo', 'gpt-4.5', 'claude-3-opus', 'gemini-pro'].some((k) => mid.includes(k)))
+    return 10
+  if (['sonnet', 'gpt-4o', 'gpt-4.1', 'deepseek', 'glm-4', 'qwen-max'].some((k) => mid.includes(k)))
+    return 3
   if (['mini', 'flash', 'lite', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
-  if (['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) => mid.includes(k))) return 0
+  if (
+    ['ollama', 'llama', 'llm7', 'pollinations', 'aihorde', 'opencode_zen'].some((k) =>
+      mid.includes(k),
+    )
+  )
+    return 0
   return 1
 }
 
 /** Provider 健康状态 → 圆点徽章 + tooltip(Phase C+D 三态:绿/红/灰,装饰点豁免 rounded-full)
  *  hover 显示 "延迟 Xms · N 个模型可用"(用原生 title 属性,避免新建 Tooltip 组件) */
 function ProviderHealthDot({ health }: { health: ProviderHealth }) {
-  const tip = `延迟 ${health.latency_ms}ms · ${health.model_count} 个模型可用`
+  const t = useTranslations('chat')
+  const tip = t('providerHealthTip', { latency: health.latency_ms, count: health.model_count })
   return (
     <span
       title={tip}
@@ -111,28 +127,40 @@ function PointsMultiplierBadge({ multiplier }: { multiplier: number }) {
   }
   if (multiplier === 1) {
     return (
-      <span title={tip} className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+      <span
+        title={tip}
+        className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+      >
         ×1
       </span>
     )
   }
   if (multiplier === 3) {
     return (
-      <span title={tip} className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+      <span
+        title={tip}
+        className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400"
+      >
         ×3
       </span>
     )
   }
   if (multiplier === 10) {
     return (
-      <span title={tip} className="shrink-0 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-400">
+      <span
+        title={tip}
+        className="shrink-0 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-400"
+      >
         ×10
       </span>
     )
   }
   if (multiplier >= 30) {
     return (
-      <span title={tip} className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+      <span
+        title={tip}
+        className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+      >
         ×30
       </span>
     )
@@ -243,15 +271,14 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   // 当 value === 'stepfun/step-router-v1' 时优先匹配 AUTO_OPTION(用户选的是"自动"),
   // 即使该模型也在 options 列表里(FALLBACK_MODELS 含此项),也显示"自动"而非裸模型名。
   const current = React.useMemo(
-    () => (value === 'stepfun/step-router-v1' ? AUTO_OPTION : options.find((m) => m.value === value)),
+    () =>
+      value === 'stepfun/step-router-v1' ? AUTO_OPTION : options.find((m) => m.value === value),
     [options, value],
   )
   const grouped = React.useMemo(() => groupByVendor(options), [options])
 
   // 当前选中模型是否已配置(根据 vendor 映射到 templateCode 后查 configuredTemplateCodes)
-  const currentTemplateCode = current?.vendor
-    ? providerToTemplateCode(current.vendor)
-    : null
+  const currentTemplateCode = current?.vendor ? providerToTemplateCode(current.vendor) : null
   const currentConfigured = currentTemplateCode
     ? configuredTemplateCodes.has(currentTemplateCode)
     : false
@@ -302,8 +329,9 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               引导用户到模型广场页 /settings/llm 或模型详情对话框里配置
               2026-07-25 原生 CSS container query:container <= 359px(面板 <= 407px)时隐藏,
               badge 占 20px,仅在宽面板显示以避免挤占 text 空间(详见 globals.css 注释) */}
-          {showConfigBadge && !loading && (
-            currentConfigured ? (
+          {showConfigBadge &&
+            !loading &&
+            (currentConfigured ? (
               <CheckCircle2
                 className="model-selector-badge h-3.5 w-3.5 shrink-0 text-emerald-500"
                 aria-label={t('modelConfigured')}
@@ -313,8 +341,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 className="model-selector-badge h-3.5 w-3.5 shrink-0 text-amber-500"
                 aria-label={t('modelNotConfigured')}
               />
-            )
-          )}
+            ))}
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenu.Trigger>
@@ -349,9 +376,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               </div>
               <span className="flex-1 truncate font-medium">{t('manageModels')}</span>
             </DropdownMenu.Item>
-            {grouped.length > 0 && (
-              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-            )}
+            {grouped.length > 0 && <DropdownMenu.Separator className="my-1 h-px bg-border/60" />}
           </DropdownMenu.Group>
           {/* 自动选项(独立分组,置顶于所有模型分组之前,2026-07-22 立)
               value='auto' 时后端根据任务类型自动选择最优模型(对标 Qoder Auto 模型调度)
@@ -366,12 +391,17 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               )}
             >
               <Check
-                className={cn('h-4 w-4 shrink-0', value === 'stepfun/step-router-v1' ? 'opacity-100' : 'opacity-0')}
+                className={cn(
+                  'h-4 w-4 shrink-0',
+                  value === 'stepfun/step-router-v1' ? 'opacity-100' : 'opacity-0',
+                )}
               />
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">{t('modelAuto')}</span>
-                <span className="truncate text-xs text-muted-foreground">{t('modelAutoDescription')}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {t('modelAutoDescription')}
+                </span>
               </div>
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
@@ -385,7 +415,9 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 )}
               >
                 <BrandIcon vendor={vendor} size={12} className="text-muted-foreground" />
-                <span className="flex-1 truncate">{VENDOR_LABEL[vendor] || vendor}</span>
+                <span className="flex-1 truncate">
+                  {VENDOR_LABEL[vendor] ? t(VENDOR_LABEL[vendor]) : vendor}
+                </span>
                 {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
               </DropdownMenu.Label>
               {items.map((opt) => {
@@ -393,9 +425,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 // 排除避免 Auto + 常规项双勾(FALLBACK_MODELS 含此模型)
                 const active = opt.value === value && value !== 'stepfun/step-router-v1'
                 // 计算当前模型选项的配置状态(根据 vendor 映射到 templateCode)
-                const optTemplateCode = opt.vendor
-                  ? providerToTemplateCode(opt.vendor)
-                  : null
+                const optTemplateCode = opt.vendor ? providerToTemplateCode(opt.vendor) : null
                 const optConfigured = optTemplateCode
                   ? configuredTemplateCodes.has(optTemplateCode)
                   : false
@@ -432,13 +462,12 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                     </div>
                     {/* 配置感知徽章:已配置 → 绿色 ✓,未配置 → 琥珀 ⚠
                         (仅在 cfgData 加载完成后显示,避免登录前闪烁) */}
-                    {showConfigBadge && (
-                      optConfigured ? (
+                    {showConfigBadge &&
+                      (optConfigured ? (
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                       ) : (
                         <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                      )
-                    )}
+                      ))}
                   </DropdownMenu.Item>
                 )
               })}

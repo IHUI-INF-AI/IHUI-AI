@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { File, Table, Code, Folder, Globe, X, type LucideIcon } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { useContextMentionStore } from '@/stores/context-mention'
 import type { MentionType } from '@ihui/types'
@@ -22,6 +23,7 @@ const TYPE_ICON: Record<MentionType, LucideIcon> = {
  * 每个 chip:类型图标 + label + x 删除按钮,删除时调 store.removeMention。
  */
 export function MentionChips() {
+  const t = useTranslations('chat')
   const mentions = useContextMentionStore((s) => s.mentions)
   const removeMention = useContextMentionStore((s) => s.removeMention)
   if (mentions.length === 0) return null
@@ -39,7 +41,7 @@ export function MentionChips() {
             <button
               type="button"
               onClick={() => removeMention(m.id)}
-              aria-label={`移除 ${m.label}`}
+              aria-label={t('mentionPopover.removeLabel', { label: m.label })}
               className="ml-0.5 inline-flex shrink-0 items-center text-muted-foreground/70 hover:text-foreground"
             >
               <X className="h-3 w-3" />
