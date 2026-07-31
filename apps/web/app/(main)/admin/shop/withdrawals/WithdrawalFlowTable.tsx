@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -25,7 +26,7 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
-import { selectClass, inputSm, FLOW_STATUS, FLOW_STATUS_STYLE, FLOW_EXPORT } from './types'
+import { selectClass, inputSm, FLOW_STATUS, FLOW_STATUS_STYLE, getFlowExport } from './types'
 import type { useWithdrawalFlow } from './useWithdrawalFlow'
 import { formatDate } from '@/lib/date-utils'
 
@@ -49,10 +50,12 @@ export function WithdrawalFlowTable(props: Props) {
     handleResetFlow,
   } = props
 
+  const t = useTranslations('admin.shop')
+
   function handleExport() {
     exportToExcel(
       `withdrawal_flow_${Date.now()}`,
-      FLOW_EXPORT,
+      getFlowExport(t),
       fList as unknown as Record<string, unknown>[],
     )
   }
@@ -61,34 +64,34 @@ export function WithdrawalFlowTable(props: Props) {
     <>
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
-          <Label className="text-xs">用户ID</Label>
+          <Label className="text-xs">{t('withdrawals.flow.searchUserId')}</Label>
           <Input
             className={inputSm}
             value={fSearch.userId}
             onChange={(e) => setFSearch({ ...fSearch, userId: e.target.value })}
-            placeholder="用户ID"
+            placeholder={t('withdrawals.flow.searchUserId')}
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">金额(分)</Label>
+          <Label className="text-xs">{t('withdrawals.flow.searchAmount')}</Label>
           <Input
             className={inputSm}
             value={fSearch.amount}
             onChange={(e) => setFSearch({ ...fSearch, amount: e.target.value })}
-            placeholder="金额"
+            placeholder={t('withdrawals.flow.amountPlaceholder')}
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">外部单号</Label>
+          <Label className="text-xs">{t('withdrawals.flow.searchOutBillNo')}</Label>
           <Input
             className={inputSm}
             value={fSearch.outBillNo}
             onChange={(e) => setFSearch({ ...fSearch, outBillNo: e.target.value })}
-            placeholder="外部单号"
+            placeholder={t('withdrawals.flow.searchOutBillNo')}
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">创建时间</Label>
+          <Label className="text-xs">{t('withdrawals.flow.searchCreatedAt')}</Label>
           <Input
             type="date"
             className={inputSm}
@@ -97,7 +100,7 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">更新时间</Label>
+          <Label className="text-xs">{t('withdrawals.flow.searchUpdatedAt')}</Label>
           <Input
             type="date"
             className={inputSm}
@@ -106,25 +109,25 @@ export function WithdrawalFlowTable(props: Props) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">转账详情</Label>
+          <Label className="text-xs">{t('withdrawals.flow.searchTransferDetail')}</Label>
           <Input
             className={inputSm}
             value={fSearch.transferDetail}
             onChange={(e) => setFSearch({ ...fSearch, transferDetail: e.target.value })}
-            placeholder="转账详情"
+            placeholder={t('withdrawals.flow.searchTransferDetail')}
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">状态</Label>
+          <Label className="text-xs">{t('withdrawals.flow.table.status')}</Label>
           <Select value={fStatus} onValueChange={setFStatus}>
             <SelectTrigger className={selectClass}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="all">{t('withdrawals.allStatus')}</SelectItem>
               {Object.entries(FLOW_STATUS).map(([k, v]) => (
                 <SelectItem key={k} value={k}>
-                  {v}
+                  {t(v)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -132,19 +135,19 @@ export function WithdrawalFlowTable(props: Props) {
         </div>
         <Button variant="outline" size="sm" onClick={handleResetFlow}>
           <RotateCcw className="h-4 w-4" />
-          重置
+          {t('withdrawals.reset')}
         </Button>
         <div className="flex-1" />
         <HasPermi code="ai:withdrawal_flow:export">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('withdrawals.export')}
           </Button>
         </HasPermi>
         <HasPermi code="ai:withdrawal_flow:add">
           <Button size="sm" onClick={openCreateFlow}>
             <Plus className="h-4 w-4" />
-            新增
+            {t('withdrawals.create')}
           </Button>
         </HasPermi>
       </div>
@@ -154,14 +157,14 @@ export function WithdrawalFlowTable(props: Props) {
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">ID</th>
-              <th className="px-4 py-2.5 font-medium">用户ID</th>
-              <th className="px-4 py-2.5 font-medium">金额(分)</th>
-              <th className="px-4 py-2.5 font-medium">外部单号</th>
-              <th className="px-4 py-2.5 font-medium">状态</th>
-              <th className="px-4 py-2.5 font-medium">创建时间</th>
-              <th className="px-4 py-2.5 font-medium">更新时间</th>
-              <th className="px-4 py-2.5 font-medium">转账详情</th>
-              <th className="px-4 py-2.5 text-right font-medium">操作</th>
+              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.userId')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.amount')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.outBillNo')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.status')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.createdAt')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.updatedAt')}</th>
+              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.transferDetail')}</th>
+              <th className="px-4 py-2.5 text-right font-medium">{t('withdrawals.flow.table.action')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -174,7 +177,7 @@ export function WithdrawalFlowTable(props: Props) {
             ) : fList.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
-                  暂无流水记录
+                  {t('withdrawals.flow.noData')}
                 </td>
               </tr>
             ) : (
@@ -191,7 +194,7 @@ export function WithdrawalFlowTable(props: Props) {
                         FLOW_STATUS_STYLE[w.status] ?? 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {FLOW_STATUS[w.status] ?? '-'}
+                      {t(FLOW_STATUS[w.status] ?? '')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
@@ -230,7 +233,7 @@ export function WithdrawalFlowTable(props: Props) {
       {fTotalPages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            共 {fTotal} 条 · 第 {fPage}/{fTotalPages} 页
+            {t('withdrawals.total', { total: fTotal, page: fPage, totalPages: fTotalPages })}
           </span>
           <div className="flex gap-2">
             <Button
@@ -240,7 +243,7 @@ export function WithdrawalFlowTable(props: Props) {
               disabled={fPage <= 1}
             >
               <ChevronLeft className="h-4 w-4" />
-              上一页
+              {t('withdrawals.prev')}
             </Button>
             <Button
               variant="outline"
@@ -248,7 +251,7 @@ export function WithdrawalFlowTable(props: Props) {
               onClick={() => setFPage((p) => Math.min(fTotalPages, p + 1))}
               disabled={fPage >= fTotalPages}
             >
-              下一页
+              {t('withdrawals.next')}
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

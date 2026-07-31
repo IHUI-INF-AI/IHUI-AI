@@ -1,6 +1,7 @@
 'use client'
 
 import { Search, RotateCcw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Input,
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function ProductFilter({ search, setSearch, onReset }: Props) {
+  const t = useTranslations('admin.shop')
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full max-w-xs">
@@ -28,7 +30,7 @@ export function ProductFilter({ search, setSearch, onReset }: Props) {
         <Input
           value={search.name}
           onChange={(e) => setSearch({ ...search, name: e.target.value })}
-          placeholder="搜索商品名称"
+          placeholder={t('products.searchName')}
           className="h-9 pl-8"
         />
       </div>
@@ -37,14 +39,14 @@ export function ProductFilter({ search, setSearch, onReset }: Props) {
         <Input
           value={search.category}
           onChange={(e) => setSearch({ ...search, category: e.target.value })}
-          placeholder="搜索分类"
+          placeholder={t('products.searchCategory')}
           className="h-9 pl-8"
         />
       </div>
       <Input
         value={search.type}
         onChange={(e) => setSearch({ ...search, type: e.target.value })}
-        placeholder="搜索类型"
+        placeholder={t('products.searchType')}
         className="h-9 w-full max-w-[160px]"
       />
       <Select
@@ -52,17 +54,17 @@ export function ProductFilter({ search, setSearch, onReset }: Props) {
         onValueChange={(v) => setSearch({ ...search, status: v === 'all' ? '' : v })}
       >
         <SelectTrigger className={cn(selectClass, 'w-[120px]')}>
-          <SelectValue placeholder="状态" />
+          <SelectValue placeholder={t('products.statusPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">全部状态</SelectItem>
-          <SelectItem value="online">上架</SelectItem>
-          <SelectItem value="offline">下架</SelectItem>
+          <SelectItem value="all">{t('products.allStatus')}</SelectItem>
+          <SelectItem value="online">{t('products.status.online')}</SelectItem>
+          <SelectItem value="offline">{t('products.status.offline')}</SelectItem>
         </SelectContent>
       </Select>
       <Button variant="outline" size="sm" onClick={onReset}>
         <RotateCcw className="h-4 w-4" />
-        重置
+        {t('products.reset')}
       </Button>
     </div>
   )

@@ -198,7 +198,7 @@
     "lecturers": "강사",
     "schedule": "일정",
     "topics": "주제",
-    "asks": "Q\u0026A",
+    "asks": "Q&A",
     "circles": "서클",
     "resources": "리소스",
     "news": "뉴스",
@@ -291,7 +291,7 @@
     "eduCertificates": "자격증",
     "eduSchedule": "일정",
     "eduNotes": "노트",
-    "eduQa": "Q\u0026A",
+    "eduQa": "Q&A",
     "eduProgress": "진도",
     "memberDashboard": "회원 허브",
     "memberBenefits": "혜택",
@@ -369,7 +369,7 @@
       "slide1Subtitle": "개인화 학습 경로, AI 튜터링으로 효율적 성장",
       "slide1Title": "AI 스마트 학습 플랫폼",
       "slide2Cta": "라이브 룸 입장",
-      "slide2Subtitle": "전문가 라이브 방송, 실시간 Q\u0026A",
+      "slide2Subtitle": "전문가 라이브 방송, 실시간 Q&A",
       "slide2Title": "실시간 인터랙티브 라이브",
       "slide3Cta": "평가 시작",
       "slide3Subtitle": "스마트 출제, 학습 성과 정확 평가",
@@ -387,7 +387,7 @@
       "loginNow": "지금 로그인",
       "allCourses": "전체 코스",
       "featuredArticles": "추천 글",
-      "askCommunity": "Q\u0026A 커뮤니티",
+      "askCommunity": "Q&A 커뮤니티",
       "learningCircle": "학습 서클",
       "defaultUser": "사용자"
     },
@@ -519,7 +519,7 @@
       "nativePick": "시스템 선택기",
       "nativePickHint": "「{name}」선택됨. 브라우저 보안 제한으로 전체 경로를 가져올 수 없습니다. 위 입력란에 전체 경로(예: G:\\IHUI-AI)를 입력하고 Enter를 누르세요",
       "nativePickResolved": "「{path}」로 이동했습니다. 대상 폴더를 선택한 후 열기를 클릭하세요",
-      "nativePickNotFound": "현재 디렉터리에서 \u0027{name}\u0027을(를) 찾을 수 없습니다. 전체 경로를 수동으로 입력하거나 올바른 디렉터리로 이동하세요",
+      "nativePickNotFound": "현재 디렉터리에서 '{name}'을(를) 찾을 수 없습니다. 전체 경로를 수동으로 입력하거나 올바른 디렉터리로 이동하세요",
       "computer": "내 PC",
       "parent": "상위 디렉토리",
       "rootHint": "이 레벨에서 드라이브를 선택하거나, 위에 전체 경로를 입력하세요",
@@ -644,6 +644,8 @@
     "manageModels": "사용자 지정 모델 구성",
     "modelAuto": "자동",
     "modelAutoDescription": "최적 모델 자동 선택",
+    "modelFree": "무료",
+    "modelPointsMultiplier": "포인트 소비 배수",
     "slashCmd": {
       "plan": "계획 모드로 전환(AI가 계획만 수립하고 도구를 실행하지 않습니다)",
       "act": "실행 모드로 전환(AI가 정상적으로 도구를 실행합니다, 기본값)",
@@ -767,6 +769,26 @@
     "searchNext": "다음",
     "searchPrev": "이전",
     "searchClose": "검색 닫기",
+    "plan": {
+      "title": "실행 계획",
+      "ariaLabel": "실행 계획 단계",
+      "stepThinking": "사고",
+      "stepAnswer": "답변",
+      "statusInProgress": "진행 중",
+      "statusCompleted": "완료",
+      "statusPending": "대기 중",
+      "summaryAllDone": "모두 완료",
+      "summaryErrorCount": "오류 {count}",
+      "totalDuration": "총 {duration}",
+      "progressPercent": "{percent}%",
+      "copyReasoning": "추론 복사",
+      "reasoningCopied": "추론이 복사되었습니다",
+      "reasoningCopyFailed": "복사 실패",
+      "expandReasoning": "추론 펼치기",
+      "collapseReasoning": "추론 접기",
+      "jumpToMessage": "메시지로 이동",
+      "stepError": "실패"
+    },
     "question": {
       "title": "AI가 답변을 기다립니다",
       "submit": "답변 제출",
@@ -819,9 +841,9 @@
       "autoRevertedTitle": "승인 요청으로 자동 전환됨",
       "autoRevertedDescWithDuration": "전체 액세스가 {usedMin}분 동안 유지되어 요청 승인으로 자동 강등되었습니다. 다시 활성화하려면 Shift+Tab을 누르거나 권한 버튼을 클릭하세요.",
       "revertWarning5minTitle": "전체 액세스 모드가 곧 자동 강등됩니다",
-      "revertWarning5minDesc": "5분 후 요청 승인 모드로 자동 전환됩니다. 계속하려면 \u00271시간 연장\u0027을 클릭하세요.",
+      "revertWarning5minDesc": "5분 후 요청 승인 모드로 자동 전환됩니다. 계속하려면 '1시간 연장'을 클릭하세요.",
       "revertWarning1minTitle": "전체 액세스 모드 1분 후 자동 강등",
-      "revertWarning1minDesc": "계속하려면 즉시 \u00271시간 연장\u0027을 클릭하세요.",
+      "revertWarning1minDesc": "계속하려면 즉시 '1시간 연장'을 클릭하세요.",
       "extendOneHour": "1시간 연장",
       "firstTimeConfirmTitle": "전체 액세스 모드를 활성화하시겠어요?",
       "firstTimeConfirmDesc": "전체 액세스 모드에서는 AI가 확인 없이 모든 작업(파일 수정/삭제, 임의 명령 실행, 네트워크 액세스)을 수행할 수 있습니다. 완전히 신뢰하는 개인 프로젝트에서만 사용하세요.",
@@ -895,11 +917,11 @@
       "shortcutsItemAutoRevert1hKbd": "1시간 동안 작업이 없으면 승인 요청으로 자동 전환",
       "shortcutsItemWarn5minKbd": "5분 남음 경고 토스트, 원클릭으로 연장",
       "shortcutsItemWarn1minKbd": "1분 남음 긴급 토스트",
-      "shortcutsItemExtendKbd": "전환 토스트에 \u00271시간 연장\u0027 버튼 제공",
-      "shortcutsItemCancelAutoKbd": "배너의 \u0027자동 전환 취소\u0027 버튼으로 전체 액세스 유지",
+      "shortcutsItemExtendKbd": "전환 토스트에 '1시간 연장' 버튼 제공",
+      "shortcutsItemCancelAutoKbd": "배너의 '자동 전환 취소' 버튼으로 전체 액세스 유지",
       "shortcutsItemUndoKbd": "전체 액세스 전환 후 5초 내 실행 취소 가능",
       "shortcutsItemDangerousKbd": "고위험 모드에서 위험 명령 감지 시 재확인",
-      "shortcutsItemHistoryKbd": "popover 하단 \u0027기록\u0027 버튼으로 최근 전환 확인",
+      "shortcutsItemHistoryKbd": "popover 하단 '기록' 버튼으로 최근 전환 확인",
       "shortcutsItemInfoKbd": "이 모드의 4가지 상세 동작 보기",
       "shortcutsItemSlashAskKbd": "요청 승인 모드로 전환",
       "shortcutsItemSlashAutoKbd": "자동 승인 모드로 전환",
@@ -912,21 +934,21 @@
       "modeInfoAcknowledge": "확인",
       "modeInfoBullets": {
         "default": {
-          "0": "AI는 모든 명령 실행 및 파일 편집 전에 \u0027승인\u0027 클릭이 필요합니다",
+          "0": "AI는 모든 명령 실행 및 파일 편집 전에 '승인' 클릭이 필요합니다",
           "1": "익숙하지 않은 프로젝트 또는 민감한 작업에 적합합니다",
           "2": "자동 전환 없음(1시간 카운트다운 없음)",
           "3": "불확실한 프로젝트에서는 먼저 이 모드를 권장합니다"
         },
         "accept-edits": {
           "0": "AI 파일 편집은 자동 적용되며 개별 승인이 필요 없습니다",
-          "1": "명령 실행은 여전히 \u0027승인\u0027 클릭이 필요합니다",
-          "2": "\u0027AI를 신뢰하고 코드를 작성\u0027하는 상황에 적합합니다",
+          "1": "명령 실행은 여전히 '승인' 클릭이 필요합니다",
+          "2": "'AI를 신뢰하고 코드를 작성'하는 상황에 적합합니다",
           "3": "자동 전환 없음"
         },
         "bypass-permissions": {
           "0": "AI는 확인 없이 모든 작업을 실행할 수 있습니다",
           "1": "1시간 후 승인 요청으로 자동 전환(취소 또는 연장 가능)",
-          "2": "\u0027알려진 작업을 일괄 처리\u0027하는 상황에 적합합니다",
+          "2": "'알려진 작업을 일괄 처리'하는 상황에 적합합니다",
           "3": "되돌릴 수 없는 작업의 위험은 사용자가 부담합니다"
         }
       },
@@ -1073,7 +1095,7 @@
     "circlesTab": "커뮤니티",
     "asksTab": "Ｑ＆Ａ",
     "viewAllCircles": "모든 서클 보기",
-    "viewAllAsks": "모든 Q\u0026A 보기"
+    "viewAllAsks": "모든 Q&A 보기"
   },
   "vip": {
     "title": "VIP",
@@ -1107,7 +1129,7 @@
       "lifetime": "평생 혜택",
       "distributionQualification": "배포 자격",
       "aiCourses": "AI 강좌",
-      "founderQa": "창립자 Q\u0026A",
+      "founderQa": "창립자 Q&A",
       "agentBeta": "Agent 베타",
       "vipMaxDiscount": "VIP 최대 할인",
       "customAgentDiscount": "맞춤형 Agent 할인",
@@ -1125,7 +1147,7 @@
     "searchPlaceholder": "질문 검색",
     "resolved": "해결됨",
     "unresolved": "미해결",
-    "askQuestion": "Q\u0026A 질문",
+    "askQuestion": "Q&A 질문",
     "content": "콘텐츠",
     "titlePlaceholder": "질문 제목을 입력해 주세요",
     "contentPlaceholder": "질문 내용을 상세히 작성하세요 (10-2000자)",
@@ -1167,7 +1189,13 @@
         "name": "기업판",
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"]
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ]
       }
     },
     "checkout": {
@@ -3340,7 +3368,7 @@
           "expired": "만료됨"
         },
         "source": {
-          "letsencrypt": "Let\u0027s Encrypt",
+          "letsencrypt": "Let's Encrypt",
           "selfSigned": "자체 서명",
           "custom": "사용자 지정"
         },
@@ -4951,7 +4979,7 @@
       "colTime": "보기시간"
     },
     "asks": {
-      "title": "Q\u0026A",
+      "title": "Q&A",
       "subtitle": "사용자 질문과 심사 상태 관리",
       "loading": "로딩 중...",
       "noData": "데이터 없음",
@@ -4971,7 +4999,7 @@
       "deleteSuccess": "삭제되었습니다",
       "auditSuccess": "심사 승인되었습니다",
       "colTitle": "Question제목",
-      "colUser": "Q\u0026A 질문",
+      "colUser": "Q&A 질문",
       "colStatus": "상태",
       "colResolved": "해결 상태",
       "colAnswerCount": "답변 수",
@@ -5570,6 +5598,506 @@
       "vipApplies": "신청 수",
       "vipTotalDiscounted": "총 할인액",
       "vipLevel": "VIP {level}"
+    },
+    "shop": {
+      "funds": {
+        "title": "자금 계정 관리",
+        "subtitle": "사용자 자금 계정 및 거래",
+        "totalBalance": "총 잔액",
+        "totalFrozen": "총 동결",
+        "accountCount": "계정 수",
+        "tabAccounts": "계정",
+        "tabFlows": "거래",
+        "allTypes": "전체 유형",
+        "noAccounts": "계정 없음",
+        "noFlows": "거래 없음",
+        "type": {
+          "recharge": "충전",
+          "consume": "소비",
+          "refund": "환불",
+          "withdraw": "출금"
+        },
+        "table": {
+          "user": "사용자",
+          "balance": "잔액",
+          "frozen": "동결",
+          "totalRecharge": "누적 충전",
+          "totalConsume": "누적 소비",
+          "updatedAt": "업데이트 시간",
+          "type": "유형",
+          "amount": "금액",
+          "remark": "비고",
+          "time": "시간"
+        }
+      },
+      "payments": {
+        "title": "결제 주문",
+        "subtitle": "몰 주문 및 배송 상태 관리",
+        "searchPlaceholder": "주문번호/사용자/상품 검색",
+        "allStatus": "전체 상태",
+        "noData": "주문 데이터 없음",
+        "ship": "배송",
+        "total": "총 {total}건 · {page}/{totalPages} 페이지",
+        "prev": "이전",
+        "next": "다음",
+        "status": {
+          "pending": "결제 대기",
+          "paid": "결제 완료",
+          "shipped": "배송 완료",
+          "completed": "완료",
+          "cancelled": "취소됨",
+          "refunded": "환불됨"
+        },
+        "table": {
+          "orderNo": "주문번호",
+          "user": "사용자",
+          "product": "상품",
+          "amount": "금액",
+          "status": "상태",
+          "time": "시간",
+          "action": "작업"
+        }
+      },
+      "products": {
+        "title": "상품 관리",
+        "subtitle": "몰 상품 정보 관리",
+        "export": {
+          "id": "ID",
+          "name": "상품명",
+          "price": "가격",
+          "stock": "재고",
+          "sales": "판매량",
+          "category": "카테고리",
+          "desc": "설명",
+          "status": "상태",
+          "type": "유형",
+          "denomination": "액면가",
+          "denominationVip": "VIP 액면가",
+          "denominationOperate": "운영 액면가"
+        },
+        "create": "상품 추가",
+        "total": "총 {total} 건",
+        "prev": "이전",
+        "next": "다음",
+        "exportFilename": "상품 목록",
+        "confirmDelete": "{name} 상품을 삭제하시겠습니까?",
+        "loading": "로딩 중...",
+        "noData": "상품 데이터 없음",
+        "status": {
+          "online": "판매중",
+          "offline": "판매중지"
+        },
+        "toggleOnline": "판매중",
+        "toggleOffline": "판매중지",
+        "editTooltip": "편집",
+        "deleteTooltip": "삭제",
+        "allStatus": "전체 상태",
+        "reset": "재설정",
+        "searchName": "검색상품명",
+        "searchCategory": "검색카테고리",
+        "searchType": "검색유형",
+        "statusPlaceholder": "상태",
+        "toast": {
+          "updated": "상품이 업데이트되었습니다",
+          "created": "상품이 생성되었습니다",
+          "deleted": "상품이 삭제되었습니다"
+        },
+        "validation": {
+          "nameRequired": "상품명을 입력해 주세요",
+          "priceInvalid": "가격은 음수일 수 없습니다",
+          "stockInvalid": "재고는 음수일 수 없습니다",
+          "salesInvalid": "판매량은 음수일 수 없습니다",
+          "categoryRequired": "상품 카테고리를 입력해 주세요",
+          "typeRequired": "상품 유형을 입력해 주세요"
+        },
+        "table": {
+          "product": "상품",
+          "category": "카테고리",
+          "price": "가격",
+          "stock": "재고",
+          "sales": "판매량",
+          "type": "유형",
+          "denomination": "액면가",
+          "denominationVip": "VIP 액면가",
+          "denominationOperate": "운영 액면가",
+          "images": "이미지",
+          "status": "상태",
+          "action": "작업"
+        },
+        "dialog": {
+          "editTitle": "상품 편집",
+          "createTitle": "상품 추가",
+          "description": "상품 정보 입력",
+          "name": "상품명",
+          "namePlaceholder": "상품명을 입력해 주세요",
+          "category": "카테고리",
+          "categoryPlaceholder": "카테고리 입력",
+          "price": "가격 (분)",
+          "stock": "재고",
+          "sales": "판매량",
+          "type": "유형",
+          "typePlaceholder": "유형 입력",
+          "denomination": "액면가",
+          "denominationPlaceholder": "액면가 입력",
+          "denominationVip": "VIP 액면가",
+          "denominationVipPlaceholder": "VIP 액면가 입력",
+          "denominationOperate": "운영 액면가",
+          "denominationOperatePlaceholder": "운영 액면가 입력",
+          "desc": "설명",
+          "descPlaceholder": "설명 입력",
+          "images": "이미지",
+          "cancel": "취소",
+          "save": "저장"
+        }
+      },
+      "withdrawals": {
+        "title": "출금 관리",
+        "subtitle": "사용자 출금 신청 및 거래 관리",
+        "tabDetail": "출금 상세",
+        "tabFlow": "출금 거래",
+        "allStatus": "전체 상태",
+        "reset": "재설정",
+        "export": "내보내기",
+        "create": "추가",
+        "total": "총 {total}건 · {page}/{totalPages} 페이지",
+        "prev": "이전",
+        "next": "다음",
+        "channel": {
+          "alipay": "Alipay",
+          "wechat": "WeChat",
+          "bank": "은행카드"
+        },
+        "status": {
+          "pending": "심사 대기",
+          "approved": "승인됨",
+          "rejected": "반려됨",
+          "completed": "완료",
+          "failed": "실패"
+        },
+        "flowStatus": {
+          "processing": "처리 중",
+          "success": "성공",
+          "failed": "실패"
+        },
+        "detail": {
+          "searchUser": "사용자",
+          "searchUserName": "사용자명",
+          "searchOutBillNo": "외부 번호",
+          "searchReviewer": "심사자",
+          "amountRange": "금액 범위",
+          "amountMin": "최소",
+          "amountMax": "최대",
+          "noData": "출금 상세 없음",
+          "approve": "승인",
+          "reject": "반려",
+          "review": "심사",
+          "table": {
+            "user": "사용자",
+            "amount": "금액",
+            "channel": "채널",
+            "account": "계정",
+            "status": "상태",
+            "reviewer": "심사자",
+            "createdAt": "생성 시간",
+            "action": "작업"
+          },
+          "dialog": {
+            "editTitle": "출금 상세 편집",
+            "createTitle": "출금 상세 추가",
+            "user": "사용자",
+            "amount": "금액",
+            "channel": "채널",
+            "account": "계정",
+            "status": "상태",
+            "cancel": "취소",
+            "save": "저장"
+          },
+          "toast": {
+            "updated": "출금 상세가 업데이트되었습니다",
+            "created": "출금 상세가 생성되었습니다",
+            "deleted": "출금 상세가 삭제되었습니다",
+            "reviewed": "심사 완료"
+          },
+          "validation": {
+            "userRequired": "사용자를 입력해 주세요"
+          },
+          "confirmDelete": "출금 기록 {id}를 삭제하시겠습니까?",
+          "export": {
+            "id": "ID",
+            "user": "사용자",
+            "amount": "금액",
+            "channel": "채널",
+            "account": "계정",
+            "status": "상태",
+            "reviewer": "심사자",
+            "createdAt": "생성 시간"
+          }
+        },
+        "flow": {
+          "searchUserId": "사용자 ID",
+          "searchAmount": "금액",
+          "amountPlaceholder": "금액 입력",
+          "searchOutBillNo": "외부 번호",
+          "searchCreatedAt": "생성 시간",
+          "searchUpdatedAt": "업데이트 시간",
+          "searchTransferDetail": "이체 상세",
+          "noData": "거래 데이터 없음",
+          "table": {
+            "userId": "사용자 ID",
+            "amount": "금액",
+            "outBillNo": "외부 번호",
+            "status": "상태",
+            "createdAt": "생성 시간",
+            "updatedAt": "업데이트 시간",
+            "transferDetail": "이체 상세",
+            "action": "작업"
+          },
+          "dialog": {
+            "editTitle": "출금 거래 편집",
+            "createTitle": "출금 거래 추가",
+            "userId": "사용자 ID",
+            "amount": "금액",
+            "outBillNo": "외부 번호",
+            "status": "상태",
+            "transferDetail": "이체 상세",
+            "cancel": "취소",
+            "save": "저장"
+          },
+          "toast": {
+            "updated": "출금 거래가 업데이트되었습니다",
+            "created": "출금 거래가 생성되었습니다",
+            "deleted": "출금 거래가 삭제되었습니다"
+          },
+          "validation": {
+            "userIdRequired": "사용자 ID를 입력해 주세요"
+          },
+          "confirmDelete": "거래 기록 {id}를 삭제하시겠습니까?",
+          "export": {
+            "id": "ID",
+            "userId": "사용자 ID",
+            "amount": "금액",
+            "outBillNo": "외부 번호",
+            "status": "상태",
+            "createdAt": "생성 시간",
+            "updatedAt": "업데이트 시간",
+            "transferDetail": "이체 상세"
+          }
+        },
+        "review": {
+          "title": "출금 심사",
+          "description": "사용자 출금 신청 심사",
+          "notes": "심사 메모",
+          "notesPlaceholder": "심사 메모 입력",
+          "trace": "WeChat 콜백 trace",
+          "close": "닫기",
+          "return": "반려",
+          "approve": "승인"
+        }
+      }
+    },
+    "system": {
+      "common": {
+        "search": "검색",
+        "reset": "재설정",
+        "delete": "삭제",
+        "clean": "비우기",
+        "export": "내보내기",
+        "detail": "상세",
+        "close": "닫기",
+        "noData": "데이터 없음",
+        "total": "총 {total} 건 · {page}/{totalPages}",
+        "confirmDelete": "선택한 {count}건의 기록을 삭제하시겠습니까?",
+        "deleteSuccess": "삭제했습니다",
+        "cleanSuccess": "비웠습니다",
+        "exportSuccess": "내보내기 성공",
+        "exportFailed": "내보내기 실패",
+        "all": "전체",
+        "actions": "작업"
+      },
+      "loginLogs": {
+        "title": "로그인 로그",
+        "confirmClean": "모든 로그인 로그를 비우시겠습니까?",
+        "filter": {
+          "user": "사용자",
+          "userPlaceholder": "사용자 식별자",
+          "platform": "플랫폼",
+          "platformPlaceholder": "플랫폼",
+          "location": "위치",
+          "locationPlaceholder": "로그인위치",
+          "startDate": "시작 날짜",
+          "endDate": "종료 날짜"
+        },
+        "table": {
+          "id": "ID",
+          "user": "사용자",
+          "type": "유형",
+          "platform": "플랫폼",
+          "ip": "IP",
+          "location": "위치",
+          "ua": "UA",
+          "loginTime": "로그인 시간",
+          "message": "메시지"
+        },
+        "export": {
+          "loginType": "로그인 유형"
+        }
+      },
+      "operationLogs": {
+        "title": "작업 로그",
+        "confirmClean": "모든 작업 로그를 비우시겠습니까?",
+        "bizType": {
+          "other": "기타",
+          "insert": "추가",
+          "update": "수정",
+          "delete": "삭제",
+          "grant": "권한 부여",
+          "export": "내보내기",
+          "import": "가져오기",
+          "forceLogout": "강제 로그아웃",
+          "genCode": "코드 생성",
+          "cleanData": "데이터 삭제"
+        },
+        "status": {
+          "success": "성공",
+          "failed": "실패"
+        },
+        "filter": {
+          "module": "모듈",
+          "modulePlaceholder": "작업모듈",
+          "operName": "작업자",
+          "operNamePlaceholder": "작업자",
+          "type": "유형"
+        },
+        "table": {
+          "id": "ID",
+          "module": "모듈",
+          "type": "유형",
+          "operName": "작업자",
+          "requestMethod": "메서드",
+          "ip": "IP",
+          "location": "위치",
+          "status": "상태",
+          "operTime": "작업 시간",
+          "costTime": "소요 시간"
+        },
+        "detail": {
+          "title": "작업 로그상세",
+          "module": "모듈：",
+          "type": "유형：",
+          "operName": "작업자：",
+          "ip": "IP：",
+          "operUrl": "요청 URL：",
+          "requestMethod": "메서드：",
+          "costTime": "소요 시간：",
+          "status": "상태：",
+          "operTime": "작업 시간：",
+          "operParam": "요청 파라미터：",
+          "jsonResult": "응답：",
+          "errorMsg": "오류 정보："
+        },
+        "export": {
+          "operUrl": "URL",
+          "requestMethod": "메서드",
+          "costTime": "소요 시간(ms)"
+        }
+      },
+      "tasks": {
+        "title": "시스템 작업",
+        "subtitle": "예약 작업 및 백그라운드 작업 관리",
+        "type": {
+          "cron": "Cron",
+          "interval": "간격",
+          "once": "1회"
+        },
+        "status": {
+          "running": "실행 중",
+          "paused": "일시정지됨",
+          "idle": "유휴",
+          "failed": "실패"
+        },
+        "filter": {
+          "status": "상태",
+          "allStatus": "전체 상태"
+        },
+        "table": {
+          "name": "작업 이름",
+          "type": "유형",
+          "schedule": "스케줄",
+          "status": "상태",
+          "lastRun": "이전 실행",
+          "nextRun": "다음 실행",
+          "costTime": "소요 시간"
+        },
+        "noTasks": "없음작업",
+        "actions": {
+          "run": "실행",
+          "start": "시작",
+          "pause": "일시정지"
+        }
+      },
+      "tasksLog": {
+        "title": "작업 로그",
+        "confirmClean": "모든 작업 로그를 비우시겠습니까?",
+        "status": {
+          "success": "성공",
+          "failed": "실패"
+        },
+        "filter": {
+          "jobName": "작업 이름",
+          "jobNamePlaceholder": "작업 이름",
+          "jobGroup": "작업 그룹",
+          "jobGroupPlaceholder": "작업 그룹",
+          "status": "상태"
+        },
+        "table": {
+          "id": "ID",
+          "jobName": "작업 이름",
+          "jobGroup": "작업 그룹",
+          "invokeTarget": "호출 대상",
+          "jobMessage": "로그 정보",
+          "status": "상태",
+          "startTime": "시작 시간",
+          "costTime": "소요 시간"
+        },
+        "detail": {
+          "title": "작업 로그상세",
+          "id": "로그 ID：",
+          "jobName": "작업 이름：",
+          "jobGroup": "작업 그룹：",
+          "status": "상태：",
+          "invokeTarget": "호출 대상：",
+          "startTime": "시작 시간：",
+          "stopTime": "중지 시간：",
+          "costTime": "소요 시간：",
+          "jobMessage": "로그 정보：",
+          "exceptionInfo": "예외 정보："
+        },
+        "export": {
+          "stopTime": "중지 시간",
+          "costTime": "소요 시간(ms)"
+        }
+      },
+      "monitor": {
+        "title": "시스템 모니터",
+        "subtitle": "시스템 리소스 및 서비스 상태",
+        "cpu": "CPU",
+        "memory": "메모리",
+        "disk": "디스크",
+        "processes": "프로세스 수",
+        "uptimeFormat": "{days}일 {hours}시간",
+        "systemInfo": "시스템 정보",
+        "uptime": "가동 시간",
+        "loadAvg": "부하 평균 (1/5/15분)",
+        "networkIn": "네트워크 수신",
+        "networkOut": "네트워크 송신",
+        "services": "서비스",
+        "noServices": "서비스 데이터 없음",
+        "status": {
+          "running": "실행 중",
+          "stopped": "중지됨",
+          "error": "오류"
+        }
+      }
     }
   },
   "knowledgeGraph": {
@@ -5625,10 +6153,10 @@
       "saving": "저장중간"
     },
     "security": {
-      "passwordHint": "6-20자, \u003c \u003e \" \u0027 | \\ 등 특수문자 불가",
+      "passwordHint": "6-20자, < > \" ' | \\ 등 특수문자 불가",
       "passwordTooShort": "비밀번호는 6자 이상이어야 합니다",
       "passwordTooLong": "비밀번호는 20자를 초과할 수 없습니다",
-      "passwordInvalidChar": "비밀번호에 \u003c \u003e \" \u0027 | \\ 등 특수문자를 사용할 수 없습니다",
+      "passwordInvalidChar": "비밀번호에 < > \" ' | \\ 등 특수문자를 사용할 수 없습니다",
       "passwordNotMatch": "두 번 입력한 비밀번호가 일치하지 않습니다",
       "pwUpdated": "비밀번호가 업데이트되었습니다",
       "phone": "올바른 전화번호를 입력해주세요",
@@ -5762,7 +6290,7 @@
       "unfollowSuccess": "팔로우가 취소되었습니다"
     },
     "ask": {
-      "title": "내 Q\u0026A",
+      "title": "내 Q&A",
       "empty": "데이터가 없습니다",
       "loading": "로딩 중..."
     },
@@ -5920,7 +6448,7 @@
       "note2": "모든 작업은 기본적으로 dry-run 모드이며, WeChat 임시 보관함에 실제로 푸시하지 않습니다. 수동으로 트리거하거나 설정에서 dry-run을 꺼야 합니다.",
       "note3": "작업 실행 기록은 최근 30개(메모리 내)를 보관하며, 서비스 재시작 후 비워집니다.",
       "note4": "시간대: 동 8구(Asia/Shanghai).",
-      "note5": "Cron 표현식은 표준 5필드 구문 \u003ccode\u003e분 시 일 월 요일\u003c/code\u003e을 따릅니다. 예: \u003ccode\u003e0 9 * * 1\u003c/code\u003e은 매주 월요일 9시에 실행됩니다.",
+      "note5": "Cron 표현식은 표준 5필드 구문 <code>분 시 일 월 요일</code>을 따릅니다. 예: <code>0 9 * * 1</code>은 매주 월요일 9시에 실행됩니다.",
       "examplesTitle": "자동화 예시",
       "examplesDesc": "템플릿을 클릭하여 유사한 작업을 빠르게 설정",
       "useRefTemplate": "이 템플릿 참조",
@@ -8394,7 +8922,7 @@
     "heroSubtitle": "IHUI AI는 오픈 소스 풀스택 AI 운영 체제로, Agent 설계, 지식 베이스, 다중 모델 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합합니다.",
     "storyBadge": "우리의 이야기",
     "storyTitle": "왜 IHUI AI를 만들었나요?",
-    "storyP1": "2024년, 우리는 기업이 AI를 도입할 때 보편적으로 직면하는 \u00274대 난제\u0027를 발견했습니다: 모델 선택의 어려움, 지식 베이스 연동의 어려움, 크로스 플랫폼 배포의 어려움, 팀 협업 및 과금의 어려움. 시중의 제품들은 하나만 해결하거나, 클로즈드 소스로 종속되거나, 너무 비싸서 사용하기 어렵습니다.",
+    "storyP1": "2024년, 우리는 기업이 AI를 도입할 때 보편적으로 직면하는 '4대 난제'를 발견했습니다: 모델 선택의 어려움, 지식 베이스 연동의 어려움, 크로스 플랫폼 배포의 어려움, 팀 협업 및 과금의 어려움. 시중의 제품들은 하나만 해결하거나, 클로즈드 소스로 종속되거나, 너무 비싸서 사용하기 어렵습니다.",
     "storyP2": "그래서 우리는 IHUI AI를 만들었습니다: 오픈 소스, 통합, 크로스 플랫폼, 자체 호스팅 가능. 12~18개월의 자체 개발 시간을 30분 가입으로 압축했습니다.",
     "valueOpenTitle": "완전 오픈 소스",
     "valueOpenDesc": "Apache 2.0 라이선스, 핵심 코드 공개, 상업적 사용 허용, 자체 호스팅 비용 0원.",
@@ -8405,7 +8933,7 @@
     "valueEnterpriseTitle": "엔터프라이즈급 보안",
     "valueEnterpriseDesc": "SSO/OAuth, 감사 로그, 역할 기반 권한, 자체 호스팅, 다수의 상장 기업 서비스.",
     "platformTitle": "풀스택 AI 운영 체제",
-    "platformAgentsTitle": "Agent 마켓플레이스 \u0026 오케스트레이션",
+    "platformAgentsTitle": "Agent 마켓플레이스 & 오케스트레이션",
     "platformAgentsDesc": "시각적 드래그 앤 드롭으로 AI Agent 구축, 200+ 템플릿, 플러그인/MCP 도구, 원클릭 배포.",
     "platformRagTitle": "지식 베이스 RAG",
     "platformRagDesc": "PDF/Word/Markdown/웹 파싱, 벡터+BM25 하이브리드 검색, 중국어 친화, 지식 그래프.",
@@ -8440,7 +8968,7 @@
     "q1Question": "IHUI AI란 무엇인가요?",
     "q1Answer": "IHUI AI(중국어: 지후이 AI)는 원스톱 풀스택 AI 운영 체제입니다. Agent 설계, 지식 베이스 RAG, 다중 모델 통합 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합하며, Web, Desktop, 미니프로그램, 브라우저 확장, React Native, CLI 등 6개 클라이언트를 하나의 코드베이스로 지원하고, Apache 2.0 오픈 소스 코어 및 자체 호스팅을 지원합니다.",
     "q2Question": "IHUI AI는 Dify, Coze, FastGPT와 어떻게 다른가요?",
-    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q\u0026A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 6개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
+    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 6개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
     "q3Question": "IHUI AI는 누구를 위한 제품인가요?",
     "q3Answer": "세 가지 사용자가 가장 큰 혜택을 봅니다: AI 개발자(Agent를 빠르게 구축/배포/수익화, 6개 클라이언트 원클릭 게시), 엔터프라이즈 IT(데이터 주권 및 통합 AI 역량 허브를 위한 자체 호스팅), 팀 리더(다중 사용자 협업, 통합 지식 베이스, 통합 과금).",
     "q4Question": "어떤 AI 모델이 지원되나요?",
@@ -8454,7 +8982,7 @@
     "q8Question": "크레딧은 어떻게 계산되나요? 환불 가능한가요?",
     "q8Answer": "크레딧은 모델 호출당 청구되며, 모델마다 소비율이 다릅니다(가격 페이지 참조). 충전 크레딧: 미사용 시 7일 이내 전액 환불, 사용분은 비례 환불. 구독 플랜: 미사용 월은 비례 환불. 자세한 내용은 환불 정책 참조.",
     "q9Question": "자체 호스팅이 지원되나요?",
-    "q9Answer": "예, Apache 2.0 오픈 소스, 자체 호스팅 라이선스 비용 0원. 단일 노드 Docker Compose 원클릭 배포(5분), 다중 노드 Kubernetes 배포(Helm Chart 지원). Enterprise 버전은 추가로 고가용성, 백업 \u0026 복구, 카나리 업그레이드, 전담 기술 지원 제공.",
+    "q9Answer": "예, Apache 2.0 오픈 소스, 자체 호스팅 라이선스 비용 0원. 단일 노드 Docker Compose 원클릭 배포(5분), 다중 노드 Kubernetes 배포(Helm Chart 지원). Enterprise 버전은 추가로 고가용성, 백업 & 복구, 카나리 업그레이드, 전담 기술 지원 제공.",
     "q10Question": "자체 호스팅에 어떤 하드웨어가 필요한가요?",
     "q10Answer": "최소: 2코어 CPU / 4GB RAM / 20GB 디스크, 10-50 동시 사용자 지원. 권장: 4코어 CPU / 8GB RAM / 50GB SSD, 200 동시 사용자 지원. GPU 불필요(LLM 추론은 클라우드 API 실행); 로컬 모델(7B-13B)을 실행하는 경우 24GB VRAM 단일 카드 필요.",
     "q11Question": "내 데이터는 안전한가요?",
@@ -8465,10 +8993,10 @@
     "ctaDesc": "기술팀에 문의해 주세요, 2시간 이내에 답변드립니다.",
     "ctaButton": "기술 지원 문의",
     "heroSubtitle": "IHUI AI에 대한 12가지 자주 묻는 질문, 30초 안에 답을 찾으세요.",
-    "categoryTech": "기술 \u0026 개발",
-    "categoryPricing": "가격 \u0026 과금",
-    "categoryDeploy": "배포 \u0026 운영",
-    "categoryPrivacy": "데이터 \u0026 보안"
+    "categoryTech": "기술 & 개발",
+    "categoryPricing": "가격 & 과금",
+    "categoryDeploy": "배포 & 운영",
+    "categoryPrivacy": "데이터 & 보안"
   },
   "articles": {
     "title": "글",
@@ -9104,32 +9632,56 @@
       "chat": {
         "label": "AI 채팅",
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI"]
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI"]
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI"
+        ]
       },
       "search": {
         "label": "검색",
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"]
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"]
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"]
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ]
       },
       "settings": {
         "label": "설정",
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"]
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ]
       }
     }
   },
@@ -9528,19 +10080,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -9661,25 +10225,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q\u0026A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -10219,7 +10795,7 @@
   },
   "edu": {
     "qa": {
-      "title": "Q\u0026A 센터",
+      "title": "Q&A 센터",
       "subtitle": "학습 중인 궁금증을 질문하고 답변",
       "askPlaceholder": "질문을 입력...",
       "askBtn": "질문",
@@ -10257,7 +10833,7 @@
         "💎 VIP 회원 30% 할인, 100+ 에이전트 무제한",
         "🌍 다국어 지원: 5개 언어 실시간 번역",
         "🎨 테마 센터 50+ 테마, 원클릭 전환",
-        "📚 지식 RAG 출시, 문서가 스마트 Q\u0026A로"
+        "📚 지식 RAG 출시, 문서가 스마트 Q&A로"
       ]
     },
     "welcome": {
@@ -10407,7 +10983,7 @@
       "professional": {
         "title": "엔지니어링 엄격 · 업계 벤치마크",
         "description": "17개 pre-commit 가드 + 4 husky 훅 + 122+ migrations + 12 공유 packages, 코드 품질 동류 95% 프로젝트 초과",
-        "evidence": "증거:17 가드 \u003e 업계 평균 3개 / 122 migrations \u003e 평균 30 / 12 packages \u003e 평균 4 → 99.9% 무오류"
+        "evidence": "증거:17 가드 > 업계 평균 3개 / 122 migrations > 평균 30 / 12 packages > 평균 4 → 99.9% 무오류"
       },
       "efficient": {
         "title": "스마트 라우팅 · 극한 비용 절감",
@@ -10417,7 +10993,7 @@
       "reliable": {
         "title": "기업급 보안 · 제로 리스크",
         "description": "99.9% SLA + AES-256-GCM 암호화 + RBAC 버튼 수준 권한 + 5언어 i18n parity + 불만족 전액 환불",
-        "evidence": "AES-256-GCM = 은행급 암호화 / RBAC 단위 버튼 수준 = 금융 업계 초과 / 99.9% SLA = 연간 정지 \u003c 8.76시간"
+        "evidence": "AES-256-GCM = 은행급 암호화 / RBAC 단위 버튼 수준 = 금융 업계 초과 / 99.9% SLA = 연간 정지 < 8.76시간"
       },
       "innovative": {
         "title": "트리플 스택결합 · 업계 프론티어",
@@ -11272,7 +11848,7 @@
       "government": "정무·공공",
       "marketingService": "마케팅·서비스",
       "productionManufacturing": "생산·제조",
-      "rdInnovation": "R\u0026D 혁신",
+      "rdInnovation": "R&D 혁신",
       "officeCollaboration": "오피스 협업",
       "unknown": "기타 도구"
     }
@@ -11287,7 +11863,15 @@
       "sessions": "세션 수",
       "crashRate": "크래시율"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"],
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ],
     "dauTrend": {
       "title": "최근 7일 DAU 추이",
       "subtitle": "일일 활성 사용자 수 변화 곡선"
@@ -11431,8 +12015,18 @@
     "title": "AI 진로 지도",
     "subtitle": "자녀의 학습 상황을 입력하면 AI가 맞춤형 진로 지도를 생성합니다",
     "options": {
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"],
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -11948,7 +12542,7 @@
     "notePlaceholder": "노트 내용 입력...",
     "saveNote": "노트 저장",
     "sections": "섹션 목차",
-    "qa": "Q\u0026A",
+    "qa": "Q&A",
     "qaPlaceholder": "질문하기...",
     "qaEmpty": "질문이 없습니다"
   },
@@ -12969,7 +13563,12 @@
     "rechargeCount": "총 {n}회 충전",
     "packages": {
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       },
       "pro": {
         "features": [
@@ -12995,7 +13594,7 @@
       "name": "IHUI AI 충전 패키지",
       "description": "IHUI AI 풀스택 AI OS의 API 충전 패키지. 개인 개발자/소규모 팀/기업급 요구를 커버하며, 사용량 기반 과금과 월간 구독을 모두 지원합니다.",
       "brand": "IHUI AI",
-      "category": "Software \u003e AI Development Platform \u003e API Credits",
+      "category": "Software > AI Development Platform > API Credits",
       "currency": "KRW",
       "offers": {
         "starter": {
@@ -13102,11 +13701,11 @@
     }
   },
   "useCasesAiEdu": {
-    "metaTitle": "AI 교육 Agent 사용 사례 — 코스 설계/지능형 Q\u0026A/학습 추천 | IHUI AI",
-    "metaDescription": "IHUI AI 풀스택 AI OS로 구축하는 AI 교육 Agent: 코스 구조화 설계, 지능형 Q\u0026A, 자동 채점, 개인화 학습 경로, 학습 대시보드, 8단 동시 배포.",
+    "metaTitle": "AI 교육 Agent 사용 사례 — 코스 설계/지능형 Q&A/학습 추천 | IHUI AI",
+    "metaDescription": "IHUI AI 풀스택 AI OS로 구축하는 AI 교육 Agent: 코스 구조화 설계, 지능형 Q&A, 자동 채점, 개인화 학습 경로, 학습 대시보드, 8단 동시 배포.",
     "courseSchema": {
       "name": "IHUI AI 교육 Agent 부트캠프",
-      "description": "K12/직업 교육/기업 내 교육을 위한 AI 교육 Agent 구축 실전 강좌. 코스 구조화 설계, 지능형 Q\u0026A, 자동 채점, 학습 대시보드, 개인화 추천을 다룹니다. 30분 만에 출시 가능.",
+      "description": "K12/직업 교육/기업 내 교육을 위한 AI 교육 Agent 구축 실전 강좌. 코스 구조화 설계, 지능형 Q&A, 자동 채점, 학습 대시보드, 개인화 추천을 다룹니다. 30분 만에 출시 가능.",
       "provider": "IHUI AI",
       "startDate": "2026-08-01",
       "endDate": "2026-12-31",
@@ -13114,7 +13713,7 @@
       "about": [
         "AI 교육",
         "코스 설계",
-        "지능형 Q\u0026A",
+        "지능형 Q&A",
         "자동 채점",
         "학습 추천",
         "MCP 도구 프로토콜",
@@ -13123,7 +13722,7 @@
       ],
       "teaches": [
         "코스 구조화 설계",
-        "지능형 Q\u0026A 워크플로 설계",
+        "지능형 Q&A 워크플로 설계",
         "자동 채점 구현",
         "학습 대시보드 구축",
         "개인화 학습 경로 추천"
@@ -13626,8 +14225,8 @@
     "langCurl": "cURL",
     "langNode": "Node.js",
     "langPython": "Python",
-    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d \u0027{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\" }\n    ],\n    \"temperature\": 0.7\n  }\u0027",
-    "codeNode": "import OpenAI from \u0027openai\u0027\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: \u0027https://api.ihui-ai.com/v1\u0027,\n})\n\nconst completion = await client.chat.completions.create({\n  model: \u0027gpt-4o\u0027,\n  messages: [\n    { role: \u0027user\u0027, content: \u0027안녕하세요, 자기소개 부탁해요\u0027 },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// 비용 추적\nconst usage = completion.usage\nconsole.log(`사용량: ${usage.total_tokens} 토큰`)",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: '안녕하세요, 자기소개 부탁해요' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// 비용 추적\nconst usage = completion.usage\nconsole.log(`사용량: ${usage.total_tokens} 토큰`)",
     "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 비용 추적\nusage = response.usage\nprint(f\"사용량: {usage.total_tokens} 토큰\")",
     "copyAria": "코드 복사",
     "toastCopied": "코드가 복사되었습니다",

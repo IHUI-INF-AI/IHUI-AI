@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Activity, Trash2, Eraser, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -19,6 +20,7 @@ const PAGE_SIZE = 15
 const EMPTY_SEARCH = { title: '', operName: '', businessType: '' }
 
 export default function OperationLogsPage() {
+  const t = useTranslations('admin.system')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState(EMPTY_SEARCH)
   const [applied, setApplied] = React.useState(EMPTY_SEARCH)
@@ -55,14 +57,14 @@ export default function OperationLogsPage() {
     method: 'DELETE',
     queryKey: ['admin', 'operation-logs'],
     ids: [...selected],
-    successMessage: '删除成功',
+    successMessage: t('common.deleteSuccess'),
     onSuccess: () => setSelected(new Set()),
   })
   const cleanMut = useMutation({
     mutationFn: () => api(`${RESOURCE}/clean`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'operation-logs'] })
-      toast.success('清空成功')
+      toast.success(t('common.cleanSuccess'))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -94,24 +96,34 @@ export default function OperationLogsPage() {
       `${RESOURCE}?pageSize=9999&${new URLSearchParams(applied as Record<string, string>)}`,
       'operation-logs',
       [
-        { key: 'id', title: 'ID' },
-        { key: 'title', title: '模块' },
-        { key: 'businessType', title: '类型', formatter: (v) => BIZ_TYPE[Number(v)] ?? '' },
-        { key: 'operName', title: '操作人' },
-        { key: 'operIp', title: 'IP' },
-        { key: 'operUrl', title: 'URL' },
-        { key: 'requestMethod', title: '方法' },
-        { key: 'status', title: '状态', formatter: (v) => STATUS_LABEL[Number(v)]?.label ?? '' },
-        { key: 'costTime', title: '耗时(ms)' },
-        { key: 'operTime', title: '操作时间' },
+        { key: 'id', title: t('operationLogs.table.id') },
+        { key: 'title', title: t('operationLogs.table.module') },
+        {
+          key: 'businessType',
+          title: t('operationLogs.table.type'),
+          formatter: (v) => t(BIZ_TYPE[Number(v)] ?? ''),
+        },
+        { key: 'operName', title: t('operationLogs.table.operName') },
+        { key: 'operIp', title: t('operationLogs.table.ip') },
+        { key: 'operUrl', title: t('operationLogs.export.operUrl') },
+        { key: 'requestMethod', title: t('operationLogs.export.requestMethod') },
+        {
+          key: 'status',
+          title: t('operationLogs.table.status'),
+          formatter: (v) => t(STATUS_LABEL[Number(v)]?.label ?? ''),
+        },
+        { key: 'costTime', title: t('operationLogs.export.costTime') },
+        { key: 'operTime', title: t('operationLogs.table.operTime') },
       ],
-    ).then((ok) => (ok ? toast.success('导出成功') : toast.error('导出失败')))
+    ).then((ok) =>
+      ok ? toast.success(t('common.exportSuccess')) : toast.error(t('common.exportFailed')),
+    )
 
   return (
     <div className="space-y-4">
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Activity className="h-6 w-6 text-primary" />
-        操作日志
+        {t('operationLogs.title')}
       </h1>
 
       <OperationLogsFilter
@@ -128,28 +140,28 @@ export default function OperationLogsPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(`确认删除选中的 ${selected.size} 条记录？`)) delMut.mutate()
+              if (confirm(t('common.confirmDelete', { count: selected.size }))) delMut.mutate()
             }}
           >
             <Trash2 className="h-4 w-4" />
-            删除
+            {t('common.delete')}
           </Button>
           <Button
             size="sm"
             variant="outline"
             disabled={cleanMut.isPending}
             onClick={() => {
-              if (confirm('确认清空所有操作日志？')) cleanMut.mutate()
+              if (confirm(t('operationLogs.confirmClean'))) cleanMut.mutate()
             }}
           >
             <Eraser className="h-4 w-4" />
-            清空
+            {t('common.clean')}
           </Button>
         </HasPermi>
         <HasPermi code="system:operlog:export">
           <Button size="sm" variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('common.export')}
           </Button>
         </HasPermi>
       </div>
@@ -168,7 +180,7 @@ export default function OperationLogsPage() {
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            共 {total} 条 · {page}/{totalPages}
+            {t('common.total', { total, page, totalPages })}
           </span>
           <div className="flex gap-1">
             <Button
