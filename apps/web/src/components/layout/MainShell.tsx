@@ -29,13 +29,12 @@ export function MainShell({ children }: { children: React.ReactNode }) {
   useAuthStore((s) => s.isAuthenticated)
 
   return (
-    // 外层 wrapper:底部/左侧/右侧各 8px 间距(与 GlobalTopBar 顶部 8px + 左右 8px 互补,
+    // 外层 wrapper:底部 + 右侧各 8px 间距(与 GlobalTopBar 顶部 8px + 左右 8px 互补,
     // 共同构成 work-area 周围的 8px 视觉缓冲)。
     // 顶部间距由 GlobalTopBar 内部 pt-2 提供(统一管理,与 8 方向 resize 区域避让对齐)。
-    // 2026-07-31 第十六次微调(用户反馈"内容展示区左侧贴屏边 / 右侧有间距,应该统一"):
-    // 补 pl-2 跟 pr-2 对称 — 移动端 sidebar 隐藏,work-area 撑满全屏,
-    // 缺 pl-2 会让卡片左边缘贴屏边,pl-2 给卡片左 8px 呼吸空跟 pr-2 对称。
-    <div className="flex min-h-0 flex-1 flex-col pb-2 pl-2 pr-2 cursor-default">
+    // 左侧间距由 AISidePanel 容器 mr-1.5 (6px) 提供(打开态=面板右边缘到卡片左边缘 6px;
+    // 关闭态=width=0 + mr-1.5 = 6px 占位),此处不再加 pl-2 避免叠加导致 14px 错乱。
+    <div className="flex min-h-0 flex-1 flex-col pb-2 pr-2 cursor-default">
       {/* 工作区卡片:仅包含 main 内容
           - bg-shell-panel rounded-xl 保持卡片视觉
           - flex-1 + min-h-0 填充剩余高度
