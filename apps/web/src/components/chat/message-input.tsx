@@ -346,7 +346,7 @@ export function MessageInput({
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
             {isDragOver && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-primary/10">
-                <p className="text-sm font-medium text-primary">释放鼠标以添加附件(图片/视频)</p>
+                <p className="text-sm font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
             )}
             {/* 浮窗折叠态合并行:AgentProgressTrigger(左) + 浮窗按钮(右),与卡片融合不占独立行
