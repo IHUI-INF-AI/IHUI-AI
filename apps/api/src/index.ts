@@ -10,6 +10,9 @@ import { startAiWorldSyncScheduler, stopAiWorldSyncScheduler } from './jobs/ai-w
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
+import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
+import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
+import { stopPoolTracker } from './db/index.js'
 import { logger } from './utils/logger.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
@@ -75,6 +78,16 @@ async function start() {
     } catch {}
     try {
       stopScheduledWarmup()
+    } catch {}
+    // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
+    try {
+      stopRelayChannelRouterSweep()
+    } catch {}
+    try {
+      stopRegistryRateLimitSweep()
+    } catch {}
+    try {
+      stopPoolTracker()
     } catch {}
     if (workers) {
       await Promise.allSettled(workers.map((w) => w.close()))

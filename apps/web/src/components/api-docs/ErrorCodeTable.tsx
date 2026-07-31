@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Search, AlertTriangle } from 'lucide-react'
 import {
   Card,
@@ -94,6 +95,7 @@ function statusClass(s: number): string {
 }
 
 export function ErrorCodeTable(): React.JSX.Element {
+  const t = useTranslations('models.apiDocs')
   const [keyword, setKeyword] = React.useState('')
 
   const filtered = React.useMemo(() => {
@@ -124,7 +126,7 @@ export function ErrorCodeTable(): React.JSX.Element {
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜索错误码 / 含义 / 建议..."
+            placeholder={t('searchPlaceholder')}
             className="h-9 pl-9"
           />
         </div>
