@@ -156,6 +156,20 @@ vi.mock('@/components/ai/markdown-stream', () => ({
   ),
 }))
 
+// MarkdownViewer mock(PlanStepsCard reasoning 渲染依赖)
+vi.mock('@/components/media/MarkdownViewer', () => ({
+  MarkdownViewer: ({ content }: { content: string }) => (
+    <div data-testid="markdown-viewer">{content}</div>
+  ),
+}))
+
+// tauri-bridge mock(避免 @tauri-apps/plugin-updater 缺失依赖导致测试失败)
+vi.mock('@/lib/tauri-bridge', () => ({
+  isTauri: () => false,
+  checkForUpdates: () => Promise.resolve(null),
+  installUpdate: () => Promise.resolve(),
+}))
+
 // ToolCallCard mock
 vi.mock('@/components/ai/tool-call-card', () => ({
   ToolCallCard: () => <div data-testid="tool-call-card" />,
@@ -629,9 +643,7 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
     })
 
     it('有 reasoning + content:显示"思考"+"回答"两个步骤', () => {
-      const msgs = [
-        makeAssistantMsg('a1', '最终答案', { reasoning: '我在思考...' }),
-      ]
+      const msgs = [makeAssistantMsg('a1', '最终答案', { reasoning: '我在思考...' })]
       render(<MessageList {...baseProps} messages={msgs} />)
       const card = screen.getByTestId('message-plan-steps-card')
       expect(card.textContent).toContain('思考')
