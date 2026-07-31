@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, ShoppingCart, Search } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -42,12 +43,12 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const STATUS_LABEL: Record<Order['status'], string> = {
-  pending: '待支付',
-  paid: '已支付',
-  shipped: '已发货',
-  completed: '已完成',
-  cancelled: '已取消',
-  refunded: '已退款',
+  pending: 'payments.status.pending',
+  paid: 'payments.status.paid',
+  shipped: 'payments.status.shipped',
+  completed: 'payments.status.completed',
+  cancelled: 'payments.status.cancelled',
+  refunded: 'payments.status.refunded',
 }
 const STATUS_STYLE: Record<Order['status'], string> = {
   pending: 'bg-amber-500/10 text-amber-600',
@@ -59,6 +60,7 @@ const STATUS_STYLE: Record<Order['status'], string> = {
 }
 
 export default function AdminShopPaymentsPage() {
+  const t = useTranslations('admin.shop')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
   const [status, setStatus] = React.useState('all')
@@ -89,9 +91,9 @@ export default function AdminShopPaymentsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShoppingCart className="h-6 w-6 text-primary" />
-          支付订单管理
+          {t('payments.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">查看与处理支付订单</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('payments.subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -103,7 +105,7 @@ export default function AdminShopPaymentsPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="搜索订单号/用户"
+            placeholder={t('payments.searchPlaceholder')}
             className="h-9 pl-8"
           />
         </div>
@@ -114,14 +116,14 @@ export default function AdminShopPaymentsPage() {
             setPage(1)
           }}
         >
-          <SelectTrigger className={selectClass} aria-label="状态">
+          <SelectTrigger className={selectClass} aria-label={t('payments.table.status')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
+            <SelectItem value="all">{t('payments.allStatus')}</SelectItem>
             {Object.entries(STATUS_LABEL).map(([k, v]) => (
               <SelectItem key={k} value={k}>
-                {v}
+                {t(v)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -132,13 +134,13 @@ export default function AdminShopPaymentsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">订单号</TableHead>
-              <TableHead className="text-xs uppercase">用户</TableHead>
-              <TableHead className="text-xs uppercase">商品</TableHead>
-              <TableHead className="text-xs uppercase">金额</TableHead>
-              <TableHead className="text-xs uppercase">状态</TableHead>
-              <TableHead className="text-xs uppercase">时间</TableHead>
-              <TableHead className="text-right text-xs uppercase">操作</TableHead>
+              <TableHead className="text-xs uppercase">{t('payments.table.orderNo')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('payments.table.user')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('payments.table.product')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('payments.table.amount')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('payments.table.status')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('payments.table.time')}</TableHead>
+              <TableHead className="text-right text-xs uppercase">{t('payments.table.action')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -151,7 +153,7 @@ export default function AdminShopPaymentsPage() {
             ) : orders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                  暂无订单
+                  {t('payments.noData')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -169,7 +171,7 @@ export default function AdminShopPaymentsPage() {
                       )}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {STATUS_LABEL[o.status]}
+                      {t(STATUS_LABEL[o.status])}
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
@@ -183,7 +185,7 @@ export default function AdminShopPaymentsPage() {
                         disabled={shipMut.isPending}
                         onClick={() => shipMut.mutate(o.id)}
                       >
-                        发货
+                        {t('payments.ship')}
                       </Button>
                     )}
                   </TableCell>
@@ -195,7 +197,7 @@ export default function AdminShopPaymentsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-sm text-muted-foreground">{t('payments.total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -203,7 +205,7 @@ export default function AdminShopPaymentsPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            上一页
+            {t('payments.prev')}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -214,7 +216,7 @@ export default function AdminShopPaymentsPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t('payments.next')}
           </Button>
         </div>
       </div>

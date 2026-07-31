@@ -1151,7 +1151,13 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
@@ -1168,7 +1174,13 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ]
       }
     },
     "checkout": {
@@ -5571,6 +5583,506 @@
       "vipApplies": "申请次数",
       "vipTotalDiscounted": "折扣总额",
       "vipLevel": "VIP {level}"
+    },
+    "shop": {
+      "funds": {
+        "title": "资金账户管理",
+        "subtitle": "用户资金账户与流水",
+        "totalBalance": "总余额",
+        "totalFrozen": "总冻结",
+        "accountCount": "账户数",
+        "tabAccounts": "账户",
+        "tabFlows": "流水",
+        "allTypes": "全部类型",
+        "noAccounts": "暂无账户",
+        "noFlows": "暂无流水",
+        "type": {
+          "recharge": "充值",
+          "consume": "消费",
+          "refund": "退款",
+          "withdraw": "提现"
+        },
+        "table": {
+          "user": "用户",
+          "balance": "余额",
+          "frozen": "冻结",
+          "totalRecharge": "累计充值",
+          "totalConsume": "累计消费",
+          "updatedAt": "更新时间",
+          "type": "类型",
+          "amount": "金额",
+          "remark": "备注",
+          "time": "时间"
+        }
+      },
+      "payments": {
+        "title": "支付订单",
+        "subtitle": "管理商城订单与发货状态",
+        "searchPlaceholder": "搜索订单号/用户/商品",
+        "allStatus": "全部状态",
+        "noData": "暂无订单数据",
+        "ship": "发货",
+        "total": "共 {total} 条",
+        "prev": "上一页",
+        "next": "下一页",
+        "status": {
+          "pending": "待支付",
+          "paid": "已支付",
+          "shipped": "已发货",
+          "completed": "已完成",
+          "cancelled": "已取消",
+          "refunded": "已退款"
+        },
+        "table": {
+          "orderNo": "订单号",
+          "user": "用户",
+          "product": "商品",
+          "amount": "金额",
+          "status": "状态",
+          "time": "时间",
+          "action": "操作"
+        }
+      },
+      "products": {
+        "title": "商品管理",
+        "subtitle": "管理商城商品信息",
+        "export": {
+          "id": "ID",
+          "name": "商品名称",
+          "price": "价格",
+          "stock": "库存",
+          "sales": "销量",
+          "category": "分类",
+          "desc": "描述",
+          "status": "状态",
+          "type": "类型",
+          "denomination": "面值",
+          "denominationVip": "VIP面值",
+          "denominationOperate": "运营面值"
+        },
+        "create": "新增商品",
+        "total": "共 {total} 条",
+        "prev": "上一页",
+        "next": "下一页",
+        "exportFilename": "商品列表",
+        "confirmDelete": "确定要删除商品「{name}」吗?",
+        "loading": "加载中...",
+        "noData": "暂无商品数据",
+        "status": {
+          "online": "上架",
+          "offline": "下架"
+        },
+        "toggleOnline": "上架",
+        "toggleOffline": "下架",
+        "editTooltip": "编辑",
+        "deleteTooltip": "删除",
+        "allStatus": "全部状态",
+        "reset": "重置",
+        "searchName": "搜索商品名称",
+        "searchCategory": "搜索分类",
+        "searchType": "搜索类型",
+        "statusPlaceholder": "状态",
+        "toast": {
+          "updated": "商品更新成功",
+          "created": "商品创建成功",
+          "deleted": "商品删除成功"
+        },
+        "validation": {
+          "nameRequired": "请输入商品名称",
+          "priceInvalid": "价格不能为负数",
+          "stockInvalid": "库存不能为负数",
+          "salesInvalid": "销量不能为负数",
+          "categoryRequired": "请输入商品分类",
+          "typeRequired": "请输入商品类型"
+        },
+        "table": {
+          "product": "商品",
+          "category": "分类",
+          "price": "价格",
+          "stock": "库存",
+          "sales": "销量",
+          "type": "类型",
+          "denomination": "面值",
+          "denominationVip": "VIP面值",
+          "denominationOperate": "运营面值",
+          "images": "图片",
+          "status": "状态",
+          "action": "操作"
+        },
+        "dialog": {
+          "editTitle": "编辑商品",
+          "createTitle": "新增商品",
+          "description": "填写商品信息",
+          "name": "商品名称",
+          "namePlaceholder": "请输入商品名称",
+          "category": "分类",
+          "categoryPlaceholder": "请输入分类",
+          "price": "价格(分)",
+          "stock": "库存",
+          "sales": "销量",
+          "type": "类型",
+          "typePlaceholder": "请输入类型",
+          "denomination": "面值",
+          "denominationPlaceholder": "请输入面值",
+          "denominationVip": "VIP面值",
+          "denominationVipPlaceholder": "请输入VIP面值",
+          "denominationOperate": "运营面值",
+          "denominationOperatePlaceholder": "请输入运营面值",
+          "desc": "描述",
+          "descPlaceholder": "请输入描述",
+          "images": "图片",
+          "cancel": "取消",
+          "save": "保存"
+        }
+      },
+      "withdrawals": {
+        "title": "提现管理",
+        "subtitle": "管理用户提现申请与流水",
+        "tabDetail": "提现明细",
+        "tabFlow": "提现流水",
+        "allStatus": "全部状态",
+        "reset": "重置",
+        "export": "导出",
+        "create": "新增",
+        "total": "共 {total} 条 · 第 {page}/{totalPages} 页",
+        "prev": "上一页",
+        "next": "下一页",
+        "channel": {
+          "alipay": "支付宝",
+          "wechat": "微信",
+          "bank": "银行卡"
+        },
+        "status": {
+          "pending": "待审核",
+          "approved": "已通过",
+          "rejected": "已驳回",
+          "completed": "已完成",
+          "failed": "失败"
+        },
+        "flowStatus": {
+          "processing": "处理中",
+          "success": "成功",
+          "failed": "失败"
+        },
+        "detail": {
+          "searchUser": "用户",
+          "searchUserName": "用户名",
+          "searchOutBillNo": "外部单号",
+          "searchReviewer": "审核人",
+          "amountRange": "金额范围",
+          "amountMin": "最小",
+          "amountMax": "最大",
+          "noData": "暂无提现明细",
+          "approve": "通过",
+          "reject": "驳回",
+          "review": "审核",
+          "table": {
+            "user": "用户",
+            "amount": "金额",
+            "channel": "渠道",
+            "account": "账号",
+            "status": "状态",
+            "reviewer": "审核人",
+            "createdAt": "创建时间",
+            "action": "操作"
+          },
+          "dialog": {
+            "editTitle": "编辑提现明细",
+            "createTitle": "新增提现明细",
+            "user": "用户",
+            "amount": "金额",
+            "channel": "渠道",
+            "account": "账号",
+            "status": "状态",
+            "cancel": "取消",
+            "save": "保存"
+          },
+          "toast": {
+            "updated": "提现明细更新成功",
+            "created": "提现明细创建成功",
+            "deleted": "提现明细删除成功",
+            "reviewed": "审核完成"
+          },
+          "validation": {
+            "userRequired": "请输入用户"
+          },
+          "confirmDelete": "确定要删除提现记录 {id} 吗?",
+          "export": {
+            "id": "ID",
+            "user": "用户",
+            "amount": "金额",
+            "channel": "渠道",
+            "account": "账号",
+            "status": "状态",
+            "reviewer": "审核人",
+            "createdAt": "创建时间"
+          }
+        },
+        "flow": {
+          "searchUserId": "用户ID",
+          "searchAmount": "金额",
+          "amountPlaceholder": "请输入金额",
+          "searchOutBillNo": "外部单号",
+          "searchCreatedAt": "创建时间",
+          "searchUpdatedAt": "更新时间",
+          "searchTransferDetail": "转账明细",
+          "noData": "暂无流水数据",
+          "table": {
+            "userId": "用户ID",
+            "amount": "金额",
+            "outBillNo": "外部单号",
+            "status": "状态",
+            "createdAt": "创建时间",
+            "updatedAt": "更新时间",
+            "transferDetail": "转账明细",
+            "action": "操作"
+          },
+          "dialog": {
+            "editTitle": "编辑提现流水",
+            "createTitle": "新增提现流水",
+            "userId": "用户ID",
+            "amount": "金额",
+            "outBillNo": "外部单号",
+            "status": "状态",
+            "transferDetail": "转账明细",
+            "cancel": "取消",
+            "save": "保存"
+          },
+          "toast": {
+            "updated": "提现流水更新成功",
+            "created": "提现流水创建成功",
+            "deleted": "提现流水删除成功"
+          },
+          "validation": {
+            "userIdRequired": "请输入用户ID"
+          },
+          "confirmDelete": "确定要删除流水记录 {id} 吗?",
+          "export": {
+            "id": "ID",
+            "userId": "用户ID",
+            "amount": "金额",
+            "outBillNo": "外部单号",
+            "status": "状态",
+            "createdAt": "创建时间",
+            "updatedAt": "更新时间",
+            "transferDetail": "转账明细"
+          }
+        },
+        "review": {
+          "title": "提现审核",
+          "description": "审核用户提现申请",
+          "notes": "审核备注",
+          "notesPlaceholder": "请输入审核备注",
+          "trace": "微信回调trace",
+          "close": "关闭",
+          "return": "驳回",
+          "approve": "通过"
+        }
+      }
+    },
+    "system": {
+      "common": {
+        "search": "搜索",
+        "reset": "重置",
+        "delete": "删除",
+        "clean": "清空",
+        "export": "导出",
+        "detail": "详情",
+        "close": "关闭",
+        "noData": "暂无数据",
+        "total": "共 {total} 条 · {page}/{totalPages}",
+        "confirmDelete": "确认删除选中的 {count} 条记录？",
+        "deleteSuccess": "删除成功",
+        "cleanSuccess": "清空成功",
+        "exportSuccess": "导出成功",
+        "exportFailed": "导出失败",
+        "all": "全部",
+        "actions": "操作"
+      },
+      "loginLogs": {
+        "title": "登录日志",
+        "confirmClean": "确认清空所有登录日志？",
+        "filter": {
+          "user": "用户",
+          "userPlaceholder": "用户标识",
+          "platform": "平台",
+          "platformPlaceholder": "平台",
+          "location": "位置",
+          "locationPlaceholder": "登录位置",
+          "startDate": "开始日期",
+          "endDate": "结束日期"
+        },
+        "table": {
+          "id": "ID",
+          "user": "用户",
+          "type": "类型",
+          "platform": "平台",
+          "ip": "IP",
+          "location": "位置",
+          "ua": "UA",
+          "loginTime": "登录时间",
+          "message": "消息"
+        },
+        "export": {
+          "loginType": "登录类型"
+        }
+      },
+      "operationLogs": {
+        "title": "操作日志",
+        "confirmClean": "确认清空所有操作日志？",
+        "bizType": {
+          "other": "其他",
+          "insert": "新增",
+          "update": "修改",
+          "delete": "删除",
+          "grant": "授权",
+          "export": "导出",
+          "import": "导入",
+          "forceLogout": "强退",
+          "genCode": "生成代码",
+          "cleanData": "清空数据"
+        },
+        "status": {
+          "success": "成功",
+          "failed": "失败"
+        },
+        "filter": {
+          "module": "模块",
+          "modulePlaceholder": "操作模块",
+          "operName": "操作人",
+          "operNamePlaceholder": "操作人",
+          "type": "类型"
+        },
+        "table": {
+          "id": "ID",
+          "module": "模块",
+          "type": "类型",
+          "operName": "操作人",
+          "requestMethod": "请求方式",
+          "ip": "IP",
+          "location": "位置",
+          "status": "状态",
+          "operTime": "操作时间",
+          "costTime": "耗时"
+        },
+        "detail": {
+          "title": "操作日志详情",
+          "module": "模块：",
+          "type": "类型：",
+          "operName": "操作人：",
+          "ip": "IP：",
+          "operUrl": "请求URL：",
+          "requestMethod": "请求方式：",
+          "costTime": "耗时：",
+          "status": "状态：",
+          "operTime": "操作时间：",
+          "operParam": "请求参数：",
+          "jsonResult": "返回结果：",
+          "errorMsg": "错误信息："
+        },
+        "export": {
+          "operUrl": "URL",
+          "requestMethod": "方法",
+          "costTime": "耗时(ms)"
+        }
+      },
+      "tasks": {
+        "title": "系统任务",
+        "subtitle": "定时任务与后台作业管理",
+        "type": {
+          "cron": "定时",
+          "interval": "周期",
+          "once": "单次"
+        },
+        "status": {
+          "running": "运行中",
+          "paused": "已暂停",
+          "idle": "空闲",
+          "failed": "失败"
+        },
+        "filter": {
+          "status": "状态",
+          "allStatus": "全部状态"
+        },
+        "table": {
+          "name": "任务名称",
+          "type": "类型",
+          "schedule": "调度",
+          "status": "状态",
+          "lastRun": "上次运行",
+          "nextRun": "下次运行",
+          "costTime": "耗时"
+        },
+        "noTasks": "暂无任务",
+        "actions": {
+          "run": "执行",
+          "start": "启动",
+          "pause": "暂停"
+        }
+      },
+      "tasksLog": {
+        "title": "任务日志",
+        "confirmClean": "确认清空所有任务日志？",
+        "status": {
+          "success": "成功",
+          "failed": "失败"
+        },
+        "filter": {
+          "jobName": "任务名称",
+          "jobNamePlaceholder": "任务名称",
+          "jobGroup": "任务组",
+          "jobGroupPlaceholder": "任务组",
+          "status": "状态"
+        },
+        "table": {
+          "id": "ID",
+          "jobName": "任务名称",
+          "jobGroup": "任务组",
+          "invokeTarget": "调用目标",
+          "jobMessage": "日志信息",
+          "status": "状态",
+          "startTime": "开始时间",
+          "costTime": "耗时"
+        },
+        "detail": {
+          "title": "任务日志详情",
+          "id": "日志ID：",
+          "jobName": "任务名称：",
+          "jobGroup": "任务组：",
+          "status": "状态：",
+          "invokeTarget": "调用目标：",
+          "startTime": "开始时间：",
+          "stopTime": "停止时间：",
+          "costTime": "耗时：",
+          "jobMessage": "日志信息：",
+          "exceptionInfo": "异常信息："
+        },
+        "export": {
+          "stopTime": "停止时间",
+          "costTime": "耗时(ms)"
+        }
+      },
+      "monitor": {
+        "title": "系统监控",
+        "subtitle": "系统资源与服务运行状态",
+        "cpu": "CPU",
+        "memory": "内存",
+        "disk": "磁盘",
+        "processes": "进程数",
+        "uptimeFormat": "{days}天 {hours}小时",
+        "systemInfo": "系统信息",
+        "uptime": "运行时长",
+        "loadAvg": "负载（1/5/15分钟）",
+        "networkIn": "网络入站",
+        "networkOut": "网络出站",
+        "services": "服务进程",
+        "noServices": "暂无服务数据",
+        "status": {
+          "running": "运行中",
+          "stopped": "已停止",
+          "error": "异常"
+        }
+      }
     }
   },
   "knowledgeGraph": {
@@ -9025,32 +9537,58 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"]
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"]
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -9449,19 +9987,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -9582,25 +10132,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -11076,7 +11638,11 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
+      "features": [
+        "全年所有课程免费参加",
+        "线下探索活动优先参与名额",
+        "智汇 AI 会员社群无限次互动"
+      ]
     },
     "enterprise": {
       "name": "企业服务",
@@ -11204,7 +11770,15 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -11348,8 +11922,18 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -12886,7 +13470,12 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       },
       "pro": {
         "features": [
@@ -13328,7 +13917,13 @@
         "price": "¥999",
         "unit": "/小时",
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ]
       }
     },
     "socialProof": {

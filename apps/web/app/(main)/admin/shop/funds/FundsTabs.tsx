@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { selectClass, TYPE_LABEL } from './helpers'
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function FundsTabs({ tab, setTab, flowType, setFlowType }: Props) {
+  const t = useTranslations('admin.shop')
   const tabCls = (active: boolean) =>
     cn(
       'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
@@ -23,22 +25,22 @@ export function FundsTabs({ tab, setTab, flowType, setFlowType }: Props) {
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
         <button onClick={() => setTab('accounts')} className={tabCls(tab === 'accounts')}>
-          账户
+          {t('funds.tabAccounts')}
         </button>
         <button onClick={() => setTab('flows')} className={tabCls(tab === 'flows')}>
-          流水
+          {t('funds.tabFlows')}
         </button>
       </div>
       {tab === 'flows' && (
         <Select value={flowType} onValueChange={setFlowType}>
-          <SelectTrigger className={selectClass} aria-label="类型">
+          <SelectTrigger className={selectClass} aria-label={t('funds.table.type')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部类型</SelectItem>
+            <SelectItem value="all">{t('funds.allTypes')}</SelectItem>
             {Object.entries(TYPE_LABEL).map(([k, v]) => (
               <SelectItem key={k} value={k}>
-                {v}
+                {t(v)}
               </SelectItem>
             ))}
           </SelectContent>

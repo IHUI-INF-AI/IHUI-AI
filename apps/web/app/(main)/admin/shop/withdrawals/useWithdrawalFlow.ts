@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import { api, PAGE_SIZE, EMPTY_FLOW, type ListData, type WithdrawalFlowItem } from './types'
 
-export function useWithdrawalFlow(enabled: boolean) {
+export function useWithdrawalFlow(enabled: boolean, t: (key: string, params?: Record<string, string | number>) => string) {
   const qc = useQueryClient()
 
   const [fSearch, setFSearch] = React.useState({
@@ -65,7 +65,7 @@ export function useWithdrawalFlow(enabled: boolean) {
         : api('/api/admin/shop/withdrawal-flow', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
-      toast.success(fEditing ? '更新成功' : '新增成功')
+      toast.success(fEditing ? t('withdrawals.flow.toast.updated') : t('withdrawals.flow.toast.created'))
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'withdrawal-flow'] })
       closeFlow()
     },
@@ -75,7 +75,7 @@ export function useWithdrawalFlow(enabled: boolean) {
   const fDeleteMut = useMutation({
     mutationFn: (id: string) => api(`/api/admin/shop/withdrawal-flow/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success('删除成功')
+      toast.success(t('withdrawals.flow.toast.deleted'))
       qc.invalidateQueries({ queryKey: ['admin', 'shop', 'withdrawal-flow'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -109,13 +109,13 @@ export function useWithdrawalFlow(enabled: boolean) {
     e.preventDefault()
     setFErr(null)
     if (!fForm.userId.trim()) {
-      setFErr('请输入用户ID')
+      setFErr(t('withdrawals.flow.validation.userIdRequired'))
       return
     }
     fSaveMut.mutate()
   }
   function handleDeleteFlow(w: WithdrawalFlowItem) {
-    if (!confirm(`确认删除流水记录 "${w.id}"?`)) return
+    if (!confirm(t('withdrawals.flow.confirmDelete', { id: w.id }))) return
     fDeleteMut.mutate(w.id)
   }
   function handleResetFlow() {
