@@ -9863,8 +9863,8 @@
       "qwen": "Qwen"
     },
     "models": "대형 모델",
-    "officialApp": "공식 App",
-    "officialWechat": "공식 WeChat",
+    "officialApp": "공식 계정",
+    "officialWechat": "내 위챗",
     "paymentPlatforms": "결제 플랫폼",
     "payments": {
       "alipay": "Alipay",
