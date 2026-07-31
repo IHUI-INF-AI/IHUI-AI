@@ -387,10 +387,16 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 }
             }
             "tray.quit" => {
-                // 退出时持久化所有窗口状态(main + admin)
+                // 2026-07-31:退出前先持久化窗口状态,然后 emit 事件给前端。
+                // 前端会检查更新:有更新则下载+安装+重启,无更新则调 quit_app 退出。
                 let _ = save_window_state(Some("main".to_string()), app.clone());
                 let _ = save_window_state(Some("admin".to_string()), app.clone());
-                app.exit(0);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("desktop-tray-action", "quit");
+                } else {
+                    // 主窗口不存在(异常状态),直接退出
+                    app.exit(0);
+                }
             }
             _ => {}
         })

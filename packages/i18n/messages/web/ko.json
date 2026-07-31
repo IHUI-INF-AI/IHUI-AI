@@ -104,7 +104,12 @@
       "error": "업데이트 실패",
       "errorDesc": "업데이트 중 오류가 발생했습니다. 다시 시도해 주세요.",
       "checkFailed": "업데이트 확인에 실패했습니다. 네트워크를 확인 후 재시도해 주세요.",
-      "dismiss": "닫기"
+      "dismiss": "닫기",
+      "quitChecking": "업데이트 확인 중...",
+      "quitDownloading": "업데이트 다운로드 중...",
+      "quitRestarting": "업데이트 완료, 재시작 중...",
+      "quitQuitting": "종료 중...",
+      "quitSkip": "건너뛰고 종료"
     },
     "resize": "드래그하여 너비 조절",
     "create": "생성",
@@ -13556,7 +13561,8 @@
     },
     "templates": {
       "title": "템플릿"
-    }
+    },
+    "commented": "댓글 작성됨 {tagName}#{elementId}: {comment}"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 지난달",
@@ -14312,7 +14318,37 @@
     "agreementNoticeTitle": "약관에 동의해 주세요",
     "agreementNoticeDesc": "계정 보안을 위해 다음 약관을 읽고 동의한 후 로그인해 주세요",
     "getVerificationCode": "코드 받기",
-    "alipayLogin": "알리페이로그인"
+    "alipayLogin": "알리페이로그인",
+    "passwordLogin": "비밀번호 로그인",
+    "account": "계정",
+    "password": "비밀번호",
+    "email": "이메일",
+    "registerFailed": "가입 실패, 다시 시도하세요",
+    "loginBtn": "로그인",
+    "forgotPassword": "비밀번호 찾기",
+    "noAccount": "계정이 없으신가요?",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "passwordWeak": "약함",
+    "passwordMedium": "보통",
+    "passwordStrong": "강함",
+    "showPassword": "비밀번호 표시",
+    "hidePassword": "비밀번호 숨기기",
+    "autoLogin": "자동 로그인",
+    "googleNotConfigured": "Google 로그인 미설정",
+    "qrRefresh": "QR코드 새로고침",
+    "qrSwitchMethod": "로그인 방법 전환",
+    "termsOfService": "서비스 약관",
+    "and": "및",
+    "privacyPolicy": "개인정보처리방침",
+    "agreementNoticeSafe": "개인정보와 보안을 중요시합니다",
+    "agreementNoticeDisagree": "동의하지 않음",
+    "agreementNoticeAgree": "동의하고 계속",
+    "agreementNoticeEnterHint": "\"동의하고 계속\"을 클릭하면 동의한 것으로 간주합니다",
+    "registerTitle": "가입",
+    "loginSubtitle": "계정에 로그인하여 계속",
+    "forgotSubtitle": "비밀번호 재설정",
+    "accountHistory": "계정 기록",
+    "invalidCredentials": "인증 정보가 잘못되었습니다"
   },
   "help": {
     "title": "AI인마음페이스테스트",
@@ -14360,5 +14396,6 @@
     "description": "죄송합니다. 이 페이지에 접근할 권한이 없습니다. 권한 개설은 관리자에게 문의해 주세요."
   },
   "modelFree": "무료",
-  "modelPointsMultiplier": "크레딧 배수"
+  "modelPointsMultiplier": "크레딧 배수",
+  "title": "관리 대시보드"
 }
