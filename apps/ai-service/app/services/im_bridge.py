@@ -116,7 +116,9 @@ class ImBridgeService:
         url = getattr(settings, "redis_url", "") or ""
         if not url:
             raise RuntimeError("settings.redis_url 为空,无法连接 Redis")
-        client = aioredis.from_url(url, decode_responses=True)
+        # protocol=2 强制 RESP2,避免 redis-py 8.x 默认发 HELLO 命令协商 RESP3
+        # (本地 Memurai 4.x / Redis 5.x 不支持 HELLO,会报 unknown command `HELLO')
+        client = aioredis.from_url(url, decode_responses=True, protocol=2)
         await client.ping()
         self._redis = client
 
@@ -276,9 +278,12 @@ class ImBridgeService:
             "text": reply_text,
         }
         headers: dict[str, str] = {"Content-Type": "application/json"}
-        # ai_callback_secret 用于内部调用鉴权(若 apps/api 支持则生效)
+        # 内部服务鉴权:对齐 apps/api internal-service-token 契约
+        # x-internal-service-token = AI_CALLBACK_SECRET(与 config.AI_CALLBACK_SECRET 共用)
+        # x-user-id = 消息归属用户(适配器所有者,UUID 格式)
         if settings.ai_callback_secret:
-            headers["X-Internal-Secret"] = settings.ai_callback_secret
+            headers["x-internal-service-token"] = settings.ai_callback_secret
+            headers["x-user-id"] = str(user_id)
 
         try:
             from .api_client import get_api_client
