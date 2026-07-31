@@ -169,6 +169,8 @@
     "downloadTitle": "アプリをダウンロード",
     "mainNav": "メインナビゲーション",
     "pluginMarket": "プラグイン市場",
+    "hotGroupLabel": "人気",
+    "hotModelImport": "モデル設定インポート",
     "aiGroupLabel": "AIエージェント",
     "adminGroupLabel": "管理",
     "eduGroup": "AI教育",
