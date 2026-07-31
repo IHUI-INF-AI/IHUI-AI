@@ -12616,11 +12616,34 @@
       "tabTimeline": "タイムライン",
       "searchPlaceholder": "ファイル検索",
       "newFile": "新規ファイル",
+      "newFolder": "新規フォルダー",
       "refresh": "更新",
       "noMatch": "一致するファイルなし",
       "justNow": "たった今",
       "minutesAgo": "{count} 分前",
-      "hoursAgo": "{count} 時間前"
+      "hoursAgo": "{count} 時間前",
+      "fileNamePlaceholder": "ファイル名...",
+      "folderNamePlaceholder": "フォルダー名...",
+      "fileCreated": "ファイルを作成しました",
+      "folderCreated": "フォルダーを作成しました",
+      "renamed": "名前を変更しました",
+      "deleted": "削除しました",
+      "confirmDelete": "削除しますか?",
+      "confirm": "確認",
+      "cancel": "キャンセル",
+      "rename": "名前変更",
+      "delete": "削除"
+    },
+    "fileTreeNode": {
+      "open": "開く",
+      "rename": "名前変更",
+      "delete": "削除",
+      "copyPath": "パスをコピー",
+      "renamed": "名前を変更しました",
+      "deleted": "削除しました",
+      "confirmDelete": "削除しますか?",
+      "confirm": "確認",
+      "cancel": "キャンセル"
     },
     "codeEditor": {
       "zoomOut": "縮小",
@@ -12691,7 +12714,14 @@
       "unstage": "ステージ解除",
       "stage": "ステージ",
       "refresh": "更新",
-      "more": "その他"
+      "more": "その他",
+      "push": "プッシュ",
+      "pull": "プル",
+      "commitMessageRequired": "コミットメッセージを入力してください",
+      "commitSuccess": "コミット成功",
+      "pushSuccess": "プッシュ成功",
+      "pullSuccess": "プル成功",
+      "branchSwitched": "{branch} に切り替えました"
     },
     "debug": {
       "start": "開始",
