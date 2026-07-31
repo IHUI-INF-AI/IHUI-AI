@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Search, FileText } from 'lucide-react'
 
 import { Input } from '@ihui/ui-react'
@@ -20,6 +21,7 @@ interface FileMentionPopoverProps {
 }
 
 export function FileMentionPopover({ files, open, onSelect, onClose }: FileMentionPopoverProps) {
+  const t = useTranslations('fileMention')
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -79,7 +81,7 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="搜索文件..."
+          placeholder={t('fileSearchPlaceholder')}
           className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
         />
       </div>

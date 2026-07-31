@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   FileText,
   FolderTree,
@@ -342,6 +343,7 @@ const BRANCH_STATUS_LABEL: Record<string, string> = {
 // ===========================================================================
 
 export function SpecPanel({ className }: { className?: string }) {
+  const t = useTranslations('specPanel')
   const [scopeType, setScopeType] = React.useState<SpecScopeType>('workspace')
   const [scopePath, setScopePath] = React.useState('')
   const [loading, setLoading] = React.useState(false)
@@ -1228,7 +1230,7 @@ export function SpecPanel({ className }: { className?: string }) {
                   value={selectedVersion}
                   onChange={(e) => void handleLoadVersion(e.target.value)}
                   className="h-6 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
-                  title="历史版本"
+                  title={t('historyVersion')}
                 >
                   <option value="latest">最新</option>
                   {history.map((h) => (
@@ -1248,7 +1250,7 @@ export function SpecPanel({ className }: { className?: string }) {
                 'flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/60',
                 diffLoading && 'cursor-not-allowed opacity-60',
               )}
-              title="生成新 spec 并与上次持久化版本对比"
+              title={t('regenCompare')}
             >
               {diffLoading ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -1470,7 +1472,7 @@ export function SpecPanel({ className }: { className?: string }) {
                         type="text"
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value)}
-                        placeholder="拒绝原因(可选)"
+                        placeholder={t('rejectReasonPlaceholder')}
                         className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
                       />
                     </>
@@ -1747,7 +1749,7 @@ export function SpecPanel({ className }: { className?: string }) {
                 <textarea
                   value={impactInput}
                   onChange={(e) => setImpactInput(e.target.value)}
-                  placeholder="拟修改内容(支持 markdown,LLM 将分析影响范围 + 风险)"
+                  placeholder={t('proposedChangePlaceholder')}
                   rows={5}
                   className="w-full rounded-md border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
                 />
@@ -1866,14 +1868,14 @@ export function SpecPanel({ className }: { className?: string }) {
                     type="text"
                     value={newBranchName}
                     onChange={(e) => setNewBranchName(e.target.value)}
-                    placeholder="分支名(如 feature/auth)"
+                    placeholder={t('branchNamePlaceholder')}
                     className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
                   />
                   <select
                     value={branchBaseVersion}
                     onChange={(e) => setBranchBaseVersion(e.target.value)}
                     className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
-                    title="基线版本"
+                    title={t('baselineVersion')}
                   >
                     <option value="latest">最新</option>
                     {history.map((h) => (
@@ -2004,7 +2006,7 @@ export function SpecPanel({ className }: { className?: string }) {
                               onClick={() => void handleMergeBranch(b.name)}
                               disabled={branchLoading || b.status !== 'active'}
                               className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
-                              title="合并到 main"
+                              title={t('mergeToMain')}
                             >
                               <GitMerge className="h-3 w-3" />
                               <span>合并</span>
@@ -2014,7 +2016,7 @@ export function SpecPanel({ className }: { className?: string }) {
                               onClick={() => void handleDiffBranch(b.name)}
                               disabled={branchLoading}
                               className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
-                              title="对比 main"
+                              title={t('compareMain')}
                             >
                               <GitCompare className="h-3 w-3" />
                               <span>对比</span>
@@ -2024,7 +2026,7 @@ export function SpecPanel({ className }: { className?: string }) {
                               onClick={() => void handleAbandonBranch(b.name)}
                               disabled={branchLoading || b.status !== 'active'}
                               className="flex shrink-0 whitespace-nowrap h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
-                              title="废弃分支"
+                              title={t('abandonBranch')}
                             >
                               <Square className="h-3 w-3" />
                               <span>废弃</span>
@@ -2107,7 +2109,7 @@ export function SpecPanel({ className }: { className?: string }) {
                       )
                     }
                     className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
-                    title="需求格式"
+                    title={t('requirementFormat')}
                   >
                     <option value="text">纯文本</option>
                     <option value="markdown">markdown</option>
@@ -2209,7 +2211,7 @@ export function SpecPanel({ className }: { className?: string }) {
                   type="button"
                   onClick={() => void handleStopWatch(w.watchId)}
                   className="text-red-500 hover:text-red-600"
-                  title="停止监听"
+                  title={t('stopListening')}
                 >
                   ×
                 </button>
