@@ -37,6 +37,8 @@ const PUBLIC_PREFIXES = [
   '/api/ai/callback',
   '/api/payments/',
   '/api/tbox/events',
+  // IM 网关 webhook 入站(2026-07-31 立,IM 平台调用,用 webhookSecret HMAC 验签,无 CSRF token)
+  '/api/im-gateway/webhook/',
   // VIP 购买/订阅:需 authenticate 鉴权(未登录返 401 引导登录,而非 CSRF 403)
   '/api/vip/',
   // 2026-07-28 加固:本地工作区文件浏览是 read-only(列目录结构/打开文件夹),
