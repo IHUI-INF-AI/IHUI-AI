@@ -168,6 +168,8 @@
     "downloadTitle": "下載使用者端",
     "mainNav": "主導航",
     "pluginMarket": "外掛市場",
+    "hotGroupLabel": "熱門",
+    "hotModelImport": "模型設定匯入",
     "aiGroupLabel": "AI 智慧體",
     "adminGroupLabel": "管理",
     "eduGroup": "AI 教育",
