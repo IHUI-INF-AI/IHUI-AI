@@ -120,10 +120,7 @@ import { adminZoneRoutes } from './admin-zone.js'
 import { adminDemandSquareRoutes } from './admin-demand-square.js'
 import { zhsCourseRoutes, adminZhsCourseRoutes } from './zhs-course.js'
 import { zhsOrganizationRoutes, adminZhsOrganizationRoutes } from './zhs-organization.js'
-import {
-  userAgentFreeTimesRoutes,
-  adminUserAgentFreeTimesRoutes,
-} from './user-agent-free-times.js'
+import { userAgentFreeTimesRoutes, adminUserAgentFreeTimesRoutes } from './user-agent-free-times.js'
 import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
 import { serviceInquiryRoutes } from './service-inquiry.js'
 import { shareContentRoutes } from './share-content.js'
@@ -360,6 +357,11 @@ import adminTieredPricingRoutes from './admin/tiered-pricing.js'
 import adminRelayPricingRoutes from './admin/relay-pricing.js'
 import adminUserBillingGroupsRoutes from './admin/user-billing-groups.js'
 import v1MessagesRoutes from './v1-messages.js'
+// P0 第二批次(2026-07-31 立):rerank/moderations + realtime + mcp-gateway + midjourney 4 个对外端点
+import v1RerankModerationsRoutes from './v1-rerank-moderations.js'
+import { v1RealtimeRoutes } from './v1-realtime.js'
+import v1McpGatewayRoutes from './v1-mcp-gateway.js'
+import v1MidjourneyRoutes from './v1-midjourney.js'
 // Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
 import developerWebhooksRoutes from './developer/webhooks.js'
 import adminWebhookDebugRoutes from './admin/webhook-debug.js'
@@ -1015,6 +1017,16 @@ export function registerRoutes(server: FastifyInstance) {
   // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设
   // ANTHROPIC_BASE_URL=https://api.x5m5x.com/v1/anthropic 即可走 /v1/anthropic/messages。
   server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
+
+  // ===== P0 第二批次对外端点(2026-07-31 立,8 subagent 并行)=====
+  // /v1/rerank + /v1/moderations(Cohere/Jina rerank + OpenAI moderations 兼容,API Key 鉴权)
+  server.register(v1RerankModerationsRoutes, { prefix: '/v1' })
+  // /v1/realtime(OpenAI Realtime API 兼容 WebSocket,绝对路径字面量注册)
+  server.register(v1RealtimeRoutes)
+  // /v1/mcp/tools + /v1/mcp/tools/call + /v1/mcp/resources/read(MCP 网关对外暴露,绝对路径字面量注册)
+  server.register(v1McpGatewayRoutes)
+  // /v1/midjourney/*(Midjourney-Proxy 标准接口:imagine/tasks/:taskId/action/upscale,绝对路径字面量注册)
+  server.register(v1MidjourneyRoutes)
 
   // ===== Relay Webhook 系统(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)=====
   // developer 用户自助管理订阅(7 端点):/api/developer/webhooks/subscriptions/*
