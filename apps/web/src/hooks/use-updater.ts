@@ -104,16 +104,19 @@ function createMockSession(): UpdateSession {
  * - 托盘菜单 "检查更新"(desktop-check-update 事件,手动检查不自动安装,显示弹窗)
  * - 组件手动触发 checkForUpdate()
  *
- * 自动更新策略(2026-07-31 立):
- * - 打开程序:启动 5s 后静默检查,发现更新自动下载安装(弹出进度提示),完成后显示"重启应用"
- * - 关闭程序:由 quitAndUpdateIfNeeded() 拦截退出流程,自动检查+下载+安装+重启
- * - 使用中手动检查:托盘菜单触发,显示弹窗 + "立即更新"按钮,用户自主选择
+ * 强制自动更新策略(2026-07-31 立,无需用户点击任何按钮):
+ * - 打开程序:启动 5s 后静默检查,发现更新自动下载安装,完成后 3 秒自动重启
+ * - 关闭程序:由 quitAndUpdateIfNeeded() 拦截退出流程,自动检查+下载+安装+重启(不可跳过)
+ * - 使用中:托盘菜单触发或启动检查,自动下载安装+自动重启,弹窗仅展示进度(不可关闭)
+ * - 更新失败:自动重试(最多 3 次,间隔 5 秒),超过后显示错误信息
  *
  * 浏览器端 isTauri()=false,此 hook 不执行任何副作用,返回 idle 状态。
  */
 export function useUpdater() {
   const [state, setState] = React.useState<UpdaterState>(INITIAL_STATE)
   const mountedRef = React.useRef(true)
+  /** 自动重试计数(错误后自动重试,最多 3 次)。 */
+  const [retryCount, setRetryCount] = React.useState(0)
 
   React.useEffect(() => {
     mountedRef.current = true
@@ -235,13 +238,57 @@ export function useUpdater() {
   // 监听托盘菜单 "检查更新" 事件(由 useDesktopEvents 转发的 CustomEvent)
   React.useEffect(() => {
     if (!isTauri() && !isDevUpdateTest()) return
-    const handler = () => void checkForUpdate(false)
+    const handler = () => void checkForUpdate(true, true)
     window.addEventListener('desktop-check-update', handler)
     return () => window.removeEventListener('desktop-check-update', handler)
   }, [checkForUpdate])
 
+  // 安装完成自动重启(强制更新:无需用户点击,3 秒后自动重启)
+  React.useEffect(() => {
+    if (state.status !== 'done') return
+    const timer = setTimeout(() => {
+      if (isDevUpdateTest()) {
+        setState(INITIAL_STATE)
+        return
+      }
+      void restartApp()
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [state.status])
+
+  // 更新失败自动重试(强制更新:最多重试 3 次,每次间隔 5 秒)
+  React.useEffect(() => {
+    if (state.status !== 'error') return
+    if (retryCount >= 3) return
+    const timer = setTimeout(() => {
+      setRetryCount((c) => c + 1)
+      void checkForUpdate(true, true)
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [state.status, retryCount, checkForUpdate])
+
+  // 下载开始时重置重试计数
+  React.useEffect(() => {
+    if (state.status === 'downloading') {
+      setRetryCount(0)
+    }
+  }, [state.status])
+
+  // 重试耗尽后自动关闭错误提示(10 秒后回到 idle,不影响用户继续使用)
+  React.useEffect(() => {
+    if (state.status !== 'error') return
+    if (retryCount < 3) return
+    const timer = setTimeout(() => {
+      setState(INITIAL_STATE)
+      setRetryCount(0)
+    }, 10000)
+    return () => clearTimeout(timer)
+  }, [state.status, retryCount])
+
   return {
     ...state,
+    retryCount,
+    maxRetries: 3,
     checkForUpdate,
     downloadAndInstall,
     restart,
