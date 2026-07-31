@@ -12578,11 +12578,34 @@
       "tabTimeline": "타임라인",
       "searchPlaceholder": "파일 검색",
       "newFile": "새 파일",
+      "newFolder": "새 폴더",
       "refresh": "새로고침",
       "noMatch": "일치하는 파일 없음",
       "justNow": "방금",
       "minutesAgo": "{count} 분 전",
-      "hoursAgo": "{count} 시간 전"
+      "hoursAgo": "{count} 시간 전",
+      "fileNamePlaceholder": "파일 이름...",
+      "folderNamePlaceholder": "폴더 이름...",
+      "fileCreated": "파일이 생성됨",
+      "folderCreated": "폴더가 생성됨",
+      "renamed": "이름 변경됨",
+      "deleted": "삭제됨",
+      "confirmDelete": "삭제하시겠습니까?",
+      "confirm": "확인",
+      "cancel": "취소",
+      "rename": "이름 변경",
+      "delete": "삭제"
+    },
+    "fileTreeNode": {
+      "open": "열기",
+      "rename": "이름 변경",
+      "delete": "삭제",
+      "copyPath": "경로 복사",
+      "renamed": "이름 변경됨",
+      "deleted": "삭제됨",
+      "confirmDelete": "삭제하시겠습니까?",
+      "confirm": "확인",
+      "cancel": "취소"
     },
     "codeEditor": {
       "zoomOut": "축소",
@@ -12653,7 +12676,14 @@
       "unstage": "스테이징 해제",
       "stage": "스테이징",
       "refresh": "새로고침",
-      "more": "더보기"
+      "more": "더보기",
+      "push": "푸시",
+      "pull": "풀",
+      "commitMessageRequired": "커밋 메시지를 입력하세요",
+      "commitSuccess": "커밋 성공",
+      "pushSuccess": "푸시 성공",
+      "pullSuccess": "풀 성공",
+      "branchSwitched": "{branch}(으)로 전환됨"
     },
     "debug": {
       "start": "시작",
