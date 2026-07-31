@@ -173,6 +173,7 @@
     "hotModelImport": "モデル設定インポート",
     "aiGroupLabel": "AIエージェント",
     "adminGroupLabel": "管理",
+    "topupConfig": "チャージ設定",
     "eduGroup": "AI教育",
     "contentGroup": "コンテンツ",
     "tradeGroup": "取引",
