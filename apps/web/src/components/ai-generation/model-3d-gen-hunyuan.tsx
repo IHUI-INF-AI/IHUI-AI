@@ -107,7 +107,7 @@ export function Model3dGenHunyuan() {
             placeholder={t('imageUrlPlaceholder')}
           />
         </div>
-        <Button onClick={onSubmit} disabled={mutation.isPending}>
+        <Button onClick={onSubmit} disabled={mutation.isPending} aria-busy={mutation.isPending}>
           {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? t('generating') : t('generate')}
         </Button>
