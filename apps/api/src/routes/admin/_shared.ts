@@ -253,6 +253,18 @@ export function registerCrud(
       return reply.status(500).send(error(500, '服务器内部错误'))
     }
   })
+  server.get(`${basePath}/:id`, async (request, reply) => {
+    try {
+      const p = idParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+      const [row] = await db.select().from(table).where(eq(table.id, p.data.id))
+      if (!row) return reply.status(404).send(error(404, '记录不存在'))
+      return reply.send(success(row))
+    } catch (err) {
+      server.log.error({ err }, 'registerCrud getById failed')
+      return reply.status(500).send(error(500, '服务器内部错误'))
+    }
+  })
   server.post(basePath, async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>
