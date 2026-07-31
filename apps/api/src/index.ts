@@ -122,10 +122,10 @@ async function start() {
 // P0 修复(2026-07-31):全局未捕获错误处理 — 记录明确日志便于诊断,
 // 避免进程静默卡死导致 tsx watch 主进程残留(死进程持续占用文件监听句柄)。
 process.on('unhandledRejection', (err) => {
-  logger.error({ err }, 'Unhandled promise rejection (process still alive, investigate)')
+  logger.error('Unhandled promise rejection (process still alive, investigate)', { err })
 })
 process.on('uncaughtException', (err) => {
-  logger.error({ err }, 'Uncaught exception, exiting to let tsx watch / pm2 restart')
+  logger.error('Uncaught exception, exiting to let tsx watch / pm2 restart', { err })
   process.exit(1)
 })
 
