@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import {
+  fetchModelSyncHealth,
   fetchModelSyncHistory,
   fetchModelSyncStatus,
   fetchProvidersHealth,
@@ -19,9 +20,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Input,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { Loader2, RefreshCw, ChevronRight, History, Eye } from 'lucide-react'
+import { Loader2, RefreshCw, ChevronRight, History, Eye, Search } from 'lucide-react'
 
 import type {
   GatewayProvider,
@@ -56,6 +58,7 @@ interface DryRunPreview {
 
 export function ProvidersHealthTab() {
   const t = useTranslations('settings.gateway.providers')
+  const tm = useTranslations('settings.gateway.modelSync')
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['gateway-providers-health'],
@@ -63,10 +66,11 @@ export function ProvidersHealthTab() {
     refetchInterval: 30_000,
   })
 
+  // F4.9 同步中时 2s 高频刷新,空闲 10s(用函数式 refetchInterval 避免自引用)
   const { data: syncStatus } = useQuery({
     queryKey: ['model-sync-status'],
     queryFn: fetchModelSyncStatus,
-    refetchInterval: 10_000,
+    refetchInterval: (query) => (query.state.data?.is_syncing ? 2_000 : 10_000),
   })
 
   const queryClient = useQueryClient()
@@ -78,6 +82,7 @@ export function ProvidersHealthTab() {
       queryClient.invalidateQueries({ queryKey: ['model-sync-status'] })
       queryClient.invalidateQueries({ queryKey: ['gateway-providers-health'] })
       queryClient.invalidateQueries({ queryKey: ['llm-models'] })
+      queryClient.invalidateQueries({ queryKey: ['model-sync-health'] })
     },
   })
 
@@ -117,6 +122,7 @@ export function ProvidersHealthTab() {
       queryClient.invalidateQueries({ queryKey: ['model-sync-status'] })
       queryClient.invalidateQueries({ queryKey: ['gateway-providers-health'] })
       queryClient.invalidateQueries({ queryKey: ['llm-models'] })
+      queryClient.invalidateQueries({ queryKey: ['model-sync-health'] })
     },
     onError: (_err, provider) => {
       setSyncingProviders((prev) => {
@@ -134,6 +140,18 @@ export function ProvidersHealthTab() {
     const list = data?.providers ?? []
     return filter === 'all' ? list : list.filter((p) => p.status === filter)
   }, [data, filter])
+
+  const timeFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
+    [],
+  )
 
   return (
     <div className="space-y-3">
@@ -172,16 +190,23 @@ export function ProvidersHealthTab() {
         </Button>
       </div>
 
-      {/* 模型自动同步 + F4.3 dry-run 预览按钮 */}
+      {/* 模型自动同步 + F4.3 dry-run 预览按钮 + F4.9 进度条 */}
       <Card>
         <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">模型自动同步</p>
+              <p className="text-sm font-medium">{tm('title')}</p>
               <p className="truncate text-[11px] text-muted-foreground">
-                {syncStatus?.last_sync_at
-                  ? `最近同步:${new Date(syncStatus.last_sync_at).toLocaleString()} · ${syncStatus.total_providers} 个 provider · +${syncStatus.total_new_models} 新增 / -${syncStatus.total_removed_models} 下架 · ${syncStatus.last_sync_duration_ms}ms`
-                  : '从未同步'}
+                {syncStatus?.last_sync_at ? (
+                  <>
+                    {tm('lastSync')}: {timeFmt.format(new Date(syncStatus.last_sync_at))} ·{' '}
+                    {syncStatus.total_providers} {tm('providers')} · +{syncStatus.total_new_models}{' '}
+                    {tm('newModels')} / -{syncStatus.total_removed_models} {tm('removedModels')} ·{' '}
+                    {syncStatus.last_sync_duration_ms}ms
+                  </>
+                ) : (
+                  tm('neverSynced')
+                )}
               </p>
             </div>
             <div className="flex items-center gap-1">
@@ -195,14 +220,14 @@ export function ProvidersHealthTab() {
                   syncStatus?.is_syncing === true
                 }
                 className="h-7 px-2.5 text-xs"
-                title="预览同步(dry-run,不实际落库)"
+                title={tm('previewSyncTooltip')}
               >
                 {dryRunMutation.isPending ? (
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Eye className="mr-1 h-3.5 w-3.5" />
                 )}
-                预览同步
+                {tm('previewSync')}
               </Button>
               <Button
                 size="sm"
@@ -216,15 +241,29 @@ export function ProvidersHealthTab() {
                 ) : (
                   <RefreshCw className="mr-1 h-3.5 w-3.5" />
                 )}
-                {syncStatus?.is_syncing ? '同步中...' : '立即同步'}
+                {syncStatus?.is_syncing ? tm('syncing') : tm('syncNow')}
               </Button>
             </div>
           </div>
+          {/* F4.9 同步进度条(同步中展示,indeterminate pulse;后端 results 非逐 provider 实时更新,故不显示假百分比) */}
+          {syncStatus?.is_syncing && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>{tm('syncing')}</span>
+                <span>
+                  {syncStatus.total_providers} {tm('providers')}
+                </span>
+              </div>
+              <div className="h-1 w-full overflow-hidden rounded bg-muted">
+                <div className="h-full w-full animate-pulse bg-primary" />
+              </div>
+            </div>
+          )}
           {(syncMutation.isError || dryRunMutation.isError) && (
             <p className="text-[11px] text-red-600 dark:text-red-500">
               {syncMutation.isError
-                ? `同步失败:${syncMutation.error instanceof Error ? syncMutation.error.message : '未知错误'}`
-                : `预览失败:${dryRunMutation.error instanceof Error ? dryRunMutation.error.message : '未知错误'}`}
+                ? `${tm('syncFailed')}: ${syncMutation.error instanceof Error ? syncMutation.error.message : tm('unknownError')}`
+                : `${tm('previewFailed')}: ${dryRunMutation.error instanceof Error ? dryRunMutation.error.message : tm('unknownError')}`}
             </p>
           )}
           {/* F4.1 同步详情可展开(每个 provider 一行,点击展开看 new_model_ids/removed_model_ids) */}
@@ -237,6 +276,9 @@ export function ProvidersHealthTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* F4.13 同步健康度面板(后端未实现 GET /llm/models/sync/health 时静默降级,不渲染) */}
+      <SyncHealthPanel />
 
       {/* F4.4 同步历史时间轴(默认折叠,展开时拉取最近 10 条) */}
       <SyncHistoryTimeline />
@@ -282,7 +324,7 @@ export function ProvidersHealthTab() {
         </div>
       )}
 
-      {/* F4.3 dry-run 预览 Dialog */}
+      {/* F4.3 dry-run 预览 Dialog(内含 F4.10 SyncDiffCard) */}
       <DryRunDialog
         open={dryRunOpen}
         onOpenChange={setDryRunOpen}
@@ -299,6 +341,7 @@ export function ProvidersHealthTab() {
 
 // F4.1 同步详情可展开子组件(显示 new_model_ids/removed_model_ids 列表)
 function SyncDiffDetail({ result }: { result: ModelSyncResult }) {
+  const tm = useTranslations('settings.gateway.modelSync')
   const [open, setOpen] = React.useState(false)
   const newIds = result.new_model_ids ?? []
   const removedIds = result.removed_model_ids ?? []
@@ -318,23 +361,23 @@ function SyncDiffDetail({ result }: { result: ModelSyncResult }) {
         {result.success ? (
           <>
             <Badge variant="outline" className="text-[10px]">
-              {result.total_models} 总数
+              {result.total_models} {tm('totalModels')}
             </Badge>
             {result.new_models > 0 && (
-              <Badge className="border-transparent bg-emerald-500/15 text-emerald-600 text-[10px] dark:text-emerald-500">
-                +{result.new_models} 新增
+              <Badge className="border-transparent bg-emerald-500/15 text-[10px] text-emerald-600 dark:text-emerald-500">
+                +{result.new_models} {tm('newModels')}
               </Badge>
             )}
             {result.removed_models > 0 && (
-              <Badge className="border-transparent bg-red-500/15 text-red-600 text-[10px] dark:text-red-500">
-                -{result.removed_models} 下架
+              <Badge className="border-transparent bg-red-500/15 text-[10px] text-red-600 dark:text-red-500">
+                -{result.removed_models} {tm('removedModels')}
               </Badge>
             )}
             <span className="text-muted-foreground">{result.latency_ms}ms</span>
           </>
         ) : (
-          <Badge className="border-transparent bg-red-500/15 text-red-600 text-[10px] dark:text-red-500">
-            失败:{result.error}
+          <Badge className="border-transparent bg-red-500/15 text-[10px] text-red-600 dark:text-red-500">
+            {tm('failed')}: {result.error}
           </Badge>
         )}
       </button>
@@ -344,11 +387,13 @@ function SyncDiffDetail({ result }: { result: ModelSyncResult }) {
             <>
               {newIds.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1">
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-500">新增:</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-500">
+                    {tm('newModels')}:
+                  </span>
                   {newIds.map((id) => (
                     <Badge
                       key={`new-${id}`}
-                      className="border-transparent bg-emerald-500/15 font-mono text-emerald-600 text-[10px] dark:text-emerald-500"
+                      className="border-transparent bg-emerald-500/15 font-mono text-[10px] text-emerald-600 dark:text-emerald-500"
                     >
                       {id}
                     </Badge>
@@ -357,11 +402,13 @@ function SyncDiffDetail({ result }: { result: ModelSyncResult }) {
               )}
               {removedIds.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1">
-                  <span className="text-[10px] text-red-600 dark:text-red-500">下架:</span>
+                  <span className="text-[10px] text-red-600 dark:text-red-500">
+                    {tm('removedModels')}:
+                  </span>
                   {removedIds.map((id) => (
                     <Badge
                       key={`rm-${id}`}
-                      className="border-transparent bg-red-500/15 font-mono text-red-600 text-[10px] dark:text-red-500"
+                      className="border-transparent bg-red-500/15 font-mono text-[10px] text-red-600 dark:text-red-500"
                     >
                       {id}
                     </Badge>
@@ -370,7 +417,7 @@ function SyncDiffDetail({ result }: { result: ModelSyncResult }) {
               )}
             </>
           ) : (
-            <p className="text-[10px] text-muted-foreground">无差异(本次同步无新增/下架)</p>
+            <p className="text-[10px] text-muted-foreground">{tm('noDiff')}</p>
           )}
         </div>
       )}
@@ -392,6 +439,7 @@ function ProviderRow({
   onSync: () => void
   syncError?: Error
 }) {
+  const tm = useTranslations('settings.gateway.modelSync')
   return (
     <Card>
       <CardContent className="flex flex-wrap items-center gap-2 p-3">
@@ -413,7 +461,7 @@ function ProviderRow({
           <span className="text-[11px] text-muted-foreground">{provider.free_quota}</span>
         )}
         {provider.is_in_cooldown && (
-          <Badge className="border-transparent bg-red-500/15 text-red-600 text-[11px] dark:text-red-500">
+          <Badge className="border-transparent bg-red-500/15 text-[11px] text-red-600 dark:text-red-500">
             {t('cooldown')} · {provider.consecutive_failures} {t('failures')}
           </Badge>
         )}
@@ -423,14 +471,14 @@ function ProviderRow({
           onClick={onSync}
           disabled={isSyncing}
           className="h-7 px-2.5 text-xs"
-          title={`仅同步 ${provider.provider}`}
+          title={tm('syncProviderOnly', { provider: provider.provider })}
         >
           {isSyncing ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5" />
           ) : (
             <RefreshCw className="h-3.5 w-3.5" />
           )}
-          <span className="ml-1">同步</span>
+          <span className="ml-1">{tm('sync')}</span>
         </Button>
         {syncError && (
           <p className="w-full text-[10px] text-red-600 dark:text-red-500">{syncError.message}</p>
@@ -440,7 +488,92 @@ function ProviderRow({
   )
 }
 
-// F4.3 dry-run 预览 Dialog
+// F4.10 模型差异卡片(搜索 + tab 过滤,用于 DryRunDialog)
+function SyncDiffCard({ preview }: { preview: DryRunPreview }) {
+  const tm = useTranslations('settings.gateway.modelSync')
+  const [tab, setTab] = React.useState<'new' | 'removed' | 'all'>('new')
+  const [search, setSearch] = React.useState('')
+
+  const items = React.useMemo(() => {
+    const all: Array<{ id: string; provider: string; type: 'new' | 'removed' }> = [
+      ...preview.byProvider.flatMap((p) =>
+        p.new_model_ids.map((id) => ({ id, provider: p.provider_code, type: 'new' as const })),
+      ),
+      ...preview.byProvider.flatMap((p) =>
+        p.removed_model_ids.map((id) => ({
+          id,
+          provider: p.provider_code,
+          type: 'removed' as const,
+        })),
+      ),
+    ]
+    const q = search.trim().toLowerCase()
+    return all.filter(
+      (it) => (tab === 'all' || it.type === tab) && (!q || it.id.toLowerCase().includes(q)),
+    )
+  }, [preview, tab, search])
+
+  const tabs: Array<{ value: 'new' | 'removed' | 'all'; label: string; count: number }> = [
+    { value: 'new', label: tm('newModels'), count: preview.totalNew },
+    { value: 'removed', label: tm('removedModels'), count: preview.totalRemoved },
+    { value: 'all', label: tm('all'), count: preview.totalNew + preview.totalRemoved },
+  ]
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tabs.map((tb) => (
+          <Button
+            key={tb.value}
+            size="sm"
+            variant={tab === tb.value ? 'default' : 'outline'}
+            onClick={() => setTab(tb.value)}
+            className="h-7 px-2.5 text-xs"
+          >
+            {tb.label} ({tb.count})
+          </Button>
+        ))}
+        <div className="relative ml-auto w-44">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={tm('search')}
+            className="h-7 pl-7 text-xs"
+          />
+        </div>
+      </div>
+      <div className="max-h-64 space-y-1 overflow-y-auto rounded bg-muted/40 p-2">
+        {items.length === 0 ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">{tm('noChanges')}</p>
+        ) : (
+          items.map((it) => (
+            <div
+              key={`${it.type}-${it.provider}-${it.id}`}
+              className="flex items-center gap-2 text-[11px]"
+            >
+              <Badge
+                className={
+                  it.type === 'new'
+                    ? 'border-transparent bg-emerald-500/15 text-[10px] text-emerald-600 dark:text-emerald-500'
+                    : 'border-transparent bg-red-500/15 text-[10px] text-red-600 dark:text-red-500'
+                }
+              >
+                {it.type === 'new' ? tm('newModels') : tm('removedModels')}
+              </Badge>
+              <span className="font-mono">{it.id}</span>
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                {it.provider}
+              </Badge>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+// F4.3 dry-run 预览 Dialog(内含 F4.10 SyncDiffCard)
 function DryRunDialog({
   open,
   onOpenChange,
@@ -454,65 +587,27 @@ function DryRunDialog({
   onConfirm: () => void
   isSyncing: boolean
 }) {
+  const tm = useTranslations('settings.gateway.modelSync')
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>预览同步结果(dry-run)</DialogTitle>
+          <DialogTitle>{tm('dryRunTitle')}</DialogTitle>
         </DialogHeader>
         {preview ? (
           <div className="space-y-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-500">
-                将新增 {preview.totalNew} 个模型
+                {tm('willAddModels', { count: preview.totalNew })}
               </Badge>
               <Badge className="border-transparent bg-red-500/15 text-red-600 dark:text-red-500">
-                将下架 {preview.totalRemoved} 个模型
+                {tm('willRemoveModels', { count: preview.totalRemoved })}
               </Badge>
             </div>
-            <div className="max-h-[300px] space-y-1 overflow-y-auto">
-              {preview.byProvider.map((p) => {
-                const noChange =
-                  p.new_model_ids.length === 0 && p.removed_model_ids.length === 0
-                return (
-                  <div key={p.provider_code} className="space-y-1 rounded bg-muted/50 p-2">
-                    <p className="text-xs font-medium">{p.provider_code}</p>
-                    {p.new_model_ids.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1">
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-500">
-                          新增:
-                        </span>
-                        {p.new_model_ids.map((id) => (
-                          <Badge
-                            key={`d-new-${p.provider_code}-${id}`}
-                            className="border-transparent bg-emerald-500/15 font-mono text-[10px] text-emerald-600 dark:text-emerald-500"
-                          >
-                            {id}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    {p.removed_model_ids.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1">
-                        <span className="text-[10px] text-red-600 dark:text-red-500">下架:</span>
-                        {p.removed_model_ids.map((id) => (
-                          <Badge
-                            key={`d-rm-${p.provider_code}-${id}`}
-                            className="border-transparent bg-red-500/15 font-mono text-[10px] text-red-600 dark:text-red-500"
-                          >
-                            {id}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    {noChange && <p className="text-[10px] text-muted-foreground">无变化</p>}
-                  </div>
-                )
-              })}
-            </div>
+            <SyncDiffCard preview={preview} />
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">无数据</p>
+          <p className="text-sm text-muted-foreground">{tm('noData')}</p>
         )}
         <DialogFooter>
           <Button
@@ -521,11 +616,11 @@ function DryRunDialog({
             onClick={() => onOpenChange(false)}
             disabled={isSyncing}
           >
-            取消
+            {tm('cancel')}
           </Button>
           <Button size="sm" onClick={onConfirm} disabled={isSyncing}>
             {isSyncing && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-            立即同步
+            {tm('confirmSync')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -533,8 +628,75 @@ function DryRunDialog({
   )
 }
 
+// F4.13 同步健康度面板(后端未实现 GET /llm/models/sync/health 时静默降级,不渲染)
+function SyncHealthPanel() {
+  const tm = useTranslations('settings.gateway.modelSync')
+  const { data, isError } = useQuery({
+    queryKey: ['model-sync-health'],
+    queryFn: fetchModelSyncHealth,
+    retry: false,
+    staleTime: 30_000,
+  })
+
+  // 后端未实现(404 等)→ 静默降级,不渲染面板
+  if (isError || !data) return null
+
+  const threshold = data.failure_threshold > 0 ? data.failure_threshold : 3
+  const entries = Object.entries(data.failure_counters).sort((a, b) => b[1] - a[1])
+  const disabledExtra = data.permanently_disabled.filter((d) => !(d in data.failure_counters))
+
+  return (
+    <Card>
+      <CardContent className="space-y-2 p-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">{tm('health')}</p>
+          <span className="text-[11px] text-muted-foreground">
+            {tm('threshold')}: {threshold}
+          </span>
+        </div>
+        {entries.length === 0 && disabledExtra.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">{tm('noProvidersDisabled')}</p>
+        ) : (
+          <div className="space-y-1">
+            {entries.map(([code, count]) => {
+              const isDisabled = data.permanently_disabled.includes(code)
+              const danger = count >= threshold || isDisabled
+              return (
+                <div key={code} className="flex items-center gap-2 text-[11px]">
+                  <span className="font-medium">{code}</span>
+                  <span
+                    className={
+                      danger ? 'text-red-600 dark:text-red-500' : 'text-muted-foreground'
+                    }
+                  >
+                    {tm('failureCounter')}: {count}
+                  </span>
+                  {isDisabled && (
+                    <Badge className="ml-auto border-transparent bg-muted text-[10px] text-muted-foreground">
+                      {tm('disabled')}
+                    </Badge>
+                  )}
+                </div>
+              )
+            })}
+            {disabledExtra.map((code) => (
+              <div key={`d-${code}`} className="flex items-center gap-2 text-[11px]">
+                <span className="font-medium">{code}</span>
+                <Badge className="ml-auto border-transparent bg-muted text-[10px] text-muted-foreground">
+                  {tm('disabled')}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // F4.4 同步历史时间轴(默认折叠,展开时拉取最近 10 条)
 function SyncHistoryTimeline() {
+  const tm = useTranslations('settings.gateway.modelSync')
   const [open, setOpen] = React.useState(false)
   const { data, isLoading, error } = useQuery({
     queryKey: ['model-sync-history'],
@@ -564,7 +726,7 @@ function SyncHistoryTimeline() {
         aria-expanded={open}
       >
         <History className="h-3.5 w-3.5" />
-        <span>同步历史</span>
+        <span>{tm('history')}</span>
         <ChevronRight
           className={`h-3 w-3 transition-transform ${open ? 'rotate-90' : ''}`}
         />
@@ -579,18 +741,18 @@ function SyncHistoryTimeline() {
           {isLoading ? (
             <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              加载中...
+              {tm('loading')}
             </div>
           ) : error ? (
             <p className="py-2 text-xs text-red-600 dark:text-red-500">
-              {error instanceof Error ? error.message : '加载失败'}
+              {error instanceof Error ? error.message : tm('loadFailed')}
             </p>
           ) : data && data.length > 0 ? (
             data.map((rec) => (
               <SyncHistoryItem key={rec.id} rec={rec} timeFmt={timeFmt} />
             ))
           ) : (
-            <p className="py-2 text-xs text-muted-foreground">无历史记录</p>
+            <p className="py-2 text-xs text-muted-foreground">{tm('noHistory')}</p>
           )}
         </div>
       )}
@@ -605,6 +767,7 @@ function SyncHistoryItem({
   rec: ModelSyncHistoryRecord
   timeFmt: Intl.DateTimeFormat
 }) {
+  const tm = useTranslations('settings.gateway.modelSync')
   const startedAt = rec.sync_started_at ? new Date(rec.sync_started_at) : null
   return (
     <div className="relative">
@@ -620,11 +783,11 @@ function SyncHistoryItem({
         <span className="font-medium">{rec.provider_code}</span>
         {rec.success ? (
           <Badge className="border-transparent bg-emerald-500/15 text-[10px] text-emerald-600 dark:text-emerald-500">
-            成功
+            {tm('success')}
           </Badge>
         ) : (
           <Badge className="border-transparent bg-red-500/15 text-[10px] text-red-600 dark:text-red-500">
-            失败
+            {tm('failed')}
           </Badge>
         )}
         <Badge variant="outline" className="text-[10px]">

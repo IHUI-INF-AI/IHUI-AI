@@ -20,6 +20,8 @@ export type {
   ModelSyncStatus,
   // F4.4:同步历史时间轴
   ModelSyncHistoryRecord,
+  // F4.13:同步健康度面板
+  ModelSyncHealth,
 } from '@ihui/api-client'
 
 export type GatewayTab = 'providers' | 'combos' | 'compaction'
