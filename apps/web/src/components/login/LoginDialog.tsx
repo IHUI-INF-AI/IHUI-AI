@@ -13,13 +13,16 @@ import { ForgotPasswordForm } from './ForgotPasswordForm'
 import { LoginWithTurnstile } from './LoginWithTurnstile'
 
 /**
- * 主站统一登录/注册/找回密码弹窗(2026-07-20 重做 / 2026-07-20 修订)
+ * 主站统一登录/注册/找回密码弹窗(2026-07-20 重做 / 2026-07-20 修订 / 2026-07-31 优化)
  *
  * 改动:
  * - 复用 AuthShell 共享外壳(顶部 logo + welcome 并排 + 标题 + 副标题)
  * - 与 /sso/login、/sso/register 视觉完全统一
  * - DialogContent 内置 Close(已统一视觉) 负责 onClose,AuthShell 不再渲染关闭按钮
  * - 2026-07-20:恢复 M-66/M-68/M-69 logo+welcome 并排方案,DialogContent max-w 同步 420→460
+ * - 2026-07-31:移除 DialogContent 自身 sm:rounded-xl(AuthShell 内部已 rounded-xl),
+ *   避免小屏双层圆角叠加视觉割裂;移除 pointer-events-none [&>div]:pointer-events-auto
+ *   旧 Radix 策略(2026 Radix UI 已不需要,新版默认全启用,旧策略会导致子元素事件穿透)
  */
 export function LoginDialog() {
   const t = useTranslations('auth')
@@ -55,7 +58,6 @@ export function LoginDialog() {
       <DialogContent
         data-testid="login-dialog"
         className="
-          sm:rounded-xl
           gap-0
           p-0
           max-w-[460px]
@@ -63,8 +65,6 @@ export function LoginDialog() {
           max-h-[95vh]
           overflow-y-auto
           border-0 bg-transparent shadow-none
-          pointer-events-none
-          [&>div]:pointer-events-auto
         "
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
