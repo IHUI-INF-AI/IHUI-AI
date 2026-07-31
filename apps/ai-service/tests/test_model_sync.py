@@ -522,8 +522,8 @@ class TestExtractVendor:
             ("qwen2.5-7b", "alibaba"),
             ("gemini-1.5-flash", "google"),
             ("mistral-large", "mistral"),
-            # 无法推断
-            ("unknown-model", ""),
+            # 无法推断 → None(让 DB 存 NULL)
+            ("unknown-model", None),
         ],
     )
     def test_extract_vendor_from_model_id(self, model_id: str, expected: str) -> None:

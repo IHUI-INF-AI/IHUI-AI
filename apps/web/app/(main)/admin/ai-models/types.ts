@@ -10,6 +10,8 @@ export interface ModelRow {
   description: string | null
   sortOrder: number
   ownerUuid: string | null
+  /** 积分消耗倍数(0=免费/1=经济/3=标准/10=高级/30=旗舰),DB 默认 1.00 */
+  pointsMultiplier: number | null
   lastTestStatus: string | null
   lastTestResponseMs: number | null
   lastTestedAt: string | null
@@ -37,6 +39,8 @@ export interface FormState {
   sortOrder: string
   enabled: boolean
   ownerUuid: string
+  /** 积分消耗倍数(0=免费/1=经济/3=标准/10=高级/30=旗舰),默认 1 */
+  pointsMultiplier: number
 }
 
 export interface TestResult {

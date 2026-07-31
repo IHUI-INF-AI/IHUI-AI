@@ -997,3 +997,85 @@ class FreeProviderRegistry:
 
 # 模块级单例
 free_provider_registry = FreeProviderRegistry()
+
+
+# ============================================================================
+# 积分消耗倍数推断(2026-07-31 立,P0: /llm/models 端点为每个模型附加 points_multiplier)
+# 5 档梯度:免费(0x)/ 经济(1x)/ 标准(3x)/ 高级(10x)/ 旗舰(30x)。
+# 优先级:旗舰 > 高级 > 标准 > 经济 > 免费 > 默认(经济)。
+# 注:档位判定基于 model_id 关键词子串匹配,旗舰层 "opus" 会覆盖高级层 "claude-3-opus"
+#     (claude-3-opus 实际归类为旗舰 30x,符合"opus 系列=旗舰"语义)。
+# ============================================================================
+
+# 旗舰(30x):最强推理 / 顶级模型
+_FLAGSHIP_KEYWORDS: tuple[str, ...] = ("opus", "thinking", "o1-preview", "o1", "o3", "gpt-5")
+# 高级(10x):pro / max / turbo / 长上下文旗舰
+_PREMIUM_KEYWORDS: tuple[str, ...] = (
+    "gpt-4-turbo", "gpt-4.5", "claude-3-opus", "gemini-pro",
+    "o1-mini", "o3-mini", "qwen-max-longcontext",
+)
+# 标准(3x):主流中端模型
+_STANDARD_KEYWORDS: tuple[str, ...] = (
+    "sonnet", "gpt-4o", "gpt-4.1", "deepseek", "glm-4", "qwen-max",
+)
+# 经济(1x):轻量 / 快速 / 低成本
+_ECONOMY_KEYWORDS: tuple[str, ...] = ("mini", "flash", "lite", "nano", "haiku")
+# 免费(0x):本地 / zero_cost provider
+_FREE_KEYWORDS: tuple[str, ...] = (
+    "ollama", "llama", "llm7", "pollinations", "aihorde", "opencode_zen",
+)
+
+
+def infer_points_multiplier(model_id: str) -> float:
+    """根据 model_id 推断积分消耗倍数(5 档梯度)。
+
+    返回值:
+    - 0.0: 免费模型(本地 / zero_cost provider)
+    - 1.0: 经济模型(mini / flash / lite / nano / haiku)
+    - 3.0: 标准模型(sonnet / gpt-4o / deepseek / glm-4 / qwen-max)
+    - 10.0: 高级模型(pro / max / turbo / 长上下文旗舰)
+    - 30.0: 旗舰模型(opus / thinking / o1 / o3 / gpt-5)
+
+    无法匹配任何关键词时返回 1.0(默认经济档,避免高估用户消耗)。
+
+    Args:
+        model_id: 模型标识(如 "claude-3-5-sonnet-20241022" / "gpt-4o-mini" /
+            "ollama/llama3" / "deepseek-chat")。大小写不敏感,允许传空字符串。
+
+    Returns:
+        积分消耗倍数(0.0 / 1.0 / 3.0 / 10.0 / 30.0)。
+
+    Examples:
+        >>> infer_points_multiplier("claude-3-opus-20240229")
+        30.0
+        >>> infer_points_multiplier("gpt-4o-mini")
+        1.0
+        >>> infer_points_multiplier("deepseek-chat")
+        3.0
+        >>> infer_points_multiplier("ollama/llama3")
+        0.0
+        >>> infer_points_multiplier("")
+        1.0
+    """
+    mid = (model_id or "").lower()
+    # 优先处理 mini/nano/haiku 后缀(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
+    # mini 版本永远归经济档(1x),不论父型号
+    if "mini" in mid or "nano" in mid or "haiku" in mid:
+        return 1.0
+    # 旗舰(30x)
+    if any(k in mid for k in _FLAGSHIP_KEYWORDS):
+        return 30.0
+    # 高级(10x)
+    if any(k in mid for k in _PREMIUM_KEYWORDS):
+        return 10.0
+    # 标准(3x)
+    if any(k in mid for k in _STANDARD_KEYWORDS):
+        return 3.0
+    # 经济(1x):flash/lite(mini/nano/haiku 已提前返回)
+    if any(k in mid for k in _ECONOMY_KEYWORDS):
+        return 1.0
+    # 免费(0x)
+    if any(k in mid for k in _FREE_KEYWORDS):
+        return 0.0
+    # 默认经济(1x)
+    return 1.0
