@@ -1153,8 +1153,22 @@
     {
       "_note_2026_07_31": "NVIDIA NIM(build.nvidia.com)真免费:1M tokens/月 + 40 RPM,每月重置,无需信用卡,OpenAI 兼容。注册 NVIDIA Developer Program 拿 nvapi- key。100+ 模型含 DeepSeek R1 671B / Llama 3.3 70B / GLM-5 744B / Kimi K2.5 等顶级开源模型。免费层用 credits 计量,大模型消耗多 credits",
       "_signup_2026_07_31": "https://build.nvidia.com → Sign In → Create account → 邮箱验证 → 任意模型页 Get API Key → nvapi-xxx(只显示一次,立即保存)",
-      "id": "nvidia/deepseek-ai/deepseek-r1",
-      "name": "DeepSeek R1 671B (NVIDIA NIM 免费,推理最强)",
+      "id": "nvidia/deepseek-ai/deepseek-v4-pro",
+      "name": "DeepSeek V4 Pro (NVIDIA NIM 免费,推理最强)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "nvidia/deepseek-ai/deepseek-v4-flash",
+      "name": "DeepSeek V4 Flash (NVIDIA NIM 免费,推理快)",
+      "provider": "nvidia_nim",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
+      "id": "nvidia/deepseek-ai/deepseek-coder-6.7b-instruct",
+      "name": "DeepSeek Coder 6.7B (NVIDIA NIM 免费,代码强)",
       "provider": "nvidia_nim",
       "context_length": 128000,
       "input_price": 0
@@ -1167,15 +1181,15 @@
       "input_price": 0
     },
     {
-      "id": "nvidia/zai-org/glm-5",
-      "name": "GLM-5 744B (NVIDIA NIM 免费,智谱旗舰)",
+      "id": "nvidia/z-ai/glm-5.2",
+      "name": "GLM-5.2 (NVIDIA NIM 免费,智谱旗舰)",
       "provider": "nvidia_nim",
       "context_length": 128000,
       "input_price": 0
     },
     {
-      "id": "nvidia/moonshotai/kimi-k2.5",
-      "name": "Kimi K2.5 (NVIDIA NIM 免费,代码强)",
+      "id": "nvidia/moonshotai/kimi-k2.6",
+      "name": "Kimi K2.6 (NVIDIA NIM 免费,代码强)",
       "provider": "nvidia_nim",
       "context_length": 128000,
       "input_price": 0
@@ -1195,28 +1209,14 @@
       "input_price": 0
     },
     {
-      "id": "nvidia/llama-3.1-nemotron-70b-instruct",
+      "id": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct",
       "name": "Llama 3.1 Nemotron 70B (NVIDIA NIM 免费,Agent 优化)",
       "provider": "nvidia_nim",
       "context_length": 128000,
       "input_price": 0
     },
     {
-      "id": "nvidia/llama-3.1-nemotron-nano-8b-v1",
-      "name": "Llama 3.1 Nemotron Nano 8B (NVIDIA NIM 免费)",
-      "provider": "nvidia_nim",
-      "context_length": 128000,
-      "input_price": 0
-    },
-    {
-      "id": "nvidia/mistral-nemo-minitron-8b-base",
-      "name": "Mistral Nemo Minitron 8B (NVIDIA NIM 免费)",
-      "provider": "nvidia_nim",
-      "context_length": 8192,
-      "input_price": 0
-    },
-    {
-      "id": "nvidia/llama-3.3-nemotron-super-49b-v1",
+      "id": "nvidia/nvidia/llama-3.3-nemotron-super-49b-v1",
       "name": "Llama 3.3 Nemotron Super 49B (NVIDIA NIM 免费)",
       "provider": "nvidia_nim",
       "context_length": 128000,
