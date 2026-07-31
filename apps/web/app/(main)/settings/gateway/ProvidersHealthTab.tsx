@@ -11,10 +11,17 @@ import { Loader2, RefreshCw } from 'lucide-react'
 import type { GatewayProvider, ProviderStatus } from './types'
 
 const STATUS_BADGE: Record<ProviderStatus, string> = {
-  configured: 'border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-500',
-  not_configured: 'border-transparent bg-muted text-muted-foreground',
-  local: 'border-transparent bg-sky-500/15 text-sky-600 dark:text-sky-500',
+  ok: 'border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-500',
+  invalid_key: 'border-transparent bg-red-500/15 text-red-600 dark:text-red-500',
+  unreachable: 'border-transparent bg-muted text-muted-foreground',
 }
+
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'ok', label: 'OK' },
+  { value: 'invalid_key', label: 'Invalid Key' },
+  { value: 'unreachable', label: 'Unreachable' },
+] as const
 
 export function ProvidersHealthTab() {
   const t = useTranslations('settings.gateway.providers')
@@ -27,7 +34,7 @@ export function ProvidersHealthTab() {
 
   const [filter, setFilter] = React.useState<'all' | ProviderStatus>('all')
 
-  const summary = data?.summary ?? { total: 0, configured: 0, local: 0, not_configured: 0 }
+  const summary = data?.summary ?? { total: 0, ok: 0, invalid_key: 0, unreachable: 0 }
   const providers: GatewayProvider[] = React.useMemo(() => {
     const list = data?.providers ?? []
     return filter === 'all' ? list : list.filter((p) => p.status === filter)
@@ -38,27 +45,23 @@ export function ProvidersHealthTab() {
       {/* Summary */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <SummaryCard label={t('summary.total')} value={summary.total} />
-        <SummaryCard label={t('summary.configured')} value={summary.configured} tone="emerald" />
-        <SummaryCard label={t('summary.local')} value={summary.local} tone="sky" />
-        <SummaryCard
-          label={t('summary.notConfigured')}
-          value={summary.not_configured}
-          tone="muted"
-        />
+        <SummaryCard label="OK" value={summary.ok} tone="emerald" />
+        <SummaryCard label="Invalid Key" value={summary.invalid_key} tone="red" />
+        <SummaryCard label="Unreachable" value={summary.unreachable} tone="muted" />
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1">
-          {(['all', 'configured', 'not_configured', 'local'] as const).map((f) => (
+          {FILTER_OPTIONS.map((opt) => (
             <Button
-              key={f}
+              key={opt.value}
               size="sm"
-              variant={filter === f ? 'default' : 'outline'}
-              onClick={() => setFilter(f)}
+              variant={filter === opt.value ? 'default' : 'outline'}
+              onClick={() => setFilter(opt.value)}
               className="h-7 px-2.5 text-xs"
             >
-              {t(`filter.${f === 'not_configured' ? 'notConfigured' : f}`)}
+              {opt.label}
             </Button>
           ))}
         </div>
@@ -94,22 +97,25 @@ export function ProvidersHealthTab() {
       {!isLoading && !error && (
         <div className="space-y-2">
           {providers.map((p) => (
-            <Card key={p.provider_code}>
+            <Card key={p.provider}>
               <CardContent className="flex flex-wrap items-center gap-2 p-3">
                 <div className="min-w-[140px] flex-1">
-                  <p className="text-sm font-medium">{p.display_name}</p>
-                  <p className="text-[11px] text-muted-foreground">{p.provider_code}</p>
+                  <p className="text-sm font-medium">{p.display_name || p.provider}</p>
+                  <p className="text-[11px] text-muted-foreground">{p.provider}</p>
                 </div>
-                <Badge className={STATUS_BADGE[p.status]}>{p.status}</Badge>
-                <Badge variant="outline" className="text-[11px]">
-                  {p.category}
+                <span className="text-[11px] text-muted-foreground">{p.latency_ms}ms</span>
+                <Badge variant="secondary" className="text-[11px]">
+                  {p.model_count} {t('models')}
                 </Badge>
+                <Badge className={STATUS_BADGE[p.status]}>{p.status}</Badge>
+                {p.category && (
+                  <Badge variant="outline" className="text-[11px]">
+                    {p.category}
+                  </Badge>
+                )}
                 {p.free_quota && (
                   <span className="text-[11px] text-muted-foreground">{p.free_quota}</span>
                 )}
-                <Badge variant="secondary" className="text-[11px]">
-                  {p.default_models.length} {t('models')}
-                </Badge>
                 {p.is_in_cooldown && (
                   <Badge className="border-transparent bg-red-500/15 text-red-600 dark:text-red-500">
                     {t('cooldown')} · {p.consecutive_failures} {t('failures')}
@@ -134,13 +140,13 @@ function SummaryCard({
 }: {
   label: string
   value: number
-  tone?: 'emerald' | 'sky' | 'muted'
+  tone?: 'emerald' | 'red' | 'muted'
 }) {
   const toneClass =
     tone === 'emerald'
       ? 'text-emerald-600 dark:text-emerald-500'
-      : tone === 'sky'
-        ? 'text-sky-600 dark:text-sky-500'
+      : tone === 'red'
+        ? 'text-red-600 dark:text-red-500'
         : tone === 'muted'
           ? 'text-muted-foreground'
           : 'text-foreground'
