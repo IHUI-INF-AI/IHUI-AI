@@ -33,6 +33,7 @@ import { getConversation, getMessages } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
+import { useIsMobile } from '@/hooks/use-media-query'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -88,6 +89,23 @@ export function AISidePanel() {
   const currentMode = useModeStore((s) => s.currentMode)
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
+
+  // 移动端深度适配(2026-07-31 立):
+  // - useIsMobile 检测 <768px 视口,SSR 安全(默认 false,客户端 mount 后修正)
+  // - 移动端自动切换到浮窗 FAB 模式(不破坏桌面端 docked 体验)
+  // - 浮窗展开时全屏覆盖(利用现有 floatMode,移动端样式覆盖)
+  const isMobile = useIsMobile()
+
+  // 移动端自动切换:进入移动端视口时,自动设为浮窗 FAB 模式
+  // - 仅在 floatMode=false(docked)时触发,避免覆盖用户已手动切换的浮窗状态
+  // - 桌面端恢复时不自动切回 docked(保留用户持久化的 floatMode 偏好)
+  React.useEffect(() => {
+    if (isMobile && !floatMode) {
+      setFloatMode(true)
+      setFloatMinimized(true)
+      setFloatCollapsed(false)
+    }
+  }, [isMobile, floatMode, setFloatMode, setFloatMinimized, setFloatCollapsed])
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
@@ -646,14 +664,29 @@ export function AISidePanel() {
             openPanel()
           }}
           aria-label={tc('title')}
-          className="fixed z-sticky flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-card shadow-lg transition-all hover:scale-105 hover:shadow-xl"
-          style={{
-            left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
-            right: floatPosition.x < 0 ? '24px' : 'auto',
-            top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
-          }}
+          className={cn(
+            'fixed z-sticky flex items-center justify-center rounded-xl border border-border bg-card shadow-lg transition-all hover:scale-105 hover:shadow-xl',
+            // 移动端:FAB 更大(56px 适合触屏),固定右下角
+            isMobile
+              ? 'h-14 w-14 bottom-4 right-4'
+              : // 桌面端:48px FAB,位置由 floatPosition 控制
+                'h-12 w-12',
+          )}
+          style={
+            isMobile
+              ? undefined
+              : {
+                  left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
+                  right: floatPosition.x < 0 ? '24px' : 'auto',
+                  top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
+                }
+          }
         >
-          <BrandIcon vendor={inferVendor(currentModel)} size={22} className="text-primary" />
+          <BrandIcon
+            vendor={inferVendor(currentModel)}
+            size={isMobile ? 26 : 22}
+            className="text-primary"
+          />
         </button>
       </>
     )
@@ -663,23 +696,37 @@ export function AISidePanel() {
   // 用户交互:Pin → 折叠态(只看输入框)→ 点击展开 → 完整面板(对话历史+header)
   // 2026-07-30:工具条与输入卡片融合(共享 border + bg-card),不再占独立行;
   // 按钮无额外 px,左间距 = 容器 px-1.5(6px)= 上下 py-1.5(6px),四向一致。
+  // 2026-07-31 移动端适配:移动端折叠态全屏覆盖(与完整面板一致的 inset-0),
+  // 避免小屏上小浮窗遮挡内容且难以操作。
   if (floatMode && floatCollapsed) {
     return (
       <>
         {workspaceNameSync}
         <div
           data-testid="ai-panel-root"
-          className="ai-panel-root fixed z-sticky ai-float-glow rounded-xl"
-          style={{
-            width,
-            left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
-            right: floatPosition.x < 0 ? '24px' : 'auto',
-            top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
-          }}
+          className={cn(
+            'ai-panel-root fixed z-sticky',
+            isMobile
+              ? 'inset-0' // 移动端:全屏覆盖
+              : 'ai-float-glow rounded-xl', // 桌面端:浮窗 + 品牌色光晕
+          )}
+          style={
+            isMobile
+              ? undefined
+              : {
+                  width,
+                  left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
+                  right: floatPosition.x < 0 ? '24px' : 'auto',
+                  top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
+                }
+          }
         >
           <aside
             aria-label={tc('title')}
-            className="flex flex-col overflow-hidden rounded-xl bg-shell-panel"
+            className={cn(
+              'flex flex-col overflow-hidden bg-shell-panel',
+              isMobile ? 'h-full w-full' : 'rounded-xl',
+            )}
           >
             {/* 输入区(直接渲染 MessageInput,无 MessageList)
                 floatHeader = 浮窗按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */}
@@ -796,30 +843,33 @@ export function AISidePanel() {
       <div
         // AI 面板容器(最外层,DevTools 可选中)
         // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
-        // - float 模式:fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
+        // - float 模式(桌面):fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
         //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
+        // - float 模式(移动):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
         // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
-        // 2026-07-31 移动端适配(根治):docked 模式加 hidden lg:block,
-        // 避免 AISidePanel 在 mobile 视口(< 1024px)下占 400px 宽把 work-area 推到 viewport 外,
-        // 导致 mobile button (x=406) 在 iPhone 14 (390px) 视口外不可见。
-        // mobile 下 AI 面板入口改用浮窗 FAB(floatMode 路径独立渲染,不受此规则影响)。
+        // 2026-07-31 移动端深度适配:移动端浮窗展开时全屏覆盖(inset-0),
+        // 解决 400px 浮窗在 390px 视口溢出问题,同时提供最佳移动端对话体验。
         data-testid="ai-panel-root"
         className={cn(
           'ai-panel-root',
           floatMode
-            ? 'fixed z-sticky ai-float-glow rounded-xl'
+            ? isMobile
+              ? 'fixed inset-0 z-sticky' // 移动端浮窗:全屏覆盖
+              : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面端浮窗:品牌色光晕
             : 'relative hidden h-full shrink-0 lg:block mr-1.5 py-2',
         )}
         style={
           floatMode
-            ? {
-                width,
-                left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
-                right: floatPosition.x < 0 ? '24px' : 'auto',
-                top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
-                height: 'min(600px, calc(100vh - 100px))',
-                transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
-              }
+            ? isMobile
+              ? undefined // 移动端:无定位 style,全屏由 inset-0 控制
+              : {
+                  width,
+                  left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
+                  right: floatPosition.x < 0 ? '24px' : 'auto',
+                  top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
+                  height: 'min(600px, calc(100vh - 100px))',
+                  transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
+                }
             : { width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
         }
       >
@@ -836,17 +886,22 @@ export function AISidePanel() {
           // 之前 commit 5d378c22e 担心"深色背景下默认滚动条轨道透出深色",但 message-list 已加 hover-scroll
           // (scrollbar-width: none + ::-webkit-scrollbar { display: none })完全隐藏滚动条,不会透色,
           // 恢复 bg-shell-panel 安全。
-          className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
+          className={cn(
+            'flex h-full flex-col overflow-hidden bg-shell-panel',
+            // 移动端全屏浮窗:无圆角;桌面端浮窗/docked:保持 rounded-xl
+            isMobile && floatMode ? 'rounded-none' : 'rounded-xl',
+          )}
         >
-          {/* 标题栏(浮窗模式下可拖拽) */}
+          {/* 标题栏(浮窗模式下可拖拽,移动端全屏模式禁用拖拽) */}
           <header
-            onPointerDown={floatMode ? handleFloatDragStart : undefined}
+            onPointerDown={floatMode && !isMobile ? handleFloatDragStart : undefined}
             className={cn(
               'flex h-14 shrink-0 items-center gap-2 px-3',
               // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
               '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
-              // 浮窗模式:header 可拖拽,非交互区域 cursor-move
-              floatMode && 'cursor-move',
+              // 浮窗模式(桌面端):header 可拖拽,非交互区域 cursor-move
+              // 移动端全屏模式:不可拖拽
+              floatMode && !isMobile && 'cursor-move',
             )}
           >
             {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
@@ -1039,7 +1094,11 @@ export function AISidePanel() {
           role="separator"
           aria-orientation="vertical"
           aria-label={tcommon('resize')}
-          className="group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize outline-none"
+          className={cn(
+            'group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize outline-none',
+            // 移动端浮窗全屏模式:隐藏拖拽手柄(全屏无需调整宽度)
+            isMobile && floatMode && 'hidden',
+          )}
         >
           <div
             className={cn(
