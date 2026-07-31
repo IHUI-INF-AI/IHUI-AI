@@ -36,6 +36,8 @@ export interface Settings {
   apiUrl?: string;
   /** API 密钥(优先级低于 env IHUI_API_KEY) */
   apiKey?: string;
+  /** Refresh Token (30d 有效,access token 过期后自动用它换新,避免用户每 15min 重登录) */
+  refreshToken?: string;
   /** 默认模型 ID */
   defaultModel?: string;
   /** 最大工具循环次数 */
@@ -466,7 +468,7 @@ export function resolveEffectiveConfig(args: {
     args.cliApiUrl ||
     settings.apiUrl ||
     process.env.IHUI_API_URL ||
-    'http://localhost:8803';
+    'http://localhost:8802';
 
   const apiKey =
     args.cliApiKey ||
@@ -474,7 +476,10 @@ export function resolveEffectiveConfig(args: {
     process.env.IHUI_API_KEY ||
     '';
 
-  const model = args.cliModel || settings.defaultModel || 'default';
+  // P0 修复:cliModel === 'default' 时回退到 settings.defaultModel,
+  // 避免 --model 默认值 'default' 屏蔽 settings.json 的 defaultModel 配置。
+  const cliModel = args.cliModel && args.cliModel !== 'default' ? args.cliModel : undefined;
+  const model = cliModel || settings.defaultModel || 'default';
 
   const maxIterationsRaw = args.cliMaxTurns
     ? parseInt(args.cliMaxTurns, 10)
@@ -568,7 +573,8 @@ export function loadSettingsV2(args: {
     const cliOverrides: Record<string, unknown> = {};
     if (args.cliApiUrl) cliOverrides.apiUrl = args.cliApiUrl;
     if (args.cliApiKey) cliOverrides.apiKey = args.cliApiKey;
-    if (args.cliModel) cliOverrides.defaultModel = args.cliModel;
+    // P0 修复:'default' 是 --model 的占位默认值,不是真实模型 ID,不应覆盖 settings.json 的 defaultModel
+    if (args.cliModel && args.cliModel !== 'default') cliOverrides.defaultModel = args.cliModel;
     // cliMaxTurns 优先级高于 cliMaxIterations(对齐 resolveEffectiveConfig 语义)
     if (args.cliMaxTurns) {
       const n = parseInt(args.cliMaxTurns, 10);
