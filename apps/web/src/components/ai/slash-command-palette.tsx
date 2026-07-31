@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Search, X, ArrowLeft, Sparkles, Loader2 } from 'lucide-react'
 import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -127,6 +128,7 @@ export function SlashCommandPalette({
   children,
   tooltip,
 }: SlashCommandPaletteProps) {
+  const t = useTranslations('slashPalette')
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
   /** 参数补全模式(2026-07-29 二次深化):非空时显示候选列表,空时显示命令列表 */
@@ -264,7 +266,7 @@ export function SlashCommandPalette({
               setQuery('')
               requestAnimationFrame(() => inputRef.current?.focus())
             }}
-            aria-label="返回命令列表"
+            aria-label={t('backAriaLabel')}
             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -289,7 +291,7 @@ export function SlashCommandPalette({
           <button
             type="button"
             onClick={() => setQuery('')}
-            aria-label="清空搜索"
+            aria-label={t('clearAriaLabel')}
             className="ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <X className="h-3 w-3" />
