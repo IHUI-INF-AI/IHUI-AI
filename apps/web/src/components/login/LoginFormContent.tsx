@@ -18,44 +18,66 @@ import { fetchApi } from '@/lib/api'
 import type { ThirdPartyPlatform } from '@/types/third-party'
 import { useThirdPartyConfig } from '@/hooks/use-third-party-config'
 import { QrCodeLogin } from './QrCodeLogin'
+import { useTurnstile } from './LoginWithTurnstile'
 
 interface LoginFormContentProps {
   onSuccess?: () => void
 }
 
 /**
- * web 端 LoginApiClient(2026-07-26 改用共享 LoginForm)
+ * 构造 web 端 LoginApiClient(2026-07-26 改用共享 LoginForm / 2026-07-31 接入 Turnstile)
  *
  * 基于本地 fetchApi 包装 5 个共享 LoginForm 期望的 API 端点。
  * 后端实际返回的 user 字段比共享 LoginResult.user 更丰富(包含 username/bio/permissions 等),
  * 结构上向后兼容(共享类型只取 id/phone/email/nickname/avatar 5 个字段)。
+ *
+ * Turnstile 集成(2026-07-31):三个登录端点(account/email/sms)请求体增加可选 `turnstileToken`。
+ * - token 通过 useTurnstile() hook 从 LoginWithTurnstile wrapper 提供的 Context 获取
+ * - 用 ref 捕获最新 token,避免 token 变化导致 apiClient 重建(保持 LoginForm 内部状态稳定)
+ * - 未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY 时 token 为 null,body 不含 turnstileToken(降级放行)
  */
-const webLoginApiClient: LoginApiClient = {
-  loginByAccount: async (account, password, captcha) =>
-    fetchApi<LoginResult>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(captcha ? { account, password, captcha } : { account, password }),
-    }),
-  loginByEmailCode: async (email, code) =>
-    fetchApi<LoginResult>('/api/auth/login/email', {
-      method: 'POST',
-      body: JSON.stringify({ email, code }),
-    }),
-  loginBySms: async (phone, code) =>
-    fetchApi<LoginResult>('/api/auth/login/sms', {
-      method: 'POST',
-      body: JSON.stringify({ phone, code }),
-    }),
-  sendEmailCode: async (email) =>
-    fetchApi<{ sent: boolean }>('/api/auth/email/code', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
-  sendSmsCode: async (phone) =>
-    fetchApi<{ sent: boolean }>('/api/auth/sms/send', {
-      method: 'POST',
-      body: JSON.stringify({ phone, scene: 'login' }),
-    }),
+function useWebLoginApiClient(): LoginApiClient {
+  const { token: turnstileToken } = useTurnstile()
+  const turnstileTokenRef = React.useRef(turnstileToken)
+  turnstileTokenRef.current = turnstileToken
+
+  return React.useMemo<LoginApiClient>(() => {
+    const buildLoginBody = (base: Record<string, string>): string => {
+      const tk = turnstileTokenRef.current
+      if (tk) base.turnstileToken = tk
+      return JSON.stringify(base)
+    }
+    return {
+      loginByAccount: async (account, password, captcha) => {
+        const body: Record<string, string> = { account, password }
+        if (captcha) body.captcha = captcha
+        return fetchApi<LoginResult>('/api/auth/login', {
+          method: 'POST',
+          body: buildLoginBody(body),
+        })
+      },
+      loginByEmailCode: async (email, code) =>
+        fetchApi<LoginResult>('/api/auth/login/email', {
+          method: 'POST',
+          body: buildLoginBody({ email, code }),
+        }),
+      loginBySms: async (phone, code) =>
+        fetchApi<LoginResult>('/api/auth/login/sms', {
+          method: 'POST',
+          body: buildLoginBody({ phone, code }),
+        }),
+      sendEmailCode: async (email) =>
+        fetchApi<{ sent: boolean }>('/api/auth/email/code', {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        }),
+      sendSmsCode: async (phone) =>
+        fetchApi<{ sent: boolean }>('/api/auth/sms/send', {
+          method: 'POST',
+          body: JSON.stringify({ phone, scene: 'login' }),
+        }),
+    }
+  }, [])
 }
 
 /**
@@ -148,6 +170,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   const setUser = useAuthStore((s) => s.setUser)
   const setMode = useLoginDialogStore((s) => s.setMode)
   const thirdParty = useThirdPartyConfig()
+  const apiClient = useWebLoginApiClient()
 
   const handleSuccess = React.useCallback(
     async (data: LoginResult) => {
@@ -163,7 +186,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   return (
     <LoginForm
       t={t}
-      apiClient={webLoginApiClient}
+      apiClient={apiClient}
       onSuccess={handleSuccess}
       thirdParty={thirdParty}
       showAgreement
