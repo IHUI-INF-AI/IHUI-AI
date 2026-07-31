@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { getFileIcon, getFileColor } from './file-icons'
 import {
   GitBranch, RefreshCw, MoreHorizontal, Check, ChevronDown,
-  Plus, Minus, ArrowUp, ArrowDown, GitCommit, Upload, Download,
+  Plus, Minus, ArrowUp, ArrowDown, GitCommit, Upload, Download, Loader2,
 } from 'lucide-react'
 
 /** unknown 错误归一化为字符串 */
@@ -339,11 +339,12 @@ export function SourceControlPanel() {
         <button
           onClick={handleCommit}
           disabled={committing || !commitMessage.trim()}
+          aria-busy={committing}
           aria-label={t('sourceControl.commit')}
           className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
         >
-          <Check className="h-3.5 w-3.5" />
-          <span>{t('sourceControl.commit')}</span>
+          {committing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          <span>{committing ? t('sourceControl.committing') : t('sourceControl.commit')}</span>
         </button>
       </div>
 
