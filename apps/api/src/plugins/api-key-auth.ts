@@ -12,23 +12,29 @@
  *   - checkAllowedIps:IP 不在白名单 → 403
  *   - checkAllowedModels:模型不在白名单 → 403(body 含 model 时检查)
  *   - checkMaxTokensPerReq:max_tokens 超限 → 403(body 含 max_tokens 时预检)
+ * - per-user model rate limit(2026-07-31 立,Redis 滑动窗口):
+ *   - checkPerModelRateLimit:按 model 维度检查 RPM/TPM,超限 → 429 + Retry-After(code 1007/1008)
+ *   - 配置来源:developer_api_keys.perModelRpmLimit / perModelTpmLimit(JSON,字段未落地时跳过)
  * - 注入 request.apiKey = { id, userId, key, permissions, rateLimit, expiresAt, allowedIps, ... }
  * - lastUsedAt 异步更新,不阻塞响应
  *
  * 导出:
- * - authenticateApiKey(request):核心鉴权函数,失败抛 401/403
- * - requireApiKeyAuth:Fastify preHandler 版,失败 reply 401/403
+ * - authenticateApiKey(request):核心鉴权函数,失败抛 401/403/429
+ * - requireApiKeyAuth:Fastify preHandler 版,失败 reply 401/403/429(429 附 Retry-After)
  * - requireApiKeyPermission(perm):返回 preHandler,校验 permissions 包含 perm,失败 403
  * - requireApiKeyQuota():返回 preHandler,用 ApiKeyQuota.checkAndConsume,超限 429 + Retry-After
  * - checkExpiresAt / checkAllowedIps / checkAllowedModels / checkMaxTokensPerReq:P0-7 安全检查函数
+ * - checkPerModelRateLimit:per-user 单模型 RPM/TPM 限流检查
  */
 import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify'
 import { eq } from 'drizzle-orm'
+import IORedis, { type Redis } from 'ioredis'
 import { dbRead, db } from '../db/index.js'
 import { developerApiKeys } from '@ihui/database'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
 import { verifySecret } from '../utils/api-key-hash.js'
 import { ApiKeyQuota } from '../utils/api-key-quota.js'
+import { config } from '../config/index.js'
 
 function unauthorized(message: string): Error {
   const err = new Error(message) as Error & { statusCode: number }
@@ -40,6 +46,51 @@ function forbidden(message: string): Error {
   const err = new Error(message) as Error & { statusCode: number }
   err.statusCode = 403
   return err
+}
+
+/**
+ * per-user model rate limit 错误(429)。
+ * code: 1007 = RPM 超限,1008 = TPM 超限。
+ * retryAfter: 建议客户端等待的秒数(由 requireApiKeyAuth 写入 Retry-After header)。
+ */
+interface PerModelRateLimitError extends Error {
+  statusCode: 429
+  code: 1007 | 1008
+  retryAfter: number
+}
+
+function rateLimited(
+  message: string,
+  code: 1007 | 1008,
+  retryAfter: number,
+): PerModelRateLimitError {
+  const err = new Error(message) as PerModelRateLimitError
+  err.statusCode = 429
+  err.code = code
+  err.retryAfter = Math.max(1, Math.ceil(retryAfter))
+  return err
+}
+
+// ============================================================================
+// Redis 客户端(per-user model rate limit 用,懒加载单例)
+// ============================================================================
+// 注:主 Redis 客户端在 plugins/redis.ts 通过 fastify.decorate 暴露(request.server.redis),
+// 但 checkPerModelRateLimit 的签名不依赖 request,故独立懒加载一个客户端,复用 config.REDIS_URL。
+let redisClient: Redis | null = null
+
+function getRedisClient(): Redis {
+  if (!redisClient) {
+    redisClient = new IORedis(config.REDIS_URL, {
+      maxRetriesPerRequest: 2,
+      enableReadyCheck: true,
+      lazyConnect: false,
+    })
+    // Redis 故障时静默:限流检查降级为 allow(不阻塞合法用户)
+    redisClient.on('error', () => {
+      /* silent — checkPerModelRateLimit 内部 catch 后 fail-open */
+    })
+  }
+  return redisClient
 }
 
 /**
@@ -183,6 +234,116 @@ export function checkMaxTokensPerReq(
   return { ok: true }
 }
 
+// ============================================================================
+// per-user model rate limit(2026-07-31 立,Redis 滑动窗口)
+// ============================================================================
+/**
+ * 单模型限流检查结果。
+ * - allowed=true:通过
+ * - allowed=false:超限,retryAfter 为建议等待秒数,reason 标识 RPM 或 TPM 超限
+ */
+export interface PerModelRateLimitResult {
+  allowed: boolean
+  retryAfter?: number
+  reason?: 'rpm' | 'tpm'
+}
+
+/** 滑动窗口时长(毫秒,60 秒 = 1 分钟)。 */
+const RATE_LIMIT_WINDOW_MS = 60_000
+
+/**
+ * 检查 per-user 单模型 RPM/TPM 限流(Redis 滑动窗口)。
+ *
+ * 实现细节:
+ * - RPM:用 Redis ZSET 记录窗口内每个请求的时间戳,ZCARD 统计请求数
+ * - TPM:用 ZSET(时间戳)+ HASH(token 数)记录窗口内每个请求的 token 数,HVALS 求和
+ * - 窗口 60 秒,每次检查先清理过期条目再统计
+ * - Redis 故障时 fail-open(返回 allowed),不阻塞合法用户
+ *
+ * @param apiKeyId API Key id
+ * @param model 模型名(如 'gpt-4o')
+ * @param estimatedTokens 预估 token 数(基于 input tokens + max_tokens)
+ * @param rpmLimit 该模型 RPM 上限(undefined/null = 不限制)
+ * @param tpmLimit 该模型 TPM 上限(undefined/null = 不限制)
+ */
+export async function checkPerModelRateLimit(
+  apiKeyId: string,
+  model: string,
+  estimatedTokens: number,
+  rpmLimit?: number | null,
+  tpmLimit?: number | null,
+): Promise<PerModelRateLimitResult> {
+  // 无任何限制 → 直接通过
+  const hasRpmLimit = typeof rpmLimit === 'number' && rpmLimit > 0
+  const hasTpmLimit = typeof tpmLimit === 'number' && tpmLimit > 0
+  if (!hasRpmLimit && !hasTpmLimit) return { allowed: true }
+
+  let redis: Redis
+  try {
+    redis = getRedisClient()
+  } catch {
+    // Redis 客户端初始化失败 → fail-open
+    return { allowed: true }
+  }
+
+  const now = Date.now()
+  const reqId = `${now}:${Math.random().toString(36).slice(2, 10)}`
+
+  try {
+    // --- RPM 检查(ZSET 滑动窗口,统计请求数)---
+    if (hasRpmLimit) {
+      const rpmKey = `relay:ratelimit:rpm:${apiKeyId}:${model}`
+      // 清理窗口外的旧条目
+      await redis.zremrangebyscore(rpmKey, 0, now - RATE_LIMIT_WINDOW_MS)
+      // 先统计当前窗口内请求数(不含本次)
+      const currentCount = await redis.zcard(rpmKey)
+      if (currentCount + 1 > (rpmLimit as number)) {
+        // 超限:不写入本次请求,返回 429
+        // retryAfter = 窗口剩余时间(估算:最早条目到期时间,无条目时取完整窗口)
+        const oldest = await redis.zrange(rpmKey, 0, 0, 'WITHSCORES')
+        const oldestScore = oldest[1] ? Number(oldest[1]) : now - RATE_LIMIT_WINDOW_MS
+        const retryAfter = Math.ceil((oldestScore + RATE_LIMIT_WINDOW_MS - now) / 1000)
+        return { allowed: false, retryAfter: Math.max(1, retryAfter), reason: 'rpm' }
+      }
+      // 未超限:写入本次请求
+      await redis.zadd(rpmKey, now, reqId)
+      await redis.pexpire(rpmKey, RATE_LIMIT_WINDOW_MS)
+    }
+
+    // --- TPM 检查(ZSET 时间戳 + HASH token 数,统计 token 总和)---
+    if (hasTpmLimit) {
+      const tpmZsetKey = `relay:ratelimit:tpm:z:${apiKeyId}:${model}`
+      const tpmHashKey = `relay:ratelimit:tpm:h:${apiKeyId}:${model}`
+      // 清理窗口外的旧条目
+      const oldMembers = await redis.zrangebyscore(tpmZsetKey, 0, now - RATE_LIMIT_WINDOW_MS)
+      if (oldMembers.length > 0) {
+        await redis.zremrangebyscore(tpmZsetKey, 0, now - RATE_LIMIT_WINDOW_MS)
+        await redis.hdel(tpmHashKey, ...oldMembers)
+      }
+      // 统计当前窗口内 token 总和(不含本次)
+      const vals = await redis.hvals(tpmHashKey)
+      const currentSum = vals.reduce((acc, v) => acc + Number(v), 0)
+      if (currentSum + estimatedTokens > (tpmLimit as number)) {
+        // 超限:不写入本次请求,返回 429
+        const oldest = await redis.zrange(tpmZsetKey, 0, 0, 'WITHSCORES')
+        const oldestScore = oldest[1] ? Number(oldest[1]) : now - RATE_LIMIT_WINDOW_MS
+        const retryAfter = Math.ceil((oldestScore + RATE_LIMIT_WINDOW_MS - now) / 1000)
+        return { allowed: false, retryAfter: Math.max(1, retryAfter), reason: 'tpm' }
+      }
+      // 未超限:写入本次请求的 token 数
+      await redis.zadd(tpmZsetKey, now, reqId)
+      await redis.hset(tpmHashKey, reqId, estimatedTokens)
+      await redis.pexpire(tpmZsetKey, RATE_LIMIT_WINDOW_MS)
+      await redis.pexpire(tpmHashKey, RATE_LIMIT_WINDOW_MS)
+    }
+
+    return { allowed: true }
+  } catch {
+    // Redis 命令失败 → fail-open(不阻塞合法用户)
+    return { allowed: true }
+  }
+}
+
 /**
  * 核心 API Key 鉴权函数。
  * 成功注入 request.apiKey 并返回 AuthenticatedApiKey;失败抛带 statusCode 的 Error。
@@ -227,6 +388,38 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
     if (!preCheck.ok) throw forbidden(preCheck.reason!)
   }
 
+  // 5. per-user model rate limit 检查(2026-07-31 立,Redis 滑动窗口)
+  //    仅当 body 含 model 且 developer_api_keys 配置了 perModelRpmLimit/perModelTpmLimit 时触发
+  //    TODO(schema): 主 agent 后续在 packages/database/src/schema/developer-api-keys.ts 添加字段:
+  //      perModelRpmLimit: jsonb('per_model_rpm_limit')  -- 如 {"gpt-4o": 60}
+  //      perModelTpmLimit: jsonb('per_model_tpm_limit')  -- 如 {"gpt-4o": 100000}
+  //    字段未落地前通过 as 断言读取(undefined/null → 跳过限流,向后兼容)
+  if (bodyModel) {
+    const rowWithPerModel = row as typeof row & {
+      perModelRpmLimit?: Record<string, number> | null
+      perModelTpmLimit?: Record<string, number> | null
+    }
+    const rpmLimit = rowWithPerModel.perModelRpmLimit?.[bodyModel]
+    const tpmLimit = rowWithPerModel.perModelTpmLimit?.[bodyModel]
+    // 预估 token:优先用 body.max_tokens,无则用保守默认值 1000
+    const estimatedTokens = body && typeof body.max_tokens === 'number' ? body.max_tokens : 1000
+    const rlResult = await checkPerModelRateLimit(
+      row.id,
+      bodyModel,
+      estimatedTokens,
+      rpmLimit,
+      tpmLimit,
+    )
+    if (!rlResult.allowed) {
+      const code = rlResult.reason === 'tpm' ? 1008 : 1007
+      const msg =
+        rlResult.reason === 'tpm'
+          ? `超过单模型 TPM 限制(model=${bodyModel})`
+          : `超过单模型 RPM 限制(model=${bodyModel})`
+      throw rateLimited(msg, code, rlResult.retryAfter ?? 1)
+    }
+  }
+
   const ctx: AuthenticatedApiKey = {
     id: row.id,
     userId: row.userId,
@@ -252,16 +445,29 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
 }
 
 /**
- * Fastify preHandler:强制 API Key 鉴权,失败 reply 401。
+ * Fastify preHandler:强制 API Key 鉴权,失败 reply 401/403/429。
+ * 429(per-model rate limit)附 Retry-After header + 业务 code(1007/1008)。
  */
 export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, reply) => {
   try {
     await authenticateApiKey(request)
   } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+    const err = e as Error & { statusCode?: number; code?: number; retryAfter?: number }
+    const statusCode = err.statusCode ?? 401
+    // 429 限流:附 Retry-After header + 业务 code
+    if (statusCode === 429 && typeof err.retryAfter === 'number') {
+      return reply
+        .status(429)
+        .header('Retry-After', String(err.retryAfter))
+        .send({
+          code: err.code ?? 429,
+          message: err.message || 'Rate limit exceeded',
+          retryAfter: err.retryAfter,
+        })
+    }
     return reply
       .status(statusCode)
-      .send({ code: statusCode, message: (e as Error).message || 'API key authentication required' })
+      .send({ code: statusCode, message: err.message || 'API key authentication required' })
   }
 }
 
@@ -280,7 +486,7 @@ export function requireApiKeyPermission(perm: ApiKeyPermission): preHandlerAsync
     const permList: string[] = Array.isArray(perms)
       ? (perms as string[])
       : Array.isArray((perms as { permissions?: string[] })?.permissions)
-        ? ((perms as { permissions: string[] }).permissions)
+        ? (perms as { permissions: string[] }).permissions
         : []
     // 通配符 * 表示拥有所有权限
     if (!permList.includes(perm) && !permList.includes('*')) {

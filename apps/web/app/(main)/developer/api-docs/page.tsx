@@ -14,7 +14,12 @@ import { ErrorCodeTable } from '@/components/api-docs/ErrorCodeTable'
 import { SdkExamples } from '@/components/api-docs/SdkExamples'
 import { CurlPlayground } from '@/components/api-docs/CurlPlayground'
 
-interface ApiParam { name: string; type: string; required?: boolean; description?: string }
+interface ApiParam {
+  name: string
+  type: string
+  required?: boolean
+  description?: string
+}
 interface ApiEndpoint {
   id: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
@@ -24,7 +29,10 @@ interface ApiEndpoint {
   params?: ApiParam[]
   responseExample?: string
 }
-interface ApiDocGroup { category: string; endpoints: ApiEndpoint[] }
+interface ApiDocGroup {
+  category: string
+  endpoints: ApiEndpoint[]
+}
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -43,9 +51,23 @@ const QUICK_ENDPOINTS: Array<{ method: 'POST' | 'GET'; path: string; desc: strin
   { method: 'POST', path: '/v1/chat/completions', desc: 'OpenAI 兼容对话' },
   { method: 'POST', path: '/v1/anthropic/messages', desc: 'Anthropic 兼容对话' },
   { method: 'GET', path: '/v1/models', desc: '查询可用模型' },
+  // P0 第二批次(2026-07-31 立):4 个新端点
+  { method: 'POST', path: '/v1/rerank', desc: 'Cohere/Jina 兼容重排序' },
+  { method: 'POST', path: '/v1/moderations', desc: 'OpenAI 兼容内容审核' },
+  { method: 'GET', path: '/v1/realtime', desc: 'Realtime WebSocket 实时对话' },
+  { method: 'POST', path: '/v1/midjourney/imagine', desc: 'Midjourney-Proxy 标准接口' },
+  { method: 'POST', path: '/v1/mcp/tools/call', desc: 'MCP 网关工具调用' },
 ]
 
-function Section({ icon: Icon, title, children }: { icon: typeof Code; title: string; children: React.ReactNode }) {
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof Code
+  title: string
+  children: React.ReactNode
+}) {
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
@@ -64,7 +86,11 @@ export default function ApiDocsPage() {
   const [keyword, setKeyword] = React.useState('')
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
 
-  const { data: groups = [], isLoading, error } = useQuery({
+  const {
+    data: groups = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['developer', 'api-docs'],
     queryFn: () => api<ApiDocGroup[]>('/api/developer/docs').catch(() => [] as ApiDocGroup[]),
   })
@@ -113,9 +139,17 @@ export default function ApiDocsPage() {
 
       <Section icon={Rocket} title="快速开始(5 分钟接入)">
         <ol className="space-y-1 text-xs text-muted-foreground">
-          <li><span className="font-medium text-foreground">1. 注册登录</span> — 完成账号注册并登录</li>
-          <li><span className="font-medium text-foreground">2. 生成 Key</span> — 开发者中心 → 密钥管理 → 新建密钥</li>
-          <li><span className="font-medium text-foreground">3. 调用接口</span> — 替换下方 sk-xxx 即可发起首次请求</li>
+          <li>
+            <span className="font-medium text-foreground">1. 注册登录</span> — 完成账号注册并登录
+          </li>
+          <li>
+            <span className="font-medium text-foreground">2. 生成 Key</span> — 开发者中心 → 密钥管理
+            → 新建密钥
+          </li>
+          <li>
+            <span className="font-medium text-foreground">3. 调用接口</span> — 替换下方 sk-xxx
+            即可发起首次请求
+          </li>
         </ol>
         <pre className="overflow-x-auto rounded-md bg-zinc-950 p-3 text-xs text-zinc-100 dark:bg-zinc-900">
           <code className="font-mono">{`curl https://api.ihui.ai/v1/chat/completions \\
@@ -128,14 +162,21 @@ export default function ApiDocsPage() {
       <Section icon={KeyRound} title="认证方式">
         <p className="text-xs text-muted-foreground">
           请求需在 Header 携带
-          <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">Authorization: Bearer sk-xxx</code>
+          <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">
+            Authorization: Bearer sk-xxx
+          </code>
           (Anthropic 端点亦支持
           <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">x-api-key</code>)。
         </p>
         <ul className="space-y-1 text-xs">
           {QUICK_ENDPOINTS.map((e) => (
             <li key={e.path} className="flex items-center gap-2">
-              <span className={cn('rounded px-1.5 py-0.5 font-mono text-xs font-bold', METHOD_CLASS[e.method])}>
+              <span
+                className={cn(
+                  'rounded px-1.5 py-0.5 font-mono text-xs font-bold',
+                  METHOD_CLASS[e.method],
+                )}
+              >
                 {e.method}
               </span>
               <code className="font-mono">{e.path}</code>
@@ -167,7 +208,9 @@ export default function ApiDocsPage() {
             <aside className="space-y-2 lg:max-h-[60vh] lg:overflow-y-auto lg:pr-1">
               {filtered.map((g) => (
                 <div key={g.category}>
-                  <p className="mb-1 px-1 text-xs font-semibold uppercase text-muted-foreground">{g.category}</p>
+                  <p className="mb-1 px-1 text-xs font-semibold uppercase text-muted-foreground">
+                    {g.category}
+                  </p>
                   <div className="space-y-0.5">
                     {g.endpoints.map((e) => (
                       <button
@@ -175,10 +218,19 @@ export default function ApiDocsPage() {
                         onClick={() => setSelectedId(e.id)}
                         className={cn(
                           'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
-                          selected?.id === e.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent hover:text-accent-foreground',
+                          selected?.id === e.id
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-accent hover:text-accent-foreground',
                         )}
                       >
-                        <span className={cn('shrink-0 rounded px-1 py-0.5 text-xs font-bold', METHOD_CLASS[e.method])}>{e.method}</span>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded px-1 py-0.5 text-xs font-bold',
+                            METHOD_CLASS[e.method],
+                          )}
+                        >
+                          {e.method}
+                        </span>
                         <span className="truncate">{e.path}</span>
                       </button>
                     ))}
@@ -189,9 +241,19 @@ export default function ApiDocsPage() {
             {selected && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className={cn('rounded px-1.5 py-0.5 text-xs font-bold', METHOD_CLASS[selected.method])}>{selected.method}</span>
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 text-xs font-bold',
+                      METHOD_CLASS[selected.method],
+                    )}
+                  >
+                    {selected.method}
+                  </span>
                   <code className="flex-1 text-sm font-medium">{selected.path}</code>
-                  <button onClick={() => copyPath(selected.path)} className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                  <button
+                    onClick={() => copyPath(selected.path)}
+                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -200,10 +262,19 @@ export default function ApiDocsPage() {
                   <div className="space-y-1.5">
                     <p className="text-sm font-semibold">{t('requestParams')}</p>
                     {selected.params.map((p) => (
-                      <div key={p.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                      <div
+                        key={p.name}
+                        className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+                      >
                         <code className="font-mono font-medium">{p.name}</code>
                         <span className="text-muted-foreground">{p.type}</span>
-                        <span className={p.required ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}>
+                        <span
+                          className={
+                            p.required
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-muted-foreground'
+                          }
+                        >
                           {p.required ? t('yes') : t('no')}
                         </span>
                         <span className="text-muted-foreground">{p.description ?? '-'}</span>
@@ -232,16 +303,39 @@ export default function ApiDocsPage() {
       <Section icon={Zap} title="速率限制">
         <ul className="space-y-1 text-xs">
           <li>免费 20 QPM · 基础 60 QPM · 专业 200 QPM · 企业 1000 QPM</li>
-          <li className="text-muted-foreground">超限返回错误码 <code className="font-mono">1004</code>(HTTP 429)。</li>
+          <li className="text-muted-foreground">
+            超限返回错误码 <code className="font-mono">1004</code>(HTTP 429)。
+          </li>
         </ul>
       </Section>
 
       <Section icon={Coins} title="计费说明">
         <ul className="space-y-1 text-xs text-muted-foreground">
-          <li>· <span className="font-medium text-foreground">Prompt Cache 折扣</span>:命中缓存的输入 token 按 0.1 倍计价。</li>
-          <li>· <span className="font-medium text-foreground">阶梯计价</span>:单次请求 token 越多,单价越低(详见价格页)。</li>
-          <li>· <span className="font-medium text-foreground">分组倍率</span>:不同模型分组按倍率计费(如 Claude 1.2x、GPT-4o 1.0x)。</li>
-          <li>· 计费单位为 Token,1 Token ≈ 0.75 字符(中文);余额不足返回 <code className="font-mono">1005</code>。</li>
+          <li>
+            · <span className="font-medium text-foreground">Prompt Cache 折扣</span>:命中缓存的输入
+            token 按 0.1 倍计价。
+          </li>
+          <li>
+            · <span className="font-medium text-foreground">响应缓存(Redis)</span>:非流式 chat
+            completions 命中缓存时成本为 0(响应头 <code className="font-mono">X-Cache: HIT</code>
+            ),用 <code className="font-mono">X-Cache-Bypass: true</code> 跳过缓存。
+          </li>
+          <li>
+            · <span className="font-medium text-foreground">阶梯计价</span>:单次请求 token
+            越多,单价越低(详见价格页)。
+          </li>
+          <li>
+            · <span className="font-medium text-foreground">分组倍率</span>
+            :不同模型分组按倍率计费(如 Claude 1.2x、GPT-4o 1.0x)。
+          </li>
+          <li>
+            · <span className="font-medium text-foreground">rerank/moderations</span>:按 input
+            tokens 计费,output tokens 为 0。
+          </li>
+          <li>
+            · 计费单位为 Token,1 Token ≈ 0.75 字符(中文);余额不足返回{' '}
+            <code className="font-mono">1005</code>。
+          </li>
         </ul>
       </Section>
     </div>

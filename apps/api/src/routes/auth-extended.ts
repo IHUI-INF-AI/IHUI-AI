@@ -12,6 +12,16 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_TTL_SECONDS,
   type JWTPayload,
+  createOidcProvider,
+  createDiscordProvider,
+  createLinuxdoProvider,
+  createTelegramProvider,
+  isOidcConfigured,
+  isDiscordConfigured,
+  isLinuxdoConfigured,
+  isTelegramConfigured,
+  buildOidcAuthorizationUrl,
+  generateTelegramAuthToken,
 } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -156,6 +166,80 @@ async function buildTokenPair(user: {
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
     refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
   }
+}
+
+// ============================================================
+// 4 个社交登录(OIDC + Discord + LinuxDO + Telegram)共用 helper
+// ============================================================
+// 复用现有 findThirdPartyAccount/createThirdPartyBinding(userThirdPartyAccounts 表)
+// + buildTokenPair 颁发 JWT。platform 参数为 'oidc' | 'discord' | 'linuxdo' | 'telegram'。
+// 主 agent 后续如需独立 oauth_accounts 表再迁移。
+
+async function loginWithOAuthAccount(params: {
+  platform: 'oidc' | 'discord' | 'linuxdo' | 'telegram'
+  openId: string
+  unionId?: string
+  nickname?: string
+  avatar?: string
+  email?: string
+}): Promise<{
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+  userId: string
+  isNewUser: boolean
+}> {
+  const { platform, openId, unionId, nickname, avatar, email } = params
+  const binding = await findThirdPartyAccount(platform, openId)
+  let user: NonNullable<Awaited<ReturnType<typeof findUserById>>>
+  let isNewUser = false
+  if (binding) {
+    const existing = await findUserById(binding.userId)
+    if (!existing) throw new Error('用户不存在')
+    if (existing.status !== 1) throw new Error('账号已被禁用')
+    user = existing
+  } else {
+    user = await createUser({
+      email,
+      nickname: nickname ?? `用户${openId.slice(-6)}`,
+      avatar,
+      roleId: 0,
+      status: 1,
+    })
+    isNewUser = true
+    await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+  }
+  const tokens = await buildTokenPair(user)
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: tokens.expiresIn,
+    refreshExpiresIn: tokens.refreshExpiresIn,
+    userId: user.id,
+    isNewUser,
+  }
+}
+
+// 共用 callback 响应格式(与现有 /auth/:platform/callback 一致)
+function buildOAuthCallbackResponse(result: {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+  userId: string
+  isNewUser: boolean
+}) {
+  return success({
+    token: result.accessToken,
+    refreshToken: result.refreshToken,
+    accessToken: result.accessToken,
+    expiresIn: result.expiresIn,
+    refreshExpiresIn: result.refreshExpiresIn,
+    userId: result.userId,
+    isNewUser: result.isNewUser,
+    tokenType: 'Bearer',
+  })
 }
 
 // ============================================================
@@ -2652,4 +2736,270 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     })
     return reply.status(res.statusCode).send(res.json())
   })
+
+  // ============================================================================
+  // 4 个社交登录 Provider handler(OIDC + Discord + LinuxDO + Telegram)
+  // 与现有 POST /auth/:platform/callback(8 平台)并列,路径独立: /auth/oauth/<provider>/*
+  // 复用 loginWithOAuthAccount helper(查/建用户 + 颁发 token)
+  // ⚠️ state 校验:当前未实现 cookie/Redis 持久化,仅作 CSRF 占位。
+  //    主 agent 后续可补 httpOnly cookie 持久化 + callback 时 timingSafeEqual 校验。
+  // ============================================================================
+
+  // GET /auth/oauth/:provider/redirect — 统一重定向入口
+  // :provider ∈ oidc/discord/linuxdo(telegram 走 /start 端点)
+  server.get('/auth/oauth/:provider/redirect', async (request, reply) => {
+    const parsed = z
+      .object({ provider: z.enum(['oidc', 'discord', 'linuxdo']) })
+      .safeParse(request.params)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
+    const provider = parsed.data.provider
+    const state = generateState()
+
+    let authUrl: string
+    try {
+      if (provider === 'oidc') {
+        if (!isOidcConfigured())
+          return reply
+            .status(400)
+            .send(error(400, 'OIDC 未配置 (OIDC_ISSUER/CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+        authUrl = await buildOidcAuthorizationUrl(
+          {
+            issuer: process.env.OIDC_ISSUER!,
+            clientId: process.env.OIDC_CLIENT_ID!,
+            clientSecret: process.env.OIDC_CLIENT_SECRET!,
+            redirectUri: process.env.OIDC_REDIRECT_URI!,
+          },
+          state,
+        )
+      } else if (provider === 'discord') {
+        if (!isDiscordConfigured())
+          return reply
+            .status(400)
+            .send(error(400, 'Discord 未配置 (DISCORD_CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+        const p = createDiscordProvider({
+          clientId: process.env.DISCORD_CLIENT_ID!,
+          clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+          redirectUri: process.env.DISCORD_REDIRECT_URI!,
+        })
+        authUrl = await p.getAuthorizationUrl(state)
+      } else {
+        if (!isLinuxdoConfigured())
+          return reply
+            .status(400)
+            .send(error(400, 'LinuxDO 未配置 (LINUXDO_CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+        const p = createLinuxdoProvider({
+          clientId: process.env.LINUXDO_CLIENT_ID!,
+          clientSecret: process.env.LINUXDO_CLIENT_SECRET!,
+          redirectUri: process.env.LINUXDO_REDIRECT_URI!,
+        })
+        authUrl = await p.getAuthorizationUrl(state)
+      }
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(
+          error(
+            500,
+            `${provider} 授权 URL 构造失败: ${e instanceof Error ? e.message : String(e)}`,
+          ),
+        )
+    }
+    return reply.redirect(authUrl)
+  })
+
+  // GET /auth/oauth/oidc/callback — OIDC 授权码回调
+  server.get('/auth/oauth/oidc/callback', async (request, reply) => {
+    const parsed = z
+      .object({ code: z.string().min(1), state: z.string().optional() })
+      .safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!isOidcConfigured()) return reply.status(400).send(error(400, 'OIDC 未配置'))
+    try {
+      const provider = createOidcProvider({
+        issuer: process.env.OIDC_ISSUER!,
+        clientId: process.env.OIDC_CLIENT_ID!,
+        clientSecret: process.env.OIDC_CLIENT_SECRET!,
+        redirectUri: process.env.OIDC_REDIRECT_URI!,
+      })
+      const token = await provider.exchangeCodeForToken(parsed.data.code)
+      const info = await provider.fetchUserInfo(token.accessToken)
+      const result = await loginWithOAuthAccount({
+        platform: 'oidc',
+        openId: info.openId,
+        unionId: info.unionId,
+        nickname: info.nickname,
+        avatar: info.avatar,
+        email: info.email,
+      })
+      return reply.send(buildOAuthCallbackResponse(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(error(500, `OIDC 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+    }
+  })
+
+  // GET /auth/oauth/discord/callback — Discord 授权码回调
+  server.get('/auth/oauth/discord/callback', async (request, reply) => {
+    const parsed = z
+      .object({ code: z.string().min(1), state: z.string().optional() })
+      .safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!isDiscordConfigured()) return reply.status(400).send(error(400, 'Discord 未配置'))
+    try {
+      const provider = createDiscordProvider({
+        clientId: process.env.DISCORD_CLIENT_ID!,
+        clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+        redirectUri: process.env.DISCORD_REDIRECT_URI!,
+      })
+      const token = await provider.exchangeCodeForToken(parsed.data.code)
+      const info = await provider.fetchUserInfo(token.accessToken)
+      const result = await loginWithOAuthAccount({
+        platform: 'discord',
+        openId: info.openId,
+        unionId: info.unionId,
+        nickname: info.nickname,
+        avatar: info.avatar,
+        email: info.email,
+      })
+      return reply.send(buildOAuthCallbackResponse(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(error(500, `Discord 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+    }
+  })
+
+  // GET /auth/oauth/linuxdo/callback — LinuxDO 授权码回调
+  server.get('/auth/oauth/linuxdo/callback', async (request, reply) => {
+    const parsed = z
+      .object({ code: z.string().min(1), state: z.string().optional() })
+      .safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!isLinuxdoConfigured()) return reply.status(400).send(error(400, 'LinuxDO 未配置'))
+    try {
+      const provider = createLinuxdoProvider({
+        clientId: process.env.LINUXDO_CLIENT_ID!,
+        clientSecret: process.env.LINUXDO_CLIENT_SECRET!,
+        redirectUri: process.env.LINUXDO_REDIRECT_URI!,
+      })
+      const token = await provider.exchangeCodeForToken(parsed.data.code)
+      const info = await provider.fetchUserInfo(token.accessToken)
+      const result = await loginWithOAuthAccount({
+        platform: 'linuxdo',
+        openId: info.openId,
+        unionId: info.unionId,
+        nickname: info.nickname,
+        avatar: info.avatar,
+        email: info.email,
+      })
+      return reply.send(buildOAuthCallbackResponse(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(error(500, `LinuxDO 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+    }
+  })
+
+  // POST /auth/oauth/telegram/start — 生成 Bot deeplink
+  // 接收 phone/email(可选,主 agent 后续用于关联已有账号),返回 botAuthUrl + authToken(5min)
+  server.post(
+    '/auth/oauth/telegram/start',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      if (!isTelegramConfigured())
+        return reply
+          .status(400)
+          .send(error(400, 'Telegram 未配置 (TELEGRAM_BOT_TOKEN/BOT_USERNAME 缺失)'))
+      // 接收 phone/email(可选)——当前未使用,主 agent 后续可基于此关联已有账号
+      const bodySchema = z
+        .object({
+          phone: z.string().optional(),
+          email: z.string().email().optional(),
+        })
+        .optional()
+      const bodyResult = bodySchema.safeParse(request.body ?? {})
+      if (!bodyResult.success)
+        return reply.status(400).send(error(400, bodyResult.error.issues[0]?.message ?? '参数错误'))
+      void bodyResult.data
+
+      // authToken: CSPRNG 32 字节 hex(5min TTL,等价 JWT 强度,无需 JWT 库依赖)
+      const authToken = generateTelegramAuthToken()
+      const provider = createTelegramProvider({
+        botToken: process.env.TELEGRAM_BOT_TOKEN!,
+        botUsername: process.env.TELEGRAM_BOT_USERNAME!,
+      })
+      const botAuthUrl = provider.getBotAuthUrl(authToken)
+      return reply.send(
+        success({
+          authToken,
+          botAuthUrl,
+          expiresIn: 300,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        }),
+      )
+    },
+  )
+
+  // POST /auth/oauth/telegram/verify — 轮询验证(Bot 已写入用户信息则登录,否则 pending)
+  // 前端每 2-3 秒轮询一次,最多 5 分钟(与 authToken TTL 对齐)
+  server.post(
+    '/auth/oauth/telegram/verify',
+    {
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      if (!isTelegramConfigured()) return reply.status(400).send(error(400, 'Telegram 未配置'))
+      const parsed = z.object({ authToken: z.string().min(1) }).safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+      const provider = createTelegramProvider({
+        botToken: process.env.TELEGRAM_BOT_TOKEN!,
+        botUsername: process.env.TELEGRAM_BOT_USERNAME!,
+      })
+      const authResult = await provider.verifyAuth(parsed.data.authToken)
+      if (!authResult) {
+        // Bot 尚未回写用户信息(用户未点击 deeplink 或 Bot webhook 未集成)
+        return reply.send(success({ status: 'pending' }))
+      }
+      // Bot 已回写 → 查/建用户 + 颁发 token
+      try {
+        const result = await loginWithOAuthAccount({
+          platform: 'telegram',
+          openId: authResult.openId,
+          nickname: authResult.nickname,
+          avatar: authResult.avatar,
+        })
+        return reply.send(
+          success({
+            status: 'success',
+            token: result.accessToken,
+            refreshToken: result.refreshToken,
+            accessToken: result.accessToken,
+            expiresIn: result.expiresIn,
+            refreshExpiresIn: result.refreshExpiresIn,
+            userId: result.userId,
+            isNewUser: result.isNewUser,
+            tokenType: 'Bearer',
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply
+          .status(500)
+          .send(error(500, `Telegram 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+      }
+    },
+  )
 }
