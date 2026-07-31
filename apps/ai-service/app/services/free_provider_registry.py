@@ -228,6 +228,10 @@ _REGISTRY: list[FreeProvider] = [
         default_models=["stepfun/step-3.7-flash", "stepfun/step-3.5-flash", "stepfun/step-router-v1"],
         docs_url="https://platform.stepfun.com/docs",
         notes="项目已配置 plan 套餐 key,默认模型 step-3.7-flash",
+        # 2026-07-31 P1:补余额查询端点(https://platform.stepfun.com/docs/api-reference/accounts/get)
+        # 返回 {balance, type, total_cash_balance, total_voucher_balance},balance=可用余额(CNY)
+        recharge_url="https://platform.stepfun.com/step-plan",
+        balance_endpoint="https://api.stepfun.com/v1/accounts",
     ),
     FreeProvider(
         provider_code="agnes",
