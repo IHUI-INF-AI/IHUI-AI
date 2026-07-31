@@ -20,6 +20,7 @@ from ..core.jwt_auth import get_current_user_id
 from ..services.scan_login import (
     PLATFORM_SCAN_CONFIG,
     cancel_scan_task,
+    detect_login_from_cdp_session,
     get_qr_image,
     get_task,
     list_tasks,
@@ -118,3 +119,26 @@ async def cancel_task(task_id: str) -> dict[str, Any]:
         "message": "已取消" if ok else "任务已完成,无法取消",
         "data": {"task_id": task_id, "cancelled": ok},
     }
+
+
+# =============================================================================
+# CDP 扫码登录(2026-07-31 新增,WorkPanel 内置浏览器 CDP 模式)
+# =============================================================================
+class DetectFromCdpRequest(BaseModel):
+    session_id: str = Field(..., description="BrowserHub CDP 会话 ID(createBrowserSession 返回)")
+    platform: str = Field(..., description="平台 ID,如 zhihu / bilibili / xiaohongshu")
+
+
+@router.post("/detect-from-cdp")
+async def detect_from_cdp(body: DetectFromCdpRequest, request: Request) -> dict[str, Any]:
+    """从 BrowserHub CDP 会话检测登录态 + 自动保存账号。
+
+    前端 WorkPanel CDP 扫码登录流程:
+    1. createBrowserSession(url=平台登录页) → 在 WorkPanel 打开 CDP 画面
+    2. 用户在 CDP 画面里扫码/登录
+    3. 前端每 3s 调本端点 → 后端从 BrowserHub 拿 cookies → 检测 success_cookies
+    4. detected=true → 命中则加密保存到 publish_accounts → 前端关闭会话 + 刷新列表
+    """
+    user_id = await get_current_user_id(request)
+    result = await detect_login_from_cdp_session(body.session_id, body.platform, user_id)
+    return {"code": 0, "message": "ok", "data": result}
