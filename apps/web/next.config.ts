@@ -209,7 +209,7 @@ const nextConfig: NextConfig = {
           // - wwcdn.weixin.qq.com:企业微信 wwLogin-1.2.7.js
           // - g.alicdn.com:钉钉 h5-dingtalk-login 0.21.0
           // - lf-package-cn.feishucdn.com:飞书 LarkSSOSDKWebQRCode-1.0.3.js
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com https://cdn.jsdelivr.net",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https:",
           "font-src 'self' data:",
