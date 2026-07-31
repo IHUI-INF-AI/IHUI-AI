@@ -14409,9 +14409,9 @@
   },
   "auth": {
     "emailLogin": "メール",
-    "phoneCodeLogin": "コードログイン",
-    "passwordLogin": "パスワードログイン",
-    "qrLogin": "QRコードログイン",
+    "phoneCodeLogin": "携帯",
+    "passwordLogin": "パスワード",
+    "qrLogin": "QRコード",
     "account": "アカウント",
     "accountPlaceholder": "電話番号 / メール / アカウント",
     "password": "パスワード",
