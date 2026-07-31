@@ -65,6 +65,7 @@ export function ScanLoginDialog({
   defaultPlatform,
 }: ScanLoginDialogProps) {
   const t = useTranslations('publish')
+  const tCommon = useTranslations('common')
   const toast = useToast()
   const openCdpSession = useWorkPanelStore((s) => s.openCdpSession)
 
@@ -289,7 +290,7 @@ export function ScanLoginDialog({
         <DialogFooter>
           {phase === 'idle' && (
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {t('cancel')}
+              {tCommon('cancel')}
             </Button>
           )}
           {phase === 'polling' && (
@@ -304,7 +305,7 @@ export function ScanLoginDialog({
                 onOpenChange(false)
               }}
             >
-              {t('close')}
+              {tCommon('close')}
             </Button>
           )}
         </DialogFooter>

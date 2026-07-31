@@ -3,6 +3,7 @@ import type { AbstractIntlMessages } from 'next-intl'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Messages } from '@ihui/i18n/types'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/{shared,web}/
+// 2026-07-31 触发 Turbopack 重新编译 JSON 模块(修复 publish.cancel/close 缓存)
 // 阶段 2:用 mergeMessages 合并 shared + web(端 key 覆盖 shared,功能无变化)
 // shared = 跨端共享 key;web = 端独有 key + 端覆盖 shared 的 key(阶段 3 才删除 web 内 shared key)
 // 静态 import 替代动态 import(静态导出模式下 bundle 体积无差异,且避免 webpack 模板字符串解析问题)
