@@ -59,6 +59,12 @@ import {
   shouldSkipCache,
   type CacheableMessage,
 } from '../services/relay-response-cache.js'
+// OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
+import {
+  applyProtocolExtensions,
+  buildStreamUsageChunk,
+  type ChatCompletionRequest,
+} from './v1-protocol-extensions.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -86,6 +92,10 @@ const chatCompletionSchema = z.object({
   stream: z.boolean().optional().default(false),
   temperature: z.number().optional(),
   maxTokens: z.number().int().positive().optional(),
+  // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
+  stream_options: z.object({ include_usage: z.boolean().optional() }).optional(),
+  response_format: z.unknown().optional(),
+  seed: z.number().optional(),
 })
 
 const agentCallSchema = z.object({
@@ -488,6 +498,12 @@ async function streamChatCompletion(
     /** P0 中转站造血能力批次(2026-08-01):审计字段透传 */
     providerCode?: string
     clientIp?: string
+    /** OpenAI 协议扩展:stream_options.include_usage=true 时追加 usage chunk */
+    streamUsageEnabled?: boolean
+    /** OpenAI 协议扩展:response_format 透传(json_schema 已注入 system 提示,原样透传) */
+    responseFormat?: unknown
+    /** OpenAI 协议扩展:seed 透传(符合范围 0-999999) */
+    seed?: number
   },
 ): Promise<void> {
   reply.hijack()
@@ -508,6 +524,9 @@ async function streamChatCompletion(
   /** 流式聚合 prompt cache 字段(从 SSE 末尾 usage chunk 解析,OpenAI/Anthropic 风格) */
   let streamCacheReadTokens = 0
   let streamCacheCreationTokens = 0
+  /** OpenAI 协议扩展:从上游 SSE 末尾 usage chunk 提取 token 数(stream_options.include_usage 用) */
+  let streamPromptTokens = 0
+  let streamCompletionTokens = 0
   /** P0 中转站造血能力批次(2026-08-01):TTFT + 上游 HTTP 状态码 */
   let firstTokenTime: number | null = null
   let upstreamHttpStatus: number | null = null
@@ -537,6 +556,9 @@ async function streamChatCompletion(
     if (maxTokens !== undefined) body.max_tokens = maxTokens
     // BYOK 平台模式(2026-07-30):透传 owner_uuid via metadata.userId
     if (userId) body.metadata = { userId }
+    // OpenAI 协议扩展:response_format(json_schema 已在 system 提示注入,原样透传) + seed
+    if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
+    if (opts.seed !== undefined) body.seed = opts.seed
 
     const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
       method: 'POST',
@@ -583,6 +605,11 @@ async function streamChatCompletion(
           const cache = parseCacheTokens(usageObj)
           streamCacheReadTokens = cache.cacheReadTokens
           streamCacheCreationTokens = cache.cacheCreationTokens
+          // OpenAI 协议扩展:同步提取 prompt/completion tokens 供 stream_options.include_usage 使用
+          const pt = (usageObj as Record<string, unknown>).prompt_tokens
+          const ct = (usageObj as Record<string, unknown>).completion_tokens
+          if (typeof pt === 'number') streamPromptTokens = pt
+          if (typeof ct === 'number') streamCompletionTokens = ct
         }
       }
     }
@@ -597,10 +624,18 @@ async function streamChatCompletion(
         const cache = parseCacheTokens(usageObj)
         streamCacheReadTokens = cache.cacheReadTokens
         streamCacheCreationTokens = cache.cacheCreationTokens
+        // OpenAI 协议扩展:同步提取 prompt/completion tokens 供 stream_options.include_usage 使用
+        const pt = (usageObj as Record<string, unknown>).prompt_tokens
+        const ct = (usageObj as Record<string, unknown>).completion_tokens
+        if (typeof pt === 'number') streamPromptTokens = pt
+        if (typeof ct === 'number') streamCompletionTokens = ct
       }
     }
 
-    // 结束 chunk
+    // 结束 chunk(OpenAI 协议扩展:stream_options.include_usage=true 时,末尾追加 usage chunk)
+    if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
+      raw.write(buildStreamUsageChunk(id, model, streamPromptTokens, streamCompletionTokens))
+    }
     writeChunk({}, 'stop')
     raw.write('data: [DONE]\n\n')
   } catch (e) {
@@ -870,6 +905,26 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             stream: { type: 'boolean' },
             temperature: { type: 'number' },
             maxTokens: { type: 'number' },
+            // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
+            stream_options: {
+              type: 'object',
+              properties: { include_usage: { type: 'boolean' } },
+            },
+            response_format: {
+              type: 'object',
+              properties: {
+                type: { type: 'string', enum: ['text', 'json_object', 'json_schema'] },
+                json_schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    schema: { type: 'object' },
+                    strict: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+            seed: { type: 'number' },
           },
           required: ['model', 'messages'],
         },
@@ -924,7 +979,37 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { model, messages, stream, temperature, maxTokens } = parsed.data
+      const {
+        model,
+        messages,
+        stream,
+        temperature,
+        maxTokens,
+        stream_options,
+        response_format,
+        seed,
+      } = parsed.data
+
+      // OpenAI 协议扩展:json_schema 注入 system 提示 + seed 透传 + stream_usage 检测
+      // - json_schema:工具函数在 system message 末尾追加 schema 提示,提升非原生模型命中率
+      // - text/json_object:原样透传 response_format 给上游
+      // - seed:符合范围(0-999999)透传
+      // - streamUsageEnabled:stream=true && stream_options.include_usage=true 时为 true
+      const protocolResult = applyProtocolExtensions({
+        model,
+        messages: messages as ChatCompletionRequest['messages'],
+        stream,
+        temperature,
+        max_tokens: maxTokens,
+        stream_options: stream_options as ChatCompletionRequest['stream_options'],
+        response_format: response_format as ChatCompletionRequest['response_format'],
+        seed,
+      })
+      const streamUsageEnabled = protocolResult.streamUsageEnabled
+      // json_schema 启用时 messages 可能被注入 system 提示;否则保持原始 messages
+      const upstreamMessages = (protocolResult.openaiBody.messages ?? messages) as typeof messages
+      const upstreamResponseFormat = protocolResult.openaiBody.response_format
+      const upstreamSeed = protocolResult.openaiBody.seed as number | undefined
 
       // P0-5 中转站计费:调用前检查 API Key 余额
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -990,7 +1075,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       if (stream) {
         return streamChatCompletion(request, reply, {
           model: resolvedModel,
-          messages,
+          // json_schema 启用时 upstreamMessages 已注入 system 提示
+          messages: upstreamMessages,
           temperature,
           maxTokens,
           apiKeyId: apiKey?.id,
@@ -1001,6 +1087,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           modelMappingMeta,
           providerCode: modelToProviderCode(resolvedModel),
           clientIp: request.ip,
+          // OpenAI 协议扩展透传
+          streamUsageEnabled,
+          responseFormat: upstreamResponseFormat,
+          seed: upstreamSeed,
         })
       }
 
