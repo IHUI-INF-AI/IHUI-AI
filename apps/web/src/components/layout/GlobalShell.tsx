@@ -203,19 +203,18 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             <React.Suspense fallback={null}>
               <GlobalTopBar
                 mobileMenu={
+                  // 2026-07-31 第十四次微调(用户反馈"按钮贴左边 / 图标太大"):
+                  // - ml-1.5 (6px) 与下方工作区卡片 6px 间距对齐,跟其他顶栏按钮视觉一致
+                  // - icon h-5 w-5 (20px) → h-3.5 w-3.5 (14px),与顶栏 Plus / 搜索 / 窗口控制
+                  //   按钮(TOPBAR_BTN_BASE + h-3.5 w-3.5 图标)完全统一
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setMobileOpen((o) => !o)}
                     aria-label={t('menu')}
-                    // 2026-07-31 修复(用户反馈"按钮不应该是透明的"):
-                    // 改为显式 bg-card + hover:bg-accent + border + shadow-sm,
-                    // 跟顶栏 TOPBAR_BTN_BASE 风格统一(card 比 bg 高 4% L / 暗色深 4% L,
-                    // 跟背景明显区分;hover 用 accent 加深,无蓝色发光边框)。
-                    // h-full 跟顶栏 h-9=36px 严格一致,形成 36x36 正方形。
-                    className="h-full w-9 shrink-0 lg:hidden rounded-md border border-border bg-card text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    className="ml-1.5 h-full w-9 shrink-0 lg:hidden rounded-md border border-border bg-card text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    <Menu className="h-5 w-5" />
+                    <Menu className="h-3.5 w-3.5" />
                   </Button>
                 }
               />
