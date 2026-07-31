@@ -104,7 +104,12 @@
       "error": "Update Failed",
       "errorDesc": "An error occurred during the update. Please retry.",
       "checkFailed": "Failed to check for updates. Please check your network.",
-      "dismiss": "Close"
+      "dismiss": "Close",
+      "quitChecking": "Checking for updates...",
+      "quitDownloading": "Downloading update...",
+      "quitRestarting": "Update complete, restarting...",
+      "quitQuitting": "Quitting...",
+      "quitSkip": "Skip and quit"
     },
     "resize": "Drag to resize",
     "payTime": "Pay Time",
@@ -13561,7 +13566,8 @@
     },
     "templates": {
       "title": "Templates"
-    }
+    },
+    "commented": "Commented {tagName}#{elementId}: {comment}"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs last month",
@@ -14302,7 +14308,48 @@
     "agreementNoticeAgree": "Agree & Continue",
     "autoLogin": "Auto-login",
     "getVerificationCode": "Get Code",
-    "alipayLogin": "AlipayLogin"
+    "alipayLogin": "AlipayLogin",
+    "account": "Account",
+    "accountPlaceholder": "Enter account/phone/email",
+    "password": "Password",
+    "phone": "Phone",
+    "email": "Email",
+    "captcha": "Captcha",
+    "invalidPhone": "Please enter a valid phone number",
+    "invalidAccount": "Please enter a valid account",
+    "invalidPassword": "Password must be at least 6 characters",
+    "loginFailed": "Login failed, please try again",
+    "registerFailed": "Registration failed, please try again",
+    "resendCode": "Resend in {seconds}s",
+    "hasAccount": "Already have an account?",
+    "codeSent": "Verification code sent",
+    "passwordWeak": "Weak",
+    "passwordMedium": "Medium",
+    "passwordStrong": "Strong",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "rememberPassword": "Remember password",
+    "qrRefresh": "Refresh QR code",
+    "qrSwitchMethod": "Switch login method",
+    "termsOfService": "Terms of Service",
+    "and": "and",
+    "privacyPolicy": "Privacy Policy",
+    "agreementNoticeDisagree": "Disagree",
+    "agreementNoticeEnterHint": "Click \"Agree and Continue\" to indicate you have read and agreed",
+    "clearHistory": "Clear history",
+    "noHistory": "No history",
+    "registerSubtitle": "Create a new account",
+    "forgotSubtitle": "Reset your password",
+    "appleLogin": "Apple Login",
+    "dingtalkLogin": "DingTalk Login",
+    "feishuLogin": "Feishu Login",
+    "githubLogin": "GitHub Login",
+    "googleLogin": "Google Login",
+    "invalidCredentials": "Invalid credentials",
+    "invalidUsername": "Please enter a valid username",
+    "qrSdkLoadFailed": "QR SDK failed to load",
+    "username": "Username",
+    "wechatLogin": "WeChat Login"
   },
   "help": {
     "contactSupport": "Contact Support",
@@ -14336,5 +14383,8 @@
     "title": "No Permission",
     "description": "Sorry, you do not have permission to access this page. Please contact the administrator to request access.",
     "backToHome": "Back to Home"
-  }
+  },
+  "title": "Admin Dashboard",
+  "modelFree": "Free",
+  "modelPointsMultiplier": "Points Multiplier"
 }
