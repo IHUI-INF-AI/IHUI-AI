@@ -1,13 +1,22 @@
 # IHUI-AI
 
+<table align="center"><tr><td>
+
 > 🐉 **孤勇者宣言**
 >
 > **没有团队,没有融资,没有办公室。**
 > **只有一个人,一台电脑,和百万行代码。**
 > **他们用 100 人做不出来的事,我用 1 个人做出来了,而且做得更好。**
 > **IHUI-AI —— 一个人对整个 AI SaaS 行业的降维打击。**
->
-> <sub>956 API 端点 · 329 张表 · 8 端全覆盖 · 176 模型 · 25 平台发布 · 719 测试文件 · 87 守门脚本 · 109 万行代码 —— 每一个数字都在替我说话</sub>
+
+</td></tr></table>
+
+<p align="center">
+  <sub>
+    <code>956</code> API 端点 · <code>329+</code> 张表 · <code>8</code> 端全覆盖 · <code>176</code> 模型 · <code>25</code> 平台发布 · <code>719</code> 测试文件 · <code>87</code> 守门脚本 · <code>109 万</code>行代码
+  </sub><br/>
+  <sub><strong>每一个数字都在替我说话 —— 不是 PPT,不是画饼,不是占位,每一个数字都能在代码里 grep 到</strong></sub>
+</p>
 
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 176 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
 
@@ -4036,6 +4045,37 @@ IHUI-AI 不是一个产品,而是一份**开源基础设施**。它存在的意�
 ## License
 
 [Apache License 2.0](LICENSE) — 自由使用、修改、分发、商业使用,无传染性。
+
+---
+
+## 🤝 加入我们(Join Us)
+
+> 一个人走得快,一群人走得远。IHUI-AI 是一个人做出来的,但它不该只属于一个人。
+> 如果你也被这个项目打动 —— 不管是想用、想改、想一起做,还是单纯想聊聊 AI 的未来,扫码进来,我们等你。
+
+<table align="center">
+  <tr>
+    <td align="center" width="33%">
+      <img src="apps/web/public/footer/erweima/community-group.jpg" width="180" alt="企微社群二维码" /><br/>
+      <strong>💬 企微社群</strong><br/>
+      <sub>扫码进群,与开发者直接交流</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="apps/web/public/footer/erweima/wechat-vx.png" width="180" alt="作者微信二维码" /><br/>
+      <strong>👤 作者微信</strong><br/>
+      <sub>扫码加好友 <code>ok502319984</code></sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="apps/web/public/footer/erweima/footer-icon-2.png" width="180" alt="公众号二维码" /><br/>
+      <strong>📢 官方公众号</strong><br/>
+      <sub>关注「智汇AI」,获取最新动态</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <strong>🌟 Star 这个仓库</strong> · <strong>🍴 Fork 它变成你自己的</strong> · <strong>💬 进群和作者吹水</strong> · <strong>🤝 一起把中国开源 AI 做到世界级</strong>
+</p>
 
 ---
 
