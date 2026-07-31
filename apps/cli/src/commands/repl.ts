@@ -17,7 +17,12 @@ import { CheckpointManager } from '../checkpoints/index.js';
 import { PlanMachine } from '../plan/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
 import { InterjectionBuffer } from '../interjection.js';
-import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
+import { renderSlashHelp, suggestSlashCommands, slashCompleter } from './slash-registry.js';
+// P0 CLI 友好度优化(2026-07-31):4 个新命令模块
+import { handleTasksCommand, renderCompactProgress as renderTasksProgress } from './tasks.js';
+import { handleConfigCommand } from './config-cmd.js';
+import { renderStatusPanel, type StatusSnapshot } from './status-cmd.js';
+import { handleQuickstartCommand } from './quickstart.js';
 import { createMarkdownRenderer, type MarkdownRenderer } from './markdown-renderer.js';
 import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spinner.js';
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
@@ -557,11 +562,41 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   }
   console.info(chalk.cyan(`└${horizontalLine}┘`));
   const workspaceName = path.basename(opts.workspacePath);
-  const sysInfo = `  v${version}  ·  模型 ${opts.modelId}  ·  ${workspaceName}`;
+  const sysInfo = `  v${version}  ·  模型 ${chalk.cyan(opts.modelId)}  ·  ${workspaceName}`;
   const hintLine = `  ${opts.workspacePath}`;
   console.info(chalk.dim(sysInfo));
   console.info(chalk.dim(hintLine));
-  console.info(chalk.dim('  /help 查看命令 · /exit 退出 · 直接输入开始对话\n'));
+
+  // P0 CLI 友好度优化(2026-07-31):能力摘要 + 模型/配置切换提示 + 快速入门 + todo 进度条 + statusline
+  // 对标 codex/claude-code/mimo code 的首屏可发现性
+  const capParts: string[] = [];
+  capParts.push(opts.enableMcp ? chalk.green('MCP ✓') : chalk.dim('MCP ✗'));
+  capParts.push(opts.allowDangerous ? chalk.red('危险工具 ⚠') : chalk.dim('危险工具 需确认'));
+  const permColor = opts.permissionMode === 'bypassPermissions'
+    ? chalk.red
+    : opts.permissionMode === 'acceptEdits'
+      ? chalk.yellow
+      : chalk.green;
+  capParts.push(`权限 ${permColor(opts.permissionMode ?? 'default')}`);
+  capParts.push(`循环 ${opts.maxIterations}`);
+  console.info(`  ${chalk.dim('能力:')} ${capParts.join(chalk.dim('  ·  '))}`);
+
+  // 模型切换 + 配置入口提示(用户反馈"不知道在哪里切换模型配置模型 不明显")
+  console.info(`  ${chalk.dim('切换:')} ${chalk.cyan('/model')} 切模型  ${chalk.cyan('/config')} 改配置  ${chalk.cyan('/models')} 看列表`);
+
+  // 任务进度条(紧凑一行,无任务不显示)
+  const progressLine = renderTasksProgress(opts.workspacePath);
+  if (progressLine) {
+    console.info(`  ${progressLine}`);
+  }
+
+  // 快速入门提示
+  console.info(`  ${chalk.dim('入门:')} ${chalk.cyan('/quickstart')} 看 5 个示例  ${chalk.cyan('/status')} 看状态面板  ${chalk.cyan('/help')} 看全部命令`);
+
+  // 底部 statusline 常驻快捷键提示
+  console.info(chalk.dim(`  ${'─'.repeat(Math.min(bannerWidth + 4, 60))}`));
+  console.info(chalk.dim('  快捷键: /help · /model · /tasks · /config · /status · /quickstart · Tab 补全 · /exit'));
+  console.info('');
 
   // P2-2 公告系统:启用时异步拉取最新公告 + 显示未读横幅(失败静默,不阻塞 REPL)
   if (settings.announcements?.enabled === true) {
@@ -583,10 +618,12 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   }
 
   // 多段式 prompt:[workspace] model ❯ 颜色分层,workspace dim/模型 cyan/箭头 green
+  // P0 CLI 友好度优化(2026-07-31):集成 Tab 补全 completer
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: buildReplPrompt(opts.modelId, opts.workspacePath),
+    completer: (line: string) => slashCompleter(line),
   });
 
   const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx);
@@ -787,6 +824,44 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     case 'mcp':
       handleMcpList();
       break;
+
+    // P0 CLI 友好度优化(2026-07-31):4 个新命令 handler
+    case 'config': {
+      const rest = args.join(' ');
+      console.info(handleConfigCommand(rest));
+      break;
+    }
+
+    case 'tasks': {
+      const rest = args.join(' ');
+      console.info(handleTasksCommand(rest, state.opts.workspacePath));
+      break;
+    }
+
+    case 'status': {
+      const snap: StatusSnapshot = {
+        modelId: state.opts.modelId,
+        workspacePath: state.opts.workspacePath,
+        permissionMode: state.opts.permissionMode ?? 'default',
+        enableMcp: state.opts.enableMcp ?? false,
+        planFirst: state.opts.planFirst ?? false,
+        planApproved: state.planApproved,
+        sessionId: state.session?.id ?? state.opts.sessionId,
+        history: state.history,
+        skills: state.skills,
+        memory: state.memory,
+        maxIterations: state.opts.maxIterations,
+        allowDangerous: state.opts.allowDangerous ?? false,
+      };
+      console.info(renderStatusPanel(snap));
+      break;
+    }
+
+    case 'quickstart': {
+      const rest = args.join(' ');
+      console.info(handleQuickstartCommand(rest));
+      break;
+    }
 
     case 'skills': {
       if (state.skills.length === 0) {
