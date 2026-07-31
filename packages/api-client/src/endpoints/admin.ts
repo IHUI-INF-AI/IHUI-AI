@@ -21,10 +21,9 @@ export interface AdminUser {
 export interface AdminRole {
   id: string
   name: string
-  code: string
+  displayName: string | null
   description: string | null
-  permissions: string[]
-  userCount: number
+  scope: string | null
   createdAt: string
 }
 
@@ -117,7 +116,7 @@ export async function adminGetUsers(
 
 export async function adminUpdateUser(
   id: string,
-  input: Partial<Pick<AdminUser, 'nickname' | 'status' | 'role' | 'vipLevel' | 'balance'>>,
+  input: Partial<Pick<AdminUser, 'nickname' | 'email' | 'phone' | 'status'>>,
 ): Promise<ApiResult<AdminUser>> {
   return fetchApi<AdminUser>(`/admin/usercenter/users/${encodeURIComponent(id)}`, {
     method: 'PUT',
@@ -131,15 +130,15 @@ export async function adminDeleteUser(id: string): Promise<ApiResult<{ success: 
   })
 }
 
-export async function adminGetRoles(): Promise<ApiResult<AdminRole[]>> {
-  return fetchApi<AdminRole[]>('/admin/roles')
+export async function adminGetRoles(): Promise<ApiResult<PageData<AdminRole>>> {
+  return fetchApi<PageData<AdminRole>>('/admin/roles')
 }
 
 export async function adminCreateRole(input: {
   name: string
-  code: string
+  displayName?: string
   description?: string
-  permissions: string[]
+  scope?: string
 }): Promise<ApiResult<AdminRole>> {
   return fetchApi<AdminRole>('/admin/roles', {
     method: 'POST',
@@ -197,7 +196,13 @@ export async function adminGetConfig(): Promise<ApiResult<AdminConfig>> {
   return fetchApi<AdminConfig>('/admin/configs')
 }
 
-export async function adminUpdateConfig(input: AdminConfig): Promise<ApiResult<AdminConfig>> {
+export async function adminUpdateConfig(input: {
+  key: string
+  value: string
+  category?: string
+  description?: string
+  isPublic?: boolean
+}): Promise<ApiResult<AdminConfig>> {
   return fetchApi<AdminConfig>('/admin/configs', {
     method: 'PUT',
     body: JSON.stringify(input),

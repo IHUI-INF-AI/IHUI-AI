@@ -50,7 +50,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
     mutationFn: ({ id, type, remark }: { id: string; type: 'pass' | 'reject'; remark: string }) =>
       api(`/api/admin/examine/${id}/${type === 'pass' ? 'pass' : 'reject'}`, {
         method: 'PUT',
-        body: JSON.stringify({ remark }),
+        body: JSON.stringify(type === 'pass' ? {} : { reason: remark }),
       }),
     onSuccess: () => {
       toast.success(t('operateSuccess'))
