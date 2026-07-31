@@ -20,7 +20,7 @@ export type WebViewStatus =
   | 'blocked' // URL 不安全被拦截
 
 /** WebView 嵌入模式(由前端探测决定) */
-export type WebViewMode = 'iframe' | 'screenshot' | 'native' | 'external'
+export type WebViewMode = 'iframe' | 'screenshot' | 'native' | 'external' | 'cdp'
 
 /** 工作展示区单个 Tab */
 export interface WorkPanelTab {
@@ -62,6 +62,8 @@ export interface WebViewState {
   error?: string
   /** 加载进度 0-100 */
   progress?: number
+  /** CDP 会话 ID(mode='cdp' 时使用,Browser Hub 后端会话标识) */
+  sessionId?: string
 }
 
 /** 导航选项 */
