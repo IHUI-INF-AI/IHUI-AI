@@ -347,6 +347,8 @@ import adminRelayStatsRoutes from './admin/relay-stats.js'
 import { relayPublicRoutes } from './relay-public.js'
 import developerRelayRoutes from './developer-relay.js'
 import developerApiKeyGroupsRoutes from './developer/api-key-groups.js'
+// P0-7 API Key 安全粒度管理(2026-07-31 立,admin 侧管理用户/租户 API Key + 过期/IP白名单/模型白名单/token上限)
+import relayApiKeysRoutes from './admin/relay-api-keys.js'
 // P0 中转站造血能力对标批次(2026-07-31 立):Anthropic 原生格式 + 兑换码 + 模型映射
 import adminModelMappingsRoutes from './admin/model-mappings.js'
 import adminRedemptionCodesRoutes from './admin/redemption-codes.js'
@@ -984,6 +986,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayKeyPoolRoutes, { prefix: '/api' })
   server.register(relayDiscoveryRoutes, { prefix: '/api' })
   server.register(relayLogsRoutes, { prefix: '/api' })
+  // P0-7 admin 侧 API Key 安全粒度管理(列表/创建/详情/按租户统计/强制更新,含过期/IP白名单/模型白名单/token上限)
+  server.register(relayApiKeysRoutes, { prefix: '/api' })
   // admin 实时监控 Dashboard 聚合端点(overview/model-distribution/trend/top-users)
   server.register(adminRelayStatsRoutes, { prefix: '/api/admin' })
   // 公开端点:GET /api/relay/models/public(无需鉴权,返回中转站已上架模型清单 + 定价倍率)
