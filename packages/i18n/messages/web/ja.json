@@ -12716,19 +12716,41 @@
     "thinking": {
       "title": "思考プロセス",
       "collapse": "折りたたむ",
-      "expand": "展開する"
+      "expand": "展開する",
+      "alt": "思考プロセス {index}",
+      "close": "閉じる",
+      "previewAlt": "思考プロセス {index} プレビュー",
+      "prev": "前へ",
+      "next": "次へ",
+      "playFailed": "再生失敗",
+      "pause": "一時停止",
+      "play": "再生"
     },
     "image": {
       "alt": "画像 {index}",
       "previewAlt": "画像 {index} プレビュー",
       "close": "閉じる",
       "prev": "前へ",
-      "next": "次へ"
+      "next": "次へ",
+      "title": "画像",
+      "collapse": "折りたたむ",
+      "expand": "展開",
+      "playFailed": "画像の読み込みに失敗",
+      "pause": "一時停止",
+      "play": "再生"
     },
     "audio": {
       "playFailed": "音声の再生に失敗しました",
       "pause": "一時停止",
-      "play": "再生"
+      "play": "再生",
+      "title": "オーディオ",
+      "collapse": "折りたたむ",
+      "expand": "展開",
+      "alt": "オーディオ {index}",
+      "close": "閉じる",
+      "previewAlt": "オーディオ {index} プレビュー",
+      "prev": "前へ",
+      "next": "次へ"
     }
   },
   "agentRuntimePanel": {
