@@ -12683,19 +12683,41 @@
     "thinking": {
       "title": "Thinking Process",
       "collapse": "Collapse",
-      "expand": "Expand"
+      "expand": "Expand",
+      "alt": "Thinking process {index}",
+      "close": "Close",
+      "previewAlt": "Thinking process {index} preview",
+      "prev": "Previous",
+      "next": "Next",
+      "playFailed": "Playback failed",
+      "pause": "Pause",
+      "play": "Play"
     },
     "image": {
       "alt": "Image {index}",
       "previewAlt": "Image {index} preview",
       "close": "Close",
       "prev": "Previous",
-      "next": "Next"
+      "next": "Next",
+      "title": "Image",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "playFailed": "Image load failed",
+      "pause": "Pause",
+      "play": "Play"
     },
     "audio": {
       "playFailed": "Audio playback failed",
       "pause": "Pause",
-      "play": "Play"
+      "play": "Play",
+      "title": "Audio",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "alt": "Audio {index}",
+      "close": "Close",
+      "previewAlt": "Audio {index} preview",
+      "prev": "Previous",
+      "next": "Next"
     }
   },
   "agentRuntimePanel": {
