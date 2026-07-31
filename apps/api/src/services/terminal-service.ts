@@ -188,6 +188,19 @@ function getRedis(): IORedis | null {
   return redisClient
 }
 
+/** 进程信号钩子:优雅关闭 Redis 连接(与 account-lockout/expiration-monitor 同模式)。
+ *  不调用 process.exit(),让 index.ts shutdown() 统一管理进程退出。 */
+function closeTerminalRedis(): void {
+  if (redisClient) {
+    redisClient.quit().catch(() => {
+      /* ignore — 进程退出中 */
+    })
+    redisClient = null
+  }
+}
+process.once('SIGTERM', closeTerminalRedis)
+process.once('SIGINT', closeTerminalRedis)
+
 function scrollbackKey(sessionId: string): string {
   return `terminal:scrollback:${sessionId}`
 }
