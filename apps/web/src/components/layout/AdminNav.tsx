@@ -227,6 +227,7 @@ interface AdminNavItem {
     | 'adminRelayModelMappings'
     | 'adminRelayRedemptionCodes'
     | 'adminProvidersHealth'
+    | 'imChannels'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -586,8 +587,20 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       // P0 中转站造血能力对标批次(2026-07-31 立):模型映射(渠道管理)
       { href: '/admin/relay/channels', labelKey: 'adminRelayModelMappings', icon: Shuffle },
       // P0 第四批次(2026-08-01 立):渠道配额 + 充值阶梯折扣
-      { href: '/admin/channel-quota', labelKey: 'dashboard', icon: Gauge, dynamicLabel: 'Channel Quota' },
-      { href: '/admin/topup-config', labelKey: 'dashboard', icon: TrendingUp, dynamicLabel: 'Topup Config' },
+      {
+        href: '/admin/channel-quota',
+        labelKey: 'dashboard',
+        icon: Gauge,
+        dynamicLabel: 'Channel Quota',
+      },
+      {
+        href: '/admin/topup-config',
+        labelKey: 'dashboard',
+        icon: TrendingUp,
+        dynamicLabel: 'Topup Config',
+      },
+      // P0 IM 多平台远程连接控制(2026-07-31 立,16 平台适配器配置 + 消息历史)
+      { href: '/admin/im-channels', labelKey: 'imChannels', icon: MessageSquareReply },
     ],
   },
   // 营销直播
@@ -903,6 +916,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminRelayModelMappings: 'nav.adminRelayModelMappings',
   adminRelayRedemptionCodes: 'nav.adminRelayRedemptionCodes',
   adminProvidersHealth: 'nav.adminProvidersHealth',
+  imChannels: 'nav.imChannels',
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */

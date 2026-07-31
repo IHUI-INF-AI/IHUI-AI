@@ -95,3 +95,27 @@ export * from './ui-native-components'
 
 // Admin 后台业务类型契约(2026-07-28 立,从 apps/web/app/(main)/admin/**/types.ts 9 个文件下沉)
 export * from './admin-types'
+
+// IM 多平台远程连接控制跨端契约(2026-07-31 立,P0 admin/im-channels 配套)
+// 16 平台元数据 + 适配器配置 + 网关状态 + 消息历史 + 富卡片类型
+// 显式 re-export 解决与 agent-runtime.ts 旧版 Im* 类型的同名冲突(TS2308);
+// im-gateway.ts 为整合后的最新版本(字段更全:ImMessageType +approval / ImAdapterConfig +useLarkCli)
+export {
+  type ImPlatform,
+  type ImMessageDirection,
+  type ImMessageType,
+  type ImInboundMessage,
+  type ImOutboundMessage,
+  type ImAdapterConfig,
+  type ImGatewayStatus,
+  type ImRichCard,
+  type ImCardElement,
+  type ImCardAction,
+  type ImFileMessage,
+  type ImAudioVideoMessage,
+  type ImApprovalMessage,
+  type ImMessageHistoryItem,
+  type ImAdapterUpsertInput,
+  type ImAdapterFieldSchema,
+  type ImPlatformMeta,
+} from './im-gateway'
