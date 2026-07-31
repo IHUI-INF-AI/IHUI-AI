@@ -235,6 +235,7 @@
     "adminRelayKeyPool": "Key 池",
     "adminRelayDiscovery": "动态发现",
     "adminRelayLogs": "中转日志",
+    "adminProvidersHealth": "Provider 余额健康",
     "modelsOverview": "模型总览",
     "modelsMarket": "模型市场",
     "modelsChannels": "渠道管理",
