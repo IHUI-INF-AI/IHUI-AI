@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, Terminal as TerminalIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TerminalSession, TerminalSessionStatus } from '@ihui/types'
@@ -63,11 +64,12 @@ export function TerminalSessionList({
   onClose,
   onNew,
 }: TerminalSessionListProps) {
+  const t = useTranslations('ide')
   return (
     <div className="flex h-full w-full flex-col gap-2 overflow-hidden border border-border bg-card p-2">
       {/* 标题栏 */}
       <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-medium text-foreground">终端会话</span>
+        <span className="text-xs font-medium text-foreground">{t('terminalSessionList.title')}</span>
         <button
           type="button"
           className={cn(
@@ -77,7 +79,7 @@ export function TerminalSessionList({
           )}
           onClick={onNew}
           disabled={loading}
-          aria-label="新建终端"
+          aria-label={t('terminalSessionList.newTerminalAria')}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -87,7 +89,7 @@ export function TerminalSessionList({
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         {sessions.length === 0 ? (
           <div className="flex flex-1 items-center justify-center px-3 py-4 text-xs text-muted-foreground">
-            {loading ? '加载中...' : '暂无终端会话'}
+            {loading ? t('terminalSessionList.loading') : t('terminalSessionList.empty')}
           </div>
         ) : (
           sessions.map((session, index) => {
@@ -145,7 +147,7 @@ export function TerminalSessionList({
                         e.stopPropagation()
                         onClose(session.id)
                       }}
-                      aria-label="关闭终端"
+                      aria-label={t('terminalSessionList.closeTerminalAria')}
                     >
                       <X className="h-3 w-3" />
                     </button>
