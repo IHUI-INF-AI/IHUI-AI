@@ -655,6 +655,82 @@ export async function restartApp(): Promise<void> {
   }
 }
 
+// ================== 退出时自动更新(2026-07-31 立)==================
+// 模块级状态镜像:让退出流程(非 React 上下文)能读取 useUpdater 的最新状态,
+// 避免退出时重复检查 / 重复下载。
+
+/** 更新已下载安装完成,等待重启(useUpdater.downloadAndInstall 成功后设为 true)。 */
+let _updateInstalledPendingRestart = false
+
+/** 有可用更新会话但尚未下载(useUpdater.checkForUpdate 发现更新后缓存)。 */
+let _availableSession: UpdateSession | null = null
+
+/** 标记更新已安装待重启(由 useUpdater 调用)。 */
+export function markUpdateInstalled(): void {
+  _updateInstalledPendingRestart = true
+}
+
+/** 设置 / 清除可用更新会话(由 useUpdater 调用)。 */
+export function setAvailableUpdateSession(session: UpdateSession | null): void {
+  _availableSession = session
+}
+
+/** 退出时自动更新状态回调。 */
+export type QuitUpdateStatus = 'checking' | 'downloading' | 'restarting' | 'quitting'
+
+/**
+ * 退出应用前检查并自动更新(2026-07-31 立,平台独占:仅桌面端)。
+ *
+ * 流程:
+ * 1. 若已有更新安装完成(待重启) → 直接 restartApp(拉起新版本)
+ * 2. 若有可用更新会话(已检查未下载)/ 重新检查发现更新 → downloadAndInstall → restartApp
+ * 3. 无更新 → quitApp(正常退出)
+ * 任何错误 → quitApp(不阻塞退出)
+ *
+ * @param onProgress 下载进度回调
+ * @param onStatus 状态变化回调(checking/downloading/restarting/quitting)
+ */
+export async function quitAndUpdateIfNeeded(
+  onProgress?: (p: UpdateProgress) => void,
+  onStatus?: (status: QuitUpdateStatus) => void,
+): Promise<void> {
+  if (!isTauri()) return
+
+  try {
+    // 1. 已安装待重启 — 直接重启(瞬时操作)
+    if (_updateInstalledPendingRestart) {
+      onStatus?.('restarting')
+      await restartApp()
+      return
+    }
+
+    // 2. 有可用更新会话(来自 useUpdater 的缓存)或重新检查
+    onStatus?.('checking')
+    const session = _availableSession ?? (await checkForUpdates())
+    _availableSession = null
+
+    if (session) {
+      onStatus?.('downloading')
+      await session.downloadAndInstall((p) => {
+        _updateInstalledPendingRestart = true
+        onProgress?.(p)
+      })
+      _updateInstalledPendingRestart = true
+      onStatus?.('restarting')
+      await restartApp()
+      return
+    }
+
+    // 3. 无更新,正常退出
+    onStatus?.('quitting')
+    await quitApp()
+  } catch (e) {
+    console.warn('[updater] quit-and-update failed, quitting normally:', e)
+    onStatus?.('quitting')
+    await quitApp()
+  }
+}
+
 // ================== Computer Control ==================
 
 /** 截图结果(base64 PNG)。 */

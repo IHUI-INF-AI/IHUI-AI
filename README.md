@@ -532,7 +532,11 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - 8 方向 resize 区域(边 9999 / 角 10000)+ 拖拽 + 双击最大化(250ms 状态机,与 sidebar.tsx 复用)
 - 窗口控制按钮(Min/Max/Close,zh-10001),最大化时隐藏 resize 区域
 - 走 `tauri-bridge` 单一桥接层(`minimizeWindow` / `toggleMaximizeWindow` / `closeWindow` / `startWindowDrag` / `startResize` / `onMaximizeChange`)
-- 应用更新推送:Tauri 2 updater 插件 + Rust `restart_app` 命令,启动静默检查 + 托盘菜单触发 + 下拉窗提示(shimmer 光泽动画按钮 + SVG 进度环 + 完成勾选描边动画),`useUpdater` 状态机(idle → checking → available → downloading → installing → done)
+- 应用更新推送:Tauri 2 updater 插件 + Rust `restart_app` 命令,三阶段自动更新策略:
+  - **打开程序**:启动 5s 后静默检查,发现更新自动下载安装(下拉窗显示进度),完成后提示重启
+  - **关闭程序**:退出时(Ctrl+Q / 托盘退出)自动拦截,检查+下载+安装+重启,全屏进度遮罩 + "跳过"选项
+  - **使用中手动检查**:托盘菜单"检查更新"触发,显示弹窗 + "立即更新"按钮,用户自主选择
+  - `useUpdater` 状态机(idle → checking → available → downloading → installing → done)+ `quitAndUpdateIfNeeded` 退出更新守卫 + `QuitUpdateOverlay` 全屏遮罩组件
 
 ### 高度 / 对齐根治(2026-07-30 二轮 UI 反馈)
 
