@@ -199,7 +199,7 @@ export async function adminGetConfig(): Promise<ApiResult<AdminConfig>> {
 
 export async function adminUpdateConfig(input: AdminConfig): Promise<ApiResult<AdminConfig>> {
   return fetchApi<AdminConfig>('/admin/configs', {
-    method: 'PATCH',
+    method: 'PUT',
     body: JSON.stringify(input),
   })
 }
