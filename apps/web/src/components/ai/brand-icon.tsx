@@ -61,6 +61,7 @@ import {
   DeepInfra,
   AlephAlpha,
   NousResearch,
+  Github,
   GithubCopilot,
   VertexAI,
   GoogleCloud,
@@ -98,7 +99,10 @@ import {
   TII,
   Liquid,
   Ai2,
+  Figma,
 } from '@lobehub/icons'
+
+import { Chrome, Video } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -115,8 +119,8 @@ import { cn } from '@/lib/utils'
  *   - 国际云/平台/聚合:AWS / AWS Bedrock / Azure / Azure AI / OpenRouter
  *              HuggingFace / Replicate / Stability AI / Inflection AI (Pi)
  *              IBM Watsonx / Cerebras / SambaNova / Snowflake / DeepInfra
- *              Aleph Alpha / NousResearch / Github Copilot / Vertex AI
- *              Google Cloud / Gemma / PaLM / Microsoft Copilot / Bing
+ *              Aleph Alpha / NousResearch / GitHub / Github Copilot / Vertex AI
+ *              Google Cloud / Gemma / PaLM / Microsoft Copilot / Bing / Figma
  *   - 国际推理/云平台扩展:Novita / Lambda / Baseten / Crusoe / Targon
  *              CentML / Nebius / Ollama / Upstage / LeptonAI
  *              Hyperbolic / Featherless / Parasail / OpenWebUI / LmStudio
@@ -128,6 +132,7 @@ import { cn } from '@/lib/utils'
  *              Baichuan 百川 / Spark 讯飞星火 / Wenxin 文心一言 / Yi 零一万物
  *              SenseNova 商汤 / Tiangong 天工 / InternLM 书生
  *   - 集团:ByteDance / Coze / Alibaba / Tencent / Huawei / Tongyi / Qingyan / ChatGLM / Kimi
+ *   - 2026-07-31 兜底:Chrome / Remotion / Hyperframes(lobehub 无收录,lucide 同色兜底)
  */
 
 /** 厂商代码 → @lobehub/icons 组件映射 */
@@ -172,7 +177,7 @@ const VENDOR_COMPONENTS: Record<
   alephalpha: AlephAlpha,
   nous: NousResearch,
   nousresearch: NousResearch,
-  github: GithubCopilot,
+  github: Github,
   githubcopilot: GithubCopilot,
   vertexai: VertexAI,
   vertex: VertexAI,
@@ -241,6 +246,11 @@ const VENDOR_COMPONENTS: Record<
   alibaba: Alibaba,
   tencent: Tencent,
   huawei: Huawei,
+  // 2026-07-31 Codex 10 插件补全:Chrome / Figma(已收录) / Remotion / Hyperframes
+  chrome: Chrome, // lucide 兜底(@lobehub 无 Chrome 真实矢量)
+  figma: Figma, // @lobehub/icons 真实 Figma 矢量
+  remotion: Video, // lucide 兜底(@lobehub 无 Remotion 真实矢量,与 video 共享)
+  hyperframes: Video, // lucide 兜底(@lobehub 无 Hyperframes 真实矢量,与 video 共享)
 }
 
 /** 根据 model 字符串前缀推断厂商代码 */
