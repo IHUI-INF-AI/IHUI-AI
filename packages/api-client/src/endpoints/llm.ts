@@ -192,9 +192,114 @@ export interface ProviderHealth {
  *  与旧版 fetchProvidersHealth(返回 ProvidersHealthResult,网关 Dashboard 用)并存,互不影响。
  *  后端 /llm/providers/health 升级后返回 {code:0, data:{providers:[...]}},fetchApi 解析信封取 data.providers */
 export async function fetchProvidersHealthLite(): Promise<ProviderHealth[]> {
-  const res = await fetchApi<{ providers: ProviderHealth[] }>('/llm/providers/health', { method: 'GET' })
+  const res = await fetchApi<{ providers: ProviderHealth[] }>('/llm/providers/health', {
+    method: 'GET',
+  })
   if (!res.success) {
     throw new Error(res.error || '获取 Provider 健康状态失败')
   }
   return res.data?.providers ?? []
+}
+
+// ============= Provider 余额与健康状态(2026-07-31 立,Admin 端 Provider 健康面板)==============
+// 用户规则:账户没钱 / key 失效 / 接不通的 provider 不应进模型列表;管理端需可视化 + 跳转充值按钮
+
+/** Provider 健康状态(与 ai-service ModelAvailabilityService.ProviderHealthStatus 对齐) */
+export type ProviderAvailabilityStatus =
+  'healthy' | 'degraded' | 'down' | 'not_configured' | 'local' | 'zero_cost' | 'pending'
+
+/** Provider 错误类型(细化 DOWN 原因,决定是否显示"去充值"按钮) */
+export type ProviderErrorType =
+  | 'none'
+  | 'payment_required' // 402 余额不足/账户没钱(需充值)
+  | 'forbidden' // 403 无权限/key 失效
+  | 'rate_limited' // 429 限流(仍可用,只是慢)
+  | 'timeout' // 请求超时
+  | 'network_error' // 网络错误(连不上)
+  | 'invalid_key' // 401 key 无效
+  | 'unknown'
+
+/** 单个 Provider 的可用性信息(后端 /llm/providers/availability 返回) */
+export interface ProviderAvailabilityItem {
+  provider_code: string
+  status: ProviderAvailabilityStatus
+  latency_ms: number
+  last_check: number
+  error: string
+  error_type: ProviderErrorType
+  /** 账户余额(若 provider 支持余额查询);null 表示未查询 */
+  balance: number | null
+  /** 余额货币单位(如 "USD" / "CNY") */
+  balance_currency: string | null
+  /** 充值/billing 页面 URL(管理端"去充值"按钮跳转用) */
+  recharge_url: string
+}
+
+/** /llm/providers/availability 响应(信封内 data 字段结构) */
+export interface ProviderAvailabilityResult {
+  providers: ProviderAvailabilityItem[]
+  summary: {
+    total: number
+    healthy: number
+    degraded: number
+    down: number
+    local: number
+    zero_cost: number
+  }
+}
+
+/** 获取 Provider 余额与健康状态 — GET /llm/providers/availability
+ *  用于 Admin 端"Provider 余额健康"页面:展示每个 provider 的状态/余额/错误,并提供"去充值"按钮。
+ *  账户没钱的 provider(error_type=payment_required 或 balance<=0)在 /llm/models 已被过滤,不显示给终端用户。 */
+export async function fetchProvidersAvailability(): Promise<ProviderAvailabilityResult> {
+  const res = await fetchApi<ProviderAvailabilityResult>('/llm/providers/availability', {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取 Provider 可用性失败')
+  }
+  return res.data
+}
+
+// ============= 模型自动同步(ModelSyncService)=============
+
+/** 单个 provider 的同步结果 */
+export interface ModelSyncResult {
+  provider_code: string
+  success: boolean
+  total_models: number
+  new_models: number
+  removed_models: number
+  error: string
+  latency_ms: number
+}
+
+/** 模型同步状态 */
+export interface ModelSyncStatus {
+  last_sync_at: string
+  last_sync_duration_ms: number
+  total_providers: number
+  total_new_models: number
+  total_removed_models: number
+  is_syncing: boolean
+  results: ModelSyncResult[]
+}
+
+/** 触发模型自动同步 — POST /llm/models/sync
+ *  返回同步状态(含每个 provider 的结果) */
+export async function triggerModelSync(): Promise<ModelSyncStatus> {
+  const res = await fetchApi<ModelSyncStatus>('/llm/models/sync', { method: 'POST' })
+  if (!res.success) {
+    throw new Error(res.error || '触发模型同步失败')
+  }
+  return res.data
+}
+
+/** 查询模型同步状态 — GET /llm/models/sync/status */
+export async function fetchModelSyncStatus(): Promise<ModelSyncStatus> {
+  const res = await fetchApi<ModelSyncStatus>('/llm/models/sync/status', { method: 'GET' })
+  if (!res.success) {
+    throw new Error(res.error || '获取模型同步状态失败')
+  }
+  return res.data
 }

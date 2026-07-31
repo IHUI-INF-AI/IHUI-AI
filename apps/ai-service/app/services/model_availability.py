@@ -228,6 +228,23 @@ class ProviderHealthStatus(str, Enum):
     PENDING = "pending"                    # 尚未检测(启动初期)— 宽松显示
 
 
+class ProviderErrorType(str, Enum):
+    """provider 错误类型(细化 DOWN 原因,2026-07-31 立)。
+
+    用户规则:账户没钱 / key 失效 / 接不通的 provider 不应进模型列表;
+    管理端需可视化错误类型 + 跳转充值按钮。
+    """
+
+    NONE = "none"                          # 无错误(健康)
+    PAYMENT_REQUIRED = "payment_required"  # 402 余额不足/账户没钱(需充值)— 管理端显示"去充值"按钮
+    FORBIDDEN = "forbidden"                # 403 无权限/key 失效
+    RATE_LIMITED = "rate_limited"          # 429 限流(仍可用,只是慢)— DEGRADED
+    TIMEOUT = "timeout"                    # 请求超时
+    NETWORK_ERROR = "network_error"        # 网络错误(连不上)
+    INVALID_KEY = "invalid_key"            # 401 key 无效
+    UNKNOWN = "unknown"                    # 未知错误
+
+
 @dataclass
 class ProviderHealth:
     """单个 provider 的健康状态。"""
@@ -236,6 +253,11 @@ class ProviderHealth:
     latency_ms: int = 0
     last_check: float = 0.0  # unix timestamp
     error: str = ""
+    # 2026-07-31 新增字段(用户规则:账户没钱需可视化 + 跳转充值)
+    error_type: ProviderErrorType = ProviderErrorType.NONE
+    balance: Optional[float] = None
+    balance_currency: Optional[str] = None
+    recharge_url: str = ""
 
 
 # ============================================================================
@@ -384,7 +406,7 @@ class ModelAvailabilityService:
 
         async def _ping_one(code: str, key: str, base: str) -> None:
             async with semaphore:
-                health = await self._ping_provider(code, key, base)
+                health = await self._ping_provider_v2(code, key, base)
                 async with self._lock:
                     self._health[code] = health
 
@@ -406,36 +428,179 @@ class ModelAvailabilityService:
             len(providers_to_ping), healthy, degraded, down, local, zero_cost,
         )
 
-    async def _ping_provider(self, code: str, api_key: str, api_base: str) -> ProviderHealth:
-        """ping 单个 provider:调 /v1/models 或 /models 端点。
 
-        判定规则:
-        - 200 + 延迟 ≤ 10s  → HEALTHY
-        - 200 + 延迟 10-30s  → DEGRADED(仍显示)
-        - 200 + 延迟 > 30s  → DOWN(不显示)
-        - 401/403            → DOWN(key 失效,不显示)
-        - 429                → DEGRADED(限流,仍显示)
-        - 超时/网络错误       → DOWN(不显示)
+    async def _ping_provider_v2(self, code: str, api_key: str, api_base: str) -> ProviderHealth:
+        """ping 单个 provider:先查余额端点(若支持),降级推理请求 ping。
 
-        Args:
-            code: provider_code(用于日志)
-            api_key: provider 的 API key
-            api_base: provider 的 base URL(如 https://api.stepfun.com/step_plan/v1)
-
-        Returns:
-            ProviderHealth 健康状态对象
+        2026-07-31 v2 升级(用户规则:账户没钱需过滤 + 可视化 + 跳转充值):
+        - 策略 1:若 provider 有 balance_endpoint,优先查余额
+          - 余额 > 0 → HEALTHY(附带余额信息)
+          - 余额 = 0 → DOWN + error_type=PAYMENT_REQUIRED(账户没钱,管理端显示"去充值")
+          - 余额查询失败 → 降级到策略 2
+        - 策略 2:发送 max_tokens=1 推理请求(消耗 1 token,实测可用性)
+          - 200 + 延迟 ≤ 10s  → HEALTHY
+          - 200 + 延迟 10-30s  → DEGRADED(仍显示)
+          - 200 + 延迟 > 30s  → DOWN(不显示)
+          - 401 → DOWN + INVALID_KEY
+          - 402 → DOWN + PAYMENT_REQUIRED(余额不足,需充值)
+          - 403 → DOWN + FORBIDDEN
+          - 429 → DEGRADED + RATE_LIMITED(限流,仍可用)
+          - 超时 → DOWN + TIMEOUT
+          - 网络错误 → DOWN + NETWORK_ERROR
         """
-        # 构造 /models URL(根据 base_url 是否已含 /v1 自动适配)
-        url = api_base.rstrip("/")
-        if url.endswith("/v1"):
-            url = f"{url}/models"
-        else:
-            url = f"{url}/v1/models"
+        balance_endpoint = free_provider_registry.get_balance_endpoint(code)
+        recharge_url = free_provider_registry.get_recharge_url(code)
 
         start = time.monotonic()
         try:
             async with httpx.AsyncClient(timeout=PING_TIMEOUT_S) as client:
-                resp = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
+                if balance_endpoint:
+                    balance, currency, err_type, err_msg = await self._query_balance(
+                        client, code, balance_endpoint, api_key
+                    )
+                    latency = int((time.monotonic() - start) * 1000)
+                    if err_type == ProviderErrorType.NONE and balance is not None:
+                        if balance > 0:
+                            return ProviderHealth(
+                                status=ProviderHealthStatus.HEALTHY,
+                                latency_ms=latency,
+                                last_check=time.time(),
+                                balance=balance,
+                                balance_currency=currency,
+                                recharge_url=recharge_url,
+                            )
+                        return ProviderHealth(
+                            status=ProviderHealthStatus.DOWN,
+                            latency_ms=latency,
+                            last_check=time.time(),
+                            error=f"余额为 0({currency or 'unknown'}),账户没钱",
+                            error_type=ProviderErrorType.PAYMENT_REQUIRED,
+                            balance=balance,
+                            balance_currency=currency,
+                            recharge_url=recharge_url,
+                        )
+                    logger.debug(
+                        "[%s] balance query failed (%s: %s), fallback to inference ping",
+                        code, err_type.value, err_msg,
+                    )
+                return await self._inference_ping(client, code, api_key, api_base, start, recharge_url)
+        except httpx.TimeoutException:
+            return ProviderHealth(
+                status=ProviderHealthStatus.DOWN,
+                latency_ms=int((time.monotonic() - start) * 1000),
+                last_check=time.time(),
+                error=f"timeout after {PING_TIMEOUT_S}s",
+                error_type=ProviderErrorType.TIMEOUT,
+                recharge_url=recharge_url,
+            )
+        except Exception as e:
+            return ProviderHealth(
+                status=ProviderHealthStatus.DOWN,
+                last_check=time.time(),
+                error=f"{type(e).__name__}: {str(e)[:200]}",
+                error_type=ProviderErrorType.NETWORK_ERROR,
+                recharge_url=recharge_url,
+            )
+
+    async def _query_balance(
+        self,
+        client: httpx.AsyncClient,
+        code: str,
+        balance_url: str,
+        api_key: str,
+    ) -> tuple[Optional[float], Optional[str], ProviderErrorType, str]:
+        """查 provider 余额(支持 openrouter/deepseek/siliconcloud 等已知端点)。
+
+        Returns:
+            (balance, currency, error_type, error_msg)
+            - 成功:(余额, 货币, NONE, "")
+            - 失败:(None, None, 错误类型, 错误描述)
+        """
+        try:
+            resp = await client.get(balance_url, headers={"Authorization": f"Bearer {api_key}"})
+            if resp.status_code != 200:
+                err_type = self._http_status_to_error_type(resp.status_code)
+                return None, None, err_type, f"HTTP {resp.status_code}"
+            data = resp.json()
+
+            if code == "openrouter":
+                d = data.get("data") or {}
+                total = float(d.get("total_credits") or 0)
+                usage = float(d.get("total_usage") or 0)
+                return max(0.0, total - usage), "USD", ProviderErrorType.NONE, ""
+
+            if code == "deepseek":
+                infos = data.get("balance_infos") or []
+                if not infos:
+                    return None, None, ProviderErrorType.UNKNOWN, "no balance_infos"
+                info = infos[0]
+                return float(info.get("total_balance") or 0), info.get("currency") or "CNY", ProviderErrorType.NONE, ""
+
+            if code == "siliconcloud":
+                d = data.get("data") or {}
+                return float(d.get("balance") or 0), "CNY", ProviderErrorType.NONE, ""
+
+            for key_path in (("balance",), ("data", "balance"), ("data", "total_credits"), ("total_balance",)):
+                v: Any = data
+                for k in key_path:
+                    if not isinstance(v, dict):
+                        v = None
+                        break
+                    v = v.get(k)
+                if isinstance(v, (int, float)) and v >= 0:
+                    return float(v), "USD", ProviderErrorType.NONE, ""
+
+            return None, None, ProviderErrorType.UNKNOWN, "balance field not found in response"
+        except httpx.TimeoutException:
+            return None, None, ProviderErrorType.TIMEOUT, "timeout"
+        except Exception as e:
+            return None, None, ProviderErrorType.NETWORK_ERROR, f"{type(e).__name__}: {str(e)[:100]}"
+
+    async def _inference_ping(
+        self,
+        client: httpx.AsyncClient,
+        code: str,
+        api_key: str,
+        api_base: str,
+        start: float,
+        recharge_url: str,
+    ) -> ProviderHealth:
+        """推理请求 ping:发送 max_tokens=1 的 chat 请求(消耗 1 token 实测可用性)。
+
+        比 /v1/models 端点更准确(/models 可能因权限不足返回 200 但实际无法推理),
+        且能识别 402 余额不足(/models 端点不返回 402)。
+        """
+        url = api_base.rstrip("/")
+        if url.endswith("/v1"):
+            url = f"{url}/chat/completions"
+        else:
+            url = f"{url}/v1/chat/completions"
+
+        provider = free_provider_registry.get_by_code(code)
+        model_id = ""
+        if provider and provider.default_models:
+            model_id = provider.default_models[0]
+            for prefix in ("stepfun/", "agnes/"):
+                if model_id.startswith(prefix):
+                    model_id = model_id[len(prefix):]
+                    break
+        if not model_id:
+            model_id = "gpt-3.5-turbo"
+
+        try:
+            resp = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model_id,
+                    "messages": [{"role": "user", "content": "ping"}],
+                    "max_tokens": 1,
+                    "stream": False,
+                },
+            )
             latency = int((time.monotonic() - start) * 1000)
 
             if resp.status_code == 200:
@@ -445,38 +610,32 @@ class ModelAvailabilityService:
                         latency_ms=latency,
                         last_check=time.time(),
                         error=f"latency {latency}ms > {LATENCY_DOWN_MS}ms threshold",
+                        error_type=ProviderErrorType.TIMEOUT,
+                        recharge_url=recharge_url,
                     )
                 if latency > LATENCY_DEGRADED_MS:
                     return ProviderHealth(
                         status=ProviderHealthStatus.DEGRADED,
                         latency_ms=latency,
                         last_check=time.time(),
+                        recharge_url=recharge_url,
                     )
                 return ProviderHealth(
                     status=ProviderHealthStatus.HEALTHY,
                     latency_ms=latency,
                     last_check=time.time(),
+                    recharge_url=recharge_url,
                 )
 
-            if resp.status_code in (401, 403):
-                return ProviderHealth(
-                    status=ProviderHealthStatus.DOWN,
-                    latency_ms=latency,
-                    last_check=time.time(),
-                    error=f"HTTP {resp.status_code}: key 失效或无权访问",
-                )
-            if resp.status_code == 429:
-                return ProviderHealth(
-                    status=ProviderHealthStatus.DEGRADED,
-                    latency_ms=latency,
-                    last_check=time.time(),
-                    error="HTTP 429: 限流",
-                )
+            err_type = self._http_status_to_error_type(resp.status_code)
+            status = ProviderHealthStatus.DEGRADED if err_type == ProviderErrorType.RATE_LIMITED else ProviderHealthStatus.DOWN
             return ProviderHealth(
-                status=ProviderHealthStatus.DEGRADED,
+                status=status,
                 latency_ms=latency,
                 last_check=time.time(),
-                error=f"HTTP {resp.status_code}",
+                error=f"HTTP {resp.status_code}: {resp.text[:150]}",
+                error_type=err_type,
+                recharge_url=recharge_url,
             )
         except httpx.TimeoutException:
             return ProviderHealth(
@@ -484,13 +643,32 @@ class ModelAvailabilityService:
                 latency_ms=int((time.monotonic() - start) * 1000),
                 last_check=time.time(),
                 error=f"timeout after {PING_TIMEOUT_S}s",
+                error_type=ProviderErrorType.TIMEOUT,
+                recharge_url=recharge_url,
             )
         except Exception as e:
             return ProviderHealth(
                 status=ProviderHealthStatus.DOWN,
                 last_check=time.time(),
                 error=f"{type(e).__name__}: {str(e)[:200]}",
+                error_type=ProviderErrorType.NETWORK_ERROR,
+                recharge_url=recharge_url,
             )
+
+    @staticmethod
+    def _http_status_to_error_type(status: int) -> ProviderErrorType:
+        """HTTP 状态码 → ProviderErrorType 映射。"""
+        if status == 401:
+            return ProviderErrorType.INVALID_KEY
+        if status == 402:
+            return ProviderErrorType.PAYMENT_REQUIRED
+        if status == 403:
+            return ProviderErrorType.FORBIDDEN
+        if status == 429:
+            return ProviderErrorType.RATE_LIMITED
+        if status == 408:
+            return ProviderErrorType.TIMEOUT
+        return ProviderErrorType.UNKNOWN
 
     def get_provider_health(self, provider_code: str) -> ProviderHealth:
         """获取 provider 健康状态(从缓存读,不触发 ping)。
@@ -563,7 +741,11 @@ class ModelAvailabilityService:
         return [m for m in default_models if self.is_model_available(m.get("id", ""))]
 
     def get_health_summary(self) -> dict[str, Any]:
-        """获取所有 provider 健康状态摘要(供 Dashboard 调试)。"""
+        """获取所有 provider 健康状态摘要(供 Admin 端 Provider 健康面板消费)。
+
+        2026-07-31 升级:返回 error_type/balance/balance_currency/recharge_url 字段,
+        管理端用 error_type=payment_required 或 balance<=0 判断是否显示"去充值"按钮。
+        """
         return {
             "providers": [
                 {
@@ -572,6 +754,10 @@ class ModelAvailabilityService:
                     "latency_ms": h.latency_ms,
                     "last_check": h.last_check,
                     "error": h.error,
+                    "error_type": h.error_type.value,
+                    "balance": h.balance,
+                    "balance_currency": h.balance_currency,
+                    "recharge_url": h.recharge_url,
                 }
                 for code, h in self._health.items()
             ],
