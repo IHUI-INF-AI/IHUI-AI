@@ -540,6 +540,12 @@ class ModelAvailabilityService:
                 d = data.get("data") or {}
                 return float(d.get("balance") or 0), "CNY", ProviderErrorType.NONE, ""
 
+            if code == "stepfun":
+                # https://platform.stepfun.com/docs/api-reference/accounts/get
+                # 返回 {object, type, balance, total_cash_balance, total_voucher_balance}
+                # balance=可用余额(含赠送),total_cash_balance=现金余额,total_voucher_balance=赠送余额
+                return float(data.get("balance") or 0), "CNY", ProviderErrorType.NONE, ""
+
             for key_path in (("balance",), ("data", "balance"), ("data", "total_credits"), ("total_balance",)):
                 v: Any = data
                 for k in key_path:
