@@ -8,658 +8,1163 @@
       "name": "Step Router v1 (StepFun 智能路由,默认主力)",
       "provider": "stepfun",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
     {
       "id": "stepfun/step-3.7-flash",
       "name": "Step 3.7 Flash (StepFun,轻量快版)",
       "provider": "stepfun",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
     {
       "id": "agnes/gpt-4o",
       "name": "GPT-4o (Agnes Plan)",
       "provider": "agnes",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
     {
       "id": "groq/llama-3.3-70b-versatile",
       "name": "Llama 3.3 70B (Groq 免费)",
       "provider": "groq",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
     {
       "id": "gemini/gemini-1.5-flash",
       "name": "Gemini 1.5 Flash (免费)",
       "provider": "google",
       "context_length": 1000000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": true,
+        "max_context": 1000000,
+        "protocol": "gemini_generate_content"
+      }
     },
     {
       "id": "openrouter/auto",
       "name": "OpenRouter Auto (免费路由)",
       "provider": "openrouter",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "gpt-4o",
       "name": "GPT-4o",
       "provider": "openai",
       "context_length": 128000,
-      "input_price": 2.5
+      "input_price": 2.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": true,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
     {
       "id": "gpt-4o-mini",
       "name": "GPT-4o mini",
       "provider": "openai",
       "context_length": 128000,
-      "input_price": 0.15
+      "input_price": 0.15,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": true,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "claude-3-5-sonnet",
       "name": "Claude 3.5 Sonnet",
       "provider": "anthropic",
       "context_length": 200000,
-      "input_price": 3.0
+      "input_price": 3.0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": true,
+        "max_context": 200000,
+        "protocol": "anthropic_messages"
+      }
     },
-
     {
       "id": "gemma-2-27b-it",
       "name": "Gemma 2 27B",
       "provider": "gemma",
       "context_length": 8192,
-      "input_price": 0.1
+      "input_price": 0.1,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 8192,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "deepseek-chat",
       "name": "DeepSeek Chat",
       "provider": "deepseek",
       "context_length": 64000,
-      "input_price": 0.27
+      "input_price": 0.27,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 64000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "llama-3.3-70b-versatile",
       "name": "Llama 3.3 70B",
       "provider": "meta",
       "context_length": 128000,
-      "input_price": 0.59
+      "input_price": 0.59,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "mistral-large-latest",
       "name": "Mistral Large",
       "provider": "mistral",
       "context_length": 128000,
-      "input_price": 2.0
+      "input_price": 2.0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "grok-2",
       "name": "Grok 2",
       "provider": "xai",
       "context_length": 131072,
-      "input_price": 2.0
+      "input_price": 2.0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 131072,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "command-r-plus",
       "name": "Command R+",
       "provider": "cohere",
       "context_length": 128000,
-      "input_price": 2.5
+      "input_price": 2.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "_note_2026_07_31": "补 nvidia/ 路由前缀 + nvidia/ 组织前缀(NVIDIA NIM catalog ID: nvidia/nemotron-4-340b-instruct)。⚠️ 该模型仅在 NIM 1.6 docs 列出(versions 1.0-1.1.2),NIM 1.14 docs 未列出,可能已下线;如 502/422 请改用 nvidia/nvidia/llama-3.1-nemotron-70b-instruct",
       "id": "nvidia/nvidia/nemotron-4-340b-instruct",
       "name": "Nemotron 4 340B (NVIDIA NIM,合成数据生成,⚠️ 可能已下线)",
       "provider": "nvidia_nim",
       "context_length": 4096,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "jamba-1-5-large",
       "name": "Jamba 1.5 Large",
       "provider": "ai21",
       "context_length": 256000,
-      "input_price": 2.0
+      "input_price": 2.0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 256000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "phi-4",
       "name": "Phi 4",
       "provider": "microsoft",
       "context_length": 16384,
-      "input_price": 0.07
+      "input_price": 0.07,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 16384,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "sonar-large",
       "name": "Sonar Large",
       "provider": "perplexity",
       "context_length": 127072,
-      "input_price": 2.0
+      "input_price": 2.0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 127072,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "amazon-nova-pro",
       "name": "Amazon Nova Pro",
       "provider": "aws",
       "context_length": 300000,
-      "input_price": 0.8
+      "input_price": 0.8,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 300000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "bedrock/amazon-nova-micro",
       "name": "Amazon Nova Micro (Bedrock,最便宜 $0.035/$0.14)",
       "provider": "bedrock",
       "context_length": 128000,
-      "input_price": 0.035
+      "input_price": 0.035,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "azure/gpt-4o",
       "name": "Azure GPT-4o",
       "provider": "azure",
       "context_length": 128000,
-      "input_price": 2.5
+      "input_price": 2.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "huggingface/meta-llama/Llama-3.3-70B-Instruct",
       "name": "HF Llama 3.3 70B",
       "provider": "huggingface",
       "context_length": 128000,
-      "input_price": 0.59
+      "input_price": 0.59,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "replicate/meta/llama-3-70b-instruct",
       "name": "Replicate Llama 3 70B",
       "provider": "replicate",
       "context_length": 8192,
-      "input_price": 0.6
+      "input_price": 0.6,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 8192,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "stablelm-2-12b-chat",
       "name": "StableLM 2 12B",
       "provider": "stability",
       "context_length": 16384,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 16384,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "inflection-3-pi",
       "name": "Inflection 3 Pi",
       "provider": "inflection",
       "context_length": 8000,
-      "input_price": 1.0
+      "input_price": 1.0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 8000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "watsonx/granite-3-8b-instruct",
       "name": "Granite 3 8B",
       "provider": "ibm",
       "context_length": 128000,
-      "input_price": 0.2
+      "input_price": 0.2,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "cerebras/llama3.1-8b",
       "name": "Cerebras Llama 3.1 8B",
       "provider": "cerebras",
       "context_length": 128000,
-      "input_price": 0.1
+      "input_price": 0.1,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "sambanova/llama-3.1-70b-instruct",
       "name": "SambaNova Llama 3.1 70B",
       "provider": "sambanova",
       "context_length": 128000,
-      "input_price": 0.7
+      "input_price": 0.7,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "snowflake-arctic",
       "name": "Snowflake Arctic",
       "provider": "snowflake",
       "context_length": 4096,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "deepinfra/meta-llama/Llama-3.3-70B-Instruct",
       "name": "DeepInfra Llama 3.3 70B",
       "provider": "deepinfra",
       "context_length": 128000,
-      "input_price": 0.27
+      "input_price": 0.27,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "luminous-base",
       "name": "Luminous Base",
       "provider": "alephalpha",
       "context_length": 2048,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 2048,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "nous-hermes-2-mixtral-8x7b-dpo",
       "name": "Nous Hermes 2 Mixtral 8x7B",
       "provider": "nous",
       "context_length": 32768,
-      "input_price": 0.27
+      "input_price": 0.27,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "vertex/claude-3-5-sonnet",
       "name": "Vertex Claude 3.5 Sonnet",
       "provider": "vertexai",
       "context_length": 200000,
-      "input_price": 3.0
+      "input_price": 3.0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 200000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "microsoft-copilot",
       "name": "Microsoft Copilot",
       "provider": "copilot",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "bing-chat-creative",
       "name": "Bing Chat Creative",
       "provider": "bing",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "qwen-plus",
       "name": "Qwen Plus",
       "provider": "qwen",
       "context_length": 131072,
-      "input_price": 0.4
+      "input_price": 0.4,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 131072,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "glm-4-plus",
       "name": "GLM-4 Plus",
       "provider": "zhipu",
       "context_length": 128000,
-      "input_price": 0.7
+      "input_price": 0.7,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "moonshot-v1-8k",
       "name": "Moonshot v1 8K",
       "provider": "moonshot",
       "context_length": 8192,
-      "input_price": 1.2
+      "input_price": 1.2,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 8192,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "doubao-1-6-pro",
       "name": "Doubao 1.6 Pro",
       "provider": "doubao",
       "context_length": 32768,
-      "input_price": 0.11
+      "input_price": 0.11,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "hunyuan-pro",
       "name": "Hunyuan Pro",
       "provider": "hunyuan",
       "context_length": 32768,
-      "input_price": 0.45
+      "input_price": 0.45,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "ernie-4.0-turbo-8k",
       "name": "ERNIE 4.0 Turbo",
       "provider": "wenxin",
       "context_length": 8192,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 8192,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "abab6.5s-chat",
       "name": "ABAB 6.5s Chat",
       "provider": "minimax",
       "context_length": 245760,
-      "input_price": 0.1
+      "input_price": 0.1,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 245760,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "baichuan-4-turbo",
       "name": "Baichuan 4 Turbo",
       "provider": "baichuan",
       "context_length": 32768,
-      "input_price": 0.4
+      "input_price": 0.4,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "spark-v4",
       "name": "Spark V4",
       "provider": "spark",
       "context_length": 8192,
-      "input_price": 0.4
+      "input_price": 0.4,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 8192,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "yi-large",
       "name": "Yi Large",
       "provider": "yi",
       "context_length": 32768,
-      "input_price": 0.3
+      "input_price": 0.3,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "sensenova-5",
       "name": "SenseNova 5",
       "provider": "sensenova",
       "context_length": 32768,
-      "input_price": 0.3
+      "input_price": 0.3,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "skywork-4",
       "name": "Skywork 4",
       "provider": "skywork",
       "context_length": 32768,
-      "input_price": 0.2
+      "input_price": 0.2,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "internlm2.5-20b",
       "name": "InternLM 2.5 20B",
       "provider": "internlm",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "novita/meta-llama/llama-3.3-70b-instruct",
       "name": "Novita Llama 3.3 70B",
       "provider": "novita",
       "context_length": 32768,
-      "input_price": 0.39
+      "input_price": 0.39,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "lambda/llama-3.3-70b-instruct",
       "name": "Lambda Llama 3.3 70B",
       "provider": "lambda",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "baseten/llama-3.3-70b-instruct",
       "name": "Baseten Llama 3.3 70B",
       "provider": "baseten",
       "context_length": 32768,
-      "input_price": 0.6
+      "input_price": 0.6,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "crusoe/llama-3.3-70b-instruct",
       "name": "Crusoe Llama 3.3 70B",
       "provider": "crusoe",
       "context_length": 32768,
-      "input_price": 0.55
+      "input_price": 0.55,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "targon/llama-3.3-70b-instruct",
       "name": "Targon Llama 3.3 70B",
       "provider": "targon",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "centml/llama-3.3-70b-instruct",
       "name": "CentML Llama 3.3 70B",
       "provider": "centml",
       "context_length": 32768,
-      "input_price": 0.4
+      "input_price": 0.4,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "nebius/meta-llama/Llama-3.3-70B-Instruct",
       "name": "Nebius Llama 3.3 70B",
       "provider": "nebius",
       "context_length": 32768,
-      "input_price": 0.46
+      "input_price": 0.46,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "ollama/llama3.3:70b",
       "name": "Ollama Llama 3.3 70B",
       "provider": "ollama",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "qwen-local/qwen2.5:7b",
       "name": "Qwen3.5 7B 本地(主打推荐,4GB 显存)",
       "provider": "qwen_local",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "upstage/solar-pro",
       "name": "Solar Pro",
       "provider": "upstage",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "leptonai/llama3.3-70b",
       "name": "LeptonAI Llama 3.3 70B",
       "provider": "leptonai",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "hyperbolic/meta-llama/Meta-Llama-3.3-70B-Instruct",
       "name": "Hyperbolic Llama 3.3 70B",
       "provider": "hyperbolic",
       "context_length": 32768,
-      "input_price": 0.4
+      "input_price": 0.4,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "featherless/qwen/Qwen2.5-72B-Instruct",
       "name": "Featherless Qwen2.5 72B",
       "provider": "featherless",
       "context_length": 32768,
-      "input_price": 0.4
+      "input_price": 0.4,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "parasail/llama3.3-70b-instruct",
       "name": "Parasail Llama 3.3 70B",
       "provider": "parasail",
       "context_length": 32768,
-      "input_price": 0.45
+      "input_price": 0.45,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "openwebui/llama3.3-70b",
       "name": "OpenWebUI Llama 3.3 70B",
       "provider": "openwebui",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "lmstudio/llama-3.3-70b",
       "name": "LM Studio Llama 3.3 70B",
       "provider": "lmstudio",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "friendli/meta-llama-3.3-70b-instruct",
       "name": "Friendli Llama 3.3 70B",
       "provider": "friendli",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "anyscale/meta-llama/Llama-3.3-70B-Instruct",
       "name": "Anyscale Llama 3.3 70B",
       "provider": "anyscale",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "infermatic/llama-3.3-70b-instruct",
       "name": "Infermatic Llama 3.3 70B",
       "provider": "infermatic",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "replit/replit-code-v1.5-3b",
       "name": "Replit Code V1.5 3B",
       "provider": "replit",
       "context_length": 4096,
-      "input_price": 0.1
+      "input_price": 0.1,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "siliconcloud/Qwen/Qwen2.5-72B-Instruct",
       "name": "SiliconCloud Qwen2.5 72B",
       "provider": "siliconcloud",
       "context_length": 32768,
-      "input_price": 0.4
+      "input_price": 0.4,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "modelscope/Qwen/Qwen2.5-72B-Instruct",
       "name": "ModelScope Qwen2.5 72B",
       "provider": "modelscope",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "ppio/qwen/qwen2.5-72b-instruct",
       "name": "PPIO Qwen2.5 72B",
       "provider": "ppio",
       "context_length": 32768,
-      "input_price": 0.35
+      "input_price": 0.35,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "volcengine/doubao-pro-32k",
       "name": "Volcengine Doubao Pro 32K",
       "provider": "volcengine",
       "context_length": 32768,
-      "input_price": 0.05
+      "input_price": 0.05,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "bailian/qwen-max",
       "name": "Bailian Qwen Max",
       "provider": "bailian",
       "context_length": 32768,
-      "input_price": 1.6
+      "input_price": 1.6,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "baai/aquila2-34b",
       "name": "Aquila2 34B",
       "provider": "baai",
       "context_length": 4096,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "tii/falcon3-10b-instruct",
       "name": "Falcon3 10B Instruct",
       "provider": "tii",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "liquid/lfm-40b",
       "name": "Liquid LFM 40B MoE",
       "provider": "liquid",
       "context_length": 32768,
-      "input_price": 0.5
+      "input_price": 0.5,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "ai2/olmo-2-1124-7b-instruct",
       "name": "OLMo 2 7B Instruct",
       "provider": "ai2",
       "context_length": 4096,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 4096,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "ornith-1.0",
       "name": "Ornith 1.0 (国产新势力)",
       "provider": "ornith",
       "context_length": 131072,
-      "input_price": 0.8
+      "input_price": 0.8,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 131072,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "codebrain-1",
       "name": "CodeBrain-1 (代码专精模型)",
       "provider": "codebrain",
       "context_length": 65536,
-      "input_price": 0.3
+      "input_price": 0.3,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 65536,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "mai-thinking-1",
       "name": "MAI-Thinking-1 (深度推理模型)",
       "provider": "mai",
       "context_length": 131072,
-      "input_price": 1.2
+      "input_price": 1.2,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 131072,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "@cf/zai-org/glm-4.7-flash",
       "name": "GLM-4.7 Flash (Cloudflare Workers AI 免费,官方推荐 GLM-5.2 替代)",
       "provider": "cloudflare_workers_ai",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "nvidia/deepseek-ai/deepseek-v4-flash",
       "name": "DeepSeek V4 Flash (NVIDIA NIM 免费,推理快)",
       "provider": "nvidia_nim",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
     {
       "_note_2026_07_31": "⚠️ provider 限流,间歇性超时(NIM 1.14 docs 仍列出,模型可用,大模型冷启动/负载高时超时)",
@@ -667,127 +1172,224 @@
       "name": "Llama 3.3 70B (NVIDIA NIM 免费,通用主力,⚠️ 间歇性超时)",
       "provider": "nvidia_nim",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "github/Phi-4",
       "name": "Phi 4 (GitHub Models 免费)",
       "provider": "github_models",
       "context_length": 16384,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 16384,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "vercel/auto",
       "name": "Vercel AI Gateway Auto (聚合路由)",
       "provider": "vercel_ai_gateway",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "opencode/big-pickle",
       "name": "Big Pickle (OpenCode Zen 免费,2026-07-31 修复:正确模型名无 -stealth 后缀)",
       "provider": "opencode_zen",
       "context_length": 256000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 256000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "modal/labcompute/qwen2.5-72b",
       "name": "Qwen2.5 72B (Modal ToS 禁止第三方代理 商用需法务评估)",
       "provider": "modal",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "inferencenet/meta-llama/Llama-3.3-70B-Instruct",
       "name": "Llama 3.3 70B (Inference.net 试用 credits)",
       "provider": "inferencenet",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "nlpcloud/finetuned-llama-3-70b",
       "name": "Finetuned Llama 3 70B (NLP Cloud ToS 禁止 proxy 商用需法务评估)",
       "provider": "nlpcloud",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "scaleway/mistral-small-3.2-24b-instruct-2506",
       "name": "Mistral Small 3.2 24B (Scaleway 1M tokens 免费)",
       "provider": "scaleway",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "alibaba-intl/qwen-max",
       "name": "Qwen Max (Alibaba Intl 1M tokens/模型 免费)",
       "provider": "alibaba_intl",
       "context_length": 131072,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 131072,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "llm7/gpt-oss:20b",
       "name": "GPT-OSS 20B (LLM7 免费镜像,2026-07-31 修复:gpt-4o/qwen3-235b 已下线,已实测调通)",
       "provider": "llm7",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "pollinations/openai-fast",
       "name": "OpenAI Fast (Pollinations 无 key 免费,2026-07-31 修复:gpt-5 已下线)",
       "provider": "pollinations",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "if/kimi-k2-thinking",
       "name": "Kimi K2 Thinking (Qoder AI unlimited free)",
       "provider": "qoder",
       "context_length": 256000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 256000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "aihorde/auto",
       "name": "Auto (AI Horde 众包 GPU,⚠️ 2026-07-31 评估:非 OpenAI 兼容协议,当前 LiteLLM 路径不可用,待原生 provider 适配)",
       "provider": "aihorde",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "ovhcloud/llama-3.3-70b",
       "name": "Llama 3.3 70B (OVHcloud 欧洲节点免费层)",
       "provider": "ovhcloud",
       "context_length": 131072,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 131072,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "requesty/auto",
       "name": "Auto (Requesty 透明路由聚合免费层)",
       "provider": "requesty",
       "context_length": 128000,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
     },
-
     {
       "id": "navy/auto",
       "name": "Auto (Navy OmniRoute v3.8.49 新增免费 provider)",
       "provider": "navy",
       "context_length": 32768,
-      "input_price": 0
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": true,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 32768,
+        "protocol": "openai_chat"
+      }
     }
   ]
 }
