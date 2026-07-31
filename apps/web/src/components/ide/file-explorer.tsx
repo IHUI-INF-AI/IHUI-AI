@@ -267,6 +267,7 @@ export function FileExplorer() {
             <button
               onClick={() => { setCreating('file'); setCreateName('') }}
               disabled={!workspacePath}
+              aria-label={t('fileExplorer.newFile')}
               className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
             >
               <FilePlus className="h-3.5 w-3.5" />
@@ -276,6 +277,7 @@ export function FileExplorer() {
             <button
               onClick={() => { setCreating('folder'); setCreateName('') }}
               disabled={!workspacePath}
+              aria-label={t('fileExplorer.newFolder')}
               className="rounded p-1 text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
             >
               <FolderPlus className="h-3.5 w-3.5" />
@@ -283,6 +285,7 @@ export function FileExplorer() {
           </Tooltip>
           <button
             onClick={() => void fetchFileTree()}
+            aria-label={t('fileExplorer.refresh')}
             className="rounded p-1 text-muted-foreground hover:bg-muted/50"
             title={t('fileExplorer.refresh')}
           >
