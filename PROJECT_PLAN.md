@@ -1,4 +1,4 @@
-﻿# IHUI-AI 项目
+# IHUI-AI 项目
 
 > 本文件为项目唯一任务计划文档。规则见 [AGENTS.md](./AGENTS.md)。
 > 历史归档:本文件精简前 54.6 KB(2026-07-20 含权限运行时拦截完整内容)已移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-permission-runtime.md`;更早快照同目录;详细提交记录见 `git log`。
@@ -167,6 +167,7 @@
 ### 目标
 
 为桌面端(Tauri 2)实现完整的应用更新推送功能:
+
 - Rust 端 updater 插件已配置(tauri.conf.json endpoints + pubkey + plugin 注册 + capabilities updater:default 已授权)
 - 前端补全:updater JS 封装 + useUpdater hook + 下拉窗提示组件 + 精美动画更新按钮
 - 触发来源:① 托盘菜单"检查更新"(已 emit desktop-tray-action,需接入监听)② 应用启动静默自动检查 ③ 下拉窗手动触发
@@ -1348,6 +1349,51 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 - [x] `apps/ai-service/app/data/default_models.json`:降级为兜底清单(每 provider 1-2 个推荐模型),头部加 `_doc_2026_07_31` 字段说明"实际模型清单由 ModelSyncService 自动同步到 DB,无需手动改本文件"
 - [x] 端到端验证:ai-service 启动后 60s 自动触发首次同步,实测 7.4s 同步完成 5 个 provider — stepfun(9) / agnes(6) / openrouter(364) / nvidia_nim(102) / cloudflare_workers_ai(61,修复 405 后);GET `/api/llm/models/sync/status` 返回 200 + 完整 status JSON;前端 DOM 快照验证 "模型自动同步" Card + "立即同步" 按钮可点击 + 无蓝色发光边框
 - [x] typecheck 全绿:`pnpm --filter @ihui/web typecheck` exit 0;`python -m py_compile` 全文件 exit 0
+
+### [x] ✅(2026-07-31) ModelSyncService 深度优化 v2(15 项,Phase E v2,用户反馈"继续优化 深度优化开发 远远不够",4 subagent 并行)
+
+> **背景**:Phase E v1 上线后深度审视发现 15 个真实不足(无事务 / 无重试 / 无历史 / Cloudflare 字符串匹配 / 无单 provider 同步 / 无 dry-run / 硬编码配置 / display_name 简陋 / pricing 单 schema / context_length 单 fallback / 无分类标签 / 无价格过滤 / 无别名映射 / 前端无 diff 详情 / 前端无单 provider 按钮)。本任务 4 subagent 并行深度优化,4 Phase 一次到位。
+
+#### F1 数据可靠性(4 项)— subagent-1 后端
+
+- [x] F1.1 DB 事务包裹 upsert:`_upsert_models_to_db` 用 `async with conn.transaction():` 包裹整个流程(查 config + 查 existing + INSERT + UPDATE + 下架),中途失败回滚不留脏数据
+- [x] F1.2 失败重试机制:`_sync_single_provider` 加重试循环,`_RETRY_BASE_DELAYS = (1.0, 2.0, 4.0)`,只重试 `httpx.TimeoutException`/`httpx.NetworkError`,4xx 不重试(key 无效不重试)
+- [x] F1.3 同步历史持久化:新增 `_write_sync_log` + `get_history(limit=20)`,写入 `ai_model_sync_log` 表(由 subagent-2 创建);表不存在时 try/except 静默降级(不影响主流程)
+- [x] F1.4 Cloudflare 改用 provider_code 判断:`_fetch_upstream_models` 接收 `provider_code` 参数,用 `provider_code == "cloudflare_workers_ai"` 替代 `if "api.cloudflare.com" in base_url` 字符串匹配
+
+#### F2 同步能力增强(4 项)— subagent-1 后端
+
+- [x] F2.1 单 provider 同步端点:`POST /api/llm/models/sync?provider=stepfun`(query param,可选),`ModelSyncService.sync_single_provider(provider_code)` 新方法
+- [x] F2.2 dry-run 预览模式:`sync_all_providers`/`sync_single_provider` 加 `dry_run: bool=False` 参数;返回结构增加 `preview: {new_model_ids, removed_model_ids}` 字段;端点 `POST ?dry_run=true` 触发预览(不写 DB)
+- [x] F2.3 调度配置可调:`config.py` 新增 `model_sync_interval_s: int = 21600`(默认 6h,admin 可通过 .env 调整);`_sync_interval_s()` 读取
+- [x] F2.4 并发限流可配:`config.py` 新增 `model_sync_concurrency: int = 5`;`_sync_concurrency()` 读取
+
+#### F3 模型元数据增强(6 项)— subagent-1 后端
+
+- [x] F3.1 display_name 智能派生:`_extract_display_name(model_id, raw_name)` — 优先 raw_name,否则从 id 派生(`gpt-4o-mini` → `GPT 4o Mini`,`claude-3-5-sonnet` → `Claude 3.5 Sonnet`,`llama-3.3-70b-instruct` → `Llama 3.3 70B Instruct`)
+- [x] F3.2 多 provider pricing schema:`_extract_pricing(provider_code, model)` — OpenRouter(prompt/completion 字符串)、Cloudflare(input/output 浮点数)、NVIDIA NIM(metadata.input_cost_per_token)、其他(0,0)
+- [x] F3.3 context_length 多层级 fallback:`_extract_context_length(model)` — 6 级(context_length → context_window → top_provider.context_length → max_input_tokens → metadata.max_input_tokens → 32000)
+- [x] F3.4 模型分类标签:`_classify_model(model_id, raw_model)` — vision/tool/reasoning/fast/embedding/chat;`_check_tags_column_exists` 查 information_schema 确认 tags 字段是否存在(带缓存),存在则写入 DB,不存在则只在内存返回
+- [x] F3.5 价格上限过滤:`MAX_PRICE_PER_1K_TOKENS = 100`(cents,即 $1/1k tokens),超过跳过 INSERT 并 log warning
+- [x] F3.6 模型别名映射:`_apply_alias(model_id, provider_code)` — OpenRouter 剥离 `openai/`/`anthropic/`/`google/`/`meta/` 等前缀(`openai/gpt-4o` → `gpt-4o`);is_aliased=True 时 display_name 加 `(原: xxx)` 备注
+
+#### F4 前端体验增强(4 项)— subagent-3 前端
+
+- [x] F4.1 同步详情可展开:`SyncDiffDetail` 子组件(可折叠),每个 provider 同步行可点击展开,显示 `new_model_ids`(绿色 Badge)+ `removed_model_ids`(红色 Badge),ChevronRight 旋转指示状态
+- [x] F4.2 单 provider 同步按钮:`ProviderRow` 子组件右侧加 RefreshCw 按钮,点击触发 `triggerModelSync({ provider })`;`syncingProviders: Set<string>` 跟踪 in-flight,spinner 只显示在对应行
+- [x] F4.3 dry-run 预览 UI:"立即同步"旁加"预览同步"按钮(Eye 图标),触发 `triggerModelSync({ dry_run: true })`;返回后弹出 Dialog 显示"将新增 X 个 / 将下架 Y 个"+ 模型清单;用户确认后再点"立即同步"实际执行
+- [x] F4.4 同步历史时间轴:`SyncHistoryTimeline` 子组件(默认折叠),展开时调 `fetchModelSyncHistory(10)`;时间轴样式(左侧 absolute span 时间线 + 装饰圆点 + 右侧内容);`Intl.DateTimeFormat` 格式化时间
+
+#### 配套(DB schema + 单测)— subagent-2 + subagent-4
+
+- [x] DB schema(subagent-2):新增 `packages/database/src/schema/ai-model-sync-log.ts`(Drizzle pgTable,11 字段 + 2 索引)+ `index.ts` re-export + migration `20260801010080_add_ai_model_sync_log.sql`(CREATE TABLE IF NOT EXISTS 幂等);migration 已在本地 PostgreSQL 执行成功(11 列 + 3 索引实测可见)
+- [x] pytest 单测(subagent-4):`apps/ai-service/tests/test_model_sync.py`(320 行,6 个测试类,50 个测试用例)— `_parse_price`(16)/`_extract_display_name`(6)/`_extract_pricing`(6)/`_extract_context_length`(8)/`_classify_model`(9)/`_apply_alias`(5);50 passed in 0.88s 全绿
+
+#### 端到端验证
+
+- [x] 后端 API 实测:`POST /api/llm/models/sync?provider=stepfun` → 200,`total_models=9, latency=221ms`;`GET /api/llm/models/sync/history?limit=10` → 200,实际返回 1 条 stepfun 同步记录(`{"provider_code":"stepfun","sync_started_at":"2026-07-31T08:18:19Z","success":true,"total_models":9,"latency_ms":221}`);dry-run 预览正确返回 `preview: {new_model_ids:[], removed_model_ids:[]}` 不写 DB
+- [x] 全量 dry-run 测试:5 provider 全部成功 — stepfun(9) / agnes(6) / openrouter(364,识别 tags=[chat,fast,reasoning,tool,vision]) / cloudflare_workers_ai(61,F1.4 provider_code 判断生效) / nvidia_nim(102)
+- [x] typecheck 全绿:`pnpm --filter @ihui/web typecheck` exit 0(本任务文件零错误);`pnpm --filter @ihui/api-client typecheck` exit 0;`python -m py_compile` 全文件 exit 0;`pytest tests/test_model_sync.py` 50 passed
 - [x] Subagent D(AigcPublishScreen 真实文件上传):
   - 安装 expo-image-picker ~8.1.0(与 expo 53 兼容)
   - packages/api-client/src/endpoints/files.ts(新建):uploadFileMultipart/UploadedFile/resolveFileUrl
@@ -1401,6 +1447,31 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 - [x] 守门:`check-i18n-keys.mjs` 无新增 parity 失败(剩余为其他 namespace 翻译未补,非本任务引入);`eslint apps/web/src/components/chat/message-input.tsx` exit 0(其他文件 lint 错误属其他 agent 代码,本任务用 `--no-verify` 跳过)
 - [x] browser 自验 4 状态(默认空/有文本/hover/dark mode):字符数 `0/10000` 实时更新 `11/10000`,长文本不重叠,dark mode 可读,旧 hint div DOM 已删除
 - [x] 影响文件 6 个:`apps/web/src/components/chat/message-input.tsx` + `packages/i18n/messages/web/{zh-CN,zh-TW,en,ja,ko}.json`
+
+## 对话历史批量操作功能(2026-07-31 立,平台独占:apps/web + apps/api)
+
+> AGENTS.md §9 平台独占豁免:`/chat/history` 与 `/chat/favorites` 是 web 独有页面(miniapp-taro/desktop/mobile-rn 无等价页面),仅触及 `apps/web`(ConversationList 组件)+ `apps/api`(批量路由)+ `packages/api-client`(批量封装)+ `packages/i18n`(5 语言 key),不参与其他端跨端契约同步。
+> AGENTS.md §24:用户在本轮对话明确要求"批量全选对话删除"(一个个点删除太费劲),经 AskUserQuestion 确认 UI 交互(复选框+顶部批量操作栏)+ 批量范围(删除+收藏+归档+导出)+ 适用页面(history+favorites 都加),无需再次确认。
+
+### 目标
+
+为 `/chat/history` 与 `/chat/favorites` 两个页面(共用 `ConversationList` 组件)增加批量操作能力:
+
+- 每行左侧加复选框,选中后顶部出现批量操作栏(Gmail/Outlook 风格)
+- 批量操作:全选/反选、删除所选、收藏/取消收藏、归档/取消归档、导出 MD/TXT、取消选择
+- 后端新增统一批量接口 `POST /api/chat/conversations/batch`(action: delete/favorite/unfavorite/archive/unarchive)
+- 批量导出前端循环单条 export + 逐个下载(避免后端引入 zip 库)
+- 用户归属校验:批量 SQL 用 `userId + inArray(ids)` 一次过滤,防越权
+
+### 硬性指标
+
+- [x] ✅(2026-07-31) H1:后端 `POST /conversations/batch` 路由 + Zod 校验 + `inArray` 批量 DB 函数,5 种 action 全支持,userId 归属过滤
+- [x] ✅(2026-07-31) H2:api-client `batchOperateConversations` 封装
+- [x] ✅(2026-07-31) H3:ConversationList 加 selection state + checkbox + 批量操作栏,history 与 favorites 两页同时生效
+- [x] ✅(2026-07-31) H4:i18n 5 语言 parity(zh-CN/zh-TW/en/ja/ko)新 key 同步,无中文残留
+- [x] ✅(2026-07-31) H5:typecheck(api + api-client 0 错误;web 仅其他 agent 文件报错,本任务 conversation-list.tsx 无错误)
+- [x] ✅(2026-07-31) H6:browser_use 降级为代码审查验证(§17 豁免③:AccountHistoryInput.tsx 语法错误 + API 重复路由崩溃,均为其他 agent 代码阻塞,Next.js 构建失败无法渲染)
+- [ ] H7:git commit + push + git-push-guard local == remote
 
 ---
 
@@ -1865,7 +1936,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 - [x] ✅(2026-07-31) C1:后端 Browser Hub 服务(apps/ai-service/app/services/browser_hub.py),持续 Chromium 实例(async_playwright headed) + WebSocket 画面流(CDP Page.startScreencast) + REST API(创建会话/导航/获取 cookies/关闭)。commit `1b74b0f3c7`
 - [x] ✅(2026-07-31) C2:前端 WorkPanel 新增 cdp mode(packages/types WebViewMode 加 'cdp' + apps/web 新建 [CdpBrowserView](apps/web/src/components/work-panel/cdp-browser-view.tsx) 组件 canvas 渲染画面帧 + 鼠标键盘事件回传 WebSocket + 地址栏/导航基于 CDP)。work-panel store 新增 `openCdpSession` 方法
-- [x] ✅(2026-07-31) C3:扫码登录 CDP 模式重写([ScanLoginDialog.tsx](apps/web/app/(main)/publish/accounts/ScanLoginDialog.tsx) 从弹窗截图模式改为 CDP 内置浏览器模式:选平台→createBrowserSession→openCdpSession 在 WorkPanel 打开→每 3s 调 detectLoginFromCdp 轮询 cookies→自动保存。/scan-login 页面保留但不再依赖,向后兼容)
+- [x] ✅(2026-07-31) C3:扫码登录 CDP 模式重写([ScanLoginDialog.tsx](<apps/web/app/(main)/publish/accounts/ScanLoginDialog.tsx>) 从弹窗截图模式改为 CDP 内置浏览器模式:选平台→createBrowserSession→openCdpSession 在 WorkPanel 打开→每 3s 调 detectLoginFromCdp 轮询 cookies→自动保存。/scan-login 页面保留但不再依赖,向后兼容)
 - [x] ✅(2026-07-31) C4:验证通过 — ① typecheck CDP 相关文件 0 错误(2 个历史遗留错误 client.ts blob / DagGraph any 与 CDP 无关,按 §12 不阻塞);② 后端 CDP hub 测试全通过:Chromium 启动 + 会话创建 + 画面流 5 帧(首帧 43984 chars)+ cookies 9 个 + 导航(百度→知乎 /signin 登录页,X-Frame-Options 不再受限);③ 前端 ScanLoginDialog UI 渲染正常;④ 完整扫码流程需用户登录后手动测(扫码是物理动作无法自动化)
 - [x] ✅(2026-07-31) C5:README 同步(架构章节 + 内置浏览器能力清单更新,§21 触发)
 - [ ] C6:commit + push 同步 origin/main(§20 五条全绿 + git-push-guard exit 0)
@@ -1895,6 +1966,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ```
 
 CDP 关键 API:
+
 - `Page.startScreencast` - 推送 JPEG/PNG 画面帧
 - `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` - 鼠标键盘事件
 - `Network.getCookies` - 获取 cookies(扫码登录后检测)
