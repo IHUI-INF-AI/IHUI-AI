@@ -14,6 +14,14 @@ import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-acc
 import { CredentialGuide } from '@/components/publish/CredentialGuide'
 import { PLATFORM_SCHEMAS, getPlatformSchema, normalizeCredentials } from '@/lib/publish/platform-schemas'
 import { ScanLoginDialog } from './ScanLoginDialog'
+import { RiskBadge, type RiskLevel } from '@/components/publish/RiskBadge'
+
+/** 扩展 PublishAccount 加入风控字段(API 暂未返回时 riskLevel 为 undefined → 显示"未评估") */
+interface AccountWithRisk extends PublishAccount {
+  readonly riskScore?: number
+  readonly riskLevel?: RiskLevel
+  readonly cooldownRemaining?: number
+}
 
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -123,8 +131,10 @@ export default function AccountsPage() {
           {accounts.map((a) => {
             const schema = getPlatformSchema(a.platform)
             const isVerifying = verifyingId === a.id
+            const acc = a as AccountWithRisk
+            const inCooldown = (acc.cooldownRemaining ?? 0) > 0
             return (
-              <Card key={a.id}>
+              <Card key={a.id} className={cn(inCooldown && 'border-orange-500/40 opacity-60')}>
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
@@ -142,8 +152,22 @@ export default function AccountsPage() {
                       {t(ACCOUNTS_STATUS_KEY[a.status] ?? 'accounts.statusUnknown')}
                     </span>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {t('accounts.lastVerified')}: {a.lastVerifiedAt ? TIME_FMT.format(new Date(a.lastVerifiedAt)) : '-'}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {acc.riskLevel ? (
+                      <RiskBadge
+                        riskScore={acc.riskScore ?? 0}
+                        riskLevel={acc.riskLevel}
+                        cooldownRemaining={acc.cooldownRemaining}
+                        size="sm"
+                      />
+                    ) : (
+                      <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {t('riskNotEvaluated')}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {t('accounts.lastVerified')}: {a.lastVerifiedAt ? TIME_FMT.format(new Date(a.lastVerifiedAt)) : '-'}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     <Button size="sm" variant="outline" onClick={() => verify(a.id)} disabled={isVerifying} className="h-7 text-xs">
