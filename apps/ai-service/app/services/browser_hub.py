@@ -136,6 +136,7 @@ class BrowserSession:
         self._main_loop = main_loop
         self._cdp: Any | None = None  # sync CDPSession
         self._screencast_running = False
+        self._screenshot_task: asyncio.Task | None = None  # 截图轮询后台 task
         self._on_frame: Optional[Callable[[str, dict], Awaitable[None]]] = None
         self._on_navigation: Optional[Callable[[str, str | None], Awaitable[None]]] = None
         self._lock = threading.Lock()
@@ -147,7 +148,7 @@ class BrowserSession:
         return await loop.run_in_executor(self._executor, func)
 
     def _schedule_coro(self, coro: Awaitable[None]) -> None:
-        """从 executor 线程向 main loop 提交 coroutine(screencast/navigation 回调用)。"""
+        """从 executor 线程向 main loop 提交 coroutine(navigation 回调用)。"""
         asyncio.run_coroutine_threadsafe(coro, self._main_loop)
 
     # ---- 导航 ----
@@ -231,65 +232,61 @@ class BrowserSession:
             self._page.on("framenavigated", _on_frame_navigated)
         await self._run_sync(_register)
 
-    # ---- CDP Screencast(画面流)----
+    # ---- 画面流(截图轮询,2026-07-31 改)----
+    # 原方案用 CDP Page.startScreencast,但 sync_playwright 的 CDP 事件回调在
+    # playwright 后台线程触发,在回调里调 cdp.send("Page.screencastFrameAck") 会阻塞
+    # (等 transport 空闲,但 transport 正在处理回调)→ 死锁,第一帧延迟 25s+ 且后续帧丢失。
+    # 改用定时 page.screenshot 轮询:在 main loop 起后台 task,每次通过 run_in_executor
+    # 在 executor 线程截图(不依赖 CDP 事件回调)。对扫码登录场景 ~3fps 足够。
     async def start_screencast(
         self, on_frame: Callable[[str, dict], Awaitable[None]]
     ) -> None:
-        """开始推流截图帧。
+        """开始推流截图帧(定时轮询 page.screenshot)。
 
         on_frame: async 函数(data_b64: str, metadata: dict) -> None,在 main loop 执行。
         - data_b64: base64 编码的 JPEG 图片
-        - metadata: CDP 元数据(包含 deviceWidth/deviceHeight/timestamp 等)
+        - metadata: {"deviceWidth": ..., "deviceHeight": ...}(从 viewport 推导)
         """
         self._on_frame = on_frame
+        if self._screencast_running:
+            return
+        self._screencast_running = True
+        self._screenshot_task = asyncio.create_task(self._screenshot_loop())
+        logger.info(f"[browser_hub] session {self.session_id} 截图轮询已启动")
 
-        def _sync_start() -> None:
-            with self._lock:
-                if self._screencast_running:
-                    return
-                if self._cdp is None:
-                    self._cdp = self._context.new_cdp_session(self._page)
-
-                def _handle_frame(params: dict) -> None:
-                    """CDP Page.screencastFrame 事件回调(sync,在 executor 线程触发)。"""
-                    data_b64 = params.get("data", "")
-                    metadata = params.get("metadata", {})
-                    # 必须立即 ack,否则后续帧不再推送
-                    try:
-                        self._cdp.send("Page.screencastFrameAck", {"sessionId": params.get("sessionId", 0)})
-                    except Exception as e:
-                        logger.debug(f"[browser_hub] screencast ack 异常: {e}")
-                    # 传递到 main loop(非阻塞)
-                    handler = self._on_frame
-                    if handler:
-                        self._schedule_coro(handler(data_b64, metadata))
-
-                self._cdp.on("Page.screencastFrame", _handle_frame)
-                self._cdp.send("Page.startScreencast", {
-                    "format": "jpeg",
-                    "quality": 70,
-                    "maxWidth": 1280,
-                    "maxHeight": 720,
-                    "everyNthFrame": 1,
-                })
-                self._screencast_running = True
-                logger.info(f"[browser_hub] session {self.session_id} screencast 已启动")
-        await self._run_sync(_sync_start)
+    async def _screenshot_loop(self) -> None:
+        """后台截图循环(在 main loop 运行,截图操作在 executor 线程执行)。"""
+        import base64 as _base64
+        while self._screencast_running:
+            try:
+                def _sync_shot() -> bytes:
+                    return self._page.screenshot(type="jpeg", quality=70)
+                jpeg_bytes = await self._run_sync(_sync_shot)
+                data_b64 = _base64.b64encode(jpeg_bytes).decode("ascii")
+                vp = self._page.viewport_size  # {"width": ..., "height": ...}
+                metadata = {
+                    "deviceWidth": vp.get("width", 1280) if vp else 1280,
+                    "deviceHeight": vp.get("height", 720) if vp else 720,
+                }
+                handler = self._on_frame
+                if handler:
+                    await handler(data_b64, metadata)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f"[browser_hub] 截图循环异常: {e}")
+            await asyncio.sleep(0.3)  # ~3fps
 
     async def stop_screencast(self) -> None:
-        def _sync_stop() -> None:
-            with self._lock:
-                if not self._screencast_running:
-                    return
-                try:
-                    if self._cdp:
-                        self._cdp.send("Page.stopScreencast")
-                except Exception as e:
-                    logger.debug(f"[browser_hub] stop_screencast 异常: {e}")
-                finally:
-                    self._screencast_running = False
-                    self._on_frame = None
-        await self._run_sync(_sync_stop)
+        self._screencast_running = False
+        if self._screenshot_task:
+            self._screenshot_task.cancel()
+            try:
+                await self._screenshot_task
+            except asyncio.CancelledError:
+                pass
+            self._screenshot_task = None
+        self._on_frame = None
 
     async def remove_frame_handler(self, on_frame: Callable) -> None:
         """移除指定的 frame handler(WebSocket 断开时调用)。"""
