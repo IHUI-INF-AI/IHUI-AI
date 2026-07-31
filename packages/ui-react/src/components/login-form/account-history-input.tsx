@@ -33,14 +33,14 @@ export interface AccountHistoryInputProps {
 }
 
 /**
- * 账号输入框 + 历史下拉菜单(2026-07-30 抽到共享包)
+ * 账号输入框 + 历史下拉菜单(2026-07-30 抽到共享包,2026-07-31 移除 ChevronDown 按钮)
  *
  * 从 apps/web/src/components/login/AccountHistoryInput.tsx 抽取,
  * 消除 web 端 B 版本 PasswordLoginForm 与共享包 A 版本 password-login-form
  * 的功能差异(历史下拉在 2026-07-26 抽共享包时丢失)。
  *
- * 行为:
- * - 双击输入框或点击右侧 ChevronDown 展开历史
+ * 行为(2026-07-31 更新):
+ * - 双击输入框展开历史(移除右侧 ChevronDown 按钮,符合用户偏好"不显示非必要 chevron")
  * - 键盘 ArrowUp/Down 导航,Enter 选中,Escape 关闭
  * - 单条删除(X 按钮)+ 清空全部
  * - 下拉打开时实时读取 localStorage,保证登录成功后下次打开即最新
