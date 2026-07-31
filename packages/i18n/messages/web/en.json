@@ -108,7 +108,20 @@
     "comingSoon": "Coming Soon",
     "loadFailed": "Load Failed",
     "viewDetail": "View Details",
-    "colToken": "Tokens"
+    "colToken": "Tokens",
+    "update": {
+      "available": "New Version Available",
+      "downloading": "Downloading",
+      "installing": "Installing",
+      "done": "Update Complete",
+      "restart": "Restart App",
+      "updateNow": "Update Now",
+      "retry": "Retry",
+      "error": "Update Failed",
+      "errorDesc": "An error occurred during the update. Please retry.",
+      "checkFailed": "Failed to check for updates. Please check your network.",
+      "dismiss": "Close"
+    }
   },
   "taskReceiver": {
     "title": "Task Receiver",

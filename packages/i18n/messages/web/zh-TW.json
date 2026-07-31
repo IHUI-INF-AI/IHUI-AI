@@ -109,7 +109,20 @@
     "total": "總的",
     "view": "查看",
     "loadFailed": "加載失敗",
-    "viewDetail": "查看詳情"
+    "viewDetail": "查看詳情",
+    "update": {
+      "available": "發現新版本",
+      "downloading": "下載中",
+      "installing": "安裝中",
+      "done": "更新完成",
+      "restart": "重啟應用",
+      "updateNow": "立即更新",
+      "retry": "重試",
+      "error": "更新失敗",
+      "errorDesc": "更新過程中出現錯誤,請重試",
+      "checkFailed": "檢查更新失敗,請檢查網路後重試",
+      "dismiss": "關閉"
+    }
   },
   "taskReceiver": {
     "title": "任務接收",
