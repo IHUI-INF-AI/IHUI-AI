@@ -21,6 +21,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   ChevronUp,
+  Inbox,
   Search,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -348,7 +349,12 @@ function DataTable<TData>({
                     colSpan={totalColSpan}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    {emptyText}
+                    {/* 空状态图标(2026-07-31 对标 Trae/Codex/Claude Code):
+                        纯文本空状态过于单调,添加 Inbox 图标提升视觉友好度 */}
+                    <div className="flex flex-col items-center gap-2">
+                      <Inbox className="h-8 w-8 opacity-40" aria-hidden />
+                      <span>{emptyText}</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
