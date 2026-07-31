@@ -9832,8 +9832,8 @@
       "qwen": "通義千問"
     },
     "models": "大模型",
-    "officialApp": "官方App",
-    "officialWechat": "官方微信",
+    "officialApp": "公眾號",
+    "officialWechat": "我的微信",
     "paymentPlatforms": "支付平臺",
     "payments": {
       "alipay": "支付寶",
