@@ -136,6 +136,28 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
 
+  server.get('/about-us/:id', async (request, reply) => {
+    const { id } = validate(idParamSchema, request.params)
+    const [d] = await db.select().from(docs).where(eq(docs.id, id)).limit(1)
+    if (!d) return reply.status(404).send(error(404, '记录不存在'))
+    const m = parseJson<{
+      phone: string
+      socialMedia: string
+      experience: string
+      description: string
+    }>(d.content, { phone: '', socialMedia: '', experience: '', description: '' })
+    return reply.send(
+      success({
+        id: d.id,
+        network: d.title,
+        phone: m.phone,
+        socialMedia: m.socialMedia,
+        experience: m.experience,
+        description: m.description,
+      }),
+    )
+  })
+
   server.post('/about-us', async (request, reply) => {
     const b = validate(aboutUsBodySchema, request.body)
     const [row] = await db
@@ -211,6 +233,24 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
           .where(where)
       )[0]?.c ?? 0
     return reply.send(success({ list, total, page, pageSize }))
+  })
+
+  server.get('/advertise/:id', async (request, reply) => {
+    const { id } = validate(idParamSchema, request.params)
+    const [c] = await db.select().from(carousels).where(eq(carousels.id, id)).limit(1)
+    if (!c) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(
+      success({
+        id: c.id,
+        title: c.title ?? '',
+        position: c.position,
+        imageUrl: c.imageUrl,
+        linkUrl: c.linkUrl,
+        sort: c.sort,
+        status: c.status,
+        createdAt: c.createdAt,
+      }),
+    )
   })
 
   server.post('/advertise', async (request, reply) => {
@@ -289,6 +329,19 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
 
+  server.get('/contact/:id', async (request, reply) => {
+    const { id } = validate(idParamSchema, request.params)
+    const [f] = await db.select().from(feedbacks).where(eq(feedbacks.id, id)).limit(1)
+    if (!f) return reply.status(404).send(error(404, '记录不存在'))
+    const m = parseJson<{ introduction: string; corporateCulture: string }>(f.content, {
+      introduction: '',
+      corporateCulture: '',
+    })
+    return reply.send(
+      success({ id: f.id, introduction: m.introduction, corporateCulture: m.corporateCulture }),
+    )
+  })
+
   server.post('/contact', async (request, reply) => {
     const b = validate(contactBodySchema, request.body)
     const userId = request.userId
@@ -352,6 +405,20 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(list))
   })
 
+  server.get('/mobile-adapter/:id', async (request, reply) => {
+    const { id } = validate(idParamSchema, request.params)
+    const [c] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id)).limit(1)
+    if (!c) return reply.status(404).send(error(404, '记录不存在'))
+    const m = parseJson<{
+      resolution: string
+      dpr: number
+      status: 'adapted' | 'partial' | 'pending'
+    }>(c.value, { resolution: '', dpr: 1, status: 'pending' })
+    return reply.send(
+      success({ id: c.id, model: c.key, resolution: m.resolution, dpr: m.dpr, status: m.status }),
+    )
+  })
+
   server.put('/mobile-adapter/mode', async (request, reply) => {
     const { mode } = validate(modeBodySchema, request.body)
     await db
@@ -388,6 +455,28 @@ export const adminContentOpsRoutes: FastifyPluginAsync = async (server) => {
       }
     })
     return reply.send(success(list))
+  })
+
+  server.get('/recommendation-config/:id', async (request, reply) => {
+    const { id } = validate(idParamSchema, request.params)
+    const [c] = await db.select().from(systemConfigs).where(eq(systemConfigs.id, id)).limit(1)
+    if (!c) return reply.status(404).send(error(404, '记录不存在'))
+    const m = parseJson<{
+      position: string
+      contentType: string
+      sort: number
+      isEnabled: boolean
+    }>(c.value, { position: '', contentType: 'agent', sort: 0, isEnabled: false })
+    return reply.send(
+      success({
+        id: c.id,
+        position: m.position,
+        name: c.key,
+        contentType: m.contentType,
+        sort: m.sort,
+        isEnabled: m.isEnabled,
+      }),
+    )
   })
 
   server.post('/recommendation-config', async (request, reply) => {

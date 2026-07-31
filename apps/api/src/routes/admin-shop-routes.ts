@@ -232,7 +232,19 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ id: String(row.id), ...mapProduct(row) }))
   })
 
-  server.patch('/shop/products/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+  server.get('/shop/products/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .select()
+      .from(zhsProduct)
+      .where(eq(zhsProduct.id, Number(p.data.id)))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '商品不存在'))
+    return reply.send(success({ id: String(row.id), ...mapProduct(row) }))
+  })
+
+  server.put('/shop/products/:id', async (request: FastifyRequest, reply: FastifyReply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const b = productBodySchema.partial().safeParse(request.body)
@@ -331,6 +343,19 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
       )[0]?.c ?? 0
     const list = listRows.map(mapWithdrawal)
     return reply.send(success({ list, total }))
+  })
+
+  server.get('/shop/withdrawals/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db
+      .select({ w: withdrawalFlows, username: users.username, nickname: users.nickname })
+      .from(withdrawalFlows)
+      .leftJoin(users, eq(users.id, withdrawalFlows.userId))
+      .where(eq(withdrawalFlows.id, p.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(mapWithdrawal(row)))
   })
 
   server.post('/shop/withdrawals', async (request: FastifyRequest, reply: FastifyReply) => {

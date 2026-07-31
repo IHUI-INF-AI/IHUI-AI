@@ -2,10 +2,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
-import { customerServiceTickets, customerServiceComments } from '@ihui/database'
-import { eq, desc, sql } from 'drizzle-orm'
+import { customerServiceTickets, customerServiceComments, users } from '@ihui/database'
+import { eq, desc, sql, ilike, and, type SQL } from 'drizzle-orm'
 
-// 客服工单(admin/support/tickets)路由 - 3 个端点,接 customerServiceTickets + customerServiceComments 表。
+// 客服工单(admin/support/tickets)路由 - 4 个端点,接 customerServiceTickets + customerServiceComments 表。
 // status mapping: 前端 'open'|'processing'|'closed'|'resolved' ↔ 后端 'pending'|'open'|'resolved'|'closed'|'rejected'
 // (前端 open = 待处理 = 后端 pending;前端 processing = 处理中 = 后端 open)
 
@@ -42,7 +42,61 @@ const listQuerySchema = z.object({
   ),
 })
 
+const ticketListQuerySchema = listQuerySchema.extend({
+  status: z.preprocess(emptyToUndefined, z.enum(['open', 'processing', 'closed', 'resolved']).optional()),
+  search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+})
+
 const adminSupportTicketsRoutes: FastifyPluginAsync = async (server) => {
+  // GET /support/tickets — 工单列表(分页 + status 筛选 + search 模糊匹配 title)
+  server.get('/support/tickets', async (request, reply) => {
+    const parsed = ticketListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, status, search } = parsed.data
+    const conds: (SQL | undefined)[] = []
+    if (status) {
+      const backendStatus = FRONTEND_TO_BACKEND[status]
+      if (backendStatus) conds.push(eq(customerServiceTickets.status, backendStatus))
+    }
+    if (search) conds.push(ilike(customerServiceTickets.title, `%${search}%`))
+    const where = conds.length ? and(...conds) : undefined
+
+    const [list, totalRow] = await Promise.all([
+      db
+        .select({
+          id: customerServiceTickets.id,
+          ticketNo: customerServiceTickets.ticketNo,
+          userId: customerServiceTickets.userId,
+          title: customerServiceTickets.title,
+          status: customerServiceTickets.status,
+          priority: customerServiceTickets.priority,
+          source: customerServiceTickets.source,
+          createdAt: customerServiceTickets.createdAt,
+          updatedAt: customerServiceTickets.updatedAt,
+          userName: users.username,
+          userNickname: users.nickname,
+        })
+        .from(customerServiceTickets)
+        .leftJoin(users, eq(users.id, customerServiceTickets.userId))
+        .where(where)
+        .orderBy(desc(customerServiceTickets.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(customerServiceTickets)
+        .where(where),
+    ])
+    const mappedList = list.map((r) => ({
+      ...r,
+      status: BACKEND_TO_FRONTEND[r.status] ?? r.status,
+      userName: r.userNickname ?? r.userName ?? undefined,
+    }))
+    return reply.send(success({ list: mappedList, total: totalRow[0]?.c ?? 0 }))
+  })
+
   // PUT /support/tickets/:id/status — 更新工单状态
   server.put('/support/tickets/:id/status', async (request, reply) => {
     const parsedParams = idParamSchema.safeParse(request.params)
