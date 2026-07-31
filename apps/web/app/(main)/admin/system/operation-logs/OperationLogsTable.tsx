@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, Eye } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button, Checkbox } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
@@ -29,6 +30,7 @@ export function OperationLogsTable({
   onSort,
   onDetail,
 }: OperationLogsTableProps) {
+  const t = useTranslations('admin.system')
   const sortIcon = (col: string) => (sort.col === col ? (sort.dir === 'desc' ? '↓' : '↑') : '')
 
   return (
@@ -42,23 +44,23 @@ export function OperationLogsTable({
                 onCheckedChange={onToggleAll}
               />
             </th>
-            <th className={th}>ID</th>
-            <th className={th}>模块</th>
-            <th className={th}>类型</th>
+            <th className={th}>{t('operationLogs.table.id')}</th>
+            <th className={th}>{t('operationLogs.table.module')}</th>
+            <th className={th}>{t('operationLogs.table.type')}</th>
             <th className={cn(th, 'cursor-pointer select-none')} onClick={() => onSort('operName')}>
-              操作人 {sortIcon('operName')}
+              {t('operationLogs.table.operName')} {sortIcon('operName')}
             </th>
-            <th className={th}>请求方式</th>
-            <th className={th}>IP</th>
-            <th className={th}>位置</th>
-            <th className={th}>状态</th>
+            <th className={th}>{t('operationLogs.table.requestMethod')}</th>
+            <th className={th}>{t('operationLogs.table.ip')}</th>
+            <th className={th}>{t('operationLogs.table.location')}</th>
+            <th className={th}>{t('operationLogs.table.status')}</th>
             <th className={cn(th, 'cursor-pointer select-none')} onClick={() => onSort('operTime')}>
-              操作时间 {sortIcon('operTime')}
+              {t('operationLogs.table.operTime')} {sortIcon('operTime')}
             </th>
             <th className={cn(th, 'cursor-pointer select-none')} onClick={() => onSort('costTime')}>
-              耗时 {sortIcon('costTime')}
+              {t('operationLogs.table.costTime')} {sortIcon('costTime')}
             </th>
-            <th className={th}>操作</th>
+            <th className={th}>{t('common.actions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -71,15 +73,12 @@ export function OperationLogsTable({
           ) : list.length === 0 ? (
             <tr>
               <td colSpan={12} className="px-4 py-10 text-center text-muted-foreground">
-                暂无数据
+                {t('common.noData')}
               </td>
             </tr>
           ) : (
             list.map((l) => {
-              const st = STATUS_LABEL[l.status] ?? {
-                label: '-',
-                cls: 'bg-muted text-muted-foreground',
-              }
+              const st = STATUS_LABEL[l.status]
               return (
                 <tr key={l.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5">
@@ -91,15 +90,20 @@ export function OperationLogsTable({
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.id}</td>
                   <td className="px-4 py-2.5 font-medium">{l.title}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {BIZ_TYPE[l.businessType] ?? '-'}
+                    {BIZ_TYPE[l.businessType] ? t(BIZ_TYPE[l.businessType]) : '-'}
                   </td>
                   <td className="px-4 py-2.5">{l.operName}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{l.requestMethod}</td>
                   <td className="px-4 py-2.5 font-mono text-xs">{l.operIp}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.operLocation}</td>
                   <td className="px-4 py-2.5">
-                    <span className={cn('inline-flex rounded-md px-2 py-0.5 text-xs', st.cls)}>
-                      {st.label}
+                    <span
+                      className={cn(
+                        'inline-flex rounded-md px-2 py-0.5 text-xs',
+                        st?.cls ?? 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {st ? t(st.label) : '-'}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
@@ -110,7 +114,7 @@ export function OperationLogsTable({
                     <HasPermi code="system:operlog:query">
                       <Button size="sm" variant="ghost" onClick={() => onDetail(l)}>
                         <Eye className="h-3.5 w-3.5" />
-                        详情
+                        {t('common.detail')}
                       </Button>
                     </HasPermi>
                   </td>

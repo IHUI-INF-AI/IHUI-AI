@@ -27,24 +27,27 @@ export const EMPTY_FORM: ProductForm = {
 export const selectClass =
   'h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-export const EXPORT_COLUMNS = [
-  { key: 'id', title: 'ID' },
-  { key: 'name', title: '商品名称' },
-  { key: 'price', title: '价格(分)' },
-  { key: 'stock', title: '库存' },
-  { key: 'sales', title: '销量' },
-  { key: 'category', title: '分类' },
-  { key: 'desc', title: '描述' },
-  {
-    key: 'status',
-    title: '状态',
-    formatter: (v: unknown) => (v === 'online' || v === 1 ? '上架' : '下架'),
-  },
-  { key: 'type', title: '类型' },
-  { key: 'denomination', title: '面额' },
-  { key: 'denominationVip', title: 'VIP面额' },
-  { key: 'denominationOperate', title: '运营商面额' },
-]
+export function getExportColumns(t: (key: string) => string) {
+  return [
+    { key: 'id', title: t('products.export.id') },
+    { key: 'name', title: t('products.export.name') },
+    { key: 'price', title: t('products.export.price') },
+    { key: 'stock', title: t('products.export.stock') },
+    { key: 'sales', title: t('products.export.sales') },
+    { key: 'category', title: t('products.export.category') },
+    { key: 'desc', title: t('products.export.desc') },
+    {
+      key: 'status',
+      title: t('products.export.status'),
+      formatter: (v: unknown) =>
+        v === 'online' || v === 1 ? t('products.status.online') : t('products.status.offline'),
+    },
+    { key: 'type', title: t('products.export.type') },
+    { key: 'denomination', title: t('products.export.denomination') },
+    { key: 'denominationVip', title: t('products.export.denominationVip') },
+    { key: 'denominationOperate', title: t('products.export.denominationOperate') },
+  ]
+}
 
 export function toArrayImages(v?: string | string[]): string[] {
   if (!v) return []
