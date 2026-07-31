@@ -26,6 +26,7 @@ import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
+import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import {
   MessageContextMenu,
   MessageSearchBar,
@@ -35,6 +36,7 @@ import {
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
 import { useChatStore } from '@/stores/chat'
+import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
 import { searchMessages } from '@/lib/message-search'
 import { toast } from '@/components/common'
@@ -1003,6 +1005,12 @@ export function MessageList({
   const subAgentActivitiesFromStore = useChatStore((s) => s.subAgentActivities)
   const subAgentActivities = subAgentActivitiesProp ?? subAgentActivitiesFromStore
 
+  // PlanStepsCard 数据源:从 useAgentProgress 读取 planSteps(对标 agent-task-progress-pane)
+  // useAgentProgress 不自动开启 SSE 连接(需显式 start),与 pane 共享同一惰性聚合模式,
+  // 因此不会产生重复 SSE 连接
+  const conversationId = useChatStore((s) => s.conversationId)
+  const { planSteps } = useAgentProgress(conversationId)
+
   // 从 messages + subAgentActivities 派生 TimelineEvent 列表
   // 上游没传 events 时,本地基于 messages 派生供右侧时间线 tab 渲染
   const derivedEvents = React.useMemo<TimelineEvent[]>(() => {
@@ -1466,19 +1474,24 @@ export function MessageList({
                     contextMenu.contextMenuHandlers.onContextMenu(e)
                   }}
                 />
-                {/* Phase 19: 最后一个 assistant 消息下挂载关联的 SubAgentTaskTree */}
-                {!m.error && m.id === lastAssistantMessageId && linkedSubagents.length > 0 && (
-                  <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
-                    {linkedSubagents.map((sub) => (
-                      <SubAgentTaskTree
-                        key={sub.id}
-                        subagent={sub}
-                        defaultCollapsed
-                        data-testid={`message-subagent-tree-${sub.id}`}
-                      />
-                    ))}
-                  </div>
-                )}
+                {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree */}
+                {!m.error &&
+                  m.id === lastAssistantMessageId &&
+                  (planSteps.length > 0 || linkedSubagents.length > 0) && (
+                    <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
+                      {planSteps.length > 0 && (
+                        <PlanStepsCard steps={planSteps} data-testid="message-plan-steps-card" />
+                      )}
+                      {linkedSubagents.map((sub) => (
+                        <SubAgentTaskTree
+                          key={sub.id}
+                          subagent={sub}
+                          defaultCollapsed
+                          data-testid={`message-subagent-tree-${sub.id}`}
+                        />
+                      ))}
+                    </div>
+                  )}
               </div>
             </React.Fragment>
           )

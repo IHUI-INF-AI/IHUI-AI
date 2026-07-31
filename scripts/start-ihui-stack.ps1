@@ -156,16 +156,42 @@ function Show-Help {
 # 工具函数
 # ============================================================
 function Test-PortInUse([int]$port) {
-  $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-  return ($null -ne $conn -and $conn.Count -gt 0)
+  # 兼容 IPv4 + IPv6:Next.js dev server / uvicorn 在 Windows 上常默认只绑
+  # IPv6([::1]),而 Get-NetTCPConnection 在 PS 5.1 上查询不完整,容易误报
+  # DOWN。兜底逻辑:Get-NetTCPConnection(快)→ netstat(PS 5.1 兼容)→
+  # Test-NetConnection(真连一下,慢但稳)。
+  $conn = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+  if ($conn.Count -gt 0) { return $true }
+
+  # netstat 兜底:Windows 5.x 起 ::port / 0.0.0.0:port 都能匹配
+  $netstat = netstat -an 2>$null | Select-String "[:.]$port\s"
+  if ($null -ne $netstat -and $netstat.Count -gt 0) { return $true }
+
+  # 终极兜底:用 Test-NetConnection 主动连接(可能耗时 1-2s)
+  try {
+    $tnc = Test-NetConnection -ComputerName localhost -Port $port -InformationLevel Quiet -WarningAction SilentlyContinue
+    return $tnc
+  } catch {
+    return $false
+  }
 }
 
 function Get-PortOwner([int]$port) {
-  $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-  if ($null -eq $conn) { return $null }
-  $procId = ($conn | Select-Object -First 1).OwningProcess
-  if ($procId -le 0) { return $null }
-  return $procId
+  $conn = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+  if ($conn.Count -gt 0) {
+    $procId = ($conn | Select-Object -First 1).OwningProcess
+    if ($procId -gt 0) { return $procId }
+  }
+  # IPv6 fallback:netstat 解析
+  $line = netstat -ano 2>$null | Select-String "[:.]$port\s.*LISTENING" | Select-Object -First 1
+  if ($null -ne $line) {
+    $tokens = ($line -replace '\s+', ' ').Trim().Split(' ')
+    if ($tokens.Count -ge 5) {
+      $pid = $tokens[$tokens.Count - 1]
+      if ($pid -match '^\d+$' -and [int]$pid -gt 0) { return [int]$pid }
+    }
+  }
+  return $null
 }
 
 function Test-CommandExists([string]$cmd) {
