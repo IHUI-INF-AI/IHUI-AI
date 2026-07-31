@@ -15,6 +15,7 @@ export const EMPTY_FORM: FormState = {
   sortOrder: '0',
   enabled: true,
   ownerUuid: '',
+  pointsMultiplier: 1,
 }
 
 export const API_FORMATS = [
@@ -22,6 +23,15 @@ export const API_FORMATS = [
   { value: 'anthropic_messages', label: 'Anthropic Messages' },
   { value: 'openai_responses', label: 'OpenAI Responses' },
 ]
+
+/** 积分消耗倍数档位(0=免费/1=经济/3=标准/10=高级/30=旗舰) */
+export const POINTS_MULTIPLIERS = [
+  { value: 0, label: '免费 (×0,不扣分)' },
+  { value: 1, label: '经济 (×1)' },
+  { value: 3, label: '标准 (×3)' },
+  { value: 10, label: '高级 (×10)' },
+  { value: 30, label: '旗舰 (×30)' },
+] as const
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -41,6 +51,7 @@ export function rowToForm(item: ModelRow): FormState {
     sortOrder: String(item.sortOrder),
     enabled: item.enabled,
     ownerUuid: item.ownerUuid ?? '',
+    pointsMultiplier: item.pointsMultiplier ?? 1,
   }
 }
 
@@ -56,5 +67,6 @@ export function formToBody(form: FormState) {
     sortOrder: Number(form.sortOrder) || 0,
     enabled: form.enabled,
     ownerUuid: form.ownerUuid || undefined,
+    pointsMultiplier: form.pointsMultiplier,
   }
 }
