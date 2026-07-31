@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
-import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
+import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
 import { Button } from '@ihui/ui-react'
@@ -243,6 +243,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         未登录时不订阅、未挂载,登录后自动启用。
       */}
       <WorkspacePermissionRequestDialog userId={currentUserId} />
+      {/* 桌面端应用更新下拉提示(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
+          内部调用 useUpdater hook,启动静默检查 + 监听托盘菜单 desktop-check-update 事件。 */}
+      <UpdatePrompt />
       {/*
         Agent 任务进度 popover(2026-07-27 v6):
         trigger + popover 已内嵌到 MessageInput 输入框附加栏(上方居中),
