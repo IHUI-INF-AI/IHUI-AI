@@ -1009,6 +1009,64 @@
     "mentionPopover": {
       "removeLabel": "移除 {label}"
     },
+    "vendor": {
+      "stepfun": "階躍星辰",
+      "cloudflareWorkersAi": "Cloudflare Workers AI"
+    },
+    "commandArg": {
+      "goalFixTs": {
+        "label": "修復所有 TypeScript 錯誤",
+        "description": "執行 pnpm typecheck,修復所有報錯直到全綠(命令退出碼 0)"
+      },
+      "goalPassTests": {
+        "label": "通過所有單元測試",
+        "description": "執行 pnpm test,修復失敗用例直到全部通過"
+      },
+      "goalRefactor": {
+        "label": "重構模組消除重複",
+        "description": "識別重複程式碼,抽取共享工具函數,保持行為不變"
+      },
+      "goalLint": {
+        "label": "完成 lint 全綠",
+        "description": "執行 pnpm lint,修復所有 lint 錯誤和警告"
+      },
+      "goalMigrateShared": {
+        "label": "遷移功能到共享層",
+        "description": "把端獨佔元件上提到 packages/app,多端復用,保持行為一致"
+      },
+      "goalBenchmark": {
+        "label": "深度對標某產品交互",
+        "description": "參考目標產品交互細節,逐項對齊實現,自驗 4 狀態"
+      },
+      "goalDeadCode": {
+        "label": "清理死程式碼",
+        "description": "掃描未引用的匯出/元件/工具函數,確認無依賴後刪除"
+      },
+      "goalE2e": {
+        "label": "補全 E2E 測試",
+        "description": "為關鍵路徑補全 E2E 測試,覆蓋率提升到 80%+"
+      },
+      "loopOn": {
+        "label": "開啟循環",
+        "description": "開啟循環執行模式,AI 將持續迭代直到目標達成"
+      },
+      "loopOff": {
+        "label": "關閉循環",
+        "description": "關閉循環執行模式,恢復單次執行"
+      },
+      "loop5": {
+        "label": "循環 5 次",
+        "description": "設定最大迭代次數為 5"
+      },
+      "loop10": {
+        "label": "循環 10 次",
+        "description": "設定最大迭代次數為 10"
+      },
+      "loop20": {
+        "label": "循環 20 次",
+        "description": "設定最大迭代次數為 20(高風險,需人工監督)"
+      }
+    },
     "contextMenu": {
       "copyText": "複製文字",
       "copyMarkdown": "複製為 Markdown",
@@ -13452,7 +13510,10 @@
       "newTerminalAria": "新增終端",
       "loading": "載入中...",
       "empty": "暫無終端工作階段",
-      "closeTerminalAria": "關閉終端"
+      "closeTerminalAria": "關閉終端",
+      "statusActive": "執行中",
+      "statusExited": "已退出",
+      "statusClosed": "已關閉"
     }
   },
   "aiSkillsPage": {
