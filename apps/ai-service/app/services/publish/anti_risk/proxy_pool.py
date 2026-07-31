@@ -15,22 +15,40 @@
 2. 环境变量 ANTI_RISK_PROXY_CONFIG(JSON 数组,启动加载)
 3. 内存分配(首次请求时从池中分配并缓存)
 
+强化(2026-07-31):
+- health_check():异步 ping 所有代理,标记失效 IP
+- auto_evict():自动剔除连续 3 次健康检查失败的代理
+- get_proxy_for_region(region):按区域匹配代理(华东/华南等)
+- stats() -> ProxyPoolStats:返回池状态(总数/活跃/失效/平均响应时间)
+
 诚实说明:本模块只做"代理路由",不提供代理 IP。
 用户需自行购买住宅代理(快代理/芝麻代理/Luminati 等),通过环境变量或 DB 注入。
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import random
 import threading
-from dataclasses import dataclass
+import time
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+# 健康检查目标 URL(轻量、稳定、支持 HEAD)
+_HEALTH_CHECK_URL = "https://www.baidu.com/"
+# 健康检查超时(秒)
+_HEALTH_CHECK_TIMEOUT = 10.0
+# 自动剔除阈值(连续失败次数)
+_EVICT_THRESHOLD = 3
+# 健康检查并发数
+_HEALTH_CHECK_CONCURRENCY = 8
 
 
 @dataclass
@@ -78,6 +96,42 @@ class ProxyConfig:
         server = server.split("@")[-1].split(":")[0]
         return server.startswith(datacenter_prefixes)
 
+    def server_host(self) -> str:
+        """提取 server 的 host:port(去掉协议和认证)。"""
+        s = self.server
+        for prefix in ("http://", "https://", "socks5://", "socks4://"):
+            if s.startswith(prefix):
+                s = s[len(prefix):]
+                break
+        return s.split("@")[-1]
+
+
+@dataclass
+class ProxyPoolStats:
+    """代理池统计状态。
+
+    Attributes:
+        total: 代理总数(可用 + 已分配 + 已剔除)
+        available: 可用代理数(未分配)
+        assigned: 已分配代理数(绑定到账号)
+        evicted: 已剔除代理数(连续健康检查失败)
+        failed: 当前标记为失效的代理数(未达剔除阈值)
+        avg_response_ms: 平均响应时间(毫秒,0=未检测)
+        last_health_check: 最后一次健康检查时间戳(0=未检查)
+    """
+
+    total: int = 0
+    available: int = 0
+    assigned: int = 0
+    evicted: int = 0
+    failed: int = 0
+    avg_response_ms: float = 0.0
+    last_health_check: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        """转为 dict(向后兼容 stats() 调用方)。"""
+        return asdict(self)
+
 
 class ProxyPool:
     """代理池:管理账号→代理映射,确保同账号同代理、不同账号不同代理。
@@ -94,6 +148,15 @@ class ProxyPool:
         # 已分配的代理(用于避免重复分配)
         self._assigned_servers: set[str] = set()
         self._initialized = False
+        # 健康检查追踪(2026-07-31 强化)
+        # server_host -> 连续失败次数(达 _EVICT_THRESHOLD 即剔除)
+        self._failure_counts: dict[str, int] = {}
+        # server_host -> 最近响应时间(毫秒)
+        self._response_times: dict[str, float] = {}
+        # 已剔除的代理(不重新分配)
+        self._evicted_servers: set[str] = set()
+        # 最后一次健康检查时间戳
+        self._last_health_check: float = 0.0
 
     def _ensure_initialized(self) -> None:
         """惰性初始化:从环境变量加载代理配置。"""
@@ -139,6 +202,9 @@ class ProxyPool:
 
         首次请求时从可用池中分配一个并持久绑定。
         池空时返回 None(直连,反风控降级)。
+
+        注意:已剔除(连续健康检查失败)的代理不会重新分配,
+        但已绑定到账号的代理不会被强制解除(避免同账号换 IP 触发异地登录告警)。
         """
         self._ensure_initialized()
         with self._lock:
@@ -146,12 +212,17 @@ class ProxyPool:
             existing = self._account_proxy.get(account_id)
             if existing:
                 return existing
-            # 未绑定 → 从可用池分配
-            if not self._available:
+            # 未绑定 → 从可用池分配(过滤已剔除的)
+            available_proxies = [
+                p for p in self._available
+                if p.server_host() not in self._evicted_servers
+            ]
+            if not available_proxies:
                 return None
             # 随机选一个(避免按顺序分配产生规律)
-            idx = random.randint(0, len(self._available) - 1)
-            proxy = self._available.pop(idx)
+            idx = random.randint(0, len(available_proxies) - 1)
+            proxy = available_proxies[idx]
+            self._available.remove(proxy)
             self._account_proxy[account_id] = proxy
             self._assigned_servers.add(proxy.server)
             logger.info(
@@ -159,6 +230,204 @@ class ProxyPool:
                 account_id, proxy.server, proxy.region,
             )
             return proxy
+
+    def get_proxy_for_region(self, region: str) -> ProxyConfig | None:
+        """按区域匹配代理(如"华东"/"华南"/"cn"/"hk")。
+
+        优先返回匹配 region 的未分配代理;无匹配时返回 None。
+        匹配后的代理会从可用池移除(避免重复分配)。
+
+        Args:
+            region: 区域标识(如 "cn"/"hk"/"us" 或 "华东"/"华南")
+
+        Returns:
+            匹配的 ProxyConfig,无匹配返回 None
+        """
+        self._ensure_initialized()
+        with self._lock:
+            # 模糊匹配:region 包含或被包含
+            for i, proxy in enumerate(self._available):
+                if proxy.server_host() in self._evicted_servers:
+                    continue
+                if (region in proxy.region) or (proxy.region in region):
+                    matched = self._available.pop(i)
+                    self._assigned_servers.add(matched.server)
+                    logger.info(
+                        "[proxy_pool] 区域 %s 匹配代理 %s",
+                        region, matched.server,
+                    )
+                    return matched
+            return None
+
+    async def health_check(self) -> dict[str, Any]:
+        """异步 ping 所有可用代理,标记失效 IP。
+
+        并发检查所有可用 + 已分配的代理,记录响应时间,
+        失败的代理计入 _failure_counts。
+
+        Returns:
+            检查结果 dict:{"total": N, "healthy": M, "unhealthy": K,
+            "avg_response_ms": float}
+        """
+        self._ensure_initialized()
+        # 收集所有代理(可用 + 已分配,排除已剔除)
+        with self._lock:
+            all_proxies: list[ProxyConfig] = []
+            all_proxies.extend(self._available)
+            all_proxies.extend(
+                p for p in self._account_proxy.values()
+                if p.server_host() not in self._evicted_servers
+            )
+
+        if not all_proxies:
+            logger.info("[proxy_pool] health_check: 无代理可检查")
+            return {"total": 0, "healthy": 0, "unhealthy": 0, "avg_response_ms": 0.0}
+
+        # 信号量限制并发
+        sem = asyncio.Semaphore(_HEALTH_CHECK_CONCURRENCY)
+
+        async def _check_one(proxy: ProxyConfig) -> tuple[str, bool, float]:
+            """检查单个代理,返回 (server_host, is_healthy, response_ms)。"""
+            async with sem:
+                return await self._ping_proxy(proxy)
+
+        # 并发检查所有代理
+        results = await asyncio.gather(
+            *[_check_one(p) for p in all_proxies],
+            return_exceptions=False,
+        )
+
+        healthy = 0
+        unhealthy = 0
+        response_times: list[float] = []
+        for server_host, is_healthy, response_ms in results:
+            if is_healthy:
+                healthy += 1
+                response_times.append(response_ms)
+                self._record_health_success(server_host, response_ms)
+            else:
+                unhealthy += 1
+                self._record_health_failure(server_host)
+
+        avg_ms = sum(response_times) / len(response_times) if response_times else 0.0
+        self._last_health_check = time.time()
+
+        logger.info(
+            "[proxy_pool] health_check 完成: total=%d healthy=%d unhealthy=%d avg_ms=%.0f",
+            len(all_proxies), healthy, unhealthy, avg_ms,
+        )
+        return {
+            "total": len(all_proxies),
+            "healthy": healthy,
+            "unhealthy": unhealthy,
+            "avg_response_ms": avg_ms,
+        }
+
+    async def _ping_proxy(self, proxy: ProxyConfig) -> tuple[str, bool, float]:
+        """ping 单个代理,返回 (server_host, is_healthy, response_ms)。
+
+        用 httpx 通过代理发起 HEAD 请求,返回是否健康 + 响应时间。
+        超时/连接错误视为不健康。
+        """
+        try:
+            import httpx
+        except ImportError:
+            # httpx 不可用,降级为 TCP 连通性检查
+            return await self._tcp_check_proxy(proxy)
+
+        server_host = proxy.server_host()
+        proxy_dict = proxy.to_playwright_proxy()
+        start = time.time()
+        try:
+            async with httpx.AsyncClient(
+                proxy=proxy_dict["server"],
+                timeout=_HEALTH_CHECK_TIMEOUT,
+                verify=False,  # 代理证书可能自签,不验证
+            ) as client:
+                resp = await client.head(_HEALTH_CHECK_URL)
+                response_ms = (time.time() - start) * 1000
+                is_healthy = 200 <= resp.status_code < 400
+                return (server_host, is_healthy, response_ms)
+        except Exception as e:
+            logger.debug(
+                "[proxy_pool] ping %s 失败: %s: %s",
+                server_host, type(e).__name__, e,
+            )
+            return (server_host, False, 0.0)
+
+    async def _tcp_check_proxy(self, proxy: ProxyConfig) -> tuple[str, bool, float]:
+        """TCP 连通性检查(httpx 不可用时的降级方案)。"""
+        server_host = proxy.server_host()
+        # 解析 host:port
+        if ":" in server_host:
+            host, port_str = server_host.rsplit(":", 1)
+            try:
+                port = int(port_str)
+            except ValueError:
+                host, port = server_host, 80
+        else:
+            host, port = server_host, 80
+
+        start = time.time()
+        try:
+            # 用 asyncio 包装阻塞 socket
+            future = asyncio.open_connection(host, port)
+            _reader, writer = await asyncio.wait_for(future, timeout=_HEALTH_CHECK_TIMEOUT)
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+            response_ms = (time.time() - start) * 1000
+            return (server_host, True, response_ms)
+        except (asyncio.TimeoutError, OSError, ConnectionError) as e:
+            logger.debug(
+                "[proxy_pool] TCP check %s 失败: %s: %s",
+                server_host, type(e).__name__, e,
+            )
+            return (server_host, False, 0.0)
+
+    def _record_health_success(self, server_host: str, response_ms: float) -> None:
+        """记录健康检查成功(重置失败计数)。"""
+        with self._lock:
+            self._failure_counts.pop(server_host, None)
+            self._response_times[server_host] = response_ms
+
+    def _record_health_failure(self, server_host: str) -> None:
+        """记录健康检查失败(累加失败计数)。"""
+        with self._lock:
+            self._failure_counts[server_host] = self._failure_counts.get(server_host, 0) + 1
+
+    def auto_evict(self) -> list[str]:
+        """自动剔除连续 3 次健康检查失败的代理。
+
+        从可用池移除失效代理(防止分配给新账号);
+        已绑定到账号的代理不会被强制解除(避免同账号换 IP 触发异地登录告警)。
+
+        Returns:
+            被剔除的代理 server_host 列表
+        """
+        self._ensure_initialized()
+        evicted: list[str] = []
+        with self._lock:
+            for server_host, fail_count in list(self._failure_counts.items()):
+                if fail_count >= _EVICT_THRESHOLD:
+                    if server_host in self._evicted_servers:
+                        continue
+                    self._evicted_servers.add(server_host)
+                    evicted.append(server_host)
+                    # 从可用池移除
+                    self._available = [
+                        p for p in self._available
+                        if p.server_host() != server_host
+                    ]
+                    logger.warning(
+                        "[proxy_pool] 自动剔除代理 %s(连续 %d 次健康检查失败)",
+                        server_host, fail_count,
+                    )
+        if evicted:
+            logger.info("[proxy_pool] auto_evict 剔除 %d 个代理", len(evicted))
+        return evicted
 
     def assign_proxy(self, account_id: str, proxy: ProxyConfig) -> None:
         """手动绑定账号→代理(用于用户在 UI 指定某账号用某代理)。"""
@@ -184,14 +453,32 @@ class ProxyPool:
                     account_id, proxy.server,
                 )
 
-    def stats(self) -> dict[str, int]:
-        """返回代理池统计(可用/已分配/总数)。"""
+    def stats(self) -> ProxyPoolStats:
+        """返回代理池统计(总数/活跃/失效/平均响应时间)。
+
+        返回 ProxyPoolStats dataclass,可用 .to_dict() 转 dict(向后兼容)。
+        """
         with self._lock:
-            return {
-                "available": len(self._available),
-                "assigned": len(self._account_proxy),
-                "total": len(self._available) + len(self._account_proxy),
-            }
+            total = len(self._available) + len(self._account_proxy) + len(self._evicted_servers)
+            # 失效(未达剔除阈值)的代理数
+            failed = sum(
+                1 for p in self._available + list(self._account_proxy.values())
+                if p.server_host() in self._failure_counts
+                and self._failure_counts[p.server_host()] > 0
+                and p.server_host() not in self._evicted_servers
+            )
+            # 平均响应时间(仅健康代理)
+            response_times = list(self._response_times.values())
+            avg_ms = sum(response_times) / len(response_times) if response_times else 0.0
+            return ProxyPoolStats(
+                total=total,
+                available=len(self._available),
+                assigned=len(self._account_proxy),
+                evicted=len(self._evicted_servers),
+                failed=failed,
+                avg_response_ms=avg_ms,
+                last_health_check=self._last_health_check,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -212,4 +499,4 @@ def get_proxy_pool() -> ProxyPool:
     return _global_pool
 
 
-__all__ = ["ProxyConfig", "ProxyPool", "get_proxy_pool"]
+__all__ = ["ProxyConfig", "ProxyPool", "ProxyPoolStats", "get_proxy_pool"]
