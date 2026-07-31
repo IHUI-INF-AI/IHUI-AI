@@ -645,6 +645,8 @@
     "manageModels": "Customize model configurations",
     "modelAuto": "Auto",
     "modelAutoDescription": "Automatically select the optimal model",
+    "modelFree": "Free",
+    "modelPointsMultiplier": "Credits multiplier",
     "slashCmd": {
       "plan": "Switch to plan mode (AI only makes plans, does not execute tools)",
       "act": "Switch to act mode (AI normally executes tools, default)",
@@ -12685,7 +12687,9 @@
       "recentSearches": "Recent searches",
       "remove": "Remove",
       "inputHint": "Type to search",
-      "searchFailed": "Search failed, please retry"
+      "searchFailed": "Search failed, please retry",
+      "openWorkspaceHint": "Please open a workspace first",
+      "searching": "Searching..."
     },
     "sourceControl": {
       "commitPlaceholder": "Commit message",
@@ -12844,6 +12848,13 @@
       "eventCount": "{count} events",
       "play": "Play",
       "delete": "Delete"
+    },
+    "terminalSessionList": {
+      "title": "Terminal sessions",
+      "newTerminalAria": "New terminal",
+      "loading": "Loading...",
+      "empty": "No terminal sessions",
+      "closeTerminalAria": "Close terminal"
     }
   },
   "aiSkillsPage": {
