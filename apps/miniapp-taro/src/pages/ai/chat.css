@@ -3,6 +3,10 @@
   flex-direction: column;
   height: 100vh;
   background: var(--color-background);
+  /* input-box-content 改 fixed 后,page 需要预留底部空间避免 ScrollView 底部内容被遮挡
+     高度估算:tool-icons 40rpx + 间距 8rpx + input-area ~120rpx + safe-area ~34rpx ≈ 210rpx */
+  padding-bottom: 210rpx;
+  box-sizing: border-box;
 }
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom);
@@ -604,7 +608,7 @@
   box-sizing: border-box;
   overflow-x: auto;
   flex: none;
-  border-bottom: 1px solid #D8D8D8;
+  border-bottom: 1px solid #d8d8d8;
   margin-bottom: 20rpx;
   white-space: nowrap;
 }
@@ -1080,12 +1084,16 @@
 
 /* ============ 底部输入区容器(对标原 ai_assistant.vue .input_box_content + .bottom-fixed-area) ============ */
 .input-box-content {
-  background-color: #fff;
+  position: fixed;
+  top: auto;
+  bottom: 0;
   left: 0;
   right: 0;
+  background-color: #fff;
   transition: bottom 0.3s ease;
   padding-bottom: calc(env(safe-area-inset-bottom) + 10rpx);
   z-index: 1000;
+  box-sizing: border-box;
 }
 
 /* ============================================================
