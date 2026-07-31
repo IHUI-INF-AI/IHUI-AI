@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -32,13 +32,17 @@ interface AccountHistoryInputProps {
 }
 
 /**
- * 账号输入框 + 历史下拉菜单(共享组件)。
+ * 账号输入框 + 历史下拉菜单(web 端 wrapper,2026-07-31 同步共享层行为)。
  *
  * 三个登录表单(密码 / 邮箱验证码 / 手机验证码)共用,行为一致:
- * - 双击输入框或点击右侧 ChevronDown 展开历史
+ * - 双击输入框展开历史(2026-07-31 升级:移除右侧 ChevronDown 按钮,符合用户偏好)
  * - 键盘 ArrowUp/Down 导航,Enter 选中,Escape 关闭
  * - 单条删除(X 按钮)+ 清空全部
  * - 下拉打开时实时读取 localStorage,保证登录成功后下次打开即最新
+ *
+ * 与共享层 packages/ui-react/src/components/login-form/account-history-input.tsx
+ * 实现一致,保留 web 端 wrapper 是因为 next-intl useTranslations('auth') 集成 + 引用
+ * web 端 @/lib/remember-credentials。共享层供 extension/desktop 端用 t 注入模式调用。
  *
  * 保存历史由各表单在登录成功后自行调用 saveLoginHistory。
  */
@@ -159,7 +163,12 @@ export function AccountHistoryInput({
                   data-history-index={idx}
                   onMouseEnter={() => setActiveHistoryIndex(idx)}
                   onClick={() => selectAccount(account)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAccount(account) } }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      selectAccount(account)
+                    }
+                  }}
                   className={[
                     'flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors',
                     activeHistoryIndex === idx
