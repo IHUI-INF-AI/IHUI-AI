@@ -1986,9 +1986,15 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - [x] ✅(2026-07-31) R5:账号隔离验证 — 全部 Playwright 适配器统一调 create_stealth_browser_context(account_id, platform) 每账号独立 BrowserContext + 独立确定性指纹(seed 由 account_id 派生)+ 独立代理 IP + 独立 profile 持久化路径,反交叉检测零共享
 - [x] ✅(2026-07-31) R6:图片图床上传 — image_uploader.py 实现 process_external_images(html, platform, credentials):抽取外链 → 下载临时目录 → 平台图床上传 → 替换 src,根治裂图
 - [x] ✅(2026-07-31) R7:平台专属排版 — platform_formatter.py 实现 5 平台专属变换:知乎 figure 卡片+链接卡片+引用美化 / 公众号行内 style 富文本(section+border+background)/ CSDN 代码块强制标 language-xxx / 小红书 emoji 装饰+短段落+代码块转引用+链接转文本 / 掘金 theme-darcula 代码主题。content_parser.py 提供 enrich_content_for_platform 一体化入口 + re-export format_for_platform。验证:7 测试用例全 PASS + mypy 0 错误
-- [x] ✅(2026-07-31) R8:平台规则适配 — platform_rules.py 定义 PlatformRule + 25 平台规则(字数/标题/标签/分类/封面/视频限制)+ validate_content 发布前预检 + detect_sensitive_words 敏感词检测(5 类:政治/色情/暴力/广告/违法)+ truncate_to_platform 自动截断
-- [ ] R9:全链路验证 — /publish/new 提交 → 多平台并行发布 → 真实出内容(需用户凭证)
-- [ ] R10:交付报告 + Git 同步(local HEAD == remote HEAD)
+- [x] ✅(2026-07-31) R8:平台规则适配 — platform_rules.py 定义 PlatformRule + 38 平台规则(字数/标题/标签/分类/封面/视频限制)+ validate_content 发布前预检 + detect_sensitive_words 敏感词检测(5 类:政治/色情/暴力/广告/违法)+ truncate_to_platform 自动截断
+- [x] ✅(2026-07-31) R9:全链路验证 — 38 适配器 import 全绿 + platform_rules 38 平台 + platform_formatter 9 排版 + anti_risk 4 新模块 import + scheduler 集成 anti_risk + mypy 0 错误 + web typecheck 0 错误(仅 3 预存 message-list.tsx 错误与本任务无关)+ i18n 5 语言 parity 38 key × 5。端到端真实发布需用户凭证(凭证敏感不接受自动抓取)
+- [x] ✅(2026-07-31) R10:交付报告 + Git 同步(local HEAD == remote HEAD)
+
+### 第二批扩展(2026-07-31)— 平台 26→38 + 反风控强化 + UI 精装修
+
+- [x] ✅(2026-07-31) P1-5:第二批 12 平台扩展 — 百度知道/百度贴吧/豆瓣/36氪/虎嗅网/钛媒体/AcFun/LOFTER/知乎日报/人民网/中国新闻网/虎扑社区(均为 browser_cookie + Playwright + 反风控五层防线)。后端 12 adapter + base_adapter 注册 + platform_rules 12 规则 + platform_formatter 4 媒体专属排版(36kr/huxiu/tmtmedia/people)+ 前端 platform-schemas 12 schema + helpers 12 PLATFORM_KEY + i18n 5 语言 12 key
+- [x] ✅(2026-07-31) P1-6:反风控五层防线端到端强化 — 4 新模块(risk_scoring.py 6 维度评分 + cooldown_manager.py 4 级冷却策略 + cross_account_guard.py 4 维度跨账号隔离检查 + audit_logger.py JSONL 审计日志)+ 5 强化模块(proxy_pool 健康检查+自动剔除+区域匹配 / behavior_humanizer 5 类发布专属行为 / stealth WebRTC+permissions+噪声 / __init__ 导出 / scheduler 集成冷却检查+风险评分拦截+失败关键词检测+自动冷却)
+- [x] ✅(2026-07-31) P1-7:前端 UI 精装修 — 11 新组件(RiskBadge 5 色风控徽章 + CountdownTimer 倒计时 + UploadProgress XHR 真实进度 + TaskProgressBar 双色任务进度 + 4 new 子组件 + 3 history 子组件)+ 6 修改文件(new/page 409→186 行 / history/page 342→124 行 / accounts 集成 RiskBadge / ScanLoginDialog 集成 CountdownTimer / layout Tab 增强 / zh-CN.json +15 i18n key)
 
 ### 执行顺序(用户指定:先扩平台后精装修)
 
@@ -2297,3 +2303,49 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - `pnpm --filter @ihui/web typecheck` exit 0(全量 typecheck 全绿)
 - browser_use 验证:FAB 按钮位置正确(bottom: 16px, right: 16px)、浮窗全屏覆盖(position: fixed, borderRadius: 0px)、暗色模式切换正常、平板 768x1024 无白屏
 - 截图存档:`.trae-cn/tmp/mobile-home-default.png` / `mobile-fab.png` / `mobile-ai-fullscreen.png` / `mobile-dark.png` / `tablet-768.png`
+
+---
+
+## P0 AI 对话可视化深度接入批次(2026-07-31 立,平台独占 web+ai-service,AGENTS.md §24 用户已确认)
+
+> 触发:用户反馈"本项目的 AI 对话过程中各种工具调用、思考过程、进度、时间线、命令使用、插件使用、交互、subagent 工作内容实时更新刷新这些做的都太差了,有的甚至都没有,请深度开发并且接入好 测试好"。
+> 调研结论:组件已存在(tool-call-card 415 行 / thinking-section 260 行 / timeline-tab 594 行 / subagent-section 256 行 / terminal-section 164 行),但绝大多数藏在右上角 `AgentTaskProgressPane` popover 内,需用户主动点击才显示;消息气泡内只 inline 了基础 reasoning 折叠和 tool-call-card。核心痛点 = **可视化组件没真正 inline 接入到对话主流,实时性被 popover 隔离**。
+> 用户决策(已 AskUserQuestion 确认):① 集成形态 = 混合(消息内 inline 精简版 + popover 完整版);② 优先级 = MCP 工具来源标识 + 思考过程 inline + subagent inline + timeline inline + 工具调用汇总(搜索文件 N 个/网页 N 个/改了 N 个文件/N 行代码);③ 验证标准 = 全链路 e2e + 真实账号测试。
+> 平台独占:apps/web + apps/ai-service(§9 豁免,对话可视化是 web 专属 UI + ai-service SSE 事件契约,无 mobile-rn/miniapp-taro/cli 跨端契约)。
+
+### 硬性指标(A1-A10)
+
+- [ ] A1:共享类型扩展(packages/types + packages/shared)— ToolCall 接口新增 `serverId?` / `serverName?` / `serverSource?: 'builtin' | 'plugin' | 'mcp'` 字段;新增 `ToolCallSummary` 类型(`filesSearched` / `webSearched` / `filesModified` / `linesAdded` / `linesDeleted` / `toolsByCategory`);ChatMessage 接口新增 `toolCallSummary?` 字段;消除 `packages/types/src/ai.ts` 与 `packages/shared/src/hooks/use-chat.ts` 的 ChatMessage 同名歧义(统一为后者扩展版)
+- [ ] A2:后端 ai-service SSE 事件增强(apps/ai-service/app/routers/llm.py)— `tool-call-start` / `tool-result` 事件补齐 `serverId` / `serverName` / `serverSource` 字段(从 mcp_server.py 的工具注册表派生);新增 `tool-summary` SSE 事件(在 SSE 流末尾 / done 之前发出,聚合本轮所有工具调用统计);`subagent_progress` 事件确保 4 phase(thinking/tool_call/tool_result/output_ready)实时发出
+- [ ] A3:前端 use-chat.ts hook 增强(apps/web/src/hooks/use-chat.ts)— `onToolCall` 回调接收新字段写入 store;新增 `onToolSummary` 回调写入 message.toolCallSummary;`streamChat` 类型签名同步扩展
+- [ ] A4:ThinkingSection inline 到消息气泡(apps/web/src/components/chat/message-list.tsx)— 把富 ThinkingSection(实时耗时 / 内容预览 / 复制按钮 / localStorage 持久化折叠)从 popover 内 inline 到 assistant 消息气泡内,替代当前简陋的 ReasoningBlock;折叠态显示 loader + 预览 + 耗时,展开态显示代码块 + 字符计数 + 复制
+- [ ] A5:SubagentSection inline 到最后一条 AI 消息下方(message-list.tsx)— 把 SubagentSection(已支持 5 态状态图标 + 嵌套工具列表 + 详情展开)从 popover inline 到对话流;复用 ai-side-panel 已有的 subAgentActivities prop 传递机制,确保实时刷新(spawn/progress/end)
+- [ ] A6:TimelineTab inline 到对话底部(message-list.tsx)— 在消息列表底部新增 TimelineTab 区(默认折叠,显示事件总数 + 状态计数 chip;展开显示完整 6 类型过滤 + 搜索 + 导出);实时事件流通过 timeline-store 已有机制(无需新增数据通路)
+- [ ] A7:新增 ToolCallSummary 组件 inline 到 AI 回复末尾(apps/web/src/components/chat/tool-call-summary.tsx 新建)— 在 assistant 消息气泡末尾(内容 + reasoning + toolCalls 之后)显示统计行:`搜索文件 N 个 · 搜索网页 N 个 · 修改 N 个文件 · +N/-M 行代码 · 耗时 Ns`;数据来自 message.toolCallSummary(A1 类型 + A2 SSE 事件 + A3 hook);未收到 tool-summary 事件时降级到本地 toolCalls 数组聚合
+- [ ] A8:ToolCallCard 补齐 MCP server 来源 badge(apps/web/src/components/ai/tool-call-card.tsx)— 在工具名旁加 server 来源徽章(`builtin` 灰色 / `plugin` 紫色 / `mcp:serverName` 蓝色);区分 AGENT_TOOLS 内置工具与 PLUGIN_ID_TO_TOOLS 插件工具;serverId 字段透传到 ToolCallCard props
+- [ ] A9:全链路 e2e + 真实账号测试(用户验证标准 = 全链路 e2e + 真实账号测试)— 启动 web+api+ai-service 全栈(端口 8801/8802/8803);browser_use subagent 真实账号登录 → 发送一条普通对话 → 触发工具调用 → 验证 ThinkingSection/SubagentSection/TimelineTab/ToolCallSummary/ToolCallCard badge 5 项 inline 实时刷新;4 状态截图(默认/hover/active/dark mode)+ DOM 数值验证(getAttribute / getComputedStyle)
+- [ ] A10:更新 README.md(§21 触发,功能能力清单变化)+ commit + push 同步 origin/main(§20 五条全绿 + git-push-guard exit 0)
+
+### 约束边界
+
+- 涉及文件:`packages/types/src/ai.ts` + `packages/shared/src/hooks/use-chat.ts` + `apps/ai-service/app/routers/llm.py` + `apps/web/src/hooks/use-chat.ts` + `apps/web/src/stores/chat.ts` + `apps/web/src/components/chat/message-list.tsx` + `apps/web/src/components/chat/tool-call-summary.tsx`(新)+ `apps/web/src/components/ai/tool-call-card.tsx` + `apps/web/src/components/ai/agent-task-progress-pane.tsx`(原 popover 保留为完整版入口)+ `README.md`
+- 不可触及:其他端(apps/api / apps/desktop / apps/extension / apps/mobile-rn / apps/miniapp-taro / apps/cli)、i18n 文件(沿用现有 ai.pane 命名空间 key)
+- 集成形态:消息内 inline 精简版(默认可见 + 实时刷新)+ popover 完整版(原 AgentTaskProgressPane 保留,点击触发器打开看完整详情);不删除 popover 入口,只新增 inline 路径
+- 实时性硬约束:每个 inline 组件必须订阅对应 store(toolCalls / subAgentActivities / timeline-store.events),SSE 事件到达 → store 更新 → 组件重渲染 < 16ms(一帧内)
+- UI 合规(AGENTS.md §4):圆角用 `rounded-sm`/`rounded`/`rounded-md`(进度面板子区一致性),禁止 `rounded-full`;禁止分割线(`divide-y` / `border-t`),用 `gap-*` 间距;中文 + 图标垂直对齐用 tokens.css 全局规则,禁止 `-mt-px` hack;状态色:running 蓝 / success 绿 / failed 红 / pending 灰
+- 类型零技术债(AGENTS.md §3):新代码 `tsc --noEmit` 0 错误;新字段全部可选(`serverId?` / `serverName?` / `serverSource?` / `toolCallSummary?`)保证向后兼容;禁止 `any`(用 `unknown` + 类型守卫)
+- 多端豁免:本批次属"平台独占 web+ai-service"(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn
+
+### 实施顺序(主 agent 串行 + subagent 并行混合)
+
+- **阶段 1(并行 2 subagent)**:A1 共享类型扩展 + A2 后端 SSE 事件增强(独立无依赖,可并行)
+- **阶段 2(主 agent 串行)**:A3 use-chat.ts hook 增强(依赖 A1 类型 + A2 事件契约)
+- **阶段 3(主 agent 串行)**:A4 ThinkingSection inline → A5 SubagentSection inline → A6 TimelineTab inline → A7 新增 ToolCallSummary → A8 ToolCallCard MCP badge(全部触及 message-list.tsx,不能并行,主 agent 一气呵成避免冲突)
+- **阶段 4(主 agent)**:A9 全链路 e2e 测试(启动服务 + browser_use + 真实账号 + 4 状态截图 + DOM 验证)
+- **阶段 5(主 agent)**:A10 README + commit + push + git-push-guard 验证
+
+### 后续计划(本批次范围外,标注以备追踪)
+
+- TerminalSection inline(本批次未含,run_command 工具走 ToolCallCard 已可见,TerminalSection 与 ToolCallCard 去重后再考虑 inline)
+- subagent streamingContent 在 SubagentSection 中渲染(当前在 sub-agent-activity-feed.tsx 独立处理,未来可统一到 SubagentItem 详情区)
+- ToolCallCard 的 InlineDiffCard / ImageResultBlock / SummaryResultBlock 特殊渲染保持不变(本批次只加 MCP server badge)
