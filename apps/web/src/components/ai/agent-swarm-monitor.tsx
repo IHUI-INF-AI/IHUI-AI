@@ -46,6 +46,7 @@ export function AgentSwarmMonitor({
 }: AgentSwarmMonitorProps) {
   const t = useTranslations('ai.swarmMonitor')
   const ts = useTranslations('ai.status')
+  const tAria = useTranslations('agentSwarm')
   const swarm = swarmData?.swarm
   const agentList = swarmData?.agentList ?? []
   const results = swarmData?.results ?? []
@@ -62,7 +63,7 @@ export function AgentSwarmMonitor({
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              aria-label="列表视图"
+              aria-label={tAria('listViewAriaLabel')}
               aria-pressed={viewMode === 'list'}
               className={cn(
                 'flex h-7 items-center gap-1 px-2 text-xs transition-colors',
@@ -76,7 +77,7 @@ export function AgentSwarmMonitor({
             <button
               type="button"
               onClick={() => setViewMode('topology')}
-              aria-label="拓扑视图"
+              aria-label={tAria('topologyViewAriaLabel')}
               aria-pressed={viewMode === 'topology'}
               className={cn(
                 'flex h-7 items-center gap-1 px-2 text-xs transition-colors border-l border-border',
