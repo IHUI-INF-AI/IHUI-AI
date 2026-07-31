@@ -70,4 +70,5 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// 2026-07-31 触发 Turbopack 重新编译(修复 publish.cancel/close JSON 缓存)
 export default I18nProvider
