@@ -1161,9 +1161,12 @@ export function useChat(): UseChatReturn {
       // 从 ai-panel store 获取当前绑定的本地工作区路径(用于注入 CLAUDE.md/AGENTS.md 项目记忆)
       const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
 
+      // 2026-07-31 防御性降级:'auto' 模型后端不支持,降级到 stepfun/step-router-v1
+      // (正常路径 setModel 已降级,此处防止其他路径绕过 setModel 直接传 'auto')
+      const effectiveModel = model === 'auto' ? 'stepfun/step-router-v1' : model
       try {
         await streamChat({
-          model,
+          model: effectiveModel,
           messages: [...history, { role: 'user', content: text }],
           signal: controller.signal,
           metadata: {
@@ -1179,7 +1182,7 @@ export function useChat(): UseChatReturn {
           },
           workspacePath,
           // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
-          contextLimit: getModelContextCapacity(model),
+          contextLimit: getModelContextCapacity(effectiveModel),
           onCompaction: (info) => {
             // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
             toast.success('上下文已自动压缩', {
@@ -1454,9 +1457,11 @@ export function useChat(): UseChatReturn {
     const userId = useAuthStore.getState().user?.id ?? ''
     const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
 
+    // 2026-07-31 防御性降级:与 sendMessage 对称,'auto' → stepfun/step-router-v1
+    const effectiveModel = model === 'auto' ? 'stepfun/step-router-v1' : model
     try {
       await streamChat({
-        model,
+        model: effectiveModel,
         messages: history,
         path: '/ai/chat/answer',
         extraBody: {
@@ -1473,7 +1478,7 @@ export function useChat(): UseChatReturn {
           messageId: assistantId,
         },
         workspacePath,
-        contextLimit: getModelContextCapacity(model),
+        contextLimit: getModelContextCapacity(effectiveModel),
         // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
         onFallback: (event) => setFallbackNotice(event),
         // 2026-07-27 修复:与 sendMessage 同步,response 到达即清除 timeout15s
