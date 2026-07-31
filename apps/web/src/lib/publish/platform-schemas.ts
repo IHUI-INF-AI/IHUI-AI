@@ -1,11 +1,19 @@
 /**
- * 14 平台发布凭据 schema 定义(可视化表单配置)
- * 与 apps/api/src/routes/publish-routes.ts PLATFORM_REGISTRY 字段名对齐
+ * 37 平台发布凭据 schema 定义(可视化表单配置)
+ * 与 apps/ai-service/app/services/publish/base_adapter.list_all_adapter_classes 对齐
  * authType 分类:
- *   api_key         — HTTP API + 密钥/应用密码(wordpress/medium/wechat)
+ *   api_key         — HTTP API + 密钥/应用密码(wordpress/medium/wechat/cnblogs/segmentfault/oschina)
  *   oauth           — 开放平台 OAuth 授权(youtube)
- *   browser_cookie  — 浏览器抓 Cookie(其余 10 平台)
+ *   browser_cookie  — 浏览器抓 Cookie(其余 30 平台,含 Playwright 适配器)
  *   none            — 无需凭据(保留占位,当前未使用)
+ *
+ * 平台分组(37 个):
+ *   - 国际平台 3:wordpress / medium / youtube
+ *   - 视频平台 6:bilibili / douyin / kuaishou / xigua / haokan / shipinhao
+ *   - 图文社交 4:wechat / toutiao / weibo / xiaohongshu
+ *   - 技术社区 7:zhihu / csdn / juejin / cnblogs / segmentfault / oschina / jianshu
+ *   - 六大号 6:baijiahao / qq / dayihao / netease / sohu / sina
+ *   - SEO/GEO 第二批 12:baidu_zhidao / baidu_tieba / douban / 36kr / huxiu / tmtmedia / acfun / lofter / zhihu_daily / people / china_news / hupu
  *
  * AGENTS.md §3:禁 any,用 as const + 精确类型;字段名严格匹配后端契约。
  */
@@ -360,6 +368,570 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
         required: true,
         placeholder: 'sessionid=xxx; uin=xxx; ...',
         helpText: '在 channels.weixin.qq.com 页面按 F12 → Application → Cookies,复制全部 Cookie。',
+      },
+    ],
+  },
+  // ===== R2:友好 API 平台(HTTP API,不涉风控)=====
+  {
+    platformId: 'cnblogs',
+    platformName: '博客园',
+    authType: 'api_key',
+    setupGuideUrl: 'https://oauth.cnblogs.com/',
+    helpText: '通过博客园 OAuth + Personal Access Token 发布,需在博客园后台申请令牌。',
+    fields: [
+      {
+        name: 'access_token',
+        label: 'Access Token',
+        type: 'password',
+        required: true,
+        helpText: '博客园 → 设置 → OAuth 应用 → 申请 Personal Access Token(需博客园账号并通过实名认证)。',
+      },
+    ],
+  },
+  {
+    platformId: 'segmentfault',
+    platformName: '思否',
+    authType: 'api_key',
+    setupGuideUrl: 'https://segmentfault.com/settings',
+    helpText: '通过思否 Access Token 发布文章,需在思否个人设置申请令牌。',
+    fields: [
+      {
+        name: 'access_token',
+        label: 'Access Token',
+        type: 'password',
+        required: true,
+        helpText: '思否 → 个人设置 → 开发者 → Access Token → 生成新令牌(需思否账号)。',
+      },
+    ],
+  },
+  {
+    platformId: 'oschina',
+    platformName: '开源中国',
+    authType: 'api_key',
+    setupGuideUrl: 'https://www.oschina.net/settings',
+    helpText: '通过开源中国 Access Token 发布文章,需在个人设置申请令牌。',
+    fields: [
+      {
+        name: 'access_token',
+        label: 'Access Token',
+        type: 'password',
+        required: true,
+        helpText: '开源中国 → 个人设置 → 开发者设置 → Access Token → 生成新令牌。',
+      },
+    ],
+  },
+  {
+    platformId: 'jianshu',
+    platformName: '简书',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.jianshu.com/',
+    helpText: '通过简书 Cookie 发布文章,需登录 jianshu.com。',
+    fields: [
+      {
+        name: 'cookie',
+        label: 'Cookie 字符串',
+        type: 'textarea',
+        required: true,
+        placeholder: 'remember_user_token=xxx; _session_id=xxx; ...',
+        helpText: '在 jianshu.com 页面按 F12 → Application → Cookies,复制全部 Cookie 拼成一行(分号分隔)。',
+      },
+    ],
+  },
+  // ===== R4:六大号平台(Playwright + 反风控五层防线)=====
+  {
+    platformId: 'baijiahao',
+    platformName: '百家号',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://baijiahao.baidu.com/',
+    helpText: '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发布,需登录 baijiahao.baidu.com 创作者后台。',
+    fields: [
+      {
+        name: 'BDUSS',
+        label: 'BDUSS',
+        type: 'password',
+        required: true,
+        helpText: '百度全系登录 Cookie 中的 BDUSS 字段,长期登录令牌(HttpOnly),在 baidu.com 域下复制。',
+      },
+      {
+        name: 'STOKEN',
+        label: 'STOKEN',
+        type: 'password',
+        required: true,
+        helpText: '百度 Cookie 中的 STOKEN 字段,二次验证令牌,与 BDUSS 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'qq',
+    platformName: '企鹅号',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://om.qq.com/',
+    helpText: '通过腾讯 Cookie(RK / ptcz / pgv_pvid)+ Playwright 发布,需登录 om.qq.com 企鹅号后台。',
+    fields: [
+      {
+        name: 'RK',
+        label: 'RK',
+        type: 'password',
+        required: true,
+        helpText: '腾讯全系登录 Cookie 中的 RK 字段,QQ 登录态令牌,在 qq.com 域下复制。',
+      },
+      {
+        name: 'ptcz',
+        label: 'ptcz',
+        type: 'password',
+        required: true,
+        helpText: '腾讯 Cookie 中的 ptcz 字段,登录票据,与 RK 配对使用。',
+      },
+      {
+        name: 'pgv_pvid',
+        label: 'pgv_pvid',
+        type: 'text',
+        required: true,
+        helpText: '腾讯 Cookie 中的 pgv_pvid 字段,用户访问标识(防伪)。',
+      },
+    ],
+  },
+  {
+    platformId: 'dayihao',
+    platformName: '大鱼号',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://mp.dayu.com/',
+    helpText: '通过阿里 Cookie(cna / _csrf_token / unb)+ Playwright 发布,需登录 mp.dayu.com 大鱼号后台。',
+    fields: [
+      {
+        name: 'cna',
+        label: 'cna',
+        type: 'text',
+        required: true,
+        helpText: '阿里全系 Cookie 中的 cna 字段,设备指纹标识,在 taobao.com 域下复制。',
+      },
+      {
+        name: '_csrf_token',
+        label: '_csrf_token',
+        type: 'password',
+        required: true,
+        helpText: '大鱼号 Cookie 中的 _csrf_token 字段,防 CSRF 校验令牌。',
+      },
+      {
+        name: 'unb',
+        label: 'unb (用户 ID)',
+        type: 'text',
+        required: true,
+        helpText: '阿里 Cookie 中的 unb 字段,用户唯一标识(数字 ID)。',
+      },
+    ],
+  },
+  {
+    platformId: 'netease',
+    platformName: '网易号',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://mp.163.com/',
+    helpText: '通过网易 Cookie(P_INFO / S_INFO / NTES_SESS)+ Playwright 发布,需登录 mp.163.com 网易号后台。',
+    fields: [
+      {
+        name: 'P_INFO',
+        label: 'P_INFO',
+        type: 'password',
+        required: true,
+        helpText: '网易 Cookie 中的 P_INFO 字段,用户基础信息(含账号名),HttpOnly。',
+      },
+      {
+        name: 'S_INFO',
+        label: 'S_INFO',
+        type: 'text',
+        required: true,
+        helpText: '网易 Cookie 中的 S_INFO 字段,会话补充信息(含登录时间)。',
+      },
+      {
+        name: 'NTES_SESS',
+        label: 'NTES_SESS',
+        type: 'password',
+        required: true,
+        helpText: '网易 Cookie 中的 NTES_SESS 字段,核心会话令牌,与 P_INFO 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'sohu',
+    platformName: '搜狐号',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://mp.sohu.com/',
+    helpText: '通过搜狐 Cookie(SUV / IPLOC / sct)+ Playwright 发布,需登录 mp.sohu.com 搜狐号后台。',
+    fields: [
+      {
+        name: 'SUV',
+        label: 'SUV',
+        type: 'password',
+        required: true,
+        helpText: '搜狐 Cookie 中的 SUV 字段,用户访问标识(HttpOnly),在 sohu.com 域下复制。',
+      },
+      {
+        name: 'IPLOC',
+        label: 'IPLOC',
+        type: 'text',
+        required: true,
+        helpText: '搜狐 Cookie 中的 IPLOC 字段,IP 地理定位标识(用于地域风控)。',
+      },
+      {
+        name: 'sct',
+        label: 'sct',
+        type: 'password',
+        required: true,
+        helpText: '搜狐 Cookie 中的 sct 字段,登录态核心令牌(HttpOnly)。',
+      },
+    ],
+  },
+  {
+    platformId: 'sina',
+    platformName: '新浪看点',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://mp.sina.com.cn/',
+    helpText: '通过新浪 Cookie(SCF / ALF / SUB)+ Playwright 发布,需登录 mp.sina.com.cn 新浪看点后台。',
+    fields: [
+      {
+        name: 'SCF',
+        label: 'SCF',
+        type: 'text',
+        required: true,
+        helpText: '新浪 Cookie 中的 SCF 字段,用户签名信息,在 sina.com.cn 域下复制。',
+      },
+      {
+        name: 'ALF',
+        label: 'ALF',
+        type: 'text',
+        required: true,
+        helpText: '新浪 Cookie 中的 ALF 字段,登录过期时间戳(用于自动续期判断)。',
+      },
+      {
+        name: 'SUB',
+        label: 'SUB',
+        type: 'password',
+        required: true,
+        helpText: '新浪 Cookie 中的 SUB 字段,核心登录令牌(HttpOnly),失效后需重新登录。',
+      },
+    ],
+  },
+  // ===== R3:视频平台(Playwright + 反风控)=====
+  {
+    platformId: 'xigua',
+    platformName: '西瓜视频',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://studio.ixigua.com/',
+    helpText: '通过字节 Cookie(sessionid / ttwid)+ Playwright 发布视频,需登录 studio.ixigua.com 创作者后台。',
+    fields: [
+      {
+        name: 'sessionid',
+        label: 'sessionid',
+        type: 'password',
+        required: true,
+        helpText: '字节全系 Cookie 中的 sessionid 字段,登录会话令牌,在 ixigua.com 域下复制。',
+      },
+      {
+        name: 'ttwid',
+        label: 'ttwid',
+        type: 'password',
+        required: true,
+        helpText: '字节 Cookie 中的 ttwid 字段,设备指纹标识(用于风控追踪)。',
+      },
+    ],
+  },
+  {
+    platformId: 'haokan',
+    platformName: '好看视频',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://haokan.baidu.com/',
+    helpText: '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发布视频,需登录 haokan.baidu.com 创作者后台。',
+    fields: [
+      {
+        name: 'BDUSS',
+        label: 'BDUSS',
+        type: 'password',
+        required: true,
+        helpText: '百度全系登录 Cookie 中的 BDUSS 字段,与百家号共用(同账号可发布到百家号+好看视频)。',
+      },
+      {
+        name: 'STOKEN',
+        label: 'STOKEN',
+        type: 'password',
+        required: true,
+        helpText: '百度 Cookie 中的 STOKEN 字段,二次验证令牌,与 BDUSS 配对使用。',
+      },
+    ],
+  },
+  // ===== R5:SEO/GEO 高权重平台第二批(Playwright + 反风控五层防线)=====
+  {
+    platformId: 'baidu_zhidao',
+    platformName: '百度知道',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://zhidao.baidu.com/',
+    helpText: '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发布问答,与百家号共用凭证。',
+    fields: [
+      {
+        name: 'BDUSS',
+        label: 'BDUSS',
+        type: 'password',
+        required: true,
+        helpText: '百度全系登录 Cookie 中的 BDUSS 字段,与百家号共用(同账号可发布到百度知道)。',
+      },
+      {
+        name: 'STOKEN',
+        label: 'STOKEN',
+        type: 'password',
+        required: true,
+        helpText: '百度 Cookie 中的 STOKEN 字段,二次验证令牌,与 BDUSS 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'baidu_tieba',
+    platformName: '百度贴吧',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://tieba.baidu.com/',
+    helpText: '通过百度 Cookie(BDUSS / STOKEN)+ Playwright 发帖,需在 platform_config 指定目标贴吧名(tieba_kw)。',
+    fields: [
+      {
+        name: 'BDUSS',
+        label: 'BDUSS',
+        type: 'password',
+        required: true,
+        helpText: '百度全系登录 Cookie 中的 BDUSS 字段,与百家号共用。',
+      },
+      {
+        name: 'STOKEN',
+        label: 'STOKEN',
+        type: 'password',
+        required: true,
+        helpText: '百度 Cookie 中的 STOKEN 字段,二次验证令牌,与 BDUSS 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'douban',
+    platformName: '豆瓣',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.douban.com/',
+    helpText: '通过豆瓣 Cookie(db_clnd / ck)+ Playwright 发布日记,需登录 douban.com。',
+    fields: [
+      {
+        name: 'db_clnd',
+        label: 'db_clnd',
+        type: 'password',
+        required: true,
+        helpText: '豆瓣登录 Cookie 中的 db_clnd 字段,登录会话令牌(HttpOnly),在 douban.com 域下复制。',
+      },
+      {
+        name: 'ck',
+        label: 'ck',
+        type: 'text',
+        required: true,
+        helpText: '豆瓣 Cookie 中的 ck 字段,会话校验令牌,与 db_clnd 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: '36kr',
+    platformName: '36氪',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.36kr.com/',
+    helpText: '通过 36氪 Cookie(_36kr_session / acw_tc)+ Playwright 发布文章,需登录 36kr.com 创作者后台。',
+    fields: [
+      {
+        name: '_36kr_session',
+        label: '_36kr_session',
+        type: 'password',
+        required: true,
+        helpText: '36氪 Cookie 中的 _36kr_session 字段,登录会话令牌(HttpOnly),在 36kr.com 域下复制。',
+      },
+      {
+        name: 'acw_tc',
+        label: 'acw_tc',
+        type: 'text',
+        required: true,
+        helpText: '36氪 Cookie 中的 acw_tc 字段,阿里云风控追踪标识(防爬虫)。',
+      },
+    ],
+  },
+  {
+    platformId: 'huxiu',
+    platformName: '虎嗅网',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.huxiu.com/',
+    helpText: '通过虎嗅 Cookie(huxiu_session / huxiu_token)+ Playwright 发布文章,需登录 huxiu.com。',
+    fields: [
+      {
+        name: 'huxiu_session',
+        label: 'huxiu_session',
+        type: 'password',
+        required: true,
+        helpText: '虎嗅 Cookie 中的 huxiu_session 字段,登录会话令牌(HttpOnly),在 huxiu.com 域下复制。',
+      },
+      {
+        name: 'huxiu_token',
+        label: 'huxiu_token',
+        type: 'text',
+        required: true,
+        helpText: '虎嗅 Cookie 中的 huxiu_token 字段,API 访问令牌,与 huxiu_session 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'tmtmedia',
+    platformName: '钛媒体',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.tmtpost.com/',
+    helpText: '通过钛媒体 Cookie(tmt_session / tmt_token)+ Playwright 发布文章,需登录 tmtpost.com。',
+    fields: [
+      {
+        name: 'tmt_session',
+        label: 'tmt_session',
+        type: 'password',
+        required: true,
+        helpText: '钛媒体 Cookie 中的 tmt_session 字段,登录会话令牌(HttpOnly),在 tmtpost.com 域下复制。',
+      },
+      {
+        name: 'tmt_token',
+        label: 'tmt_token',
+        type: 'text',
+        required: true,
+        helpText: '钛媒体 Cookie 中的 tmt_token 字段,API 访问令牌,与 tmt_session 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'acfun',
+    platformName: 'AcFun',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.acfun.cn/',
+    helpText: '通过 AcFun Cookie(acPasstoken / ac_session)+ Playwright 投稿文章,需登录 acfun.cn。',
+    fields: [
+      {
+        name: 'acPasstoken',
+        label: 'acPasstoken',
+        type: 'password',
+        required: true,
+        helpText: 'AcFun Cookie 中的 acPasstoken 字段,登录通行令牌(HttpOnly),在 acfun.cn 域下复制。',
+      },
+      {
+        name: 'ac_session',
+        label: 'ac_session',
+        type: 'text',
+        required: true,
+        helpText: 'AcFun Cookie 中的 ac_session 字段,会话校验令牌,与 acPasstoken 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'lofter',
+    platformName: 'LOFTER',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.lofter.com/',
+    helpText: '通过网易 Cookie(NTES_SESS / S_INFO)+ Playwright 发布轻博客,与网易号共用凭证。',
+    fields: [
+      {
+        name: 'NTES_SESS',
+        label: 'NTES_SESS',
+        type: 'password',
+        required: true,
+        helpText: '网易全系 Cookie 中的 NTES_SESS 字段,核心会话令牌,与网易号共用(同账号可发布到网易号+LOFTER)。',
+      },
+      {
+        name: 'S_INFO',
+        label: 'S_INFO',
+        type: 'text',
+        required: true,
+        helpText: '网易 Cookie 中的 S_INFO 字段,会话补充信息(含登录时间),与 NTES_SESS 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'zhihu_daily',
+    platformName: '知乎日报',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://daily.zhihu.com/',
+    helpText: '通过知乎 Cookie(z_c0 / d_c0)+ Playwright 投稿,与知乎主站共用凭证。',
+    fields: [
+      {
+        name: 'z_c0',
+        label: 'z_c0 (登录令牌)',
+        type: 'password',
+        required: true,
+        helpText: '知乎 Cookie 中的 z_c0 字段,与知乎主站共用(同账号可发布到知乎+知乎日报)。',
+      },
+      {
+        name: 'd_c0',
+        label: 'd_c0 (设备标识)',
+        type: 'text',
+        required: true,
+        helpText: '知乎 Cookie 中的 d_c0 字段,设备指纹,与 z_c0 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'people',
+    platformName: '人民网',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.people.com.cn/',
+    helpText: '通过人民网 Cookie(people_session / people_token)+ Playwright 发布文章,需登录 people.com.cn 创作者后台。',
+    fields: [
+      {
+        name: 'people_session',
+        label: 'people_session',
+        type: 'password',
+        required: true,
+        helpText: '人民网 Cookie 中的 people_session 字段,登录会话令牌(HttpOnly),在 people.com.cn 域下复制。',
+      },
+      {
+        name: 'people_token',
+        label: 'people_token',
+        type: 'text',
+        required: true,
+        helpText: '人民网 Cookie 中的 people_token 字段,API 访问令牌,与 people_session 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'china_news',
+    platformName: '中国新闻网',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://www.chinanews.com.cn/',
+    helpText: '通过中国新闻网 Cookie(cn_session / cn_token)+ Playwright 发布文章,需登录 chinanews.com.cn 创作者后台。',
+    fields: [
+      {
+        name: 'cn_session',
+        label: 'cn_session',
+        type: 'password',
+        required: true,
+        helpText: '中国新闻网 Cookie 中的 cn_session 字段,登录会话令牌(HttpOnly),在 chinanews.com.cn 域下复制。',
+      },
+      {
+        name: 'cn_token',
+        label: 'cn_token',
+        type: 'text',
+        required: true,
+        helpText: '中国新闻网 Cookie 中的 cn_token 字段,API 访问令牌,与 cn_session 配对使用。',
+      },
+    ],
+  },
+  {
+    platformId: 'hupu',
+    platformName: '虎扑社区',
+    authType: 'browser_cookie',
+    setupGuideUrl: 'https://bbs.hupu.com/',
+    helpText: '通过虎扑 Cookie(hupu_token / hupu_session)+ Playwright 发帖,需在 platform_config 指定目标版块 ID(hupu_fid)。',
+    fields: [
+      {
+        name: 'hupu_token',
+        label: 'hupu_token',
+        type: 'password',
+        required: true,
+        helpText: '虎扑 Cookie 中的 hupu_token 字段,登录令牌(HttpOnly),在 hupu.com 域下复制。',
+      },
+      {
+        name: 'hupu_session',
+        label: 'hupu_session',
+        type: 'text',
+        required: true,
+        helpText: '虎扑 Cookie 中的 hupu_session 字段,会话校验令牌,与 hupu_token 配对使用。',
       },
     ],
   },
