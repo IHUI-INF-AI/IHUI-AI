@@ -167,6 +167,8 @@
     "downloadTitle": "Download App",
     "mainNav": "Main Navigation",
     "pluginMarket": "Plugin Market",
+    "hotGroupLabel": "Hot",
+    "hotModelImport": "Model Config Import",
     "aiGroupLabel": "AI Agents",
     "adminGroupLabel": "Admin",
     "eduGroup": "AI Education",
