@@ -64,7 +64,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
       isStreaming,
       // 2026-07-29 简化:sendLabel/stopLabel 在 web 端不再使用(发送/停止按钮已挪到外层 toolbar),
       // 保留在 props 契约里是为了和 packages/types SharedMessageInputProps 对齐(rn/taro 端仍用)。
-      t: _t,
+      t,
       sendLabel: _sendLabel,
       stopLabel: _stopLabel,
     },
@@ -123,8 +123,8 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
         {text.length > 0 && (
           <button
             type="button"
-            aria-label="清除输入"
-            title="清除输入"
+            aria-label={t('clearInputAriaLabel')}
+            title={t('clearInputTitle')}
             onClick={onClear}
             disabled={isStreaming}
             className={cn(

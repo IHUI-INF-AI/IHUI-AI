@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Check, X, Loader2, Sparkles, AlertCircle } from 'lucide-react'
 import { useInlineEditStore } from '@/stores/inline-edit'
 import { useInlineEdit } from '@/hooks/use-inline-edit'
@@ -19,6 +20,7 @@ import { useInlineEdit } from '@/hooks/use-inline-edit'
 const PREVIEW_MAX_CHARS = 200
 
 export function InlineEditDialog() {
+  const t = useTranslations('inlineEdit')
   const isOpen = useInlineEditStore((s) => s.isOpen)
   const selection = useInlineEditStore((s) => s.selection)
   const status = useInlineEditStore((s) => s.status)
@@ -76,7 +78,7 @@ export function InlineEditDialog() {
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="描述你想要的修改…"
+          placeholder={t('editDescPlaceholder')}
           disabled={isStreaming}
           className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-60"
         />
@@ -86,7 +88,7 @@ export function InlineEditDialog() {
               closeInlineEdit()
             }}
             className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="停止生成"
+            aria-label={t('stopAriaLabel')}
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           </button>
@@ -94,7 +96,7 @@ export function InlineEditDialog() {
           <button
             onClick={() => closeInlineEdit()}
             className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="关闭"
+            aria-label={t('closeAriaLabel')}
           >
             <X className="h-3.5 w-3.5" />
           </button>
