@@ -394,6 +394,9 @@ class BrowserHub:
     - 对外 async 接口不变(用 loop.run_in_executor 包装)
     """
 
+    # 会话创建幂等窗口:同一 URL 在此窗口内的重复创建请求返回已有会话
+    _DEDUP_WINDOW_SECONDS: float = 10.0
+
     def __init__(self) -> None:
         self._playwright: Any | None = None
         self._browser: Browser | None = None
@@ -402,6 +405,8 @@ class BrowserHub:
         self._lock = asyncio.Lock()
         self._started = False
         self._main_loop: asyncio.AbstractEventLoop | None = None
+        # URL → (session_id, timestamp) 幂等去重表,防止前端重复请求创建多个会话
+        self._recent_creations: dict[str, tuple[str, float]] = {}
 
     async def start(self) -> None:
         """启动 Chromium 实例(应用启动时调用)。"""
@@ -462,10 +467,33 @@ class BrowserHub:
         viewport: dict[str, int] | None = None,
         user_agent: str | None = None,
     ) -> BrowserSession:
-        """创建新的浏览器会话。"""
+        """创建新的浏览器会话(带 URL 幂等去重)。
+
+        2026-07-31 完美化:同一 URL 在 _DEDUP_WINDOW_SECONDS 内的重复创建请求
+        直接返回已有会话,防止前端 React StrictMode/双击/重试导致多会话泄漏。
+        """
         if not self._started or not self._browser:
             await self.start()
         assert self._browser is not None
+
+        # ---- 幂等去重:同一 URL 短时间内的重复请求返回已有会话 ----
+        if url:
+            import time as _time
+            now = _time.monotonic()
+            # 清理过期条目
+            stale = [
+                u for u, (sid, ts) in self._recent_creations.items()
+                if now - ts > self._DEDUP_WINDOW_SECONDS or sid not in self._sessions
+            ]
+            for u in stale:
+                self._recent_creations.pop(u, None)
+            # 检查是否有同 URL 的近期会话
+            existing = self._recent_creations.get(url)
+            if existing:
+                sid, ts = existing
+                if now - ts < self._DEDUP_WINDOW_SECONDS and sid in self._sessions:
+                    logger.info(f"[browser_hub] 幂等命中:复用 session {sid} (url={url})")
+                    return self._sessions[sid]
 
         self._main_loop = asyncio.get_running_loop()
         session_id = session_id or str(uuid.uuid4())
@@ -492,6 +520,10 @@ class BrowserHub:
             await session.navigate(url)
 
         self._sessions[session_id] = session
+        # 注册到幂等去重表(同 URL 在 _DEDUP_WINDOW_SECONDS 内复用此会话)
+        if url:
+            import time as _time
+            self._recent_creations[url] = (session_id, _time.monotonic())
         logger.info(f"[browser_hub] 创建 session {session_id} (url={url})")
         return session
 
@@ -509,6 +541,12 @@ class BrowserHub:
         session = self._sessions.pop(session_id, None)
         if not session:
             return False
+        # 清理幂等去重表中引用此会话的条目
+        stale_urls = [
+            u for u, (sid, _) in self._recent_creations.items() if sid == session_id
+        ]
+        for u in stale_urls:
+            self._recent_creations.pop(u, None)
         await session.close()
         logger.info(f"[browser_hub] 关闭 session {session_id}")
         return True
