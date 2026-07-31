@@ -149,14 +149,16 @@ const systemLoginLogsRoutes: FastifyPluginAsync = async (server) => {
 
   // ========== 课程审计比较 + 回收站还原端点（前端 audit/trash 页面调用） ==========
 
-  // GET /courses/:id - 课程详情（审计比较 before 快照）
-  server.get('/courses/:id', async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const [row] = await db.select().from(lessons).where(eq(lessons.id, p.data.id)).limit(1)
-    if (!row) return reply.status(404).send(error(404, '课程不存在'))
-    return reply.send(success(row))
-  })
+  // 注释掉 GET /courses/:id(2026-07-31):registerCrud(server, '/courses', ...) 已注册此路由,
+  // 手动重复注册导致 Fastify FST_ERR_DUPLICATED_ROUTE 错误,api 无法启动。
+  // registerCrud 提供的标准 CRUD GET /courses/:id 功能等价,无需重复。
+  // server.get('/courses/:id', async (request, reply) => {
+  //   const p = idParamSchema.safeParse(request.params)
+  //   if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+  //   const [row] = await db.select().from(lessons).where(eq(lessons.id, p.data.id)).limit(1)
+  //   if (!row) return reply.status(404).send(error(404, '课程不存在'))
+  //   return reply.send(success(row))
+  // })
 
   // GET /courses/temp/:id - 课程临时表详情（审计比较 after 快照）
   server.get('/courses/temp/:id', async (request, reply) => {
