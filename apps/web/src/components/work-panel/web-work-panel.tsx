@@ -247,6 +247,11 @@ export function WebWorkPanel() {
             onNavigation={onCdpNavigation}
             onLoaded={onLoaded}
             onFailed={onFailed}
+            onBack={canBack ? back : undefined}
+            onForward={canForward ? forward : undefined}
+            onReload={reload}
+            onOpenExternal={handleOpenExternal}
+            currentUrl={url}
           />
         ) : (
           <WebViewFrame
