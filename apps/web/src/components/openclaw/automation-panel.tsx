@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
+import { useConfirm } from '@/hooks/use-confirm'
 import {
   listAutomation,
   createCronJob,
@@ -42,6 +43,7 @@ import {
 
 function CronSection({ items }: { items: CronJobItem[] }) {
   const t = useTranslations('floatingChat.openclaw')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const queryClient = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
@@ -161,8 +163,9 @@ function CronSection({ items }: { items: CronJobItem[] }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    if (window.confirm(t('confirmDeleteCron'))) deleteMutation.mutate(c.id)
+                  onClick={async () => {
+                    if (await confirm({ title: t('confirmDeleteCron'), variant: 'destructive' }))
+                      deleteMutation.mutate(c.id)
                   }}
                   disabled={deleteMutation.isPending}
                 >
@@ -173,6 +176,7 @@ function CronSection({ items }: { items: CronJobItem[] }) {
           </ul>
         )}
       </CardContent>
+      <ConfirmDialogRenderer />
     </Card>
   )
 }
@@ -181,6 +185,7 @@ function CronSection({ items }: { items: CronJobItem[] }) {
 
 function WebhookSection({ items }: { items: WebhookItem[] }) {
   const t = useTranslations('floatingChat.openclaw')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const queryClient = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
@@ -303,8 +308,9 @@ function WebhookSection({ items }: { items: WebhookItem[] }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    if (window.confirm(t('confirmDeleteWebhook'))) deleteMutation.mutate(w.id)
+                  onClick={async () => {
+                    if (await confirm({ title: t('confirmDeleteWebhook'), variant: 'destructive' }))
+                      deleteMutation.mutate(w.id)
                   }}
                   disabled={deleteMutation.isPending}
                 >
@@ -315,6 +321,7 @@ function WebhookSection({ items }: { items: WebhookItem[] }) {
           </ul>
         )}
       </CardContent>
+      <ConfirmDialogRenderer />
     </Card>
   )
 }
@@ -323,6 +330,7 @@ function WebhookSection({ items }: { items: WebhookItem[] }) {
 
 function HookSection({ items }: { items: HookItem[] }) {
   const t = useTranslations('floatingChat.openclaw')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const queryClient = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [type, setType] = React.useState('')
@@ -435,8 +443,9 @@ function HookSection({ items }: { items: HookItem[] }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    if (window.confirm(t('confirmDeleteHook'))) deleteMutation.mutate(h.id)
+                  onClick={async () => {
+                    if (await confirm({ title: t('confirmDeleteHook'), variant: 'destructive' }))
+                      deleteMutation.mutate(h.id)
                   }}
                   disabled={deleteMutation.isPending}
                 >
@@ -447,6 +456,7 @@ function HookSection({ items }: { items: HookItem[] }) {
           </ul>
         )}
       </CardContent>
+      <ConfirmDialogRenderer />
     </Card>
   )
 }
