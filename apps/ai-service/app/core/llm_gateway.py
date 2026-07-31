@@ -1062,7 +1062,9 @@ class LLMGateway:
             call_kwargs["api_key"] = api_key
             if api_base:
                 call_kwargs["api_base"] = api_base
-            call_kwargs["timeout"] = 30
+            # NVIDIA NIM 免费层 worker 池容量有限(16 个),并发请求排队等待时
+            # 默认 30s 不够;OpenAI/Anthropic 等快 provider 仍用 30s
+            call_kwargs["timeout"] = 120 if used_model.lower().startswith("nvidia/") else 30
             call_kwargs["num_retries"] = 2
             call_kwargs.update(kwargs)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
@@ -1429,8 +1431,14 @@ class LLMGateway:
                 "model": real_model,
                 "messages": trimmed_messages,
                 "stream": True,
-                "stream_usage": True,
             }
+            # NVIDIA NIM endpoint 不支持 stream_usage 参数(BadRequest 400),
+            # 其他 OpenAI 兼容 endpoint 默认开启用于流式 usage 统计
+            if not used_model.lower().startswith("nvidia/"):
+                call_kwargs["stream_usage"] = True
+            # NVIDIA NIM 免费层 worker 池容量有限(16 个),并发请求排队等待时
+            # 默认 30s 不够;OpenAI/Anthropic 等快 provider 仍用 30s(与非流式路径一致)
+            call_kwargs["timeout"] = 120 if used_model.lower().startswith("nvidia/") else 30
             # 免费 provider (api_key 为占位符) 不传 api_key,走匿名访问避免 402
             if api_key and api_key not in ("no-key-required", "free"):
                 call_kwargs["api_key"] = api_key
