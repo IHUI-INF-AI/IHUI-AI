@@ -35,6 +35,7 @@ import {
   deleteChannel,
   type ChannelItem,
 } from '@/lib/openclaw-api'
+import { useConfirm } from '@/hooks/use-confirm'
 
 const CHANNEL_TYPES = [
   { value: 'web-chat', label: 'Web Chat' },
@@ -52,6 +53,7 @@ const CHANNEL_TYPES = [
 
 export function IntegrationsPanel() {
   const t = useTranslations('floatingChat.openclaw')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const queryClient = useQueryClient()
 
   const channelsQuery = useQuery({
@@ -178,8 +180,13 @@ export function IntegrationsPanel() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        if (window.confirm(t('confirmDeleteChannel'))) {
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: t('confirmDeleteChannel'),
+                            variant: 'destructive',
+                          })
+                        ) {
                           deleteMutation.mutate(c.id)
                         }
                       }}
@@ -194,6 +201,7 @@ export function IntegrationsPanel() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialogRenderer />
     </div>
   )
 }
