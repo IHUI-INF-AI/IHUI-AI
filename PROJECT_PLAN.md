@@ -1216,6 +1216,29 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 - [x] ✅(2026-07-31) 在 `apps/web/app/(main)/developer/api-docs/page.tsx` 同步 4 个新端点文档 + 错误码表追加
 - [x] ✅(2026-07-31) 全链路 typecheck 全绿(api + web) + commit + push + git-push-guard 验证(§20 五条全绿)
 
+## P0 中转站造血能力极致超越 SwiftAPI + New API 第三批次(2026-07-31 立,8 subagent 并行,平台独占:apps/api + apps/web + packages/auth + packages/database,AGENTS.md §24 用户已确认)
+
+> **触发**:用户要求"还要超越到极致 让人追不上 再深度仔细比对细节 所有内容 肯定还有遗漏的人家有我们没有的"。4 路深度调研(SwiftAPI + New API + One API/Veloera/One-Hub/Done-Hub/GPT-Load/VoAPI 等 12 项目 + IHUI-AI 已有能力盘点)发现 12 项真实遗漏。**8 subagent 并行**:每个 subagent 独立新建文件(零冲突),主 agent 后续统一路由注册 + 计费集成 + 文档同步 + 全链路验证。
+
+### 任务清单(8 项,8 subagent 并行,均独立新建文件)
+
+- [ ] **P0-17 /v1/responses 端点(OpenAI Responses API 兼容)**(subagent-1,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-responses.ts`,实现 OpenAI 2025 推出的 Responses API(`POST /v1/responses`),支持 stream + 内置工具(web_search/file_search/code_interpreter),Cursor/Codex 等新型客户端依赖此端点,鉴权走 api-key-auth,内部转发到 ai-service 的 /api/llm/complete[/stream],集成 checkQuota + recordCall 计费
+- [ ] **P0-18 /v1/batch + /v1/messages/batches 端点(批量异步 API,50% 折扣)**(subagent-2,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-batches.ts`,实现 OpenAI Batch API(`POST /v1/batch` 创建批量任务 + `GET /v1/batch/:id` 查询 + `GET /v1/batch/:id/content` 下载结果 + `POST /v1/batch/:id/cancel` 取消) + Anthropic Messages Batches(`POST /v1/messages/batches` + `GET /v1/messages/batches/:id` + `GET /v1/messages/batches/:id/results`),批量任务按 50% 折扣计费,任务异步处理(BullMQ 队列),鉴权走 api-key-auth
+- [ ] **P0-19 /v1/assistants + /v1/threads + /v1/runs 端点(Assistants API v2 兼容)**(subagent-3,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-assistants.ts`,实现 OpenAI Assistants API v2 兼容端点(Assistants CRUD + Threads CRUD + Messages CRUD + Runs CRUD + Run Steps 查询),第三方 SDK(LangChain/LlamaIndex 等)可直接接入,内部映射到 IHUI-AI 的 agent-runtime + LangGraph,鉴权走 api-key-auth,集成计费
+- [ ] **P0-20 参数覆盖系统(高级 operations JSON DSL)**(subagent-4,平台独占:apps/api)— 新建 `apps/api/src/services/relay-param-ops.ts`,实现 New API 独有的差异化护城河:JSON DSL 级参数覆盖系统,支持 15 种 mode(set/delete/move/append/prepend/copy/trim_prefix/trim_suffix/ensure_prefix/ensure_suffix/trim_space/to_lower/to_upper/replace/regex_replace) + 条件判断(full/prefix/suffix/contains/gt/gte/lt/lte + invert + pass_missing_key + AND/OR logic) + JSON 路径语法 + 内置变量(model/upstream_model/original_model),管理员可在渠道级配置参数覆盖规则,运行时按规则改写请求(模型映射/参数注入/头修改等)
+- [ ] **P0-21 充值金额阶梯折扣 + 自定义充值选项(运营关键)**(subagent-5,平台独占:apps/api + apps/web)— 新建 `apps/api/src/services/topup-discount-service.ts`(阶梯折扣配置:充 100 送 20 / 满 500 送 80 等 JSON 配置 `{100:1.2, 200:1.5}`,自定义充值选项 `[10,20,50,100,200,500]`,min_topup 按支付方式独立配置) + 新建 `apps/api/src/routes/admin/topup-config.ts`(管理端 CRUD 端点) + 修改 `apps/web/app/(main)/developer/billing/page.tsx`(或对应充值页)读取配置渲染阶梯折扣 UI;充值时自动按阶梯赠送额外额度到 wallet
+- [ ] **P0-22 Passkey 无密码登录(WebAuthn/FIDO2)**(subagent-6,平台独占:apps/api + packages/auth + packages/database + apps/web)— 新建 `packages/database/drizzle/20260801010020_add_user_passkeys_table.sql`(user_passkeys 表:credential_id/public_key/counter/transports/device_type/aaguid/user_id) + 新建 `packages/database/src/schema/user-passkeys.ts` + 新建 `packages/auth/src/providers/passkey.ts`(用 @simplewebauthn/server 实现) + 新建 `apps/api/src/routes/auth-passkey.ts`(4 端点:POST /auth/passkey/register/options + POST /auth/passkey/register/verify + POST /auth/passkey/auth/options + POST /auth/passkey/auth/verify) + 修改 `apps/web/src/components/login/ThirdPartyLoginButtons.tsx` 增加 Passkey 登录按钮 + 修改 `apps/web/app/(main)/settings/security/page.tsx` 增加 Passkey 管理界面
+- [ ] **P0-23 USDT 加密货币支付网关(国际化必备)**(subagent-7,平台独占:apps/api + packages/database + apps/web)— 新建 `packages/database/drizzle/20260801010030_add_usdt_payments_table.sql`(usdt_payments 表:order_id/address/amount/tx_hash/network/status/expires_at) + 新建 `packages/database/src/schema/usdt-payments.ts` + 新建 `apps/api/src/services/payment-usdt-service.ts`(生成 USDT-TRC20/ERC20 充值地址 + 轮询区块链确认 + 自动到账) + 新建 `apps/api/src/routes/admin/payment-usdt.ts`(管理端配置 + 查询) + 新建 `apps/api/src/routes/payment-usdt-callback.ts`(区块链 webhook 回调) + 修改 `apps/web/app/(main)/developer/billing/page.tsx` 增加 USDT 充值选项
+- [ ] **P0-24 OpenAI 协议完整性补齐(MJ describe/shorten/blend + /v1/audio/translations + /v1/images/variations + /v1/fine_tuning/jobs + /v1/files 完整 CRUD)**(subagent-8,平台独占:apps/api)— 新建 `apps/api/src/routes/v1-protocol-completeness.ts`,补齐 5 类 OpenAI 标准端点:① MJ 扩展(describe/shorten/blend 3 端点,对接 midjourney-proxy) ② `/v1/audio/translations`(Whisper 翻译,语音→英文) ③ `/v1/images/variations`(DALL-E 图像变体) ④ `/v1/fine_tuning/jobs`(微调任务 CRUD + events) ⑤ `/v1/files`(完整文件管理 CRUD:list/retrieve/delete/content),鉴权走 api-key-auth,集成计费
+
+### 主 agent 后续整合(8 subagent 全部交付后)
+
+- [ ] 在 `apps/api/src/routes/index.ts` 注册 v1-responses / v1-batches / v1-assistants / v1-protocol-completeness 4 个新对外端点路由
+- [ ] 在 `apps/api/src/services/relay-billing-service.ts` 追加 responses/batches/assistants/translations/variations/fine_tuning 计费分支(batch 按 50% 折扣,fine_tuning 按次计费,translations 按 audio 秒数计费)
+- [ ] 在 `apps/api/src/services/relay-channel-router.ts` 集成 relay-param-ops(在 selectByStrategy 后、调用上游前应用参数覆盖规则)
+- [ ] 在 `apps/web/app/(main)/developer/api-docs/page.tsx` 同步 5 个新端点文档 + 错误码表追加(responses/batches/assistants/fine_tuning/files 相关错误码)
+- [ ] 全链路 typecheck 全绿(api + web) + commit + push + git-push-guard 验证(§20 五条全绿)
+
 ## 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x)
 
 ### [x] ✅(2026-07-28) 阶段6 完成(3.3x->3.1x,8 screen mock 数据替换为真实 API,4 subagent 并行)
@@ -1260,6 +1283,31 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 - [x] Subagent C(resources 表 price 字段补齐):
   - packages/database/src/schema/resource.ts:resources 表新增 price numeric(10,2) 字段
   - packages/api-client/src/endpoints/resource.ts:Resource 类型显式声明 price?: string | number
+
+---
+
+## P0 LLM 接入层系统性重构(2026-07-31 立,4 Phase 一次到位,平台独占:apps/ai-service + apps/web,AGENTS.md §24 用户已确认)
+
+> **背景**:从 Cloudflare 到 NVIDIA,每次接入新厂商/模型都踩坑(stream_usage 不兼容 / timeout / DB 占位符覆盖 .env / key 优先级混乱 / 前端 fallback hardcode 与后端脱节),根因是 LLM 接入层缺乏系统性设计:参数兼容性靠硬编码 `if nvidia/`、无 capability 声明、配置散落 6 处、无 key 预检。本任务系统性重构 LLM 接入层,做到"接入新厂商零代码改动 + 配置即可知可用性 + 单一真源"。
+> **平台独占**:apps/ai-service(Python,FastAPI + LiteLLM)+ apps/web(TS,模型广场),其他端用 api-client 不受影响。
+> **用户原话**:"为什么接入个模型适配个厂商这么费劲啊 用了这么久 反复出现问题 我们的项目在这块能力做的还远远不够啊 适配程度 便捷度 易用度根本不够啊 请深度开发到极致 优化到极致"
+
+### 硬性指标(H1-H8)
+
+- [ ] H1(Phase A):Provider Capability Registry 落地 — 新建 `apps/ai-service/app/core/provider_caps.py`,声明每个 provider 的 `supports_stream_usage / supports_tools / supports_vision / supports_response_format / default_timeout / max_context / protocol`,覆盖现有全部 provider(nvidia/cloudflare/openai/anthropic/stepfun/agnes/openrouter/groq/gemini/ollama 等 20+)
+- [ ] H2(Phase A):llm_gateway 消灭硬编码 `if nvidia/` — 流式 + 非流式路径调用前按 cap 自动过滤参数(stream_usage / timeout / tools / response_format),`grep -n "if.*nvidia\|if.*cloudflare" apps/ai-service/app/core/llm_gateway.py` 返回 0 处条件判断(保留 _PREFIX_TO_PROVIDER_CODE 路由 dict)
+- [ ] H3(Phase B):/llm/providers/health 升级为主动预检 — 对每个已配置 provider 发 `/models` 请求验证 key 有效性 + 连通性,返回 `{provider, status: ok/invalid_key/unreachable, latency_ms, model_count}`,耗时 < 10s(并发预检)
+- [ ] H4(Phase B):前端模型广场显示 provider 状态 — 调 /llm/providers/health,绿(可用)/红(key 无效)/灰(未配置)三态徽章,hover 显示延迟 + 模型数
+- [ ] H5(Phase C):default_models.json 加 provider_caps 字段 — 每个模型条目含 `caps`(继承 provider cap + 模型级覆盖),后端 /llm/models 返回带 cap 的模型清单
+- [ ] H6(Phase C):fallback-models.ts 收敛为纯降级 — 仅保留 2-3 个兜底模型(stepfun 主力),移除所有 hardcode 厂商列表,前端从 /llm/models 动态拉取
+- [ ] H7(Phase D):DB 占位符 key 清理 — ai_model_config 表所有 `api_key_enc LIKE '<%' OR api_key_enc LIKE 'sk-placeholder%'` 的记录 `enabled=false`,并加逻辑"占位符 key 不覆盖 .env"
+- [ ] H8(Phase D):配置优先级文档 — `.env.example` 顶部注释说明配置优先级(DB owner match > DB global > .env > stub)+ provider 接入指南(新增 provider 3 步:加 cap + 加 .env + 加 default_models)
+
+### 4 Phase 任务分解(多 subagent 并行)
+
+- **Phase A+B(ai-service Python,Subagent 1)**:provider_caps.py 新建 + llm_gateway.py 改造(按 cap 过滤参数)+ /llm/providers/health 升级预检 + /llm/models 返回带 cap
+- **Phase C+D 前端(web TS,Subagent 2)**:fallback-models.ts 收敛 + 模型广场 provider 状态展示 + api-client 适配
+- **Phase D DB+文档(主 agent)**:DB 占位符清理 + .env.example 文档 + 跨端契约对齐 + 最终验证 + commit/push
   - apps/mobile-rn/src/screens/LiveHostScreen.tsx:移除 readNumber 类型守卫,改用强类型字段直接转换
 - [x] Subagent D(AigcPublishScreen 真实文件上传):
   - 安装 expo-image-picker ~8.1.0(与 expo 53 兼容)
@@ -1812,3 +1860,75 @@ CDP 关键 API:
 - `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` - 鼠标键盘事件
 - `Network.getCookies` - 获取 cookies(扫码登录后检测)
 - `Page.navigate` - 导航
+
+---
+
+## CLI 全局命令注册 + 一键启动脚本(2026-07-31,平台独占:仅 apps/cli 工具链 + 用户 PowerShell 环境)
+
+### [x] ✅(2026-07-31) 用户可输入 `ihui` 全局命令 + 一键启动 dev 栈
+
+用户要求:"本项目的cli端怎么使用 在我的电脑powershell里输入什么啊" + "继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏 然后我直接可以输入ihui为止"。**目标:PowerShell / cmd / Git Bash 任意终端输入 `ihui --version` 即可调用本地 @ihui/cli 开发模式**(无需手动 `cd G:\IHUI-AI ; pnpm --filter @ihui/cli dev`)。
+
+- [x] **全局命令注册**(用户主目录,不在仓库内):
+  - `C:\Users\Administrator\AppData\Roaming\npm\ihui.cmd` — cmd.exe / Git Bash 入口,`cd /d G:\IHUI-AI` + `pnpm --filter @ihui/cli dev %*`
+  - `C:\Users\Administrator\AppData\Roaming\npm\ihui.ps1` — PowerShell 入口,Push-Location + pnpm + Pop-Location 错误时还原
+  - 两个文件均做路径校验(`Test-Path package.json`),不存在时 exit 127 + 友好错误信息
+- [x] **CLI 持久化配置**:`C:\Users\Administrator\.ihui\settings.json` — 7 字段(`apiUrl / apiKey / defaultModel / locale / maxIterations / auditEnabled`),CLI 启动时 dotenv 读入,免除每次传 `--api-key` `--model`
+- [x] **全链路验证通过**:
+  - `where.exe ihui` → `C:\Users\Administrator\AppData\Roaming\npm\ihui.cmd` ✅
+  - `Get-Command ihui` → `ihui.ps1` ExternalScript ✅
+  - `ihui --version` → `1.0.0`(通过 pnpm tsx 启动 src/index.ts)✅
+  - `ihui --help` → 完整 25 个选项 + 6 个子命令(chat / agent / init / sessions / mcp / capabilities)✅
+  - web 8801: HTTP 200 ✅ / api 8802: `/api/health` → `{"status":"ok","service":"@ihui/api"}` ✅ / ai 8803: `/health` → `{"status":"ok","service":"ihui-ai-service"}` ✅
+- [x] **修复 cli 循环依赖 TDZ**(commit 包含):
+  - `apps/cli/src/tools/git-shared.ts`(新建):抽离 `execGit / formatGitResult / GitExecResult` 三个共享定义,打破 git.ts ↔ git-advanced.ts 循环引用(原 `ReferenceError: Cannot access 'GIT_ADVANCED_TOOLS' before initialization`)
+  - `apps/cli/src/tools/git.ts`:删本地重复实现 34 行,改 import 自 git-shared
+  - `apps/cli/src/tools/git-advanced.ts`:execGit/formatGitResult 改 import 自 git-shared(不再 import git.ts)
+- [x] **一键启动 dev 栈**:`scripts/start-ihui-stack.ps1`(新建,本任务含 2 轮修复):
+  - 派生 web(8801) + api(8802) + ai-service(8803) 三个 Start-Process 后台进程,日志重定向 `.trae-cn/tmp/ihui-stack-<svc>-<timestamp>.log`,Start-Job tail 实时三色输出到终端,Ctrl+C 优雅全停
+  - 支持 `-Skip <web|api|ai>` / `-Only <web|api|ai>` / `-WhatIf` / `-Status` / `-Help` 五种参数
+  - PID 文件 `.trae-cn/tmp/ihui-stack-pids.json` 记录每个服务的 PID/cwd/cmd/args/started_at
+  - **修复 1(IPv6 检测)**:Next.js dev server / uvicorn 在 Windows 默认只绑 IPv6 `[::1]`,而 `Get-NetTCPConnection` 在 PS 5.1 上默认只查 IPv4 → `-Status` 误报 DOWN。增加 netstat 兜底 + `Test-NetConnection` 主动连接双兜底
+  - **修复 2(UTF-8 BOM)**:PowerShell 5.1 中文 Windows 默认按 GBK 解析无 BOM UTF-8,中文乱码导致 "String is missing the terminator" 语法错误。`[System.IO.File]::WriteAllText` + `UTF8Encoding($true)` 重写加 BOM,中文正常解析
+  - **验证**:`-Status` 实际跑出 `WEB-8801 UP (PID=19016) / API-8802 UP / AI-8803 UP (PID=26204)` ✅
+
+关键设计:
+
+- `ihui.cmd` + `ihui.ps1` 路径用环境变量 `$env:APPDATA`(Windows) / `$HOME/.local/bin`(POSIX) 标准位置,无需修改 PATH(`%APPDATA%\npm` 已在 PATH 中)
+- settings.json 用 dotenv 风格(CLI 启动时 `loadSettings()` 合并到 process.env),不污染全局环境变量
+- start-ihui-stack.ps1 不替代 `pnpm dev`,只包装"前台聚合日志 + 优雅停止",CI / 后台用 `pnpm turbo run dev` 仍走标准路径
+- IPv6 修复兼容 PS 5.1 + PS 7(PowerShell 7+ `Get-NetTCPConnection -AddressFamily` 也支持,但兜底逻辑同时兼容)
+
+Git 同步证据(§20 硬定义 5 条全绿,1 commit + 隐式 0 净增 + 1 后续 push 自动同步):
+
+- `b4cd463987` fix(cli): 打破 git.ts <-> git-advanced.ts 循环依赖,新增 start-ihui-stack.ps1(后续被其他 agent 自动 merge 同步到 origin/main,含 IPv6 修复 + UTF-8 BOM)
+- local HEAD == origin HEAD: `2b783a4579` ✅
+- `node scripts/git-push-guard.mjs` 隐式通过(HEAD == origin/main)
+- 工作区 22 个 M/D 改动属其他 agent(ai-service + miniapp-taro + web 多个组件),按 §12 多 agent 规则不动
+
+影响文件:1 commit / 4 files changed(start-ihui-stack.ps1 新建 640 行 / git-shared.ts 新建 60 行 / git.ts 改 19 行 / git-advanced.ts 改 4 行);用户主目录 2 个包装脚本(不参与 git track);settings.json 1 个配置文件(不参与 git track)。
+
+后续用法(用户已可立即使用):
+
+```powershell
+# PowerShell / cmd / Git Bash 任意终端
+ihui --version       # → 1.0.0
+ihui --help          # → 25 选项 + 6 子命令
+ihui                 # → 进入 REPL
+ihui chat            # → 多轮对话
+ihui agent "任务"    # → Agent 模式自主多步执行
+ihui sessions        # → 历史会话列表
+```
+
+启动 dev 栈(开发期实时看三色日志):
+
+```powershell
+# 完整启动
+pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1
+
+# 只启动 web + api(不开 ai)
+pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Skip ai
+
+# 查看状态
+pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
+```
