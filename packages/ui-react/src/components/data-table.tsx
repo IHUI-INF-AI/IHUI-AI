@@ -180,6 +180,7 @@ function DataTable<TData>({
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
                 className="pl-9"
               />
             </div>
@@ -192,6 +193,7 @@ function DataTable<TData>({
               <select
                 value={currentPageSize}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                aria-label="每页显示条数"
                 className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {pageSizeOptions.map((s) => (
@@ -260,6 +262,7 @@ function DataTable<TData>({
                               value={(header.column.getFilterValue() as string) ?? ''}
                               onChange={(e) => header.column.setFilterValue(e.target.value)}
                               placeholder="筛选..."
+                              aria-label={`筛选 ${flexRender(header.column.columnDef.header, header.getContext())}`}
                               onClick={(e) => e.stopPropagation()}
                               className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             />
