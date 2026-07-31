@@ -36,7 +36,7 @@ import {
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
 import { useChatStore } from '@/stores/chat'
-import { useAgentProgress } from '@/hooks/use-agent-progress'
+import type { PlanStep } from '@/hooks/use-agent-progress'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
 import { searchMessages } from '@/lib/message-search'
 import { toast } from '@/components/common'
@@ -304,7 +304,9 @@ const MessageItem = React.memo(function MessageItem({
   // - 2026-07-28 增补:包含 localHover(本地鼠标移入)与 isHovered(跨组件 plan step 联动)两种来源
   const showCopyButton = (localHover || isHovered || isFocused || copied) && m.content.length > 0
   const timestampLabel = formatMessageTimestamp(m.createdAt)
-  const showTimestamp = (localHover || isHovered || isFocused) && timestampLabel
+  // 2026-07-31 立(深度对标 Codex/Trae Work):时间戳常驻显示在气泡底部,
+  // 让对话流自带时间感知,无需 hover 才可见。用户需求"对话流里显示时间"。
+  const showTimestamp = Boolean(timestampLabel)
 
   // Copy 按钮 a11y label(优先用 i18n,缺失回退英文)
   const copyLabel = t('copy') === 'copy' ? 'Copy' : t('copy')
@@ -1005,11 +1007,30 @@ export function MessageList({
   const subAgentActivitiesFromStore = useChatStore((s) => s.subAgentActivities)
   const subAgentActivities = subAgentActivitiesProp ?? subAgentActivitiesFromStore
 
-  // PlanStepsCard 数据源:从 useAgentProgress 读取 planSteps(对标 agent-task-progress-pane)
-  // useAgentProgress 不自动开启 SSE 连接(需显式 start),与 pane 共享同一惰性聚合模式,
-  // 因此不会产生重复 SSE 连接
-  const conversationId = useChatStore((s) => s.conversationId)
-  const { planSteps } = useAgentProgress(conversationId)
+  // PlanStepsCard 数据源(2026-07-31 重构):
+  // 普通对话走 streamChat → /api/ai/chat/stream → /api/llm/complete/stream,
+  // 不经过 LangGraph agent,因此 useAgentProgress.start() 即使接通也得不到 plan events
+  // (且 graph 未注册时返回 503)。改为基于 messages.toolCalls 派生 planSteps,
+  // 让 PlanStepsCard 基于实际对话内容显示已执行的工具调用步骤,无需 LangGraph agent。
+  // isStreaming 已是 MessageList prop,streaming 中最后一条 assistant 消息的 toolCalls
+  // 状态为 running,会自动派生为 in_progress step,无需额外处理。
+  const planSteps = React.useMemo<PlanStep[]>(() => {
+    const steps: PlanStep[] = []
+    for (const msg of messages) {
+      if (msg.role !== 'assistant' || !msg.toolCalls?.length) continue
+      for (const tc of msg.toolCalls) {
+        steps.push({
+          id: tc.id,
+          step: tc.toolName,
+          status: tc.status === 'running' ? 'in_progress' : 'completed',
+          startedAt: new Date(msg.createdAt ?? Date.now()).toISOString(),
+          durationMs: tc.duration,
+          explanation: tc.error || (tc.repeated ? '已跳过(重复调用)' : undefined),
+        })
+      }
+    }
+    return steps
+  }, [messages])
 
   // 从 messages + subAgentActivities 派生 TimelineEvent 列表
   // 上游没传 events 时,本地基于 messages 派生供右侧时间线 tab 渲染
