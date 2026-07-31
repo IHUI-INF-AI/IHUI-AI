@@ -1007,30 +1007,71 @@ export function MessageList({
   const subAgentActivitiesFromStore = useChatStore((s) => s.subAgentActivities)
   const subAgentActivities = subAgentActivitiesProp ?? subAgentActivitiesFromStore
 
-  // PlanStepsCard 数据源(2026-07-31 重构):
+  // 最后一条 assistant 消息 ID(用于 planSteps 状态判定 + subagent 关联)
+  const lastAssistantMessageId = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.id
+    }
+    return null
+  }, [messages])
+
+  // PlanStepsCard 数据源(2026-07-31 重构 + 增强):
   // 普通对话走 streamChat → /api/ai/chat/stream → /api/llm/complete/stream,
   // 不经过 LangGraph agent,因此 useAgentProgress.start() 即使接通也得不到 plan events
-  // (且 graph 未注册时返回 503)。改为基于 messages.toolCalls 派生 planSteps,
-  // 让 PlanStepsCard 基于实际对话内容显示已执行的工具调用步骤,无需 LangGraph agent。
-  // isStreaming 已是 MessageList prop,streaming 中最后一条 assistant 消息的 toolCalls
-  // 状态为 running,会自动派生为 in_progress step,无需额外处理。
+  // (且 graph 未注册时返回 503)。改为基于 messages 派生 planSteps,覆盖 3 类步骤:
+  //   ① reasoning(推理模型思考过程)→ "思考" 步骤
+  //   ② toolCalls(工具调用)→ 每个工具一个步骤
+  //   ③ content(最终回答)→ "回答" 步骤
+  // 这样 PlanStepsCard 在普通文本对话(有 reasoning)和工具调用对话中都能显示,
+  // 无需 LangGraph agent。最后一条 assistant 消息的步骤状态随 isStreaming 动态变化。
   const planSteps = React.useMemo<PlanStep[]>(() => {
     const steps: PlanStep[] = []
     for (const msg of messages) {
-      if (msg.role !== 'assistant' || !msg.toolCalls?.length) continue
-      for (const tc of msg.toolCalls) {
+      if (msg.role !== 'assistant') continue
+      const isLast = msg.id === lastAssistantMessageId
+      const isStreamingThis = isLast && isStreaming
+
+      // ① reasoning → "思考" 步骤(reasoning 模型输出,如 o1/R1)
+      if (msg.reasoning && msg.reasoning.trim().length > 0) {
         steps.push({
-          id: tc.id,
-          step: tc.toolName,
-          status: tc.status === 'running' ? 'in_progress' : 'completed',
+          id: `${msg.id}-reasoning`,
+          step: '思考',
+          status: isStreamingThis && !msg.content ? 'in_progress' : 'completed',
           startedAt: new Date(msg.createdAt ?? Date.now()).toISOString(),
-          durationMs: tc.duration,
-          explanation: tc.error || (tc.repeated ? '已跳过(重复调用)' : undefined),
+          explanation:
+            msg.reasoning.length > 100
+              ? `${msg.reasoning.slice(0, 100)}…`
+              : msg.reasoning,
+        })
+      }
+
+      // ② toolCalls → 每个工具调用一个步骤
+      if (msg.toolCalls?.length) {
+        for (const tc of msg.toolCalls) {
+          steps.push({
+            id: tc.id,
+            step: tc.toolName,
+            status: tc.status === 'running' ? 'in_progress' : 'completed',
+            startedAt: new Date(msg.createdAt ?? Date.now()).toISOString(),
+            durationMs: tc.duration,
+            explanation: tc.error || (tc.repeated ? '已跳过(重复调用)' : undefined),
+          })
+        }
+      }
+
+      // ③ content → "回答" 步骤(只有当有 content 时才显示)
+      if (msg.content && msg.content.trim().length > 0) {
+        steps.push({
+          id: `${msg.id}-answer`,
+          step: '回答',
+          status: isStreamingThis ? 'in_progress' : 'completed',
+          startedAt: new Date(msg.createdAt ?? Date.now()).toISOString(),
         })
       }
     }
     return steps
-  }, [messages])
+  }, [messages, lastAssistantMessageId, isStreaming])
 
   // 从 messages + subAgentActivities 派生 TimelineEvent 列表
   // 上游没传 events 时,本地基于 messages 派生供右侧时间线 tab 渲染
@@ -1080,17 +1121,6 @@ export function MessageList({
   }, [derivedEvents, timelineEvents.length, setTimelineEvents])
 
   // 为每个 message 派生"关联的 subagent 列表"
-  // 启发式:每个 assistant 消息关联其创建时已存在的 subagent 活动(基于 createdAt 顺序)
-  // - 简化处理:对最后一个 assistant 消息,展示所有当前 subAgentActivities
-  // - 其他消息不展示(避免每个消息重复显示)
-  const lastAssistantMessageId = React.useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i]
-      if (m && m.role === 'assistant') return m.id
-    }
-    return null
-  }, [messages])
-
   // 把 SubAgentActivity 映射为 SubAgent(SubAgentTaskTree 要求的类型)
   // AgentStatus → SubagentStatus 映射:
   //   idle/pending → spawned; thinking/acting/reflecting/running → running
