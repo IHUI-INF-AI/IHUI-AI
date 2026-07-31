@@ -21,6 +21,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   ChevronUp,
+  Inbox,
   Search,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -179,6 +180,7 @@ function DataTable<TData>({
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
                 className="pl-9"
               />
             </div>
@@ -191,6 +193,7 @@ function DataTable<TData>({
               <select
                 value={currentPageSize}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                aria-label="每页显示条数"
                 className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {pageSizeOptions.map((s) => (
@@ -259,6 +262,7 @@ function DataTable<TData>({
                               value={(header.column.getFilterValue() as string) ?? ''}
                               onChange={(e) => header.column.setFilterValue(e.target.value)}
                               placeholder="筛选..."
+                              aria-label={`筛选 ${flexRender(header.column.columnDef.header, header.getContext())}`}
                               onClick={(e) => e.stopPropagation()}
                               className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             />
@@ -348,7 +352,12 @@ function DataTable<TData>({
                     colSpan={totalColSpan}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    {emptyText}
+                    {/* 空状态图标(2026-07-31 对标 Trae/Codex/Claude Code):
+                        纯文本空状态过于单调,添加 Inbox 图标提升视觉友好度 */}
+                    <div className="flex flex-col items-center gap-2">
+                      <Inbox className="h-8 w-8 opacity-40" aria-hidden />
+                      <span>{emptyText}</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
