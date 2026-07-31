@@ -47,6 +47,7 @@ import {
   resetFullAccessAcknowledgement,
 } from '@/components/ai/full-access-confirm-dialog'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+import { useConfirm } from '@/hooks/use-confirm'
 
 /** 历史面板最大展示条数 */
 const HISTORY_DISPLAY_LIMIT = 10
@@ -191,6 +192,7 @@ function StatsFooter() {
 
 export function PermissionHistoryPanel() {
   const t = useTranslations('chat.permission')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [open, setOpen] = React.useState(false)
   const [entries, setEntries] = React.useState<ModeChangeEntry[]>([])
   const [now, setNow] = React.useState<number | null>(null)
@@ -245,20 +247,23 @@ export function PermissionHistoryPanel() {
     return () => window.clearInterval(id)
   }, [open])
 
-  const handleClear = () => {
-    if (typeof window === 'undefined') return
-    const ok = window.confirm(`${t('historyClearConfirmTitle')}\n\n${t('historyClearConfirmDesc')}`)
+  const handleClear = async () => {
+    const ok = await confirm({
+      title: t('historyClearConfirmTitle'),
+      description: t('historyClearConfirmDesc'),
+      variant: 'destructive',
+    })
     if (!ok) return
     clearHistory()
     setEntries([])
   }
 
   // 重新启用高风险确认弹窗(用户此前勾了"不再提醒",此处清除静默标志恢复提醒)
-  const handleResetSuppressed = () => {
-    if (typeof window === 'undefined') return
-    const ok = window.confirm(
-      `${t('resetSuppressedConfirmTitle')}\n\n${t('resetSuppressedConfirmDesc')}`,
-    )
+  const handleResetSuppressed = async () => {
+    const ok = await confirm({
+      title: t('resetSuppressedConfirmTitle'),
+      description: t('resetSuppressedConfirmDesc'),
+    })
     if (!ok) return
     resetFullAccessAcknowledgement()
     setIsSuppressed(false)
@@ -266,81 +271,84 @@ export function PermissionHistoryPanel() {
   }
 
   return (
-    <Popover
-      content={
-        <div className="w-[320px] space-y-2" data-testid="permission-history-panel">
-          {/* 顶部标题 + 清空按钮 */}
-          <div className="flex items-center justify-between gap-2 px-1 pb-1">
-            <div className="flex items-center gap-1.5">
-              <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              <span className="text-sm font-semibold text-foreground">{t('historyTitle')}</span>
+    <>
+      <Popover
+        content={
+          <div className="w-[320px] space-y-2" data-testid="permission-history-panel">
+            {/* 顶部标题 + 清空按钮 */}
+            <div className="flex items-center justify-between gap-2 px-1 pb-1">
+              <div className="flex items-center gap-1.5">
+                <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span className="text-sm font-semibold text-foreground">{t('historyTitle')}</span>
+              </div>
+              {entries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  aria-label={t('historyClearConfirm')}
+                  className={cn(
+                    'inline-flex items-center gap-0.5 text-[10px] font-medium',
+                    'text-muted-foreground transition-colors hover:text-destructive',
+                  )}
+                >
+                  <Trash2 className="h-3 w-3" aria-hidden="true" />
+                  <span>{t('historyClearConfirm')}</span>
+                </button>
+              )}
             </div>
-            {entries.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClear}
-                aria-label={t('historyClearConfirm')}
-                className={cn(
-                  'inline-flex items-center gap-0.5 text-[10px] font-medium',
-                  'text-muted-foreground transition-colors hover:text-destructive',
-                )}
-              >
-                <Trash2 className="h-3 w-3" aria-hidden="true" />
-                <span>{t('historyClearConfirm')}</span>
-              </button>
+            {/* 列表 */}
+            <div className="max-h-[260px] overflow-y-auto">
+              <HistoryList entries={entries} now={now} />
+            </div>
+            {/* 统计汇总 */}
+            <StatsFooter />
+            {/* 重新提醒高风险(仅当用户已勾"不再提醒"时显示,供恢复确认弹窗) */}
+            {isSuppressed && (
+              <div className="px-1">
+                <button
+                  type="button"
+                  onClick={handleResetSuppressed}
+                  aria-label={t('resetSuppressedButton')}
+                  data-testid="reset-full-access-suppressed"
+                  className={cn(
+                    'inline-flex items-center gap-0.5 text-[10px] font-medium',
+                    'text-muted-foreground transition-colors hover:text-amber-600',
+                  )}
+                >
+                  <BellRing className="h-3 w-3" aria-hidden="true" />
+                  <span>{t('resetSuppressedButton')}</span>
+                </button>
+              </div>
             )}
+            {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
+            <span className="sr-only" aria-live="polite">
+              {open && entries.length === 0 ? t('historyEmpty') : ''}
+            </span>
           </div>
-          {/* 列表 */}
-          <div className="max-h-[260px] overflow-y-auto">
-            <HistoryList entries={entries} now={now} />
-          </div>
-          {/* 统计汇总 */}
-          <StatsFooter />
-          {/* 重新提醒高风险(仅当用户已勾"不再提醒"时显示,供恢复确认弹窗) */}
-          {isSuppressed && (
-            <div className="px-1">
-              <button
-                type="button"
-                onClick={handleResetSuppressed}
-                aria-label={t('resetSuppressedButton')}
-                data-testid="reset-full-access-suppressed"
-                className={cn(
-                  'inline-flex items-center gap-0.5 text-[10px] font-medium',
-                  'text-muted-foreground transition-colors hover:text-amber-600',
-                )}
-              >
-                <BellRing className="h-3 w-3" aria-hidden="true" />
-                <span>{t('resetSuppressedButton')}</span>
-              </button>
-            </div>
-          )}
-          {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
-          <span className="sr-only" aria-live="polite">
-            {open && entries.length === 0 ? t('historyEmpty') : ''}
-          </span>
-        </div>
-      }
-      position="top"
-      align="end"
-      trigger="click"
-      portal
-      onOpenChange={setOpen}
-    >
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={t('historyOpenButton')}
-        title={t('historyOpenExternal')}
-        data-testid="permission-history-trigger"
-        className={cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
+        }
+        position="top"
+        align="end"
+        trigger="click"
+        portal
+        onOpenChange={setOpen}
       >
-        <Clock4 className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-    </Popover>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label={t('historyOpenButton')}
+          title={t('historyOpenExternal')}
+          data-testid="permission-history-trigger"
+          className={cn(
+            'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+            'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+        >
+          <Clock4 className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </Popover>
+      <ConfirmDialogRenderer />
+    </>
   )
 }
 
