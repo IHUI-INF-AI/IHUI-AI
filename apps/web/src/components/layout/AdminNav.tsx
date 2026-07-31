@@ -225,6 +225,7 @@ interface AdminNavItem {
     | 'adminRelayLogs'
     | 'adminRelayModelMappings'
     | 'adminRelayRedemptionCodes'
+    | 'adminProvidersHealth'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -377,12 +378,32 @@ export const ADMIN_NAV: AdminNavItem[] = [
   // R90: 运营监控 + 教育批阅
   { href: '/admin/message-overview', labelKey: 'messageOverview', icon: BarChart3 },
   { href: '/admin/visit-tracking', labelKey: 'visitTracking', icon: BarChart3 },
-  { href: '/admin/plugins-stats', labelKey: 'pluginsStats', icon: Boxes, dynamicLabel: 'Plugins Stats' },
+  {
+    href: '/admin/plugins-stats',
+    labelKey: 'pluginsStats',
+    icon: Boxes,
+    dynamicLabel: 'Plugins Stats',
+  },
   { href: '/admin/exam-marking', labelKey: 'examMarking', icon: ClipboardCheck },
   // P1 audit 遗留:试卷管理(未归入分组,保留为扁平 item,路径已修正)
-  { href: '/admin/edu/exam/papers-random', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: 'Exam Random Paper' },
-  { href: '/admin/edu/exam/papers-manual', labelKey: 'dashboard', icon: FileText, dynamicLabel: 'Exam Mock Paper' },
-  { href: '/admin/edu/exam/papers-template', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: 'Paper Template' },
+  {
+    href: '/admin/edu/exam/papers-random',
+    labelKey: 'dashboard',
+    icon: LayoutGrid,
+    dynamicLabel: 'Exam Random Paper',
+  },
+  {
+    href: '/admin/edu/exam/papers-manual',
+    labelKey: 'dashboard',
+    icon: FileText,
+    dynamicLabel: 'Exam Mock Paper',
+  },
+  {
+    href: '/admin/edu/exam/papers-template',
+    labelKey: 'dashboard',
+    icon: LayoutGrid,
+    dynamicLabel: 'Paper Template',
+  },
 ]
 
 /**
@@ -429,8 +450,18 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: History,
         dynamicLabel: 'Login Info',
       },
-      { href: '/admin/online-users', labelKey: 'dashboard', icon: Users, dynamicLabel: 'Online Users' },
-      { href: '/admin/announcements', labelKey: 'dashboard', icon: Megaphone, dynamicLabel: 'Notice' },
+      {
+        href: '/admin/online-users',
+        labelKey: 'dashboard',
+        icon: Users,
+        dynamicLabel: 'Online Users',
+      },
+      {
+        href: '/admin/announcements',
+        labelKey: 'dashboard',
+        icon: Megaphone,
+        dynamicLabel: 'Notice',
+      },
       {
         href: '/admin/configs',
         labelKey: 'dashboard',
@@ -443,7 +474,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: CalendarClock,
         dynamicLabel: 'Scheduled Job',
       },
-      { href: '/admin/tool/gen', labelKey: 'dashboard', icon: Code2, dynamicLabel: 'Code Generator' },
+      {
+        href: '/admin/tool/gen',
+        labelKey: 'dashboard',
+        icon: Code2,
+        dynamicLabel: 'Code Generator',
+      },
     ],
   },
   // 内容审核
@@ -522,7 +558,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: Tag,
         dynamicLabel: 'Agent Category',
       },
-      { href: '/admin/agent-rule', labelKey: 'dashboard', icon: Shield, dynamicLabel: 'Agent Rule' },
+      {
+        href: '/admin/agent-rule',
+        labelKey: 'dashboard',
+        icon: Shield,
+        dynamicLabel: 'Agent Rule',
+      },
       {
         href: '/admin/agents/examine',
         labelKey: 'dashboard',
@@ -558,7 +599,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: CalendarClock,
         dynamicLabel: 'Sign-in Rule',
       },
-      { href: '/admin/live/lecturers', labelKey: 'dashboard', icon: UserCheck, dynamicLabel: 'Lecturer' },
+      {
+        href: '/admin/live/lecturers',
+        labelKey: 'dashboard',
+        icon: UserCheck,
+        dynamicLabel: 'Lecturer',
+      },
     ],
   },
   // 课程考试
@@ -649,7 +695,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         icon: MessageSquareReply,
         dynamicLabel: 'Ticket Reply',
       },
-      { href: '/admin/oss-config', labelKey: 'dashboard', icon: Server, dynamicLabel: 'OSS Config' },
+      {
+        href: '/admin/oss-config',
+        labelKey: 'dashboard',
+        icon: Server,
+        dynamicLabel: 'OSS Config',
+      },
     ],
   },
   // 社区圈子
@@ -847,6 +898,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminRelayLogs: 'nav.adminRelayLogs',
   adminRelayModelMappings: 'nav.adminRelayModelMappings',
   adminRelayRedemptionCodes: 'nav.adminRelayRedemptionCodes',
+  adminProvidersHealth: 'nav.adminProvidersHealth',
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */
@@ -967,7 +1019,9 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
           )}
         >
           <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1 text-left">{t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}</span>
+          <span className="flex-1 text-left">
+            {t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}
+          </span>
           <span className="text-[10px] tabular-nums text-muted-foreground/70">
             {group.items.length}
           </span>

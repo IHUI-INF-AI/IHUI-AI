@@ -99,18 +99,19 @@ const CodeBlockImpl = function CodeBlock({
   const isPlain = PLAIN_TEXT_LANGS.has(lang)
 
   // 复制按钮(absolute 定位在 <pre> 右上角)
-  // 不用蓝光/纯黑边框,hover 用浅色背景变化,适配 dark/light
+  // 2026-07-31 对标 Trae/Codex/Claude Code + 与 code-generator.tsx 保持一致:
+  // 用语义 token(bg-background/80 + text-foreground + hover:bg-muted)替代硬编码 zinc 色,
+  // backdrop-blur-sm 确保按钮在任意代码块背景上都可读,dark mode 自动适配无需 dark: 变体。
   const copyButton = (
     <button
       type="button"
       onClick={() => copy(code)}
       data-testid="copy-button"
       className={cn(
-        'absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md',
-        'text-zinc-400 transition-colors',
-        'hover:bg-zinc-800 hover:text-zinc-100',
-        'dark:text-zinc-500 dark:hover:bg-zinc-700 dark:hover:text-zinc-100',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400',
+        'absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md',
+        'bg-background/80 text-foreground backdrop-blur-sm transition-colors',
+        'hover:bg-muted',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
       aria-label={copied ? tA11y('codeCopied') : tA11y('copyCode')}
     >
