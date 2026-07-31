@@ -333,7 +333,7 @@ export default function InputArea({
             {imgsList && imgsList.length > 0 ? (
               <ScrollView scrollX className="imgs-list" style={{ flexBasis: '100%' }}>
                 {imgsList.map((item, index) => (
-                  <View key={`img-${index}-${item.imgUrl}`} className="imgs-list-item">
+                  <View key={`img-${index}-${item.imgUrl || index}`} className="imgs-list-item">
                     <Image
                       src={closeInputPng}
                       className="imgs-list-close"
@@ -574,13 +574,6 @@ export default function InputArea({
                   />
                 </View>
                 <View className="search-box3">
-                  {mode === 'text' && value.length > 0 ? (
-                    <Image
-                      className="search-box3-img"
-                      src={closeChatPng}
-                      style={{ width: '50rpx', height: '50rpx', marginRight: '10rpx' }}
-                    />
-                  ) : null}
                   <Image
                     className="search-box3-img"
                     src={sandMsgPng}
