@@ -1,5 +1,15 @@
-import { pgTable, uuid, varchar, integer, bigint, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  uuid,
+  varchar,
+  integer,
+  bigint,
+  timestamp,
+  jsonb,
+  index,
+} from 'drizzle-orm/pg-core'
 import { users } from './users.js'
+import { tenants } from './tenant.js'
 
 /**
  * 开发者 API 密钥表。
@@ -39,12 +49,16 @@ export const developerApiKeys = pgTable(
     allowedModels: jsonb('allowed_models'),
     /** 单次请求 token 上限(null = 不限制),超过拒绝 */
     maxTokensPerReq: integer('max_tokens_per_req'),
+    // --- 多租户关联字段(对标 New API,API Key 可关联到 tenant 实现组织级配额池)---
+    /** 关联的租户 ID(nullable,不关联则为个人 Key),onDelete set null 避免删租户时级联删 Key */
+    tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     userIdx: index('developer_api_keys_user_idx').on(t.userId),
     keyIdx: index('developer_api_keys_key_idx').on(t.key),
+    tenantIdx: index('developer_api_keys_tenant_id_idx').on(t.tenantId),
   }),
 )
 
