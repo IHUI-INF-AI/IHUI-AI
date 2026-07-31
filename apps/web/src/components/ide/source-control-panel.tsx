@@ -339,6 +339,7 @@ export function SourceControlPanel() {
         <button
           onClick={handleCommit}
           disabled={committing || !commitMessage.trim()}
+          aria-label={t('sourceControl.commit')}
           className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
         >
           <Check className="h-3.5 w-3.5" />
