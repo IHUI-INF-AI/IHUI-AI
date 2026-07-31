@@ -15,7 +15,8 @@
 
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
-import { execGit, formatGitResult } from './git.js';
+// 改 import 自 git-shared(2026-07-31,打破循环依赖 git.ts ↔ git-advanced.ts)
+import { execGit, formatGitResult } from './git-shared.js';
 
 // ---------------------------------------------------------------------------
 // 1. git_branch_create — 创建分支
