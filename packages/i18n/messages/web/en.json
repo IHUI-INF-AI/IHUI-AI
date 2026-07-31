@@ -950,7 +950,9 @@
     "modeBuildDesc": "AI will execute normally with all tools enabled",
     "modePlanDesc": "AI will only plan, not execute tools",
     "modeReviewDesc": "AI will review code read-only",
-    "modeSpecDesc": "AI will reverse-generate spec docs from code"
+    "modeSpecDesc": "AI will reverse-generate spec docs from code",
+    "loginRequiredTitle": "Sign in to start AI chat",
+    "loginRequiredDesc": "After signing in, you can chat with AI agents, switch models, upload attachments, and enable deep thinking."
   },
   "learn": {
     "title": "Learning Center",
@@ -6109,6 +6111,48 @@
         "good": "Good",
         "poor": "Below Standard",
         "empty": "Click \"Run Compaction\" to see results"
+      },
+      "modelSync": {
+        "title": "Model Auto Sync",
+        "lastSync": "Last sync",
+        "neverSynced": "Never synced",
+        "providers": "providers",
+        "newModels": "new",
+        "removedModels": "removed",
+        "totalModels": "total",
+        "syncing": "Syncing...",
+        "syncNow": "Sync now",
+        "sync": "Sync",
+        "previewSync": "Preview sync",
+        "previewSyncTooltip": "Preview sync (dry-run, no actual writes)",
+        "syncProviderOnly": "Sync {provider} only",
+        "syncFailed": "Sync failed",
+        "previewFailed": "Preview failed",
+        "unknownError": "Unknown error",
+        "failed": "Failed",
+        "success": "Success",
+        "noDiff": "No changes (no additions/removals this sync)",
+        "dryRunTitle": "Sync preview (dry-run)",
+        "dryRunDescription": "The following models will be added / removed, no actual database writes",
+        "willAddModels": "Will add {count} models",
+        "willRemoveModels": "Will remove {count} models",
+        "noChanges": "No changes",
+        "noData": "No data",
+        "cancel": "Cancel",
+        "confirmSync": "Sync now",
+        "history": "Sync history",
+        "loading": "Loading...",
+        "loadFailed": "Load failed",
+        "noHistory": "No history records",
+        "all": "All",
+        "search": "Search model_id...",
+        "health": "Health",
+        "failureCounter": "Consecutive failures",
+        "permanentlyDisabled": "Permanently disabled",
+        "noProvidersDisabled": "No disabled providers",
+        "disabled": "Disabled",
+        "resetCounter": "Reset failure counter",
+        "threshold": "Threshold"
       }
     },
     "activityLoading": "Loading...",
@@ -9042,58 +9086,32 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": [
-          "chat",
-          "talk",
-          "AI",
-          "conversation"
-        ]
+        "keywords": ["chat", "talk", "AI", "conversation"]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": [
-          "drama",
-          "video",
-          "AI",
-          "show"
-        ]
+        "keywords": ["drama", "video", "AI", "show"]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": [
-          "search",
-          "find",
-          "query"
-        ]
+        "keywords": ["search", "find", "query"]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": [
-          "AI",
-          "world",
-          "apps"
-        ]
+        "keywords": ["AI", "world", "apps"]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": [
-          "profile",
-          "user",
-          "settings"
-        ]
+        "keywords": ["profile", "user", "settings"]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": [
-          "settings",
-          "preferences",
-          "config"
-        ]
+        "keywords": ["settings", "preferences", "config"]
       }
     }
   },
@@ -9492,31 +9510,19 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ]
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ]
+          "features": ["Communication platform", "Experience sharing", "Resource matching"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ]
+          "features": ["Professional LLMs", "Agent services", "Consulting services"]
         }
       ]
     },
@@ -9637,37 +9643,25 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ]
+          "examples": ["Knowledge Q&A", "Process automation"]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ]
+          "examples": ["Data analysis", "Decision support"]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ]
+          "examples": ["Meeting scheduling", "Approval workflows"]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ]
+          "examples": ["Marketing automation", "Multi-agent collaboration"]
         }
       ]
     },
@@ -11275,15 +11269,7 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ],
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
@@ -12760,6 +12746,104 @@
       "sync": "Sync",
       "toggleTheme": "Toggle theme",
       "unsynced": ""
+    },
+    "terminalPanel": {
+      "loadFailed": "Terminal load failed: {message}",
+      "aiSuggestTitle": "AI command suggestions",
+      "splitVerticalTitle": "Split vertically (Ctrl+Shift+D)",
+      "splitVerticalAria": "Split vertically",
+      "splitHorizontalTitle": "Split horizontally (Ctrl+Shift+H)",
+      "splitHorizontalAria": "Split horizontally",
+      "closePane": "Close pane",
+      "searchPlaceholder": "Search terminal output...",
+      "searchRegexPlaceholder": "Enter regex pattern...",
+      "searchAria": "Search terminal",
+      "prevMatchAria": "Previous match",
+      "prevMatchTitle": "Previous (Shift+Enter)",
+      "nextMatchAria": "Next match",
+      "nextMatchTitle": "Next (Enter)",
+      "closeSearchAria": "Close search",
+      "closeSearchTitle": "Close (Esc)",
+      "regexModeTitle": "Regex mode",
+      "regexMode": "Regex",
+      "wholeWordTitle": "Whole word",
+      "wholeWord": "Word",
+      "caseSensitiveTitle": "Case sensitive",
+      "caseSensitive": "Case",
+      "regexModeHint": "Regex mode (whole word disabled)",
+      "refreshSuggest": "Refresh suggestions",
+      "close": "Close",
+      "aiServiceUnavailable": "AI service is temporarily unavailable, please try again later",
+      "generatingSuggest": "Generating suggestions...",
+      "noSuggestHint": "No suggestions yet. Run a command and click refresh.",
+      "insertSuggestTitle": "Click to insert into terminal",
+      "aiDiagnoseTitle": "AI error diagnosis",
+      "diagnosing": "Diagnosing error...",
+      "diagnosisLabel": "Diagnosis:",
+      "rootCauseLabel": "Root cause:",
+      "suggestedFixLabel": "Suggestion:",
+      "autoFixTitle": "Run fix command",
+      "autoFix": "Auto fix",
+      "noDiagnosis": "No diagnosis available",
+      "historySearchPlaceholder": "Search command history (sorted by relevance)...",
+      "historySearchAria": "Search command history",
+      "noHistoryHint": "No history yet. Commands will be recorded automatically.",
+      "noMatchHistory": "No matching commands.",
+      "exitCode": "Exit {code}",
+      "connected": "Connected",
+      "connectionError": "Connection error",
+      "connecting": "Connecting...",
+      "copySelection": "Copy selection",
+      "paste": "Paste",
+      "search": "Search",
+      "splitVertical": "Split vertically",
+      "splitHorizontal": "Split horizontally",
+      "clear": "Clear screen",
+      "loginRequired": "Please log in to use the terminal",
+      "creatingTerminal": "Creating terminal...",
+      "createHint": "Click + to create a terminal session"
+    },
+    "terminalTabBar": {
+      "errHostRequired": "Host is required",
+      "errPortRange": "Port range 1-65535",
+      "errUsernameRequired": "Username is required",
+      "errPasswordRequired": "Password is required",
+      "errPrivateKeyRequired": "Private key content is required",
+      "errPrivateKeyReadFailed": "Failed to read private key file",
+      "recording": "Recording",
+      "renameAria": "Rename terminal",
+      "renameHint": "Double-click to rename",
+      "exited": "(exited)",
+      "closeTerminalAria": "Close terminal",
+      "newTerminalAria": "New terminal",
+      "newTerminalTitle": "New terminal ({shell})",
+      "selectConnectType": "Select connection type",
+      "connectType": "Connection type",
+      "local": "Local",
+      "sshRemote": "SSH remote",
+      "shellType": "Shell type",
+      "host": "Host",
+      "hostPlaceholder": "example.com or 192.168.1.1",
+      "port": "Port",
+      "username": "Username",
+      "password": "Password",
+      "privateKey": "Private key",
+      "privateKeyPem": "Private key (PEM)",
+      "selectPrivateKeyFile": "Select private key file",
+      "privateKeyPassphrase": "Private key passphrase (optional)",
+      "newSession": "New session",
+      "newSshSession": "New SSH session",
+      "creating": "Creating...",
+      "playing": "Playing",
+      "stopRecording": "Stop recording",
+      "startRecording": "Start recording",
+      "recordingList": "Recording list",
+      "recordingListWithCount": "Recording list ({count})",
+      "noRecordingsHint": "No recordings yet. Click the record button (Video icon on the left) to start recording terminal operations.",
+      "defaultRecTitle": "Recording {time}",
+      "eventCount": "{count} events",
+      "play": "Play",
+      "delete": "Delete"
     }
   },
   "aiSkillsPage": {
