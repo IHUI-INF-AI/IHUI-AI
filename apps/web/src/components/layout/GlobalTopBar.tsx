@@ -474,7 +474,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             - 弹窗内含搜索框(过滤菜单项)+ 快捷键提示
             - 走 workPanel toggle / IDE setActiveTopTab / router.push 三类动作 */}
           <div ref={plusRef} className="relative h-full shrink-0">
-            <Tooltip content={`${plusLabel} · ${plusShortcut}`} side="bottom">
+            <Tooltip content={`${plusLabel} (${plusShortcut})`} side="bottom">
               <button
                 type="button"
                 onClick={() => {
