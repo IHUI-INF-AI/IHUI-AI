@@ -1509,6 +1509,8 @@ IHUI-AI/
 
 **P3 补强已完成**(2026-07-30):① **P3-1 TLS stealth** — `apps/ai-service/app/services/tls_stealth.py` 新建,6 UA 池(Chrome/Firefox/Safari 轮换)+ Accept 池 + 浏览器头(Sec-Fetch-*/Cache-Control)+ `create_stealth_client()` 工厂,httpx 降级方案不引入新依赖,27 测试;② **P3-3 OpenRouter 403 代理 + failover** — `llm_gateway._is_openrouter_403_error` + `_failover_openrouter_to_agnes`(openrouter/→agnes/)+ `_openrouter_proxy_context`(临时 HTTPS_PROXY env var),`complete()`/`astream()` 集成:openrouter 403 自动 failover 到 agnes/ 中转,优先于 FallbackRouter,16 测试;③ **P3-2 Kiro 法务评估存档** — `free_provider_registry.py` 新增 kiro 条目,notes 明确标注"⚠️ ToS §3.2 禁止第三方集成/自动化调用/绕过 IDE 界面",仅作法务风险存档,不提供技术接入路径,引导用户走 `anthropic/` 或 `agnes/` 前缀,7 测试。**总计 223 测试全绿 + mypy 本任务文件全绿**。配置:`OPENROUTER_PROXY_URL`(代理地址)+ `OPENROUTER_FAILOVER_TO_AGNES=true`(403 自动 failover)在 `.env.example`。
 
+**P4 模型可用性自动过滤已完成**(2026-07-31,用户规则:只显示可完美接通调用的模型):① **ModelAvailabilityService** — `apps/ai-service/app/services/model_availability.py` 新建,后台每 5 分钟 ping 所有已配置 key 的 provider(调 `/v1/models` 端点,不消耗 token),缓存 provider 健康状态(HEALTHY/DEGRADED/DOWN/NOT_CONFIGURED/LOCAL/ZERO_COST/PENDING);② **`/llm/models` 端点集成** — `llm.py` 调 `model_availability.get_available_models()` 过滤:未配置 key 的 provider 模型 → 过滤;健康检查 DOWN(401/403/超时)的 provider 模型 → 过滤;zero_cost provider(pollinations/llm7/aihorde/opencode_zen)+ LOCAL provider(ollama/lmstudio/llamacpp/vllm)→ 保留;③ **`/llm/providers/availability` 端点** — 新增 Dashboard 调试端点,返回 provider 健康状态摘要;④ **FastAPI lifespan 集成** — `main.py` 启动时 `model_availability.initialize()` + 关闭时 `model_availability.shutdown()`;⑤ **前端兜底收敛** — `fallback-models.ts` 仅保留 stepfun + Cloudflare 免费 model。**延迟阈值**:DEGRADED 10s/DOWN 30s/ping 超时 8s。**stub 模式绕过过滤**。
+
 ### C. 内容创作与教育(面向创作者与教育者)
 
 #### C1. 内容创作与多平台发布
