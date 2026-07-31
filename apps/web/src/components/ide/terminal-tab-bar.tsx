@@ -10,6 +10,7 @@ import type {
   TerminalRecordingListItem,
 } from '@ihui/types'
 import { formatDateByTemplate } from '@ihui/shared'
+import { useTranslations } from 'next-intl'
 
 /** 可选 shell 列表(Windows 优先,仅本地会话时显示) */
 const SHELL_OPTIONS = [
@@ -78,6 +79,7 @@ export function TerminalTabBar({
   onDeleteRecording,
   activePlaybackId,
 }: TerminalTabBarProps) {
+  const t = useTranslations('ide')
   // shell 选择下拉
   const [selectedShell, setSelectedShell] = React.useState<string>('powershell')
   const [shellMenuOpen, setShellMenuOpen] = React.useState(false)
@@ -169,17 +171,17 @@ export function TerminalTabBar({
   const buildSshParams = (): TerminalSshParams | { error: string } => {
     const host = sshHost.trim()
     const username = sshUsername.trim()
-    if (!host) return { error: '主机地址不能为空' }
+    if (!host) return { error: t('terminalTabBar.errHostRequired') }
     const portNum = parseInt(sshPort, 10)
     if (!Number.isFinite(portNum) || portNum < 1 || portNum > 65535) {
-      return { error: '端口范围 1-65535' }
+      return { error: t('terminalTabBar.errPortRange') }
     }
-    if (!username) return { error: '用户名不能为空' }
+    if (!username) return { error: t('terminalTabBar.errUsernameRequired') }
     if (sshAuthMethod === 'password' && !sshPassword) {
-      return { error: '密码不能为空' }
+      return { error: t('terminalTabBar.errPasswordRequired') }
     }
     if (sshAuthMethod === 'privateKey' && !sshPrivateKey) {
-      return { error: '私钥内容不能为空' }
+      return { error: t('terminalTabBar.errPrivateKeyRequired') }
     }
     const params: TerminalSshParams = { host, port: portNum, username }
     if (sshAuthMethod === 'password') {
@@ -226,7 +228,7 @@ export function TerminalTabBar({
       setSshPrivateKey(typeof reader.result === 'string' ? reader.result : '')
     }
     reader.onerror = () => {
-      setSshFormError('私钥文件读取失败')
+      setSshFormError(t('terminalTabBar.errPrivateKeyReadFailed'))
     }
     reader.readAsText(file)
     // 重置 input value 让同一文件可再次选择
@@ -298,8 +300,8 @@ export function TerminalTabBar({
               <span
                 className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse bg-red-500"
                 style={{ borderRadius: '50%' }}
-                title="正在录制"
-                aria-label="正在录制"
+                title={t('terminalTabBar.recording')}
+                aria-label={t('terminalTabBar.recording')}
               />
             )}
             {isRenaming ? (
@@ -323,7 +325,7 @@ export function TerminalTabBar({
                 onBlur={() => void handleConfirmRename()}
                 className="w-24 rounded border border-border bg-background px-1 py-0 text-xs outline-none focus:border-ring/50"
                 maxLength={32}
-                aria-label="重命名终端"
+                aria-label={t('terminalTabBar.renameAria')}
               />
             ) : (
               <span
@@ -332,14 +334,14 @@ export function TerminalTabBar({
                   e.stopPropagation()
                   handleStartRename(session, fallbackLabel)
                 }}
-                title="双击重命名"
+                title={t('terminalTabBar.renameHint')}
               >
                 {label}
               </span>
             )}
             <span className="max-w-24 truncate text-[10px] opacity-50">{cwdShort}</span>
             {session.status === 'exited' && (
-              <span className="text-[10px] text-muted-foreground/60">(已退出)</span>
+              <span className="text-[10px] text-muted-foreground/60">{t('terminalTabBar.exited')}</span>
             )}
             <button
               type="button"
@@ -352,7 +354,7 @@ export function TerminalTabBar({
                 e.stopPropagation()
                 onClose(session.id)
               }}
-              aria-label="关闭终端"
+              aria-label={t('terminalTabBar.closeTerminalAria')}
             >
               <X className="h-3 w-3" />
             </button>
@@ -371,8 +373,8 @@ export function TerminalTabBar({
           )}
           onClick={handleCreateSession}
           disabled={loading}
-          aria-label="新建终端"
-          title={`新建终端 (${connectKind === 'ssh' ? 'SSH' : SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell'})`}
+          aria-label={t('terminalTabBar.newTerminalAria')}
+          title={t('terminalTabBar.newTerminalTitle', { shell: connectKind === 'ssh' ? 'SSH' : SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell' })}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -385,8 +387,8 @@ export function TerminalTabBar({
           )}
           onClick={() => setShellMenuOpen((v) => !v)}
           disabled={loading}
-          aria-label="选择连接类型"
-          title="选择连接类型"
+          aria-label={t('terminalTabBar.selectConnectType')}
+          title={t('terminalTabBar.selectConnectType')}
         >
           <ChevronDown className="h-3 w-3" />
         </button>
@@ -394,7 +396,7 @@ export function TerminalTabBar({
           <div className="absolute left-0 top-7 z-50 w-64 overflow-hidden rounded-md border border-border bg-popover shadow-md">
             {/* 连接类型单选 */}
             <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-              连接类型
+              {t('terminalTabBar.connectType')}
             </div>
             <div className="flex gap-1 px-2 py-1.5">
               <button
@@ -408,7 +410,7 @@ export function TerminalTabBar({
                 onClick={() => setConnectKind('local')}
               >
                 <TerminalIcon className="h-3 w-3" />
-                <span>本地</span>
+                <span>{t('terminalTabBar.local')}</span>
               </button>
               <button
                 type="button"
@@ -421,7 +423,7 @@ export function TerminalTabBar({
                 onClick={() => setConnectKind('ssh')}
               >
                 <Server className="h-3 w-3" />
-                <span>SSH 远程</span>
+                <span>{t('terminalTabBar.sshRemote')}</span>
               </button>
             </div>
 
@@ -429,7 +431,7 @@ export function TerminalTabBar({
             {connectKind === 'local' && (
               <>
                 <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Shell 类型
+                  {t('terminalTabBar.shellType')}
                 </div>
                 <div className="py-0.5">
                   {SHELL_OPTIONS.map((opt) => (
@@ -455,17 +457,17 @@ export function TerminalTabBar({
             {connectKind === 'ssh' && (
               <div className="flex flex-col gap-1.5 px-2 py-1.5">
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">主机</span>
+                  <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.host')}</span>
                   <input
                     type="text"
                     value={sshHost}
                     onChange={(e) => setSshHost(e.target.value)}
-                    placeholder="example.com 或 192.168.1.1"
+                    placeholder={t('terminalTabBar.hostPlaceholder')}
                     className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
                   />
                 </label>
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">端口</span>
+                  <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.port')}</span>
                   <input
                     type="number"
                     min={1}
@@ -476,7 +478,7 @@ export function TerminalTabBar({
                   />
                 </label>
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">用户名</span>
+                  <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.username')}</span>
                   <input
                     type="text"
                     value={sshUsername}
@@ -497,7 +499,7 @@ export function TerminalTabBar({
                     )}
                     onClick={() => setSshAuthMethod('password')}
                   >
-                    <span>密码</span>
+                    <span>{t('terminalTabBar.password')}</span>
                   </button>
                   <button
                     type="button"
@@ -509,12 +511,12 @@ export function TerminalTabBar({
                     )}
                     onClick={() => setSshAuthMethod('privateKey')}
                   >
-                    <span>私钥</span>
+                    <span>{t('terminalTabBar.privateKey')}</span>
                   </button>
                 </div>
                 {sshAuthMethod === 'password' ? (
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">密码</span>
+                    <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.password')}</span>
                     <input
                       type="password"
                       value={sshPassword}
@@ -524,7 +526,7 @@ export function TerminalTabBar({
                   </label>
                 ) : (
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">私钥(PEM)</span>
+                    <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.privateKeyPem')}</span>
                     <textarea
                       value={sshPrivateKey}
                       onChange={(e) => setSshPrivateKey(e.target.value)}
@@ -538,7 +540,7 @@ export function TerminalTabBar({
                       onClick={() => privateKeyFileRef.current?.click()}
                     >
                       <FileText className="h-3 w-3" />
-                      <span>选择私钥文件</span>
+                      <span>{t('terminalTabBar.selectPrivateKeyFile')}</span>
                     </button>
                     <input
                       ref={privateKeyFileRef}
@@ -549,7 +551,7 @@ export function TerminalTabBar({
                     />
                     <label className="flex flex-col gap-0.5">
                       <span className="text-[10px] text-muted-foreground">
-                        私钥 passphrase(可选)
+                        {t('terminalTabBar.privateKeyPassphrase')}
                       </span>
                       <input
                         type="password"
@@ -577,7 +579,7 @@ export function TerminalTabBar({
                 disabled={loading}
               >
                 <Plus className="h-3 w-3" />
-                <span>新建{connectKind === 'ssh' ? ' SSH 会话' : '会话'}</span>
+                <span>{connectKind === 'ssh' ? t('terminalTabBar.newSshSession') : t('terminalTabBar.newSession')}</span>
               </button>
             </div>
           </div>
@@ -585,7 +587,7 @@ export function TerminalTabBar({
       </div>
 
       {loading && (
-        <span className="ml-1 text-[10px] text-muted-foreground/60">创建中...</span>
+        <span className="ml-1 text-[10px] text-muted-foreground/60">{t('terminalTabBar.creating')}</span>
       )}
 
       {/* 右侧:录制控制 + 回放徽章 + 录制列表抽屉(2026-07-23 立) */}
@@ -594,7 +596,7 @@ export function TerminalTabBar({
         {activePlaybackId && (
           <span className="flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-600 dark:text-blue-400">
             <Play className="h-2.5 w-2.5" />
-            <span>回放中</span>
+            <span>{t('terminalTabBar.playing')}</span>
           </span>
         )}
 
@@ -610,8 +612,8 @@ export function TerminalTabBar({
           )}
           onClick={handleToggleRecording}
           disabled={!activeSessionId}
-          aria-label={isCurrentRecording ? '停止录制' : '开始录制'}
-          title={isCurrentRecording ? '停止录制' : '开始录制'}
+          aria-label={isCurrentRecording ? t('terminalTabBar.stopRecording') : t('terminalTabBar.startRecording')}
+          title={isCurrentRecording ? t('terminalTabBar.stopRecording') : t('terminalTabBar.startRecording')}
         >
           {isCurrentRecording ? (
             <Circle className="h-3 w-3 fill-current" />
@@ -630,8 +632,8 @@ export function TerminalTabBar({
               recordingDrawerOpen && 'bg-background text-foreground',
             )}
             onClick={() => setRecordingDrawerOpen((v) => !v)}
-            aria-label="录制列表"
-            title="录制列表"
+            aria-label={t('terminalTabBar.recordingList')}
+            title={t('terminalTabBar.recordingList')}
           >
             <Clock className="h-3 w-3" />
           </button>
@@ -644,13 +646,13 @@ export function TerminalTabBar({
             <div className="absolute right-0 top-7 z-50 w-80 overflow-hidden rounded-md border border-border bg-popover shadow-md">
               <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  录制列表({recordings.length})
+                  {t('terminalTabBar.recordingListWithCount', { count: recordings.length })}
                 </span>
                 <button
                   type="button"
                   className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   onClick={() => setRecordingDrawerOpen(false)}
-                  aria-label="关闭"
+                  aria-label={t('terminalPanel.close')}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -658,7 +660,7 @@ export function TerminalTabBar({
               <div className="max-h-80 overflow-y-auto">
                 {recordings.length === 0 ? (
                   <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">
-                    暂无录制。点击录制按钮(左侧 Video 图标)开始录制终端操作。
+                    {t('terminalTabBar.noRecordingsHint')}
                   </div>
                 ) : (
                   recordings.map((rec) => (
@@ -669,12 +671,12 @@ export function TerminalTabBar({
                       <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-foreground">
-                          {rec.title || `录制 ${formatStartedAt(rec.startedAt)}`}
+                          {rec.title || t('terminalTabBar.defaultRecTitle', { time: formatStartedAt(rec.startedAt) })}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                           <span>{formatStartedAt(rec.startedAt)}</span>
                           <span>{formatDuration(rec.durationMs)}</span>
-                          <span>{rec.eventCount} 事件</span>
+                          <span>{t('terminalTabBar.eventCount', { count: rec.eventCount })}</span>
                         </div>
                       </div>
                       <button
@@ -685,8 +687,8 @@ export function TerminalTabBar({
                           onPlayRecording(rec.id)
                           setRecordingDrawerOpen(false)
                         }}
-                        aria-label="回放"
-                        title="回放"
+                        aria-label={t('terminalTabBar.play')}
+                        title={t('terminalTabBar.play')}
                       >
                         <Play className="h-3 w-3" />
                       </button>
@@ -697,8 +699,8 @@ export function TerminalTabBar({
                           e.stopPropagation()
                           onDeleteRecording(rec.id)
                         }}
-                        aria-label="删除"
-                        title="删除"
+                        aria-label={t('terminalTabBar.delete')}
+                        title={t('terminalTabBar.delete')}
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
