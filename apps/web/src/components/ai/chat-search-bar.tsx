@@ -67,6 +67,7 @@ export function ChatSearchBar({
           value={value}
           onChange={(e) => onSearch(e.target.value)}
           placeholder="搜索对话内容..."
+          aria-label="搜索对话内容"
           className="h-7 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
         />
       </div>
