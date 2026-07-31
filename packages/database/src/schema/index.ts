@@ -216,3 +216,5 @@ export * from './api-key-shares.js'
 export * from './relay-conversations.js'
 // AI 模型同步日志表(2026-07-31 立,P0 ModelSyncService 持久化:每次同步结果入库,供 admin 历史查询)
 export * from './ai-model-sync-log.js'
+// IM 多平台远程连接控制(2026-07-31 立,P0 16 平台适配器配置 + 消息历史)
+export * from './im-adapters.js'

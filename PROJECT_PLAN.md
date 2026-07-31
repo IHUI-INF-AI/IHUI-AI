@@ -19,6 +19,32 @@
 
 ---
 
+## 进行中任务:插件市场 Codex 10 插件对齐(2026-07-31 立)
+
+### 目标
+
+将 Codex 必装 10 插件(Chrome/GitHub/Computer Use/Build Web Apps/Figma/Documents/Presentations/Spreadsheets/HyperFrames/Remotion)在项目插件市场 `/plugins` 100% 配齐:6 个 catalog 已有项补 vendor 映射,4 个 catalog 缺失项新建条目,所有图标在页面正确显示,内置可在平台内调用(dialog 模式,LLM 真集成走 ai-service MCP 工具)。
+
+### 硬性指标(H1-H8)
+
+- [ ] H1:plugins-data.ts 新增 4 项 MARKET_PLUGINS(build-web-apps / documents / presentations / spreadsheets)
+- [ ] H2:brand-icon.tsx 新增 4 项 VENDOR_COMPONENTS(chrome / figma / remotion / hyperframes)
+- [ ] H3:6 项已有条目 vendor 字段补全(puppeteer→google/figma-mcp→figma/remotion→remotion/hyperframes→hyperframes/anthropic-computer-use→anthropic/github-mcp→githubcopilot)
+- [ ] H4:REAL_INTEGRATED_IDS 更新(build-web-apps / documents / presentations / spreadsheets 评估是否走 ai-service MCP 工具)
+- [ ] H5:`pnpm --filter @ihui/web typecheck` exit 0
+- [ ] H6:`pnpm --filter @ihui/web lint` exit 0
+- [ ] H7:browser_use 访问 `/plugins` 验证 10 插件卡片渲染,DOM 读 `<svg>`/`<img>` 验证图标非兜底(其中 Chrome/Remotion/Hyperframes 因 lobehub 无收录用 lucide fallback 但风格统一)
+- [ ] H8:新增 `apps/web/e2e/plugins-marketplace.spec.ts` 验证 catalog 数据完整性 + 10 插件卡片渲染
+
+### 约束边界
+
+- 涉及文件:`apps/web/app/(main)/plugins/plugins-data.ts` + `apps/web/src/components/ai/brand-icon.tsx` + `apps/web/e2e/plugins-marketplace.spec.ts`(新)+ `README.md`(同步插件市场章节)
+- 不可触及:其他端(api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)、i18n 文件(已有 invokePrompt 模板覆盖)
+- 图标策略:lobehub 收录的 vendor → BrandIcon;未收录的用 lucide fallback(Chrome→Chrome lucide / Remotion/Hyperframes→Video lucide 同色但不同形,接受风格偏差)
+- 真实集成度:build-web-apps(走 e2b/code-interpreter MCP)进 REAL_INTEGRATED;其余 documents/presentations/spreadsheets 后端暂无对应工具,留 prompt-only
+
+---
+
 ## 已完成任务:miniapp-taro 样式完整对齐 zhs_app-ZZ(2026-07-29 立,2026-07-30 完成 ✅,/goal 模式,平台独占:仅 apps/miniapp-taro)
 
 > AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/miniapp-taro`,不参与 web/api/ai-service 跨端契约同步。
@@ -434,6 +460,27 @@
 - [x] ✅(2026-07-30) **P0-5s 零成本挣钱链路真实落地 + 小白可用体验**(用户核心诉求"我没有钱 一分都没有"+"我是小白残疾",3 subagent 并行,平台独占:scripts + apps/web) — 针对小白残疾用户操作能力受限,把所有"立即可做"步骤自动化落地 + 把需要用户操作的部分做到小白可用。① **零成本引流链路真实落地**(Agent 1,scripts):真实执行 `seed-free-providers.mjs`(非 dry-run)→ 24 免费 provider 全部 upsert + 48 免费模型全部 `is_relay_public=true`+`relay_price_multiplier=0`+`byok_commission_rate=0` 写入 DB;真实执行 `verify-relay-free-models.mjs`(非 dry-run)→ 48/48 全合规(0 缺失/0 定价异常/0 禁用);修复 `verify-relay-free-models.mjs` 的 postgres-js `sql.array()` 序列化 bug(改用 `{a,b,c}::text[]` 数组字面量);真实执行 `verify-free-providers.mjs`(非 dry-run)→ pollinations(gpt-oss-20b 回复 "pong!" 5774ms)+ opencode_zen(deepseek-v4-flash thinking 6935ms)+ aihorde(API 可达 5709ms)3/4 真实连通(llm7 临时不可用符合免费镜像风险);验证 `/api/llm/models` 真实返回 **898 模型**(含 pollinations 7/llm7 7/aihorde 2/opencode_zen 2 个无 key 可直接调的免费模型 + openrouter 372 含 16 个 `:free` + groq 23/zhipu 18 等),stub_mode=False 真实模式。**零成本引流链路真实可运营**:免费用户打开平台即可看到并调用真实免费 AI 模型。② **挣钱中心仪表盘**(Agent 2,web earnings):新建 `/earnings` 页面(77 行)+ 4 组件:4 概览卡片(今日收入 ¥12.50/BYOK 抽成 ¥8.30/今日引流 23/付费转化率 4.3%,emerald 色系 + 趋势对比)+ BYOK 抽成趋势图(30 天 CSS 柱状图,无图表库依赖)+ 引流统计(3 渠道横向条形)+ 转化漏斗(注册→活跃→BYOK→VIP)+ 底部 CTA"配置 BYOK 开始挣钱";新建 `use-earnings.ts` hook(4 fetch 函数 + useQuery 聚合 + API 未就绪 fallback mock 数据,类型精确零 any)。③ **BYOK 一键配置向导**(Agent 2,web settings/llm):新建 `byok-wizard.tsx`(424 行,浮动 FAB 按钮)4 步引导:步骤 1 选厂商(10 厂商卡片网格:OpenAI/Anthropic/DeepSeek/Zhipu AI/StepFun/Groq/SiliconFlow/Agnes + Cloudflare/GitHub Models 免费,显示免费/付费徽章)→ 步骤 2 填 Key(Input+显隐切换+粘贴按钮+获取 Key 链接,免费 provider 显示"无需 API Key")→ 步骤 3 自动验证(调 `/api/llm/verify-key`,5 状态:idle/verifying/success/failed/unavailable,端点未就绪允许跳过)→ 步骤 4 激活抽成(调 `createProviderV2` 创建真实 provider 配置,平台自动开启 5-20% 抽成,成功 toast+跳 /earnings);小白友好:每步 tooltip 解释术语 + Stepper 进度指示。④ **14 平台凭据配置可视化引导**(Agent 3,web publish/accounts):改造 `accounts/page.tsx`(365→202 行,"凭据 JSON 配置"→"可视化表单");新建 `platform-schemas.ts`(14 平台凭据 schema:3 api_key + 1 oauth + 10 browser_cookie,字段名严格匹配后端契约 `requiresCredentials`);新建 `PlatformCredentialForm.tsx`(动态表单:text/password/textarea/select + 显隐切换+粘贴按钮+清空按钮+helpText tooltip);新建 `BrowserAuthHelper.tsx`(needs_browser 平台 4 步图文引导:打开官网登录→F12 开发者工具→Application Cookies 找 cookie→粘贴到表单,底部 Alert 提示 cookie 有效期 7-30 天);新建 `CredentialGuide.tsx`(平台名称+图标+authType 徽章+动态表单+外链教程+常见问题折叠区);新建 `use-publish-accounts.ts` hook(账号管理 CRUD)。⑤ **i18n 5 语言同步**(Agent 2):`earnings` namespace(26 key)+ `byokWizard` namespace(34 key),5 语言 parity 完整(zh-CN 基准/zh-TW 繁体/en 无破碎机翻/ja 汉字词/ko Hangul)。**验证**:ai-service pytest 180 + api test 33 全绿;web typecheck + lint 全绿;6 脚本真实执行(非 dry-run)全绿;`/api/llm/models` 真实返回 898 模型含免费模型;3/4 无 key provider 真实连通。受影响文件:`scripts/verify-relay-free-models.mjs` + `apps/web/app/(main)/earnings/page.tsx` + `apps/web/src/components/earnings/{EarningsOverview,ByokIncomeChart,ReferralStats,ConversionFunnel}.tsx` + `apps/web/src/hooks/use-earnings.ts` + `apps/web/app/(main)/settings/llm/{page.tsx,byok-wizard.tsx}` + `apps/web/app/(main)/publish/accounts/page.tsx` + `apps/web/src/components/publish/{CredentialGuide,PlatformCredentialForm,BrowserAuthHelper}.tsx` + `apps/web/src/hooks/use-publish-accounts.ts` + `apps/web/src/lib/publish/platform-schemas.ts` + `packages/i18n/messages/shared/{zh-CN,en,ja,ko,zh-TW}.json`(19 文件)
 
 - [x] ✅(2026-07-30) **P0-5t 零成本挣钱链路完整收尾**(用户核心诉求"直到没有任何后续建议可给到我为止 完整收尾 关闭对话",3 subagent 并行) — 补完上一轮 3 条最优下一步建议。① **侧边栏挣钱入口**(Agent 1):sidebar.tsx 交易分组首位新增 /earnings 导航项(TrendingUp 图标)+ 5 语言 nav.earnings i18n。② **后端 earnings 4 端点**(Agent 2):earnings-routes.ts(407 行)4 端点(overview/byok-trend/referral/funnel),数据从 llm_call_logs.metadata 聚合,admin 校验,Zod 校验,19 测试全绿;api-client/endpoints/earnings.ts 4 函数封装;routes/index.ts + api-client/index.ts 注册导出。③ **BYOK Key 验证端点**(Agent 3):llm-verify-key.ts(140 行)2 端点,10 厂商配置表,调上游 /chat/completions 发 ping 消息验证,超时 10s,不记录/不回显 apiKey,JWT 鉴权,12 测试全绿;server.ts 注册。验证:web typecheck+lint 全绿;api 31 test 全绿;i18n 5 语言 parity 完整。受影响文件(13 个):apps/api/src/routes/{earnings-routes,llm-verify-key,index}.ts + apps/api/src/server.ts + apps/api/tests/{earnings-routes,llm-verify-key}.test.ts + packages/api-client/src/endpoints/earnings.ts + packages/api-client/src/index.ts + packages/i18n/messages/shared/{zh-CN,en,ja,ko,zh-TW}.json
+
+### P0 IM 多平台远程连接控制完整接入(2026-07-31 立,跨端:apps/api + apps/web + apps/ai-service + packages/{database,types,api-client},AGENTS.md §24 用户已确认)
+
+> **触发**:用户明确要求"本项目缺失移动端远程连接控制交互的能力 接入飞书 微信 飞机等等所有能支持的平台"。经 AskUserQuestion 确认 4 维度边界:① 平台范围=16 平台全接入(飞书/企业微信/钉钉/Discord/Telegram/Slack/微信/Webhook/WhatsApp/LINE/KakaoTalk/Signal/Matrix/Rocket.Chat/Mattermost/Zulip);② 机器人能力=完整(互动卡片/文件/音视频/审批);③ 前端=补建 IM 渠道管理页;④ 优先级=P0 立即开发。
+>
+> **现状勘察(2026-07-31)**:① apps/api 已有 `im-gateway.ts`(16 平台 webhook 入站 + 8 平台 webhook 出站 + 8 平台特定 API 出站 + Redis 降级存储),5 端点(webhook/:platform / send / adapters GET POST / status),无 /platforms 元数据 + /messages 历史端点;② apps/ai-service 缺 LLM ↔ IM 自动回复桥接(Redis 入站队列无人消费);③ 无 Postgres 持久化(Redis 降级兜底,进程重启丢数据);④ 前端 IM 渠道管理页完全空白;⑤ packages/types Im* 类型散落在 agent-runtime.ts,无独立 im-gateway.ts;⑥ packages/api-client 无 IM 端点封装。
+>
+> **缺口(本次补完)**:① migration `20260801010200_add_im_tables.sql` 新建 `im_adapters` + `im_messages` 两表(uuid PK + user_id 外键 + platform 索引 + JSONB 凭证 + 入站/出站统一存储);② schema `packages/database/src/schema/im-adapters.ts` 同步 Drizzle 定义;③ types `packages/types/src/im-gateway.ts` 整合 16 平台元数据 + 适配器配置 + 富卡片/文件/音视频/审批高级能力类型;④ api-client `packages/api-client/src/endpoints/im-channel.ts` 6 函数封装(platforms/adapters/status/messages GET + adapters/send POST);⑤ web admin `apps/web/app/(main)/admin/im-channels/` 7 文件(PageClient + PlatformList + AdapterConfigForm + MessageHistory + im-channels-api + types + page);⑥ ai-service `apps/ai-service/app/services/im_bridge.py` + `im/feishu_lark.py` 桥接服务(消费 Redis im:inbound 队列 → 调 LLM → 调 im-gateway/send 回复,飞书 lark-cli SDK 优先 + httpx REST 降级,4 高级能力:卡片/文件/音视频/审批);⑦ apps/api `im-gateway.ts` 升级:Postgres 持久化 + 新增 /platforms 元数据 + /messages 分页历史端点 + 响应 shape 对齐 api-client 契约。
+
+#### 硬性指标(H1-H8)
+
+- [x] ✅(2026-07-31) H1:migration `20260801010200_add_im_tables.sql` 创建 `im_adapters` + `im_messages` 两表(含索引 + updated_at 触发器,幂等可重复执行)
+- [x] ✅(2026-07-31) H2:schema `packages/database/src/schema/im-adapters.ts` 同步 Drizzle 定义(imAdapters + imMessages + 4 type 导出)
+- [x] ✅(2026-07-31) H3:types `packages/types/src/im-gateway.ts` 整合 16 平台元数据 + 适配器配置 + 富卡片/文件/音视频/审批高级能力类型(17 type 导出,packages/types/src/index.ts 显式 re-export 避免与旧 Im* 同名冲突)
+- [x] ✅(2026-07-31) H4:api-client `packages/api-client/src/endpoints/im-channel.ts` 6 函数封装(6 接口 + 6 实现函数 + packages/api-client/src/index.ts re-export)
+- [x] ✅(2026-07-31) H5:web admin `apps/web/app/(main)/admin/im-channels/` 7 文件(Tabs 双 Tab 平台配置/消息历史 + 16 平台元数据驱动动态表单 + 测试发送 + 分页历史)
+- [x] ✅(2026-07-31) H6:ai-service `apps/ai-service/app/services/im_bridge.py` + `im/feishu_lark.py` 桥接服务(Redis im:inbound 队列消费 + LLM 回复 + im-gateway/send 回复到 IM 平台 + 飞书 4 高级能力 SDK 优先 + REST 降级 + main.py lifespan 集成)
+- [x] ✅(2026-07-31) H7:apps/api `im-gateway.ts` 升级:Postgres 持久化(替代 Redis 兜底)+ 新增 GET /platforms(16 平台元数据含 fields schema)+ GET /messages(分页历史)+ 响应 shape 对齐 api-client 契约(返回数组而非 {adapters:[]} 嵌套)
+- [x] ✅(2026-07-31) H8:AdminNav 添加 IM 渠道入口(aiAgent 组)+ i18n 5 语言补 nav.imChannels key + typecheck/lint 三端全绿 + browser_use 4 状态验证 + README IM 章节同步
+
+---
 
 #### P1-1 SDK 发布 CI
 
