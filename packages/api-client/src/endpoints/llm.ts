@@ -336,13 +336,10 @@ export async function fetchModelSyncStatus(): Promise<ModelSyncStatus> {
 
 /** F4.4:查询同步历史 — GET /llm/models/sync/history?limit=N
  *  返回最近 N 次同步记录(按 sync_started_at DESC)。 */
-export async function fetchModelSyncHistory(
-  limit: number = 10,
-): Promise<ModelSyncHistoryRecord[]> {
-  const res = await fetchApi<ModelSyncHistoryRecord[]>(
-    `/llm/models/sync/history?limit=${limit}`,
-    { method: 'GET' },
-  )
+export async function fetchModelSyncHistory(limit: number = 10): Promise<ModelSyncHistoryRecord[]> {
+  const res = await fetchApi<ModelSyncHistoryRecord[]>(`/llm/models/sync/history?limit=${limit}`, {
+    method: 'GET',
+  })
   if (!res.success) {
     throw new Error(res.error || '获取同步历史失败')
   }
@@ -368,6 +365,116 @@ export async function fetchModelSyncHealth(): Promise<ModelSyncHealth> {
   })
   if (!res.success) {
     throw new Error(res.error || '获取模型同步健康度失败')
+  }
+  return res.data
+}
+
+// ============= v4:模型同步运维端点(2026-07-31 立,ModelSyncService 可视化运维)=============
+// 4 个端点:重启用 / 更新配置 / 聚合统计 / 清理旧日志,实现"模型同步完全可视化运维"
+
+/** v4:重置 provider 同步结果 — POST /llm/models/sync/reset?provider=xxx 响应 data */
+export interface ResetProviderResult {
+  provider_code: string
+  reset: boolean
+  previous_failures: number
+  was_disabled: boolean
+}
+
+/** v4:更新同步配置请求体 — PUT /llm/models/sync/config
+ *  两个字段都可选,至少一个;后端校验 interval_s ∈ (0, 86400] */
+export interface SyncConfigUpdate {
+  interval_s?: number
+  concurrency?: number
+}
+
+/** v4:更新同步配置响应 data — PUT /llm/models/sync/config */
+export interface SyncConfigResult {
+  interval_s: number
+  concurrency: number
+  applied: boolean
+}
+
+/** v4:单 provider 聚合统计(GET /llm/models/sync/stats 响应 data.by_provider[i]) */
+export interface SyncStatsByProvider {
+  provider_code: string
+  total: number
+  success: number
+  failure: number
+  success_rate: number
+  avg_latency_ms: number
+  last_sync_at: string
+}
+
+/** v4:聚合统计响应 data — GET /llm/models/sync/stats?days=N */
+export interface SyncStatsResult {
+  days: number
+  total_syncs: number
+  success_count: number
+  failure_count: number
+  success_rate: number
+  avg_latency_ms: number
+  max_latency_ms: number
+  min_latency_ms: number
+  total_new_models: number
+  total_removed_models: number
+  by_provider: SyncStatsByProvider[]
+}
+
+/** v4:清理旧同步日志响应 data — DELETE /llm/models/sync/history?before_days=N */
+export interface CleanupResult {
+  deleted_count: number
+  before_days: number
+}
+
+/** v4:重置 provider 失败计数 + 重新启用 — POST /llm/models/sync/reset?provider=xxx
+ *  把 provider 从永久禁用列表移除,失败计数清零,允许下次同步。 */
+export async function resetProviderSync(provider: string): Promise<ResetProviderResult> {
+  const res = await fetchApi<ResetProviderResult>(
+    `/llm/models/sync/reset?provider=${encodeURIComponent(provider)}`,
+    { method: 'POST' },
+  )
+  if (!res.success) {
+    throw new Error(res.error || '重置 provider 失败')
+  }
+  return res.data
+}
+
+/** v4:更新同步配置(运行时生效,无需重启) — PUT /llm/models/sync/config
+ *  - interval_s:同步间隔(秒),后端校验 0 < n <= 86400
+ *  - concurrency:并发数,后端校验 1 <= n <= 20
+ *  参数无效时后端返回 400 + `{code:1, message:"interval_s must be > 0 and <= 86400"}`,fetchApi 转 ApiResult(success=false)。 */
+export async function updateSyncConfig(input: SyncConfigUpdate): Promise<SyncConfigResult> {
+  const res = await fetchApi<SyncConfigResult>('/llm/models/sync/config', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.success) {
+    throw new Error(res.error || '更新同步配置失败')
+  }
+  return res.data
+}
+
+/** v4:查询聚合统计 — GET /llm/models/sync/stats?days=N
+ *  返回最近 N 天的同步聚合统计(总次数/成功率/延迟分布/新增下架数/by_provider 明细)。 */
+export async function fetchSyncStats(days: number = 7): Promise<SyncStatsResult> {
+  const res = await fetchApi<SyncStatsResult>(`/llm/models/sync/stats?days=${days}`, {
+    method: 'GET',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '获取同步统计失败')
+  }
+  return res.data
+}
+
+/** v4:清理旧同步日志 — DELETE /llm/models/sync/history?before_days=N
+ *  删除 N 天前的同步历史记录,返回删除条数。不可撤销。 */
+export async function cleanupSyncHistory(beforeDays: number = 30): Promise<CleanupResult> {
+  const res = await fetchApi<CleanupResult>(`/llm/models/sync/history?before_days=${beforeDays}`, {
+    method: 'DELETE',
+  })
+  if (!res.success) {
+    throw new Error(res.error || '清理同步日志失败')
   }
   return res.data
 }
