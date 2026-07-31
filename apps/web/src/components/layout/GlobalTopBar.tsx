@@ -134,7 +134,15 @@ const PLUS_MENU_GROUPS: Array<{
  * 平台独占:仅 web 端(AGENTS.md §9 显式标注)。
  * 其他端(api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)无此概念,无须同步。
  */
-export function GlobalTopBar() {
+/**
+ * GlobalTopBar — 顶栏 flex 顺序契约(2026-07-31 第十三轮):
+ *   0. <MobileMenuSlot>  ← 移动端汉堡菜单按钮(GlobalShell 通过 prop 注入,仅 lg 以下显示)
+ *   1. TagsViewSearchButton    ← 搜索按钮(36x36)
+ *   2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
+ *   3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
+ *   4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间
+ */
+export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = {}) {
   const { isDesktop } = useDesktop()
   const t = useTranslations('ide')
   const tNav = useTranslations('nav')
@@ -445,6 +453,12 @@ export function GlobalTopBar() {
             3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
             4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间 */}
         <div className="flex h-9 items-center gap-1">
+          {/* 0. 移动端汉堡菜单按钮(2026-07-31 第十三轮立,GlobalShell 注入)
+              - 物理上作为顶栏 flex 第一个元素,跟 TagsViewSearchButton 36x36 尺寸一致,
+                杜绝 absolute 定位与顶栏子元素 z-index/stacking-context 冲突(原 bug:z-modal 也无法覆盖)
+              - 桌面端 lg:flex 隐藏,移动端 lg 以下显示 */}
+          {mobileMenu}
+
           {/* 1. 搜索按钮(从 TagsView 抽出) */}
           <React.Suspense fallback={null}>
             <TagsViewSearchButton />
