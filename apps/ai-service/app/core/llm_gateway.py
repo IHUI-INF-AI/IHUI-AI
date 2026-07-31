@@ -361,6 +361,16 @@ async def _resolve_from_db(
         api_key = _decrypt_api_key(row["api_key_enc"])
         if not api_key:
             return None
+        # H7(Phase D):占位符 key 不覆盖 .env
+        # 解密后的 api_key 若为占位符(以 '<' 开头如 <your-key> / 以 'sk-placeholder' 开头 / 空),
+        # 视为未配置,返回 None 降级到 .env 真实配置。双保险:SQL migration 已把占位符记录
+        # enabled=false,这里再加运行时检测防止管理员手动 enabled=true 但 key 仍是占位符。
+        if api_key.startswith("<") or api_key.startswith("sk-placeholder"):
+            logger.info(
+                "H7: provider=%s 的 api_key 为占位符(%s...),降级到 .env 配置",
+                provider_code, api_key[:16],
+            )
+            return None
         base_url = row["base_url"] or None
         api_format = row["api_format"] or "openai_chat"
         real_model = model.split("/", 1)[1] if "/" in model else model
