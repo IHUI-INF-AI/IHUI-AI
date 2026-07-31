@@ -68,6 +68,20 @@ export const adminFaqRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
+  server.get('/categories/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [row] = await db
+      .select()
+      .from(zhsFaqCategory)
+      .where(eq(zhsFaqCategory.id, parsed.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '分类不存在'))
+    return reply.send(success(row))
+  })
+
   server.post('/categories', async (request, reply) => {
     const parsed = createCategorySchema.safeParse(request.body)
     if (!parsed.success) {
@@ -136,6 +150,20 @@ export const adminFaqRoutes: FastifyPluginAsync = async (server) => {
       .where(where)
     const total = countRows[0]?.count ?? 0
     return reply.send(success({ list, total, page, pageSize }))
+  })
+
+  server.get('/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [row] = await db
+      .select()
+      .from(zhsFaq)
+      .where(eq(zhsFaq.id, parsed.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, 'FAQ 不存在'))
+    return reply.send(success(row))
   })
 
   server.post('/', async (request, reply) => {
