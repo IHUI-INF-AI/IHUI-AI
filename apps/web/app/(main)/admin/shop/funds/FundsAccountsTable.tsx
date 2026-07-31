@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import type { FundAccount } from './types'
 import { formatDate } from '@/lib/date-utils'
@@ -11,17 +12,18 @@ interface Props {
 }
 
 export function FundsAccountsTable({ accounts, isLoading }: Props) {
+  const t = useTranslations('admin.shop')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">用户</TableHead>
-            <TableHead className="text-xs uppercase">余额</TableHead>
-            <TableHead className="text-xs uppercase">冻结</TableHead>
-            <TableHead className="text-xs uppercase">累计充值</TableHead>
-            <TableHead className="text-xs uppercase">累计消费</TableHead>
-            <TableHead className="text-xs uppercase">更新时间</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.user')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.balance')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.frozen')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.totalRecharge')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.totalConsume')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.updatedAt')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -34,7 +36,7 @@ export function FundsAccountsTable({ accounts, isLoading }: Props) {
           ) : accounts.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                暂无账户
+                {t('funds.noAccounts')}
               </TableCell>
             </TableRow>
           ) : (

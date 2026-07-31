@@ -770,6 +770,26 @@
     "searchNext": "Next",
     "searchPrev": "Previous",
     "searchClose": "Close Search",
+    "plan": {
+      "title": "Execution Plan",
+      "ariaLabel": "Execution plan steps",
+      "stepThinking": "Thinking",
+      "stepAnswer": "Answer",
+      "statusInProgress": "In progress",
+      "statusCompleted": "Completed",
+      "statusPending": "Pending",
+      "summaryAllDone": "All completed",
+      "summaryErrorCount": "Error {count}",
+      "totalDuration": "Total {duration}",
+      "progressPercent": "{percent}%",
+      "copyReasoning": "Copy reasoning",
+      "reasoningCopied": "Reasoning copied",
+      "reasoningCopyFailed": "Copy failed",
+      "expandReasoning": "Expand reasoning",
+      "collapseReasoning": "Collapse reasoning",
+      "jumpToMessage": "Jump to message",
+      "stepError": "Failed"
+    },
     "question": {
       "title": "AI needs your answer",
       "submit": "Submit Answer",
@@ -5579,6 +5599,506 @@
       "vipApplies": "Applications",
       "vipTotalDiscounted": "Total Discounted",
       "vipLevel": "VIP {level}"
+    },
+    "shop": {
+      "funds": {
+        "title": "Fund Account Management",
+        "subtitle": "User fund accounts and transactions",
+        "totalBalance": "Total Balance",
+        "totalFrozen": "Total Frozen",
+        "accountCount": "Account Count",
+        "tabAccounts": "Account",
+        "tabFlows": "Transactions",
+        "allTypes": "All Types",
+        "noAccounts": "No accounts",
+        "noFlows": "No transactions",
+        "type": {
+          "recharge": "Recharge",
+          "consume": "Consume",
+          "refund": "Refund",
+          "withdraw": "Withdraw"
+        },
+        "table": {
+          "user": "User",
+          "balance": "Balance",
+          "frozen": "Frozen",
+          "totalRecharge": "Total Recharge",
+          "totalConsume": "Total Consume",
+          "updatedAt": "Updated At",
+          "type": "Type",
+          "amount": "Amount",
+          "remark": "Remark",
+          "time": "Time"
+        }
+      },
+      "payments": {
+        "title": "Payment Orders",
+        "subtitle": "Manage mall orders and shipping status",
+        "searchPlaceholder": "Search order no / user / product",
+        "allStatus": "All Status",
+        "noData": "No order data",
+        "ship": "Ship",
+        "total": "Total {total} records",
+        "prev": "Previous",
+        "next": "Next",
+        "status": {
+          "pending": "Pending",
+          "paid": "Paid",
+          "shipped": "Shipped",
+          "completed": "Completed",
+          "cancelled": "Cancelled",
+          "refunded": "Refunded"
+        },
+        "table": {
+          "orderNo": "Order No",
+          "user": "User",
+          "product": "Product",
+          "amount": "Amount",
+          "status": "Status",
+          "time": "Time",
+          "action": "Action"
+        }
+      },
+      "products": {
+        "title": "Product Management",
+        "subtitle": "Manage mall product info",
+        "export": {
+          "id": "ID",
+          "name": "Product Name",
+          "price": "Price",
+          "stock": "Stock",
+          "sales": "Sales",
+          "category": "Category",
+          "desc": "Description",
+          "status": "Status",
+          "type": "Type",
+          "denomination": "Denomination",
+          "denominationVip": "VIP Denomination",
+          "denominationOperate": "Operations Denomination"
+        },
+        "create": "Add Product",
+        "total": "Total {total} records",
+        "prev": "Previous",
+        "next": "Next",
+        "exportFilename": "Product List",
+        "confirmDelete": "Are you sure to delete product {name}?",
+        "loading": "Loading...",
+        "noData": "No product data",
+        "status": {
+          "online": "Online",
+          "offline": "Offline"
+        },
+        "toggleOnline": "Online",
+        "toggleOffline": "Offline",
+        "editTooltip": "Edit",
+        "deleteTooltip": "Delete",
+        "allStatus": "All Status",
+        "reset": "Reset",
+        "searchName": "SearchProduct Name",
+        "searchCategory": "SearchCategory",
+        "searchType": "SearchType",
+        "statusPlaceholder": "Status",
+        "toast": {
+          "updated": "Product updated successfully",
+          "created": "Product created successfully",
+          "deleted": "Product deleted successfully"
+        },
+        "validation": {
+          "nameRequired": "Please enter product name",
+          "priceInvalid": "Price cannot be negative",
+          "stockInvalid": "Stock cannot be negative",
+          "salesInvalid": "Sales cannot be negative",
+          "categoryRequired": "Please enter product category",
+          "typeRequired": "Please enter product type"
+        },
+        "table": {
+          "product": "Product",
+          "category": "Category",
+          "price": "Price",
+          "stock": "Stock",
+          "sales": "Sales",
+          "type": "Type",
+          "denomination": "Denomination",
+          "denominationVip": "VIP Denomination",
+          "denominationOperate": "Operations Denomination",
+          "images": "Images",
+          "status": "Status",
+          "action": "Action"
+        },
+        "dialog": {
+          "editTitle": "Edit Product",
+          "createTitle": "Add Product",
+          "description": "Fill product information",
+          "name": "Product Name",
+          "namePlaceholder": "Please enter product name",
+          "category": "Category",
+          "categoryPlaceholder": "Enter category",
+          "price": "Price (cents)",
+          "stock": "Stock",
+          "sales": "Sales",
+          "type": "Type",
+          "typePlaceholder": "Enter type",
+          "denomination": "Denomination",
+          "denominationPlaceholder": "Enter denomination",
+          "denominationVip": "VIP Denomination",
+          "denominationVipPlaceholder": "Enter VIP denomination",
+          "denominationOperate": "Operations Denomination",
+          "denominationOperatePlaceholder": "Enter operations denomination",
+          "desc": "Description",
+          "descPlaceholder": "Enter description",
+          "images": "Images",
+          "cancel": "Cancel",
+          "save": "Save"
+        }
+      },
+      "withdrawals": {
+        "title": "Withdrawal Management",
+        "subtitle": "Manage user withdrawal requests and flows",
+        "tabDetail": "Withdrawal Details",
+        "tabFlow": "Withdrawal Flows",
+        "allStatus": "All Status",
+        "reset": "Reset",
+        "export": "Export",
+        "create": "Add",
+        "total": "Total {total} · Page {page}/{totalPages}",
+        "prev": "Previous",
+        "next": "Next",
+        "channel": {
+          "alipay": "Alipay",
+          "wechat": "WeChat",
+          "bank": "Bank Card"
+        },
+        "status": {
+          "pending": "Pending Review",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "completed": "Completed",
+          "failed": "Failed"
+        },
+        "flowStatus": {
+          "processing": "Processing",
+          "success": "Success",
+          "failed": "Failed"
+        },
+        "detail": {
+          "searchUser": "User",
+          "searchUserName": "Username",
+          "searchOutBillNo": "External Bill No",
+          "searchReviewer": "Reviewer",
+          "amountRange": "Amount Range",
+          "amountMin": "Min",
+          "amountMax": "Max",
+          "noData": "No withdrawal details",
+          "approve": "Approve",
+          "reject": "Reject",
+          "review": "Review",
+          "table": {
+            "user": "User",
+            "amount": "Amount",
+            "channel": "Channel",
+            "account": "Account",
+            "status": "Status",
+            "reviewer": "Reviewer",
+            "createdAt": "Created At",
+            "action": "Action"
+          },
+          "dialog": {
+            "editTitle": "Edit Withdrawal Detail",
+            "createTitle": "Add Withdrawal Detail",
+            "user": "User",
+            "amount": "Amount",
+            "channel": "Channel",
+            "account": "Account",
+            "status": "Status",
+            "cancel": "Cancel",
+            "save": "Save"
+          },
+          "toast": {
+            "updated": "Withdrawal detail updated",
+            "created": "Withdrawal detail created",
+            "deleted": "Withdrawal detail deleted",
+            "reviewed": "Review completed"
+          },
+          "validation": {
+            "userRequired": "Please enter user"
+          },
+          "confirmDelete": "Are you sure to delete withdrawal record {id}?",
+          "export": {
+            "id": "ID",
+            "user": "User",
+            "amount": "Amount",
+            "channel": "Channel",
+            "account": "Account",
+            "status": "Status",
+            "reviewer": "Reviewer",
+            "createdAt": "Created At"
+          }
+        },
+        "flow": {
+          "searchUserId": "User ID",
+          "searchAmount": "Amount",
+          "amountPlaceholder": "Enter amount",
+          "searchOutBillNo": "External Bill No",
+          "searchCreatedAt": "Created At",
+          "searchUpdatedAt": "Updated At",
+          "searchTransferDetail": "Transfer Detail",
+          "noData": "No flow data",
+          "table": {
+            "userId": "User ID",
+            "amount": "Amount",
+            "outBillNo": "External Bill No",
+            "status": "Status",
+            "createdAt": "Created At",
+            "updatedAt": "Updated At",
+            "transferDetail": "Transfer Detail",
+            "action": "Action"
+          },
+          "dialog": {
+            "editTitle": "Edit Withdrawal Flow",
+            "createTitle": "Add Withdrawal Flow",
+            "userId": "User ID",
+            "amount": "Amount",
+            "outBillNo": "External Bill No",
+            "status": "Status",
+            "transferDetail": "Transfer Detail",
+            "cancel": "Cancel",
+            "save": "Save"
+          },
+          "toast": {
+            "updated": "Withdrawal flow updated",
+            "created": "Withdrawal flow created",
+            "deleted": "Withdrawal flow deleted"
+          },
+          "validation": {
+            "userIdRequired": "Please enter user ID"
+          },
+          "confirmDelete": "Are you sure to delete transaction record {id}?",
+          "export": {
+            "id": "ID",
+            "userId": "User ID",
+            "amount": "Amount",
+            "outBillNo": "External Bill No",
+            "status": "Status",
+            "createdAt": "Created At",
+            "updatedAt": "Updated At",
+            "transferDetail": "Transfer Detail"
+          }
+        },
+        "review": {
+          "title": "Withdrawal Review",
+          "description": "Review user withdrawal request",
+          "notes": "Review Notes",
+          "notesPlaceholder": "Enter review notes",
+          "trace": "WeChat callback trace",
+          "close": "Close",
+          "return": "Reject",
+          "approve": "Approve"
+        }
+      }
+    },
+    "system": {
+      "common": {
+        "search": "Search",
+        "reset": "Reset",
+        "delete": "Delete",
+        "clean": "Clear",
+        "export": "Export",
+        "detail": "Details",
+        "close": "Close",
+        "noData": "No Data",
+        "total": "Total {total} records · {page}/{totalPages}",
+        "confirmDelete": "Delete selected {count} records?",
+        "deleteSuccess": "Deleted successfully",
+        "cleanSuccess": "Cleared successfully",
+        "exportSuccess": "Exported successfully",
+        "exportFailed": "Export failed",
+        "all": "All",
+        "actions": "Action"
+      },
+      "loginLogs": {
+        "title": "Login Logs",
+        "confirmClean": "Clear all login logs?",
+        "filter": {
+          "user": "User",
+          "userPlaceholder": "User ID",
+          "platform": "Platform",
+          "platformPlaceholder": "Platform",
+          "location": "Location",
+          "locationPlaceholder": "LoginLocation",
+          "startDate": "Start Date",
+          "endDate": "End Date"
+        },
+        "table": {
+          "id": "ID",
+          "user": "User",
+          "type": "Type",
+          "platform": "Platform",
+          "ip": "IP",
+          "location": "Location",
+          "ua": "UA",
+          "loginTime": "Login Time",
+          "message": "Message"
+        },
+        "export": {
+          "loginType": "Login Type"
+        }
+      },
+      "operationLogs": {
+        "title": "Operation Logs",
+        "confirmClean": "Clear all operation logs?",
+        "bizType": {
+          "other": "Other",
+          "insert": "Add",
+          "update": "Update",
+          "delete": "Delete",
+          "grant": "Grant",
+          "export": "Export",
+          "import": "Import",
+          "forceLogout": "Force Logout",
+          "genCode": "Generate Code",
+          "cleanData": "Clear Data"
+        },
+        "status": {
+          "success": "Success",
+          "failed": "Failed"
+        },
+        "filter": {
+          "module": "Module",
+          "modulePlaceholder": "ActionModule",
+          "operName": "Operator",
+          "operNamePlaceholder": "Operator",
+          "type": "Type"
+        },
+        "table": {
+          "id": "ID",
+          "module": "Module",
+          "type": "Type",
+          "operName": "Operator",
+          "requestMethod": "Method",
+          "ip": "IP",
+          "location": "Location",
+          "status": "Status",
+          "operTime": "Operated At",
+          "costTime": "Duration"
+        },
+        "detail": {
+          "title": "Operation LogsDetails",
+          "module": "Module：",
+          "type": "Type：",
+          "operName": "Operator：",
+          "ip": "IP：",
+          "operUrl": "Request URL：",
+          "requestMethod": "Method：",
+          "costTime": "Duration：",
+          "status": "Status：",
+          "operTime": "Operated At：",
+          "operParam": "Request Params：",
+          "jsonResult": "Response：",
+          "errorMsg": "Error Message："
+        },
+        "export": {
+          "operUrl": "URL",
+          "requestMethod": "Method",
+          "costTime": "Duration(ms)"
+        }
+      },
+      "tasks": {
+        "title": "System Tasks",
+        "subtitle": "Scheduled tasks and background job management",
+        "type": {
+          "cron": "Cron",
+          "interval": "Interval",
+          "once": "Once"
+        },
+        "status": {
+          "running": "Running",
+          "paused": "Paused",
+          "idle": "Idle",
+          "failed": "Failed"
+        },
+        "filter": {
+          "status": "Status",
+          "allStatus": "All Status"
+        },
+        "table": {
+          "name": "Task Name",
+          "type": "Type",
+          "schedule": "Schedule",
+          "status": "Status",
+          "lastRun": "Last Run",
+          "nextRun": "Next Run",
+          "costTime": "Duration"
+        },
+        "noTasks": "NoTask",
+        "actions": {
+          "run": "Execute",
+          "start": "Start",
+          "pause": "Paused"
+        }
+      },
+      "tasksLog": {
+        "title": "Task Logs",
+        "confirmClean": "Clear all task logs?",
+        "status": {
+          "success": "Success",
+          "failed": "Failed"
+        },
+        "filter": {
+          "jobName": "Task Name",
+          "jobNamePlaceholder": "Task Name",
+          "jobGroup": "Task Group",
+          "jobGroupPlaceholder": "Task Group",
+          "status": "Status"
+        },
+        "table": {
+          "id": "ID",
+          "jobName": "Task Name",
+          "jobGroup": "Task Group",
+          "invokeTarget": "Invoke Target",
+          "jobMessage": "Log Message",
+          "status": "Status",
+          "startTime": "Start Time",
+          "costTime": "Duration"
+        },
+        "detail": {
+          "title": "Task LogsDetails",
+          "id": "Log ID：",
+          "jobName": "Task Name：",
+          "jobGroup": "Task Group：",
+          "status": "Status：",
+          "invokeTarget": "Invoke Target：",
+          "startTime": "Start Time：",
+          "stopTime": "Stop Time：",
+          "costTime": "Duration：",
+          "jobMessage": "Log Message：",
+          "exceptionInfo": "Exception Info："
+        },
+        "export": {
+          "stopTime": "Stop Time",
+          "costTime": "Duration(ms)"
+        }
+      },
+      "monitor": {
+        "title": "System Monitor",
+        "subtitle": "System resources and service status",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "disk": "Disk",
+        "processes": "Processes",
+        "uptimeFormat": "{days}d {hours}h",
+        "systemInfo": "System Info",
+        "uptime": "Uptime",
+        "loadAvg": "Load Average (1/5/15 min)",
+        "networkIn": "Network In",
+        "networkOut": "Network Out",
+        "services": "Services",
+        "noServices": "No service data",
+        "status": {
+          "running": "Running",
+          "stopped": "Stopped",
+          "error": "Error"
+        }
+      }
     }
   },
   "knowledgeGraph": {
@@ -9115,32 +9635,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -9539,19 +10085,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -9672,25 +10230,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -11298,7 +11868,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"

@@ -12,6 +12,7 @@ import {
   HardDrive,
   Network,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -42,14 +43,20 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
+/** Maps service status to { dot, text, label: i18n key } */
 const SERVICE_STYLE: Record<ServiceStatus['status'], { dot: string; text: string; label: string }> =
   {
-    running: { dot: 'bg-emerald-500', text: 'text-emerald-600', label: '运行中' },
-    stopped: { dot: 'bg-muted-foreground', text: 'text-muted-foreground', label: '已停止' },
-    error: { dot: 'bg-red-500', text: 'text-red-600', label: '异常' },
+    running: { dot: 'bg-emerald-500', text: 'text-emerald-600', label: 'monitor.status.running' },
+    stopped: {
+      dot: 'bg-muted-foreground',
+      text: 'text-muted-foreground',
+      label: 'monitor.status.stopped',
+    },
+    error: { dot: 'bg-red-500', text: 'text-red-600', label: 'monitor.status.error' },
   }
 
 export default function AdminSystemMonitorPage() {
+  const t = useTranslations('admin.system')
   const { data: metrics } = useQuery({
     queryKey: ['admin', 'system', 'monitor', 'metrics'],
     queryFn: () => api<SystemMetrics>('/api/admin/system/monitor/metrics'),
@@ -65,23 +72,33 @@ export default function AdminSystemMonitorPage() {
   })
 
   const cards = [
-    { label: 'CPU', value: metrics?.cpu ?? 0, unit: '%', icon: Cpu, max: 100 },
-    { label: '内存', value: metrics?.memory ?? 0, unit: '%', icon: Activity, max: 100 },
-    { label: '磁盘', value: metrics?.disk ?? 0, unit: '%', icon: HardDrive, max: 100 },
-    { label: '进程数', value: metrics?.processes ?? 0, unit: '', icon: Server, max: 0, raw: true },
+    { label: t('monitor.cpu'), value: metrics?.cpu ?? 0, unit: '%', icon: Cpu, max: 100 },
+    { label: t('monitor.memory'), value: metrics?.memory ?? 0, unit: '%', icon: Activity, max: 100 },
+    { label: t('monitor.disk'), value: metrics?.disk ?? 0, unit: '%', icon: HardDrive, max: 100 },
+    {
+      label: t('monitor.processes'),
+      value: metrics?.processes ?? 0,
+      unit: '',
+      icon: Server,
+      max: 0,
+      raw: true,
+    },
   ]
 
   const uptime = metrics?.uptime ?? 0
-  const uptimeStr = `${Math.floor(uptime / 86400)}天 ${Math.floor((uptime % 86400) / 3600)}小时`
+  const uptimeStr = t('monitor.uptimeFormat', {
+    days: Math.floor(uptime / 86400),
+    hours: Math.floor((uptime % 86400) / 3600),
+  })
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <MonitorCog className="h-6 w-6 text-primary" />
-          系统监控
+          {t('monitor.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">系统资源与服务运行状态</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('monitor.subtitle')}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -126,29 +143,29 @@ export default function AdminSystemMonitorPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Network className="h-4 w-4" />
-              系统信息
+              {t('monitor.systemInfo')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-xs text-muted-foreground">运行时长</div>
+                <div className="text-xs text-muted-foreground">{t('monitor.uptime')}</div>
                 <div className="mt-0.5 font-medium">{uptimeStr}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">负载（1/5/15分钟）</div>
+                <div className="text-xs text-muted-foreground">{t('monitor.loadAvg')}</div>
                 <div className="mt-0.5 font-medium">
                   {(metrics?.loadAvg ?? [0, 0, 0]).join(' / ')}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">网络入站</div>
+                <div className="text-xs text-muted-foreground">{t('monitor.networkIn')}</div>
                 <div className="mt-0.5 font-medium">
                   {((metrics?.network.in ?? 0) / 1024).toFixed(1)} KB/s
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">网络出站</div>
+                <div className="text-xs text-muted-foreground">{t('monitor.networkOut')}</div>
                 <div className="mt-0.5 font-medium">
                   {((metrics?.network.out ?? 0) / 1024).toFixed(1)} KB/s
                 </div>
@@ -161,7 +178,7 @@ export default function AdminSystemMonitorPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Database className="h-4 w-4" />
-              服务进程
+              {t('monitor.services')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -170,7 +187,9 @@ export default function AdminSystemMonitorPage() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               </div>
             ) : services.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">暂无服务数据</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                {t('monitor.noServices')}
+              </p>
             ) : (
               <div className="space-y-2">
                 {services.map((s) => {
@@ -186,9 +205,13 @@ export default function AdminSystemMonitorPage() {
                         <span className="text-xs text-muted-foreground">PID: {s.pid}</span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>CPU {s.cpu}%</span>
-                        <span>内存 {s.memory}%</span>
-                        <span className={st.text}>{st.label}</span>
+                        <span>
+                          {t('monitor.cpu')} {s.cpu}%
+                        </span>
+                        <span>
+                          {t('monitor.memory')} {s.memory}%
+                        </span>
+                        <span className={st.text}>{t(st.label)}</span>
                       </div>
                     </div>
                   )

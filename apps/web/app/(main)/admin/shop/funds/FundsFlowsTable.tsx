@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_LABEL } from './helpers'
@@ -13,17 +14,18 @@ interface Props {
 }
 
 export function FundsFlowsTable({ flows, isLoading }: Props) {
+  const t = useTranslations('admin.shop')
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">用户</TableHead>
-            <TableHead className="text-xs uppercase">类型</TableHead>
-            <TableHead className="text-xs uppercase">金额</TableHead>
-            <TableHead className="text-xs uppercase">余额</TableHead>
-            <TableHead className="text-xs uppercase">备注</TableHead>
-            <TableHead className="text-xs uppercase">时间</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.user')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.type')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.amount')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.balance')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.remark')}</TableHead>
+            <TableHead className="text-xs uppercase">{t('funds.table.time')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -36,7 +38,7 @@ export function FundsFlowsTable({ flows, isLoading }: Props) {
           ) : flows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                暂无流水
+                {t('funds.noFlows')}
               </TableCell>
             </TableRow>
           ) : (
@@ -45,7 +47,7 @@ export function FundsFlowsTable({ flows, isLoading }: Props) {
                 <TableCell className="font-medium">{f.user}</TableCell>
                 <TableCell>
                   <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                    {TYPE_LABEL[f.type]}
+                    {t(TYPE_LABEL[f.type])}
                   </span>
                 </TableCell>
                 <TableCell

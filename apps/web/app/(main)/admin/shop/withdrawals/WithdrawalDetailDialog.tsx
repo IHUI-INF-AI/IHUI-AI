@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import {
   Dialog,
@@ -27,12 +28,14 @@ export function WithdrawalDetailDialog(props: Props) {
   const { dOpen, setDOpen, dEditing, dForm, setDForm, dErr, closeDetail, submitDetail, dSaveMut } =
     props
 
+  const t = useTranslations('admin.shop')
+
   return (
     <Dialog open={dOpen} onOpenChange={(o) => (o ? setDOpen(true) : closeDetail())}>
       <DialogContent>
         <form onSubmit={submitDetail} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{dEditing ? '编辑提现' : '新增提现'}</DialogTitle>
+            <DialogTitle>{dEditing ? t('withdrawals.detail.dialog.editTitle') : t('withdrawals.detail.dialog.createTitle')}</DialogTitle>
           </DialogHeader>
           {dErr && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -40,7 +43,7 @@ export function WithdrawalDetailDialog(props: Props) {
             </div>
           )}
           <div className="space-y-2">
-            <Label>用户 *</Label>
+            <Label>{t('withdrawals.detail.dialog.user')} *</Label>
             <Input
               className={inputSm}
               value={dForm.user}
@@ -48,7 +51,7 @@ export function WithdrawalDetailDialog(props: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label>金额(分) *</Label>
+            <Label>{t('withdrawals.detail.dialog.amount')} *</Label>
             <Input
               className={inputSm}
               type="number"
@@ -57,7 +60,7 @@ export function WithdrawalDetailDialog(props: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label>渠道</Label>
+            <Label>{t('withdrawals.detail.dialog.channel')}</Label>
             <Select
               value={dForm.channel}
               onValueChange={(v) => setDForm({ ...dForm, channel: v as WithdrawalItem['channel'] })}
@@ -68,14 +71,14 @@ export function WithdrawalDetailDialog(props: Props) {
               <SelectContent>
                 {Object.entries(CHANNEL_LABEL).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
-                    {v}
+                    {t(v)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>账户</Label>
+            <Label>{t('withdrawals.detail.dialog.account')}</Label>
             <Input
               className={inputSm}
               value={dForm.account}
@@ -83,7 +86,7 @@ export function WithdrawalDetailDialog(props: Props) {
             />
           </div>
           <div className="space-y-2">
-            <Label>状态</Label>
+            <Label>{t('withdrawals.detail.dialog.status')}</Label>
             <Select
               value={dForm.status}
               onValueChange={(v) => setDForm({ ...dForm, status: v as WithdrawalItem['status'] })}
@@ -94,7 +97,7 @@ export function WithdrawalDetailDialog(props: Props) {
               <SelectContent>
                 {Object.entries(STATUS_LABEL).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
-                    {v}
+                    {t(v)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -107,10 +110,10 @@ export function WithdrawalDetailDialog(props: Props) {
               onClick={closeDetail}
               disabled={dSaveMut.isPending}
             >
-              取消
+              {t('withdrawals.detail.dialog.cancel')}
             </Button>
             <Button type="submit" disabled={dSaveMut.isPending}>
-              {dSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}保存
+              {dSaveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t('withdrawals.detail.dialog.save')}
             </Button>
           </DialogFooter>
         </form>
