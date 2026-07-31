@@ -194,12 +194,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             id="work-area-portal-root"
             className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
           >
-            {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
+            {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉)
+                2026-07-31 修复:原 variant="ghost" 在亮色背景下按钮完全透明,与内容融为一体,
+                用户在手机上找不到触发入口。改为显式 bg-card + hover:bg-accent,
+                与 GlobalTopBar TOPBAR_BTN_BASE 风格统一(card 比 bg 高 4% L / 暗色深 4% L,
+                跟背景明显区分;hover 用 accent 加深,无蓝色发光边框)。 */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setMobileOpen((o) => !o)}
-              className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden"
+              className="absolute left-2 top-2 z-30 h-9 w-9 lg:hidden rounded-md border border-border bg-card text-foreground/80 shadow-sm transition-colors hover:bg-accent hover:text-foreground"
               aria-label={t('menu')}
             >
               <Menu className="h-5 w-5" />
