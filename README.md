@@ -2052,6 +2052,53 @@ AI 服务内置 ModelSyncService,自动从已配置 key 的 provider 拉取最�
 
 ---
 
+## IM 多平台远程连接控制(2026-07-31 立,P0)
+
+16 平台 IM 网关:统一适配器配置 + webhook 入站 + 出站发送 + 消息历史 + LLM 自动回复。Admin 后台 `/admin/im-channels` 一站式管理。
+
+### 16 平台清单
+
+飞书 / 企业微信 / 钉钉 / Discord / Telegram / Slack / 微信公众号 / Webhook(通用)/ WhatsApp / Line / KakaoTalk / Signal / Matrix / Rocket.Chat / Mattermost / Zulip
+
+每平台元数据含 `displayName / icon / inboundFieldType / signatureHeader / signatureEncoding / outboundApiPattern / supportsLarkCli / fields[]`,前端按 `fields` schema 动态渲染配置表单(text/password/url/switch)。飞书独有 `useLarkCli` 长连接模式(走 `lark-cli` SDK 替代 webhook)。
+
+### API 端点(7 个,前缀 `/api`)
+
+| 方法 | 路径                            | 鉴权 | 用途                                               |
+| ---- | ------------------------------- | ---- | -------------------------------------------------- |
+| GET  | `/im-gateway/platforms`         | 登录 | 16 平台元数据(含 fields schema,供前端动态表单)     |
+| GET  | `/im-gateway/adapters`          | 登录 | 当前用户已配置的适配器列表                         |
+| POST | `/im-gateway/adapters`          | 登录 | upsert 适配器配置(by platform,凭证加密存储)        |
+| GET  | `/im-gateway/status`            | 登录 | 16 平台连接状态(enabled / lastError / lastSeenAt)  |
+| GET  | `/im-gateway/messages`          | 登录 | 消息历史(分页,可按 platform / direction 过滤)      |
+| POST | `/im-gateway/send`              | 登录 | 主动发送出站消息(text/image/file/audio/video/card) |
+| POST | `/im-gateway/webhook/:platform` | 验签 | 接收 IM 平台 webhook(无需登录,HMAC-SHA256 验签)    |
+
+### 数据持久化
+
+PostgreSQL 2 张表(`packages/database/src/schema/im-adapters.ts`):
+
+- `im_adapters`:per-user per-platform 适配器配置(userId / platform / enabled / config JSON / 凭证加密 / lastError / lastSeenAt)
+- `im_messages`:入站+出站消息历史(userId / platform / direction / content / rawPayload JSON / createdAt,按 createdAt desc 索引)
+
+迁移文件:`packages/database/drizzle/20260801010200_add_im_tables.sql`
+
+### LLM 自动回复(ai-service)
+
+`apps/ai-service/app/services/im_bridge.py` 消费 Redis 队列 `im:inbound`,调用 LiteLLM 生成回复,通过 `/api/im-gateway/send` 回投。支持 per-platform 启用/禁用自动回复,避免人机混发。
+
+### Webhook 验签
+
+入站 webhook 按 `signatureEncoding` 配置做 HMAC-SHA256 验签(`hex` / `base64` / `none` 三档),`timingSafeEqual` 恒定时间比较防时序攻击。验签失败返回 401 不入库。
+
+### 跨端契约
+
+- 类型:`packages/types/src/im-gateway.ts`(16 平台枚举 + 适配器配置 + 网关状态 + 消息历史 + 富卡片 `ImRichCard` / `ImCardElement` / `ImCardAction` / 文件 / 音视频 / 审批 7 类消息)
+- API 客户端:`packages/api-client/src/endpoints/im-channel.ts`(`getPlatforms / getAdapters / upsertAdapter / getStatus / getMessages / sendMessage`)
+- Admin 前端:`apps/web/app/(main)/admin/im-channels/`(PlatformList + AdapterConfigForm + MessageHistory 三组件)
+
+---
+
 ## 数据库
 
 - **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
