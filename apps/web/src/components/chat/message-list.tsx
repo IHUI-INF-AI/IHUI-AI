@@ -10,14 +10,11 @@ import {
   ShieldCheck,
   ShieldAlert,
   Hand,
-  MessageSquare,
-  ListTree,
   Copy,
   Check,
   RefreshCw,
   ArrowDown,
   Search,
-  Layers,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
@@ -35,7 +32,6 @@ import {
   plainTextForClipboard,
   normalizeMarkdown,
 } from '@/components/ai/progress-sections/message-context-menu'
-import { TimelineEventRow } from '@/components/ai/progress-sections/timeline-event'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
 import { useChatStore } from '@/stores/chat'
@@ -996,9 +992,8 @@ export function MessageList({
     }
   }, [focusedIndex, messages.length])
 
-  // TimelineStore:tab 切换 + 事件列表(2026-07-28 立,深度对标 Trae Work)
-  const activeTab = useTimelineStore((s) => s.activeTab)
-  const setActiveTab = useTimelineStore((s) => s.setActiveTab)
+  // TimelineStore:事件列表(2026-07-28 立;2026-07-31 立,移除 tab 切换,单一对话流视图)
+  // - tab 切换已移除(对标 Trae/Codex 单一对话流),保留 events 供其他组件共享
   const timelineEvents = useTimelineStore((s) => s.events)
   const setTimelineEvents = useTimelineStore((s) => s.setEvents)
 
@@ -1387,92 +1382,10 @@ export function MessageList({
     ? Math.max(0, (offsets[messages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
     : 0
 
-  // 时间线 tab 切换按钮(2026-07-28 立,Phase 19 集成;2026-07-31 立,去容器背景/描边、按钮放大、新增"全部"tab)
-  // - 容器无背景色无描边(融入父级)
-  // - 按钮放大:rounded-md + px-3 py-1 + text-xs,选中态 bg-muted + shadow-sm,hover 用 accent/50 subtle 变化
-  // - "全部"tab(2026-07-31 立):整合对话流 + 时间线在同一视图呈现
-  const tabButtonBase =
-    'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/40'
-  const tabButtonActive = 'bg-muted text-foreground shadow-sm'
-  const tabButtonIdle = 'text-muted-foreground/80 hover:bg-accent/50 hover:text-foreground'
-  const tablistNode = (
-    <div
-      className="sticky top-0 z-10 flex shrink-0 items-center gap-1 px-3 py-1.5"
-      role="tablist"
-      aria-label="对话视图切换"
-      data-testid="message-list-tablist"
-    >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === 'inline'}
-        aria-controls="message-list-panel-inline"
-        onClick={() => setActiveTab('inline')}
-        className={cn(tabButtonBase, activeTab === 'inline' ? tabButtonActive : tabButtonIdle)}
-        data-testid="message-list-tab-inline"
-      >
-        <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-        对话流
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === 'timeline'}
-        aria-controls="message-list-panel-timeline"
-        onClick={() => setActiveTab('timeline')}
-        className={cn(tabButtonBase, activeTab === 'timeline' ? tabButtonActive : tabButtonIdle)}
-        data-testid="message-list-tab-timeline"
-      >
-        <ListTree className="h-3.5 w-3.5" aria-hidden />
-        时间线
-        {(timelineEvents.length > 0 || derivedEvents.length > 0) && (
-          <span
-            className="ml-0.5 rounded-sm bg-muted px-1 text-[10px] tabular-nums text-muted-foreground/80"
-            data-testid="message-list-timeline-count"
-          >
-            {timelineEvents.length || derivedEvents.length}
-          </span>
-        )}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === 'all'}
-        aria-controls="message-list-panel-all"
-        onClick={() => setActiveTab('all')}
-        className={cn(tabButtonBase, activeTab === 'all' ? tabButtonActive : tabButtonIdle)}
-        data-testid="message-list-tab-all"
-      >
-        <Layers className="h-3.5 w-3.5" aria-hidden />
-        全部
-      </button>
-    </div>
-  )
-
-  // 时间线 tab 面板(独立渲染,不与对话流混在一起)
-  const timelinePanelNode = (
-    <div
-      id="message-list-panel-timeline"
-      role="tabpanel"
-      aria-label="时间线面板"
-      className="h-full space-y-0.5 overflow-y-auto px-2 py-2"
-      data-testid="message-list-timeline-panel"
-    >
-      {derivedEvents.length === 0 ? (
-        <div
-          className="flex items-center justify-center py-4 text-[10px] text-muted-foreground/60"
-          data-testid="message-list-timeline-empty"
-        >
-          暂无事件
-        </div>
-      ) : (
-        derivedEvents.map((evt) => <TimelineEventRow key={evt.id} event={evt} />)
-      )}
-    </div>
-  )
-
-  // 对话流 tab 面板(2026-07-31 立:抽取为变量,供 'inline' 和 'all' tab 复用)
-  // - 添加 h-full 以适应 'all' tab 中的嵌套布局(flex-1 在非 flex 父级中无效)
+  // 单一整合对话流视图(2026-07-31 立,彻底整合,对标 Trae/Codex 单一对话流)
+  // - 移除 tablist 切换(对话流/时间线/全部 三 tab)
+  // - 移除独立时间线面板(对话流已内联工具调用/子代理/计划等,时间线是冗余汇总)
+  // - 只保留对话流一个视图,工具调用/子代理/思考过程已内联在消息气泡内
   const inlinePanelNode = (
     <div
       ref={containerRef}
@@ -1577,56 +1490,23 @@ export function MessageList({
     </div>
   )
 
-  // "全部"tab 面板(2026-07-31 立):整合对话流 + 时间线在同一视图呈现
-  // - 上下分栏:上面对话流(占 3/5),下面时间线(占 2/5)
-  // - 用 gap-2 分隔(不使用 border-t,符合 AGENTS.md 禁止分割线规则)
-  // - 时间线区域用 bg-muted/20 背景做视觉区分
-  const allPanelNode = (
-    <div
-      id="message-list-panel-all"
-      role="tabpanel"
-      aria-label="全部面板"
-      className="flex min-h-0 flex-1 flex-col gap-2 px-3 py-2"
-      data-testid="message-list-all-panel"
-    >
-      {/* 上:对话流(占 3/5) */}
-      <div className="flex min-h-0 flex-[3] flex-col overflow-hidden rounded-md bg-background">
-        {inlinePanelNode}
-      </div>
-      {/* 下:时间线(占 2/5) */}
-      <div
-        className="min-h-0 flex-[2] overflow-hidden rounded-md bg-muted/20"
-        data-testid="message-list-all-timeline-wrapper"
-      >
-        {timelinePanelNode}
-      </div>
-    </div>
-  )
-
   return (
     <div className="flex h-full flex-col">
-      {tablistNode}
-      {(activeTab === 'inline' || activeTab === 'all') && (
-        <MessageSearchBar
-          visible={searchBarVisible}
-          onClose={handleSearchClose}
-          onSearch={handleSearch}
-          resultCount={searchResultIds.length}
-          currentIndex={searchCurrentIndex}
-          onNavigate={handleSearchNavigate}
-        />
-      )}
-      {activeTab === 'inline'
-        ? inlinePanelNode
-        : activeTab === 'timeline'
-          ? timelinePanelNode
-          : allPanelNode}
+      <MessageSearchBar
+        visible={searchBarVisible}
+        onClose={handleSearchClose}
+        onSearch={handleSearch}
+        resultCount={searchResultIds.length}
+        currentIndex={searchCurrentIndex}
+        onNavigate={handleSearchNavigate}
+      />
+      {inlinePanelNode}
       {/* 2026-07-28 立(深度对标 Trae Work):Scroll-to-bottom 浮动按钮
         - 当 userScrolledUp 为 true(用户已向上滚动超过 120px)时显示
         - 点击 → scrollIntoView 到 bottomRef + 重置 userScrolledUp
         - 浮在 message list 容器右下角,固定定位(不随消息滚动)
         - 与 streaming 联动:有未读新消息时显示红点徽章 */}
-      {(activeTab === 'inline' || activeTab === 'all') && userScrolledUp && (
+      {userScrolledUp && (
         <button
           type="button"
           onClick={handleJumpToLatest}
