@@ -17,6 +17,9 @@ interface FoldableSectionProps {
   'aria-label'?: string
   /** Phase 20 P1-2: 头部右侧 extra 元素(用于放复制按钮等) */
   headerExtra?: React.ReactNode
+  /** 2026-07-31 借鉴 Trae Thinking Process:折叠态显示当前摘要(如"正在:回答"),
+   *  让折叠态也有信息密度,无需展开即可知道当前进度 */
+  summary?: string
 }
 
 /** FoldableSection context:支持"展开全部/折叠全部"批量控制 */
@@ -99,6 +102,7 @@ export function FoldableSection({
   'data-testid': testId,
   'aria-label': ariaLabel,
   headerExtra,
+  summary,
 }: FoldableSectionProps) {
   const ctx = React.useContext(FoldableSectionContext)
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
@@ -111,9 +115,10 @@ export function FoldableSection({
   }
 
   // v15: 完成度派生(doneCount 与 count 都有且 doneCount <= count)
-  const hasProgress =
-    typeof doneCount === 'number' && typeof count === 'number' && count > 0
-  const progressPct = hasProgress ? Math.min(100, Math.round(((doneCount as number) / (count as number)) * 100)) : 0
+  const hasProgress = typeof doneCount === 'number' && typeof count === 'number' && count > 0
+  const progressPct = hasProgress
+    ? Math.min(100, Math.round(((doneCount as number) / (count as number)) * 100))
+    : 0
   const allDone = hasProgress && (doneCount as number) >= (count as number)
 
   return (
@@ -140,6 +145,15 @@ export function FoldableSection({
         />
         {Icon && <Icon className="h-3 w-3 shrink-0 text-muted-foreground/50" />}
         <span className="flex-1 text-left">{title}</span>
+        {/* 借鉴 Trae Thinking Process:折叠态显示当前摘要,展开态隐藏(避免冗余) */}
+        {summary && !open && (
+          <span
+            className="min-w-0 max-w-[40%] truncate text-[10px] text-muted-foreground/60"
+            data-testid={`${testId ?? 'foldable'}-summary`}
+          >
+            {summary}
+          </span>
+        )}
         {hasProgress && (
           <span
             className={cn(
