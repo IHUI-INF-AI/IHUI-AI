@@ -7,7 +7,7 @@
  * 设计:
  * - token 与 config.AI_CALLBACK_SECRET 共用(单一密钥,减少配置项)
  * - 为空(未配置)时拒绝所有 internal token 请求(强制配置后才可用)
- * - X-User-Id 必须为数字字符串(防注入),成功后注入 request.userId
+ * - X-User-Id 必须为有效 UUID 或数字字符串(防注入),成功后注入 request.userId
  *
  * 与 checkAuth 协同:checkAuthOrInternalService 先尝试 JWT,失败降级 internal token。
  */
@@ -40,7 +40,8 @@ export async function checkInternalServiceToken(
     return false
   }
 
-  if (!userId || !/^\d+$/.test(userId)) {
+  // 允许 UUID(如 6b8cd0f6-546f-44c8-853a-5f96edbe08be)或数字字符串(防注入)
+  if (!userId || !/^[a-zA-Z0-9-]{1,128}$/.test(userId)) {
     reply.status(400).send(error(400, 'Valid X-User-Id header required'))
     return false
   }
