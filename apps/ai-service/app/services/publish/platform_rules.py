@@ -71,7 +71,7 @@ class PlatformRule:
 
 
 # ---------------------------------------------------------------------------
-# 25 平台规则配置(基于平台官方文档 + 实测,2026-07-31 立)
+# 37 平台规则配置(基于平台官方文档 + 实测,2026-07-31 立)
 # ---------------------------------------------------------------------------
 
 PLATFORM_RULES: dict[str, PlatformRule] = {
@@ -267,6 +267,90 @@ PLATFORM_RULES: dict[str, PlatformRule] = {
         video_max_duration_min=30,
         support_markdown=False, support_html=False,
         support_image=False, support_video=True,
+    ),
+    # ===== 第四批:SEO/GEO 高权重平台第二批(2026-07-31 立)=====
+    "baidu_zhidao": PlatformRule(
+        platform_id="baidu_zhidao", platform_name="百度知道",
+        title_max=50, body_max=100000,
+        tag_max_count=5, tag_max_length=15,
+        publish_tips=["百度知道为问答平台", "与百家号共用 BDUSS/STOKEN"],
+    ),
+    "baidu_tieba": PlatformRule(
+        platform_id="baidu_tieba", platform_name="百度贴吧",
+        title_max=30, body_max=5000,
+        tag_max_count=5, tag_max_length=10,
+        publish_tips=["贴吧发帖需指定 tieba_kw", "标题≤30字"],
+    ),
+    "douban": PlatformRule(
+        platform_id="douban", platform_name="豆瓣",
+        title_max=80, body_max=20000,
+        tag_max_count=5, tag_max_length=10,
+        support_code_block=False, support_table=False,
+        publish_tips=["豆瓣日记正文≤20000字", "文艺向内容更受欢迎"],
+    ),
+    "36kr": PlatformRule(
+        platform_id="36kr", platform_name="36氪",
+        title_max=50, body_max=50000,
+        tag_max_count=3, tag_max_length=15,
+        support_code_block=True, support_table=True,
+        publish_tips=["36氪偏科技创投内容", "代码块需标语言"],
+    ),
+    "huxiu": PlatformRule(
+        platform_id="huxiu", platform_name="虎嗅网",
+        title_max=40, body_max=50000,
+        tag_max_count=5, tag_max_length=15,
+        support_code_block=True, support_table=True,
+        publish_tips=["虎嗅偏商业深度分析", "标题≤40字"],
+    ),
+    "tmtmedia": PlatformRule(
+        platform_id="tmtmedia", platform_name="钛媒体",
+        title_max=40, body_max=50000,
+        tag_max_count=5, tag_max_length=15,
+        support_code_block=True, support_table=True,
+        publish_tips=["钛媒体偏 TMT 领域", "代码块需标语言"],
+    ),
+    "acfun": PlatformRule(
+        platform_id="acfun", platform_name="AcFun",
+        title_max=50, body_max=50000,
+        tag_max_count=10, tag_max_length=15,
+        support_code_block=False, support_table=False,
+        publish_tips=["AcFun 文章分区投稿", "弹幕社区偏年轻向"],
+    ),
+    "lofter": PlatformRule(
+        platform_id="lofter", platform_name="LOFTER",
+        title_max=50, body_max=50000,
+        tag_max_count=10, tag_max_length=15,
+        support_code_block=False, support_table=False,
+        publish_tips=["LOFTER 为轻博客", "支持图文/标签丰富"],
+    ),
+    "zhihu_daily": PlatformRule(
+        platform_id="zhihu_daily", platform_name="知乎日报",
+        title_max=100, body_max=100000,
+        tag_max_count=5, tag_max_length=15,
+        support_code_block=True, support_table=True,
+        publish_tips=["知乎日报为精选内容", "与知乎主站共用 z_c0/d_c0"],
+    ),
+    "people": PlatformRule(
+        platform_id="people", platform_name="人民网",
+        title_max=40, body_max=50000,
+        tag_max_count=5, tag_max_length=10,
+        cover_min_width=640, cover_min_height=360,
+        support_code_block=False, support_table=False,
+        publish_tips=["人民网为中央重点新闻网站", "标题≤40字", "代码块需标语言"],
+    ),
+    "china_news": PlatformRule(
+        platform_id="china_news", platform_name="中国新闻网",
+        title_max=40, body_max=50000,
+        tag_max_count=5, tag_max_length=10,
+        cover_min_width=640, cover_min_height=360,
+        support_code_block=False, support_table=False,
+        publish_tips=["中国新闻网为中央重点新闻网站", "标题≤40字"],
+    ),
+    "hupu": PlatformRule(
+        platform_id="hupu", platform_name="虎扑社区",
+        title_max=40, body_max=10000,
+        tag_max_count=5, tag_max_length=10,
+        publish_tips=["虎扑发帖需指定 hupu_fid", "体育/电竞社区"],
     ),
 }
 

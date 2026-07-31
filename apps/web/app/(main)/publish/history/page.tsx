@@ -1,32 +1,19 @@
 'use client'
 
+/**
+ * 发布历史页:数据拉取 + 筛选状态 + 组合 StatsCards / FilterBar / TaskCard 列表。
+ * AGENTS.md §4:< 200 行 / rounded-md / 无分割线 / 无渐变遮罩
+ */
+
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, ExternalLink, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react'
+import { Loader2, BarChart3 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
-import {
-  Card,
-  CardContent,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@ihui/ui-react'
-import { PLATFORM_KEY } from '../helpers'
+import { StatsCards } from './StatsCards'
+import { FilterBar } from './FilterBar'
+import { TaskCard } from './TaskCard'
 
-const STATUS_LABEL: Record<string, string> = {
-  success: '成功',
-  failed: '失败',
-  pending: '待处理',
-  running: '运行中',
-  skipped: '跳过',
-}
-
-// 后端契约:publish.py list_tasks 返回 camelCase 字段(非 snake_case)
-// 注意:/publish/tasks 列表不返回 targets/duration_ms,返回 platformCount
 interface Target {
   platform: string
   accountId?: number
@@ -48,8 +35,6 @@ interface Task {
   targets?: Target[]
   error?: string | null
 }
-// 后端契约:publish.py get_stats 返回 {tasks: {total, success, failed, partial, ...}, ...}
-// tasks 是嵌套对象,不是顶层字段;没有 success_rate 字段
 interface Stats {
   tasks?: {
     total?: number
@@ -59,51 +44,10 @@ interface Stats {
   }
 }
 
-const PLATFORMS = [
-  'wordpress',
-  'medium',
-  'youtube',
-  'bilibili',
-  'wechat',
-  'toutiao',
-  'douyin',
-  'kuaishou',
-  'weibo',
-  'zhihu',
-  'csdn',
-  'juejin',
-  'xiaohongshu',
-  'shipinhao',
-] as const
-
-const STATUS_STYLE: Record<string, string> = {
-  success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  failed: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-  pending: 'bg-muted text-muted-foreground',
-  running: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  skipped: 'bg-muted text-muted-foreground',
-}
-
-const TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-  timeZone: 'Asia/Shanghai',
-})
-
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
-}
-
-function fmtDuration(ms?: number) {
-  if (!ms) return '-'
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  return `${(ms / 60000).toFixed(1)}min`
 }
 
 export default function HistoryPage() {
@@ -119,8 +63,6 @@ export default function HistoryPage() {
   const load = React.useCallback(async () => {
     setLoading(true)
     try {
-      // 后端契约:/publish/tasks 列表返回 {items: [...], count, limit, offset}
-      // 任务列表才有 title/format 字段;/publish/history 是单平台粒度,无 title/format
       const [histRes, statsRes] = await Promise.all([
         api<{ items?: Task[]; list?: Task[] } | Task[]>('/api/publish/tasks?limit=50'),
         api<Stats>('/api/publish/stats').catch(() => ({})),
@@ -159,76 +101,13 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">{t('stats.totalTasks')}</div>
-            <div className="mt-1 text-lg font-semibold">{stats.tasks?.total ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">{t('stats.totalSuccess')}</div>
-            <div className="mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-              {stats.tasks?.success ?? 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">{t('stats.totalFailed')}</div>
-            <div className="mt-1 text-lg font-semibold text-rose-600 dark:text-rose-400">
-              {stats.tasks?.failed ?? 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground">{t('stats.successRate')}</div>
-            <div className="mt-1 text-lg font-semibold">
-              {stats.tasks?.total && stats.tasks?.success
-                ? `${((stats.tasks.success / stats.tasks.total) * 100).toFixed(1)}%`
-                : '-'}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 p-3">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('history.filterPlatform')}</label>
-            <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('history.allPlatforms')}</SelectItem>
-                {PLATFORMS.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {t(PLATFORM_KEY[p] ?? 'platforms.unknown')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">{t('history.filterStatus')}</label>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('history.allStatus')}</SelectItem>
-                <SelectItem value="success">{t('history.statusSuccess')}</SelectItem>
-                <SelectItem value="failed">{t('history.statusFailed')}</SelectItem>
-                <SelectItem value="skipped">{t('history.statusSkipped')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
+      <StatsCards stats={stats} />
+      <FilterBar
+        filterPlatform={filterPlatform}
+        onFilterPlatformChange={setFilterPlatform}
+        filterStatus={filterStatus}
+        onFilterStatusChange={setFilterStatus}
+      />
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -240,101 +119,14 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((task) => {
-            const isOpen = expanded.has(task.id)
-            const statusKey = task.status in STATUS_STYLE ? task.status : 'pending'
-            return (
-              <Card key={task.id}>
-                <CardContent className="p-3">
-                  <button
-                    type="button"
-                    onClick={() => toggle(task.id)}
-                    className="flex w-full items-center gap-3 text-left"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{task.title}</span>
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                            STATUS_STYLE[statusKey],
-                          )}
-                        >
-                          {STATUS_LABEL[task.status] ?? task.status}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        <span>
-                          {t('history.time')}:{' '}
-                          {task.createdAt ? TIME_FMT.format(new Date(task.createdAt)) : '-'}
-                        </span>
-                        {typeof task.platformCount === 'number' && (
-                          <span>平台数: {task.platformCount}</span>
-                        )}
-                        {task.format && <span className="font-mono">{task.format}</span>}
-                      </div>
-                    </div>
-                    {isOpen ? (
-                      <ChevronUp className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 shrink-0" />
-                    )}
-                  </button>
-
-                  {isOpen && (
-                    <div className="mt-3 space-y-2 rounded-md bg-muted/40 p-3 text-xs">
-                      {task.targets && task.targets.length > 0 && (
-                        <div className="space-y-1">
-                          {task.targets.map((tg, i) => (
-                            <div
-                              key={`${tg.accountId ?? tg.platform}-${i}`}
-                              className="flex flex-wrap items-center gap-2"
-                            >
-                              <span className="font-medium">
-                                {t(PLATFORM_KEY[tg.platform] ?? 'platforms.unknown')}
-                              </span>
-                              <span
-                                className={cn(
-                                  'rounded px-1.5 py-0.5 text-[10px]',
-                                  STATUS_STYLE[tg.status ?? 'pending'] ?? STATUS_STYLE.pending,
-                                )}
-                              >
-                                {STATUS_LABEL[tg.status ?? 'pending'] ?? tg.status}
-                              </span>
-                              {tg.durationMs !== undefined && tg.durationMs !== null && (
-                                <span className="text-muted-foreground">
-                                  {fmtDuration(tg.durationMs)}
-                                </span>
-                              )}
-                              {tg.url && (
-                                <a
-                                  href={tg.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-0.5 text-primary hover:underline"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  {t('history.openUrl')}
-                                </a>
-                              )}
-                              {tg.error && (
-                                <span className="text-rose-600 dark:text-rose-400">{tg.error}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {task.error && (
-                        <pre className="thin-scroll max-h-32 overflow-auto rounded bg-rose-50 p-2 text-[10px] text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
-                          {task.error}
-                        </pre>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
+          {filtered.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              expanded={expanded.has(task.id)}
+              onToggle={toggle}
+            />
+          ))}
         </div>
       )}
     </div>
