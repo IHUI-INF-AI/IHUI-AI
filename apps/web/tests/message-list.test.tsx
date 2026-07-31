@@ -81,6 +81,8 @@ vi.mock('lucide-react', () => {
     ArrowDown: Icon,
     Search: Icon,
     Layers: Icon,
+    Clock: Icon,
+    ListTodo: Icon,
   }
 })
 
@@ -576,18 +578,16 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
 
   // ─── 5. 时间戳 footer ─────────────────────────────────────────
   describe('时间戳 footer', () => {
-    it('hover 消息时显示时间戳', () => {
-      // 用"今天 10:30"避免 sameDay 判定受当前日期影响(原硬编码 2026-07-28 在 07-31 跑会失败)
+    it('时间戳常驻显示(无需 hover)', () => {
+      // 2026-07-31 立:深度对标 Codex/Trae Work,时间戳常驻显示在气泡底部,
+      // 让对话流自带时间感知。用户需求"对话流里显示时间"。
+      // 用"今天 10:30"避免 sameDay 判定受当前日期影响
       const today = new Date()
       today.setHours(10, 30, 0, 0)
       const ts = today.getTime()
       const msg = makeAssistantMsg('m-ts', 'content', { createdAt: ts })
       render(<MessageList {...baseProps} messages={[msg]} />)
-      const item = document.querySelector('[data-message-id="m-ts"]')!
-      // 默认无 hover:时间戳不显示
-      expect(screen.queryByTestId('message-timestamp-m-ts')).toBeNull()
-      // hover 后显示
-      fireEvent.mouseEnter(item)
+      // 默认无 hover 即显示时间戳(常驻)
       const tsEl = screen.getByTestId('message-timestamp-m-ts')
       expect(tsEl).toBeTruthy()
       expect(tsEl.textContent).toBe('10:30')
@@ -597,7 +597,6 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
       const oldDate = new Date('2026-01-15T14:25:00').getTime()
       const msg = makeAssistantMsg('m-old', 'old', { createdAt: oldDate })
       render(<MessageList {...baseProps} messages={[msg]} />)
-      fireEvent.mouseEnter(document.querySelector('[data-message-id="m-old"]')!)
       const tsEl = screen.getByTestId('message-timestamp-m-old')
       expect(tsEl.textContent).toBe('01-15 14:25')
     })
