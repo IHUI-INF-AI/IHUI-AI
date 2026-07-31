@@ -1,4 +1,4 @@
-"""LLM 模型自动同步服务(2026-07-31 立,深度优化 v2)。
+"""LLM 模型自动同步服务(2026-07-31 立,深度优化 v3)。
 
 从已配置 key 的 provider 的 /v1/models 端点自动拉取最新模型清单,
 注册到 DB(ai_model_config_models 表),实现"模型名自动更新,无需手动改 default_models.json"。
@@ -23,6 +23,16 @@
 - F3.5 价格上限过滤(>$1/1k tokens 跳过)
 - F3.6 模型别名映射(openai/gpt-4o → gpt-4o)
 
+深度优化 v3(2026-07-31,8 项新增):
+- F4.3 错误分类精细化(401/403/404/429/5xx 分类 + 永久禁用机制)
+- F4.4 多 provider 适配扩展(Anthropic /v1/models + Google Gemini /v1beta/models)
+- F4.5 元数据深度提取(description/vendor/max_output_tokens/supports_tool_call/
+      supports_vision/rate_limit/release_date/deprecation_date)
+- F4.6 Prometheus metrics 暴露同步指标(6 指标:ops/latency/new/removed/health/total)
+- F4.7 连续失败自动禁用(N>=3 失败 → 标记 unhealthy + admin 告警日志)
+- F4.8 增量同步(ETag / Last-Modified 缓存,304 跳过 upsert)
+- Provider 级别并发锁(单 provider 同时只允许一个同步,避免冲突)
+
 设计参考:
 - scripts/scan-upstream-models.mjs(Node CLI 一次性扫描脚本,本服务是 Python 服务化版本)
 - model_availability.py(缓存 + 并发 + 生命周期模式)
@@ -35,12 +45,15 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Optional
 
 import httpx
+from prometheus_client import Counter, Gauge, Histogram
 
 from ..core.config import settings
 from ..core.db_pool import get_shared_pool
+from ..core.provider_caps import get_provider_cap
 from .free_provider_registry import ProviderCategory, free_provider_registry
 
 logger = logging.getLogger(__name__)
@@ -69,6 +82,12 @@ _RETRY_BASE_DELAYS: tuple[float, ...] = (1.0, 2.0, 4.0)
 # 超过此阈值的模型视为极端高价,跳过 INSERT 并 log warning
 MAX_PRICE_PER_1K_TOKENS = 100
 
+# F4.7 连续失败自动禁用阈值(N 次失败后标记 unhealthy,跳过后续同步)
+FAILURE_THRESHOLD = 3
+
+# F4.8 增量同步:429 长退避时间(秒)
+_RATE_LIMIT_BACKOFF_S = 60.0
+
 # 占位符 key(用户未填 key 时的默认值,不应触发同步)
 _PLACEHOLDER_KEYS: frozenset[str] = frozenset({
     "<your-xxx-api-key>",
@@ -94,6 +113,26 @@ def _to_cfg_name(provider_code: str) -> str:
 
 
 # ============================================================================
+# F4.3 错误分类枚举
+# ============================================================================
+
+
+class SyncErrorType(str, Enum):
+    """同步错误分类(F4.3)。
+
+    用于精细化错误处理:不同错误类型对应不同重试策略与禁用策略。
+    """
+
+    INVALID_KEY = "invalid_key"        # 401 - key 失效,应禁用 provider 同步
+    FORBIDDEN = "forbidden"            # 403 - 无权限
+    NOT_FOUND = "not_found"            # 404 - 端点不存在,应永久跳过此 provider
+    RATE_LIMIT = "rate_limit"          # 429 - 速率限制,长退避(60s)
+    SERVER_ERROR = "server_error"      # 5xx - 服务端错误,短退避重试
+    NETWORK = "network"               # timeout/connect 错误,短退避重试
+    UNKNOWN = "unknown"                # 其他
+
+
+# ============================================================================
 # 数据类
 # ============================================================================
 
@@ -114,6 +153,10 @@ class SyncResult:
     preview_removed_model_ids: list[str] = field(default_factory=list)
     # F3.4 模型分类标签(provider 维度汇总,供前端展示)
     tags: list[str] = field(default_factory=list)
+    # F4.3 错误分类(SyncErrorType 值,成功时为空)
+    error_type: str = ""
+    # F4.8 304 Not Modified 跳过 upsert(增量同步命中缓存)
+    skipped: bool = False
 
 
 @dataclass
@@ -132,6 +175,48 @@ class SyncStatus:
 
 
 # ============================================================================
+# F4.6 Prometheus 指标
+# ============================================================================
+
+SYNC_OPERATIONS_TOTAL = Counter(
+    "model_sync_operations_total",
+    "Total model sync operations by provider and status",
+    ["provider_code", "status"],  # status: success / failure / skipped
+)
+
+SYNC_LATENCY_SECONDS = Histogram(
+    "model_sync_latency_seconds",
+    "Model sync latency per provider",
+    ["provider_code"],
+    buckets=(0.5, 1, 2.5, 5, 10, 30, 60, 120),
+)
+
+SYNC_NEW_MODELS = Gauge(
+    "model_sync_new_models",
+    "Number of new models added in last sync per provider",
+    ["provider_code"],
+)
+
+SYNC_REMOVED_MODELS = Gauge(
+    "model_sync_removed_models",
+    "Number of models removed in last sync per provider",
+    ["provider_code"],
+)
+
+PROVIDER_HEALTH = Gauge(
+    "model_sync_provider_health",
+    "Provider health: 1=healthy, 0=unhealthy(>=3 consecutive failures)",
+    ["provider_code"],
+)
+
+TOTAL_MODELS_IN_DB = Gauge(
+    "model_sync_total_models_in_db",
+    "Total models in DB per provider",
+    ["provider_code"],
+)
+
+
+# ============================================================================
 # 服务单例
 # ============================================================================
 
@@ -145,9 +230,11 @@ class ModelSyncService:
     - admin 端点 POST /llm/models/sync?provider=xxx 触发 sync_single_provider()
     - admin 端点 GET /llm/models/sync/status 查询 get_status()
     - admin 端点 GET /llm/models/sync/history 查询 get_history()
+    - admin 端点 GET /llm/models/sync/health 查询 get_health()(F4.7)
     - main.py lifespan 关闭时调用 shutdown():取消定时任务
 
     线程安全:用 asyncio.Lock 保护 is_syncing 标志(防止并发同步)。
+    F4.7 provider 级别并发锁:单 provider 同时只允许一个同步(避免冲突)。
     """
 
     def __init__(self) -> None:
@@ -157,6 +244,30 @@ class ModelSyncService:
         self._initialized = False
         # F3.4 缓存 ai_model_config_models 表是否有 tags 字段(None=未查询)
         self._tags_column_cache: Optional[bool] = None
+        # F4.5 新字段列存在性缓存(column_name → exists)
+        self._columns_cache: dict[str, bool] = {}
+        # F4.7 连续失败计数 + 永久禁用集合
+        self._provider_failure_counter: dict[str, int] = {}
+        self._permanently_disabled_providers: set[str] = set()
+        # F4.8 增量同步:ETag / Last-Modified 缓存
+        self._provider_etag: dict[str, str] = {}
+        self._provider_last_modified: dict[str, str] = {}
+        # Provider 级别并发锁(单 provider 同时只允许一个同步)
+        self._provider_locks: dict[str, asyncio.Lock] = {}
+
+    # ------------------------------------------------------------------
+    # F4.7 Provider 级别并发锁
+    # ------------------------------------------------------------------
+
+    def _get_provider_lock(self, provider_code: str) -> asyncio.Lock:
+        """获取 provider 级别的并发锁(每个 provider 一把锁,懒初始化)。
+
+        确保:同一个 provider 同时只允许一个同步任务执行,避免并发冲突。
+        不同 provider 之间不互斥(可并行)。
+        """
+        if provider_code not in self._provider_locks:
+            self._provider_locks[provider_code] = asyncio.Lock()
+        return self._provider_locks[provider_code]
 
     # ------------------------------------------------------------------
     # 生命周期
@@ -234,6 +345,7 @@ class ModelSyncService:
             同步状态字典(含每个 provider 的结果 + preview 字段),供 admin 端点直接返回。
 
         防止并发:如果 is_syncing=True,直接返回当前状态。
+        F4.7:已永久禁用或连续失败 >= FAILURE_THRESHOLD 的 provider 自动跳过。
         """
         async with self._lock:
             if self._status.is_syncing:
@@ -267,6 +379,7 @@ class ModelSyncService:
                 results.append(SyncResult(
                     provider_code=code, success=False,
                     error=f"{type(r).__name__}: {str(r)[:200]}",
+                    error_type=SyncErrorType.UNKNOWN.value,
                 ))
             else:
                 results.append(r)
@@ -325,6 +438,8 @@ class ModelSyncService:
 
         Raises:
             ValueError: provider_code 未配置 key 或不在 registry 中。
+
+        F4.7 provider 级别并发锁:确保同一 provider 同时只允许一个同步。
         """
         async with self._lock:
             if self._status.is_syncing:
@@ -353,9 +468,11 @@ class ModelSyncService:
             )
 
         sem = asyncio.Semaphore(1)
-        result = await self._sync_single_provider(
-            sem, provider_code, api_base, api_key, dry_run=dry_run
-        )
+        # F4.7 provider 级别并发锁
+        async with self._get_provider_lock(provider_code):
+            result = await self._sync_single_provider(
+                sem, provider_code, api_base, api_key, dry_run=dry_run
+            )
 
         self._status.results = [result]
         self._status.total_providers = 1
@@ -396,22 +513,40 @@ class ModelSyncService:
         - LOCAL provider(ollama/lmstudio/llamacpp/vllm):本地模型,无需同步
         - 未配置 key 的 provider:无法调 /v1/models,跳过
         - 占位符 key(如 <your-xxx-api-key>):跳过
+        - F4.7 永久禁用 provider(404 端点不存在 / 401-403 连续 3 次):跳过并 log warning
+        - F4.7 连续失败 >= FAILURE_THRESHOLD:跳过并 log warning
 
         Returns:
             [(provider_code, base_url, api_key), ...]
         """
         result: list[tuple[str, str, str]] = []
         for provider in free_provider_registry.list_all():
+            code = provider.provider_code
             # zero_cost / LOCAL provider 不需要同步模型清单
             if provider.zero_cost or provider.category == ProviderCategory.LOCAL:
                 continue
+            # F4.7 永久禁用 provider 跳过
+            if code in self._permanently_disabled_providers:
+                logger.warning(
+                    "[ModelSyncService] %s 已永久禁用(404/连续认证失败),跳过同步",
+                    code,
+                )
+                continue
+            # F4.7 连续失败 >= 阈值跳过(unhealthy)
+            failures = self._provider_failure_counter.get(code, 0)
+            if failures >= FAILURE_THRESHOLD:
+                logger.warning(
+                    "[ModelSyncService] %s 连续失败 %d 次(>= %d),标记 unhealthy 跳过同步",
+                    code, failures, FAILURE_THRESHOLD,
+                )
+                continue
             # 从 settings 获取 api_key 和 api_base(与 model_availability.py 同源)
-            cfg_name = _to_cfg_name(provider.provider_code)
+            cfg_name = _to_cfg_name(code)
             cfg = settings.get_provider_config(cfg_name)
             api_key = cfg.api_key
             api_base = cfg.api_base or provider.default_base_url
             if api_key and api_base and api_key not in _PLACEHOLDER_KEYS:
-                result.append((provider.provider_code, api_base, api_key))
+                result.append((code, api_base, api_key))
         return result
 
     async def _sync_single_provider(
@@ -425,113 +560,393 @@ class ModelSyncService:
         """同步单个 provider:拉取 /v1/models → 比对 DB → 注册新增/下架移除。
 
         F1.2 失败重试:网络/超时错误指数退避 3 次(1s/2s/4s),4xx 不重试。
+        F4.3 错误分类:401/403/404/429/5xx 分别处理,404 永久禁用,429 长退避。
+        F4.6 Prometheus metrics:成功/失败/latency/health 埋点。
+        F4.7 连续失败计数:成功清零,失败累加,>= 阈值标记 unhealthy。
+        F4.8 增量同步:304 Not Modified 跳过 upsert。
         """
-        async with sem:
-            start = datetime.now(timezone.utc)
-            upstream_models: list[dict[str, Any]] = []
-            last_exc: Optional[BaseException] = None
+        # F4.7 provider 级别并发锁(确保同一 provider 同时只允许一个同步)
+        async with self._get_provider_lock(provider_code):
+            async with sem:
+                start = datetime.now(timezone.utc)
+                upstream_models: list[dict[str, Any]] = []
+                last_exc: Optional[BaseException] = None
+                last_error_type: str = ""
+                skip_upsert = False
 
-            # F1.2 重试循环(只重试网络/超时错误,4xx 不重试)
-            for attempt, delay in enumerate(_RETRY_BASE_DELAYS, start=1):
+                # F1.2 重试循环(只重试网络/超时/5xx 错误,4xx 不重试)
+                for attempt, delay in enumerate(_RETRY_BASE_DELAYS, start=1):
+                    try:
+                        upstream_models, skip_upsert = await self._fetch_upstream_models(
+                            provider_code, base_url, api_key
+                        )
+                        last_exc = None
+                        last_error_type = ""
+                        break
+                    except (httpx.TimeoutException, httpx.NetworkError) as e:
+                        # F4.3 NETWORK 错误:短退避重试
+                        last_exc = e
+                        last_error_type = SyncErrorType.NETWORK.value
+                        logger.warning(
+                            "[ModelSyncService] %s 拉取失败(第 %d 次, %s),%0.1fs 后重试",
+                            provider_code, attempt, type(e).__name__, delay,
+                        )
+                        if attempt < len(_RETRY_BASE_DELAYS):
+                            await asyncio.sleep(delay)
+                    except httpx.HTTPStatusError as e:
+                        # F4.3 HTTP 状态码错误分类
+                        status_code = e.response.status_code if e.response is not None else 0
+                        last_error_type = self._classify_http_error(status_code)
+                        last_exc = e
+
+                        if last_error_type == SyncErrorType.NOT_FOUND.value:
+                            # 404:端点不存在,永久禁用此 provider
+                            self._permanently_disabled_providers.add(provider_code)
+                            logger.warning(
+                                "[ModelSyncService] %s 返回 404(端点不存在),已永久禁用",
+                                provider_code,
+                            )
+                            break
+                        elif last_error_type == SyncErrorType.INVALID_KEY.value:
+                            # 401:key 失效,累加失败计数(连续 3 次后永久禁用)
+                            self._bump_failure(provider_code)
+                            logger.warning(
+                                "[ModelSyncService] %s 返回 401(key 失效),失败计数 %d/%d",
+                                provider_code,
+                                self._provider_failure_counter.get(provider_code, 0),
+                                FAILURE_THRESHOLD,
+                            )
+                            if self._provider_failure_counter.get(provider_code, 0) >= FAILURE_THRESHOLD:
+                                self._permanently_disabled_providers.add(provider_code)
+                                logger.warning(
+                                    "[ModelSyncService] %s 连续 401 失败 >= %d 次,已永久禁用",
+                                    provider_code, FAILURE_THRESHOLD,
+                                )
+                            break
+                        elif last_error_type == SyncErrorType.FORBIDDEN.value:
+                            # 403:无权限,累加失败计数
+                            self._bump_failure(provider_code)
+                            logger.warning(
+                                "[ModelSyncService] %s 返回 403(无权限),失败计数 %d/%d",
+                                provider_code,
+                                self._provider_failure_counter.get(provider_code, 0),
+                                FAILURE_THRESHOLD,
+                            )
+                            if self._provider_failure_counter.get(provider_code, 0) >= FAILURE_THRESHOLD:
+                                self._permanently_disabled_providers.add(provider_code)
+                                logger.warning(
+                                    "[ModelSyncService] %s 连续 403 失败 >= %d 次,已永久禁用",
+                                    provider_code, FAILURE_THRESHOLD,
+                                )
+                            break
+                        elif last_error_type == SyncErrorType.RATE_LIMIT.value:
+                            # 429:速率限制,长退避(60s)后重试 1 次
+                            if attempt < len(_RETRY_BASE_DELAYS):
+                                logger.warning(
+                                    "[ModelSyncService] %s 返回 429(速率限制),%0.1fs 后重试",
+                                    provider_code, _RATE_LIMIT_BACKOFF_S,
+                                )
+                                await asyncio.sleep(_RATE_LIMIT_BACKOFF_S)
+                                continue
+                            else:
+                                self._bump_failure(provider_code)
+                                break
+                        elif last_error_type == SyncErrorType.SERVER_ERROR.value:
+                            # 5xx:服务端错误,沿用指数退避重试
+                            logger.warning(
+                                "[ModelSyncService] %s 返回 5xx(%d),第 %d 次重试,%0.1fs 后",
+                                provider_code, status_code, attempt, delay,
+                            )
+                            if attempt < len(_RETRY_BASE_DELAYS):
+                                await asyncio.sleep(delay)
+                                continue
+                            else:
+                                self._bump_failure(provider_code)
+                                break
+                        else:
+                            # UNKNOWN:不重试
+                            self._bump_failure(provider_code)
+                            break
+                    except Exception as e:
+                        # 其他未知错误不重试
+                        last_exc = e
+                        last_error_type = SyncErrorType.UNKNOWN.value
+                        self._bump_failure(provider_code)
+                        break
+
+                latency_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
+                latency_s = latency_ms / 1000.0
+
+                if last_exc is not None:
+                    # F4.6 Prometheus metrics 失败埋点
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    failures = self._provider_failure_counter.get(provider_code, 0)
+                    PROVIDER_HEALTH.labels(provider_code).set(
+                        1 if failures < FAILURE_THRESHOLD else 0
+                    )
+                    return SyncResult(
+                        provider_code=provider_code, success=False,
+                        error=f"{type(last_exc).__name__}: {str(last_exc)[:200]}",
+                        latency_ms=latency_ms,
+                        error_type=last_error_type,
+                    )
+
+                # F4.8 增量同步:304 Not Modified 跳过 upsert
+                if skip_upsert:
+                    # F4.7 成功清零失败计数
+                    self._provider_failure_counter[provider_code] = 0
+                    # F4.6 Prometheus metrics 成功埋点(skipped)
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "skipped").inc()
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    PROVIDER_HEALTH.labels(provider_code).set(1)
+                    logger.info(
+                        "[ModelSyncService] %s 增量同步命中缓存(304),跳过 upsert,%dms",
+                        provider_code, latency_ms,
+                    )
+                    return SyncResult(
+                        provider_code=provider_code, success=True,
+                        total_models=0, skipped=True,
+                        latency_ms=latency_ms,
+                    )
+
+                if not upstream_models:
+                    # F4.7 成功清零失败计数
+                    self._provider_failure_counter[provider_code] = 0
+                    # F4.6 Prometheus metrics 成功埋点
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "success").inc()
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    SYNC_NEW_MODELS.labels(provider_code).set(0)
+                    SYNC_REMOVED_MODELS.labels(provider_code).set(0)
+                    PROVIDER_HEALTH.labels(provider_code).set(1)
+                    return SyncResult(
+                        provider_code=provider_code, success=True, total_models=0,
+                        latency_ms=latency_ms,
+                    )
+
                 try:
-                    upstream_models = await self._fetch_upstream_models(
-                        provider_code, base_url, api_key
+                    new_count, removed_count, preview_new, preview_removed, tags = (
+                        await self._upsert_models_to_db(
+                            provider_code, upstream_models, dry_run=dry_run
+                        )
                     )
-                    last_exc = None
-                    break
-                except (httpx.TimeoutException, httpx.NetworkError) as e:
-                    last_exc = e
-                    logger.warning(
-                        "[ModelSyncService] %s 拉取失败(第 %d 次, %s),%0.1fs 后重试",
-                        provider_code, attempt, type(e).__name__, delay,
-                    )
-                    if attempt < len(_RETRY_BASE_DELAYS):
-                        await asyncio.sleep(delay)
                 except Exception as e:
-                    # 4xx / 其他错误不重试,直接返回失败
+                    logger.warning("[ModelSyncService] %s upsert 失败: %s", provider_code, e)
+                    # F4.6 Prometheus metrics 失败埋点
+                    SYNC_OPERATIONS_TOTAL.labels(provider_code, "failure").inc()
+                    SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                    self._bump_failure(provider_code)
+                    failures = self._provider_failure_counter.get(provider_code, 0)
+                    PROVIDER_HEALTH.labels(provider_code).set(
+                        1 if failures < FAILURE_THRESHOLD else 0
+                    )
                     return SyncResult(
                         provider_code=provider_code, success=False, error=str(e)[:200],
-                        latency_ms=int((datetime.now(timezone.utc) - start).total_seconds() * 1000),
+                        latency_ms=latency_ms,
+                        error_type=SyncErrorType.UNKNOWN.value,
                     )
 
-            if last_exc is not None:
+                # F4.7 成功清零失败计数
+                self._provider_failure_counter[provider_code] = 0
+
+                # F4.6 Prometheus metrics 成功埋点
+                SYNC_OPERATIONS_TOTAL.labels(provider_code, "success").inc()
+                SYNC_LATENCY_SECONDS.labels(provider_code).observe(latency_s)
+                SYNC_NEW_MODELS.labels(provider_code).set(new_count)
+                SYNC_REMOVED_MODELS.labels(provider_code).set(removed_count)
+                PROVIDER_HEALTH.labels(provider_code).set(1)
+                TOTAL_MODELS_IN_DB.labels(provider_code).set(len(upstream_models))
+
                 return SyncResult(
-                    provider_code=provider_code, success=False,
-                    error=f"{type(last_exc).__name__}: {str(last_exc)[:200]}",
-                    latency_ms=int((datetime.now(timezone.utc) - start).total_seconds() * 1000),
+                    provider_code=provider_code, success=True,
+                    total_models=len(upstream_models),
+                    new_models=new_count, removed_models=removed_count,
+                    latency_ms=latency_ms,
+                    preview_new_model_ids=preview_new,
+                    preview_removed_model_ids=preview_removed,
+                    tags=tags,
                 )
 
-            if not upstream_models:
-                return SyncResult(
-                    provider_code=provider_code, success=True, total_models=0,
-                    latency_ms=int((datetime.now(timezone.utc) - start).total_seconds() * 1000),
-                )
+    # ------------------------------------------------------------------
+    # F4.3 错误分类辅助
+    # ------------------------------------------------------------------
 
-            try:
-                new_count, removed_count, preview_new, preview_removed, tags = (
-                    await self._upsert_models_to_db(
-                        provider_code, upstream_models, dry_run=dry_run
-                    )
-                )
-            except Exception as e:
-                logger.warning("[ModelSyncService] %s upsert 失败: %s", provider_code, e)
-                return SyncResult(
-                    provider_code=provider_code, success=False, error=str(e)[:200],
-                    latency_ms=int((datetime.now(timezone.utc) - start).total_seconds() * 1000),
-                )
+    @staticmethod
+    def _classify_http_error(status_code: int) -> str:
+        """F4.3 根据 HTTP 状态码分类错误类型。
 
-            return SyncResult(
-                provider_code=provider_code, success=True,
-                total_models=len(upstream_models),
-                new_models=new_count, removed_models=removed_count,
-                latency_ms=int((datetime.now(timezone.utc) - start).total_seconds() * 1000),
-                preview_new_model_ids=preview_new,
-                preview_removed_model_ids=preview_removed,
-                tags=tags,
-            )
+        Args:
+            status_code: HTTP 响应状态码。
+
+        Returns:
+            SyncErrorType 枚举值(str)。
+        """
+        if status_code == 401:
+            return SyncErrorType.INVALID_KEY.value
+        if status_code == 403:
+            return SyncErrorType.FORBIDDEN.value
+        if status_code == 404:
+            return SyncErrorType.NOT_FOUND.value
+        if status_code == 429:
+            return SyncErrorType.RATE_LIMIT.value
+        if 500 <= status_code < 600:
+            return SyncErrorType.SERVER_ERROR.value
+        return SyncErrorType.UNKNOWN.value
+
+    def _bump_failure(self, provider_code: str) -> None:
+        """F4.7 递增 provider 的连续失败计数。"""
+        self._provider_failure_counter[provider_code] = (
+            self._provider_failure_counter.get(provider_code, 0) + 1
+        )
+
+    # ------------------------------------------------------------------
+    # F4.7 健康状态查询
+    # ------------------------------------------------------------------
+
+    def get_health(self) -> dict[str, Any]:
+        """F4.7 查询每个 provider 的健康状态。
+
+        Returns:
+            {
+                "failure_counters": {provider_code: 连续失败次数, ...},
+                "permanently_disabled": [provider_code, ...],
+                "failure_threshold": 3,
+            }
+        """
+        return {
+            "failure_counters": dict(self._provider_failure_counter),
+            "permanently_disabled": sorted(self._permanently_disabled_providers),
+            "failure_threshold": FAILURE_THRESHOLD,
+        }
 
     async def _fetch_upstream_models(
         self, provider_code: str, base_url: str, api_key: str
-    ) -> list[dict[str, Any]]:
-        """从上游拉取模型清单(OpenAI 兼容 /v1/models 或 Cloudflare 适配)。
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """从上游拉取模型清单(多 provider 适配)。
 
-        F1.4:Cloudflare 适配改用 provider_code == "cloudflare_workers_ai" 判断,
-        不再用字符串匹配 base_url。
+        F1.4:Cloudflare 适配改用 provider_code == "cloudflare_workers_ai" 判断。
+        F4.4:新增 Anthropic /v1/models + Google Gemini /v1beta/models 适配。
+        F4.8:增量同步,带 If-None-Match / If-Modified-Since header,304 返回 (空 list, True)。
 
         Returns:
-            [{"id": "...", "context_length": ..., "pricing": {...}}, ...]
-            只返回含 id 字段的模型对象。
+            (models, skip_upsert) 元组:
+            - models: [{"id": "...", "context_length": ..., "pricing": {...}}, ...]
+            - skip_upsert: True 表示 304 Not Modified 命中缓存,应跳过 upsert。
         """
         url = base_url.rstrip("/")
-        headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
-
-        # F1.4 Cloudflare Workers AI 适配:用 provider_code 判断(替代字符串匹配)
         is_cloudflare = provider_code == "cloudflare_workers_ai"
+        is_anthropic = provider_code == "anthropic"
+        is_gemini = provider_code in ("google_gemini", "gemini", "google")
+
+        # 构造请求 URL + headers
+        headers: dict[str, str] = {"Accept": "application/json"}
+
         if is_cloudflare:
-            # 端点:https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search
-            # base_url 可能以 /ai 或 /ai/v1 结尾(用户习惯加 /v1),统一去掉 /v1 后缀再追加 /models/search
+            # Cloudflare Workers AI: /models/search
             if url.endswith("/v1"):
                 url = url[:-3]
             url = f"{url}/models/search"
-        elif url.endswith("/v1"):
-            url = f"{url}/models"
+            headers["Authorization"] = f"Bearer {api_key}"
+        elif is_anthropic:
+            # F4.4 Anthropic: /v1/models,header 用 x-api-key + anthropic-version
+            if url.endswith("/v1"):
+                url = f"{url}/models"
+            else:
+                url = f"{url}/v1/models"
+            headers["x-api-key"] = api_key
+            headers["anthropic-version"] = "2023-06-01"
+        elif is_gemini:
+            # F4.4 Google Gemini: /v1beta/models?key={api_key}
+            if url.endswith("/v1beta"):
+                url = f"{url}/models"
+            else:
+                url = f"{url}/v1beta/models"
+            # key 通过 query param 传递
+            url = f"{url}?key={api_key}"
         else:
-            url = f"{url}/v1/models"
+            # 默认 OpenAI 兼容: /v1/models
+            headers["Authorization"] = f"Bearer {api_key}"
+            if url.endswith("/v1"):
+                url = f"{url}/models"
+            else:
+                url = f"{url}/v1/models"
+
+        # F4.8 增量同步:带 If-None-Match / If-Modified-Since header
+        etag = self._provider_etag.get(provider_code)
+        last_modified = self._provider_last_modified.get(provider_code)
+        if etag:
+            headers["If-None-Match"] = etag
+        if last_modified:
+            headers["If-Modified-Since"] = last_modified
 
         async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S) as client:
             resp = await client.get(url, headers=headers)
+
+            # F4.8 304 Not Modified:命中缓存,跳过 upsert
+            if resp.status_code == 304:
+                return ([], True)
+
             resp.raise_for_status()
+
+            # F4.8 提取 ETag / Last-Modified 缓存
+            new_etag = resp.headers.get("ETag")
+            new_last_modified = resp.headers.get("Last-Modified")
+            if new_etag:
+                self._provider_etag[provider_code] = new_etag
+            if new_last_modified:
+                self._provider_last_modified[provider_code] = new_last_modified
+
             data = resp.json()
 
-        # 解析响应:Cloudflare 用 result 字段,OpenAI 兼容用 data 字段,也可能是顶层数组
+        # 解析响应:Cloudflare 用 result 字段,OpenAI 兼容用 data 字段,
+        # Anthropic 用 data 字段(同 OpenAI),Gemini 用 models 字段
         models: list[Any]
-        if isinstance(data, dict):
-            models = data.get("result", []) if is_cloudflare else data.get("data", [])
+        if is_cloudflare:
+            models = data.get("result", []) if isinstance(data, dict) else []
+        elif is_gemini:
+            # F4.4 Gemini 响应:{"models": [{"name": "models/gemini-1.5-flash", ...}]}
+            raw_models = data.get("models", []) if isinstance(data, dict) else []
+            models = []
+            for m in raw_models:
+                if not isinstance(m, dict):
+                    continue
+                # Gemini 的 name 字段格式 "models/gemini-1.5-flash",去掉 "models/" 前缀
+                raw_name = m.get("name", "")
+                model_id = raw_name.split("models/", 1)[-1] if raw_name.startswith("models/") else raw_name
+                if not model_id:
+                    continue
+                # 构造兼容的 model dict(id 字段是必须的)
+                normalized: dict[str, Any] = {"id": model_id}
+                # Gemini:displayName → name 字段(供 _extract_display_name 用)
+                if m.get("displayName"):
+                    normalized["name"] = m["displayName"]
+                # Gemini:inputTokenLimit + outputTokenLimit
+                input_limit = m.get("inputTokenLimit")
+                output_limit = m.get("outputTokenLimit")
+                if isinstance(input_limit, int) and input_limit > 0:
+                    normalized["context_length"] = input_limit
+                    normalized["max_input_tokens"] = input_limit
+                if isinstance(output_limit, int) and output_limit > 0:
+                    normalized["max_output_tokens"] = output_limit
+                # Gemini:supportedGenerationMethods 含 "generateContent" 视为 chat 模型
+                methods = m.get("supportedGenerationMethods", [])
+                if isinstance(methods, list) and "generateContent" in methods:
+                    normalized["metadata"] = {"is_chat": True}
+                models.append(normalized)
+        elif isinstance(data, dict):
+            models = data.get("data", [])
         elif isinstance(data, list):
             models = data
         else:
             models = []
-        return [m for m in models if isinstance(m, dict) and m.get("id")]
+
+        # F4.4 Anthropic 的 display_name 写入 name 字段(优先于 _extract_display_name 派生)
+        if is_anthropic:
+            for m in models:
+                if isinstance(m, dict) and m.get("display_name") and not m.get("name"):
+                    m["name"] = m["display_name"]
+
+        return ([m for m in models if isinstance(m, dict) and m.get("id")], False)
 
     async def _upsert_models_to_db(
         self,
@@ -545,6 +960,8 @@ class ModelSyncService:
         F2.2:dry_run=True 时只比对返回 preview 列表,不写 DB。
         F3.5:价格超过 MAX_PRICE_PER_1K_TOKENS 的模型跳过 INSERT 并 log warning。
         F3.4:若 ai_model_config_models 表有 tags 字段,则写入 tags;否则只在内存返回。
+        F4.5:深度元数据提取(description/vendor/max_output_tokens/supports_tool_call/
+             supports_vision/rate_limit/release_date/deprecation_date),新字段缺失时降级。
 
         Returns:
             (new_count, removed_count, preview_new_ids, preview_removed_ids, tags)
@@ -584,6 +1001,13 @@ class ModelSyncService:
                 # F3.4 查 tags 字段是否存在(带缓存)
                 tags_column_exists = await self._check_tags_column_exists(conn)
 
+                # F4.5 查新字段是否存在(带缓存)
+                columns = await self._check_columns_exists(conn, [
+                    "vendor", "max_output_tokens", "supports_tool_call", "supports_vision",
+                    "description", "rate_limit_rpm", "rate_limit_tpd",
+                    "release_date", "deprecation_date",
+                ])
+
                 # F3.6 别名映射后的 upstream_ids(用于下架比对)
                 upstream_ids: set[str] = set()
 
@@ -605,6 +1029,20 @@ class ModelSyncService:
                     model_tags = self._classify_model(aliased_id, m)
                     all_tags.update(model_tags)
 
+                    # F4.5 深度元数据提取
+                    vendor = self._extract_vendor(aliased_id, m)
+                    max_output_tokens = self._extract_max_output_tokens(m)
+                    supports_tool_call = self._extract_supports_tool_call(
+                        provider_code, aliased_id, m
+                    )
+                    supports_vision = self._extract_supports_vision(
+                        provider_code, aliased_id, m
+                    )
+                    description = self._extract_description(m)
+                    rpm, tpd = self._extract_rate_limit(m)
+                    release_date = self._extract_release_date(m)
+                    deprecation_date = self._extract_deprecation_date(m)
+
                     # F3.5 价格上限过滤(极端高价跳过)
                     if input_price > MAX_PRICE_PER_1K_TOKENS:
                         logger.warning(
@@ -618,59 +1056,39 @@ class ModelSyncService:
                             preview_new.append(aliased_id)
                         else:
                             # 新模型:INSERT(is_relay_public=true 自动上架)
-                            if tags_column_exists:
-                                await conn.execute(
-                                    """INSERT INTO ai_model_config_models
-                                         (config_id, model_id, display_name, context_length,
-                                          input_price_per_1k, output_price_per_1k,
-                                          enabled, is_relay_public, relay_price_multiplier, tags)
-                                       VALUES ($1, $2, $3, $4, $5, $6, true, true, '1.0000', $7)
-                                       ON CONFLICT (config_id, model_id) DO UPDATE
-                                         SET is_relay_public = true, enabled = true,
-                                             context_length = $4, tags = $7, updated_at = now()""",
-                                    config_id, aliased_id, display_name, ctx_len,
-                                    input_price, output_price, model_tags,
-                                )
-                            else:
-                                await conn.execute(
-                                    """INSERT INTO ai_model_config_models
-                                         (config_id, model_id, display_name, context_length,
-                                          input_price_per_1k, output_price_per_1k,
-                                          enabled, is_relay_public, relay_price_multiplier)
-                                       VALUES ($1, $2, $3, $4, $5, $6, true, true, '1.0000')
-                                       ON CONFLICT (config_id, model_id) DO UPDATE
-                                         SET is_relay_public = true, enabled = true,
-                                             context_length = $4, updated_at = now()""",
-                                    config_id, aliased_id, display_name, ctx_len,
-                                    input_price, output_price,
-                                )
+                            await self._insert_model(
+                                conn, config_id, aliased_id, display_name, ctx_len,
+                                input_price, output_price, model_tags,
+                                tags_column_exists, columns,
+                                vendor=vendor,
+                                max_output_tokens=max_output_tokens,
+                                supports_tool_call=supports_tool_call,
+                                supports_vision=supports_vision,
+                                description=description,
+                                rate_limit_rpm=rpm,
+                                rate_limit_tpd=tpd,
+                                release_date=release_date,
+                                deprecation_date=deprecation_date,
+                            )
                         new_count += 1
                     else:
-                        # 已存在:更新 context_length + pricing(不改变 is_relay_public,尊重 admin 手动下架)
+                        # 已存在:更新 context_length + pricing + F4.5 新字段
+                        # (不改变 is_relay_public,尊重 admin 手动下架)
                         if not dry_run:
-                            if tags_column_exists:
-                                await conn.execute(
-                                    """UPDATE ai_model_config_models
-                                       SET context_length = $3,
-                                           input_price_per_1k = $4,
-                                           output_price_per_1k = $5,
-                                           tags = $6,
-                                           updated_at = now()
-                                       WHERE config_id = $1 AND model_id = $2""",
-                                    config_id, aliased_id, ctx_len,
-                                    input_price, output_price, model_tags,
-                                )
-                            else:
-                                await conn.execute(
-                                    """UPDATE ai_model_config_models
-                                       SET context_length = $3,
-                                           input_price_per_1k = $4,
-                                           output_price_per_1k = $5,
-                                           updated_at = now()
-                                       WHERE config_id = $1 AND model_id = $2""",
-                                    config_id, aliased_id, ctx_len,
-                                    input_price, output_price,
-                                )
+                            await self._update_model(
+                                conn, config_id, aliased_id, ctx_len,
+                                input_price, output_price, model_tags,
+                                tags_column_exists, columns,
+                                vendor=vendor,
+                                max_output_tokens=max_output_tokens,
+                                supports_tool_call=supports_tool_call,
+                                supports_vision=supports_vision,
+                                description=description,
+                                rate_limit_rpm=rpm,
+                                rate_limit_tpd=tpd,
+                                release_date=release_date,
+                                deprecation_date=deprecation_date,
+                            )
 
                 # 4. 下架移除的模型(DB 已上架但上游不再返回)
                 for mid, is_public in existing_map.items():
@@ -687,6 +1105,157 @@ class ModelSyncService:
                         removed_count += 1
 
         return new_count, removed_count, preview_new, preview_removed, sorted(all_tags)
+
+    # ------------------------------------------------------------------
+    # F4.5 INSERT / UPDATE 辅助(根据列存在性动态构造 SQL)
+    # ------------------------------------------------------------------
+
+    async def _insert_model(
+        self,
+        conn: Any,
+        config_id: int,
+        model_id: str,
+        display_name: str,
+        ctx_len: int,
+        input_price: int,
+        output_price: int,
+        model_tags: list[str],
+        tags_column_exists: bool,
+        columns: dict[str, bool],
+        vendor: str,
+        max_output_tokens: int,
+        supports_tool_call: bool,
+        supports_vision: bool,
+        description: str,
+        rate_limit_rpm: int,
+        rate_limit_tpd: int,
+        release_date: str,
+        deprecation_date: str,
+    ) -> None:
+        """F4.5 动态构造 INSERT SQL(根据列存在性决定写哪些字段)。
+
+        新字段不存在时降级为只写存在的字段(类似 tags 的降级模式)。
+        """
+        # 基础字段(一定存在)
+        fields = [
+            "config_id", "model_id", "display_name", "context_length",
+            "input_price_per_1k", "output_price_per_1k",
+            "enabled", "is_relay_public", "relay_price_multiplier",
+        ]
+        placeholders = ["$1", "$2", "$3", "$4", "$5", "$6", "true", "true", "'1.0000'"]
+        params: list[Any] = [config_id, model_id, display_name, ctx_len, input_price, output_price]
+        idx = 7  # 下一个 placeholder 编号
+
+        # tags 字段(v2 已有)
+        if tags_column_exists:
+            fields.append("tags")
+            placeholders.append(f"${idx}")
+            params.append(model_tags)
+            idx += 1
+
+        # F4.5 新字段
+        f4_5_fields = [
+            ("vendor", vendor),
+            ("max_output_tokens", max_output_tokens),
+            ("supports_tool_call", supports_tool_call),
+            ("supports_vision", supports_vision),
+            ("description", description),
+            ("rate_limit_rpm", rate_limit_rpm),
+            ("rate_limit_tpd", rate_limit_tpd),
+            ("release_date", release_date),
+            ("deprecation_date", deprecation_date),
+        ]
+        for col_name, param_value in f4_5_fields:
+            if columns.get(col_name, False):
+                fields.append(col_name)
+                placeholders.append(f"${idx}")
+                params.append(param_value)
+                idx += 1
+
+        # ON CONFLICT DO UPDATE:更新存在的字段
+        update_parts = ["is_relay_public = true", "enabled = true", "context_length = $4", "updated_at = now()"]
+        if tags_column_exists:
+            update_parts.append("tags = $7")
+        # F4.5 新字段的 ON CONFLICT UPDATE
+        update_idx = 7
+        if tags_column_exists:
+            update_idx = 8
+        for col_name, _param_value in f4_5_fields:
+            if columns.get(col_name, False):
+                update_parts.append(f"{col_name} = ${update_idx}")
+                update_idx += 1
+
+        fields_str = ", ".join(fields)
+        placeholders_str = ", ".join(placeholders)
+        update_str = ", ".join(update_parts)
+
+        sql = (
+            f"INSERT INTO ai_model_config_models ({fields_str}) "
+            f"VALUES ({placeholders_str}) "
+            f"ON CONFLICT (config_id, model_id) DO UPDATE SET {update_str}"
+        )
+        await conn.execute(sql, *params)
+
+    async def _update_model(
+        self,
+        conn: Any,
+        config_id: int,
+        model_id: str,
+        ctx_len: int,
+        input_price: int,
+        output_price: int,
+        model_tags: list[str],
+        tags_column_exists: bool,
+        columns: dict[str, bool],
+        vendor: str,
+        max_output_tokens: int,
+        supports_tool_call: bool,
+        supports_vision: bool,
+        description: str,
+        rate_limit_rpm: int,
+        rate_limit_tpd: int,
+        release_date: str,
+        deprecation_date: str,
+    ) -> None:
+        """F4.5 动态构造 UPDATE SQL(根据列存在性决定更新哪些字段)。"""
+        set_parts = [
+            "context_length = $3",
+            "input_price_per_1k = $4",
+            "output_price_per_1k = $5",
+            "updated_at = now()",
+        ]
+        params: list[Any] = [config_id, model_id, ctx_len, input_price, output_price]
+        idx = 6
+
+        if tags_column_exists:
+            set_parts.append(f"tags = ${idx}")
+            params.append(model_tags)
+            idx += 1
+
+        # F4.5 新字段
+        f4_5_fields = [
+            ("vendor", vendor),
+            ("max_output_tokens", max_output_tokens),
+            ("supports_tool_call", supports_tool_call),
+            ("supports_vision", supports_vision),
+            ("description", description),
+            ("rate_limit_rpm", rate_limit_rpm),
+            ("rate_limit_tpd", rate_limit_tpd),
+            ("release_date", release_date),
+            ("deprecation_date", deprecation_date),
+        ]
+        for col_name, param_value in f4_5_fields:
+            if columns.get(col_name, False):
+                set_parts.append(f"{col_name} = ${idx}")
+                params.append(param_value)
+                idx += 1
+
+        set_str = ", ".join(set_parts)
+        sql = (
+            f"UPDATE ai_model_config_models SET {set_str} "
+            f"WHERE config_id = $1 AND model_id = $2"
+        )
+        await conn.execute(sql, *params)
 
     async def _check_tags_column_exists(self, conn: Any) -> bool:
         """F3.4 查询 ai_model_config_models 表是否有 tags 字段(带缓存)。
@@ -707,6 +1276,45 @@ class ModelSyncService:
             exists = False
         self._tags_column_cache = exists
         return exists
+
+    async def _check_columns_exists(
+        self, conn: Any, column_names: list[str]
+    ) -> dict[str, bool]:
+        """F4.5 通用列存在性查询(带缓存)。
+
+        一次性查所有指定列是否存在,结果缓存到 self._columns_cache。
+        新字段缺失时降级为只写存在的字段(类似 tags 的降级模式)。
+
+        Args:
+            conn: DB 连接。
+            column_names: 要查询的列名列表。
+
+        Returns:
+            {column_name: True/False, ...} 字典。
+        """
+        result: dict[str, bool] = {}
+        # 只查未缓存的列
+        uncached = [c for c in column_names if c not in self._columns_cache]
+        if uncached:
+            try:
+                rows = await conn.fetch(
+                    """SELECT column_name FROM information_schema.columns
+                       WHERE table_name = 'ai_model_config_models'
+                         AND column_name = ANY($1)""",
+                    uncached,
+                )
+                existing_set = {r["column_name"] for r in rows}
+                for c in uncached:
+                    self._columns_cache[c] = c in existing_set
+            except Exception as e:
+                logger.warning(
+                    "[ModelSyncService] 查询列存在性失败,降级为不写新字段: %s", e
+                )
+                for c in uncached:
+                    self._columns_cache[c] = False
+        for c in column_names:
+            result[c] = self._columns_cache.get(c, False)
+        return result
 
     # ------------------------------------------------------------------
     # F1.3 同步历史持久化
@@ -990,6 +1598,223 @@ class ModelSyncService:
             return 0
 
     # ------------------------------------------------------------------
+    # F4.5 深度元数据提取
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_description(model: dict[str, Any]) -> str:
+        """F4.5 提取模型描述。
+
+        优先级:
+        1. model.description(OpenRouter / OpenAI 兼容)
+        2. model.metadata.description(NVIDIA / 自定义)
+        """
+        v = model.get("description")
+        if isinstance(v, str) and v.strip():
+            return v.strip()[:1000]  # 限制长度防止 DB 溢出
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("description")
+            if isinstance(v, str) and v.strip():
+                return v.strip()[:1000]
+        return ""
+
+    @staticmethod
+    def _extract_vendor(model_id: str, model: dict[str, Any]) -> str:
+        """F4.5 提取模型厂商。
+
+        优先级:
+        1. model.metadata.vendor(上游显式声明,lower())
+        2. model_id 含 "/" → 取前缀(openai/gpt-4o → openai,anthropic/claude-... → anthropic)
+        3. model_id 关键词前缀匹配(gpt → openai,claude → anthropic,llama → meta 等)
+        4. 无法推断 → 空字符串
+        """
+        # 1. 上游 metadata.vendor
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("vendor")
+            if isinstance(v, str) and v.strip():
+                return v.strip().lower()
+        # 2. model_id 含 "/" → 取前缀作为 vendor
+        if "/" in model_id:
+            prefix = model_id.split("/", 1)[0].strip().lower()
+            if prefix:
+                return prefix
+        # 3. model_id 关键词前缀匹配
+        mid = model_id.lower()
+        vendor_prefixes = {
+            "gpt": "openai", "openai": "openai", "o1": "openai", "o3": "openai", "o4": "openai",
+            "claude": "anthropic",
+            "gemini": "google", "google": "google",
+            "llama": "meta",
+            "mistral": "mistral", "mixtral": "mistral",
+            "qwen": "alibaba", "qwq": "alibaba",
+            "deepseek": "deepseek",
+            "nvidia": "nvidia", "nemotron": "nvidia",
+            "cf": "cloudflare", "@cf": "cloudflare",
+            "phi": "microsoft",
+            "command": "cohere",
+            "grok": "x-ai",
+        }
+        for prefix, vendor in vendor_prefixes.items():
+            if mid.startswith(prefix):
+                return vendor
+        return ""
+
+    @staticmethod
+    def _extract_max_output_tokens(model: dict[str, Any]) -> int:
+        """F4.5 提取最大输出 token 数。
+
+        优先级:
+        1. model.max_output_tokens(OpenAI 兼容,int > 0)
+        2. model.top_provider.max_completion_tokens(OpenRouter,int > 0)
+        3. model.metadata.max_output_tokens(NVIDIA / 自定义,int > 0)
+        4. 默认 0(未知)
+
+        无效值(0 / 负数 / 非整数 / 缺失)→ 0(保守:不假设默认值)。
+        """
+        v = model.get("max_output_tokens")
+        if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+            return v
+        top = model.get("top_provider")
+        if isinstance(top, dict):
+            v = top.get("max_completion_tokens")
+            if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+                return v
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("max_output_tokens")
+            if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+                return v
+        return 0
+
+    @staticmethod
+    def _extract_supports_tool_call(
+        provider_code: str, model_id: str, model: dict[str, Any]
+    ) -> bool:
+        """F4.5 综合判断模型是否支持 tool calling。
+
+        优先级:
+        1. provider_caps.get_provider_cap(provider_code).supports_tools(provider 级别)
+        2. model.metadata.supports_tool_calling(OpenRouter 显式声明)
+        3. model_id 含 tool/function 关键字
+        """
+        # 1. provider 级别 cap
+        try:
+            cap = get_provider_cap(provider_code)
+            if not cap.supports_tools:
+                return False
+        except Exception:
+            pass
+        # 2. 上游 metadata.supports_tool_calling(OpenRouter)
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("supports_tool_calling")
+            if isinstance(v, bool):
+                return v
+        # 3. model_id 关键字
+        mid = model_id.lower()
+        if any(k in mid for k in ("tool", "function", "react")):
+            return True
+        # 默认:provider 支持 tools 则模型也支持(除非显式声明不支持)
+        return True
+
+    @staticmethod
+    def _extract_supports_vision(
+        provider_code: str, model_id: str, model: dict[str, Any]
+    ) -> bool:
+        """F4.5 综合判断模型是否支持视觉输入。
+
+        优先级:
+        1. provider_caps.get_provider_cap(provider_code).supports_vision(provider 级别)
+        2. model.metadata.supports_vision(上游显式声明)
+        3. model_id 含 vision/vl/image 关键字
+        """
+        # 1. provider 级别 cap
+        try:
+            cap = get_provider_cap(provider_code)
+            if cap.supports_vision:
+                return True
+        except Exception:
+            pass
+        # 2. 上游 metadata.supports_vision
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("supports_vision")
+            if isinstance(v, bool):
+                return v
+        # 3. model_id 关键字
+        mid = model_id.lower()
+        if any(k in mid for k in ("vision", "vl", "image", "multimodal")):
+            return True
+        return False
+
+    @staticmethod
+    def _extract_rate_limit(model: dict[str, Any]) -> tuple[int, int]:
+        """F4.5 提取速率限制。
+
+        从 model.top_provider.rate_limit 提取 requests_per_minute / tokens_per_day。
+
+        Returns:
+            (rpm, tpd) 元组,无数据时返回 (0, 0)。
+        """
+        top = model.get("top_provider")
+        if isinstance(top, dict):
+            rl = top.get("rate_limit")
+            if isinstance(rl, dict):
+                rpm = rl.get("requests_per_minute", 0)
+                tpd = rl.get("tokens_per_day", 0)
+                return (
+                    int(rpm) if isinstance(rpm, (int, float)) else 0,
+                    int(tpd) if isinstance(tpd, (int, float)) else 0,
+                )
+        return (0, 0)
+
+    @staticmethod
+    def _extract_release_date(model: dict[str, Any]) -> str:
+        """F4.5 提取模型发布日期(ISO 8601)。
+
+        优先级:
+        1. model.created(Unix 时间戳或 ISO 字符串,OpenAI / OpenRouter)
+        2. model.metadata.release_date(自定义)
+        """
+        v = model.get("created")
+        if v is not None:
+            # Unix 时间戳(int)
+            if isinstance(v, (int, float)) and v > 0:
+                try:
+                    return datetime.fromtimestamp(int(v), tz=timezone.utc).isoformat()
+                except (OSError, ValueError):
+                    pass
+            # ISO 字符串
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("release_date")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+    @staticmethod
+    def _extract_deprecation_date(model: dict[str, Any]) -> str:
+        """F4.5 提取模型弃用日期(ISO 8601)。
+
+        优先级:
+        1. model.deprecation_date(OpenAI 兼容)
+        2. model.metadata.deprecation_date(自定义)
+        """
+        v = model.get("deprecation_date")
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("deprecation_date")
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ""
+
+    # ------------------------------------------------------------------
     # 状态查询
     # ------------------------------------------------------------------
 
@@ -1015,6 +1840,8 @@ class ModelSyncService:
                     "tags": r.tags,
                     "preview_new_model_ids": r.preview_new_model_ids,
                     "preview_removed_model_ids": r.preview_removed_model_ids,
+                    "error_type": r.error_type,
+                    "skipped": r.skipped,
                 }
                 for r in self._status.results
             ],
