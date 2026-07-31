@@ -1787,13 +1787,15 @@ export function Sidebar({
           )}
         </Button>
       </Tooltip>
+      {/* 2026-07-31 第十四次微调(用户反馈"侧边栏关闭按钮不对,应该跟正常尺寸对齐"):
+          - h-9 w-9 (36×36) + bg-card 跟 GlobalTopBar 的 TOPBAR_BTN_BASE 完全统一
+          - 移 p-0(p-0 让按钮塌成 16×16 极小方块,跟顶栏 36×36 视觉参差)
+          - icon h-4 w-4 (16px) 跟顶栏 chevron/搜索按钮图标尺寸一致 */}
       <Button
         variant="ghost"
         size="icon"
         onClick={onCloseMobile}
-        // h-9 w-9 与展开/折叠按钮 + 新建任务按钮统一;hover foreground/20 与全局按钮规范一致;
-        // 默认无背景,仅 hover 出现 (2026-07-20 与 desktop collapse 按钮同步)
-        className="ml-auto flex-shrink-0 p-0 text-foreground hover:bg-foreground/20 lg:hidden"
+        className="ml-auto h-9 w-9 shrink-0 rounded-md border border-border bg-card text-foreground/80 transition-colors hover:bg-accent hover:text-foreground lg:hidden"
         aria-label={tc('close')}
       >
         <X className="h-4 w-4" />
