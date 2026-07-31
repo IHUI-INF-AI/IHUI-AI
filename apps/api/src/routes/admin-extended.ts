@@ -4,7 +4,16 @@ import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-import { createExamine, approveExamine, rejectExamine } from '../db/agents-queries.js'
+import {
+  createExamine,
+  approveExamine,
+  rejectExamine,
+  findExamineList,
+  findExamineById,
+  updateExamine,
+  deleteExamine,
+} from '../db/agents-queries.js'
+import type { UpdateExamineInput } from '../db/agents-queries.js'
 
 const menuSchema = z.object({
   name: z.string().min(1, '菜单名称不能为空').max(64),
@@ -218,27 +227,68 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(record))
   })
 
-  server.post('/examine/pass', async (request, reply) => {
-    const body = z.object({ recordId: z.string() }).safeParse(request.body)
-    if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    }
-    const record = await approveExamine(body.data.recordId, request.userId!)
+  // GET /examine — 列表(分页 + 搜索)
+  server.get('/examine', async (request, reply) => {
+    const q = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        agentId: z.string().optional(),
+        agentName: z.string().optional(),
+        status: z.string().optional(),
+      })
+      .safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const result = await findExamineList({
+      page: q.data.page,
+      pageSize: q.data.pageSize,
+      agentId: q.data.agentId,
+      status: q.data.status,
+    })
+    return reply.send(success(result))
+  })
+
+  // GET /examine/:id — 详情
+  server.get('/examine/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const record = await findExamineById(id)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
   })
 
-  server.post('/examine/reject', async (request, reply) => {
-    const body = z
-      .object({ recordId: z.string(), reason: z.string().optional() })
-      .safeParse(request.body)
-    if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    }
-    if (!body.data.reason) {
+  // PUT /examine/:id — 更新
+  server.put('/examine/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const body = request.body as UpdateExamineInput
+    const record = await updateExamine(id, body)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
+  })
+
+  // DELETE /examine/:id — 删除
+  server.delete('/examine/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const record = await deleteExamine(id)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success({ deleted: true }))
+  })
+
+  // PUT /examine/:id/pass — 通过
+  server.put('/examine/:id/pass', async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const record = await approveExamine(id, request.userId!)
+    if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    return reply.send(success(record))
+  })
+
+  // PUT /examine/:id/reject — 拒绝
+  server.put('/examine/:id/reject', async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const body = z.object({ reason: z.string().optional() }).safeParse(request.body)
+    if (!body.success || !body.data.reason) {
       return reply.status(400).send(error(400, 'reason 为必填项'))
     }
-    const record = await rejectExamine(body.data.recordId, request.userId!, body.data.reason)
+    const record = await rejectExamine(id, request.userId!, body.data.reason)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
   })
