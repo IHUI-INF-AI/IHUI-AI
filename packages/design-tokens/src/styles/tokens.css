@@ -287,6 +287,25 @@
   color-scheme: light;
 }
 
+/* Autofill 暗色模式处理(2026-07-31 对标 Trae/Codex/Claude Code):
+ * 浏览器(尤其 Chrome)对 input:-webkit-autofill 强制注入浅黄背景 (#FAFFBD) + 黑字,
+ * 在暗色模式下破坏整体视觉。background-color 对 autofill 无效,需用 -webkit-box-shadow
+ * 内阴影覆盖(1000px 半径确保填满输入框)。配合 color-scheme: dark 双重保险。
+ * 三端(web/extension/desktop)共用,放在共享层 tokens.css 单一来源。 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-background) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 .dark {
   color-scheme: dark;
   --color-background: hsl(0 0% 14%);
