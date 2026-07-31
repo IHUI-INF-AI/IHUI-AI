@@ -252,6 +252,9 @@ class ModelSyncService:
         # F4.8 增量同步:ETag / Last-Modified 缓存
         self._provider_etag: dict[str, str] = {}
         self._provider_last_modified: dict[str, str] = {}
+        # v4 运行时配置(优先于 settings,由 PUT /llm/models/sync/config 更新)
+        self._runtime_interval_s: int | None = None
+        self._runtime_concurrency: int | None = None
         # Provider 级别并发锁(单 provider 同时只允许一个同步)
         self._provider_locks: dict[str, asyncio.Lock] = {}
 
@@ -288,6 +291,13 @@ class ModelSyncService:
             "[ModelSyncService] 后台定时同步任务已启动(每 %ds,首次延迟 %ds)",
             interval, INITIAL_DELAY_S,
         )
+        # v4 启动自愈:提示上次运行中被永久禁用的 provider(不自动重置,让 admin 显式调用 reset)
+        if self._permanently_disabled_providers:
+            logger.warning(
+                "[ModelSyncService] 上次运行中以下 provider 被永久禁用,"
+                "如需重新同步请调用 POST /llm/models/sync/reset?provider=xxx: %s",
+                sorted(self._permanently_disabled_providers),
+            )
 
     async def shutdown(self) -> None:
         """关闭时调用:取消定时同步任务。"""
@@ -301,7 +311,9 @@ class ModelSyncService:
         self._initialized = False
 
     def _sync_interval_s(self) -> int:
-        """F2.3 读取同步间隔(秒),优先 settings.model_sync_interval_s,缺失用默认 21600。"""
+        """F2.3 读取同步间隔(秒),优先 _runtime_interval_s,其次 settings,最后默认 21600。"""
+        if self._runtime_interval_s is not None:
+            return self._runtime_interval_s
         val = getattr(settings, "model_sync_interval_s", _DEFAULT_SYNC_INTERVAL_S)
         try:
             n = int(val)
@@ -310,7 +322,9 @@ class ModelSyncService:
             return _DEFAULT_SYNC_INTERVAL_S
 
     def _sync_concurrency(self) -> int:
-        """F2.4 读取并发限流,优先 settings.model_sync_concurrency,缺失用默认 5。"""
+        """F2.4 读取并发限流,优先 _runtime_concurrency,其次 settings,最后默认 5。"""
+        if self._runtime_concurrency is not None:
+            return self._runtime_concurrency
         val = getattr(settings, "model_sync_concurrency", _DEFAULT_SYNC_CONCURRENCY)
         try:
             n = int(val)
@@ -329,6 +343,15 @@ class ModelSyncService:
                 raise
             except Exception as e:
                 logger.warning("[ModelSyncService] 定时同步失败: %s", e)
+            # v4 日志自动清理(每次全量同步完成后,失败不影响主流程)
+            try:
+                cleanup_result = await self.cleanup_old_logs(before_days=30)
+                logger.info(
+                    "[ModelSyncService] 自动清理 %d 天前同步日志完成:删除 %d 条",
+                    30, cleanup_result.get("deleted_count", 0),
+                )
+            except Exception as e:
+                logger.warning("[ModelSyncService] 自动清理同步日志失败: %s", e)
             await asyncio.sleep(self._sync_interval_s())
 
     # ------------------------------------------------------------------
@@ -818,6 +841,223 @@ class ModelSyncService:
             "permanently_disabled": sorted(self._permanently_disabled_providers),
             "failure_threshold": FAILURE_THRESHOLD,
         }
+
+    # ------------------------------------------------------------------
+    # v4 运维端点配套方法(reset / config / stats / cleanup)
+    # ------------------------------------------------------------------
+
+    def reset_provider(self, provider_code: str) -> dict[str, Any]:
+        """v4 重置 provider 的失败计数 + 从永久禁用列表移除,允许重新同步。
+
+        操作:
+        - 清零 _provider_failure_counter 中该 provider 的计数(记录 previous_failures)
+        - 从 _permanently_disabled_providers 移除(was_disabled=True/False)
+        - 清除 ETag/Last-Modified 缓存(强制下次全量同步)
+
+        Args:
+            provider_code: provider 唯一标识(如 stepfun / openai / cloudflare_workers_ai)。
+
+        Returns:
+            含 provider_code / reset=True / previous_failures / was_disabled 的字典。
+        """
+        previous_failures = self._provider_failure_counter.pop(provider_code, 0)
+        was_disabled = provider_code in self._permanently_disabled_providers
+        self._permanently_disabled_providers.discard(provider_code)
+        # 清除 ETag/Last-Modified 缓存(强制下次全量同步,不走 304)
+        self._provider_etag.pop(provider_code, None)
+        self._provider_last_modified.pop(provider_code, None)
+        logger.info(
+            "[ModelSyncService] provider %s 已重置(previous_failures=%d, was_disabled=%s)",
+            provider_code, previous_failures, was_disabled,
+        )
+        return {
+            "provider_code": provider_code,
+            "reset": True,
+            "previous_failures": previous_failures,
+            "was_disabled": was_disabled,
+        }
+
+    def update_config(
+        self,
+        interval_s: int | None = None,
+        concurrency: int | None = None,
+    ) -> dict[str, Any]:
+        """v4 运行时更新同步间隔 + 并发限流(无需重启 ai-service)。
+
+        优先级:_runtime_* > settings.model_sync_* > 默认值。
+        调用后 _sync_interval_s() / _sync_concurrency() 会返回新值。
+
+        Args:
+            interval_s: 同步间隔(秒),必须 > 0 且 <= 86400(最大 24 小时)。None 表示不更新。
+            concurrency: 并发限流,必须 > 0 且 <= 20。None 表示不更新。
+
+        Returns:
+            含当前生效的 interval_s / concurrency / applied=True 的字典。
+
+        Raises:
+            ValueError: 参数校验失败(interval_s 或 concurrency 超出范围,或两者都为 None)。
+        """
+        if interval_s is None and concurrency is None:
+            raise ValueError("至少传一个参数(interval_s 或 concurrency)")
+        if interval_s is not None:
+            if not isinstance(interval_s, int) or interval_s <= 0 or interval_s > 86400:
+                raise ValueError(
+                    f"interval_s 必须 > 0 且 <= 86400(最大 24 小时),得到 {interval_s}"
+                )
+            self._runtime_interval_s = interval_s
+        if concurrency is not None:
+            if not isinstance(concurrency, int) or concurrency <= 0 or concurrency > 20:
+                raise ValueError(
+                    f"concurrency 必须 > 0 且 <= 20,得到 {concurrency}"
+                )
+            self._runtime_concurrency = concurrency
+        logger.info(
+            "[ModelSyncService] 配置已更新(interval_s=%s, concurrency=%s)",
+            self._runtime_interval_s, self._runtime_concurrency,
+        )
+        return {
+            "interval_s": self._sync_interval_s(),
+            "concurrency": self._sync_concurrency(),
+            "applied": True,
+        }
+
+    async def get_aggregated_stats(self, days: int = 7) -> dict[str, Any]:
+        """v4 查询最近 N 天的聚合统计(成功率、平均延迟、新增/下架模型数)。
+
+        查询 ai_model_sync_log 表 WHERE sync_started_at >= now() - interval 'N days',
+        聚合计算 total_syncs / success_count / failure_count / success_rate /
+        avg/max/min latency / total_new_models / total_removed_models,
+        并按 provider_code GROUP BY 输出 by_provider 列表。
+
+        Args:
+            days: 查询天数,默认 7,最大 90。
+
+        Returns:
+            聚合统计字典。表不存在或查询失败时返回零值 dict(不抛异常)。
+        """
+        # 参数 clamp
+        days = max(1, min(days, 90))
+        zero_result: dict[str, Any] = {
+            "days": days,
+            "total_syncs": 0,
+            "success_count": 0,
+            "failure_count": 0,
+            "success_rate": 0.0,
+            "avg_latency_ms": 0,
+            "max_latency_ms": 0,
+            "min_latency_ms": 0,
+            "total_new_models": 0,
+            "total_removed_models": 0,
+            "by_provider": [],
+        }
+        try:
+            pool = await get_shared_pool()
+            async with pool.acquire() as conn:
+                # 总体聚合
+                row = await conn.fetchrow(
+                    """SELECT
+                        COUNT(*) AS total_syncs,
+                        COUNT(*) FILTER (WHERE success = true) AS success_count,
+                        COUNT(*) FILTER (WHERE success = false) AS failure_count,
+                        COALESCE(AVG(latency_ms), 0)::int AS avg_latency_ms,
+                        COALESCE(MAX(latency_ms), 0) AS max_latency_ms,
+                        COALESCE(MIN(latency_ms), 0) AS min_latency_ms,
+                        COALESCE(SUM(new_models), 0) AS total_new_models,
+                        COALESCE(SUM(removed_models), 0) AS total_removed_models
+                       FROM ai_model_sync_log
+                       WHERE sync_started_at >= now() - make_interval(days => $1)""",
+                    days,
+                )
+                if row is None:
+                    return zero_result
+                total = row["total_syncs"] or 0
+                success = row["success_count"] or 0
+                failure = row["failure_count"] or 0
+                success_rate = (success / total) if total > 0 else 0.0
+                # by_provider 按 provider_code GROUP BY 聚合
+                provider_rows = await conn.fetch(
+                    """SELECT provider_code,
+                              COUNT(*) AS total,
+                              COUNT(*) FILTER (WHERE success = true) AS success,
+                              COUNT(*) FILTER (WHERE success = false) AS failure,
+                              COALESCE(AVG(latency_ms), 0)::int AS avg_latency_ms,
+                              MAX(sync_finished_at) AS last_sync_at
+                       FROM ai_model_sync_log
+                       WHERE sync_started_at >= now() - make_interval(days => $1)
+                       GROUP BY provider_code
+                       ORDER BY provider_code""",
+                    days,
+                )
+                by_provider: list[dict[str, Any]] = []
+                for r in provider_rows:
+                    p_total = r["total"] or 0
+                    p_success = r["success"] or 0
+                    p_rate = (p_success / p_total) if p_total > 0 else 0.0
+                    last_sync = r["last_sync_at"]
+                    by_provider.append({
+                        "provider_code": r["provider_code"],
+                        "total": p_total,
+                        "success": p_success,
+                        "failure": r["failure"] or 0,
+                        "success_rate": p_rate,
+                        "avg_latency_ms": r["avg_latency_ms"] or 0,
+                        "last_sync_at": last_sync.isoformat() if last_sync else "",
+                    })
+                return {
+                    "days": days,
+                    "total_syncs": total,
+                    "success_count": success,
+                    "failure_count": failure,
+                    "success_rate": success_rate,
+                    "avg_latency_ms": row["avg_latency_ms"] or 0,
+                    "max_latency_ms": row["max_latency_ms"] or 0,
+                    "min_latency_ms": row["min_latency_ms"] or 0,
+                    "total_new_models": row["total_new_models"] or 0,
+                    "total_removed_models": row["total_removed_models"] or 0,
+                    "by_provider": by_provider,
+                }
+        except Exception as e:
+            logger.warning(
+                "[ModelSyncService] 查询聚合统计失败(表可能不存在): %s", e
+            )
+            return zero_result
+
+    async def cleanup_old_logs(self, before_days: int = 30) -> dict[str, Any]:
+        """v4 清理 N 天前的同步日志(防止表无限增长)。
+
+        执行 DELETE FROM ai_model_sync_log WHERE sync_started_at < now() - interval 'N days'。
+        表不存在时返回 deleted_count=0(不抛异常)。
+
+        Args:
+            before_days: 清理多少天前的日志,默认 30,最小 1。
+
+        Returns:
+            含 deleted_count / before_days 的字典。
+        """
+        before_days = max(1, before_days)
+        try:
+            pool = await get_shared_pool()
+            async with pool.acquire() as conn:
+                result = await conn.execute(
+                    """DELETE FROM ai_model_sync_log
+                       WHERE sync_started_at < now() - make_interval(days => $1)""",
+                    before_days,
+                )
+                # asyncpg execute 返回 "DELETE N" 格式,解析 N
+                deleted = 0
+                if isinstance(result, str):
+                    parts = result.split()
+                    if len(parts) >= 2 and parts[0] == "DELETE":
+                        try:
+                            deleted = int(parts[1])
+                        except (ValueError, IndexError):
+                            deleted = 0
+                return {"deleted_count": deleted, "before_days": before_days}
+        except Exception as e:
+            logger.warning(
+                "[ModelSyncService] 清理旧日志失败(表可能不存在): %s", e
+            )
+            return {"deleted_count": 0, "before_days": before_days}
 
     async def _fetch_upstream_models(
         self, provider_code: str, base_url: str, api_key: str
