@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { X, RefreshCw, Check, AlertCircle, Sparkles, Download } from 'lucide-react'
+import { RefreshCw, Check, AlertCircle, Sparkles } from 'lucide-react'
 import { useUpdater } from '@/hooks/use-updater'
 import { cn } from '@/lib/utils'
 import { formatFileSize } from '@/lib/tauri-bridge'
@@ -22,12 +22,12 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
  * - 图标微脉动:2s 周期 1→1.08 缩放
  * - 无顶部彩条(已移除,改为整卡动效)
  *
- * 状态:
- * - available:下拉窗 + 旋转光环"立即更新"按钮
+ * 状态(强制更新,无按钮,纯展示进度):
+ * - available:下拉窗 + "正在准备更新..."(自动进入下载)
  * - downloading:进度环 + 百分比 + 下载量
  * - installing:旋转图标 + "安装中"
- * - done:勾选动画 + "重启应用"按钮
- * - error:错误提示 + "重试"按钮
+ * - done:勾选 + "即将自动重启..."(3秒后自动重启)
+ * - error:错误提示 + "自动重试中..."(最多3次,之后自动消失)
  *
  * 浏览器端 useUpdater 返回 idle,组件渲染 null。
  * AGENTS.md §4 UI 约束:compact 紧凑、rounded-xl、无蓝色发光边框、无分割线、无渐变遮罩。
@@ -35,46 +35,16 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R
 export function UpdatePrompt() {
   const t = useTranslations('common.update')
   const updater = useUpdater()
-  const [dismissed, setDismissed] = React.useState(false)
 
-  const { status, session, progress, downloaded, total, error } = updater
+  const { status, session, progress, downloaded, total, error, retryCount, maxRetries } = updater
 
-  // 下拉窗可见条件:有可用更新且未被用户关闭(下载/安装中不可关闭)
-  const canDismiss = status === 'available' || status === 'error' || status === 'done'
+  // 强制更新:弹窗始终可见(不可关闭),直到更新完成自动重启或失败后自动重试/自动消失
   const visible =
-    !dismissed &&
-    (status === 'available' ||
-      status === 'downloading' ||
-      status === 'installing' ||
-      status === 'done' ||
-      status === 'error')
-
-  // 状态变化时重置 dismissed(新检查周期)
-  React.useEffect(() => {
-    if (status === 'available' || status === 'checking') {
-      setDismissed(false)
-    }
-  }, [status])
-
-  const handleDismiss = React.useCallback(() => {
-    if (!canDismiss) return
-    setDismissed(true)
-    if (status === 'error') {
-      updater.dismiss()
-    }
-  }, [canDismiss, status, updater])
-
-  const handleUpdate = React.useCallback(() => {
-    void updater.downloadAndInstall()
-  }, [updater])
-
-  const handleRestart = React.useCallback(() => {
-    void updater.restart()
-  }, [updater])
-
-  const handleRetry = React.useCallback(() => {
-    void updater.checkForUpdate(false)
-  }, [updater])
+    status === 'available' ||
+    status === 'downloading' ||
+    status === 'installing' ||
+    status === 'done' ||
+    status === 'error'
 
   if (!visible) return null
 
@@ -102,7 +72,7 @@ export function UpdatePrompt() {
         )}
       >
         <div className="relative z-10 p-4">
-          {/* 头部:图标 + 标题 + 版本号 + 关闭按钮 */}
+          {/* 头部:图标 + 标题 + 版本号 */}
           <div className="flex items-center gap-2.5">
             <div
               className={cn(
@@ -139,15 +109,6 @@ export function UpdatePrompt() {
               )}
             </div>
 
-            {canDismiss && (
-              <button
-                onClick={handleDismiss}
-                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label={t('dismiss')}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
           </div>
 
           {/* 更新说明(release notes,最多 3 行) */}
@@ -164,22 +125,14 @@ export function UpdatePrompt() {
             </p>
           )}
 
-          {/* 操作按钮区 */}
+          {/* 状态展示区(强制更新:无按钮,纯展示进度) */}
           <div className="mt-3.5 flex items-center gap-2.5">
             {status === 'available' && (
-              <div className="update-btn-orbit-glow flex-1">
-                <button
-                  onClick={handleUpdate}
-                  className={cn(
-                    'update-btn-orbit flex h-9 w-full items-center justify-center gap-1.5',
-                    'rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground',
-                    'transition-colors hover:brightness-110 active:brightness-95',
-                    'focus:outline-none',
-                  )}
-                >
-                  <Download className="h-4 w-4" />
-                  <span>{t('updateNow')}</span>
-                </button>
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
+                <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  {t('preparing')}
+                </span>
               </div>
             )}
 
@@ -234,32 +187,28 @@ export function UpdatePrompt() {
             )}
 
             {status === 'done' && (
-              <button
-                onClick={handleRestart}
-                className={cn(
-                  'flex h-9 flex-1 items-center justify-center gap-1.5',
-                  'rounded-lg bg-green-600 px-4 text-sm font-medium text-white',
-                  'transition-colors hover:bg-green-600/90 active:bg-green-600/80',
-                  'focus:outline-none focus-visible:bg-green-600/90',
-                )}
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>{t('restart')}</span>
-              </button>
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-green-600/10 px-4">
+                <span className="text-sm font-medium text-green-600">
+                  {t('autoRestart')}
+                </span>
+              </div>
             )}
 
             {status === 'error' && (
-              <button
-                onClick={handleRetry}
-                className={cn(
-                  'flex h-9 flex-1 items-center justify-center gap-1.5',
-                  'rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground',
-                  'transition-colors hover:bg-primary/90 active:bg-primary/80',
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-red-500/10 px-4">
+                {retryCount < maxRetries ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin text-red-500" />
+                    <span className="text-sm font-medium text-red-500">
+                      {t('autoRetrying')}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm font-medium text-red-500">
+                    {error === 'check_failed' ? t('checkFailed') : t('errorDesc')}
+                  </span>
                 )}
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>{t('retry')}</span>
-              </button>
+              </div>
             )}
           </div>
 
