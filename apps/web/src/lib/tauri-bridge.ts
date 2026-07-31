@@ -558,6 +558,103 @@ export async function setTrayStatus(status: 'idle' | 'new_message' | 'thinking')
   }
 }
 
+// ================== 应用更新 ==================
+// Tauri 2 updater 插件封装(2026-07-31 立,平台独占:仅桌面端)。
+// Rust 端 tauri-plugin-updater 已注册 + capabilities/default.json 已授权 updater:default
+// + tauri.conf.json 已配 endpoints(https://github.com/.../latest.json)+ pubkey。
+// 前端通过 @tauri-apps/plugin-updater 的 check()/downloadAndInstall() 调用。
+
+/** 可用更新元信息(来自 updater endpoint 返回的 latest.json)。 */
+export interface UpdateInfo {
+  /** 新版本号(SemVer,如 "0.2.0")。 */
+  version: string
+  /** 更新发布日期(RFC 3339,可能为空)。 */
+  date?: string
+  /** 更新说明(release notes,可能为空)。 */
+  notes?: string
+}
+
+/** 下载进度回调参数。 */
+export interface UpdateProgress {
+  /** 已下载字节数。 */
+  downloaded: number
+  /** 总字节数(未知时为 0)。 */
+  total: number
+}
+
+/**
+ * 更新会话:checkForUpdates 返回的对象,持有 update 句柄用于后续下载安装。
+ * 一次检查对应一个会话,downloadAndInstall 只能调用一次。
+ */
+export interface UpdateSession {
+  info: UpdateInfo
+  /** 下载并安装更新。onProgress 回调下载进度(Started/Progress/Finished 三阶段)。 */
+  downloadAndInstall: (onProgress?: (p: UpdateProgress) => void) => Promise<void>
+}
+
+/**
+ * 检查应用更新(非桌面端返回 null)。
+ * 调用 Tauri updater plugin 的 check(),访问 tauri.conf.json 配置的 endpoints。
+ * 返回 UpdateSession(含版本/说明 + 下载安装句柄)或 null(已是最新/检查失败)。
+ *
+ * check() 失败(网络错误/签名校验失败)会捕获后返回 null,避免调用方 try/catch。
+ */
+export async function checkForUpdates(): Promise<UpdateSession | null> {
+  if (!isTauri()) return null
+  try {
+    const { check } = await import('@tauri-apps/plugin-updater')
+    const update = await check()
+    if (!update) return null
+    return {
+      info: {
+        version: update.version,
+        date: update.date,
+        notes: update.body,
+      },
+      downloadAndInstall: async (onProgress) => {
+        let downloaded = 0
+        let total = 0
+        await update.downloadAndInstall((event) => {
+          switch (event.event) {
+            case 'Started': {
+              const d = event.data as { contentLength?: number }
+              total = d.contentLength ?? 0
+              onProgress?.({ downloaded: 0, total })
+              break
+            }
+            case 'Progress': {
+              const d = event.data as { chunkLength?: number }
+              downloaded += d.chunkLength ?? 0
+              onProgress?.({ downloaded, total })
+              break
+            }
+            case 'Finished':
+              onProgress?.({ downloaded: total || downloaded, total })
+              break
+          }
+        })
+      },
+    }
+  } catch (e) {
+    console.warn('[updater] check failed:', e)
+    return null
+  }
+}
+
+/**
+ * 重启应用(2026-07-31 立,updater 安装完成后调用)。
+ * 调用 Rust 端 restart_app 命令(app.restart()),终止当前进程并拉起新版本。
+ * 非桌面端静默忽略。
+ */
+export async function restartApp(): Promise<void> {
+  if (!isTauri()) return
+  try {
+    await invoke('restart_app')
+  } catch (e) {
+    console.warn('[updater] restart failed:', e)
+  }
+}
+
 // ================== Computer Control ==================
 
 /** 截图结果(base64 PNG)。 */
