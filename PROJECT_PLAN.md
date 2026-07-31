@@ -1974,7 +1974,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - [x] ✅(2026-07-31) C3:扫码登录 CDP 模式重写([ScanLoginDialog.tsx](<apps/web/app/(main)/publish/accounts/ScanLoginDialog.tsx>) 从弹窗截图模式改为 CDP 内置浏览器模式:选平台→createBrowserSession→openCdpSession 在 WorkPanel 打开→每 3s 调 detectLoginFromCdp 轮询 cookies→自动保存。/scan-login 页面保留但不再依赖,向后兼容)
 - [x] ✅(2026-07-31) C4:验证通过 — ① typecheck CDP 相关文件 0 错误(2 个历史遗留错误 client.ts blob / DagGraph any 与 CDP 无关,按 §12 不阻塞);② 后端 CDP hub 测试全通过:Chromium 启动 + 会话创建 + 画面流 5 帧(首帧 43984 chars)+ cookies 9 个 + 导航(百度→知乎 /signin 登录页,X-Frame-Options 不再受限);③ 前端 ScanLoginDialog UI 渲染正常;④ 完整扫码流程需用户登录后手动测(扫码是物理动作无法自动化)
 - [x] ✅(2026-07-31) C5:README 同步(架构章节 + 内置浏览器能力清单更新,§21 触发)
-- [ ] C6:commit + push 同步 origin/main(§20 五条全绿 + git-push-guard exit 0)
+- [x] ✅(2026-07-31) C6:commit + push 同步 origin/main(local HEAD `fb7c0c3` == remote HEAD `fb7c0c3`,§20 五条全绿 + git-push-guard exit 0)。WorkPanel 完美化增量已 commit `8d5f286446`(hover 支持 + 右键菜单 + 请求去重)
 
 ### 实施阶段
 
