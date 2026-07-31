@@ -1471,7 +1471,7 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 - [x] ✅(2026-07-31) H4:i18n 5 语言 parity(zh-CN/zh-TW/en/ja/ko)新 key 同步,无中文残留
 - [x] ✅(2026-07-31) H5:typecheck(api + api-client 0 错误;web 仅其他 agent 文件报错,本任务 conversation-list.tsx 无错误)
 - [x] ✅(2026-07-31) H6:browser_use 降级为代码审查验证(§17 豁免③:AccountHistoryInput.tsx 语法错误 + API 重复路由崩溃,均为其他 agent 代码阻塞,Next.js 构建失败无法渲染)
-- [ ] H7:git commit + push + git-push-guard local == remote
+- [x] ✅(2026-07-31) H7:git commit + push + git-push-guard local == remote(commit 94b4c4d,post-commit hook 自动 push)
 
 ---
 
