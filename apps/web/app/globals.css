@@ -956,3 +956,78 @@ button[data-state='closed']:focus,
 button[data-state='closed']:focus-visible {
   box-shadow: none;
 }
+
+/* ============================================================
+ * 移动端深度适配全局样式 (2026-07-31 立)
+ * ============================================================
+ * 1. AI 面板全屏覆盖:移动端 floatMode 下 fixed inset-0,需确保背景不透明
+ *    + safe-area 安全区适配(刘海屏/底部 Home Indicator)
+ * 2. touch-action:浮窗拖拽区域禁用默认触摸行为(防止滚动穿透)
+ * 3. -webkit-tap-highlight-color:移除移动端点击灰色高亮
+ * 4. 文字大小:移动端最小 14px,防止 iOS Safari 缩放 */
+@media (max-width: 767px) {
+  /* AI 面板全屏覆盖时,aside 撑满视口 + 安全区 */
+  .ai-panel-root.fixed.inset-0 > aside {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* 移动端输入框最小 16px,防止 iOS Safari 自动缩放 */
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='search'],
+  input[type='tel'],
+  input[type='url'],
+  textarea {
+    font-size: 16px;
+  }
+
+  /* 移除移动端点击灰色高亮 */
+  button,
+  a,
+  [role='button'] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 浮窗拖拽 header:禁用触摸滚动,仅允许拖拽 */
+  .ai-panel-root.fixed.inset-0 > aside > header {
+    touch-action: none;
+  }
+
+  /* 全局兜底:禁止横向溢出滚动(任何子元素意外超出视口也不产生横向滚动条)
+     + 长单词/URL 自动换行(防止内容撑破容器) */
+  body {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* 长文本/URL 自动断行,防止撑破窄屏容器 */
+  pre,
+  code,
+  p,
+  span,
+  a {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* 表格在窄屏横向滚动兜底(不撑破父容器) */
+  table {
+    max-width: 100%;
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* 移动端隐藏 WebWorkPanel 全屏模式下的滚动条(全屏 iframe 自带滚动) */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
