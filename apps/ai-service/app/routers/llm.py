@@ -412,6 +412,9 @@ async def list_models() -> dict[str, Any]:
     # P0 Phase A(2026-07-31):为每个模型附加 caps 字段(provider capability 声明),
     # 从 provider_caps.get_provider_cap(model.provider) 取,模型级 context_length 可覆盖 max_context。
     # 不改 default_models.json 文件本身,只在端点返回时动态注入。
+    # P0(2026-07-31):同步附加 points_multiplier 字段(积分消耗倍数,5 档梯度),
+    # 由 free_provider_registry.infer_points_multiplier(model.id) 推断,前端按倍数显示积分消耗。
+    from ..services.free_provider_registry import infer_points_multiplier
     for m in default_models:
         provider_code = str(m.get("provider") or "")
         cap = get_provider_cap(provider_code)
@@ -420,6 +423,8 @@ async def list_models() -> dict[str, Any]:
         if isinstance(ctx_len, int) and ctx_len > 0:
             cap = cap_with_max_context(cap, ctx_len)
         m["caps"] = cap_to_dict(cap)
+        # 积分消耗倍数(0.0 免费 / 1.0 经济 / 3.0 标准 / 10.0 高级 / 30.0 旗舰)
+        m["points_multiplier"] = infer_points_multiplier(str(m.get("id") or ""))
     return {
         "models": default_models,
         "default": settings.litellm_model,
