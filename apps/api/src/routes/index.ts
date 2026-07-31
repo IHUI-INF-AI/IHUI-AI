@@ -1,4 +1,4 @@
-import { type FastifyInstance } from 'fastify'
+﻿import { type FastifyInstance } from 'fastify'
 
 import { healthRoutes } from './health.js'
 import { authRoutes } from './auth.js'
@@ -378,6 +378,11 @@ import { aiTutorRoutes } from './ai-tutor-routes.js'
 import newsletterRoutes from './newsletter.js'
 // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
 import { earningsRoutes } from './earnings-routes.js'
+// P0 第四批次(2026-07-31 立):public-status + api-key-shares + export-csv + relay-conversations 4 个新路由
+import publicStatusRoutes from './public-status.js'
+import apiKeySharesRoutes from './api-key-shares.js'
+import exportCsvRoutes from './admin/export-csv.js'
+import relayConversationsRoutes from './relay-conversations.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -1038,4 +1043,14 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(developerWebhooksRoutes, { prefix: '/api/developer' })
   // admin 调试面板(4 端点):/api/admin/webhook-debug/subscriptions | /logs | /retry-all | /stats
   server.register(adminWebhookDebugRoutes, { prefix: '/api/admin' })
+
+  // ===== P0 第四批次对外端点(2026-07-31 立,8 subagent 并行)=====
+  // /api/public/status/*(公开状态页,无需鉴权,展示模型可用性 + 系统总览 + 事件列表)
+  server.register(publicStatusRoutes, { prefix: '/api/public' })
+  // /api/developer/api-keys/:id/shares + /api/developer/shares(API Key 临时分享/限时 token)
+  server.register(apiKeySharesRoutes, { prefix: '/api/developer' })
+  // /api/admin/export/orders.csv + /api/admin/export/relay-logs.csv(充值订单 + 调用日志 CSV 导出)
+  server.register(exportCsvRoutes, { prefix: '/api/admin' })
+  // /api/developer/conversations(中转站用户会话历史保存,B 端协作场景)
+  server.register(relayConversationsRoutes, { prefix: '/api' })
 }
