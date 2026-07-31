@@ -10,6 +10,8 @@
 4. IP 稳定性(同账号 IP 频繁变化 加 20 分)
 5. 行为模式异常(发布间隔 < 30s 加 10 分)
 6. 平台风控信号(收到"请稍后再试"等关键词 加 30 分)
+7. Cookie 健康度(Cookie 即将过期/已失效 加 15 分)— 2026-08-01 新增
+8. 内容相似度(多平台发布相似度 >85% 加 20 分)— 2026-08-01 新增
 
 风险等级:
 - 0-20: safe(安全,可发布)
@@ -23,6 +25,7 @@
 - 线程安全(threading.Lock)
 - 风险事件持久化到 .trae-cn/tmp/anti-risk-events.jsonl(AGENTS.md §15)
 - 发布历史从 publish_history 表查询(DB 不可用时降级到内存事件)
+- 新增维度(7/8)可选传入,不传时跳过该维度评分(向后兼容)
 """
 from __future__ import annotations
 
@@ -59,13 +62,21 @@ _PLATFORM_RISK_KEYWORDS: tuple[str, ...] = (
     "安全验证", "滑块验证", "图形验证", "短信验证",
 )
 
-# 评分维度权重(总分 100)
+# 评分维度权重(总分 100,新增维度 7/8 可选)
 _WEIGHT_FREQUENCY = 20      # 发布频率
 _WEIGHT_FAILURE_RATE = 15   # 失败率
 _WEIGHT_FINGERPRINT = 25    # 指纹一致性
 _WEIGHT_IP_STABILITY = 20   # IP 稳定性
 _WEIGHT_BEHAVIOR = 10       # 行为模式
 _WEIGHT_PLATFORM_SIGNAL = 30  # 平台风控信号
+_WEIGHT_COOKIE_HEALTH = 15    # Cookie 健康度(2026-08-01 新增)
+_WEIGHT_CONTENT_SIMILARITY = 20  # 内容相似度(2026-08-01 新增)
+
+# Cookie 健康度阈值
+_COOKIE_EXPIRING_SOON_DAYS = 7  # 距过期 ≤7 天 → 加分
+
+# 内容相似度阈值
+_CONTENT_SIMILARITY_THRESHOLD = 0.85  # 相似度 >85% → 加分
 
 # 冷却时长(秒)— 不同风险等级触发的冷却
 _COOLDOWN_MEDIUM = 3600       # 1 小时
@@ -209,6 +220,8 @@ class RiskScorer:
         account_id: str,
         platform: str,
         publish_history: Optional[list[dict[str, Any]]] = None,
+        cookie_health: Optional[dict[str, Any]] = None,
+        content_similarity: Optional[float] = None,
     ) -> RiskScore:
         """计算账号风险评分。
 
@@ -218,18 +231,25 @@ class RiskScorer:
             publish_history: 近 7d 的 publish_history 记录列表(每条含
                 success/duration_ms/error_message/created_at 等字段)。
                 为 None 时仅依赖内存事件流评分(降级模式)。
+            cookie_health: Cookie 健康度字典(含 status/days_until_expiry),
+                为 None 时跳过该维度(向后兼容)。
+            content_similarity: 多平台内容相似度(0-1),
+                为 None 时跳过该维度(向后兼容)。
 
         Returns:
             RiskScore 实例
         """
         self._ensure_loaded()
 
-        # 缓存命中(30s 内)
+        # 缓存命中(30s 内)— 仅当未传入新维度参数时用缓存
+        # (新维度参数每次可能不同,不能复用缓存)
         cache_key = (account_id, platform)
-        with self._lock:
-            cached = self._score_cache.get(cache_key)
-            if cached and (time.time() - cached.calculated_at) < self._cache_ttl:
-                return cached
+        use_cache = cookie_health is None and content_similarity is None
+        if use_cache:
+            with self._lock:
+                cached = self._score_cache.get(cache_key)
+                if cached and (time.time() - cached.calculated_at) < self._cache_ttl:
+                    return cached
 
         score = 0
         factors: list[str] = []
@@ -255,6 +275,18 @@ class RiskScorer:
             account_id, platform, score, factors,
         )
 
+        # 维度 7:Cookie 健康度(2026-08-01 新增,可选)
+        if cookie_health is not None:
+            score, factors = self._score_cookie_health(
+                cookie_health, score, factors,
+            )
+
+        # 维度 8:内容相似度(2026-08-01 新增,可选)
+        if content_similarity is not None:
+            score, factors = self._score_content_similarity(
+                content_similarity, score, factors,
+            )
+
         # 限制在 [0, 100]
         score = max(0, min(100, score))
         level = _level_from_score(score)
@@ -267,8 +299,10 @@ class RiskScorer:
             cooldown_until=cooldown_until,
         )
 
-        with self._lock:
-            self._score_cache[cache_key] = result
+        # 仅当未传入新维度参数时缓存(新维度参数每次可能不同)
+        if use_cache:
+            with self._lock:
+                self._score_cache[cache_key] = result
         return result
 
     def _score_from_history(
@@ -453,11 +487,71 @@ class RiskScorer:
 
         return score, factors
 
+    def _score_cookie_health(
+        self,
+        cookie_health: dict[str, Any],
+        score: int,
+        factors: list[str],
+    ) -> tuple[int, list[str]]:
+        """维度 7:Cookie 健康度(2026-08-01 新增)。
+
+        Cookie 状态:
+        - expired/invalid: Cookie 已失效 → 加满分(15 分)
+        - expiring_soon: 即将过期 → 加满分(15 分)
+        - healthy: 健康 → 不加分
+        """
+        status = cookie_health.get("status", "healthy")
+        days = cookie_health.get("days_until_expiry", -1)
+
+        if status in ("expired", "invalid"):
+            score += _WEIGHT_COOKIE_HEALTH
+            factors.append(
+                f"Cookie {status}(需重新登录,发布会被拒绝)"
+            )
+        elif status == "expiring_soon":
+            score += _WEIGHT_COOKIE_HEALTH
+            factors.append(
+                f"Cookie 即将过期(剩余 {days} 天,需刷新保活)"
+            )
+        # healthy 不加分
+
+        return score, factors
+
+    def _score_content_similarity(
+        self,
+        similarity: float,
+        score: int,
+        factors: list[str],
+    ) -> tuple[int, list[str]]:
+        """维度 8:内容相似度(2026-08-01 新增)。
+
+        多平台发布相同内容会被识别为机器操作/营销号:
+        - 相似度 >85%: 加满分(20 分,高风险)
+        - 相似度 70-85%: 加半分(10 分,中风险)
+        - 相似度 <70%: 不加分(已差异化)
+        """
+        if similarity > _CONTENT_SIMILARITY_THRESHOLD:
+            score += _WEIGHT_CONTENT_SIMILARITY
+            factors.append(
+                f"多平台内容相似度 {similarity:.0%}(>85%,机器操作特征)"
+            )
+        elif similarity > 0.70:
+            half_score = _WEIGHT_CONTENT_SIMILARITY // 2
+            score += half_score
+            factors.append(
+                f"多平台内容相似度 {similarity:.0%}(70-85%,建议进一步差异化)"
+            )
+        # <70% 不加分
+
+        return score, factors
+
     def is_account_safe_to_publish(
         self,
         account_id: str,
         platform: str,
         publish_history: Optional[list[dict[str, Any]]] = None,
+        cookie_health: Optional[dict[str, Any]] = None,
+        content_similarity: Optional[float] = None,
     ) -> tuple[bool, RiskScore]:
         """综合判断账号是否安全可发布。
 
@@ -465,12 +559,17 @@ class RiskScorer:
             account_id: 账号唯一标识
             platform: 平台 ID
             publish_history: 近 7d 的 publish_history 记录(可选)
+            cookie_health: Cookie 健康度字典(可选,含 status/days_until_expiry)
+            content_similarity: 多平台内容相似度 0-1(可选)
 
         Returns:
             (is_safe, risk_score) — is_safe=True 时可发布,
             False 时应进入冷却。RiskScore.cooldown_until 给出建议冷却时长。
         """
-        score = self.calculate_risk_score(account_id, platform, publish_history)
+        score = self.calculate_risk_score(
+            account_id, platform, publish_history,
+            cookie_health, content_similarity,
+        )
         return score.is_safe(), score
 
     def record_risk_event(
