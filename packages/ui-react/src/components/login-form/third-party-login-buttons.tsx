@@ -53,14 +53,15 @@ export function ThirdPartyLoginButtons({ t, config, className }: ThirdPartyLogin
         <span className="text-muted-foreground">{t('auth.thirdPartyLogin')}</span>
       </div>
 
-      {/* 3 列网格 8 个按钮 */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* 3 列网格 8 个按钮(2026-07-31 收紧:gap-3 → gap-2,8px 间距更紧凑,符合用户偏好"间距不要过大") */}
+      <div className="grid grid-cols-3 gap-2">
         <TooltipProvider delayDuration={200}>
           {providers.map((p) => {
             const disabled = p.forceDisabled || !p.enabled || isLoading
             const isBusy = isLoading && currentPlatform === p.key
-            const tooltipContent = p.disabledTooltip
-              ?? (p.forceDisabled
+            const tooltipContent =
+              p.disabledTooltip ??
+              (p.forceDisabled
                 ? t('auth.appleComingSoon')
                 : !p.enabled
                   ? t('auth.googleNotConfigured')
