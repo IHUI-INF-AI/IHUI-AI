@@ -37,6 +37,11 @@ import {
   getMcpConfigPath,
 } from './commands/mcp-config.js';
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
+import { registerLoginCommand } from './commands/login.js';
+import { registerMemoryCommand } from './commands/memory.js';
+import { registerWorkflowsCommand } from './commands/workflows.js';
+import { registerSpecCommand } from './commands/spec.js';
+import { registerPlanCommand } from './commands/plan.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
@@ -86,7 +91,7 @@ program
   .option('-w, --workspace <path>', '工作区路径', process.cwd())
   .option('--max-iterations <n>', '最大工具循环次数', '25')
   .option('--max-turns <n>', '最大工具循环次数(--max-iterations 别名,P1-3 对齐 OpenAI o1/o3 术语)')
-  .option('--api-url <url>', '后端 API 地址', process.env.IHUI_API_URL || 'http://localhost:8803')
+  .option('--api-url <url>', '后端 API 地址(默认读 settings.json,兜底 http://localhost:8802)', process.env.IHUI_API_URL || '')
   .option('--api-key <key>', 'API 密钥', process.env.IHUI_API_KEY || '')
   .option('--resume <session-id>', '恢复之前的会话')
   .option('--continue', '继续最近的会话')
@@ -479,6 +484,21 @@ mcpCmd
 
 // capabilities 子命令组
 registerCapabilitiesCommand(program);
+
+// login 子命令 — 用户名/邮箱/手机号 + 密码登录,获取 JWT 写入 settings.json
+registerLoginCommand(program);
+
+// memory 子命令组 — 对齐 Web 端 /memory(list/add/delete/clear)
+registerMemoryCommand(program);
+
+// workflows 子命令组 — 对齐 Web 端 /workflows(list/show/run/instances/instance/cancel)
+registerWorkflowsCommand(program);
+
+// spec 子命令组 — 对齐 Web 端 /spec(generate/templates/history/load/diff/variables)
+registerSpecCommand(program);
+
+// plan 子命令组 — 对齐 Web 端 /plan(init/list/show/delete 本地文档管理)
+registerPlanCommand(program);
 
 // checkpoint 子命令组
 registerCheckpointCommand(program);
