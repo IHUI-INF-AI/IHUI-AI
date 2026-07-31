@@ -57,6 +57,21 @@ const QUICK_ENDPOINTS: Array<{ method: 'POST' | 'GET'; path: string; desc: strin
   { method: 'GET', path: '/v1/realtime', desc: 'Realtime WebSocket 实时对话' },
   { method: 'POST', path: '/v1/midjourney/imagine', desc: 'Midjourney-Proxy 标准接口' },
   { method: 'POST', path: '/v1/mcp/tools/call', desc: 'MCP 网关工具调用' },
+  // P0 第三批次(2026-08-01 立):OpenAI 协议补齐
+  { method: 'POST', path: '/v1/responses', desc: 'OpenAI Responses API(Cursor/Codex 兼容)' },
+  { method: 'POST', path: '/v1/batch', desc: 'OpenAI 批量异步 API(50% 折扣)' },
+  { method: 'POST', path: '/v1/assistants', desc: 'Assistants API v2(第三方 SDK 直连)' },
+  { method: 'POST', path: '/v1/audio/translations', desc: 'Whisper 语音翻译' },
+  { method: 'POST', path: '/v1/fine_tuning/jobs', desc: '微调任务管理' },
+  { method: 'GET', path: '/v1/files', desc: '文件管理 CRUD' },
+  // P0 第四批次(2026-08-01 立):状态页 + 分享 + 导出 + 会话历史
+  { method: 'GET', path: '/api/public/status/overview', desc: '公开状态页-系统总览' },
+  { method: 'GET', path: '/api/public/status/models', desc: '公开状态页-模型可用性' },
+  { method: 'GET', path: '/api/public/status/incidents', desc: '公开状态页-事件列表' },
+  { method: 'POST', path: '/api/developer/api-keys/:id/shares', desc: 'API Key 临时分享(限时 token)' },
+  { method: 'GET', path: '/api/admin/export/orders.csv', desc: '充值订单 CSV 导出' },
+  { method: 'GET', path: '/api/admin/export/relay-logs.csv', desc: '调用日志 CSV 导出' },
+  { method: 'GET', path: '/api/developer/conversations', desc: '中转站会话历史列表' },
 ]
 
 function Section({

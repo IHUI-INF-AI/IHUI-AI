@@ -1,4 +1,4 @@
-# IHUI-AI 项目
+﻿# IHUI-AI 项目
 
 > 本文件为项目唯一任务计划文档。规则见 [AGENTS.md](./AGENTS.md)。
 > 历史归档:本文件精简前 54.6 KB(2026-07-20 含权限运行时拦截完整内容)已移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-permission-runtime.md`;更早快照同目录;详细提交记录见 `git log`。
@@ -1260,8 +1260,8 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 - [ ] 在 `apps/api/src/routes/index.ts` 注册 v1-responses / v1-batches / v1-assistants / v1-protocol-completeness 4 个新对外端点路由
 - [ ] 在 `apps/api/src/services/relay-billing-service.ts` 追加 responses/batches/assistants/translations/variations/fine_tuning 计费分支(batch 按 50% 折扣,fine_tuning 按次计费,translations 按 audio 秒数计费)
 - [ ] 在 `apps/api/src/services/relay-channel-router.ts` 集成 relay-param-ops(在 selectByStrategy 后、调用上游前应用参数覆盖规则)
-- [ ] 在 `apps/web/app/(main)/developer/api-docs/page.tsx` 同步 5 个新端点文档 + 错误码表追加(responses/batches/assistants/fine_tuning/files 相关错误码)
-- [ ] 全链路 typecheck 全绿(api + web) + commit + push + git-push-guard 验证(§20 五条全绿)
+- [x] ✅(2026-07-31) 在 `apps/web/app/(main)/developer/api-docs/page.tsx` 同步 5 个新端点文档 + 错误码表追加(responses/batches/assistants/fine_tuning/files 相关错误码)
+- [x] ✅(2026-07-31) 全链路 typecheck 全绿(api + web) + commit + push + git-push-guard 验证(§20 五条全绿)
 
 ## 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x)
 
