@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Menu } from 'lucide-react'
+import { PanelLeftOpen } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
@@ -225,7 +225,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                       TOPBAR_BTN_W9,
                     )}
                   >
-                    <Menu className="h-3.5 w-3.5" />
+                    <PanelLeftOpen className="h-3.5 w-3.5" />
                   </Button>
                 }
               />
