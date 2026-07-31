@@ -11,6 +11,9 @@
  * 5. 使用类型安全的谓词函数替代字符串表达式求值，避免注入风险。
  */
 
+import { notifyLoginAnomaly } from './login-anomaly-notifier.js'
+import { logger } from '../utils/logger.js'
+
 /** 风控动作 */
 export type RiskAction = 'ALLOW' | 'DENY' | 'REVIEW' | 'CHALLENGE' | 'SCORE'
 
@@ -306,4 +309,77 @@ export function getDefaultRiskEngine(): RiskRuleEngine {
  */
 export function evaluateRisk(ctx: RiskContext): RiskEvaluationResult {
   return getDefaultRiskEngine().evaluateRisk(ctx)
+}
+
+// ---------------------------------------------------------------------------
+// 登录异常通知集成 (login-anomaly-notifier)
+// ---------------------------------------------------------------------------
+
+/** 登录相关规则 ID(命中后触发登录异常通知)。 */
+const LOGIN_ANOMALY_RULE_IDS = new Set(['R001_REMOTE_LOGIN', 'R003_ABNORMAL_IP'])
+
+/**
+ * 评估登录风险并触发异常通知。
+ *
+ * 在 evaluateRisk 基础上,若检测到登录相关异常(异地登录 / 异常 IP)且动作非 ALLOW,
+ * 异步调用 notifyLoginAnomaly 发送站内信 / 邮件 / Webhook 通知。
+ *
+ * 降级:notifier 内部已 try-catch 各通道 + 6h Redis 去重;调用失败仅 logger.warn,
+ * 不影响返回的 risk result,登录主流程按原 action 继续处理。
+ */
+export function evaluateLoginRisk(ctx: RiskContext): RiskEvaluationResult {
+  const result = evaluateRisk(ctx)
+
+  // 无 userId 或无命中 → 跳过通知
+  const userId = ctx.userId
+  if (!userId || result.hits.length === 0) return result
+
+  // 查找首条登录相关命中(异地登录 / 异常 IP)
+  const loginHit = result.hits.find((h) => LOGIN_ANOMALY_RULE_IDS.has(h.ruleId))
+  if (!loginHit) return result
+
+  // 仅在非 ALLOW(中/高风险)时通知;R001=CHALLENGE / R003=DENY 均满足
+  if (result.action === 'ALLOW') return result
+
+  // 异步触发通知(不阻塞主流程);notifier 自带 6h 去重 + 各通道独立 try-catch,
+  // 此处 .catch 仅作 call-site 兜底(notifier 本身不会 reject)
+  void notifyLoginAnomaly({
+    userId,
+    eventType: 'remote_login',
+    ip: ctx.ip,
+    userAgent: pickString(ctx, 'userAgent'),
+    location: pickString(ctx, 'location'),
+    deviceFingerprint: pickString(ctx, 'deviceFingerprint'),
+    metadata: {
+      ruleId: loginHit.ruleId,
+      ruleName: loginHit.name,
+      reason: loginHit.reason,
+      totalScore: result.totalScore,
+      action: result.action,
+      riskLevel: riskLevelOf(result),
+      timestamp: new Date().toISOString(),
+    },
+  }).catch((err) => {
+    logger.warn('risk-engine: login anomaly notify failed', {
+      err,
+      userId,
+      ruleId: loginHit.ruleId,
+    })
+  })
+
+  return result
+}
+
+/** 从 RiskContext 索引签名中安全读取 string 字段。 */
+function pickString(ctx: RiskContext, key: string): string | undefined {
+  const v = ctx[key]
+  return typeof v === 'string' ? v : undefined
+}
+
+/** 将评估结果映射为风险等级标签(供通知 metadata 使用)。 */
+function riskLevelOf(result: RiskEvaluationResult): 'low' | 'medium' | 'high' {
+  if (result.action === 'DENY') return 'high'
+  if (result.action === 'REVIEW' || result.action === 'CHALLENGE') return 'medium'
+  if (result.totalScore >= SCORE_REVIEW_THRESHOLD) return 'medium'
+  return 'low'
 }
