@@ -100,9 +100,17 @@ import {
   Liquid,
   Ai2,
   Figma,
+  // 2026-07-31 补全:plugins-data.ts 中已有 vendor 但此前未映射的 7 个真实矢量
+  Vercel,
+  Cloudflare,
+  Notion,
+  Adobe,
+  Brave,
+  AlibabaCloud,
+  HuaweiCloud,
 } from '@lobehub/icons'
 
-import { Chrome, Video } from 'lucide-react'
+import { Chrome, Video, type LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -251,6 +259,14 @@ const VENDOR_COMPONENTS: Record<
   figma: Figma, // @lobehub/icons 真实 Figma 矢量
   remotion: Video, // lucide 兜底(@lobehub 无 Remotion 真实矢量,与 video 共享)
   hyperframes: Video, // lucide 兜底(@lobehub 无 Hyperframes 真实矢量,与 video 共享)
+  // 2026-07-31 补全 7 个真实矢量:@lobehub/icons 5.14 已收录,此前遗漏映射
+  vercel: Vercel,
+  cloudflare: Cloudflare,
+  notion: Notion,
+  adobe: Adobe,
+  brave: Brave,
+  'alibaba-cloud': AlibabaCloud,
+  'huawei-cloud': HuaweiCloud,
 }
 
 /** 根据 model 字符串前缀推断厂商代码 */
@@ -456,6 +472,13 @@ export interface BrandIconProps {
   /** 像素尺寸,默认 16 */
   size?: number
   className?: string
+  /**
+   * lucide-react 兜底图标(2026-07-31 新增,根因修复):
+   * vendor 在 VENDOR_COMPONENTS 中无映射时,优先使用此图标而非 logo.png。
+   * 解决 PluginMarketplace 之前 vendor 找不到就显示 logo.png(蝴蝶结)、
+   * 完全忽略 plugin.fallbackIcon 字段的 bug。
+   */
+  fallbackIcon?: LucideIcon
 }
 
 export function BrandIcon({
@@ -464,6 +487,7 @@ export function BrandIcon({
   iconUrl: _iconUrl,
   size = 16,
   className,
+  fallbackIcon: FallbackIcon,
 }: BrandIconProps) {
   const VendorIcon = vendor ? VENDOR_COMPONENTS[vendor.toLowerCase()] : undefined
 
@@ -479,8 +503,21 @@ export function BrandIcon({
     )
   }
 
-  // 兜底:项目纯图标 logo.png(蝴蝶结 + IHUI INF 弧形,无右侧"智汇AI社区"横向文字)
-  // 全站统一为 logo.png(2026-07-19),仅 sidebar 左上角 ThemeLogo 保留带文字版
+  // vendor 无映射但有 lucide fallbackIcon(2026-07-31 修复):优先用业务图标,避免乱码 logo
+  if (FallbackIcon) {
+    return (
+      <span
+        className={cn('inline-flex shrink-0 items-center justify-center', className)}
+        style={{ width: size, height: size, color: 'currentColor' }}
+        aria-hidden="true"
+      >
+        <FallbackIcon size={size} />
+      </span>
+    )
+  }
+
+  // 终极兜底:项目纯图标 logo.png(蝴蝶结 + IHUI INF 弧形,无右侧"智汇AI社区"横向文字)
+  // 仅在 vendor 无映射 + 无 fallbackIcon 时使用(无 vendor 字段的旧调用方)
   return (
     <Image
       src="/images/logo.png?v=20260719-unify"
