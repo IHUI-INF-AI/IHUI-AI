@@ -50,7 +50,7 @@ export default function ChatPage() {
     return (
       <div className="flex h-[calc(100vh-58px)] items-center justify-center px-6">
         <div className="max-w-md text-center">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
             <MessageSquare className="h-7 w-7 text-primary" />
           </div>
           <h2 className="text-lg font-semibold tracking-tight">
@@ -60,11 +60,7 @@ export default function ChatPage() {
             {t('loginRequiredDesc') ||
               '登录后即可与 AI 智能体对话,支持多模型切换、附件上传、深度思考等功能'}
           </p>
-          <Button
-            type="button"
-            onClick={() => open('login')}
-            className="mt-6 gap-1.5"
-          >
+          <Button type="button" onClick={() => open('login')} className="mt-6 gap-1.5">
             <Sparkles className="h-4 w-4" />
             <span>{tc('login')}</span>
           </Button>
