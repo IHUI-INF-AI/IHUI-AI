@@ -280,17 +280,17 @@ iframe::-webkit-scrollbar {
 /* ============================================================
  * 桌面端更新提示动画 (2026-07-31 立,平台独占:仅桌面端)
  * ============================================================
- * - update-shimmer:更新按钮光泽流动(背景渐变扫光,非 mask 遮罩)
- * - update-slide-down:下拉窗从顶部滑入
- * - update-card-glow:整卡发光呼吸(2s 周期,品牌色光晕脉冲)
- * - update-orbit-border:卡片边框旋转光环(4s/圈,微妙渐变旋转)
- * - update-orbit-btn:按钮 conic-gradient 光环旋转(2.5s/圈)
- * - update-slide-in:入场动画(滑入+缩放+淡入,0.4s)
- * - update-checkmark:完成勾选 SVG path 描边动画
+ * - update-card-glow:整卡边框呼吸(::before 伪元素 border-color 动画,2.4s 周期)
+ * - update-orbit-btn:按钮边框颜色循环(2.5s 周期,品牌色透明度变化)
+ * - update-slide-in:入场动画(滑入+缩放+淡入,0.45s)
+ * - update-icon-pulse:图标微脉动(2s 周期,1→1.08 缩放)
  * - update-ring-pulse:进度环外圈微脉动
- * 命名加 ihui- 前缀避免冲突。 */
+ * 命名加 ihui- 前缀避免冲突。
+ * §4 合规:不使用 mask-image / -webkit-mask / linear-gradient 渐变遮罩。 */
 
-/* 整卡边框发光:用 border-color 呼吸,零溢出(不用 box-shadow 外发光) */
+/* 整卡边框发光:用 ::before 伪元素的 border-color 呼吸,
+   避免与父元素 animate-update-slide-in 的 animation 简写冲突。
+   不使用 mask-image / -webkit-mask(§4 禁止渐变遮罩)。 */
 @keyframes ihui-update-card-glow {
   0%, 100% {
     border-color: rgba(129, 140, 248, 0.15);
@@ -300,39 +300,21 @@ iframe::-webkit-scrollbar {
   }
 }
 .update-card-glow {
-  animation: ihui-update-card-glow 2.4s ease-in-out infinite;
-}
-
-/* 卡片边框旋转光环:conic-gradient 渐变沿边框旋转 */
-@keyframes ihui-update-orbit-border {
-  to { transform: rotate(360deg); }
-}
-.update-orbit-border {
   position: relative;
 }
-.update-orbit-border::before {
+.update-card-glow::before {
   content: '';
   position: absolute;
-  inset: -1px;
+  inset: 0;
   border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0%,
-    rgba(129, 140, 248, 0.5) 20%,
-    transparent 40%,
-    transparent 60%,
-    rgba(129, 140, 248, 0.3) 75%,
-    transparent 90%
-  );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: ihui-update-orbit-border 4s linear infinite;
+  border: 1px solid rgba(129, 140, 248, 0.15);
+  animation: ihui-update-card-glow 2.4s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
+}
+/* 卡片定位上下文(保留 position:relative,不再有 ::before 伪元素) */
+.update-orbit-border {
+  position: relative;
 }
 
 /* 按钮边框颜色旋转:border-color 在品牌色和透明之间循环,光效严格在边框内 */
