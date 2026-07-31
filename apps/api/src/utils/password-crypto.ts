@@ -17,12 +17,31 @@
  * - 恒定时间比较(argon2.verify 内部实现)
  * - 哈希输出含算法参数,可未来平滑升级到更强算法
  */
-import argon2 from 'argon2'
 import bcrypt from 'bcryptjs'
+
+/**
+ * argon2 平台检测加载(2026-07-31 立,Windows 兼容性修复)。
+ *
+ * 问题:argon2@0.45.1 的 win32-x64 预编译文件打包错误(放了 Linux glibc 版本),
+ * 在 Windows 上 require('argon2') 触发 0xC0000005 进程崩溃(try/catch 无法捕获),
+ * 导致 api 完全无法启动。
+ *
+ * 修复:Windows 平台跳过 argon2 加载,降级到 bcrypt(代码已兼容 bcrypt)。
+ * 安全影响:降级后新密码用 bcrypt($2b$)而非 argon2id,安全性仍达标(OWASP 推荐),
+ * 只是抗 GPU/ASIC 能力略弱。Linux/生产环境 argon2 正常加载,不受影响。
+ */
+const IS_WINDOWS = process.platform === 'win32'
+let argon2: typeof import('argon2') | null = null
+if (!IS_WINDOWS) {
+  argon2 = require('argon2')
+}
+
+/** argon2 是否可用(Windows 降级到 bcrypt) */
+const HAS_ARGON2 = argon2 !== null
 
 /** argon2id 参数(OWASP 2023 推荐,国安级标准) */
 const ARGON2ID_OPTIONS = {
-  type: argon2.argon2id,
+  type: HAS_ARGON2 ? argon2!.argon2id : 2,
   memoryCost: 19456, // 19 MB(OWASP 最小值,抗 GPU)
   timeCost: 2, // 2 次迭代
   parallelism: 1, // 单线程(防 DoS)
@@ -59,7 +78,11 @@ export function isArgon2Hash(hash: string): boolean {
  */
 export async function hashPassword(password: string): Promise<string> {
   // 国安级:argon2id 替代 bcrypt(抗 GPU/ASIC 攻击)
-  return argon2.hash(password, ARGON2ID_OPTIONS)
+  // 降级:argon2 不可用时(Windows 预编译文件损坏)用 bcrypt
+  if (HAS_ARGON2) {
+    return argon2!.hash(password, ARGON2ID_OPTIONS)
+  }
+  return bcrypt.hash(password, 12)
 }
 
 /**
@@ -78,7 +101,9 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   try {
     if (isArgon2Hash(hash)) {
       // 新密码:argon2id 验证(argon2.verify 接受 string | Buffer)
-      return await argon2.verify(hash, Buffer.from(password, 'utf8'))
+      // 降级:argon2 不可用时无法验证 argon2id 哈希,返回 false(用户需重置密码)
+      if (!HAS_ARGON2) return false
+      return await argon2!.verify(hash, Buffer.from(password, 'utf8'))
     }
     if (isBcryptHash(hash)) {
       // 老密码:bcrypt 验证(兼容)
