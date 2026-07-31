@@ -802,6 +802,10 @@ function createToolCallHandler(assistantMessageId: string) {
     isError?: boolean
     iteration?: number
     repeated?: boolean
+    // 2026-07-31 立,AI 对话可视化:工具来源标识(从 SSE 透传到 ToolCallCard 徽章)
+    serverSource?: 'builtin' | 'plugin' | 'mcp'
+    serverId?: string
+    serverName?: string
   }) => {
     if (event.type === 'tool-call-start') {
       useChatStore.getState().addToolCall(assistantMessageId, {
@@ -810,6 +814,9 @@ function createToolCallHandler(assistantMessageId: string) {
         args: event.args ?? {},
         status: 'running',
         iteration: event.iteration,
+        serverSource: event.serverSource,
+        serverId: event.serverId,
+        serverName: event.serverName,
       })
       // browser_navigate 类工具:args 含 url 时立即打开 WorkPanel(无需等 result)
       if (BROWSER_TOOL_NAMES.has(event.toolName) && event.args) {
@@ -823,6 +830,9 @@ function createToolCallHandler(assistantMessageId: string) {
       const updates: Partial<ToolCall> = {
         status: event.isError ? 'error' : 'success',
         result: event.result,
+        serverSource: event.serverSource,
+        serverId: event.serverId,
+        serverName: event.serverName,
       }
       if (event.args) updates.args = event.args
       if (event.iteration !== undefined) updates.iteration = event.iteration
@@ -837,6 +847,17 @@ function createToolCallHandler(assistantMessageId: string) {
         useWorkPanelStore.getState().openPanel({ url, source: 'ai-tool' })
       }
     }
+  }
+}
+
+/**
+ * onToolSummary 工厂(2026-07-31 立,AI 对话可视化深度接入):
+ * 绑定 assistantMessageId,把 SSE tool-summary 事件聚合结果写入 message.toolCallSummary,
+ * 让 ToolCallSummary 组件在 AI 回复末尾展示"搜索文件 N 个/网页 N 个/改了 N 个文件/N 行代码"。
+ */
+function createToolSummaryHandler(assistantMessageId: string) {
+  return (summary: import('@ihui/api-client').ToolSummaryEvent) => {
+    useChatStore.getState().setMessageToolSummary(assistantMessageId, summary)
   }
 }
 
@@ -1275,8 +1296,10 @@ export function useChat(): UseChatReturn {
           onSubagentEnd: (evt) => {
             useChatStore.getState().markSubagentEnd(evt)
             const update = mapEndToTimelineUpdate(evt)
-            useTimelineStore.getState().updateEvent(update.id, update.updates)
+            if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
           },
+          // 2026-07-31 立,AI 对话可视化深度接入:SSE 流末尾 tool-summary 事件落地
+          onToolSummary: createToolSummaryHandler(assistantId),
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1525,8 +1548,10 @@ export function useChat(): UseChatReturn {
         onSubagentEnd: (evt) => {
           useChatStore.getState().markSubagentEnd(evt)
           const update = mapEndToTimelineUpdate(evt)
-          useTimelineStore.getState().updateEvent(update.id, update.updates)
+          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
         },
+        // 2026-07-31 立,与 sendMessage 对称:sendAnswer 续流同样发出 tool-summary 事件
+        onToolSummary: createToolSummaryHandler(assistantId),
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失

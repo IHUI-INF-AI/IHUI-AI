@@ -6,6 +6,7 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
+import type { ToolCallSummary } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
 
@@ -152,6 +153,11 @@ interface ChatState {
     status: DiffApplyStatus,
     errorMessage?: string,
   ) => void
+  /** 写入工具调用汇总到指定消息(2026-07-31 立,AI 对话可视化深度接入)
+   *  - SSE 流末尾发出 type='tool-summary' 事件时触发
+   *  - 收到后直接写入 message.toolCallSummary,无需前端本地聚合
+   *  - 同步写入 message.totalDurationMs(若 summary.totalDurationMs 存在) */
+  setMessageToolSummary: (messageId: string, summary: ToolCallSummary) => void
 }
 
 // P1-1 修复(2026-07-28):长会话 messages 数组无上限会导致内存爆炸,
@@ -482,6 +488,22 @@ export const useChatStore = create<ChatState>()(
             applyError: status === 'error' ? errorMessage : undefined,
           }
           next[idx] = { ...target, toolCalls: newToolCalls }
+          return { messages: next }
+        }),
+
+      // 2026-07-31 立,AI 对话可视化深度接入:SSE tool-summary 事件落地
+      setMessageToolSummary: (messageId, summary) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = {
+            ...target,
+            toolCallSummary: summary,
+            totalDurationMs: summary.totalDurationMs ?? target.totalDurationMs,
+          }
           return { messages: next }
         }),
     }),
