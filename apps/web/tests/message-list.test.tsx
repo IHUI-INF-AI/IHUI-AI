@@ -647,7 +647,7 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
               toolName: 'read_file',
               args: {},
               status: 'success',
-              startedAt: Date.now(),
+              duration: 1500,
             },
           ],
         }),
