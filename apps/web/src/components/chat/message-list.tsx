@@ -6,7 +6,6 @@ import {
   Sparkles,
   AlertCircle,
   Loader2,
-  ChevronDown,
   ShieldCheck,
   ShieldAlert,
   Hand,
@@ -27,6 +26,10 @@ import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
+// 2026-07-31 立,AI 对话可视化深度接入:把 popover 内的富 UI 组件 inline 到消息气泡主流
+import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
+import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
+import { TimelineTab } from '@/components/ai/progress-sections/timeline-tab'
 import {
   MessageContextMenu,
   MessageSearchBar,
@@ -92,41 +95,6 @@ function TypingIndicator() {
       <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
       <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
       <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
-    </div>
-  )
-}
-
-function ReasoningBlock({
-  reasoning,
-  expanded: controlledExpanded,
-  onToggle,
-}: {
-  reasoning: string
-  /** 受控的展开状态(2026-07-28 立):为 undefined 时回退到内部 state,保证向后兼容 */
-  expanded?: boolean
-  /** 切换回调(2026-07-28 立):由父组件(MsgItem)统一管理 state,便于键盘 Enter 联动 */
-  onToggle?: () => void
-}) {
-  const t = useTranslations('chat')
-  const [internalExpanded, setInternalExpanded] = React.useState(false)
-  // 受控/非受控模式:有 expanded prop 时用受控,否则用内部 state
-  const expanded = controlledExpanded ?? internalExpanded
-  const handleToggle = onToggle ?? (() => setInternalExpanded((prev) => !prev))
-  return (
-    <div className="rounded-md border border-muted bg-muted/30">
-      <button
-        type="button"
-        onClick={handleToggle}
-        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ChevronDown className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')} />
-        {expanded ? t('hideReasoning') : t('showReasoning')}
-      </button>
-      {expanded && (
-        <div className="bg-muted/30 px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap break-words">
-          {reasoning}
-        </div>
-      )}
     </div>
   )
 }
@@ -408,10 +376,11 @@ const MessageItem = React.memo(function MessageItem({
           ) : (
             <div className="space-y-2">
               {m.reasoning && (
-                <ReasoningBlock
-                  reasoning={m.reasoning}
+                <ThinkingSection
+                  content={m.reasoning}
+                  currentNode={null}
+                  isStreaming={streamingThis}
                   expanded={reasoningExpanded}
-                  onToggle={() => setReasoningExpanded((prev) => !prev)}
                 />
               )}
               {m.toolCalls?.map((tc) => {
@@ -469,6 +438,9 @@ const MessageItem = React.memo(function MessageItem({
                     repeated={tc.repeated}
                     imageUrl={effectiveImageUrl}
                     summaryData={effectiveSummaryData}
+                    serverSource={tc.serverSource}
+                    serverId={tc.serverId}
+                    serverName={tc.serverName}
                     onApply={
                       hasDiff && onApplyDiff
                         ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
@@ -479,6 +451,16 @@ const MessageItem = React.memo(function MessageItem({
                 )
               })}
               <MarkdownStream content={m.content} isStreaming={streamingThis} />
+              {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾
+                - 优先用 SSE tool-summary 事件聚合结果(m.toolCallSummary)
+                - 缺失时降级从 m.toolCalls 本地聚合
+                - 显示:文件搜索 N 个 / 网页搜索 N 个 / 修改 N 个文件 / +N -N 行 / 耗时 */}
+              <ToolCallSummaryCard
+                summary={m.toolCallSummary}
+                toolCalls={m.toolCalls}
+                isStreaming={streamingThis}
+                data-testid={`message-tool-call-summary-${m.id}`}
+              />
             </div>
           )}
           {/* 时间戳 footer(2026-07-28 立):hover/focused 时显示在气泡底部,
@@ -1570,6 +1552,24 @@ export function MessageList({
         })}
         {/* #7 虚拟滚动底部占位 */}
         {paddingBottom > 0 && <div style={{ height: paddingBottom, flexShrink: 0 }} />}
+        {/* 2026-07-31 立,AI 对话可视化深度接入:TimelineTab inline 到对话底部
+          - 显示完整时间线事件流(plan/subagent/tool/thinking/question/reference)
+          - 实时刷新(useTimelineStore 响应式)
+          - 类型筛选 + 搜索 + 状态计数 + Markdown 导出
+          - 仅当有事件时显示(无事件空状态折叠,避免污染空对话)
+          - 用 bg 色对比替代 border-t 分割线(AGENTS.md §4 禁止分割线) */}
+        {timelineEvents.length > 0 && (
+          <div
+            className="mt-2 rounded-md bg-muted/30 p-2"
+            data-testid="message-list-inline-timeline"
+          >
+            <TimelineTab
+              showTabs={false}
+              emptyText=""
+              data-testid="inline-timeline-events"
+            />
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
     </div>
