@@ -995,6 +995,48 @@
       "stepfun": "阶跃星辰",
       "cloudflareWorkersAi": "Cloudflare Workers AI"
     },
+    "commandArg": {
+      "goalFixTs": {
+        "label": "修复所有 TypeScript 错误",
+        "description": "运行 pnpm typecheck,修复所有报错直到全绿(命令退出码 0)"
+      },
+      "goalPassTests": {
+        "label": "通过所有单元测试",
+        "description": "运行 pnpm test,修复失败用例直到全部通过"
+      },
+      "goalRefactor": {
+        "label": "重构模块消除重复",
+        "description": "识别重复代码,抽取共享工具函数,保持行为不变"
+      },
+      "goalLint": {
+        "label": "完成 lint 全绿",
+        "description": "运行 pnpm lint,修复所有 lint 错误和警告"
+      },
+      "goalMigrateShared": {
+        "label": "迁移功能到共享层",
+        "description": "把端独占组件上提到 packages/app,多端复用,保持行为一致"
+      },
+      "goalBenchmark": {
+        "label": "深度对标某产品交互",
+        "description": "参考目标产品交互细节,逐项对齐实现,自验 4 状态"
+      },
+      "goalDeadCode": {
+        "label": "清理死代码",
+        "description": "扫描未引用的导出/组件/工具函数,确认无依赖后删除"
+      },
+      "goalE2e": {
+        "label": "补全 E2E 测试",
+        "description": "为关键路径补全 E2E 测试,覆盖率提升到 80%+"
+      },
+      "loopOn": {
+        "label": "开启循环",
+        "description": "开启循环执行模式,AI 将持续迭代直到目标达成"
+      },
+      "loopOff": { "label": "关闭循环", "description": "关闭循环执行模式,恢复单次执行" },
+      "loop5": { "label": "循环 5 次", "description": "设置最大迭代次数为 5" },
+      "loop10": { "label": "循环 10 次", "description": "设置最大迭代次数为 10" },
+      "loop20": { "label": "循环 20 次", "description": "设置最大迭代次数为 20(高风险,需人工监督)" }
+    },
     "contextMenu": {
       "copyText": "复制文本",
       "copyMarkdown": "复制为 Markdown",

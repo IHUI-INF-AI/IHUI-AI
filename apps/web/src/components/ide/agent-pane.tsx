@@ -49,8 +49,8 @@ import {
  */
 
 // ---- 模型选项(硬编码常见模型,后续可接入 FALLBACK_MODELS) ----
-const MODEL_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: '', label: '默认' },
+const MODEL_OPTIONS: ReadonlyArray<{ value: string; labelKey?: string; label?: string }> = [
+  { value: '', labelKey: 'agentPane.modelDefault' },
   { value: 'gpt-4o', label: 'GPT-4o' },
   { value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet' },
   { value: 'deepseek-chat', label: 'DeepSeek Chat' },
@@ -117,6 +117,7 @@ function isTerminalStatus(v: unknown): v is TerminalTask['status'] {
 function deriveDiffInfoFromArgs(
   toolName: string,
   args: Record<string, unknown>,
+  t: (key: string) => string,
 ): InlineDiffInfo | null {
   const pickStr = (keys: string[]): string => {
     for (const k of keys) {
@@ -126,7 +127,8 @@ function deriveDiffInfoFromArgs(
     return ''
   }
 
-  const filePath = pickStr(['path', 'file_path', 'filePath', 'filename']) || '(未知文件)'
+  const filePath =
+    pickStr(['path', 'file_path', 'filePath', 'filename']) || t('agentPane.unknownFile')
 
   if (toolName === 'edit_file') {
     const oldContent = pickStr(['oldText', 'old_text', 'oldContent', 'old_content'])
@@ -238,7 +240,7 @@ export function AgentPane() {
     const list: AgentChange[] = []
     for (const tool of tools) {
       if (!CHANGE_TOOL_NAMES.has(tool.toolName)) continue
-      const diffInfo = deriveDiffInfoFromArgs(tool.toolName, tool.args)
+      const diffInfo = deriveDiffInfoFromArgs(tool.toolName, tool.args, t)
       if (!diffInfo) continue
       list.push({
         id: tool.id,
@@ -249,7 +251,7 @@ export function AgentPane() {
       })
     }
     return list
-  }, [tools])
+  }, [tools, t])
 
   // 清空会话
   const clear = React.useCallback(() => {
@@ -489,12 +491,12 @@ export function AgentPane() {
       await executeAgentStream(params, callbacks, { signal: controller.signal })
     } catch (err) {
       // abort 触发的 AbortError 已由 executeAgentStream 内部处理(调 onDone),不会到这里
-      const msg = err instanceof Error ? err.message : '执行失败'
+      const msg = err instanceof Error ? err.message : t('agentPane.executeFailed')
       setError(msg)
       setIsRunning(false)
       abortRef.current = null
     }
-  }, [goal, model, isRunning, handleStreamEvent])
+  }, [goal, model, isRunning, handleStreamEvent, t])
 
   // 卸载时取消进行中的 SSE
   React.useEffect(() => {
@@ -545,7 +547,7 @@ export function AgentPane() {
           >
             {MODEL_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label}
+                {opt.labelKey ? t(opt.labelKey) : opt.label}
               </option>
             ))}
           </select>

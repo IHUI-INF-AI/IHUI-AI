@@ -35,14 +35,14 @@ function statusBadgeClass(status: TerminalSessionStatus): string {
   }
 }
 
-function statusLabel(status: TerminalSessionStatus): string {
+function statusLabel(status: TerminalSessionStatus, t: (key: string) => string): string {
   switch (status) {
     case 'active':
-      return '运行中'
+      return t('terminalSessionList.statusActive')
     case 'exited':
-      return '已退出'
+      return t('terminalSessionList.statusExited')
     case 'closed':
-      return '已关闭'
+      return t('terminalSessionList.statusClosed')
     default:
       return status
   }
@@ -69,7 +69,9 @@ export function TerminalSessionList({
     <div className="flex h-full w-full flex-col gap-2 overflow-hidden border border-border bg-card p-2">
       {/* 标题栏 */}
       <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-medium text-foreground">{t('terminalSessionList.title')}</span>
+        <span className="text-xs font-medium text-foreground">
+          {t('terminalSessionList.title')}
+        </span>
         <button
           type="button"
           className={cn(
@@ -124,17 +126,13 @@ export function TerminalSessionList({
                       statusBadgeClass(session.status),
                     )}
                   >
-                    {statusLabel(session.status)}
+                    {statusLabel(session.status, t)}
                   </span>
                 </div>
-                <div className="mt-1 truncate text-[10px] text-muted-foreground">
-                  {cwdShort}
-                </div>
+                <div className="mt-1 truncate text-[10px] text-muted-foreground">{cwdShort}</div>
                 <div className="mt-0.5 flex items-center justify-between text-[10px] text-muted-foreground/60">
                   <span>{formatTime(session.createdAt)}</span>
-                  {session.exitCode !== undefined && (
-                    <span>exit: {session.exitCode}</span>
-                  )}
+                  {session.exitCode !== undefined && <span>exit: {session.exitCode}</span>}
                   {session.status === 'active' && (
                     <button
                       type="button"
