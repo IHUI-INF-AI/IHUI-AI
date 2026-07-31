@@ -35,6 +35,9 @@ import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
 import { verifySecret } from '../utils/api-key-hash.js'
 import { ApiKeyQuota } from '../utils/api-key-quota.js'
 import { config } from '../config/index.js'
+import { logger } from '../utils/logger.js'
+import { checkTpmQuota, recordTpmUsage } from '../services/api-key-tpm-service.js'
+import { getShareByToken } from '../services/api-key-share-service.js'
 
 function unauthorized(message: string): Error {
   const err = new Error(message) as Error & { statusCode: number }
@@ -345,12 +348,114 @@ export async function checkPerModelRateLimit(
 }
 
 /**
+ * Share token 鉴权:识别 share_ 前缀的 token,走分享 token 鉴权路径。
+ *
+ * 流程:
+ * 1. strip share_ 前缀 → getShareByToken 查询有效分享(未过期 + 未撤销)
+ * 2. 防御性复核 expiresAt / revokedAt
+ * 3. 源 Key 必须活跃(status === 'active')
+ * 4. scopeModels 检查(null = 继承源 Key allowedModels)
+ * 5. scopeEndpoints 检查(null/空 = 全部;匹配请求 path 是否包含端点标识)
+ * 6. rateLimitRpm / rateLimitTpm 检查(复用 checkPerModelRateLimit,用 share ID 隔离计数)
+ * 7. 注入 sourceApiKeyId 作为当前 apiKeyId,继承源 Key 配置
+ *
+ * 降级安全:getShareByToken 抛异常(DB 不可用)→ 401 拒绝(share 鉴权无法放行)。
+ */
+async function authenticateShareToken(
+  request: FastifyRequest,
+  token: string,
+): Promise<AuthenticatedApiKey> {
+  // strip share_ 前缀(DB 存纯 hex,客户端传 share_<hex>)
+  const rawToken = token.slice('share_'.length)
+
+  let share: Awaited<ReturnType<typeof getShareByToken>>
+  try {
+    share = await getShareByToken(rawToken)
+  } catch (err) {
+    // share-service 异常:share 鉴权无法降级放行(无法确认 token 有效性)
+    logger.warn('Share service unavailable, rejecting share token', { error: String(err) })
+    throw unauthorized('Share token verification failed')
+  }
+  if (!share) throw unauthorized('Invalid or expired share token')
+
+  // 防御性复核过期/撤销(getShareByToken 查询已过滤,此处显式检查)
+  const now = new Date()
+  if (share.revokedAt !== null) throw unauthorized('Share token revoked')
+  if (share.expiresAt.getTime() <= now.getTime()) throw unauthorized('Share token expired')
+
+  // 源 Key 必须活跃
+  if (share.sourceKey.status !== 'active') throw unauthorized('Source API key inactive')
+
+  const body = request.body as Record<string, unknown> | undefined
+  const bodyModel = typeof body?.model === 'string' ? body.model : undefined
+
+  // scopeModels: null = 继承源 Key allowedModels
+  const effectiveModels = share.scopeModels ?? (share.sourceKey.allowedModels as string[] | null)
+  const modelCheck = checkAllowedModels(effectiveModels, bodyModel)
+  if (!modelCheck.ok) throw forbidden(modelCheck.reason!)
+
+  // scopeEndpoints: null/空 = 全部;匹配请求 path 是否包含端点标识(chat/embeddings/image)
+  if (share.scopeEndpoints && share.scopeEndpoints.length > 0) {
+    const path = request.url.split('?')[0] ?? ''
+    if (!share.scopeEndpoints.some((ep) => path.includes(ep))) {
+      throw forbidden('Endpoint not in share scope')
+    }
+  }
+
+  // rateLimitRpm / rateLimitTpm:复用 checkPerModelRateLimit(用 share ID 隔离计数,合成 model key)
+  // Redis 故障时 checkPerModelRateLimit 内部 fail-open,不阻塞合法分享请求
+  const estimatedTokens = body && typeof body.max_tokens === 'number' ? body.max_tokens : 1000
+  const rlResult = await checkPerModelRateLimit(
+    share.id,
+    '__share__',
+    estimatedTokens,
+    share.rateLimitRpm,
+    share.rateLimitTpm,
+  )
+  if (!rlResult.allowed) {
+    throw rateLimited(
+      rlResult.reason === 'tpm' ? 'Share TPM limit exceeded' : 'Share RPM limit exceeded',
+      rlResult.reason === 'tpm' ? 1008 : 1007,
+      rlResult.retryAfter ?? 1,
+    )
+  }
+
+  // 注入 sourceApiKeyId 作为当前 apiKeyId,继承源 Key 配置
+  const ctx: AuthenticatedApiKey = {
+    id: share.sourceApiKeyId,
+    userId: share.sourceKey.userId,
+    key: share.sourceKey.key,
+    permissions: share.sourceKey.permissions as ApiKeyPermission[],
+    rateLimit: share.sourceKey.rateLimit,
+    expiresAt: share.sourceKey.expiresAt,
+    allowedIps: (share.sourceKey.allowedIps as string[] | null) ?? null,
+    allowedModels: (share.sourceKey.allowedModels as string[] | null) ?? null,
+    maxTokensPerReq: share.sourceKey.maxTokensPerReq,
+  }
+  request.apiKey = ctx
+
+  // lastUsedAt 异步更新(源 Key)
+  void db
+    .update(developerApiKeys)
+    .set({ lastUsedAt: new Date() })
+    .where(eq(developerApiKeys.id, share.sourceApiKeyId))
+    .catch(() => {})
+
+  return ctx
+}
+
+/**
  * 核心 API Key 鉴权函数。
  * 成功注入 request.apiKey 并返回 AuthenticatedApiKey;失败抛带 statusCode 的 Error。
  */
 export async function authenticateApiKey(request: FastifyRequest): Promise<AuthenticatedApiKey> {
   const key = extractKey(request)
   if (!key) throw unauthorized('API key required')
+
+  // Share token 鉴权分支:token 以 share_ 前缀标记,走分享 token 鉴权路径
+  if (key.startsWith('share_')) {
+    return authenticateShareToken(request, key)
+  }
 
   const [row] = await dbRead
     .select()
@@ -469,6 +574,40 @@ export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, rep
       .status(statusCode)
       .send({ code: statusCode, message: err.message || 'API key authentication required' })
   }
+
+  // === TPM 限流集成(鉴权通过后、请求转发前)===
+  // checkTpmQuota 内部读 developer_api_keys.tpmLimit(migration 20260801010060 新增字段)
+  const apiKey = request.apiKey
+  if (!apiKey) return
+  const body = request.body as Record<string, unknown> | undefined
+  // 预估 token:优先用 body.max_tokens,无则保守默认 1000
+  const estimatedTokens = body && typeof body.max_tokens === 'number' ? body.max_tokens : 1000
+
+  // TPM 检查:超限返回 429;service 异常(Redis/DB 不可用)降级放行
+  try {
+    const tpmResult = await checkTpmQuota(apiKey.id, estimatedTokens)
+    if (!tpmResult.allowed) {
+      const retryAfter = Math.max(1, Math.ceil((tpmResult.resetAt.getTime() - Date.now()) / 1000))
+      return reply
+        .status(429)
+        .header('Retry-After', String(retryAfter))
+        .send({ code: 429, message: 'TPM limit exceeded', data: null })
+    }
+  } catch (err) {
+    logger.warn('TPM quota check failed, failing open', {
+      apiKeyId: apiKey.id,
+      error: String(err),
+    })
+  }
+
+  // 请求结束后记录实际 token 消耗(若 request 上有 usage 统计)
+  reply.raw.on('finish', () => {
+    const usage = (request as FastifyRequest & { usage?: { totalTokens?: number } }).usage
+    const totalTokens = usage?.totalTokens
+    if (typeof totalTokens === 'number' && totalTokens > 0) {
+      void recordTpmUsage(apiKey.id, totalTokens).catch(() => {})
+    }
+  })
 }
 
 /**
