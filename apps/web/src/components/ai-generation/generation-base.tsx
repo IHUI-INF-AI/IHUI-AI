@@ -78,12 +78,12 @@ export function GenerationFrame({
       <CardContent className="space-y-3">
         {children}
         {options}
-        <Button onClick={onGenerate} disabled={isLoading || !canGenerate} size="sm">
+        <Button onClick={onGenerate} disabled={isLoading || !canGenerate} size="sm" aria-busy={isLoading}>
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {isLoading ? '生成中...' : generateLabel}
         </Button>
         {status === 'error' && error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+          <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
             {error}
           </div>
         )}
@@ -99,11 +99,13 @@ export function PromptInput({
   onChange,
   placeholder = '描述你想要生成的内容...',
   rows = 3,
+  'aria-label': ariaLabel = '生成内容输入框',
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   rows?: number
+  'aria-label'?: string
 }) {
   return (
     <textarea
@@ -111,6 +113,7 @@ export function PromptInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
+      aria-label={ariaLabel}
       className="w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
     />
   )
@@ -128,12 +131,17 @@ export function OptionSelect<T extends string>({
   onChange: (v: T) => void
   options: ReadonlyArray<{ value: T; label: string }>
 }) {
+  // 用 React.useId 生成稳定 id,关联 <span> label 与 <select>(a11y)
+  const labelId = React.useId()
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span id={labelId} className="text-xs text-muted-foreground">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
+        aria-labelledby={labelId}
         className="h-8 rounded-md border bg-transparent px-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         {options.map((o) => (
