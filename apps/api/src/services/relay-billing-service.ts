@@ -383,7 +383,10 @@ export async function calculateCost(
   const rawCacheReadTokens = Math.max(0, options?.cacheReadTokens ?? 0)
   const rawCacheCreationTokens = Math.max(0, options?.cacheCreationTokens ?? 0)
   const cacheReadTokens = Math.min(rawCacheReadTokens, promptTokens)
-  const cacheCreationTokens = Math.min(rawCacheCreationTokens, Math.max(0, promptTokens - cacheReadTokens))
+  const cacheCreationTokens = Math.min(
+    rawCacheCreationTokens,
+    Math.max(0, promptTokens - cacheReadTokens),
+  )
   const normalInputTokens = Math.max(0, promptTokens - cacheReadTokens - cacheCreationTokens)
 
   const rawNormalInputCost = (baseInputPricePer1k * normalInputTokens) / 1000
@@ -394,7 +397,8 @@ export async function calculateCost(
   const cacheReadCostCents = Math.round(rawCacheReadCost * multiplier)
   const cacheCreationCostCents = Math.round(rawCacheCreationCost * multiplier)
   const outputCostCents = Math.round(rawOutputCost * multiplier)
-  const totalCostCents = inputCostCents + cacheReadCostCents + cacheCreationCostCents + outputCostCents
+  const totalCostCents =
+    inputCostCents + cacheReadCostCents + cacheCreationCostCents + outputCostCents
 
   return {
     inputCostCents,
@@ -634,6 +638,10 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
   // 1. 计算成本(区分 mode:'relay' 中转站 / 'byok' BYOK 平台模式)
   const mode = input.mode ?? 'relay'
 
+  // P0 第二批次(2026-07-31 立):响应缓存命中时成本为 0(未调用上游,无大厂成本)
+  // metadata.cacheHit === true 时跳过成本计算,只记录流水(供统计缓存节省金额)
+  const isCacheHit = input.metadata?.cacheHit === true
+
   // 中转站模式:全额成本(上游 × 中转站倍率),平台扣全额
   // BYOK 模式:平台只收 platformFeeCents(上游原价 × 抽成率),不碰大厂成本 upstreamCostCents
   let costCentsToDeduct: number
@@ -643,7 +651,11 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
   let platformFeeCents: number | undefined
   let commissionRate: number | undefined
 
-  if (mode === 'byok') {
+  if (isCacheHit) {
+    // 缓存命中:成本为 0,不扣减余额,只记录流水供统计
+    costCentsToDeduct = 0
+    pricingSource = 'default'
+  } else if (mode === 'byok') {
     // BYOK:抽成率优先用入参,否则查全局默认
     const providerCode = modelToProviderCode(input.model)
     const rate = input.commissionRate ?? (await getByokCommissionRate(providerCode))
@@ -660,10 +672,16 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
     commissionRate = rate
   } else {
     // 中转站(默认)
-    const cost = await calculateCost(input.model, input.promptTokens, input.completionTokens, {
-      cacheReadTokens: input.cacheReadTokens,
-      cacheCreationTokens: input.cacheCreationTokens,
-    }, input.userId)
+    const cost = await calculateCost(
+      input.model,
+      input.promptTokens,
+      input.completionTokens,
+      {
+        cacheReadTokens: input.cacheReadTokens,
+        cacheCreationTokens: input.cacheCreationTokens,
+      },
+      input.userId,
+    )
     costCentsToDeduct = cost.totalCostCents
     multiplier = cost.multiplier
     pricingSource = cost.source
@@ -863,10 +881,7 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
         // webhook 通知失败不影响主链路
       })
       // 余额检查:token 余额耗尽 或 cost 余额低于 1000 分(10 元)且非无限额度
-      if (
-        newTokenBalance === 0 ||
-        (newCostBalanceCents !== -1 && newCostBalanceCents < 1000)
-      ) {
+      if (newTokenBalance === 0 || (newCostBalanceCents !== -1 && newCostBalanceCents < 1000)) {
         notifyRelayEvent({
           userId: input.userId,
           event: 'relay.balance.low',
