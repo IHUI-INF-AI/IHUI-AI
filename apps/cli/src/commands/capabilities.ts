@@ -1,6 +1,6 @@
 /**
- * Capabilities CLI — 等价自旧架构 server/app/cli/capabilities.py
- * 统一能力查询与调用：local 走已配置后端 (全局 --api-url)，remote 走 --server 指定的远程服务器。
+ * Capabilities CLI — 统一能力查询与调用。
+ * local 走全局 --api-url(或 settings.json),remote 走 --server 指定的远程服务器。
  *
  * 用法:
  *   ihui capabilities local list [--category <c>] [--keyword <k>] [--json]
@@ -15,12 +15,15 @@
 
 import type { Command } from 'commander';
 import chalk from 'chalk';
+import { loadSettings } from './settings.js';
+import { ensureFreshAccessToken } from './token-manager.js';
 
 const API_PREFIX = '/api/v1/ai/capabilities';
 const DEFAULT_REMOTE_SERVER = 'http://localhost:8888';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const INVOKE_TIMEOUT_MS = 60_000;
 
+/** API 返回的能力项(扁平结构,GET /list 返回) */
 interface CapabilityItem {
   id: string;
   name: string;
@@ -29,22 +32,21 @@ interface CapabilityItem {
   platform?: string;
   description?: string;
   tags?: string[];
+  enabled?: boolean;
+  qualityScore?: number;
 }
 
-interface CategoryItem {
-  id: string;
-  name: string;
-  icon?: string;
-  description?: string;
-  items?: CapabilityItem[];
-}
-
+/** invoke 返回(POST /invoke) */
 interface InvokeResult {
   success: boolean;
-  result?: unknown;
+  capability_id?: string;
+  result?: string;
+  model?: string;
+  stub?: boolean;
   error?: string;
 }
 
+/** auto-match 返回(POST /auto-match) */
 interface AutoMatchResult {
   capability_id: string;
   capability_name: string;
@@ -58,7 +60,29 @@ interface ListFilter {
   keyword?: string;
 }
 
-/** 远程 HTTP 调用（Node 20+ 内置 fetch）。 */
+/** 解析 baseUrl:CLI flag > settings.json > 默认值。 */
+function resolveBaseUrl(cliApiUrl: unknown): string {
+  if (typeof cliApiUrl === 'string' && cliApiUrl) return cliApiUrl.replace(/\/+$/, '');
+  const settings = loadSettings();
+  const url = settings.apiUrl || process.env.IHUI_API_URL || 'http://localhost:8802';
+  return url.replace(/\/+$/, '');
+}
+
+/**
+ * 解析 apiKey:CLI flag > 自动 refresh 续期(settings.refreshToken)。
+ * - 优先用 --api-key 显式传入(如 CI/CD 场景)
+ * - 否则调 ensureFreshAccessToken 自动检测过期 + refresh
+ * 返回 undefined 表示无 token / refresh 失败,调用方应提示用户 `ihui login`
+ */
+async function resolveApiKeyAsync(
+  cliApiKey: unknown,
+  baseUrl: string,
+): Promise<string | null> {
+  if (typeof cliApiKey === 'string' && cliApiKey) return cliApiKey;
+  return ensureFreshAccessToken(baseUrl);
+}
+
+/** 远程 HTTP 调用(Node 20+ 内置 fetch)。失败抛错,由调用方 try/catch 输出友好错误。 */
 async function apiRequest(
   baseUrl: string,
   path: string,
@@ -83,10 +107,23 @@ async function apiRequest(
       body: options.body ? JSON.stringify(options.body) : undefined,
       signal: controller.signal,
     });
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+    const text = await resp.text();
+    let parsed: unknown;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      throw new Error(`HTTP ${resp.status} 响应非 JSON: ${text.slice(0, 200)}`);
     }
-    return await resp.json();
+    if (!resp.ok) {
+      const msg =
+        (parsed && typeof parsed === 'object' && 'message' in parsed
+          ? String((parsed as { message: unknown }).message)
+          : `HTTP ${resp.status} ${resp.statusText}`) || `HTTP ${resp.status}`;
+      const err = new Error(msg) as Error & { status?: number };
+      err.status = resp.status;
+      throw err;
+    }
+    return parsed;
   } finally {
     clearTimeout(timer);
   }
@@ -109,11 +146,23 @@ function parseOptions(raw: string | undefined): Record<string, unknown> {
   }
 }
 
+/** 提取标准 API 响应的 data 字段;非标准格式原样返回。 */
 function extractData(resp: unknown): unknown {
   if (resp && typeof resp === 'object' && 'data' in resp) {
     return (resp as { data: unknown }).data;
   }
   return resp;
+}
+
+/** 友好错误输出(不触发 crash handler)。 */
+function handleError(scope: string, err: unknown): void {
+  const e = err as Error & { status?: number };
+  const status = typeof e.status === 'number' ? ` [${e.status}]` : '';
+  console.error(chalk.red(`✗ ${scope}${status}: ${e.message || err}`));
+  if (e.message?.includes('ECONNREFUSED') || e.message?.includes('fetch failed')) {
+    console.error(chalk.dim('  请确认 API 服务已启动:pnpm --filter @ihui/api dev(默认 http://localhost:8802)'));
+  }
+  process.exitCode = 1;
 }
 
 // ==================== list ====================
@@ -129,24 +178,50 @@ async function listCapabilities(
   if (filter.keyword) params.set('keyword', filter.keyword);
   const qs = params.toString();
   const resp = (await apiRequest(baseUrl, `/list${qs ? `?${qs}` : ''}`, { apiKey })) as {
-    data?: { categories?: CategoryItem[]; total?: number };
+    code?: number;
+    data?: { list?: CapabilityItem[]; categories?: { id: string; name: string; items?: CapabilityItem[] }[]; total?: number };
   };
   const data = resp?.data ?? {};
-  const categories = data.categories ?? [];
-  const total = data.total ?? 0;
+  const flatList = data.list ?? [];
+  const grouped = data.categories;
 
   if (asJson) {
     printJson(resp);
     return;
   }
-  for (const cat of categories) {
-    console.info(`\n=== ${chalk.bold(cat.name)} (${cat.id}) ===`);
-    for (const item of cat.items ?? []) {
+
+  if (grouped && Array.isArray(grouped) && grouped.length > 0) {
+    for (const cat of grouped) {
+      console.info(`\n=== ${chalk.bold(cat.name)} (${cat.id}) ===`);
+      for (const item of cat.items ?? []) {
+        const desc = (item.description ?? '').slice(0, 60);
+        console.info(`  [${chalk.cyan(item.id)}] ${item.name} - ${chalk.dim(desc)}`);
+      }
+    }
+    console.info(chalk.dim(`\n共 ${grouped.length} 个分类`));
+    return;
+  }
+
+  if (flatList.length === 0) {
+    console.info(chalk.dim('(暂无能力,请先在管理后台启用能力)'));
+    return;
+  }
+
+  const byCat = new Map<string, CapabilityItem[]>();
+  for (const item of flatList) {
+    const cat = item.category || '(未分类)';
+    if (!byCat.has(cat)) byCat.set(cat, []);
+    byCat.get(cat)!.push(item);
+  }
+  console.info('');
+  for (const [cat, items] of byCat) {
+    console.info(`=== ${chalk.bold(cat)} (${items.length} 个) ===`);
+    for (const item of items) {
       const desc = (item.description ?? '').slice(0, 60);
       console.info(`  [${chalk.cyan(item.id)}] ${item.name} - ${chalk.dim(desc)}`);
     }
   }
-  console.info(chalk.dim(`\n共 ${total} 个能力`));
+  console.info(chalk.dim(`\n共 ${flatList.length} 个能力`));
 }
 
 // ==================== categories ====================
@@ -157,18 +232,34 @@ async function listCategories(
   apiKey?: string,
 ): Promise<void> {
   const resp = await apiRequest(baseUrl, '/categories', { apiKey });
-  const data = (extractData(resp) as CategoryItem[]) ?? [];
+  const data = (extractData(resp) as { categories?: unknown; templates?: unknown[] }) ?? {};
 
   if (asJson) {
     printJson(resp);
     return;
   }
-  if (data.length === 0) {
-    console.info(chalk.dim('(无数据)'));
-    return;
+
+  const cats = data.categories;
+  if (Array.isArray(cats) && cats.length > 0) {
+    console.info(chalk.cyan('\n能力分类:'));
+    if (typeof cats[0] === 'string') {
+      for (const c of cats as string[]) {
+        console.info(`  - ${chalk.bold(c)}`);
+      }
+    } else {
+      for (const c of cats as { id?: string; name?: string; description?: string }[]) {
+        console.info(`  [${chalk.cyan(c.id ?? '?')}] ${chalk.bold(c.name ?? '?')} - ${chalk.dim(c.description ?? '')}`);
+      }
+    }
+  } else {
+    console.info(chalk.dim('(无分类数据)'));
   }
-  for (const cat of data) {
-    console.info(`[${chalk.cyan(cat.id)}] ${chalk.bold(cat.name)} - ${chalk.dim(cat.description ?? '')}`);
+  if (Array.isArray(data.templates) && data.templates.length > 0) {
+    console.info(chalk.cyan(`\n模板 (${data.templates.length} 个):`));
+    for (const t of data.templates.slice(0, 10)) {
+      const name = (t as { name?: string }).name ?? '?';
+      console.info(`  - ${name}`);
+    }
   }
 }
 
@@ -187,7 +278,7 @@ async function invokeCapability(
     body: { capability_id: name, input, options },
     timeoutMs: INVOKE_TIMEOUT_MS,
     apiKey,
-  })) as { data?: InvokeResult };
+  })) as { code?: number; data?: InvokeResult };
 
   if (asJson) {
     printJson(resp);
@@ -196,10 +287,11 @@ async function invokeCapability(
   const result = resp?.data;
   if (result?.success) {
     console.info(chalk.green('✓ 调用成功'));
+    if (result.model) console.info(chalk.dim(`  模型: ${result.model}${result.stub ? ' (stub)' : ''}`));
     console.info(`结果: ${result.result ?? '(无输出)'}`);
   } else {
     console.error(chalk.red(`✗ 调用失败: ${result?.error ?? '未知错误'}`));
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 
@@ -215,7 +307,7 @@ async function autoMatch(
     method: 'POST',
     body: { input: query },
     apiKey,
-  })) as { data?: AutoMatchResult };
+  })) as { code?: number; data?: AutoMatchResult };
 
   if (asJson) {
     printJson(resp);
@@ -231,7 +323,9 @@ async function autoMatch(
     console.info(`类型: ${result.capability_type}`);
   }
   console.info(`原因: ${result.reason}`);
-  console.info(`置信度: ${result.confidence}`);
+  const pct = Math.round(result.confidence * 100);
+  const bar = '█'.repeat(Math.floor(pct / 5)) + '░'.repeat(20 - Math.floor(pct / 5));
+  console.info(`置信度: ${bar} ${pct}%`);
 }
 
 // ==================== 命令注册 ====================
@@ -253,7 +347,7 @@ interface LocalOptions {
 
 /**
  * 在根 program 上注册 `capabilities` 命令组。
- * local 子命令使用全局 `--api-url` / `--api-key`；remote 子命令使用各自的 `--server`。
+ * local 子命令使用全局 `--api-url` / `--api-key` 或 settings.json;remote 子命令使用各自的 `--server`。
  */
 export function registerCapabilitiesCommand(program: Command): void {
   const capsCmd = program
@@ -261,7 +355,7 @@ export function registerCapabilitiesCommand(program: Command): void {
     .description('统一能力查询与调用 (local / remote)');
 
   // ---------- local ----------
-  const localCmd = capsCmd.command('local').description('本地后端能力 (使用全局 --api-url)');
+  const localCmd = capsCmd.command('local').description('本地后端能力 (使用全局 --api-url 或 settings.json)');
 
   localCmd
     .command('list')
@@ -270,8 +364,19 @@ export function registerCapabilitiesCommand(program: Command): void {
     .option('--keyword <keyword>', '关键词搜索')
     .option('--json', '以 JSON 格式输出')
     .action(async (opts: LocalOptions) => {
-      const { apiUrl, apiKey } = program.opts();
-      await listCapabilities(apiUrl, opts, Boolean(opts.json), apiKey);
+      try {
+        const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as { apiUrl?: string; apiKey?: string };
+        const baseUrl = resolveBaseUrl(cliApiUrl);
+        const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
+        if (!apiKey) {
+          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          process.exitCode = 1;
+          return;
+        }
+        await listCapabilities(baseUrl, opts, Boolean(opts.json), apiKey);
+      } catch (err) {
+        handleError('capabilities local list', err);
+      }
     });
 
   localCmd
@@ -279,8 +384,19 @@ export function registerCapabilitiesCommand(program: Command): void {
     .description('列出本地能力分类')
     .option('--json', '以 JSON 格式输出')
     .action(async (opts: LocalOptions) => {
-      const { apiUrl, apiKey } = program.opts();
-      await listCategories(apiUrl, Boolean(opts.json), apiKey);
+      try {
+        const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as { apiUrl?: string; apiKey?: string };
+        const baseUrl = resolveBaseUrl(cliApiUrl);
+        const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
+        if (!apiKey) {
+          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          process.exitCode = 1;
+          return;
+        }
+        await listCategories(baseUrl, Boolean(opts.json), apiKey);
+      } catch (err) {
+        handleError('capabilities local categories', err);
+      }
     });
 
   localCmd
@@ -289,9 +405,20 @@ export function registerCapabilitiesCommand(program: Command): void {
     .option('--options <json>', '额外选项 (JSON 格式)')
     .option('--json', '以 JSON 格式输出')
     .action(async (name: string, input: string, opts: LocalOptions) => {
-      const { apiUrl, apiKey } = program.opts();
-      const extra = parseOptions(opts.options);
-      await invokeCapability(apiUrl, name, input, extra, Boolean(opts.json), apiKey);
+      try {
+        const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as { apiUrl?: string; apiKey?: string };
+        const baseUrl = resolveBaseUrl(cliApiUrl);
+        const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
+        if (!apiKey) {
+          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          process.exitCode = 1;
+          return;
+        }
+        const extra = parseOptions(opts.options);
+        await invokeCapability(baseUrl, name, input, extra, Boolean(opts.json), apiKey);
+      } catch (err) {
+        handleError('capabilities local invoke', err);
+      }
     });
 
   localCmd
@@ -299,8 +426,19 @@ export function registerCapabilitiesCommand(program: Command): void {
     .description('AI 自动匹配本地能力')
     .option('--json', '以 JSON 格式输出')
     .action(async (query: string, opts: LocalOptions) => {
-      const { apiUrl, apiKey } = program.opts();
-      await autoMatch(apiUrl, query, Boolean(opts.json), apiKey);
+      try {
+        const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as { apiUrl?: string; apiKey?: string };
+        const baseUrl = resolveBaseUrl(cliApiUrl);
+        const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
+        if (!apiKey) {
+          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          process.exitCode = 1;
+          return;
+        }
+        await autoMatch(baseUrl, query, Boolean(opts.json), apiKey);
+      } catch (err) {
+        handleError('capabilities local auto-match', err);
+      }
     });
 
   // ---------- remote ----------
@@ -316,7 +454,11 @@ export function registerCapabilitiesCommand(program: Command): void {
     .option('--keyword <keyword>', '关键词搜索')
     .option('--json', '以 JSON 格式输出')
     .action(async (opts: RemoteOptions) => {
-      await listCapabilities(opts.server, opts, Boolean(opts.json));
+      try {
+        await listCapabilities(opts.server, opts, Boolean(opts.json));
+      } catch (err) {
+        handleError('capabilities remote list', err);
+      }
     });
 
   remoteCmd
@@ -325,7 +467,11 @@ export function registerCapabilitiesCommand(program: Command): void {
     .requiredOption('--server <url>', '远程服务器地址', DEFAULT_REMOTE_SERVER)
     .option('--json', '以 JSON 格式输出')
     .action(async (opts: RemoteOptions) => {
-      await listCategories(opts.server, Boolean(opts.json));
+      try {
+        await listCategories(opts.server, Boolean(opts.json));
+      } catch (err) {
+        handleError('capabilities remote categories', err);
+      }
     });
 
   remoteCmd
@@ -335,8 +481,12 @@ export function registerCapabilitiesCommand(program: Command): void {
     .option('--options <json>', '额外选项 (JSON 格式)')
     .option('--json', '以 JSON 格式输出')
     .action(async (name: string, input: string, opts: RemoteOptions) => {
-      const extra = parseOptions(opts.options);
-      await invokeCapability(opts.server, name, input, extra, Boolean(opts.json));
+      try {
+        const extra = parseOptions(opts.options);
+        await invokeCapability(opts.server, name, input, extra, Boolean(opts.json));
+      } catch (err) {
+        handleError('capabilities remote invoke', err);
+      }
     });
 
   remoteCmd
@@ -345,6 +495,10 @@ export function registerCapabilitiesCommand(program: Command): void {
     .requiredOption('--server <url>', '远程服务器地址', DEFAULT_REMOTE_SERVER)
     .option('--json', '以 JSON 格式输出')
     .action(async (query: string, opts: RemoteOptions) => {
-      await autoMatch(opts.server, query, Boolean(opts.json));
+      try {
+        await autoMatch(opts.server, query, Boolean(opts.json));
+      } catch (err) {
+        handleError('capabilities remote auto-match', err);
+      }
     });
 }
