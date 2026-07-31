@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { LogIn, Trash2, Eraser, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
@@ -12,10 +13,11 @@ import { useBatchMutation } from '@/hooks/use-batch-mutation'
 
 import { LoginLogFilter } from './LoginLogFilter'
 import { LoginLogTable } from './LoginLogTable'
-import { PAGE_SIZE, RESOURCE, api, EMPTY_SEARCH, EXPORT_COLUMNS } from './helpers'
+import { PAGE_SIZE, RESOURCE, api, EMPTY_SEARCH, getExportColumns } from './helpers'
 import type { LoginLogSearch, ListResp } from './types'
 
 export default function LoginLogsPage() {
+  const t = useTranslations('admin.system')
   const qc = useQueryClient()
   const [search, setSearch] = React.useState<LoginLogSearch>(EMPTY_SEARCH)
   const [applied, setApplied] = React.useState<LoginLogSearch>(EMPTY_SEARCH)
@@ -54,14 +56,14 @@ export default function LoginLogsPage() {
     method: 'DELETE',
     queryKey: ['admin', 'login-logs'],
     ids: [...selected],
-    successMessage: '删除成功',
+    successMessage: t('common.deleteSuccess'),
     onSuccess: () => setSelected(new Set()),
   })
   const cleanMut = useMutation({
     mutationFn: () => api(`${RESOURCE}/clean`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'login-logs'] })
-      toast.success('清空成功')
+      toast.success(t('common.cleanSuccess'))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -89,15 +91,17 @@ export default function LoginLogsPage() {
     exportFromApi(
       `${RESOURCE}?pageSize=9999&${new URLSearchParams(applied as Record<string, string>)}`,
       'login-logs',
-      EXPORT_COLUMNS,
-    ).then((ok) => (ok ? toast.success('导出成功') : toast.error('导出失败')))
+      getExportColumns(t),
+    ).then((ok) =>
+      ok ? toast.success(t('common.exportSuccess')) : toast.error(t('common.exportFailed')),
+    )
 
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LogIn className="h-6 w-6 text-primary" />
-          登录日志
+          {t('loginLogs.title')}
         </h1>
       </div>
 
@@ -115,28 +119,28 @@ export default function LoginLogsPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(`确认删除选中的 ${selected.size} 条记录？`)) delMut.mutate()
+              if (confirm(t('common.confirmDelete', { count: selected.size }))) delMut.mutate()
             }}
           >
             <Trash2 className="h-4 w-4" />
-            删除
+            {t('common.delete')}
           </Button>
           <Button
             size="sm"
             variant="outline"
             disabled={cleanMut.isPending}
             onClick={() => {
-              if (confirm('确认清空所有登录日志？')) cleanMut.mutate()
+              if (confirm(t('loginLogs.confirmClean'))) cleanMut.mutate()
             }}
           >
             <Eraser className="h-4 w-4" />
-            清空
+            {t('common.clean')}
           </Button>
         </HasPermi>
         <HasPermi code="system:logininfor:export">
           <Button size="sm" variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            导出
+            {t('common.export')}
           </Button>
         </HasPermi>
       </div>
@@ -154,7 +158,7 @@ export default function LoginLogsPage() {
       {total > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            共 {total} 条 · {page}/{totalPages}
+            {t('common.total', { total, page, totalPages })}
           </span>
           <div className="flex gap-1">
             <Button

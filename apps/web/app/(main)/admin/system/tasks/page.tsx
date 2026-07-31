@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -51,23 +52,30 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-const TYPE_LABEL: Record<Task['type'], string> = { cron: '定时', interval: '周期', once: '单次' }
+
 const STATUS_STYLE: Record<Task['status'], string> = {
   running: 'bg-emerald-500/10 text-emerald-600',
   paused: 'bg-muted text-muted-foreground',
   idle: 'bg-amber-500/10 text-amber-600',
   failed: 'bg-red-500/10 text-red-600',
 }
-const STATUS_LABEL: Record<Task['status'], string> = {
-  running: '运行中',
-  paused: '已暂停',
-  idle: '空闲',
-  failed: '失败',
-}
 
 export default function AdminSystemTasksPage() {
+  const t = useTranslations('admin.system')
   const qc = useQueryClient()
   const [status, setStatus] = React.useState('all')
+
+  const TYPE_LABEL: Record<Task['type'], string> = {
+    cron: t('tasks.type.cron'),
+    interval: t('tasks.type.interval'),
+    once: t('tasks.type.once'),
+  }
+  const STATUS_LABEL: Record<Task['status'], string> = {
+    running: t('tasks.status.running'),
+    paused: t('tasks.status.paused'),
+    idle: t('tasks.status.idle'),
+    failed: t('tasks.status.failed'),
+  }
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'system', 'tasks', status],
@@ -81,8 +89,8 @@ export default function AdminSystemTasksPage() {
   })
 
   const toggleMut = useMutation({
-    mutationFn: (t: Task) =>
-      api(`/api/admin/system/tasks/${t.id}/${t.status === 'paused' ? 'resume' : 'pause'}`, {
+    mutationFn: (task: Task) =>
+      api(`/api/admin/system/tasks/${task.id}/${task.status === 'paused' ? 'resume' : 'pause'}`, {
         method: 'POST',
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'system', 'tasks'] }),
@@ -102,29 +110,29 @@ export default function AdminSystemTasksPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <ListChecks className="h-6 w-6 text-primary" />
-            系统任务
+            {t('tasks.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">定时任务与后台作业管理</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('tasks.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3 text-xs">
           <span className="inline-flex items-center gap-1 text-emerald-600">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            运行中 {runningCount}
+            {t('tasks.status.running')} {runningCount}
           </span>
           <span className="inline-flex items-center gap-1 text-red-600">
             <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-            失败 {failedCount}
+            {t('tasks.status.failed')} {failedCount}
           </span>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className={selectClass} aria-label="状态">
+          <SelectTrigger className={selectClass} aria-label={t('tasks.filter.status')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
+            <SelectItem value="all">{t('tasks.filter.allStatus')}</SelectItem>
             {Object.entries(STATUS_LABEL).map(([k, v]) => (
               <SelectItem key={k} value={k}>
                 {v}
@@ -138,14 +146,14 @@ export default function AdminSystemTasksPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="text-xs uppercase">任务名称</TableHead>
-              <TableHead className="text-xs uppercase">类型</TableHead>
-              <TableHead className="text-xs uppercase">调度</TableHead>
-              <TableHead className="text-xs uppercase">状态</TableHead>
-              <TableHead className="text-xs uppercase">上次运行</TableHead>
-              <TableHead className="text-xs uppercase">下次运行</TableHead>
-              <TableHead className="text-xs uppercase">耗时</TableHead>
-              <TableHead className="text-right text-xs uppercase">操作</TableHead>
+              <TableHead className="text-xs uppercase">{t('tasks.table.name')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('tasks.table.type')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('tasks.table.schedule')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('tasks.table.status')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('tasks.table.lastRun')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('tasks.table.nextRun')}</TableHead>
+              <TableHead className="text-xs uppercase">{t('tasks.table.costTime')}</TableHead>
+              <TableHead className="text-right text-xs uppercase">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -158,58 +166,58 @@ export default function AdminSystemTasksPage() {
             ) : list.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                  暂无任务
+                  {t('tasks.noTasks')}
                 </TableCell>
               </TableRow>
             ) : (
-              list.map((t) => (
-                <TableRow key={t.id}>
+              list.map((task) => (
+                <TableRow key={task.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      {t.lastStatus === 'success' && (
+                      {task.lastStatus === 'success' && (
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                       )}
-                      {t.lastStatus === 'failed' && (
+                      {task.lastStatus === 'failed' && (
                         <XCircle className="h-3.5 w-3.5 text-red-500" />
                       )}
-                      {t.name}
+                      {task.name}
                     </div>
                   </TableCell>
                   <TableCell>
                     <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-xs">
-                      {TYPE_LABEL[t.type]}
+                      {TYPE_LABEL[task.type]}
                     </span>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
-                    {t.schedule}
+                    {task.schedule}
                   </TableCell>
                   <TableCell>
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
-                        STATUS_STYLE[t.status],
+                        STATUS_STYLE[task.status],
                       )}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {STATUS_LABEL[t.status]}
+                      {STATUS_LABEL[task.status]}
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {t.lastRunAt ? (
+                    {task.lastRunAt ? (
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {formatDate(t.lastRunAt)}
+                        {formatDate(task.lastRunAt)}
                       </span>
                     ) : (
                       '-'
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {t.nextRunAt ? formatDate(t.nextRunAt) : '-'}
+                    {task.nextRunAt ? formatDate(task.nextRunAt) : '-'}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {t.lastDuration !== null && t.lastDuration !== undefined
-                      ? `${t.lastDuration}ms`
+                    {task.lastDuration !== null && task.lastDuration !== undefined
+                      ? `${task.lastDuration}ms`
                       : '-'}
                   </TableCell>
                   <TableCell className="text-right">
@@ -218,23 +226,25 @@ export default function AdminSystemTasksPage() {
                         size="sm"
                         variant="ghost"
                         disabled={runMut.isPending}
-                        onClick={() => runMut.mutate(t.id)}
+                        onClick={() => runMut.mutate(task.id)}
                       >
                         <RotateCw className="h-3.5 w-3.5" />
-                        执行
+                        {t('tasks.actions.run')}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         disabled={toggleMut.isPending}
-                        onClick={() => toggleMut.mutate(t)}
+                        onClick={() => toggleMut.mutate(task)}
                       >
-                        {t.status === 'paused' ? (
+                        {task.status === 'paused' ? (
                           <Play className="h-3.5 w-3.5" />
                         ) : (
                           <Pause className="h-3.5 w-3.5" />
                         )}
-                        {t.status === 'paused' ? '启动' : '暂停'}
+                        {task.status === 'paused'
+                          ? t('tasks.actions.start')
+                          : t('tasks.actions.pause')}
                       </Button>
                     </div>
                   </TableCell>
