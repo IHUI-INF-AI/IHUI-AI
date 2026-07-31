@@ -4,7 +4,6 @@ import * as React from 'react'
 import {
   isTauri,
   quitAndUpdateIfNeeded,
-  quitApp,
   type QuitUpdateStatus,
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
@@ -32,31 +31,27 @@ const INITIAL_STATE: QuitUpdateGuardState = {
 }
 
 /**
- * useQuitUpdateGuard — 退出时自动更新守卫(2026-07-31 立,平台独占:仅桌面端)。
+ * useQuitUpdateGuard — 退出时强制自动更新守卫(2026-07-31 立,平台独占:仅桌面端)。
  *
  * 监听 desktop-quit-request 事件(来源:托盘菜单"退出" / Ctrl+Q),
- * 拦截退出流程,自动检查并安装更新:
+ * 拦截退出流程,强制检查并安装更新(不可跳过):
  * - 有更新 → 下载 + 安装 + 重启(拉起新版本)
  * - 无更新 → 正常退出
- * - 用户可点击"跳过"跳过更新直接退出
  *
  * 浏览器端 isTauri()=false,此 hook 不执行任何副作用。
  */
 export function useQuitUpdateGuard() {
   const [state, setState] = React.useState<QuitUpdateGuardState>(INITIAL_STATE)
-  const skippedRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!isTauri()) return
 
     const handleQuitRequest = () => {
       if (state.visible) return // 防止重复触发
-      skippedRef.current = false
       setState({ ...INITIAL_STATE, visible: true, status: 'checking' })
 
       void quitAndUpdateIfNeeded(
         (p: UpdateProgress) => {
-          if (skippedRef.current) return
           setState((prev) => ({
             ...prev,
             status: 'downloading',
@@ -66,7 +61,6 @@ export function useQuitUpdateGuard() {
           }))
         },
         (status: QuitUpdateStatus) => {
-          if (skippedRef.current) return
           setState((prev) => ({ ...prev, status }))
         },
       )
@@ -76,12 +70,5 @@ export function useQuitUpdateGuard() {
     return () => window.removeEventListener('desktop-quit-request', handleQuitRequest)
   }, [state.visible])
 
-  /** 跳过更新,直接退出。 */
-  const skip = React.useCallback(() => {
-    skippedRef.current = true
-    setState((prev) => ({ ...prev, status: 'quitting' }))
-    void quitApp()
-  }, [])
-
-  return { ...state, skip }
+  return state
 }
