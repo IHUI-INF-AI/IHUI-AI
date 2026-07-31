@@ -590,7 +590,14 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // - 移除原 [&_svg]:size-5 (20px) 覆盖,改用 [&>svg]:h-3.5 [&>svg]:w-3.5 (14px) 强制统一,
   //   Flag(原来 20px)现在跟其他 3 个按钮(原本就 14px)完全一致
   // 2026-07-31 立:用户反馈"底部按钮跟 web 端不一致,为什么要单独配置图标"
-  const btnClass = cn(TOPBAR_BTN_BASE, 'h-[26px] w-[26px] p-0', '[&>svg]:h-3.5 [&>svg]:w-3.5')
+  // 2026-08-01 立:用户要求这4个工具栏按钮(语言/下载/消息/主题)默认无背景容器色,
+  // 用 bg-transparent 覆盖 TOPBAR_BTN_BASE 的 bg-card(tailwind-merge 后写胜出),
+  // hover:bg-accent / focus-visible:bg-accent 仍生效(不同状态类不冲突)。
+  const btnClass = cn(
+    TOPBAR_BTN_BASE,
+    'h-[26px] w-[26px] p-0 bg-transparent',
+    '[&>svg]:h-3.5 [&>svg]:w-3.5',
+  )
 
   return (
     <div
@@ -1806,7 +1813,8 @@ export function Sidebar({
           // 跟移动端关闭按钮 / 顶栏 Plus 按钮同源(bg-card + hover:bg-accent + text-foreground/80)
           // 统一按钮风格,杜绝"桌面端用 hover:bg-foreground/20 / 移动端用 hover:bg-accent"风格漂移
           // h-9 显式覆盖 TOPBAR_BTN_BASE 的 h-full(父容器 h-[44px] 用 h-full 会撑到 44px,跟其他元素不对齐)
-          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'h-9 p-0 hidden lg:flex')}
+          // 2026-08-01 立:用户要求收起按钮默认无背景容器色,用 bg-transparent 覆盖 bg-card。
+          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'h-9 p-0 hidden lg:flex bg-transparent')}
           aria-label={collapsed ? t('expand') : t('collapse')}
         >
           {/* 图标统一 14px (h-3.5 w-3.5),跟 web 端顶栏 Plus / X / Min 完全一致 */}
