@@ -103,9 +103,11 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
     """枚举所有已注册的适配器类(供 /platforms 端点使用)。
 
     通过延迟 import 避免循环依赖,且 Playwright 适配器 import 失败时跳过。
+    共 25 个平台适配器(9 HTTP API + 4 友好 API + 6 六大号 + 2 视频 + 4 Playwright)。
     """
     classes: list[type[BasePlatformAdapter]] = []
-    # 真实可调通适配器(基于 HTTP API)
+
+    # 第一批:HTTP API 适配器(真实可调通,不涉风控)
     from .adapters.wordpress import WordPressAdapter
     from .adapters.medium import MediumAdapter
     from .adapters.youtube import YouTubeAdapter
@@ -122,7 +124,34 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
         DouyinAdapter, KuaishouAdapter, WeiboAdapter,
     ])
 
-    # Playwright 适配器(import 失败说明环境缺依赖,跳过注册)
+    # 第二批:友好 API 平台(HTTP API,不涉风控)
+    from .adapters.cnblogs import CnblogsAdapter
+    from .adapters.segmentfault import SegmentfaultAdapter
+    from .adapters.oschina import OschinaAdapter
+    from .adapters.jianshu import JianshuAdapter
+
+    classes.extend([CnblogsAdapter, SegmentfaultAdapter, OschinaAdapter, JianshuAdapter])
+
+    # 第三批:六大号平台(Playwright + 反风控五层防线)
+    from .adapters.baijiahao import BaijiahaoAdapter
+    from .adapters.qq import QqAdapter
+    from .adapters.dayihao import DayihaoAdapter
+    from .adapters.netease import NeteaseAdapter
+    from .adapters.sohu import SohuAdapter
+    from .adapters.sina import SinaAdapter
+
+    classes.extend([
+        BaijiahaoAdapter, QqAdapter, DayihaoAdapter,
+        NeteaseAdapter, SohuAdapter, SinaAdapter,
+    ])
+
+    # 视频平台(Playwright + 反风控)
+    from .adapters.xigua import XiguaAdapter
+    from .adapters.haokan import HaokanAdapter
+
+    classes.extend([XiguaAdapter, HaokanAdapter])
+
+    # 其他 Playwright 适配器(import 失败说明环境缺依赖,跳过注册)
     for mod_name, cls_name in [
         ("zhihu", "ZhihuAdapter"),
         ("csdn", "CsdnAdapter"),
