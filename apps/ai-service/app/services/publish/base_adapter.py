@@ -103,7 +103,7 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
     """枚举所有已注册的适配器类(供 /platforms 端点使用)。
 
     通过延迟 import 避免循环依赖,且 Playwright 适配器 import 失败时跳过。
-    共 25 个平台适配器(9 HTTP API + 4 友好 API + 6 六大号 + 2 视频 + 4 Playwright)。
+    共 37 个平台适配器(9 HTTP API + 4 友好 API + 6 六大号 + 2 视频 + 5 Playwright + 12 SEO/GEO 第二批)。
     """
     classes: list[type[BasePlatformAdapter]] = []
 
@@ -152,12 +152,26 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
     classes.extend([XiguaAdapter, HaokanAdapter])
 
     # 其他 Playwright 适配器(import 失败说明环境缺依赖,跳过注册)
+    # 注:36kr 模块名以数字开头,非合法标识符,必须走 __import__ 字符串导入。
     for mod_name, cls_name in [
         ("zhihu", "ZhihuAdapter"),
         ("csdn", "CsdnAdapter"),
         ("juejin", "JuejinAdapter"),
         ("xiaohongshu", "XiaohongshuAdapter"),
         ("shipinhao", "ShipinhaoAdapter"),
+        # 第四批:SEO/GEO 高权重平台第二批(2026-07-31 立)
+        ("baidu_zhidao", "BaiduZhidaoAdapter"),
+        ("baidu_tieba", "BaiduTiebaAdapter"),
+        ("douban", "DoubanAdapter"),
+        ("36kr", "Kr36Adapter"),
+        ("huxiu", "HuxiuAdapter"),
+        ("tmtmedia", "TmtmediaAdapter"),
+        ("acfun", "AcfunAdapter"),
+        ("lofter", "LofterAdapter"),
+        ("zhihu_daily", "ZhihuDailyAdapter"),
+        ("people", "PeopleAdapter"),
+        ("china_news", "ChinaNewsAdapter"),
+        ("hupu", "HupuAdapter"),
     ]:
         try:
             mod = __import__(f"app.services.publish.adapters.{mod_name}", fromlist=[cls_name])
