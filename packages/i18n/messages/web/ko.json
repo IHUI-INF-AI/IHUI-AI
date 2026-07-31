@@ -10633,8 +10633,8 @@
       "timelineSubagentProgress": "실행 중",
       "timelineSubagentEnd": "서브에이전트 완료",
       "timelineSubagentFailed": "서브에이전트 실패",
-      "timelineSubagentThinking": "생각 중(第 {iteration} 라운드)",
-      "timelineSubagentToolCall": "도구 호출:{tool}(第 {iteration} 라운드)",
+      "timelineSubagentThinking": "생각 중({iteration}회차)",
+      "timelineSubagentToolCall": "도구 호출:{tool}({iteration}회차)",
       "timelineSubagentToolResult": "도구 결과",
       "timelineSubagentToolResultSuccess": "도구 결과:{tool} 성공",
       "timelineSubagentToolResultFailed": "도구 결과:{tool} 실패",
@@ -12678,19 +12678,41 @@
     "thinking": {
       "title": "사고 과정",
       "collapse": "접기",
-      "expand": "펼치기"
+      "expand": "펼치기",
+      "alt": "사고 과정 {index}",
+      "close": "닫기",
+      "previewAlt": "사고 과정 {index} 미리보기",
+      "prev": "이전",
+      "next": "다음",
+      "playFailed": "재생 실패",
+      "pause": "일시정지",
+      "play": "재생"
     },
     "image": {
       "alt": "이미지 {index}",
       "previewAlt": "이미지 {index} 미리보기",
       "close": "닫기",
       "prev": "이전",
-      "next": "다음"
+      "next": "다음",
+      "title": "이미지",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "playFailed": "이미지 로드 실패",
+      "pause": "일시정지",
+      "play": "재생"
     },
     "audio": {
       "playFailed": "오디오 재생 실패",
       "pause": "일시정지",
-      "play": "재생"
+      "play": "재생",
+      "title": "오디오",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "alt": "오디오 {index}",
+      "close": "닫기",
+      "previewAlt": "오디오 {index} 미리보기",
+      "prev": "이전",
+      "next": "다음"
     }
   },
   "agentRuntimePanel": {
