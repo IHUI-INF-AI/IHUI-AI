@@ -38,7 +38,7 @@ import type {
   ImPlatform,
   ImPlatformMeta,
 } from '@ihui/types'
-import { checkAuth } from '../plugins/auth.js'
+import { checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
 // ============================================================================
@@ -1228,7 +1228,7 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
 
   // 3. POST /im-gateway/send — 发送出站消息到 IM 平台
   server.post('/im-gateway/send', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await checkAuth(request, reply))) return
+    if (!(await checkAuthOrInternalService(request, reply))) return
     const userId = request.userId!
 
     const parsed = sendBodySchema.safeParse(request.body)

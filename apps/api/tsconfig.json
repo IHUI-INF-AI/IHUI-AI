@@ -20,23 +20,7 @@
       "../../node_modules/.pnpm/@types+node@22.20.0/node_modules/@types"
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@ihui/database": ["../../packages/database/src"],
-      "@ihui/database/*": ["../../packages/database/src/*"],
-      "@ihui/auth": ["../../packages/auth/src"],
-      "@ihui/auth/*": ["../../packages/auth/src/*"],
-      "@ihui/types": ["../../packages/types/src"],
-      "@ihui/types/*": ["../../packages/types/src/*"],
-      "@ihui/shared": ["../../packages/shared/src"],
-      "@ihui/shared/*": ["../../packages/shared/src/*"],
-      "@ihui/context-compaction": ["../../packages/context-compaction/src"],
-      "@ihui/context-compaction/*": ["../../packages/context-compaction/src/*"],
-      "@ihui/design-tokens": ["../../packages/design-tokens/src"],
-      "@ihui/design-tokens/*": ["../../packages/design-tokens/src/*"],
-      "@ihui/api-client": ["../../packages/api-client/src"],
-      "@ihui/api-client/*": ["../../packages/api-client/src/*"],
-      "@ihui/i18n": ["../../packages/i18n/src"],
-      "@ihui/i18n/*": ["../../packages/i18n/src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts"],
