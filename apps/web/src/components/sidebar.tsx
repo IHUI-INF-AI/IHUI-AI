@@ -57,6 +57,7 @@ import {
   Key,
   Terminal,
   TrendingUp,
+  Flame,
   FlaskConical,
   Gauge,
   GitBranch,
@@ -1385,7 +1386,19 @@ const NavGroupSection = React.memo(function NavGroupSection({
           )}
           aria-hidden="true"
         />
-        <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
+        {group.label === 'hotGroupLabel' ? (
+          <>
+            <span className="min-w-0 whitespace-nowrap text-left text-red-600 transition-colors group-hover/grp:text-red-700 dark:text-red-400 dark:group-hover/grp:text-red-300">
+              {groupLabel}
+            </span>
+            <Flame
+              className="h-3 w-3 shrink-0 text-orange-500 transition-colors group-hover/grp:text-orange-600 dark:text-orange-400 dark:group-hover/grp:text-orange-300"
+              aria-hidden="true"
+            />
+          </>
+        ) : (
+          <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
+        )}
       </button>
       {/*
         分组折叠动画(2026-07-20 立):用 CSS grid-template-rows 0fr↔1fr 现代方案。
