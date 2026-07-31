@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import type { SQL as DrizzleSQL } from 'drizzle-orm'
+import { type SQL as DrizzleSQL, sql, and, eq, gte, lt } from 'drizzle-orm'
 import { z } from 'zod'
 import { authenticate, requireActiveUser } from '../plugins/auth.js'
 import {
@@ -20,6 +20,8 @@ import {
 import { createUser, isSystemAdminUser, type CreateUserInput } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { hashPassword } from '../utils/password-crypto.js'
+import { db } from '../db/index.js'
+import { orders, users, projects } from '@ihui/database'
 
 const ADMIN_ROLE_ID = 1
 
@@ -143,28 +145,91 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
-    async (_request, reply) => {
-      const [totalUsers, totalProjects, activeSessions] = await Promise.all([
-        countUsers(),
-        countProjects(),
-        countActiveSessions(),
-      ])
+    async (request, reply) => {
+      try {
+        const now = new Date()
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const yesterdayStart = new Date(todayStart.getTime() - 86400000)
 
-      return reply.send(
-        success({
+        const [
           totalUsers,
           totalProjects,
-          todayRevenue: 0,
           activeSessions,
-          totalUsersChange: 0,
-          totalProjectsChange: 0,
-          todayRevenueChange: 0,
-          activeSessionsChange: 0,
-        }),
-      )
+          todayNewUsers,
+          yesterdayNewUsers,
+          todayRevenueRow,
+          todayNewProjects,
+          yesterdayNewProjects,
+        ] = await Promise.all([
+          countUsers(),
+          countProjects(),
+          countActiveSessions(),
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(users)
+            .where(gte(users.createdAt, todayStart)),
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(users)
+            .where(and(gte(users.createdAt, yesterdayStart), lt(users.createdAt, todayStart))),
+          db
+            .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+            .from(orders)
+            .where(and(eq(orders.status, 'paid'), gte(orders.createdAt, todayStart))),
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(projects)
+            .where(gte(projects.createdAt, todayStart)),
+          db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(projects)
+            .where(
+              and(gte(projects.createdAt, yesterdayStart), lt(projects.createdAt, todayStart)),
+            ),
+        ])
+
+        const todayUsers = todayNewUsers[0]?.c ?? 0
+        const yesterdayUsers = yesterdayNewUsers[0]?.c ?? 0
+        const todayProjects = todayNewProjects[0]?.c ?? 0
+        const yesterdayProjects = yesterdayNewProjects[0]?.c ?? 0
+        const todayRevenue = Number(((todayRevenueRow[0]?.total ?? 0) / 100).toFixed(2))
+
+        // 昨日营收(单独查询,避免 Promise.all 过长)
+        const yesterdayRevenueRow = await db
+          .select({ total: sql<number>`coalesce(sum(amount), 0)::int` })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.status, 'paid'),
+              gte(orders.createdAt, yesterdayStart),
+              lt(orders.createdAt, todayStart),
+            ),
+          )
+        const yesterdayRevenue = Number(((yesterdayRevenueRow[0]?.total ?? 0) / 100).toFixed(2))
+
+        return reply.send(
+          success({
+            totalUsers,
+            totalProjects,
+            todayRevenue,
+            activeSessions,
+            totalUsersChange: todayUsers - yesterdayUsers,
+            totalProjectsChange: todayProjects - yesterdayProjects,
+            todayRevenueChange: Number((todayRevenue - yesterdayRevenue).toFixed(2)),
+            activeSessionsChange: 0, // 活跃会话变化率计算复杂,保持 0
+          }),
+        )
+      } catch (e) {
+        request.log.error({ err: e }, 'admin /stats 查询失败')
+        return reply.status(500).send(error(500, '服务器内部错误'))
+      }
     },
   )
 

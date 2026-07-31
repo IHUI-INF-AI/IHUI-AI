@@ -20,6 +20,7 @@ import {
   eduNotification,
   users,
   systemConfigs,
+  tDepartment,
 } from '@ihui/database'
 
 const paginationSchema = z.object({
@@ -879,6 +880,77 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     await db.delete(eduNotification).where(eq(eduNotification.id, Number(p.data.id)))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // 11. /auth-dept — tDepartment 表 CRUD
+  server.get('/auth-dept', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    const where = search ? ilike(tDepartment.name, `%${search}%`) : undefined
+    const [list, totalRow] = await Promise.all([
+      db
+        .select()
+        .from(tDepartment)
+        .where(where)
+        .orderBy(desc(tDepartment.createTime))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db.select({ c: sql<number>`count(*)::int` }).from(tDepartment).where(where),
+    ])
+    return reply.send(success({ list, total: totalRow[0]?.c ?? 0, page, pageSize }))
+  })
+
+  server.get('/auth-dept/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const [row] = await db.select().from(tDepartment).where(eq(tDepartment.id, Number(p.data.id)))
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+
+  server.post('/auth-dept', async (request, reply) => {
+    const body = z
+      .object({
+        code: z.string().min(1).max(50),
+        name: z.string().min(1).max(50),
+        shortName: z.string().max(50).optional().default(''),
+        enabled: z.boolean().optional().default(true),
+      })
+      .safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db.insert(tDepartment).values(body.data).returning()
+    return reply.status(201).send(success(row))
+  })
+
+  server.put('/auth-dept/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = z
+      .object({
+        code: z.string().min(1).max(50).optional(),
+        name: z.string().min(1).max(50).optional(),
+        shortName: z.string().max(50).optional(),
+        enabled: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success)
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const [row] = await db
+      .update(tDepartment)
+      .set({ ...body.data, updateTime: new Date() })
+      .where(eq(tDepartment.id, Number(p.data.id)))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '记录不存在'))
+    return reply.send(success(row))
+  })
+
+  server.delete('/auth-dept/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    await db.delete(tDepartment).where(eq(tDepartment.id, Number(p.data.id)))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })
 }
