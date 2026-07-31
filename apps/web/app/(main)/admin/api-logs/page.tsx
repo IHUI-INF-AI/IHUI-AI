@@ -7,9 +7,24 @@ import { ScrollText, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
 
+import { fetchApi } from '@/lib/api'
 import { ApiLogFilter } from './ApiLogFilter'
 import { ApiLogTable } from './ApiLogTable'
-import { genMockLogs } from './helpers'
+import type { ApiLog } from './types'
+
+interface ApiLogRaw {
+  id: string
+  method: string
+  path: string
+  statusCode: number
+  duration: number
+  createdAt: string
+}
+
+interface ApiLogsData {
+  list: ApiLogRaw[]
+  total: number
+}
 
 export default function ApiLogsPage() {
   const t = useTranslations('adminTools')
@@ -19,27 +34,33 @@ export default function ApiLogsPage() {
   const [page, setPage] = React.useState(1)
   const pageSize = 15
 
-  const { data: allLogs = [], isLoading } = useQuery({
-    queryKey: ['admin', 'api-logs'],
-    queryFn: () => Promise.resolve(genMockLogs()),
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin', 'api-logs', page, statusFilter, endpointFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('page', String(page))
+      params.set('pageSize', String(pageSize))
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (endpointFilter) params.set('endpoint', endpointFilter)
+      const r = await fetchApi<ApiLogsData>(`/api/admin/api-logs?${params.toString()}`)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
-  const filtered = React.useMemo(() => {
-    return allLogs.filter((l) => {
-      if (statusFilter !== 'all') {
-        if (statusFilter === '2xx' && !(l.statusCode >= 200 && l.statusCode < 300)) return false
-        if (statusFilter === '4xx' && !(l.statusCode >= 400 && l.statusCode < 500)) return false
-        if (statusFilter === '5xx' && !(l.statusCode >= 500)) return false
-      }
-      if (endpointFilter && !l.endpoint.toLowerCase().includes(endpointFilter.toLowerCase()))
-        return false
-      return true
-    })
-  }, [allLogs, statusFilter, endpointFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paged: ApiLog[] = (data?.list ?? []).map((r) => ({
+    id: r.id,
+    method: r.method,
+    endpoint: r.path,
+    statusCode: r.statusCode,
+    latency: r.duration,
+    time: r.createdAt,
+    ip: '-',
+    user: '-',
+  }))
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const curPage = Math.min(page, totalPages)
-  const paged = filtered.slice((curPage - 1) * pageSize, curPage * pageSize)
 
   React.useEffect(() => {
     setPage(1)
@@ -64,10 +85,10 @@ export default function ApiLogsPage() {
 
       <ApiLogTable paged={paged} isLoading={isLoading} />
 
-      {filtered.length > 0 && (
+      {total > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            {t('apiLogs.total', { count: filtered.length })} · {curPage}/{totalPages}
+            {t('apiLogs.total', { count: total })} · {curPage}/{totalPages}
           </span>
           <div className="flex gap-1">
             <Button
