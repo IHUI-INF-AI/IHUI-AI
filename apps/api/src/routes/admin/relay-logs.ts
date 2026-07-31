@@ -16,6 +16,7 @@ import { llmCallLogs, users } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema } from './_shared.js'
+import { sanitizeLogEntry } from '../../services/log-sanitizer.js'
 
 const listQuerySchema = paginationSchema.extend({
   userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
@@ -52,6 +53,8 @@ const listQuerySchema = paginationSchema.extend({
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
   ),
+  /** 返回原始日志(不脱敏),仅 admin(roleId>=1)可用 */
+  raw: z.preprocess(emptyToUndefined, z.string().optional()),
 })
 
 /** 错误聚类查询 schema(仅支持时间范围筛选)*/
@@ -97,7 +100,8 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. GET /admin/relay/logs — 调用日志列表 =====
   server.get('/admin/relay/logs', async (request, reply) => {
     const q = listQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const {
       page,
       pageSize,
@@ -115,6 +119,7 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
       httpStatus,
       minCost,
       maxCost,
+      raw,
     } = q.data
 
     const conds: SQL[] = []
@@ -135,10 +140,7 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
 
     // search 搜 model 或 errorMessage
     const searchCond = search
-      ? or(
-          ilike(llmCallLogs.model, `%${search}%`),
-          ilike(llmCallLogs.errorMessage, `%${search}%`),
-        )
+      ? or(ilike(llmCallLogs.model, `%${search}%`), ilike(llmCallLogs.errorMessage, `%${search}%`))
       : undefined
     const finalWhere = searchCond && where ? and(where, searchCond) : (where ?? searchCond)
 
@@ -178,7 +180,16 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
           .from(llmCallLogs)
           .where(finalWhere),
       ])
-      return reply.send(success({ list, total: totalRows[0]?.c ?? 0, page, pageSize }))
+      // 日志脱敏集成(2026-07-31 立):默认对所有日志条目调用 sanitizeLogEntry,
+      // raw=true 时传 keepOriginalForAdmin:true 跳过脱敏(仅 admin roleId>=1 可用)
+      const keepOriginal = raw === 'true' || raw === '1'
+      const sanitizedList = list.map((entry) =>
+        sanitizeLogEntry(entry, { keepOriginalForAdmin: keepOriginal }),
+      )
+      reply.header('X-Log-Sanitized', keepOriginal ? 'false' : 'true')
+      return reply.send(
+        success({ list: sanitizedList, total: totalRows[0]?.c ?? 0, page, pageSize }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询调用日志失败'))
@@ -188,7 +199,8 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 2. GET /admin/relay/logs/stats — 聚合统计 =====
   server.get('/admin/relay/logs/stats', async (request, reply) => {
     const q = statsQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { startDate, endDate, groupBy } = q.data
 
     const conds: SQL[] = []
@@ -236,7 +248,8 @@ const relayLogsRoutes: FastifyPluginAsync = async (server) => {
   // 用于快速定位"今天为什么 500 错误突增"
   server.get('/admin/relay/logs/error-clusters', async (request, reply) => {
     const q = errorClustersQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { startDate, endDate } = q.data
 
     const conds: SQL[] = [
