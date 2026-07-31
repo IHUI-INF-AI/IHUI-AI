@@ -39,6 +39,15 @@ interface ToolCallCardProps {
     artifacts?: Array<{ type: string; path: string; created_at?: string }>
     tool_calls_summary?: { total: number; by_tool: Record<string, number> }
   }
+  /** 2026-07-31 立,AI 对话可视化深度接入:工具来源标识
+   *  - builtin: 内置工具(read_file/edit_file 等核心工具集)
+   *  - plugin: 插件工具(browser_xxx/computer_xxx 等 PLUGIN_ID_TO_TOOLS 映射)
+   *  - mcp: MCP server 注册的外部工具(serverId/serverName 必填) */
+  serverSource?: 'builtin' | 'plugin' | 'mcp'
+  /** MCP server ID(serverSource='mcp' 时显示,如 'context7' / 'filesystem' / 'github') */
+  serverId?: string
+  /** MCP server 显示名(serverSource='mcp' 时显示,如 'Context7 MCP') */
+  serverName?: string
 }
 
 const STATUS_CONFIG = {
@@ -274,6 +283,9 @@ export function ToolCallCard({
   repeated,
   imageUrl,
   summaryData,
+  serverSource,
+  serverId,
+  serverName,
   onApply,
   onReject,
 }: ToolCallCardProps) {
@@ -326,6 +338,31 @@ export function ToolCallCard({
           />
           <StatusIcon className={cn('h-4 w-4 shrink-0', config.className)} />
           <CardTitle className="flex-1 break-words text-sm font-medium">{toolName}</CardTitle>
+          {/* 2026-07-31 立,AI 对话可视化深度接入:工具来源徽章
+            - builtin: 不显示徽章(默认,避免噪音)
+            - plugin: 紫底徽章 "插件"
+            - mcp: 蓝底徽章 "MCP · {serverName}"(无 serverName 时仅 "MCP")
+            让用户一眼分辨原生工具 / 插件工具 / MCP 外部工具 */}
+          {serverSource === 'plugin' && (
+            <span
+              aria-label={`插件工具${serverName ? ` · ${serverName}` : ''}`}
+              title={`插件工具${serverName ? ` · ${serverName}` : ''}`}
+              data-testid={`tool-call-source-plugin-${toolName}`}
+              className="shrink-0 rounded-sm border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400"
+            >
+              {serverName ?? '插件'}
+            </span>
+          )}
+          {serverSource === 'mcp' && (
+            <span
+              aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
+              title={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}
+              data-testid={`tool-call-source-mcp-${toolName}`}
+              className="shrink-0 rounded-sm border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400"
+            >
+              MCP{serverName ? ` · ${serverName}` : ''}
+            </span>
+          )}
           {iteration !== undefined && iteration > 1 && (
             <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
               第{iteration}轮
