@@ -1,29 +1,20 @@
 'use client'
 
+/**
+ * 新建发布任务页:状态管理 + 拉取账号 + 组合 4 个子组件 + 提交逻辑。
+ * 任务进度轮询由 SubmitBar 内部管理。AGENTS.md §4:< 200 行 / rounded-md / 无分割线。
+ */
+
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Loader2, Upload, Send, Clock, Zap } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
-import {
-  Button,
-  Card,
-  CardContent,
-  Input,
-  Label,
-  Checkbox,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@ihui/ui-react'
-import { PLATFORM_KEY, CONTENT_FORMAT_KEY } from '../helpers'
+import { ContentEditorCard, type UploadResult, type Format } from './ContentEditorCard'
+import { PlatformSelectorCard } from './PlatformSelectorCard'
+import { ScheduleCard, type ScheduleMode } from './ScheduleCard'
+import { SubmitBar } from './SubmitBar'
 
-// 后端契约:publish.py _serialize_account 返回 camelCase 字段
-// id 是 BIGSERIAL(number),不是 string;displayName 不是 nickname
 interface Account {
   id: number
   platform: string
@@ -31,21 +22,34 @@ interface Account {
   status: 'active' | 'disabled' | 'expired'
 }
 
-const FORMATS = ['md', 'docx', 'html', 'pdf', 'image', 'video'] as const
-type Format = (typeof FORMATS)[number]
-
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
   return r.data
 }
 
-interface UploadResult {
-  file_path: string
-  filename: string
-  format: string
-  size: number
-  content_type: string
+function uploadWithProgress(file: File, onProgress: (pct: number) => void): Promise<UploadResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const fd = new FormData()
+    fd.append('file', file, file.name)
+    xhr.open('POST', '/api/publish/upload')
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+    }
+    xhr.onload = () => {
+      try {
+        const raw = JSON.parse(xhr.responseText) as { data?: UploadResult } | UploadResult
+        const data = (raw as { data?: UploadResult })?.data ?? (raw as UploadResult)
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data)
+        else reject(new Error('上传失败'))
+      } catch (e) {
+        reject(e as Error)
+      }
+    }
+    xhr.onerror = () => reject(new Error('网络错误'))
+    xhr.send(fd)
+  })
 }
 
 export default function NewPublishPage() {
@@ -56,33 +60,16 @@ export default function NewPublishPage() {
   const [title, setTitle] = React.useState('')
   const [format, setFormat] = React.useState<Format>('md')
   const [textContent, setTextContent] = React.useState('')
-  const [filePath, setFilePath] = React.useState('')
   const [fileMeta, setFileMeta] = React.useState<UploadResult | null>(null)
-  const [coverPath, setCoverPath] = React.useState('')
   const [coverMeta, setCoverMeta] = React.useState<UploadResult | null>(null)
   const [uploadingKey, setUploadingKey] = React.useState<'file' | 'cover' | null>(null)
+  const [fileProgress, setFileProgress] = React.useState(0)
+  const [coverProgress, setCoverProgress] = React.useState(0)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
-  const [scheduleMode, setScheduleMode] = React.useState<'now' | 'schedule'>('now')
+  const [scheduleMode, setScheduleMode] = React.useState<ScheduleMode>('now')
   const [scheduledAt, setScheduledAt] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
-
-  async function uploadFile(file: File): Promise<UploadResult> {
-    const fd = new FormData()
-    fd.append('file', file, file.name)
-    const r = await fetchApi<{ data: UploadResult } | UploadResult>('/api/publish/upload', {
-      method: 'POST',
-      body: fd,
-    })
-    if (!r.success) throw new Error(r.error)
-    const data = (r.data as { data?: UploadResult })?.data ?? (r.data as UploadResult)
-    return data
-  }
-
-  function fmtSize(n: number): string {
-    if (n < 1024) return `${n} B`
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-    return `${(n / 1024 / 1024).toFixed(2)} MB`
-  }
+  const [submittedTaskId, setSubmittedTaskId] = React.useState<number | null>(null)
 
   React.useEffect(() => {
     void (async () => {
@@ -116,32 +103,20 @@ export default function NewPublishPage() {
       return next
     })
   }
-  function selectAll() {
-    setSelected(new Set(platformMap.keys()))
-  }
-  function clearAll() {
-    setSelected(new Set())
-  }
 
-  async function handleFile(
-    e: React.ChangeEvent<HTMLInputElement>,
-    kind: 'file' | 'cover',
-  ) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
+  async function uploadFile(file: File, kind: 'file' | 'cover') {
     setUploadingKey(kind)
+    if (kind === 'file') setFileProgress(0)
+    else setCoverProgress(0)
     try {
-      const result = await uploadFile(file)
+      const result = await uploadWithProgress(file, (pct) => {
+        if (kind === 'file') setFileProgress(pct)
+        else setCoverProgress(pct)
+      })
       if (kind === 'file') {
-        setFilePath(result.file_path)
         setFileMeta(result)
-        // 自动切换 format 到与文件匹配的类型(若当前是文本格式)
-        if (result.format !== 'md' && result.format !== 'html') {
-          setFormat(result.format as Format)
-        }
+        if (result.format !== 'md' && result.format !== 'html') setFormat(result.format as Format)
       } else {
-        setCoverPath(result.file_path)
         setCoverMeta(result)
       }
       toast.success(t('new.uploadSuccess', { filename: result.filename }))
@@ -154,27 +129,12 @@ export default function NewPublishPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!title.trim()) {
-      toast.error(t('new.titlePlaceholder'))
-      return
-    }
-    if (selected.size === 0) {
-      toast.error(t('new.selectPlatformsHint'))
-      return
-    }
-    if (scheduleMode === 'schedule' && !scheduledAt) {
-      toast.error(t('new.scheduleAt'))
-      return
-    }
-
+    if (!title.trim()) return toast.error(t('new.titlePlaceholder'))
+    if (selected.size === 0) return toast.error(t('new.selectPlatformsHint'))
+    if (scheduleMode === 'schedule' && !scheduledAt) return toast.error(t('new.scheduleAt'))
     setSubmitting(true)
     try {
-      // 后端契约:TaskCreate 的 text/file_path/cover_path/images 是顶层字段,
-      // 不是嵌套在 content 对象里(publish.py L154-165)
       const isText = format === 'md' || format === 'html'
-
-      // account_id 必须是 number(publish.py PublishTarget.account_id: int)
-      // a.id 已是 number 类型,Number() 兜底防御 JSON 反序列化类型漂移
       const targets = Array.from(selected).flatMap((p) =>
         (platformMap.get(p) ?? []).map((a) => ({
           platform: p,
@@ -182,24 +142,24 @@ export default function NewPublishPage() {
           config: {},
         })),
       )
-
       const body = JSON.stringify({
         title: title.trim(),
         format,
         text: isText ? textContent : undefined,
-        file_path: isText ? undefined : (filePath || undefined),
-        cover_path: coverPath || undefined,
+        file_path: isText ? undefined : (fileMeta?.file_path || undefined),
+        cover_path: coverMeta?.file_path || undefined,
         images: [] as string[],
         targets,
         scheduled_at: scheduleMode === 'schedule' ? new Date(scheduledAt).toISOString() : undefined,
       })
-      await api('/api/publish/tasks', {
+      const resp = await api<{ id?: number }>('/api/publish/tasks', {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
       })
       toast.success(t('new.submitSuccess'))
-      router.push('/publish/history')
+      if (typeof resp.id === 'number') setSubmittedTaskId(resp.id)
+      else router.push('/publish/history')
     } catch (e) {
       toast.error(t('new.submitFailed'), (e as Error).message)
     } finally {
@@ -207,203 +167,32 @@ export default function NewPublishPage() {
     }
   }
 
-  const isTextFormat = format === 'md' || format === 'html'
-
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
         <h2 className="text-base font-semibold">{t('new.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('new.subtitle')}</p>
       </div>
-
-      <Card>
-        <CardContent className="space-y-4 p-4">
-          <div className="space-y-2">
-            <Label>{t('new.titleField')}</Label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t('new.titlePlaceholder')}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>{t('new.contentFormat')}</Label>
-            <Select value={format} onValueChange={(v) => setFormat(v as Format)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FORMATS.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {t(CONTENT_FORMAT_KEY[f] ?? 'new.contentFormatUnknown')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>{isTextFormat ? t('new.contentText') : t('new.uploadFile')}</Label>
-            {isTextFormat ? (
-              <textarea
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
-                rows={8}
-                placeholder={t('new.contentTextPlaceholder')}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            ) : (
-              <div className="space-y-2">
-                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-xs text-muted-foreground transition-colors hover:bg-accent">
-                  {uploadingKey === 'file' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  <span>
-                    {uploadingKey === 'file'
-                      ? t('new.uploading')
-                      : fileMeta
-                        ? `${fileMeta.filename} · ${fmtSize(fileMeta.size)} · ${fileMeta.format}`
-                        : t('new.uploadFileHint')}
-                  </span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    disabled={uploadingKey !== null}
-                    onChange={(e) => handleFile(e, 'file')}
-                  />
-                </label>
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  {fileMeta ? t('new.uploadedHint') : t('new.uploadFileHint')}
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label>{t('new.coverImage')}</Label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent">
-              {uploadingKey === 'cover' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              <span>
-                {uploadingKey === 'cover'
-                  ? t('new.uploading')
-                  : coverMeta
-                    ? `${coverMeta.filename} · ${fmtSize(coverMeta.size)}`
-                    : t('new.coverImage')}
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploadingKey !== null}
-                onChange={(e) => handleFile(e, 'cover')}
-              />
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-3 p-4">
-          <div className="flex items-center justify-between">
-            <Label>{t('new.selectPlatforms')}</Label>
-            <div className="flex gap-2 text-xs">
-              <button type="button" onClick={selectAll} className="text-primary hover:underline">
-                {t('new.selectAll')}
-              </button>
-              <button
-                type="button"
-                onClick={clearAll}
-                className="text-muted-foreground hover:underline"
-              >
-                {t('new.clearAll')}
-              </button>
-            </div>
-          </div>
-          {platformMap.size === 0 ? (
-            <p className="text-xs text-muted-foreground">{t('accounts.noAccounts')}</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {Array.from(platformMap.keys()).map((p) => {
-                const checked = selected.has(p)
-                return (
-                  <label
-                    key={p}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors',
-                      checked
-                        ? 'border-primary bg-primary/5 text-foreground'
-                        : 'border-border text-muted-foreground hover:bg-accent',
-                    )}
-                  >
-                    <Checkbox checked={checked} onCheckedChange={() => togglePlatform(p)} />
-                    <span>{t(PLATFORM_KEY[p] ?? 'platforms.unknown')}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      ×{platformMap.get(p)?.length}
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-3 p-4">
-          <Label>{t('new.schedule')}</Label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setScheduleMode('now')}
-              className={cn(
-                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors',
-                scheduleMode === 'now'
-                  ? 'border-primary bg-primary/5 text-foreground'
-                  : 'border-border text-muted-foreground hover:bg-accent',
-              )}
-            >
-              <Zap className="h-4 w-4" />
-              {t('new.submitNow')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setScheduleMode('schedule')}
-              className={cn(
-                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors',
-                scheduleMode === 'schedule'
-                  ? 'border-primary bg-primary/5 text-foreground'
-                  : 'border-border text-muted-foreground hover:bg-accent',
-              )}
-            >
-              <Clock className="h-4 w-4" />
-              {t('new.submitSchedule')}
-            </button>
-          </div>
-          {scheduleMode === 'schedule' && (
-            <Input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={submitting}>
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          {submitting
-            ? t('new.submitting')
-            : scheduleMode === 'now'
-              ? t('new.submitNow')
-              : t('new.submitSchedule')}
-        </Button>
-      </div>
+      <ContentEditorCard
+        title={title} onTitleChange={setTitle} format={format} onFormatChange={setFormat}
+        textContent={textContent} onTextContentChange={setTextContent}
+        fileMeta={fileMeta} coverMeta={coverMeta} uploadingKey={uploadingKey}
+        fileProgress={fileProgress} coverProgress={coverProgress}
+        onUploadFile={(f) => uploadFile(f, 'file')} onUploadCover={(f) => uploadFile(f, 'cover')}
+      />
+      <PlatformSelectorCard
+        platformMap={platformMap} selected={selected} onToggle={togglePlatform}
+        onSelectAll={() => setSelected(new Set(platformMap.keys()))}
+        onClearAll={() => setSelected(new Set())}
+      />
+      <ScheduleCard
+        scheduleMode={scheduleMode} onScheduleModeChange={setScheduleMode}
+        scheduledAt={scheduledAt} onScheduledAtChange={setScheduledAt}
+      />
+      <SubmitBar
+        submitting={submitting} scheduleMode={scheduleMode}
+        onSubmit={submit} submittedTaskId={submittedTaskId}
+      />
     </form>
   )
 }

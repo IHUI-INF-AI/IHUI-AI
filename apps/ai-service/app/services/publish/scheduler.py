@@ -14,6 +14,7 @@ DB 表(自动建):
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import os
 from datetime import datetime, timezone
@@ -25,9 +26,20 @@ from app.core.config import settings
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
 from .base_adapter import BasePlatformAdapter, PublishContent, PublishResult, get_adapter
-from .content_parser import enrich_content
+from .content_parser import enrich_content, enrich_content_for_platform
 from .credentials_crypto import decrypt
+from .image_uploader import process_external_images
+from .platform_rules import truncate_to_platform, validate_content
 from . import notifications
+# Anti-Risk 反风控(2026-07-31 强化):发布前冷却检查 + 风险评分检查,
+# 发布后审计日志 + 失败关键词检测 + 自动冷却
+from .anti_risk import (
+    AuditLogger,
+    CooldownManager,
+    RiskScorer,
+    RiskScore,
+    cooldown_duration_for_error,
+)
 
 logger = get_logger(__name__)
 
@@ -401,9 +413,138 @@ class PublishScheduler:
         except Exception as e:
             logger.warning("publish.scheduler 进度通知(start)失败: %s", e, exc_info=True)
 
+        # ===== R8:发布前规则预检(字数/标签/敏感词)=====
+        try:
+            validation = validate_content(platform, content, platform_config)
+            if not validation.valid:
+                err_msg = "发布前预检失败: " + "; ".join(validation.errors)
+                logger.warning("[publish.scheduler] %s validation failed: %s", platform, err_msg)
+                result = PublishResult(
+                    success=False, platform=platform,
+                    error_message=err_msg,
+                )
+                await self._write_history(task_id, user_id, result)
+                try:
+                    await notifications.notify_progress(
+                        task_id, user_id, platform, "failed", err_msg,
+                    )
+                except Exception as e:
+                    logger.warning("publish.scheduler 进度通知(skip)失败: %s", e, exc_info=True)
+                return result
+            # 自动截断到平台限制(超长内容)
+            content = truncate_to_platform(platform, content)
+            if validation.warnings:
+                logger.info(
+                    "[publish.scheduler] %s validation warnings: %s",
+                    platform, "; ".join(validation.warnings),
+                )
+        except Exception as e:
+            logger.warning(
+                "[publish.scheduler] %s validate_content error: %s: %s",
+                platform, type(e).__name__, e,
+            )
+
+        # ===== R7 + R6:按平台做专属排版 + 图床替换(深拷贝避免污染其他平台)=====
+        platform_content = copy.deepcopy(content)
+        try:
+            enrich_content_for_platform(platform_content, platform)
+        except Exception as e:
+            logger.warning(
+                "[publish.scheduler] %s enrich_content_for_platform failed: %s: %s",
+                platform, type(e).__name__, e,
+            )
+        try:
+            if platform_content.html:
+                platform_content.html = await process_external_images(
+                    platform_content.html, platform, credentials,
+                )
+        except Exception as e:
+            logger.warning(
+                "[publish.scheduler] %s process_external_images failed: %s: %s",
+                platform, type(e).__name__, e,
+            )
+
+        # ===== Anti-Risk:发布前冷却检查 + 风险评分检查(2026-07-31 强化)=====
+        # 检查账号是否在冷却中(平台风控触发后自动冷却)
+        # 检查账号风险评分(高频/高失败率/指纹变化等 → 强制冷却)
+        account_id_str = str(account_id) if account_id is not None else ""
+        risk_score: Optional[RiskScore] = None
+        if account_id_str and platform:
+            try:
+                cooldown_mgr = CooldownManager.get_instance()
+                in_cooldown, cooldown_state = cooldown_mgr.is_in_cooldown(
+                    account_id_str, platform,
+                )
+                if in_cooldown and cooldown_state is not None:
+                    remaining = cooldown_mgr.get_remaining_time(
+                        account_id_str, platform,
+                    )
+                    err_msg = (
+                        f"账号冷却中(原因: {cooldown_state.reason}),"
+                        f"剩余 {remaining}s"
+                    )
+                    logger.warning(
+                        "[publish.scheduler] %s account %s in cooldown: %s",
+                        platform, account_id_str, cooldown_state.reason,
+                    )
+                    result = PublishResult(
+                        success=False, platform=platform,
+                        error_message=err_msg,
+                    )
+                    await self._write_history(task_id, user_id, result)
+                    try:
+                        await notifications.notify_progress(
+                            task_id, user_id, platform, "failed", err_msg,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "publish.scheduler 进度通知(cooldown)失败: %s",
+                            e, exc_info=True,
+                        )
+                    return result
+
+                scorer = RiskScorer.get_instance()
+                safe, risk_score = scorer.is_account_safe_to_publish(
+                    account_id_str, platform,
+                )
+                if not safe:
+                    cooldown_mgr.enter_cooldown(
+                        account_id_str, platform, 3600,
+                        f"风险评分过高: {risk_score.score}",
+                    )
+                    err_msg = (
+                        f"账号风险评分过高({risk_score.score}/100),"
+                        f"已进入 1 小时冷却。"
+                        f"风险因素: {'; '.join(risk_score.factors)}"
+                    )
+                    logger.warning(
+                        "[publish.scheduler] %s account %s risk too high: %d",
+                        platform, account_id_str, risk_score.score,
+                    )
+                    result = PublishResult(
+                        success=False, platform=platform,
+                        error_message=err_msg,
+                    )
+                    await self._write_history(task_id, user_id, result)
+                    try:
+                        await notifications.notify_progress(
+                            task_id, user_id, platform, "failed", err_msg,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "publish.scheduler 进度通知(risk)失败: %s",
+                            e, exc_info=True,
+                        )
+                    return result
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s anti_risk pre-check error: %s: %s",
+                    platform, type(e).__name__, e,
+                )
+
         started = datetime.now(timezone.utc)
         try:
-            result = await adapter.publish(content, credentials, platform_config)
+            result = await adapter.publish(platform_content, credentials, platform_config)
         except Exception as e:
             result = PublishResult(
                 success=False, platform=platform,
@@ -411,6 +552,69 @@ class PublishScheduler:
             )
         elapsed = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
         result.duration_ms = elapsed
+
+        # ===== Anti-Risk:发布后审计 + 风险事件记录 + 失败关键词检测(2026-07-31 强化)=====
+        # 成功:记录 publish_success 事件(风险评分衰减)
+        # 失败:检查错误信息是否含风控关键词 → 自动冷却 + 记录 platform_risk_trigger
+        #       非风控失败 → 记录 publish_failed + 累计连续失败次数(达 3 次自动冷却)
+        if account_id_str and platform:
+            try:
+                audit = AuditLogger.get_instance()
+                score_val = risk_score.score if risk_score is not None else 0
+                audit.log_publish_attempt(
+                    account_id_str, platform, result.success, score_val,
+                    result.duration_ms,
+                    {
+                        "published_url": result.published_url,
+                        "error_message": result.error_message,
+                        "task_id": task_id,
+                    },
+                )
+
+                scorer = RiskScorer.get_instance()
+                cooldown_mgr = CooldownManager.get_instance()
+                if result.success:
+                    scorer.record_risk_event(
+                        account_id_str, platform, "publish_success",
+                        {"url": result.published_url},
+                    )
+                    cooldown_mgr.record_success(account_id_str, platform)
+                else:
+                    error_msg = result.error_message or ""
+                    if RiskScorer.is_platform_risk_error(error_msg):
+                        # 平台风控触发:按错误关键词严重度冷却
+                        duration, reason = cooldown_duration_for_error(error_msg)
+                        if duration > 0:
+                            cooldown_mgr.enter_cooldown(
+                                account_id_str, platform, duration, reason,
+                            )
+                            audit.log_cooldown_event(
+                                account_id_str, platform, "enter",
+                                reason, duration,
+                            )
+                        scorer.record_risk_event(
+                            account_id_str, platform, "platform_risk_trigger",
+                            {"error": error_msg},
+                        )
+                    else:
+                        # 普通失败:记录 + 累计连续失败(达 3 次自动冷却 1h)
+                        scorer.record_risk_event(
+                            account_id_str, platform, "publish_failed",
+                            {"error": error_msg},
+                        )
+                        cd_state = cooldown_mgr.record_failure(
+                            account_id_str, platform,
+                        )
+                        if cd_state is not None:
+                            audit.log_cooldown_event(
+                                account_id_str, platform, "enter",
+                                cd_state.reason, 3600,
+                            )
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s anti_risk post-check error: %s: %s",
+                    platform, type(e).__name__, e,
+                )
 
         # 写历史
         await self._write_history(task_id, user_id, result)
