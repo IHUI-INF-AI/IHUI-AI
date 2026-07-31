@@ -117,6 +117,11 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.model_availability import model_availability
     await model_availability.initialize()
 
+    # 启动模型自动同步服务(每 6 小时全量同步,2026-07-31 立)
+    # 从已配置 key 的 provider /v1/models 拉取模型清单,注册到 DB(自动上架/下架)
+    from app.services.model_sync import model_sync_service
+    await model_sync_service.initialize()
+
     # 配置 FallbackRouter 故障转移(2026-07-24 立)
     # StepFun 故障(timeout/overloaded/rate_limited)时自动切 agnes/gpt-4o 兜底
     from app.core.llm_gateway import fallback_router
@@ -215,6 +220,10 @@ async def lifespan(app: FastAPI) -> Any:
     # 关闭模型可用性服务(取消定时刷新任务,2026-07-31 立)
     from app.services.model_availability import model_availability
     await model_availability.shutdown()
+
+    # 关闭模型自动同步服务(取消定时同步任务,2026-07-31 立)
+    from app.services.model_sync import model_sync_service
+    await model_sync_service.shutdown()
 
     # 关闭梦境固化调度器(等待进行中的用户固化任务完成)
     from app.services.dream_scheduler import dream_scheduler
