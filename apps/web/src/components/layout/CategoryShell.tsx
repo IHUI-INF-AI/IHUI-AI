@@ -3,7 +3,8 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronDown } from 'lucide-react'
+import { Menu } from 'lucide-react'
+import { Sheet, SheetContent, SheetTrigger } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -85,7 +86,12 @@ export function CategoryShell({
   const pathname = usePathname()
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
 
-  // 找当前激活项,用于移动端 Select 显示
+  // 路由变化时关闭移动端抽屉
+  React.useEffect(() => {
+    setMobileNavOpen(false)
+  }, [pathname])
+
+  // 找当前激活项,用于移动端触发器显示
   const activeItem = React.useMemo(() => {
     for (const group of navGroups) {
       for (const item of group.items) {
@@ -119,14 +125,55 @@ export function CategoryShell({
       )
     })
 
+  const renderNavGroups = () => (
+    <nav className="space-y-3">
+      {navGroups.map((group, idx) => (
+        <div key={group.label ?? idx} className="space-y-1">
+          {group.label && (
+            <p className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {group.label}
+            </p>
+          )}
+          {renderNavItems(group.items)}
+        </div>
+      ))}
+    </nav>
+  )
+
   return (
     <div className={cn('flex h-full flex-col', className)}>
       {/* 标题区(shrink-0 固定) */}
       <div className="shrink-0 px-4 pt-3 pb-2">
-        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-        {description && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-        )}
+        <div className="flex items-center gap-2">
+          {/* 移动端抽屉触发器(<768px 显示) */}
+          <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground min-[768px]:hidden"
+                aria-label="打开导航菜单"
+              >
+                <Menu className="h-4 w-4" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[90vw] p-4 min-[640px]:w-72">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-semibold">{title}</p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">{renderNavGroups()}</div>
+            </SheetContent>
+          </Sheet>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+          </div>
+          {/* 移动端当前项指示(<768px 显示) */}
+          {activeItem && (
+            <p className="hidden min-w-0 max-w-[40%] truncate text-xs text-muted-foreground min-[768px]:hidden">
+              {activeItem.label}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 主体:侧边栏 + 内容区 */}
@@ -139,58 +186,11 @@ export function CategoryShell({
           )}
           aria-label={title}
         >
-          <nav className="space-y-3">
-            {navGroups.map((group, idx) => (
-              <div key={group.label ?? idx} className="space-y-1">
-                {group.label && (
-                  <p className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    {group.label}
-                  </p>
-                )}
-                {renderNavItems(group.items)}
-              </div>
-            ))}
-          </nav>
+          {renderNavGroups()}
         </aside>
 
-        {/* 移动端侧边栏切换(<768px 显示 Select) */}
-        <div className="min-[768px]:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen((v) => !v)}
-            className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium"
-            aria-expanded={mobileNavOpen}
-          >
-            <span className="min-w-0 flex-1 truncate">
-              {activeItem ? activeItem.label : title}
-            </span>
-            <ChevronDown
-              className={cn(
-                'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform',
-                mobileNavOpen && 'rotate-180',
-              )}
-            />
-          </button>
-          {mobileNavOpen && (
-            <div className="mt-1 max-h-64 space-y-3 overflow-y-auto rounded-md border border-border bg-card p-2">
-              {navGroups.map((group, idx) => (
-                <div key={group.label ?? idx} className="space-y-1">
-                  {group.label && (
-                    <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                      {group.label}
-                    </p>
-                  )}
-                  {renderNavItems(group.items)}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* 内容区(min-h-0 flex-1 内部滚动) */}
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          {children}
-        </main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   )
