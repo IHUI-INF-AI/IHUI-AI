@@ -20,7 +20,8 @@ export interface TaskFilePayload {
 
 export interface TaskDispatch {
   id: string
-  userId: number
+  /** 用户 ID(UUID 字符串)。原类型为 number,但 `Number(UUID)` 返回 NaN,2026-08-01 修正为 string。 */
+  userId: string
   fromDevice: string
   toDevice: string
   command: string
