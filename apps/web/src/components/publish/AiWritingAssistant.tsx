@@ -1,8 +1,10 @@
 'use client'
 
 /**
- * AI 辅助写作 — 标题生成 / 正文润色 / 标签推荐 / 摘要生成 / SEO 分析 / 封面建议。
- * 复用项目已有的 streamChat(/api/ai/chat/stream)SSE 基础设施,无需新后端端点。
+ * AI 辅助写作 — 标题生成 / 正文润色 / 标签推荐 / 摘要生成 / SEO 分析 / 封面建议 / 批量分析。
+ * titles/polish/tags/summary 复用 streamChat(/api/ai/chat/stream)SSE 基础设施。
+ * seo/cover/analyzeAll 调用 @ihui/api-client 的 3 个 AI 写作端点
+ * (analyzePublishSeo / suggestPublishCovers / analyzePublishAll),完整使用后端 7 个 AI 端点。
  *
  * AGENTS.md §4:rounded-md / 无分割线 / 无渐变遮罩
  * AGENTS.md §3:禁 any,精确类型
@@ -10,8 +12,14 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Sparkles, Wand2, Tag, FileText, Search, ImageIcon } from 'lucide-react'
-import { streamChat } from '@ihui/api-client'
+import { Loader2, Sparkles, Wand2, Tag, FileText, Search, ImageIcon, Zap } from 'lucide-react'
+import {
+  streamChat,
+  analyzePublishSeo,
+  suggestPublishCovers,
+  analyzePublishAll,
+} from '@ihui/api-client'
+import type { SeoReport, AiAnalyzeAllResult } from '@ihui/api-client'
 import { Button, Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
@@ -25,12 +33,16 @@ export interface AiWritingAssistantProps {
   readonly onApplySummary: (summary: string) => void
 }
 
-type AiFunction = 'titles' | 'polish' | 'tags' | 'summary' | 'seo' | 'cover'
+type AiFunction = 'titles' | 'polish' | 'tags' | 'summary' | 'seo' | 'cover' | 'analyzeAll'
+
+/** api-client 端点返回的结构化数据(seo/cover/analyzeAll) */
+type AiEndpointData = SeoReport | string[] | AiAnalyzeAllResult
 
 interface AiState {
   readonly loading: boolean
   readonly result: string
   readonly error: string
+  readonly data?: AiEndpointData
 }
 
 const INITIAL_STATE: AiState = { loading: false, result: '', error: '' }
@@ -45,6 +57,9 @@ const PLATFORM_HINT: Record<string, string> = {
   toutiao: '今日头条(信息量大、标题党适度)',
 }
 
+/** 走 streamChat 的 fn(titles/polish/tags/summary) */
+const STREAM_FNS: ReadonlySet<AiFunction> = new Set(['titles', 'polish', 'tags', 'summary'])
+
 function buildPrompt(fn: AiFunction, content: string, platform: string): string {
   const platformHint = PLATFORM_HINT[platform] ?? '通用平台'
   const truncated = content.length > 3000 ? content.slice(0, 3000) + '\n...(内容已截断)' : content
@@ -58,10 +73,9 @@ function buildPrompt(fn: AiFunction, content: string, platform: string): string 
       return `你是标签推荐专家。基于以下正文,为${platformHint}推荐 5-10 个相关标签。每个标签用逗号分隔,只输出标签,不要解释:\n\n${truncated}`
     case 'summary':
       return `你是摘要生成专家。请为以下正文生成一段 100 字以内的摘要,用于 SEO。直接输出摘要文本,不要解释:\n\n${truncated}`
-    case 'seo':
-      return `你是 SEO 分析专家。请分析以下正文(平台:${platformHint})的 SEO 质量,输出 JSON 格式:\n{"score":1-100,"titleScore":1-100,"contentScore":1-100,"keywordDensity":{"关键词":百分比},"suggestions":["建议1","建议2"]}\n只输出 JSON,不要其他文字:\n\n${truncated}`
-    case 'cover':
-      return `你是封面设计顾问。基于以下正文,建议 3 个封面设计方案(风格/配色/元素)。每个方案一行,简洁描述:\n\n${truncated}`
+    default:
+      // seo/cover/analyzeAll 走 api-client 端点,不经过 streamChat
+      return ''
   }
 }
 
@@ -73,6 +87,12 @@ function parseTitles(raw: string): string[] {
   return raw.split('\n').map((s) => s.trim().replace(/^\d+[.、)]\s*/, '')).filter(Boolean).slice(0, 5)
 }
 
+/** 从正文第一行提取标题(用于 seo/analyzeAll 端点入参) */
+function extractTitle(content: string): string {
+  const firstLine = content.split('\n').map((l) => l.trim()).find((l) => l.length > 0)
+  return firstLine ? firstLine.slice(0, 100) : ''
+}
+
 const AI_FUNCTIONS: readonly { fn: AiFunction; icon: React.ComponentType<{ className?: string }>; labelKey: string }[] = [
   { fn: 'titles', icon: Sparkles, labelKey: 'ai.generateTitles' },
   { fn: 'polish', icon: Wand2, labelKey: 'ai.polishContent' },
@@ -80,6 +100,7 @@ const AI_FUNCTIONS: readonly { fn: AiFunction; icon: React.ComponentType<{ class
   { fn: 'summary', icon: FileText, labelKey: 'ai.generateSummary' },
   { fn: 'seo', icon: Search, labelKey: 'ai.seoAnalysis' },
   { fn: 'cover', icon: ImageIcon, labelKey: 'ai.coverSuggestion' },
+  { fn: 'analyzeAll', icon: Zap, labelKey: 'ai.analyzeAll' },
 ]
 
 export function AiWritingAssistant({
@@ -96,6 +117,7 @@ export function AiWritingAssistant({
   const [states, setStates] = React.useState<Record<AiFunction, AiState>>({
     titles: INITIAL_STATE, polish: INITIAL_STATE, tags: INITIAL_STATE,
     summary: INITIAL_STATE, seo: INITIAL_STATE, cover: INITIAL_STATE,
+    analyzeAll: INITIAL_STATE,
   })
   const [openFn, setOpenFn] = React.useState<AiFunction | null>(null)
 
@@ -105,7 +127,7 @@ export function AiWritingAssistant({
     const controller = new AbortController()
     abortRef.current = controller
 
-    setStates((prev) => ({ ...prev, [fn]: { loading: true, result: '', error: '' } }))
+    setStates((prev) => ({ ...prev, [fn]: { loading: true, result: '', error: '', data: undefined } }))
     setOpenFn(fn)
 
     let raw = ''
@@ -130,6 +152,33 @@ export function AiWritingAssistant({
     }
   }, [content, platform, model])
 
+  const runAiEndpoint = React.useCallback(async (fn: AiFunction) => {
+    if (!content.trim()) return
+    setStates((prev) => ({ ...prev, [fn]: { loading: true, result: '', error: '', data: undefined } }))
+    setOpenFn(fn)
+    try {
+      const title = extractTitle(content)
+      const plat = platform ?? ''
+      let data: AiEndpointData | undefined
+      if (fn === 'seo') {
+        const res = await analyzePublishSeo(title, content, plat)
+        if (!res.success) throw new Error(res.error)
+        data = res.data.seo
+      } else if (fn === 'cover') {
+        const res = await suggestPublishCovers(content)
+        if (!res.success) throw new Error(res.error)
+        data = res.data.covers
+      } else if (fn === 'analyzeAll') {
+        const res = await analyzePublishAll(content, title, plat)
+        if (!res.success) throw new Error(res.error)
+        data = res.data
+      }
+      setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: '', data } }))
+    } catch (e) {
+      setStates((prev) => ({ ...prev, [fn]: { loading: false, result: '', error: (e as Error).message } }))
+    }
+  }, [content, platform])
+
   const applyResult = React.useCallback((fn: AiFunction, result: string) => {
     switch (fn) {
       case 'titles': {
@@ -149,6 +198,22 @@ export function AiWritingAssistant({
     }
   }, [onApplyTitle, onApplyContent, onApplyTags, onApplySummary])
 
+  /** 批量分析结果一键应用:标题[0] + 标签 + 摘要 */
+  const applyAnalyzeAll = React.useCallback((data: AiAnalyzeAllResult) => {
+    if (data.titles[0]) onApplyTitle(data.titles[0])
+    if (data.tags.length > 0) onApplyTags(data.tags)
+    if (data.summary) onApplySummary(data.summary)
+  }, [onApplyTitle, onApplyTags, onApplySummary])
+
+  const triggerFn = React.useCallback((fn: AiFunction, hasResult: boolean) => {
+    if (hasResult) {
+      setOpenFn(fn)
+      return
+    }
+    if (STREAM_FNS.has(fn)) void runAi(fn)
+    else void runAiEndpoint(fn)
+  }, [runAi, runAiEndpoint])
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground">
@@ -158,14 +223,15 @@ export function AiWritingAssistant({
       {AI_FUNCTIONS.map(({ fn, icon: Icon, labelKey }) => {
         const state = states[fn]
         const isOpen = openFn === fn
+        const hasResult = Boolean(state.result || state.data)
+        const isStream = STREAM_FNS.has(fn)
         return (
           <Collapsible key={fn} open={isOpen} onOpenChange={(o) => setOpenFn(o ? fn : null)}>
             <div className="rounded-md border border-border/60 bg-card">
               <CollapsibleTrigger
                 className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-xs transition-colors hover:bg-accent/40"
                 onClick={() => {
-                  if (!isOpen && !state.result) void runAi(fn)
-                  else if (!isOpen && state.result) setOpenFn(fn)
+                  if (!isOpen) triggerFn(fn, hasResult)
                 }}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -176,18 +242,21 @@ export function AiWritingAssistant({
                 <div className="space-y-1.5 rounded-b-md bg-muted/20 px-2.5 py-2">
                   {state.error ? (
                     <p className="text-[11px] text-rose-600 dark:text-rose-400">{state.error}</p>
-                  ) : state.loading && !state.result ? (
+                  ) : state.loading && !hasResult ? (
                     <p className="text-[11px] text-muted-foreground">{t('ai.thinking')}</p>
                   ) : (
                     <>
-                      <pre className={cn(
-                        'max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-2 text-[11px] leading-relaxed',
-                        fn === 'seo' && 'font-mono',
-                      )}>
-                        {state.result || t('ai.thinking')}
-                      </pre>
-                      {state.result && !state.loading && (
-                        <div className="flex items-center gap-1">
+                      {isStream ? (
+                        <pre className={cn(
+                          'max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-muted/40 p-2 text-[11px] leading-relaxed',
+                        )}>
+                          {state.result || t('ai.thinking')}
+                        </pre>
+                      ) : (
+                        <EndpointResult fn={fn} data={state.data} loading={state.loading} />
+                      )}
+                      {hasResult && !state.loading && (
+                        <div className="flex flex-wrap items-center gap-1">
                           {fn === 'titles' && parseTitles(state.result).map((title, i) => (
                             <Button
                               key={i}
@@ -200,7 +269,7 @@ export function AiWritingAssistant({
                               {t('ai.apply')} {i + 1}
                             </Button>
                           ))}
-                          {fn !== 'titles' && fn !== 'seo' && fn !== 'cover' && (
+                          {isStream && fn !== 'titles' && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -211,12 +280,23 @@ export function AiWritingAssistant({
                               {t('ai.apply')}
                             </Button>
                           )}
+                          {fn === 'analyzeAll' && state.data && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={() => applyAnalyzeAll(state.data as AiAnalyzeAllResult)}
+                            >
+                              {t('ai.apply')}
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             className="h-6 px-2 text-[10px] text-muted-foreground"
-                            onClick={() => void runAi(fn)}
+                            onClick={() => triggerFn(fn, false)}
                           >
                             {t('ai.retry')}
                           </Button>
@@ -232,6 +312,106 @@ export function AiWritingAssistant({
       })}
       {!content.trim() && (
         <p className="px-1 text-[10px] text-muted-foreground">{t('ai.emptyContent')}</p>
+      )}
+    </div>
+  )
+}
+
+/** seo/cover/analyzeAll 端点结构化结果展示 */
+function EndpointResult({
+  fn,
+  data,
+  loading,
+}: {
+  readonly fn: AiFunction
+  readonly data: AiEndpointData | undefined
+  readonly loading: boolean
+}) {
+  const t = useTranslations('publish')
+  if (loading || !data) {
+    return <p className="text-[11px] text-muted-foreground">{t('ai.thinking')}</p>
+  }
+
+  if (fn === 'seo') {
+    const seo = data as SeoReport
+    return (
+      <div className="space-y-1.5 rounded bg-muted/40 p-2 text-[11px]">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">{t('ai.seoScore')}</span>
+          <span className="font-medium">{seo.score}</span>
+          <span className="text-muted-foreground">/100</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">T:{seo.titleScore}</span>
+          <span className="text-muted-foreground">C:{seo.contentScore}</span>
+        </div>
+        {Object.keys(seo.keywordDensity).length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {Object.entries(seo.keywordDensity).slice(0, 6).map(([kw, pct]) => (
+              <span key={kw} className="rounded bg-background px-1.5 py-0.5 text-[10px]">
+                {kw} {pct}%
+              </span>
+            ))}
+          </div>
+        )}
+        {seo.suggestions.length > 0 && (
+          <ul className="space-y-0.5 pl-4 text-[10px] text-muted-foreground">
+            {seo.suggestions.slice(0, 5).map((s, i) => (
+              <li key={i} className="list-disc">{s}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )
+  }
+
+  if (fn === 'cover') {
+    const covers = data as string[]
+    return (
+      <ul className="space-y-0.5 rounded bg-muted/40 p-2 text-[11px] leading-relaxed">
+        {covers.map((c, i) => (
+          <li key={i} className="list-disc pl-3">{c}</li>
+        ))}
+      </ul>
+    )
+  }
+
+  // analyzeAll
+  const all = data as AiAnalyzeAllResult
+  return (
+    <div className="space-y-1.5 rounded bg-muted/40 p-2 text-[11px]">
+      {all.titles.length > 0 && (
+        <div>
+          <div className="mb-0.5 text-[10px] font-medium text-muted-foreground">{t('ai.generateTitles')}</div>
+          <ul className="space-y-0.5 pl-4">
+            {all.titles.slice(0, 3).map((tt, i) => (
+              <li key={i} className="list-disc">{tt}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {all.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {all.tags.slice(0, 8).map((tg) => (
+            <span key={tg} className="rounded bg-background px-1.5 py-0.5 text-[10px]">#{tg}</span>
+          ))}
+        </div>
+      )}
+      {all.summary && (
+        <p className="text-[10px] text-muted-foreground">{all.summary}</p>
+      )}
+      {all.seo && (
+        <div className="flex items-center gap-1.5 text-[10px]">
+          <span className="text-muted-foreground">{t('ai.seoScore')}</span>
+          <span className="font-medium">{all.seo.score}</span>
+          <span className="text-muted-foreground">/100</span>
+        </div>
+      )}
+      {all.covers.length > 0 && (
+        <ul className="space-y-0.5 pl-4 text-[10px]">
+          {all.covers.slice(0, 3).map((cv, i) => (
+            <li key={i} className="list-disc">{cv}</li>
+          ))}
+        </ul>
       )}
     </div>
   )
