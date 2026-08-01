@@ -934,6 +934,25 @@ body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-content
   animation: ihui-pulse-soft 2.4s ease-in-out infinite;
 }
 
+/* 2026-08-01 立:全局错误通知条滑下动画
+ * - 从顶部滑下(translate-y -100% → 0)+ 淡入(opacity 0 → 1)
+ * - 0.3s ease-out,不刺眼
+ * - 配套组件:GlobalErrorBanner.tsx */
+@keyframes ihui-error-slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-error-slide-down {
+  animation: ihui-error-slide-down 0.3s ease-out;
+}
+
 /* 2026-07-26 立:全局滚动条彻底隐藏(用户要求"我不需要页面滑动滚动条")
    - html/body overflow:hidden 防止 body 级竖向滚动条
    - 全局 * 选择器隐藏所有元素滚动条(保留滚动功能,仅隐藏视觉滚动条)

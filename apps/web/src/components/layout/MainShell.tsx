@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
+import { GlobalErrorBanner } from '@/components/common/GlobalErrorBanner'
 
 /**
  * MainShell — (main) 路由组的工作区卡片容器(2026-07-30 第十四次修订:精简)
@@ -66,6 +67,9 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           // 各页面如需内部留白应自行在页面组件内设置(如 about 的 px-4 py-8 已自带)。
           className="no-scrollbar flex-1 overflow-y-auto"
         >
+          {/* 2026-08-01 全局错误通知条:从顶部滑下,常驻直到用户关闭
+              (用户需求:internet server error 这种错误提示应该从页面上面滑下来,常驻直到错误解决) */}
+          <GlobalErrorBanner />
           {children}
         </main>
       </div>

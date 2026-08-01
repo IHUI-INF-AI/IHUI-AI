@@ -4,9 +4,10 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, UserMinus, UserPlus } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common/Toaster'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { pushError } from '@/stores/error-banner'
 import { Avatar } from '@/components/data'
 import { Button } from '@ihui/ui-react'
 
@@ -46,6 +47,11 @@ export default function FollowPage() {
     },
   })
 
+  // 2026-08-01 错误推送全局 banner(常驻 + 顶部滑下),替代 inline 英文错误显示
+  React.useEffect(() => {
+    if (error) pushError(error)
+  }, [error])
+
   const unfollowMut = useMutation({
     mutationFn: (userId: string) => api(`/api/follows/${userId}`, { method: 'DELETE' }),
     onSuccess: () => {
@@ -53,7 +59,7 @@ export default function FollowPage() {
       qc.invalidateQueries({ queryKey: ['user', 'follow', user?.id] })
       qc.invalidateQueries({ queryKey: ['follows', 'following'] })
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => pushError(e),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -71,8 +77,6 @@ export default function FollowPage() {
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading', { default: '加载中...' })}
         </div>
-      ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <UserPlus className="h-8 w-8 opacity-40" />

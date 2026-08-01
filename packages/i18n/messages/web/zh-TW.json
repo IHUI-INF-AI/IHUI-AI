@@ -14782,7 +14782,25 @@
   "modelFree": "免費",
   "modelPointsMultiplier": "積分消耗倍數",
   "errors": {
-    "requestFailed": "請求失敗"
+    "requestFailed": "請求失敗",
+    "region": "錯誤通知",
+    "dismiss": "關閉",
+    "clearAll": "清除全部",
+    "validationFailed": "提交的資訊有誤,請檢查後重試",
+    "unauthorized": "登入已過期,請重新登入",
+    "forbidden": "沒有權限執行此操作",
+    "notFound": "找不到對應的資源",
+    "conflict": "操作衝突,請重新整理後重試",
+    "rateLimited": "操作過於頻繁,請稍後再試",
+    "locked": "資源已被鎖定,請稍後再試",
+    "internalError": "伺服器開小差了,請稍後重試",
+    "upstreamFailure": "上游服務異常,請稍後重試",
+    "serviceUnavailable": "服務暫不可用,請稍後重試",
+    "memberExists": "該成員已存在",
+    "optimisticLock": "資料已被其他人修改,請重新整理後重試",
+    "invalidMoney": "金額格式不正確",
+    "invalidTimezone": "時區格式不正確",
+    "unknown": "發生未知錯誤,請稍後重試"
   },
   "a11y": {
     "pieChart": "圓餅圖",
