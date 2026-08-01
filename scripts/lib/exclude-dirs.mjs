@@ -31,7 +31,7 @@ const EXCLUDE_DIRS = Object.freeze(new Set([
   // 版本控制
   '.git',
   // 构建产物
-  'dist', 'build', '.output', '.next', '.turbo', '.wxt',
+  'dist', 'build', 'out', '.output', '.next', '.turbo', '.wxt',
   // 测试覆盖率
   'coverage',
   // 缓存

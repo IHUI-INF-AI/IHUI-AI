@@ -117,30 +117,35 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     const { amount, account, accountType } = parsed.data
     try {
       const result = await db.transaction(async (tx) => {
-        const [margin] = await tx
-          .select()
-          .from(userMargins)
-          .where(eq(userMargins.userId, userId))
-          .limit(1)
-        const balance = margin?.tokenQuantity ?? 0
-        const frozen = margin?.frozenQuantity ?? 0
-        const available = balance - frozen
-        if (available < amount) {
-          throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
-        }
-        if (margin) {
-          await tx
-            .update(userMargins)
-            .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
+        // P0 并发竞态修复(2026-08-01):原 read-then-write(SELECT frozen → 计算 → UPDATE)
+        // 在两个并发提现下会丢失更新(后写覆盖前写,冻结金额少算)。
+        // 改为原子 UPDATE:WHERE 子句内联 `token_quantity - frozen_quantity >= amount`,
+        // 一次 UPDATE 完成余额校验 + 冻结金额自增,PostgreSQL 行级锁保证原子性。
+        const [updated] = await tx
+          .update(userMargins)
+          .set({ frozenQuantity: sql`frozen_quantity + ${amount}`, updatedAt: new Date() })
+          .where(
+            and(eq(userMargins.userId, userId), sql`token_quantity - frozen_quantity >= ${amount}`),
+          )
+          .returning()
+        if (!updated) {
+          // 没有命中行:要么用户无 margin 记录,要么可用余额不足
+          const [margin] = await tx
+            .select()
+            .from(userMargins)
             .where(eq(userMargins.userId, userId))
-        } else {
-          await tx.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+            .limit(1)
+          if (!margin) {
+            await tx.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: 0 })
+            throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
+          }
+          throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
         }
         await tx.insert(tokenFlows).values({
           userId,
           opType: 1,
           quantity: -amount,
-          balanceAfter: balance - amount,
+          balanceAfter: updated.tokenQuantity - amount,
           remark: 'withdrawal:' + JSON.stringify(encryptJSON({ accountType, account })),
         })
         return { success: true }
@@ -421,16 +426,43 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const result = await db.transaction(async (tx) => {
-        const [margin] = await tx
-          .select()
-          .from(userMargins)
-          .where(eq(userMargins.userId, userId))
-          .limit(1)
-        const balance = margin?.tokenQuantity ?? 0
-        const newBalance = balance + amount
-        if (newBalance < 0) {
-          throw Object.assign(new Error('调整后余额不能为负数'), { statusCode: 400 })
+        // P0 并发竞态修复(2026-08-01):原 read-then-write(SELECT balance → 计算 → UPDATE)
+        // 两个管理员并发调整同一用户会丢失更新。改为原子 UPDATE + WHERE 校验,
+        // 对正数调整无约束,对负数调整校验调整后余额 >=0;UPDATE 不命中时按"无 margin 记录"分支处理。
+        let marginRow: { tokenQuantity: number; frozenQuantity: number } | undefined
+        if (amount >= 0) {
+          // 正数调整:UPDATE 命中即成功;不命中则需创建 margin 行
+          const [updated] = await tx
+            .update(userMargins)
+            .set({ tokenQuantity: sql`token_quantity + ${amount}`, updatedAt: new Date() })
+            .where(eq(userMargins.userId, userId))
+            .returning()
+          marginRow = updated ?? undefined
+        } else {
+          // 负数调整:WHERE 子句内联 `token_quantity + amount >= 0`,余额不足时不命中
+          const [updated] = await tx
+            .update(userMargins)
+            .set({ tokenQuantity: sql`token_quantity + ${amount}`, updatedAt: new Date() })
+            .where(and(eq(userMargins.userId, userId), sql`token_quantity + ${amount} >= 0`))
+            .returning()
+          if (!updated) {
+            // 不命中:要么无 margin 行,要么余额不足
+            const [existing] = await tx
+              .select()
+              .from(userMargins)
+              .where(eq(userMargins.userId, userId))
+              .limit(1)
+            if (existing) {
+              throw Object.assign(new Error('调整后余额不能为负数'), { statusCode: 400 })
+            }
+            // 无 margin 行 + 负数调整:余额为 0,新余额 = amount < 0,拒绝
+            throw Object.assign(new Error('调整后余额不能为负数'), { statusCode: 400 })
+          }
+          marginRow = updated
         }
+        // balanceAfter:marginRow 存在时是其更新后的 tokenQuantity;
+        // marginRow 不存在(amount>=0 且首次调整)时新余额 = amount
+        const newBalance = marginRow?.tokenQuantity ?? amount
         const flowValues = {
           userId,
           opType,
@@ -439,18 +471,14 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
           remark: remark ?? `管理员调整 ${amount > 0 ? '+' : ''}${amount}`,
           operatorId,
         }
-        if (margin) {
-          const [updated] = await tx
-            .update(userMargins)
-            .set({ tokenQuantity: newBalance, updatedAt: new Date() })
-            .where(eq(userMargins.userId, userId))
-            .returning()
+        if (marginRow) {
           const [flow] = await tx.insert(tokenFlows).values(flowValues).returning()
-          return { margin: updated!, flow: flow! }
+          return { margin: marginRow, flow: flow! }
         }
+        // amount >= 0 且 margin 不存在:创建 margin 行
         const [created] = await tx
           .insert(userMargins)
-          .values({ userId, tokenQuantity: newBalance, frozenQuantity: 0 })
+          .values({ userId, tokenQuantity: amount, frozenQuantity: 0 })
           .returning()
         const [flow] = await tx.insert(tokenFlows).values(flowValues).returning()
         return { margin: created!, flow: flow! }

@@ -42,32 +42,37 @@ export async function rechargeToken(
   orderNo?: string,
   remark?: string,
 ): Promise<number> {
-  const margin = await ensureMargin(userId)
-  const newBalance = margin.tokenQuantity + quantity
+  await ensureMargin(userId)
+  // P0 并发竞态修复(2026-08-01):原代码事务外 SELECT 旧余额 + 计算新余额 + 事务内 UPDATE,
+  // 两个并发充值(不同 orderNo,绕过幂等索引)会丢失更新。改为事务内原子 UPDATE + RETURNING。
   try {
-    await db.transaction(async (tx) => {
-      await tx
+    const newBalance = await db.transaction(async (tx) => {
+      const [updated] = await tx
         .update(userMargins)
-        .set({ tokenQuantity: newBalance, updatedAt: new Date() })
+        .set({ tokenQuantity: sql`token_quantity + ${quantity}`, updatedAt: new Date() })
         .where(eq(userMargins.userId, userId))
+        .returning()
+      const balanceAfter = updated?.tokenQuantity ?? quantity
       await tx.insert(tokenFlows).values({
         userId,
         opType: 0,
         quantity,
-        balanceAfter: newBalance,
+        balanceAfter,
         remark: remark ?? '充值',
         relatedOrderNo: orderNo,
       })
       // P0-2 + P0-4 幂等:(related_order_no, op_type) unique 索引拦截重复回调,事务自动回滚
+      return balanceAfter
     })
+    return newBalance
   } catch (e: unknown) {
     // PostgreSQL unique_violation (23505):幂等命中,重复充值被拦截,返回当前余额不重复加
     if (e && typeof e === 'object' && 'code' in e && e.code === '23505' && orderNo) {
+      const margin = await ensureMargin(userId)
       return margin.tokenQuantity
     }
     throw e
   }
-  return newBalance
 }
 
 export async function deductToken(
@@ -109,10 +114,21 @@ export async function expireToken(
   quantity: number,
   source?: string,
 ): Promise<number> {
-  const margin = await ensureMargin(userId)
-  const deductQty = Math.min(margin.tokenQuantity, quantity)
-  const newBalance = margin.tokenQuantity - deductQty
-  await db.transaction(async (tx) => {
+  await ensureMargin(userId)
+  // P0 并发竞态修复(2026-08-01):原代码事务外 SELECT 旧余额 + 计算扣减量 + 事务内 UPDATE,
+  // 并发到期清零会丢失更新。改为事务内 SELECT FOR UPDATE 锁定行 + 精确计算扣减量 + UPDATE,
+  // 行锁保证并发安全,且流水 quantity 准确反映实际扣减量。
+  return db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .for('update')
+      .limit(1)
+    if (!locked) return 0
+    const actualDeductQty = Math.min(locked.tokenQuantity, quantity)
+    if (actualDeductQty <= 0) return locked.tokenQuantity
+    const newBalance = locked.tokenQuantity - actualDeductQty
     await tx
       .update(userMargins)
       .set({ tokenQuantity: newBalance, updatedAt: new Date() })
@@ -120,12 +136,12 @@ export async function expireToken(
     await tx.insert(tokenFlows).values({
       userId,
       opType: 2,
-      quantity: deductQty,
+      quantity: actualDeductQty,
       balanceAfter: newBalance,
       remark: source ?? '到期清零',
     })
+    return newBalance
   })
-  return newBalance
 }
 
 export async function listTokenFlows(userId: string, page: number, limit: number, opType?: number) {
@@ -208,16 +224,21 @@ export async function createCommissionFlow(
 ): Promise<CommissionFlow> {
   const [flow] = await db
     .insert(commissionFlows)
-    .values(withAuditBoth({
-      beneficiaryId: input.beneficiaryId,
-      invitedUserId: input.invitedUserId,
-      orderId: input.orderId,
-      amount: input.amount,
-      token: input.token,
-      type: input.type,
-      status: 1,
-      remark: input.remark,
-    }, operatorId))
+    .values(
+      withAuditBoth(
+        {
+          beneficiaryId: input.beneficiaryId,
+          invitedUserId: input.invitedUserId,
+          orderId: input.orderId,
+          amount: input.amount,
+          token: input.token,
+          type: input.type,
+          status: 1,
+          remark: input.remark,
+        },
+        operatorId,
+      ),
+    )
     .returning()
   return flow!
 }
@@ -272,16 +293,21 @@ export async function applyWithdrawal(
   const actualAmount = input.amount - fee
   const [flow] = await db
     .insert(withdrawalFlows)
-    .values(withAuditBoth({
-      userId: input.userId,
-      amount: actualAmount,
-      fee,
-      originalAmount: input.amount,
-      status: 0,
-      method: input.method,
-      accountInfo: input.accountInfo,
-      partnerTradeNo: `WD${Date.now()}`,
-    }, operatorId))
+    .values(
+      withAuditBoth(
+        {
+          userId: input.userId,
+          amount: actualAmount,
+          fee,
+          originalAmount: input.amount,
+          status: 0,
+          method: input.method,
+          accountInfo: input.accountInfo,
+          partnerTradeNo: `WD${Date.now()}`,
+        },
+        operatorId,
+      ),
+    )
     .returning()
   return flow!
 }
@@ -318,11 +344,16 @@ export async function approveWithdrawal(
 ): Promise<WithdrawalFlow | undefined> {
   const rows = await db
     .update(withdrawalFlows)
-    .set(withAudit({
-      status: 2,
-      processedAt: new Date(),
-      updatedAt: new Date(),
-    }, operatorId))
+    .set(
+      withAudit(
+        {
+          status: 2,
+          processedAt: new Date(),
+          updatedAt: new Date(),
+        },
+        operatorId,
+      ),
+    )
     .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 0)))
     .returning()
   return rows[0]
@@ -339,12 +370,17 @@ export async function rejectWithdrawal(
 ): Promise<WithdrawalFlow | undefined> {
   const rows = await db
     .update(withdrawalFlows)
-    .set(withAudit({
-      status: 3,
-      rejectReason: reason,
-      processedAt: new Date(),
-      updatedAt: new Date(),
-    }, operatorId))
+    .set(
+      withAudit(
+        {
+          status: 3,
+          rejectReason: reason,
+          processedAt: new Date(),
+          updatedAt: new Date(),
+        },
+        operatorId,
+      ),
+    )
     .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 0)))
     .returning()
   return rows[0]
