@@ -97,9 +97,9 @@ export function AISidePanel() {
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
 
-  // 移动端深度适配(2026-07-31 立):
-  // - useIsMobile 检测 <768px 视口,SSR 安全(默认 false,客户端 mount 后修正)
-  // - 移动端自动切换到浮窗 FAB 模式(不破坏桌面端 docked 体验)
+  // 移动端深度适配(2026-07-31 立,2026-08-01 阈值对齐):
+  // - useIsMobile 检测 <1024px 视口(与 tablet-lg 断点一致),SSR 安全(默认 false,客户端 mount 后修正)
+  // - 移动端/平板竖屏自动切换到浮窗 FAB 模式(不破坏桌面端 docked 体验)
   // - 浮窗展开时全屏覆盖(利用现有 floatMode,移动端样式覆盖)
   const isMobile = useIsMobile()
 
@@ -796,14 +796,14 @@ export function AISidePanel() {
   // 2026-07-30 彻底根治:容器从 fixed 改为 flex 子元素(relative + shrink-0),
   // width:0 使容器在 flex 流中不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
   // py-2 与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)。
-  // 2026-07-31 移动端适配:加 hidden lg:block 让 docked 关闭态(手柄)在 < 1024px 隐藏,
+  // 2026-07-31 移动端适配:加 hidden min-[1024px]:block 让 docked 关闭态(手柄)在 < 1024px 隐藏,
   // 避免 AISidePanel 在 mobile 视口下占 400px 宽把 work-area 推到 viewport 外。
   // mobile 下 AI 面板入口改用浮窗 FAB(由 floatMode 路径独立渲染,不受此规则影响)。
   if (!open) {
     return (
       <>
         {workspaceNameSync}
-        <div className="relative hidden h-full shrink-0 py-2 mr-1.5 lg:block" style={{ width: 0 }}>
+        <div className="relative hidden h-full shrink-0 py-2 mr-1.5 min-[1024px]:block" style={{ width: 0 }}>
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
           (容器右边缘 +4px ~ +12px),与 Sidebar 自身手柄(Sidebar 右边缘 -4px ~ +4px)空间错开,
           两个手柄各保留完整 8px 命中区,互不重叠冲突。
@@ -863,7 +863,7 @@ export function AISidePanel() {
             ? isMobile
               ? 'fixed inset-0 z-sticky' // 移动端浮窗:全屏覆盖
               : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面端浮窗:品牌色光晕
-            : 'relative hidden h-full shrink-0 lg:block mr-1.5 py-2',
+            : 'relative hidden h-full shrink-0 min-[1024px]:block mr-1.5 py-2',
         )}
         style={
           floatMode
