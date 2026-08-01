@@ -25,19 +25,30 @@ export interface CognitiveContext {
 const contexts = new Map<string, CognitiveContext>()
 
 const MAX_SHORT_TERM = 10
+/** contexts 容量上限(LRU 淘汰,防止内存泄露)。 */
+const MAX_CONTEXTS = 1000
 
-/** 获取或创建会话上下文。 */
+/** 获取或创建会话上下文(LRU:最近访问排末尾,超限淘汰最早)。 */
 export function getContext(sessionId: string): CognitiveContext {
   let ctx = contexts.get(sessionId)
-  if (!ctx) {
-    ctx = {
-      sessionId,
-      shortTermMemory: [],
-      longTermMemoryFacts: new Map(),
-      preferences: new Map(),
-    }
+  if (ctx) {
+    // LRU: 删除后重新插入,移到末尾标记最近访问
+    contexts.delete(sessionId)
     contexts.set(sessionId, ctx)
+    return ctx
   }
+  // 容量上限:超过时淘汰最早(迭代顺序第一个)
+  if (contexts.size >= MAX_CONTEXTS) {
+    const oldest = contexts.keys().next().value
+    if (oldest !== undefined) contexts.delete(oldest)
+  }
+  ctx = {
+    sessionId,
+    shortTermMemory: [],
+    longTermMemoryFacts: new Map(),
+    preferences: new Map(),
+  }
+  contexts.set(sessionId, ctx)
   return ctx
 }
 
@@ -103,10 +114,7 @@ function understandRuleBased(input: string, ctx: CognitiveContext | null): Under
 }
 
 /** 解析用户输入的意图(LLM 驱动,规则降级)。 */
-export async function understand(
-  input: string,
-  sessionId?: string,
-): Promise<UnderstandingResult> {
+export async function understand(input: string, sessionId?: string): Promise<UnderstandingResult> {
   const ctx = sessionId ? getContext(sessionId) : null
 
   // 写入短时记忆

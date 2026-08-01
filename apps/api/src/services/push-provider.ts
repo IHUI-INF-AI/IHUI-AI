@@ -286,7 +286,9 @@ export async function sendPush(target: PushTarget, message: PushMessage): Promis
   if (provider === 'fcm') return sendFcm(target, message)
   if (provider === 'getui') return sendGetui(target, message)
   // stub
-  console.info(`[push-stub] to=${target.token}, title=${message.title}, body=${message.body}`)
+  // P1 修复:push token 脱敏,防止日志泄露设备推送凭证(被未授权人员读取后可伪造推送)
+  const maskedToken = target.token.length > 8 ? `${target.token.slice(0, 8)}***` : '***'
+  console.info(`[push-stub] to=${maskedToken}, title=${message.title}, body=${message.body}`)
   return {
     provider: 'stub',
     success: true,
