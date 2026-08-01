@@ -95,7 +95,9 @@ export default function SsoRedirectPageClient() {
         }
 
         const data = await resp.json()
-        if (data.code !== 200 || !data.data?.code) {
+        // API 统一响应 success() = { code: 0, message, data }
+        // 2026-08-01 修复:原 code !== 200 永远抛错,导致 SSO redirect 流程误判失败
+        if (data.code !== 0 || !data.data?.code) {
           throw new Error(data.message || 'SSO code generation failed')
         }
 
