@@ -5,12 +5,13 @@
 支持流式输出(litellm.acompletion stream=True),stub 模式下模拟分块。
 """
 
+import asyncio
 import base64
 import json
 import logging
 import os
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator as AsyncIteratorType
+from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional, TYPE_CHECKING, cast
 
 import asyncpg
@@ -555,17 +556,22 @@ def _failover_openrouter_to_agnes(model: str) -> Optional[str]:
     return f"agnes/{real_model}"
 
 
-@contextmanager
-def _openrouter_proxy_context(model: str) -> Iterator[None]:
-    """临时为 OpenRouter 请求设置专用代理(P3-3)。
+# OpenRouter 专用代理锁(2026-08-01 P0 修复):
+# 防止并发 OpenRouter 请求通过 os.environ 互相干扰 + 泄漏代理设置给非 OpenRouter 请求。
+# asyncio.Lock 串行化 env var 的 set/restore,确保同一时刻只有一个 OpenRouter 请求持有代理。
+_openrouter_proxy_lock = asyncio.Lock()
+
+
+@asynccontextmanager
+async def _openrouter_proxy_context(model: str) -> AsyncIteratorType[None]:
+    """临时为 OpenRouter 请求设置专用代理(P3-3,2026-08-01 P0 并发修复)。
 
     LiteLLM 底层 httpx 读取 HTTPS_PROXY / HTTP_PROXY env var,
     本函数在 openrouter/ 前缀调用期间临时设置 settings.openrouter_proxy_url,
     调用结束后恢复原值。仅对 openrouter/ 前缀模型生效,其他模型直接 yield。
 
-    注意:env var 方式在并发场景下有竞态风险(多 OpenRouter 请求并行时互相干扰),
-    但 LiteLLM 不支持 per-call proxy 参数,这是当前最优方案。生产环境如需严格隔离,
-    应在进程级配置不同 worker 分别处理 OpenRouter 流量。
+    并发安全:asyncio.Lock 串行化 env var 修改,防止并发 OpenRouter 请求互相覆盖
+    saved_https/saved_http 导致代理永久泄漏给非 OpenRouter 请求。
 
     Args:
         model: 模型名(仅 openrouter/ 前缀触发代理设置)。
@@ -580,32 +586,33 @@ def _openrouter_proxy_context(model: str) -> Iterator[None]:
     if not proxy_url:
         yield
         return
-    # 保存原值(可能为 None,即未设置)
-    saved_https = os.environ.get("HTTPS_PROXY")
-    saved_http = os.environ.get("HTTP_PROXY")
-    try:
-        os.environ["HTTPS_PROXY"] = proxy_url
-        os.environ["HTTP_PROXY"] = proxy_url
-        logger.debug("OpenRouter 专用代理已设置: %s", proxy_url)
-        yield
-    finally:
-        # 恢复原值(原值可能为 None → pop 掉;原值非 None → 还原)
-        if saved_https is not None:
-            os.environ["HTTPS_PROXY"] = saved_https
-        else:
-            os.environ.pop("HTTPS_PROXY", None)
-        if saved_http is not None:
-            os.environ["HTTP_PROXY"] = saved_http
-        else:
-            os.environ.pop("HTTP_PROXY", None)
+    # 串行化:同一时刻只有一个 OpenRouter 请求持有代理 env var
+    async with _openrouter_proxy_lock:
+        # 保存原值(可能为 None,即未设置)
+        saved_https = os.environ.get("HTTPS_PROXY")
+        saved_http = os.environ.get("HTTP_PROXY")
+        try:
+            os.environ["HTTPS_PROXY"] = proxy_url
+            os.environ["HTTP_PROXY"] = proxy_url
+            logger.debug("OpenRouter 专用代理已设置: %s", proxy_url)
+            yield
+        finally:
+            # 恢复原值(原值可能为 None → pop 掉;原值非 None → 还原)
+            if saved_https is not None:
+                os.environ["HTTPS_PROXY"] = saved_https
+            else:
+                os.environ.pop("HTTPS_PROXY", None)
+            if saved_http is not None:
+                os.environ["HTTP_PROXY"] = saved_http
+            else:
+                os.environ.pop("HTTP_PROXY", None)
 
 
 class LLMGateway:
     """LLM 调用网关,封装 LiteLLM 并提供 stub 降级。"""
 
-    # P0-5c:当前请求选中的 key_pool_id(供 complete/astream 故障转移标记用)
-    # _resolve 设置,complete/astream 在 await 前读取到局部变量(无 race:中间无 await 点)
-    _current_key_pool_id: Optional[str] = None
+    # 2026-08-01 P0 修复:移除 _current_key_pool_id 类属性(共享可变状态),
+    # 改为 _resolve 直接返回 key_pool_id 作为元组第 4 个元素,消除并发脆弱性。
 
     @staticmethod
     def _is_stub_mode() -> bool:
@@ -843,7 +850,7 @@ class LLMGateway:
                 return None
             api_key, api_base, _ = db_result
         else:
-            api_key, api_base, _ = await self._resolve(model, owner_uuid)
+            api_key, api_base, _, _ = await self._resolve(model, owner_uuid)
         if not api_key:
             return None
         try:
@@ -858,21 +865,22 @@ class LLMGateway:
         self,
         model: str,
         owner_uuid: Optional[str] = None,
-    ) -> tuple[str | None, str | None, str | None]:
+    ) -> tuple[str | None, str | None, str | None, str | None]:
         """优先 BYOK → 号池 → .env(三层优先级)。
 
         1. BYOK 用户私有配置(_resolve_from_db 查 ai_model_config WHERE owner_uuid=?)
         2. 中转站号池(KeyPoolSelector 查 ai_relay_key_pool WHERE provider_code=?)
         3. .env 单 key(_resolve_provider 兜底)
 
-        号池命中时:self._current_key_pool_id 设为选中 key 的 id(供 complete/astream
-        故障转移标记用);BYOK/.env 路径置 None。
+        Returns:
+            (api_key, api_base, litellm_model, key_pool_id)
+            key_pool_id 非空表示命中号池,供 complete/astream 故障转移标记用。
+            2026-08-01 P0 修复:改为返回值而非设置类属性,消除并发共享状态。
         """
         # 1. BYOK 用户私有配置
         db_result = await _resolve_from_db(model, owner_uuid)
         if db_result:
-            self._current_key_pool_id = None
-            return db_result
+            return (*db_result, None)
 
         # 2. 号池(中转站模式):查 ai_relay_key_pool
         provider_code = KeyPoolSelector.model_to_provider_code(model)
@@ -882,12 +890,10 @@ class LLMGateway:
             # litellm_model 走 _resolve_provider 的前缀处理(去前缀 + 加 openai/ 等)
             cfg = settings.get_provider_config(provider_code)
             _, _, litellm_model = self._resolve_provider(model)
-            self._current_key_pool_id = pool_key["key_pool_id"]
-            return pool_key["api_key"], cfg.api_base or None, litellm_model
+            return pool_key["api_key"], cfg.api_base or None, litellm_model, pool_key["key_pool_id"]
 
         # 3. .env 单 key 兜底
-        self._current_key_pool_id = None
-        return self._resolve_provider(model)
+        return (*self._resolve_provider(model), None)
 
     async def _apply_token_compaction(
         self,
@@ -1054,9 +1060,7 @@ class LLMGateway:
             api_key, api_base, real_model = db_result
             current_key_pool_id: Optional[str] = None
         else:
-            api_key, api_base, real_model = await self._resolve(used_model, owner_uuid)
-            # 立即读取到局部变量(无 await 点,无 race)供故障转移标记用
-            current_key_pool_id = self._current_key_pool_id
+            api_key, api_base, real_model, current_key_pool_id = await self._resolve(used_model, owner_uuid)
 
         try:
             import litellm
@@ -1079,7 +1083,8 @@ class LLMGateway:
             # 按 capability 过滤不支持的参数(stream_usage/tools/response_format/temperature)
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
-            with _openrouter_proxy_context(used_model):
+            # 2026-08-01 P0:改为 async with + asyncio.Lock 防止并发 env var 竞态
+            async with _openrouter_proxy_context(used_model):
                 response = await litellm.acompletion(**call_kwargs)
             usage = response.usage
             usage_dict: dict[str, Any] = {}
@@ -1421,9 +1426,7 @@ class LLMGateway:
             api_key, api_base, real_model = db_result
             current_key_pool_id: Optional[str] = None
         else:
-            api_key, api_base, real_model = await self._resolve(used_model, owner_uuid)
-            # 立即读取到局部变量(无 await 点,无 race)供故障转移标记用
-            current_key_pool_id = self._current_key_pool_id
+            api_key, api_base, real_model, current_key_pool_id = await self._resolve(used_model, owner_uuid)
 
         # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
         # 必须在 try 块之前初始化:若 try 内 import/raise 在赋值前抛异常,
@@ -1461,7 +1464,8 @@ class LLMGateway:
             # 按 capability 过滤不支持的参数(stream_usage/tools/response_format/temperature)
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
-            with _openrouter_proxy_context(used_model):
+            # 2026-08-01 P0:改为 async with + asyncio.Lock 防止并发 env var 竞态
+            async with _openrouter_proxy_context(used_model):
                 response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}

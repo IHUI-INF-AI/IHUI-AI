@@ -232,6 +232,12 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       if (discountAmount > originalPrice) {
         return reply.status(400).send(error(400, '折扣金额不能超过原价'))
       }
+      // P0 金额客户端可控加固(2026-08-01):强制三者自洽 originalPrice - discountAmount = payAmount,
+      // 防止攻击者传入自相矛盾的三元组绕过校验。真正根治需要 service 层根据 orderType+targetId
+      // 从 DB 查询真实价格覆盖客户端传入值,留作后续业务层修复(TODO: 接入 vip/products 价格表)。
+      if (originalPrice > 0 && Math.abs(originalPrice - discountAmount - payAmount) > 0.001) {
+        return reply.status(400).send(error(400, '金额自洽性校验失败:原价 - 折扣 = 实付'))
+      }
       const order = await createOrder({ userId: request.userId!, ...parsed.data })
       return reply.status(201).send(success({ order }))
     },
