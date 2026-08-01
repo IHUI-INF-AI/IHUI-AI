@@ -143,7 +143,9 @@ export function WebWorkPanel() {
     // - rounded-xl 对齐 AI 对话框圆角度(2026-08-01 用户反馈"圆角度也是应该一致")
     // - 不传 width/onResize 给 WorkPanel → WorkPanel w-full + 无 resize handle
     // - WorkPanel 的 border-l(左边框)在嵌入场景不需要,用 className='border-l-0' 覆盖
-    <div className="absolute inset-0 z-30 rounded-xl bg-shell-panel">
+    // - bottom-2(8px):底部留间距对齐 AISidePanel 底部(AISidePanel 上下各 8px 间距,
+    //   WebWorkPanel 外层 absolute 默认 bottom:0 贴 viewport 边缘,比 AISidePanel 低 8px)
+    <div className="absolute inset-x-0 top-0 bottom-2 z-30 rounded-xl bg-shell-panel">
       <WorkPanel
         open={effectiveOpen}
         onClose={closePanel}
