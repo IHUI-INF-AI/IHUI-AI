@@ -38,7 +38,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className={cn('w-full space-y-1.5', containerClassName)}>
         {label && (
-          <label htmlFor={textareaId} className="text-sm font-medium leading-none">
+          <label htmlFor={textareaId} className="text-sm font-medium leading-none whitespace-nowrap">
             {label}
           </label>
         )}
@@ -65,7 +65,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             <span />
           )}
           {showCounter && (
-            <span className="text-xs text-muted-foreground">
+            <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
               {length}
               {maxLength ? `/${maxLength}` : ''}
             </span>

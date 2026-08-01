@@ -106,9 +106,9 @@ export default function FeatureCenterPage() {
                   <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <CardTitle className="flex items-center justify-between">
-                    {t(entry.labelKey)}
-                    <span className="text-2xl font-bold text-primary">
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate">{t(entry.labelKey)}</span>
+                    <span className="shrink-0 whitespace-nowrap text-2xl font-bold text-primary tabular-nums">
                       {statMap[`${entry.key}Count`] ?? 0}
                     </span>
                   </CardTitle>

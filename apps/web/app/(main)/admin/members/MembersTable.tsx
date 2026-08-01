@@ -143,27 +143,29 @@ export function MembersTable({
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex flex-nowrap items-center justify-end gap-1">
                       {status === 0 ? (
                         <>
                           <Tooltip content={t('approve')}>
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="shrink-0"
                               onClick={() => actionMut.mutate({ action: 'approved', id: member.id })}
                               disabled={actionMut.isPending}
                             >
-                              <CheckCircle2 className="h-4 w-4" />
+                              <CheckCircle2 className="h-4 w-4 shrink-0" />
                             </Button>
                           </Tooltip>
                           <Tooltip content={t('reject')}>
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="shrink-0"
                               onClick={() => actionMut.mutate({ action: 'reject', id: member.id })}
                               disabled={actionMut.isPending}
                             >
-                              <XCircle className="h-4 w-4" />
+                              <XCircle className="h-4 w-4 shrink-0" />
                             </Button>
                           </Tooltip>
                         </>
@@ -173,10 +175,11 @@ export function MembersTable({
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="shrink-0"
                             onClick={() => actionMut.mutate({ action: 'seal', id: member.id })}
                             disabled={actionMut.isPending}
                           >
-                            <Ban className="h-4 w-4" />
+                            <Ban className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>
                       ) : null}
@@ -185,10 +188,11 @@ export function MembersTable({
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="shrink-0"
                             onClick={() => actionMut.mutate({ action: 'unseal', id: member.id })}
                             disabled={actionMut.isPending}
                           >
-                            <Unlock className="h-4 w-4" />
+                            <Unlock className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>
                       ) : null}
@@ -196,9 +200,10 @@ export function MembersTable({
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="shrink-0"
                           onClick={() => onReset(member)}
                         >
-                          <KeyRound className="h-4 w-4" />
+                          <KeyRound className="h-4 w-4 shrink-0" />
                         </Button>
                       </Tooltip>
                       <Tooltip content={t('delete')}>
@@ -206,10 +211,10 @@ export function MembersTable({
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDelete(member)}
-                          className="text-destructive hover:text-destructive"
+                          className="shrink-0 text-destructive hover:text-destructive"
                           disabled={deleteMut.isPending}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 shrink-0" />
                         </Button>
                       </Tooltip>
                     </div>
