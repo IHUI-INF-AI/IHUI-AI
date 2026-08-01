@@ -34,9 +34,11 @@ export type AgentListQuery = {
   page?: number
   pageSize?: number
   keyword?: string
-  category?: string
+  /** 分类 ID(2026-08-01 P0 契约修复:原字段名 category 与后端 categoryId 不一致,筛选不生效) */
+  categoryId?: string
+  /** 作者用户 ID(后端支持按作者筛选) */
+  userId?: string
   status?: AgentStatus
-  sort?: string
 }
 
 export async function getAgents(query: AgentListQuery = {}): Promise<ApiResult<PageData<Agent>>> {
