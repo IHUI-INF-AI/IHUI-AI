@@ -24,5 +24,3 @@ export * from './use-register-form'
 export * from './use-storage'
 // 跨端图片选择 hook(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
 export * from './use-image-picker'
-// VIP 定价 hook(2026-08-01 下沉,apps/web → @ihui/shared,mobile-rn 待接入)
-export * from './use-vip-pricing'
