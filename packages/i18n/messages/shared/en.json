@@ -723,12 +723,6 @@
       "title": "Subscription Management"
     }
   },
-  "exam": {
-    "result": {
-      "correct": "Correct",
-      "wrong": "Wrong"
-    }
-  },
   "live": {
     "title": "Live",
     "loadFailed": "Failed to load live sessions",
