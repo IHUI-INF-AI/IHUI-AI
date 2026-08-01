@@ -40,7 +40,7 @@ export function AdminStatCards({ stats, isLoading, numFmt }: Props) {
     },
   ]
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
       {cards.map((c) => (
         <StatCard
           key={c.title}

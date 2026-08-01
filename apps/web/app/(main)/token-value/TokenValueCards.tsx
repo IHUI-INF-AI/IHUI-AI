@@ -31,7 +31,7 @@ export function TokenValueCards({ cards, isLoading }: Props) {
           <div
             className={cn(
               'mt-2 font-bold tracking-tight',
-              c.big ? 'text-3xl' : 'text-xl',
+              c.big ? 'text-2xl min-[768px]:text-3xl' : 'text-lg min-[768px]:text-xl',
               c.tone,
             )}
           >

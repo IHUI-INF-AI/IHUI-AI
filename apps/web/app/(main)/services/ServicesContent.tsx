@@ -28,7 +28,7 @@ export function ServicesContent(): React.JSX.Element {
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('hero.cta')}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t('hero.title')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('hero.title')}</h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
           {t('hero.subtitle')}
         </p>

@@ -49,7 +49,7 @@ export function RefundStatsCards({ currencyFmt }: RefundStatsCardsProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 min-[1024px]:grid-cols-6">
       {cards.map((c) => (
         <div key={c.label} className="rounded-lg border p-3">
           <div className="text-xs text-muted-foreground">{c.label}</div>

@@ -205,7 +205,7 @@ export default function RelayUsagePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 min-[1024px]:grid-cols-6">
         <SummaryCard label="总调用" value={summary ? num.format(summary.totalCalls) : '—'} />
         <SummaryCard label="总 Token" value={summary ? num.format(summary.totalTokens) : '—'} />
         <SummaryCard

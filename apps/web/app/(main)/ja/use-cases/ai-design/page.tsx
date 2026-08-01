@@ -119,38 +119,38 @@ export default function AiDesignPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             <PaintBucket className="h-3.5 w-3.5 text-primary" />
             デザイン協業
           </div>
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight min-[768px]:text-5xl">
             AI デザイン協業:スケッチ → コードとブランド資産の一元管理
           </h1>
-          <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">
+          <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
             IHUI AI フルスタック AI OS 上で構築、8 エンドポイント配信、Apache 2.0 オープンソース、オンプレ対応、Figma / 即時設計 と深く連携。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary md:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground md:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
               </div>
             ))}
           </div>
         </section>
 
         {/* 課題 */}
-        <section className="mt-16 rounded-2xl border bg-card p-8 md:p-12">
+        <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
-            <h2 className="text-xl font-bold tracking-tight md:text-2xl">デザインチームの協業課題</h2>
+            <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">デザインチームの協業課題</h2>
           </div>
           <ul className="mt-6 space-y-3">
             {problems.map((p, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+              <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
                 {p}
               </li>
@@ -160,8 +160,8 @@ export default function AiDesignPage() {
 
         {/* 能力 */}
         <section className="mt-16">
-          <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">6 つのコア能力</h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">6 つのコア能力</h2>
+          <div className="mt-8 grid gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
@@ -175,9 +175,9 @@ export default function AiDesignPage() {
         </section>
 
         {/* 事例 */}
-        <section className="mt-16 rounded-2xl border bg-primary/5 p-8 md:p-12">
-          <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">導入事例</h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-3">
+        <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
+          <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">導入事例</h2>
+          <div className="mt-8 grid gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
                 <h3 className="text-base font-semibold">{cs.title}</h3>
@@ -191,12 +191,12 @@ export default function AiDesignPage() {
         <section className="mt-16">
           <div className="flex items-center justify-center gap-3">
             <Wrench className="h-6 w-6 text-primary" />
-            <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">技術スタックとツールチェーン</h2>
+            <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">技術スタックとツールチェーン</h2>
           </div>
-          <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground md:text-base">
+          <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
             IHUI AI フルスタック AI OS 上で構築、8 エンドポイントでソース統一、核心コンポーネントはすべてオープンソース、Figma / 即時設計 と深く連携。
           </p>
-          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
               <div key={i} className="rounded-2xl border bg-card p-5">
                 <h3 className="text-sm font-semibold">{t.name}</h3>
@@ -207,10 +207,10 @@ export default function AiDesignPage() {
         </section>
 
         {/* お問い合わせ / CTA */}
-        <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
+        <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">AI デザイン協業アシスタントの構築を始めましょう</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">AI デザイン協業アシスタントの構築を始めましょう</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
             登録で 1000 クレジット進呈、デザイン協業シナリオテンプレートからワンクリック fork、30 分でスケッチ → コードを体験。
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

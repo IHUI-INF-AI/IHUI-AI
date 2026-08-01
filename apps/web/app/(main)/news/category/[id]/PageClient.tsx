@@ -93,7 +93,7 @@ export default function NewsCategoryPageClient() {
 
   if (categoriesQuery.isLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-center py-20">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-center py-12 min-[768px]:py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -101,7 +101,7 @@ export default function NewsCategoryPageClient() {
 
   if (!category) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-4 py-20 text-center">
+      <div className="mx-auto w-full max-w-6xl space-y-4 py-12 min-[768px]:py-20 text-center">
         <FolderOpen className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         <Link

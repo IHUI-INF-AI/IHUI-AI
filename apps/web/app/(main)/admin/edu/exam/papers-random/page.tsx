@@ -123,7 +123,7 @@ export default function EduExamPapersRandomPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="r-single">{t('singleCount')}</Label>
               <Input
