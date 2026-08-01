@@ -24,6 +24,10 @@ const updateSchema = z.object({
   email: z.string().email('邮箱格式不正确').optional(),
   bio: z.string().max(500).optional(),
   gender: z.number().int().min(0).max(2).optional().describe('0=未知 1=男 2=女'),
+  phone: z
+    .string()
+    .regex(/^1[3-9]\d{9}$/, '手机号格式不正确')
+    .optional(),
 })
 
 function publicUser(user: {
@@ -172,6 +176,14 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
 
     if (await isSystemAdminUser(id)) {
       return reply.status(403).send(error(403, '系统内置管理员资料不可修改'))
+    }
+
+    // 手机号唯一性校验:如改了手机号,确认新号未被其他用户占用
+    if (parsed.data.phone && parsed.data.phone !== existing.phone) {
+      const conflict = await findUserByPhone(parsed.data.phone)
+      if (conflict && conflict.id !== id) {
+        return reply.status(409).send(error(409, '该手机号已被其他用户绑定'))
+      }
     }
 
     const updated = await updateUser(id, parsed.data)
