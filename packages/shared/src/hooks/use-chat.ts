@@ -38,7 +38,13 @@
  * ```
  */
 import * as React from 'react'
-import type { BaseToolCall as TypesBaseToolCall, ToolCallSummary } from '@ihui/types/ai'
+import type {
+  BaseToolCall as TypesBaseToolCall,
+  ToolCallSummary,
+  SubAgentActivity,
+  PlanStep,
+  TerminalTask,
+} from '@ihui/types/ai'
 
 /**
  * 消息角色
@@ -104,6 +110,18 @@ export interface ChatMessage {
   toolCallSummary?: ToolCallSummary
   /** 整条消息耗时 ms(2026-07-31 立,从 streamChat 开始到 done;仅 assistant 流式消息有意义) */
   totalDurationMs?: number
+  /** 2026-07-31 立,AI 对话可视化深度接入 Phase 2:消息级 subagent 工作内容
+   *  - 后端 subagent_spawn/progress/end SSE 事件携带 messageId 时,前端按消息分组写入
+   *  - 用于在消息气泡内 inline SubagentSection,实时刷新 subagent 生命周期 */
+  subagentActivities?: SubAgentActivity[]
+  /** 2026-07-31 立,Phase 2:消息级 plan steps
+   *  - 后端 plan_updated SSE 事件携带 messageId 时,前端写入对应消息
+   *  - 用于在消息气泡内 inline PlanStepsCard */
+  planSteps?: PlanStep[]
+  /** 2026-07-31 立,Phase 2:消息级 terminal tasks
+   *  - 后端 terminal_start/end SSE 事件携带 messageId 时,前端写入对应消息
+   *  - 用于在消息气泡内 inline TerminalTaskSection */
+  terminalTasks?: TerminalTask[]
   /** 附加元数据(各端自定义,如 agentId / tokens 等) */
   meta?: Record<string, unknown>
 }
