@@ -14822,7 +14822,25 @@
   "modelFree": "무료",
   "modelPointsMultiplier": "크레딧 배수",
   "errors": {
-    "requestFailed": "요청 실패"
+    "requestFailed": "요청 실패",
+    "region": "오류 알림",
+    "dismiss": "닫기",
+    "clearAll": "모두 지우기",
+    "validationFailed": "제출한 정보에 오류가 있습니다. 확인 후 다시 시도해 주세요.",
+    "unauthorized": "로그인이 만료되었습니다. 다시 로그인해 주세요.",
+    "forbidden": "이 작업을 수행할 권한이 없습니다.",
+    "notFound": "해당 리소스를 찾을 수 없습니다.",
+    "conflict": "작업이 충돌했습니다. 새로고침 후 다시 시도해 주세요.",
+    "rateLimited": "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    "locked": "리소스가 잠겨 있습니다. 잠시 후 다시 시도해 주세요.",
+    "internalError": "서버에 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    "upstreamFailure": "상위 서비스에 이상이 있습니다. 잠시 후 다시 시도해 주세요.",
+    "serviceUnavailable": "서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    "memberExists": "이 멤버는 이미 존재합니다.",
+    "optimisticLock": "데이터가 다른 사용자에 의해 수정되었습니다. 새로고침 후 다시 시도해 주세요.",
+    "invalidMoney": "금액 형식이 올바르지 않습니다.",
+    "invalidTimezone": "시간대 형식이 올바르지 않습니다.",
+    "unknown": "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
   },
   "a11y": {
     "lineChart": "꺾은선 차트",
