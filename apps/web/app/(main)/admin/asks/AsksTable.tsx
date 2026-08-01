@@ -129,7 +129,7 @@ export function AsksTable({
         header: t('colCreatedAt'),
         size: 130,
         cell: ({ row }) => (
-          <span className="text-muted-foreground">
+          <span className="whitespace-nowrap text-muted-foreground">
             {dateFmt.format(new Date(row.original.createdAt))}
           </span>
         ),
@@ -141,10 +141,10 @@ export function AsksTable({
         enableSorting: false,
         enableColumnFilter: false,
         cell: ({ row }) => (
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex flex-nowrap items-center justify-end gap-1">
             <Tooltip content={t('edit')}>
-              <Button variant="ghost" size="sm" onClick={() => onEdit(row.original)}>
-                <Edit className="h-4 w-4" />
+              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => onEdit(row.original)}>
+                <Edit className="h-4 w-4 shrink-0" />
               </Button>
             </Tooltip>
             {row.original.status !== 1 && (
@@ -152,10 +152,11 @@ export function AsksTable({
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="shrink-0"
                   onClick={() => onAudit(row.original)}
                   disabled={auditPending}
                 >
-                  <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
                 </Button>
               </Tooltip>
             )}
@@ -164,10 +165,10 @@ export function AsksTable({
                 variant="ghost"
                 size="sm"
                 onClick={() => onDelete(row.original)}
-                className="text-destructive hover:text-destructive"
+                className="shrink-0 text-destructive hover:text-destructive"
                 disabled={deletePending}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4 shrink-0" />
               </Button>
             </Tooltip>
           </div>

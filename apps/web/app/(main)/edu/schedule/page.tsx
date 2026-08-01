@@ -82,10 +82,10 @@ export default function EduSchedulePage() {
               className={cn(idx === todayIdx && 'border-primary ring-1 ring-primary/20')}
             >
               <CardHeader className="p-3 pb-2">
-                <CardTitle className="flex items-center justify-between text-sm">
-                  <span>{day}</span>
+                <CardTitle className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate">{day}</span>
                   {idx === todayIdx && (
-                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                    <span className="shrink-0 whitespace-nowrap rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
                       {t('today')}
                     </span>
                   )}

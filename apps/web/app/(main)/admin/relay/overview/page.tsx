@@ -156,8 +156,8 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
         {kpis.map((k) => (
           <Card key={k.label}>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-                <span>{k.label}</span><k.icon className={`h-4 w-4 ${k.color}`} />
+              <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                <span className="min-w-0 truncate">{k.label}</span><k.icon className={`h-4 w-4 shrink-0 ${k.color}`} />
               </CardTitle>
             </CardHeader>
             <CardContent>

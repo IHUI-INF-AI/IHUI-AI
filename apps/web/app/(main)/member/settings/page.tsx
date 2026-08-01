@@ -134,7 +134,9 @@ export default function MemberSettingsPage() {
               <Label className="min-w-0 flex-1 truncate text-sm font-normal text-muted-foreground">
                 {t(NOTIF_KEY[key] ?? 'notif.unknown')}
               </Label>
-              <Toggle checked={notif[key]} onChange={(v) => setNotif({ ...notif, [key]: v })} className="shrink-0" />
+              <div className="shrink-0">
+                <Toggle checked={notif[key]} onChange={(v) => setNotif({ ...notif, [key]: v })} />
+              </div>
             </div>
           ))}
         </CardContent>
@@ -151,11 +153,12 @@ export default function MemberSettingsPage() {
               <Label className="min-w-0 flex-1 truncate text-sm font-normal text-muted-foreground">
                 {t(PRIVACY_KEY[key] ?? 'privacy.unknown')}
               </Label>
-              <Toggle
-                checked={privacy[key]}
-                onChange={(v) => setPrivacy({ ...privacy, [key]: v })}
-                className="shrink-0"
-              />
+              <div className="shrink-0">
+                <Toggle
+                  checked={privacy[key]}
+                  onChange={(v) => setPrivacy({ ...privacy, [key]: v })}
+                />
+              </div>
             </div>
           ))}
         </CardContent>
