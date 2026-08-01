@@ -287,7 +287,7 @@ export const TimelineTab = React.memo(function TimelineTab({
               aria-controls={`tab-panel-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
+                'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-[10px] font-medium transition-colors',
                 active
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground/70 hover:bg-accent/40 hover:text-foreground',

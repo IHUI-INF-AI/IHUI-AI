@@ -371,7 +371,7 @@ export function OrdersTab({
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
             <tr>
               <th className="px-4 py-2.5 font-medium">{t('orderNo')}</th>
               <th className="px-4 py-2.5 font-medium">{t('orderType')}</th>

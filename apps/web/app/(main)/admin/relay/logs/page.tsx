@@ -253,7 +253,7 @@ export default function AdminRelayLogsPage() {
           </Select>
         </div>
         <table className="w-full text-sm">
-          <thead className="border-b border-border text-xs uppercase text-muted-foreground">
+          <thead className="border-b border-border text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
             <tr>
               <th className="px-3 py-2 text-left">分组</th>
               <th className="px-3 py-2 text-right">调用</th>
