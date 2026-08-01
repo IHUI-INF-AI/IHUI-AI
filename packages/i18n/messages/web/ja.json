@@ -6895,7 +6895,8 @@
       "seoScore": "SEOスコア",
       "seoSuggestions": "最適化の提案",
       "emptyContent": "先に本文を入力してください",
-      "retry": "再試行"
+      "retry": "再試行",
+      "analyzeAll": "一括分析"
     },
     "preview": {
       "title": "プラットフォームプレビュー",

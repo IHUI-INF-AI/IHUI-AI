@@ -88,6 +88,7 @@ export const TAB_KEY: Record<string, string> = {
  * AI 辅助写作功能 i18n key 静态映射表:ai.${key}
  */
 export const AI_FUNCTION_KEY: Record<string, string> = {
+  analyzeAll: 'ai.analyzeAll',
   cover: 'ai.coverSuggestion',
   polish: 'ai.polishContent',
   seo: 'ai.seoAnalysis',
