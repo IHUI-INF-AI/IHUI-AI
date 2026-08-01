@@ -114,22 +114,22 @@ export function CourseAuditDialog({
             </div>
           </div>
         )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
-            {t('dialog.close')}
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
+          <Button type="button" variant="outline" onClick={onClose} disabled={pending} className="shrink-0">
+            <span className="whitespace-nowrap">{t('dialog.close')}</span>
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={onRectify}
             disabled={pending || loadingCompare}
-            className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+            className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10 shrink-0"
           >
-            {t('dialog.rectify')}
+            <span className="whitespace-nowrap">{t('dialog.rectify')}</span>
           </Button>
-          <Button type="button" onClick={onApprove} disabled={pending || loadingCompare}>
-            {pending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            {t('dialog.approve')}
+          <Button type="button" onClick={onApprove} disabled={pending || loadingCompare} className="shrink-0">
+            {pending && <Loader2 className="mr-1 h-4 w-4 animate-spin shrink-0" />}
+            <span className="whitespace-nowrap">{t('dialog.approve')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

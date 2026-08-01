@@ -239,7 +239,7 @@ function PieChart({ data }: { data: ReadonlyArray<{ platform: string; count: num
           )
         })}
       </svg>
-      <div className="flex-1 space-y-1">
+      <div className="flex-1 min-w-0 space-y-1">
         {data.map((d, i) => (
           <div key={i} className="flex items-center gap-1.5 text-[11px]">
             <span className={cn('h-2 w-2 rounded-sm', d.color)} />

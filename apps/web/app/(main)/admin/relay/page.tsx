@@ -266,6 +266,7 @@ export default function AdminRelayOverviewPage() {
             <p className="py-6 text-center text-sm text-muted-foreground">暂无全局 provider 配置</p>
           ) : (
             <div className="overflow-hidden rounded-md border border-border">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
                   <tr>
@@ -307,6 +308,7 @@ export default function AdminRelayOverviewPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </CardContent>

@@ -114,6 +114,7 @@ export function DictTable({
               <div className="px-4 py-2 text-xs text-muted-foreground">{d.description}</div>
             )}
             {isOpen && (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                   <tr>
@@ -182,6 +183,7 @@ export function DictTable({
                   )}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         )

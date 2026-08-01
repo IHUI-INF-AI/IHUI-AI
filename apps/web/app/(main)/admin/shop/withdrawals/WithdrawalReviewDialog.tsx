@@ -78,19 +78,21 @@ export function WithdrawalReviewDialog(props: Props) {
             )}
           </div>
         )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setReviewOpen(false)}>
-            {t('withdrawals.review.close')}
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
+          <Button variant="outline" onClick={() => setReviewOpen(false)} className="shrink-0">
+            <span className="whitespace-nowrap">{t('withdrawals.review.close')}</span>
           </Button>
           <Button
             variant="destructive"
             disabled={reviewMut.isPending}
             onClick={() => submitReview('reject')}
+            className="shrink-0"
           >
-            {t('withdrawals.review.return')}
+            <span className="whitespace-nowrap">{t('withdrawals.review.return')}</span>
           </Button>
-          <Button disabled={reviewMut.isPending} onClick={() => submitReview('approve')}>
-            {reviewMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}{t('withdrawals.review.approve')}
+          <Button disabled={reviewMut.isPending} onClick={() => submitReview('approve')} className="shrink-0">
+            {reviewMut.isPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+            <span className="whitespace-nowrap">{t('withdrawals.review.approve')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

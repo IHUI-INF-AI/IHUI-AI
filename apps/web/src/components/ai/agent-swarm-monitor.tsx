@@ -137,6 +137,7 @@ export function AgentSwarmMonitor({
               <div>
                 <h4 className="mb-2 text-sm font-medium">{t('agentStatus')}</h4>
                 <div className="overflow-hidden rounded-lg border">
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/30">
                       <tr>
@@ -168,6 +169,7 @@ export function AgentSwarmMonitor({
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </div>
             )}

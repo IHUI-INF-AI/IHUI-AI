@@ -85,7 +85,7 @@ export function NewsletterContent(): React.JSX.Element {
 
       {status === 'success' ? (
         <Card className="mt-10 border-emerald-500/30">
-          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+          <CardContent className="flex flex-col items-center gap-4 p-5 min-[768px]:p-8 text-center">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
             <h2 className="text-xl font-bold text-foreground">{t('success.title')}</h2>
             <p className="text-sm text-muted-foreground">{t('success.desc')}</p>

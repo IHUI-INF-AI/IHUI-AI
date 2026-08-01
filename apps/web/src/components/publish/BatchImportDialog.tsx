@@ -263,20 +263,27 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
           {phase === 'idle' && (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>{tCommon('cancel')}</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="shrink-0">
+              <span className="whitespace-nowrap">{tCommon('cancel')}</span>
+            </Button>
           )}
           {phase === 'preview' && (
             <>
-              <Button variant="outline" onClick={() => { setPhase('idle'); setRows([]) }}>{tCommon('back')}</Button>
-              <Button onClick={handleImport}>
-                <Upload className="h-4 w-4" />{t('batchImport.confirmImport', { count: rows.length })}
+              <Button variant="outline" onClick={() => { setPhase('idle'); setRows([]) }} className="shrink-0">
+                <span className="whitespace-nowrap">{tCommon('back')}</span>
+              </Button>
+              <Button onClick={handleImport} className="shrink-0 min-w-0">
+                <Upload className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('batchImport.confirmImport', { count: rows.length })}</span>
               </Button>
             </>
           )}
           {phase === 'done' && (
-            <Button onClick={() => { reset(); onOpenChange(false) }}>{tCommon('close')}</Button>
+            <Button onClick={() => { reset(); onOpenChange(false) }} className="shrink-0">
+              <span className="whitespace-nowrap">{tCommon('close')}</span>
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>

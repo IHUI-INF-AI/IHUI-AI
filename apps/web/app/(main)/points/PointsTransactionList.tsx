@@ -25,6 +25,7 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
 
   return (
     <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 text-xs text-muted-foreground">
           <tr>
@@ -76,6 +77,7 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

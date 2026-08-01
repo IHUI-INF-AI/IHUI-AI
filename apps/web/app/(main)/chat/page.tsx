@@ -48,7 +48,7 @@ export default function ChatPage() {
   // 未登录:显示友好引导(替代 marketing 首页,避免被弹窗挡的内容混乱)
   if (!isAuthenticated) {
     return (
-      <div className="flex h-[calc(100vh-58px)] items-center justify-center px-6">
+      <div className="flex h-[calc(100vh-58px)] items-center justify-center px-4 min-[768px]:px-6">
         <div className="max-w-md text-center">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
             <MessageSquare className="h-7 w-7 text-primary" />

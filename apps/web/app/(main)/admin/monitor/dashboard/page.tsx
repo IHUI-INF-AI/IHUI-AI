@@ -87,12 +87,12 @@ export default function AdminMonitorDashboardPage() {
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between text-base">
-              <span className="flex items-center gap-2">
-                <Server className="h-4 w-4" />
-                服务状态
+            <CardTitle className="flex items-center justify-between gap-2 text-base">
+              <span className="flex min-w-0 items-center gap-2">
+                <Server className="h-4 w-4 shrink-0" />
+                <span className="truncate">服务状态</span>
               </span>
-              <span className="text-xs font-normal text-muted-foreground">
+              <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
                 {healthyCount}/{services.length} 健康
               </span>
             </CardTitle>

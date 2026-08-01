@@ -156,7 +156,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 min-w-0 space-y-2">
             <Label>{t('search')}</Label>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

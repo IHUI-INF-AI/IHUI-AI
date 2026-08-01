@@ -268,15 +268,15 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
           </div>
           <p className="text-xs text-muted-foreground">{t('cropHint')}</p>
         </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onCancel}>
-            {t('cropCancel')}
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
+          <Button type="button" variant="outline" onClick={onCancel} className="shrink-0">
+            <span className="whitespace-nowrap">{t('cropCancel')}</span>
           </Button>
-          <Button type="button" variant="outline" onClick={reset} disabled={!loaded}>
-            {t('cropReset')}
+          <Button type="button" variant="outline" onClick={reset} disabled={!loaded} className="shrink-0">
+            <span className="whitespace-nowrap">{t('cropReset')}</span>
           </Button>
-          <Button type="button" onClick={confirm} disabled={!loaded}>
-            {t('cropConfirm')}
+          <Button type="button" onClick={confirm} disabled={!loaded} className="shrink-0">
+            <span className="whitespace-nowrap">{t('cropConfirm')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

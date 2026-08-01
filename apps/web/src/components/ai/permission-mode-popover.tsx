@@ -448,7 +448,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
             )}
           >
             <ShieldX className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-            <span className="flex-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+            <span className="flex-1 min-w-0 text-xs font-medium text-amber-700 dark:text-amber-400">
               {t('quickFullAccess')}
             </span>
             {currentMode === 'bypass-permissions' && <Check className="h-3 w-3 text-amber-500" />}

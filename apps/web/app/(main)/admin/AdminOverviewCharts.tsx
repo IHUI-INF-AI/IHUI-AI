@@ -60,7 +60,7 @@ export function AdminOverviewCharts({ stats, numFmt }: Props) {
                 <span className="text-xs text-muted-foreground">{t('totalLabel')}</span>
               </div>
             </div>
-            <ul className="flex-1 space-y-2">
+            <ul className="flex-1 min-w-0 space-y-2">
               {statusItems.map((s, i) => (
                 <li key={s.label} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">

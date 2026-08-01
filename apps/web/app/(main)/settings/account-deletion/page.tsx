@@ -201,9 +201,9 @@ export default function AccountDeletionPage() {
               </Button>
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t('accountDeletionConfirm')}</span>
-              <Switch checked={confirmed} onCheckedChange={setConfirmed} />
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t('accountDeletionConfirm')}</span>
+              <Switch checked={confirmed} onCheckedChange={setConfirmed} className="shrink-0" />
             </div>
 
             <Button

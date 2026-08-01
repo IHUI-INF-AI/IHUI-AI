@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Image from 'next/image'
@@ -87,7 +87,7 @@ export default function ImageGenPage() {
 
       <form onSubmit={submit} className="space-y-4">
         <Card>
-          <CardContent className="space-y-4 p-6">
+          <CardContent className="space-y-4 p-4 min-[768px]:p-6">
             <div className="space-y-2">
               <Label htmlFor="ig-prompt">{t('promptLabel')}</Label>
               <textarea
