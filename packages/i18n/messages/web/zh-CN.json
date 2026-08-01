@@ -10145,6 +10145,14 @@
     "title": "课程中心",
     "subtitle": "探索丰富的AI课程，提升您的技能"
   },
+  "fileMention": {
+    "fileSearchPlaceholder": "搜索文件…",
+    "noMatch": "无匹配文件"
+  },
+  "slashPalette": {
+    "backAriaLabel": "返回命令列表",
+    "clearAriaLabel": "清除搜索"
+  },
   "floatingChat": {
     "openclaw": {
       "searchMemory": "搜索记忆",
