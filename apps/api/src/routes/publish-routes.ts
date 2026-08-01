@@ -597,4 +597,34 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
   server.post('/publish/cookie-refresh/trigger', async (request, reply) => {
     await proxyToAiService(request, reply, '/cookie-refresh/trigger')
   })
+
+  // ===== AI 辅助写作(2026-08-01 新增,透传 ai-service /publish/ai/* 端点)=====
+
+  server.post('/publish/ai/titles', async (request, reply) => {
+    await proxyToAiService(request, reply, '/ai/titles')
+  })
+
+  server.post('/publish/ai/polish', async (request, reply) => {
+    await proxyToAiService(request, reply, '/ai/polish')
+  })
+
+  server.post('/publish/ai/tags', async (request, reply) => {
+    await proxyToAiService(request, reply, '/ai/tags')
+  })
+
+  server.post('/publish/ai/summary', async (request, reply) => {
+    await proxyToAiService(request, reply, '/ai/summary')
+  })
+
+  server.post('/publish/ai/seo', async (request, reply) => {
+    await proxyToAiService(request, reply, '/ai/seo')
+  })
+
+  server.post('/publish/ai/cover', async (request, reply) => {
+    await proxyToAiService(request, reply, '/ai/cover')
+  })
+
+  server.post('/publish/ai/analyze-all', async (request, reply) => {
+    await proxyToAiService(request, reply, '/ai/analyze-all')
+  })
 }
