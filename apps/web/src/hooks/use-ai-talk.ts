@@ -76,6 +76,11 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
           reject(new Error('WebSocket 未连接'))
           return
         }
+        // in-flight 守卫:已有请求在途时拒绝新请求,避免 resolver 被覆盖导致 Promise 永挂
+        if (wsWaitingRef.current) {
+          reject(new Error('已有 WebSocket 请求在途,请等待完成'))
+          return
+        }
         let timedOut = false
         const timer = setTimeout(() => {
           timedOut = true
