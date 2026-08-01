@@ -90,24 +90,26 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg,
         </select>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isSubmitting}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" disabled={isSubmitting} className="shrink-0 whitespace-nowrap">
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              {t('saving')}
+              <Loader2 className="mr-1.5 h-4 w-4 shrink-0 animate-spin" />
+              <span className="whitespace-nowrap">{t('saving')}</span>
             </>
           ) : (
-            t('save')
+            <span className="whitespace-nowrap">{t('save')}</span>
           )}
         </Button>
         {saved && (
-          <span className="inline-flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-500">
-            <Check className="h-4 w-4" />
+          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-emerald-600 dark:text-emerald-500">
+            <Check className="h-4 w-4 shrink-0" />
             {t('saved')}
           </span>
         )}
-        {errorMsg && <p className="text-xs text-destructive">{errorMsg}</p>}
+        {errorMsg && (
+          <p className="min-w-0 flex-1 break-words text-xs text-destructive">{errorMsg}</p>
+        )}
       </div>
     </form>
   )

@@ -14,9 +14,9 @@ export function MessagesHeader({ searchQuery, onSearchChange }: Props) {
   return (
     <div className="space-y-2">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
-          <MessageSquare className="h-6 w-6 text-primary" />
-          {t('title')}
+        <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <MessageSquare className="h-6 w-6 shrink-0 text-primary" />
+          <span className="whitespace-nowrap">{t('title')}</span>
         </h1>
         <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
       </div>

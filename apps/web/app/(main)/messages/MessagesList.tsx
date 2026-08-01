@@ -48,17 +48,17 @@ export function MessagesList({ conversations, selectedId, onSelect }: Props) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="break-words text-sm font-medium">{conv.peerName}</p>
-                  <span className="shrink-0 text-xs text-muted-foreground">
+                  <p className="truncate text-sm font-medium">{conv.peerName}</p>
+                  <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                     {conv.lastTime ? relativeTime(conv.lastTime, t) : ''}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="break-words text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {conv.lastMessage || t('noMessages')}
                   </p>
                   {conv.unread > 0 && (
-                    <span className="shrink-0 rounded-md bg-red-500 px-1.5 text-xs text-white">
+                    <span className="shrink-0 whitespace-nowrap rounded-md bg-red-500 px-1.5 text-xs tabular-nums text-white">
                       {conv.unread}
                     </span>
                   )}

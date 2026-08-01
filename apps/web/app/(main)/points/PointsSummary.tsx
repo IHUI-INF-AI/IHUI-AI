@@ -26,13 +26,13 @@ function StatCard({
     <Card className="transition-colors hover:bg-accent">
       <CardContent className="space-y-1.5 p-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon className={cn('h-3.5 w-3.5', primary && 'text-primary')} />
-          {label}
+          <Icon className={cn('h-3.5 w-3.5 shrink-0', primary && 'text-primary')} />
+          <span className="whitespace-nowrap">{label}</span>
         </div>
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         ) : (
-          <div className="text-2xl font-bold tracking-tight">{value ?? '-'}</div>
+          <div className="text-2xl font-bold tabular-nums tracking-tight">{value ?? '-'}</div>
         )}
       </CardContent>
     </Card>
@@ -74,9 +74,9 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Link href="/points/sign-in">
-          <Button variant="outline" size="sm">
-            <Calendar className="h-4 w-4" />
+        <Link href="/points/sign-in" className="shrink-0">
+          <Button variant="outline" size="sm" className="whitespace-nowrap">
+            <Calendar className="h-4 w-4 shrink-0" />
             {t('signInLink')}
           </Button>
         </Link>
@@ -112,9 +112,9 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
 
       <Card>
         <CardContent className="space-y-2 p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">{level?.name ?? '-'}</span>
-            <span className="text-muted-foreground">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate font-medium">{level?.name ?? '-'}</span>
+            <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
               {level?.nextLevelName
                 ? t('nextLevel', { name: level.nextLevelName, points: remaining })
                 : t('maxLevel')}

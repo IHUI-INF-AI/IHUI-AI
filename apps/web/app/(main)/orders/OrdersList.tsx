@@ -44,14 +44,20 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
     {
       key: 'orderNo',
       title: t('orderNo'),
-      render: (o) => <span className="font-mono text-xs">{o.orderNo}</span>,
+      render: (o) => (
+        <span className="block max-w-[180px] truncate font-mono text-xs" title={o.orderNo}>
+          {o.orderNo}
+        </span>
+      ),
     },
     {
       key: 'targetTitle',
       title: t('target'),
       render: (o) => (
-        <div>
-          <div className="font-medium">{o.targetTitle ?? '-'}</div>
+        <div className="min-w-0">
+          <div className="max-w-[200px] truncate font-medium" title={o.targetTitle ?? '-'}>
+            {o.targetTitle ?? '-'}
+          </div>
           <div className="text-xs text-muted-foreground">
             {t(TYPE_KEY[o.orderType === 'course' ? 'course' : 'card'] ?? 'type.card')}
           </div>
@@ -61,7 +67,9 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
     {
       key: 'payAmount',
       title: t('amount'),
-      render: (o) => <span className="font-medium">{currencyFmt.format(Number(o.payAmount))}</span>,
+      render: (o) => (
+        <span className="font-medium tabular-nums">{currencyFmt.format(Number(o.payAmount))}</span>
+      ),
     },
     {
       key: 'status',
@@ -72,11 +80,11 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
         return (
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+              'inline-flex shrink-0 flex-nowrap items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
               sc.cls,
             )}
           >
-            <StatusIcon className="h-3 w-3" />
+            <StatusIcon className="h-3 w-3 shrink-0" />
             {t(STATUS_KEY[o.status] ?? 'status.unknown')}
           </span>
         )
@@ -86,7 +94,9 @@ export function OrdersList({ orders, isLoading, error, view }: Props) {
       key: 'createdAt',
       title: t('createdAt'),
       render: (o) => (
-        <span className="text-muted-foreground">{dateFmt.format(new Date(o.createdAt))}</span>
+        <span className="whitespace-nowrap tabular-nums text-muted-foreground">
+          {dateFmt.format(new Date(o.createdAt))}
+        </span>
       ),
     },
   ]

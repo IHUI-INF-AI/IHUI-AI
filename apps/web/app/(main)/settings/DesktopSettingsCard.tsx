@@ -73,20 +73,20 @@ export function DesktopSettingsCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Monitor className="h-4 w-4" />
-          客户端
+          <Monitor className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">客户端</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* 版本信息 */}
         <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">版本</span>
-            <span className="font-medium">{appInfo?.version ?? '—'}</span>
+          <div className="flex min-w-0 items-center gap-2 text-sm">
+            <span className="shrink-0 whitespace-nowrap text-muted-foreground">版本</span>
+            <span className="truncate font-medium tabular-nums">{appInfo?.version ?? '—'}</span>
           </div>
           <div className="flex shrink-0 items-center gap-2 text-sm">
-            <span className="text-muted-foreground">平台</span>
-            <span className="font-medium capitalize">{appInfo?.platform ?? '—'}</span>
+            <span className="shrink-0 whitespace-nowrap text-muted-foreground">平台</span>
+            <span className="truncate font-medium capitalize">{appInfo?.platform ?? '—'}</span>
           </div>
         </div>
 
@@ -95,8 +95,8 @@ export function DesktopSettingsCard() {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Power className="h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
-              <p className="text-sm font-medium">开机自启</p>
-              <p className="text-xs text-muted-foreground">登录系统时自动启动并最小化到托盘</p>
+              <p className="whitespace-nowrap text-sm font-medium">开机自启</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">登录系统时自动启动并最小化到托盘</p>
             </div>
           </div>
           <Switch
@@ -114,24 +114,24 @@ export function DesktopSettingsCard() {
         {/* 全局快捷键说明 */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <Keyboard className="h-4 w-4 text-muted-foreground" />
-            全局快捷键
+            <Keyboard className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="whitespace-nowrap">全局快捷键</span>
           </div>
           <div className="grid grid-cols-1 gap-1.5 text-xs">
             <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1 text-muted-foreground">唤起 / 隐藏主窗口</span>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">唤起 / 隐藏主窗口</span>
               <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Shift+I
               </kbd>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1 text-muted-foreground">打开管理后台</span>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">打开管理后台</span>
               <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Shift+A
               </kbd>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1 text-muted-foreground">退出应用</span>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">退出应用</span>
               <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Q
               </kbd>
@@ -147,31 +147,31 @@ export function DesktopSettingsCard() {
               variant="outline"
               size="sm"
               onClick={handleMinimize}
-              className="flex items-center justify-center gap-1.5"
+              className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
             >
-              <Minimize className="h-3.5 w-3.5" />
-              <span className="text-xs">最小化</span>
+              <Minimize className="h-3.5 w-3.5 shrink-0" />
+              <span className="whitespace-nowrap text-xs">最小化</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleToggleMax}
-              className="flex items-center justify-center gap-1.5"
+              className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
             >
-              <Maximize2 className="h-3.5 w-3.5" />
-              <span className="text-xs">{isMaximized ? '还原' : '最大化'}</span>
+              <Maximize2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="whitespace-nowrap text-xs">{isMaximized ? '还原' : '最大化'}</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleClose}
-              className="flex items-center justify-center gap-1.5"
+              className="flex shrink-0 flex-nowrap items-center justify-center gap-1.5"
             >
-              <X className="h-3.5 w-3.5" />
-              <span className="text-xs">关闭</span>
+              <X className="h-3.5 w-3.5 shrink-0" />
+              <span className="whitespace-nowrap text-xs">关闭</span>
             </Button>
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="line-clamp-2 text-[11px] text-muted-foreground">
             关闭按钮会最小化到系统托盘,真正退出请用托盘菜单"退出"或 Ctrl+Q
           </p>
         </div>
@@ -182,19 +182,19 @@ export function DesktopSettingsCard() {
             variant="ghost"
             size="sm"
             onClick={handleResetWindow}
-            className="flex items-center gap-1.5"
+            className="flex shrink-0 flex-nowrap items-center gap-1.5"
           >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span className="text-xs">重置窗口状态</span>
+            <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+            <span className="whitespace-nowrap text-xs">重置窗口状态</span>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleTestNotify}
-            className="flex items-center gap-1.5"
+            className="flex shrink-0 flex-nowrap items-center gap-1.5"
           >
-            <Bell className="h-3.5 w-3.5" />
-            <span className="text-xs">测试通知</span>
+            <Bell className="h-3.5 w-3.5 shrink-0" />
+            <span className="whitespace-nowrap text-xs">测试通知</span>
           </Button>
         </div>
       </CardContent>

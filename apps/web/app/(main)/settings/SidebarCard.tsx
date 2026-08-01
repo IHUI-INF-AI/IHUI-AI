@@ -14,13 +14,13 @@ export function SidebarCard({ t, collapsed, onToggle }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Monitor className="h-4 w-4" />
-          {t('sidebar')}
+          <Monitor className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">{t('sidebar')}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
           </span>
           <Switch checked={collapsed} onCheckedChange={onToggle} className="shrink-0" />

@@ -109,8 +109,8 @@ export default function OrderDetailPage() {
   if (error || !order) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
+        <Button variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => router.back()}>
+          <ArrowLeft className="mr-1.5 h-4 w-4 shrink-0" />
           {tc('back')}
         </Button>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -125,69 +125,75 @@ export default function OrderDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => router.back()}>
-        <ArrowLeft className="mr-1.5 h-4 w-4" />
+      <Button variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => router.back()}>
+        <ArrowLeft className="mr-1.5 h-4 w-4 shrink-0" />
         {tc('back')}
       </Button>
 
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{order.orderNo}</p>
+        <p className="max-w-full truncate font-mono text-sm text-muted-foreground" title={order.orderNo}>
+          {order.orderNo}
+        </p>
       </div>
 
       <div
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium',
+          'inline-flex shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium',
           sc.cls,
         )}
       >
-        <StatusIcon className="h-4 w-4" />
+        <StatusIcon className="h-4 w-4 shrink-0" />
         {t(ORDER_STATUS_KEYS[order.status]!)}
       </div>
 
       <dl className="divide-y rounded-lg border">
-        <div className="flex justify-between px-4 py-3 text-sm">
-          <dt className="text-muted-foreground">{t('orderNo')}</dt>
-          <dd className="font-mono">{order.orderNo}</dd>
+        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('orderNo')}</dt>
+          <dd className="min-w-0 flex-1 truncate text-right font-mono" title={order.orderNo}>
+            {order.orderNo}
+          </dd>
         </div>
-        <div className="flex justify-between px-4 py-3 text-sm">
-          <dt className="text-muted-foreground">{t('target')}</dt>
-          <dd className="font-medium">{order.targetTitle ?? '-'}</dd>
+        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('target')}</dt>
+          <dd className="min-w-0 flex-1 truncate text-right font-medium" title={order.targetTitle ?? '-'}>
+            {order.targetTitle ?? '-'}
+          </dd>
         </div>
-        <div className="flex justify-between px-4 py-3 text-sm">
-          <dt className="text-muted-foreground">{t('orderType')}</dt>
-          <dd>
+        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('orderType')}</dt>
+          <dd className="min-w-0 flex-1 truncate text-right">
             {t(TYPE_KEY[order.orderType] ?? `type.${order.orderType}`, {
               default: order.orderType,
             })}
           </dd>
         </div>
-        <div className="flex justify-between px-4 py-3 text-sm">
-          <dt className="text-muted-foreground">{t('createdAt')}</dt>
-          <dd>{dateFmt.format(new Date(order.createdAt))}</dd>
+        <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+          <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('createdAt')}</dt>
+          <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.createdAt))}</dd>
         </div>
         {order.payTime && (
-          <div className="flex justify-between px-4 py-3 text-sm">
-            <dt className="text-muted-foreground">{tc('payTime')}</dt>
-            <dd>{dateFmt.format(new Date(order.payTime))}</dd>
+          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+            <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('payTime')}</dt>
+            <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.payTime))}</dd>
           </div>
         )}
         {order.cancelTime && (
-          <div className="flex justify-between px-4 py-3 text-sm">
-            <dt className="text-muted-foreground">{tc('cancelTime')}</dt>
-            <dd>{dateFmt.format(new Date(order.cancelTime))}</dd>
+          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+            <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('cancelTime')}</dt>
+            <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.cancelTime))}</dd>
           </div>
         )}
         {order.refundTime && (
-          <div className="flex justify-between px-4 py-3 text-sm">
-            <dt className="text-muted-foreground">{tc('refundTime')}</dt>
-            <dd>{dateFmt.format(new Date(order.refundTime))}</dd>
+          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+            <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('refundTime')}</dt>
+            <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.refundTime))}</dd>
           </div>
         )}
         {order.remark && (
-          <div className="flex justify-between px-4 py-3 text-sm">
-            <dt className="text-muted-foreground">{tc('remark')}</dt>
-            <dd>{order.remark}</dd>
+          <div className="flex justify-between gap-3 px-4 py-3 text-sm">
+            <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('remark')}</dt>
+            <dd className="min-w-0 flex-1 truncate text-right">{order.remark}</dd>
           </div>
         )}
       </dl>
@@ -195,24 +201,25 @@ export default function OrderDetailPage() {
       <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">{tc('originalPrice')}</span>
-          <span>{currencyFmt.format(Number(order.originalPrice))}</span>
+          <span className="tabular-nums">{currencyFmt.format(Number(order.originalPrice))}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">{tc('discountAmount')}</span>
-          <span className="text-emerald-600 dark:text-emerald-500">
+          <span className="tabular-nums text-emerald-600 dark:text-emerald-500">
             -{currencyFmt.format(Number(order.discountAmount))}
           </span>
         </div>
         <div className="flex justify-between border-t pt-2 text-base font-bold">
           <span>{t('amount')}</span>
-          <span>{currencyFmt.format(Number(order.payAmount))}</span>
+          <span className="tabular-nums">{currencyFmt.format(Number(order.payAmount))}</span>
         </div>
       </div>
 
       {order.status === 'pending' && (
-        <div className="flex gap-3">
+        <div className="flex shrink-0 flex-nowrap gap-3">
           <Button
             variant="outline"
+            className="shrink-0 whitespace-nowrap"
             onClick={() => router.push(`/payment/checkout?order=${order.id}`)}
           >
             {t('pay')}
@@ -221,9 +228,9 @@ export default function OrderDetailPage() {
             variant="ghost"
             onClick={() => cancelMut.mutate()}
             disabled={cancelMut.isPending}
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="shrink-0 whitespace-nowrap text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
-            {cancelMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {cancelMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 shrink-0 animate-spin" />}
             {tc('cancel')}
           </Button>
         </div>
