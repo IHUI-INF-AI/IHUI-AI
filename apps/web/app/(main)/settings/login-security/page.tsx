@@ -5,7 +5,6 @@ import { useTranslations } from 'next-intl'
 import { LogIn, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
-import { Container } from '@/components/layout'
 import {
   fetchLoginPreferences,
   saveLoginPreferences,
@@ -68,13 +67,7 @@ export default function LoginSecurityPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('loginSecurityTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('loginSecurityDesc')}</p>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+    <div className="space-y-4">
         {/* 自动登录 */}
         <Card>
           <CardHeader>
@@ -156,7 +149,6 @@ export default function LoginSecurityPage() {
             )}
           </div>
         )}
-      </div>
-    </Container>
+    </div>
   )
 }

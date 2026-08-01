@@ -7,3 +7,9 @@ export { GlobalTopBar } from './GlobalTopBar'
 export { GlobalShell } from './GlobalShell'
 export { MainShell } from './MainShell'
 export { TagsView } from './TagsView'
+export {
+  CategoryShell,
+  type CategoryNavItem,
+  type CategoryNavGroup,
+  type CategoryShellProps,
+} from './CategoryShell'
