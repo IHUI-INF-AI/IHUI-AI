@@ -73,9 +73,9 @@ export function TeamDialog({
           <Button variant="outline" onClick={onCancel}>
             取消
           </Button>
-          <Button onClick={onSave} disabled={!email.trim() || isPending}>
-            {isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            {isEdit ? '保存' : '邀请'}
+          <Button onClick={onSave} disabled={!email.trim() || isPending} className="whitespace-nowrap">
+            {isPending && <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />}
+            <span className="whitespace-nowrap">{isEdit ? '保存' : '邀请'}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

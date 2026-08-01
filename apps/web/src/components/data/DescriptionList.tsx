@@ -22,9 +22,9 @@ export function DescriptionList({ items, column = 2, className }: DescriptionLis
   return (
     <dl className={cn('grid grid-cols-1 gap-x-4 gap-y-3', colMap[column], className)}>
       {items.map((item) => (
-        <div key={item.label} className="flex flex-col gap-0.5">
-          <dt className="text-xs text-muted-foreground">{item.label}</dt>
-          <dd className="text-sm font-medium">{item.value}</dd>
+        <div key={item.label} className="flex min-w-0 flex-col gap-0.5">
+          <dt className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">{item.label}</dt>
+          <dd className="min-w-0 text-sm font-medium">{item.value}</dd>
         </div>
       ))}
     </dl>
