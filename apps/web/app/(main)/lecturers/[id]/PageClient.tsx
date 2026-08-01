@@ -99,7 +99,7 @@ export default function LecturerDetailPageClient() {
       </Link>
 
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 p-6 text-center sm:flex-row sm:text-left">
+        <CardContent className="flex flex-col items-center gap-4 p-6 text-center min-[640px]:flex-row min-[640px]:text-left">
           <Avatar
             src={lecturer.avatar ?? undefined}
             name={lecturer.name}
@@ -130,7 +130,7 @@ export default function LecturerDetailPageClient() {
             <p className="text-sm text-muted-foreground">{t('noCourses')}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {channels.map((channel) => (
               <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
                 <Card className="h-full overflow-hidden transition-colors hover:bg-accent">

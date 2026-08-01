@@ -419,7 +419,7 @@ export default function DocumentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {list.map((item) => {
             const formatLabel = FORMAT_LABELS[item.format] ?? item.format
             const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category

@@ -380,7 +380,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {uc.solutionTitle}
         </h2>
-        <div className="mt-8 grid gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {uc.solutionPoints.map((sp, i) => (
             <div key={i} className="rounded-2xl border bg-card p-6 shadow-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
@@ -396,7 +396,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       {/* 工作流程 */}
       <section className="mt-16">
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">4 步落地</h2>
-        <div className="mt-8 grid gap-4 min-[768px]:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-4">
           {uc.howItWorks.map((hw) => (
             <div key={hw.step} className="rounded-2xl border bg-card p-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-base font-semibold text-primary-foreground">
@@ -412,7 +412,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       {/* 核心收益 */}
       <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">核心收益</h2>
-        <div className="mt-8 grid gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {uc.benefits.map((b, i) => {
             const BIcon = b.icon
             return (

@@ -96,7 +96,7 @@ export default function TopicsPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {topics.map((topic) => (
             <Link key={topic.id} href={`/topics/${topic.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">

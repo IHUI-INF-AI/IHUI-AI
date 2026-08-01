@@ -130,7 +130,7 @@ export default function AnnouncementDetailPage() {
             <span className="text-xs text-destructive">{(readMut.error as Error)?.message}</span>
           )}
         </div>
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{a.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{a.title}</h1>
         <p className="text-xs text-muted-foreground">
           {t('publishedAt')} {fmt(a.publishedAt)}
         </p>

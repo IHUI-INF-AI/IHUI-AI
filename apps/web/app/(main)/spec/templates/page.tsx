@@ -26,7 +26,7 @@ export default function SpecTemplatesPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {SPEC_BUILTIN_TEMPLATES.map((tpl) => (
           <TemplateCard
             key={tpl.id}

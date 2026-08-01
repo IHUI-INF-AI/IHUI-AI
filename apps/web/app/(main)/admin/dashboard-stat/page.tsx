@@ -70,7 +70,7 @@ export default function DashboardStatPage() {
             <StatChart type="area" data={trendData} title="近 7 日访问趋势" height={260} />
           </Card>
 
-          <div className="grid gap-4 min-[1024px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
             <Card className="p-4">
               <StatChart type="bar" data={metricsData} title="核心指标分布" height={240} />
             </Card>
