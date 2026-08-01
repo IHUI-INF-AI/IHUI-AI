@@ -40,7 +40,7 @@ export function AgentCreateForm({
   const tc = useTranslations('common')
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-lg border p-6">
+    <form onSubmit={onSubmit} className="space-y-4 rounded-lg border p-4 min-[768px]:p-6">
       <div className="space-y-2">
         <Label htmlFor="ag-name">
           {t('fieldName')} <span className="text-destructive">*</span>
