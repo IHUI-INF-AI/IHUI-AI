@@ -234,6 +234,9 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
       <button
         type="button"
         ref={triggerRef}
+        // 2026-08-01 立:GlobalTopBar 用此标识 querySelector 定位搜索按钮,
+        // 动态测量其 left 设置 --topbar-content-left,根治工作区卡片与搜索按钮对齐问题。
+        data-topbar-search-btn
         aria-label={tNav('search')}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -517,8 +520,8 @@ export function TagsView() {
                   active
                     ? 'bg-primary/10 font-medium text-primary'
                     : isPinned
-                      // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
-                      ? 'bg-muted/70 font-medium text-foreground'
+                      ? // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
+                        'bg-muted/70 font-medium text-foreground'
                       : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                   // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
                   dragIndex !== null && isOver && 'opacity-50',
