@@ -130,7 +130,7 @@ function buildPlatformDistribution(
     .map(([platform, count], i) => ({
       platform,
       count,
-      color: PLATFORM_COLORS[i % PLATFORM_COLORS.length],
+      color: PLATFORM_COLORS[i % PLATFORM_COLORS.length] ?? '',
     }))
 }
 
