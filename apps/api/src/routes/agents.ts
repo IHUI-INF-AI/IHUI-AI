@@ -149,8 +149,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // agents CRUD
   // -------------------------------------------------------------------------
 
-  // GET /agents/list - 代理列表
-  server.get('/agents/list', async (request, reply) => {
+  // GET /agents - 代理列表(2026-08-01 P0 契约修复:原 /agents/list 改为 /agents,
+  // 与前端 packages/api-client/src/endpoints/agent.ts getAgents() 调用路径对齐。
+  // 保留 /agents/list 别名向后兼容旧客户端。)
+  const handleListAgents = async (request: FastifyRequest, reply: FastifyReply) => {
     const q = z
       .object({
         page: z.string().optional(),
@@ -170,7 +172,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       keyword: q.keyword,
     })
     return reply.send(success(result))
-  })
+  }
+  server.get('/agents', handleListAgents)
+  server.get('/agents/list', handleListAgents)
 
   // GET /agents/:agentId - 代理详情
   server.get('/agents/:agentId', async (request, reply) => {

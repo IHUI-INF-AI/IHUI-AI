@@ -42,14 +42,17 @@ export type SmsScene = 'register' | 'login' | 'reset' | 'phone-binding'
 // 登录(3 种方式 + 别名兼容)
 // =============================================================================
 
-/** 账号密码登录(手机号/邮箱/用户名) — POST /auth/login */
+/** 账号密码登录(手机号/邮箱/用户名) — POST /auth/login
+ *  turnstileToken 为 Cloudflare Turnstile 人机验证 token(可选,后端未配置 TURNSTILE_SECRET_KEY 时放行)。
+ *  2026-08-01 P0 契约修复:原字段名 captcha 与后端 preHandler 期望的 turnstileToken 不一致,导致验证码无效。
+ */
 export async function loginByAccount(
   account: string,
   password: string,
-  captcha?: string,
+  turnstileToken?: string,
 ): Promise<ApiResult<LoginResult>> {
   const body: Record<string, string> = { account, password }
-  if (captcha) body.captcha = captcha
+  if (turnstileToken) body.turnstileToken = turnstileToken
   return fetchApi<LoginResult>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -87,18 +90,20 @@ export async function loginByWechat(code: string): Promise<ApiResult<LoginResult
 // 注册 / 登出 / 刷新 / 验证码
 // =============================================================================
 
-/** 注册 — POST /auth/register */
+/** 注册 — POST /auth/register
+ *  2026-08-01 P0 契约修复:captcha → turnstileToken,对齐后端 Turnstile preHandler 字段名。
+ */
 export async function register(
   phone: string,
   password: string,
   code?: string,
   invitationCode?: string,
   account?: string,
-  captcha?: string,
+  turnstileToken?: string,
 ): Promise<ApiResult<LoginResult>> {
   const body: Record<string, string | undefined> = { phone, password, code, invitationCode }
   if (account) body.account = account
-  if (captcha) body.captcha = captcha
+  if (turnstileToken) body.turnstileToken = turnstileToken
   return fetchApi<LoginResult>('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify(body),
