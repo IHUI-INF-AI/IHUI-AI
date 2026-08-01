@@ -11233,11 +11233,17 @@
     "shellSubtitle": "平台开发与集成指南",
     "navDocs": "文档",
     "navTools": "工具",
+    "navDevelopers": "开发者",
     "navOverview": "概览",
+    "navManual": "使用说明手册",
+    "navQuickstart": "快速开始",
     "navAgent": "Agent 开发",
     "navApi": "API 文档",
     "navMcp": "MCP 协议",
     "navRag": "RAG 检索",
+    "navModels": "多模型调度",
+    "navWorkflow": "工作流编排",
+    "navTeam": "团队协作",
     "navSelfHost": "私有化部署"
   },
   "developer": {
