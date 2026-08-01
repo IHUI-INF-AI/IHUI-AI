@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react'
 import {
   LayoutDashboard,
   User,
@@ -14,9 +15,75 @@ import {
   PackagePlus,
   LogIn,
   Network,
+  KeyRound,
+  Bot,
+  Lock,
 } from 'lucide-react'
 
 export const SIDEBAR_KEY = 'sidebar-collapsed'
+
+/* ========== 侧边栏分组导航(CategoryShell 用) ========== */
+
+export interface SettingsNavItem {
+  href: string
+  labelKey: string
+  icon: ComponentType<{ className?: string }>
+}
+
+export interface SettingsNavGroup {
+  labelKey?: string
+  items: SettingsNavItem[]
+}
+
+export const NAV_GROUPS: readonly SettingsNavGroup[] = [
+  {
+    labelKey: 'navOverview',
+    items: [{ href: '/settings', labelKey: 'title', icon: Settings }],
+  },
+  {
+    labelKey: 'navAccount',
+    items: [
+      { href: '/settings/connected-accounts', labelKey: 'connectedAccountsTitle', icon: Link2 },
+      { href: '/settings/login-security', labelKey: 'loginSecurityTitle', icon: LogIn },
+      { href: '/settings/account-deletion', labelKey: 'accountDeletionTitle', icon: UserX },
+    ],
+  },
+  {
+    labelKey: 'navSecurity',
+    items: [
+      { href: '/settings/authorizations', labelKey: 'authorizationsTitle', icon: Lock },
+      { href: '/settings/security-log', labelKey: 'securityLogTitle', icon: FileText },
+      { href: '/settings/privacy', labelKey: 'privacyTitle', icon: Shield },
+    ],
+  },
+  {
+    labelKey: 'navPreferences',
+    items: [
+      { href: '/settings/notifications', labelKey: 'notificationsTitle', icon: Bell },
+      { href: '/settings/activity', labelKey: 'activityTitle', icon: Activity },
+      { href: '/settings/preferences', labelKey: 'preferencesTitle', icon: Settings },
+    ],
+  },
+  {
+    labelKey: 'navDeveloper',
+    items: [
+      { href: '/settings/api-keys', labelKey: 'apiKeysNavTitle', icon: KeyRound },
+      { href: '/settings/llm', labelKey: 'llmConfigsTitle', icon: Bot },
+      { href: '/settings/gateway', labelKey: 'gateway.navLabel', icon: Network },
+      { href: '/settings/model-record', labelKey: 'modelRecordTitle', icon: Bot },
+      { href: '/settings/import', labelKey: 'cliImportTitle', icon: PackagePlus },
+      { href: '/settings/icp-record', labelKey: 'icpRecordTitle', icon: FileText },
+    ],
+  },
+  {
+    labelKey: 'navBilling',
+    items: [
+      { href: '/settings/billing', labelKey: 'billingTitle', icon: Receipt },
+      { href: '/settings/data-export', labelKey: 'dataExportTitle', icon: Download },
+      { href: '/settings/dashboard', labelKey: 'dashboardTitle', icon: LayoutDashboard },
+    ],
+  },
+]
 
 export const SUB_PAGES = [
   {
