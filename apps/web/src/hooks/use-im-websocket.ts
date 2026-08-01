@@ -29,6 +29,16 @@ function isImMessage(v: unknown): v is ImMessage {
   return t === 'text' || t === 'image' || t === 'file' || t === 'system'
 }
 
+/** 消息守卫:符合 ImMessage 结构且非心跳响应(避免 pong 被当通知显示给用户) */
+function imMessageGuard(v: unknown): v is ImMessage {
+  if (!isImMessage(v)) return false
+  // 2026-08-02 修复:过滤心跳响应 { type: 'system', content: 'pong' }
+  // create-websocket-hook 只过滤字符串 'pong',JSON 格式的心跳响应会被误当 ImMessage
+  if (v.type === 'system' && v.content === 'pong') return false
+  if (v.type === 'system' && v.content === 'ping') return false
+  return true
+}
+
 function buildImWsUrl(token: string | null): string {
   if (typeof window === 'undefined' || !token) return ''
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -37,7 +47,7 @@ function buildImWsUrl(token: string | null): string {
 
 const useImWS = createWebSocketHook<ImMessage>({
   urlBuilder: buildImWsUrl,
-  messageGuard: isImMessage,
+  messageGuard: imMessageGuard,
   heartbeatMessage: () => JSON.stringify({ type: 'system', content: 'ping' }),
 })
 
