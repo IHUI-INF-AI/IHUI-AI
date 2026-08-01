@@ -6863,7 +6863,8 @@
       "seoScore": "SEO 評分",
       "seoSuggestions": "最佳化建議",
       "emptyContent": "請先輸入正文內容",
-      "retry": "重試"
+      "retry": "重試",
+      "analyzeAll": "批次分析"
     },
     "preview": {
       "title": "平臺預覽",

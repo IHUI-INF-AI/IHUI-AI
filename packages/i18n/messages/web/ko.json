@@ -6873,7 +6873,8 @@
       "seoScore": "SEO 점수",
       "seoSuggestions": "최적화 제안",
       "emptyContent": "먼저 본문을 입력해주세요",
-      "retry": "재시도"
+      "retry": "재시도",
+      "analyzeAll": "일괄 분석"
     },
     "preview": {
       "title": "플랫폼 미리보기",
