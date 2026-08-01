@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Download, Loader2 } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import {
   Button,
