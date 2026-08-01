@@ -182,7 +182,7 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
           <p className="text-sm text-muted-foreground">{t('noData')}</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 min-[768px]:grid-cols-2 tablet-lg:grid-cols-4">
               {pageItems.map((record) => (
                 <button
                   key={record.recordId}
