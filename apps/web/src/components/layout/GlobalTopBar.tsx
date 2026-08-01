@@ -442,9 +442,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
           → button(搜索) → button(添加视图) → button(更多Actions) → a(首页) → ...
 
           总高 50px = 8(外层 pt-2) + 36(内层 h-9) + 6(外层 pb-1.5,与下方工作区卡片间距,2026-07-30 立)。
+          移动端总高 44px = 4(pt-1) + 36(h-9) + 4(pb-1),更紧凑(2026-08-01 移动端适配)。
           垂直间距统一归 GlobalTopBar 管理(MainShell 注释契约:顶部间距由 GlobalTopBar 提供)。 */}
       <div
-        className="pt-2 pb-1.5 shrink-0 select-none cursor-default"
+        className="pt-1 pb-1 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
