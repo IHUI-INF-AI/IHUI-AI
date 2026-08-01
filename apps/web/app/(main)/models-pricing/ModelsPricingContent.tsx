@@ -102,7 +102,7 @@ export function ModelsPricingContent(): React.JSX.Element {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-14">
       <header className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">模型定价</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">模型定价</h1>
         <p className="mx-auto max-w-2xl text-xs text-muted-foreground md:text-base">
           所有模型输入/输出 token 单价,单位:元 / 百万 token。按厂商分组,支持关键词搜索。
         </p>

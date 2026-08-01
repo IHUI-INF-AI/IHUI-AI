@@ -22,7 +22,7 @@ function DetailItem({
   full?: boolean
 }) {
   return (
-    <div className={cn('flex flex-col gap-1', full && 'sm:col-span-2')}>
+    <div className={cn('flex flex-col gap-1', full && 'min-[640px]:col-span-2')}>
       <span className="text-xs text-muted-foreground">{label}</span>
       <span
         className={cn(
@@ -78,7 +78,7 @@ export function RefundDetailInfo({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
           <DetailItem label={t('orderNo')} value={refund.orderNo} mono />
           <DetailItem
             label={t('refundAmount')}
@@ -125,7 +125,7 @@ export function RefundDetailInfo({
       {order && (
         <div className="rounded-lg border p-5">
           <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('orderInfo')}</h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <DetailItem label={t('orderNo')} value={order.orderNo} mono />
             <DetailItem label={t('orderType')} value={order.orderType} />
             <DetailItem

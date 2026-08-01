@@ -182,7 +182,7 @@ export default function KnowledgeRagPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           {healthOk ? (
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -299,8 +299,8 @@ export default function KnowledgeRagPage() {
           </p>
         </div>
         <form onSubmit={submitSearch} className="space-y-3 p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <div className="md:col-span-2">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-4">
+            <div className="min-[768px]:col-span-2">
               <Label htmlFor="query" className="text-xs">
                 检索词 *
               </Label>

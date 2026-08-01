@@ -792,7 +792,7 @@ function BudgetTab() {
         {!breakdown ? (
           <Unavailable message={t('unavailable')} />
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
             <BreakdownColumn
               title={t('budget.byPillar')}
               entries={breakdownEntries(breakdown.by_pillar)}
@@ -884,7 +884,7 @@ function TelemetryTab() {
         {pillars.length === 0 ? (
           <Unavailable message={t('unavailable')} />
         ) : (
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-1.5 min-[640px]:grid-cols-3">
             {pillars.map((p, i) => {
               const status: HealthStatus = p.status ?? 'unknown'
               const hs = HEALTH_STYLE[status]

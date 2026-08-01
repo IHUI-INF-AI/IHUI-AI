@@ -85,7 +85,7 @@ export default function ColorsPage() {
       {loading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
       {error && <Alert variant="danger" description={error} />}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {list.map((c) => (
           <Card key={c.id}>
             <CardContent className="space-y-3 p-4">

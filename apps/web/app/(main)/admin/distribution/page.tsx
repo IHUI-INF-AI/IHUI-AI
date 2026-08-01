@@ -115,7 +115,7 @@ export default function AdminDistributionPage() {
 
       {ovQ.isError && <Alert variant="warning" description="统计接口暂不可用,展示为默认值" />}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon
           return (
@@ -140,7 +140,7 @@ export default function AdminDistributionPage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">快捷入口</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
           {entries.map((e) => {
             const Icon = e.icon
             return (

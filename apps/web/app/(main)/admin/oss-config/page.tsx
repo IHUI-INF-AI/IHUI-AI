@@ -88,19 +88,19 @@ export default function AdminOssConfigPage() {
         <Card>
           <CardContent className="space-y-3 py-4">
             <h3 className="text-base font-semibold">{editing ? '编辑配置' : '新建配置'}</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 min-[640px]:grid-cols-2">
               <div className="space-y-1"><label htmlFor="oss-config-name" className="text-xs text-muted-foreground">名称</label><Input id="oss-config-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div className="space-y-1"><label htmlFor="oss-config-provider" className="text-xs text-muted-foreground">提供商</label>
                 <select id="oss-config-provider" value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
                   <option value="aliyun">阿里云</option><option value="tencent">腾讯云</option><option value="qiniu">七牛</option><option value="s3">AWS S3</option><option value="minio">MinIO</option><option value="local">本地</option>
                 </select>
               </div>
-              <div className="space-y-1 sm:col-span-2"><label htmlFor="oss-config-endpoint" className="text-xs text-muted-foreground">Endpoint</label><Input id="oss-config-endpoint" value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} /></div>
+              <div className="space-y-1 min-[640px]:col-span-2"><label htmlFor="oss-config-endpoint" className="text-xs text-muted-foreground">Endpoint</label><Input id="oss-config-endpoint" value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} /></div>
               <div className="space-y-1"><label htmlFor="oss-config-bucket" className="text-xs text-muted-foreground">Bucket</label><Input id="oss-config-bucket" value={form.bucket} onChange={(e) => setForm({ ...form, bucket: e.target.value })} /></div>
               <div className="space-y-1"><label htmlFor="oss-config-region" className="text-xs text-muted-foreground">Region</label><Input id="oss-config-region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} /></div>
               <div className="space-y-1"><label htmlFor="oss-config-access-key" className="text-xs text-muted-foreground">AccessKey</label><Input id="oss-config-access-key" value={form.accessKey} onChange={(e) => setForm({ ...form, accessKey: e.target.value })} /></div>
               <div className="space-y-1"><label htmlFor="oss-config-secret-key" className="text-xs text-muted-foreground">SecretKey{editing ? '(留空不修改)' : ''}</label><Input id="oss-config-secret-key" type="password" value={form.secretKey} onChange={(e) => setForm({ ...form, secretKey: e.target.value })} /></div>
-              <div className="space-y-1 sm:col-span-2"><label htmlFor="oss-config-description" className="text-xs text-muted-foreground">描述</label><Input id="oss-config-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+              <div className="space-y-1 min-[640px]:col-span-2"><label htmlFor="oss-config-description" className="text-xs text-muted-foreground">描述</label><Input id="oss-config-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
               <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />设为默认配置</label>
             </div>
             <div className="flex justify-end gap-2">

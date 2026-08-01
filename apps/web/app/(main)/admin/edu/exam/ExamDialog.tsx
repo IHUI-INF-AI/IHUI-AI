@@ -79,7 +79,7 @@ export function ExamDialog({
               placeholder={t('descriptionPlaceholder')}
             />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="p-total">{t('fieldTotalScore')}</Label>
               <Input
