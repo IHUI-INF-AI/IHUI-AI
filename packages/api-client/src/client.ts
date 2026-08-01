@@ -1,4 +1,4 @@
-import type { ApiResult, ApiResponse } from '@ihui/types'
+import type { ApiResult, ApiResponse, PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
 import { getTransport } from './transport'
 
@@ -499,6 +499,12 @@ export interface StreamChatOptions {
    *  subagent 执行期间后端实时发 subagent_progress SSE 事件(thinking/tool_call/tool_result/output_ready),
    *  前端进度面板据此实时更新 subagent 状态,消除 spawn→end 之间的"黑盒等待"。 */
   onSubagentProgress?: (event: SubagentProgressEvent) => void
+  /** Plan 更新回调(2026-08-01 Phase 4a:消息级 plan steps inline 展示) */
+  onPlanUpdate?: (event: PlanUpdateEvent) => void
+  /** 终端任务开始回调(2026-08-01 Phase 4a:消息级 terminal tasks inline 展示) */
+  onTerminalStart?: (event: TerminalStartEvent) => void
+  /** 终端任务结束回调(2026-08-01 Phase 4a:消息级 terminal tasks inline 展示) */
+  onTerminalEnd?: (event: TerminalEndEvent) => void
   /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
   maxRetries?: number
   /** 自动重连前回调(前端可显示"网络波动,正在重连…") */
@@ -515,6 +521,8 @@ export interface SubagentSpawnEvent {
   role: string
   task: string
   timestamp: string
+  /** 关联到触发该 subagent 的 assistant 消息 ID(2026-07-31 Phase 2) */
+  messageId?: string
 }
 
 /** Subagent 派发结束事件(dispatch_subagent 工具执行后发出) */
@@ -523,6 +531,8 @@ export interface SubagentEndEvent {
   status: 'done' | 'failed'
   failureReason?: string
   timestamp: string
+  /** 关联到触发该 subagent 的 assistant 消息 ID(2026-07-31 Phase 2) */
+  messageId?: string
 }
 
 /** Subagent 执行进度事件(2026-07-28 立,subagent 执行期间实时发出):
@@ -545,6 +555,8 @@ export interface SubagentProgressEvent {
   outputPreview?: string
   /** agent 名称(并行模式下标识哪个 agent) */
   agentName?: string
+  /** 关联到触发该 subagent 的 assistant 消息 ID(2026-07-31 Phase 2) */
+  messageId?: string
 }
 
 /** AI 工具调用 SSE 事件(跨端共享) */
