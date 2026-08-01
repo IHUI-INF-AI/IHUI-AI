@@ -44,7 +44,7 @@
 - [x] ✅(2026-08-02) H7:本任务所有新增文件 eslint exit 0(全量 lint 既有 errors 不在本任务范围,按 §12 跳过)(本任务仅改 layout.tsx + 5 i18n json,json 无需 lint;layout.tsx 仅新增 4 import + 4 导航项,无 lint 错误)
 - [x] ✅(2026-08-02) H8:browser_use 访问 `/docs` 验证 9 分类 + 1 手册入口可见,DOM 读链接 href 验证无 404 死链,8 死链页面 + 7 手册子页全部返回 200(browser_use subagent 验证 18 页面全部 200,侧边栏 3 分组显示正确,active 态高亮正常)
 - [x] ✅(2026-08-02) H9:README.md 同步更新(§21 触发:项目对外能力清单变化 — 文档中心从 1 页扩展到 16 页)(README.md 第 2847-2889 行已含完整"在线文档中心"章节,列出 9 文档页面 + manual 7 章,无需新增改动)
-- [ ] H10:commit + push origin/main,local == remote,git-push-guard exit 0
+- [x] ✅(2026-08-02) H10:commit + push origin/main,local == remote,git-push-guard exit 0(commit cf7b5e8711,post-commit hook 自动 push + tag sync,local == remote == cf7b5e8711)
 
 ### 约束边界
 
