@@ -11,7 +11,7 @@
  */
 
 import * as React from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import { TurnstileWidget } from './TurnstileWidget'
 
 /* -------------------------------------------------------------------------- */
@@ -105,7 +105,11 @@ function TurnstileEnabledShell({
   const handleSubmitCapture = React.useCallback(
     (e: React.FormEvent): void => {
       if (sdkFailed) return
-      if (typeof window !== 'undefined' && !(window as unknown as { turnstile?: unknown }).turnstile) return
+      if (
+        typeof window !== 'undefined' &&
+        !(window as unknown as { turnstile?: unknown }).turnstile
+      )
+        return
       if (!token) {
         e.preventDefault()
         e.stopPropagation()
@@ -124,11 +128,7 @@ function TurnstileEnabledShell({
     <TurnstileContext.Provider value={contextValue}>
       <div onSubmitCapture={handleSubmitCapture} className="space-y-4">
         {children}
-        <TurnstileWidget
-          onVerify={handleVerify}
-          onExpire={handleExpire}
-          onError={handleError}
-        />
+        <TurnstileWidget onVerify={handleVerify} onExpire={handleExpire} onError={handleError} />
       </div>
     </TurnstileContext.Provider>
   )

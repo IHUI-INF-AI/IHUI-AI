@@ -1,12 +1,8 @@
 /**
  * P1-2.2: SaaS 租户管理 — React Query 变更钩子
  */
-import {
-  useMutation,
-  useQueryClient,
-  type UseMutationResult,
-} from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query'
+import { toast } from '@/components/common'
 
 import {
   adminBackupTenant,
@@ -32,11 +28,7 @@ function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: SAAS_QUERY_KEYS })
 }
 
-export function useCreateTenant(): UseMutationResult<
-  TenantCreateResult,
-  Error,
-  TenantForm
-> {
+export function useCreateTenant(): UseMutationResult<TenantCreateResult, Error, TenantForm> {
   const qc = useQueryClient()
   return useMutation<TenantCreateResult, Error, TenantForm>({
     mutationFn: async (body) => {
@@ -52,11 +44,7 @@ export function useCreateTenant(): UseMutationResult<
   })
 }
 
-export function usePauseTenant(): UseMutationResult<
-  TenantActionResult,
-  Error,
-  string
-> {
+export function usePauseTenant(): UseMutationResult<TenantActionResult, Error, string> {
   const qc = useQueryClient()
   return useMutation<TenantActionResult, Error, string>({
     mutationFn: async (slug) => {
@@ -72,11 +60,7 @@ export function usePauseTenant(): UseMutationResult<
   })
 }
 
-export function useResumeTenant(): UseMutationResult<
-  TenantActionResult,
-  Error,
-  string
-> {
+export function useResumeTenant(): UseMutationResult<TenantActionResult, Error, string> {
   const qc = useQueryClient()
   return useMutation<TenantActionResult, Error, string>({
     mutationFn: async (slug) => {
@@ -92,11 +76,7 @@ export function useResumeTenant(): UseMutationResult<
   })
 }
 
-export function useBackupTenant(): UseMutationResult<
-  TenantActionResult,
-  Error,
-  string
-> {
+export function useBackupTenant(): UseMutationResult<TenantActionResult, Error, string> {
   const qc = useQueryClient()
   return useMutation<TenantActionResult, Error, string>({
     mutationFn: async (slug) => {
@@ -118,11 +98,7 @@ export function useRestoreTenant(): UseMutationResult<
   { slug: string; body?: TenantRestoreBody }
 > {
   const qc = useQueryClient()
-  return useMutation<
-    TenantActionResult,
-    Error,
-    { slug: string; body?: TenantRestoreBody }
-  >({
+  return useMutation<TenantActionResult, Error, { slug: string; body?: TenantRestoreBody }>({
     mutationFn: async ({ slug, body }) => {
       const r = await adminRestoreTenant(slug, body)
       if (!r.success) throw new Error(r.error)
@@ -136,11 +112,7 @@ export function useRestoreTenant(): UseMutationResult<
   })
 }
 
-export function useDeleteTenant(): UseMutationResult<
-  TenantActionResult,
-  Error,
-  string
-> {
+export function useDeleteTenant(): UseMutationResult<TenantActionResult, Error, string> {
   const qc = useQueryClient()
   return useMutation<TenantActionResult, Error, string>({
     mutationFn: async (slug) => {
