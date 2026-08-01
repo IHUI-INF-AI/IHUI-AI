@@ -149,9 +149,11 @@ export function usePermissionModeCycle(): {
     }
     const result = await switchPermissionMode(next)
     if (!result.ok) {
-      // 回滚
-      if (activeWorkspace && previousMode) {
-        setActiveWorkspace({ ...activeWorkspace, mode: previousMode })
+      // 2026-08-02 修复 P1 陈旧闭包:回滚时从 store 获取最新 activeWorkspace,
+      // 避免用闭包中可能已 stale 的 activeWorkspace 覆盖 await 期间用户切换到的新工作区新模式。
+      const current = useAiPanelStore.getState().activeWorkspace
+      if (current && previousMode) {
+        setActiveWorkspace({ ...current, mode: previousMode })
       }
       toast.error(t('cycleError', { error: result.error ?? '未知错误' }))
       return

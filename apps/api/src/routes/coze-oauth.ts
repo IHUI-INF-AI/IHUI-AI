@@ -132,8 +132,8 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, `授权失败: ${e instanceof Error ? e.message : String(e)}`))
+      request.log.error({ err: e }, '[coze-oauth] 授权失败')
+      return reply.status(500).send(error(500, '授权失败,请稍后重试'))
     }
   })
 
@@ -183,9 +183,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       }
       // pkce
       if (!b.code || !b.redirect_uri || !b.code_verifier) {
-        return reply
-          .status(400)
-          .send(error(400, 'pkce 模式需要 code, redirect_uri, code_verifier'))
+        return reply.status(400).send(error(400, 'pkce 模式需要 code, redirect_uri, code_verifier'))
       }
       const app = new PKCEOAuthApp({ clientId: b.client_id, baseUrl: b.base_url })
       const result = await app.getAccessToken({
@@ -279,7 +277,9 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `获取 JWT access_token 失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(
+          error(500, `获取 JWT access_token 失败: ${e instanceof Error ? e.message : String(e)}`),
+        )
     }
   })
 
