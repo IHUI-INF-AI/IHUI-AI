@@ -1,6 +1,6 @@
 /**
  * 发布平台 i18n key 静态映射表:platforms.{p}
- * 覆盖 PLATFORM_SCHEMAS 数组全部 37 个枚值,未知值兜底 'platforms.unknown'
+ * 覆盖 PLATFORM_SCHEMAS 数组全部 38 个枚值,未知值兜底 'platforms.unknown'
  * 用于消除 platforms.{var} 形式的动态拼接
  *
  * 平台分组:

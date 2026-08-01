@@ -1,5 +1,5 @@
 /**
- * 37 平台发布凭据 schema 定义(可视化表单配置)
+ * 38 平台发布凭据 schema 定义(可视化表单配置)
  * 与 apps/ai-service/app/services/publish/base_adapter.list_all_adapter_classes 对齐
  * authType 分类:
  *   api_key         — HTTP API + 密钥/应用密码(wordpress/medium/wechat/cnblogs/segmentfault/oschina)
@@ -7,7 +7,7 @@
  *   browser_cookie  — 浏览器抓 Cookie(其余 30 平台,含 Playwright 适配器)
  *   none            — 无需凭据(保留占位,当前未使用)
  *
- * 平台分组(37 个):
+ * 平台分组(38 个):
  *   - 国际平台 3:wordpress / medium / youtube
  *   - 视频平台 6:bilibili / douyin / kuaishou / xigua / haokan / shipinhao
  *   - 图文社交 4:wechat / toutiao / weibo / xiaohongshu
