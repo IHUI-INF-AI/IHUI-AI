@@ -4,21 +4,50 @@ import * as React from 'react'
 import { UploadCloud, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
+import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
+
+/** 默认单文件大小上限:50MB */
+const DEFAULT_MAX_SIZE = 50 * 1024 * 1024
+/** 默认单次选择数量上限:20 */
+const DEFAULT_MAX_COUNT = 20
 
 export interface UploadZoneProps {
   uploading?: boolean
   onFiles: (files: File[]) => void
+  /** 单文件大小上限(字节),默认 50MB */
+  maxSize?: number
+  /** 单次选择数量上限,默认 20 */
+  maxCount?: number
 }
 
-export function UploadZone({ uploading = false, onFiles }: UploadZoneProps) {
+export function UploadZone({
+  uploading = false,
+  onFiles,
+  maxSize = DEFAULT_MAX_SIZE,
+  maxCount = DEFAULT_MAX_COUNT,
+}: UploadZoneProps) {
   const t = useTranslations('workspace')
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = React.useState(false)
 
   const handleSelected = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return
-    onFiles(Array.from(fileList))
+    const arr = Array.from(fileList)
+    // 大小校验:防止超大文件透传给 onFiles 导致 OOM / 上传失败
+    const oversized = arr.filter((f) => f.size > maxSize)
+    if (oversized.length > 0) {
+      toast.error(
+        `文件超过大小上限(${Math.floor(maxSize / 1024 / 1024)}MB):${oversized.map((f) => f.name).join(', ')}`,
+      )
+      return
+    }
+    // 数量校验:单次选择兜底
+    if (arr.length > maxCount) {
+      toast.error(`单次最多选择 ${maxCount} 个文件`)
+      return
+    }
+    onFiles(arr)
   }
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {

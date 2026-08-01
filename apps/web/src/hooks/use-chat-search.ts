@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useMemo, type RefObject } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect, type RefObject } from 'react'
 
 /** 搜索结果项 */
 export interface SearchResult {
@@ -51,6 +51,10 @@ export function useChatSearch<T extends SearchableMessage>({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 2026-08-02 修复 P1 内存泄露 + 陈旧闭包:debouncedSearch 的 timer 提取到 ref,
+  // 卸载时清理;原 useMemo 局部 timer 在卸载时无法清理,
+  // 且 useMemo 重建时旧 timer 仍运行会用过期的 messages 调用 handleSearch。
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /** 切换搜索栏显示状态：关闭时清空关键词与结果 */
   const toggleSearch = useCallback(() => {
@@ -86,13 +90,22 @@ export function useChatSearch<T extends SearchableMessage>({
   )
 
   // P1 防抖(2026-07-23):200ms 防抖,避免长对话搜索卡顿
+  // 2026-08-02 修复:timer 提取到 debounceTimerRef,卸载时清理
   const debouncedSearch = useMemo(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null
     return (query?: string) => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(() => handleSearch(query), 200)
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = setTimeout(() => handleSearch(query), 200)
     }
   }, [handleSearch])
+
+  // 2026-08-02 修复 P1 内存泄露:卸载时清理 highlightTimer 和 debounceTimerRef,
+  // 避免 2 秒后 setState 在已卸载组件调用。
+  useEffect(() => {
+    return () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current)
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    }
+  }, [])
 
   /** 滚动到指定消息：平滑滚动到消息中心，高亮 2 秒后取消 */
   const scrollToMessage = useCallback(

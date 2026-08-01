@@ -22,6 +22,7 @@
  *  - redisClient 通过 fastify.decorate 挂载,路由注册时调 setRedisClient 注入
  */
 
+import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import type {
   SubagentDispatch,
@@ -370,7 +371,8 @@ interface AiServiceResponse {
 // ---------------------------------------------------------------------------
 
 function newId(): string {
-  return `dispatch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  // 2026-08-02 P2 安全加固：用 CSPRNG 替换 Math.random，防止攻击者枚举他人 dispatch ID
+  return `dispatch-${Date.now()}-${randomBytes(4).toString('hex')}`
 }
 
 function nowIso(): string {

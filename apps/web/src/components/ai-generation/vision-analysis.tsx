@@ -23,6 +23,9 @@ const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram')
 const TEXTAREA_CLS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
+/** 图片上传大小上限:10MB(防止 base64 进 state 导致 OOM) */
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024
+
 export function VisionAnalysis() {
   const t = useTranslations('aiGeneration')
   const [imageUrl, setImageUrl] = React.useState('')
@@ -49,6 +52,16 @@ export function VisionAnalysis() {
 
   const onFile = (file: File | undefined) => {
     if (!file) return
+    // 大小校验:防止超大文件 base64 进 state 导致 OOM
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error(`图片不能超过 ${MAX_IMAGE_SIZE / 1024 / 1024}MB`)
+      return
+    }
+    // 类型校验:只允许图片,防 .exe/.html/.svg 等
+    if (!file.type.startsWith('image/')) {
+      toast.error('请选择图片文件')
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => setImageUrl(String(reader.result ?? ''))
     reader.readAsDataURL(file)
@@ -92,7 +105,11 @@ export function VisionAnalysis() {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => onFile(e.target.files?.[0])}
+            onChange={(e) => {
+              onFile(e.target.files?.[0])
+              // 允许重复选择同一文件(否则选同一文件第二次不触发 change)
+              e.target.value = ''
+            }}
           />
           <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
             <Upload className="h-4 w-4" />

@@ -520,6 +520,15 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         toast.error('连接失败')
         return
       }
+      // 2026-08-02 修复 P1 内存泄露:覆盖旧引用前先关闭旧 WebSocket,
+      // 避免用户快速点击多次发送创建多个未关闭 WS 导致内存泄露和消息混乱。
+      if (socketTaskRef.current) {
+        try {
+          socketTaskRef.current.close()
+        } catch {
+          /* ignore */
+        }
+      }
       socketTaskRef.current = ws
 
       ws.onopen = () => {

@@ -13,6 +13,8 @@
  *   不直接调 ai-service,故本文件是 TS 版独立实现(不复用 Python 版)。
  */
 
+import { randomBytes } from 'node:crypto'
+
 // =============================================================================
 // Anthropic 端类型(自包含,只覆盖 IHUI 中转站需要字段子集)
 // =============================================================================
@@ -36,9 +38,7 @@ export interface AnthropicToolResultBlock {
 }
 
 export type AnthropicContentBlock =
-  | AnthropicTextBlock
-  | AnthropicToolUseBlock
-  | AnthropicToolResultBlock
+  AnthropicTextBlock | AnthropicToolUseBlock | AnthropicToolResultBlock
 
 export interface AnthropicMessage {
   role: 'user' | 'assistant'
@@ -197,7 +197,8 @@ export type AnthropicSSEEvent =
   | {
       type: 'content_block_delta'
       index: number
-      delta: { type: 'text_delta'; text: string } | { type: 'input_json_delta'; partial_json: string }
+      delta:
+        { type: 'text_delta'; text: string } | { type: 'input_json_delta'; partial_json: string }
     }
   | { type: 'content_block_stop'; index: number }
   | {
@@ -227,9 +228,11 @@ function isRecord(v: unknown): v is Record<string, unknown> {
  *
  * 返回 [文本片段, 额外 OpenAI 消息数组]。文本为空时返回 ''。
  */
-function flattenAnthropicContent(
-  content: AnthropicContentBlock[],
-): { text: string; toolCalls: NonNullable<OpenAIChatMessage['tool_calls']>; toolMessages: OpenAIChatMessage[] } {
+function flattenAnthropicContent(content: AnthropicContentBlock[]): {
+  text: string
+  toolCalls: NonNullable<OpenAIChatMessage['tool_calls']>
+  toolMessages: OpenAIChatMessage[]
+} {
   const textParts: string[] = []
   const toolCalls: NonNullable<OpenAIChatMessage['tool_calls']> = []
   const toolMessages: OpenAIChatMessage[] = []
@@ -243,7 +246,8 @@ function flattenAnthropicContent(
         type: 'function',
         function: {
           name: block.name,
-          arguments: typeof block.input === 'string' ? block.input : JSON.stringify(block.input ?? {}),
+          arguments:
+            typeof block.input === 'string' ? block.input : JSON.stringify(block.input ?? {}),
         },
       })
     } else if (block.type === 'tool_result') {
@@ -288,7 +292,9 @@ export function anthropicRequestToOpenAI(input: AnthropicMessagesRequest): OpenA
       typeof input.system === 'string'
         ? input.system
         : Array.isArray(input.system)
-          ? input.system.map((s) => (isRecord(s) && typeof s.text === 'string' ? s.text : '')).join('\n')
+          ? input.system
+              .map((s) => (isRecord(s) && typeof s.text === 'string' ? s.text : ''))
+              .join('\n')
           : ''
     if (sysText) messages.push({ role: 'system', content: sysText })
   }
@@ -452,7 +458,8 @@ export function createStreamState(model: string): StreamState {
     blockIndex: 0,
     model,
     outputChars: 0,
-    messageId: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    // 2026-08-02 P2 安全加固：用 CSPRNG 替换 Math.random，防止 messageId 被预测
+    messageId: `msg_${Date.now()}_${randomBytes(6).toString('hex')}`,
     toolUseStarted: false,
     currentToolUseId: '',
     currentToolUseName: '',
@@ -645,7 +652,11 @@ export function parseUpstreamLineToOpenAIChunk(
         const choices = json.choices as unknown
         if (Array.isArray(choices) && choices.length > 0) {
           // 已经是 OpenAI chunk 格式
-          return { id: `chatcmpl-${Date.now()}`, model, choices: choices as OpenAIChatChunk['choices'] }
+          return {
+            id: `chatcmpl-${Date.now()}`,
+            model,
+            choices: choices as OpenAIChatChunk['choices'],
+          }
         }
       }
     } catch {
