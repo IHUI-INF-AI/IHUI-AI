@@ -111,6 +111,8 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   // 自动切回 effect 用 ref === record 校验,防止用户最后一刻手动切到 bypass
   // 引起的 record 替换被误判为"刚启动的新 record"
   const watchedRecordRef = React.useRef<AutoRevertRecord | null>(null)
+  // 2026-08-02 修复:提前声明,供 mode effect 在新 record 启动时重置
+  const autoSwitchedRef = React.useRef(false)
   React.useEffect(() => {
     if (hydrated) return
     const loaded = readRecord()
@@ -179,6 +181,9 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
         })
         writeRecord(next)
         watchedRecordRef.current = next
+        // 2026-08-02 修复:新 record 启动时重置 autoSwitchedRef,
+        // 否则自动切回触发后用户再次启用 bypass 时,新 record 归零无法触发自动切回
+        autoSwitchedRef.current = false
         return next
       })
     } else {
@@ -265,7 +270,6 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   // 2. 后台异步调 API 落库 + 失败重试 1 次
   // 2026-07-25 race condition 防御:自动切回前校验 watchedRecordRef === record,
   // 防止用户在最后一刻手动切到 bypass 时旧 expired record 残留触发自动切回
-  const autoSwitchedRef = React.useRef(false)
   React.useEffect(() => {
     if (!record) {
       autoSwitchedRef.current = false
