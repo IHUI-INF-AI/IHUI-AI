@@ -36,7 +36,7 @@ export async function ModelsGrid({ list }: Props) {
             <CardTitle className="text-base">
               {m.name.startsWith('model.') ? t(m.name) : m.name}
             </CardTitle>
-            <CardDescription>{m.description ? t(m.description) : ''}</CardDescription>
+            <CardDescription className="line-clamp-2 break-words">{m.description ? t(m.description) : ''}</CardDescription>
           </CardHeader>
           <CardContent className="mt-auto space-y-3 text-sm">
             <div className="flex items-center justify-between text-muted-foreground">

@@ -213,6 +213,7 @@ export default function AdminRelayModelsPage() {
       </div>
 
       <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
             <tr>
@@ -296,6 +297,7 @@ export default function AdminRelayModelsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">

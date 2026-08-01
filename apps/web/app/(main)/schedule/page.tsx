@@ -139,7 +139,7 @@ export default function SchedulePage() {
                   </span>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 space-y-2 text-sm">
+              <CardContent className="flex-1 min-w-0 space-y-2 text-sm">
                 {task.description && <p className="text-muted-foreground">{task.description}</p>}
                 <div className="flex items-center gap-1.5 font-mono text-xs">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground" />

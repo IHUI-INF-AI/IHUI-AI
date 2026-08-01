@@ -116,9 +116,10 @@ export default function ThreatDashboardPage() {
                   <Eye className="h-4 w-4 text-primary" />
                   {t('watchedIpsTitle')}
                 </CardTitle>
-                <CardDescription>{t('watchedIpsDesc')}</CardDescription>
+                <CardDescription className="line-clamp-2 break-words">{t('watchedIpsDesc')}</CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-0">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
@@ -163,6 +164,7 @@ export default function ThreatDashboardPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -174,9 +176,10 @@ export default function ThreatDashboardPage() {
                   <Activity className="h-4 w-4 text-primary" />
                   {t('recentBlocksTitle')}
                 </CardTitle>
-                <CardDescription>{t('recentBlocksDesc')}</CardDescription>
+                <CardDescription className="line-clamp-2 break-words">{t('recentBlocksDesc')}</CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-0">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
@@ -220,6 +223,7 @@ export default function ThreatDashboardPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </CardContent>
             </Card>
           )}

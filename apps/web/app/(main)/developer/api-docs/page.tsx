@@ -264,7 +264,7 @@ export default function ApiDocsPage() {
                   >
                     {selected.method}
                   </span>
-                  <code className="flex-1 text-sm font-medium">{selected.path}</code>
+                  <code className="flex-1 min-w-0 text-sm font-medium">{selected.path}</code>
                   <button
                     onClick={() => copyPath(selected.path)}
                     className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

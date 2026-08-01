@@ -195,7 +195,7 @@ export function ProvidersHealthTab() {
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-1">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1">
           {FILTER_OPTIONS.map((opt) => (
             <Button
               key={opt.value}
@@ -212,7 +212,7 @@ export function ProvidersHealthTab() {
           size="sm"
           variant="ghost"
           onClick={() => refetch()}
-          className="h-7 px-2.5 text-xs"
+          className="h-7 shrink-0 px-2.5 text-xs"
           disabled={isFetching}
         >
           <RefreshCw className={`mr-1 h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
@@ -713,13 +713,13 @@ function SyncHealthPanel() {
               const danger = count >= threshold || isDisabled
               return (
                 <div key={code} className="flex items-center gap-2 text-[11px]">
-                  <span className="font-medium">{code}</span>
+                  <span className="shrink-0 font-medium">{code}</span>
                   <span
-                    className={danger ? 'text-red-600 dark:text-red-500' : 'text-muted-foreground'}
+                    className={`min-w-0 flex-1 truncate ${danger ? 'text-red-600 dark:text-red-500' : 'text-muted-foreground'}`}
                   >
                     {tm('failureCounter')}: {count}
                   </span>
-                  <div className="ml-auto flex items-center gap-1">
+                  <div className="ml-auto flex shrink-0 items-center gap-1">
                     {isDisabled && (
                       <Badge className="border-transparent bg-muted text-[10px] text-muted-foreground">
                         {tm('disabled')}
@@ -1148,7 +1148,7 @@ function SyncStatsGrid({ data, timeFmt }: { data: SyncStatsResult; timeFmt: Intl
       </div>
       {data.by_provider.length > 0 && (
         <div className="overflow-x-auto rounded bg-muted/30 p-2">
-          <div className="min-w-[400px] space-y-0.5">
+          <div className="min-w-0 min-[768px]:min-w-[400px] space-y-0.5">
             <div className="grid grid-cols-2 gap-2 pb-1 text-[10px] text-muted-foreground min-[640px]:grid-cols-5">
               <span>{tm('provider')}</span>
               <span>{tm('totalSyncs')}</span>

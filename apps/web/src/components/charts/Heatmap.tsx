@@ -36,7 +36,7 @@ export const Heatmap = React.memo(function Heatmap({
             {xLabels?.map((label, i) => (
               <span
                 key={`x-${i}`}
-                className="flex-1 px-1 text-center text-xs text-muted-foreground"
+                className="flex-1 min-w-0 px-1 text-center text-xs text-muted-foreground"
               >
                 {label}
               </span>

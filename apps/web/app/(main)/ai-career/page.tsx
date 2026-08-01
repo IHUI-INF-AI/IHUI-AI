@@ -161,7 +161,7 @@ export default function AICareerPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-5 p-6">
+        <CardContent className="space-y-5 p-4 min-[768px]:p-6">
           <div>
             <span className="mb-2 block text-sm font-medium">
               {t('fields.school')} <span className="text-destructive">*</span>
@@ -283,19 +283,19 @@ export default function AICareerPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2 text-lg">
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                {t('result.title')}
+              <span className="flex min-w-0 items-center gap-2">
+                <Sparkles className="h-5 w-5 shrink-0" />
+                <span className="truncate">{t('result.title')}</span>
               </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={exporting}>
+                  <Button variant="outline" size="sm" className="shrink-0" disabled={exporting}>
                     {exporting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                     ) : (
-                      <Download className="mr-2 h-4 w-4" />
+                      <Download className="mr-2 h-4 w-4 shrink-0" />
                     )}
-                    {exporting ? t('export.exporting') : t('export.button')}
+                    <span className="whitespace-nowrap">{exporting ? t('export.exporting') : t('export.button')}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

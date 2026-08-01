@@ -19,12 +19,12 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
     <>
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center justify-between text-base">
-            <span className="flex items-center gap-2">
-              <Server className="h-4 w-4" />
-              {t('monitor.services')}
+          <CardTitle className="flex items-center justify-between gap-2 text-base">
+            <span className="flex min-w-0 items-center gap-2">
+              <Server className="h-4 w-4 shrink-0" />
+              <span className="truncate">{t('monitor.services')}</span>
             </span>
-            <span className="text-xs font-normal text-muted-foreground">
+            <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
               {t('monitor.healthyCount', { healthy: healthyCount, total: services.length })}
             </span>
           </CardTitle>
