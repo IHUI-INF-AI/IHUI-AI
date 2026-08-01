@@ -36,7 +36,13 @@ const MAX_TOKENS = 1000
 
 type SsePayload =
   | ({ id: string; timestamp: number } & TokenEvent)
-  | ({ id: string; tool: string; args: Record<string, unknown>; status: ToolCallEvent['status']; result?: unknown } & { type: 'tool_call' | 'tool_result' })
+  | ({
+      id: string
+      tool: string
+      args: Record<string, unknown>
+      status: ToolCallEvent['status']
+      result?: unknown
+    } & { type: 'tool_call' | 'tool_result' })
 
 function appendFifo(prev: TokenEvent[], evt: TokenEvent): TokenEvent[] {
   const next = [...prev, evt]
@@ -93,7 +99,8 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     es.onopen = () => setConnected(true)
     es.onerror = () => {
       setConnected(false)
-      es.close()
+      // 2026-08-02 修复:不手动 close,让 EventSource 内置自动重连生效
+      // (手动 close 后 EventSource 不会重连,网络抖动会导致 SSE 永久断开)
     }
     es.onmessage = (e) => {
       try {
@@ -116,9 +123,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
         } else if (data.type === 'tool_result') {
           const d = data as { id: string; result?: unknown; status: ToolCallEvent['status'] }
           setToolCallChain((prev) =>
-            prev.map((c) =>
-              c.id === d.id ? { ...c, result: d.result, status: d.status } : c,
-            ),
+            prev.map((c) => (c.id === d.id ? { ...c, result: d.result, status: d.status } : c)),
           )
         }
       } catch {
