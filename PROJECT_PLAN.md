@@ -2410,6 +2410,24 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
   - 修复:`pt-1 pb-1 min-[1024px]:pt-2 min-[1024px]:pb-1.5`(移动端 4px+4px=8px,桌面端 8px+6px=14px)
   - 移动端总高 44px(原 50px,节省 6px),桌面端 50px 不变
   - Playwright 验证:375px pt=4px pb=4px height=44px;1280px pt=8px pb=6px height=50px ✅
+- [x] ✅(2026-08-01) 移动端尺寸适配深度扫描修复 — 267 文件(commit c43ba3fc42)
+  - **P0 严重问题修复(15 处)**:
+    - PermissionSelector.tsx typo bug:`grid-cols: any-2`(非法类名)→ `grid-cols-1 min-[640px]:grid-cols-2 min-[768px]:grid-cols-3`(移动端布局错乱根因)
+    - 8 处 grid-cols 无移动端 fallback:DevelopersContent(relay 限流策略 4 列)、admin/relay-param-ops、admin/topup-config、settings/gateway/CompactionTab、settings/gateway/ProvidersHealthTab(2 处 grid-cols-5)、developer/relay/usage — 补 `grid-cols-1/2 min-[640px]:grid-cols-N` fallback
+    - 6 处触摸目标 < 36px:AddressesList(h-7 w-7)、publish/accounts(h-7)、admin/relay/overview(h-7 px-2)、admin/relay-param-ops(2 处 h-7 px-2)、models/AiNewsStrip(h-6) — 全部改为 h-9 w-9 / h-9 px-3(36px 达 WCAG/Apple HIG 最低标准)
+  - **P1 体验问题修复(35 处,28 文件)**:
+    - 5 处 h-[600px] 移动端过高(375px 视口占 87%):agent-workbench(3 处)、live/play、knowledge-graph — 改为 h-[420px] min-[768px/1024px]:h-[600px]
+    - 28 处 py-20(80px)/2 处 py-24(96px) 移动端过大:agents/developers/lecturers/memory/learn/subagents/news/admin-edu/status 等 — 改为 py-12 min-[768px]:py-20 / py-16 min-[768px]:py-24
+  - **P2 大字体降级(32 处,28 文件)**:
+    - ~50 处 text-3xl/4xl/5xl 移动端默认值过大(375px 下 30/36/48px):about/contact/docs/ai-news/blog/compare/enterprise/services/newsletter/sponsor/recruitment/products/pricing/faq/oauth/vip 等 — 统一改为 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl/5xl/6xl 三级降级
+  - **P2 标准断点批量替换(927 处,174 文件)**:
+    - 根因:项目自定义断点(`--breakpoint-lg:576px`/`--breakpoint-md:428px`/`--breakpoint-xl:1920px`)导致 Tailwind 标准 `sm:/md:/lg:/xl:` 全部错位
+    - 替换:`sm:`→`min-[640px]:`、`md:`→`min-[768px]:`、`lg:`→`min-[1024px]:`、`xl:`→`min-[1280px]:`(用正则 `(?<![\w-])` 零宽断言确保只匹配独立断点,避免误改 `text-sm`/`bg-md` 等类名)
+    - 覆盖目录:admin(~96 文件)、settings(14 文件)、agents(8 文件)、use-cases(13 文件 + en/ko/ja/zh-TW 多语言镜像 20 文件)、marketing(7 文件 86 处)、home(3 文件)、ai(10 文件)、mcp(4 文件)、rules(1 文件)、operation(1 文件)、chat(1 文件)、ai-generation(1 文件)
+    - 保留自定义断点 `tablet:`/`tablet-lg:`/`laptop:` 不变
+  - **触摸目标批量修复(20 处)**:rules-manager.tsx 15 个 h-6 w-6 按钮、mcp-prompt-manager/mcp-data-structure/background-agents-panel/markdown-stream/slash-command-palette/message-context-menu/code-generator 等 — 全部改为 h-9 w-9
+  - **固定宽度响应式(3 处)**:permission-mode-popover w-[360px]、permission-history-panel w-[320px] → w-[min(NNNpx,calc(100vw-2rem))] 防止 375px 视口溢出
+  - 验证:`pnpm --filter @ihui/web typecheck` exit 0
 
 ### 验证
 
