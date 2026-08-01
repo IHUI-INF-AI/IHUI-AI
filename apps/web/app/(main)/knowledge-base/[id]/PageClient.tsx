@@ -94,7 +94,7 @@ export default function KBDetailPage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{article.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{article.title}</h1>
         {article.summary && <p className="text-xs text-muted-foreground">{article.summary}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}
@@ -121,7 +121,7 @@ export default function KBDetailPage() {
         )}
       </header>
 
-      <div className="flex flex-col gap-8 lg:flex-row">
+      <div className="flex flex-col gap-8 min-[1024px]:flex-row">
         <article className="min-w-0 flex-1">
           <Card>
             <CardContent className="p-6">
@@ -131,8 +131,8 @@ export default function KBDetailPage() {
         </article>
 
         {toc.length > 0 && (
-          <aside className="w-full shrink-0 lg:w-56">
-            <div className="lg:sticky lg:top-4">
+          <aside className="w-full shrink-0 min-[1024px]:w-56">
+            <div className="min-[1024px]:sticky min-[1024px]:top-4">
               <Card>
                 <CardContent className="p-4">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

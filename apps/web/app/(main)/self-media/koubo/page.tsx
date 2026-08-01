@@ -179,7 +179,7 @@ export default function KouboPage() {
   }
 
   return (
-    <div className="grid gap-4 min-[768px]:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
       <div className="space-y-4 min-[768px]:col-span-2">
         <Card>
           <CardHeader>
@@ -189,7 +189,7 @@ export default function KouboPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-4">
-            <div className="grid gap-3 min-[640px]:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="date">{t('dateLabel')}</Label>
                 <Input

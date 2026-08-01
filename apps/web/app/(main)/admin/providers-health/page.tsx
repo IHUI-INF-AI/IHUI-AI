@@ -88,7 +88,7 @@ export default function ProvidersHealthPage() {
 
       {/* 摘要卡片 */}
       {summary && (
-        <div className="grid gap-4 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-6">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-6">
           <SummaryCard label="总计" value={summary.total} color="text-foreground" />
           <SummaryCard label="健康" value={summary.healthy} color="text-emerald-600" />
           <SummaryCard label="降级" value={summary.degraded} color="text-amber-600" />

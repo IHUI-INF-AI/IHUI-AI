@@ -64,7 +64,7 @@ export default function ToolsPage() {
                   {t('empty')}
                 </p>
               ) : (
-                <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                   {items.map((tool) => (
                     <Link key={tool.id} href={tool.url} className="group block">
                       <Card className="transition-colors hover:bg-accent">

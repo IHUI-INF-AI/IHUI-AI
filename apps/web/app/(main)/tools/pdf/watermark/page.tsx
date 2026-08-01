@@ -82,7 +82,7 @@ export default function PdfWatermarkPage() {
           </Button>
         </div>
       )}
-      <div className="grid gap-4 min-[640px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="wm-text">{t('text')}</Label>
           <Input id="wm-text" value={text} onChange={(e) => setText(e.target.value)} />

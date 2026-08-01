@@ -34,13 +34,13 @@ import { Tooltip } from '@/components/feedback'
  *
  * 历史变更:
  * - v6(2026-07-20):py-1 min-[768px]:py-1.5(从 py-1.5 min-[768px]:py-2 再省 2px),
- *   gap-1(从 gap-1.5 再省 2px),grid gap-2(从 gap-3 再省 4px),
+ *   gap-1(从 gap-1.5 再省 2px),grid grid-cols-1 gap-2(从 gap-3 再省 4px),
  *   icons h-6 w-6(从 h-7 w-7 减 4px),QR h-14 w-14(从 h-16 w-16 减 8px),
  *   section title text-[10px](从 text-xs 再省 2px),row 2 pt-0.5(从 pt-1 再省 2px),
  *   关键:**删除 与 sidebar 重复的 3 个 Link(关于/帮助/反馈)**,
  *   底部行只保留 3 个 Dialog button + ICP+版权,信息更纯粹。
  * - v5(2026-07-20):合并 4 个子标题为 1"生态合作"、缩小 icon/QR、链接内联到底部行。
- * - v4(2026-07-20):py-2 min-[768px]:py-3,gap-2,grid gap-4,加 Dialog 弹窗触发行。
+ * - v4(2026-07-20):py-2 min-[768px]:py-3,gap-2,grid grid-cols-1 gap-4,加 Dialog 弹窗触发行。
  * - v3:Dialog 弹窗替换页面跳转(用户要求"弹窗窗口 而不是完整页面")。
  */
 
@@ -252,7 +252,7 @@ export function SiteFooter({ className }: { className?: string }) {
             - 栏 2: 生态合作 4 类分组 — grid-cols-2 min-[768px]:grid-cols-4 响应式自适应屏幕宽度
             - 栏 3: 官方推广 + QR(不变)
             v10: gap-3(从 v9 gap-1 放大),与 footer 整体拉高对齐 */}
-        <div className="grid gap-3 min-[768px]:grid-cols-[1fr_1.5fr_1fr] min-[768px]:items-start">
+        <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-[1fr_1.5fr_1fr] min-[768px]:items-start">
           {/* 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底)
               - flex flex-col justify-between 让按钮沉底,消除公司信息下方空白
               - 公司信息用 space-y-1,按钮用 flex flex-wrap gap-x-2 gap-y-1 */}
