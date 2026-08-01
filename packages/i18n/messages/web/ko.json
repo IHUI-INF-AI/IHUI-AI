@@ -1127,7 +1127,9 @@
     "errors": {
       "timeout15s": "AI 응답 시간 초과(15초 내 콘텐츠를 받지 못했습니다). 나중에 다시 시도해 주세요",
       "timeout60s": "AI 사고 시간 초과(60초 내 답변이 생성되지 않았습니다. 추론 모델의 사고가 너무 길 수 있음). 나중에 다시 시도하거나 일반 모델로 전환해 주세요"
-    }
+    },
+    "clearInputAriaLabel": "입력 지우기",
+    "clearInputTitle": "입력 내용 지우기"
   },
   "learn": {
     "title": "AI인마음페이스테스트",
@@ -1343,7 +1345,13 @@
         "name": "기업판",
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"]
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ]
       }
     },
     "checkout": {
@@ -1527,7 +1535,11 @@
       "signupsSubtitle": "강좌 신청 기록 보기 및 관리",
       "backToLearnSignups": "강좌 관리로 돌아가기",
       "signupsTotal": "총 {total}개 기록",
-      "signupsUpdateSuccess": "상태가 업데이트되었습니다"
+      "signupsUpdateSuccess": "상태가 업데이트되었습니다",
+      "signupsSearchPlaceholder": "코스/사용자/전화번호 검색",
+      "colSignupStatus": "신청 상태",
+      "updateStatus": "상태 업데이트",
+      "signupsNoData": "신청 기록이 없습니다"
     },
     "edu": {
       "learn": {
@@ -3303,7 +3315,23 @@
         "rowSuccess": "성공",
         "rowFailure": "실패",
         "noDetails": "백엔드가 행별로 상세 내역을 반환하지 않습니다. 실패 행의 상세를 확인하려면 백엔드 API를 확장하여 resultItemList를 반환하도록 해주세요."
-      }
+      },
+      "usernameRequired": "사용자 이름을 입력하세요",
+      "passwordRequired": "비밀번호를 입력하세요",
+      "fieldUsername": "사용자 이름",
+      "fieldMobile": "휴대전화 번호",
+      "mobilePlaceholder": "휴대전화 번호를 입력하세요",
+      "fieldGender": "성별",
+      "genderUnknown": "미상",
+      "noLevel": "등급 없음",
+      "newPasswordRequired": "새 비밀번호를 입력하세요",
+      "resetTitle": "비밀번호 재설정",
+      "resetDesc": "이 사용자의 비밀번호를 재설정합니다",
+      "fieldNewPassword": "새 비밀번호",
+      "newPasswordPlaceholder": "새 비밀번호를 입력하세요",
+      "statPending": "승인 대기",
+      "statSealed": "차단됨",
+      "statCompany": "기업 수"
     },
     "resources": {
       "title": "리소스관리",
@@ -3375,7 +3403,10 @@
       "resourceRequired": "관련 리소스를 선택하세요",
       "tagsTitle": "리소스 태그 관리",
       "tagsSubtitle": "리소스 태그 관리",
-      "rootTag": "상위 태그 없음"
+      "rootTag": "상위 태그 없음",
+      "fieldFileType": "파일 유형",
+      "fileTypePlaceholder": "파일 유형을 입력하세요",
+      "fieldFileSize": "파일 크기"
     },
     "live": {
       "title": "라이브 관리",
@@ -3432,7 +3463,21 @@
       "lecturersTitle": "강사관리",
       "lecturersSubtitle": "라이브 강사 관리",
       "fieldAvatar": "아바타 주소",
-      "avatarPlaceholder": "아바타 URL을 입력하세요(선택)"
+      "avatarPlaceholder": "아바타 URL을 입력하세요(선택)",
+      "noLecturer": "강사 없음",
+      "fieldIntroduction": "상세 소개",
+      "fieldShowNumber": "표시 순서",
+      "fieldEnableChat": "채팅 활성화",
+      "fieldPushUrl": "푸시 주소",
+      "pushUrlPlaceholder": "푸시 주소를 입력하세요",
+      "fieldPlayUrl": "재생 주소",
+      "playUrlPlaceholder": "재생 주소를 입력하세요",
+      "timePlaceholder": "시간을 선택하세요",
+      "fieldIsLive": "라이브 중",
+      "statChannelTotal": "채널 총수",
+      "statLiving": "라이브 중",
+      "statPublished": "게시됨",
+      "statViewSum": "총 시청 수"
     },
     "saas": {
       "title": "테넌트 관리",
@@ -3737,7 +3782,19 @@
       "subtitle": "포괄적인의개발문서및API참조",
       "tabOrders": "주의문",
       "tabRefunds": "환불",
-      "tabInvoices": "청구서 신청"
+      "tabInvoices": "청구서 신청",
+      "invoiceType": "청구서 유형",
+      "changeStatus": "상태 변경",
+      "changeStatusTitle": "청구서 상태 변경",
+      "changeStatusDesc": "새 청구서 상태를 선택하세요",
+      "payType": "결제 방법",
+      "noRefunds": "환불 기록이 없습니다",
+      "process": "처리",
+      "noAction": "조치 불필요",
+      "processTitle": "환불 처리",
+      "handleTitle": "환불 완료",
+      "processDesc": "이 환불 신청을 처리하시겠습니까",
+      "handleDesc": "이 환불 처리를 완료하시겠습니까"
     },
     "workflows": {
       "title": "업무스트림관리",
@@ -4551,7 +4608,11 @@
       "exportName": "에이전트 작업",
       "total": "총계: {total}",
       "prev": "이전",
-      "next": "다음"
+      "next": "다음",
+      "colContext": "요청 내용",
+      "colCycleFull": "전체 주기",
+      "colLowestPrice": "최저가",
+      "colPeakPrice": "최고가"
     },
     "demandAudit": {
       "title": "수요 심사",
@@ -7354,6 +7415,9 @@
     "privacyTitle": "개인정보 설정",
     "subtitle": "계정, 보안, 환경설정 및 개발자 설정 관리",
     "title": "설정",
+    "billingInvoiceNo": "청구서 번호",
+    "billingInvoiceType": "청구서 유형",
+    "billingNoData": "청구 기록이 없습니다",
     "dashboardDesc": "모든 설정 옵션에 빠르게 액세스",
     "preferencesDesc": "앱 환경을 맞춤 설정하세요",
     "activityDesc": "계정 활동 기록을 확인하세요",
@@ -8360,7 +8424,9 @@
     "noSnapshots": "스냅샷 없음",
     "data": "데이터",
     "actions": "작업",
-    "delete": "삭제"
+    "delete": "삭제",
+    "signups": "신청 수",
+    "examRecords": "시험 기록 수"
   },
   "messages": {
     "loading": "로딩 중...",
@@ -9297,7 +9363,13 @@
     },
     "monitor": {
       "title": "모니터링 대시보드",
-      "subtitle": "포괄적인의개발문서및API참조"
+      "subtitle": "포괄적인의개발문서및API참조",
+      "alerts": "알림",
+      "logSummary": "로그 요약",
+      "logTotal": "로그 총수",
+      "logErrors": "오류 수",
+      "logWarnings": "경고 수",
+      "perf": "성능 지표"
     }
   },
   "aiGeneration": {
@@ -10174,32 +10246,56 @@
       "chat": {
         "label": "AI 채팅",
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI"]
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI"]
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI"
+        ]
       },
       "search": {
         "label": "검색",
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"]
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"]
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"]
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ]
       },
       "settings": {
         "label": "설정",
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"]
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ]
       }
     }
   },
@@ -10606,19 +10702,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -10739,25 +10847,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -12383,7 +12503,15 @@
       "sessions": "세션 수",
       "crashRate": "크래시율"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"],
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ],
     "dauTrend": {
       "title": "최근 7일 DAU 추이",
       "subtitle": "일일 활성 사용자 수 변화 곡선"
@@ -12527,8 +12655,18 @@
     "title": "AI 진로 지도",
     "subtitle": "자녀의 학습 상황을 입력하면 AI가 맞춤형 진로 지도를 생성합니다",
     "options": {
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"],
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -14105,7 +14243,12 @@
     "rechargeCount": "총 {n}회 충전",
     "packages": {
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       },
       "pro": {
         "features": [

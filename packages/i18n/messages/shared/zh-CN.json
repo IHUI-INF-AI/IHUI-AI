@@ -248,7 +248,8 @@
     "username": "用户名",
     "usernamePlaceholder": "请输入用户名",
     "wechatLogin": "微信",
-    "login": "登录"
+    "login": "登录",
+    "captchaRefresh": "刷新验证码"
   },
   "chat": {
     "send": "发送"
