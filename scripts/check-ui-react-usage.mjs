@@ -45,8 +45,11 @@ const ALLOWED_DOT_DIRS = new Set(['.vscode', '.idea', '.github'])
 const UI_REACT_IMPORT_RE = /@ihui\/ui-react/
 // PageShell 独立实现:文件名含 page-shell / page-layout(大小写不敏感)
 const PAGE_SHELL_FILE_RE = /(page-shell|page-layout)/i
-// Dialog/Card/Form 独立实现:文件名是对应组件名或 *-dialog.tsx 等变体
-const DIALOG_CARD_FORM_FILE_RE = /^([a-z0-9]+-)?(dialog|card|form)\.tsx$/i
+// Dialog/Card 独立实现:文件名是对应组件名或 *-dialog.tsx 等变体
+// 注:不含 form — 共享层 @ihui/ui-react 无通用 Form 组件(只有场景化 LoginForm),
+// 检测 Form 独立实现是误报。web 端 form/Form.tsx 已作为孤儿代码删除(零引用)。
+// 若未来共享层新增 Form 组件,可在此正则重新加回 form。
+const DIALOG_CARD_FORM_FILE_RE = /^([a-z0-9]+-)?(dialog|card)\.tsx$/i
 
 /**
  * 递归扫描目录,返回所有 .tsx 文件绝对路径
