@@ -75,7 +75,7 @@ export default function MemberCouponsPage() {
         <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
+      <div className="flex flex-nowrap gap-1 rounded-lg border bg-muted/30 p-1">
         {TAB_VALUES.map((v) => (
           <button
             key={v}
@@ -87,7 +87,7 @@ export default function MemberCouponsPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(TAB_KEY[v] ?? `tab.${v}`)}
+            <span className="whitespace-nowrap">{t(TAB_KEY[v] ?? `tab.${v}`)}</span>
           </button>
         ))}
       </div>
@@ -97,7 +97,7 @@ export default function MemberCouponsPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
+          <span className="whitespace-nowrap">{t('loading')}</span>
         </div>
       ) : coupons.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
@@ -119,13 +119,15 @@ export default function MemberCouponsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{c.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate text-xs text-muted-foreground">
                   {t('minSpend', { amount: currencyFmt.format(c.minSpend) })}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                   {t('validUntil', { date: dateFmt.format(new Date(c.expiresAt)) })}
                 </p>
-                <p className="font-mono text-xs text-muted-foreground">CODE: {c.code}</p>
+                <p className="truncate font-mono text-xs text-muted-foreground" title={c.code}>
+                  CODE: {c.code}
+                </p>
               </div>
             </div>
           ))}

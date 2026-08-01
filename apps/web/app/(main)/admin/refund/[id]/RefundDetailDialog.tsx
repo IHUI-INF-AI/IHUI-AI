@@ -85,7 +85,6 @@ export function RefundDetailDialog({
             />
           </div>
           <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
-            <span className="text-xs text-muted-foreground">state: {state}</span>
             <div className="flex items-center gap-2">
               {action === 'audit' ? (
                 <>

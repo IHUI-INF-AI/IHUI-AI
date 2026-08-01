@@ -26,7 +26,6 @@ interface RefundDialogProps {
   currencyFmt: Intl.NumberFormat
   canApprove: boolean
   canReject: boolean
-  state: string
   onReasonChange: (v: string) => void
   onClose: () => void
   onSubmit: (e: React.FormEvent) => void
@@ -43,7 +42,6 @@ export function RefundDialog({
   currencyFmt,
   canApprove,
   canReject,
-  state,
   onReasonChange,
   onClose,
   onSubmit,
@@ -92,7 +90,6 @@ export function RefundDialog({
             />
           </div>
           <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
-            <span className="text-xs text-muted-foreground">state: {state}</span>
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" onClick={onClose} disabled={disabled} className="shrink-0">
                 <span className="whitespace-nowrap">{tc('cancel')}</span>

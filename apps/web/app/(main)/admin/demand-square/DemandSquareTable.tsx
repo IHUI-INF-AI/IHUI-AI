@@ -74,10 +74,10 @@ export function DemandSquareTable({
           ) : (
             list.map((r) => (
               <TableRow key={r.id} className="transition-colors hover:bg-muted/30">
-                <TableCell className="px-4 py-2.5 font-mono text-xs">
+                <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={r.agentId ?? ''}>
                   {r.agentId ? r.agentId.slice(0, 8) : '-'}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground" title={r.userId ?? ''}>
                   {r.userId ? r.userId.slice(0, 8) : '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
