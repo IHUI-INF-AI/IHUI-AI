@@ -56,10 +56,17 @@ interface ConversationItem {
   archivedAt?: string | null
 }
 
-async function fetchConversations(): Promise<ConversationItem[]> {
-  const res = await fetchApi<{ conversations: ConversationItem[] }>('/api/chat/conversations')
+interface ConversationsResponse {
+  conversations: ConversationItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+async function fetchConversations(): Promise<ConversationsResponse> {
+  const res = await fetchApi<ConversationsResponse>('/api/chat/conversations')
   if (!res.success) throw new Error(res.error)
-  return res.data.conversations
+  return res.data
 }
 
 type GroupKey = 'today' | 'thisWeek' | 'thisMonth'
@@ -238,7 +245,8 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     )
   }
 
-  const items = data ?? []
+  // items 取分页后的列表(用于渲染);总数显示用 data.total(后端真实总数,不受 pageSize 截断)
+  const items = data?.conversations ?? []
 
   const handleSelect = (item: ConversationItem) => {
     useChatStore.getState().setConversationId(item.id)
@@ -488,9 +496,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
       >
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
-          {items.length > 0 && (
+          {(data?.total ?? items.length) > 0 && (
             <span className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
-              {items.length}
+              {data?.total ?? items.length}
             </span>
           )}
         </div>
