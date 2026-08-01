@@ -34,7 +34,20 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     // 顶部间距由 GlobalTopBar 内部 pt-2 提供(统一管理,与 8 方向 resize 区域避让对齐)。
     // 左侧间距由 AISidePanel 容器 mr-1.5 (6px) 提供(打开态=面板右边缘到卡片左边缘 6px;
     // 关闭态=width=0 + mr-1.5 = 6px 占位),此处不再加 pl-2 避免叠加导致 14px 错乱。
-    <div className="flex min-h-0 flex-1 flex-col pb-2 pr-2 cursor-default">
+    //
+    // pl-[var(--topbar-content-left)](2026-08-01 立,根治移动端错位):
+    // 移动端(<1024px)顶栏第 0 个元素是汉堡按钮(mobileMenu),占 ml-1.5(6)+w-9(36)+gap-1(4)=46px,
+    // 把搜索按钮挤到 left=46px。本 pl 让工作区卡片对齐搜索按钮 left,消除 46px 错位。
+    // 桌面端(≥1024px)汉堡按钮 hidden,--topbar-content-left=0px,pl 不生效。
+    //
+    // ⚠️ 变量值来源(2026-08-01 根治方案):
+    // - SSR 首屏:globals.css :root + @media (min-width:1024px) 硬编码 fallback(46px/0px)
+    // - JS 执行后:GlobalTopBar 的 ResizeObserver 动态测量搜索按钮实际 left,用 inline style
+    //   覆盖(优先级 > stylesheet)。工作区卡片自动跟随 mobileMenu 样式变化,无需手动同步。
+    //   详见 GlobalTopBar.tsx useEffect 注释。
+    // - 历史根因:旧方案纯硬编码,依赖 mobileMenu 的 ml-1.5/w-9/gap-1,样式变化即失效
+    //   → "反反复复修不好"。新方案动态测量根治。
+    <div className="flex min-h-0 flex-1 flex-col pb-2 pr-2 pl-[var(--topbar-content-left)] cursor-default">
       {/* 工作区卡片:仅包含 main 内容
           - bg-shell-panel rounded-xl 保持卡片视觉
           - flex-1 + min-h-0 填充剩余高度
