@@ -73,7 +73,7 @@ export function MobileDashboardClient() {
         ))}
       </div>
 
-      <div className="grid gap-4 min-[1024px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3">
         {/* DAU 趋势 */}
         <Card className="min-[1024px]:col-span-2">
           <CardHeader className="pb-2">

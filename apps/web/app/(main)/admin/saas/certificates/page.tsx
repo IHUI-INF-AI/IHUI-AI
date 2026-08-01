@@ -142,7 +142,7 @@ export default function CertificatesPage() {
       </header>
 
       {/* 概览统计 */}
-      <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
         <StatCard
           label={t('stats.total')}
           value={total}
@@ -241,7 +241,7 @@ function CertCard({
         </div>
       </CardHeader>
       <CardContent>
-        <dl className="grid gap-x-6 gap-y-2 text-xs min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
           <Item label={t('issuer')} value={cert.issuer} mono />
           <Item label={t('subject')} value={cert.subject} mono />
           <Item

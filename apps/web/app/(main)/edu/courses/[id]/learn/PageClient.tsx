@@ -134,7 +134,7 @@ export default function EduCourseLearnPage() {
         {t('backToDetail')}
       </Link>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_280px]">
         <div className="space-y-4">
           <div className="flex aspect-video items-center justify-center rounded-lg bg-black">
             {active?.videoUrl ? (

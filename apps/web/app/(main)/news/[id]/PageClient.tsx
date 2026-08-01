@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -97,8 +97,8 @@ export default function NewsDetailPage() {
         separator={<ChevronRight className="h-3.5 w-3.5" />}
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
-        <div className="min-w-0 space-y-5 lg:col-span-3">
+      <div className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-4">
+        <div className="min-w-0 space-y-5 min-[1024px]:col-span-3">
           <Card>
             <CardContent className="p-6">
               <header className="space-y-3 border-b pb-4">
@@ -174,7 +174,7 @@ export default function NewsDetailPage() {
           <NewsComments articleId={id} />
         </div>
 
-        <aside className="lg:col-span-1">
+        <aside className="min-[1024px]:col-span-1">
           <div className="sticky top-4 space-y-4">
             <HotNews limit={5} />
           </div>

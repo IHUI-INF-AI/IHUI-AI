@@ -156,7 +156,7 @@ export default function WrongQuestionsPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         {cards.map(({ label, value, Icon, tone }) => (
           <Card key={label} className="transition-colors hover:bg-accent">
             <CardContent className="flex items-center justify-between p-4">
