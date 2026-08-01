@@ -4,20 +4,29 @@
 "同一设备操作多账号"→ 集体封号(交叉检测)。本模块在批量发布前验证
 账号间隔离度,关联度过高时拒绝发布。
 
-检查维度(4 类):
+检查维度(4 类同步 + 4 类异步深度):
+同步(快速,内存计算):
 1. 指纹相似度(8 维指纹对比,>70% 相似 → 高危)
 2. IP 重叠(同 IP 不同账号 → 高危)
 3. 时序重叠(同 5 分钟内不同账号发布 → 中危)
 4. User-Agent 重叠(完全相同 → 高危)
 
+异步深度(持久化,device_graph_guard 委托):
+5. 同指纹哈希(跨会话指纹相同 → 高危)
+6. 同代理 IP(跨会话 IP 相同 → 高危)
+7. 同 UA 哈希(跨会话 UA 相同 → 中危)
+8. 同 Canvas 哈希(跨会话 Canvas 相同 → 高危)
+
 设计:
 - 单例模式(多适配器共享同一守护器)
-- 线程安全(threading.Lock + double-check)
-- 账号会话记录内存缓存(进程内)
-- 纯计算(无 IO,毫秒级返回)
+- 线程安全(threading.Lock + double-check)用于同步方法
+- 异步方法委托 DeviceGraphGuard(asyncio.Lock + JSON 持久化)
+- 账号会话记录内存缓存(进程内,同步快速检查)
+- 纯计算同步方法(无 IO,毫秒级返回)
 """
 from __future__ import annotations
 
+import hashlib
 import threading
 import time
 from dataclasses import dataclass, field
@@ -360,6 +369,84 @@ class CrossAccountGuard:
                 ]
                 for k in keys_to_remove:
                     self._sessions.pop(k, None)
+
+    # -----------------------------------------------------------------
+    # 异步深度检测(委托 DeviceGraphGuard,跨会话持久化关联检测)
+    # -----------------------------------------------------------------
+
+    async def async_record_device_binding(
+        self,
+        account_id: str,
+        fingerprint: BrowserFingerprint,
+        proxy: Optional[ProxyConfig] = None,
+    ) -> None:
+        """记录账号设备绑定到持久化图谱(跨会话关联检测用)。
+
+        在 create_stealth_browser_context 后调用,将账号的指纹/IP/UA 哈希
+        持久化到 device_graph,供后续 detect_linkage 检测跨账号关联。
+
+        Args:
+            account_id: 账号唯一标识
+            fingerprint: 账号浏览器指纹
+            proxy: 账号代理配置(可选,无代理记 "direct")
+        """
+        from .device_graph_guard import get_device_graph_guard
+
+        fp_hash = _fingerprint_hash(fingerprint)
+        proxy_ip = proxy.server if proxy else "direct"
+        ua_hash = hashlib.sha256(fingerprint.user_agent.encode("utf-8")).hexdigest()[:16]
+        # Canvas 哈希由 stealth_advanced 运行时注入,此处用指纹种子作占位
+        canvas_hash = f"seed:{fingerprint.fingerprint_seed}"
+
+        guard = get_device_graph_guard()
+        await guard.record_binding(
+            account_id=account_id,
+            fingerprint_hash=fp_hash,
+            proxy_ip=proxy_ip,
+            ua_hash=ua_hash,
+            canvas_hash=canvas_hash,
+        )
+        logger.debug(
+            "[cross_guard] 异步记录设备绑定 account=%s fp=%s ip=%s",
+            account_id, fp_hash[:12], proxy_ip,
+        )
+
+    async def async_check_device_linkage(
+        self,
+        account_id: str,
+    ) -> tuple[bool, int, list[str]]:
+        """检测账号是否与其他账号共享设备/IP/指纹/UA(跨会话持久化检测)。
+
+        委托 DeviceGraphGuard.detect_linkage,查询持久化绑定图谱。
+
+        Args:
+            account_id: 被检测的账号 ID
+
+        Returns:
+            (is_linked, risk_score, linkage_types)
+            - is_linked: True 表示存在跨账号关联(高危)
+            - risk_score: 0-100,100=最高风险
+            - linkage_types: 命中的关联类型(fingerprint/ip/ua/canvas)
+        """
+        from .device_graph_guard import get_device_graph_guard
+
+        guard = get_device_graph_guard()
+        report = await guard.detect_linkage(account_id)
+        if report.is_linked:
+            logger.warning(
+                "[cross_guard] 账号 %s 检测到跨会话关联:风险=%d 类型=%s 关联账号=%d",
+                account_id, report.risk_score,
+                ",".join(report.linkage_types),
+                len(report.linked_accounts),
+            )
+        return report.is_linked, report.risk_score, report.linkage_types
+
+    async def async_clear_device_binding(self, account_id: str) -> None:
+        """清除账号设备绑定记录(账号删除/重置时调用)。"""
+        from .device_graph_guard import get_device_graph_guard
+
+        guard = get_device_graph_guard()
+        await guard.clear_binding(account_id)
 
     @classmethod
     def get_instance(cls) -> "CrossAccountGuard":
