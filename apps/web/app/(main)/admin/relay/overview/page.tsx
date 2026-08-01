@@ -152,7 +152,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
         </div>
       </div>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {kpis.map((k) => (
           <Card key={k.label}>
             <CardHeader className="pb-2">
@@ -172,7 +172,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
         ))}
       </div>
 
-      <div className="grid gap-3 min-[1024px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">今日模型分布</CardTitle></CardHeader>
           <CardContent>

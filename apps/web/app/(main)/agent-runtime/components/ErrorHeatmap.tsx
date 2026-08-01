@@ -100,7 +100,7 @@ export function ErrorHeatmap({ agentId, timeRange, refreshKey }: ErrorHeatmapPro
           <div className="space-y-2">
             <div className="overflow-auto">
               <div
-                className="grid gap-0.5"
+                className="grid grid-cols-1 gap-0.5"
                 style={{
                   gridTemplateColumns: `120px repeat(${times.length}, minmax(28px, 1fr))`,
                 }}

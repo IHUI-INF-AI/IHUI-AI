@@ -103,13 +103,13 @@ export default function CourseDetailPage() {
         {t('detail.back')}
       </Link>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-6 min-[1024px]:flex-row">
         <div className="min-w-0 flex-1 space-y-4">
           <div className="space-y-3">
             <div className="flex h-48 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5">
               <PlayCircle className="h-16 w-16 text-primary/30" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{lesson.title}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{lesson.title}</h1>
             <p className="text-sm text-muted-foreground">{lesson.description}</p>
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{lesson.instructor}</span>
@@ -183,7 +183,7 @@ export default function CourseDetailPage() {
           </section>
         </div>
 
-        <aside className="w-full shrink-0 lg:w-72">
+        <aside className="w-full shrink-0 min-[1024px]:w-72">
           <Card className={cn('sticky top-4')}>
             <CardHeader>
               <CardTitle className="text-2xl">

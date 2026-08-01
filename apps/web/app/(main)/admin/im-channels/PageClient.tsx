@@ -102,7 +102,7 @@ export default function PageClient() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 min-[1024px]:grid-cols-[320px_1fr]">
+            <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[320px_1fr]">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">平台列表</CardTitle>

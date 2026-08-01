@@ -98,7 +98,7 @@ export default function BackendHealthPage() {
             {t('backendHealth.noData')}
           </div>
         ) : (
-          <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {servicesList.map((s) => {
               const Icon = ICONS[s.name] ?? Server
               const ok = s.status === 'healthy'
@@ -147,7 +147,7 @@ export default function BackendHealthPage() {
             <CardTitle className="text-base">{t('backendHealth.responseTimeDesc')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
               {servicesList.map((s) => (
                 <div key={s.name} className="rounded-md border p-3">
                   <div className="text-xs text-muted-foreground">{s.name}</div>

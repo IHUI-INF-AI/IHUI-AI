@@ -84,7 +84,7 @@ export default function AdminMonitorDashboardPage() {
         <p className="mt-1 text-sm text-muted-foreground">CPU / 内存 / 请求 / QPS 实时监控</p>
       </div>
 
-      <div className="grid gap-4 min-[1024px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-base">

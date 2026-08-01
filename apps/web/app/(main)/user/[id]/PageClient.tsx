@@ -124,7 +124,7 @@ export default function PublicUserProfilePage() {
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="break-words text-xl font-bold tracking-tight md:text-2xl">
+            <h1 className="break-words text-xl font-bold tracking-tight min-[768px]:text-2xl">
               {user.nickname || 'User'}
             </h1>
             {isSelf && (
@@ -166,7 +166,7 @@ export default function PublicUserProfilePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         {statsItems.map((item) => (
           <div
             key={item.label}

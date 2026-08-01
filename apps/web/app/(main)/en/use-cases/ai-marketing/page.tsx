@@ -161,7 +161,7 @@ export default function AiMarketingPage() {
         {/* Capabilities */}
         <section className="mt-16">
           <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">Six core capabilities</h2>
-          <div className="mt-8 grid gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
@@ -177,7 +177,7 @@ export default function AiMarketingPage() {
         {/* Cases */}
         <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
           <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">Customer success stories</h2>
-          <div className="mt-8 grid gap-6 min-[768px]:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
               <div key={i} className="rounded-2xl border bg-card p-6">
                 <h3 className="text-base font-semibold">{cs.title}</h3>
@@ -196,7 +196,7 @@ export default function AiMarketingPage() {
           <p className="mx-auto mt-3 max-w-3xl text-center text-sm text-muted-foreground min-[768px]:text-base">
             Built on the IHUI AI full-stack AI operating system with one codebase across 8 endpoints; all core components are open source and integrate seamlessly with 5 major social platforms.
           </p>
-          <div className="mt-8 grid gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
               <div key={i} className="rounded-2xl border bg-card p-5">
                 <h3 className="text-sm font-semibold">{t.name}</h3>

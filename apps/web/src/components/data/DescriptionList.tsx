@@ -20,7 +20,7 @@ const colMap = {
 
 export function DescriptionList({ items, column = 2, className }: DescriptionListProps) {
   return (
-    <dl className={cn('grid gap-x-4 gap-y-3', colMap[column], className)}>
+    <dl className={cn('grid grid-cols-1 gap-x-4 gap-y-3', colMap[column], className)}>
       {items.map((item) => (
         <div key={item.label} className="flex flex-col gap-0.5">
           <dt className="text-xs text-muted-foreground">{item.label}</dt>

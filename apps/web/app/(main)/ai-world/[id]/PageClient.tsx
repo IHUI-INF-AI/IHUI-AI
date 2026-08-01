@@ -170,7 +170,7 @@ export default function AiWorldDetailPage() {
       {relatedApps.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">相关推荐</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
             {relatedApps.map((app) => (
               <Link
                 key={app.id}

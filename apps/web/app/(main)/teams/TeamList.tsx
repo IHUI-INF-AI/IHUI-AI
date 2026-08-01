@@ -36,7 +36,7 @@ export function TeamList({ data, isLoading, error }: Props) {
           {error.message}
         </div>
       ) : data && data.length > 0 ? (
-        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {data.map((team) => (
             <Card
               key={team.id}
