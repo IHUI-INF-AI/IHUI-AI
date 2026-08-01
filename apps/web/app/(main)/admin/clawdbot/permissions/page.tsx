@@ -94,7 +94,7 @@ export default function ClawdbotPermissionsPage() {
 
       {showForm && (
         <form onSubmit={submit} className="space-y-3 rounded-lg border bg-card p-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="space-y-1">
               <Label>角色</Label>
               <Input
@@ -112,7 +112,7 @@ export default function ClawdbotPermissionsPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="space-y-1">
               <Label>操作 (逗号分隔)</Label>
               <Input

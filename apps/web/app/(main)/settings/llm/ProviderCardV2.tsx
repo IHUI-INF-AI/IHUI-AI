@@ -266,15 +266,15 @@ export function ProviderCardV2({
 
         {/* Models list (子表) */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">
+          <div className="flex items-center justify-between gap-3">
+            <p className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
               {t('modelsCount', { count: models.length })}
             </p>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs"
+              className="h-6 shrink-0 px-2 text-xs"
               onClick={() => onAddModel(provider)}
             >
               <Plus className="mr-1 h-3 w-3" />

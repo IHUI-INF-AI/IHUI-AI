@@ -30,14 +30,14 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-2">
             {services.map((s) => {
               const Icon = SERVICE_ICONS[s.name] ?? Server
               const ok = s.status === 'healthy'
               return (
                 <div
                   key={s.name}
-                  className="flex items-center justify-between rounded-md border p-2.5"
+                  className="flex items-center justify-between gap-2 rounded-md border p-2.5"
                 >
                   <div className="flex items-center gap-2">
                     <Icon className={cn('h-4 w-4', ok ? 'text-emerald-600' : 'text-red-600')} />
@@ -68,7 +68,7 @@ export function MonitorStatCards({ services, perfCards, t }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             {perfCards.map((c) => (
               <div key={c.label} className="rounded-md border p-3">
                 <div className="text-xs text-muted-foreground">{c.label}</div>
