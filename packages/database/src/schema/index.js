@@ -1,0 +1,217 @@
+export * from './users.js';
+export * from './projects.js';
+export * from './files.js';
+export * from './files-extra.js';
+export * from './notifications.js';
+export * from './billing.js';
+export * from './audit.js';
+export * from './audit-chain.js';
+export * from './chat.js';
+export * from './teams.js';
+export * from './rbac.js';
+export * from './workflow.js';
+export * from './comments.js';
+export * from './promotions.js';
+export * from './gamification.js';
+export * from './content.js';
+export * from './system.js';
+export * from './social.js';
+export * from './community.js';
+export * from './learn.js';
+export * from './exam.js';
+export * from './order.js';
+export * from './live.js';
+export * from './member.js';
+export * from './resource.js';
+export * from './point.js';
+export * from './usercenter.js';
+export * from './schedule.js';
+export * from './statistics.js';
+export * from './message.js';
+export * from './topic.js';
+export * from './behavior.js';
+export * from './visit-tracking.js';
+export * from './oss.js';
+export * from './setting.js';
+export * from './news.js';
+export * from './certificate.js';
+export * from './wallet.js';
+export * from './commission.js';
+export * from './oauth.js';
+export * from './vip.js';
+export * from './captcha.js';
+export * from './admin-sys.js';
+export * from './edu-extended.js';
+export * from './misc-extended.js';
+export * from './agents-extended.js';
+export * from './agent-rule.js';
+export * from './misc-extended-2.js';
+export * from './member-extended.js';
+export * from './exam-extended.js';
+export * from './learn-extended.js';
+export * from './payment-callbacks.js';
+export * from './agent-context.js';
+export * from './identity.js';
+export * from './ai-config.js';
+export * from './ai-relay.js';
+export * from './user-learning.js';
+// CLI 配置导入(cc-switch / codex++ / 各 CLI 工具)历史表
+export * from './cli-provider-imports.js';
+export * from './bot-sites.js';
+export * from './gen-table.js';
+export * from './refund-audit.js';
+export * from './customer-service.js';
+export * from './tenant.js';
+export * from './ai-cost.js';
+export * from './ai-feed.js';
+export * from './ai-education.js';
+export * from './ai-gc.js';
+export * from './circle-extra.js';
+export * from './ask-extra.js';
+export * from './learn-extra-extended.js';
+export * from './learn-record.js';
+export * from './user-auth-info.js';
+export * from './tbox-extended.js';
+export * from './stock.js';
+export * from './srs.js';
+export * from './remote-device.js';
+export * from './canary.js';
+export * from './tool.js';
+export * from './developer-api-keys.js';
+export * from './app-version.js';
+export * from './monitor.js';
+export * from './webhooks.js';
+export * from './trader.js';
+export * from './sdks.js';
+export * from './miniprogram.js';
+export * from './product-identity.js';
+export * from './groups.js';
+export * from './security.js';
+export * from './tour.js';
+export * from './ai-capabilities.js';
+export * from './news-crawler.js';
+export * from './user-memory.js';
+export * from './agent-commerce.js';
+export * from './sensitive-words.js';
+export * from './agreements.js';
+export * from './carousels.js';
+export * from './message-templates.js';
+export * from './edu-full.js';
+export * from './zhs-full.js';
+export * from './live-extended.js';
+export * from './relation-tables.js';
+export * from './upload-sessions.js';
+export * from './auth-identity.js';
+export * from './education-platform.js';
+export * from './demand-square.js';
+export * from './faq.js';
+export * from './zone.js';
+export * from './ai-user-model-chat.js';
+export * from './ai-vendor-configs.js';
+export * from './knowledge-base.js';
+export * from './skills.js';
+export * from './user-preferences.js';
+export * from './funds.js';
+export * from './ai-feed-posts.js';
+export * from './ai-world-items.js';
+export * from './workspace-ai-tasks.js';
+export * from './security-logs.js';
+export * from './export-tasks.js';
+export * from './content-generation.js';
+export * from './mcp-servers.js';
+export * from './openclaw-items.js';
+export * from './site-categories.js';
+export * from './analytics-events.js';
+export * from './resource-likes.js';
+export * from './ai-modules.js';
+export * from './email-logs.js';
+export * from './developer.js';
+export * from './coze-chat-history.js';
+export * from './agent-reviews.js';
+export * from './id-mapping.js';
+export * from './user-addresses.js';
+export * from './service-appointments.js';
+export * from './business-cards.js';
+export * from './themes.js';
+export * from './point-redeem-items.js';
+export * from './image-gen-favorites.js';
+export * from './notes.js';
+export * from './knowledge-base-categories.js';
+export * from './agent-tasks.js';
+export * from './clawdbot.js';
+export * from './llm-call-logs.js';
+export * from './wechat-pay-contracts.js';
+export * from './knowledge-rag.js';
+// 知识图谱(2026-07-21 新增,G5 任务:LLM NER 抽取 + 关系存储 + 前端可视化)
+export * from './knowledge-graph.js';
+export * from './crew.js';
+export * from './oauth-private-keys.js';
+export * from './search-contents.js';
+export * from './agent-billings.js';
+// R80 补齐: D 盘 coze_zhs_py/models 2 张缺失表
+// 注: video-tasks.ts / simple-bot-configs.ts 与 ai-config.ts / bot-sites.ts 重复定义
+// 已删除 R80 补齐文件,保留原有 ai-config.ts / bot-sites.ts 中的定义(被更多代码依赖)
+// 27 张 D 盘表补迁移（2026-07-19）
+// 5 个 supplement 文件，共 17 张新表 + 10 张已在其他文件迁移（live-extended.ts 3 / learn-extended.ts 1 / learn-extra-extended.ts 1 / relation-tables.ts 5）
+export * from './social-supplement.js';
+export * from './live-supplement.js';
+export * from './resource-download.js';
+export * from './admin-extended.js';
+export * from './workspace-permissions.js';
+// 自媒体已发布内容记忆(2026-07-20 新增,迁移自源项目 JSON 文件)
+export * from './self-media.js';
+// 多平台一键发布系统(2026-07-20 新增,14 平台 + 凭证加密 + 任务调度 + 历史记录)
+export * from './publish-platform.js';
+// 搜索热词表(2026-07-20 补建,迁移报告 P0 缺失项)
+export * from './search-hot-words.js';
+// 用户自定义 AI 对话框技能(2026-07-21 新增,AI 对话框 Skill 库统一面板支撑)
+export * from './user-chat-skills.js';
+// 插件市场事件流(2026-07-22 新增,管理端监测插件热度 / 安装量 / 点击量)
+export * from './plugin-events.js';
+// D3 edu Java 14 个未迁移实体补齐(2026-07-22):
+//   学校组织架构 4 表(t_school/t_clazz/t_grade/t_subject)
+//   题库知识点 1 表(t_knowledge_point;其余 5 表已等价于 examQuestions/examChapters/examChapterSections/examRecords)
+//   课程推荐 2 表(t_course_recommend/t_course_recommend_log)
+//   课程核心三表(t_lesson/t_lesson_chapter/t_lesson_chapter_section)已等价于 learn.ts 的 lessons/lessonChapters/lessonChapterSections,无需补建
+export * from './school-org-supplement.js';
+export * from './question-bank-supplement.js';
+export * from './course-recommend-supplement.js';
+// 四层记忆 + Dream 梦境系统(2026-07-22 立,对标 OpenClaw Mem:episodic/semantic/procedural 3 表)
+export * from './memory.js';
+// 代码库语义索引(2026-07-22 新增,AST 切片 + pgvector 向量检索)
+export * from './codebase-index.js';
+// 大模型排行榜(2026-07-22 新增,参考 arena.ai,6 类模型 + Agent 智能体 + 总榜)
+export * from './model-leaderboard.js';
+// 资源上游自动同步中心 schema(2026-07-24 立,3 表)
+export * from './registry.js';
+// 资源上下文管理(2026-07-24 新增,用户上传文件/知识库/URL 绑定到会话供 AI 引用)
+export * from './resource-context.js';
+// 兑换码表(2026-07-31 立,P0-5 刮刮卡式裂变充值:admin 批量生成 + 用户兑换码充值)
+export * from './redemption-codes.js';
+// 模型映射表(2026-07-31 立,P0-4 降本神器:全局/用户/Key 三级映射,gpt-4o → deepseek-chat)
+export * from './ai-model-mappings.js';
+// 优惠券表(2026-07-31 立,折扣券/满减券/裂变券三合一:admin 批量生成 + 用户领券/核销/裂变奖励)
+export * from './coupons.js';
+// 阶梯计价规则表(2026-08-01 立,用得越多越便宜:月度用量达阈值自动降价)
+export * from './tiered-pricing-rules.js';
+// 用户计费分组(2026-08-01 立,P0 中转站造血能力:用户分组 + 倍率(VIP 折扣矩阵))
+export * from './user-billing-groups.js';
+// Relay 调用返佣流水表(2026-07-31 立,把返佣绑到 relay 调用消费:被邀请人消费,邀请人返佣)
+export * from './relay-commission-records.js';
+// 中转站渠道分组表(2026-07-31 立,#4 #6 合并:渠道分组 + 负载均衡 + 故障自动切换)
+export * from './ai-relay-channel-groups.js';
+// Relay Webhook 订阅 + 投递日志(2026-08-01 立,relay 调用完成/异常/余额不足事件订阅 + 重试 + HMAC 签名)
+export * from './webhook-subscriptions.js';
+// API Key 分组表(2026-08-01 立,P0 中转站造血能力:多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
+export * from './api-key-groups.js';
+// 模型价格历史 + 限时折扣调度(2026-08-01 立,价格趋势曲线 + 预设折扣 + 动态调价建议)
+export * from './model-price-history.js';
+// USDT 加密货币支付网关(2026-08-01 立,TRC20/ERC20 充值订单 + 区块链到账确认 + 钱包入账)
+export * from './usdt-payments.js';
+// Passkey 无密码登录(2026-08-01 立,WebAuthn/FIDO2 凭证存储 + counter 防重放)
+export * from './user-passkeys.js';
+// API Key 临时分享(2026-08-01 立,P0-26 限时 token + scope 限定 + 速率限制 + 自动过期)
+export * from './api-key-shares.js';
+// 中转站用户会话历史(2026-08-01 立,P0-32 conversation_id 关联 + 消息列表 + 归属隔离)
+export * from './relay-conversations.js';
+//# sourceMappingURL=index.js.map

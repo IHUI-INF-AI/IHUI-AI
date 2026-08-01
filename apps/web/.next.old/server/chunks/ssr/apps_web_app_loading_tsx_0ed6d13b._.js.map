@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/%E9%A1%B9%E7%9B%AE/IHUI-AI/apps/web/app/loading.tsx"],"sourcesContent":["import { Loader2 } from 'lucide-react'\n\nexport default function Loading() {\n  return (\n    <div className=\"flex min-h-[60vh] items-center justify-center\">\n      <Loader2 className=\"h-8 w-8 animate-spin text-muted-foreground\" />\n    </div>\n  )\n}\n"],"names":[],"mappings":";;;;;AAAA;;;AAEe,SAAS;IACtB,qBACE,gcAAC;QAAI,WAAU;kBACb,cAAA,gcAAC,4NAAO;YAAC,WAAU;;;;;;;;;;;AAGzB","debugId":null}}]
+}

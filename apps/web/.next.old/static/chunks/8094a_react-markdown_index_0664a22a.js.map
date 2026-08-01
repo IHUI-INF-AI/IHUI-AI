@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/%E9%A1%B9%E7%9B%AE/IHUI-AI/node_modules/.pnpm/react-markdown%409.1.0_%40types%2Breact%4019.2.17_react%4019.0.0/node_modules/react-markdown/index.js"],"sourcesContent":["/**\n * @typedef {import('./lib/index.js').AllowElement} AllowElement\n * @typedef {import('./lib/index.js').Components} Components\n * @typedef {import('./lib/index.js').ExtraProps} ExtraProps\n * @typedef {import('./lib/index.js').Options} Options\n * @typedef {import('./lib/index.js').UrlTransform} UrlTransform\n */\n\nexport {\n  MarkdownAsync,\n  MarkdownHooks,\n  Markdown as default,\n  defaultUrlTransform\n} from './lib/index.js'\n"],"names":[],"mappings":"AAAA;;;;;;CAMC","ignoreList":[0],"debugId":null}}]
+}
