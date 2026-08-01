@@ -6,7 +6,6 @@ import { FileJson, FileText, Download, RefreshCw, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 
 interface ExportTask {
@@ -114,13 +113,7 @@ export default function DataExportPage() {
   const hasExport = Boolean(lastExport.url)
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('dataExportTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('dataExportDesc')}</p>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+    <div className="space-y-4">
         <Alert variant="info" title={t('exportScope')} description={t('exportScopeDesc')} />
 
         <Card>
@@ -218,7 +211,6 @@ export default function DataExportPage() {
             {toast.msg}
           </div>
         )}
-      </div>
-    </Container>
+    </div>
   )
 }

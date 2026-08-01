@@ -97,11 +97,6 @@ export default async function LogsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('logs.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('logs.subtitle')}</p>
-      </header>
-
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
