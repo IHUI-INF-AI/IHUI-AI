@@ -9,7 +9,7 @@
  * 设计目标:零新增依赖、最小化代码、provider 切换对外透明。
  */
 
-import { createHmac, createHash } from 'node:crypto'
+import { createHmac, createHash, randomBytes } from 'node:crypto'
 import { env } from 'node:process'
 import { issueStsCredentials } from './storage-service.js'
 
@@ -46,7 +46,8 @@ export interface StsContext {
 export function generateObjectKey(userId: string, ext: string): string {
   const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'bin'
   const safeUser = userId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64) || 'anonymous'
-  const random = Math.random().toString(36).slice(2, 10)
+  // 2026-08-02 P2 安全加固：用 CSPRNG 替换 Math.random，防止攻击者枚举他人文件路径
+  const random = randomBytes(8).toString('hex')
   return `${safeUser}/${Date.now()}-${random}.${safeExt}`
 }
 
