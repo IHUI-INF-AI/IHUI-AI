@@ -36,7 +36,7 @@ export function PageSkeleton({ hasHeader = true, className }: PageSkeletonProps)
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={`skel-${i}`} className="flex items-center gap-3">
               <div className="h-4 w-4 animate-pulse rounded bg-muted" />
-              <div className="flex-1 space-y-1">
+              <div className="flex-1 min-w-0 space-y-1">
                 <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
                 <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
               </div>

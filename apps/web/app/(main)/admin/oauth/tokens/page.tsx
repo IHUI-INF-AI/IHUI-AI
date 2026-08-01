@@ -155,12 +155,11 @@ export default function AuthTokensPage() {
       />
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            共 {total} 条 · {page}/{totalPages}
-          </span>
-          <div className="flex gap-1">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">共 {total} 条 · {page}/{totalPages}</span>
+          <div className="flex shrink-0 gap-1">
             <Button
+              className="shrink-0"
               size="sm"
               variant="outline"
               disabled={page <= 1}
@@ -169,6 +168,7 @@ export default function AuthTokensPage() {
               上一页
             </Button>
             <Button
+              className="shrink-0"
               size="sm"
               variant="outline"
               disabled={page >= totalPages}

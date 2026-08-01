@@ -344,8 +344,8 @@ export function LlmConfigDialog({
 
           {/* 模型 ID + 拉取 */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="llm-model" className="text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="llm-model" className="min-w-0 truncate text-sm">
                 {t('modelIdLabel')}
               </Label>
               {form.id ? (
@@ -353,7 +353,7 @@ export function LlmConfigDialog({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-xs"
+                  className="h-7 shrink-0 px-2 text-xs"
                   onClick={() => fetchMut.mutate()}
                   disabled={fetchMut.isPending}
                 >
@@ -415,8 +415,9 @@ export function LlmConfigDialog({
                 id="llm-enabled"
                 checked={form.enabled}
                 onCheckedChange={(v) => setForm({ ...form, enabled: v })}
+                className="shrink-0"
               />
-              <Label htmlFor="llm-enabled" className="text-sm">
+              <Label htmlFor="llm-enabled" className="min-w-0 truncate text-sm">
                 {t('enableConfig')}
               </Label>
             </div>
@@ -427,6 +428,7 @@ export function LlmConfigDialog({
               type="button"
               variant="outline"
               size="sm"
+              className="shrink-0"
               onClick={() => previewMut.mutate()}
               disabled={previewMut.isPending || !form.apiKey || !form.modelId}
             >
@@ -437,7 +439,7 @@ export function LlmConfigDialog({
               )}
               {t('previewTest')}
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <Button type="button" variant="ghost" onClick={onClose} disabled={savePending}>
                 {t('cancel')}
               </Button>

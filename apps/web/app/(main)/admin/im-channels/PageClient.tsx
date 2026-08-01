@@ -106,7 +106,7 @@ export default function PageClient() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">平台列表</CardTitle>
-                  <CardDescription>共 {platforms.length} 个平台,点击查看配置</CardDescription>
+                  <CardDescription className="line-clamp-2 break-words">共 {platforms.length} 个平台,点击查看配置</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <PlatformList

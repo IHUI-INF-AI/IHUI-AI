@@ -138,6 +138,7 @@ export default function AdminAiWorldSitesPage() {
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-lg border">
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
                       <tr>
@@ -162,6 +163,7 @@ export default function AdminAiWorldSitesPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </CardContent>
