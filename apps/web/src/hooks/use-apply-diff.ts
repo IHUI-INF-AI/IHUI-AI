@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'

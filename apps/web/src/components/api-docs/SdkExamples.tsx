@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Code2, Copy, Check, Eye, EyeOff } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { fetchApi } from '@/lib/api'
 import { useClipboard } from '@/hooks/use-clipboard'

@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import { toast } from 'sonner'
+// 2026-08-01:改用 @/components/common 的 toastProxy(而非 sonner 直接),统一走
+// window event 总线,由 Toaster.tsx 接收渲染。error/warning 会被自动中文化。
+import { toast } from '@/components/common'
 
 export interface UseToastReturn {
   toast: typeof toast
@@ -19,7 +21,10 @@ export interface UseToastReturn {
  * 重发 GET /api/publish/accounts/me → 100+ 次 toast.error("Authentication required"))。
  *
  * 修复:4 个 wrapper 用 useCallback([]) 固化,返回对象用 useMemo 固化。
- * sonner 的 `toast` 本身是模块级稳定引用,无需处理。
+ * toastProxy 本身是模块级稳定引用,无需处理。
+ *
+ * 2026-08-01:改用 toastProxy 后,error/warning 调用会被 Toaster.tsx 的 handler
+ * 自动中文化(toUserFriendlyMessage),业务方无需逐个处理英文错误消息。
  */
 export function useToast(): UseToastReturn {
   const success = useCallback(
@@ -42,10 +47,7 @@ export function useToast(): UseToastReturn {
       toast.info(message, description ? { description } : undefined),
     [],
   )
-  return useMemo(
-    () => ({ toast, success, error, warning, info }),
-    [success, error, warning, info],
-  )
+  return useMemo(() => ({ toast, success, error, warning, info }), [success, error, warning, info])
 }
 
 // 加载状态管理

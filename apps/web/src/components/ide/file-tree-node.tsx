@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import type { FileNode } from '@ihui/types'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { runCommand } from '@ihui/api-client'
@@ -29,7 +29,8 @@ function refreshFileTree() {
 
 export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps) {
   const t = useTranslations('ide')
-  const { expandedFolders, selectedFileId, toggleFolder, openFile, selectFile, workspacePath } = useIDEWorkspace()
+  const { expandedFolders, selectedFileId, toggleFolder, openFile, selectFile, workspacePath } =
+    useIDEWorkspace()
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null)
   const [renaming, setRenaming] = React.useState(false)
   const [renameValue, setRenameValue] = React.useState('')
@@ -42,7 +43,10 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
   const handleClick = () => {
     if (renaming || deleting) return
     if (node.type === 'folder') toggleFolder(node.id)
-    else { selectFile(node.id); openFile(node) }
+    else {
+      selectFile(node.id)
+      openFile(node)
+    }
   }
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -74,7 +78,11 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
   }, [renaming])
 
   const handleCopyPath = async () => {
-    try { await navigator.clipboard?.writeText(node.path) } catch { /* ignore */ }
+    try {
+      await navigator.clipboard?.writeText(node.path)
+    } catch {
+      /* ignore */
+    }
     setMenuPos(null)
   }
 
@@ -116,9 +124,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
 
   const handleDelete = async () => {
     if (!workspacePath) return
-    const command = node.type === 'folder'
-      ? `rm -rf "${node.path}"`
-      : `rm "${node.path}"`
+    const command = node.type === 'folder' ? `rm -rf "${node.path}"` : `rm "${node.path}"`
     try {
       const result = await runCommand({ command, workspacePath, mode: 'workspace-write' })
       if (result.success) {
@@ -140,14 +146,25 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
     return (
       <span className="truncate">
         {node.name.slice(0, idx)}
-        <span className="rounded-sm bg-yellow-500/30 text-foreground">{node.name.slice(idx, idx + searchTerm.length)}</span>
+        <span className="rounded-sm bg-yellow-500/30 text-foreground">
+          {node.name.slice(idx, idx + searchTerm.length)}
+        </span>
         {node.name.slice(idx + searchTerm.length)}
       </span>
     )
   }
 
   const menuItems = [
-    { labelKey: 'fileTreeNode.open', icon: FileText, action: () => { if (node.type === 'file') { selectFile(node.id); openFile(node) } } },
+    {
+      labelKey: 'fileTreeNode.open',
+      icon: FileText,
+      action: () => {
+        if (node.type === 'file') {
+          selectFile(node.id)
+          openFile(node)
+        }
+      },
+    },
     { labelKey: 'fileTreeNode.rename', icon: Pencil, action: startRename },
     { labelKey: 'fileTreeNode.delete', icon: Trash2, action: startDelete },
     { labelKey: 'fileTreeNode.copyPath', icon: Copy, action: handleCopyPath },
@@ -156,14 +173,27 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
   return (
     <div
       draggable={node.type === 'folder'}
-      onDragStart={(e) => { e.dataTransfer.setData('text/plain', node.id); e.dataTransfer.effectAllowed = 'move' }}
-      onDragOver={(e) => { if (node.type === 'folder') { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', node.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+      onDragOver={(e) => {
+        if (node.type === 'folder') {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+        }
+      }}
     >
       <div
         role="button"
         tabIndex={0}
         onClick={handleClick}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleClick()
+          }
+        }}
         onContextMenu={handleContextMenu}
         className={cn(
           'flex cursor-pointer items-center gap-1 rounded-sm py-0.5 pr-2 text-xs transition-colors',
@@ -172,11 +202,18 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
         style={{ paddingLeft: depth * 12 + 4 }}
       >
         {node.type === 'folder' ? (
-          <ChevronRight className={cn('h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150', isExpanded && 'rotate-90')} />
+          <ChevronRight
+            className={cn(
+              'h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150',
+              isExpanded && 'rotate-90',
+            )}
+          />
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <Icon className={cn('h-3.5 w-3.5 shrink-0', node.type === 'file' && getFileColor(node.name))} />
+        <Icon
+          className={cn('h-3.5 w-3.5 shrink-0', node.type === 'file' && getFileColor(node.name))}
+        />
         {renaming ? (
           <input
             ref={renameInputRef}
@@ -184,8 +221,13 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
             onChange={(e) => setRenameValue(e.target.value)}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); void handleRename() }
-              if (e.key === 'Escape') { setRenaming(false) }
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                void handleRename()
+              }
+              if (e.key === 'Escape') {
+                setRenaming(false)
+              }
             }}
             className="w-full rounded-sm border border-border bg-background px-1 text-xs focus:outline-none"
           />
@@ -193,13 +235,23 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
           <div className="flex flex-1 items-center gap-1">
             <span className="truncate text-red-500">{t('fileTreeNode.confirmDelete')}</span>
             <button
-              onClick={(e) => { e.stopPropagation(); void handleDelete() }}
+              onClick={(e) => {
+                e.stopPropagation()
+                void handleDelete()
+              }}
               className="rounded-sm bg-red-500 px-1.5 py-0.5 text-xs text-white hover:bg-red-600"
-            >{t('fileTreeNode.confirm')}</button>
+            >
+              {t('fileTreeNode.confirm')}
+            </button>
             <button
-              onClick={(e) => { e.stopPropagation(); setDeleting(false) }}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleting(false)
+              }}
               className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
-            >{t('fileTreeNode.cancel')}</button>
+            >
+              {t('fileTreeNode.cancel')}
+            </button>
           </div>
         ) : (
           renderName()
@@ -232,7 +284,10 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
           {menuItems.map((item) => (
             <button
               key={item.labelKey}
-              onClick={() => { item.action(); setMenuPos(null) }}
+              onClick={() => {
+                item.action()
+                setMenuPos(null)
+              }}
               className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-muted"
             >
               <item.icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
