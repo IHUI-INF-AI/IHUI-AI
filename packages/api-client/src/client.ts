@@ -1,4 +1,10 @@
-import type { ApiResult, ApiResponse, PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+import type {
+  ApiResult,
+  ApiResponse,
+  PlanUpdateEvent,
+  TerminalStartEvent,
+  TerminalEndEvent,
+} from '@ihui/types'
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
 import { getTransport } from './transport'
 
@@ -1178,6 +1184,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     Accept: 'text/event-stream',
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-08-02 P2 修复：与 fetchApi/postApi/putApi/patchApi/deleteApi 保持一致，
+  // 注入 X-Requested-With 配合后端 CSRF 防护(无 Bearer token 时走 cookie 兜底路径)
+  if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
 
   const body: Record<string, unknown> = { model: opts.model, messages: opts.messages }
   if (opts.metadata) body.metadata = opts.metadata
@@ -1443,11 +1452,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           try {
             const json = JSON.parse(data) as Record<string, unknown>
             // 2026-07-31 立,提取工具来源字段(兼容 snake_case / camelCase)
-            const serverSource = (
-              json.serverSource ??
-              json.server_source ??
-              ''
-            ) as string
+            const serverSource = (json.serverSource ?? json.server_source ?? '') as string
             const validServerSource =
               serverSource === 'builtin' || serverSource === 'plugin' || serverSource === 'mcp'
                 ? serverSource

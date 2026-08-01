@@ -21,8 +21,7 @@ export interface ReferenceItem {
 
 const MAX_LABEL_LENGTH = 30
 
-const generateId = (): string =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const generateId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 /**
  * 消息输入区 references 状态管理 hook(2026-07-29 提取自 message-input.tsx)
@@ -49,6 +48,10 @@ export function useMessageReferences(): {
   resetReferences: () => void
 } {
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
+  // 2026-08-02 修复 P1 内存泄露:用 ref 引用最新 references,
+  // 供组件卸载时 cleanup 释放所有 objectURL。
+  const refsRef = React.useRef(references)
+  refsRef.current = references
 
   const addFileReference = React.useCallback((file: File) => {
     const isImage = file.type.startsWith('image/')
@@ -73,9 +76,7 @@ export function useMessageReferences(): {
       id: generateId(),
       type: 'text',
       label:
-        trimmed.length > MAX_LABEL_LENGTH
-          ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...`
-          : trimmed,
+        trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...` : trimmed,
       preview: trimmed,
     }
     setReferences((prev) => [...prev, ref])
@@ -85,9 +86,7 @@ export function useMessageReferences(): {
     const trimmed = code.trim()
     if (!trimmed) return
     const summary =
-      trimmed.length > MAX_LABEL_LENGTH
-        ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...`
-        : trimmed
+      trimmed.length > MAX_LABEL_LENGTH ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}...` : trimmed
     const ref: ReferenceItem = {
       id: generateId(),
       type: 'text',
@@ -105,8 +104,29 @@ export function useMessageReferences(): {
     })
   }, [])
 
+  // 2026-08-02 修复 P1 内存泄露:resetReferences 中释放所有 objectURL,
+  // 原实现只清空数组不释放,用户添加图片后关闭对话框不发送会泄露 objectURL。
+  // 仅对 thumbnail 以 'blob:' 开头的释放,避免误 revoke 非 blob URL。
   const resetReferences = React.useCallback(() => {
-    setReferences([])
+    setReferences((prev) => {
+      prev.forEach((r) => {
+        if (r.thumbnail && r.thumbnail.startsWith('blob:')) {
+          URL.revokeObjectURL(r.thumbnail)
+        }
+      })
+      return []
+    })
+  }, [])
+
+  // 2026-08-02 修复 P1 内存泄露:组件卸载时释放 references 中所有 objectURL。
+  React.useEffect(() => {
+    return () => {
+      refsRef.current.forEach((r) => {
+        if (r.thumbnail && r.thumbnail.startsWith('blob:')) {
+          URL.revokeObjectURL(r.thumbnail)
+        }
+      })
+    }
   }, [])
 
   return {

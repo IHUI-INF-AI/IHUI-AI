@@ -35,7 +35,12 @@ export function ChatWindow({ roomId, onClose }: Props) {
       `/api/customer-service/messages${roomId ? `?roomId=${roomId}` : ''}`,
     )
     if (r.success && r.data) {
-      setMessages(r.data)
+      // 合并去重(按 msg.id),避免轮询整表替换覆盖用户刚发送的新消息
+      setMessages((prev) => {
+        const map = new Map<string, CsMessage>(prev.map((m) => [m.id, m]))
+        for (const m of r.data!) map.set(m.id, m)
+        return Array.from(map.values())
+      })
       setStatus('online')
     } else {
       setStatus('offline')
@@ -70,16 +75,22 @@ export function ChatWindow({ roomId, onClose }: Props) {
     const text = input.trim()
     if (!text || sending) return
     setSending(true)
-    const r = await fetchApi<CsMessage>('/api/customer-service/send', {
-      method: 'POST',
-      body: JSON.stringify({ roomId, content: text, type: 'text' }),
-    })
-    setSending(false)
-    if (r.success && r.data) {
-      setMessages((prev) => [...prev, r.data])
+    try {
+      const r = await fetchApi<CsMessage>('/api/customer-service/send', {
+        method: 'POST',
+        body: JSON.stringify({ roomId, content: text, type: 'text' }),
+      })
+      if (r.success && r.data) {
+        // 去重:如果已存在同 id 消息(轮询可能已带回),不重复添加
+        setMessages((prev) => (prev.some((m) => m.id === r.data!.id) ? prev : [...prev, r.data]))
+      }
+      setInput('')
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    } catch (err) {
+      console.error('[ChatWindow] send failed', err)
+    } finally {
+      setSending(false)
     }
-    setInput('')
-    requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

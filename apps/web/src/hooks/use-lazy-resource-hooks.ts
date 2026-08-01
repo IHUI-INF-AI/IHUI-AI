@@ -44,6 +44,10 @@ export function useMentionFiles(open: boolean): {
         }
       })
       .catch(() => {
+        // 2026-08-02 修复 P2 失败不重试:重置 ref 允许下次打开时重试,
+        // 原实现 mentionLoadedRef.current = true 在请求前设置,失败时不重置,
+        // 导致下次打开 @ 提及面板不会重试(永久锁死空数组)。
+        mentionLoadedRef.current = false
         // 静默失败:未登录/网络错误时保持空数组,Popover 显示"无匹配文件"
       })
   }, [open])
@@ -75,7 +79,7 @@ export function useAiSkills(open: boolean): {
         if (!res.success) {
           // 失败:重置 ref 允许下次打开时重试(避免一次性失败永久锁死)
           skillsLoadedRef.current = false
-          // eslint-disable-next-line no-console
+           
           console.warn('[slash-cmd] listAiSkills failed:', res.error, res.status)
           return
         }
@@ -90,7 +94,7 @@ export function useAiSkills(open: boolean): {
         } else {
           // 空响应:重置 ref 允许下次重试(后端可能临时返回空)
           skillsLoadedRef.current = false
-          // eslint-disable-next-line no-console
+           
           console.warn('[slash-cmd] listAiSkills returned empty or unexpected shape:', res.data)
         }
       })
@@ -98,7 +102,7 @@ export function useAiSkills(open: boolean): {
         // 网络错误:重置 ref 允许下次重试
         skillsLoadedRef.current = false
         // 静默失败 UI,但记录错误便于排查(生产环境不影响用户体验)
-        // eslint-disable-next-line no-console
+         
         console.error('[slash-cmd] listAiSkills network error:', err)
       })
       .finally(() => {

@@ -217,11 +217,14 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   }, [])
 
   // 计算剩余时间
+  // 2026-08-02 修复 P0 安全护栏失效:依赖数组必须包含 tick,
+  // 否则每秒 setTick 触发重渲染时 useMemo 始终返回 stale 值,
+  // 导致倒计时显示不变、5min/1min 警告永不触发、1 小时后不会自动切回 default。
   const remainingMs = React.useMemo(() => {
     if (!record) return 0
     const elapsed = Date.now() - record.startedAt
     return Math.max(0, record.durationMs - elapsed)
-  }, [record])
+  }, [record, tick])
 
   // 快到期提醒(2026-07-25 深化,防"被切懵"):
   // - 剩 5 分钟:警告 toast,可一键续期 1h
