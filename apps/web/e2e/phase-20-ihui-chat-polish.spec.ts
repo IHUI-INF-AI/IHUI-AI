@@ -19,7 +19,6 @@ const TRIGGER_TESTID = '[data-testid="agent-progress-trigger"]'
 const PANE_TESTID = '[data-testid="agent-progress-pane"]'
 const HEADER_TESTID = '[data-testid="pane-header"]'
 const TIMELINE_TAB_BTN = (id: string) => `[data-testid="timeline-tab-${id}"]`
-const TIMELINE_EVENTS = '[data-testid="timeline-events"]'
 const SUBAGENT_TREE = '[data-testid="subagent-task-tree"]'
 
 /** 供 v20 adminPage describe 块使用 */
@@ -183,18 +182,29 @@ test.describe('Phase 20 Trae Work 4 大 P1 细节优化', () => {
     }
 
     // grant clipboard 权限
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {})
+    await page
+      .context()
+      .grantPermissions(['clipboard-read', 'clipboard-write'])
+      .catch(() => {})
 
     // 找到 overview 部分的复制按钮
     const overviewCopyBtn = page.locator(
       '[data-testid="overview-copy-summary"], [aria-label*="复制任务摘要"], [title*="复制任务摘要"]',
     )
-    if (!(await overviewCopyBtn.first().isVisible({ timeout: 3000 }).catch(() => false))) {
+    if (
+      !(await overviewCopyBtn
+        .first()
+        .isVisible({ timeout: 3000 })
+        .catch(() => false))
+    ) {
       test.skip(true, 'overview 复制按钮不可见(可能无 overview 数据),跳过')
       return
     }
 
-    await overviewCopyBtn.first().click().catch(() => {})
+    await overviewCopyBtn
+      .first()
+      .click()
+      .catch(() => {})
     await page.waitForTimeout(500)
 
     // 验证剪贴板含 # 任务总览 标题
@@ -209,9 +219,7 @@ test.describe('Phase 20 Trae Work 4 大 P1 细节优化', () => {
   })
 
   // ───────── 测试 3:P1-3 Timeline 导出 Markdown ─────────
-  test('P1-3 Timeline 导出:timeline tab 内的 download 按钮存在 + 点击不报错', async ({
-    page,
-  }) => {
+  test('P1-3 Timeline 导出:timeline tab 内的 download 按钮存在 + 点击不报错', async ({ page }) => {
     if (!(await openPane(page))) {
       test.skip(true, 'chat 页面未就绪,跳过')
       return
@@ -231,16 +239,22 @@ test.describe('Phase 20 Trae Work 4 大 P1 细节优化', () => {
       '[data-testid="timeline-export"], [aria-label*="导出"], [title*="导出"], button:has-text("导出")',
     )
 
-    if (!(await exportBtn.first().isVisible({ timeout: 2000 }).catch(() => false))) {
+    if (
+      !(await exportBtn
+        .first()
+        .isVisible({ timeout: 2000 })
+        .catch(() => false))
+    ) {
       test.skip(true, 'timeline 导出按钮不可见(可能无 timeline 数据或实现细节),跳过')
       return
     }
 
     // 监听下载事件
-    const downloadPromise = page
-      .waitForEvent('download', { timeout: 5000 })
-      .catch(() => null)
-    await exportBtn.first().click().catch(() => {})
+    const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null)
+    await exportBtn
+      .first()
+      .click()
+      .catch(() => {})
     const download = await downloadPromise
 
     if (download) {
@@ -262,13 +276,21 @@ test.describe('Phase 20 Trae Work 4 大 P1 细节优化', () => {
 
     // 找 subagent-task-tree(子代理树)
     const subagentTree = page.locator(SUBAGENT_TREE)
-    if (!(await subagentTree.first().isVisible({ timeout: 3000 }).catch(() => false))) {
+    if (
+      !(await subagentTree
+        .first()
+        .isVisible({ timeout: 3000 })
+        .catch(() => false))
+    ) {
       test.skip(true, '子代理树不可见(无 active subagent),跳过右键菜单 E2E')
       return
     }
 
     // 1) 右键触发
-    await subagentTree.first().click({ button: 'right' }).catch(() => {})
+    await subagentTree
+      .first()
+      .click({ button: 'right' })
+      .catch(() => {})
     await page.waitForTimeout(400)
 
     // 2) 验证菜单出现
@@ -384,45 +406,57 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
     const copyBtn = adminPage.locator(
       '[data-testid="overview-copy-summary"], [aria-label*="复制任务摘要"], [title*="复制任务摘要"]',
     )
-    if (!(await copyBtn.first().isVisible({ timeout: 2000 }).catch(() => false))) {
+    if (
+      !(await copyBtn
+        .first()
+        .isVisible({ timeout: 2000 })
+        .catch(() => false))
+    ) {
       test.skip(true, 'adminPage overview 复制按钮不可见,跳过')
       return
     }
     // 点击不报错
-    await copyBtn.first().click().catch(() => {})
+    await copyBtn
+      .first()
+      .click()
+      .catch(() => {})
   })
 
   // ── v18.3 P1-3 Timeline 导出按钮 ──
-  adminTest('v18.3 P1-3 Timeline 导出按钮:存在 + 切换到 timeline tab 可见', async ({
-    adminPage,
-  }) => {
-    if (!(await waitForChatReady(adminPage))) {
-      test.skip(true, 'adminPage 未就绪,跳过')
-      return
-    }
-    const trigger = adminPage.locator(TRIGGER_TESTID)
-    await trigger.click().catch(() => {})
-    await adminPage.waitForTimeout(300)
+  adminTest(
+    'v18.3 P1-3 Timeline 导出按钮:存在 + 切换到 timeline tab 可见',
+    async ({ adminPage }) => {
+      if (!(await waitForChatReady(adminPage))) {
+        test.skip(true, 'adminPage 未就绪,跳过')
+        return
+      }
+      const trigger = adminPage.locator(TRIGGER_TESTID)
+      await trigger.click().catch(() => {})
+      await adminPage.waitForTimeout(300)
 
-    const timelineBtn = adminPage.locator(TIMELINE_TAB_BTN('timeline'))
-    if (!(await timelineBtn.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'adminPage timeline tab 按钮不可见,跳过')
-      return
-    }
-    await timelineBtn.click()
-    await adminPage.waitForTimeout(300)
+      const timelineBtn = adminPage.locator(TIMELINE_TAB_BTN('timeline'))
+      if (!(await timelineBtn.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'adminPage timeline tab 按钮不可见,跳过')
+        return
+      }
+      await timelineBtn.click()
+      await adminPage.waitForTimeout(300)
 
-    const exportBtn = adminPage.locator(
-      '[data-testid="timeline-export"], [aria-label*="导出"], [title*="导出"]',
-    )
-    const visible = await exportBtn.first().isVisible({ timeout: 2000 }).catch(() => false)
-    // 软断言:可能无数据时不显示
-    if (visible) {
-      adminExpect(visible).toBe(true)
-    } else {
-      test.skip(true, 'adminPage timeline 导出按钮不可见(无 timeline 数据),跳过')
-    }
-  })
+      const exportBtn = adminPage.locator(
+        '[data-testid="timeline-export"], [aria-label*="导出"], [title*="导出"]',
+      )
+      const visible = await exportBtn
+        .first()
+        .isVisible({ timeout: 2000 })
+        .catch(() => false)
+      // 软断言:可能无数据时不显示
+      if (visible) {
+        adminExpect(visible).toBe(true)
+      } else {
+        test.skip(true, 'adminPage timeline 导出按钮不可见(无 timeline 数据),跳过')
+      }
+    },
+  )
 
   // ── v18.4 P1-4 SubAgent 右键菜单 ──
   adminTest('v18.4 P1-4 SubAgent 右键:右键打开菜单 + 含 4 类操作', async ({ adminPage }) => {
@@ -435,12 +469,20 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
     await adminPage.waitForTimeout(300)
 
     const subagentTree = adminPage.locator(SUBAGENT_TREE)
-    if (!(await subagentTree.first().isVisible({ timeout: 2000 }).catch(() => false))) {
+    if (
+      !(await subagentTree
+        .first()
+        .isVisible({ timeout: 2000 })
+        .catch(() => false))
+    ) {
       test.skip(true, 'adminPage subagent 树不可见(无 active subagent),跳过')
       return
     }
 
-    await subagentTree.first().click({ button: 'right' }).catch(() => {})
+    await subagentTree
+      .first()
+      .click({ button: 'right' })
+      .catch(() => {})
     await adminPage.waitForTimeout(400)
 
     const menu = adminPage.locator('[data-testid="subagent-task-tree-context-menu"]')
