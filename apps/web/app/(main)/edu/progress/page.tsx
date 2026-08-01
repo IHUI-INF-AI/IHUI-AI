@@ -68,7 +68,7 @@ export default function EduProgressPage() {
         <Alert variant="danger" description={(error as Error).message} />
       ) : !data ? null : (
         <>
-          <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {stats.map(({ label, value, icon: Icon }) => (
               <Card key={label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -105,7 +105,7 @@ export default function EduProgressPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 min-[1024px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">{t('categoryProgress')}</CardTitle>

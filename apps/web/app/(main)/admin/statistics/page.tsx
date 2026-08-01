@@ -171,7 +171,7 @@ export default function StatisticsPage() {
             {t('loading')}
           </div>
         ) : (
-          <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {overviewCards.map((c) => {
               const Icon = c.icon
               return (
@@ -202,7 +202,7 @@ export default function StatisticsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 min-[1024px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">各业务模块数据</CardTitle>

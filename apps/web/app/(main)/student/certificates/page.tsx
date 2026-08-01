@@ -73,7 +73,7 @@ export default function MyCertificatesPage() {
           <p className="text-xs text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {list.map((cert) => {
             const statusKey = cert.status === 2 ? 'statusRevoked' : 'statusValid'
             return (

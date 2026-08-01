@@ -140,7 +140,7 @@ export default function EditThemePage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold tracking-tight">编辑主题</h1>
 
-      <form onSubmit={submit} className="grid gap-4 min-[1024px]:grid-cols-2">
+      <form onSubmit={submit} className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">基础信息</CardTitle>

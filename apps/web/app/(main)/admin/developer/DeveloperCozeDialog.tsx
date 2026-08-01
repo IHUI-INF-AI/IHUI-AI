@@ -56,7 +56,7 @@ export function DeveloperCozeDialog({
               {err}
             </div>
           )}
-          <div className="grid gap-3 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cz-id">{t('fieldCozeId')}</Label>
               <Input

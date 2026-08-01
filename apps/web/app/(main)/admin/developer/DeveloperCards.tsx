@@ -104,7 +104,7 @@ export function DeveloperCards({
 
   return (
     <>
-      <div className="grid gap-6 min-[1024px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -242,7 +242,7 @@ export function DeveloperCards({
             {t('developer.noData')}
           </div>
         ) : (
-          <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {sdksList.map((s) => (
               <Card key={s.id}>
                 <CardContent className="pt-4">

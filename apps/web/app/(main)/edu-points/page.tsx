@@ -52,7 +52,7 @@ export default function EduPointsPage() {
       </header>
 
       {/* 概览卡片 */}
-      <div className="grid gap-4 min-[640px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('totalChannels')}</CardTitle>
@@ -100,7 +100,7 @@ export default function EduPointsPage() {
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
           </div>
         ) : (
-          <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {list.map((channel) => (
               <Card key={channel.id} className="transition-colors hover:bg-accent">
                 <CardHeader className="p-4 pb-2">

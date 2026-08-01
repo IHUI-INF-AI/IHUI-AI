@@ -133,7 +133,7 @@ export default function InvitationsPage() {
             {(codesQ.error as Error).message}
           </div>
         ) : codes.length > 0 ? (
-          <div className="grid gap-3 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {codes.map((c) => (
               <Card key={c.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-2 p-4">

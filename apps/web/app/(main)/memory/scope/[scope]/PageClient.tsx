@@ -109,9 +109,9 @@ export default function MemoryScopePage() {
         </Button>
       </header>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
         <MemoryTypeFilter active={type} onChange={setType} />
-        <div className="relative w-full sm:max-w-xs">
+        <div className="relative w-full min-[640px]:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -151,7 +151,7 @@ export default function MemoryScopePage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {filtered.map((entry) => (
             <MemoryCard
               key={entry.id}

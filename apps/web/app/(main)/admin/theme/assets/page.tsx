@@ -69,7 +69,7 @@ export default function AssetsPage() {
       {error && <Alert variant="danger" description={error} />}
 
       <Card>
-        <CardContent className="grid gap-4 p-4 min-[640px]:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-4 p-4 min-[640px]:grid-cols-3">
           {UPLOAD_TYPES.map(({ label, type }) => {
             const cur = findByType(type)
             return (

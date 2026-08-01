@@ -92,7 +92,7 @@ export default function MessageOverviewPage() {
         <p className="text-xs text-muted-foreground">通知 / 公告 / 私信总数与近 7 天通知趋势</p>
       </header>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {cards.map((c) => (
           <StatCard
             key={c.title}

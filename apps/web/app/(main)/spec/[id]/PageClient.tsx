@@ -114,7 +114,7 @@ export default function SpecDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[200px_1fr_320px]">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[200px_1fr_320px]">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-1.5 text-sm">

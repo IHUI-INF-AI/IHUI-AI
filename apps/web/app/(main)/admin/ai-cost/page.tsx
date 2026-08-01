@@ -224,7 +224,7 @@ export default function AiCostPage() {
       ) : (
         <>
           {/* 汇总卡片 */}
-          <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {cards.map((c) => {
               const Icon = c.icon
               return (
@@ -244,7 +244,7 @@ export default function AiCostPage() {
           </div>
 
           {/* 按模型 + 按天 双列 */}
-          <div className="grid gap-4 min-[1024px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -370,7 +370,7 @@ export default function AiCostPage() {
           )}
 
           {/* 用户成本排行 + 预算告警 双列 */}
-          <div className="grid gap-4 min-[1024px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
             <TopUsersSection startDate={startDateISO} endDate={endDateISO} />
             <BudgetAlertsSection />
           </div>
