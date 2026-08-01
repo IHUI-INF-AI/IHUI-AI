@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -80,6 +81,8 @@ export function MessageInput({
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
+  // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
+  const router = useRouter()
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
   // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
   // - cyclePermissionMode: Shift+Tab 在 3 个模式间循环切(default → accept-edits → bypass-permissions)
@@ -418,7 +421,8 @@ export function MessageInput({
                   setAddMenuOpen(false)
                   setAddMenuMode('menu')
                   // 插件/MCP 入口:跳转到 /plugins 页面
-                  window.location.href = '/plugins'
+                  // 2026-08-02 修复: Bug 3 — 改用 router.push 避免整页刷新丢失输入/状态
+                  router.push('/plugins')
                 }}
               />
               {references.length > 0 && (

@@ -449,7 +449,11 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                   size="icon"
                   className="h-9 w-9"
                   onClick={() => favMutation.mutate(item.id)}
-                  disabled={favMutation.isPending}
+                  // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
+                  // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
+                  disabled={
+                    favMutation.isPending && favMutation.variables === item.id
+                  }
                   aria-label={item.favorite ? t('unfavorite') : t('favorite')}
                 >
                   <Star
