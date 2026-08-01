@@ -57,8 +57,17 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
       const listWithUsage = await Promise.all(
         rows.map(async (row) => {
           const [daily, monthly] = await Promise.all([
-            getDailyUsage(row.id).catch(() => ({ callCount: 0, totalTokens: 0, totalCostCents: 0, errorCount: 0 })),
-            getMonthlyUsage(row.id).catch(() => ({ callCount: 0, totalTokens: 0, totalCostCents: 0 })),
+            getDailyUsage(row.id).catch(() => ({
+              callCount: 0,
+              totalTokens: 0,
+              totalCostCents: 0,
+              errorCount: 0,
+            })),
+            getMonthlyUsage(row.id).catch(() => ({
+              callCount: 0,
+              totalTokens: 0,
+              totalCostCents: 0,
+            })),
           ])
           return {
             id: row.id,
@@ -85,18 +94,17 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 2. PATCH /relay/channels/:id — 更新 key_pool 的 4 个配额字段
-  server.patch<{
-    Params: { id: string }
-    Body: z.infer<typeof updateQuotaBodySchema>
-  }>(
+  // 注:不使用 server.patch<{...}> 泛型形式,因为 check-api-routes.mjs 的 methodRe
+  // 正则不支持泛型语法,会导致路由被遗漏识别为 404。改用函数体内类型断言保持类型安全。
+  server.patch(
     '/relay/channels/:id',
     {
       preHandler: requireAdmin,
       schema: { body: zodToJsonSchema(updateQuotaBodySchema, { target: 'openApi3' }) },
     },
     async (req, reply) => {
-      const { id } = req.params
-      const body = req.body
+      const { id } = req.params as { id: string }
+      const body = req.body as z.infer<typeof updateQuotaBodySchema>
 
       try {
         // 构造 SET 子句(只更新提供的字段,null 表示无限)

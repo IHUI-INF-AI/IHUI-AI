@@ -17,7 +17,10 @@ import { ScheduleCard, type ScheduleMode } from './ScheduleCard'
 import { SubmitBar } from './SubmitBar'
 import { AiWritingAssistant } from '@/components/publish/AiWritingAssistant'
 import { PlatformPreview } from '@/components/publish/PlatformPreview'
-import { ContentTemplateLibrary, type ContentTemplate } from '@/components/publish/ContentTemplateLibrary'
+import {
+  ContentTemplateLibrary,
+  type ContentTemplate,
+} from '@/components/publish/ContentTemplateLibrary'
 
 interface Account {
   id: number
@@ -37,6 +40,7 @@ function uploadWithProgress(file: File, onProgress: (pct: number) => void): Prom
     const xhr = new XMLHttpRequest()
     const fd = new FormData()
     fd.append('file', file, file.name)
+    // method: POST (xhr.open 语法无法被 check-api-routes 脚本自动识别,显式标注)
     xhr.open('POST', '/api/publish/upload')
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
@@ -152,7 +156,7 @@ export default function NewPublishPage() {
         title: title.trim(),
         format,
         text: isText ? textContent : undefined,
-        file_path: isText ? undefined : (fileMeta?.file_path || undefined),
+        file_path: isText ? undefined : fileMeta?.file_path || undefined,
         cover_path: coverMeta?.file_path || undefined,
         images: [] as string[],
         targets,
@@ -193,14 +197,24 @@ export default function NewPublishPage() {
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3">
         <div className="space-y-4 min-[1024px]:col-span-2">
           <ContentEditorCard
-            title={title} onTitleChange={setTitle} format={format} onFormatChange={setFormat}
-            textContent={textContent} onTextContentChange={setTextContent}
-            fileMeta={fileMeta} coverMeta={coverMeta} uploadingKey={uploadingKey}
-            fileProgress={fileProgress} coverProgress={coverProgress}
-            onUploadFile={(f) => uploadFile(f, 'file')} onUploadCover={(f) => uploadFile(f, 'cover')}
+            title={title}
+            onTitleChange={setTitle}
+            format={format}
+            onFormatChange={setFormat}
+            textContent={textContent}
+            onTextContentChange={setTextContent}
+            fileMeta={fileMeta}
+            coverMeta={coverMeta}
+            uploadingKey={uploadingKey}
+            fileProgress={fileProgress}
+            coverProgress={coverProgress}
+            onUploadFile={(f) => uploadFile(f, 'file')}
+            onUploadCover={(f) => uploadFile(f, 'cover')}
           />
           <PlatformSelectorCard
-            platformMap={platformMap} selected={selected} onToggle={togglePlatform}
+            platformMap={platformMap}
+            selected={selected}
+            onToggle={togglePlatform}
             onSelectAll={() => setSelected(new Set(platformMap.keys()))}
             onClearAll={() => setSelected(new Set())}
           />
@@ -210,22 +224,31 @@ export default function NewPublishPage() {
         </div>
         <div className="space-y-4">
           <ContentTemplateLibrary
-            currentContent={textContent} currentTitle={title} onApply={handleApplyTemplate}
+            currentContent={textContent}
+            currentTitle={title}
+            onApply={handleApplyTemplate}
           />
           <AiWritingAssistant
-            content={textContent} platform={previewPlatform}
-            onApplyTitle={setTitle} onApplyContent={setTextContent}
-            onApplyTags={setTags} onApplySummary={setSummary}
+            content={textContent}
+            platform={previewPlatform}
+            onApplyTitle={setTitle}
+            onApplyContent={setTextContent}
+            onApplyTags={setTags}
+            onApplySummary={setSummary}
           />
         </div>
       </div>
       <ScheduleCard
-        scheduleMode={scheduleMode} onScheduleModeChange={setScheduleMode}
-        scheduledAt={scheduledAt} onScheduledAtChange={setScheduledAt}
+        scheduleMode={scheduleMode}
+        onScheduleModeChange={setScheduleMode}
+        scheduledAt={scheduledAt}
+        onScheduledAtChange={setScheduledAt}
       />
       <SubmitBar
-        submitting={submitting} scheduleMode={scheduleMode}
-        onSubmit={submit} submittedTaskId={submittedTaskId}
+        submitting={submitting}
+        scheduleMode={scheduleMode}
+        onSubmit={submit}
+        submittedTaskId={submittedTaskId}
       />
     </form>
   )
