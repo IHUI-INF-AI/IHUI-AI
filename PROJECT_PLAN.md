@@ -2057,7 +2057,8 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **language_consistency.py**:语言偏好一致性(navigator.language/languages/Intl.DateTimeFormat 三方校验 + Accept-Language 头对齐)
   - **navigator_integrity.py**:导航器属性完整性校验(webdriver=false/platform 对齐 UA/vendor/chrome/defineProperty 锁定)
   - **stealth_advanced.py 集成**:13 模块在 apply_advanced_stealth 中按账号 seed 注入,与 stealth.py 幂等共存
-  - 验证:mypy 0 错误(修复 behavior_entropy no-any-return)+ 13 模块 import 全绿 + __init__.py 导出 13 类 30+ 符号
+  - **device_graph 端到端集成(2026-08-01 补完)**:cross_account_guard.py 新增 3 个 async 方法(async_record_device_binding / async_check_device_linkage / async_clear_device_binding)委托 DeviceGraphGuard 持久化图谱;browser_factory.py 在 context 创建后自动记录设备绑定(指纹哈希+IP+UA 哈希+Canvas seed);scheduler.py 发布前检测跨会话设备关联(>=60 高危自动冷却 1h + 审计 critical 事件,<60 仅警告不阻塞)。同步 4 维 + 异步深度 4 维 = 8 维跨账号关联检测。
+  - 验证:mypy 0 错误(修复 behavior_entropy no-any-return)+ 13 模块 import 全绿 + __init__.py 导出 13 类 30+ 符号 + device_graph 端到端集成 mypy 0 错误
 - [x] ✅(2026-08-01) D2:平台规则深度适配(20+ 维度)— platform_rules.py 从 5 维度升级到 56 字段(11 字段分组:A 基础字数/B 标题规则/C 正文规则/D 标签规则/E 描述/F 图片规则/G 视频规则/H 内容类型/I 分类原创认证/J 发布频率/K 元数据/L 提示):
   - 标题规则:禁用词/必含词/emoji/特殊字符
   - 正文规则:禁用词/禁用模式(正则)/段落数/行长/外链/内嵌图
