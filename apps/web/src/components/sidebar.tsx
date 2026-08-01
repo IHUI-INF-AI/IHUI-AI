@@ -138,13 +138,13 @@ interface NavItem {
   badge?: 'messages' | 'notification'
 }
 
-/** 侧边栏宽度常量(2026-07-17 统一,2026-08-01 默认宽度加大)
+/** 侧边栏宽度常量(2026-07-17 统一,2026-08-01 默认宽度+最小宽度同步加大)
  * - 160px 是展开态默认宽度(桌面 + 移动抽屉复用)
  * - 60px 是折叠态宽度,只显图标
- * - 桌面端展开态支持拖拽调整,范围 130-180px(2026-07-18)
+ * - 桌面端展开态支持拖拽调整,范围 160-180px(2026-08-01:最小宽度从 130 加大到 160,跟默认值一致)
  */
 const SIDEBAR_WIDTH = 160
-const SIDEBAR_MIN_WIDTH = 130
+const SIDEBAR_MIN_WIDTH = 160
 const SIDEBAR_MAX_WIDTH = 180
 const SIDEBAR_COLLAPSED_WIDTH = 60
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
@@ -1456,10 +1456,10 @@ export function Sidebar({
   const mobileNavRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
 
-  // 桌面端展开态拖拽调整宽度(130-180px),localStorage 持久化。
+  // 桌面端展开态拖拽调整宽度(160-180px,2026-08-01 最小宽度从 130 加大到 160),localStorage 持久化。
   // 2026-07-22 修复首屏 width 闪烁(2026-08-01 修订,根治残留闪烁):
   // - layout.tsx inline script 在 React hydrate 前同步预设 :root --sidebar-width CSS 变量
-  //   (读 localStorage sidebar-width,范围 130-180,fallback 160px),首帧 aside width = 预设值。
+  //   (读 localStorage sidebar-width,范围 160-180,fallback 160px),首帧 aside width = 预设值。
   // - aside 元素 width 用 `var(--sidebar-width, 160px)` 字符串引用(SSR/CSR 字节级一致),
   //   React 不解析 CSS 变量,只比较 style 字符串,无 hydration mismatch 警告。
   // - useEffect 首次 mount 只读 localStorage 同步 sidebarWidth state,不覆盖 inline script 预设的
@@ -1938,8 +1938,8 @@ export function Sidebar({
       )}
 
       {/* 移动端抽屉 — 2026-07-31 第十五次微调(用户反馈"侧边栏太宽,要跟 web 设定尺寸一样,可以拉伸"):
-          - 宽度从 min(85vw, 320px) 改为复用 desktop 共享的 sidebarWidth state (默认 130px = SIDEBAR_WIDTH,
-            跟 web 桌面端默认宽度字节级一致),范围 130-180px = SIDEBAR_MIN_WIDTH-SIDEBAR_MAX_WIDTH
+          - 宽度从 min(85vw, 320px) 改为复用 desktop 共享的 sidebarWidth state (默认 160px = SIDEBAR_WIDTH,
+            跟 web 桌面端默认宽度字节级一致),范围 160-180px = SIDEBAR_MIN_WIDTH-SIDEBAR_MAX_WIDTH
           - 复用 desktop handleResizeStart(pointermove/pointerup 兼容触屏,无需额外 touch 事件)
           - 加 resize 手柄(结构跟 desktop 一致:外层 w-2 命中区 + 内层 w-0.5 可见细线)
           - 跟 desktop aside 共享 sidebarWidth state + localStorage 持久化
