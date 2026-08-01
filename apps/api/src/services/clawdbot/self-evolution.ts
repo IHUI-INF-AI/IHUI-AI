@@ -178,14 +178,11 @@ export class SelfEvolutionEngine extends EventEmitter {
       // 调 LLM 生成技能步骤(传入能力差距 + 现有技能上下文)
       let steps: SkillStep[] = []
       try {
-        const existingSkills = getSkillManager()
-          .list()
-          .slice(0, 10)
-          .map((s) => ({
-            name: s.name,
-            description: s.description,
-            stepCount: s.steps.length,
-          }))
+        const existingSkills = getSkillManager().list().slice(0, 10).map((s) => ({
+          name: s.name,
+          description: s.description,
+          stepCount: s.steps.length,
+        }))
         const messages: LlmMessage[] = [
           {
             role: 'system',
