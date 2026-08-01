@@ -37,7 +37,7 @@ export default function I18nDashboardPage() {
         </p>
       </header>
 
-      <section className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">语言数量</CardTitle>
@@ -80,7 +80,7 @@ export default function I18nDashboardPage() {
           加载中...
         </div>
       ) : (
-        <section className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <section className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {d.languages.map((lang) => (
             <Card key={lang.locale}>
               <CardContent className="flex items-center gap-4 p-4">
