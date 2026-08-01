@@ -839,6 +839,46 @@
       "criticalUsage": "Nearly full"
     },
     "permission": {
+      "copied": "Copied",
+      "copyFailed": "Copy failed",
+      "retry": "Retrying…",
+      "copy": "Copy",
+      "me": "Me",
+      "stepThinking": "Thinking",
+      "toolCallSkipped": "Skipped",
+      "stepAnswer": "Answer",
+      "timelineUserMessage": "User message",
+      "timelineAiReply": "AI reply",
+      "search": "Search",
+      "fallbackNotice": "Primary model {{primary}} unavailable, switched to {{fallback}} automatically",
+      "loading": "Loading…",
+      "jumpToLatest": "Jump to latest",
+      "latest": "Latest",
+      "tplSummary": "Summarize",
+      "tplSummaryContent": "Please summarize the following content and extract key information",
+      "tplTranslate": "Translate",
+      "tplTranslateContent": "Please translate the following content into English",
+      "tplExplain": "Explain",
+      "tplExplainContent": "Please explain the following content",
+      "tplCode": "Code",
+      "tplCodeContent": "Please optimize the following code",
+      "tplPolish": "Polish",
+      "tplPolishContent": "Please polish the following text",
+      "contextMenu": {
+        "copyText": "Copy text",
+        "copyMarkdown": "Copy Markdown",
+        "regenerate": "Regenerate",
+        "feedback": "Feedback",
+        "deleteMessage": "Delete message"
+      },
+      "toast": {
+        "copiedText": "Copied to clipboard",
+        "copiedMarkdown": "Markdown copied",
+        "regenerating": "Regenerating…",
+        "feedbackRecorded": "Feedback recorded",
+        "messageDeleted": "Message deleted",
+        "operationFailed": "Operation failed"
+      },
       "buttonLabel": "Approval mode",
       "buttonHintShortcut": "Shift+Tab to cycle",
       "popoverTitle": "How should Codex approve actions?",
@@ -1270,7 +1310,7 @@
     "viewCount": "{count} views",
     "required": "Title and content are required",
     "answerQuestion": "Answer",
-    "all": ""
+    "all": "All"
   },
   "payment": {
     "title": "Pricing Plans",
@@ -6328,9 +6368,9 @@
       "totalTokens": "Total",
       "routines": "Routines",
       "voiceRecord": "Voice Recording",
-      "gender_female": "",
-      "gender_male": "",
-      "gender_unknown": "",
+      "gender_female": "Female",
+      "gender_male": "Male",
+      "gender_unknown": "Private",
       "avatarHint": "JPG / PNG, 200x200 recommended",
       "nicknamePlaceholder": "Enter your nickname",
       "emailPlaceholder": "Enter your email"
@@ -6374,12 +6414,12 @@
       "hoursAgo": "{hr} hr ago",
       "daysAgo": "{day} days ago",
       "tab": {
-        "all": "",
-        "comment": "",
-        "follow": "",
-        "order": "",
-        "project": "",
-        "system": ""
+        "all": "All",
+        "comment": "Comments",
+        "follow": "Follows",
+        "order": "Orders",
+        "project": "Projects",
+        "system": "System"
       },
       "title": "Notifications",
       "allRead": "All read",
@@ -6670,9 +6710,9 @@
       "templateLoaded": "Opened AI panel, creating {name} automation task for you",
       "exampleInvokePrompt": "Please help me create an automation task. Task name: {name}. Description: {desc}. Schedule: {schedule}. Expected output: {output}. Please guide me through the configuration based on this template, including confirming execution time, content sources, output methods, and other details."
     },
-    "automation": "",
-    "koubo": "",
-    "wechat": ""
+    "automation": "Automation",
+    "koubo": "Voiceover",
+    "wechat": "WeChat"
   },
   "publish": {
     "title": "Multi-Platform Publishing",
@@ -6822,12 +6862,12 @@
       "uploadSuccess": "Uploaded: {filename}",
       "uploadFailed": "Upload Failed",
       "uploadedHint": "File uploaded. Click to replace.",
-      "contentFormatDocx": "",
-      "contentFormatHtml": "",
-      "contentFormatImage": "",
-      "contentFormatMd": "",
-      "contentFormatPdf": "",
-      "contentFormatVideo": ""
+      "contentFormatDocx": "DOCX",
+      "contentFormatHtml": "HTML",
+      "contentFormatImage": "Image",
+      "contentFormatMd": "Markdown",
+      "contentFormatPdf": "PDF",
+      "contentFormatVideo": "Video"
     },
     "history": {
       "duration": "Duration",
@@ -6889,11 +6929,11 @@
       "zhihu_daily": "Zhihu Daily"
     },
     "tabs": {
-      "accounts": "",
+      "accounts": "Account Management",
       "analytics": "Analytics",
       "calendar": "Publish Calendar",
-      "history": "",
-      "new": ""
+      "history": "Publish History",
+      "new": "New Task"
     },
     "editor": {
       "markdown": "Markdown",
@@ -7246,38 +7286,38 @@
     "desc": {
       "notificationSound": "Receive Notice H"
     },
-    "billingAmount": "",
-    "billingCreatedAt": "",
-    "billingLoading": "",
-    "billingNext": "",
-    "billingOrderNo": "",
-    "billingPageInfo": "",
-    "billingPrev": "",
-    "billingStatus": "",
-    "billingTotal": "",
+    "billingAmount": "Amount",
+    "billingCreatedAt": "Created At",
+    "billingLoading": "Loading…",
+    "billingNext": "Next",
+    "billingOrderNo": "Order No.",
+    "billingPageInfo": "Page {{page}}/{{totalPages}}",
+    "billingPrev": "Previous",
+    "billingStatus": "Status",
+    "billingTotal": "{{count}} total",
     "cliImportDesc": "Import CLI configuration and credentials",
     "cliImportTitle": "CLI Import",
-    "icpRecordEntity": "",
-    "icpRecordEntityType": "",
-    "icpRecordNumber": "",
-    "icpRecordScope": "",
-    "icpRecordTime": "",
-    "icpRecordUrl": "",
-    "llmConfigsDesc": "",
-    "llmConfigsTitle": "",
-    "miniappQr": "",
-    "miniappQrDesc": "",
-    "modelRecordAlgorithmType": "",
-    "modelRecordApplicant": "",
-    "modelRecordApplyDate": "",
-    "modelRecordModelName": "",
-    "modelRecordNumber": "",
-    "modelRecordScope": "",
-    "modelRecordStatus": "",
-    "profileDesc": "",
-    "profileTitle": "",
-    "securityDesc": "",
-    "securityTitle": "",
+    "icpRecordEntity": "Filing Entity",
+    "icpRecordEntityType": "Entity Type",
+    "icpRecordNumber": "Filing Number",
+    "icpRecordScope": "Filing Scope",
+    "icpRecordTime": "Filing Time",
+    "icpRecordUrl": "Filing URL",
+    "llmConfigsDesc": "Configure LLM providers and parameters",
+    "llmConfigsTitle": "LLM Configuration",
+    "miniappQr": "Mini App QR Code",
+    "miniappQrDesc": "Scan to experience the mini app",
+    "modelRecordAlgorithmType": "Algorithm Type",
+    "modelRecordApplicant": "Filing Applicant",
+    "modelRecordApplyDate": "Filing Date",
+    "modelRecordModelName": "Model Name",
+    "modelRecordNumber": "Filing Number",
+    "modelRecordScope": "Applicable Scope",
+    "modelRecordStatus": "Filing Status",
+    "profileDesc": "View and edit your personal information",
+    "profileTitle": "Profile",
+    "securityDesc": "Manage password, 2FA and other security options",
+    "securityTitle": "Security",
     "accountDeletionTitle": "Account Deletion",
     "activityTitle": "Activity Log",
     "apiKeysNavTitle": "API Keys",
@@ -7352,9 +7392,9 @@
     "empty": "No favorites yet",
     "loading": "Loading...",
     "tabs": {
-      "all": "",
-      "file": "",
-      "project": ""
+      "all": "All",
+      "file": "Files",
+      "project": "Projects"
     }
   },
   "follows": {
@@ -7369,10 +7409,10 @@
     "empty": "No subscriptions",
     "loading": "Loading...",
     "tabs": {
-      "all": "",
-      "project": "",
-      "tag": "",
-      "user": ""
+      "all": "All",
+      "project": "Projects",
+      "tag": "Tags",
+      "user": "Users"
     }
   },
   "tags": {
@@ -7738,8 +7778,8 @@
         "time": "Redeem Time",
         "status": "Status",
         "statusLabels": {
-          "failed": "",
-          "success": ""
+          "failed": "Failed",
+          "success": "Success"
         }
       }
     },
@@ -7776,12 +7816,12 @@
         }
       ],
       "features": {
-        "cache": "",
-        "loadBalance": "",
-        "monitor": "",
-        "multiModel": "",
-        "oneClick": "",
-        "scale": ""
+        "cache": "Caching",
+        "loadBalance": "Load Balancing",
+        "monitor": "Monitoring",
+        "multiModel": "Multi-Model",
+        "oneClick": "One-Click Deploy",
+        "scale": "Auto Scaling"
       }
     },
     "apiDocs": {
@@ -7807,7 +7847,10 @@
         "title": "Call Example",
         "curl": "cURL",
         "python": "Python"
-      }
+      },
+      "curlPlaceholder": "Enter cURL command to test…",
+      "searchPlaceholder": "Search APIs…",
+      "copyCodeAriaLabel": "Copy code"
     },
     "skills": {
       "title": "Skills Market",
@@ -7819,51 +7862,51 @@
       "install": "Install",
       "installs": "{count} installs",
       "categories": {
-        "code": "",
-        "communication": "",
-        "data": "",
-        "media": "",
-        "productivity": "",
-        "search": "",
-        "system": "",
-        "weather": ""
+        "code": "Code",
+        "communication": "Communication",
+        "data": "Data",
+        "media": "Media",
+        "productivity": "Productivity",
+        "search": "Search",
+        "system": "System",
+        "weather": "Weather"
       },
       "items": {
         "audioTranscribe": {
-          "desc": ""
+          "desc": "Transcribe audio to text"
         },
         "calendar": {
-          "desc": ""
+          "desc": "Manage schedules and reminders"
         },
         "codeRunner": {
-          "desc": ""
+          "desc": "Run code online and view results"
         },
         "dataViz": {
-          "desc": ""
+          "desc": "Visualize data as charts"
         },
         "databaseQuery": {
-          "desc": ""
+          "desc": "Query databases and return results"
         },
         "emailSender": {
-          "desc": ""
+          "desc": "Send and manage emails"
         },
         "healthcheck": {
-          "desc": ""
+          "desc": "Check service health status"
         },
         "imageGen": {
-          "desc": ""
+          "desc": "Generate images from descriptions"
         },
         "nodeConnect": {
-          "desc": ""
+          "desc": "Connect and manage nodes"
         },
         "pdfToolkit": {
-          "desc": ""
+          "desc": "Process and convert PDF files"
         },
         "weather": {
-          "desc": ""
+          "desc": "Query weather forecast information"
         },
         "webSearch": {
-          "desc": ""
+          "desc": "Search the web for latest info"
         }
       }
     },
@@ -7894,8 +7937,8 @@
       "statusLabels": {
         "success": "Success",
         "failed": "Failed",
-        "disabled": "",
-        "enabled": ""
+        "disabled": "Disabled",
+        "enabled": "Enabled"
       }
     },
     "chats": {
@@ -7929,13 +7972,13 @@
         "createdAt": "Created At"
       },
       "roleLabels": {
-        "admin": "",
-        "user": "",
-        "vip": ""
+        "admin": "Admin",
+        "user": "User",
+        "vip": "VIP"
       },
       "statusLabels": {
-        "active": "",
-        "disabled": ""
+        "active": "Active",
+        "disabled": "Disabled"
       }
     },
     "contact": {
@@ -8091,8 +8134,8 @@
     "required": "Title and content are required",
     "field_images": "Images",
     "imagesPlaceholder": "Paste or drag images here",
-    "tab_list": "",
-    "tab_new": "",
+    "tab_list": "List",
+    "tab_new": "Newest",
     "empty": "No feedback yet",
     "backToList": "Back to feedback",
     "notFound": "Feedback not found or no access"
@@ -8154,18 +8197,18 @@
       "loading": "Loading...",
       "empty": "No sign-in records",
       "backToPoints": "Back to Points",
-      "day0": "",
-      "day1": "",
-      "day2": "",
-      "day3": "",
-      "day4": "",
-      "day5": "",
-      "day6": ""
+      "day0": "Day 1",
+      "day1": "Day 2",
+      "day2": "Day 3",
+      "day3": "Day 4",
+      "day4": "Day 5",
+      "day5": "Day 6",
+      "day6": "Day 7"
     },
     "tab": {
-      "lb": "",
-      "redeem": "",
-      "tx": ""
+      "lb": "Leaderboard",
+      "redeem": "Redeem",
+      "tx": "Transactions"
     }
   },
   "orders": {
@@ -8182,16 +8225,16 @@
     "total": "{total} total",
     "orderType": "Order Type",
     "status": {
-      "all": "",
-      "cancelled": "",
-      "paid": "",
-      "pending": "",
-      "refunded": ""
+      "all": "All",
+      "cancelled": "Cancelled",
+      "paid": "Paid",
+      "pending": "Pending",
+      "refunded": "Refunded"
     },
     "type": {
-      "all": "",
-      "card": "",
-      "course": ""
+      "all": "All",
+      "card": "Card",
+      "course": "Course"
     }
   },
   "live": {
@@ -8661,14 +8704,14 @@
       "cancel": "Cancel",
       "connected": "Connected",
       "disconnected": "Disconnected",
-      "high": "",
-      "low": "",
-      "medium": ""
+      "high": "High",
+      "low": "Low",
+      "medium": "Medium"
     },
-    "statusOffline": "",
-    "statusPending": "",
-    "statusPublished": "",
-    "statusRejected": ""
+    "statusOffline": "Offline",
+    "statusPending": "Pending",
+    "statusPublished": "Published",
+    "statusRejected": "Rejected"
   },
   "agents": {
     "kanban": {
@@ -8774,15 +8817,15 @@
     "currentBalance": "Current Balance",
     "totalEarned": "Total Earned",
     "totalUsed": "Total Used",
-    "colAgent": "",
-    "colAmount": "",
-    "colModel": "",
-    "colTime": "",
-    "colToken": "",
-    "range30d": "",
-    "range7d": "",
-    "rangeCustom": "",
-    "rangeToday": ""
+    "colAgent": "Agent",
+    "colAmount": "Amount",
+    "colModel": "Model",
+    "colTime": "Time",
+    "colToken": "Token",
+    "range30d": "Last 30 days",
+    "range7d": "Last 7 days",
+    "rangeCustom": "Custom",
+    "rangeToday": "Today"
   },
   "distributionCompany": {
     "title": "I Company",
@@ -9318,8 +9361,8 @@
     "pageTitle": "AI Content Generation",
     "pageSubtitle": "Select a type to generate text, images, videos, audio, 3D models and more",
     "clear": "Clear",
-    "tabCode": "",
-    "tabText": "",
+    "tabCode": "Code",
+    "tabText": "Text",
     "defaultPromptPlaceholder": "Describe what you want to generate...",
     "promptAriaLabel": "Generation input",
     "imageTitle": "Image Generation",
@@ -9523,34 +9566,34 @@
   "myAsks": {
     "delete": "Delete",
     "deleteConfirm": "Are you sure to delete this question?",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "Manage my questions",
+    "title": "My Questions"
   },
   "myCircles": {
     "leave": "Leave",
     "leaveConfirm": "Are you sure to leave this circle?",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "Manage my circles",
+    "title": "My Circles"
   },
   "myArticles": {
     "create": "Write Article",
     "edit": "Edit",
     "delete": "Delete",
     "deleteConfirm": "Are you sure to delete this article?",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "Manage my articles",
+    "title": "My Articles"
   },
   "myResources": {
     "deleteConfirm": "Are you sure to delete this resource?",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "Manage my resources",
+    "title": "My Resources"
   },
   "myComments": {
     "delete": "Delete",
     "deleteConfirm": "Are you sure to delete this comment?",
     "targetType": "Target",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "Manage my comments",
+    "title": "My Comments"
   },
   "sso": {
     "title": "Unified Login",
@@ -9926,12 +9969,12 @@
       "searchPlaceholder": "Search API name or description...",
       "loading": "Loading...",
       "noMatch": "No matching APIs",
-      "catAll": "",
-      "catAudio": "",
-      "catChat": "",
-      "catImage": "",
-      "catTool": "",
-      "catVideo": ""
+      "catAll": "All",
+      "catAudio": "Audio",
+      "catChat": "Chat",
+      "catImage": "Image",
+      "catTool": "Tools",
+      "catVideo": "Video"
     },
     "models": {
       "title": "Model Marketplace",
@@ -9949,12 +9992,12 @@
       "searchPlaceholder": "Search Agent name or description...",
       "loading": "Loading...",
       "noMatch": "No matching Agents",
-      "catAll": "",
-      "catAnalysis": "",
-      "catChat": "",
-      "catCoding": "",
-      "catTool": "",
-      "catWriting": ""
+      "catAll": "All",
+      "catAnalysis": "Analysis",
+      "catChat": "Chat",
+      "catCoding": "Coding",
+      "catTool": "Tools",
+      "catWriting": "Writing"
     },
     "documents": {
       "title": "Docs Marketplace",
@@ -10318,9 +10361,9 @@
     "addedToChatModel": "Added {name} to chat. Configure the API Key in .env to activate the model",
     "addedToChatPrompt": "Added {name} to chat (prompt intent only, no corresponding backend tool)",
     "removedFromChat": "Removed {name} from chat",
-    "sortDefault": "",
-    "sortInstalled": "",
-    "sortName": ""
+    "sortDefault": "Default",
+    "sortInstalled": "Installed",
+    "sortName": "Name"
   },
   "aiWorld": {
     "admin": {
@@ -11466,34 +11509,34 @@
       "titleEn": "DECISION-MAKER SCENARIOS",
       "subtitle": "Pain Point → Solution → Quantified Benefit · Make AI Truly Land with ROI",
       "costReduction": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "Save ¥18-30k/year",
+        "description": "100+ model smart routing · replaces multiple subscriptions",
+        "painPoint": "Costly annual fees",
+        "title": "Smart Cost Reduction"
       },
       "decision": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "5× improvement",
+        "description": "AI data analysis · real-time decision reports",
+        "painPoint": "Lack of data",
+        "title": "Smart Decisions"
       },
       "efficiency": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "10× improvement",
+        "description": "Self-built CLI + workflow automation",
+        "painPoint": "Low efficiency",
+        "title": "Rapid Efficiency"
       },
       "innovation": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "Three stacks in one",
+        "description": "LangGraph + MCP + A2A + ACP",
+        "painPoint": "High barrier to entry",
+        "title": "Tech Innovation"
       },
       "learning": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "Save ¥10k/year",
+        "description": "6 major modules · free annual courses",
+        "painPoint": "Expensive training",
+        "title": "Teamwide Learning"
       }
     },
     "comparison": {
@@ -11505,98 +11548,98 @@
       "colClaude": "Claude Code",
       "colCursor": "Cursor",
       "colChatgpt": "ChatGPT",
-      "row1Chatgpt": "",
-      "row1Claude": "",
-      "row1Cursor": "",
-      "row1Feature": "",
-      "row1Us": "",
-      "row2Chatgpt": "",
-      "row2Claude": "",
-      "row2Cursor": "",
-      "row2Feature": "",
-      "row2Us": "",
-      "row3Chatgpt": "",
-      "row3Claude": "",
-      "row3Cursor": "",
-      "row3Feature": "",
-      "row3Us": "",
-      "row4Chatgpt": "",
-      "row4Claude": "",
-      "row4Cursor": "",
-      "row4Feature": "",
-      "row4Us": "",
-      "row5Chatgpt": "",
-      "row5Claude": "",
-      "row5Cursor": "",
-      "row5Feature": "",
-      "row5Us": "",
-      "row6Chatgpt": "",
-      "row6Claude": "",
-      "row6Cursor": "",
-      "row6Feature": "",
-      "row6Us": "",
-      "row7Chatgpt": "",
-      "row7Claude": "",
-      "row7Cursor": "",
-      "row7Feature": "",
-      "row7Us": "",
-      "row8Chatgpt": "",
-      "row8Claude": "",
-      "row8Cursor": "",
-      "row8Feature": "",
-      "row8Us": ""
+      "row1Chatgpt": "Web + App",
+      "row1Claude": "CLI",
+      "row1Cursor": "Desktop",
+      "row1Feature": "Platform Coverage",
+      "row1Us": "8 platforms fully covered",
+      "row2Chatgpt": "OpenAI models",
+      "row2Claude": "Claude models",
+      "row2Cursor": "Multi-model optional",
+      "row2Feature": "LLM Count",
+      "row2Us": "100+ LLMs",
+      "row3Chatgpt": "None",
+      "row3Claude": "MCP single stack",
+      "row3Cursor": "MCP single stack",
+      "row3Feature": "AI Tech Stack",
+      "row3Us": "Three stacks in one",
+      "row4Chatgpt": "Yes",
+      "row4Claude": "No",
+      "row4Cursor": "No",
+      "row4Feature": "API Endpoints",
+      "row4Us": "7 endpoints",
+      "row5Chatgpt": "No",
+      "row5Claude": "No",
+      "row5Cursor": "No",
+      "row5Feature": "Education Module",
+      "row5Us": "6 major modules",
+      "row6Chatgpt": "No",
+      "row6Claude": "No",
+      "row6Cursor": "No",
+      "row6Feature": "Decision Maker Community",
+      "row6Us": "Yes",
+      "row7Chatgpt": "English-first",
+      "row7Claude": "English-first",
+      "row7Cursor": "English-first",
+      "row7Feature": "Chinese Optimization",
+      "row7Us": "5-language i18n",
+      "row8Chatgpt": "GPT Store",
+      "row8Claude": "No",
+      "row8Cursor": "No",
+      "row8Feature": "Agent Marketplace",
+      "row8Us": "5+ roles"
     },
     "roi": {
       "title": "Quantified ROI · Data-Backed Benefits",
       "titleEn": "QUANTIFIED ROI",
       "subtitle": "Quantified benefits Zhihui AI Community brings to decision-makers · Detailed calculation formulas · Data from real user cases and industry benchmarks",
       "cache": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude API ¥0.3/call → cache hit ¥0.024/call = 92% saved",
+        "description": "Smart cache hits answered requests, returns cached results on second call",
+        "title": "Cache Cost Reduction",
+        "value": "60% hit rate"
       },
       "cost": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥500",
+        "description": "Replaces Claude Pro + GPT Plus + Cursor + multi-model API subscriptions",
+        "title": "Comprehensive Savings",
+        "value": "Save ¥18-30k/year"
       },
       "learning": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "External training ¥10k/year → IHUI AI free all year = save ¥10k",
+        "description": "All annual courses free, from AI tools to enterprise AI culture 3-stage",
+        "title": "Training Savings",
+        "value": "Save ¥10k/year"
       },
       "models": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Intl 30+ domestic 15+ cloud 40+ = 100+ models one API Key access",
+        "description": "International + domestic + cloud providers fully covered, one API Key for unified access",
+        "title": "LLM Coverage",
+        "value": "100+ LLMs"
       },
       "quality": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "17 guards + 4 hooks + 122 migrations = 99.9% error-free",
+        "description": "17 pre-commit guards + 4 husky hooks + 122+ migrations",
+        "title": "Engineering Quality",
+        "value": "99.9% error-free"
       },
       "seats": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Pro 10 seats · Enterprise unlimited · Flagship dedicated account manager",
+        "description": "Team collaboration seats, multi-user shared workspace with permission control",
+        "title": "Team Seats",
+        "value": "18 seats"
       },
       "sla": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Annual downtime < 8.76h · AES-256-GCM encryption · RBAC button-level permissions",
+        "description": "99.9% SLA + AES-256-GCM encryption + RBAC button-level permissions",
+        "title": "Service Availability",
+        "value": "99.9% SLA"
       },
       "speed": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Manual coding 10h → CLI + workflow 1h = 10× acceleration",
+        "description": "Self-built CLI + LangGraph workflows + 6-source config one-click import",
+        "title": "Development Acceleration",
+        "value": "10× acceleration"
       }
     },
     "cta": {
@@ -11632,22 +11675,22 @@
       "favToggle": "Toggle favorite",
       "colVisibility": "Columns",
       "colVisibilityHint": "Select columns to show",
-      "categoryAgent": "",
-      "categoryAudio": "",
-      "categoryEmbedding": "",
-      "categoryImage": "",
-      "categoryLlm": "",
-      "categoryMultimodal": "",
-      "categoryOverall": "",
-      "categoryVideo": "",
-      "colArenaScore": "",
-      "colContextWindow": "",
-      "colInputPrice": "",
-      "colMaxOutput": "",
-      "colOutputPrice": "",
-      "colReleaseDate": "",
-      "colVoteCount": "",
-      "colWinRate": ""
+      "categoryAgent": "Agent",
+      "categoryAudio": "Audio",
+      "categoryEmbedding": "Embedding",
+      "categoryImage": "Image",
+      "categoryLlm": "LLM",
+      "categoryMultimodal": "Multimodal",
+      "categoryOverall": "Overall",
+      "categoryVideo": "Video",
+      "colArenaScore": "Arena Score",
+      "colContextWindow": "Context Window",
+      "colInputPrice": "Input Price",
+      "colMaxOutput": "Max Output",
+      "colOutputPrice": "Output Price",
+      "colReleaseDate": "Release Date",
+      "colVoteCount": "Votes",
+      "colWinRate": "Win Rate"
     },
     "hero": {
       "label": "AI News Hero",
@@ -11670,7 +11713,7 @@
       "label": "AI Feed Timeline",
       "title": "Real-time AI News Stream",
       "subtitle": "Aggregating 41 authoritative sources, auto-collected every 6 hours",
-      "totalPrefix": "",
+      "totalPrefix": "Total",
       "totalSuffix": "items",
       "today": "Today",
       "yesterday": "Yesterday",
@@ -11685,21 +11728,21 @@
       "trendNotifyCollapse": "Collapse",
       "trendNotifyClose": "Close",
       "langSwitch": "Switch title language to {lang}",
-      "categoryAll": "",
-      "categoryIndustry": "",
-      "categoryModel": "",
-      "categoryPaper": "",
-      "categoryProduct": "",
-      "categoryTip": "",
-      "channelAll": "",
-      "channelFirstParty": "",
-      "channelHotlist": "",
-      "channelNews": "",
-      "channelPaper": "",
-      "trendAll": "",
-      "trendCooling": "",
-      "trendNew": "",
-      "trendRising": ""
+      "categoryAll": "All",
+      "categoryIndustry": "Industry",
+      "categoryModel": "Model",
+      "categoryPaper": "Paper",
+      "categoryProduct": "Product",
+      "categoryTip": "Tips",
+      "channelAll": "All",
+      "channelFirstParty": "First-Party",
+      "channelHotlist": "Hotlist",
+      "channelNews": "News",
+      "channelPaper": "Paper",
+      "trendAll": "All",
+      "trendCooling": "Cooling",
+      "trendNew": "New",
+      "trendRising": "Rising"
     },
     "hotRanking": {
       "label": "Hot Ranking",
@@ -11725,8 +11768,8 @@
       "sortLabel": "Sort",
       "searchPlaceholder": "Search title / summary / source…",
       "resultCount": "{count} / {total} entries",
-      "sortByAmount": "",
-      "sortByDate": ""
+      "sortByAmount": "By Amount",
+      "sortByDate": "By Date"
     },
     "detailDialog": {
       "arenaScore": "Arena Score",
@@ -11788,11 +11831,11 @@
       "speedTesting": "Testing...",
       "sortBySpeed": "By Latency",
       "speedError": "Timeout",
-      "allBilling": "",
-      "billingFree": "",
-      "billingGpu": "",
-      "billingSubscription": "",
-      "billingToken": ""
+      "allBilling": "All Billing",
+      "billingFree": "Free",
+      "billingGpu": "GPU",
+      "billingSubscription": "Subscription",
+      "billingToken": "Token"
     },
     "cta": {
       "label": "Bottom CTA",
@@ -12200,7 +12243,7 @@
     "enterprise": {
       "name": "Enterprise Service",
       "price": "Contact Sales",
-      "period": "",
+      "period": "/mo",
       "desc": "Customized plan for enterprise decision-maker teams",
       "cta": "Contact Sales",
       "features": [
@@ -12360,15 +12403,15 @@
     "submitting": "Adding...",
     "submit": "Add Watermark",
     "positions": {
-      "bottomCenter": "",
-      "bottomLeft": "",
-      "bottomRight": "",
-      "middleCenter": "",
-      "middleLeft": "",
-      "middleRight": "",
-      "topCenter": "",
-      "topLeft": "",
-      "topRight": ""
+      "bottomCenter": "Bottom Center",
+      "bottomLeft": "Bottom Left",
+      "bottomRight": "Bottom Right",
+      "middleCenter": "Middle Center",
+      "middleLeft": "Middle Left",
+      "middleRight": "Middle Right",
+      "topCenter": "Top Center",
+      "topLeft": "Top Left",
+      "topRight": "Top Right"
     }
   },
   "businessCardEditPage": {
@@ -12671,10 +12714,10 @@
     "loading": "Loading...",
     "empty": "No order records",
     "stats": {
-      "coupon": "",
-      "level": "",
-      "orders": "",
-      "points": ""
+      "coupon": "Coupons",
+      "level": "Level",
+      "orders": "Orders",
+      "points": "Points"
     }
   },
   "developerHomePage": {
@@ -12885,11 +12928,11 @@
     "noDescription": "No description",
     "free": "Free",
     "statusFilters": {
-      "all": "",
-      "offline": "",
-      "pending": "",
-      "published": "",
-      "rejected": ""
+      "all": "All",
+      "offline": "Offline",
+      "pending": "Pending",
+      "published": "Published",
+      "rejected": "Rejected"
     }
   },
   "businessCardPage": {
@@ -12973,10 +13016,10 @@
     "requestBody": "Request body",
     "responseBody": "Response body",
     "statusFilter": {
-      "2xx": "",
-      "4xx": "",
-      "5xx": "",
-      "all": ""
+      "2xx": "2xx Success",
+      "4xx": "4xx Client Error",
+      "5xx": "5xx Server Error",
+      "all": "All"
     }
   },
   "eduCertificatesPage": {
@@ -13126,9 +13169,9 @@
     "minSpend": "Min spend {amount}",
     "validUntil": "Valid until: {date}",
     "tab": {
-      "expired": "",
-      "unused": "",
-      "used": ""
+      "expired": "Expired",
+      "unused": "Unused",
+      "used": "Used"
     }
   },
   "answerArea": {
@@ -13304,9 +13347,9 @@
     "submitting": "Splitting...",
     "resultHint": "Split complete. The result has been packaged as a ZIP:",
     "mode": {
-      "bookmarks": "",
-      "every": "",
-      "range": ""
+      "bookmarks": "By Bookmarks",
+      "every": "Every Page",
+      "range": "By Range"
     }
   },
   "supportNewTicketForm": {
@@ -13434,9 +13477,9 @@
       "score": "Score"
     },
     "range": {
-      "month": "",
-      "total": "",
-      "week": ""
+      "month": "Monthly",
+      "total": "All Time",
+      "week": "Weekly"
     }
   },
   "recruitmentPage": {
@@ -13612,11 +13655,11 @@
   "ide": {
     "activityBar": {
       "settings": "Settings",
-      "applications": "",
-      "debug": "",
-      "files": "",
-      "search": "",
-      "sourceControl": ""
+      "applications": "Applications",
+      "debug": "Debug",
+      "files": "Files",
+      "search": "Search",
+      "sourceControl": "Source Control"
     },
     "topBar": {
       "editor": "Editor",
@@ -13727,13 +13770,13 @@
       "browseFiles": "Browse Files",
       "recentFiles": "Recent",
       "shortcuts": "Shortcuts",
-      "scGlobalSearch": "",
-      "scGotoLine": "",
-      "scOpenFile": "",
-      "scToggleSidebar": "",
-      "scToggleTerminal": "",
-      "settings": "",
-      "viewChanges": ""
+      "scGlobalSearch": "Global Search",
+      "scGotoLine": "Go to Line",
+      "scOpenFile": "Open File",
+      "scToggleSidebar": "Toggle Sidebar",
+      "scToggleTerminal": "Toggle Terminal",
+      "settings": "Settings",
+      "viewChanges": "View Changes"
     },
     "editorTabBar": {
       "closeTab": "Close tab",
@@ -13837,7 +13880,7 @@
     "statusBar": {
       "sync": "Sync",
       "toggleTheme": "Toggle theme",
-      "unsynced": ""
+      "unsynced": "Unsynced"
     },
     "terminalPanel": {
       "loadFailed": "Terminal load failed: {message}",
@@ -14220,6 +14263,46 @@
         "Personalized learning path recommendation"
       ]
     }
+  },
+  "specPanel": {
+    "historyVersion": "History version",
+    "regenCompare": "Regenerate comparison",
+    "rejectReasonPlaceholder": "Enter rejection reason…",
+    "proposedChangePlaceholder": "Enter proposed change…",
+    "branchNamePlaceholder": "Enter branch name…",
+    "baselineVersion": "Baseline version",
+    "mergeToMain": "Merge to main",
+    "compareMain": "Compare with main",
+    "abandonBranch": "Abandon branch",
+    "requirementFormat": "Requirement format",
+    "stopListening": "Stop listening"
+  },
+  "dispatchDialog": {
+    "taskGoalPlaceholder": "Describe task goal…",
+    "taskDescPlaceholder": "Describe task details…",
+    "conditionPlaceholder": "Describe completion criteria…",
+    "examplePlaceholder": "Example…",
+    "roleDescPlaceholder": "Describe role responsibilities…"
+  },
+  "inlineEdit": {
+    "editDescPlaceholder": "Describe edit content…",
+    "stopAriaLabel": "Stop editing",
+    "closeAriaLabel": "Close editor"
+  },
+  "agentSwarm": {
+    "listViewAriaLabel": "List view",
+    "topologyViewAriaLabel": "Topology view"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "Search messages…",
+    "searchAriaLabel": "Search messages"
+  },
+  "mentionSearch": {
+    "keywordAriaLabel": "Keyword",
+    "mentionTypeAriaLabel": "Mention type"
+  },
+  "adminTool": {
+    "usernamePlaceholder": "Username"
   },
   "useCasesCustomerSupport": {
     "reviewSchema": {
