@@ -82,7 +82,7 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
         </Link>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <StatCard
           icon={Star}
           label={t('current')}

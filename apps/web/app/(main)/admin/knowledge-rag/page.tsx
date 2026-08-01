@@ -398,7 +398,7 @@ export default function KnowledgeRagPage() {
             <DialogTitle>文本入库</DialogTitle>
           </DialogHeader>
           <form onSubmit={submitIngest} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="ingest-title">标题 *</Label>
                 <Input
