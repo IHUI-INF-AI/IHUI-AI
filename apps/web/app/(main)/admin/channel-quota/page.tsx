@@ -42,11 +42,7 @@ interface ChannelQuota {
   monthlyUsedTokens: number
 }
 
-type EditableField =
-  | 'dailyCallLimit'
-  | 'monthlyCallLimit'
-  | 'dailyTokenLimit'
-  | 'monthlyTokenLimit'
+type EditableField = 'dailyCallLimit' | 'monthlyCallLimit' | 'dailyTokenLimit' | 'monthlyTokenLimit'
 
 const fmt = (n: number): string => new Intl.NumberFormat().format(n)
 const usageRate = (used: number, limit: number | null): number =>
@@ -87,7 +83,7 @@ export default function AdminChannelQuotaPage() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'relay', 'channel-quota'] })
   const saveMut = useMutation({
     mutationFn: async (ch: ChannelQuota) => {
-      const r = await fetchApi('/api/admin/relay/channels/' + ch.id, {
+      const r = await fetchApi(`/api/admin/relay/channels/${ch.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,13 +131,22 @@ export default function AdminChannelQuotaPage() {
 
   const applyBatch = () => {
     const patch: Partial<Record<EditableField, number | null>> = {}
-    if (batchForm.dailyCallLimit !== '') patch.dailyCallLimit = parseLimitInput(batchForm.dailyCallLimit)
-    if (batchForm.monthlyCallLimit !== '') patch.monthlyCallLimit = parseLimitInput(batchForm.monthlyCallLimit)
-    if (batchForm.dailyTokenLimit !== '') patch.dailyTokenLimit = parseLimitInput(batchForm.dailyTokenLimit)
-    if (batchForm.monthlyTokenLimit !== '') patch.monthlyTokenLimit = parseLimitInput(batchForm.monthlyTokenLimit)
+    if (batchForm.dailyCallLimit !== '')
+      patch.dailyCallLimit = parseLimitInput(batchForm.dailyCallLimit)
+    if (batchForm.monthlyCallLimit !== '')
+      patch.monthlyCallLimit = parseLimitInput(batchForm.monthlyCallLimit)
+    if (batchForm.dailyTokenLimit !== '')
+      patch.dailyTokenLimit = parseLimitInput(batchForm.dailyTokenLimit)
+    if (batchForm.monthlyTokenLimit !== '')
+      patch.monthlyTokenLimit = parseLimitInput(batchForm.monthlyTokenLimit)
     setRows((r) => r.map((c) => (selected.has(c.id) ? { ...c, ...patch } : c)))
     setBatchOpen(false)
-    setBatchForm({ dailyCallLimit: '', monthlyCallLimit: '', dailyTokenLimit: '', monthlyTokenLimit: '' })
+    setBatchForm({
+      dailyCallLimit: '',
+      monthlyCallLimit: '',
+      dailyTokenLimit: '',
+      monthlyTokenLimit: '',
+    })
     toast.success('已应用到 ' + selected.size + ' 个渠道,请逐行保存')
   }
 
