@@ -18,6 +18,7 @@
  */
 import { eq, and, sql, desc, isNull } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
+import { logger } from '../utils/logger.js'
 import {
   developerApiKeys,
   llmCallLogs,
@@ -782,8 +783,12 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
         .update(apiKeyGroups)
         .set(groupSetClause)
         .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
-        .catch(() => {
-          // 扣减失败不抛错(避免影响已返回给用户的响应)
+        .catch((err: unknown) => {
+          // P1 修复:扣减失败记录错误日志(原静默吞掉导致平台财务损失无法排查)
+          logger.error('[billing] 组池余额扣减失败', {
+            groupId: groupInfoForDeduct.groupId,
+            error: err instanceof Error ? err.message : String(err),
+          })
         })
     }
 
@@ -796,55 +801,46 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
         updatedAt: new Date(),
       })
       .where(eq(developerApiKeys.id, input.apiKeyId))
-      .catch(() => {
-        // 统计累加失败不影响主链路
+      .catch((err: unknown) => {
+        // P1 修复:统计累加失败记录错误日志(原静默吞掉导致用量统计丢失无法排查)
+        logger.error('[billing] 统计累加失败', {
+          apiKeyId: input.apiKeyId,
+          error: err instanceof Error ? err.message : String(err),
+        })
       })
   } else {
-    // === 扣个人余额(无组,维持原逻辑,向后兼容)===
-    const [apiKeyRow] = await dbRead
-      .select({
-        tokenBalance: developerApiKeys.tokenBalance,
-        costBalanceCents: developerApiKeys.costBalanceCents,
-      })
-      .from(developerApiKeys)
-      .where(eq(developerApiKeys.id, input.apiKeyId))
-      .limit(1)
-
-    newTokenBalance = apiKeyRow?.tokenBalance ?? -1
-    newCostBalanceCents = apiKeyRow?.costBalanceCents ?? -1
-
-    if (apiKeyRow) {
-      // 计算扣减后的值(不直接用 SQL 扣减,避免 -1 被误减)
-      const setClause: Record<string, unknown> = { updatedAt: new Date() }
-
-      if (apiKeyRow.tokenBalance === -1) {
-        // 无限额度,不扣减 token 余额
-        newTokenBalance = -1
-      } else {
-        newTokenBalance = Math.max(0, apiKeyRow.tokenBalance - input.totalTokens)
-        setClause.tokenBalance = newTokenBalance
-      }
-
-      if (apiKeyRow.costBalanceCents === -1) {
-        // 无限额度,不扣减成本余额
-        newCostBalanceCents = -1
-      } else {
-        newCostBalanceCents = Math.max(0, apiKeyRow.costBalanceCents - costCentsToDeduct)
-        setClause.costBalanceCents = newCostBalanceCents
-      }
-
-      // 累计已用统计(总是累加,即使余额无限)
-      setClause.tokenUsedTotal = sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`
-      setClause.costUsedTotalCents = sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`
-
-      await db
+    // === 扣个人余额(无组,原子操作防竞态)===
+    // P0 修复:原 SELECT+应用层计算+UPDATE 模式存在竞态,改为原子 CASE WHEN UPDATE
+    let updated: { tokenBalance: number; costBalanceCents: number } | undefined
+    try {
+      const rows = await db
         .update(developerApiKeys)
-        .set(setClause)
-        .where(eq(developerApiKeys.id, input.apiKeyId))
-        .catch(() => {
-          // 扣减失败不抛错,只 log(避免影响已返回给用户的响应)
+        .set({
+          // -1(无限额度)保持 -1;余额 >= 扣减量时扣减;否则保持不变(拒绝扣减,防负数)
+          tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 WHEN ${developerApiKeys.tokenBalance} >= ${input.totalTokens} THEN ${developerApiKeys.tokenBalance} - ${input.totalTokens} ELSE ${developerApiKeys.tokenBalance} END`,
+          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 WHEN ${developerApiKeys.costBalanceCents} >= ${costCentsToDeduct} THEN ${developerApiKeys.costBalanceCents} - ${costCentsToDeduct} ELSE ${developerApiKeys.costBalanceCents} END`,
+          // 累计已用统计(总是累加,即使余额无限)
+          tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`,
+          costUsedTotalCents: sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`,
+          updatedAt: new Date(),
         })
+        .where(eq(developerApiKeys.id, input.apiKeyId))
+        .returning({
+          tokenBalance: developerApiKeys.tokenBalance,
+          costBalanceCents: developerApiKeys.costBalanceCents,
+        })
+      updated = rows[0]
+    } catch (err) {
+      // P1 修复:扣减失败记录错误日志(原静默吞掉导致平台财务损失无法排查)
+      logger.error('[billing] 余额扣减失败', {
+        apiKeyId: input.apiKeyId,
+        error: err instanceof Error ? err.message : String(err),
+        tokenCost: input.totalTokens,
+        costCents: costCentsToDeduct,
+      })
     }
+    newTokenBalance = updated?.tokenBalance ?? -1
+    newCostBalanceCents = updated?.costBalanceCents ?? -1
   }
 
   // 4. 异步触发 relay 返佣(2026-07-31 立,被邀请人消费 → 邀请人返佣)
