@@ -84,9 +84,9 @@ export default function HelpPage() {
             onClick={() => setActive('all')}
             className={catCls(active === 'all')}
           >
-            <BookOpen className="h-4 w-4" />
-            {t('allArticles')}
-            <span className="ml-auto text-xs text-muted-foreground">{articles.length}</span>
+            <BookOpen className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-left">{t('allArticles')}</span>
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{articles.length}</span>
           </button>
           {cats.map((c) => (
             <button
@@ -95,10 +95,12 @@ export default function HelpPage() {
               onClick={() => setActive(c.slug)}
               className={catCls(active === c.slug)}
             >
-              <HelpCircle className="h-4 w-4" />
-              {c.name}
+              <HelpCircle className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-left" title={c.name}>
+                {c.name}
+              </span>
               {typeof c.articleCount === 'number' && (
-                <span className="ml-auto text-xs text-muted-foreground">{c.articleCount}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{c.articleCount}</span>
               )}
             </button>
           ))}
