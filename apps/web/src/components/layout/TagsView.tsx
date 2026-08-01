@@ -527,10 +527,13 @@ export function TagsView() {
                     : isPinned
                       ? // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
                         'bg-muted/70 font-medium text-foreground'
-                      : // 未选中标签:2026-08-01 用户反馈"bg-transparent 跟底色一样看不出容器"
-                        //   → bg-muted/30 低对比度容器背景(三级层次:active bg-accent > pinned bg-muted/70 > 未选中 bg-muted/30)
-                        //   hover 升至 bg-muted 与 pinned 齐平,提供 hover 反馈
-                        'bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground',
+                      : // 未选中标签:2026-08-01 用户两轮反馈"bg-transparent / bg-muted/30 都跟底色一样看不出容器"
+                        //   根因:background 96.1% L,muted 92% L,/30 叠加后仅 94.8% L,与背景差 1.3% 肉眼难辨。
+                        //   方案:bg-card(100% 白,浅色 / 10% 黑,深色)+ border-border 完整描边双重勾勒容器。
+                        //   浅色:白底卡在 96.1% 浅灰背景上 + 89.8% 边框;深色:更黑底(10%)在 14% 背景上 + 22% 边框。
+                        //   符合 AGENTS.md "容器完整描边 border border-border" 规则(非单边分割线)。
+                        //   hover 升至 bg-muted 与 pinned 齐平,提供 hover 反馈。
+                        'bg-card border border-border text-muted-foreground hover:bg-muted hover:text-foreground',
                   // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
                   dragIndex !== null && isOver && 'opacity-50',
                   dragIndex === index && 'opacity-40',
