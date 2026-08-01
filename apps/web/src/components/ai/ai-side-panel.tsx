@@ -784,7 +784,7 @@ export function AISidePanel() {
                         setFloatCollapsed(false)
                       }}
                       aria-label={tc('dockPanel')}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
                       <PanelLeft className="h-3.5 w-3.5" />
                     </button>
@@ -794,7 +794,7 @@ export function AISidePanel() {
                       type="button"
                       onClick={() => setFloatMinimized(true)}
                       aria-label={tc('minimize')}
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
                       <Minus className="h-3.5 w-3.5" />
                     </button>

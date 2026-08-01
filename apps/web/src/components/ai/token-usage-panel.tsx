@@ -30,7 +30,7 @@ export function TokenUsagePanel({
 }: TokenUsagePanelProps) {
   return (
     <div className="rounded-lg border bg-card p-3 text-card-foreground">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <StatItem label="Prompt" value={promptTokens} />
         <StatItem label="Completion" value={completionTokens} />
         <StatItem label="Total" value={totalTokens} />
