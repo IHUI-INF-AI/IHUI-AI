@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   Loader2,
@@ -63,8 +64,8 @@ interface ConversationsResponse {
   pageSize: number
 }
 
-async function fetchConversations(): Promise<ConversationsResponse> {
-  const res = await fetchApi<ConversationsResponse>('/api/chat/conversations')
+async function fetchConversations(page = 1): Promise<ConversationsResponse> {
+  const res = await fetchApi<ConversationsResponse>(`/api/chat/conversations?page=${page}`)
   if (!res.success) throw new Error(res.error)
   return res.data
 }
@@ -138,9 +139,17 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     data,
     isLoading,
     error: queryError,
-  } = useQuery({
-    queryKey: ['chat', 'conversations'],
-    queryFn: fetchConversations,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['chat', 'conversations', 'infinite'],
+    queryFn: ({ pageParam = 1 }) => fetchConversations(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (last) => {
+      const totalPages = Math.ceil(last.total / last.pageSize)
+      return last.page < totalPages ? last.page + 1 : undefined
+    },
     enabled: isAuthenticated && !collapsed,
     staleTime: 30 * 1000,
   })
@@ -245,8 +254,10 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     )
   }
 
-  // items 取分页后的列表(用于渲染);总数显示用 data.total(后端真实总数,不受 pageSize 截断)
-  const items = data?.conversations ?? []
+  // items: flatten 所有已加载页的 conversations(infinite scroll 累积);
+  // total: 后端真实总数(首页返回,所有页一致)
+  const items = data?.pages.flatMap((p) => p.conversations) ?? []
+  const total = data?.pages[0]?.total ?? 0
 
   const handleSelect = (item: ConversationItem) => {
     useChatStore.getState().setConversationId(item.id)
@@ -496,9 +507,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
       >
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
-          {(data?.total ?? items.length) > 0 && (
+          {total > 0 && (
             <span className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
-              {data?.total ?? items.length}
+              {total}
             </span>
           )}
         </div>
@@ -516,15 +527,41 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             <span className="text-xs text-muted-foreground">{tc('noHistory')}</span>
           </div>
         ) : (
-          <div className="thin-scroll max-h-[220px] overflow-y-auto pr-0.5">
-            {groupByDate(items).map((group) => (
-              <div key={group.key} className="mb-0.5 last:mb-0">
-                <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                  {tc(group.key)}
+          <div className="flex flex-col">
+            <div
+              className="thin-scroll max-h-[220px] overflow-y-auto pr-0.5"
+              onScroll={(e) => {
+                const el = e.currentTarget
+                if (
+                  el.scrollTop + el.clientHeight >= el.scrollHeight - 24 &&
+                  hasNextPage &&
+                  !isFetchingNextPage
+                ) {
+                  fetchNextPage()
+                }
+              }}
+            >
+              {groupByDate(items).map((group) => (
+                <div key={group.key} className="mb-0.5 last:mb-0">
+                  <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                    {tc(group.key)}
+                  </div>
+                  <ul>{group.items.map(renderItem)}</ul>
                 </div>
-                <ul>{group.items.map(renderItem)}</ul>
-              </div>
-            ))}
+              ))}
+              {isFetchingNextPage && (
+                <div className="flex justify-center py-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
+            <Link
+              href="/chat/history"
+              className="mt-1 flex items-center justify-center gap-1 rounded-sm px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <span>{t('viewAll')}</span>
+              {total > 0 && <span className="tabular-nums">{total}</span>}
+            </Link>
           </div>
         )}
       </div>
