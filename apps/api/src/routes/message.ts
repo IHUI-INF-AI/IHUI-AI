@@ -364,7 +364,11 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const userId = request.userId!
       const { page, pageSize } = z
-        .object({ page: z.coerce.number().default(1), pageSize: z.coerce.number().default(20) })
+        .object({
+          page: z.coerce.number().int().min(1).default(1),
+          // 2026-08-01 P1 修复:pageSize 无上限,恶意请求可传 999999 拉取全表导致 DoS,补齐 max(100)。
+          pageSize: z.coerce.number().int().min(1).max(100).default(20),
+        })
         .parse(request.query)
       const conversations = await db
         .select()
@@ -593,7 +597,8 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
           peerId: z.string().optional(),
           isRead: z.string().optional(),
           page: z.coerce.number().optional().default(1),
-          pageSize: z.coerce.number().optional().default(20),
+          // 2026-08-01 P1 修复:pageSize 无上限,补齐 max(100) 防 DoS。
+          pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
         })
         .parse(request.query)
       const conditions = [
@@ -665,7 +670,8 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       const body = z
         .object({
           receiverId: z.string().min(1).max(100),
-          content: z.string().min(1),
+          // 2026-08-01 P1 修复:content 无 max 上限,可写入超长文本撑爆 DB/内存,补齐 max(5000)。
+          content: z.string().min(1).max(5000),
         })
         .parse(request.body)
       const senderId = request.userId!
@@ -777,7 +783,8 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       const { page, pageSize } = z
         .object({
           page: z.coerce.number().optional().default(1),
-          pageSize: z.coerce.number().optional().default(20),
+          // 2026-08-01 P1 修复:pageSize 无上限,补齐 max(100) 防 DoS。
+          pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
         })
         .parse(request.query)
       const list = await db
@@ -1116,7 +1123,7 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const body = z.object({ content: z.string().min(1) }).parse(request.body)
+      const body = z.object({ content: z.string().min(1).max(5000) }).parse(request.body)
       const [created] = await db
         .insert(messageSystemNotice)
         .values({ content: body.content })
@@ -1176,7 +1183,8 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
           channel: z.string().optional(),
           status: z.coerce.number().optional(),
           page: z.coerce.number().optional().default(1),
-          pageSize: z.coerce.number().optional().default(20),
+          // 2026-08-01 P1 修复:pageSize 无上限,补齐 max(100) 防 DoS。
+          pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
         })
         .parse(request.query)
       const conditions = []
@@ -1223,7 +1231,8 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
           code: z.string().min(1).max(64),
           channel: z.string().min(1).max(32),
           title: z.string().min(1).max(255),
-          content: z.string().min(1),
+          // 2026-08-01 P1 修复:content 无 max 上限,补齐 max(20000) 与 schema 定义一致。
+          content: z.string().min(1).max(20000),
           variables: z.unknown().optional(),
           status: z.number().int().default(1),
         })
