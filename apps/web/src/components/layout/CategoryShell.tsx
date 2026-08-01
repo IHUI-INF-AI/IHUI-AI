@@ -60,7 +60,7 @@ export interface CategoryShellProps {
   children: React.ReactNode
   /** 可选:额外 className(加在根容器) */
   className?: string
-  /** 可选:侧边栏宽度,默认 w-52 */
+  /** 可选:侧边栏宽度,默认 w-fit(自适应文字宽度) */
   sidebarWidth?: string
 }
 
@@ -81,7 +81,7 @@ export function CategoryShell({
   navGroups,
   children,
   className,
-  sidebarWidth = 'w-52',
+  sidebarWidth = 'w-fit',
 }: CategoryShellProps) {
   const pathname = usePathname()
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
@@ -120,7 +120,7 @@ export function CategoryShell({
           )}
         >
           {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          <span className="whitespace-nowrap">{item.label}</span>
         </Link>
       )
     })
