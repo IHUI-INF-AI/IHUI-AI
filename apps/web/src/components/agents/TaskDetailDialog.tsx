@@ -243,7 +243,7 @@ export function TaskDetailDialog({
           )}
         </div>
 
-        <DialogFooter className="justify-between sm:justify-between">
+        <DialogFooter className="justify-between min-[640px]:justify-between">
           <Button
             type="button"
             variant="destructive"

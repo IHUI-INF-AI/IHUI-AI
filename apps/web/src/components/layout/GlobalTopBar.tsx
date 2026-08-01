@@ -513,7 +513,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
           {/* 0. 移动端汉堡菜单按钮(2026-07-31 第十三轮立,GlobalShell 注入)
               - 物理上作为顶栏 flex 第一个元素,跟 TagsViewSearchButton 36x36 尺寸一致,
                 杜绝 absolute 定位与顶栏子元素 z-index/stacking-context 冲突(原 bug:z-modal 也无法覆盖)
-              - 桌面端 lg:flex 隐藏,移动端 lg 以下显示 */}
+              - 桌面端 min-[1024px]:flex 隐藏,移动端 lg 以下显示 */}
           {mobileMenu}
 
           {/* 1. 搜索按钮(从 TagsView 抽出) */}

@@ -52,7 +52,7 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       // 2026-07-28 v9 根因修复:旧公式把左侧 sidebar/ai-panel 算进 right,
       //   实则工作区右边距 viewport 固定 8px(mr-2),与 sidebar/ai-panel 开关无关
       style={{ right: '12px' }}
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md md:flex"
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-1 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {

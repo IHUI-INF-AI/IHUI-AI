@@ -280,7 +280,7 @@ function PathNav({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={cancelInput}
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label={t('cancel')}
               >
                 <X className="h-3.5 w-3.5" />
@@ -303,7 +303,7 @@ function PathNav({
               type="button"
               onClick={() => onNavigate('')}
               className={cn(
-                'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors',
+                'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded transition-colors',
                 isAtRoot
                   ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -357,7 +357,7 @@ function PathNav({
             <button
               type="button"
               onClick={() => setMode('input')}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label={t('advancedPath')}
             >
               <Keyboard className="h-3.5 w-3.5" />
@@ -375,7 +375,7 @@ function PathNav({
               type="button"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
               aria-label={t('refresh')}
             >
               <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
@@ -727,7 +727,7 @@ export function LocalFolderPicker({
                   <button
                     type="button"
                     onClick={() => setFilter('')}
-                    className="absolute right-1.5 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label={t('clearFilter')}
                   >
                     <X className="h-3 w-3" />
@@ -801,7 +801,7 @@ export function LocalFolderPicker({
                   </li>
                 ) : filteredDirs.length === 0 ? (
                   <li>
-                    <div className="flex flex-col items-center justify-center gap-2 px-3 py-12 text-center text-sm text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2 px-3 py-8 min-[768px]:py-12 text-center text-sm text-muted-foreground">
                       <Folder className="h-8 w-8 opacity-30" />
                       <span>{filter ? t('noMatch') : t('noDirectories')}</span>
                       {filter && (

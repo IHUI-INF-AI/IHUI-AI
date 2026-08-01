@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -75,7 +75,7 @@ export default function ContextVisualizationPage() {
         <div className="py-8 text-center text-sm text-muted-foreground">暂无数据</div>
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+          <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[360px_1fr]">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">当前分布</CardTitle>

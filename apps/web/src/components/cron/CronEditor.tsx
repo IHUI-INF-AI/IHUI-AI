@@ -275,7 +275,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
           {runs.length > 0 && (
             <div className="mt-2">
               <p className="mb-1 text-xs text-muted-foreground">{t('recentRuns')}</p>
-              <ul className="grid grid-cols-1 gap-0.5 text-xs sm:grid-cols-2">
+              <ul className="grid grid-cols-1 gap-0.5 text-xs min-[640px]:grid-cols-2">
                 {runs.map((d, i) => (
                   <li key={i} className="inline-flex items-center gap-1">
                     <span className="h-1 w-1 rounded-full bg-primary/60" />

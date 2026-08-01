@@ -33,7 +33,7 @@ export default async function UsagePage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('usage.title')}</h1>
           <p className="text-xs text-muted-foreground">{t('usage.subtitle')}</p>
@@ -56,7 +56,7 @@ export default async function UsagePage() {
       </header>
 
       {/* 汇总卡片 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {summary.map((s) => {
           const Icon = s.icon
           const isDown = s.change.startsWith('-')

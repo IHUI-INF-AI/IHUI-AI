@@ -190,8 +190,8 @@ export default function WechatPage() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="space-y-4 md:col-span-2">
+    <div className="grid gap-4 min-[768px]:grid-cols-3">
+      <div className="space-y-4 min-[768px]:col-span-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

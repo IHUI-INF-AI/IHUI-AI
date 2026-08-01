@@ -139,7 +139,7 @@ export default async function SkillsPage() {
       </header>
 
       {/* 搜索 */}
-      <div className="relative w-full sm:max-w-md">
+      <div className="relative w-full min-[640px]:max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
@@ -168,7 +168,7 @@ export default async function SkillsPage() {
       {/* 精选 Skills */}
       <div>
         <h2 className="mb-3 text-base font-semibold">{t('skills.featuredTitle')}</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {skills
             .filter((s) => s.featured)
             .map((s) => (
@@ -210,7 +210,7 @@ export default async function SkillsPage() {
       {/* 全部 Skills */}
       <div>
         <h2 className="mb-3 text-base font-semibold">{t('skills.allTitle')}</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {skills.map((s) => (
             <Card
               key={s.name}

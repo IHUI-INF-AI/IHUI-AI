@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -107,7 +107,7 @@ export default function MemberDashboardPage() {
 
       {summaryQ.error && <Alert variant="danger" description={(summaryQ.error as Error).message} />}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[1024px]:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon
           return (

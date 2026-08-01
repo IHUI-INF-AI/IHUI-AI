@@ -88,7 +88,7 @@ export function ContactContent({
   const company = data?.company ?? fallbackCompany
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-8">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -96,13 +96,13 @@ export function ContactContent({
           {t('badge')}
         </div>
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('subtitle')}
         </p>
       </section>
 
       {/* 联系方式 */}
-      <section className="mt-16 grid gap-6 sm:grid-cols-2">
+      <section className="mt-16 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2">
         {isLoading && (
           <div className="col-span-full flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -132,7 +132,7 @@ export function ContactContent({
       </section>
 
       {/* 公司地址 */}
-      <section className="mt-12 rounded-2xl border bg-card p-6 md:p-8">
+      <section className="mt-12 rounded-2xl border bg-card p-6 min-[768px]:p-8">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
             <MapPin className="h-5 w-5 text-primary" />
@@ -151,9 +151,9 @@ export function ContactContent({
       </section>
 
       {/* CTA */}
-      <section className="mt-12 rounded-2xl border bg-primary/5 p-8 text-center md:p-12">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+      <section className="mt-12 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaSubtitle')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

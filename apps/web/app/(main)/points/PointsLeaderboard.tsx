@@ -28,7 +28,7 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
             <th className="px-4 py-2 text-left font-medium">{t('rank')}</th>
             <th className="px-4 py-2 text-left font-medium">{t('user')}</th>
             <th className="px-4 py-2 text-right font-medium">{t('pointsLabel')}</th>
-            <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">
+            <th className="hidden px-4 py-2 text-right font-medium min-[640px]:table-cell">
               {t('levelLabel')}
             </th>
           </tr>
@@ -59,7 +59,7 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
                 </div>
               </td>
               <td className="px-4 py-2 text-right font-medium">{u.points}</td>
-              <td className="hidden px-4 py-2 text-right text-muted-foreground sm:table-cell">
+              <td className="hidden px-4 py-2 text-right text-muted-foreground min-[640px]:table-cell">
                 Lv.{u.level}
               </td>
             </tr>

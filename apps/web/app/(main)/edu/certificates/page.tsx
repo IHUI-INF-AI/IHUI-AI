@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -73,7 +73,7 @@ export default function EduCertificatesPage() {
           <p className="text-sm text-muted-foreground">暂无证书</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {certs.map((cert) => (
             <Card
               key={cert.id}

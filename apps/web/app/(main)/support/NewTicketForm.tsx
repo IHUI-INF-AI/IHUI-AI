@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -68,7 +68,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
 
   return (
     <Card>
-      <CardContent className="p-4 md:p-6">
+      <CardContent className="p-4 min-[768px]:p-6">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -96,7 +96,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="t-category">{t('categoryLabel')}</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>

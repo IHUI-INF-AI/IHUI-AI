@@ -137,7 +137,7 @@ describe('SubAgentTaskTree — 基础渲染', () => {
     expect(container.textContent).toContain('1m5s')
     // 12345 / 1000 = 12.345 → round → 12k tok
     expect(container.textContent).toContain('12k tok')
-    // currentTask → lg:inline 才显示(happy-dom viewport 默认 1024 满足)
+    // currentTask → min-[1024px]:inline 才显示(happy-dom viewport 默认 1024 满足)
     expect(container.textContent).toContain('reading file')
   })
 

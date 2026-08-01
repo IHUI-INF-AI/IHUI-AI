@@ -89,8 +89,8 @@ export default function RequestBuilder({
           发送
         </button>
       </div>
-      <div className="grid grid-cols-1 gap-0 lg:grid-cols-2">
-        <div className="border-b p-3 lg:border-b-0 lg:border-r">
+      <div className="grid grid-cols-1 gap-0 min-[1024px]:grid-cols-2">
+        <div className="border-b p-3 min-[1024px]:border-b-0 min-[1024px]:border-r">
           <div className="mb-1.5 text-xs font-medium text-muted-foreground">Headers</div>
           <textarea
             value={headerText}
