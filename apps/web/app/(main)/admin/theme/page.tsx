@@ -7,6 +7,7 @@ import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface Theme {
   id: string
@@ -57,6 +58,7 @@ export default function ThemeListPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">主题列表</h1>

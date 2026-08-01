@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, ArrowRight, Loader2, RotateCw } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { fetchSources, fetchVisualization } from '@/lib/context-api'
 import { SourceList } from '@/components/context/SourceList'
 import { TokenPieChart } from '@/components/context/TokenPieChart'
@@ -49,6 +50,7 @@ export default function ContextOverviewPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">上下文</h1>

@@ -15,6 +15,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 import type { Order } from '@ihui/api-client'
@@ -73,6 +74,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
           <TabsList>
             <TabsTrigger value="orders">{t('billingOrders')}</TabsTrigger>

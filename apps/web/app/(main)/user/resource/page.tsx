@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FileText, Download } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { BackButton } from '@/components/common'
 
 interface ResourceItem {
   id: string
@@ -47,6 +48,7 @@ export default function UserResourcePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />

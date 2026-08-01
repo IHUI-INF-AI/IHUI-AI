@@ -10,6 +10,7 @@ import { NewsCategoryTable } from './NewsCategoryTable'
 import { NewsCategoryDialog } from './NewsCategoryDialog'
 import { api, EMPTY_FORM, categoryToForm } from './helpers'
 import type { Category, CategoryForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminNewsCategoriesPage() {
   const t = useTranslations('admin.news')
@@ -101,6 +102,7 @@ export default function AdminNewsCategoriesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('categoriesTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('categoriesSubtitle')}</p>

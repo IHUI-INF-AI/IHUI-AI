@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Clock, Loader2, Plus, Search, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 import { Button, Input } from '@ihui/ui-react'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 
@@ -42,6 +43,7 @@ export default function ChatHistoryPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

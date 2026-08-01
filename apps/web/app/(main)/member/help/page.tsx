@@ -9,6 +9,7 @@ import { HelpCircle, Loader2, Search, Mail } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface HelpArticle {
   slug: string
@@ -58,6 +59,7 @@ export default function MemberHelpPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
           <HelpCircle className="h-5 w-5 shrink-0 text-primary" />

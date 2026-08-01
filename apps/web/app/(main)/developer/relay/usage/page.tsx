@@ -16,6 +16,7 @@ import {
   SelectItem,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface UsageRow {
   groupKey: string
@@ -148,6 +149,7 @@ export default function RelayUsagePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

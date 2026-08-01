@@ -14,6 +14,7 @@ import { MaterialsTable } from './MaterialsTable'
 import { MaterialsDialog } from './MaterialsDialog'
 import { PAGE_SIZE, EMPTY, materialToForm } from './helpers'
 import type { Material, MForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnMaterialsPage() {
   const t = useTranslations('admin.edu.learn.materials')
@@ -104,6 +105,7 @@ export default function EduLearnMaterialsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

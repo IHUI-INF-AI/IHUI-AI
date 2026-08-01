@@ -18,6 +18,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface NotificationPrefs {
   apiError: boolean
@@ -108,6 +109,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Bell className="h-5 w-5 text-primary" />

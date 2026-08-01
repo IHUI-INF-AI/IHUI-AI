@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { BarChart3, Clock, DollarSign, Zap } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 export default async function UsagePage() {
   const t = await getTranslations('models')
@@ -33,6 +34,7 @@ export default async function UsagePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex justify-end">
         <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
           {ranges.map((r, i) => (

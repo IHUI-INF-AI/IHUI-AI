@@ -9,6 +9,7 @@ import { Webhook, Plus } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 import { WebhooksList } from './WebhooksList'
 import { WebhookDialog } from './WebhookDialog'
 import type { WebhookItem } from './types'
@@ -104,6 +105,7 @@ export default function WebhooksPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">

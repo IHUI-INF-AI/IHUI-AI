@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { useTicketMachine } from '@/lib/workflows'
 import type { Ticket, TicketListData, TicketStatus, TicketReplyBody } from './types'
+import { BackButton } from '@/components/common'
 
 const PAGE_SIZE = 15
 const STATUS_BADGE: Record<TicketStatus, string> = {
@@ -64,6 +65,7 @@ export default function AdminTicketPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><LifeBuoy className="h-6 w-6 text-primary" />客服工单</h1>
         <select value={status} onChange={(e) => { setStatus(e.target.value as '' | TicketStatus); setPage(1) }}

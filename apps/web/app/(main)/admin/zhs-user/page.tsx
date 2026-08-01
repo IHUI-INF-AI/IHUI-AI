@@ -13,6 +13,7 @@ import { ZhsUserTable } from './ZhsUserTable'
 import { ZhsUserDialog } from './ZhsUserDialog'
 import { PAGE_SIZE, api, EMPTY, FIELDS, buildQuery, zhsUserToForm, exportZhsUser } from './helpers'
 import type { ZhsUser, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function ZhsUserPage() {
   const qc = useQueryClient()
@@ -106,6 +107,7 @@ export default function ZhsUserPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight"><span className="truncate">ZHS用户管理</span></h1>
         <div className="flex shrink-0 items-center gap-2">

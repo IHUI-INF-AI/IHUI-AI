@@ -14,6 +14,7 @@ import { LearnTable } from './LearnTable'
 import { LearnDialog } from './LearnDialog'
 import { PAGE_SIZE, EMPTY, SUB_LINKS, lessonToForm } from './helpers'
 import type { Category, Lesson, LForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnPage() {
   const t = useTranslations('admin.edu.learn.index')
@@ -125,6 +126,7 @@ export default function EduLearnPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

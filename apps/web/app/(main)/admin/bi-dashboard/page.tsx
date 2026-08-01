@@ -8,6 +8,7 @@ import type { EChartsOption } from 'echarts'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
 import { formatNumber } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface BiTrend {
   date: string
@@ -142,6 +143,7 @@ export default function BiDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold">BI 仪表板</h1>
         <p className="mt-1 text-sm text-muted-foreground">业务核心指标与趋势可视化</p>

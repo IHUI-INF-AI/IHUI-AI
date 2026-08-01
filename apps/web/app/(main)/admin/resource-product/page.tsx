@@ -7,6 +7,7 @@ import { Package, ChevronLeft, ChevronRight, Plus, Trash2, Save, X } from 'lucid
 import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { ResourceProduct, ResourceProductListData, ResourceProductForm } from './types'
+import { BackButton } from '@/components/common'
 
 const PAGE_SIZE = 20
 const EMPTY: ResourceProductForm = {
@@ -119,6 +120,7 @@ export default function AdminResourceProductPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

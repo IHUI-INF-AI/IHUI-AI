@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { type PageData } from '@ihui/api-client'
+import { BackButton } from '@/components/common'
 
 interface MarkRecord {
   id: string
@@ -137,6 +138,7 @@ export default function ExamMarkingPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">考试答题批阅</h1>
         <div className="flex items-center gap-2">

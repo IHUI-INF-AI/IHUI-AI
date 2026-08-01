@@ -8,6 +8,7 @@ import { Search, Loader2, ChevronLeft, ChevronRight, History } from 'lucide-reac
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -101,6 +102,7 @@ export default function AdminPointRecordsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('recordsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('recordsSubtitle')}</p>

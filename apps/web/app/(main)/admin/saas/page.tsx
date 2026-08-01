@@ -7,7 +7,7 @@ import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Plus, Server } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
-import { Skeleton, CenteredText } from '@/components/common'
+import { Skeleton, CenteredText, BackButton } from '@/components/common'
 
 import { TenantFilter } from './_components/TenantFilter'
 import { TenantTable } from './_components/TenantTable'
@@ -161,6 +161,7 @@ export default function AdminSaasPage() {
   return (
     <>
       <div className="space-y-4">
+        <BackButton />
         <div className="flex items-start justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

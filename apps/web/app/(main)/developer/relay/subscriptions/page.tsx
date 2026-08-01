@@ -8,6 +8,7 @@ import { Check, Loader2, Sparkles, Zap, Building2 } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   fetchApiSubscriptionPlans,
   subscribeApiPlan,
@@ -64,6 +65,7 @@ export default function RelaySubscriptionsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">API 订阅</h1>
         <p className="mt-1 text-sm text-muted-foreground">

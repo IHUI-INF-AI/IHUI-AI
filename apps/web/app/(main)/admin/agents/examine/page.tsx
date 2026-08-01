@@ -15,6 +15,7 @@ import { ExamineDialog } from './ExamineDialog'
 import { ExamineChatDialog } from './ExamineChatDialog'
 import { PAGE_SIZE, EMPTY_FORM, EXPORT_COLUMNS, api, formFromItem } from './helpers'
 import type { Examine, ListData, ExamineForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminExaminePage() {
   const t = useTranslations('admin.agents.examine')
@@ -129,6 +130,7 @@ export default function AdminExaminePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShieldCheck className="h-6 w-6 text-primary" />

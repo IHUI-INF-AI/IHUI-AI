@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import type { SkillMarketEntry, SkillNotification } from '@ihui/shared/skills/market'
 import {
   fetchSkillsMarket,
@@ -93,6 +94,7 @@ export default function SkillsMarketPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
+      <BackButton />
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">

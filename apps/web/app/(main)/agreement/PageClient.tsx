@@ -8,7 +8,7 @@ import { FileText, Loader2, Calendar, Tag } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { SafeHtml } from '@/components/common'
+import { BackButton, SafeHtml } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 type AgreementType = 'user' | 'privacy'
@@ -71,6 +71,7 @@ export default function AgreementPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <FileText className="h-7 w-7 text-primary" />

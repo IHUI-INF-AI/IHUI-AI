@@ -19,6 +19,7 @@ import { EarningsOverview } from '@/components/earnings/EarningsOverview'
 import { ByokIncomeChart } from '@/components/earnings/ByokIncomeChart'
 import { ReferralStats } from '@/components/earnings/ReferralStats'
 import { ConversionFunnel } from '@/components/earnings/ConversionFunnel'
+import { BackButton } from '@/components/common'
 
 export default function EarningsPage() {
   const t = useTranslations('earnings')
@@ -26,6 +27,7 @@ export default function EarningsPage() {
 
   return (
     <Container maxWidth="xl" padding={false} className="space-y-4 py-6">
+      <BackButton />
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="space-y-1">

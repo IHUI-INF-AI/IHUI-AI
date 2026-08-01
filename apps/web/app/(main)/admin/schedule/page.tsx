@@ -10,6 +10,7 @@ import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { CronEditor } from '@/components/cron/CronEditor'
 import { getNextRuns, describeCron } from '@/components/cron/cron-parser'
+import { BackButton } from '@/components/common'
 
 interface ScheduleTask {
   id: string
@@ -70,6 +71,7 @@ export default function AdminSchedulePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

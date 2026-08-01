@@ -8,6 +8,7 @@ import { Loader2, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -156,6 +157,7 @@ export default function AdminInvoiceApplicationsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">发票申请管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">审核用户发票申请并管理开票流程</p>

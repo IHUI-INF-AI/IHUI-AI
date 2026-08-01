@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Avatar } from '@/components/data'
 import { cn } from '@/lib/utils'
 import type { NotificationItem } from '@ihui/types'
+import { BackButton } from '@/components/common'
 
 type MessageType = 'notice' | 'like' | 'favorite' | 'comment' | 'fans' | 'private-letter'
 
@@ -149,6 +150,7 @@ export default function MessageTypePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div>
         <h2 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
           <Icon className="h-5 w-5 shrink-0 text-primary" />
