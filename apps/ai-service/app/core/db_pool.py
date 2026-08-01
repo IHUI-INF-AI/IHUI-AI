@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -27,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 # 全局共享连接池(所有 service 复用,替代 14 个独立 _pool)
 _pool: Optional[asyncpg.Pool] = None
+# 懒初始化锁(防止并发 create_pool 导致连接泄漏,2026-08-01 P0 修复)
+_pool_lock = asyncio.Lock()
 
 
 async def get_shared_pool() -> asyncpg.Pool:
@@ -40,13 +43,15 @@ async def get_shared_pool() -> asyncpg.Pool:
     """
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(
-            dsn=settings.database_url,
-            min_size=2,
-            max_size=30,
-            command_timeout=10,
-        )
-        logger.info("[db_pool] shared asyncpg pool created (min=2, max=30)")
+        async with _pool_lock:
+            if _pool is None:  # double-check after acquiring lock
+                _pool = await asyncpg.create_pool(
+                    dsn=settings.database_url,
+                    min_size=2,
+                    max_size=30,
+                    command_timeout=10,
+                )
+                logger.info("[db_pool] shared asyncpg pool created (min=2, max=30)")
     return _pool
 
 

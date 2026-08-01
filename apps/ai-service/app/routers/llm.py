@@ -806,7 +806,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # stub 模式下无需 api_key(返回模拟响应),跳过 pre-flight。
     if not llm_gateway._is_stub_mode():
         try:
-            _api_key, _, _ = await llm_gateway._resolve(req.model or settings.litellm_model, owner_uuid)
+            _api_key, _, _, _ = await llm_gateway._resolve(req.model or settings.litellm_model, owner_uuid)
         except Exception as e:
             logger.warning("stream pre-flight _resolve failed: %s", e)
             _api_key = None
