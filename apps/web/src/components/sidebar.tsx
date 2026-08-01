@@ -1814,7 +1814,7 @@ export function Sidebar({
           // 统一按钮风格,杜绝"桌面端用 hover:bg-foreground/20 / 移动端用 hover:bg-accent"风格漂移
           // h-9 显式覆盖 TOPBAR_BTN_BASE 的 h-full(父容器 h-[44px] 用 h-full 会撑到 44px,跟其他元素不对齐)
           // 2026-08-01 立:用户要求收起按钮默认无背景容器色,用 bg-transparent 覆盖 bg-card。
-          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'h-9 p-0 hidden lg:flex bg-transparent')}
+          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'h-9 p-0 hidden min-[1024px]:flex bg-transparent')}
           aria-label={collapsed ? t('expand') : t('collapse')}
         >
           {/* 图标统一 14px (h-3.5 w-3.5),跟 web 端顶栏 Plus / X / Min 完全一致 */}
@@ -1843,7 +1843,7 @@ export function Sidebar({
         className={cn(
           // h-9 w-9 已被 Button size="icon" + TOPBAR_BTN_W9 覆盖,无需重复声明
           // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
-          'ml-auto shrink-0 lg:hidden',
+          'ml-auto shrink-0 min-[1024px]:hidden',
           TOPBAR_BTN_BASE,
           TOPBAR_BTN_W9,
         )}
@@ -1860,7 +1860,7 @@ export function Sidebar({
       <aside
         aria-label={t('mainNav')}
         className={cn(
-          'relative hidden h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 lg:flex',
+          'relative hidden h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 min-[1024px]:flex',
           collapsed && 'w-[60px]',
         )}
         // 2026-07-22 修复首屏 width 闪烁:
@@ -1904,7 +1904,7 @@ export function Sidebar({
       {/* 移动端抽屉遮罩 */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-modal bg-black/50 lg:hidden"
+          className="fixed inset-0 z-modal bg-black/50 min-[1024px]:hidden"
           onClick={onCloseMobile}
           aria-hidden
         />
@@ -1927,7 +1927,7 @@ export function Sidebar({
           // 改 overflow-y-auto → overflow-hidden,让 nav 自己处理 overflow-y-auto
           // 之前 aside 整体 overflow-y-auto,内容超长时 footer 被推下屏幕外不可见
           // 现在 footer (shrink-0) 固定在底部,nav (flex-1 overflow-y-auto) 独立滚动
-          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden border-r border-border bg-background shadow-xl transition-transform duration-200 ease-out lg:hidden',
+          'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden border-r border-border bg-background shadow-xl transition-transform duration-200 ease-out min-[1024px]:hidden',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{

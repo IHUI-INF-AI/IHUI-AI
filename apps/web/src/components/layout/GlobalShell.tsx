@@ -220,7 +220,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                     onClick={() => setMobileOpen((o) => !o)}
                     aria-label={t('menu')}
                     className={cn(
-                      'ml-1.5 h-9 w-9 shrink-0 lg:hidden',
+                      'ml-1.5 h-9 w-9 shrink-0 min-[1024px]:hidden',
                       TOPBAR_BTN_BASE,
                       TOPBAR_BTN_W9,
                     )}
