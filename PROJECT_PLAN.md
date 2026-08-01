@@ -124,6 +124,36 @@
 - [x] ✅(2026-08-01) F4:`apps/extension/entrypoints/sidepanel/pages/LoginPage.tsx` 接入 `loginWithSso()` SSO 一键登录按钮(chrome.identity.launchWebAuthFlow),使 H4-H5 的 SSO Client 从死代码变为可用功能(放在 LoginForm 上方,loading/error 态 + "或使用账号登录"分隔文案)
 - [x] ✅(2026-08-01) F5(P0):`apps/api/src/routes/auth-sso.ts` `isSafeRedirectUri` 扩展支持 deep-link custom scheme(H1 遗漏)— 新增 `isAllowedDeepLinkScheme` 函数 + `SSO_ALLOWED_DEEP_LINK_SCHEMES` env(默认 `ihui`),修复 mobile-rn(`ihui://sso/callback`)+ desktop(`ihui://sso`)SSO 闭环被 400 拒绝的阻塞性缺陷。curl 实测:ihui://sso → 200 ✅,ihui://sso/callback → 200 ✅,malicious://sso → 400 拒绝 ✅,ihui:// 裸 scheme → 400 拒绝 ✅(安全边界保持)
 
+### 4 端端到端实测 + 6 个闭环缺陷修复(2026-08-01 立,F1-F5 commit 后 4 端验证发现)
+
+> F1-F5 修复 commit 后,对 4 端(extension/cli/desktop/mobile-rn)做端到端实测,发现 desktop 端 SSO 闭环"出发链路"完全缺失 + mobile-rn 端口默认值错误,本节统一修复。
+
+#### 4 端实测结果
+
+- [x] ✅(2026-08-01) **Extension 端**:curl 完整闭环全绿(login → /sso/code chromiumapp.org → /sso/exchange F1 修复 → /sso/validate → /sso/refresh F2 修复 → 旧 token 401 轮转 → /sso/logout)。F4 SSO 按钮已 build 进 extension 构建产物(sidepanel chunk 136KB → 139KB)
+- [x] ✅(2026-08-01) **CLI 端**:全绿(`ihui login --sso` → 本地回调服务器 1738 → curl 模拟回调 → exchange → 写 settings.json → `--check` 验证 → `--logout` 清除)。F1 + F3 修复验证通过
+- [x] ✅(2026-08-01) **Desktop 端(静态验证)**:inbound 链路完整(Rust→webview→exchange→store),outbound 链路缺失(2 个 P0 阻塞,见 F6-F7 修复)
+- [x] ✅(2026-08-01) **mobile-rn 端(静态验证)**:SSO 逻辑闭环完整可通(3 条路径:主动触发/冷启动/已运行),1 个 P1 端口错误(见 F8 修复)
+
+#### 6 个闭环缺陷修复(F6-F11)
+
+- [x] ✅(2026-08-01) F6(P0):`apps/web/src/lib/tauri-bridge.ts` 新增 `openExternalUrl(url)` 函数,用 `invoke('plugin:shell|open')` 直调 Tauri shell 插件(Rust 端 `tauri_plugin_shell::init()` 已注册,无需新增 npm 依赖),修复 desktop SSO outbound 触发入口缺失
+- [x] ✅(2026-08-01) F7(P0):`apps/desktop/src-tauri/capabilities/default.json` permissions 数组追加 `shell:allow-open`,授权 webview 调用 shell open API(Tauri 2 安全策略必需)
+- [x] ✅(2026-08-01) F8(P0):`apps/web/src/components/login/LoginDialog.tsx` 检测 `isTauri() && mode === 'login'` 显示"在浏览器中登录"SSO 按钮,点击调 `openExternalUrl(buildSsoLoginUrl(webBase, 'ihui://sso', SSO_CLIENT_IDS.DESKTOP))` 打开外部浏览器。webBase 智能选择:dev 用 `window.location.origin`,prod 用共享层 `WEB_BASE`
+- [x] ✅(2026-08-01) F9(P1):`apps/web/src/lib/sso-desktop-bridge.ts` `handleDesktopDeepLink` 加模块级去重缓存 `lastProcessedCode`,防 OS 重复派发 deep-link 导致重复 exchange 请求(第二次 exchange 会 401 因 code 已消费)
+- [x] ✅(2026-08-01) F10(P1):`apps/web/app/sso/login/PageClient.tsx` + `apps/web/app/sso/redirect/PageClient.tsx` redirectUrl 为 custom scheme(非 http/https/相对路径)时改用 `window.location.href` 替代 `router.push/replace`,确保浏览器正确交给 OS 路由 ihui:// scheme(Next.js router.push 对 custom scheme 行为不确定)
+- [x] ✅(2026-08-01) F11(P1):`apps/mobile-rn/src/lib/config.ts` `API_BASE_URL` 默认值 `8801` → `8802`(对齐 docs/port-management.md 端口注册表:8801=Web, 8802=API),修复生产环境未设 `EXPO_PUBLIC_API_BASE_URL` 时所有 API 调用打到 web 端口的风险(dev 环境靠 web rewrite 兜底未阻塞)
+- [x] ✅(2026-08-01) F12(P2):`apps/web/src/lib/sso-desktop-bridge.ts` `DESKTOP_CLIENT_ID` 从硬编码 `'desktop'` 改为引用 `SSO_CLIENT_IDS.DESKTOP`(AGENTS.md §3 共享层优先),同步 `import { SSO_CLIENT_IDS } from '@ihui/shared'`
+
+#### 验证证据
+
+- web typecheck exit 0 ✅(0 错误)
+- curl 实测 ihui://sso(desktop redirectUri)→ 200 ✅ + 完整 exchange 200 ✅
+- curl 实测 ihui://sso/callback(mobile-rn redirectUri)→ 200 ✅
+- curl 实测 malicious://sso → 400 拒绝 ✅(安全边界保持)
+- curl 实测 ihui:// 裸 scheme → 400 拒绝 ✅(安全边界保持)
+- sso-desktop-bridge.ts 去重逻辑确认:lastProcessedCode 缓存 + exchange 前判断 + exchange 后更新 ✅
+
 ---
 
 ## 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database)
