@@ -70,6 +70,9 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/openclaw', spec: { ns: 'nav', key: 'openclaw' } },
   { href: '/recruitment', spec: { ns: 'nav', key: 'recruitment' } },
   { href: '/blog', spec: { ns: 'blog', key: 'title' } },
+  // 2026-08-01 立:AI 生涯指导页(家长填表 → AI 生成孩子学情分析报告)
+  // 之前未注册,TagsView 走 deriveTitle 把 /ai-career 转 "Ai Career",i18n 缺失
+  { href: '/ai-career', spec: { ns: 'aiCareerPage', key: 'title' } },
 
   // ===== 2026-07-31 修订:/chat 标签显示「首页」对齐主工作区内容 =====
   // 背景:/chat 路由本身只是 AISidePanel 的快捷入口,page.tsx 复用 /home 的工作区首页内容

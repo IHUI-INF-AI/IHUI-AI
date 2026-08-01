@@ -1,13 +1,28 @@
 'use client'
 
 import * as React from 'react'
-import { GraduationCap, Loader2, Sparkles } from 'lucide-react'
+import {
+  GraduationCap,
+  Loader2,
+  Sparkles,
+  Download,
+  FileText,
+  FileType2,
+  Presentation,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Textarea } from '@/components/form'
-import { getCareerAdvice } from '@ihui/api-client'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
+import { getCareerAdvice, exportCareerReport } from '@ihui/api-client'
 
 interface CareerForm {
   school: string
@@ -37,6 +52,7 @@ export default function AICareerPage() {
   const [loading, setLoading] = React.useState(false)
   const [result, setResult] = React.useState<string>('')
   const [error, setError] = React.useState<string>('')
+  const [exporting, setExporting] = React.useState(false)
 
   const SCHOOL_OPTIONS = t.raw('options.school') as string[]
   const CLASS_OPTIONS = t.raw('options.classLevel') as string[]
@@ -70,6 +86,40 @@ export default function AICareerPage() {
       setError(e instanceof Error ? e.message : t('result.failed'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 导出结构化报告(PDF / Word / PPT)— 复用 student 页面 use-report-generator 的 blob 下载模式
+  const handleExport = async (format: 'pdf' | 'word' | 'ppt') => {
+    if (!result) {
+      toast.error(t('export.empty'))
+      return
+    }
+    setExporting(true)
+    try {
+      const resp = await exportCareerReport({ ...form, format, content: result })
+      if (!resp.ok) {
+        toast.error(t('export.failed'))
+        return
+      }
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const cd = resp.headers.get('Content-Disposition') ?? ''
+      const match = /filename="?([^";]+)"?/.exec(cd)
+      const ext = format === 'pdf' ? 'pdf' : format === 'word' ? 'doc' : 'pptx'
+      const filename = match?.[1] ?? `ai-career-report.${ext}`
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      toast.success(t('export.success'))
+    } catch {
+      toast.error(t('export.failed'))
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -232,9 +282,37 @@ export default function AICareerPage() {
       {result && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="h-5 w-5" />
-              {t('result.title')}
+            <CardTitle className="flex items-center justify-between gap-2 text-lg">
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                {t('result.title')}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={exporting}>
+                    {exporting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    {exporting ? t('export.exporting') : t('export.button')}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    {t('export.pdf')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('word')}>
+                    <FileType2 className="mr-2 h-4 w-4" />
+                    {t('export.word')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('ppt')}>
+                    <Presentation className="mr-2 h-4 w-4" />
+                    {t('export.ppt')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardTitle>
           </CardHeader>
           <CardContent>
