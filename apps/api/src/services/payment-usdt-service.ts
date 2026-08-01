@@ -491,6 +491,10 @@ export async function confirmUsdtPayment(
   }
 
   if (order.status === 'confirmed') {
+    // 2026-08-02 修复:已确认订单幂等返回,记录日志便于排查重复回调
+    console.info(
+      `[usdt-payment] 订单 ${orderId} 已确认,跳过重复回调(txHash=${txHash})`,
+    )
     return { orderId, status: 'confirmed', tokensCredited: 0 }
   }
 
@@ -516,7 +520,11 @@ export async function confirmUsdtPayment(
       .returning({ id: usdtPayments.id, userId: usdtPayments.userId })
 
     if (!updated) {
-      // 已被并发确认,跳过
+      // 2026-08-02 修复:原子更新返回 0 行表示已被并发确认,幂等跳过(防重复入账)
+      // TODO: 后续在 usdt_payments.tx_hash 上加唯一约束,防同一 txHash 绑定多个订单
+      console.info(
+        `[usdt-payment] 订单 ${orderId} 原子更新未命中(已并发确认),跳过(txHash=${txHash})`,
+      )
       return { confirmed: false, userId: null as string | null, tokensCredited: 0 }
     }
 

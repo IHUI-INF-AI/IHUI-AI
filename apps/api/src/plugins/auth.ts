@@ -43,6 +43,18 @@ export async function authenticate(request: FastifyRequest): Promise<JWTPayload>
     // 兜底:从 auth_token cookie 读 token(浏览器同源请求自动附带)
     const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies?.auth_token
     if (cookieToken && cookieToken.length > 0) {
+      // 2026-08-02 修复:Cookie 认证路径加 CSRF 防护
+      // 状态变更方法(POST/PUT/DELETE/PATCH)用 Cookie 认证时,要求 X-Requested-With header
+      // Bearer token 认证不受影响(Bearer header 已显式传 token,无 CSRF 风险)
+      const isStateChange = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method)
+      if (isStateChange) {
+        const xRequestedWith = request.headers['x-requested-with'] as string | undefined
+        if (xRequestedWith !== 'XMLHttpRequest') {
+          const err = new Error('CSRF 校验失败')
+          ;(err as Error & { statusCode: number }).statusCode = 403
+          throw err
+        }
+      }
       token = cookieToken
     }
   }
