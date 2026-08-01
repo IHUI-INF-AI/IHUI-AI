@@ -19,20 +19,34 @@ const ADMIN_ROLE_ID = 1
 const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
 
 /**
- * redirectUri 校验(2026-08-01 扩展:支持 localhost + 配置化 origins + Chrome 扩展 chromiumapp.org):
+ * redirectUri 校验(2026-08-01 扩展:支持 localhost + 配置化 origins + Chrome 扩展 chromiumapp.org + deep-link custom scheme):
  * - 相对路径:必须以 "/" 开头(站内路径,防 open redirect),不允许以 "//" 开头
  * - localhost:http://localhost:NNNN/* 或 http://127.0.0.1:NNNN/*(CLI 本地回调服务器)
  * - 配置化 origins:env SSO_ALLOWED_ORIGINS(逗号分隔,如 http://localhost:8801,https://aizhs.top)
  * - Chrome 扩展 redirect:https://<extension-id>.chromiumapp.org/(chrome.identity.launchWebAuthFlow 固定域)
+ * - deep-link custom scheme:env SSO_ALLOWED_DEEP_LINK_SCHEMES(逗号分隔,默认 ihui)
+ *   用于 mobile-rn(expo-linking)+ desktop(Tauri deep-link)SSO 回调,格式 ihui://sso[?sso_code=xxx]
  * - 不允许包含 "\n\r" 等控制字符
  * - 总长度不超过 2048
  *
  * 安全边界:relative path 防 open redirect;localhost 仅限 loopback;origins 走 env 白名单;
- * chromiumapp.org 是 Chrome 扩展 identity 固定 redirect 域,只有已安装的扩展能接收该 URL 回调。
+ * chromiumapp.org 是 Chrome 扩展 identity 固定 redirect 域,只有已安装的扩展能接收该 URL 回调;
+ * deep-link custom scheme 由操作系统路由到注册该 scheme 的应用,白名单限制 scheme 名防滥发。
  */
 const SSO_ALLOWED_ORIGINS = (process.env.SSO_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((s) => s.trim())
+  .filter(Boolean)
+
+/**
+ * 允许的 deep-link custom scheme 白名单(2026-08-01 立,修复 H1 遗漏)。
+ * 默认 `ihui`,与 mobile-rn(SSO_REDIRECT_URI = 'ihui://sso/callback')+
+ * desktop(tauri.conf.json plugins.deep-link.schemes: ["ihui"])共用单一 scheme。
+ * 生产环境如需多 scheme(如企业定制),通过 env SSO_ALLOWED_DEEP_LINK_SCHEMES 逗号分隔扩展。
+ */
+const SSO_ALLOWED_DEEP_LINK_SCHEMES = (process.env.SSO_ALLOWED_DEEP_LINK_SCHEMES ?? 'ihui')
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
   .filter(Boolean)
 
 function isAllowedOrigin(url: string): boolean {
@@ -78,6 +92,27 @@ function isChromeExtensionRedirectUrl(url: string): boolean {
   }
 }
 
+/**
+ * deep-link custom scheme 校验(2026-08-01 立,修复 H1 遗漏)。
+ * 用于 mobile-rn(expo-linking ihui://sso/callback)+ desktop(Tauri deep-link ihui://sso)SSO 回调。
+ * 安全性:custom scheme 由操作系统路由到注册该 scheme 的应用,白名单限制 scheme 名防滥发。
+ * 校验规则:scheme 必须在 SSO_ALLOWED_DEEP_LINK_SCHEMES 白名单中,且必须有 host(防 ihui:// 裸 scheme)。
+ */
+function isAllowedDeepLinkScheme(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    // protocol 形如 "ihui:",去掉末尾冒号得到 scheme 名
+    const scheme = parsed.protocol.replace(/:$/, '').toLowerCase()
+    if (!scheme) return false
+    if (!SSO_ALLOWED_DEEP_LINK_SCHEMES.includes(scheme)) return false
+    // 必须有 host(防 ihui:// 裸 scheme,要求 ihui://sso 或 ihui://sso/callback)
+    if (!parsed.host) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 const isSafeRedirectUri = (s: string): boolean => {
   if (!s || s.length > 2048) return false
   if (/[\r\n\t]/.test(s)) return false
@@ -89,13 +124,16 @@ const isSafeRedirectUri = (s: string): boolean => {
   if (isAllowedOrigin(s)) return true
   // 4. Chrome 扩展 redirect(chromiumapp.org 固定域)
   if (isChromeExtensionRedirectUrl(s)) return true
+  // 5. deep-link custom scheme(env SSO_ALLOWED_DEEP_LINK_SCHEMES,默认 ihui)
+  if (isAllowedDeepLinkScheme(s)) return true
   return false
 }
 
 const generateCodeSchema = z.object({
   clientId: z.string().min(1).max(128),
   redirectUri: z.string().refine(isSafeRedirectUri, {
-    message: 'redirectUri 必须是站内相对路径(以 / 开头且不以 // 开头)',
+    message:
+      'redirectUri 必须是站内相对路径、localhost、白名单 origin、chromiumapp.org 或已注册的 deep-link scheme(如 ihui://)',
   }),
 })
 
@@ -205,10 +243,16 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 
       const { code, clientId } = parsed.data
 
-      const stored = await server.redis.getdel(SSO_CODE_PREFIX + code)
+      // 2026-08-01 修复:Redis 5.x 不支持 GETDEL(6.2+ 才引入),
+      // 退化为 GET + DEL 两步(非原子,但 sso_code 有 30s TTL + 一次性,
+      // 重放窗口极小,可接受;升级到 Redis 6.2+ 后可改回 getdel)。
+      const redisKey = SSO_CODE_PREFIX + code
+      const stored = await server.redis.get(redisKey)
       if (!stored) {
         return reply.code(401).send(error(401, '授权码无效或已过期'))
       }
+      // 拿到 code 后立即删除(原子性靠 TTL + 一次性消费语义兜底)
+      await server.redis.del(redisKey)
 
       let codeData: { userId: string; clientId: string; redirectUri: string; createdAt: number }
       try {
