@@ -22,7 +22,7 @@ export default function OpenClawPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <div>
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">OpenClaw</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">OpenClaw</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 

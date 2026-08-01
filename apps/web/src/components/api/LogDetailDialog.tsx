@@ -79,7 +79,7 @@ export default function LogDetailDialog({
           </button>
         </div>
         <div className="flex-1 space-y-4 overflow-auto p-5 text-sm">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
             <Field label="方法" value={log?.method ?? '-'} />
             <Field label="状态码" value={String(log?.statusCode ?? '-')} />
             <Field label="耗时" value={log?.duration ? `${log.duration}ms` : '-'} />

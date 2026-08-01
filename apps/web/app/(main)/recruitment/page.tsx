@@ -83,13 +83,13 @@ export default function RecruitmentPage() {
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{data.title}</h1>
-        <p className="mx-auto max-w-2xl text-xs text-muted-foreground md:text-base">
+        <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
           {data.description}
         </p>
       </header>
 
       {stats.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
           {stats.map((s, i) => {
             const Icon = statIcons[i] ?? TrendingUp
             const color = statColors[i] ?? 'text-primary'
@@ -115,7 +115,7 @@ export default function RecruitmentPage() {
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">

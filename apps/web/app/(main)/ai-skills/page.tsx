@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -97,7 +97,7 @@ export default function AiSkillsPage() {
       </header>
 
       {/* 搜索框 + Tab 栏 */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
         <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
           {(
             [
@@ -121,7 +121,7 @@ export default function AiSkillsPage() {
             </button>
           ))}
         </div>
-        <div className="relative w-full sm:max-w-xs">
+        <div className="relative w-full min-[640px]:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -155,7 +155,7 @@ export default function AiSkillsPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {filtered.map((skill) => (
             <SkillCard key={skill.id} skill={skill} />
           ))}

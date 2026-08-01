@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -105,7 +105,7 @@ export default function SignInPage() {
               className="h-8 w-8 rounded-md object-cover"
               unoptimized
             />
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -129,7 +129,7 @@ export default function SignInPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-6 sm:flex-row sm:justify-between">
+          <CardContent className="flex flex-col items-center gap-4 p-6 min-[640px]:flex-row min-[640px]:justify-between">
             <div className="flex items-center gap-4">
               <div
                 className={cn(
@@ -151,7 +151,7 @@ export default function SignInPage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col items-center gap-2 sm:items-end">
+            <div className="flex flex-col items-center gap-2 min-[640px]:items-end">
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Gift className="h-4 w-4 text-primary" />
                 {t('todayReward')}:{' '}
@@ -241,7 +241,7 @@ export default function SignInPage() {
                 <tr>
                   <th className="px-4 py-2 text-left font-medium">{t('dateLabel')}</th>
                   <th className="px-4 py-2 text-right font-medium">{t('rewardLabel')}</th>
-                  <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">
+                  <th className="hidden px-4 py-2 text-right font-medium min-[640px]:table-cell">
                     {t('consecutiveLabel')}
                   </th>
                 </tr>
@@ -253,7 +253,7 @@ export default function SignInPage() {
                     <td className="px-4 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">
                       +{h.rewardPoints}
                     </td>
-                    <td className="hidden px-4 py-2 text-right text-muted-foreground sm:table-cell">
+                    <td className="hidden px-4 py-2 text-right text-muted-foreground min-[640px]:table-cell">
                       {h.consecutiveDays}
                     </td>
                   </tr>

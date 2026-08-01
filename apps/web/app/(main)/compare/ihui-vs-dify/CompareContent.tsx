@@ -3001,7 +3001,7 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
   const competitorLimitedCount = config.rows.filter((r) => r.competitor === '基础' || r.competitor === '有限' || r.competitor === '受限' || r.competitor === '部分' || (typeof r.competitor === 'string' && r.competitor.includes('only'))).length
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
       {/* Hero */}
       <section className="space-y-5 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -3011,7 +3011,7 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           IHUI AI vs {config.name}
         </h1>
-        <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
           {config.tagline}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-sm">
@@ -3033,15 +3033,15 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
         <table className="w-full">
           <thead>
             <tr className="border-b bg-muted/30">
-              <th className="px-4 py-4 text-left text-sm font-semibold md:px-6">对比维度</th>
-              <th className="px-4 py-4 text-center text-sm font-semibold text-primary md:px-6">IHUI AI</th>
-              <th className="px-4 py-4 text-center text-sm font-semibold md:px-6">{config.name}</th>
+              <th className="px-4 py-4 text-left text-sm font-semibold min-[768px]:px-6">对比维度</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-primary min-[768px]:px-6">IHUI AI</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold min-[768px]:px-6">{config.name}</th>
             </tr>
           </thead>
           <tbody>
             {config.rows.map((row, idx) => (
               <tr key={row.dimension} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}>
-                <td className="px-4 py-4 md:px-6">
+                <td className="px-4 py-4 min-[768px]:px-6">
                   <div className="text-sm font-medium">{row.dimension}</div>
                   {(row.ihuiDetail || row.competitorDetail) && (
                     <div className="mt-1 text-xs text-muted-foreground">
@@ -3058,10 +3058,10 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-4 text-center md:px-6">
+                <td className="px-4 py-4 text-center min-[768px]:px-6">
                   <Cell value={row.ihui} dimension={row.dimension} isIhui={true} />
                 </td>
-                <td className="px-4 py-4 text-center md:px-6">
+                <td className="px-4 py-4 text-center min-[768px]:px-6">
                   <Cell value={row.competitor} dimension={row.dimension} isIhui={false} />
                 </td>
               </tr>
@@ -3071,12 +3071,12 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
       </section>
 
       {/* 总结 */}
-      <section className="mt-12 rounded-2xl border bg-primary/5 p-8 md:p-12">
+      <section className="mt-12 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
         <div className="flex items-start gap-3">
           <Rocket className="h-6 w-6 shrink-0 text-primary" />
           <div>
             <h2 className="text-xl font-semibold">结论</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground md:text-base">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
               {config.verdict}
             </p>
           </div>
@@ -3084,12 +3084,12 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
       </section>
 
       {/* CTA */}
-      <section className="mt-12 rounded-2xl border bg-card p-8 text-center md:p-12">
+      <section className="mt-12 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">
+        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           30 分钟体验 IHUI AI
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           注册即得 1000 积分,所有模型、所有 6 端免费试用。
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

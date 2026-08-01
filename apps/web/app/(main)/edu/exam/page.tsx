@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -66,7 +66,7 @@ export default function EduExamPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {exams.map((exam) => (
             <Card key={exam.id} className="flex h-full flex-col transition-colors hover:bg-accent">
               <CardHeader className="p-4 pb-2">

@@ -55,7 +55,7 @@ export default function NewsPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <NewsHeader search={search} onSearchChange={setSearch} />
 
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-6 min-[1024px]:flex-row">
         <NewsList
           items={items}
           isLoading={isLoading}

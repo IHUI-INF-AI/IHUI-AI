@@ -122,18 +122,19 @@ export function ProductTable({
                     </span>
                   </TableCell>
                   <TableCell className="px-3 py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex flex-nowrap justify-end gap-1">
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => onToggle(p)}
                         disabled={togglePending}
+                        className="shrink-0 whitespace-nowrap"
                       >
                         {p.status === 'online' ? t('products.toggleOffline') : t('products.toggleOnline')}
                       </Button>
                       <HasPermi code="ai:zhs_product:edit">
                         <Tooltip content={t('products.editTooltip')}>
-                          <Button size="sm" variant="ghost" onClick={() => onEdit(p)}>
+                          <Button size="sm" variant="ghost" onClick={() => onEdit(p)} className="shrink-0">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </Tooltip>
@@ -144,7 +145,7 @@ export function ProductTable({
                             size="sm"
                             variant="ghost"
                             onClick={() => onDelete(p)}
-                            className="text-destructive hover:text-destructive"
+                            className="shrink-0 text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -82,7 +82,7 @@ export default function ImageGenHistoryPage() {
           <p className="text-sm">暂无生成记录</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-4">
           {items.map((item) => (
             <Card key={item.id} className="overflow-hidden transition-colors hover:bg-accent/40">
               <div className="relative aspect-square w-full bg-muted">

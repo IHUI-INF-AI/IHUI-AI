@@ -93,7 +93,7 @@ export function DesignSystemDemoContent() {
   return (
     <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
       <header className="space-y-1 px-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Sparkles className="h-7 w-7 text-primary" />
           设计系统演示
         </h1>
@@ -108,7 +108,7 @@ export function DesignSystemDemoContent() {
         title="颜色 Token"
         description="primary / secondary / accent / destructive / muted 等核心色板。"
       >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
           {COLORS.map(({ name, token, className }) => (
             <div key={name} className="space-y-2">
               <div
@@ -126,7 +126,7 @@ export function DesignSystemDemoContent() {
 
       {/* 间距 Token */}
       <Section title="间距 Token" description="sm / md / lg / xl 等基础间距单位。">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-4">
           {SPACINGS.map(({ name, className, px }) => (
             <div key={name} className="space-y-2">
               <div className="flex h-12 items-end">
@@ -168,7 +168,7 @@ export function DesignSystemDemoContent() {
         title="卡片组件"
         description="Card / CardHeader / CardContent / CardFooter 完整结构。"
       >
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>卡片标题</CardTitle>
@@ -197,7 +197,7 @@ export function DesignSystemDemoContent() {
 
       {/* 表单 */}
       <Section title="表单组件" description="Input / Label / Textarea 基础表单元素。">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="ds-input">用户名</Label>
             <Input id="ds-input" placeholder="请输入用户名" />
@@ -206,7 +206,7 @@ export function DesignSystemDemoContent() {
             <Label htmlFor="ds-input-disabled">禁用输入框</Label>
             <Input id="ds-input-disabled" placeholder="不可编辑" disabled />
           </div>
-          <div className="space-y-1.5 md:col-span-2">
+          <div className="space-y-1.5 min-[768px]:col-span-2">
             <Label htmlFor="ds-textarea">备注</Label>
             <Textarea id="ds-textarea" placeholder="请输入备注信息" />
           </div>

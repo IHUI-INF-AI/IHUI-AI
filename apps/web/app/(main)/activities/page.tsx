@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -78,7 +78,7 @@ export default function ActivitiesPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Gift className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -101,7 +101,7 @@ export default function ActivitiesPage() {
           {(error as Error).message}
         </div>
       ) : data && data.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {data.map((a) => {
             const displayStatus = computeStatus(a.startAt, a.endAt)
             return (

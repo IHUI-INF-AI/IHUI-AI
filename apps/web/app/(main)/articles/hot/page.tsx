@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -61,7 +61,7 @@ export default function HotArticlesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Flame className="h-6 w-6 text-orange-500" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('hotTitle')}</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('hotTitle')}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('hotSubtitle')}</p>
       </header>

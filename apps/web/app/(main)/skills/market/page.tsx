@@ -153,7 +153,7 @@ export default function SkillsMarketPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-44 animate-pulse rounded-lg bg-muted" />
           ))}
@@ -164,7 +164,7 @@ export default function SkillsMarketPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {items.map((s) => (
             <SkillCard
               key={s.name}
@@ -228,7 +228,7 @@ function TagChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+        'whitespace-nowrap max-w-full truncate rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
         active
           ? 'bg-primary text-primary-foreground'
           : 'bg-muted text-muted-foreground hover:text-foreground',
@@ -395,7 +395,7 @@ function RatingDialog({ skill, onClose }: { skill: SkillMarketEntry | null; onCl
 
   return (
     <Dialog open={!!skill} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="min-[640px]:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {t('rate')} — {skill?.name}
@@ -498,7 +498,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="min-[640px]:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('publishTitle')}</DialogTitle>
         </DialogHeader>
@@ -597,7 +597,7 @@ function NotificationsDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="min-[640px]:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('notifications')}</DialogTitle>
         </DialogHeader>

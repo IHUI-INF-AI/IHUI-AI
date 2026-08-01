@@ -26,24 +26,27 @@ export function Breadcrumb({ items, separator, className }: BreadcrumbProps) {
         {items.map((item, i) => {
           const isLast = i === items.length - 1
           return (
-            <li key={item.label} className="flex items-center gap-1.5">
+            <li key={item.label} className="flex shrink-0 items-center gap-1.5">
               {item.href && !isLast ? (
                 <a
                   href={item.href}
-                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  className="whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {item.label}
                 </a>
               ) : item.onClick && !isLast ? (
                 <button
                   onClick={item.onClick}
-                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  className="whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {item.label}
                 </button>
               ) : (
                 <span
-                  className={cn(isLast ? 'font-medium text-foreground' : 'text-muted-foreground')}
+                  className={cn(
+                    'whitespace-nowrap',
+                    isLast ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  )}
                 >
                   {item.label}
                 </span>

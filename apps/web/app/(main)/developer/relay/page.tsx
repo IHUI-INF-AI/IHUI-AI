@@ -115,7 +115,7 @@ export default function RelayOverviewPage() {
 
       {keysError && <Alert variant="danger" description={(keysError as Error).message} />}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         <StatCard
           icon={<Key className="h-3.5 w-3.5" />}
           label="API Key"

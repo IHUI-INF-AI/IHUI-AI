@@ -141,7 +141,7 @@ export default function BusinessCardEditPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <CreditCard className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
             {editId ? t('editTitle') : t('createTitle')}
           </h1>
         </div>
@@ -174,7 +174,7 @@ export default function BusinessCardEditPage() {
                 </div>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
                 {FIELDS.map((f) => (
                   <div key={f.key} className="space-y-2">
                     <Label htmlFor={`bc-${f.key}`}>{t(f.labelKey)}</Label>

@@ -20,7 +20,7 @@ export default function UserStatistics({
   className,
 }: UserStatisticsProps): React.JSX.Element {
   return (
-    <div className={cn('grid grid-cols-2 gap-3 sm:grid-cols-4', className)}>
+    <div className={cn('grid grid-cols-2 gap-3 min-[640px]:grid-cols-4', className)}>
       {items.map((it) => (
         <div key={it.label} className="rounded-xl border bg-card p-4 text-card-foreground shadow">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

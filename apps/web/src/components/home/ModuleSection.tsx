@@ -89,7 +89,7 @@ export function ModuleSection({
             ))}
           </ul>
         ) : (
-          <div className="grid grid-cols-2 gap-3 tablet-lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 tablet-min-[1024px]:grid-cols-4">
             {items.map((item) => (
               <ModuleItemCard key={item.id} item={item} />
             ))}

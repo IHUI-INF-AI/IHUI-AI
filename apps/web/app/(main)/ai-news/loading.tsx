@@ -19,7 +19,7 @@ export default function AiNewsLoading() {
   return (
     <div className="mx-auto w-full max-w-[1240px] space-y-4">
       {/* Hero */}
-      <SkeletonCard className="h-[140px] md:h-[160px]" />
+      <SkeletonCard className="h-[140px] min-[768px]:h-[160px]" />
       {/* Leaderboard */}
       <SkeletonCard className="h-[400px]" />
       {/* ApiRelaysSection */}
@@ -29,7 +29,7 @@ export default function AiNewsLoading() {
       {/* AiFeedTimeline */}
       <SkeletonCard className="h-[500px]" />
       {/* HotRanking + FundingSection */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
         <SkeletonCard className="h-[240px]" />
         <SkeletonCard className="h-[240px]" />
       </div>

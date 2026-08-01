@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -95,7 +95,7 @@ export default function LivePage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Radio className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -149,7 +149,7 @@ export default function LivePage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {channels.map((channel) => (
             <Link key={channel.id} href={`/live/${channel.id}`} className="group block">
               <Card className="h-full overflow-hidden transition-colors hover:bg-accent">

@@ -84,7 +84,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
     // 古典版:更厚的装饰边 + 双印章 + 大字号
     const ringWidth = isClassical ? 3 : 2
     const innerPad = isClassical ? 'p-12' : 'p-10'
-    const titleSize = isClassical ? 'text-3xl' : 'text-2xl'
+    const titleSize = isClassical ? 'text-2xl min-[768px]:text-3xl' : 'text-2xl'
 
     return (
       <div className={cn('flex flex-col items-center gap-4', className)}>

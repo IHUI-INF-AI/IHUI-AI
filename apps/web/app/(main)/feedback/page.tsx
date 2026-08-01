@@ -79,7 +79,7 @@ export default function FeedbackPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
       <div>
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * GroupSidebar — 左侧分组栏(2026-07-22 立)
@@ -205,11 +205,11 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
                 onClick={() => onChange(g.group)}
                 className="flex flex-1 items-center justify-between gap-2 px-2 py-1.5 text-left"
               >
-                <span className="flex items-center gap-1.5">
-                  <ChevronRight className="h-3 w-3" />
-                  {g.groupLabel}
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <ChevronRight className="h-3 w-3 shrink-0" />
+                  <span className="truncate" title={g.groupLabel}>{g.groupLabel}</span>
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   {s?.enabled ?? 0}/{s?.total ?? 0}
                 </span>
               </button>

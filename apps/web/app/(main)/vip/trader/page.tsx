@@ -193,7 +193,7 @@ export default function VipTraderPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Crown className="h-7 w-7 text-amber-500" />
           {t('traderPlan')}
         </h1>

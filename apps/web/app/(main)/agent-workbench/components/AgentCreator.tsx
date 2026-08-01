@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
@@ -163,7 +163,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label>角色</Label>
               <Select value={role} onValueChange={setRole}>
@@ -198,7 +198,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
 
           <div className="space-y-2">
             <Label>工具白名单</Label>
-            <div className="grid grid-cols-2 gap-2 rounded-md border p-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 rounded-md border p-3 min-[640px]:grid-cols-3">
               {TOOL_OPTIONS.map((t) => (
                 <label key={t} className="flex cursor-pointer items-center gap-2 text-xs">
                   <Checkbox checked={tools.includes(t)} onCheckedChange={() => toggleTool(t)} />
@@ -208,7 +208,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label>权限模式</Label>
               <Select value={permissionMode} onValueChange={setPermissionMode}>

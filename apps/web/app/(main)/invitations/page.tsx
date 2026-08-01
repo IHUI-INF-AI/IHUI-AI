@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -103,7 +103,7 @@ export default function InvitationsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <UserPlus className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -133,7 +133,7 @@ export default function InvitationsPage() {
             {(codesQ.error as Error).message}
           </div>
         ) : codes.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 min-[640px]:grid-cols-2">
             {codes.map((c) => (
               <Card key={c.id} className="transition-colors hover:bg-accent">
                 <CardContent className="space-y-2 p-4">
