@@ -694,9 +694,9 @@ export function AISidePanel() {
           aria-label={tc('title')}
           className={cn(
             'fixed z-sticky flex items-center justify-center rounded-xl border border-border bg-card shadow-lg transition-all hover:scale-105 hover:shadow-xl',
-            // 移动端:FAB 更大(56px 适合触屏),固定右下角
+            // 移动端:FAB 更大(56px 适合触屏),固定左下角(与桌面端浮窗默认位置一致)
             isMobile
-              ? 'h-14 w-14 bottom-4 right-4'
+              ? 'h-14 w-14 bottom-4 left-4'
               : // 桌面端:48px FAB,位置由 floatPosition 控制
                 'h-12 w-12',
           )}
@@ -819,7 +819,10 @@ export function AISidePanel() {
     return (
       <>
         {workspaceNameSync}
-        <div className="relative hidden h-full shrink-0 py-2 mr-1.5 min-[1024px]:block" style={{ width: 0 }}>
+        <div
+          className="relative hidden h-full shrink-0 py-2 mr-1.5 min-[1024px]:block"
+          style={{ width: 0 }}
+        >
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
           (容器右边缘 +4px ~ +12px),与 Sidebar 自身手柄(Sidebar 右边缘 -4px ~ +4px)空间错开,
           两个手柄各保留完整 8px 命中区,互不重叠冲突。
