@@ -94,13 +94,27 @@ describe('auth queries — 真实 DB 集成测试', () => {
     expect(await checkPhoneExists('13800000099')).toBe(false)
   })
 
-  it('cancelUserAccount — 软注销 status=3', async () => {
-    const user = await createUser({ phone: '13800000007' })
+  it('cancelUserAccount — 软注销 status=3 并 NULL 化所有唯一字段 + 清 2FA', async () => {
+    const user = await createUser({
+      phone: '13800000007',
+      email: 'cancel-test@example.com',
+      username: 'cancel-test-user',
+    })
     expect(user.status).toBe(1)
 
     await cancelUserAccount(user.id)
 
     const [row] = await db.select().from(users).where(eq(users.id, user.id))
     expect(row.status).toBe(3)
+    // 2026-08-01 升级:所有唯一约束字段必须 NULL 化,避免占用导致新注册冲突
+    expect(row.phone).toBeNull()
+    expect(row.email).toBeNull()
+    expect(row.username).toBeNull()
+    expect(row.inviteCode).toBeNull()
+    // 2FA 字段清空(数据卫生)
+    expect(row.twoFactorSecret).toBeNull()
+    expect(row.twoFactorEnabled).toBe(false)
+    expect(row.twoFactorBackupCodes).toEqual([])
+    expect(row.twoFactorEnabledAt).toBeNull()
   })
 })
