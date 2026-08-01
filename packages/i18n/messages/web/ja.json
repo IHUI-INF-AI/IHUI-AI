@@ -11361,11 +11361,17 @@
     "shellSubtitle": "プラットフォーム開発と統合ガイド",
     "navDocs": "ドキュメント",
     "navTools": "ツール",
+    "navDevelopers": "開発者",
     "navOverview": "概要",
+    "navManual": "使い方マニュアル",
+    "navQuickstart": "クイックスタート",
     "navAgent": "Agent開発",
     "navApi": "APIドキュメント",
     "navMcp": "MCPプロトコル",
     "navRag": "RAG検索",
+    "navModels": "マルチモデルルーティング",
+    "navWorkflow": "ワークフロー編成",
+    "navTeam": "チームコラボレーション",
     "navSelfHost": "セルフホスト"
   },
   "developer": {
