@@ -147,7 +147,7 @@ export default function AdminResourceProductPage() {
 
       {creating ? (
         <form onSubmit={submit} className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <label htmlFor="rp-resource-id" className="space-y-1 text-sm">
               <span className="text-muted-foreground">资源 ID</span>
               <Input
@@ -179,7 +179,7 @@ export default function AdminResourceProductPage() {
                 className="tabular-nums"
               />
             </label>
-            <label htmlFor="rp-description" className="space-y-1 text-sm md:col-span-2">
+            <label htmlFor="rp-description" className="space-y-1 text-sm min-[768px]:col-span-2">
               <span className="text-muted-foreground">描述</span>
               <Input
                 id="rp-description"

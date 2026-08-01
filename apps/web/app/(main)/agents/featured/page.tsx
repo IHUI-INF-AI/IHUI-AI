@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -88,7 +88,7 @@ export default function FeaturedAgentsPage() {
           <p className="text-sm">暂无精选智能体</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {agents.map((agent) => (
             <Link key={agent.agentId} href={`/agents/${agent.agentId}`}>
               <Card className="overflow-hidden transition-colors hover:bg-accent/40">
