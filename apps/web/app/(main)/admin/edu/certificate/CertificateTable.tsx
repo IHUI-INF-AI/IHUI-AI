@@ -81,7 +81,7 @@ export function CertificateTable({
               const valid = c.status === 1
               return (
                 <TableRow key={c.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{c.certificateNo}</TableCell>
+                  <TableCell className="max-w-[200px] truncate px-4 py-2.5 font-mono text-xs" title={c.certificateNo}>{c.certificateNo}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     <div className="font-medium">{c.title}</div>
                     {c.templateName && (

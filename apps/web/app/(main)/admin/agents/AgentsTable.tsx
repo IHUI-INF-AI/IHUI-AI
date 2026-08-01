@@ -107,24 +107,25 @@ export function AgentsTable({
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">{a.sort}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                  {dateFmt.format(new Date(a.createdAt))}
-                </TableCell>
+                <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+                {dateFmt.format(new Date(a.createdAt))}
+              </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex flex-nowrap justify-end gap-1">
                     <Tooltip content={tc('edit')}>
-                      <Button size="sm" variant="ghost" onClick={() => onEdit(a)}>
-                        <Pencil className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onEdit(a)}>
+                        <Pencil className="h-4 w-4 shrink-0" />
                       </Button>
                     </Tooltip>
                     <Tooltip content={tc('delete')}>
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="shrink-0"
                         onClick={() => onDelete(a)}
                         disabled={deletePending}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 shrink-0" />
                       </Button>
                     </Tooltip>
                   </div>

@@ -305,9 +305,9 @@ function StatCard({
   return (
     <Card className={tone ? toneClass[tone] : ''}>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          <span>{label}</span>
-          {icon}
+        <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="min-w-0 truncate">{label}</span>
+          <span className="shrink-0">{icon}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
