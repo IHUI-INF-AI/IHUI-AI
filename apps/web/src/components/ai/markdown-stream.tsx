@@ -108,7 +108,7 @@ const CodeBlockImpl = function CodeBlock({
       onClick={() => copy(code)}
       data-testid="copy-button"
       className={cn(
-        'absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md',
+        'absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md',
         'bg-background/80 text-foreground backdrop-blur-sm transition-colors',
         'hover:bg-muted',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',

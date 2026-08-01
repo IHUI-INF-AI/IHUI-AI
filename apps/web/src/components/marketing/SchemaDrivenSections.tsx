@@ -75,44 +75,44 @@ function HeroSection({ pageIndex }: SectionProps) {
   const benefits = BENEFITS_KEYS.map((k) => t(`welcome.benefits.${k}`))
   return (
     <HomeSectionFrame page={pageIndex} ariaLabel={t('indicator.page1', { fallback: 'Hero' })}>
-      <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
+      <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 min-[768px]:px-8 min-[768px]:pt-6">
         <Marquee />
         <GithubStarBanner />
       </div>
-      <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-4 px-4 py-2 md:gap-5 md:py-3">
+      <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-4 px-4 py-2 min-[768px]:gap-5 min-[768px]:py-3">
         <TypewriterHeroSection />
         <RevealOnView
           delay={0.4}
           as="div"
-          className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground md:text-xs"
+          className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground min-[768px]:text-xs"
         >
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <ShieldCheck className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.benefits.benefit6')}
           </span>
-          <span className="hidden h-3 w-px bg-border md:inline-block" />
+          <span className="hidden h-3 w-px bg-border min-[768px]:inline-block" />
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <Users className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.seats')}
           </span>
-          <span className="hidden h-3 w-px bg-border md:inline-block" />
+          <span className="hidden h-3 w-px bg-border min-[768px]:inline-block" />
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <Zap className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.earlyBird')}
           </span>
-          <span className="hidden h-3 w-px bg-border md:inline-block" />
+          <span className="hidden h-3 w-px bg-border min-[768px]:inline-block" />
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <Globe className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.multiEnd')}
           </span>
         </RevealOnView>
-        <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
+        <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 min-[640px]:grid-cols-3 min-[768px]:gap-3 min-[1024px]:grid-cols-6">
           {benefits.map((b, i) => (
             <RevealOnView
               key={i}
               as="li"
               delay={0.5 + i * 0.06}
-              className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md md:text-sm"
+              className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md min-[768px]:text-sm"
             >
               <Check
                 className="h-3.5 w-3.5 shrink-0 text-success transition-transform duration-200 group-hover:scale-110"
@@ -137,7 +137,7 @@ function createSingleComponentSection(
     const t = useTranslations('marketing')
     return (
       <HomeSectionFrame page={pageIndex} ariaLabel={t(labelKey, { fallback: fallbackLabel })}>
-        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+        <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 min-[768px]:px-8 min-[768px]:py-6">
           <div className="w-full">
             <Component />
           </div>
@@ -158,7 +158,7 @@ function PricingSection({ pageIndex }: SectionProps) {
           <HomePage4Pricing />
         </div>
         <div className="mx-auto w-full max-w-5xl px-4">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 min-[768px]:gap-3 min-[1024px]:grid-cols-4">
             {[
               { value: 8, suffix: '', label: t('stats.platforms') },
               { value: 100, suffix: '+', label: t('stats.models') },
@@ -168,14 +168,14 @@ function PricingSection({ pageIndex }: SectionProps) {
               <RevealOnView
                 key={i}
                 delay={0.2 + 0.08 * i}
-                className="group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-lg border bg-card/80 px-3 py-2 text-center backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/10 md:py-3"
+                className="group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-lg border bg-card/80 px-3 py-2 text-center backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/10 min-[768px]:py-3"
               >
-                <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-xl font-bold tracking-tight text-transparent transition-transform duration-300 group-hover:scale-110 md:text-2xl">
+                <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-xl font-bold tracking-tight text-transparent transition-transform duration-300 group-hover:scale-110 min-[768px]:text-2xl">
                   {s.prefix && <span>{s.prefix}</span>}
                   <AnimatedNumber value={s.value} duration={1500} />
                   {s.suffix && <span>{s.suffix}</span>}
                 </span>
-                <span className="line-clamp-2 text-[10px] text-muted-foreground md:text-xs">
+                <span className="line-clamp-2 text-[10px] text-muted-foreground min-[768px]:text-xs">
                   {s.label}
                 </span>
               </RevealOnView>
@@ -200,7 +200,7 @@ function MagazineSection({ showFooter, pageIndex }: SectionProps) {
       style={{ minHeight: 'calc(100vh - 58px - 12rem)' }}
       aria-label={t('magazine.title', { fallback: 'News' })}
     >
-      <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-2">
+      <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-2 min-[768px]:px-8 min-[768px]:pt-5 min-[768px]:pb-2">
         <HomePage3Magazine />
       </div>
       {showFooter && <SiteFooter className="mt-0" />}

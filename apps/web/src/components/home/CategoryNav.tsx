@@ -25,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
 export function CategoryNav() {
   const t = useTranslations('home.modules')
   return (
-    <nav className="w-full shrink-0 border-b border-r-0 md:w-[260px] md:border-r md:border-b-0">
+    <nav className="w-full shrink-0 border-b border-r-0 min-[768px]:w-[260px] min-[768px]:border-r min-[768px]:border-b-0">
       <ul className="py-2">
         {NAV_ITEMS.map((item) => (
           <li key={item.href}>

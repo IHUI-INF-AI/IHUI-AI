@@ -167,7 +167,7 @@ export default function PresetsPage() {
 
       {error && <Alert variant="danger" description={error} />}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {presets.map((p) => (
           <Card key={p.id}>
             <div

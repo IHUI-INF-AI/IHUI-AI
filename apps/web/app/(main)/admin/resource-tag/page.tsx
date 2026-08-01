@@ -124,7 +124,7 @@ export default function AdminResourceTagPage() {
 
       {creating ? (
         <form onSubmit={submit} className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <label htmlFor="rt-name" className="space-y-1 text-sm">
               <span className="text-muted-foreground">标签名称</span>
               <Input id="rt-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
