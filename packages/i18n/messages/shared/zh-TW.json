@@ -723,12 +723,6 @@
       "title": "訂閱管理"
     }
   },
-  "exam": {
-    "result": {
-      "correct": "答對",
-      "wrong": "答錯"
-    }
-  },
   "live": {
     "title": "直播",
     "loadFailed": "載入直播失敗",
