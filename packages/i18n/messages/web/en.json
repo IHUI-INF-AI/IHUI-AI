@@ -6336,6 +6336,11 @@
       "emailPlaceholder": "Enter your email"
     },
     "security": {
+      "password": "Change Password",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "updatePassword": "Update Password",
       "passwordHint": "6-20 chars, no < > \" ' | \\ allowed",
       "passwordTooShort": "Password must be at least 6 characters",
       "passwordTooLong": "Password must be at most 20 characters",
@@ -6348,19 +6353,18 @@
       "changePhoneDesc": "Change your bound phone number",
       "newPhone": "New Phone",
       "newPhonePlaceholder": "Enter new phone number",
-      "resend": "Resend in {seconds}s",
-      "phoneChanged": "Phone number changed",
-      "title": "Security",
-      "subtitle": "Keep your account secure",
-      "password": "Change Password",
-      "currentPassword": "Current Password",
-      "newPassword": "New Password",
-      "confirmPassword": "Confirm New Password",
-      "updatePassword": "Update Password",
       "code": "Verification Code",
       "codePlaceholder": "Enter verification code",
       "sendCode": "Send Code",
-      "devices": "Login Devices"
+      "resend": "Resend in {seconds}s",
+      "phoneChanged": "Phone number changed",
+      "devices": "Login Devices",
+      "currentDevice": "Current Device",
+      "logout": "Log Out",
+      "devicesLoading": "Loading...",
+      "devicesEmpty": "No data",
+      "title": "Security",
+      "subtitle": "Keep your account secure"
     },
     "notifications": {
       "viewList": "List View",
@@ -6396,6 +6400,10 @@
       "auditTime": "Verified At",
       "pendingHint": "Your real name verification is under review. Please be patient.",
       "noReason": "Not provided",
+      "nameMin": "Real name must be at least 2 characters",
+      "nameMax": "Real name must be at most 50 characters",
+      "idCardMin": "ID number must be at least 15 digits",
+      "idCardMax": "ID number must be at most 20 digits",
       "form": {
         "name": "Real Name",
         "namePlaceholder": "Enter your real name",
@@ -6453,7 +6461,12 @@
       "create": "New Article",
       "createFirst": "Write the first one",
       "empty": "No articles yet",
-      "deleteSuccess": "Deleted"
+      "deleteSuccess": "Deleted",
+      "statusDraft": "Draft",
+      "statusPublished": "Published",
+      "statusReviewing": "Under Review",
+      "prevPage": "Previous",
+      "nextPage": "Next"
     },
     "learn-record": {
       "title": "Study Records",
@@ -6471,14 +6484,16 @@
       "loading": "Loading...",
       "follow": "Follow",
       "followed": "Following",
-      "followSuccess": "Followed"
+      "followSuccess": "Followed",
+      "anonymous": "Anonymous"
     },
     "follow": {
       "title": "My Follows",
       "empty": "No data yet",
       "loading": "Loading...",
       "unfollow": "Unfollow",
-      "unfollowSuccess": "Unfollowed"
+      "unfollowSuccess": "Unfollowed",
+      "anonymous": "Anonymous"
     },
     "ask": {
       "title": "My Q&A",
@@ -6499,12 +6514,21 @@
       "title": "My Exams",
       "empty": "No data yet",
       "loading": "Loading...",
-      "continue": "Continue Exam"
+      "continue": "Continue Exam",
+      "statusDraft": "Not Started",
+      "statusPublished": "In Progress",
+      "statusCompleted": "Completed",
+      "statusReviewing": "Grading",
+      "score": "Score"
     },
     "sign-up": {
       "title": "My Sign-ups",
       "empty": "No data yet",
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "statusDraft": "Pending Review",
+      "statusPublished": "Confirmed",
+      "statusRejected": "Rejected",
+      "statusCompleted": "Completed"
     }
   },
   "certificate": {

@@ -19,12 +19,6 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: '草稿',
-  published: '已发布',
-  reviewing: '审核中',
-}
-
 const STATUS_STYLE: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   published: 'bg-green-500/10 text-green-600',
@@ -34,6 +28,11 @@ const STATUS_STYLE: Record<string, string> = {
 export default function MyArticlesPage() {
   const t = useTranslations('user.articles')
   const qc = useQueryClient()
+  const STATUS_LABEL: Record<string, string> = {
+    draft: t('statusDraft'),
+    published: t('statusPublished'),
+    reviewing: t('statusReviewing'),
+  }
   const [page, setPage] = React.useState(1)
 
   const { data, isLoading, error } = useQuery({
@@ -162,7 +161,7 @@ export default function MyArticlesPage() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
               >
-                上一页
+                {t('prevPage')}
               </Button>
               <span className="text-sm text-muted-foreground">
                 {page} / {totalPages}
@@ -173,7 +172,7 @@ export default function MyArticlesPage() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
               >
-                下一页
+                {t('nextPage')}
               </Button>
             </div>
           )}
