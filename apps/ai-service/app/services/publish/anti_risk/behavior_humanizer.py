@@ -34,6 +34,7 @@ import random
 from typing import Any
 
 from app.core.logging import get_logger
+from .behavior_entropy import BEHAVIOR_CLICK, BEHAVIOR_MOUSE, BEHAVIOR_TYPE, get_entropy_analyzer
 
 logger = get_logger(__name__)
 
@@ -178,6 +179,19 @@ async def human_type(page: Any, text: str, selector: str | None = None) -> None:
         await page.click(selector)
         await asyncio.sleep(_triangular_sample(0.1, 0.3, 0.15))
 
+    # 预生成每字符输入间隔,用熵分析器一次性扰动使整段序列落入真人范围
+    raw_intervals: list[float] = [
+        _lognormal_sample(0.25, 0.4) if char in ".,;:!?。,;:!?\n"
+        else _lognormal_sample(0.12, 0.4)
+        for char in text
+    ]
+    intervals = raw_intervals
+    if len(raw_intervals) >= 2:
+        try:
+            intervals = get_entropy_analyzer().diversify(raw_intervals, BEHAVIOR_TYPE)
+        except Exception as e:
+            logger.warning("[behavior] type diversify 失败,降级原始间隔: %s", e)
+
     for i, char in enumerate(text):
         # 偶尔打错字(1.5% 概率,非首字符)
         if i > 0 and random.random() < 0.015:
@@ -189,11 +203,8 @@ async def human_type(page: Any, text: str, selector: str | None = None) -> None:
             await asyncio.sleep(_triangular_sample(0.1, 0.25, 0.15))
 
         await page.keyboard.type(char)
-        # 字符间隔:标点后更长
-        if char in ".,;:!?。,;:!?\n":
-            await asyncio.sleep(_lognormal_sample(0.25, 0.4))
-        else:
-            await asyncio.sleep(_lognormal_sample(0.12, 0.4))
+        # 字符间隔(用扰动后的值)
+        await asyncio.sleep(intervals[i])
 
 
 async def human_scroll(page: Any, direction: str = "down", amount: int | None = None) -> None:
