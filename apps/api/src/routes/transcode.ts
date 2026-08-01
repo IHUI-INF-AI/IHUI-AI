@@ -54,7 +54,13 @@ const createJobBodySchema = z.object({
       { message: 'inputPath 必须在 uploads/ 沙箱内(防止任意文件读)' },
     ),
   preset: z.enum(['video/mp4', 'video/hls', 'video/webm', 'audio/mp3', 'audio/aac', 'thumbnail']),
-  outputName: z.string().min(1).max(200).optional(),
+  // P1 修复:outputName 正则白名单,防止路径穿越(outputName='../../etc/evil' 逃逸沙箱)
+  outputName: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[a-zA-Z0-9_-]+$/, 'outputName 只允许字母数字下划线短横线(防止路径穿越)')
+    .optional(),
   resolution: z.enum(['480p', '720p', '1080p', '1440p', '2160p']).optional(),
   /** 是否立即开始转码，默认 true */
   autoStart: z.boolean().optional().default(true),
