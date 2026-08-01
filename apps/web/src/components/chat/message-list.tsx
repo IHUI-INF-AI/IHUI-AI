@@ -175,8 +175,10 @@ const MessageItem = React.memo(function MessageItem({
   const [reasoningExpanded, setReasoningExpanded] = React.useState(false)
   // 监听全局 'ihui:toggle-reasoning' 事件:键盘 Enter 聚焦消息触发,只响应本条消息
   React.useEffect(() => {
-    if (!m.reasoning) return
+    // 2026-08-02 修复: Bug 6 — 把 if (!m.reasoning) return 移到 listener 内部,
+    // 否则 m.reasoning 后到达时才注册 listener,之前 toggle 事件已丢失。
     const onToggle = (e: Event) => {
+      if (!m.reasoning) return
       const detail = (e as CustomEvent<{ messageId: string }>).detail
       if (detail?.messageId !== m.id) return
       setReasoningExpanded((prev) => !prev)
@@ -699,13 +701,22 @@ export function MessageList({
       const prevScrollHeight = el.scrollHeight
       const prevScrollTop = el.scrollTop
       onLoadMoreHistory()
-      // 恢复滚动位置(prepend 后新内容在顶部,需要把 scrollTop 调整到对应位置)
-      requestAnimationFrame(() => {
-        if (containerRef.current) {
-          const newScrollHeight = containerRef.current.scrollHeight
+      // 2026-08-02 修复: Bug 1 — onLoadMoreHistory 是 void(非 Promise),异步加载未完成时
+      // 单次 rAF 调整 scrollTop 无效(scrollHeight 还没变)。改用轮询:持续 rAF 检查 scrollHeight
+      // 显著变化(>50px,跳过 loading 指示器 ~30px 的小幅增长),prepend 完成后立即调整 scrollTop,
+      // 5s 超时防泄漏(网络失败等场景)。
+      const startTime = Date.now()
+      const checkScroll = () => {
+        if (!containerRef.current) return
+        const newScrollHeight = containerRef.current.scrollHeight
+        if (newScrollHeight > prevScrollHeight + 50) {
           containerRef.current.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight)
+          return
         }
-      })
+        if (Date.now() - startTime > 5000) return
+        requestAnimationFrame(checkScroll)
+      }
+      requestAnimationFrame(checkScroll)
     }
 
     // #7 虚拟滚动:计算可见范围

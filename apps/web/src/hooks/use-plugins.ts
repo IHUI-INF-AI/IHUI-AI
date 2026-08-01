@@ -50,6 +50,9 @@ export function usePlugins(): UsePluginsReturn {
   const [states, setStates] = React.useState<Record<string, PluginInstallState>>({})
   const [isAuthenticated, setAuthenticated] = React.useState(false)
   const [isLoading, setLoading] = React.useState(true)
+  // 2026-08-02 修复: 乐观更新回滚 race condition - 用 ref 跟踪最新 states, 回滚时用函数式更新按 id 精确修改
+  const statesRef = React.useRef(states)
+  statesRef.current = states
 
   const refresh = React.useCallback(async () => {
     setLoading(true)
@@ -80,10 +83,11 @@ export function usePlugins(): UsePluginsReturn {
 
   const install = React.useCallback(
     async (pluginId: string, pinned = false): Promise<boolean> => {
+      // 2026-08-02 修复: 乐观更新回滚 race condition - 用 ref 读取当前 state, 回滚时用函数式更新按 id 精确修改
+      const prevPluginState = statesRef.current[pluginId]
       // 乐观更新:先写入本地 state
-      const prev = states
       const optimisticState: PluginInstallState = {
-        installedAt: prev[pluginId]?.installedAt ?? new Date().toISOString(),
+        installedAt: prevPluginState?.installedAt ?? new Date().toISOString(),
         pinned,
       }
       setStates((s) => ({ ...s, [pluginId]: optimisticState }))
@@ -93,20 +97,28 @@ export function usePlugins(): UsePluginsReturn {
         { method: 'POST', body: JSON.stringify({ pinned }) },
       )
       if (!res.success) {
-        // 失败回滚
-        setStates(prev)
+        // 函数式回滚: 只恢复对应 id, 保留中间其他更新
+        setStates((s) => {
+          if (prevPluginState) {
+            return { ...s, [pluginId]: prevPluginState }
+          }
+          const next = { ...s }
+          delete next[pluginId]
+          return next
+        })
         return false
       }
       // 用服务端返回的真实 state 校正
       setStates((s) => ({ ...s, [pluginId]: res.data.state }))
       return true
     },
-    [states],
+    [],
   )
 
   const uninstall = React.useCallback(
     async (pluginId: string): Promise<boolean> => {
-      const prev = states
+      // 2026-08-02 修复: 乐观更新回滚 race condition - 用 ref 读取当前 state, 回滚时用函数式更新按 id 精确修改
+      const prevPluginState = statesRef.current[pluginId]
       // 乐观更新:先移除本地 state
       setStates((s) => {
         const next = { ...s }
@@ -119,20 +131,26 @@ export function usePlugins(): UsePluginsReturn {
         { method: 'DELETE' },
       )
       if (!res.success) {
-        setStates(prev)
+        // 函数式回滚: 只恢复对应 id, 保留中间其他更新
+        setStates((s) => {
+          if (prevPluginState) {
+            return { ...s, [pluginId]: prevPluginState }
+          }
+          return s
+        })
         return false
       }
       return true
     },
-    [states],
+    [],
   )
 
   const togglePinned = React.useCallback(
     async (pluginId: string): Promise<boolean> => {
-      const currentState = states[pluginId]
+      // 2026-08-02 修复: 乐观更新回滚 race condition - 用 ref 读取当前 state, 回滚时用函数式更新按 id 精确修改
+      const currentState = statesRef.current[pluginId]
       if (!currentState) return false // 未安装,不能切换 pinned
 
-      const prev = states
       const nextPinned = !currentState.pinned
       // 乐观更新
       setStates((s) => ({
@@ -145,23 +163,27 @@ export function usePlugins(): UsePluginsReturn {
         { method: 'PATCH', body: JSON.stringify({ pinned: nextPinned }) },
       )
       if (!res.success) {
-        setStates(prev)
+        // 函数式回滚: 只恢复对应 id 的 pinned, 保留中间其他更新
+        setStates((s) => ({
+          ...s,
+          [pluginId]: { ...currentState, pinned: !nextPinned },
+        }))
         return false
       }
       setStates((s) => ({ ...s, [pluginId]: res.data.state }))
       return true
     },
-    [states],
+    [],
   )
 
   const toggleInstall = React.useCallback(
     async (pluginId: string): Promise<boolean> => {
-      if (states[pluginId]) {
+      if (statesRef.current[pluginId]) {
         return uninstall(pluginId)
       }
       return install(pluginId, false)
     },
-    [states, install, uninstall],
+    [install, uninstall],
   )
 
   const getState = React.useCallback(
