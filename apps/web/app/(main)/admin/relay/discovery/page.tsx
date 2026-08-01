@@ -33,6 +33,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -191,6 +192,7 @@ export default function AdminRelayDiscoveryPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-end justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

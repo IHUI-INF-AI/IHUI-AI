@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { BackButton } from '@/components/common'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -186,6 +187,7 @@ const docSections = [
 export default function DocsIndexPage() {
   return (
     <div className="space-y-4">
+      <BackButton />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(docsJsonLd) }}

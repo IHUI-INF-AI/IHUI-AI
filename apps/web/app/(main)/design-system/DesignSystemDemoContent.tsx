@@ -22,6 +22,7 @@ import {
 import { Avatar, Badge } from '@/components/data'
 import { Textarea } from '@/components/form'
 import { Container } from '@/components/layout'
+import { BackButton } from '@/components/common'
 
 const COLORS: { name: string; token: string; className: string }[] = [
   { name: 'Primary', token: 'bg-primary text-primary-foreground', className: 'bg-primary' },
@@ -92,6 +93,7 @@ function Section({
 export function DesignSystemDemoContent() {
   return (
     <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
+      <BackButton />
       <header className="space-y-1 px-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Sparkles className="h-7 w-7 text-primary" />

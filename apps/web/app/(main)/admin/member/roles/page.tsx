@@ -31,6 +31,7 @@ import {
   itemToForm,
 } from './helpers'
 import type { Item, FormState, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function UserRolesPage() {
   const qc = useQueryClient()
@@ -122,6 +123,7 @@ export default function UserRolesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Shield className="h-6 w-6 text-primary" />

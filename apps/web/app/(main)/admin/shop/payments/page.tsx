@@ -23,6 +23,7 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface Order {
   id: string
@@ -88,6 +89,7 @@ export default function AdminShopPaymentsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShoppingCart className="h-6 w-6 text-primary" />

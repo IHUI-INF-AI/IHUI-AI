@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { OrdersTab } from './OrdersTab'
 import { RefundsTab } from './RefundsTab'
 import { InvoicesTab } from './InvoicesTab'
+import { BackButton } from '@/components/common'
 
 type Tab = 'orders' | 'refunds' | 'invoices'
 
@@ -27,6 +28,7 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

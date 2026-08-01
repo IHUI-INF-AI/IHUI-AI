@@ -12,6 +12,7 @@ import type { Member, MForm } from './types'
 import { MemberFilter } from './MemberFilter'
 import { MemberTable } from './MemberTable'
 import { MemberDialog } from './MemberDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduClassMembersPage() {
   const t = useTranslations('admin.eduClassMembers')
@@ -74,6 +75,7 @@ export default function EduClassMembersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Search, UserPlus, Users } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(\`users.roleLabels.${var}\`)` / `t(\`users.statusLabels.${var}\`)` 动态拼接 */
 const ROLE_LABEL_KEY: Record<string, string> = {
@@ -48,6 +49,7 @@ export default async function UsersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex justify-end">
         <Button size="sm" className="gap-1.5">
           <UserPlus className="h-3.5 w-3.5" />

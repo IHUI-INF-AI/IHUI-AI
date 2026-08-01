@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Check, Rocket, Terminal } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 export default async function OpenClawPage() {
   const t = await getTranslations('models')
@@ -24,6 +25,7 @@ export default async function OpenClawPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('openclaw.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('openclaw.subtitle')}</p>

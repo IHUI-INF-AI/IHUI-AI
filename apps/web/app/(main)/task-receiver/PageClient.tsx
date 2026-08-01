@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskReceiver } from '@/hooks/use-task-receiver'
+import { BackButton } from '@/components/common'
 import type { TaskDispatch, TaskResult, TaskStatus } from '@ihui/shared/tasks/dispatch'
 
 const TASK_STATUS_KEYS: Record<TaskStatus, string> = {
@@ -76,6 +77,7 @@ export default function TaskReceiverPageClient() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6">
+      <BackButton />
       <header className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">
           {tNav('agents')} · {t('title')}

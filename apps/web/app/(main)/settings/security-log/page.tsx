@@ -17,6 +17,7 @@ import {
   TableCell,
   Button,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
@@ -103,6 +104,7 @@ export default function SecurityLogPage() {
 
   return (
     <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <BackButton />
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('securityLogTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('securityLogDesc')}</p>

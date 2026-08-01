@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { HelpCircle, ChevronDown, MessageCircle, Sparkles, BookOpen } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 // 12 个 FAQ 集中配置(category 用于左侧导航 + 分类徽章)
 const FAQ_ITEMS = [
@@ -35,6 +36,7 @@ export function FaqContent(): React.JSX.Element {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

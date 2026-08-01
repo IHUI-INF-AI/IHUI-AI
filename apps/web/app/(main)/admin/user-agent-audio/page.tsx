@@ -14,6 +14,7 @@ import { UserAgentAudioTable } from './UserAgentAudioTable'
 import { UserAgentAudioDialog } from './UserAgentAudioDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EMPTY_SEARCH, EXPORT_COLUMNS, audioToForm } from './helpers'
 import type { UserAgentAudio, UserAgentAudioForm, UserAgentAudioSearch, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function UserAgentAudioPage() {
   const qc = useQueryClient()
@@ -128,6 +129,7 @@ export default function UserAgentAudioPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">用户Agent音频</h1>
         <div className="flex gap-2">

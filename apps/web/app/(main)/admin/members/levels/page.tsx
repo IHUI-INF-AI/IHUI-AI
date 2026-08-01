@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useVipCrud } from './useVipCrud'
 import { VipTable } from './VipTable'
 import { VipFormDialog, VipDeleteDialog } from './VipDialogs'
+import { BackButton } from '@/components/common'
 import {
   LEVEL_RESOURCE,
   LEVEL_PERM,
@@ -78,6 +79,7 @@ export default function VipLevelPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Crown className="h-6 w-6 text-primary" />

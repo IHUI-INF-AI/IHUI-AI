@@ -6,6 +6,7 @@ import { Upload, Trash2, Loader2, Type } from 'lucide-react'
 import { Button, Card, CardContent, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface FontItem {
   id: string
@@ -75,6 +76,7 @@ export default function FontsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">字体配置</h1>
         <p className="mt-1 text-sm text-muted-foreground">管理自定义与系统字体</p>

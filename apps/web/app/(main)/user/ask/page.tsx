@@ -7,6 +7,7 @@ import { Loader2, HelpCircle, MessageCircle } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { pushError } from '@/stores/error-banner'
+import { BackButton } from '@/components/common'
 
 interface AskItem {
   id: string
@@ -61,6 +62,7 @@ export default function AskPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />

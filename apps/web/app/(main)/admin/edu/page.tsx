@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface Module {
   href: string
@@ -95,6 +96,7 @@ export default function EduHubPage() {
   const t = useTranslations('admin.edu.index')
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

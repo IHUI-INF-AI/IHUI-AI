@@ -6,6 +6,7 @@ import { Loader2, Key, Lock, Search, Copy, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Input, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface MemberPermission {
   id: string
@@ -61,6 +62,7 @@ export default function AdminMemberPermissionsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Key className="h-6 w-6 text-primary" />

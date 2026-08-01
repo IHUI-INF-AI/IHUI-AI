@@ -25,6 +25,7 @@ import {
   CardContent,
 } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface IssuedCert {
   id: string
@@ -76,6 +77,7 @@ export default function EduCertificateIssuedPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('issuedTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('issuedSubtitle')}</p>

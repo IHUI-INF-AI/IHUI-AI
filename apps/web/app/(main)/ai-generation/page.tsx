@@ -9,6 +9,7 @@ import { AiGenerationContent } from './AiGenerationContent'
 import { AiGenerationPreview } from './AiGenerationPreview'
 import { callApi } from './helpers'
 import type { ResourceType } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AiGenerationPage() {
   const [type, setType] = React.useState<GenerationType>('auto')
@@ -90,6 +91,7 @@ export default function AiGenerationPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-4">
+      <BackButton />
       <AiGenerationHeader
         type={type}
         setType={setType}

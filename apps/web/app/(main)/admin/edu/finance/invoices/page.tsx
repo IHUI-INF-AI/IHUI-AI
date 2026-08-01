@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, ChevronRight, Receipt, Search, Check } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -100,6 +101,7 @@ export default function EduFinanceInvoicesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

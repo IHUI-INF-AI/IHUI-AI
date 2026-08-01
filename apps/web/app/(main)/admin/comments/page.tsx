@@ -17,6 +17,7 @@ import {
   selectClass,
 } from './helpers'
 import type { CommentItem, StatusFilter, TopicType } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminCommentsPage() {
   const t = useTranslations('admin.comments')
@@ -76,6 +77,7 @@ export default function AdminCommentsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <MessageSquare className="h-6 w-6 text-primary" />

@@ -14,6 +14,7 @@ import { ContactTable } from './ContactTable'
 import { ContactDialog } from './ContactDialog'
 import { RESOURCE, PERM, EMPTY, FIELDS, api } from './helpers'
 import type { ContactItem, ContactList } from './types'
+import { BackButton } from '@/components/common'
 
 export default function ContactPage() {
   const t = useTranslations('adminContact')
@@ -103,6 +104,7 @@ export default function ContactPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
