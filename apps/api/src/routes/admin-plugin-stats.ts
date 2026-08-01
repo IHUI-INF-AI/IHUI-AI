@@ -32,7 +32,7 @@ export const adminPluginStatsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/stats/summary', async (request, reply) => {
     const parsed = querySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: 'Invalid query', data: null })
+      return reply.status(400).send({ code: 400, message: '查询参数无效', data: null })
     }
     const summary = await getPluginStatsSummary(parsed.data.days)
     return reply.send(success(summary))
@@ -44,7 +44,7 @@ export const adminPluginStatsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/stats/top', async (request, reply) => {
     const parsed = querySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: 'Invalid query', data: null })
+      return reply.status(400).send({ code: 400, message: '查询参数无效', data: null })
     }
     const rows = await getPluginStatsByPlugin(parsed.data.days, parsed.data.limit)
     return reply.send(success(rows))
@@ -56,7 +56,7 @@ export const adminPluginStatsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/stats/trend', async (request, reply) => {
     const parsed = querySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: 'Invalid query', data: null })
+      return reply.status(400).send({ code: 400, message: '查询参数无效', data: null })
     }
     const rows = await getPluginStatsTrend(parsed.data.days)
     return reply.send(success(rows))

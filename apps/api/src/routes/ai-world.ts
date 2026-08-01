@@ -107,7 +107,14 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     }
     const { category, limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
-      listAiWorldItems({ kind: 'tool' as ItemKind, categorySlug: category, limit, offset, search, orderBy: order }),
+      listAiWorldItems({
+        kind: 'tool' as ItemKind,
+        categorySlug: category,
+        limit,
+        offset,
+        search,
+        orderBy: order,
+      }),
       countAiWorldItems({ kind: 'tool', categorySlug: category, search }),
     ])
     return reply.send(success({ items: items.map(toItemDTO), total, limit, offset }))
@@ -121,7 +128,14 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     }
     const { category, limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
-      listAiWorldItems({ kind: 'app' as ItemKind, categorySlug: category, limit, offset, search, orderBy: order }),
+      listAiWorldItems({
+        kind: 'app' as ItemKind,
+        categorySlug: category,
+        limit,
+        offset,
+        search,
+        orderBy: order,
+      }),
       countAiWorldItems({ kind: 'app', categorySlug: category, search }),
     ])
     return reply.send(success({ items: items.map(toItemDTO), total, limit, offset }))
@@ -135,7 +149,14 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     }
     const { category, limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
-      listAiWorldItems({ kind: 'news' as ItemKind, categorySlug: category, limit, offset, search, orderBy: order }),
+      listAiWorldItems({
+        kind: 'news' as ItemKind,
+        categorySlug: category,
+        limit,
+        offset,
+        search,
+        orderBy: order,
+      }),
       countAiWorldItems({ kind: 'news', categorySlug: category, search }),
     ])
     return reply.send(success({ items: items.map(toItemDTO), total, limit, offset }))
@@ -173,7 +194,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get<{ Params: { id: string } }>('/ai-world/items/:id', async (request, reply) => {
     const item = await findAiWorldItemById(request.params.id)
     if (!item) {
-      return reply.status(404).send({ code: 404, message: 'Not found', data: null })
+      return reply.status(404).send({ code: 404, message: '资源不存在', data: null })
     }
     // 异步增浏览数,不阻塞响应;挂 catch 避免未处理 Promise 拒绝
     void incrementViewCount(item.id).catch((err) => {
@@ -185,7 +206,10 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   // GET /ai-world/sync/logs — 同步日志(最近 20 条)+ 信源统计
   server.get('/ai-world/sync/logs', async (_request, reply) => {
     try {
-      const [logs, stats] = await Promise.all([findRecentSyncLogs(20), Promise.resolve(getSourceStats())])
+      const [logs, stats] = await Promise.all([
+        findRecentSyncLogs(20),
+        Promise.resolve(getSourceStats()),
+      ])
       return reply.send(success({ logs, stats }))
     } catch (err) {
       server.log.error({ err }, 'ai-world sync/logs failed')
@@ -201,29 +225,33 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
         const results = await runDryRun()
         const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
         const failed = results.filter((r) => r.error).length
-        return reply.send(success({
-          dryRun: true,
-          total: results.length,
-          totalEstimated,
-          failed,
-          stats: getSourceStats(),
-          results,
-        }))
+        return reply.send(
+          success({
+            dryRun: true,
+            total: results.length,
+            totalEstimated,
+            failed,
+            stats: getSourceStats(),
+            results,
+          }),
+        )
       }
       const results = await syncAllSources()
       const ok = results.filter((r) => r.status === 'success').length
       const partial = results.filter((r) => r.status === 'partial').length
       const fail = results.filter((r) => r.status === 'failed').length
       const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      return reply.send(success({
-        total: results.length,
-        success: ok,
-        partial,
-        failed: fail,
-        totalItems,
-        stats: getSourceStats(),
-        results,
-      }))
+      return reply.send(
+        success({
+          total: results.length,
+          success: ok,
+          partial,
+          failed: fail,
+          totalItems,
+          stats: getSourceStats(),
+          results,
+        }),
+      )
     } catch (err) {
       server.log.error({ err }, 'ai-world sync failed')
       return reply.status(500).send({ code: 500, message: '同步失败' })
@@ -277,13 +305,15 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       const ok = results.filter((r) => r.status === 'success').length
       const fail = results.filter((r) => r.status === 'failed').length
       const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      return reply.send(success({
-        total: results.length,
-        success: ok,
-        failed: fail,
-        totalItems,
-        results,
-      }))
+      return reply.send(
+        success({
+          total: results.length,
+          success: ok,
+          failed: fail,
+          totalItems,
+          results,
+        }),
+      )
     } catch (err) {
       server.log.error({ err }, 'ai-world sync/rankings failed')
       return reply.status(500).send({ code: 500, message: '同步失败' })
@@ -297,13 +327,15 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       const ok = results.filter((r) => r.status === 'success').length
       const fail = results.filter((r) => r.status === 'failed').length
       const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      return reply.send(success({
-        total: results.length,
-        success: ok,
-        failed: fail,
-        totalItems,
-        results,
-      }))
+      return reply.send(
+        success({
+          total: results.length,
+          success: ok,
+          failed: fail,
+          totalItems,
+          results,
+        }),
+      )
     } catch (err) {
       server.log.error({ err }, 'ai-world sync/trending failed')
       return reply.status(500).send({ code: 500, message: '同步失败' })
@@ -316,14 +348,16 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       const results = await runDryRun()
       const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
       const failed = results.filter((r) => r.error).length
-      return reply.send(success({
-        dryRun: true,
-        total: results.length,
-        totalEstimated,
-        failed,
-        stats: getSourceStats(),
-        results,
-      }))
+      return reply.send(
+        success({
+          dryRun: true,
+          total: results.length,
+          totalEstimated,
+          failed,
+          stats: getSourceStats(),
+          results,
+        }),
+      )
     } catch (err) {
       server.log.error({ err }, 'ai-world sync/dry-run failed')
       return reply.status(500).send({ code: 500, message: '同步失败' })
