@@ -348,48 +348,110 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
       const pptx = new pptxgen()
       pptx.defineLayout({ name: 'A4', width: 10, height: 7.5 })
       pptx.layout = 'A4'
-      // 封面
+      // 品牌色 + 中文字体(2026-08-01 立:修复 PPT 默认 Calibri 中文显示 + 美化排版)
+      const COLOR_PRIMARY = '1E40AF' // 深蓝
+      const COLOR_ACCENT = 'DBEAFE' // 浅蓝
+      const COLOR_TEXT = '1F2937' // 深灰
+      const COLOR_MUTED = '6B7280' // 中灰
+      const FONT_CN = '微软雅黑' // Windows 系统字体,PPT 用 fontFace 指定
+
+      // ====================== 封面页(深色背景 + 大标题) ======================
       const cover = pptx.addSlide()
+      cover.background = { color: '0F172A' } // 深色背景
+      // 顶部品牌色装饰条
+      cover.addShape('rect', { x: 0, y: 0, w: 10, h: 0.15, fill: { color: COLOR_PRIMARY } })
+      // 主标题(白色大字,居中)
       cover.addText('AI 生涯指导报告', {
         x: 0.5,
-        y: 2.5,
+        y: 2.3,
         w: 9,
-        h: 1,
-        fontSize: 32,
+        h: 1.2,
+        fontSize: 40,
         bold: true,
+        fontFace: FONT_CN,
         align: 'center',
-        color: '1a1a1a',
+        color: 'FFFFFF',
       })
+      // 装饰横线
+      cover.addShape('rect', {
+        x: 4,
+        y: 3.7,
+        w: 2,
+        h: 0.04,
+        fill: { color: '60A5FA' },
+      })
+      // 副标题(浅灰)
       cover.addText(`生成日期: ${dateStr}`, {
         x: 0.5,
-        y: 3.6,
+        y: 3.9,
         w: 9,
         h: 0.5,
         fontSize: 14,
+        fontFace: FONT_CN,
         align: 'center',
-        color: '666666',
+        color: '94A3B8',
       })
-      // 内容页:每个 section 一张幻灯片
+      // 底部品牌署名
+      cover.addText('IHUI AI 平台 · 智能生涯指导', {
+        x: 0.5,
+        y: 6.5,
+        w: 9,
+        h: 0.4,
+        fontSize: 11,
+        fontFace: FONT_CN,
+        align: 'center',
+        color: '64748B',
+      })
+
+      // ====================== 内容页(每个 section 一张幻灯片) ======================
       for (const s of sections) {
         const slide = pptx.addSlide()
-        slide.addText(s.heading, {
+        slide.background = { color: 'FFFFFF' }
+        // 左侧品牌色竖条(章节标识)
+        slide.addShape('rect', { x: 0, y: 0, w: 0.12, h: 7.5, fill: { color: COLOR_PRIMARY } })
+        // 章节标题区(浅蓝背景块)
+        slide.addShape('rect', {
           x: 0.5,
-          y: 0.3,
+          y: 0.4,
           w: 9,
-          h: 0.6,
-          fontSize: 22,
-          bold: true,
-          color: '1a1a1a',
+          h: 0.9,
+          fill: { color: COLOR_ACCENT },
         })
+        // 章节标题(品牌色粗体)
+        slide.addText(s.heading, {
+          x: 0.7,
+          y: 0.45,
+          w: 8.6,
+          h: 0.8,
+          fontSize: 24,
+          bold: true,
+          fontFace: FONT_CN,
+          align: 'left',
+          valign: 'middle',
+          color: COLOR_PRIMARY,
+        })
+        // 章节内容(深灰正文)
         slide.addText(s.content, {
-          x: 0.5,
-          y: 1.1,
-          w: 9,
-          h: 5.8,
-          fontSize: 14,
+          x: 0.7,
+          y: 1.6,
+          w: 8.6,
+          h: 5.4,
+          fontSize: 15,
+          fontFace: FONT_CN,
           lineSpacingMultiple: 1.5,
           valign: 'top',
-          color: '333333',
+          color: COLOR_TEXT,
+        })
+        // 底部页脚
+        slide.addText('IHUI AI · AI 生涯指导报告', {
+          x: 0.7,
+          y: 7.1,
+          w: 8.6,
+          h: 0.3,
+          fontSize: 9,
+          fontFace: FONT_CN,
+          align: 'right',
+          color: COLOR_MUTED,
         })
       }
       const pptxBuffer = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer
@@ -403,24 +465,43 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // Word(.doc,HTML 格式,Word/WPS 可直接打开,零新依赖)
+    // 2026-08-01 立:加 UTF-8 BOM(Word 对 BOM 敏感,无 BOM 可能乱码)+ 美化 CSS 排版
     const escapeHtml = (s: string) =>
       s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const htmlSections = sections
       .map(
         (s) =>
-          `<h2 style="font-size:16px;margin:16px 0 8px;color:#1a1a1a;">${escapeHtml(s.heading)}</h2><p style="font-size:12px;line-height:1.8;margin:0 0 12px;white-space:pre-wrap;">${escapeHtml(s.content)}</p>`,
+          `<div style="margin:0 0 24px;padding:20px 24px;background:#f8fafc;border-left:4px solid #1e40af;border-radius:0 6px 6px 0;">` +
+          `<h2 style="font-size:17px;margin:0 0 12px;color:#1e40af;font-weight:600;">${escapeHtml(s.heading)}</h2>` +
+          `<p style="font-size:13px;line-height:1.8;margin:0;color:#1f2937;white-space:pre-wrap;">${escapeHtml(s.content)}</p>` +
+          `</div>`,
       )
       .join('')
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>AI 生涯指导报告</title></head><body style="font-family:'微软雅黑','Microsoft YaHei',sans-serif;margin:40px;">
-<h1 style="font-size:24px;text-align:center;color:#1a1a1a;margin:0 0 8px;">AI 生涯指导报告</h1>
-<p style="font-size:12px;text-align:center;color:#666;margin:0 0 32px;">生成日期: ${dateStr}</p>
-${htmlSections}
-<p style="font-size:10px;color:#999;margin-top:40px;border-top:1px solid #eee;padding-top:8px;">本报告由 IHUI AI 平台生成 · ${dateStr}</p>
-</body></html>`
+    const html =
+      `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">` +
+      `<head><meta charset="utf-8"><title>AI 生涯指导报告</title>` +
+      `<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->` +
+      `<style>body{font-family:'微软雅黑','Microsoft YaHei',sans-serif;margin:60px 50px;color:#1f2937;}` +
+      `.cover{text-align:center;padding:60px 0 40px;border-bottom:3px solid #1e40af;margin-bottom:40px;}` +
+      `.cover h1{font-size:32px;color:#1e40af;margin:0 0 12px;font-weight:700;}` +
+      `.cover .subtitle{font-size:14px;color:#6b7280;margin:0 0 8px;}` +
+      `.cover .brand{font-size:12px;color:#9ca3af;margin-top:20px;letter-spacing:2px;}` +
+      `.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#9ca3af;}` +
+      `</style></head><body>` +
+      `<div class="cover">` +
+      `<h1>AI 生涯指导报告</h1>` +
+      `<p class="subtitle">生成日期: ${dateStr}</p>` +
+      `<p class="brand">IHUI AI 平台 · 智能生涯指导</p>` +
+      `</div>` +
+      htmlSections +
+      `<div class="footer">本报告由 IHUI AI 平台生成 · ${dateStr}</div>` +
+      `</body></html>`
+    // UTF-8 BOM(\xEF\xBB\xBF)确保 Word 正确识别编码,避免中文乱码
+    const bom = '\uFEFF'
     return reply
       .header('Content-Type', 'application/msword; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="${filenameBase}.doc"`)
-      .send(Buffer.from(html, 'utf-8'))
+      .send(Buffer.from(bom + html, 'utf-8'))
   })
 }
 
