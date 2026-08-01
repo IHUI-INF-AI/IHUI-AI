@@ -97,7 +97,7 @@ export default function I18nMissingPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <AlertCircle className="h-6 w-6 text-amber-500" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">缺失 Key 列表</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">缺失 Key 列表</h1>
         </div>
         <p className="text-xs text-muted-foreground">共 {d.total} 个 Key 待翻译</p>
       </header>

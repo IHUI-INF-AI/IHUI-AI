@@ -80,7 +80,7 @@ export default function EduCertificateIssuedPage() {
         <h1 className="text-2xl font-bold tracking-tight">{t('issuedTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('issuedSubtitle')}</p>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-4">
         <Card>
           <CardContent className="p-5">
             <div className="text-sm text-muted-foreground">{t('issuedTotal')}</div>

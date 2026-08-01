@@ -180,7 +180,7 @@ export default function DocsIndexPage() {
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           📚 文档中心
         </div>
-        <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           智汇 AI 文档
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">

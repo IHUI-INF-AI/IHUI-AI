@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -96,7 +96,7 @@ export default function MyAgentsPage() {
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" asChild>
@@ -139,7 +139,7 @@ export default function MyAgentsPage() {
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {agents.map((agent) => (
             <Link key={agent.agentId} href={`/agents/${agent.agentId}`}>
               <Card className="transition-colors hover:bg-accent/40">

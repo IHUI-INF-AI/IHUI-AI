@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -159,7 +159,7 @@ export default function SkillsMarketPage() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-20 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 min-[768px]:py-20 text-center">
           <Star className="h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
