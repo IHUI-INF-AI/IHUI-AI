@@ -9,25 +9,44 @@
  *   startAutoRefresh(err => useLoginDialogStore.getState().open('login'))
  *
  * 依赖:useAuthStore 持久化 token + refreshToken(accessToken 必须是 JWT 带 exp 字段)。
+ *
+ * 共享层:延迟计算 / 飞行中去重 / 调度器抽象来自 @ihui/shared/auth/auto-refresh,
+ *         本文件只保留 web 端 setTimeout 调度器实现 + 与 useAuthStore 的耦合逻辑。
  */
 import { useAuthStore } from '@/stores/auth'
-import { readExp } from '@ihui/shared/utils/jwt-utils'
+import {
+  computeRefreshDelay,
+  createInFlightRefresh,
+  type InFlightRefresh,
+  type RefreshScheduler,
+  REFRESH_LEAD_MS,
+} from '@ihui/shared/auth/auto-refresh'
 import { type TokenPair } from '@ihui/types'
 import { refreshAccessToken } from '@ihui/api-client'
 
-const REFRESH_LEAD_MS = 5 * 60 * 1000 // 提前 5 分钟续期
-const MIN_DELAY_MS = 30 * 1000 // 最小 30s,避免 setTimeout 越界
-const MAX_DELAY_MS = 24 * 60 * 60 * 1000 // 上限 24h
+/** web 端调度器:setTimeout / clearTimeout 实现 RefreshScheduler 接口 */
+class WebRefreshScheduler implements RefreshScheduler {
+  private timer: ReturnType<typeof setTimeout> | null = null
 
-let refreshTimer: ReturnType<typeof setTimeout> | null = null
-let inFlightRefresh: Promise<TokenPair | null> | null = null
+  scheduleOnce(delayMs: number, callback: () => void): void {
+    this.clear()
+    this.timer = setTimeout(callback, delayMs)
+  }
+
+  clear(): void {
+    if (this.timer) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
+  }
+}
+
+const scheduler = new WebRefreshScheduler()
+const inFlight: InFlightRefresh<TokenPair> = createInFlightRefresh<TokenPair>()
 let stopped = false
 
 export function clearRefreshTimer(): void {
-  if (refreshTimer) {
-    clearTimeout(refreshTimer)
-    refreshTimer = null
-  }
+  scheduler.clear()
 }
 
 interface ScheduleOptions {
@@ -41,29 +60,25 @@ interface ScheduleOptions {
 /** 根据 accessToken 的 exp 在过期前 leadMs 调度 setTimeout 续期 */
 function schedule(opts: ScheduleOptions): void {
   if (typeof window === 'undefined') return
-  clearRefreshTimer()
-  const exp = readExp(opts.accessToken)
-  if (!exp) return
-  const expMs = exp * 1000
-  const delay = Math.max(
-    MIN_DELAY_MS,
-    Math.min(MAX_DELAY_MS, expMs - Date.now() - (opts.leadMs ?? REFRESH_LEAD_MS)),
-  )
-  refreshTimer = setTimeout(() => {
+  scheduler.clear()
+  const delay = computeRefreshDelay(opts.accessToken, opts.leadMs ?? REFRESH_LEAD_MS)
+  if (delay === null) return
+  scheduler.scheduleOnce(delay, () => {
     void doRefresh(opts).catch((e) => opts.onError?.(e as Error))
-  }, delay)
+  })
 }
 
 async function doRefresh(opts: ScheduleOptions): Promise<void> {
-  if (inFlightRefresh) {
-    const tokens = await inFlightRefresh
+  const existing = inFlight.get()
+  if (existing) {
+    const tokens = await existing
     if (tokens) {
       opts.onRefreshed(tokens)
       schedule({ ...opts, ...tokens })
     }
     return
   }
-  inFlightRefresh = (async () => {
+  const promise = (async (): Promise<TokenPair | null> => {
     try {
       const result = await refreshAccessToken(opts.refreshToken)
       if (!result.success || !result.data?.accessToken) {
@@ -78,10 +93,11 @@ async function doRefresh(opts: ScheduleOptions): Promise<void> {
       opts.onError?.(e as Error)
       return null
     } finally {
-      inFlightRefresh = null
+      inFlight.clear()
     }
   })()
-  await inFlightRefresh
+  inFlight.set(promise)
+  await promise
 }
 
 function applyRefreshed(tokens: TokenPair): void {
