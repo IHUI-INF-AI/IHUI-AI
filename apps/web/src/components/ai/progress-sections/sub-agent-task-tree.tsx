@@ -274,7 +274,7 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
         <span className="shrink-0 text-[10px] text-muted-foreground/60">{subagent.handle}</span>
         <span className="flex-1" />
         {subagent.currentTask && (
-          <span className="hidden truncate text-[10px] text-muted-foreground/60 lg:inline">
+          <span className="hidden truncate text-[10px] text-muted-foreground/60 min-[1024px]:inline">
             {subagent.currentTask}
           </span>
         )}

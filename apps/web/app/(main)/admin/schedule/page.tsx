@@ -136,7 +136,7 @@ export default function AdminSchedulePage() {
                     <span className="truncate">{describeCron(t.cron)}</span>
                   </div>
                 </div>
-                <div className="hidden text-xs text-muted-foreground sm:block">
+                <div className="hidden text-xs text-muted-foreground min-[640px]:block">
                   {t.nextRunAt ? dtf.format(new Date(t.nextRunAt)) : '-'}
                 </div>
                 <Switch checked={t.enabled} disabled aria-label="任务状态" />

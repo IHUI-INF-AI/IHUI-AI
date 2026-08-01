@@ -43,7 +43,7 @@ export function AffiliatesContent(): React.JSX.Element {
           <Wrench className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
           {t('heroSubtitle')}
         </p>
