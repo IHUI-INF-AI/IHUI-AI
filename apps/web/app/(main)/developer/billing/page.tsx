@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 const BILL_STATUS_KEYS: Record<'paid' | 'pending' | 'failed', string> = {
   paid: 'status.paid',
@@ -89,6 +90,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Receipt className="h-5 w-5 text-primary" />

@@ -10,6 +10,7 @@ import { BookOpen, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface MyLesson {
   id: string
@@ -56,6 +57,7 @@ export default function MyLessonsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <BookOpen className="h-7 w-7 text-primary" />

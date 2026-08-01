@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Users, MessageSquare, Loader2, Circle, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
 interface CircleItem {
@@ -46,6 +47,7 @@ export default function CirclesPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

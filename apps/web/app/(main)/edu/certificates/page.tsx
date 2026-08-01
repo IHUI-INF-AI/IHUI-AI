@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 interface Certificate {
   id: string
@@ -52,6 +53,7 @@ export default function EduCertificatesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Award className="h-7 w-7 text-primary" />

@@ -20,6 +20,7 @@ import { JobLogsTable } from './JobLogsTable'
 import { JobLogDetailDialog } from './JobLogDetailDialog'
 import { PAGE_SIZE, EMPTY_SEARCH, fetchJobLogs, clearJobLogs, deleteJobLog } from './helpers'
 import type { JobLog, JobLogSearch } from './types'
+import { BackButton } from '@/components/common'
 
 export default function JobLogsPage() {
   const t = useTranslations('admin.scheduleLogs')
@@ -71,6 +72,7 @@ export default function JobLogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <FileClock className="h-6 w-6 text-primary" />

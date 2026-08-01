@@ -7,6 +7,7 @@ import { AlertTriangle, Send, Loader2, CheckCircle2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { Input } from '@/components/form'
+import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -135,7 +136,8 @@ export default function AccountDeletionPage() {
 
   return (
     <div className="space-y-4">
-        <Alert variant="warning" title={t('accountDeletionWarning')} />
+      <BackButton />
+      <Alert variant="warning" title={t('accountDeletionWarning')} />
 
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>

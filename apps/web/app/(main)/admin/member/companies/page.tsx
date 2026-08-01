@@ -13,6 +13,7 @@ import { CompaniesTable } from './CompaniesTable'
 import { CompanyDialog } from './CompanyDialog'
 import { PAGE_SIZE, EMPTY_FORM, api, fetchCompanies } from './helpers'
 import type { Company } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminMemberCompaniesPage() {
   const t = useTranslations('admin.member')
@@ -130,6 +131,7 @@ export default function AdminMemberCompaniesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('companiesTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('companiesSubtitle')}</p>

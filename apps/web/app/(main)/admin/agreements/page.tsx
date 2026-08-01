@@ -10,6 +10,7 @@ import { AgreementTable } from './AgreementTable'
 import { AgreementDialog } from './AgreementDialog'
 import { api, EMPTY_FORM, agreementToForm, formToBody } from './helpers'
 import type { Agreement, AgreementForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AgreementsPage() {
   const t = useTranslations('admin.agreements')
@@ -91,6 +92,7 @@ export default function AgreementsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <AgreementFilter onCreate={openCreate} />
 
       <AgreementTable

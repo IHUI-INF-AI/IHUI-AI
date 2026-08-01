@@ -8,6 +8,7 @@ import { Activity, Coins, AlertTriangle, Timer, ArrowUp, ArrowDown } from 'lucid
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 
 interface PeriodAgg {
   callCount: number
@@ -136,6 +137,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

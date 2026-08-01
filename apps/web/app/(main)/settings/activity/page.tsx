@@ -17,6 +17,7 @@ import {
   TableCell,
   Button,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
@@ -83,6 +84,7 @@ export default function ActivityPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

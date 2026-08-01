@@ -13,6 +13,7 @@ import type { Student, SForm } from './types'
 import { StudentFilter } from './StudentFilter'
 import { StudentTable } from './StudentTable'
 import { StudentDialog } from './StudentDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduStudentPage() {
   const t = useTranslations('admin.edu.student')
@@ -127,6 +128,7 @@ export default function EduStudentPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

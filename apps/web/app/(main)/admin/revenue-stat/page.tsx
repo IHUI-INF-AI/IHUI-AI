@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { RevenueStatResponse } from './types'
+import { BackButton } from '@/components/common'
 
 const FALLBACK: RevenueStatResponse = {
   overview: {
@@ -47,6 +48,7 @@ export default function RevenueStatPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Wallet className="h-6 w-6 text-primary" />

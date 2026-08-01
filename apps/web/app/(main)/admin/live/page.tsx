@@ -26,6 +26,7 @@ import {
 import { LiveStats } from './LiveStats'
 import { ChannelsTable } from './ChannelsTable'
 import { ChannelFormDialog } from './ChannelFormDialog'
+import { BackButton } from '@/components/common'
 
 export default function AdminLivePage() {
   const t = useTranslations('admin.live')
@@ -90,6 +91,7 @@ export default function AdminLivePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

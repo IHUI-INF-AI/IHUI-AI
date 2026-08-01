@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,6 +8,7 @@ import { History, Trash2, Clock, Loader2, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 
 interface HistoryItem {
@@ -63,6 +64,7 @@ export default function HistoryPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -9,6 +9,7 @@ import { Settings, Loader2, Save, AlertTriangle, Trash2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button, Input, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface DevInfo {
   name: string
@@ -93,6 +94,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Settings className="h-5 w-5 text-primary" />

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { BackButton } from '@/components/common'
 import { PlaygroundClient } from '@/components/playground/PlaygroundClient'
 
 export const metadata: Metadata = {
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 export default function PlaygroundPage() {
   return (
     <div className="mx-auto w-full space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">API Playground</h1>
         <p className="text-xs text-muted-foreground">

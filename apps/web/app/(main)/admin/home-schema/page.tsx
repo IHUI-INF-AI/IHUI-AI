@@ -20,6 +20,7 @@ import {
   type HomeSchema,
 } from '@/components/marketing/home-schema'
 import { SortableSection } from './SortableSection'
+import { BackButton } from '@/components/common'
 
 /** admin configs API 返回的配置行 */
 interface AdminConfig {
@@ -255,6 +256,7 @@ export default function HomeSchemaEditorPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {/* 标题 + 操作按钮组 */}
       <div className="flex items-start justify-between">
         <div>

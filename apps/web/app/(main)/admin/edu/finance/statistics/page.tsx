@@ -8,6 +8,7 @@ import { Loader2, ChevronLeft, BarChart3, TrendingUp, DollarSign, ShoppingCart }
 import { eduApi, buildQs, selectClass } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -50,6 +51,7 @@ export default function EduFinanceStatisticsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{tc('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{tc('subtitle')}</p>

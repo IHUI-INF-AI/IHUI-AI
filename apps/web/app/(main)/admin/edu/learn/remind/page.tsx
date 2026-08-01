@@ -14,6 +14,7 @@ import { LearnRemindTable } from './LearnRemindTable'
 import { LearnRemindDialog } from './LearnRemindDialog'
 import { PAGE_SIZE, EMPTY, remindToForm } from './helpers'
 import type { Remind, RForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnRemindPage() {
   const t = useTranslations('admin.edu.learn.remind')
@@ -99,6 +100,7 @@ export default function EduLearnRemindPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <LearnRemindFilter onCreate={openCreate} />
 
       <LearnRemindTable

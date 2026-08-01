@@ -39,6 +39,7 @@ import {
 import { formatDateOnly } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { LEVEL_NUM_KEY } from '../helpers'
+import { BackButton } from '@/components/common'
 
 // 后端 GET /api/admin/users/:id 返回 { user: AdminUser },前端解包为 Detail
 interface Detail {
@@ -160,6 +161,7 @@ export default function EduStudentDetailPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/student">

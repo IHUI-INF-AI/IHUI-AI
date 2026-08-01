@@ -15,6 +15,7 @@ import { PlatformLogTable } from './PlatformLogTable'
 import { PlatformLogDialog } from './PlatformLogDialog'
 import { PAGE_SIZE, PERM, EMPTY, EMPTY_SEARCH, EXPORT_COLS, platformLogToForm } from './helpers'
 import type { PlatformLog, CForm, Search } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduCoursePlatformLogPage() {
   const t = useTranslations('admin.edu.course.platformLog')
@@ -117,6 +118,7 @@ export default function EduCoursePlatformLogPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

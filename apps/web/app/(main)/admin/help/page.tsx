@@ -10,6 +10,7 @@ import { HelpDialog } from './HelpDialog'
 import { api, fetchList, EMPTY_FORM, articleToForm } from './helpers'
 import { slugify } from '@/lib/content'
 import type { HelpArticle, HelpForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminHelpPage() {
   const t = useTranslations('admin.help')
@@ -70,6 +71,7 @@ export default function AdminHelpPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <HelpFilter onCreate={openCreate} />
 
       <HelpTable

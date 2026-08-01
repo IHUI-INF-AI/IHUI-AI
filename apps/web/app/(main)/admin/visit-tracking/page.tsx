@@ -20,7 +20,7 @@ import {
   TableHead,
   TableCell,
 } from '@ihui/ui-react'
-import { TruncatedText } from '@/components/common'
+import { TruncatedText, BackButton } from '@/components/common'
 
 interface VisitStats {
   pv?: number
@@ -132,6 +132,7 @@ export default function VisitTrackingPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">访问追踪统计</h1>
         <p className="text-xs text-muted-foreground">日期范围筛选 · PV/UV 概览 · 趋势与来源明细</p>

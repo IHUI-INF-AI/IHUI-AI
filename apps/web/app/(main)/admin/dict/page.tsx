@@ -22,6 +22,7 @@ import {
   buildDictExportRows,
 } from './helpers'
 import type { DictItem, DictType } from './types'
+import { BackButton } from '@/components/common'
 
 export default function DictPage() {
   const t = useTranslations('adminTools')
@@ -193,6 +194,7 @@ export default function DictPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

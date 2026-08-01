@@ -9,6 +9,7 @@ import { GraduationCap, Search, Loader2, ArrowRight } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
+import { BackButton } from '@/components/common'
 
 interface Lecturer {
   id: string
@@ -48,6 +49,7 @@ export default function LecturersPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <GraduationCap className="h-7 w-7 text-primary" />

@@ -15,6 +15,7 @@ import { OperationLogsTable } from './OperationLogsTable'
 import { OperationLogsDetailDialog } from './OperationLogsDetailDialog'
 import { RESOURCE, BIZ_TYPE, STATUS_LABEL, api } from './helpers'
 import type { OperLog, ListResp } from './types'
+import { BackButton } from '@/components/common'
 
 const PAGE_SIZE = 15
 const EMPTY_SEARCH = { title: '', operName: '', businessType: '' }
@@ -121,6 +122,7 @@ export default function OperationLogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Activity className="h-6 w-6 text-primary" />
         {t('operationLogs.title')}

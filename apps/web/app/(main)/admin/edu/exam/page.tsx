@@ -14,6 +14,7 @@ import type { Paper, PaperForm } from './types'
 import { ExamFilter } from './ExamFilter'
 import { ExamTable } from './ExamTable'
 import { ExamDialog } from './ExamDialog'
+import { BackButton } from '@/components/common'
 
 function StatCard({
   icon: Icon,
@@ -161,6 +162,7 @@ export default function EduExamPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
