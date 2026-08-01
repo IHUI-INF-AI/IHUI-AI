@@ -6,10 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Crown, Check, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common/Toaster'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
 import { useSubscriptionStatus, useSignContract } from '@/hooks/use-subscription'
 import { ContractManager } from '@/components/billing/ContractManager'
@@ -117,12 +118,12 @@ export default function SubscriptionPage() {
   const isVip = status?.isVip ?? false
 
   const handleSign = async () => {
-    if (!planId) return toast.error(t('subscription.pleaseSelectPlan'))
+    if (!planId) return pushError(t('subscription.pleaseSelectPlan'))
     try {
       const res = await signContract.mutateAsync({ planId })
       if (res.signUrl) window.location.href = res.signUrl
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('subscription.openAutoRenewFailed'))
+      pushError(err instanceof Error ? err : t('subscription.openAutoRenewFailed'))
     }
   }
 
