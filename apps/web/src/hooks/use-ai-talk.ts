@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
