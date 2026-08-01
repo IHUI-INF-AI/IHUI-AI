@@ -60,13 +60,11 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         <main
           id="main"
           tabIndex={-1}
-          // 2026-07-31 移动端深度适配:padding 按断点渐进放大
-          // - <375px(小手机):12px — 最大化内容区
-          // - ≥375px(标准手机):16px
-          // - ≥768px(平板):20px
-          // - ≥1024px(大平板/小桌面):24px
-          // - ≥1280px(桌面):32px
-          className="no-scrollbar flex-1 overflow-y-auto p-3 min-[640px]:p-4 tablet:p-5 tablet-min-[1024px]:p-6 laptop:p-8"
+          // 2026-08-01 用户要求"完全去掉 padding,内容占满工作内容展示区":
+          // 原 p-3 → laptop:p-8(桌面 32px 四边留白)导致编辑器等所有页面四边有留白,
+          // 用户反馈"为啥不占满啊"。现改为无 padding,内容完全贴工作区卡片边缘。
+          // 各页面如需内部留白应自行在页面组件内设置(如 about 的 px-4 py-8 已自带)。
+          className="no-scrollbar flex-1 overflow-y-auto"
         >
           {children}
         </main>
