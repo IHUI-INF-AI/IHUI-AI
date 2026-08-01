@@ -561,7 +561,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             - 2026-08-01 bg-background → bg-transparent:让外层 WebWorkPanel bg-shell-panel 透出来
               (对齐 AI 对话框背景色,用户反馈"背景色应该跟 ai 对话框背景色一致")
               外层 WebWorkPanel 已有 bg-shell-panel 不透明,内容区无需再设 bg */}
-        <div className="work-panel-content hover-scroll flex-1 overflow-hidden bg-transparent p-2">
+        <div className="work-panel-content hover-scroll flex flex-1 flex-col overflow-hidden bg-transparent p-2">
           {children}
         </div>
       </div>
