@@ -158,30 +158,32 @@ function SortableUserRow({
           {isBanned ? t('statusCancelled') : isActive ? t('statusActive') : t('statusDisabled')}
         </span>
       </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground">
+      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
         {user.createdAt ? dateFmt.format(new Date(user.createdAt)) : '-'}
       </td>
       <td className="px-4 py-2.5 text-right">
-        <div className="flex justify-end gap-0.5">
-          <Button size="sm" variant="ghost" onClick={() => onDetail(user)} aria-label={t('view')}>
-            <Eye className="h-4 w-4" />
+        <div className="flex flex-nowrap justify-end gap-0.5">
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onDetail(user)} aria-label={t('view')}>
+            <Eye className="h-4 w-4 shrink-0" />
           </Button>
           <Button
             size="sm"
             variant="ghost"
+            className="shrink-0"
             onClick={() => onRoleAssign(user)}
             aria-label={t('setRole')}
             disabled={patchPending}
           >
-            <KeyRound className="h-4 w-4" />
+            <KeyRound className="h-4 w-4 shrink-0" />
           </Button>
           <Button
             size="sm"
             variant="ghost"
+            className="shrink-0"
             onClick={() => onResetPassword(user)}
             aria-label={t('resetPassword')}
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4 shrink-0" />
           </Button>
           <Button
             size="sm"
@@ -189,22 +191,23 @@ function SortableUserRow({
             disabled={patchPending}
             onClick={() => onStatusToggle(user)}
             className={cn(
+              'shrink-0',
               isActive
                 ? 'text-rose-600 hover:text-rose-600 dark:text-rose-500'
                 : 'text-emerald-600 hover:text-emerald-600 dark:text-emerald-500',
             )}
             aria-label={isActive ? t('ban') : t('unban')}
           >
-            {isActive ? <Ban className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+            {isActive ? <Ban className="h-4 w-4 shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => onDelete(user)}
             aria-label={t('delete')}
-            className="text-destructive hover:text-destructive"
+            className="shrink-0 text-destructive hover:text-destructive"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4 shrink-0" />
           </Button>
         </div>
       </td>

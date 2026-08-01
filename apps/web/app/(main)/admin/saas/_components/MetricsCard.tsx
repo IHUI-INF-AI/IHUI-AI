@@ -59,19 +59,19 @@ export function MetricsCard({ slug }: MetricsCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          <span>{t('cardTitle')}</span>
+        <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="min-w-0 truncate">{t('cardTitle')}</span>
           {!available ? (
             <span
-              className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
               title={t('degraded')}
             >
-              <Info className="h-3 w-3" />
+              <Info className="h-3 w-3 shrink-0" />
               {t('degraded')}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
-              <Activity className="h-3 w-3" />
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+              <Activity className="h-3 w-3 shrink-0" />
               {t('live')}
             </span>
           )}

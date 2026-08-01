@@ -46,7 +46,7 @@ export function ApiLogTable({ paged, isLoading }: Props) {
                   <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
                     {l.time}
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-xs">{l.endpoint}</td>
+                  <td className="max-w-[220px] truncate px-4 py-2.5 font-mono text-xs" title={l.endpoint}>{l.endpoint}</td>
                   <td className="px-4 py-2.5">
                     <span
                       className={cn(
@@ -85,8 +85,8 @@ export function ApiLogTable({ paged, isLoading }: Props) {
                       {l.latency}ms
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{l.ip}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{l.user}</td>
+                  <td className="max-w-[220px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground" title={l.ip}>{l.ip}</td>
+                  <td className="max-w-[160px] truncate px-4 py-2.5 text-muted-foreground" title={l.user}>{l.user}</td>
                 </tr>
               ))}
             </tbody>

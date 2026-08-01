@@ -46,7 +46,7 @@ export function OauthAppTable({ list, isLoading, togglePending, onToggle, onDele
             list.map((a) => (
               <TableRow key={a.id}>
                 <TableCell className="font-medium">{a.name}</TableCell>
-                <TableCell className="font-mono text-xs">{a.clientId}</TableCell>
+                <TableCell className="max-w-[160px] truncate font-mono text-xs" title={a.clientId}>{a.clientId}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {a.ownerName || a.ownerId}
                 </TableCell>

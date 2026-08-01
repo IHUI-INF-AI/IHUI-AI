@@ -177,14 +177,14 @@ export function ArticleTable(props: ArticleTableProps) {
                         {published ? '已发布' : '草稿'}
                       </button>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
                       {dateFmt.format(new Date(a.createdAt))}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex flex-nowrap items-center justify-end gap-1">
                         <Tooltip content="编辑">
-                          <Button variant="ghost" size="sm" onClick={() => onEdit(a)}>
-                            <Edit className="h-4 w-4" />
+                          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => onEdit(a)}>
+                            <Edit className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>
                         <Tooltip content="删除">
@@ -192,10 +192,10 @@ export function ArticleTable(props: ArticleTableProps) {
                             variant="ghost"
                             size="sm"
                             onClick={() => onDelete(a)}
-                            className="text-destructive hover:text-destructive"
+                            className="shrink-0 text-destructive hover:text-destructive"
                             disabled={deletePending}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>
                       </div>
