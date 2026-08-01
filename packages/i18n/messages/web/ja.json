@@ -6588,6 +6588,21 @@
   "publish": {
     "title": "マルチプラットフォーム公開",
     "subtitle": "md/docx/html/pdf/画像/動画対応 → 14 プラットフォーム ワンクリック公開",
+    "riskLevelSafe": "安全",
+    "riskLevelLow": "低リスク",
+    "riskLevelMedium": "中リスク",
+    "riskLevelHigh": "高リスク",
+    "riskLevelCritical": "極めて高いリスク",
+    "cooldownRemaining": "クールダウン残り",
+    "countdownRemaining": "残り時間",
+    "uploadProgress": "アップロード中",
+    "uploadSuccess": "アップロード成功",
+    "uploadFailed": "アップロード失敗",
+    "taskProgress": "完了",
+    "taskAllComplete": "すべて完了",
+    "taskRunning": "公開中",
+    "riskNotEvaluated": "未評価",
+    "cooldownActive": "クールダウン中",
     "accounts": {
       "title": "プラットフォームアカウント管理",
       "subtitle": "各プラットフォームのログイン認証情報を設定(暗号化保存)",
@@ -6620,7 +6635,77 @@
       "minimize": "最小化(バックグラウンドで待機)",
       "taskId": "タスク",
       "cookiesSaved": "{count} 個のcookieを保存",
-      "waitingForScan": "{platform} アプリのスキャン待機中..."
+      "waitingForScan": "{platform} アプリのスキャン待機中...",
+      "statusActive": "有効",
+      "statusDisabled": "無効",
+      "statusExpired": "期限切れ",
+      "statusUnknown": "不明",
+      "batchImport": "一括インポート",
+      "batchVerify": "一括検証"
+    },
+    "cookieHealth": {
+      "healthy": "正常",
+      "expiring": "まもなく期限切れ",
+      "expired": "期限切れ",
+      "refresh": "Cookieを更新",
+      "refreshSuccess": "Cookieのキープアライブに成功しました",
+      "refreshFailed": "Cookieのキープアライブに失敗しました",
+      "lastVerified": "最終検証",
+      "predictedExpiry": "予測期限切れ",
+      "daysSince": "経過日数",
+      "days": "日"
+    },
+    "batchImport": {
+      "title": "アカウント一括インポート",
+      "description": "テンプレートをダウンロードして入力後アップロード、または既存アカウントをエクスポート",
+      "downloadTemplate": "テンプレートをダウンロード",
+      "templateDownloaded": "テンプレートをダウンロードしました",
+      "templateFailed": "テンプレートのダウンロードに失敗しました",
+      "export": "すべてエクスポート",
+      "exportSuccess": "{count}個のアカウントをエクスポートしました",
+      "exportFailed": "エクスポートに失敗しました",
+      "selectFile": "CSVファイルを選択",
+      "previewCount": "合計{count}件",
+      "colPlatform": "プラットフォーム",
+      "colNickname": "ニックネーム",
+      "colCreds": "認証情報数",
+      "moreRows": "さらに{count}件...",
+      "importing": "インポート中...",
+      "importSuccess": "{count}個のアカウントをインポートしました",
+      "importFailed": "インポートに失敗しました",
+      "confirmImport": "{count}件のインポートを確認",
+      "parseError": "CSVの解析に失敗しました。形式を確認してください",
+      "readError": "ファイルの読み取りに失敗しました",
+      "successCount": "成功 {count}",
+      "failedCount": "失敗 {count}"
+    },
+    "groups": {
+      "title": "アカウントグループ",
+      "create": "新しいグループ",
+      "edit": "グループを編集",
+      "delete": "グループを削除",
+      "deleteConfirm": "グループ「{name}」を削除しますか？グループ内のアカウントは削除されません。",
+      "name": "グループ名",
+      "description": "グループの説明",
+      "namePlaceholder": "グループ名を入力",
+      "descPlaceholder": "任意、グループの説明を入力",
+      "created": "グループを作成しました",
+      "updated": "グループを更新しました",
+      "deleted": "グループを削除しました",
+      "createFailed": "グループの作成に失敗しました",
+      "updateFailed": "グループの更新に失敗しました",
+      "deleteFailed": "グループの削除に失敗しました",
+      "empty": "グループがありません。右上をクリックして作成してください",
+      "addAccount": "アカウントを追加",
+      "addAccountTitle": "追加するアカウントを選択",
+      "addSelected": "{count}個を追加",
+      "noMembers": "このグループにはメンバーがいません",
+      "noAvailableAccounts": "追加できるアカウントがありません（すでにすべてグループに入っている可能性があります）",
+      "accountRemoved": "グループから削除しました",
+      "accountsAdded": "{count}個のアカウントをグループに追加しました",
+      "addFailed": "アカウントの追加に失敗しました",
+      "removeFailed": "アカウントの削除に失敗しました",
+      "removeAccount": "削除"
     },
     "new": {
       "title": "新規公開タスク",
@@ -6716,8 +6801,103 @@
     },
     "tabs": {
       "accounts": "",
+      "analytics": "データ分析",
+      "calendar": "公開カレンダー",
       "history": "",
       "new": ""
+    },
+    "editor": {
+      "markdown": "Markdown",
+      "richText": "リッチテキスト",
+      "bold": "太字",
+      "italic": "斜体",
+      "heading": "見出し",
+      "link": "リンク",
+      "image": "画像",
+      "code": "コード",
+      "quote": "引用",
+      "list": "リスト",
+      "table": "テーブル",
+      "wordCount": "{count}文字",
+      "readingTime": "{minutes}分で読了",
+      "autoSaved": "自動保存済み",
+      "preview": "プレビュー",
+      "split": "分割表示"
+    },
+    "ai": {
+      "title": "AIアシスタント",
+      "generateTitles": "タイトルを生成",
+      "polishContent": "本文を推敲",
+      "recommendTags": "タグを推奨",
+      "generateSummary": "要約を生成",
+      "seoAnalysis": "SEO分析",
+      "thinking": "AI思考中...",
+      "apply": "適用",
+      "candidates": "候補",
+      "coverSuggestion": "カバー画像の提案",
+      "seoScore": "SEOスコア",
+      "seoSuggestions": "最適化の提案",
+      "emptyContent": "先に本文を入力してください",
+      "retry": "再試行"
+    },
+    "preview": {
+      "title": "プラットフォームプレビュー",
+      "mobile": "モバイルビュー",
+      "desktop": "デスクトップビュー",
+      "selectPlatform": "プレビューするプラットフォームを選択",
+      "wechat": "WeChat公式アカウント",
+      "zhihu": "Zhihu",
+      "xiaohongshu": "Xiaohongshu",
+      "csdn": "CSDN"
+    },
+    "calendar": {
+      "title": "公開カレンダー",
+      "subtitle": "ビジュアルスケジューリング、ドラッグで公開時間を調整",
+      "today": "今日",
+      "scheduled": "予約済み",
+      "published": "公開済み",
+      "failed": "失敗",
+      "draft": "下書き",
+      "batchSchedule": "一括ずらし",
+      "prevMonth": "前月",
+      "nextMonth": "翌月",
+      "noTasks": "この日にタスクはありません",
+      "taskCount": "{count}件のタスク",
+      "createTask": "新しいタスク",
+      "dragHint": "タスクを他の日にドラッグしてスケジュールを変更"
+    },
+    "analytics": {
+      "title": "データ分析",
+      "subtitle": "公開トレンド、プラットフォーム分布、アカウント健全性",
+      "totalPublished": "総公開数",
+      "successRate": "成功率",
+      "avgDuration": "平均所要時間",
+      "activeAccounts": "アクティブアカウント",
+      "trend": "トレンド",
+      "platformDistribution": "プラットフォーム分布",
+      "failureReasons": "失敗理由 TOP5",
+      "accountHealth": "アカウント健全性",
+      "lastPublished": "最終公開",
+      "riskStatus": "リスク状態",
+      "period7d": "7日間",
+      "period30d": "30日間",
+      "period90d": "90日間",
+      "noData": "データなし"
+    },
+    "templates": {
+      "title": "コンテンツテンプレート",
+      "techBlog": "技術ブログ",
+      "marketing": "マーケティングコピー",
+      "productIntro": "製品紹介",
+      "newsRelease": "プレスリリース",
+      "tutorial": "チュートリアル記事",
+      "saveAsTemplate": "テンプレートとして保存",
+      "apply": "テンプレートを適用",
+      "customTemplates": "マイテンプレート",
+      "presetTemplates": "プリセットテンプレート",
+      "empty": "カスタムテンプレートがありません",
+      "saved": "テンプレートを保存しました",
+      "deleted": "テンプレートを削除しました"
     }
   },
   "settings": {
@@ -9833,32 +10013,55 @@
       "chat": {
         "label": "AI チャット",
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI"]
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI ドラマ",
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI"]
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search"]
+        "keywords": [
+          "検索",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI ワールド",
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"]
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"]
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"]
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ]
       }
     }
   },
@@ -10257,19 +10460,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -10390,25 +10605,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -12016,7 +12243,15 @@
       "sessions": "セッション数",
       "crashRate": "クラッシュ率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
     "dauTrend": {
       "title": "直近7日間のDAU推移",
       "subtitle": "日次アクティブユーザー数推移曲線"
@@ -12160,8 +12395,18 @@
     "title": "AI キャリア指導",
     "subtitle": "お子様の学習状況を入力すると、AI が個別のキャリア指導を生成します",
     "options": {
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"],
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
