@@ -591,10 +591,8 @@ async def _save_account_to_db(
     """
     from ..core.db import get_db_conn
     from .publish.credentials_crypto import encrypt
-    import json as _json
 
-    credentials_json = _json.dumps(credentials_dict, ensure_ascii=False)
-    encrypted = encrypt(credentials_json)
+    encrypted = encrypt(credentials_dict)
     display_name = f"{platform_name}(扫码登录 {time.strftime('%Y-%m-%d %H:%M')})"
 
     conn = await get_db_conn()
@@ -611,14 +609,14 @@ async def _save_account_to_db(
                 encrypted, display_name, row["id"],
             )
             logger.info(f"[scan_login] 更新账号 {row['id']}({platform})")
-            return row["id"]
+            return int(row["id"])
         new_id = await conn.fetchval(
             """INSERT INTO publish_accounts(user_id, platform, display_name, credentials_enc, status)
                VALUES($1, $2, $3, $4, 'active') RETURNING id""",
             user_id, platform, display_name, encrypted,
         )
         logger.info(f"[scan_login] 创建账号 {new_id}({platform})")
-        return new_id
+        return int(new_id)
     finally:
         await conn.close()
 
