@@ -14,7 +14,6 @@ interface Props {
   isSubmitting: boolean
   saved: boolean
   errorMsg: string
-  phone: string
 }
 
 const GENDER_OPTIONS = [
@@ -30,7 +29,7 @@ const GENDER_LABEL_KEY: Record<(typeof GENDER_OPTIONS)[number]['key'], string> =
   female: 'gender_female',
 }
 
-export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg, phone }: Props) {
+export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg }: Props) {
   const t = useTranslations('user.profile')
   const {
     register,
@@ -47,7 +46,13 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg,
 
       <div className="space-y-1.5">
         <Label htmlFor="phone">{t('phone')}</Label>
-        <Input id="phone" value={phone} readOnly disabled className="bg-muted/50" />
+        <Input
+          id="phone"
+          type="tel"
+          placeholder="请输入手机号"
+          {...register('phone')}
+        />
+        {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
       </div>
 
       <div className="space-y-1.5">
