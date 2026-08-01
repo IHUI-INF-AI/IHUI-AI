@@ -373,8 +373,6 @@ import v1Assistants from './v1-assistants.js'
 import v1ProtocolCompletenessRoutes from './v1-protocol-completeness.js'
 // P0-18 Batch API(2026-08-01 立,OpenAI/Anthropic Batch 兼容,BullMQ 异步处理 + 50% 折扣计费)
 import v1Batches from './v1-batches.js'
-// P0-18 配套:OpenAI Files API 文件上传端点(2026-08-01 立,§24 用户确认,供 v1-batches 上传 JSONL)
-import v1Files from './v1-files.js'
 // P0-20b 参数覆盖规则管理(2026-08-01 立,admin CRUD + dry-run 预览)
 import adminRelayParamOpsRoutes from './admin/relay-param-ops.js'
 // Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
@@ -1067,8 +1065,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(v1ProtocolCompletenessRoutes, { prefix: '/v1' })
   // P0-18 Batch API(2026-08-01 立):/v1/batch + /v1/batches + /v1/messages/batches(OpenAI/Anthropic 兼容,BullMQ 异步)
   server.register(v1Batches, { prefix: '/v1' })
-  // P0-18 配套:OpenAI Files API 文件上传(POST /v1/files,供 v1-batches 上传 JSONL 输入文件)
-  server.register(v1Files, { prefix: '/v1' })
   // P0-20b 参数覆盖规则管理(2026-08-01 立):/api/admin/relay-param-ops(CRUD + dry-run)
   server.register(adminRelayParamOpsRoutes, { prefix: '/api/admin' })
 
