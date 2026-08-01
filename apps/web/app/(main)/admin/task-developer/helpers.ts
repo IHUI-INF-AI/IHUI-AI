@@ -62,7 +62,7 @@ export const EMPTY_FORM: TaskDeveloperForm = {
   creator: '',
 }
 
-export const TH_CLS = 'px-4 py-2.5 font-medium'
+export const TH_CLS = 'whitespace-nowrap px-4 py-2.5 font-medium'
 
 export function fmtDate(d: string | null) {
   if (!d) return '-'
