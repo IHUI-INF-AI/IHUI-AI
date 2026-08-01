@@ -135,7 +135,7 @@ export default function AccountDeletionPage() {
       : 'fixed bottom-4 right-4 z-50 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('accountDeletionTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('accountDeletionDesc')}</p>
