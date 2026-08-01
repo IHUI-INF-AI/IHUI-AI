@@ -450,7 +450,7 @@ open http://localhost:8801`}</code>
       </section>
 
       {/* 下一步 */}
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-8 text-center">
+      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-5 text-center min-[768px]:p-8">
         <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
           上手后,深入探索智汇 AI 的更多能力。

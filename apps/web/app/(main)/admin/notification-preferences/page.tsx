@@ -234,7 +234,7 @@ export default function NotificationPreferencesPage() {
                 checked={form.quietHoursEnabled}
                 onChange={(v) => update('quietHoursEnabled', v)}
               />
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 gap-3 pt-1 min-[768px]:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="quietHoursStart" className="text-sm">
                     {t('quietHoursStart')}
@@ -268,7 +268,7 @@ export default function NotificationPreferencesPage() {
               <CardTitle className="text-base">{t('frequencyLimit')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="maxPerHour" className="text-sm">
                     {t('maxPerHour')}

@@ -117,14 +117,14 @@ export function McpResourceViewer({ resource }: McpResourceViewerProps) {
           {content}
         </pre>
       ) : downloadHref ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border p-8">
+        <div className="flex flex-col items-center gap-3 rounded-lg border p-5 min-[768px]:p-8">
           <Download className="h-8 w-8 text-muted-foreground" />
           <a href={downloadHref} download={name} className="text-sm text-primary hover:underline">
             {t('download')} {name}
           </a>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground min-[768px]:p-8">
           {t('noContent')}
         </div>
       )}

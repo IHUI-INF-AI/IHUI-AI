@@ -239,7 +239,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
             <div className="space-y-2">
               <div className="flex items-center gap-3 rounded-md bg-muted/30 p-3">
                 <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                <div className="flex-1 text-sm">
+                <div className="min-w-0 flex-1 text-sm">
                   <span className="font-medium text-emerald-600 dark:text-emerald-400">
                     {t('batchImport.successCount', { count: result.success_count })}
                   </span>

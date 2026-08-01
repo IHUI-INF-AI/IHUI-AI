@@ -170,7 +170,7 @@ export default function DistributionHomePage() {
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="rounded-lg bg-muted/40 px-4 py-3">
               <div className="text-xs text-muted-foreground">{t('totalInvitees')}</div>
               {inviteeQ.isLoading ? (
