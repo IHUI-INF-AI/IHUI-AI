@@ -34,10 +34,23 @@
 """
 from __future__ import annotations
 
-from typing import Any
+from playwright.async_api import BrowserContext
 
 from app.core.logging import get_logger
+from .account_profile import get_account_profile
 from .stealth import generate_seed
+# 深度强化层(2026-08-01 新增)— 13 个反风控深度模块
+from .canvas_noise import inject_canvas_noise
+from .audio_fingerprint import inject_audio_fingerprint_guard
+from .webrtc_guard import inject_webrtc_guard
+from .font_enum_guard import inject_font_enum_guard
+from .media_devices_guard import inject_media_devices_guard
+from .hardware_concurrency_guard import inject_hardware_guard
+from .plugin_enum_guard import inject_plugin_guard
+from .language_consistency import inject_language_guard
+from .navigator_integrity import inject_navigator_integrity_guard
+from .timezone_geo_consistency import apply_consistency
+from .tls_fingerprint import apply_tls_recommendation_to_context, get_tls_recommendation
 
 logger = get_logger(__name__)
 
@@ -583,10 +596,29 @@ def _build_advanced_stealth_script(fingerprint_seed: int) -> str:
 """
 
 
-async def apply_advanced_stealth(context: Any, account_id: str) -> None:
-    """对 BrowserContext 注入高级反检测脚本(20 类深度检测点)。
+async def apply_advanced_stealth(context: BrowserContext, account_id: str) -> None:
+    """对 BrowserContext 注入高级反检测脚本(20 类 + 13 类深度模块 = 50+ 类检测点)。
 
     必须在 page.goto 之前调用,且应在 apply_stealth 之后调用(增强而非替代)。
+
+    集成顺序(2026-08-01 深度强化):
+    1. 原有 20 类深度检测点脚本(stealth_advanced 内置)
+    2. Canvas 噪声(canvas_noise)
+    3. AudioContext 防护(audio_fingerprint)
+    4. WebRTC IP 泄漏防护(webrtc_guard)
+    5. 字体枚举防护(font_enum_guard)
+    6. 多媒体设备防护(media_devices_guard)
+    7. 硬件信息伪装(hardware_concurrency_guard)
+    8. 插件枚举防护(plugin_enum_guard)
+    9. 语言一致性(language_consistency)
+    10. 导航器完整性(navigator_integrity)
+    11. 时区地理一致性(timezone_geo_consistency)
+    12. TLS 指纹一致性(tls_fingerprint)
+
+    注意:device_graph_guard 和 behavior_entropy 是分析型模块(非 JS 注入),
+    分别在 cross_account_guard 和 behavior_humanizer 中集成。
+
+    单个模块失败不中断整体(try/except 包裹,记录警告日志)。
 
     Args:
         context: Playwright BrowserContext(async)
@@ -597,6 +629,100 @@ async def apply_advanced_stealth(context: Any, account_id: str) -> None:
     await context.add_init_script(script)
     logger.debug(
         "[stealth_advanced] 高级反检测脚本已注入(account=%s seed=%d,20 类检测点)",
+        account_id, fingerprint_seed,
+    )
+
+    # ---- 读取账号 profile(获取 locale/timezone 用于语言/时区一致性)----
+    language = "zh-CN"
+    timezone = "Asia/Shanghai"
+    try:
+        profile = get_account_profile(account_id)
+        language = profile.fingerprint.locale
+        timezone = profile.fingerprint.timezone_id
+    except Exception as e:
+        logger.warning(
+            "[stealth_advanced] 读取账号 profile 失败,使用默认 zh-CN/Asia/Shanghai: %s", e,
+        )
+
+    # 解析 language → language + region
+    lang_parts = language.split("-")
+    lang_primary = lang_parts[0] if lang_parts else "zh"
+    lang_region = lang_parts[1] if len(lang_parts) > 1 else "CN"
+
+    # ---- 13 个反风控深度模块集成(顺序执行,单点失败不中断)----
+    # 顺序:Canvas → AudioContext → WebRTC → 字体 → 多媒体 → 硬件 → 插件 →
+    #       语言 → 导航器 → 时区地理 → TLS
+
+    # 1. Canvas 噪声
+    try:
+        await inject_canvas_noise(context, fingerprint_seed)
+    except Exception as e:
+        logger.warning("[stealth_advanced] Canvas 噪声注入失败: %s", e)
+
+    # 2. AudioContext 防护
+    try:
+        await inject_audio_fingerprint_guard(context, fingerprint_seed)
+    except Exception as e:
+        logger.warning("[stealth_advanced] AudioContext 防护注入失败: %s", e)
+
+    # 3. WebRTC IP 泄漏防护
+    try:
+        await inject_webrtc_guard(context)
+    except Exception as e:
+        logger.warning("[stealth_advanced] WebRTC 防护注入失败: %s", e)
+
+    # 4. 字体枚举防护
+    try:
+        await inject_font_enum_guard(context, fingerprint_seed)
+    except Exception as e:
+        logger.warning("[stealth_advanced] 字体枚举防护注入失败: %s", e)
+
+    # 5. 多媒体设备防护
+    try:
+        await inject_media_devices_guard(context, fingerprint_seed)
+    except Exception as e:
+        logger.warning("[stealth_advanced] 多媒体设备防护注入失败: %s", e)
+
+    # 6. 硬件信息伪装
+    try:
+        await inject_hardware_guard(context, fingerprint_seed)
+    except Exception as e:
+        logger.warning("[stealth_advanced] 硬件信息伪装注入失败: %s", e)
+
+    # 7. 插件枚举防护
+    try:
+        await inject_plugin_guard(context, fingerprint_seed)
+    except Exception as e:
+        logger.warning("[stealth_advanced] 插件枚举防护注入失败: %s", e)
+
+    # 8. 语言一致性
+    try:
+        await inject_language_guard(context, lang_primary, lang_region)
+    except Exception as e:
+        logger.warning("[stealth_advanced] 语言一致性注入失败: %s", e)
+
+    # 9. 导航器完整性
+    try:
+        await inject_navigator_integrity_guard(context)
+    except Exception as e:
+        logger.warning("[stealth_advanced] 导航器完整性注入失败: %s", e)
+
+    # 10. 时区地理一致性
+    try:
+        await apply_consistency(context, timezone, language)
+    except Exception as e:
+        logger.warning("[stealth_advanced] 时区地理一致性注入失败: %s", e)
+
+    # 11. TLS 指纹一致性(咨询层:JS 层 UA 与 TLS 配置匹配)
+    try:
+        tls_profile = get_tls_recommendation(account_id)
+        await apply_tls_recommendation_to_context(context, tls_profile)
+    except Exception as e:
+        logger.warning("[stealth_advanced] TLS 一致性注入失败: %s", e)
+
+    logger.info(
+        "[stealth_advanced] 深度反检测已注入(account=%s seed=%d "
+        "基础20类+深度13模块=50+类检测点)",
         account_id, fingerprint_seed,
     )
 
