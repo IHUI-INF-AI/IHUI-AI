@@ -122,54 +122,56 @@ export default function ConnectedAccountsPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
-      <div>
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('connectedAccountsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('connectedAccountsDesc')}</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Link2 className="h-4 w-4" />
-            {t('connectedAccountsPlatform')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {isLoading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-              {t('connectedAccountsLoading')}
-            </div>
-          ) : error ? (
-            <div className="py-10 text-center text-sm text-destructive">
-              {(error as Error).message}
-            </div>
-          ) : (
-            PLATFORMS.map(renderRow)
-          )}
-        </CardContent>
-      </Card>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Link2 className="h-4 w-4" />
+              {t('connectedAccountsPlatform')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {isLoading ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                {t('connectedAccountsLoading')}
+              </div>
+            ) : error ? (
+              <div className="py-10 text-center text-sm text-destructive">
+                {(error as Error).message}
+              </div>
+            ) : (
+              PLATFORMS.map(renderRow)
+            )}
+          </CardContent>
+        </Card>
 
-      <ConfirmDialog
-        open={!!confirmId}
-        title={t('connectedAccountsUnbind')}
-        content={
-          pendingBinding
-            ? t('connectedAccountsUnbindConfirm', {
-                platform:
-                  PLATFORMS.find((p) => p.key === pendingBinding.platform)?.label ??
-                  pendingBinding.platform,
-              })
-            : t('connectedAccountsUnbindConfirm', { platform: '' })
-        }
-        confirmText={t('connectedAccountsUnbind')}
-        cancelText={t('connectedAccountsCancel')}
-        variant="danger"
-        loading={unbindMut.isPending}
-        onConfirm={onConfirmUnbind}
-        onCancel={() => setConfirmId(null)}
-      />
+        <ConfirmDialog
+          open={!!confirmId}
+          title={t('connectedAccountsUnbind')}
+          content={
+            pendingBinding
+              ? t('connectedAccountsUnbindConfirm', {
+                  platform:
+                    PLATFORMS.find((p) => p.key === pendingBinding.platform)?.label ??
+                    pendingBinding.platform,
+                })
+              : t('connectedAccountsUnbindConfirm', { platform: '' })
+          }
+          confirmText={t('connectedAccountsUnbind')}
+          cancelText={t('connectedAccountsCancel')}
+          variant="danger"
+          loading={unbindMut.isPending}
+          onConfirm={onConfirmUnbind}
+          onCancel={() => setConfirmId(null)}
+        />
+      </div>
     </Container>
   )
 }

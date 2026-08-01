@@ -25,7 +25,7 @@ export function RegistryTabs({ value, onChange, className }: RegistryTabsProps) 
           <TabsTrigger
             key={t.key}
             value={t.key}
-            className="transition-all duration-200 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+            className="transition-all duration-200 data-[state=inactive]:text-muted-foreground"
           >
             {t.label}
           </TabsTrigger>

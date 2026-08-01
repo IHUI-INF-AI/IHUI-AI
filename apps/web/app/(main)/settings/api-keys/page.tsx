@@ -63,8 +63,8 @@ export default function ApiKeysSettingsPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
-      <header className="flex items-start justify-between gap-3">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <header className="flex shrink-0 items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <KeyRound className="h-6 w-6 text-primary" />
@@ -78,37 +78,39 @@ export default function ApiKeysSettingsPage() {
         </Button>
       </header>
 
-      <ApiKeyListCard
-        list={list}
-        isLoading={keysQuery.isLoading}
-        error={keysQuery.error as Error | null}
-        onRetry={() => keysQuery.refetch()}
-        onCreate={openCreate}
-        onDelete={async (id) => {
-          await deleteMut.mutateAsync(id)
-        }}
-        onRotate={async (id) => {
-          await rotateMut.mutateAsync(id)
-        }}
-        pendingDelete={deleteMut.isPending}
-        pendingRotate={rotateMut.isPending}
-      />
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        <ApiKeyListCard
+          list={list}
+          isLoading={keysQuery.isLoading}
+          error={keysQuery.error as Error | null}
+          onRetry={() => keysQuery.refetch()}
+          onCreate={openCreate}
+          onDelete={async (id) => {
+            await deleteMut.mutateAsync(id)
+          }}
+          onRotate={async (id) => {
+            await rotateMut.mutateAsync(id)
+          }}
+          pendingDelete={deleteMut.isPending}
+          pendingRotate={rotateMut.isPending}
+        />
 
-      <CreateKeyDialog
-        open={dialog === 'create'}
-        form={form}
-        isPending={createMut.isPending}
-        onFormChange={setForm}
-        onClose={() => !createMut.isPending && setDialog('idle')}
-        onSubmit={() => createMut.mutate(form)}
-      />
+        <CreateKeyDialog
+          open={dialog === 'create'}
+          form={form}
+          isPending={createMut.isPending}
+          onFormChange={setForm}
+          onClose={() => !createMut.isPending && setDialog('idle')}
+          onSubmit={() => createMut.mutate(form)}
+        />
 
-      <SecretDisplayDialog
-        open={dialog === 'secret-display'}
-        secret={secret}
-        title={secretTitle}
-        onClose={() => setDialog('idle')}
-      />
+        <SecretDisplayDialog
+          open={dialog === 'secret-display'}
+          secret={secret}
+          title={secretTitle}
+          onClose={() => setDialog('idle')}
+        />
+      </div>
     </Container>
   )
 }
