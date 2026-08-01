@@ -179,6 +179,7 @@ async def stream_agent_execution(
     stream_modes: Optional[list[str]] = None,
     *,
     config: Optional[dict[str, Any]] = None,
+    message_id: Optional[str] = None,
 ) -> AsyncIterator[SSEEvent]:
     """流式输出 agent 执行过程。
 
@@ -188,6 +189,7 @@ async def stream_agent_execution(
         graph_input: 图输入(首次执行传完整 input;恢复时传 None 由调用方决定)
         stream_modes: stream_mode 列表,默认 ["updates", "messages", "events"]
         config: 额外 LangGraph config(可选,thread_id 自动注入 configurable)
+        message_id: 当前 assistant 消息 ID(可选,注入到 plan 事件,前端按 messageId 关联消息)
 
     Yields:
         SSEEvent 序列,前端通过 SSE 消费。
@@ -255,7 +257,7 @@ async def stream_agent_execution(
                 payload = chunk
 
             async for evt in _dispatch_stream_chunk(
-                mode, payload, thread_id, base_config, graph
+                mode, payload, thread_id, base_config, graph, message_id=message_id
             ):
                 yield evt
 
@@ -302,6 +304,8 @@ async def _dispatch_stream_chunk(
     thread_id: str,
     config: dict[str, Any],
     graph: Any,
+    *,
+    message_id: Optional[str] = None,
 ) -> AsyncIterator[SSEEvent]:
     """按 stream_mode 把 chunk 映射为 SSEEvent。"""
     if mode == "updates":
@@ -317,12 +321,15 @@ async def _dispatch_stream_chunk(
                     {"node": node_id, "update": _safe_value(update)},
                     node_id=node_id,
                 )
-                # plan 检测:若 update 中含 "plan" 字段,额外发 plan 事件
+                # plan 检测:若 update 中含 "plan" 字段,额外发 plan 事件(携带 message_id 关联消息)
                 if "plan" in update:
+                    _plan_data: dict[str, Any] = {"plan": _safe_value(update["plan"])}
+                    if message_id:
+                        _plan_data["message_id"] = message_id
                     yield _make_event(
                         "plan",
                         thread_id,
-                        {"plan": _safe_value(update["plan"])},
+                        _plan_data,
                         node_id=node_id,
                     )
 
