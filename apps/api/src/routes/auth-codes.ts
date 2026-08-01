@@ -50,21 +50,17 @@ const authCodeRoutes: FastifyPluginAsync = async (server) => {
   // body: { mobile, code } — 校验通过返回 true,失败返回 false
   // P0 安全修复(2026-08-02):6 位数字验证码仅 100 万种组合,无限流可暴力破解。
   // 限制每分钟 5 次校验尝试,覆盖单 IP 暴力破解场景。
-  server.post(
-    '/check',
-    {
-      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
-    },
-    async (request, reply) => {
-      const parsed = checkSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const { mobile, code } = parsed.data
-      const ok = await verifyCode(mobile, code)
-      return reply.send(success({ valid: ok }))
-    },
-  )
+  server.post('/check', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    const parsed = checkSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { mobile, code } = parsed.data
+    const ok = await verifyCode(mobile, code)
+    return reply.send(success({ valid: ok }))
+  })
 }
 
 export default authCodeRoutes
