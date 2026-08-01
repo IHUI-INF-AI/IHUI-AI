@@ -3,6 +3,11 @@ import { z } from 'zod'
 export const profileSchema = z.object({
   nickname: z.string().min(2).max(20),
   email: z.string().email(),
+  phone: z
+    .string()
+    .regex(/^1[3-9]\d{9}$/, '手机号格式不正确')
+    .optional()
+    .or(z.literal('')),
   bio: z.string().max(200).optional().or(z.literal('')),
   gender: z.number().int().min(0).max(2).optional(),
 })
