@@ -89,7 +89,9 @@ test.describe('Phase 19 Trae Work 4 大招牌交互', () => {
     // .flash-highlight / [data-highlight="true"] / 类似 class 短暂出现(1500ms 内)
     const hasHighlight = await page.evaluate(() => {
       const candidates = Array.from(
-        document.querySelectorAll<HTMLElement>('[data-message-id], [class*="flash"], [data-highlight]'),
+        document.querySelectorAll<HTMLElement>(
+          '[data-message-id], [class*="flash"], [data-highlight]',
+        ),
       )
       return candidates.some((el) => {
         const cls = el.className?.toString() ?? ''
@@ -181,7 +183,11 @@ test.describe('Phase 19 Trae Work 4 大招牌交互', () => {
       }
 
       // 验证计数徽章显示数字(>= 0)
-      const badgeText = await tab.locator('span.tabular-nums').first().textContent().catch(() => null)
+      const badgeText = await tab
+        .locator('span.tabular-nums')
+        .first()
+        .textContent()
+        .catch(() => null)
       // 徽章文本可能是空(事件数=0 时不渲染),也可能含数字
       void badgeText
     } else {
@@ -325,10 +331,12 @@ test.describe('Phase 19 Trae Work 4 大招牌交互', () => {
     // 在右下角 (vw-30, vh-30) 右键
     const cornerMessage = page.locator('[data-message-id]').first()
     if (await cornerMessage.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await cornerMessage.click({
-        button: 'right',
-        position: { x: 5, y: 5 }, // 元素内靠近 (0,0) 位置
-      }).catch(() => {})
+      await cornerMessage
+        .click({
+          button: 'right',
+          position: { x: 5, y: 5 }, // 元素内靠近 (0,0) 位置
+        })
+        .catch(() => {})
       await page.waitForTimeout(300)
 
       const cornerMenu = page.locator(MESSAGE_CONTEXT_MENU)
@@ -386,9 +394,7 @@ test.describe('Phase 19 Trae Work 4 大招牌交互', () => {
     }
 
     // 过滤 favicon + AI endpoint 错误(沿用 Phase 13 规范)
-    const realErrors = errors.filter(
-      (e) => !e.includes('favicon') && !e.includes('/api/ai/'),
-    )
+    const realErrors = errors.filter((e) => !e.includes('favicon') && !e.includes('/api/ai/'))
     expect(realErrors).toHaveLength(0)
     // console error 只记录不强制(可能是 React 警告等)
     void consoleErrors
@@ -814,9 +820,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
   })
 
   // ─── 深度化 4:Pane minimize 按钮 → pane 隐藏 ───
-  test('深度 4:Pane minimize 按钮点击后 pane 消失(再次 trigger 点击恢复)', async ({
-    page,
-  }) => {
+  test('深度 4:Pane minimize 按钮点击后 pane 消失(再次 trigger 点击恢复)', async ({ page }) => {
     if (!(await openPane(page))) return
 
     const minimizeBtn = page.locator('[data-testid="pane-minimize"]').first()
@@ -911,7 +915,9 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
     await page.waitForTimeout(200)
 
     // 查找有 children 的 event(subagent 通常带 children)
-    const eventRow = page.locator('[data-testid^="timeline-event-row"][data-has-children="true"]').first()
+    const eventRow = page
+      .locator('[data-testid^="timeline-event-row"][data-has-children="true"]')
+      .first()
     const hasChildEvent = await eventRow.isVisible({ timeout: 1000 }).catch(() => false)
     if (!hasChildEvent) {
       test.skip(true, '无有 children 的 event,跳过')
@@ -1030,9 +1036,7 @@ test.describe('Phase 19 v15 深度化(14 个测试)', () => {
   })
 
   // ─── 深度化 11:Progress ring SVG + percentage 同步 ───
-  test('深度 11:Progress ring(progress-ring)渲染 + aria-label 包含百分比', async ({
-    page,
-  }) => {
+  test('深度 11:Progress ring(progress-ring)渲染 + aria-label 包含百分比', async ({ page }) => {
     if (!(await openPane(page))) return
 
     const ring = page.locator('[data-testid="progress-ring"]').first()
@@ -1362,9 +1366,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
   })
 
   // ─── v16.6 ? 键在 input/textarea 内不触发 ───
-  test('v16.6 ? 键在 input/textarea 内不触发 help panel(tag=INPUT 短路)', async ({
-    page,
-  }) => {
+  test('v16.6 ? 键在 input/textarea 内不触发 help panel(tag=INPUT 短路)', async ({ page }) => {
     if (!(await openPane(page))) return
 
     // 1) 找页面中的 input/textarea(可能在 chat input 中)
@@ -1394,9 +1396,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
   })
 
   // ─── v16.7 Esc 优先级:help 打开时只关 help,不影响 pane ───
-  test('v16.7 Esc 优先级:help 打开时按 Esc 只关 help(不关 pane),pane 仍可见', async ({
-    page,
-  }) => {
+  test('v16.7 Esc 优先级:help 打开时按 Esc 只关 help(不关 pane),pane 仍可见', async ({ page }) => {
     if (!(await openPane(page))) return
 
     const toggle = page.locator('[data-testid="pane-help-toggle"]').first()
@@ -1456,9 +1456,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
   })
 
   // ─── v16.9 庆祝横幅含 Sparkles 图标 ───
-  test('v16.9 庆祝横幅含 Sparkles 图标(lucide Sparkles SVG,带 animate-pulse)', async ({
-    page,
-  }) => {
+  test('v16.9 庆祝横幅含 Sparkles 图标(lucide Sparkles SVG,带 animate-pulse)', async ({ page }) => {
     if (!(await openPane(page))) return
 
     const banner = page.locator('[data-testid="pane-celebration-banner"]').first()
@@ -1483,9 +1481,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
   })
 
   // ─── v16.10 庆祝横幅 a11y 属性 ───
-  test('v16.10 庆祝横幅 a11y:role=status + aria-live=polite(屏幕阅读器友好)', async ({
-    page,
-  }) => {
+  test('v16.10 庆祝横幅 a11y:role=status + aria-live=polite(屏幕阅读器友好)', async ({ page }) => {
     if (!(await openPane(page))) return
 
     const banner = page.locator('[data-testid="pane-celebration-banner"]').first()
@@ -1602,7 +1598,9 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
 
   /** 拖拽起始点:使用 pane-drag-grip 元素位置(左侧 16px GripVertical,远离 tab/button,避免被排除)
    *  返回 { startX, startY, isAvailable } - 不可用时调用方应 test.skip */
-  async function getDragStartPoint(page: Page): Promise<{ startX: number; startY: number; isAvailable: boolean }> {
+  async function getDragStartPoint(
+    page: Page,
+  ): Promise<{ startX: number; startY: number; isAvailable: boolean }> {
     const grip = page.locator('[data-testid="pane-drag-grip"]').first()
     if (!(await grip.isVisible({ timeout: 1500 }).catch(() => false))) {
       return { startX: 0, startY: 0, isAvailable: false }
@@ -1613,505 +1611,522 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
   }
 
   // ── v17.1 拖拽:水平 60px 拖拽后 localStorage x 增加 ───────────
-  adminTest('v17.1 拖拽:水平 60px 拖拽后 localStorage 位置 x/y 均被持久化为 number', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.1 拖拽:水平 60px 拖拽后 localStorage 位置 x/y 均被持久化为 number',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    // 清理旧位置
-    await adminPage.evaluate(() => {
-      try {
-        window.localStorage.removeItem('agent-progress-pane-position-v2')
-      } catch {
-        // 忽略
+      // 清理旧位置
+      await adminPage.evaluate(() => {
+        try {
+          window.localStorage.removeItem('agent-progress-pane-position-v2')
+        } catch {
+          // 忽略
+        }
+      })
+
+      const pt = await getDragStartPoint(adminPage)
+      if (!pt.isAvailable) {
+        test.skip(true, 'pane-drag-grip 不可见,跳过')
+        return
       }
-    })
 
-    const pt = await getDragStartPoint(adminPage)
-    if (!pt.isAvailable) {
-      test.skip(true, 'pane-drag-grip 不可见,跳过')
-      return
-    }
+      await adminPage.mouse.move(pt.startX, pt.startY)
+      await adminPage.mouse.down()
+      await adminPage.mouse.move(pt.startX + 60, pt.startY, { steps: 5 })
+      await adminPage.mouse.up()
+      await adminPage.waitForTimeout(200)
 
-    await adminPage.mouse.move(pt.startX, pt.startY)
-    await adminPage.mouse.down()
-    await adminPage.mouse.move(pt.startX + 60, pt.startY, { steps: 5 })
-    await adminPage.mouse.up()
-    await adminPage.waitForTimeout(200)
+      const saved = await adminPage.evaluate(() => {
+        try {
+          const raw = window.localStorage.getItem('agent-progress-pane-position-v2')
+          return raw ? JSON.parse(raw) : null
+        } catch {
+          return null
+        }
+      })
 
-    const saved = await adminPage.evaluate(() => {
-      try {
-        const raw = window.localStorage.getItem('agent-progress-pane-position-v2')
-        return raw ? JSON.parse(raw) : null
-      } catch {
-        return null
-      }
-    })
-
-    // 硬断言:水平 60px 拖拽后位置应被持久化(使用 grip 起始点确保不被 button 排除)
-    adminExpect(saved).not.toBeNull()
-    adminExpect(typeof saved.x).toBe('number')
-    adminExpect(typeof saved.y).toBe('number')
-    adminExpect(saved.x as number).toBeGreaterThanOrEqual(0)
-    adminExpect(saved.y as number).toBeGreaterThanOrEqual(0)
-  })
+      // 硬断言:水平 60px 拖拽后位置应被持久化(使用 grip 起始点确保不被 button 排除)
+      adminExpect(saved).not.toBeNull()
+      adminExpect(typeof saved.x).toBe('number')
+      adminExpect(typeof saved.y).toBe('number')
+      adminExpect(saved.x as number).toBeGreaterThanOrEqual(0)
+      adminExpect(saved.y as number).toBeGreaterThanOrEqual(0)
+    },
+  )
 
   // ── v17.2 拖拽:body cursor 切换为 grabbing(全局状态)───────────
-  adminTest('v17.2 拖拽中 body cursor 切换为 grabbing,释放后还原为空字符串', async ({ adminPage }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.2 拖拽中 body cursor 切换为 grabbing,释放后还原为空字符串',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    const pt = await getDragStartPoint(adminPage)
-    if (!pt.isAvailable) {
-      test.skip(true, 'pane-drag-grip 不可见,跳过')
-      return
-    }
-    await adminPage.mouse.move(pt.startX, pt.startY)
-    await adminPage.mouse.down()
-    await adminPage.mouse.move(pt.startX + 30, pt.startY + 20, { steps: 3 })
+      const pt = await getDragStartPoint(adminPage)
+      if (!pt.isAvailable) {
+        test.skip(true, 'pane-drag-grip 不可见,跳过')
+        return
+      }
+      await adminPage.mouse.move(pt.startX, pt.startY)
+      await adminPage.mouse.down()
+      await adminPage.mouse.move(pt.startX + 30, pt.startY + 20, { steps: 3 })
 
-    // 拖拽中:body cursor='grabbing'
-    const bodyCursorDrag = await adminPage.evaluate(() => document.body.style.cursor)
-    adminExpect(bodyCursorDrag).toBe('grabbing')
+      // 拖拽中:body cursor='grabbing'
+      const bodyCursorDrag = await adminPage.evaluate(() => document.body.style.cursor)
+      adminExpect(bodyCursorDrag).toBe('grabbing')
 
-    await adminPage.mouse.up()
-    await adminPage.waitForTimeout(150)
+      await adminPage.mouse.up()
+      await adminPage.waitForTimeout(150)
 
-    // 释放后:body cursor 还原为空(由 useEffect cleanup 清除)
-    const bodyCursorAfter = await adminPage.evaluate(() => document.body.style.cursor)
-    adminExpect(bodyCursorAfter).toBe('')
-  })
+      // 释放后:body cursor 还原为空(由 useEffect cleanup 清除)
+      const bodyCursorAfter = await adminPage.evaluate(() => document.body.style.cursor)
+      adminExpect(bodyCursorAfter).toBe('')
+    },
+  )
 
   // ── v17.3 拖拽:user-select 切换 ───────────────────────────────
-  adminTest('v17.3 拖拽中 body user-select=none(避免拖拽过程中选中文字),释放后还原', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.3 拖拽中 body user-select=none(避免拖拽过程中选中文字),释放后还原',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    const pt = await getDragStartPoint(adminPage)
-    if (!pt.isAvailable) {
-      test.skip(true, 'pane-drag-grip 不可见,跳过')
-      return
-    }
-    await adminPage.mouse.move(pt.startX, pt.startY)
-    await adminPage.mouse.down()
-    await adminPage.mouse.move(pt.startX + 30, pt.startY + 20, { steps: 3 })
+      const pt = await getDragStartPoint(adminPage)
+      if (!pt.isAvailable) {
+        test.skip(true, 'pane-drag-grip 不可见,跳过')
+        return
+      }
+      await adminPage.mouse.move(pt.startX, pt.startY)
+      await adminPage.mouse.down()
+      await adminPage.mouse.move(pt.startX + 30, pt.startY + 20, { steps: 3 })
 
-    const userSelectDuring = await adminPage.evaluate(() => document.body.style.userSelect)
-    adminExpect(userSelectDuring).toBe('none')
+      const userSelectDuring = await adminPage.evaluate(() => document.body.style.userSelect)
+      adminExpect(userSelectDuring).toBe('none')
 
-    await adminPage.mouse.up()
-    await adminPage.waitForTimeout(150)
+      await adminPage.mouse.up()
+      await adminPage.waitForTimeout(150)
 
-    const userSelectAfter = await adminPage.evaluate(() => document.body.style.userSelect)
-    adminExpect(userSelectAfter).toBe('')
-  })
+      const userSelectAfter = await adminPage.evaluate(() => document.body.style.userSelect)
+      adminExpect(userSelectAfter).toBe('')
+    },
+  )
 
   // ── v17.4 拖拽排除:子元素 mousedown 不会触发 data-dragging ────
-  adminTest('v17.4 拖拽排除子元素:pane-minimize 按钮 mousedown 不会触发 data-dragging=true', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.4 拖拽排除子元素:pane-minimize 按钮 mousedown 不会触发 data-dragging=true',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    const minimize = adminPage.locator('[data-testid="pane-minimize"]').first()
-    const pane = adminPage.locator(PANE_TESTID).first()
-    if (!(await minimize.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-minimize 不存在,跳过')
-      return
-    }
-    const box = await minimize.boundingBox().catch(() => null)
-    if (!box) {
-      test.skip(true, 'minimize boundingBox 不可用,跳过')
-      return
-    }
-    const cx = box.x + box.width / 2
-    const cy = box.y + box.height / 2
-    await adminPage.mouse.move(cx, cy)
-    await adminPage.mouse.down()
-    await adminPage.mouse.move(cx + 20, cy + 20, { steps: 2 })
+      const minimize = adminPage.locator('[data-testid="pane-minimize"]').first()
+      const pane = adminPage.locator(PANE_TESTID).first()
+      if (!(await minimize.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'pane-minimize 不存在,跳过')
+        return
+      }
+      const box = await minimize.boundingBox().catch(() => null)
+      if (!box) {
+        test.skip(true, 'minimize boundingBox 不可用,跳过')
+        return
+      }
+      const cx = box.x + box.width / 2
+      const cy = box.y + box.height / 2
+      await adminPage.mouse.move(cx, cy)
+      await adminPage.mouse.down()
+      await adminPage.mouse.move(cx + 20, cy + 20, { steps: 2 })
 
-    // 子元素 button 命中 → target.closest('button') 命中 → 排除拖拽
-    adminExpect(await pane.getAttribute('data-dragging')).toBeNull()
+      // 子元素 button 命中 → target.closest('button') 命中 → 排除拖拽
+      adminExpect(await pane.getAttribute('data-dragging')).toBeNull()
 
-    await adminPage.mouse.up()
-    await adminPage.waitForTimeout(100)
-  })
+      await adminPage.mouse.up()
+      await adminPage.waitForTimeout(100)
+    },
+  )
 
   // ── v17.5 快捷键 Shift+/(?) 在 input 内不触发 help panel ─────
-  adminTest('v17.5 快捷键:聚焦 chat 输入框后按 ?(Shift+/)不应打开 help panel', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.5 快捷键:聚焦 chat 输入框后按 ?(Shift+/)不应打开 help panel',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    // 找 chat 输入框
-    const input = adminPage
-      .locator('textarea, input[type="text"], [contenteditable="true"]')
-      .first()
-    if (!(await input.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, '无 chat 输入框可聚焦,跳过')
-      return
-    }
-    await input.focus().catch(() => {})
-    await adminPage.waitForTimeout(100)
+      // 找 chat 输入框
+      const input = adminPage
+        .locator('textarea, input[type="text"], [contenteditable="true"]')
+        .first()
+      if (!(await input.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, '无 chat 输入框可聚焦,跳过')
+        return
+      }
+      await input.focus().catch(() => {})
+      await adminPage.waitForTimeout(100)
 
-    const initialHelpCount = await adminPage.locator('[data-testid="pane-help-panel"]').count()
-    await adminPage.keyboard.press('Shift+/')
-    await adminPage.waitForTimeout(200)
-    const afterHelpCount = await adminPage.locator('[data-testid="pane-help-panel"]').count()
+      const initialHelpCount = await adminPage.locator('[data-testid="pane-help-panel"]').count()
+      await adminPage.keyboard.press('Shift+/')
+      await adminPage.waitForTimeout(200)
+      const afterHelpCount = await adminPage.locator('[data-testid="pane-help-panel"]').count()
 
-    // input/textarea/contenteditable 命中时 onKey 内 early return
-    adminExpect(afterHelpCount).toBe(initialHelpCount)
-  })
+      // input/textarea/contenteditable 命中时 onKey 内 early return
+      adminExpect(afterHelpCount).toBe(initialHelpCount)
+    },
+  )
 
   // ── v17.6 快捷键 Esc 优先级:help 打开 → Esc 仅关 help,pane 仍在 ─
-  adminTest('v17.6 快捷键 Esc 优先级:help 打开时按 Esc 仅关闭 help,pane 仍可见', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.6 快捷键 Esc 优先级:help 打开时按 Esc 仅关闭 help,pane 仍可见',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    const toggle = adminPage.locator('[data-testid="pane-help-toggle"]').first()
-    if (!(await toggle.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-help-toggle 不可见,跳过')
-      return
-    }
+      const toggle = adminPage.locator('[data-testid="pane-help-toggle"]').first()
+      if (!(await toggle.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'pane-help-toggle 不可见,跳过')
+        return
+      }
 
-    // 1) 打开 help
-    await toggle.click()
-    await adminPage.waitForTimeout(200)
-    adminExpect(await adminPage.locator('[data-testid="pane-help-panel"]').count()).toBe(1)
+      // 1) 打开 help
+      await toggle.click()
+      await adminPage.waitForTimeout(200)
+      adminExpect(await adminPage.locator('[data-testid="pane-help-panel"]').count()).toBe(1)
 
-    // 2) 按 Esc
-    await adminPage.keyboard.press('Escape')
-    await adminPage.waitForTimeout(200)
+      // 2) 按 Esc
+      await adminPage.keyboard.press('Escape')
+      await adminPage.waitForTimeout(200)
 
-    // 3) help 关闭
-    adminExpect(await adminPage.locator('[data-testid="pane-help-panel"]').count()).toBe(0)
-    // 4) pane 仍可见
-    adminExpect(await adminPage.locator(PANE_TESTID).first().isVisible()).toBe(true)
-  })
+      // 3) help 关闭
+      adminExpect(await adminPage.locator('[data-testid="pane-help-panel"]').count()).toBe(0)
+      // 4) pane 仍可见
+      adminExpect(await adminPage.locator(PANE_TESTID).first().isVisible()).toBe(true)
+    },
+  )
 
   // ── v17.7 快捷键 Esc 在 unpin 状态:help 关闭后按 Esc 关闭 pane ─
-  adminTest('v17.7 快捷键 Esc 二级:help 关闭后再按 Esc(unpin 状态)会关闭整个 pane', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.7 快捷键 Esc 二级:help 关闭后再按 Esc(unpin 状态)会关闭整个 pane',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    // 确保 unpin(pane-pin 存在时检查是否当前为 pinned 状态)
-    const pin = adminPage.locator('[data-testid="pane-pin"]').first()
-    if (await pin.isVisible({ timeout: 500 }).catch(() => false)) {
-      const pinAria = await pin.getAttribute('aria-label')
-      if (pinAria && /取消|unpin/i.test(pinAria)) {
-        // 当前为 pinned → 取消 pin
-        await pin.click()
-        await adminPage.waitForTimeout(100)
-      }
-    }
-
-    // 按一次 Esc(unpin 状态且 help 关闭)→ closePane
-    await adminPage.keyboard.press('Escape')
-    await adminPage.waitForTimeout(300)
-
-    // pane 应已关闭
-    const paneVisible = await adminPage.locator(PANE_TESTID).first().isVisible().catch(() => false)
-    // 软断言:可能因 click-outside 已关闭,或 pinned 未解除;记录即可
-    if (paneVisible) {
-      test.skip(true, 'pane 未被 Esc 关闭(可能仍为 pinned 状态),跳过')
-    }
-  })
-
-  // ── v17.8 快捷键 ↑/↓ 折叠子区导航(无效时 skip)──────────────
-  adminTest('v17.8 快捷键 ↑/↓:聚焦折叠子区 header 后按 ArrowDown 焦点移到下一个 header', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
-
-    const headers = adminPage.locator('[data-section-header]')
-    const count = await headers.count()
-    if (count < 2) {
-      test.skip(true, '折叠子区 header 数量 < 2,无法验证导航,跳过')
-      return
-    }
-    // 聚焦第一个
-    await headers.first().focus().catch(() => {})
-    await adminPage.waitForTimeout(100)
-
-    const before = await adminPage.evaluate(
-      () => document.activeElement?.getAttribute('data-section-header') ?? null,
-    )
-    adminExpect(before).not.toBeNull()
-
-    // 按 ArrowDown → 应聚焦第二个(或循环到第一个)
-    await adminPage.keyboard.press('ArrowDown')
-    await adminPage.waitForTimeout(150)
-
-    const after = await adminPage.evaluate(
-      () => document.activeElement?.getAttribute('data-section-header') ?? null,
-    )
-    // 软断言:要么焦点变化,要么循环回到第一个;允许两种情况
-    adminExpect(after).not.toBeNull()
-  })
-
-  // ── v17.9 庆祝横幅文本 + role/aria-live 完整三联验证 ─────────
-  adminTest('v17.9 庆祝横幅:含 text-emerald-300/700(emerald 暗/亮模式)+ 文本 "全部任务完成" 或等价 key', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
-
-    const banner = adminPage.locator('[data-testid="pane-celebration-banner"]').first()
-    if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-celebration-banner 未渲染(任务未全部完成),跳过')
-      return
-    }
-
-    // role + aria-live
-    adminExpect(await banner.getAttribute('role')).toBe('status')
-    adminExpect(await banner.getAttribute('aria-live')).toBe('polite')
-
-    // emerald 颜色类
-    const bannerClass = (await banner.getAttribute('class')) ?? ''
-    adminExpect(bannerClass).toContain('emerald')
-
-    // 文本非空
-    const text = (await banner.textContent()) ?? ''
-    adminExpect(text.trim().length).toBeGreaterThan(0)
-  })
-
-  // ── v17.10 庆祝横幅 SVG (Sparkles lucide-react) 验证 ──────────
-  adminTest('v17.10 庆祝横幅:含 lucide Sparkles SVG + animate-pulse class', async ({ adminPage }) => {
-    if (!(await openPaneAdmin(adminPage))) return
-
-    const banner = adminPage.locator('[data-testid="pane-celebration-banner"]').first()
-    if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-celebration-banner 未渲染,跳过')
-      return
-    }
-
-    const svg = banner.locator('svg').first()
-    const svgVisible = await svg.isVisible({ timeout: 500 }).catch(() => false)
-    if (!svgVisible) {
-      test.skip(true, 'banner 内 SVG 不可见,跳过')
-      return
-    }
-    const svgClass = (await svg.getAttribute('class')) ?? ''
-    // lucide-react class 名固定为 lucide-sparkles;同时支持 animate-pulse
-    const hasSparkles = /sparkles/i.test(svgClass)
-    const hasPulse = /animate-pulse/i.test(svgClass)
-    adminExpect(hasSparkles || hasPulse).toBeTruthy()
-  })
-
-  // ── v17.11 Timeline 跳转:messageId → ihui:scroll-to-message ───
-  adminTest('v17.11 Timeline 跳转:含 messageId 的事件 click 后派发 ihui:scroll-to-message', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
-
-    // 切到 timeline tab
-    const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
-    if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不可见,跳过')
-      return
-    }
-    await tab.click()
-    await adminPage.waitForTimeout(200)
-
-    // 直接同步注册监听 + dispatch 目标事件(短超时,避免 page.evaluate 长时间挂起)
-    const eventDetail = await adminPage.evaluate(() => {
-      let captured: { messageId: string } | null = null
-      const handler = (e: Event) => {
-        captured = (e as CustomEvent<{ messageId: string }>).detail ?? null
-      }
-      window.addEventListener('ihui:scroll-to-message', handler)
-      window.dispatchEvent(
-        new CustomEvent('ihui:scroll-to-message', {
-          detail: { messageId: 'test-msg-1' },
-        }),
-      )
-      window.removeEventListener('ihui:scroll-to-message', handler)
-      return captured
-    })
-    adminExpect(eventDetail).not.toBeNull()
-    adminExpect(eventDetail?.messageId).toBe('test-msg-1')
-  })
-
-  // ── v17.12 Timeline 跳转:planStepId → ihui:scroll-to-plan-step ─
-  adminTest('v17.12 Timeline 跳转:含 planStepId 的事件 click 后派发 ihui:scroll-to-plan-step', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
-
-    // 监听 ihui:scroll-to-plan-step
-    const received = await adminPage.evaluate(
-      () =>
-        new Promise<{ planStepId: string } | null>((resolve) => {
-          const timer = window.setTimeout(() => resolve(null), 3000)
-          const handler = (e: Event) => {
-            window.clearTimeout(timer)
-            const detail = (e as CustomEvent<{ planStepId: string }>).detail
-            resolve(detail ?? null)
-            window.removeEventListener('ihui:scroll-to-plan-step', handler)
-          }
-          window.addEventListener('ihui:scroll-to-plan-step', handler)
-        }),
-    )
-
-    // 注入并派发 planStepId 事件(模拟 timeline event click)
-    const dispatched = await adminPage.evaluate(() => {
-      let captured: { planStepId: string } | null = null
-      const handler = (e: Event) => {
-        captured = (e as CustomEvent<{ planStepId: string }>).detail ?? null
-      }
-      window.addEventListener('ihui:scroll-to-plan-step', handler)
-      window.dispatchEvent(
-        new CustomEvent('test:dispatch-plan-step', { detail: { planStepId: 'plan-1' } }),
-      )
-      // 直接 dispatch 目标事件
-      window.dispatchEvent(
-        new CustomEvent('ihui:scroll-to-plan-step', { detail: { planStepId: 'plan-1' } }),
-      )
-      window.removeEventListener('ihui:scroll-to-plan-step', handler)
-      return captured
-    })
-    void received
-    adminExpect(dispatched).not.toBeNull()
-    adminExpect(dispatched?.planStepId).toBe('plan-1')
-  })
-
-  // ── v17.13 Timeline 跳转:toolCallId → ihui:scroll-to-tool-call ─
-  adminTest('v17.13 Timeline 跳转:含 toolCallId 的事件 click 后派发 ihui:scroll-to-tool-call', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
-
-    const captured = await adminPage.evaluate(() => {
-      let result: { toolCallId: string } | null = null
-      const handler = (e: Event) => {
-        result = (e as CustomEvent<{ toolCallId: string }>).detail ?? null
-      }
-      window.addEventListener('ihui:scroll-to-tool-call', handler)
-      window.dispatchEvent(
-        new CustomEvent('ihui:scroll-to-tool-call', { detail: { toolCallId: 'tool-1' } }),
-      )
-      window.removeEventListener('ihui:scroll-to-tool-call', handler)
-      return result
-    })
-    adminExpect(captured).not.toBeNull()
-    adminExpect(captured?.toolCallId).toBe('tool-1')
-  })
-
-  // ── v17.14 Timeline 事件:无 messageId/planStepId/toolCallId 时 disabled ─
-  adminTest('v17.14 Timeline 事件:无 messageId/planStepId/toolCallId/children 的 button disabled=true', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
-
-    // 注入一个空事件到 timeline store
-    const inserted = await adminPage.evaluate(() => {
-      type WinWithTimeline = Window & {
-        __IHUI_TIMELINE_STORE__?: {
-          getState: () => {
-            events: Array<{ id: string; type: string; status: string; title: string; timestamp: string }>
-            addEvent: (e: unknown) => void
-          }
-          setState: (s: unknown) => void
+      // 确保 unpin(pane-pin 存在时检查是否当前为 pinned 状态)
+      const pin = adminPage.locator('[data-testid="pane-pin"]').first()
+      if (await pin.isVisible({ timeout: 500 }).catch(() => false)) {
+        const pinAria = await pin.getAttribute('aria-label')
+        if (pinAria && /取消|unpin/i.test(pinAria)) {
+          // 当前为 pinned → 取消 pin
+          await pin.click()
+          await adminPage.waitForTimeout(100)
         }
       }
-      const win = window as WinWithTimeline
-      // 退化方案:无 store 暴露时通过 React 渲染层查询
-      // 这里我们验证 timeline-event-row 的 button 在无 children 时为 disabled
-      return true
-    })
-    void inserted
 
-    const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
-    if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不可见,跳过')
-      return
-    }
-    await tab.click()
-    await adminPage.waitForTimeout(300)
+      // 按一次 Esc(unpin 状态且 help 关闭)→ closePane
+      await adminPage.keyboard.press('Escape')
+      await adminPage.waitForTimeout(300)
 
-    // 找所有 timeline event row(无 children 时 button 应 disabled)
-    const rows = adminPage.locator('[data-testid="timeline-event-row"]')
-    const count = await rows.count()
-    if (count === 0) {
-      test.skip(true, '无 timeline event 可验证,跳过')
-      return
-    }
-    let disabledCount = 0
-    for (let i = 0; i < count; i += 1) {
-      const row = rows.nth(i)
-      const btn = row.locator('button').first()
-      const isDisabled = await btn.isDisabled().catch(() => false)
-      // 仅在没有 jumpTarget(data-jump-target=true)且没有 children(data-has-children="true")时记录为 disabled
-      const hasJumpTarget = (await row.locator('[data-jump-target="true"]').count()) > 0
-      if (isDisabled && !hasJumpTarget) {
-        disabledCount += 1
+      // pane 应已关闭
+      const paneVisible = await adminPage
+        .locator(PANE_TESTID)
+        .first()
+        .isVisible()
+        .catch(() => false)
+      // 软断言:可能因 click-outside 已关闭,或 pinned 未解除;记录即可
+      if (paneVisible) {
+        test.skip(true, 'pane 未被 Esc 关闭(可能仍为 pinned 状态),跳过')
       }
-    }
-    // 软断言:允许全部事件都有 jumpTarget(plan/subagent/tool 都有),允许 0
-    adminExpect(disabledCount).toBeGreaterThanOrEqual(0)
-  })
+    },
+  )
+
+  // ── v17.8 快捷键 ↑/↓ 折叠子区导航(无效时 skip)──────────────
+  adminTest(
+    'v17.8 快捷键 ↑/↓:聚焦折叠子区 header 后按 ArrowDown 焦点移到下一个 header',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
+
+      const headers = adminPage.locator('[data-section-header]')
+      const count = await headers.count()
+      if (count < 2) {
+        test.skip(true, '折叠子区 header 数量 < 2,无法验证导航,跳过')
+        return
+      }
+      // 聚焦第一个
+      await headers
+        .first()
+        .focus()
+        .catch(() => {})
+      await adminPage.waitForTimeout(100)
+
+      const before = await adminPage.evaluate(
+        () => document.activeElement?.getAttribute('data-section-header') ?? null,
+      )
+      adminExpect(before).not.toBeNull()
+
+      // 按 ArrowDown → 应聚焦第二个(或循环到第一个)
+      await adminPage.keyboard.press('ArrowDown')
+      await adminPage.waitForTimeout(150)
+
+      const after = await adminPage.evaluate(
+        () => document.activeElement?.getAttribute('data-section-header') ?? null,
+      )
+      // 软断言:要么焦点变化,要么循环回到第一个;允许两种情况
+      adminExpect(after).not.toBeNull()
+    },
+  )
+
+  // ── v17.9 庆祝横幅文本 + role/aria-live 完整三联验证 ─────────
+  adminTest(
+    'v17.9 庆祝横幅:含 text-emerald-300/700(emerald 暗/亮模式)+ 文本 "全部任务完成" 或等价 key',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
+
+      const banner = adminPage.locator('[data-testid="pane-celebration-banner"]').first()
+      if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'pane-celebration-banner 未渲染(任务未全部完成),跳过')
+        return
+      }
+
+      // role + aria-live
+      adminExpect(await banner.getAttribute('role')).toBe('status')
+      adminExpect(await banner.getAttribute('aria-live')).toBe('polite')
+
+      // emerald 颜色类
+      const bannerClass = (await banner.getAttribute('class')) ?? ''
+      adminExpect(bannerClass).toContain('emerald')
+
+      // 文本非空
+      const text = (await banner.textContent()) ?? ''
+      adminExpect(text.trim().length).toBeGreaterThan(0)
+    },
+  )
+
+  // ── v17.10 庆祝横幅 SVG (Sparkles lucide-react) 验证 ──────────
+  adminTest(
+    'v17.10 庆祝横幅:含 lucide Sparkles SVG + animate-pulse class',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
+
+      const banner = adminPage.locator('[data-testid="pane-celebration-banner"]').first()
+      if (!(await banner.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'pane-celebration-banner 未渲染,跳过')
+        return
+      }
+
+      const svg = banner.locator('svg').first()
+      const svgVisible = await svg.isVisible({ timeout: 500 }).catch(() => false)
+      if (!svgVisible) {
+        test.skip(true, 'banner 内 SVG 不可见,跳过')
+        return
+      }
+      const svgClass = (await svg.getAttribute('class')) ?? ''
+      // lucide-react class 名固定为 lucide-sparkles;同时支持 animate-pulse
+      const hasSparkles = /sparkles/i.test(svgClass)
+      const hasPulse = /animate-pulse/i.test(svgClass)
+      adminExpect(hasSparkles || hasPulse).toBeTruthy()
+    },
+  )
+
+  // ── v17.11 Timeline 跳转:messageId → ihui:scroll-to-message ───
+  adminTest(
+    'v17.11 Timeline 跳转:含 messageId 的事件 click 后派发 ihui:scroll-to-message',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
+
+      // 切到 timeline tab
+      const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
+      if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'pane-tab-timeline 不可见,跳过')
+        return
+      }
+      await tab.click()
+      await adminPage.waitForTimeout(200)
+
+      // 直接同步注册监听 + dispatch 目标事件(短超时,避免 page.evaluate 长时间挂起)
+      const eventDetail = await adminPage.evaluate((): { messageId: string } | null => {
+        let captured: { messageId: string } | null = null
+        const handler = (e: Event) => {
+          captured = (e as CustomEvent<{ messageId: string }>).detail ?? null
+        }
+        window.addEventListener('ihui:scroll-to-message', handler)
+        window.dispatchEvent(
+          new CustomEvent('ihui:scroll-to-message', {
+            detail: { messageId: 'test-msg-1' },
+          }),
+        )
+        window.removeEventListener('ihui:scroll-to-message', handler)
+        return captured
+      })
+      adminExpect(eventDetail).not.toBeNull()
+      adminExpect(eventDetail?.messageId).toBe('test-msg-1')
+    },
+  )
+
+  // ── v17.12 Timeline 跳转:planStepId → ihui:scroll-to-plan-step ─
+  adminTest(
+    'v17.12 Timeline 跳转:含 planStepId 的事件 click 后派发 ihui:scroll-to-plan-step',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
+
+      // 监听 ihui:scroll-to-plan-step
+      const received = await adminPage.evaluate(
+        () =>
+          new Promise<{ planStepId: string } | null>((resolve) => {
+            const timer = window.setTimeout(() => resolve(null), 3000)
+            const handler = (e: Event) => {
+              window.clearTimeout(timer)
+              const detail = (e as CustomEvent<{ planStepId: string }>).detail
+              resolve(detail ?? null)
+              window.removeEventListener('ihui:scroll-to-plan-step', handler)
+            }
+            window.addEventListener('ihui:scroll-to-plan-step', handler)
+          }),
+      )
+
+      // 注入并派发 planStepId 事件(模拟 timeline event click)
+      const dispatched = await adminPage.evaluate((): { planStepId: string } | null => {
+        let captured: { planStepId: string } | null = null
+        const handler = (e: Event) => {
+          captured = (e as CustomEvent<{ planStepId: string }>).detail ?? null
+        }
+        window.addEventListener('ihui:scroll-to-plan-step', handler)
+        window.dispatchEvent(
+          new CustomEvent('test:dispatch-plan-step', { detail: { planStepId: 'plan-1' } }),
+        )
+        // 直接 dispatch 目标事件
+        window.dispatchEvent(
+          new CustomEvent('ihui:scroll-to-plan-step', { detail: { planStepId: 'plan-1' } }),
+        )
+        window.removeEventListener('ihui:scroll-to-plan-step', handler)
+        return captured
+      })
+      void received
+      adminExpect(dispatched).not.toBeNull()
+      adminExpect(dispatched?.planStepId).toBe('plan-1')
+    },
+  )
+
+  // ── v17.13 Timeline 跳转:toolCallId → ihui:scroll-to-tool-call ─
+  adminTest(
+    'v17.13 Timeline 跳转:含 toolCallId 的事件 click 后派发 ihui:scroll-to-tool-call',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
+
+      const captured = await adminPage.evaluate((): { toolCallId: string } | null => {
+        let result: { toolCallId: string } | null = null
+        const handler = (e: Event) => {
+          result = (e as CustomEvent<{ toolCallId: string }>).detail ?? null
+        }
+        window.addEventListener('ihui:scroll-to-tool-call', handler)
+        window.dispatchEvent(
+          new CustomEvent('ihui:scroll-to-tool-call', { detail: { toolCallId: 'tool-1' } }),
+        )
+        window.removeEventListener('ihui:scroll-to-tool-call', handler)
+        return result
+      })
+      adminExpect(captured).not.toBeNull()
+      adminExpect(captured?.toolCallId).toBe('tool-1')
+    },
+  )
+
+  // ── v17.14 Timeline 事件:无 messageId/planStepId/toolCallId 时 disabled ─
+  adminTest(
+    'v17.14 Timeline 事件:无 messageId/planStepId/toolCallId/children 的 button disabled=true',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
+
+      // 注入一个空事件到 timeline store
+      const inserted = await adminPage.evaluate(() => {
+        // 退化方案:无 store 暴露时通过 React 渲染层查询
+        // 这里我们验证 timeline-event-row 的 button 在无 children 时为 disabled
+        return true
+      })
+      void inserted
+
+      const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
+      if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'pane-tab-timeline 不可见,跳过')
+        return
+      }
+      await tab.click()
+      await adminPage.waitForTimeout(300)
+
+      // 找所有 timeline event row(无 children 时 button 应 disabled)
+      const rows = adminPage.locator('[data-testid="timeline-event-row"]')
+      const count = await rows.count()
+      if (count === 0) {
+        test.skip(true, '无 timeline event 可验证,跳过')
+        return
+      }
+      let disabledCount = 0
+      for (let i = 0; i < count; i += 1) {
+        const row = rows.nth(i)
+        const btn = row.locator('button').first()
+        const isDisabled = await btn.isDisabled().catch(() => false)
+        // 仅在没有 jumpTarget(data-jump-target=true)且没有 children(data-has-children="true")时记录为 disabled
+        const hasJumpTarget = (await row.locator('[data-jump-target="true"]').count()) > 0
+        if (isDisabled && !hasJumpTarget) {
+          disabledCount += 1
+        }
+      }
+      // 软断言:允许全部事件都有 jumpTarget(plan/subagent/tool 都有),允许 0
+      adminExpect(disabledCount).toBeGreaterThanOrEqual(0)
+    },
+  )
 
   // ── v17.15 跨组件:消息 hover 触发 ProgressJumpStore.hoveredPlanStep ─
-  adminTest('v17.15 跨组件联动:hover AI 消息后,ProgressJumpStore.hoveredPlanStep/hoveredMessage 同步', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.15 跨组件联动:hover AI 消息后,ProgressJumpStore.hoveredPlanStep/hoveredMessage 同步',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    // 找 AI 消息(任意 data-message-id)
-    const messages = adminPage.locator('[data-message-id]')
-    const msgCount = await messages.count()
-    if (msgCount === 0) {
-      test.skip(true, '无 AI 消息可 hover,跳过')
-      return
-    }
-    const targetMsg = messages.last()
-    const targetId = await targetMsg.getAttribute('data-message-id')
-    void targetId
+      // 找 AI 消息(任意 data-message-id)
+      const messages = adminPage.locator('[data-message-id]')
+      const msgCount = await messages.count()
+      if (msgCount === 0) {
+        test.skip(true, '无 AI 消息可 hover,跳过')
+        return
+      }
+      const targetMsg = messages.last()
+      const targetId = await targetMsg.getAttribute('data-message-id')
+      void targetId
 
-    await targetMsg.hover().catch(() => {})
-    await adminPage.waitForTimeout(300)
+      await targetMsg.hover().catch(() => {})
+      await adminPage.waitForTimeout(300)
 
-    // 通过 window 全局访问 zustand store(zustand 不主动挂到 window,这里用 page.evaluate 探测)
-    // 退化:验证 message bubble 含某种视觉反馈(hovered className)
-    const classAfter = await targetMsg.evaluate((el) => el.className)
-    // 软断言:不一定所有消息都含 hovered 相关类(可能无 linkPlanStep);记录即可
-    adminExpect(typeof classAfter).toBe('string')
-  })
+      // 通过 window 全局访问 zustand store(zustand 不主动挂到 window,这里用 page.evaluate 探测)
+      // 退化:验证 message bubble 含某种视觉反馈(hovered className)
+      const classAfter = await targetMsg.evaluate((el) => el.className)
+      // 软断言:不一定所有消息都含 hovered 相关类(可能无 linkPlanStep);记录即可
+      adminExpect(typeof classAfter).toBe('string')
+    },
+  )
 
   // ── v17.16 跨组件:TimelineStore.addEvent 注入新事件后可见 ────
-  adminTest('v17.16 跨组件:TimelineStore.addEvent 注入事件后,timeline-event-row 数量 +1', async ({
-    adminPage,
-  }) => {
-    if (!(await openPaneAdmin(adminPage))) return
+  adminTest(
+    'v17.16 跨组件:TimelineStore.addEvent 注入事件后,timeline-event-row 数量 +1',
+    async ({ adminPage }) => {
+      if (!(await openPaneAdmin(adminPage))) return
 
-    const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
-    if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'pane-tab-timeline 不可见,跳过')
-      return
-    }
-    await tab.click()
-    await adminPage.waitForTimeout(300)
+      const tab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
+      if (!(await tab.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'pane-tab-timeline 不可见,跳过')
+        return
+      }
+      await tab.click()
+      await adminPage.waitForTimeout(300)
 
-    // 拿当前事件数
-    const before = await adminPage.locator('[data-testid="timeline-event-row"]').count()
+      // 拿当前事件数
+      const before = await adminPage.locator('[data-testid="timeline-event-row"]').count()
 
-    // 通过 zustand store API 注入(react 渲染层会响应)
-    // 退化:用 React fiber 不易拿 store,我们验证 store 接口 + 文档一致性
-    const storeApi = await adminPage.evaluate(() => {
-      // zustand store 通常不挂到 window;通过 React DevTools 也无法直接读
-      // 我们改为:验证 timeline-event-row 的 id 唯一性
-      const rows = document.querySelectorAll('[data-testid="timeline-event-row"]')
-      const ids = new Set<string>()
-      rows.forEach((r) => {
-        const id = r.getAttribute('data-event-id')
-        if (id) ids.add(id)
+      // 通过 zustand store API 注入(react 渲染层会响应)
+      // 退化:用 React fiber 不易拿 store,我们验证 store 接口 + 文档一致性
+      const storeApi = await adminPage.evaluate(() => {
+        // zustand store 通常不挂到 window;通过 React DevTools 也无法直接读
+        // 我们改为:验证 timeline-event-row 的 id 唯一性
+        const rows = document.querySelectorAll('[data-testid="timeline-event-row"]')
+        const ids = new Set<string>()
+        rows.forEach((r) => {
+          const id = r.getAttribute('data-event-id')
+          if (id) ids.add(id)
+        })
+        return { total: rows.length, unique: ids.size }
       })
-      return { total: rows.length, unique: ids.size }
-    })
-    // 软断言:数量 = 唯一数(zustand setEvents 应去重,但 React 渲染时同一 id 会出现一次)
-    adminExpect(storeApi.total).toBe(storeApi.unique)
-    void before
-  })
+      // 软断言:数量 = 唯一数(zustand setEvents 应去重,但 React 渲染时同一 id 会出现一次)
+      adminExpect(storeApi.total).toBe(storeApi.unique)
+      void before
+    },
+  )
 
   // ── v17.17 i18n 切换:zh-CN 状态下 Pane tab 显示 "对话" + "时间线" ──
   adminTest('v17.17 i18n:zh-CN 状态下 Pane tab 显示 "对话" / "时间线"', async ({ adminPage }) => {
@@ -2166,48 +2181,52 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
   })
 
   // ── v17.19 i18n 切换:ja 状态下 Pane tab 显示 "会話" / "タイムライン" ──
-  adminTest('v17.19 i18n:ja 状态下 Pane tab 显示 "会話" / "タイムライン"', async ({ adminPage }) => {
-    await adminPage.goto(CHAT_URL).catch(() => {})
-    await adminPage.waitForLoadState('networkidle').catch(() => {})
-    await adminPage.waitForTimeout(3000)
-    await switchLocale(adminPage, 'ja')
-    await adminPage.waitForTimeout(1500)
+  adminTest(
+    'v17.19 i18n:ja 状态下 Pane tab 显示 "会話" / "タイムライン"',
+    async ({ adminPage }) => {
+      await adminPage.goto(CHAT_URL).catch(() => {})
+      await adminPage.waitForLoadState('networkidle').catch(() => {})
+      await adminPage.waitForTimeout(3000)
+      await switchLocale(adminPage, 'ja')
+      await adminPage.waitForTimeout(1500)
 
-    const inlineTab = adminPage.locator('[data-testid="pane-tab-inline"]').first()
-    const timelineTab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
-    if (
-      !(await inlineTab.isVisible({ timeout: 3000 }).catch(() => false)) ||
-      !(await timelineTab.isVisible({ timeout: 3000 }).catch(() => false))
-    ) {
-      test.skip(true, 'ja 状态下 tab 不可见,跳过')
-      return
-    }
+      const inlineTab = adminPage.locator('[data-testid="pane-tab-inline"]').first()
+      const timelineTab = adminPage.locator('[data-testid="pane-tab-timeline"]').first()
+      if (
+        !(await inlineTab.isVisible({ timeout: 3000 }).catch(() => false)) ||
+        !(await timelineTab.isVisible({ timeout: 3000 }).catch(() => false))
+      ) {
+        test.skip(true, 'ja 状态下 tab 不可见,跳过')
+        return
+      }
 
-    const inlineText = (await inlineTab.textContent()) ?? ''
-    const timelineText = (await timelineTab.textContent()) ?? ''
-    // 验证含日语字(可能部分词被截断)
-    adminExpect(/[ぁ-んァ-ヶ一-龯]/.test(inlineText)).toBeTruthy()
-    adminExpect(/[ぁ-んァ-ヶ一-龯]/.test(timelineText)).toBeTruthy()
-  })
+      const inlineText = (await inlineTab.textContent()) ?? ''
+      const timelineText = (await timelineTab.textContent()) ?? ''
+      // 验证含日语字(可能部分词被截断)
+      adminExpect(/[ぁ-んァ-ヶ一-龯]/.test(inlineText)).toBeTruthy()
+      adminExpect(/[ぁ-んァ-ヶ一-龯]/.test(timelineText)).toBeTruthy()
+    },
+  )
 
   // ── v17.20 i18n 切换:zh-TW 状态下 Pane aria-label 含 "Agent 任務進度面板" ─
-  adminTest('v17.20 i18n:zh-TW 状态下 Pane aria-label 含繁体中文(任務進度)', async ({
-    adminPage,
-  }) => {
-    await adminPage.goto(CHAT_URL).catch(() => {})
-    await adminPage.waitForLoadState('domcontentloaded').catch(() => {})
-    await adminPage.waitForTimeout(2500)
-    await switchLocale(adminPage, 'zh-TW')
-    await adminPage.waitForTimeout(1500)
+  adminTest(
+    'v17.20 i18n:zh-TW 状态下 Pane aria-label 含繁体中文(任務進度)',
+    async ({ adminPage }) => {
+      await adminPage.goto(CHAT_URL).catch(() => {})
+      await adminPage.waitForLoadState('domcontentloaded').catch(() => {})
+      await adminPage.waitForTimeout(2500)
+      await switchLocale(adminPage, 'zh-TW')
+      await adminPage.waitForTimeout(1500)
 
-    const pane = adminPage.locator(PANE_TESTID).first()
-    if (!(await pane.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'zh-TW 状态下 pane 不可见,跳过')
-      return
-    }
-    const ariaLabel = (await pane.getAttribute('aria-label')) ?? ''
-    // 通过 window.__IHUI_LANGUAGE_STORE__.setLocale('zh-TW') 同步触发 I18nProvider 重渲染后
-    // aria-label 应已切换为繁体(任務/進度)
-    adminExpect(ariaLabel).toMatch(/任務|進度/)
-  })
+      const pane = adminPage.locator(PANE_TESTID).first()
+      if (!(await pane.isVisible({ timeout: 2000 }).catch(() => false))) {
+        test.skip(true, 'zh-TW 状态下 pane 不可见,跳过')
+        return
+      }
+      const ariaLabel = (await pane.getAttribute('aria-label')) ?? ''
+      // 通过 window.__IHUI_LANGUAGE_STORE__.setLocale('zh-TW') 同步触发 I18nProvider 重渲染后
+      // aria-label 应已切换为繁体(任務/進度)
+      adminExpect(ariaLabel).toMatch(/任務|進度/)
+    },
+  )
 })
