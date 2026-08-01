@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import {
@@ -311,7 +311,7 @@ export default function AgentWorkbenchPage() {
               )}
             </div>
             <div className="lg:col-span-3">
-              <div className="h-[600px] lg:h-full lg:min-h-[540px]">
+              <div className="h-[420px] min-[1024px]:h-full min-[1024px]:min-h-[540px]">
                 <AgentSessionList agentId={selectedId} />
               </div>
             </div>
@@ -319,7 +319,7 @@ export default function AgentWorkbenchPage() {
         ) : (
           <>
             <div className="lg:col-span-3">
-              <div className="h-[400px] lg:h-[600px]">
+              <div className="h-[400px] min-[1024px]:h-[600px]">
                 <SessionTree nodes={runtime.sessionTree} loading={runtime.loading} />
               </div>
             </div>
@@ -339,7 +339,7 @@ export default function AgentWorkbenchPage() {
               </div>
             </div>
             <div className="lg:col-span-4">
-              <div className="h-[600px]">
+              <div className="h-[420px] min-[1024px]:h-[600px]">
                 {selected ? (
                   <AgentRuntimeLog agentId={selected.id} running={selected.status === 'running'} />
                 ) : (
