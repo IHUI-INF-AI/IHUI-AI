@@ -85,10 +85,16 @@ publicHoistPattern:
 
 # ============== pnpm catalog(2026-07-29 立,AGENTS.md P3 阶段 1.2)==============
 # 目的:锁定全端共用依赖的单一版本,升级改一处,所有引用自动同步。
-# 范围:只纳入"版本完全一致 + 多端共用"的依赖(21+18+12+10+4 = 65 处引用)。
-# 排除:react/react-dom(18 vs 19 是 Taro 4 硬约束)/ tailwindcss(v3 vs v4 硬约束)/
-#       next(web 独占)/ expo+react-native(RN 独占)/ @tarojs/*(taro 独占)/
-#       @types/react(对应 React 版本,由根 pnpm.overrides 全局锁定)。
+# 范围:只纳入"版本完全一致 + 多端共用"的依赖。
+# 排除(版本冲突硬约束,不可纳入 catalog):
+#   - react/react-dom:Taro 4 需要 React 18,web/extension/desktop 用 React 19(18 vs 19 硬约束)
+#   - tailwindcss:miniapp-taro/mobile-rn 用 v3(NativeWind/Taro 兼容),web/extension 用 v4(v3 vs v4 硬约束)
+#   - next:web 独占
+#   - expo + react-native:RN 独占
+#   - @tarojs/*:taro 独占
+#   - @types/react:对应 React 版本,由根 pnpm.overrides 全局锁定
+#   - lucide-react:ui-react 用 ^0.460.0,web 用 ^0.562.0(版本不一致,暂纳入 catalog 锁定
+#     ui-react 基线版本 ^0.460.0,web 未迁移到 catalog: 仍用硬编码 ^0.562.0,待后续统一)
 # 引用方式:package.json 中 "typescript": "catalog:" 即引用此处的版本。
 # 与 pnpm.overrides 协同:overrides 优先级 > catalog,二者可并存。
 catalog:
@@ -97,3 +103,8 @@ catalog:
   vitest: ^2.1.8
   eslint: ^9.16.0
   zustand: ^5.0.2
+  # P3-1.2 新增(2026-08-01)— 类名合并 + 样式变体 + 图标库,design-tokens/ui-react/web 共用
+  clsx: ^2.1.1                    # design-tokens + web + ui-react(间接)
+  tailwind-merge: ^2.5.5          # design-tokens + web
+  class-variance-authority: ^0.7.1  # design-tokens + ui-react + ui-native
+  lucide-react: ^0.460.0          # ui-react(web 仍用 ^0.562.0 硬编码,待后续迁移 catalog:)

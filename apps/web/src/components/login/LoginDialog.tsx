@@ -57,6 +57,7 @@ export function LoginDialog() {
     <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>
       <DialogContent
         data-testid="login-dialog"
+        hideCloseButton
         className="
           gap-0
           p-0
@@ -70,7 +71,7 @@ export function LoginDialog() {
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{subtitle}</DialogDescription>
 
-        <AuthShell>
+        <AuthShell onClose={close}>
           {mode === 'login' ? (
             <LoginWithTurnstile>
               <LoginFormContent onSuccess={handleLoginSuccess} />
