@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, Wand2 } from 'lucide-react'
 import { eduApi, selectClass } from '@/lib/edu'
+import { BackButton } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -81,6 +82,7 @@ export default function EduExamPapersManualPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

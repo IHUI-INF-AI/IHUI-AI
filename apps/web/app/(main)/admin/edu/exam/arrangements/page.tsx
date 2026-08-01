@@ -12,6 +12,7 @@ import { ArrangementsTable } from './ArrangementsTable'
 import { ArrangementsDialog } from './ArrangementsDialog'
 import { PAGE_SIZE, EMPTY, arrangementToForm } from './helpers'
 import type { AForm, Arrangement, Paper } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduExamArrangementsPage() {
   const t = useTranslations('admin.edu.exam.arrangements')
@@ -100,6 +101,7 @@ export default function EduExamArrangementsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

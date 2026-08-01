@@ -17,6 +17,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 interface MapNode {
   id: string
@@ -53,6 +54,7 @@ export default function LearnMapPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <MapIcon className="h-7 w-7 text-primary" />

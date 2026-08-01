@@ -12,6 +12,7 @@ import { EduSettingsTable } from './EduSettingsTable'
 import { EduSettingsDialog } from './EduSettingsDialog'
 import { api, normList, parseJson, EMPTY_FORM, eduSettingToForm } from './helpers'
 import type { EduSetting, EduSettingForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminEduSettingsPage() {
   const t = useTranslations('admin.eduSettings')
@@ -106,6 +107,7 @@ export default function AdminEduSettingsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { BookOpen, Code2, Key } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 const CURL_EXAMPLE = `curl https://api.aizhs.top/v1/chat/completions \\
   -H "Content-Type: application/json" \\
@@ -40,6 +41,7 @@ export default async function ApiDocsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('apiDocs.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('apiDocs.subtitle')}</p>

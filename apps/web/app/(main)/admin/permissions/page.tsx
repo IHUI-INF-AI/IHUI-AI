@@ -8,6 +8,7 @@ import { PermissionsFilter } from './PermissionsFilter'
 import { PermissionsList } from './PermissionsList'
 import { api } from './helpers'
 import type { Permission } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminPermissionsPage() {
   const [keyword, setKeyword] = React.useState('')
@@ -66,6 +67,7 @@ export default function AdminPermissionsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <PermissionsHeader
         total={perms.length}
         resourceCount={resources.length}

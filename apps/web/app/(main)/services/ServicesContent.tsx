@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Server, GraduationCap, Code2, Phone, Check, ArrowRight, ChevronDown, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
-import { AnimatedNumber } from '@/components/common'
+import { AnimatedNumber, BackButton } from '@/components/common'
 
 const SERVICE_CARDS = [
   { key: 'deployment', icon: Server, id: 'deployment' },
@@ -22,6 +22,7 @@ export function ServicesContent(): React.JSX.Element {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+      <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

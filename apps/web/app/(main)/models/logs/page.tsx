@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { CheckCircle2, FileText, XCircle } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(`logs.statusLabels.${var}`)` 动态拼接 */
 const LOGS_STATUS_KEY: Record<string, string> = {
@@ -97,6 +98,7 @@ export default async function LogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">

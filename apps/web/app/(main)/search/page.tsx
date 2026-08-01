@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { SearchBar } from '@/components/business'
+import { BackButton } from '@/components/common'
 import { SearchControls } from './SearchControls'
 import { SearchResultGroups } from './SearchResultGroups'
 import { fetchSearch, sortResults } from './helpers'
@@ -78,6 +79,7 @@ function SearchContent() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
+      <BackButton />
       <SearchBar
         placeholder={tc('search')}
         onSearch={handleSearch}

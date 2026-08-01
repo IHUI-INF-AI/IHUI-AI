@@ -13,6 +13,7 @@ import { GradesTable } from './GradesTable'
 import { GradesDialog } from './GradesDialog'
 import { PAGE_SIZE } from './helpers'
 import type { MarkRecord, PageData, RecordDetail } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduExamGradesPage() {
   const t = useTranslations('admin.edu.exam.grades')
@@ -78,6 +79,7 @@ export default function EduExamGradesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

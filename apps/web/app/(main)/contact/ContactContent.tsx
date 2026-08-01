@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Mail, Phone, MapPin, Globe, MessageCircle, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 export interface ContactItem {
   icon: 'wechat' | 'phone' | 'mail' | 'globe' | string
@@ -89,6 +90,7 @@ export function ContactContent({
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

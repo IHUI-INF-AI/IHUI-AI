@@ -9,6 +9,7 @@ import { FundsAccountsTable } from './FundsAccountsTable'
 import { FundsFlowsTable } from './FundsFlowsTable'
 import { api } from './helpers'
 import type { FundAccount, FundFlow } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminShopFundsPage() {
   const [tab, setTab] = React.useState<'accounts' | 'flows'>('accounts')
@@ -35,6 +36,7 @@ export default function AdminShopFundsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <FundsHeader accounts={accounts} />
       <FundsTabs tab={tab} setTab={setTab} flowType={flowType} setFlowType={setFlowType} />
       <div key={tab} className="animate-in fade-in-0 duration-200">

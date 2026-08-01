@@ -13,6 +13,7 @@ import type { Paper, Question } from './types'
 import { ProgrammingSelector } from './ProgrammingSelector'
 import { ProgrammingQuestion } from './ProgrammingQuestion'
 import { ProgrammingEditor } from './ProgrammingEditor'
+import { BackButton } from '@/components/common'
 
 function ProgrammingContent() {
   const t = useTranslations('admin.edu.answer.programming')
@@ -88,6 +89,7 @@ function ProgrammingContent() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

@@ -11,6 +11,7 @@ import { DemandAuditEditDialog } from './DemandAuditEditDialog'
 import { DemandAuditApprovalDialog } from './DemandAuditApprovalDialog'
 import { api } from './helpers'
 import type { DemandRow, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function DemandAuditPage() {
   const t = useTranslations('admin.demandAudit')
@@ -61,6 +62,7 @@ export default function DemandAuditPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

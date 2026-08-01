@@ -18,6 +18,7 @@ import {
   TabsContent,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 import { ToolCallTree } from './components/ToolCallTree'
 import { MemoryPanel } from './components/MemoryPanel'
@@ -69,6 +70,7 @@ export default function AgentRuntimePage() {
 
   return (
     <div className="mx-auto w-full max-w-[1240px] space-y-5">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Zap className="h-6 w-6 text-primary" />

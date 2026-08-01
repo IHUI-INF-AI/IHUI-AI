@@ -6,6 +6,7 @@ import { Save, Loader2, Moon } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface DarkConfig {
   enabled: boolean
@@ -34,6 +35,7 @@ function ColorField({
 }) {
   return (
     <div className="space-y-1.5">
+      <BackButton />
       <Label className="text-xs">{label}</Label>
       <div className="flex items-center gap-2">
         <input

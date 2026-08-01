@@ -20,6 +20,7 @@ import { EMPTY_CH } from './helpers'
 import type { Lesson, Chapter, ChForm } from './types'
 import { ChapterList } from './ChapterList'
 import { ChapterDialog } from './ChapterDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduCourseChaptersPage() {
   const t = useTranslations('admin.edu.course.chapters')
@@ -120,6 +121,7 @@ export default function EduCourseChaptersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

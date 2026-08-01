@@ -22,6 +22,7 @@ import {
   PARAMS_EXPORT_COLS,
 } from './helpers'
 import type { AgentRule, RuleParam, RuleForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AgentRulesPage() {
   const t = useTranslations('admin.agentRules')
@@ -160,6 +161,7 @@ export default function AgentRulesPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

@@ -12,6 +12,7 @@ import { RuleTable } from './RuleTable'
 import { RuleDialog } from './RuleDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, ruleToForm } from './helpers'
 import type { Channel, Rule, RuleForm, RulesData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminPointRulesPage() {
   const t = useTranslations('admin.point')
@@ -130,6 +131,7 @@ export default function AdminPointRulesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('rulesTitle')}</h1>

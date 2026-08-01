@@ -12,6 +12,7 @@ import { Alert } from '@/components/feedback'
 import { KeysList } from './KeysList'
 import { KeyDialog } from './KeyDialog'
 import type { ApiKey } from './types'
+import { BackButton } from '@/components/common'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -81,6 +82,7 @@ export default function KeysPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
           <Plus className="h-4 w-4 shrink-0" />
