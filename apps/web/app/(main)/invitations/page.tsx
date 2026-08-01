@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
+import { BackButton } from '@/components/common'
 
 const INVITATION_STATUS_KEYS: Record<'unused' | 'used' | 'expired', string> = {
   unused: 'status.unused',
@@ -99,6 +100,7 @@ export default function InvitationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <BackButton />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

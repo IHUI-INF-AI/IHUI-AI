@@ -11,6 +11,7 @@ import { ExchangeRateTable } from './ExchangeRateTable'
 import { ExchangeRateDialog } from './ExchangeRateDialog'
 import { api, EMPTY } from './helpers'
 import type { ExchangeRate } from './types'
+import { BackButton } from '@/components/common'
 
 export default function ExchangeRatesPage() {
   const t = useTranslations('admin.exchangeRates')
@@ -104,6 +105,7 @@ export default function ExchangeRatesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ArrowLeftRight className="h-6 w-6 text-primary" />

@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data'
+import { BackButton } from '@/components/common'
 
 interface PublicUser {
   id: string
@@ -115,6 +116,7 @@ export default function PublicUserProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
+      <BackButton />
       <div className="flex items-start gap-4">
         <Avatar
           src={user.avatar ?? undefined}

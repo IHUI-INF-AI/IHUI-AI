@@ -14,6 +14,7 @@ import { EduClassTable } from './EduClassTable'
 import { EduClassDialog } from './EduClassDialog'
 import { PAGE_SIZE, EMPTY, classToForm } from './helpers'
 import type { ClassGroup, CForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduClassPage() {
   const t = useTranslations('admin.edu.class')
@@ -111,6 +112,7 @@ export default function EduClassPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

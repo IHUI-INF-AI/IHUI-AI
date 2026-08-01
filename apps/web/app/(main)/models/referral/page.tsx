@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Copy, Gift, Share2, Users } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(\`list.statusLabels.${var}\`)` 动态拼接 */
 const REFERRAL_STATUS_KEY: Record<string, string> = {
@@ -31,6 +32,7 @@ export default async function ReferralPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>

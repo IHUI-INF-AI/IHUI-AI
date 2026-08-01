@@ -10,6 +10,7 @@ import { Alert } from '@/components/feedback'
 import { MessageBubble, type CsMessage } from '@/components/customer-service/MessageBubble'
 import { StatCards } from './StatCards'
 import type { CsSession, CsStats, SessionsData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminCustomerServicePage() {
   const locale = useLocale()
@@ -113,6 +114,7 @@ export default function AdminCustomerServicePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <StatCards stats={stats} />
 
       <div className="flex h-[calc(100vh-280px)] overflow-hidden rounded-lg border bg-card">

@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Brain, Package, Clock, Radio, Cpu, Mic, PenTool, Globe } from 'lucide-react'
 
 import {
@@ -21,6 +22,7 @@ export default function OpenClawPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">OpenClaw</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

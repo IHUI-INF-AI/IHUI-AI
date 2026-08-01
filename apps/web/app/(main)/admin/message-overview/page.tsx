@@ -7,6 +7,7 @@ import { eduApi } from '@/lib/edu'
 import { StatCard } from '@/components/data'
 import { LineChart } from '@/components/charts'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface NotifItem {
   id: string
@@ -87,6 +88,7 @@ export default function MessageOverviewPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">消息概览</h1>
         <p className="text-xs text-muted-foreground">通知 / 公告 / 私信总数与近 7 天通知趋势</p>

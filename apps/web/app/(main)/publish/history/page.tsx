@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, BarChart3 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { BackButton } from '@/components/common'
 import { StatsCards } from './StatsCards'
 import { FilterBar } from './FilterBar'
 import { TaskCard } from './TaskCard'
@@ -101,6 +102,7 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <StatsCards stats={stats} />
       <FilterBar
         filterPlatform={filterPlatform}

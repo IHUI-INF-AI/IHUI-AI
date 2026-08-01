@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, MessageSquare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface CommentLog {
   id: string
@@ -37,6 +38,7 @@ export default function CommentLogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">

@@ -19,6 +19,7 @@ import { Button } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/feedback'
 import { CommentItem } from '@/components/business'
 import { useAuthStore } from '@/stores/auth'
+import { BackButton } from '@/components/common'
 
 interface MyComment {
   id: string
@@ -105,6 +106,7 @@ export default function MyCommentsPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <MessageSquare className="h-7 w-7 text-primary" />

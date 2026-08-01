@@ -8,6 +8,7 @@ import { Ticket, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 type CouponStatus = 'unused' | 'used' | 'expired'
 
@@ -67,6 +68,7 @@ export default function MemberCouponsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Ticket className="h-5 w-5 text-primary" />

@@ -11,6 +11,7 @@ import { ItemList } from './ItemList'
 import { CategorySidebar } from './CategorySidebar'
 import { HotAppsCard } from './HotAppsCard'
 import { RankingTable } from './RankingTable'
+import { BackButton } from '@/components/common'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import type { ItemKind } from './types'
 
@@ -83,6 +84,7 @@ export default function AiWorldPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
-import { TruncatedText } from '@/components/common'
+import { TruncatedText, BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface GrayRule {
@@ -83,6 +83,7 @@ export default function GrayReleasePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

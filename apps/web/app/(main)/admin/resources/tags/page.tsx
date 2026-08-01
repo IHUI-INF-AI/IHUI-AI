@@ -14,6 +14,7 @@ import { ResourceTagTable } from './ResourceTagTable'
 import { ResourceTagDialog } from './ResourceTagDialog'
 import { PAGE_SIZE, api, fetchTags, EMPTY_FORM, tagToForm } from './helpers'
 import type { TagItem, TagForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminResourceTagsPage() {
   const t = useTranslations('admin.resources')
@@ -119,6 +120,7 @@ export default function AdminResourceTagsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('tagsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('tagsSubtitle')}</p>

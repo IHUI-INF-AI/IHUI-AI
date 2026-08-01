@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Search, Newspaper } from 'lucide-react'
 import { Input } from '@ihui/ui-react'
 
+import { BackButton } from '@/components/common'
 import { ArticlesList } from './ArticlesList'
 import { ArticlesSidebar } from './ArticlesSidebar'
 import { PAGE_SIZE, api } from './helpers'
@@ -53,6 +54,7 @@ export default function ArticlesPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Newspaper className="h-6 w-6 text-primary" />

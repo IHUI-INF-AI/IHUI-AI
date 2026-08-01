@@ -11,6 +11,7 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 interface Course {
   id: string
@@ -75,6 +76,7 @@ export default function EduCoursesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BookOpen className="h-7 w-7 text-primary" />

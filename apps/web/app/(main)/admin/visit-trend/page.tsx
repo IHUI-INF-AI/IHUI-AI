@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { TrendGranularity, VisitTrendResponse } from './types'
+import { BackButton } from '@/components/common'
 
 const FALLBACK: VisitTrendResponse = {
   granularity: 'day',
@@ -51,6 +52,7 @@ export default function VisitTrendPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

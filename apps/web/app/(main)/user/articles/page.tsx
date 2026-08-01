@@ -13,6 +13,7 @@ import { pushError } from '@/stores/error-banner'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import type { ArticleItem, MyArticlesData } from '../../articles/types'
 import { formatDateOnly } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -62,6 +63,7 @@ export default function MyArticlesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
           {t('total', { default: '共 {n} 篇', n: total })}

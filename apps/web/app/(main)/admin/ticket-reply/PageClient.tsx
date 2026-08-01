@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { MessageSquare, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import type { TicketReply, TicketReplyListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminTicketReplyPage() {
   const locale = useLocale()
@@ -27,6 +28,7 @@ export default function AdminTicketReplyPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><MessageSquare className="h-6 w-6 text-primary" />工单回复</h1>
       <p className="text-sm text-muted-foreground">工单 ID:{ticketId || '—'} · 共 {total} 条回复</p>
       <div className="overflow-x-auto rounded-lg border bg-card">

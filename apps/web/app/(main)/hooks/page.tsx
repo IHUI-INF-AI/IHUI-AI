@@ -2,6 +2,7 @@ import * as React from 'react'
 import type { Metadata } from 'next'
 
 import { HooksManager } from '@/components/hooks/hooks-manager'
+import { BackButton } from '@/components/common'
 
 export const metadata: Metadata = {
   title: 'Hook 管理',
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 export default function HooksPage() {
   return (
     <div className="mx-auto w-full max-w-4xl py-2">
+      <BackButton />
       <HooksManager />
     </div>
   )

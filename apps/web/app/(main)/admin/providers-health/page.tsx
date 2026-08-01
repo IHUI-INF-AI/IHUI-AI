@@ -17,6 +17,7 @@ import {
 import { fetchProvidersAvailability } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 /** 状态 → 显示配置 */
 type StatusConfig = {
@@ -63,6 +64,7 @@ export default function ProvidersHealthPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {/* 标题 */}
       <div className="flex items-center justify-between">
         <div>

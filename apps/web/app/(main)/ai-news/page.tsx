@@ -17,6 +17,7 @@ import {
   fetchAllLeaderboardEntries,
   getFundingItems,
 } from '@/lib/ai-news-api'
+import { BackButton } from '@/components/common'
 import { generateArticleSchema, type ArticleSchema } from '@/lib/seo/schema-article'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -75,6 +76,7 @@ export default async function AiNewsPage() {
         />
       ) : null}
       <div className="mx-auto w-full max-w-[1240px] space-y-4">
+        <BackButton />
         <Hero />
         <Leaderboard entries={leaderboardData} />
         <ApiRelaysSection />

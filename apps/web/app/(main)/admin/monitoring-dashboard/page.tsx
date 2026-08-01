@@ -9,6 +9,7 @@ import { MonitorAlerts } from './MonitorAlerts'
 import { MonitorLogs } from './MonitorLogs'
 import { api, buildPerfCards } from './helpers'
 import type { ServiceItem, PerfItem, AlertItem, LogSummary } from './types'
+import { BackButton } from '@/components/common'
 
 export default function MonitoringDashboardPage() {
   const t = useTranslations('adminTools')
@@ -37,6 +38,7 @@ export default function MonitoringDashboardPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LayoutDashboard className="h-6 w-6 text-primary" />

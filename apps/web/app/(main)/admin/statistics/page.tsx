@@ -13,6 +13,7 @@ import { StatisticsTable } from './StatisticsTable'
 import { api, buildOverviewCards } from './helpers'
 import type { OverviewStatistics, SnapshotListData, SnapshotType } from './types'
 import { formatNumber } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface UserGrowthPoint {
   date: string
@@ -150,6 +151,7 @@ export default function StatisticsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <StatisticsFilter />
 
       <section className="space-y-3">

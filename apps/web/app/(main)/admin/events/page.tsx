@@ -20,6 +20,7 @@ import { EventTable } from './EventTable'
 import { EventDialog } from './EventDialog'
 import { api, normList, EMPTY_FORM, eventToForm, TYPE_DOT, LEVEL_BADGE, TYPE_KEY, LEVEL_KEY } from './helpers'
 import type { SystemEvent, EventForm, EventType, Level } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminEventsPage() {
   const t = useTranslations('admin.events')
@@ -116,6 +117,7 @@ export default function AdminEventsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

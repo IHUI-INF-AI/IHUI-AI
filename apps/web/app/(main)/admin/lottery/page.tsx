@@ -5,6 +5,7 @@ import { Gift, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { Lottery, LotteryListData, LotteryStatus } from './types'
+import { BackButton } from '@/components/common'
 
 const BADGE: Record<LotteryStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -40,6 +41,7 @@ export default function AdminLotteryPage() {
   const head = ['活动名称', '消耗积分', '参与/中奖', '奖品数', '状态', '时间']
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
           <Gift className="h-6 w-6 shrink-0 text-primary" />

@@ -14,6 +14,7 @@ import { MapsTable } from './MapsTable'
 import { MapsDialog } from './MapsDialog'
 import { PAGE_SIZE, EMPTY, mapToForm } from './helpers'
 import type { Map } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnMapsPage() {
   const t = useTranslations('admin.edu.learn.maps')
@@ -99,6 +100,7 @@ export default function EduLearnMapsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

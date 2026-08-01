@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface RateLimit {
   qps: number
@@ -99,6 +100,7 @@ export function DevelopersContent(): React.JSX.Element {
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+      <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

@@ -10,6 +10,7 @@ import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface GenResult {
   imageUrl: string
@@ -77,6 +78,7 @@ export default function ImageGenPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ImageIcon className="h-6 w-6 text-primary" />

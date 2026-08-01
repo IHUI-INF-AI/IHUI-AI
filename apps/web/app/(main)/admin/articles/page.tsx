@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import { ArticleTable } from './ArticleTable'
 import { ArticleDialog } from './ArticleDialog'
+import { BackButton } from '@/components/common'
 import {
   api,
   EMPTY_FORM,
@@ -127,6 +128,7 @@ export default function AdminArticlesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">文章管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">管理文章内容、发布状态与分类</p>

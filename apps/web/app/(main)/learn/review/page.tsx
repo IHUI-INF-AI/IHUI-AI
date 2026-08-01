@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Loader2, CheckCircle2, Brain, Calendar, Flame, Gauge } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import {
   getDueReviews,
   getReviewStats,
@@ -121,6 +122,7 @@ export default function ReviewPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Brain className="h-7 w-7 text-primary" />

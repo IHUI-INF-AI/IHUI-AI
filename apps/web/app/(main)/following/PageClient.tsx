@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Users, UserPlus, UserMinus, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { UserCard } from '@/components/business'
+import { BackButton } from '@/components/common'
 
 interface FollowUser {
   id: string
@@ -75,6 +76,7 @@ function FollowingContent() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Users className="h-6 w-6 text-primary" />

@@ -11,6 +11,7 @@ import { PapersList } from './PapersList'
 import { PaperDialog } from './PaperDialog'
 import { EMPTY_FORM, api } from './helpers'
 import type { Paper, PaperForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function MyPapersPage() {
   const t = useTranslations('papers')
@@ -78,6 +79,7 @@ export default function MyPapersPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="flex items-start justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

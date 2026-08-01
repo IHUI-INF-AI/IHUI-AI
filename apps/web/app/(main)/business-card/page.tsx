@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { getInitials } from '@/components/data/Avatar'
@@ -111,6 +112,7 @@ export default function BusinessCardPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

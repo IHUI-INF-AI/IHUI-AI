@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
 import { StatChart, type StatChartPoint } from '@/components/bi/stat-chart'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 /**
  * 仪表板统计管理
@@ -48,6 +49,7 @@ export default function DashboardStatPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 min-[768px]:p-6">
+      <BackButton />
       <header className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold tracking-tight">仪表板统计</h1>
         <p className="text-xs text-muted-foreground">管理仪表板统计相关数据</p>

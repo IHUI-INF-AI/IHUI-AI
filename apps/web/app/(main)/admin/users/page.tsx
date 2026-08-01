@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Users, Plus, ArrowUpDown } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
-import { CenteredText } from '@/components/common'
+import { CenteredText, BackButton } from '@/components/common'
 
 import { UserFilter } from './UserFilter'
 import { UserDialog } from './UserDialog'
@@ -266,6 +266,7 @@ export default function AdminUsersPage() {
           />
         </aside>
         <div className="min-w-0 space-y-4">
+          <BackButton />
           <div className="flex items-start justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

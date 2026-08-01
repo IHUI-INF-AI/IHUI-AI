@@ -16,6 +16,7 @@ import { FeedbackTable } from './FeedbackTable'
 import { FeedbackEditDialog, FeedbackCreateDialog } from './FeedbackDialog'
 import { PAGE_SIZE, EMPTY_CREATE, EMPTY_SEARCH, EMPTY_EDIT_FORM, EXPORT_COLUMNS } from './helpers'
 import type { AdminFeedbackItem, ListData, SearchState, EditForm, CreateForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminFeedbacksPage() {
   const t = useTranslations('admin.feedbacks')
@@ -158,6 +159,7 @@ export default function AdminFeedbacksPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

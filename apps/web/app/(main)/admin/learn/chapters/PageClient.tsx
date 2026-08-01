@@ -12,6 +12,7 @@ import { ChapterTable } from './ChapterTable'
 import { ChapterDialog } from './ChapterDialog'
 import { api, EMPTY_FORM } from './helpers'
 import type { Chapter, ChapterForm, ChaptersData, LessonsData } from './types'
+import { BackButton } from '@/components/common'
 
 function ChaptersContent() {
   const t = useTranslations('admin.learn')
@@ -136,6 +137,7 @@ function ChaptersContent() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('chaptersTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('chaptersSubtitle')}</p>

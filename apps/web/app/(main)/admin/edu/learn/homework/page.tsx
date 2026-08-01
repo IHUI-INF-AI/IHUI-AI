@@ -13,6 +13,7 @@ import type { Homework, HForm } from './types'
 import { HomeworkFilter } from './HomeworkFilter'
 import { HomeworkTable } from './HomeworkTable'
 import { HomeworkDialog } from './HomeworkDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnHomeworkPage() {
   const t = useTranslations('admin.edu.learn.homework')
@@ -95,6 +96,7 @@ export default function EduLearnHomeworkPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

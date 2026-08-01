@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchThreatDashboard, scoreClass, scoreBgClass, formatTime } from './helpers'
 import type { ThreatDashboardData } from './types'
+import { BackButton } from '@/components/common'
 
 const FB: ThreatDashboardData = {
   totalChecks: 0,
@@ -66,6 +67,7 @@ export default function ThreatDashboardPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShieldCheck className="h-6 w-6 text-primary" />

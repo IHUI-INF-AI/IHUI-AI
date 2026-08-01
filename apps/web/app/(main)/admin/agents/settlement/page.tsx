@@ -12,6 +12,7 @@ import { SettlementFilter } from './SettlementFilter'
 import { SettlementTable } from './SettlementTable'
 import { PAGE_SIZE, api, fetchSettlements, createMoneyFmt } from './helpers'
 import type { Settlement, SettlementSummary } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminSettlementPage() {
   const t = useTranslations('admin.agents.settlement')
@@ -81,6 +82,7 @@ export default function AdminSettlementPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Wallet className="h-6 w-6 text-primary" />

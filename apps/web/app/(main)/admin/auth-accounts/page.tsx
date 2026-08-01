@@ -14,6 +14,7 @@ import { AuthAccountsTable } from './AuthAccountsTable'
 import { AuthAccountEditDialog, AuthAccountDeleteDialog } from './AuthAccountsDialog'
 import { RESOURCE, PERM, EMPTY_FORM, EMPTY_SEARCH, EXPORT_COLS, api } from './helpers'
 import type { AuthAccount, AuthAccountForm, AuthAccountSearch } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AuthAccountsPage() {
   const t = useTranslations('adminAuthAccounts')
@@ -114,6 +115,7 @@ export default function AuthAccountsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Link2 className="h-6 w-6 text-primary" />

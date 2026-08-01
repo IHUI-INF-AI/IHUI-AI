@@ -15,6 +15,7 @@ import { AdvertiseTable } from './AdvertiseTable'
 import { AdvertiseDialog } from './AdvertiseDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, advertiseToForm } from './helpers'
 import type { Advertise, AdvertiseForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdvertisePage() {
   const t = useTranslations('admin.advertise')
@@ -120,6 +121,7 @@ export default function AdvertisePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">

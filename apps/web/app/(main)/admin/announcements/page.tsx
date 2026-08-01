@@ -9,6 +9,7 @@ import { AnnouncementTable } from './AnnouncementTable'
 import { AnnouncementDialog } from './AnnouncementDialog'
 import { api, fetchList, EMPTY_FORM, announcementToForm } from './helpers'
 import type { Announcement, AnnouncementForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminAnnouncementsPage() {
   const t = useTranslations('admin.announcements')
@@ -81,6 +82,7 @@ export default function AdminAnnouncementsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <AnnouncementFilter onCreate={openCreate} />
 
       <AnnouncementTable

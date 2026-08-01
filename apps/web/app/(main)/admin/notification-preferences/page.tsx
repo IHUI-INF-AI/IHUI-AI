@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Bell } from 'lucide-react'
 import { Button, Input, Label, Switch, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface FormState {
   emailEnabled: boolean
@@ -149,6 +150,7 @@ export default function NotificationPreferencesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Bell className="h-6 w-6 text-primary" />

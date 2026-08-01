@@ -7,6 +7,7 @@ import { Loader2, Plus, AlertCircle, RefreshCw, X } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Label } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import {
   Dialog,
   DialogTrigger,
@@ -91,6 +92,7 @@ export default function WorkspacePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>

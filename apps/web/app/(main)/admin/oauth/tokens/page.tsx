@@ -25,6 +25,7 @@ import {
   emptySearch,
 } from './helpers'
 import type { FormState, Item } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AuthTokensPage() {
   const qc = useQueryClient()
@@ -119,6 +120,7 @@ export default function AuthTokensPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Key className="h-6 w-6 text-primary" />

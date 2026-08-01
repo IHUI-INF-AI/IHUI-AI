@@ -15,6 +15,7 @@ import { DeveloperLinkTable } from './DeveloperLinkTable'
 import { DeveloperLinkDialog } from './DeveloperLinkDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, developerLinkToForm } from './helpers'
 import type { DeveloperLink, DeveloperLinkForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function DeveloperLinkPage() {
   const t = useTranslations('adminDeveloperLink')
@@ -113,6 +114,7 @@ export default function DeveloperLinkPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">

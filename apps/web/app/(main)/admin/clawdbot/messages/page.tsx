@@ -7,6 +7,7 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 /**
  * clawdbot 会话消息(管理后台审计视图)。
@@ -76,6 +77,7 @@ export default function ClawdbotMessagesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <MessageSquare className="h-6 w-6 text-primary" /> 消息记录
       </h1>

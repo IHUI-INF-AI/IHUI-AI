@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { RingChart } from './RingChart'
 import { MOCK, LOCALE_COLORS, fmtTime } from './helpers'
 import type { I18nOverview } from './types'
+import { BackButton } from '@/components/common'
 
 export default function I18nDashboardPage() {
   const { data, isLoading } = useQuery<I18nOverview>({
@@ -27,6 +28,7 @@ export default function I18nDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Globe className="h-6 w-6 text-primary" />

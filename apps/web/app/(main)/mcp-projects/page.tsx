@@ -23,6 +23,7 @@ import { McpUseManager } from '@/components/mcp/mcp-use-manager'
 import { McpPromptManager } from '@/components/mcp/mcp-prompt-manager'
 import { McpResourceViewer, type McpResource } from '@/components/mcp/mcp-resource-viewer'
 import { McpDataStructure } from '@/components/mcp/mcp-data-structure'
+import { BackButton } from '@/components/common'
 
 export default function McpProjectsPage() {
   const t = useTranslations('common.mcp')
@@ -31,6 +32,7 @@ export default function McpProjectsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Boxes className="h-6 w-6 text-primary" />

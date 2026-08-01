@@ -14,6 +14,7 @@ import { ChannelTable } from './ChannelTable'
 import { ChannelDialog } from './ChannelDialog'
 import { PAGE_SIZE, api, fetchChannels, EMPTY_FORM, channelToForm } from './helpers'
 import type { Channel, ChannelForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminPointPage() {
   const t = useTranslations('admin.point')
@@ -120,6 +121,7 @@ export default function AdminPointPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('channelsTitle')}</h1>

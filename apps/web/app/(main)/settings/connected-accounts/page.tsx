@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Loader2, Link2, Unlink } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { ConfirmDialog } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 
@@ -122,6 +123,7 @@ export default function ConnectedAccountsPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

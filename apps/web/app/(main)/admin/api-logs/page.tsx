@@ -11,6 +11,7 @@ import { fetchApi } from '@/lib/api'
 import { ApiLogFilter } from './ApiLogFilter'
 import { ApiLogTable } from './ApiLogTable'
 import type { ApiLog } from './types'
+import { BackButton } from '@/components/common'
 
 interface ApiLogRaw {
   id: string
@@ -68,6 +69,7 @@ export default function ApiLogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ScrollText className="h-6 w-6 text-primary" />

@@ -11,6 +11,7 @@ import { AddressForm } from './AddressForm'
 import { AddressesList } from './AddressesList'
 import { EMPTY_ADDRESS } from './types'
 import type { Address, AddressInput } from './types'
+import { BackButton } from '@/components/common'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -80,6 +81,7 @@ export default function MemberAddressesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">

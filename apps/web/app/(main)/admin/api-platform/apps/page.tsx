@@ -9,6 +9,7 @@ import { ApiAppTable } from './ApiAppTable'
 import { ApiAppCreateDialog, ApiAppCreatedDialog, ApiAppDeleteDialog } from './ApiAppDialog'
 import { api, RESOURCE, EMPTY_FORM } from './helpers'
 import type { ApiApp, ApiAppForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminApiPlatformAppsPage() {
   const t = useTranslations('adminApiApps')
@@ -87,6 +88,7 @@ export default function AdminApiPlatformAppsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <ApiAppFilter onCreate={openCreate} />
 
       <ApiAppTable

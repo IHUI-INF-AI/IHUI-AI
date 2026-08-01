@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Mail, MessageSquare, Bell, Volume2, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { useNotification } from '@/hooks/use-notification'
@@ -105,6 +106,7 @@ export default function NotificationsPage() {
 
   return (
     <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <BackButton />
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('notificationsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('notificationsDesc')}</p>

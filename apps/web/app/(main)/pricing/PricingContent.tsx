@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Crown, Loader2, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { SocialProof } from './SocialProof'
@@ -84,6 +85,7 @@ export function PricingContent(): React.JSX.Element {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+      <BackButton />
       <section className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
