@@ -109,15 +109,21 @@ export const useAiPanelStore = create<AiPanelState>()(
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
         width: s.width,
         activeWorkspace: s.activeWorkspace,
-        floatMode: s.floatMode,
-        floatPosition: s.floatPosition,
       })),
       // 强制 open=true:rehydrate 时即使 localStorage 残留旧版本 open=false 也覆盖为 true。
       // 保证"AI 对话框默认弹出"规则在所有刷新场景下生效。
+      //
+      // floatMode/floatPosition 不持久化(2026-08-01 立,用户规则"默认状态应该在侧边栏和工作区中间"):
+      // 旧版本曾持久化 floatMode,但 ai-side-panel.tsx 的移动端 effect(isMobile && !floatMode)
+      // 会 setFloatMode(true) 并被持久化,导致回到桌面端刷新后仍为浮窗态,违反默认 docked 期望。
+      // 现改为会话级状态:每次刷新回到 docked 默认态,移动端 effect 仅在当前会话生效不污染桌面端。
+      // merge 显式强制 floatMode:false + floatPosition:默认值,忽略旧 localStorage 残留的 true。
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...((persistedState as Partial<AiPanelState>) || {}),
         open: true,
+        floatMode: false,
+        floatPosition: FLOAT_DEFAULT_POSITION,
       }),
     },
   ),
