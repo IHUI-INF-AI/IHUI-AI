@@ -4,6 +4,7 @@ import * as React from 'react'
 import { HomeSections, TOTAL_PAGES } from '@/components/marketing/HomeSections'
 import { getEnabledSectionCount } from '@/components/marketing/home-schema'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
+import { PreviewBanner } from '@/components/marketing/PreviewBanner'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 import { useHomeSchema } from '@/hooks/use-home-schema'
@@ -31,6 +32,7 @@ export default function HomePage() {
 
   return (
     <>
+      <PreviewBanner />
       {/* 全屏分页滚动容器
           - 显式 overflow-x-hidden 防止 Marquee/TypewriterHero/跑马灯等内容因
             transform/子元素宽度溢出产生横向滚动
