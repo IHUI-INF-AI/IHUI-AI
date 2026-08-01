@@ -138,12 +138,12 @@ interface NavItem {
   badge?: 'messages' | 'notification'
 }
 
-/** 侧边栏宽度常量(2026-07-17 统一)
- * - 130px 是展开态默认宽度(桌面 + 移动抽屉复用)
+/** 侧边栏宽度常量(2026-07-17 统一,2026-08-01 默认宽度加大)
+ * - 160px 是展开态默认宽度(桌面 + 移动抽屉复用)
  * - 60px 是折叠态宽度,只显图标
  * - 桌面端展开态支持拖拽调整,范围 130-180px(2026-07-18)
  */
-const SIDEBAR_WIDTH = 130
+const SIDEBAR_WIDTH = 160
 const SIDEBAR_MIN_WIDTH = 130
 const SIDEBAR_MAX_WIDTH = 180
 const SIDEBAR_COLLAPSED_WIDTH = 60
@@ -1814,14 +1814,23 @@ export function Sidebar({
           // 统一按钮风格,杜绝"桌面端用 hover:bg-foreground/20 / 移动端用 hover:bg-accent"风格漂移
           // h-9 显式覆盖 TOPBAR_BTN_BASE 的 h-full(父容器 h-[44px] 用 h-full 会撑到 44px,跟其他元素不对齐)
           // 2026-08-01 立:用户要求收起按钮默认无背景容器色,用 bg-transparent 覆盖 bg-card。
-          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'h-9 p-0 hidden min-[1024px]:flex bg-transparent')}
+          // 2026-08-01 立:用户要求"右上角的拉出缩回按钮图标加大,容器大小别变":
+          // - 容器 h-9 w-9 (36×36) 保持不变(跟顶栏其他按钮同尺寸)
+          // - 图标从 h-3.5 w-3.5 (14px) 加大到 h-5 w-5 (20px),更显眼易点击
+          // - 追加 [&>svg]:!h-5 [&>svg]:!w-5 覆盖 TOPBAR_BTN_BASE 末尾的 [&>svg]:!h-3.5 [&>svg]:!w-3.5
+          //   (tailwind-merge 同 specificity 后定义胜出,确保 20px 生效)
+          className={cn(
+            TOPBAR_BTN_BASE,
+            TOPBAR_BTN_W9,
+            'h-9 p-0 hidden min-[1024px]:flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
+          )}
           aria-label={collapsed ? t('expand') : t('collapse')}
         >
-          {/* 图标统一 14px (h-3.5 w-3.5),跟 web 端顶栏 Plus / X / Min 完全一致 */}
+          {/* 图标 20px (h-5 w-5),2026-08-01 用户要求加大 */}
           {collapsed ? (
-            <PanelLeftOpen className="h-3.5 w-3.5" />
+            <PanelLeftOpen className="h-5 w-5" />
           ) : (
-            <PanelLeftClose className="h-3.5 w-3.5" />
+            <PanelLeftClose className="h-5 w-5" />
           )}
         </Button>
       </Tooltip>
@@ -1864,15 +1873,16 @@ export function Sidebar({
           collapsed && 'w-[60px]',
         )}
         // 2026-07-22 修复首屏 width 闪烁:
-        // width 改为 `var(--sidebar-width, 130px)` 字符串引用 CSS 变量。
+        // width 改为 `var(--sidebar-width, 160px)` 字符串引用 CSS 变量。
         // - SSR/CSR 字节级一致(都是同一字符串),无 hydration mismatch 警告
         // - 实际渲染 width = layout.tsx inline script 预设的 --sidebar-width 值
         // - 折叠态直接 60px inline 覆盖 CSS 变量(避免与 var() 计算冲突)
+        // - 2026-08-01:fallback 160px 跟随 SIDEBAR_WIDTH 默认值同步加大
         style={
           collapsed
             ? { width: SIDEBAR_COLLAPSED_WIDTH }
             : {
-                width: 'var(--sidebar-width, 130px)',
+                width: 'var(--sidebar-width, 160px)',
                 transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
               }
         }
