@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -46,11 +46,7 @@ export default function UserResourcePage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div>
-        <h2 className="text-xl font-bold tracking-tight">{t('title')}</h2>
-      </div>
-
+    <div className="space-y-4">
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />

@@ -117,12 +117,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
-      </div>
-
+    <div className="space-y-4">
       <ProfileAvatar
         avatar={user?.avatar ?? undefined}
         nickname={user?.nickname ?? 'U'}
