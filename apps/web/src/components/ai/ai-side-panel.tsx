@@ -45,6 +45,22 @@ import { useIsMobile } from '@/hooks/use-media-query'
  *   (AI 面板是全局 docked 组件,与 Sidebar 同性质,不应影响 URL 与右侧工作区)
  * - 监听 WebSocket ai_response 多端同步
  */
+
+/** 浮窗默认位置锚点:工作内容展示区(#work-area-portal-root)左下角,向上弹出
+ *  - left: 工作区左边缘 + 16px(紧贴 sidebar 右侧,留 16px 缓冲)
+ *  - bottom: 距视口底部 16px(底部对齐,面板高度变化时顶部向上扩展 = "向上弹出"视觉效果)
+ *  - 测量失败回退: left=256(sidebar 默认 240 + 16), bottom=innerHeight-16
+ *  - 仅在 floatPosition.x < 0(未初始化)时使用,用户拖拽后用 floatPosition 持久化坐标 */
+function getDefaultFloatAnchor(): { left: number; bottom: number } {
+  if (typeof window === 'undefined') return { left: 256, bottom: 1000 }
+  const root = document.getElementById('work-area-portal-root')
+  const rect = root?.getBoundingClientRect()
+  return {
+    left: rect ? rect.left + 16 : 256,
+    bottom: rect ? rect.bottom - 16 : window.innerHeight - 16,
+  }
+}
+
 export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
@@ -627,8 +643,12 @@ export function AISidePanel() {
       if (target.closest('button, a, input, textarea, select')) return
 
       e.preventDefault()
-      const startX = floatPosition.x < 0 ? window.innerWidth - width - 24 : floatPosition.x
-      const startY = floatPosition.y < 0 ? 8 : floatPosition.y
+      setResizing(true)
+      // 默认位置(未初始化)用工作区左下角锚点计算,与 inline style 默认态一致
+      const anchor = getDefaultFloatAnchor()
+      const panelHeight = Math.min(600, window.innerHeight - 100)
+      const startX = floatPosition.x < 0 ? anchor.left : floatPosition.x
+      const startY = floatPosition.y < 0 ? anchor.bottom - panelHeight : floatPosition.y
       floatDragStart.current = { x: startX, y: startY, px: e.clientX, py: e.clientY }
 
       const onMove = (ev: PointerEvent) => {
@@ -644,13 +664,14 @@ export function AISidePanel() {
       }
       const onUp = () => {
         floatDragStart.current = null
+        setResizing(false)
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
       }
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [floatMode, floatMinimized, floatPosition, width, setFloatPosition],
+    [floatMode, floatMinimized, floatPosition, width, setFloatPosition, setResizing],
   )
 
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
@@ -682,11 +703,9 @@ export function AISidePanel() {
           style={
             isMobile
               ? undefined
-              : {
-                  left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
-                  right: floatPosition.x < 0 ? '24px' : 'auto',
-                  top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
-                }
+              : floatPosition.x < 0
+                ? { left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
+                : { left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
           }
         >
           <BrandIcon
@@ -720,12 +739,9 @@ export function AISidePanel() {
           style={
             isMobile
               ? undefined
-              : {
-                  width,
-                  left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
-                  right: floatPosition.x < 0 ? '24px' : 'auto',
-                  top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
-                }
+              : floatPosition.x < 0
+                ? { width, left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
+                : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
           }
         >
           <aside
@@ -869,14 +885,25 @@ export function AISidePanel() {
           floatMode
             ? isMobile
               ? undefined // 移动端:无定位 style,全屏由 inset-0 控制
-              : {
-                  width,
-                  left: floatPosition.x < 0 ? 'auto' : `${floatPosition.x}px`,
-                  right: floatPosition.x < 0 ? '24px' : 'auto',
-                  top: floatPosition.y < 0 ? '8px' : `${floatPosition.y}px`,
-                  height: 'min(600px, calc(100vh - 100px))',
-                  transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
-                }
+              : floatPosition.x < 0
+                ? {
+                    width,
+                    left: `${getDefaultFloatAnchor().left}px`,
+                    bottom: '16px',
+                    height: 'min(600px, calc(100vh - 100px))',
+                    transition: isResizing
+                      ? 'none'
+                      : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                  }
+                : {
+                    width,
+                    left: `${floatPosition.x}px`,
+                    top: `${floatPosition.y}px`,
+                    height: 'min(600px, calc(100vh - 100px))',
+                    transition: isResizing
+                      ? 'none'
+                      : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                  }
             : { width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
         }
       >
