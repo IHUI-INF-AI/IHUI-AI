@@ -99,52 +99,56 @@ export default function PrivacyPage() {
   ]
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
-      <div>
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('privacyTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('privacyDesc')}</p>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          {tc('loading')}
-        </div>
-      ) : error ? (
-        <p className="py-8 text-center text-sm text-destructive">{error}</p>
-      ) : (
-        items.map((item) => {
-          const Icon = item.icon
-          return (
-            <Card key={item.key}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Icon className="h-4 w-4" />
-                  {item.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">{item.desc}</span>
-                  <Switch
-                    checked={prefs[item.key]}
-                    onCheckedChange={(v) => update(item.key, v)}
-                    className="shrink-0"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })
-      )}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {tc('loading')}
+          </div>
+        ) : error ? (
+          <p className="py-8 text-center text-sm text-destructive">{error}</p>
+        ) : (
+          items.map((item) => {
+            const Icon = item.icon
+            return (
+              <Card key={item.key}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Icon className="h-4 w-4" />
+                    {item.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                      {item.desc}
+                    </span>
+                    <Switch
+                      checked={prefs[item.key]}
+                      onCheckedChange={(v) => update(item.key, v)}
+                      className="shrink-0"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
+        )}
 
-      {toast && (
-        <div
-          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
-        >
-          {toast.msg}
-        </div>
-      )}
+        {toast && (
+          <div
+            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+          >
+            {toast.msg}
+          </div>
+        )}
+      </div>
     </Container>
   )
 }
