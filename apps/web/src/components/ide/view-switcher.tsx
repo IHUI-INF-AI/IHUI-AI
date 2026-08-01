@@ -117,7 +117,7 @@ export function ViewSwitcher() {
                     )}
                   >
                     <opt.icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 text-left">{itemLabel(opt)}</span>
+                    <span className="flex-1 min-w-0 text-left">{itemLabel(opt)}</span>
                     <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
                   </button>
                 ))}

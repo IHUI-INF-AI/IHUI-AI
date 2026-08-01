@@ -127,29 +127,32 @@ export default function NotificationsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('emailNotifDesc')}</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t('emailNotifDesc')}</span>
                 <Switch
                   checked={prefs.emailEnabled}
                   onCheckedChange={(v) => update('emailEnabled', v)}
+                  className="shrink-0"
                 />
               </div>
               {prefs.emailEnabled && (
                 <div className="space-y-3 rounded-md bg-muted/40 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">{t('systemNotif')}</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 flex-1 text-sm">{t('systemNotif')}</span>
                     <Switch
                       size="sm"
                       checked={prefs.systemNotif}
                       onCheckedChange={(v) => update('systemNotif', v)}
+                      className="shrink-0"
                     />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">{t('marketingEmail')}</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 flex-1 text-sm">{t('marketingEmail')}</span>
                     <Switch
                       size="sm"
                       checked={prefs.marketingEmail}
                       onCheckedChange={(v) => update('marketingEmail', v)}
+                      className="shrink-0"
                     />
                   </div>
                 </div>
@@ -165,14 +168,15 @@ export default function NotificationsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground">{t('smsNotifDesc')}</span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <span className="block text-sm text-muted-foreground">{t('smsNotifDesc')}</span>
                   <p className="font-mono text-xs text-muted-foreground">+86 138****8888</p>
                 </div>
                 <Switch
                   checked={prefs.smsEnabled}
                   onCheckedChange={(v) => update('smsEnabled', v)}
+                  className="shrink-0"
                 />
               </div>
             </CardContent>
@@ -186,11 +190,12 @@ export default function NotificationsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('pushNotifDesc')}</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t('pushNotifDesc')}</span>
                 <Switch
                   checked={prefs.pushEnabled}
                   onCheckedChange={(v) => update('pushEnabled', v)}
+                  className="shrink-0"
                 />
               </div>
             </CardContent>
@@ -204,9 +209,9 @@ export default function NotificationsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('desc.notificationSound')}</span>
-                <Switch checked={soundEnabled} onCheckedChange={updateSound} />
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t('desc.notificationSound')}</span>
+                <Switch checked={soundEnabled} onCheckedChange={updateSound} className="shrink-0" />
               </div>
             </CardContent>
           </Card>

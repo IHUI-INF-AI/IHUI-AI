@@ -49,7 +49,7 @@ export function ProductsContent(): React.JSX.Element {
             `${t('buySubject')} ${title}`,
           )}`
           return (
-            <Card key={id} className="relative flex flex-col p-6">
+            <Card key={id} className="relative flex flex-col p-4 min-[768px]:p-6">
               {popular && (
                 <Badge className="absolute right-4 top-4">{t('popular')}</Badge>
               )}

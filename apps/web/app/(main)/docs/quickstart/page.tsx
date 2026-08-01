@@ -284,7 +284,7 @@ export default function QuickstartPage() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 1
               </span>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">注册账号</h3>
                 <p className="text-xs text-muted-foreground">
                   访问
@@ -308,7 +308,7 @@ export default function QuickstartPage() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 2
               </span>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">浏览 Agent 市场</h3>
                 <p className="text-sm text-muted-foreground">
                   打开
@@ -335,7 +335,7 @@ export default function QuickstartPage() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 3
               </span>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">配置 AI 模型</h3>
                 <p className="text-sm text-muted-foreground">
                   在
@@ -362,7 +362,7 @@ export default function QuickstartPage() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 4
               </span>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">上传知识库(可选)</h3>
                 <p className="text-sm text-muted-foreground">
                   在
@@ -385,7 +385,7 @@ export default function QuickstartPage() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 5
               </span>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">一键发布到六端</h3>
                 <p className="text-sm text-muted-foreground">
                   在 Agent 编排页面点击「发布」,选择目标客户端:

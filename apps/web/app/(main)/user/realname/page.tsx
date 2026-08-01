@@ -110,7 +110,7 @@ export default function RealnamePage() {
         </div>
       ) : status === 'approved' ? (
         <Card className="border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/20">
-          <CardContent className="flex items-center gap-4 p-6">
+          <CardContent className="flex items-center gap-4 p-4 min-[768px]:p-6">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
               <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
             </div>
@@ -125,7 +125,7 @@ export default function RealnamePage() {
         </Card>
       ) : status === 'pending' ? (
         <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20">
-          <CardContent className="flex items-center gap-4 p-6">
+          <CardContent className="flex items-center gap-4 p-4 min-[768px]:p-6">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
               <Clock className="h-6 w-6 text-amber-600 dark:text-amber-500" />
             </div>
@@ -139,7 +139,7 @@ export default function RealnamePage() {
         <>
           {status === 'rejected' && (
             <Card className="border-red-500/40 bg-red-50/40 dark:bg-red-950/20">
-              <CardContent className="flex items-center gap-4 p-6">
+              <CardContent className="flex items-center gap-4 p-4 min-[768px]:p-6">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
                   <XCircle className="h-6 w-6 text-red-600 dark:text-red-500" />
                 </div>

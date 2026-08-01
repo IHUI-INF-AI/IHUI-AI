@@ -251,7 +251,7 @@ export default function AdminRelayParamOpsPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{t('list')}</CardTitle>
-          <CardDescription>{t('listDesc')}</CardDescription>
+          <CardDescription className="whitespace-nowrap">{t('listDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border">

@@ -57,7 +57,7 @@ function SessionRow({ node, prefix, isLast, depth }: { node: SessionNode; prefix
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-1.5 px-1 py-1 font-mono text-xs hover:bg-muted/40 rounded-sm">
         <span className="select-none whitespace-pre text-muted-foreground">{prefix + branch}</span>
-        <CollapsibleTrigger className="flex flex-1 items-center gap-1.5 text-left">
+        <CollapsibleTrigger className="flex flex-1 min-w-0 items-center gap-1.5 text-left">
           {open ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
           <span className="font-medium">{shortId(node.id)}</span>
           <span className="text-muted-foreground">{timeFmt.format(new Date(node.startedAt))}</span>

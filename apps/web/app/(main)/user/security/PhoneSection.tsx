@@ -61,7 +61,7 @@ export function PhoneSection({
           />
         </div>
         <div className="flex items-end gap-2">
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 min-w-0 space-y-1.5">
             <Label htmlFor="code">{t('code')}</Label>
             <Input
               id="code"

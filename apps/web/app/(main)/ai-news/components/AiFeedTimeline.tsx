@@ -347,7 +347,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
           {keyword ? t('feed.searchEmpty') : t('feed.empty')}
         </div>
       ) : (
-        <div className="space-y-4 px-6 pb-6">
+        <div className="space-y-4 px-4 min-[768px]:px-6 pb-6">
           {dayGroups.map((group) => {
             const firstDate = new Date(group.items[0]!.lastSeenAt)
             return (

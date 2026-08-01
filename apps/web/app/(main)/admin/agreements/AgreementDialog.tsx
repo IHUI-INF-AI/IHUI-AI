@@ -56,7 +56,7 @@ export function AgreementDialog({
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
             <DialogDescription>{editing ? t('editDesc') : t('createDesc')}</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ag-type">{t('colType')}</Label>
               <Select
@@ -109,7 +109,7 @@ export function AgreementDialog({
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ag-date">{t('effectiveDate')}</Label>
               <Input

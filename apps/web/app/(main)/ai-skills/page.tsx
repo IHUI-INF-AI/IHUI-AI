@@ -183,7 +183,7 @@ function SkillCard({ skill }: SkillCardProps) {
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>
-        <div className="flex-1 space-y-1">
+        <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-sm font-semibold leading-tight text-foreground">
               {skill.name}

@@ -39,7 +39,7 @@ export default function H5SharePage(): React.JSX.Element {
 function LoadingView(): React.JSX.Element {
   const t = useTranslations('h5SharePage')
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center px-4 min-[768px]:px-6 text-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
       <p className="mt-4 text-sm text-muted-foreground">{t('loading')}</p>
     </div>

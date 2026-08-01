@@ -38,7 +38,7 @@ export function Tag({
     <span
       style={style}
       className={cn(
-        'inline-flex items-center gap-1 rounded border',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded border',
         !color && 'border-input bg-muted text-muted-foreground',
         sizeMap[size],
         className,
