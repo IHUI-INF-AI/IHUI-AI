@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { UserStats } from './types'
 
@@ -26,15 +25,11 @@ export function ProfileStatsCards({ stats, isError }: Props) {
           className="flex flex-col items-center justify-center rounded-lg border bg-card px-3 py-3 transition-colors hover:bg-accent"
         >
           <span className="text-xl font-bold tabular-nums whitespace-nowrap">
-            {isError ? (
-              <span className="text-sm text-destructive">--</span>
-            ) : item.value === undefined ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : (
-              item.value
-            )}
+            {isError ? <span className="text-sm text-destructive">--</span> : (item.value ?? 0)}
           </span>
-          <span className="mt-0.5 whitespace-nowrap text-xs text-muted-foreground">{item.label}</span>
+          <span className="mt-0.5 whitespace-nowrap text-xs text-muted-foreground">
+            {item.label}
+          </span>
         </Link>
       ))}
     </div>
