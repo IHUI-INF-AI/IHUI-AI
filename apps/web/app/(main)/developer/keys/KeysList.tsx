@@ -44,8 +44,8 @@ export function KeysList({
       <CardContent className="p-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            加载中...
+            <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+            <span className="whitespace-nowrap">加载中...</span>
           </div>
         ) : list.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">暂无 API 密钥</p>
@@ -68,7 +68,10 @@ export function KeysList({
                     </div>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2">
-                    <code className="text-xs text-muted-foreground">
+                    <code
+                      className="truncate font-mono text-xs text-muted-foreground"
+                      title={visible[k.id] ? k.key : maskKey(k.key)}
+                    >
                       {visible[k.id] ? k.key : maskKey(k.key)}
                     </code>
                     <button
@@ -84,7 +87,7 @@ export function KeysList({
                       <Copy className="h-3 w-3" />
                     </button>
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                     创建于 {dateFmt.format(new Date(k.createdAt))}
                     {k.lastUsedAt && ` · 最近使用 ${dateFmt.format(new Date(k.lastUsedAt))}`}
                   </p>

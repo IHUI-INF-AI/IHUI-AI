@@ -13,8 +13,8 @@ export function MiniappQrCard({ t }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Smartphone className="h-4 w-4" />
-          {t('miniappQr')}
+          <Smartphone className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">{t('miniappQr')}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -26,7 +26,7 @@ export function MiniappQrCard({ t }: Props) {
             height={192}
             className="h-48 w-48 rounded-lg border"
           />
-          <p className="text-sm text-muted-foreground">{t('miniappQrDesc')}</p>
+          <p className="line-clamp-2 text-sm text-muted-foreground">{t('miniappQrDesc')}</p>
         </div>
       </CardContent>
     </Card>

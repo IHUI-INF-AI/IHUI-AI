@@ -120,7 +120,7 @@ export default function DeveloperHomePage() {
                 <Icon className={cn('h-5 w-5', s.cls)} />
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
-              <p className="mt-2 truncate text-lg font-semibold">{s.fmt(s.value)}</p>
+              <p className="mt-2 truncate text-lg font-semibold tabular-nums">{s.fmt(s.value)}</p>
               <p className="text-xs text-muted-foreground">{s.label}</p>
             </Link>
           )
@@ -137,7 +137,7 @@ export default function DeveloperHomePage() {
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">{t('quotaUsage')}</p>
-                <p className="text-sm font-medium">
+                <p className="whitespace-nowrap tabular-nums text-sm font-medium">
                   {numFmt.format(summary.quotaUsed ?? 0)} / {numFmt.format(summary.quotaTotal ?? 0)}
                 </p>
               </div>
@@ -164,9 +164,9 @@ export default function DeveloperHomePage() {
                   href={q.href}
                   className="group flex flex-col gap-1 bg-card p-4 transition-colors hover:bg-accent"
                 >
-                  <Icon className="h-5 w-5 text-primary" />
-                  <p className="mt-1 text-sm font-medium">{q.label}</p>
-                  <p className="text-xs text-muted-foreground">{q.desc}</p>
+                  <Icon className="h-5 w-5 shrink-0 text-primary" />
+                  <p className="mt-1 whitespace-nowrap text-sm font-medium">{q.label}</p>
+                  <p className="line-clamp-2 text-xs text-muted-foreground">{q.desc}</p>
                 </Link>
               )
             })}
@@ -180,22 +180,22 @@ export default function DeveloperHomePage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
-                <KeyRound className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold">{tByok('cardTitle')}</span>
+                <KeyRound className="h-4 w-4 shrink-0 text-primary" />
+                <span className="whitespace-nowrap text-sm font-semibold">{tByok('cardTitle')}</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{tByok('cardDesc')}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{tByok('cardDesc')}</p>
               <ul className="mt-2 space-y-1 text-xs text-muted-foreground [&>li]:translate-y-[0px]">
                 <li className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 shrink-0 text-emerald-500" />
-                  <span>{tByok('feature1')}</span>
+                  <span className="whitespace-nowrap">{tByok('feature1')}</span>
                 </li>
                 <li className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 shrink-0 text-emerald-500" />
-                  <span>{tByok('feature2')}</span>
+                  <span className="whitespace-nowrap">{tByok('feature2')}</span>
                 </li>
                 <li className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 shrink-0 text-emerald-500" />
-                  <span>{tByok('feature3')}</span>
+                  <span className="whitespace-nowrap">{tByok('feature3')}</span>
                 </li>
               </ul>
             </div>
@@ -208,8 +208,8 @@ export default function DeveloperHomePage() {
 
       {summaryQ.isLoading && (
         <div className="flex items-center justify-center py-6 text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          {t('loading')}
+          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+          <span className="whitespace-nowrap">{t('loading')}</span>
         </div>
       )}
     </div>

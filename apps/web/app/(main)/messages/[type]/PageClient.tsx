@@ -150,21 +150,21 @@ export default function MessageTypePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div>
-        <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <Icon className="h-5 w-5 text-primary" />
-          {headerLabel}
+        <h2 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+          <Icon className="h-5 w-5 shrink-0 text-primary" />
+          <span className="whitespace-nowrap">{headerLabel}</span>
         </h2>
       </div>
 
       {isLoading ? (
-        <div className="py-8 text-center text-muted-foreground">
+        <div className="whitespace-nowrap py-8 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
         <div className="py-8 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
+        <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Icon className="h-8 w-8 opacity-40" />
           <p className="text-sm">{isPrivateLetter ? tp('noConversations') : t('empty')}</p>
         </div>
@@ -185,7 +185,7 @@ export default function MessageTypePage() {
                 <Avatar src={item.avatar ?? undefined} name={item.title} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="break-words text-sm font-medium">{item.title}</p>
+                    <p className="truncate text-sm font-medium">{item.title}</p>
                     {!item.isRead && (
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                     )}
@@ -193,7 +193,7 @@ export default function MessageTypePage() {
                   <p className="mt-0.5 line-clamp-2 break-words text-xs text-muted-foreground">
                     {item.content}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                     {dateFmt.format(new Date(item.createdAt))}
                   </p>
                 </div>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -75,13 +75,13 @@ export default function PointsPage() {
         levelLoading={levelQ.isLoading}
       />
 
-      <div className="flex gap-1 border-b">
+      <div className="flex flex-nowrap gap-1 overflow-x-auto border-b">
         {(['tx', 'lb', 'redeem'] as const).map((k) => (
           <button
             key={k}
             onClick={() => setTab(k)}
             className={cn(
-              'border-b-2 px-4 py-2 text-sm font-medium transition-colors',
+              'shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors',
               tab === k
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground',

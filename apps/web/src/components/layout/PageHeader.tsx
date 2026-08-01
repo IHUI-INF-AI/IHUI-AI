@@ -15,7 +15,7 @@ export function PageHeader({ title, subtitle, actions, breadcrumb, className }: 
     <div className={cn('flex flex-col gap-2', className)}>
       {breadcrumb && <Breadcrumb items={breadcrumb} />}
       <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <h1 className="truncate text-xl font-bold tracking-tight min-[640px]:text-2xl">{title}</h1>
           {subtitle && <p className="line-clamp-2 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
