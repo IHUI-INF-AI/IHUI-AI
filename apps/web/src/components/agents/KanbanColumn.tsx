@@ -21,7 +21,7 @@ export function KanbanColumn({ column, onSelectTask }: KanbanColumnProps) {
   )
 
   return (
-    <div className="flex min-w-[280px] flex-col rounded-lg border border-border bg-card/50">
+    <div className="flex min-w-0 flex-col rounded-lg border border-border bg-card/50 min-[768px]:min-w-[280px]">
       {/* 列头 */}
       <div className="flex items-center justify-between gap-2 px-3 py-2.5">
         <div className="flex items-center gap-2">
