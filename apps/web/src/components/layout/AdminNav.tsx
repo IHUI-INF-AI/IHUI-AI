@@ -228,6 +228,8 @@ interface AdminNavItem {
     | 'adminRelayRedemptionCodes'
     | 'adminProvidersHealth'
     | 'imChannels'
+    | 'topupConfig'
+    | 'relayParamOps'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -586,6 +588,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
       // P0 中转站造血能力对标批次(2026-07-31 立):模型映射(渠道管理)
       { href: '/admin/relay/channels', labelKey: 'adminRelayModelMappings', icon: Shuffle },
+      // P0-20b 参数覆盖规则(2026-08-01 立,转发层 applyParamOps 管理)
+      { href: '/admin/relay-param-ops', labelKey: 'relayParamOps', icon: SlidersHorizontal },
       // P0 第四批次(2026-08-01 立):渠道配额 + 充值阶梯折扣
       {
         href: '/admin/channel-quota',
@@ -595,7 +599,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       },
       {
         href: '/admin/topup-config',
-        labelKey: 'dashboard',
+        labelKey: 'topupConfig',
         icon: TrendingUp,
         dynamicLabel: 'Topup Config',
       },
@@ -917,6 +921,8 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminRelayRedemptionCodes: 'nav.adminRelayRedemptionCodes',
   adminProvidersHealth: 'nav.adminProvidersHealth',
   imChannels: 'nav.imChannels',
+  topupConfig: 'nav.topupConfig',
+  relayParamOps: 'nav.relayParamOps',
 }
 
 /** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */

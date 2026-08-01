@@ -20,7 +20,7 @@
  *
  * 注:必须用 admin 账号(项目硬规则,2026-07-28 立);adminPage fixture 已提供登录态。
  */
-import { test, expect } from './fixtures'
+import { setupTest as test, expect } from './fixtures'
 
 test.describe('SiteFooter v10/v11 防回归', () => {
   test.beforeEach(async ({ adminPage }) => {
@@ -38,7 +38,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
 
       // 1. footer 高度 ≥ 130px(v10 拉高底线)
       const footer = adminPage.locator('footer')
-      const footerHeight = await footer.evaluate((el) => el.offsetHeight)
+      const footerHeight = await footer.evaluate((el: HTMLElement) => el.offsetHeight)
       expect(
         footerHeight,
         `视口 ${width}px footer 高度 ${footerHeight}px < 130px(v10 拉高底线被回退)`,
@@ -46,10 +46,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
 
       // 2. 3 个 QR 二维码均可见(v10 h-16 w-16)
       const qrCodes = adminPage.locator('footer .h-16.w-16')
-      await expect(
-        qrCodes,
-        `视口 ${width}px 找不到 3 个 QR 二维码(h-16 w-16)`,
-      ).toHaveCount(3)
+      await expect(qrCodes, `视口 ${width}px 找不到 3 个 QR 二维码(h-16 w-16)`).toHaveCount(3)
       // 至少 1 个 QR 完全可见(其他可能被滚动遮住)
       await expect(qrCodes.first()).toBeVisible()
 
@@ -111,10 +108,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
       .locator('div.flex.flex-wrap')
     const intlIcons = intlGroup.locator('a, div[class*="h-7 w-7"]')
     const intlCount = await intlIcons.count()
-    expect(
-      intlCount,
-      `国际大模型分组应有 4 个图标(实际 ${intlCount})`,
-    ).toBe(4)
+    expect(intlCount, `国际大模型分组应有 4 个图标(实际 ${intlCount})`).toBe(4)
 
     // 验证国产大模型分组(4 个图标: DeepSeek/Qwen/Doubao/Mistral)
     const cnGroup = adminPage
