@@ -1,67 +1,19 @@
 import type { NextRequest } from 'next/server'
-import type { JWTPayload } from '@ihui/auth'
 import { base64UrlDecode } from '@ihui/shared/utils/jwt-utils'
 
-/**
- * JWT payload 中与前端鉴权相关的字段。
- * 复用 @ihui/auth 的 JWTPayload（userId/phone/familyId/roleId），并补充前端守卫所需的标准 JWT 声明（exp/iat）与兼容字段（role/type）。
- */
-export interface AuthTokenUser extends Partial<JWTPayload> {
-  role?: string
-  exp?: number
-  iat?: number
-  type?: string
-}
-
-/**
- * 解码 JWT payload 获取 user 信息（不验签，仅读取 payload）。
- * 返回 null 表示 token 格式无效或 payload 无法解析。
- */
-export function decodeUserFromToken(token: string): AuthTokenUser | null {
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-  const payloadPart = parts[1]
-  if (!payloadPart) return null
-  try {
-    return JSON.parse(base64UrlDecode(payloadPart)) as AuthTokenUser
-  } catch {
-    return null
-  }
-}
-
-/**
- * 判断用户是否为管理员。
- * 与后端一致：roleId >= 1（ADMIN_ROLE_ID = 1）视为系统管理员，直接放行。
- * 兼容字符串 role 字段（'admin' / 'administrator'）。
- */
-export function isAdmin(user: AuthTokenUser | null): boolean {
-  if (!user) return false
-  if (typeof user.roleId === 'number' && user.roleId >= 1) return true
-  if (typeof user.role === 'string') {
-    const r = user.role.toLowerCase()
-    return r === 'admin' || r === 'administrator'
-  }
-  return false
-}
-
-/**
- * 检查 token 是否存在且未过期（仅本地校验，不验签）。
- * 真正的签名校验由后端 @ihui/auth 完成；此处仅做前端守卫的快速拦截。
- */
-export function isAuthenticated(token: string | null | undefined): boolean {
-  if (!token) return false
-  const user = decodeUserFromToken(token)
-  if (!user) return false
-  if (typeof user.exp === 'number') {
-    const now = Math.floor(Date.now() / 1000)
-    if (now >= user.exp) return false
-  }
-  return true
-}
+// 纯函数下沉到共享层(2026-08-01,AGENTS.md §3 共享层优先)
+// decodeUserFromToken / isAdmin / isAuthenticated / AuthTokenUser 现由 @ihui/shared/auth 提供,
+// 此处 re-export 保持现有调用方零改动(继续从 @/lib/auth-utils import)。
+export {
+  decodeUserFromToken,
+  isAdmin,
+  isAuthenticated,
+  type AuthTokenUser,
+} from '@ihui/shared/auth'
 
 /**
  * 获取 redirect 查询参数。
- * 仅允许站内相对路径（以单个 / 开头），防止开放重定向攻击。
+ * 仅允许站内相对路径(以单个 / 开头),防止开放重定向攻击。
  */
 export function getRedirectPath(request: NextRequest): string {
   const redirect = request.nextUrl.searchParams.get('redirect')
