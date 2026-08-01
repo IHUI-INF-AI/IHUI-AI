@@ -357,7 +357,7 @@ const MessageItem = React.memo(function MessageItem({
               aria-label={copyLabel}
               title={copyLabel}
               className={cn(
-                'absolute -top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md',
+                'absolute -top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md',
                 'border border-border/60 bg-background text-muted-foreground shadow-sm',
                 'transition-opacity duration-150 hover:bg-accent hover:text-foreground',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',

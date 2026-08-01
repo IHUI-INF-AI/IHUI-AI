@@ -145,7 +145,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
         </div>
         <div className="flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
           {(['today', '7d', '30d'] as const).map((r) => (
-            <Button key={r} type="button" variant={range === r ? 'default' : 'ghost'} size="sm" className="h-7 px-2 text-xs" onClick={() => setRange(r)}>
+            <Button key={r} type="button" variant={range === r ? 'default' : 'ghost'} size="sm" className="h-9 px-3 text-xs" onClick={() => setRange(r)}>
               {r === 'today' ? '今日' : r === '7d' ? '7d' : '30d'}
             </Button>
           ))}

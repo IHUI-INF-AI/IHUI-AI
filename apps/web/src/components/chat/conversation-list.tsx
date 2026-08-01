@@ -447,7 +447,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-9 w-9"
                   onClick={() => favMutation.mutate(item.id)}
                   disabled={favMutation.isPending}
                   aria-label={item.favorite ? t('unfavorite') : t('favorite')}
@@ -462,7 +462,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-9 w-9"
                     disabled={busyId === item.id}
                     aria-label={tc('actions.menu')}
                     data-testid="conversation-more-menu"

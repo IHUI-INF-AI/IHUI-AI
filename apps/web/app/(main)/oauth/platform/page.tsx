@@ -41,7 +41,7 @@ export default function OauthPlatformPage() {
           <KeyRound className="h-3.5 w-3.5" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-4xl font-bold tracking-tight md:text-5xl">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
           {t('heroSubtitle')}
         </p>
@@ -90,7 +90,7 @@ export default function OauthPlatformPage() {
             const Icon = s.icon
             return (
               <div key={s.title} className="relative space-y-3 rounded-lg border p-6">
-                <div className="absolute right-4 top-4 text-3xl font-bold text-muted/30">
+                <div className="absolute right-4 top-4 text-2xl min-[768px]:text-3xl font-bold text-muted/30">
                   {i + 1}
                 </div>
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
