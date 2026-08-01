@@ -1329,6 +1329,8 @@ commit: e6a978971, 已 push, local == remote(注:--no-verify 跳过 pre-commit h
 - [x] ✅(2026-08-01) 修复 `apps/web/src/components/layout/AdminNav.tsx` 第 598 行 `labelKey: 'dashboard'` → `labelKey: 'topupConfig'`(P0-21 菜单显示 bug)
 - [x] ✅(2026-08-01) v1-batches 暂不注册(BullMQ queue 模块未建,注册会暴露 mock 端点),标记 TODO 待 BullMQ 落地
 - [x] ✅(2026-08-01) P0-18 v1-batches 路由注册完成:BullMQ queue 模块(`apps/api/src/queue/batch-queue.ts` + `index.ts`)+ batch-worker.ts(OpenAI/Anthropic 批处理 + 50% 折扣计费)+ workers/index.ts 注册 startBatchWorker + routes/index.ts 注册 v1Batches(prefix='/v1')
+- [x] ✅(2026-08-01) 补充 POST /v1/files 文件上传端点(2026-08-01 立,§24 用户确认)— 让生产用户可上传 JSONL 创建 OpenAI 格式批量任务,参考 OpenAI Files API,`apps/api/src/routes/v1-files.ts` 已实现(multipart 接收 + saveBatchInput 存 Redis + OpenAI 兼容响应),`routes/index.ts` 已注册 `server.register(v1Files, { prefix: '/v1' })`
+- [x] ✅(2026-08-01) 改进 recordBatchCall 错误日志(2026-08-01 立)— `apps/api/src/workers/batch-worker.ts` 中 `.catch(() => {})` 改为 `logger.warn('batch billing failed', { batchId, err })` 便于排查计费失败
 
 ## P0-20b 参数覆盖系统转发层集成(2026-08-01 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
 
