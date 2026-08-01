@@ -53,6 +53,7 @@ export function HomeComparison() {
       </RevealOnView>
 
       <RevealOnView as="div" delay={0.1} className="overflow-hidden rounded-lg border">
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-xs min-[640px]:text-sm">
           <thead className="bg-muted/50">
             <tr>
@@ -156,6 +157,7 @@ export function HomeComparison() {
             })}
           </tbody>
         </table>
+        </div>
       </RevealOnView>
     </section>
   )

@@ -84,7 +84,7 @@ export function DesktopSettingsCard() {
             <span className="text-muted-foreground">版本</span>
             <span className="font-medium">{appInfo?.version ?? '—'}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex shrink-0 items-center gap-2 text-sm">
             <span className="text-muted-foreground">平台</span>
             <span className="font-medium capitalize">{appInfo?.platform ?? '—'}</span>
           </div>
@@ -92,9 +92,9 @@ export function DesktopSettingsCard() {
 
         {/* 开机自启开关 */}
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Power className="h-4 w-4 text-muted-foreground" />
-            <div>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Power className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
               <p className="text-sm font-medium">开机自启</p>
               <p className="text-xs text-muted-foreground">登录系统时自动启动并最小化到托盘</p>
             </div>
@@ -107,6 +107,7 @@ export function DesktopSettingsCard() {
             }}
             disabled={loading}
             aria-label="开机自启"
+            className="shrink-0"
           />
         </div>
 
@@ -117,21 +118,21 @@ export function DesktopSettingsCard() {
             全局快捷键
           </div>
           <div className="grid grid-cols-1 gap-1.5 text-xs">
-            <div className="flex items-center justify-between rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="text-muted-foreground">唤起 / 隐藏主窗口</span>
-              <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+            <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
+              <span className="min-w-0 flex-1 text-muted-foreground">唤起 / 隐藏主窗口</span>
+              <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Shift+I
               </kbd>
             </div>
-            <div className="flex items-center justify-between rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="text-muted-foreground">打开管理后台</span>
-              <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+            <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
+              <span className="min-w-0 flex-1 text-muted-foreground">打开管理后台</span>
+              <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Shift+A
               </kbd>
             </div>
-            <div className="flex items-center justify-between rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="text-muted-foreground">退出应用</span>
-              <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+            <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
+              <span className="min-w-0 flex-1 text-muted-foreground">退出应用</span>
+              <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Q
               </kbd>
             </div>

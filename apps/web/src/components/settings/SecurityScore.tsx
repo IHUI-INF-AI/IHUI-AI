@@ -113,7 +113,7 @@ export function SecurityScore() {
               </div>
             </div>
 
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-center gap-1.5 text-sm font-medium" style={{ color }}>
                 {levelLabel(data.level)}
               </div>

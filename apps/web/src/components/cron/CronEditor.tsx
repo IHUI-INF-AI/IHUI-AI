@@ -195,7 +195,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
                   </Button>
                 ))}
               </div>
-              <div className="flex flex-1 items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex flex-1 min-w-0 items-center gap-2 text-xs text-muted-foreground">
                 {f.mode === 'every' && <span>{t('everyField', { field: fieldLabel })}</span>}
                 {f.mode === 'step' && (
                   <>

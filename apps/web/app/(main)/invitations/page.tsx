@@ -200,6 +200,7 @@ export default function InvitationsPage() {
           </div>
         ) : invitees.length > 0 ? (
           <div className="overflow-hidden rounded-lg border">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr>
@@ -228,6 +229,7 @@ export default function InvitationsPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">

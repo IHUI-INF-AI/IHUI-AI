@@ -257,7 +257,7 @@ export default function CliImportPage() {
                       onChange={() => toggleSelected(p.sourceId)}
                       className="mt-0.5 h-3.5 w-3.5"
                     />
-                    <div className="flex-1 space-y-0.5">
+                    <div className="flex-1 min-w-0 space-y-0.5">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{p.name}</span>
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">

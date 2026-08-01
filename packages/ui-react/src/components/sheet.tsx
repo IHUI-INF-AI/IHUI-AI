@@ -77,7 +77,10 @@ SheetHeader.displayName = 'SheetHeader'
 
 const SheetFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col-reverse min-[640px]:flex-row min-[640px]:justify-end min-[640px]:space-x-2', className)}
+    className={cn(
+      'flex flex-col-reverse gap-2 min-[640px]:flex-row min-[640px]:flex-nowrap min-[640px]:justify-end min-[640px]:gap-2',
+      className,
+    )}
     {...props}
   />
 )
