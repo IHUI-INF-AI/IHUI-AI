@@ -91,6 +91,154 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_cookies": ["wxuin", "wxsid", "web_login_channel"],
         "success_url_pattern": r"channels\.weixin\.qq.com/(home|creator)",
     },
+    # ===== 第二批:友好 API 平台(2026-08-01 扩展)=====
+    "cnblogs": {
+        "name": "博客园",
+        "login_url": "https://account.cnblogs.com/signin",
+        "success_cookies": [".CNBlogsCookie", "CnblogsAdministrator"],
+        "success_url_pattern": r"account\.cnblogs\.com/|cnblogs\.com/mvc/news.aspx",
+    },
+    "segmentfault": {
+        "name": "思否",
+        "login_url": "https://segmentfault.com/user/login",
+        "success_cookies": ["PHPSESSID", "SFSSID"],
+        "success_url_pattern": r"segmentfault\.com/u/",
+    },
+    "oschina": {
+        "name": "开源中国",
+        "login_url": "https://www.oschina.net/action/user/hash_login",
+        "success_cookies": ["_user_token", "osc"],
+        "success_url_pattern": r"oschina\.net/u/\d+|my\.oschina\.net",
+    },
+    "jianshu": {
+        "name": "简书",
+        "login_url": "https://www.jianshu.com/sign_in",
+        "success_cookies": ["remember_user_token", "_jianshu_session"],
+        "success_url_pattern": r"jianshu\.com/u/|jianshu\.com/writer",
+    },
+    # ===== 第三批:六大号平台(2026-08-01 扩展)=====
+    "baijiahao": {
+        "name": "百家号",
+        "login_url": "https://baijiahao.baidu.com",
+        "success_cookies": ["BDUSS", "STOKEN", "BAIDUID"],
+        "success_url_pattern": r"baijiahao\.baidu\.com/(ucui|home)",
+    },
+    "qq": {
+        "name": "企鹅号",
+        "login_url": "https://om.qq.com/userAuth/login",
+        "success_cookies": ["pgv_pvid", "RK", "ptcz", "p_skey"],
+        "success_url_pattern": r"om\.qq\.com/(main|companion)",
+    },
+    "dayihao": {
+        "name": "大鱼号",
+        "login_url": "https://mp.dayu.com",
+        "success_cookies": ["_tb_token_", "cookie2", "unb"],
+        "success_url_pattern": r"mp\.dayu\.com/(dashboard|home)",
+    },
+    "netease": {
+        "name": "网易号",
+        "login_url": "https://mp.163.com/login.html",
+        "success_cookies": ["P_INFO", "S_INFO", "NTES_CMT_USER_INFO"],
+        "success_url_pattern": r"mp\.163\.com/(media|home)",
+    },
+    "sohu": {
+        "name": "搜狐号",
+        "login_url": "https://mp.sohu.com/mp/login",
+        "success_cookies": ["SUV", "IPLOC", "sct", "_mp_key"],
+        "success_url_pattern": r"mp\.sohu\.com/(mp4|home)",
+    },
+    "sina": {
+        "name": "新浪看点",
+        "login_url": "https://login.sina.com.cn/signup/signin.php",
+        "success_cookies": ["SCF", "SUB", "SUBP", "ALF"],
+        "success_url_pattern": r"login\.sina\.com\.cn/cgi|weibo\.com/u/",
+    },
+    # ===== 视频平台(2026-08-01 扩展)=====
+    "xigua": {
+        "name": "西瓜视频",
+        "login_url": "https://studio.ixigua.com/login",
+        "success_cookies": ["sessionid", "uid_tt", "sid_tt"],
+        "success_url_pattern": r"studio\.ixigua\.com/(main|dashboard)",
+    },
+    "haokan": {
+        "name": "好看视频",
+        "login_url": "https://haokan.baidu.com",
+        "success_cookies": ["BDUSS", "STOKEN", "BAIDUID"],
+        "success_url_pattern": r"haokan\.baidu\.com/(u|creator)",
+    },
+    # ===== 第四批:SEO/GEO 高权重平台(2026-08-01 扩展)=====
+    "baidu_zhidao": {
+        "name": "百度知道",
+        "login_url": "https://passport.baidu.com/v2/?login",
+        "success_cookies": ["BDUSS", "STOKEN"],
+        "success_url_pattern": r"passport\.baidu\.com/center|zhidao\.baidu\.com",
+    },
+    "baidu_tieba": {
+        "name": "百度贴吧",
+        "login_url": "https://passport.baidu.com/v2/?login",
+        "success_cookies": ["BDUSS", "STOKEN", "TIEBA_USERTYPE"],
+        "success_url_pattern": r"tieba\.baidu\.com/(index|home)",
+    },
+    "douban": {
+        "name": "豆瓣",
+        "login_url": "https://accounts.douban.com/passport/login",
+        "success_cookies": ["dbcl2", "ck"],
+        "success_url_pattern": r"accounts\.douban\.com/passport|douban\.com/mine",
+    },
+    "36kr": {
+        "name": "36氪",
+        "login_url": "https://36kr.com/signin",
+        "success_cookies": ["kr_user_id", "kr_security_id"],
+        "success_url_pattern": r"36kr\.com/user/|36kr\.com/newsflashes",
+    },
+    "huxiu": {
+        "name": "虎嗅网",
+        "login_url": "https://www.huxiu.com/user/login",
+        "success_cookies": ["huxiu_user_token"],
+        "success_url_pattern": r"huxiu\.com/user/\d+|huxiu\.com/member",
+    },
+    "tmtmedia": {
+        "name": "钛媒体",
+        "login_url": "https://www.tmtpost.com/login",
+        "success_cookies": ["tmtpost_email", "user_id"],
+        "success_url_pattern": r"tmtpost\.com/user/|dao\.tmtpost\.com",
+    },
+    "acfun": {
+        "name": "AcFun",
+        "login_url": "https://www.acfun.cn/login",
+        "success_cookies": ["acPasstoken", "ac_username"],
+        "success_url_pattern": r"acfun\.cn/u/|acfun\.cn/member",
+    },
+    "lofter": {
+        "name": "LOFTER",
+        "login_url": "https://www.lofter.com/login",
+        "success_cookies": ["LOFTER_PERSISTENT"],
+        "success_url_pattern": r"lofter\.com/assign|lofter\.com/home",
+    },
+    "zhihu_daily": {
+        "name": "知乎日报",
+        "login_url": "https://daily.zhihu.com/login",
+        "success_cookies": ["z_c0", "d_c0"],
+        "success_url_pattern": r"daily\.zhihu\.com/account",
+    },
+    "people": {
+        "name": "人民网",
+        "login_url": "https://login.peopleweb.com.cn/login",
+        "success_cookies": ["JSESSIONID"],
+        "success_url_pattern": r"login\.peopleweb\.com\.cn/(success|home)",
+    },
+    "china_news": {
+        "name": "中国新闻网",
+        "login_url": "https://www.chinanews.com.cn/member/login",
+        "success_cookies": ["cnUserP"],
+        "success_url_pattern": r"chinanews\.com\.cn/member/(center|home)",
+    },
+    "hupu": {
+        "name": "虎扑社区",
+        "login_url": "https://passport.hupu.com/iframe/login",
+        "success_cookies": ["hupu_username", "hupu_uid"],
+        "success_url_pattern": r"passport\.hupu\.com/iframe/loginSuccess|my\.hupu\.com",
+    },
 }
 
 

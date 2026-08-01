@@ -219,6 +219,7 @@ import { cliImportRoutes } from './cli-import.js'
 import { selfMediaRoutes } from './self-media-routes.js'
 // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
 import { publishRoutes } from './publish-routes.js'
+import { publishAnalyticsRoutes } from './publish-analytics.js'
 import { adminGrayReleaseRoutes } from './admin-gray-release.js'
 import { adminErrorDashboardRoutes } from './admin-error-dashboard.js'
 import { adminApiPlatformRoutes } from './admin-api-platform.js'
@@ -829,6 +830,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(selfMediaRoutes, { prefix: '/api' })
   // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
   server.register(publishRoutes, { prefix: '/api' })
+  server.register(publishAnalyticsRoutes, { prefix: '/api' })
   server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })
   server.register(adminErrorDashboardRoutes, { prefix: '/api/admin' })
   server.register(adminApiPlatformRoutes, { prefix: '/api/admin' })
