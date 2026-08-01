@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { CourseCard } from '@/components/business'
+import { BackButton } from '@/components/common'
 
 interface Category {
   id: string
@@ -89,6 +90,7 @@ export default function LearnPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <Card className="overflow-hidden">
         <div className="relative h-40 min-[640px]:h-48">
           {locale === 'zh-CN' && (

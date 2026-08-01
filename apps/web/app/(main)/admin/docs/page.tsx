@@ -9,6 +9,7 @@ import { slugify } from '@/lib/content'
 import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 type DocCategory = 'api' | 'guide' | 'development' | 'faq'
 type DocStatus = 'draft' | 'published'
@@ -99,6 +100,7 @@ export default function AdminDocsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

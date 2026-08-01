@@ -11,6 +11,7 @@ import { AskDialog } from './AskDialog'
 import { api, PAGE_SIZE, askToForm, fetchAsks, parseTags, selectClass } from './helpers'
 import type { AskForm, AskItem } from './types'
 import { EMPTY_ASK_FORM, type AskFormValues } from '@/lib/form-schemas/ask'
+import { BackButton } from '@/components/common'
 import {
   useClientTable,
   useSortedData,
@@ -168,6 +169,7 @@ export default function AdminAsksPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <AsksFilter search={search} setSearch={setSearch} onCreate={openCreate} mockMode={mockMode} />
       <div className="flex items-center gap-2 text-sm">
         <ArrowUpDown className="h-4 w-4 text-muted-foreground" />

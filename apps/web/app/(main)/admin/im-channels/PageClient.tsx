@@ -20,6 +20,7 @@ import MessageHistory from './MessageHistory'
 import PlatformList from './PlatformList'
 import type { ImPlatformMeta } from '@ihui/types'
 import type { TabKey } from './types'
+import { BackButton } from '@/components/common'
 
 export default function PageClient() {
   const qc = useQueryClient()
@@ -65,6 +66,7 @@ export default function PageClient() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <MessageSquare className="h-6 w-6 text-primary" />

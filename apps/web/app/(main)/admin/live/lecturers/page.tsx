@@ -13,6 +13,7 @@ import { LecturerTable } from './LecturerTable'
 import { LecturerDialog } from './LecturerDialog'
 import { PAGE_SIZE, api, fetchLecturers, EMPTY_FORM, lecturerToForm } from './helpers'
 import type { Lecturer, LecturerForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminLiveLecturersPage() {
   const t = useTranslations('admin.live')
@@ -115,6 +116,7 @@ export default function AdminLiveLecturersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('lecturersTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('lecturersSubtitle')}</p>

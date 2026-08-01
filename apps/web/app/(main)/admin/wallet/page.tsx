@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { fetchApi } from '@/lib/api'
 import type { Wallet, WalletListData } from './types'
+import { BackButton } from '@/components/common'
 
 const PAGE_SIZE = 20
 
@@ -60,6 +61,7 @@ export default function AdminWalletPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <WalletIcon className="h-6 w-6 text-primary" />

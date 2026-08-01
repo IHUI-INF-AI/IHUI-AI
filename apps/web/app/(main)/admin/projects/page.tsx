@@ -18,6 +18,7 @@ import { ProjectTable } from './ProjectTable'
 import { ProjectDialog } from './ProjectDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, projectToForm, STATUS_KEY } from './helpers'
 import type { AdminProject, ProjectForm, PageData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminProjectsPage() {
   const t = useTranslations('admin.projects')
@@ -113,6 +114,7 @@ export default function AdminProjectsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

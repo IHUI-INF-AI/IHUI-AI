@@ -14,6 +14,7 @@ import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
 import { useSubscriptionStatus, useSignContract } from '@/hooks/use-subscription'
 import { ContractManager } from '@/components/billing/ContractManager'
+import { BackButton } from '@/components/common'
 import {
   Button,
   Label,
@@ -129,6 +130,7 @@ export default function SubscriptionPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Crown className="h-6 w-6 text-amber-500" />

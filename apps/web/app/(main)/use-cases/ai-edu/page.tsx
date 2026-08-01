@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import { GraduationCap, Sparkles, ArrowRight, BookOpen, Users, BarChart3, Wrench } from 'lucide-react'
 import { generateCourseSchema, type CourseSchema } from '@/lib/seo/schema-course'
+import { BackButton } from '@/components/common'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('useCasesAiEdu')
@@ -95,6 +96,7 @@ export default async function AiEduPage() {
         />
       ) : null}
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+        <BackButton />
         {/* Hero */}
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 
 type Strategy = 'weight' | 'round-robin' | 'least-latency'
 type CircuitState = 'closed' | 'open' | 'half-open'
@@ -373,6 +374,7 @@ export default function AdminRelayChannelsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-end justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

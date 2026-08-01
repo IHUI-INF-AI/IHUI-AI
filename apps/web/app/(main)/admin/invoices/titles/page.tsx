@@ -11,6 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button }
 import { Tooltip } from '@/components/feedback'
 
 import { TitleDialog } from './TitleDialog'
+import { BackButton } from '@/components/common'
 import {
   api,
   EMPTY_FORM,
@@ -120,6 +121,7 @@ export default function AdminInvoiceTitlesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">发票抬头管理</h1>

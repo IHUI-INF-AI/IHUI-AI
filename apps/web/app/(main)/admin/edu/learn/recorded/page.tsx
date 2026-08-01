@@ -16,6 +16,7 @@ import { RecordedTable } from './RecordedTable'
 import { RecordedDialog } from './RecordedDialog'
 import { PAGE_SIZE, API, EMPTY_FORM, videoToForm, LEVEL_KEY, AUDIT_KEY } from './helpers'
 import type { Video, CForm, RecordedSearch } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnRecordedPage() {
   const t = useTranslations('admin.edu.learn.recorded')
@@ -175,6 +176,7 @@ export default function EduLearnRecordedPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

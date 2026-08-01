@@ -25,6 +25,7 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface UsageRow {
   id: string
@@ -105,6 +106,7 @@ export default function AdminApiPlatformUsagePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

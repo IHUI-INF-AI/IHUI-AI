@@ -9,6 +9,7 @@ import { Loader2, HelpCircle, Search, BookOpen, Mail } from 'lucide-react'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, excerptFromContent, type HelpCategory, type HelpArticleSummary } from '@/lib/content'
+import { BackButton } from '@/components/common'
 
 export default function HelpPage() {
   const t = useTranslations('help')
@@ -58,6 +59,7 @@ export default function HelpPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <HelpCircle className="h-6 w-6 text-primary" />

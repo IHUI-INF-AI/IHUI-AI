@@ -15,6 +15,7 @@ import type { Course, CForm } from './types'
 import { CourseFilter } from './CourseFilter'
 import { CourseTable } from './CourseTable'
 import { CourseDialog } from './CourseDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduCoursePage() {
   const t = useTranslations('admin.edu.course.index')
@@ -130,6 +131,7 @@ export default function EduCoursePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

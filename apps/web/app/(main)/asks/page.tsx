@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { HelpCircle, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
+import { BackButton } from '@/components/common'
 import { AsksFilter } from './AsksFilter'
 import { AsksList } from './AsksList'
 import { AsksDialog } from './AsksDialog'
@@ -67,6 +68,7 @@ export default function AsksPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

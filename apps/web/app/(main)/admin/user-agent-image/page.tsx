@@ -21,6 +21,7 @@ import {
   userAgentImageToForm,
 } from './helpers'
 import type { UserAgentImage, UserAgentImageForm, UserAgentImageSearch, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function UserAgentImagePage() {
   const qc = useQueryClient()
@@ -131,6 +132,7 @@ export default function UserAgentImagePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">用户Agent图片</h1>
         <div className="flex gap-2">

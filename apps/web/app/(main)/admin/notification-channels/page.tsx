@@ -16,6 +16,7 @@ import {
 } from '@ihui/ui-react'
 import { ChannelsTable } from './ChannelsTable'
 import { ChannelDialog } from './ChannelDialog'
+import { BackButton } from '@/components/common'
 import {
   RESOURCE,
   PAGE_SIZE,
@@ -113,6 +114,7 @@ export default function NotificationChannelsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

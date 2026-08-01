@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
+import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface VipLevel {
@@ -88,6 +89,7 @@ export default function VipPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1 text-center">
         <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Crown className="h-7 w-7 text-amber-500" />

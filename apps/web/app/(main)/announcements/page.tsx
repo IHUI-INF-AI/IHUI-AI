@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Megaphone, Pin } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { api, type Announcement, ANN_TYPE_ICON, ANN_TYPE_BADGE, ANN_TYPE_KEY } from '@/lib/content'
 
@@ -37,6 +38,7 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Megaphone className="h-6 w-6 text-primary" />

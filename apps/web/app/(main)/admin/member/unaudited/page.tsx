@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { Input, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface MemberUser {
   id: string
@@ -81,6 +82,7 @@ export default function AdminMemberUnauditedPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Users className="h-6 w-6 text-primary" />

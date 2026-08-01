@@ -19,6 +19,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface Overview {
   totalCommission?: number
@@ -106,6 +107,7 @@ export default function AdminDistributionPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">分销中心</h1>
         <p className="mt-1 text-sm text-muted-foreground">

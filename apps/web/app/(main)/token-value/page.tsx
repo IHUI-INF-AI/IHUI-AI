@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Coins } from 'lucide-react'
 
-import { AnimatedNumber } from '@/components/common'
+import { AnimatedNumber, BackButton } from '@/components/common'
 import { getTokenBalance, getTokenFlows, type TokenFlowItem } from '@ihui/api-client'
 
 import { TokenValueCards } from './TokenValueCards'
@@ -96,6 +96,7 @@ export default function TokenValuePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Coins className="h-7 w-7 text-primary" />

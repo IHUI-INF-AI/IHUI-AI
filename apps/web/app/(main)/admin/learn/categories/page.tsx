@@ -10,6 +10,7 @@ import { LearnCategoryTable } from './LearnCategoryTable'
 import { LearnCategoryDialog } from './LearnCategoryDialog'
 import { api, EMPTY_FORM, categoryToForm } from './helpers'
 import type { Category, CategoryForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminLearnCategoriesPage() {
   const t = useTranslations('admin.learn')
@@ -94,6 +95,7 @@ export default function AdminLearnCategoriesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('categoriesTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('categoriesSubtitle')}</p>

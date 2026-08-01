@@ -14,6 +14,7 @@ import { ZhsActivityTable } from './ZhsActivityTable'
 import { ZhsActivityDialog } from './ZhsActivityDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, activityToForm } from './helpers'
 import type { ZhsActivity, ZhsActivityForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function ZhsActivityPage() {
   const qc = useQueryClient()
@@ -126,6 +127,7 @@ export default function ZhsActivityPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">ZHS活动管理</h1>
         <div className="flex gap-2">

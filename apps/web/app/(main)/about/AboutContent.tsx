@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 const ICON_MAP = {
   blocks: Blocks,
@@ -65,6 +66,7 @@ export function AboutContent(): React.JSX.Element {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <BackButton />
       {/* Hero */}
       <section className="space-y-5 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

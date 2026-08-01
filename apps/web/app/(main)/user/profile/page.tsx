@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { BackButton } from '@/components/common'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
 import { RoutinesPanel } from '@/components/ai/routines-panel'
 import { VoiceRecord } from '@/components/ai/voice-record'
@@ -118,6 +119,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <ProfileAvatar
         avatar={user?.avatar ?? undefined}
         nickname={user?.nickname ?? 'U'}

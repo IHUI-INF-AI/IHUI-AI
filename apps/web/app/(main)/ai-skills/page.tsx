@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Search, Sparkles, ExternalLink, Loader2, Wand2, Code, FileText } from 'lucide-react'
 
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
+import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
 
@@ -82,6 +83,7 @@ export default function AiSkillsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
+      <BackButton />
       {/* 顶部:标题 + 统计 */}
       <header className="space-y-1">
         <div className="flex items-center gap-2">

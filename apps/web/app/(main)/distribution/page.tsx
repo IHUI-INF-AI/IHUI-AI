@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 import { Card, CardContent } from '@ihui/ui-react'
 import { StatCard } from '@/components/data'
 
@@ -111,6 +112,7 @@ export default function DistributionHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <BackButton />
       <Card className="overflow-hidden">
         <CardContent className="flex items-center gap-4 p-5">
           <Image

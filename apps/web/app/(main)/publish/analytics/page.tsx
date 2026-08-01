@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { BackButton } from '@/components/common'
 import {
   AnalyticsDashboard,
   type AnalyticsPeriod,
@@ -77,6 +78,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-3">
+      <BackButton />
       <div>
         <h2 className="text-base font-semibold">{t('analytics.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('analytics.subtitle')}</p>

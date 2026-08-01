@@ -11,6 +11,7 @@ import { AgentGrid } from './AgentGrid'
 import { MarketPagination } from './MarketPagination'
 import { MyAgentsTab } from './MyAgentsTab'
 import { PAGE_SIZE, fetchAgents, fetchCategories } from './helpers'
+import { BackButton } from '@/components/common'
 
 export default function AgentsMarketPage() {
   const t = useTranslations('agent')
@@ -45,6 +46,7 @@ export default function AgentsMarketPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <AgentsHeader />
 
       <Tabs defaultValue="market" className="space-y-4">

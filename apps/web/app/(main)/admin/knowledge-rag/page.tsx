@@ -36,6 +36,7 @@ import {
 } from '@ihui/api-client'
 import { EMPTY_INGEST, EMPTY_SEARCH, fmtScore, fmtTime } from './helpers'
 import type { IngestForm, KnowledgeChunkPreview, SearchForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function KnowledgeRagPage() {
   const qc = useQueryClient()
@@ -156,6 +157,7 @@ export default function KnowledgeRagPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

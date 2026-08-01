@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -7,6 +7,7 @@ import { Tag, Hash, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import { Tag as TagChip } from '@/components/data/Tag'
 
 interface TagItem {
@@ -53,6 +54,7 @@ export default function TagsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Hash className="h-6 w-6 text-primary" />

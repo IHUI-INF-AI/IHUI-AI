@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, FileText, Loader2, AlertCircle, Layers } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import {
   SPEC_BUILTIN_TEMPLATES,
   type SpecHistoryEntry,
@@ -68,6 +69,7 @@ export default function SpecListPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Spec 模式</h1>

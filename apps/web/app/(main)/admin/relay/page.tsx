@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 
 interface ProviderDist {
   providerCode: string
@@ -170,6 +171,7 @@ export default function AdminRelayOverviewPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Server className="h-6 w-6 text-primary" />
