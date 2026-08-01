@@ -29,6 +29,8 @@ import {
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
 import { checkQuota, recordCall, isByokCall, modelToProviderCode } from '../services/relay-billing-service.js'
+// P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
+import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
 import {
   anthropicRequestToOpenAI,
@@ -430,10 +432,18 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
+      // 流式 + 非流式共用修改后的 openaiBody
+      const paramOpsResult = await applyParamOpsToBody(openaiBody, {
+        model: body.model,
+        original_model: body.model,
+      })
+      const modifiedOpenaiBody = paramOpsResult.body
+
       // 流式
       if (body.stream) {
         return streamAnthropicMessages(request, reply, {
-          openaiBody,
+          openaiBody: modifiedOpenaiBody,
           model: body.model,
           apiKeyId: apiKey?.id,
           userId: apiKey?.userId,
@@ -450,7 +460,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(openaiBody),
+          body: JSON.stringify(modifiedOpenaiBody),
         })
 
         if (!resp.ok) {

@@ -182,10 +182,10 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       // 断言 badge 已切换
       const badge = page.locator('[data-testid="chat-mode-badge"]')
       await expect(badge).toHaveAttribute('data-mode', mode, { timeout: 3000 })
-      await expect(badge).toContainText(MODE_LABEL_EXPECT['zh-CN'][mode])
+      await expect(badge).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode])
       // 验证 toast(sonner)出现
       const toast = page.locator('[data-sonner-toast]').first()
-      await expect(toast).toContainText(MODE_LABEL_EXPECT['zh-CN'][mode], { timeout: 2000 })
+      await expect(toast).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode], { timeout: 2000 })
       // 无关键 console error(过滤已知 favicon/React DevTools)
       const real = consoleErrors.filter(
         (e) => !e.includes('favicon') && !e.includes('React DevTools'),
@@ -257,12 +257,12 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       // build 模式(默认)
       const badge = page.locator('[data-testid="chat-mode-badge"]')
       await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
-      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale].build)
+      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.build)
       // 切到 plan
       await page.keyboard.press('Control+2')
       await page.waitForTimeout(500)
       await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })
-      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale].plan)
+      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.plan)
       // 验证 document.documentElement.lang 同步切换
       const lang = await page.evaluate(() => document.documentElement.lang)
       // next-intl 会把 lang 切到目标语言(可能简化为 'zh' / 'en' 等)
