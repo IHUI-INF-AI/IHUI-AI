@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import type { AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
 import { PROMPT_TEMPLATE_IDS } from '@/components/chat/prompt-template-data'
@@ -77,7 +77,7 @@ const PERMISSION_TOAST_KEY = 'ihui:permission-toast-shown'
 export function useSlashAction(
   setInputValue: (v: string) => void,
   // FIXME(any): aiSkills 留作未来 skill 描述/分类查询扩展,先用 void 消费以满足 TS6133
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   aiSkills: AiSkillMeta[],
   inputCoreRef: React.RefObject<SlashActionInputCoreHandle | null>,
   onSend: (content: string) => Promise<boolean> | boolean,

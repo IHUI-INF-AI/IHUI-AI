@@ -30,7 +30,7 @@
 import * as React from 'react'
 import { Clock4, History, Trash2, ShieldAlert, ShieldCheck, Hand, BellRing } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { Popover, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -274,7 +274,10 @@ export function PermissionHistoryPanel() {
     <>
       <Popover
         content={
-          <div className="w-[min(320px,calc(100vw-2rem))] space-y-2" data-testid="permission-history-panel">
+          <div
+            className="w-[min(320px,calc(100vw-2rem))] space-y-2"
+            data-testid="permission-history-panel"
+          >
             {/* 顶部标题 + 清空按钮 */}
             <div className="flex items-center justify-between gap-2 px-1 pb-1">
               <div className="flex items-center gap-1.5">
