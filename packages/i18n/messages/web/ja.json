@@ -841,6 +841,46 @@
       "criticalUsage": "もうすぐ上限"
     },
     "permission": {
+      "copied": "コピーしました",
+      "copyFailed": "コピーに失敗しました",
+      "retry": "再試行中…",
+      "copy": "コピー",
+      "me": "私",
+      "stepThinking": "思考中",
+      "toolCallSkipped": "スキップしました",
+      "stepAnswer": "回答",
+      "timelineUserMessage": "ユーザーメッセージ",
+      "timelineAiReply": "AI返信",
+      "search": "検索",
+      "fallbackNotice": "プライマリモデル {{primary}} は利用できません。{{fallback}} に自動切り替えしました",
+      "loading": "読み込み中…",
+      "jumpToLatest": "最新へ移動",
+      "latest": "最新",
+      "tplSummary": "要約",
+      "tplSummaryContent": "以下の内容を要約し、重要な情報を抽出してください",
+      "tplTranslate": "翻訳",
+      "tplTranslateContent": "以下の内容を英語に翻訳してください",
+      "tplExplain": "説明",
+      "tplExplainContent": "以下の内容を説明してください",
+      "tplCode": "コード",
+      "tplCodeContent": "以下のコードを最適化してください",
+      "tplPolish": "添削",
+      "tplPolishContent": "以下の文章を添削してください",
+      "contextMenu": {
+        "copyText": "テキストをコピー",
+        "copyMarkdown": "Markdownをコピー",
+        "regenerate": "再生成",
+        "feedback": "フィードバック",
+        "deleteMessage": "メッセージを削除"
+      },
+      "toast": {
+        "copiedText": "クリップボードにコピーしました",
+        "copiedMarkdown": "Markdownをコピーしました",
+        "regenerating": "再生成中…",
+        "feedbackRecorded": "フィードバックを記録しました",
+        "messageDeleted": "メッセージを削除しました",
+        "operationFailed": "操作に失敗しました"
+      },
       "buttonLabel": "承認モード",
       "buttonHintShortcut": "Shift+Tab で切替",
       "popoverTitle": "AI の操作をどのように承認しますか?",
@@ -1272,7 +1312,7 @@
     "viewCount": "{count}",
     "required": "{label}はです",
     "answerQuestion": "：",
-    "all": ""
+    "all": "すべて"
   },
   "payment": {
     "title": "料金プラン",
@@ -6330,9 +6370,9 @@
       "totalTokens": "合計",
       "routines": "ルーティン",
       "voiceRecord": "音声録音",
-      "gender_female": "",
-      "gender_male": "",
-      "gender_unknown": "",
+      "gender_female": "女性",
+      "gender_male": "男性",
+      "gender_unknown": "非公開",
       "subtitle": "のなドキュメントとAPIリファレンス",
       "avatar": "アバター",
       "avatarHint": "JPG / PNG、200x200",
@@ -6382,12 +6422,12 @@
       "hoursAgo": "{hr}",
       "daysAgo": "{day}",
       "tab": {
-        "all": "",
-        "comment": "",
-        "follow": "",
-        "order": "",
-        "project": "",
-        "system": ""
+        "all": "すべて",
+        "comment": "コメント",
+        "follow": "フォロー",
+        "order": "注文",
+        "project": "プロジェクト",
+        "system": "システム"
       },
       "title": "通知",
       "unreadCount": "{count}",
@@ -6682,9 +6722,9 @@
       "templateLoaded": "AI パネルを開き、{name} 自動化タスクを作成しています",
       "exampleInvokePrompt": "自動化タスクを作成してください。タスク名:{name}。説明:{desc}。実行時間:{schedule}。期待される出力:{output}。このテンプレートに基づいて、実行時間、コンテンツソース、出力方法などの詳細を確認しながら設定を案内してください。"
     },
-    "automation": "",
-    "koubo": "",
-    "wechat": ""
+    "automation": "自動化",
+    "koubo": "ナレーション",
+    "wechat": "WeChat"
   },
   "publish": {
     "title": "マルチプラットフォーム公開",
@@ -6834,12 +6874,12 @@
       "uploadSuccess": "アップロード済み: {filename}",
       "uploadFailed": "アップロード失敗",
       "uploadedHint": "ファイルがアップロードされました。再選択で置換できます。",
-      "contentFormatDocx": "",
-      "contentFormatHtml": "",
-      "contentFormatImage": "",
-      "contentFormatMd": "",
-      "contentFormatPdf": "",
-      "contentFormatVideo": ""
+      "contentFormatDocx": "DOCX",
+      "contentFormatHtml": "HTML",
+      "contentFormatImage": "画像",
+      "contentFormatMd": "Markdown",
+      "contentFormatPdf": "PDF",
+      "contentFormatVideo": "動画"
     },
     "history": {
       "duration": "所要時間",
@@ -6901,11 +6941,11 @@
       "zhihu_daily": "知乎日報"
     },
     "tabs": {
-      "accounts": "",
+      "accounts": "アカウント管理",
       "analytics": "データ分析",
       "calendar": "公開カレンダー",
-      "history": "",
-      "new": ""
+      "history": "公開履歴",
+      "new": "新規タスク"
     },
     "editor": {
       "markdown": "Markdown",
@@ -7258,38 +7298,38 @@
     "desc": {
       "notificationSound": "通知受信時に音声を再生"
     },
-    "billingAmount": "",
-    "billingCreatedAt": "",
-    "billingLoading": "",
-    "billingNext": "",
-    "billingOrderNo": "",
-    "billingPageInfo": "",
-    "billingPrev": "",
-    "billingStatus": "",
-    "billingTotal": "",
+    "billingAmount": "金額",
+    "billingCreatedAt": "作成日時",
+    "billingLoading": "読み込み中…",
+    "billingNext": "次へ",
+    "billingOrderNo": "注文番号",
+    "billingPageInfo": "{{page}}/{{totalPages}} ページ",
+    "billingPrev": "前へ",
+    "billingStatus": "ステータス",
+    "billingTotal": "全 {{count}} 件",
     "cliImportDesc": "CLI設定と資格情報をインポート",
     "cliImportTitle": "CLIインポート",
-    "icpRecordEntity": "",
-    "icpRecordEntityType": "",
-    "icpRecordNumber": "",
-    "icpRecordScope": "",
-    "icpRecordTime": "",
-    "icpRecordUrl": "",
-    "llmConfigsDesc": "",
-    "llmConfigsTitle": "",
-    "miniappQr": "",
-    "miniappQrDesc": "",
-    "modelRecordAlgorithmType": "",
-    "modelRecordApplicant": "",
-    "modelRecordApplyDate": "",
-    "modelRecordModelName": "",
-    "modelRecordNumber": "",
-    "modelRecordScope": "",
-    "modelRecordStatus": "",
-    "profileDesc": "",
-    "profileTitle": "",
-    "securityDesc": "",
-    "securityTitle": "",
+    "icpRecordEntity": "備案主体",
+    "icpRecordEntityType": "主体タイプ",
+    "icpRecordNumber": "備案番号",
+    "icpRecordScope": "備案範囲",
+    "icpRecordTime": "備案時間",
+    "icpRecordUrl": "備案リンク",
+    "llmConfigsDesc": "LLMプロバイダとパラメータを設定",
+    "llmConfigsTitle": "LLM設定",
+    "miniappQr": "ミニアプリQRコード",
+    "miniappQrDesc": "スキャンしてミニアプリを体験",
+    "modelRecordAlgorithmType": "アルゴリズムタイプ",
+    "modelRecordApplicant": "備案申請者",
+    "modelRecordApplyDate": "備案日",
+    "modelRecordModelName": "モデル名",
+    "modelRecordNumber": "備案番号",
+    "modelRecordScope": "適用範囲",
+    "modelRecordStatus": "備案ステータス",
+    "profileDesc": "個人情報を表示・編集",
+    "profileTitle": "プロフィール",
+    "securityDesc": "パスワード、2要素認証などのセキュリティ設定を管理",
+    "securityTitle": "セキュリティ",
     "accountDeletionTitle": "アカウント削除",
     "activityTitle": "アクティビティ履歴",
     "apiKeysNavTitle": "APIキー",
@@ -7374,9 +7414,9 @@
     "empty": "コンテンツはまだありません。おしみに",
     "loading": "読み込み中...",
     "tabs": {
-      "all": "",
-      "file": "",
-      "project": ""
+      "all": "すべて",
+      "file": "ファイル",
+      "project": "プロジェクト"
     }
   },
   "follows": {
@@ -7391,10 +7431,10 @@
     "empty": "コンテンツはまだありません。おしみに",
     "loading": "読み込み中...",
     "tabs": {
-      "all": "",
-      "project": "",
-      "tag": "",
-      "user": ""
+      "all": "すべて",
+      "project": "プロジェクト",
+      "tag": "タグ",
+      "user": "ユーザー"
     }
   },
   "tags": {
@@ -7760,8 +7800,8 @@
         "time": "引換時間",
         "status": "ステータス",
         "statusLabels": {
-          "failed": "",
-          "success": ""
+          "failed": "失敗",
+          "success": "成功"
         }
       }
     },
@@ -7798,12 +7838,12 @@
         }
       ],
       "features": {
-        "cache": "",
-        "loadBalance": "",
-        "monitor": "",
-        "multiModel": "",
-        "oneClick": "",
-        "scale": ""
+        "cache": "キャッシュ",
+        "loadBalance": "ロードバランシング",
+        "monitor": "モニタリング",
+        "multiModel": "マルチモデル",
+        "oneClick": "ワンクリック デプロイ",
+        "scale": "オートスケーリング"
       }
     },
     "apiDocs": {
@@ -7829,7 +7869,10 @@
         "title": "呼び出し例",
         "curl": "ｃＵＲＬ",
         "python": "パイソン"
-      }
+      },
+      "curlPlaceholder": "cURLコマンドを入力してテスト…",
+      "searchPlaceholder": "APIを検索…",
+      "copyCodeAriaLabel": "コードをコピー"
     },
     "skills": {
       "title": "Skills 市場",
@@ -7841,51 +7884,51 @@
       "install": "インストール",
       "installs": "{count} インストール",
       "categories": {
-        "code": "",
-        "communication": "",
-        "data": "",
-        "media": "",
-        "productivity": "",
-        "search": "",
-        "system": "",
-        "weather": ""
+        "code": "コード",
+        "communication": "コミュニケーション",
+        "data": "データ",
+        "media": "メディア",
+        "productivity": "生産性",
+        "search": "検索",
+        "system": "システム",
+        "weather": "天気"
       },
       "items": {
         "audioTranscribe": {
-          "desc": ""
+          "desc": "音声をテキストに書き起こし"
         },
         "calendar": {
-          "desc": ""
+          "desc": "スケジュールとリマインダーを管理"
         },
         "codeRunner": {
-          "desc": ""
+          "desc": "コードをオンラインで実行して結果を表示"
         },
         "dataViz": {
-          "desc": ""
+          "desc": "データをグラフとして可視化"
         },
         "databaseQuery": {
-          "desc": ""
+          "desc": "データベースにクエリを実行して結果を返す"
         },
         "emailSender": {
-          "desc": ""
+          "desc": "メールの送信と管理"
         },
         "healthcheck": {
-          "desc": ""
+          "desc": "サービスのヘルスステータスを確認"
         },
         "imageGen": {
-          "desc": ""
+          "desc": "説明から画像を生成"
         },
         "nodeConnect": {
-          "desc": ""
+          "desc": "ノードの接続と管理"
         },
         "pdfToolkit": {
-          "desc": ""
+          "desc": "PDFファイルの処理と変換"
         },
         "weather": {
-          "desc": ""
+          "desc": "天気予報情報を照会"
         },
         "webSearch": {
-          "desc": ""
+          "desc": "ウェブを検索して最新情報を取得"
         }
       }
     },
@@ -7916,8 +7959,8 @@
       "statusLabels": {
         "success": "成功",
         "failed": "失敗",
-        "disabled": "",
-        "enabled": ""
+        "disabled": "無効",
+        "enabled": "有効"
       }
     },
     "chats": {
@@ -7951,13 +7994,13 @@
         "createdAt": "作成日時"
       },
       "roleLabels": {
-        "admin": "",
-        "user": "",
-        "vip": ""
+        "admin": "管理者",
+        "user": "ユーザー",
+        "vip": "VIP"
       },
       "statusLabels": {
-        "active": "",
-        "disabled": ""
+        "active": "アクティブ",
+        "disabled": "無効"
       }
     },
     "contact": {
@@ -8113,8 +8156,8 @@
     "required": "{label}はです",
     "field_images": "画像",
     "imagesPlaceholder": "画像を貼り付けまたはドラッグしてください",
-    "tab_list": "",
-    "tab_new": "",
+    "tab_list": "リスト",
+    "tab_new": "最新",
     "title": "APIテスト",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "type": "タイプ",
@@ -8180,18 +8223,18 @@
       "loading": "読み込み中...",
       "empty": "コンテンツはまだありません。おしみに",
       "backToPoints": "ポイントセンターにる",
-      "day0": "",
-      "day1": "",
-      "day2": "",
-      "day3": "",
-      "day4": "",
-      "day5": "",
-      "day6": ""
+      "day0": "1日目",
+      "day1": "2日目",
+      "day2": "3日目",
+      "day3": "4日目",
+      "day4": "5日目",
+      "day5": "6日目",
+      "day6": "7日目"
     },
     "tab": {
-      "lb": "",
-      "redeem": "",
-      "tx": ""
+      "lb": "ランキング",
+      "redeem": "交換",
+      "tx": "取引"
     }
   },
   "orders": {
@@ -8208,16 +8251,16 @@
     "total": ": {n}",
     "orderType": "タイプ",
     "status": {
-      "all": "",
-      "cancelled": "",
-      "paid": "",
-      "pending": "",
-      "refunded": ""
+      "all": "すべて",
+      "cancelled": "キャンセル済み",
+      "paid": "支払済み",
+      "pending": "支払い待ち",
+      "refunded": "返金済み"
     },
     "type": {
-      "all": "",
-      "card": "",
-      "course": ""
+      "all": "すべて",
+      "card": "カード",
+      "course": "コース"
     }
   },
   "live": {
@@ -8687,14 +8730,14 @@
       "cancel": "キャンセル",
       "connected": "接続済み",
       "disconnected": "切断済み",
-      "high": "",
-      "low": "",
-      "medium": ""
+      "high": "高",
+      "low": "低",
+      "medium": "中"
     },
-    "statusOffline": "",
-    "statusPending": "",
-    "statusPublished": "",
-    "statusRejected": ""
+    "statusOffline": "オフライン",
+    "statusPending": "審査中",
+    "statusPublished": "公開済み",
+    "statusRejected": "却下済み"
   },
   "agents": {
     "kanban": {
@@ -8800,15 +8843,15 @@
     "currentBalance": "現在の残高",
     "totalEarned": "累計獲得",
     "totalUsed": "累計使用",
-    "colAgent": "",
-    "colAmount": "",
-    "colModel": "",
-    "colTime": "",
-    "colToken": "",
-    "range30d": "",
-    "range7d": "",
-    "rangeCustom": "",
-    "rangeToday": ""
+    "colAgent": "Agent",
+    "colAmount": "数量",
+    "colModel": "モデル",
+    "colTime": "時間",
+    "colToken": "Token",
+    "range30d": "過去30日",
+    "range7d": "過去7日",
+    "rangeCustom": "カスタム",
+    "rangeToday": "今日"
   },
   "distributionCompany": {
     "title": "の",
@@ -9344,8 +9387,8 @@
     "pageTitle": "ai コンテンツ",
     "pageSubtitle": "タイプをして、テキスト、、、、3Dモデルなどを",
     "clear": "クリア",
-    "tabCode": "",
-    "tabText": "",
+    "tabCode": "コード",
+    "tabText": "テキスト",
     "defaultPromptPlaceholder": "生成したい内容を記述...",
     "promptAriaLabel": "生成入力",
     "imageTitle": "画像生成",
@@ -9550,34 +9593,34 @@
   "myAsks": {
     "delete": "削除",
     "deleteConfirm": "Question？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "質問を管理",
+    "title": "マイ質問"
   },
   "myCircles": {
     "leave": "ログアウト",
     "leaveConfirm": "ログアウト？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "サークルを管理",
+    "title": "マイサークル"
   },
   "myArticles": {
     "create": "記事を書く",
     "edit": "編集",
     "delete": "削除",
     "deleteConfirm": "？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "記事を管理",
+    "title": "マイ記事"
   },
   "myResources": {
     "deleteConfirm": "Resource？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "リソースを管理",
+    "title": "マイリソース"
   },
   "myComments": {
     "delete": "削除",
     "deleteConfirm": "コメント？",
     "targetType": "へ",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "コメントを管理",
+    "title": "マイコメント"
   },
   "sso": {
     "title": "ログイン",
@@ -9953,12 +9996,12 @@
       "searchPlaceholder": "APIやを...",
       "loading": "読み込み中...",
       "noMatch": "するAPIはありません",
-      "catAll": "",
-      "catAudio": "",
-      "catChat": "",
-      "catImage": "",
-      "catTool": "",
-      "catVideo": ""
+      "catAll": "すべて",
+      "catAudio": "音声",
+      "catChat": "チャット",
+      "catImage": "画像",
+      "catTool": "ツール",
+      "catVideo": "動画"
     },
     "models": {
       "title": "モデルマーケット",
@@ -9976,12 +10019,12 @@
       "searchPlaceholder": "Agentやを...",
       "loading": "読み込み中...",
       "noMatch": "するAgentはありません",
-      "catAll": "",
-      "catAnalysis": "",
-      "catChat": "",
-      "catCoding": "",
-      "catTool": "",
-      "catWriting": ""
+      "catAll": "すべて",
+      "catAnalysis": "分析",
+      "catChat": "チャット",
+      "catCoding": "コーディング",
+      "catTool": "ツール",
+      "catWriting": "ライティング"
     },
     "documents": {
       "title": "ドキュメントマーケット",
@@ -10345,9 +10388,9 @@
     "addedToChatModel": "{name}をチャットに追加しました。.envで対応するAPI Keyを設定してモデルを有効化してください",
     "addedToChatPrompt": "{name}をチャットに追加しました（プロンプト意図のみ、バックエンドに対応ツールなし）",
     "removedFromChat": "{name}をチャットから削除しました",
-    "sortDefault": "",
-    "sortInstalled": "",
-    "sortName": ""
+    "sortDefault": "デフォルト",
+    "sortInstalled": "インストール済み",
+    "sortName": "名前"
   },
   "aiWorld": {
     "admin": {
@@ -11493,34 +11536,34 @@
       "titleEn": "DECISION-MAKER SCENARIOS",
       "subtitle": "智匯AIコミュニティは企業意思決定者が最も関心する 5 大シーンをカバー · 痛点共鳴 → 解決策 → 定量収益 · AI を真に落地させ ROI を生み出す",
       "costReduction": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "年間18-30万節約",
+        "description": "100+モデル智能ルーティング・複数サブスク代替",
+        "painPoint": "高額な年間費用",
+        "title": "スマットコスト削減"
       },
       "decision": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "5倍向上",
+        "description": "AIデータ分析・リアルタイム意思決定レポート",
+        "painPoint": "データ不足",
+        "title": "スマット意思決定"
       },
       "efficiency": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "10倍向上",
+        "description": "自社CLI + ワークフロー自動化",
+        "painPoint": "効率が低い",
+        "title": "高速効率化"
       },
       "innovation": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "3スタック統合",
+        "description": "LangGraph + MCP + A2A + ACP",
+        "painPoint": "参入障壁が高い",
+        "title": "技術革新"
       },
       "learning": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "年間10万節約",
+        "description": "6大モジュール・年間コース無料",
+        "painPoint": "高額な研修費",
+        "title": "全社員学習"
       }
     },
     "comparison": {
@@ -11532,98 +11575,98 @@
       "colClaude": "Claude Code",
       "colCursor": "Cursor",
       "colChatgpt": "ChatGPT",
-      "row1Chatgpt": "",
-      "row1Claude": "",
-      "row1Cursor": "",
-      "row1Feature": "",
-      "row1Us": "",
-      "row2Chatgpt": "",
-      "row2Claude": "",
-      "row2Cursor": "",
-      "row2Feature": "",
-      "row2Us": "",
-      "row3Chatgpt": "",
-      "row3Claude": "",
-      "row3Cursor": "",
-      "row3Feature": "",
-      "row3Us": "",
-      "row4Chatgpt": "",
-      "row4Claude": "",
-      "row4Cursor": "",
-      "row4Feature": "",
-      "row4Us": "",
-      "row5Chatgpt": "",
-      "row5Claude": "",
-      "row5Cursor": "",
-      "row5Feature": "",
-      "row5Us": "",
-      "row6Chatgpt": "",
-      "row6Claude": "",
-      "row6Cursor": "",
-      "row6Feature": "",
-      "row6Us": "",
-      "row7Chatgpt": "",
-      "row7Claude": "",
-      "row7Cursor": "",
-      "row7Feature": "",
-      "row7Us": "",
-      "row8Chatgpt": "",
-      "row8Claude": "",
-      "row8Cursor": "",
-      "row8Feature": "",
-      "row8Us": ""
+      "row1Chatgpt": "Web + アプリ",
+      "row1Claude": "CLI",
+      "row1Cursor": "デスクトップ",
+      "row1Feature": "プラットフォーム対応",
+      "row1Us": "8プラットフォーム完全対応",
+      "row2Chatgpt": "OpenAIモデル",
+      "row2Claude": "Claudeモデル",
+      "row2Cursor": "マルチモデル選択可",
+      "row2Feature": "LLM数",
+      "row2Us": "100+ LLM",
+      "row3Chatgpt": "なし",
+      "row3Claude": "MCP単一スタック",
+      "row3Cursor": "MCP単一スタック",
+      "row3Feature": "AI技術スタック",
+      "row3Us": "3スタック統合",
+      "row4Chatgpt": "あり",
+      "row4Claude": "なし",
+      "row4Cursor": "なし",
+      "row4Feature": "APIエンドポイント",
+      "row4Us": "7エンドポイント",
+      "row5Chatgpt": "なし",
+      "row5Claude": "なし",
+      "row5Cursor": "なし",
+      "row5Feature": "教育モジュール",
+      "row5Us": "6大モジュール",
+      "row6Chatgpt": "なし",
+      "row6Claude": "なし",
+      "row6Cursor": "なし",
+      "row6Feature": "意思決定者コミュニティ",
+      "row6Us": "あり",
+      "row7Chatgpt": "英語優先",
+      "row7Claude": "英語優先",
+      "row7Cursor": "英語優先",
+      "row7Feature": "中国語最適化",
+      "row7Us": "5言語i18n",
+      "row8Chatgpt": "GPT Store",
+      "row8Claude": "なし",
+      "row8Cursor": "なし",
+      "row8Feature": "エージェントマーケット",
+      "row8Us": "5+職能"
     },
     "roi": {
       "title": "定量 ROI · データ裏付け収益",
       "titleEn": "QUANTIFIED ROI",
       "subtitle": "智匯AIコミュニティが意思決定者にもたらす定量収益 · 詳細計算公式 · データは実ユーザーケースと業界ベンチマークから",
       "cache": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude API ¥0.3/回 → キャッシュヒット ¥0.024/回 = 92%節約",
+        "description": "スマートキャッシュが応答済みリクエストにヒット、2回目の呼び出しはキャッシュ結果を直接返す",
+        "title": "キャッシュコスト削減",
+        "value": "60%ヒット率"
       },
       "cost": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥500",
+        "description": "Claude Pro + GPT Plus + Cursor + マルチモデルAPI等の複数サブスクを代替",
+        "title": "総合コスト削減",
+        "value": "年間18-30万節約"
       },
       "learning": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "外部研修 ¥10万/年 → 智匯AI 年間無料 = ¥10万節約",
+        "description": "全年すべてのコースが無料、AI新ツールから企業AI文化3段階まで",
+        "title": "研修コスト削減",
+        "value": "年間10万節約"
       },
       "models": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "国際30+国産15+クラウド40+ = 100+モデル 1つのAPIキーでアクセス",
+        "description": "国際+国産+クラウド完全網羅、1つのAPIキーで統一アクセス",
+        "title": "LLMカバレッジ",
+        "value": "100+ LLM"
       },
       "quality": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "17守門 + 4フック + 122 migrations = 99.9%エラーフリー",
+        "description": "17項のpre-commit守門 + 4つのhuskyフック + 122+ migrations",
+        "title": "エンジニアリング品質",
+        "value": "99.9%エラーフリー"
       },
       "seats": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "プロ版10席・エンタープライズ版無制限・旗艦版専属アカウントマネージャー",
+        "description": "チーム協作席数、複数ユーザー共有ワークスペースと権限管理",
+        "title": "チーム席数",
+        "value": "18席"
       },
       "sla": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "年間ダウンタイム < 8.76時間・AES-256-GCM暗号化・RBACボタンレベル権限",
+        "description": "99.9% SLA + AES-256-GCM暗号化 + RBACボタンレベル権限",
+        "title": "サービス可用性",
+        "value": "99.9% SLA"
       },
       "speed": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "手動コーディング10h → CLI + ワークフロー1h = 10倍加速",
+        "description": "自社CLI + LangGraphワークフロー + 6ソース設定ワンクリックインポート",
+        "title": "開発加速",
+        "value": "10倍加速"
       }
     },
     "cta": {
@@ -11659,22 +11702,22 @@
       "favToggle": "お気に入り切替",
       "colVisibility": "列表示",
       "colVisibilityHint": "表示列を選択",
-      "categoryAgent": "",
-      "categoryAudio": "",
-      "categoryEmbedding": "",
-      "categoryImage": "",
-      "categoryLlm": "",
-      "categoryMultimodal": "",
-      "categoryOverall": "",
-      "categoryVideo": "",
-      "colArenaScore": "",
-      "colContextWindow": "",
-      "colInputPrice": "",
-      "colMaxOutput": "",
-      "colOutputPrice": "",
-      "colReleaseDate": "",
-      "colVoteCount": "",
-      "colWinRate": ""
+      "categoryAgent": "Agent",
+      "categoryAudio": "音声",
+      "categoryEmbedding": "埋め込み",
+      "categoryImage": "画像",
+      "categoryLlm": "LLM",
+      "categoryMultimodal": "マルチモーダル",
+      "categoryOverall": "総合",
+      "categoryVideo": "動画",
+      "colArenaScore": "アリーナスコア",
+      "colContextWindow": "コンテキストウィンドウ",
+      "colInputPrice": "入力価格",
+      "colMaxOutput": "最大出力",
+      "colOutputPrice": "出力価格",
+      "colReleaseDate": "リリース日",
+      "colVoteCount": "投票数",
+      "colWinRate": "勝率"
     },
     "hero": {
       "label": "AI ニュース Hero",
@@ -11712,21 +11755,21 @@
       "trendNotifyCollapse": "折りたたむ",
       "trendNotifyClose": "閉じる",
       "langSwitch": "タイトル言語を{lang}に切り替え",
-      "categoryAll": "",
-      "categoryIndustry": "",
-      "categoryModel": "",
-      "categoryPaper": "",
-      "categoryProduct": "",
-      "categoryTip": "",
-      "channelAll": "",
-      "channelFirstParty": "",
-      "channelHotlist": "",
-      "channelNews": "",
-      "channelPaper": "",
-      "trendAll": "",
-      "trendCooling": "",
-      "trendNew": "",
-      "trendRising": ""
+      "categoryAll": "すべて",
+      "categoryIndustry": "業界",
+      "categoryModel": "モデル",
+      "categoryPaper": "論文",
+      "categoryProduct": "製品",
+      "categoryTip": "ヒント",
+      "channelAll": "すべて",
+      "channelFirstParty": "公式",
+      "channelHotlist": "人気",
+      "channelNews": "ニュース",
+      "channelPaper": "論文",
+      "trendAll": "すべて",
+      "trendCooling": "減速",
+      "trendNew": "新着",
+      "trendRising": "上昇"
     },
     "hotRanking": {
       "label": "ホットランキング",
@@ -11752,8 +11795,8 @@
       "sortLabel": "ソート",
       "searchPlaceholder": "タイトル / 概要 / 出典を検索…",
       "resultCount": "{count} / {total} 件",
-      "sortByAmount": "",
-      "sortByDate": ""
+      "sortByAmount": "金額順",
+      "sortByDate": "日付順"
     },
     "detailDialog": {
       "arenaScore": "Arena スコア",
@@ -11815,11 +11858,11 @@
       "speedTesting": "測速中...",
       "sortBySpeed": "遅延順",
       "speedError": "タイムアウト",
-      "allBilling": "",
-      "billingFree": "",
-      "billingGpu": "",
-      "billingSubscription": "",
-      "billingToken": ""
+      "allBilling": "すべての課金",
+      "billingFree": "無料",
+      "billingGpu": "GPU",
+      "billingSubscription": "サブスクリプション",
+      "billingToken": "Token"
     },
     "cta": {
       "label": "ボトム CTA",
@@ -12227,7 +12270,7 @@
     "enterprise": {
       "name": "エンタープライズサービス",
       "price": "お問い合わせ",
-      "period": "",
+      "period": "/月",
       "desc": "企業意思決定者チーム向けカスタムプラン",
       "cta": "お問い合わせ",
       "features": [
@@ -12387,15 +12430,15 @@
     "submitting": "追加中...",
     "submit": "透かしを追加",
     "positions": {
-      "bottomCenter": "",
-      "bottomLeft": "",
-      "bottomRight": "",
-      "middleCenter": "",
-      "middleLeft": "",
-      "middleRight": "",
-      "topCenter": "",
-      "topLeft": "",
-      "topRight": ""
+      "bottomCenter": "中央下",
+      "bottomLeft": "左下",
+      "bottomRight": "右下",
+      "middleCenter": "中央",
+      "middleLeft": "中央左",
+      "middleRight": "中央右",
+      "topCenter": "中央上",
+      "topLeft": "左上",
+      "topRight": "右上"
     }
   },
   "businessCardEditPage": {
@@ -12688,10 +12731,10 @@
     "loading": "読み込み中...",
     "empty": "注文記録はありません",
     "stats": {
-      "coupon": "",
-      "level": "",
-      "orders": "",
-      "points": ""
+      "coupon": "クーポン",
+      "level": "レベル",
+      "orders": "注文",
+      "points": "ポイント"
     }
   },
   "developerHomePage": {
@@ -12902,11 +12945,11 @@
     "noDescription": "説明なし",
     "free": "無料",
     "statusFilters": {
-      "all": "",
-      "offline": "",
-      "pending": "",
-      "published": "",
-      "rejected": ""
+      "all": "すべて",
+      "offline": "オフライン",
+      "pending": "審査中",
+      "published": "公開済み",
+      "rejected": "却下済み"
     }
   },
   "businessCardPage": {
@@ -12990,10 +13033,10 @@
     "requestBody": "リクエストボディ",
     "responseBody": "レスポンスボディ",
     "statusFilter": {
-      "2xx": "",
-      "4xx": "",
-      "5xx": "",
-      "all": ""
+      "2xx": "2xx 成功",
+      "4xx": "4xx クライアントエラー",
+      "5xx": "5xx サーバーエラー",
+      "all": "すべて"
     }
   },
   "eduCertificatesPage": {
@@ -13143,9 +13186,9 @@
     "minSpend": "最低利用額 {amount}",
     "validUntil": "有効期限:{date}",
     "tab": {
-      "expired": "",
-      "unused": "",
-      "used": ""
+      "expired": "期限切れ",
+      "unused": "未使用",
+      "used": "使用済み"
     }
   },
   "answerArea": {
@@ -13321,9 +13364,9 @@
     "submitting": "分割中...",
     "resultHint": "分割が完了しました。結果は ZIP にパッケージ化されています：",
     "mode": {
-      "bookmarks": "",
-      "every": "",
-      "range": ""
+      "bookmarks": "ブックマーク別",
+      "every": "ページごと",
+      "range": "範囲指定"
     }
   },
   "supportNewTicketForm": {
@@ -13451,9 +13494,9 @@
       "score": "ポイント"
     },
     "range": {
-      "month": "",
-      "total": "",
-      "week": ""
+      "month": "月間",
+      "total": "累計",
+      "week": "週間"
     }
   },
   "recruitmentPage": {
@@ -13629,11 +13672,11 @@
   "ide": {
     "activityBar": {
       "settings": "設定",
-      "applications": "",
-      "debug": "",
-      "files": "",
-      "search": "",
-      "sourceControl": ""
+      "applications": "アプリ",
+      "debug": "デバッグ",
+      "files": "ファイル",
+      "search": "検索",
+      "sourceControl": "ソース管理"
     },
     "topBar": {
       "editor": "エディタ",
@@ -13744,13 +13787,13 @@
       "browseFiles": "ファイルを参照",
       "recentFiles": "最近開いた",
       "shortcuts": "ショートカット",
-      "scGlobalSearch": "",
-      "scGotoLine": "",
-      "scOpenFile": "",
-      "scToggleSidebar": "",
-      "scToggleTerminal": "",
-      "settings": "",
-      "viewChanges": ""
+      "scGlobalSearch": "グローバル検索",
+      "scGotoLine": "行に移動",
+      "scOpenFile": "ファイルを開く",
+      "scToggleSidebar": "サイドバーの切り替え",
+      "scToggleTerminal": "ターミナルの切り替え",
+      "settings": "設定",
+      "viewChanges": "変更を表示"
     },
     "editorTabBar": {
       "closeTab": "タブを閉じる",
@@ -13854,7 +13897,7 @@
     "statusBar": {
       "sync": "同期",
       "toggleTheme": "テーマ切替",
-      "unsynced": ""
+      "unsynced": "未同期"
     },
     "terminalPanel": {
       "loadFailed": "ターミナルの読み込みに失敗しました: {message}",
@@ -14237,6 +14280,46 @@
         "パーソナライズ学習パス推薦"
       ]
     }
+  },
+  "specPanel": {
+    "historyVersion": "履歴バージョン",
+    "regenCompare": "再生成比較",
+    "rejectReasonPlaceholder": "却下理由を入力…",
+    "proposedChangePlaceholder": "提案する変更を入力…",
+    "branchNamePlaceholder": "ブランチ名を入力…",
+    "baselineVersion": "ベースラインバージョン",
+    "mergeToMain": "メインブランチへマージ",
+    "compareMain": "メインブランチと比較",
+    "abandonBranch": "ブランチを破棄",
+    "requirementFormat": "要件フォーマット",
+    "stopListening": "リスニングを停止"
+  },
+  "dispatchDialog": {
+    "taskGoalPlaceholder": "タスク目標を入力…",
+    "taskDescPlaceholder": "タスク詳細を入力…",
+    "conditionPlaceholder": "完了条件を入力…",
+    "examplePlaceholder": "例…",
+    "roleDescPlaceholder": "役割の責務を入力…"
+  },
+  "inlineEdit": {
+    "editDescPlaceholder": "編集内容を入力…",
+    "stopAriaLabel": "編集を停止",
+    "closeAriaLabel": "エディタを閉じる"
+  },
+  "agentSwarm": {
+    "listViewAriaLabel": "リストビュー",
+    "topologyViewAriaLabel": "トポロジービュー"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "メッセージを検索…",
+    "searchAriaLabel": "メッセージを検索"
+  },
+  "mentionSearch": {
+    "keywordAriaLabel": "キーワード",
+    "mentionTypeAriaLabel": "メンションタイプ"
+  },
+  "adminTool": {
+    "usernamePlaceholder": "ユーザー名"
   },
   "useCasesCustomerSupport": {
     "reviewSchema": {
