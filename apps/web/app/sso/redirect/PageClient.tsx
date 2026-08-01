@@ -104,7 +104,18 @@ export default function SsoRedirectPageClient() {
         if (cancelled) return
         const ssoCode = data.data.code as string
         const separator = targetUrl.includes('?') ? '&' : '?'
-        router.replace(`${targetUrl}${separator}sso_code=${ssoCode}`)
+        const finalUrl = `${targetUrl}${separator}sso_code=${ssoCode}`
+        // Custom scheme(如 ihui://)需用 window.location.href 触发 OS deep-link handler,
+        // router.replace 无法处理非 http/https 协议(2026-08-01 desktop SSO 闭环修复)
+        const isCustomScheme =
+          !targetUrl.startsWith('http://') &&
+          !targetUrl.startsWith('https://') &&
+          !targetUrl.startsWith('/')
+        if (isCustomScheme) {
+          window.location.href = finalUrl
+        } else {
+          router.replace(finalUrl)
+        }
       } catch {
         if (cancelled) return
         const nextPath = `/sso/redirect?redirect=${encodeURIComponent(targetUrl)}&client_id=${clientId}`
