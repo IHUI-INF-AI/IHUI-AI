@@ -73,68 +73,70 @@ export default function BillingPage() {
   })
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
-      <div>
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('billingTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('billingDesc')}</p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
-        <TabsList>
-          <TabsTrigger value="orders">{t('billingOrders')}</TabsTrigger>
-          <TabsTrigger value="invoices">{t('billingInvoices')}</TabsTrigger>
-        </TabsList>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
+          <TabsList>
+            <TabsTrigger value="orders">{t('billingOrders')}</TabsTrigger>
+            <TabsTrigger value="invoices">{t('billingInvoices')}</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="orders" className="space-y-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ShoppingCart className="h-4 w-4" />
-                {t('billingOrders')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <OrdersTab
-                t={t}
-                list={ordersQuery.data?.list ?? []}
-                isLoading={ordersQuery.isLoading}
-                error={ordersQuery.error as Error | null}
-                page={orderPage}
-                total={ordersQuery.data?.total ?? 0}
-                pageSize={PAGE_SIZE}
-                currencyFmt={currencyFmt}
-                dateFmt={dateFmt}
-                onPageChange={setOrderPage}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="orders" className="space-y-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ShoppingCart className="h-4 w-4" />
+                  {t('billingOrders')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OrdersTab
+                  t={t}
+                  list={ordersQuery.data?.list ?? []}
+                  isLoading={ordersQuery.isLoading}
+                  error={ordersQuery.error as Error | null}
+                  page={orderPage}
+                  total={ordersQuery.data?.total ?? 0}
+                  pageSize={PAGE_SIZE}
+                  currencyFmt={currencyFmt}
+                  dateFmt={dateFmt}
+                  onPageChange={setOrderPage}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="invoices" className="space-y-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="h-4 w-4" />
-                {t('billingInvoices')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <InvoicesTab
-                t={t}
-                list={invoicesQuery.data?.list ?? []}
-                isLoading={invoicesQuery.isLoading}
-                error={invoicesQuery.error as Error | null}
-                page={invoicePage}
-                total={invoicesQuery.data?.total ?? 0}
-                pageSize={PAGE_SIZE}
-                currencyFmt={currencyFmt}
-                dateFmt={dateFmt}
-                onPageChange={setInvoicePage}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="invoices" className="space-y-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Receipt className="h-4 w-4" />
+                  {t('billingInvoices')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <InvoicesTab
+                  t={t}
+                  list={invoicesQuery.data?.list ?? []}
+                  isLoading={invoicesQuery.isLoading}
+                  error={invoicesQuery.error as Error | null}
+                  page={invoicePage}
+                  total={invoicesQuery.data?.total ?? 0}
+                  pageSize={PAGE_SIZE}
+                  currencyFmt={currencyFmt}
+                  dateFmt={dateFmt}
+                  onPageChange={setInvoicePage}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </Container>
   )
 }

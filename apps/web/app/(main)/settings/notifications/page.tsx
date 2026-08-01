@@ -104,127 +104,139 @@ export default function NotificationsPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
-      <div>
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('notificationsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('notificationsDesc')}</p>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          {tc('loading')}
-        </div>
-      ) : error ? (
-        <p className="py-8 text-center text-sm text-destructive">{error}</p>
-      ) : (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Mail className="h-4 w-4" />
-                {t('emailNotif')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t('emailNotifDesc')}</span>
-                <Switch
-                  checked={prefs.emailEnabled}
-                  onCheckedChange={(v) => update('emailEnabled', v)}
-                  className="shrink-0"
-                />
-              </div>
-              {prefs.emailEnabled && (
-                <div className="space-y-3 rounded-md bg-muted/40 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="min-w-0 flex-1 text-sm">{t('systemNotif')}</span>
-                    <Switch
-                      size="sm"
-                      checked={prefs.systemNotif}
-                      onCheckedChange={(v) => update('systemNotif', v)}
-                      className="shrink-0"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="min-w-0 flex-1 text-sm">{t('marketingEmail')}</span>
-                    <Switch
-                      size="sm"
-                      checked={prefs.marketingEmail}
-                      onCheckedChange={(v) => update('marketingEmail', v)}
-                      className="shrink-0"
-                    />
-                  </div>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {tc('loading')}
+          </div>
+        ) : error ? (
+          <p className="py-8 text-center text-sm text-destructive">{error}</p>
+        ) : (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Mail className="h-4 w-4" />
+                  {t('emailNotif')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    {t('emailNotifDesc')}
+                  </span>
+                  <Switch
+                    checked={prefs.emailEnabled}
+                    onCheckedChange={(v) => update('emailEnabled', v)}
+                    className="shrink-0"
+                  />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {prefs.emailEnabled && (
+                  <div className="space-y-3 rounded-md bg-muted/40 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 flex-1 text-sm">{t('systemNotif')}</span>
+                      <Switch
+                        size="sm"
+                        checked={prefs.systemNotif}
+                        onCheckedChange={(v) => update('systemNotif', v)}
+                        className="shrink-0"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 flex-1 text-sm">{t('marketingEmail')}</span>
+                      <Switch
+                        size="sm"
+                        checked={prefs.marketingEmail}
+                        onCheckedChange={(v) => update('marketingEmail', v)}
+                        className="shrink-0"
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="h-4 w-4" />
-                {t('smsNotif')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <span className="block text-sm text-muted-foreground">{t('smsNotifDesc')}</span>
-                  <p className="font-mono text-xs text-muted-foreground">+86 138****8888</p>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MessageSquare className="h-4 w-4" />
+                  {t('smsNotif')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <span className="block text-sm text-muted-foreground">{t('smsNotifDesc')}</span>
+                    <p className="font-mono text-xs text-muted-foreground">+86 138****8888</p>
+                  </div>
+                  <Switch
+                    checked={prefs.smsEnabled}
+                    onCheckedChange={(v) => update('smsEnabled', v)}
+                    className="shrink-0"
+                  />
                 </div>
-                <Switch
-                  checked={prefs.smsEnabled}
-                  onCheckedChange={(v) => update('smsEnabled', v)}
-                  className="shrink-0"
-                />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Bell className="h-4 w-4" />
-                {t('pushNotif')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t('pushNotifDesc')}</span>
-                <Switch
-                  checked={prefs.pushEnabled}
-                  onCheckedChange={(v) => update('pushEnabled', v)}
-                  className="shrink-0"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Bell className="h-4 w-4" />
+                  {t('pushNotif')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    {t('pushNotifDesc')}
+                  </span>
+                  <Switch
+                    checked={prefs.pushEnabled}
+                    onCheckedChange={(v) => update('pushEnabled', v)}
+                    className="shrink-0"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Volume2 className="h-4 w-4" />
-                {t('labels.notificationSound')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t('desc.notificationSound')}</span>
-                <Switch checked={soundEnabled} onCheckedChange={updateSound} className="shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Volume2 className="h-4 w-4" />
+                  {t('labels.notificationSound')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    {t('desc.notificationSound')}
+                  </span>
+                  <Switch
+                    checked={soundEnabled}
+                    onCheckedChange={updateSound}
+                    className="shrink-0"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
-      {toast && (
-        <div
-          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
-        >
-          {toast.msg}
-        </div>
-      )}
+        {toast && (
+          <div
+            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+          >
+            {toast.msg}
+          </div>
+        )}
+      </div>
     </Container>
   )
 }
