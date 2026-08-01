@@ -432,14 +432,14 @@ export function ConversationList({ items }: { items: Conversation[] }) {
               }}
               className="min-w-0 flex-1 text-left"
             >
-              <p className="break-words text-sm font-medium">{item.title}</p>
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="break-words">{item.model}</span>
-                <span className="flex items-center gap-0.5">
+              <p className="truncate text-sm font-medium">{item.title}</p>
+              <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                <span className="min-w-0 truncate">{item.model}</span>
+                <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">
                   <Clock className="h-3 w-3" />
                   {dateFmt.format(new Date(item.lastMessageAt))}
                 </span>
-                <span>{t('messageCount', { count: item.messageCount })}</span>
+                <span className="shrink-0 whitespace-nowrap tabular-nums">{t('messageCount', { count: item.messageCount })}</span>
               </p>
             </button>
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
