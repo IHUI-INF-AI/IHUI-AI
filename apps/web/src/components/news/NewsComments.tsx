@@ -92,24 +92,30 @@ export function NewsComments({ articleId, className }: NewsCommentsProps) {
     return () => {
       cancelled = true
     }
-  }, [articleId, t])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t 仅用于 mapComment 默认值(匿名),不应触发切语言重拉评论
+  }, [articleId])
 
   const handleSubmit = async () => {
     if (!content.trim()) return
     setSubmitting(true)
     setError(null)
-    const r = await fetchApi<CreatedCommentResp>('/api/comments', {
-      method: 'POST',
-      body: JSON.stringify({ topicType: 'news', topicId: articleId, content: content.trim() }),
-    })
-    setSubmitting(false)
-    const created = r.success ? r.data?.comment : undefined
-    if (created) {
-      setComments((prev) => [mapComment(created, t('anonymous')), ...prev])
-      setContent('')
-      return
+    try {
+      const r = await fetchApi<CreatedCommentResp>('/api/comments', {
+        method: 'POST',
+        body: JSON.stringify({ topicType: 'news', topicId: articleId, content: content.trim() }),
+      })
+      const created = r.success ? r.data?.comment : undefined
+      if (created) {
+        setComments((prev) => [mapComment(created, t('anonymous')), ...prev])
+        setContent('')
+        return
+      }
+      setError(t('submitError'))
+    } catch {
+      setError(t('submitError'))
+    } finally {
+      setSubmitting(false)
     }
-    setError(t('submitError'))
   }
 
   return (

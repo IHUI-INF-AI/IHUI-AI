@@ -28,7 +28,9 @@ export function useGeneration<T = unknown>() {
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e)
       setResult({ status: 'error', error })
-      throw e
+      // 2026-08-02 P2 修复：调用方均以 fire-and-forget 方式调用 start(无 await/catch)，
+      // re-throw 会产生 UnhandledPromiseRejection；UI 状态已正确设置，无需抛出
+      return undefined
     }
   }, [])
 

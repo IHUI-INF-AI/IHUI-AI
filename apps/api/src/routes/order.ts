@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyBaseLogger } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -27,14 +27,60 @@ import {
   deleteInvoiceApplication,
   findInvoiceApplications,
 } from '../db/order-queries.js'
-import { eq, sql, gte, desc, inArray } from 'drizzle-orm'
+import { eq, and, sql, gte, desc, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { eduOrders, eduRefunds, users } from '@ihui/database'
+import { eduOrders, eduRefunds, users, vipLevels, developerPricing } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { completeOrderWithSaga } from '../services/order-service.js'
 import { logAction } from '../services/audit-service.js'
 
 const ADMIN_ROLE_ID = 1
+
+// =============================================================================
+// P1 安全修复(2026-08-02):订单金额服务端反查
+// 根据 orderType + targetId 从 DB 查询真实价格,覆盖客户端传入的 payAmount。
+// - orderType='2':VIP 等级(vipLevels.price,单位:分 → 转元)
+// - orderType='5':开发者套餐(developerPricing.price,单位:元)
+// 其他 orderType 或无 targetId:返回 null,调用方使用客户端金额(已有金额自洽性校验兜底)。
+// FIXME: 金额反查待补充 — 其他 orderType(如 agent_package/course 等)价格来源待接入
+// =============================================================================
+
+async function resolveOrderAmount(
+  orderType: string,
+  targetId: string | null | undefined,
+  log: FastifyBaseLogger,
+  userId: string,
+): Promise<{ payAmount: string; originalPrice: string; discountAmount: string } | null> {
+  if (!targetId) return null
+  if (orderType === '2') {
+    const [row] = await db
+      .select({ price: vipLevels.price, status: vipLevels.status })
+      .from(vipLevels)
+      .where(and(eq(vipLevels.id, targetId), eq(vipLevels.status, 1)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, targetId, userId }, 'VIP 等级不存在或已下架,使用客户端金额')
+      return null
+    }
+    const priceYuan = (row.price / 100).toFixed(2)
+    return { payAmount: priceYuan, originalPrice: priceYuan, discountAmount: '0.00' }
+  }
+  if (orderType === '5') {
+    const [row] = await db
+      .select({ price: developerPricing.price, status: developerPricing.status })
+      .from(developerPricing)
+      .where(and(eq(developerPricing.id, targetId), eq(developerPricing.status, 1)))
+      .limit(1)
+    if (!row) {
+      log.warn({ orderType, targetId, userId }, '开发者套餐不存在或已下架,使用客户端金额')
+      return null
+    }
+    const priceYuan = Number(row.price).toFixed(2)
+    return { payAmount: priceYuan, originalPrice: priceYuan, discountAmount: '0.00' }
+  }
+  // FIXME: 金额反查待补充 — 其他 orderType 价格来源待接入
+  return null
+}
 
 // =============================================================================
 // Zod schemas
@@ -219,10 +265,27 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
+      // P1 安全修复(2026-08-02):金额服务端反查,覆盖客户端传入的 payAmount/originalPrice/discountAmount
+      // 防止攻击者篡改金额(如 payAmount=0.01 购买高价 VIP)。VIP/Developer 高频类型已接入,
+      // 其他类型保留客户端金额 + 金额自洽性校验兜底(FIXME: 待补充)。
+      const realAmount = await resolveOrderAmount(
+        parsed.data.orderType,
+        parsed.data.targetId,
+        request.log,
+        request.userId!,
+      )
+      const orderData = realAmount
+        ? {
+            ...parsed.data,
+            payAmount: realAmount.payAmount,
+            originalPrice: realAmount.originalPrice,
+            discountAmount: realAmount.discountAmount,
+          }
+        : parsed.data
       // 2026-07-24 安全防护:校验金额合理性(防 0 元购 + 防负数)
-      const payAmount = parseFloat(parsed.data.payAmount ?? '0')
-      const originalPrice = parseFloat(parsed.data.originalPrice ?? '0')
-      const discountAmount = parseFloat(parsed.data.discountAmount ?? '0')
+      const payAmount = parseFloat(orderData.payAmount ?? '0')
+      const originalPrice = parseFloat(orderData.originalPrice ?? '0')
+      const discountAmount = parseFloat(orderData.discountAmount ?? '0')
       if (payAmount < 0.01) {
         return reply.status(400).send(error(400, '支付金额不能小于 0.01 元'))
       }
@@ -233,12 +296,11 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '折扣金额不能超过原价'))
       }
       // P0 金额客户端可控加固(2026-08-01):强制三者自洽 originalPrice - discountAmount = payAmount,
-      // 防止攻击者传入自相矛盾的三元组绕过校验。真正根治需要 service 层根据 orderType+targetId
-      // 从 DB 查询真实价格覆盖客户端传入值,留作后续业务层修复(TODO: 接入 vip/products 价格表)。
+      // 防止攻击者传入自相矛盾的三元组绕过校验。
       if (originalPrice > 0 && Math.abs(originalPrice - discountAmount - payAmount) > 0.001) {
         return reply.status(400).send(error(400, '金额自洽性校验失败:原价 - 折扣 = 实付'))
       }
-      const order = await createOrder({ userId: request.userId!, ...parsed.data })
+      const order = await createOrder({ userId: request.userId!, ...orderData })
       return reply.status(201).send(success({ order }))
     },
   )

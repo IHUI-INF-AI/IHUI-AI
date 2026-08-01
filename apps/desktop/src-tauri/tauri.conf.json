@@ -30,7 +30,7 @@
         "maximized": false,
         "decorations": false,
         "titleBarStyle": "Overlay",
-        "backgroundColor": "#0a0a0a",
+        "backgroundColor": "#242424",
         "shadow": true
       }
     ],
