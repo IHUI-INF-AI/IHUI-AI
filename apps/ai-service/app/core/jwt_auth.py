@@ -49,7 +49,9 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             )
 
         path = request.url.path
-        if any(path.startswith(p) for p in PUBLIC_PATHS):
+        # 2026-08-01 P1 安全修复:startswith 前缀匹配导致 /api/health 可绕过 /api/health-admin 等,
+        # 改为:非目录路径(不以 / 结尾)用精确匹配,目录路径(以 / 结尾)用前缀匹配。
+        if path in PUBLIC_PATHS or any(path.startswith(p) for p in PUBLIC_PATHS if p.endswith("/")):
             return await call_next(request)
 
         if request.method == "OPTIONS":
