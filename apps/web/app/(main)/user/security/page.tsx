@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -68,7 +69,11 @@ export default function SecurityPage() {
       body: JSON.stringify({ currentPassword: current, newPassword: next }),
     })
     setPwLoading(false)
-    setPwMsg(res.success ? { type: 'ok', text: t('pwUpdated') } : { type: 'err', text: res.error })
+    setPwMsg(
+      res.success
+        ? { type: 'ok', text: t('pwUpdated') }
+        : { type: 'err', text: toUserFriendlyMessage(res.error) },
+    )
     if (res.success) form.reset()
   }
 
@@ -99,7 +104,7 @@ export default function SecurityPage() {
         body: JSON.stringify({ phone: newPhone, scene: 'phone-binding' }),
       })
       if (!res.success) {
-        setPhoneMsg({ type: 'err', text: res.error })
+        setPhoneMsg({ type: 'err', text: toUserFriendlyMessage(res.error) })
         return
       }
       toast.success(t('sendCode'))
@@ -128,7 +133,7 @@ export default function SecurityPage() {
     })
     setPhoneLoading(false)
     if (!res.success) {
-      setPhoneMsg({ type: 'err', text: res.error })
+      setPhoneMsg({ type: 'err', text: toUserFriendlyMessage(res.error) })
       return
     }
     toast.success(t('phoneChanged'))
