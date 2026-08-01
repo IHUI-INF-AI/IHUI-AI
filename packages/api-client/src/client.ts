@@ -221,6 +221,13 @@ export async function fetchApi<T>(
     headers['Authorization'] = `Bearer ${token}`
   }
 
+  // 2026-08-02 修复:所有请求加 X-Requested-With header,配合后端 CSRF 防护
+  // (auth.ts Cookie 认证路径要求 X-Requested-With: XMLHttpRequest)
+  // 攻击者从跨域恶意网站发起的请求无法伪造此 header(受 CORS 预检限制)
+  if (!headers['X-Requested-With']) {
+    headers['X-Requested-With'] = 'XMLHttpRequest'
+  }
+
   // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
   // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
   // streamChat SSE 流场景不经过 fetchApi(走独立 streamText),不受此超时影响
@@ -292,6 +299,8 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
     ...(options.headers as Record<string, string> | undefined),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-08-02 修复:配合后端 CSRF 防护
+  if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
@@ -349,6 +358,8 @@ export async function fetchAiServiceJson<T>(
     ...(restOptions.headers as Record<string, string> | undefined),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-08-02 修复:配合后端 CSRF 防护
+  if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
 
   const DEFAULT_TIMEOUT_MS = 30_000
   const timeoutController = new AbortController()
@@ -410,6 +421,8 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
     ...(options.headers as Record<string, string> | undefined),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  // 2026-08-02 修复:配合后端 CSRF 防护
+  if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,

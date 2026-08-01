@@ -138,8 +138,12 @@ export function useFullPageScroll(initialTotal = 0): UseFullPageScrollReturn {
   // 禁用浏览器自动恢复滚动位置
   React.useEffect(() => {
     if (typeof window === 'undefined') return
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual'
+    if (!('scrollRestoration' in window.history)) return
+    // 2026-08-02 修复: scrollRestoration 未恢复 - cleanup 中恢复原值
+    const previous = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+    return () => {
+      window.history.scrollRestoration = previous
     }
   }, [])
 

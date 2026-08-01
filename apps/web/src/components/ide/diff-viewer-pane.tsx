@@ -35,6 +35,21 @@ export function DiffViewerPane() {
   const contentCacheRef = React.useRef(contentCache)
   contentCacheRef.current = contentCache
 
+  // 2026-08-02 修复: Bug 10 — contentCache 永不过期,文件修改后显示旧内容。
+  // 监听 activeFileId 变化时清空缓存,强制下次重新拉取真实 diff 内容。
+  const prevActiveFileIdRef = React.useRef<string | undefined>(undefined)
+  React.useEffect(() => {
+    if (
+      prevActiveFileIdRef.current !== undefined &&
+      prevActiveFileIdRef.current !== activeFileId
+    ) {
+      // 切换文件时清空旧缓存(防陈旧数据)
+      setContentCache(new Map())
+      contentCacheRef.current = new Map()
+    }
+    prevActiveFileIdRef.current = activeFileId
+  }, [activeFileId])
+
   // 选中文件变化时拉取真实 diff 内容(old/new),缓存避免重复请求
   React.useEffect(() => {
     if (!activeFileId || !activeFilename || !activeStatus || !workspacePath) return
@@ -177,8 +192,16 @@ function ChangeSummary({ file }: { file: DiffFile }) {
   const t = useTranslations('ide')
   const total = file.additions + file.deletions
   const pct = total > 0 ? Math.round((file.additions / total) * 100) : 0
-  const blocks = React.useMemo(() => countChangeBlocks(file.oldContent, file.newContent), [file])
-  const preview = React.useMemo(() => computeWordDiffPreview(file.oldContent, file.newContent), [file])
+  // 2026-08-02 修复: Bug 11 — useMemo 依赖整个 file 对象(引用每次变,useMemo 失效),
+  // 改为依赖具体的 oldContent/newContent 字符串,内容不变时 memo 命中。
+  const blocks = React.useMemo(
+    () => countChangeBlocks(file.oldContent, file.newContent),
+    [file.oldContent, file.newContent],
+  )
+  const preview = React.useMemo(
+    () => computeWordDiffPreview(file.oldContent, file.newContent),
+    [file.oldContent, file.newContent],
+  )
 
   return (
     <div className="flex flex-col gap-1 bg-muted/20 px-3 py-1.5 text-xs">

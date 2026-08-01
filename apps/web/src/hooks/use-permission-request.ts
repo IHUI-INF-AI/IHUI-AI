@@ -6,6 +6,7 @@ import {
   listPendingPermissionRequests,
   resolvePermissionRequest,
 } from '@ihui/api-client/endpoints/workspace'
+import { useToast } from '@/hooks/use-toast'
 
 export interface PermissionRequestPayload {
   requestId: string
@@ -29,6 +30,7 @@ interface UsePermissionRequestOptions {
  */
 export function usePermissionRequest({ userId }: UsePermissionRequestOptions = {}) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [pendingRequests, setPendingRequests] = React.useState<PermissionRequestPayload[]>([])
 
   // 页面加载时拉一次后端 pending 列表(兜底:刷新时仍存在的待决请求)
@@ -102,10 +104,17 @@ export function usePermissionRequest({ userId }: UsePermissionRequestOptions = {
    */
   const resolve = React.useCallback(
     async (requestId: string, approved: boolean, reason?: string) => {
-      dismiss(requestId)
-      await resolvePermissionRequest(requestId, approved, reason)
+      // 2026-08-02 修复: resolve 失败后请求消失 - 先 await API, 成功后再 dismiss; 失败保留请求 + toast 提示
+      try {
+        await resolvePermissionRequest(requestId, approved, reason)
+        dismiss(requestId)
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        toast.error(msg)
+        // 不 dismiss, 保留请求让用户可重试
+      }
     },
-    [dismiss],
+    [dismiss, toast],
   )
 
   return { pendingRequests, dismiss, resolve }

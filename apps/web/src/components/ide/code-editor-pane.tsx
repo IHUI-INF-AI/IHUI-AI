@@ -86,10 +86,14 @@ export function CodeEditorPane() {
   const handleEditorMount = React.useCallback(
     (editor: MonacoEditorLike) => {
       editorRef.current = editor
-      // 注册 patch 应用回调:用 executeEdits 替换选区文本
+      // 2026-08-02 修复: Bug 7 — applyPatch callback 用 editorRef.current 而非闭包 editor 参数,
+      // 避免切换 tab 后旧 callback 指向已卸载 editor。同时校验 sel.tabId 与当前 active tab 一致,
+      // 否则 patch 会写入错误 tab 的内容。
       registerApplyPatchCallback((patch, sel) => {
         const e = editorRef.current
-        if (!e) return
+        if (!e) return // editor 已卸载
+        // 校验当前 active tab 与 patch 来源 tab 一致:tab 切换后旧 patch 不再 apply
+        if (sel.tabId !== tabIdRef.current) return
         e.executeEdits('inline-edit', [
           {
             range: {

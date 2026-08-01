@@ -47,6 +47,18 @@ export function SafeHtml({
   className,
   allowedTags = DEFAULT_ALLOWED_TAGS,
 }: SafeHtmlProps): React.ReactElement {
-  const clean = React.useMemo(() => sanitize(html, allowedTags), [html, allowedTags])
-  return <div className={className} dangerouslySetInnerHTML={{ __html: clean }} />
+  // 2026-08-02 修复: SSR sanitize 返回 '' 而 CSR 后返回真实 HTML 导致 hydration mismatch。
+  // 用 state + useEffect 模式:首帧 SSR 与 CSR 一致都为 '',useEffect 触发后再 setSanitized 真实内容;
+  // suppressHydrationWarning 抑制第二帧差异引起的 warning。
+  const [sanitized, setSanitized] = React.useState('')
+  React.useEffect(() => {
+    setSanitized(sanitize(html, allowedTags))
+  }, [html, allowedTags])
+  return (
+    <div
+      className={className}
+      dangerouslySetInnerHTML={{ __html: sanitized }}
+      suppressHydrationWarning
+    />
+  )
 }
