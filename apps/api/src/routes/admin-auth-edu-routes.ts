@@ -128,15 +128,27 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/auth-find-info', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
+    // 2026-08-01 P1 修复:原直接 as 类型断言,补齐 Zod 校验防 NaN/超长字段。
+    const body = z
+      .object({
+        userUuid: z.string().min(1).max(100),
+        title: z.string().max(100).nullable().optional(),
+        card: z.string().max(50).nullable().optional(),
+        belong: z.string().max(100).nullable().optional(),
+        message: z.string().max(500).nullable().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .insert(userAuthInfo)
       .values({
-        userUuid: b.userUuid as string,
-        realName: (b.title as string | undefined) ?? null,
-        idCard: (b.card as string | undefined) ?? null,
-        authSource: (b.belong as string | undefined) ?? null,
-        rejectReason: (b.message as string | undefined) ?? null,
+        userUuid: body.data.userUuid,
+        realName: body.data.title ?? null,
+        idCard: body.data.card ?? null,
+        authSource: body.data.belong ?? null,
+        rejectReason: body.data.message ?? null,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
@@ -156,14 +168,24 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-find-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = request.body as Record<string, unknown>
+    const body = z
+      .object({
+        title: z.string().max(100).nullable().optional(),
+        card: z.string().max(50).nullable().optional(),
+        belong: z.string().max(100).nullable().optional(),
+        message: z.string().max(500).nullable().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .update(userAuthInfo)
       .set({
-        realName: (b.title as string | null | undefined) ?? null,
-        idCard: (b.card as string | null | undefined) ?? null,
-        authSource: (b.belong as string | null | undefined) ?? null,
-        rejectReason: (b.message as string | null | undefined) ?? null,
+        ...(body.data.title !== undefined && { realName: body.data.title }),
+        ...(body.data.card !== undefined && { idCard: body.data.card }),
+        ...(body.data.belong !== undefined && { authSource: body.data.belong }),
+        ...(body.data.message !== undefined && { rejectReason: body.data.message }),
         updatedAt: new Date(),
       })
       .where(eq(userAuthInfo.userUuid, p.data.id))
@@ -230,19 +252,33 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth-user-margin/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const [r] = await db.select().from(userMargins).where(eq(userMargins.userId, p.data.id)).limit(1)
+    const [r] = await db
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, p.data.id))
+      .limit(1)
     if (!r) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(mapMargin(r)))
   })
 
   server.post('/auth-user-margin', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
+    // 2026-08-01 P1 修复:原直接 as 类型断言,tokenQuantity 传 "abc" 会写入 NaN。
+    const body = z
+      .object({
+        userUuid: z.string().min(1).max(100),
+        tokenQuantity: z.coerce.number().int().min(0).default(0),
+        tokenFree: z.coerce.number().int().min(0).default(0),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .insert(userMargins)
       .values({
-        userId: b.userUuid as string,
-        tokenQuantity: (b.tokenQuantity as number | undefined) ?? 0,
-        frozenQuantity: (b.tokenFree as number | undefined) ?? 0,
+        userId: body.data.userUuid,
+        tokenQuantity: body.data.tokenQuantity,
+        frozenQuantity: body.data.tokenFree,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
@@ -252,12 +288,20 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/auth-user-margin/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = request.body as Record<string, unknown>
+    const body = z
+      .object({
+        tokenQuantity: z.coerce.number().int().min(0).optional(),
+        tokenFree: z.coerce.number().int().min(0).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .update(userMargins)
       .set({
-        tokenQuantity: (b.tokenQuantity as number | undefined) ?? 0,
-        frozenQuantity: (b.tokenFree as number | undefined) ?? 0,
+        ...(body.data.tokenQuantity !== undefined && { tokenQuantity: body.data.tokenQuantity }),
+        ...(body.data.tokenFree !== undefined && { frozenQuantity: body.data.tokenFree }),
         updatedAt: new Date(),
       })
       .where(eq(userMargins.userId, p.data.id))
@@ -373,20 +417,31 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/member/blacklist', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
-    const identifier = String(b.identifier ?? '')
+    // 2026-08-01 P1 修复:原直接 as 类型断言,补齐 Zod 校验防类型错误。
+    const body = z
+      .object({
+        identifier: z.string().min(1).max(200),
+        user: z.string().max(100).nullable().optional(),
+        type: z.enum(['user', 'ip', 'device']).optional().default('user'),
+        reason: z.string().max(500).nullable().optional(),
+        expiresAt: z.string().max(50).nullable().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const payload: BlacklistPayload = {
-      user: (b.user as string | undefined) ?? null,
-      type: (b.type as 'user' | 'ip' | 'device' | undefined) ?? 'user',
-      reason: (b.reason as string | undefined) ?? null,
+      user: body.data.user ?? null,
+      type: body.data.type,
+      reason: body.data.reason ?? null,
       status: 'active',
-      expiresAt: (b.expiresAt as string | undefined) ?? null,
+      expiresAt: body.data.expiresAt ?? null,
       createdAt: new Date().toISOString(),
     }
     const [row] = await db
       .insert(systemConfigs)
       .values({
-        key: identifier,
+        key: body.data.identifier,
         value: JSON.stringify(payload),
         category: 'member-blacklist',
         type: 'json',
@@ -593,7 +648,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/edu/classes/schedules/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const [r] = await db.select().from(lessonChapters).where(eq(lessonChapters.id, p.data.id)).limit(1)
+    const [r] = await db
+      .select()
+      .from(lessonChapters)
+      .where(eq(lessonChapters.id, p.data.id))
+      .limit(1)
     if (!r) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(mapSchedule(r)))
   })
@@ -897,7 +956,10 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(desc(tDepartment.createTime))
         .limit(pageSize)
         .offset((page - 1) * pageSize),
-      db.select({ c: sql<number>`count(*)::int` }).from(tDepartment).where(where),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(tDepartment)
+        .where(where),
     ])
     return reply.send(success({ list, total: totalRow[0]?.c ?? 0, page, pageSize }))
   })
@@ -905,7 +967,10 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth-dept/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const [row] = await db.select().from(tDepartment).where(eq(tDepartment.id, Number(p.data.id)))
+    const [row] = await db
+      .select()
+      .from(tDepartment)
+      .where(eq(tDepartment.id, Number(p.data.id)))
     if (!row) return reply.status(404).send(error(404, '记录不存在'))
     return reply.send(success(row))
   })
