@@ -53,27 +53,14 @@ export const metadata: Metadata = {
 
 export default function ApiDocsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <div className="space-y-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(apiJsonLd) }}
       />
 
-      <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>🛠️</span>
-          API 参考
-        </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
-          REST API 完整参考
-        </h1>
-        <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-          RESTful API + Webhook + OpenAPI 3.1 规范,覆盖对话、Agent、知识库、模型、工作流、用户、计费全部能力。
-        </p>
-      </header>
-
       {/* Base URL + 认证 */}
-      <section id="auth" className="mt-16 space-y-6">
+      <section id="auth" className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">基础信息</h2>
         <div className="rounded-2xl border bg-card p-6 space-y-4">
           <div>
@@ -265,6 +252,6 @@ client.Chat(ctx, "你好")`}</code>
           <a href="/docs/quickstart" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">返回快速开始</a>
         </div>
       </section>
-    </main>
+    </div>
   )
 }
