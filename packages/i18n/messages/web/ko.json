@@ -838,6 +838,46 @@
       "criticalUsage": "곧 소진"
     },
     "permission": {
+      "copied": "복사됨",
+      "copyFailed": "복사 실패",
+      "retry": "재시도 중…",
+      "copy": "복사",
+      "me": "나",
+      "stepThinking": "생각 중",
+      "toolCallSkipped": "건너뜀",
+      "stepAnswer": "답변",
+      "timelineUserMessage": "사용자 메시지",
+      "timelineAiReply": "AI 응답",
+      "search": "검색",
+      "fallbackNotice": "주 모델 {{primary}}을(를) 사용할 수 없어 {{fallback}}(으)로 자동 전환되었습니다",
+      "loading": "불러오는 중…",
+      "jumpToLatest": "최신으로 이동",
+      "latest": "최신",
+      "tplSummary": "요약",
+      "tplSummaryContent": "다음 내용을 요약하고 핵심 정보를 추출해 주세요",
+      "tplTranslate": "번역",
+      "tplTranslateContent": "다음 내용을 영어로 번역해 주세요",
+      "tplExplain": "설명",
+      "tplExplainContent": "다음 내용을 설명해 주세요",
+      "tplCode": "코드",
+      "tplCodeContent": "다음 코드를 최적화해 주세요",
+      "tplPolish": "윤문",
+      "tplPolishContent": "다음 글을 윤문해 주세요",
+      "contextMenu": {
+        "copyText": "텍스트 복사",
+        "copyMarkdown": "Markdown 복사",
+        "regenerate": "다시 생성",
+        "feedback": "피드백",
+        "deleteMessage": "메시지 삭제"
+      },
+      "toast": {
+        "copiedText": "클립보드에 복사되었습니다",
+        "copiedMarkdown": "Markdown이 복사되었습니다",
+        "regenerating": "다시 생성하는 중…",
+        "feedbackRecorded": "피드백이 기록되었습니다",
+        "messageDeleted": "메시지가 삭제되었습니다",
+        "operationFailed": "작업 실패"
+      },
       "buttonLabel": "승인 모드",
       "buttonHintShortcut": "Shift+Tab으로 전환",
       "popoverTitle": "AI 작업을 어떻게 승인하시겠어요?",
@@ -1269,7 +1309,7 @@
     "viewCount": "{count} 조회",
     "required": "{label}은(는) 필수입니다",
     "answerQuestion": "답변:",
-    "all": ""
+    "all": "전체"
   },
   "payment": {
     "title": "요금제",
@@ -6321,9 +6361,9 @@
       "totalTokens": "합계",
       "routines": "루틴",
       "voiceRecord": "음성 녹음",
-      "gender_female": "",
-      "gender_male": "",
-      "gender_unknown": "",
+      "gender_female": "여성",
+      "gender_male": "남성",
+      "gender_unknown": "비공개",
       "title": "개인",
       "subtitle": "포괄적인의개발문서및API참조",
       "avatar": "변경아바타",
@@ -6373,12 +6413,12 @@
       "hoursAgo": "{hr}시간 전",
       "daysAgo": "{day}일 전",
       "tab": {
-        "all": "",
-        "comment": "",
-        "follow": "",
-        "order": "",
-        "project": "",
-        "system": ""
+        "all": "전체",
+        "comment": "댓글",
+        "follow": "팔로우",
+        "order": "주문",
+        "project": "프로젝트",
+        "system": "시스템"
       },
       "title": "알림",
       "unreadCount": "{count}개 안 읽음",
@@ -6664,9 +6704,9 @@
       "templateLoaded": "AI 패널을 열어 {name} 자동화 작업을 생성 중입니다",
       "exampleInvokePrompt": "자동화 작업을 생성해 주세요. 작업 이름: {name}. 설명: {desc}. 실행 시간: {schedule}. 예상 출력: {output}. 이 템플릿을 바탕으로 실행 시간, 콘텐츠 소스, 출력 방법 등의 세부 사항을 확인하며 설정을 안내해 주세요."
     },
-    "automation": "",
-    "koubo": "",
-    "wechat": ""
+    "automation": "자동화",
+    "koubo": "나레이션",
+    "wechat": "WeChat"
   },
   "publish": {
     "title": "멀티 플랫폼 게시",
@@ -6816,12 +6856,12 @@
       "uploadSuccess": "업로드됨: {filename}",
       "uploadFailed": "업로드 실패",
       "uploadedHint": "파일이 업로드되었습니다. 다시 선택하여 교체할 수 있습니다.",
-      "contentFormatDocx": "",
-      "contentFormatHtml": "",
-      "contentFormatImage": "",
-      "contentFormatMd": "",
-      "contentFormatPdf": "",
-      "contentFormatVideo": ""
+      "contentFormatDocx": "DOCX",
+      "contentFormatHtml": "HTML",
+      "contentFormatImage": "이미지",
+      "contentFormatMd": "Markdown",
+      "contentFormatPdf": "PDF",
+      "contentFormatVideo": "동영상"
     },
     "history": {
       "duration": "소요 시간",
@@ -6883,11 +6923,11 @@
       "zhihu_daily": "즈후 일보"
     },
     "tabs": {
-      "accounts": "",
+      "accounts": "계정 관리",
       "analytics": "데이터 분석",
       "calendar": "게시 캘린더",
-      "history": "",
-      "new": ""
+      "history": "게시 이력",
+      "new": "새 작업"
     },
     "editor": {
       "markdown": "Markdown",
@@ -7240,38 +7280,38 @@
     "desc": {
       "notificationSound": "수신알림시간"
     },
-    "billingAmount": "",
-    "billingCreatedAt": "",
-    "billingLoading": "",
-    "billingNext": "",
-    "billingOrderNo": "",
-    "billingPageInfo": "",
-    "billingPrev": "",
-    "billingStatus": "",
-    "billingTotal": "",
+    "billingAmount": "금액",
+    "billingCreatedAt": "생성 시간",
+    "billingLoading": "불러오는 중…",
+    "billingNext": "다음",
+    "billingOrderNo": "주문번호",
+    "billingPageInfo": "{{page}}/{{totalPages}} 페이지",
+    "billingPrev": "이전",
+    "billingStatus": "상태",
+    "billingTotal": "총 {{count}}건",
     "cliImportDesc": "CLI 설정 및 자격 증명 가져오기",
     "cliImportTitle": "CLI 가져오기",
-    "icpRecordEntity": "",
-    "icpRecordEntityType": "",
-    "icpRecordNumber": "",
-    "icpRecordScope": "",
-    "icpRecordTime": "",
-    "icpRecordUrl": "",
-    "llmConfigsDesc": "",
-    "llmConfigsTitle": "",
-    "miniappQr": "",
-    "miniappQrDesc": "",
-    "modelRecordAlgorithmType": "",
-    "modelRecordApplicant": "",
-    "modelRecordApplyDate": "",
-    "modelRecordModelName": "",
-    "modelRecordNumber": "",
-    "modelRecordScope": "",
-    "modelRecordStatus": "",
-    "profileDesc": "",
-    "profileTitle": "",
-    "securityDesc": "",
-    "securityTitle": "",
+    "icpRecordEntity": "신고 주체",
+    "icpRecordEntityType": "주체 유형",
+    "icpRecordNumber": "신고 번호",
+    "icpRecordScope": "신고 범위",
+    "icpRecordTime": "신고 시간",
+    "icpRecordUrl": "신고 링크",
+    "llmConfigsDesc": "LLM 제공자 및 매개변수 설정",
+    "llmConfigsTitle": "LLM 설정",
+    "miniappQr": "미니앱 QR 코드",
+    "miniappQrDesc": "스캔하여 미니앱 체험",
+    "modelRecordAlgorithmType": "알고리즘 유형",
+    "modelRecordApplicant": "신고 신청자",
+    "modelRecordApplyDate": "신고 날짜",
+    "modelRecordModelName": "모델명",
+    "modelRecordNumber": "신고 번호",
+    "modelRecordScope": "적용 범위",
+    "modelRecordStatus": "신고 상태",
+    "profileDesc": "개인정보 보기 및 편집",
+    "profileTitle": "프로필",
+    "securityDesc": "비밀번호, 2단계 인증 등 보안 옵션 관리",
+    "securityTitle": "보안",
     "accountDeletionTitle": "계정 삭제",
     "activityTitle": "활동 기록",
     "apiKeysNavTitle": "API 키",
@@ -7342,9 +7382,9 @@
     "empty": "콘텐츠가 없습니다",
     "loading": "로딩 중...",
     "tabs": {
-      "all": "",
-      "file": "",
-      "project": ""
+      "all": "전체",
+      "file": "파일",
+      "project": "프로젝트"
     }
   },
   "follows": {
@@ -7359,10 +7399,10 @@
     "empty": "콘텐츠가 없습니다",
     "loading": "로딩 중...",
     "tabs": {
-      "all": "",
-      "project": "",
-      "tag": "",
-      "user": ""
+      "all": "전체",
+      "project": "프로젝트",
+      "tag": "태그",
+      "user": "사용자"
     }
   },
   "tags": {
@@ -7728,8 +7768,8 @@
         "time": "교환 시간",
         "status": "상태",
         "statusLabels": {
-          "failed": "",
-          "success": ""
+          "failed": "실패",
+          "success": "성공"
         }
       }
     },
@@ -7766,12 +7806,12 @@
         }
       ],
       "features": {
-        "cache": "",
-        "loadBalance": "",
-        "monitor": "",
-        "multiModel": "",
-        "oneClick": "",
-        "scale": ""
+        "cache": "캐싱",
+        "loadBalance": "로드 밸런싱",
+        "monitor": "모니터링",
+        "multiModel": "멀티 모델",
+        "oneClick": "원클릭 배포",
+        "scale": "오토 스케일링"
       }
     },
     "apiDocs": {
@@ -7797,7 +7837,10 @@
         "title": "호출 예시",
         "curl": "ｃＵＲＬ",
         "python": "파이썬"
-      }
+      },
+      "curlPlaceholder": "cURL 명령을 입력하여 테스트…",
+      "searchPlaceholder": "API 검색…",
+      "copyCodeAriaLabel": "코드 복사"
     },
     "skills": {
       "title": "Skills 마켓",
@@ -7809,51 +7852,51 @@
       "install": "설치",
       "installs": "{count} 설치",
       "categories": {
-        "code": "",
-        "communication": "",
-        "data": "",
-        "media": "",
-        "productivity": "",
-        "search": "",
-        "system": "",
-        "weather": ""
+        "code": "코드",
+        "communication": "커뮤니케이션",
+        "data": "데이터",
+        "media": "미디어",
+        "productivity": "생산성",
+        "search": "검색",
+        "system": "시스템",
+        "weather": "날씨"
       },
       "items": {
         "audioTranscribe": {
-          "desc": ""
+          "desc": "오디오를 텍스트로 변환"
         },
         "calendar": {
-          "desc": ""
+          "desc": "일정 및 알림 관리"
         },
         "codeRunner": {
-          "desc": ""
+          "desc": "온라인에서 코드 실행 및 결과 확인"
         },
         "dataViz": {
-          "desc": ""
+          "desc": "데이터를 차트로 시각화"
         },
         "databaseQuery": {
-          "desc": ""
+          "desc": "데이터베이스 쿼리 및 결과 반환"
         },
         "emailSender": {
-          "desc": ""
+          "desc": "이메일 발송 및 관리"
         },
         "healthcheck": {
-          "desc": ""
+          "desc": "서비스 상태 확인"
         },
         "imageGen": {
-          "desc": ""
+          "desc": "설명으로 이미지 생성"
         },
         "nodeConnect": {
-          "desc": ""
+          "desc": "노드 연결 및 관리"
         },
         "pdfToolkit": {
-          "desc": ""
+          "desc": "PDF 파일 처리 및 변환"
         },
         "weather": {
-          "desc": ""
+          "desc": "날씨 예보 정보 조회"
         },
         "webSearch": {
-          "desc": ""
+          "desc": "웹 검색으로 최신 정보 획득"
         }
       }
     },
@@ -7884,8 +7927,8 @@
       "statusLabels": {
         "success": "성공",
         "failed": "실패",
-        "disabled": "",
-        "enabled": ""
+        "disabled": "비활성화",
+        "enabled": "활성화"
       }
     },
     "chats": {
@@ -7919,13 +7962,13 @@
         "createdAt": "생성 시간"
       },
       "roleLabels": {
-        "admin": "",
-        "user": "",
-        "vip": ""
+        "admin": "관리자",
+        "user": "사용자",
+        "vip": "VIP"
       },
       "statusLabels": {
-        "active": "",
-        "disabled": ""
+        "active": "활성",
+        "disabled": "비활성화"
       }
     },
     "contact": {
@@ -8081,8 +8124,8 @@
     "required": "{label}은(는) 필수입니다",
     "field_images": "이미지",
     "imagesPlaceholder": "이미지를 붙여넣거나 드래그하세요",
-    "tab_list": "",
-    "tab_new": "",
+    "tab_list": "목록",
+    "tab_new": "최신",
     "title": "AI인마음페이스테스트",
     "subtitle": "포괄적인의개발문서및API참조",
     "empty": "피드백 기록 없음",
@@ -8146,18 +8189,18 @@
       "loading": "로딩 중...",
       "empty": "콘텐츠가 없습니다",
       "backToPoints": "포인트 센터로 돌아가기",
-      "day0": "",
-      "day1": "",
-      "day2": "",
-      "day3": "",
-      "day4": "",
-      "day5": "",
-      "day6": ""
+      "day0": "1일차",
+      "day1": "2일차",
+      "day2": "3일차",
+      "day3": "4일차",
+      "day4": "5일차",
+      "day5": "6일차",
+      "day6": "7일차"
     },
     "tab": {
-      "lb": "",
-      "redeem": "",
-      "tx": ""
+      "lb": "리더보드",
+      "redeem": "교환",
+      "tx": "거래"
     }
   },
   "orders": {
@@ -8174,16 +8217,16 @@
     "total": "총계: {n}",
     "orderType": "주의문유형",
     "status": {
-      "all": "",
-      "cancelled": "",
-      "paid": "",
-      "pending": "",
-      "refunded": ""
+      "all": "전체",
+      "cancelled": "취소됨",
+      "paid": "결제 완료",
+      "pending": "결제 대기",
+      "refunded": "환불됨"
     },
     "type": {
-      "all": "",
-      "card": "",
-      "course": ""
+      "all": "전체",
+      "card": "카드",
+      "course": "코스"
     }
   },
   "live": {
@@ -8653,14 +8696,14 @@
       "cancel": "취소",
       "connected": "연결됨",
       "disconnected": "연결 끊김",
-      "high": "",
-      "low": "",
-      "medium": ""
+      "high": "높음",
+      "low": "낮음",
+      "medium": "중간"
     },
-    "statusOffline": "",
-    "statusPending": "",
-    "statusPublished": "",
-    "statusRejected": ""
+    "statusOffline": "오프라인",
+    "statusPending": "심사 중",
+    "statusPublished": "게시됨",
+    "statusRejected": "거절됨"
   },
   "agents": {
     "kanban": {
@@ -8766,15 +8809,15 @@
     "currentBalance": "현재 잔액",
     "totalEarned": "총 획득",
     "totalUsed": "총 사용",
-    "colAgent": "",
-    "colAmount": "",
-    "colModel": "",
-    "colTime": "",
-    "colToken": "",
-    "range30d": "",
-    "range7d": "",
-    "rangeCustom": "",
-    "rangeToday": ""
+    "colAgent": "Agent",
+    "colAmount": "수량",
+    "colModel": "모델",
+    "colTime": "시간",
+    "colToken": "Token",
+    "range30d": "최근 30일",
+    "range7d": "최근 7일",
+    "rangeCustom": "사용자 지정",
+    "rangeToday": "오늘"
   },
   "distributionCompany": {
     "title": "나 회사",
@@ -9310,8 +9353,8 @@
     "pageTitle": "AI 콘텐츠 생성",
     "pageSubtitle": "유형을 선택하여 텍스트, 이미지, 비디오, 오디오, 3D 모델 등을 생성",
     "clear": "지우기",
-    "tabCode": "",
-    "tabText": "",
+    "tabCode": "코드",
+    "tabText": "텍스트",
     "defaultPromptPlaceholder": "생성할 내용 설명...",
     "promptAriaLabel": "생성 입력",
     "imageTitle": "이미지 생성",
@@ -9516,34 +9559,34 @@
   "myAsks": {
     "delete": "삭제",
     "deleteConfirm": "확인삭제Question？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "내 질문 관리",
+    "title": "내 질문"
   },
   "myCircles": {
     "leave": "로그아웃",
     "leaveConfirm": "확인로그아웃？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "내 서클 관리",
+    "title": "내 서클"
   },
   "myArticles": {
     "create": "쓰기",
     "edit": "편집",
     "delete": "삭제",
     "deleteConfirm": "확인삭제？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "내 글 관리",
+    "title": "내 글"
   },
   "myResources": {
     "deleteConfirm": "확인삭제Resource？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "내 자원 관리",
+    "title": "내 자원"
   },
   "myComments": {
     "delete": "삭제",
     "deleteConfirm": "확인삭제댓글？",
     "targetType": "꺼짐에게",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "내 댓글 관리",
+    "title": "내 댓글"
   },
   "sso": {
     "title": "통합 로그인",
@@ -9919,12 +9962,12 @@
       "searchPlaceholder": "API 이름이나 설명 검색...",
       "loading": "로딩 중...",
       "noMatch": "일치하는 API가 없습니다",
-      "catAll": "",
-      "catAudio": "",
-      "catChat": "",
-      "catImage": "",
-      "catTool": "",
-      "catVideo": ""
+      "catAll": "전체",
+      "catAudio": "오디오",
+      "catChat": "채팅",
+      "catImage": "이미지",
+      "catTool": "도구",
+      "catVideo": "동영상"
     },
     "models": {
       "title": "모델 마켓",
@@ -9942,12 +9985,12 @@
       "searchPlaceholder": "Agent 이름이나 설명 검색...",
       "loading": "로딩 중...",
       "noMatch": "일치하는 Agent가 없습니다",
-      "catAll": "",
-      "catAnalysis": "",
-      "catChat": "",
-      "catCoding": "",
-      "catTool": "",
-      "catWriting": ""
+      "catAll": "전체",
+      "catAnalysis": "분석",
+      "catChat": "채팅",
+      "catCoding": "코딩",
+      "catTool": "도구",
+      "catWriting": "작문"
     },
     "documents": {
       "title": "문서 마켓",
@@ -10311,9 +10354,9 @@
     "addedToChatModel": "{name}을(를) 대화에 추가했습니다. .env에 해당 API Key를 설정하여 모델을 활성화하세요",
     "addedToChatPrompt": "{name}을(를) 대화에 추가했습니다(prompt 의도만, 백엔드에 해당 도구가 없음)",
     "removedFromChat": "{name}을(를) 대화에서 제거했습니다",
-    "sortDefault": "",
-    "sortInstalled": "",
-    "sortName": ""
+    "sortDefault": "기본순",
+    "sortInstalled": "설치됨",
+    "sortName": "이름"
   },
   "aiWorld": {
     "admin": {
@@ -11459,34 +11502,34 @@
       "titleEn": "DECISION-MAKER SCENARIOS",
       "subtitle": "지후이 AI 커뮤니티는 기업 의사결정자가 가장 관심 갖는 5대 씬 커버 · 통점 공명 → 해결책 → 정량 수익 · AI를 진정으로 착지시켜 ROI 창출",
       "costReduction": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "연 18-30만 절약",
+        "description": "100+ 모델 스마트 라우팅 · 다중 구독 대체",
+        "painPoint": "높은 연간 비용",
+        "title": "스마트 비용 절감"
       },
       "decision": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "5배 향상",
+        "description": "AI 데이터 분석 · 실시간 의사결정 보고서",
+        "painPoint": "데이터 부족",
+        "title": "스마트 의사결정"
       },
       "efficiency": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "10배 향상",
+        "description": "자체 CLI + 워크플로 자동화",
+        "painPoint": "효율 저조",
+        "title": "빠른 효율 향상"
       },
       "innovation": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "3스택 통합",
+        "description": "LangGraph + MCP + A2A + ACP",
+        "painPoint": "진입 장벽 높음",
+        "title": "기술 혁신"
       },
       "learning": {
-        "benefit": "",
-        "description": "",
-        "painPoint": "",
-        "title": ""
+        "benefit": "연 10만 절약",
+        "description": "6대 모듈 · 연중 강의 무료",
+        "painPoint": "비싼 교육비",
+        "title": "전 직원 학습"
       }
     },
     "comparison": {
@@ -11498,98 +11541,98 @@
       "colClaude": "Claude Code",
       "colCursor": "Cursor",
       "colChatgpt": "ChatGPT",
-      "row1Chatgpt": "",
-      "row1Claude": "",
-      "row1Cursor": "",
-      "row1Feature": "",
-      "row1Us": "",
-      "row2Chatgpt": "",
-      "row2Claude": "",
-      "row2Cursor": "",
-      "row2Feature": "",
-      "row2Us": "",
-      "row3Chatgpt": "",
-      "row3Claude": "",
-      "row3Cursor": "",
-      "row3Feature": "",
-      "row3Us": "",
-      "row4Chatgpt": "",
-      "row4Claude": "",
-      "row4Cursor": "",
-      "row4Feature": "",
-      "row4Us": "",
-      "row5Chatgpt": "",
-      "row5Claude": "",
-      "row5Cursor": "",
-      "row5Feature": "",
-      "row5Us": "",
-      "row6Chatgpt": "",
-      "row6Claude": "",
-      "row6Cursor": "",
-      "row6Feature": "",
-      "row6Us": "",
-      "row7Chatgpt": "",
-      "row7Claude": "",
-      "row7Cursor": "",
-      "row7Feature": "",
-      "row7Us": "",
-      "row8Chatgpt": "",
-      "row8Claude": "",
-      "row8Cursor": "",
-      "row8Feature": "",
-      "row8Us": ""
+      "row1Chatgpt": "Web + 앱",
+      "row1Claude": "CLI",
+      "row1Cursor": "데스크톱",
+      "row1Feature": "플랫폼 지원",
+      "row1Us": "8플랫폼 전면 지원",
+      "row2Chatgpt": "OpenAI 모델",
+      "row2Claude": "Claude 모델",
+      "row2Cursor": "다중 모델 선택",
+      "row2Feature": "LLM 수",
+      "row2Us": "100+ LLM",
+      "row3Chatgpt": "없음",
+      "row3Claude": "MCP 단일 스택",
+      "row3Cursor": "MCP 단일 스택",
+      "row3Feature": "AI 기술 스택",
+      "row3Us": "3스택 통합",
+      "row4Chatgpt": "있음",
+      "row4Claude": "없음",
+      "row4Cursor": "없음",
+      "row4Feature": "API 엔드포인트",
+      "row4Us": "7 엔드포인트",
+      "row5Chatgpt": "없음",
+      "row5Claude": "없음",
+      "row5Cursor": "없음",
+      "row5Feature": "교육 모듈",
+      "row5Us": "6대 모듈",
+      "row6Chatgpt": "없음",
+      "row6Claude": "없음",
+      "row6Cursor": "없음",
+      "row6Feature": "의사결정자 커뮤니티",
+      "row6Us": "있음",
+      "row7Chatgpt": "영어 우선",
+      "row7Claude": "영어 우선",
+      "row7Cursor": "영어 우선",
+      "row7Feature": "중국어 최적화",
+      "row7Us": "5개국어 i18n",
+      "row8Chatgpt": "GPT Store",
+      "row8Claude": "없음",
+      "row8Cursor": "없음",
+      "row8Feature": "에이전트 마켓",
+      "row8Us": "5+ 직무"
     },
     "roi": {
       "title": "정량 수익 · ROI 데이터",
       "titleEn": "QUANTIFIED ROI",
       "subtitle": "지후이 AI 커뮤니티가 의사결정자에게 제공하는 정량 수익 · 상세 계산 공식 · 데이터는 실제 사용자 사례와 업계 벤치마크에서 비롯",
       "cache": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude API ¥0.3/회 → 캐시 적중 ¥0.024/회 = 92% 절약",
+        "description": "스마트 캐시가 답변된 요청에 적중, 두 번째 호출 시 캐시 결과 직접 반환",
+        "title": "캐시 비용 절감",
+        "value": "60% 적중률"
       },
       "cost": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥500",
+        "description": "Claude Pro + GPT Plus + Cursor + 다중 모델 API 등 다중 구독 대체",
+        "title": "종합 비용 절감",
+        "value": "연 18-30만 절약"
       },
       "learning": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "외부 교육 ¥10만/년 → IHUI AI 연중 무료 = ¥10만 절약",
+        "description": "연중 모든 강의 무료, AI 신규 도구부터 기업 AI 문화 3단계까지",
+        "title": "교육 비용 절감",
+        "value": "연 10만 절약"
       },
       "models": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "해외 30+ 국내 15+ 클라우드 40+ = 100+ 모델 하나의 API 키로 접근",
+        "description": "해외+국내+클라우드 완전 지원, 하나의 API 키로 통합 접근",
+        "title": "LLM 커버리지",
+        "value": "100+ LLM"
       },
       "quality": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "17 가드 + 4 훅 + 122 migrations = 99.9% 무오류",
+        "description": "17개 pre-commit 가드 + 4 husky 훅 + 122+ migrations",
+        "title": "엔지니어링 품질",
+        "value": "99.9% 무오류"
       },
       "seats": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "프로 10시트 · 엔터프라이즈 무제한 · 플래그십 전담 매니저",
+        "description": "팀 협업 시트, 다중 사용자 공유 워크스페이스 및 권한 관리",
+        "title": "팀 시트",
+        "value": "18 시트"
       },
       "sla": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "연간 다운타임 < 8.76시간 · AES-256-GCM 암호화 · RBAC 버튼 수준 권한",
+        "description": "99.9% SLA + AES-256-GCM 암호화 + RBAC 버튼 수준 권한",
+        "title": "서비스 가용성",
+        "value": "99.9% SLA"
       },
       "speed": {
-        "calculation": "",
-        "description": "",
-        "title": "",
-        "value": ""
+        "calculation": "수동 코딩 10h → CLI + 워크플로 1h = 10배 가속",
+        "description": "자체 CLI + LangGraph 워크플로 + 6소스 설정 원클릭 가져오기",
+        "title": "개발 가속",
+        "value": "10배 가속"
       }
     },
     "cta": {
@@ -11625,22 +11668,22 @@
       "favToggle": "즐겨찾기 전환",
       "colVisibility": "열 표시",
       "colVisibilityHint": "표시할 열 선택",
-      "categoryAgent": "",
-      "categoryAudio": "",
-      "categoryEmbedding": "",
-      "categoryImage": "",
-      "categoryLlm": "",
-      "categoryMultimodal": "",
-      "categoryOverall": "",
-      "categoryVideo": "",
-      "colArenaScore": "",
-      "colContextWindow": "",
-      "colInputPrice": "",
-      "colMaxOutput": "",
-      "colOutputPrice": "",
-      "colReleaseDate": "",
-      "colVoteCount": "",
-      "colWinRate": ""
+      "categoryAgent": "Agent",
+      "categoryAudio": "오디오",
+      "categoryEmbedding": "임베딩",
+      "categoryImage": "이미지",
+      "categoryLlm": "LLM",
+      "categoryMultimodal": "멀티모달",
+      "categoryOverall": "종합",
+      "categoryVideo": "동영상",
+      "colArenaScore": "아레나 점수",
+      "colContextWindow": "컨텍스트 윈도우",
+      "colInputPrice": "입력 가격",
+      "colMaxOutput": "최대 출력",
+      "colOutputPrice": "출력 가격",
+      "colReleaseDate": "출시일",
+      "colVoteCount": "투표수",
+      "colWinRate": "승률"
     },
     "hero": {
       "label": "AI 뉴스 Hero",
@@ -11678,21 +11721,21 @@
       "trendNotifyCollapse": "접기",
       "trendNotifyClose": "닫기",
       "langSwitch": "제목 언어를 {lang}(으)로 전환",
-      "categoryAll": "",
-      "categoryIndustry": "",
-      "categoryModel": "",
-      "categoryPaper": "",
-      "categoryProduct": "",
-      "categoryTip": "",
-      "channelAll": "",
-      "channelFirstParty": "",
-      "channelHotlist": "",
-      "channelNews": "",
-      "channelPaper": "",
-      "trendAll": "",
-      "trendCooling": "",
-      "trendNew": "",
-      "trendRising": ""
+      "categoryAll": "전체",
+      "categoryIndustry": "업계",
+      "categoryModel": "모델",
+      "categoryPaper": "논문",
+      "categoryProduct": "제품",
+      "categoryTip": "팁",
+      "channelAll": "전체",
+      "channelFirstParty": "공식",
+      "channelHotlist": "인기",
+      "channelNews": "뉴스",
+      "channelPaper": "논문",
+      "trendAll": "전체",
+      "trendCooling": "감소",
+      "trendNew": "신규",
+      "trendRising": "상승"
     },
     "hotRanking": {
       "label": "핫 랭킹",
@@ -11718,8 +11761,8 @@
       "sortLabel": "정렬",
       "searchPlaceholder": "제목 / 요약 / 출처 검색…",
       "resultCount": "{count} / {total}건",
-      "sortByAmount": "",
-      "sortByDate": ""
+      "sortByAmount": "금액순",
+      "sortByDate": "날짜순"
     },
     "detailDialog": {
       "arenaScore": "Arena 점수",
@@ -11781,11 +11824,11 @@
       "speedTesting": "측정 중...",
       "sortBySpeed": "지연 시간순",
       "speedError": "시간 초과",
-      "allBilling": "",
-      "billingFree": "",
-      "billingGpu": "",
-      "billingSubscription": "",
-      "billingToken": ""
+      "allBilling": "전체 과금",
+      "billingFree": "무료",
+      "billingGpu": "GPU",
+      "billingSubscription": "구독",
+      "billingToken": "Token"
     },
     "cta": {
       "label": "하단 CTA",
@@ -12193,7 +12236,7 @@
     "enterprise": {
       "name": "기업 서비스",
       "price": "영업팀 문의",
-      "period": "",
+      "period": "/월",
       "desc": "기업 의사결정자 팀을 위한 맞춤형 플랜",
       "cta": "영업팀 문의",
       "features": [
@@ -12353,15 +12396,15 @@
     "submitting": "추가 중...",
     "submit": "워터마크 추가",
     "positions": {
-      "bottomCenter": "",
-      "bottomLeft": "",
-      "bottomRight": "",
-      "middleCenter": "",
-      "middleLeft": "",
-      "middleRight": "",
-      "topCenter": "",
-      "topLeft": "",
-      "topRight": ""
+      "bottomCenter": "하단 중앙",
+      "bottomLeft": "왼쪽 하단",
+      "bottomRight": "오른쪽 하단",
+      "middleCenter": "중앙",
+      "middleLeft": "중간 왼쪽",
+      "middleRight": "중간 오른쪽",
+      "topCenter": "상단 중앙",
+      "topLeft": "왼쪽 상단",
+      "topRight": "오른쪽 상단"
     }
   },
   "businessCardEditPage": {
@@ -12654,10 +12697,10 @@
     "loading": "로딩 중...",
     "empty": "주문 기록이 없습니다",
     "stats": {
-      "coupon": "",
-      "level": "",
-      "orders": "",
-      "points": ""
+      "coupon": "쿠폰",
+      "level": "레벨",
+      "orders": "주문",
+      "points": "포인트"
     }
   },
   "developerHomePage": {
@@ -12868,11 +12911,11 @@
     "noDescription": "설명 없음",
     "free": "무료",
     "statusFilters": {
-      "all": "",
-      "offline": "",
-      "pending": "",
-      "published": "",
-      "rejected": ""
+      "all": "전체",
+      "offline": "오프라인",
+      "pending": "심사 중",
+      "published": "게시됨",
+      "rejected": "거절됨"
     }
   },
   "businessCardPage": {
@@ -12956,10 +12999,10 @@
     "requestBody": "요청 본문",
     "responseBody": "응답 본문",
     "statusFilter": {
-      "2xx": "",
-      "4xx": "",
-      "5xx": "",
-      "all": ""
+      "2xx": "2xx 성공",
+      "4xx": "4xx 클라이언트 오류",
+      "5xx": "5xx 서버 오류",
+      "all": "전체"
     }
   },
   "eduCertificatesPage": {
@@ -13109,9 +13152,9 @@
     "minSpend": "최소 {amount} 이상",
     "validUntil": "유효 기간: {date}",
     "tab": {
-      "expired": "",
-      "unused": "",
-      "used": ""
+      "expired": "만료됨",
+      "unused": "미사용",
+      "used": "사용됨"
     }
   },
   "answerArea": {
@@ -13287,9 +13330,9 @@
     "submitting": "분할 중...",
     "resultHint": "분할이 완료되었습니다. 결과는 ZIP으로 패키징되었습니다:",
     "mode": {
-      "bookmarks": "",
-      "every": "",
-      "range": ""
+      "bookmarks": "북마크별",
+      "every": "페이지별",
+      "range": "범위 지정"
     }
   },
   "supportNewTicketForm": {
@@ -13417,9 +13460,9 @@
       "score": "포인트"
     },
     "range": {
-      "month": "",
-      "total": "",
-      "week": ""
+      "month": "월간",
+      "total": "전체",
+      "week": "주간"
     }
   },
   "recruitmentPage": {
@@ -13595,11 +13638,11 @@
   "ide": {
     "activityBar": {
       "settings": "설정",
-      "applications": "",
-      "debug": "",
-      "files": "",
-      "search": "",
-      "sourceControl": ""
+      "applications": "앱",
+      "debug": "디버그",
+      "files": "파일",
+      "search": "검색",
+      "sourceControl": "소스 제어"
     },
     "topBar": {
       "editor": "에디터",
@@ -13710,13 +13753,13 @@
       "browseFiles": "파일 탐색",
       "recentFiles": "최근 열기",
       "shortcuts": "단축키",
-      "scGlobalSearch": "",
-      "scGotoLine": "",
-      "scOpenFile": "",
-      "scToggleSidebar": "",
-      "scToggleTerminal": "",
-      "settings": "",
-      "viewChanges": ""
+      "scGlobalSearch": "전역 검색",
+      "scGotoLine": "줄로 이동",
+      "scOpenFile": "파일 열기",
+      "scToggleSidebar": "사이드바 전환",
+      "scToggleTerminal": "터미널 전환",
+      "settings": "설정",
+      "viewChanges": "변경사항 보기"
     },
     "editorTabBar": {
       "closeTab": "탭 닫기",
@@ -13820,7 +13863,7 @@
     "statusBar": {
       "sync": "동기화",
       "toggleTheme": "테마 전환",
-      "unsynced": ""
+      "unsynced": "동기화 안 됨"
     },
     "terminalPanel": {
       "loadFailed": "터미널 로드 실패: {message}",
@@ -14198,6 +14241,46 @@
         "개인화 학습 경로 추천"
       ]
     }
+  },
+  "specPanel": {
+    "historyVersion": "과거 버전",
+    "regenCompare": "다시 생성 비교",
+    "rejectReasonPlaceholder": "거절 사유 입력…",
+    "proposedChangePlaceholder": "제안된 변경 사항 입력…",
+    "branchNamePlaceholder": "브랜치 이름 입력…",
+    "baselineVersion": "기준 버전",
+    "mergeToMain": "메인 브랜치로 병합",
+    "compareMain": "메인 브랜치와 비교",
+    "abandonBranch": "브랜치 포기",
+    "requirementFormat": "요구사항 형식",
+    "stopListening": "수신 중지"
+  },
+  "dispatchDialog": {
+    "taskGoalPlaceholder": "작업 목표 설명…",
+    "taskDescPlaceholder": "작업 상세 설명…",
+    "conditionPlaceholder": "완료 조건 설명…",
+    "examplePlaceholder": "예시…",
+    "roleDescPlaceholder": "역할 책임 설명…"
+  },
+  "inlineEdit": {
+    "editDescPlaceholder": "편집 내용 설명…",
+    "stopAriaLabel": "편집 중지",
+    "closeAriaLabel": "편집기 닫기"
+  },
+  "agentSwarm": {
+    "listViewAriaLabel": "목록 보기",
+    "topologyViewAriaLabel": "토폴로지 보기"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "메시지 검색…",
+    "searchAriaLabel": "메시지 검색"
+  },
+  "mentionSearch": {
+    "keywordAriaLabel": "키워드",
+    "mentionTypeAriaLabel": "멘션 유형"
+  },
+  "adminTool": {
+    "usernamePlaceholder": "사용자 이름"
   },
   "useCasesCustomerSupport": {
     "reviewSchema": {
