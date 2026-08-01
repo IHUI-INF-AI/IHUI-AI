@@ -1,7 +1,7 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { runCommand } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
