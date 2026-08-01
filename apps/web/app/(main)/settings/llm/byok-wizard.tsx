@@ -207,7 +207,7 @@ export function ByokWizard() {
       </button>
 
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
-        <DialogContent className="max-w-lg gap-0 p-0 sm:rounded-lg">
+        <DialogContent className="max-w-lg gap-0 p-0 min-[640px]:rounded-lg">
           <DialogHeader className="space-y-2 border-b p-4">
             <DialogTitle className="flex items-center gap-2 text-base">
               <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />

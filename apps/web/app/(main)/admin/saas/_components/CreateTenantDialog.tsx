@@ -51,7 +51,7 @@ export function CreateTenantDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="min-[640px]:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('createTenant')}</DialogTitle>
         </DialogHeader>

@@ -61,7 +61,7 @@ export function PromptTemplates({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
       {templates.map((tpl) => (
         <button
           key={tpl.id}

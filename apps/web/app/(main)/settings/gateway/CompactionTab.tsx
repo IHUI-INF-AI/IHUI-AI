@@ -155,7 +155,7 @@ export function CompactionTab() {
 
           {result && (
             <>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-3">
                 <MetricCard label={t('original')} value={String(result.original_tokens)} />
                 <MetricCard label={t('compressed')} value={String(result.compressed_tokens)} />
                 <div className="rounded-md border p-2">

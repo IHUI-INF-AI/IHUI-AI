@@ -113,7 +113,7 @@ export default function ErrorDashboardPage() {
             {tc('search')}
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {cards.map((c) => (
               <Card key={c.label}>
                 <CardContent className="pt-4">

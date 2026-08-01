@@ -97,13 +97,13 @@ function TypewriterHero() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <h1 className="font-edix text-3xl font-bold tracking-tight text-primary md:text-5xl lg:text-6xl">
+      <h1 className="font-edix text-2xl font-bold tracking-tight text-primary min-[768px]:text-3xl min-[1024px]:text-5xl min-[1280px]:text-6xl">
         WELCOME IHUI INF . AI
       </h1>
-      <p className="mt-2 text-sm font-semibold tracking-tight text-foreground/90 md:mt-3 md:text-base">
+      <p className="mt-2 text-sm font-semibold tracking-tight text-foreground/90 min-[768px]:mt-3 min-[768px]:text-base">
         {tw('brandSubtitle')}
       </p>
-      <p className="mt-4 min-h-[1.75rem] text-base text-foreground/80 md:mt-6 md:text-lg">
+      <p className="mt-4 min-h-[1.75rem] text-base text-foreground/80 min-[768px]:mt-6 min-[768px]:text-lg">
         <span>{text}</span>
         {!reduceMotionRef.current && (
           <span
