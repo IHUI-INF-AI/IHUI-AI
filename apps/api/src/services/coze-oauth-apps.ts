@@ -16,6 +16,21 @@ import { getCozeAccessToken, getPrivateKey } from './coze-auth-utils.js'
 const DEFAULT_TTL = 86399
 const DEFAULT_COZE_API_BASE = 'https://api.coze.cn'
 
+/** P1 修复:fetch 加 AbortController 超时,防止网络异常时请求挂起耗尽连接池 */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 10000,
+): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** OAuth 令牌结果 */
 export interface OAuthTokenResult {
   access_token: string
@@ -64,7 +79,7 @@ export class DeviceOAuthApp {
     const url = `${this.baseUrl}/api/permission/oauth2/device/code`
     const payload: Record<string, string> = { client_id: this.clientId }
     if (workspaceId) payload.workspace_id = workspaceId
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -75,7 +90,7 @@ export class DeviceOAuthApp {
 
   async getAccessToken(deviceCode: string): Promise<OAuthTokenResult> {
     const url = `${this.baseUrl}/api/permission/oauth2/device/token`
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -90,7 +105,7 @@ export class DeviceOAuthApp {
 
   async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResult> {
     const url = `${this.baseUrl}/api/permission/oauth2/refresh_token`
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -113,11 +128,13 @@ export class WebOAuthApp {
   clientSecret: string
   baseUrl: string
 
-  constructor(opts: {
-    clientId?: string | null
-    clientSecret?: string | null
-    baseUrl?: string | null
-  } = {}) {
+  constructor(
+    opts: {
+      clientId?: string | null
+      clientSecret?: string | null
+      baseUrl?: string | null
+    } = {},
+  ) {
     this.clientId = opts.clientId ?? env.COZE_OAUTH_APP_ID ?? ''
     this.clientSecret = opts.clientSecret ?? ''
     this.baseUrl = resolveBaseUrl(opts.baseUrl)
@@ -136,7 +153,7 @@ export class WebOAuthApp {
 
   async getAccessToken(code: string, redirectUri: string): Promise<OAuthTokenResult> {
     const url = `${this.baseUrl}/api/permission/oauth2/token`
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -153,7 +170,7 @@ export class WebOAuthApp {
 
   async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResult> {
     const url = `${this.baseUrl}/api/permission/oauth2/refresh_token`
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -220,7 +237,7 @@ export class PKCEOAuthApp {
     codeVerifier: string
   }): Promise<OAuthTokenResult> {
     const url = `${this.baseUrl}/api/permission/oauth2/token`
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -237,7 +254,7 @@ export class PKCEOAuthApp {
 
   async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResult> {
     const url = `${this.baseUrl}/api/permission/oauth2/refresh_token`
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -261,12 +278,14 @@ export class JWTOAuthApp {
   baseUrl: string
   private _privateKey: string | null
 
-  constructor(opts: {
-    clientId?: string | null
-    privateKey?: string | null
-    publicKeyId?: string | null
-    baseUrl?: string | null
-  } = {}) {
+  constructor(
+    opts: {
+      clientId?: string | null
+      privateKey?: string | null
+      publicKeyId?: string | null
+      baseUrl?: string | null
+    } = {},
+  ) {
     this.clientId = opts.clientId ?? env.COZE_OAUTH_APP_ID ?? ''
     this.publicKeyId = opts.publicKeyId ?? env.COZE_PUBLIC_KEY_ID ?? ''
     this.baseUrl = resolveBaseUrl(opts.baseUrl)
@@ -277,12 +296,14 @@ export class JWTOAuthApp {
     return this._privateKey ?? getPrivateKey()
   }
 
-  async getAccessToken(opts: {
-    userUuid?: string | null
-    scope?: string | null
-    ttl?: number | null
-    forceRefresh?: boolean
-  } = {}): Promise<OAuthTokenResult> {
+  async getAccessToken(
+    opts: {
+      userUuid?: string | null
+      scope?: string | null
+      ttl?: number | null
+      forceRefresh?: boolean
+    } = {},
+  ): Promise<OAuthTokenResult> {
     const privateKey = this.resolvePrivateKey()
     if (!privateKey) throw new Error('Coze 私钥未配置, 无法获取 access_token')
     const accessToken = await getCozeAccessToken({
