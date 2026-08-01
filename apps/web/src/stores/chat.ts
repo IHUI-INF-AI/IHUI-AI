@@ -6,7 +6,7 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
-import type { ToolCallSummary } from '@ihui/types/ai'
+import type { ToolCallSummary, PlanStep, TerminalTask } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
 
@@ -158,6 +158,21 @@ interface ChatState {
    *  - 收到后直接写入 message.toolCallSummary,无需前端本地聚合
    *  - 同步写入 message.totalDurationMs(若 summary.totalDurationMs 存在) */
   setMessageToolSummary: (messageId: string, summary: ToolCallSummary) => void
+  /** 2026-08-01 Phase 4a:写入消息级 plan steps(SSE plan/plan_updated 事件)
+   *  - 后端 plan 事件携带 messageId + plan[] 权威快照,前端整体替换 message.planSteps
+   *  - 用于消息气泡内 inline PlanStepsCard */
+  setMessagePlanSteps: (messageId: string, steps: PlanStep[]) => void
+  /** 2026-08-01 Phase 4a:追加消息级 terminal task(SSE terminal_start 事件)
+   *  - 后端 terminal_start 携带 messageId + terminalId + command,前端 append 到 message.terminalTasks
+   *  - 用于消息气泡内 inline TerminalSection */
+  appendMessageTerminalTask: (messageId: string, task: TerminalTask) => void
+  /** 2026-08-01 Phase 4a:更新消息级 terminal task(SSE terminal_end 事件)
+   *  - 后端 terminal_end 携带 terminalId + status/output/exitCode,前端按 terminalId 更新 */
+  updateMessageTerminalTask: (
+    messageId: string,
+    terminalId: string,
+    updates: Partial<TerminalTask>,
+  ) => void
 }
 
 // P1-1 修复(2026-07-28):长会话 messages 数组无上限会导致内存爆炸,
@@ -328,10 +343,11 @@ export const useChatStore = create<ChatState>()(
       // 与 appendToAgentStream 的区别:appendToAgentStream 用于多 agent 多路复用的 token 流分流,
       // 而 addSubagentSpawn/markSubagentEnd 用于 dispatch_subagent 工具调用的生命周期展示。
       // 两者写入同一 subAgentActivities 数组,UI 统一通过 SubAgentActivityFeed 渲染。
+      // 2026-08-01 Phase 4a:若 event.messageId 存在,同步写入 message.subagentActivities,
+      // 供消息气泡内 inline SubagentSection 实时刷新(对标 Trae Work/Codex 消息级透明性)。
       addSubagentSpawn: (event) =>
         set((s) => {
-          // 同一 id 已存在则跳过(防止后端重复发 spawn 事件)
-          if (s.subAgentActivities.some((a) => a.agentId === event.id)) return s
+          const globalExists = s.subAgentActivities.some((a) => a.agentId === event.id)
           const newActivity: SubAgentActivity = {
             agentId: event.id,
             name: event.role || `Subagent ${event.id.slice(-6)}`,
@@ -340,12 +356,28 @@ export const useChatStore = create<ChatState>()(
             currentStep: event.task || '执行中…',
             completedSteps: [],
           }
-          return { subAgentActivities: [...s.subAgentActivities, newActivity] }
+          // 消息级同步:按 event.messageId upsert 到对应 message.subagentActivities
+          let messages = s.messages
+          if (event.messageId) {
+            const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
+            if (mIdx !== -1) {
+              const target = s.messages[mIdx]
+              if (target && !(target.subagentActivities ?? []).some((a) => a.agentId === event.id)) {
+                messages = s.messages.slice()
+                messages[mIdx] = {
+                  ...target,
+                  subagentActivities: [...(target.subagentActivities ?? []), newActivity],
+                }
+              }
+            }
+          }
+          if (globalExists) return messages === s.messages ? s : { messages }
+          return { subAgentActivities: [...s.subAgentActivities, newActivity], messages }
         }),
 
       markSubagentEnd: (event) =>
-        set((s) => ({
-          subAgentActivities: s.subAgentActivities.map((a) => {
+        set((s) => {
+          const applyEnd = (a: SubAgentActivity): SubAgentActivity => {
             if (a.agentId !== event.id) return a
             const nextStatus: SubAgentActivity['status'] =
               event.status === 'failed' ? 'failed' : 'completed'
@@ -377,12 +409,29 @@ export const useChatStore = create<ChatState>()(
                   }),
               streamingDone: true,
             }
-          }),
-        })),
+          }
+          const subAgentActivities = s.subAgentActivities.map(applyEnd)
+          // 2026-08-01 Phase 4a:同步更新消息级
+          let messages = s.messages
+          if (event.messageId) {
+            const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
+            if (mIdx !== -1) {
+              const target = s.messages[mIdx]
+              if (target?.subagentActivities?.some((a) => a.agentId === event.id)) {
+                messages = s.messages.slice()
+                messages[mIdx] = {
+                  ...target,
+                  subagentActivities: target.subagentActivities.map(applyEnd),
+                }
+              }
+            }
+          }
+          return { subAgentActivities, messages }
+        }),
 
       updateSubagentProgress: (event) =>
-        set((s) => ({
-          subAgentActivities: s.subAgentActivities.map((a) => {
+        set((s) => {
+          const applyProgress = (a: SubAgentActivity): SubAgentActivity => {
             if (a.agentId !== event.id) return a
             // 根据 phase 构造人类可读的 currentStep 文本
             let stepText = a.currentStep
@@ -425,8 +474,25 @@ export const useChatStore = create<ChatState>()(
               completedSteps,
               outputPreview: event.outputPreview ?? a.outputPreview,
             }
-          }),
-        })),
+          }
+          const subAgentActivities = s.subAgentActivities.map(applyProgress)
+          // 2026-08-01 Phase 4a:同步更新消息级
+          let messages = s.messages
+          if (event.messageId) {
+            const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
+            if (mIdx !== -1) {
+              const target = s.messages[mIdx]
+              if (target?.subagentActivities?.some((a) => a.agentId === event.id)) {
+                messages = s.messages.slice()
+                messages[mIdx] = {
+                  ...target,
+                  subagentActivities: target.subagentActivities.map(applyProgress),
+                }
+              }
+            }
+          }
+          return { subAgentActivities, messages }
+        }),
 
       addToolCall: (messageId, toolCall) =>
         set((s) => {
@@ -504,6 +570,53 @@ export const useChatStore = create<ChatState>()(
             toolCallSummary: summary,
             totalDurationMs: summary.totalDurationMs ?? target.totalDurationMs,
           }
+          return { messages: next }
+        }),
+
+      // 2026-08-01 Phase 4a:消息级 plan steps(整体替换,plan 事件为权威快照)
+      setMessagePlanSteps: (messageId, steps) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, planSteps: steps }
+          return { messages: next }
+        }),
+
+      // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)
+      appendMessageTerminalTask: (messageId, task) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          // 同 id 已存在则跳过(防止重复)
+          if ((target.terminalTasks ?? []).some((t) => t.id === task.id)) return s
+          const next = s.messages.slice()
+          next[idx] = {
+            ...target,
+            terminalTasks: [...(target.terminalTasks ?? []), task],
+          }
+          return { messages: next }
+        }),
+
+      // 2026-08-01 Phase 4a:消息级 terminal task 更新(terminal_end 事件)
+      updateMessageTerminalTask: (messageId, terminalId, updates) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target || !target.terminalTasks) return s
+          const tIdx = target.terminalTasks.findIndex((t) => t.id === terminalId)
+          if (tIdx === -1) return s
+          const oldTask = target.terminalTasks[tIdx]
+          if (!oldTask) return s
+          const next = s.messages.slice()
+          const newTasks = target.terminalTasks.slice()
+          newTasks[tIdx] = { ...oldTask, ...updates }
+          next[idx] = { ...target, terminalTasks: newTasks }
           return { messages: next }
         }),
     }),
