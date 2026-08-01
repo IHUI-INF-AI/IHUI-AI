@@ -30,7 +30,7 @@ import asyncio
 import base64
 import json
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
@@ -55,7 +55,9 @@ class CreateSessionRequest(BaseModel):
 
 class NavigateRequest(BaseModel):
     url: str = Field(..., description="目标 URL")
-    wait_until: str = Field("domcontentloaded", description="等待事件")
+    wait_until: Literal["commit", "domcontentloaded", "load", "networkidle"] = Field(
+        "domcontentloaded", description="等待事件"
+    )
 
 
 class SessionInfo(BaseModel):
@@ -244,7 +246,7 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
     await session.set_navigation_handler(on_navigation)
 
     # 画面帧回调
-    async def on_frame(data_b64: str, metadata: dict) -> None:
+    async def on_frame(data_b64: str, metadata: dict[str, Any]) -> None:
         try:
             await ws.send_json({
                 "type": "frame",
