@@ -119,7 +119,8 @@
     "contact": "お問い合わせ",
     "help": "ヘルプセンター",
     "agreement": "利用規約",
-    "pricing": "料金プラン"
+    "pricing": "料金プラン",
+    "studyHours": "学習時間"
   },
   "auth": {
     "logout": "ログアウト",
@@ -154,7 +155,9 @@
     "selectModel": "モデルを選択",
     "emptyHint": "メッセージを入力して開始",
     "inputPlaceholder": "何か入力してください...",
-    "compactionNotice": "コンテキストを自動圧縮しました:{{before}} → {{after}}({{removed}} 件の履歴を削除)"
+    "compactionNotice": "コンテキストを自動圧縮しました:{{before}} → {{after}}({{removed}} 件の履歴を削除)",
+    "voiceStop": "録音を停止",
+    "voiceStart": "録音を開始"
   },
   "settings": {
     "language": "インターフェース言語",
