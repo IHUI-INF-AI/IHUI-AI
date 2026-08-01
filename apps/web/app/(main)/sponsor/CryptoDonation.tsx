@@ -82,7 +82,7 @@ export function CryptoDonation(): React.JSX.Element {
         </p>
       </div>
 
-      <div className="mt-8 grid gap-6 min-[640px]:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2">
         {WALLETS.map((w) => {
           const Icon = w.icon
           const copied = copiedId === w.id

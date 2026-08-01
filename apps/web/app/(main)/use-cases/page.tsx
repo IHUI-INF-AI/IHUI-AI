@@ -88,7 +88,7 @@ export default function UseCasesIndexPage() {
           </p>
         </section>
 
-        <section className="mt-12 grid gap-6 min-[768px]:grid-cols-2">
+        <section className="mt-12 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
           {USE_CASES.map((uc) => {
             const Icon = uc.icon
             return (

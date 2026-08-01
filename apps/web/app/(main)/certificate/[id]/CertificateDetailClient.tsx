@@ -130,7 +130,7 @@ export default function CertificateDetailClient() {
             awardConditions={t('defaultConditions')}
             validityPolicy={t('defaultValidity')}
           />
-          <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 print:hidden">
+          <div className="grid grid-cols-1 gap-3 text-sm text-muted-foreground min-[640px]:grid-cols-2 print:hidden">
             <MetaRow label={t('certNo')} value={data.certificateNo} />
             <MetaRow label={t('issueDate')} value={data.issuedAt ? formatDate(data.issuedAt) : '-'} />
             {data.source && <MetaRow label={t('source')} value={data.source} />}

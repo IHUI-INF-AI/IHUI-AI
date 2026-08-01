@@ -58,7 +58,7 @@ export default function PdfToolsPage() {
           <p className="text-xs text-muted-foreground">在线处理 PDF：合并、拆分、水印与格式转换</p>
         </div>
       </header>
-      <div className="grid gap-4 min-[640px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
         {TOOLS.map(({ href, title, description, Icon }) => (
           <Link key={href} href={href} className="group block">
             <Card className="transition-colors hover:bg-accent">

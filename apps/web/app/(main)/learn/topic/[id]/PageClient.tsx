@@ -99,8 +99,8 @@ export default function LearnTopicDetailPage() {
 
       {/* 专题信息 */}
       <Card className="relative overflow-hidden">
-        <CardContent className="flex flex-col gap-4 p-6 md:flex-row">
-          <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 md:w-64">
+        <CardContent className="flex flex-col gap-4 p-6 min-[768px]:flex-row">
+          <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 min-[768px]:w-64">
             {coverImage ? (
               <Image src={coverImage} alt={topic.title} fill className="rounded-lg object-cover" />
             ) : (
@@ -169,7 +169,7 @@ export default function LearnTopicDetailPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {lessons.map((lesson: TopicLesson) => {
               const title = lesson.title ?? lesson.name ?? ''
               const cover = lesson.coverImage ?? lesson.image ?? lesson.cover

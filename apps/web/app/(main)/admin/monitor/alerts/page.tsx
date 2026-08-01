@@ -57,7 +57,7 @@ export default function AdminMonitorAlertsPage() {
         <p className="mt-1 text-sm text-muted-foreground">监控告警处理与规则管理</p>
       </div>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">活跃告警</CardTitle>

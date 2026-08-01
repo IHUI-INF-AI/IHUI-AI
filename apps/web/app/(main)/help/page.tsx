@@ -77,7 +77,7 @@ export default function HelpPage() {
         />
       </div>
 
-      <div className="grid gap-6 min-[1024px]:grid-cols-[200px_1fr]">
+      <div className="grid grid-cols-1 gap-6 min-[1024px]:grid-cols-[200px_1fr]">
         <nav className="space-y-1">
           <button
             type="button"

@@ -51,7 +51,7 @@ export default function MonitoringDashboardPage() {
           {tc('search')}
         </div>
       ) : (
-        <div className="grid gap-4 min-[1024px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
           <MonitorStatCards services={servicesList} perfCards={perfCards} t={t} />
           <MonitorAlerts alerts={alertsList} t={t} />
           <MonitorLogs logs={logs} t={t} />
