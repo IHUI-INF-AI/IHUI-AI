@@ -3,10 +3,13 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@ihui/ui-react'
+import { Button, Dialog, DialogContent, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
+import { ExternalLink } from 'lucide-react'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { AuthShell } from '@/components/auth/AuthShell'
+import { isTauri, openExternalUrl } from '@/lib/tauri-bridge'
+import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
 import { LoginFormContent } from './LoginFormContent'
 import { RegisterFormContent } from './RegisterFormContent'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
@@ -31,6 +34,21 @@ export function LoginDialog() {
   const mode = useLoginDialogStore((s) => s.mode)
   const close = useLoginDialogStore((s) => s.close)
   const setMode = useLoginDialogStore((s) => s.setMode)
+
+  const showDesktopSso = isTauri()
+
+  const handleDesktopSso = React.useCallback(async () => {
+    // Dev: desktop webview loads from http://localhost:8801 → 外部浏览器可访问同一 dev server
+    // Prod: desktop webview loads from tauri://localhost → 用 WEB_BASE (https://aizhs.top)
+    const webBase =
+      typeof window !== 'undefined' &&
+      (window.location.origin.startsWith('http://') ||
+        window.location.origin.startsWith('https://'))
+        ? window.location.origin
+        : WEB_BASE
+    const ssoUrl = buildSsoLoginUrl(webBase, 'ihui://sso', SSO_CLIENT_IDS.DESKTOP)
+    await openExternalUrl(ssoUrl)
+  }, [])
 
   const handleLoginSuccess = React.useCallback(() => {
     const redirectUrl = useLoginDialogStore.getState().redirectUrl
@@ -72,6 +90,14 @@ export function LoginDialog() {
         <DialogDescription className="sr-only">{subtitle}</DialogDescription>
 
         <AuthShell onClose={close}>
+          {showDesktopSso && mode === 'login' && (
+            <div className="pb-3">
+              <Button variant="outline" className="h-10 w-full" onClick={handleDesktopSso}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                <span>在浏览器中登录</span>
+              </Button>
+            </div>
+          )}
           {mode === 'login' ? (
             <LoginWithTurnstile>
               <LoginFormContent onSuccess={handleLoginSuccess} />
