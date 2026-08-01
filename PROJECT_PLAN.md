@@ -97,7 +97,7 @@
 - [x] ✅(2026-08-01) H9:`apps/web/src/lib/sso-desktop-bridge.ts` 监听 `desktop-deep-link` 事件(`apps/web/src/hooks/use-desktop.ts` 的 `useDesktopDeepLink`),自动调 `/sso/exchange` 完成 desktop SSO 闭环(浏览器端 isTauri()=false no-op)
 - [x] ✅(2026-08-01) H10:`pnpm --filter @ihui/api typecheck` exit 0;auth-oauth-server.test.ts 18/18 全绿(本任务测试范围)
 - [x] ✅(2026-08-01) H11:`pnpm --filter @ihui/extension typecheck && pnpm --filter @ihui/cli typecheck` exit 0;`cargo check`(desktop)exit 0
-- [ ] H12:commit + push origin/main,local == remote,git-push-guard exit 0
+- [x] ✅(2026-08-01) H12:commit + push origin/main,local == remote,git-push-guard exit 0(commit `e40ce34d1e`,post-commit 钩子自动 push + tag sync)
 
 ### 约束边界
 
