@@ -96,7 +96,7 @@ export default function MemoryDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-3xl">
-        <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-12 min-[768px]:py-20 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           加载中...
         </div>

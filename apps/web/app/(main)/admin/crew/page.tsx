@@ -155,7 +155,7 @@ export default function CrewPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           {health.ok ? (
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -202,7 +202,7 @@ export default function CrewPage() {
           <div className="border-b px-4 py-2.5">
             <p className="text-sm font-medium">角色配置</p>
           </div>
-          <div className="grid grid-cols-1 gap-2 p-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 p-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {agents.map((a) => (
               <div key={a.role} className="rounded border p-2.5">
                 <div className="flex items-center justify-between">

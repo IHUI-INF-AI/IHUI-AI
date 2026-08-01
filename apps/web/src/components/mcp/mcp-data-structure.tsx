@@ -123,7 +123,7 @@ export function McpDataStructure({ data, name }: McpDataStructureProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-9 w-9"
             onClick={handleCopy}
           >
             {copied ? (

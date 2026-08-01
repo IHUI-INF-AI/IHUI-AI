@@ -55,14 +55,14 @@ export default function RevenueStatPage() {
         <p className="mt-1 text-sm text-muted-foreground">订单、营收、退款、净额分析</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <StatCard title="累计营收" value={curFmt.format(stats.overview.totalRevenue)} icon={Wallet} loading={isLoading} />
         <StatCard title="本月营收" value={curFmt.format(stats.overview.monthRevenue)} icon={TrendingUp} loading={isLoading} />
         <StatCard title="今日营收" value={curFmt.format(stats.overview.todayRevenue)} icon={Coins} loading={isLoading} />
         <StatCard title="净营收" value={curFmt.format(stats.overview.netRevenue)} icon={Receipt} loading={isLoading} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <StatCard title="订单总数" value={numFmt.format(stats.overview.totalOrders)} icon={ShoppingCart} loading={isLoading} />
         <StatCard title="已支付订单" value={numFmt.format(stats.overview.paidOrders)} icon={ShoppingCart} loading={isLoading} />
         <StatCard title="退款总额" value={curFmt.format(stats.overview.refundAmount)} icon={RotateCcw} loading={isLoading} />
@@ -110,7 +110,7 @@ export default function RevenueStatPage() {
         {stats.byChannel.length === 0 ? (
           <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">暂无数据</div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 min-[640px]:grid-cols-2">
             {stats.byChannel.map((c) => (
               <div key={c.channel} className="space-y-1.5 rounded-md border p-3">
                 <div className="flex items-center justify-between text-sm">
