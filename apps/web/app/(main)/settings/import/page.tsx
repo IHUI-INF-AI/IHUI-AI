@@ -132,7 +132,7 @@ export default function CliImportPage() {
   }
 
   return (
-    <Container maxWidth="lg" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
       {/* Header */}
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
