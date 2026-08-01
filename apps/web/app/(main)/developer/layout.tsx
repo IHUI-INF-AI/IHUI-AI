@@ -24,8 +24,8 @@ export default function DeveloperLayout({ children }: { children: React.ReactNod
           <Terminal className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="break-words text-sm font-semibold">开发者中心</p>
-          <p className="break-words text-xs text-muted-foreground">
+          <p className="truncate text-sm font-semibold">开发者中心</p>
+          <p className="truncate text-xs text-muted-foreground">
             {user?.nickname ?? 'Developer'} · API 开放平台
           </p>
         </div>

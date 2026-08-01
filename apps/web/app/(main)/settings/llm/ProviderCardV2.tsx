@@ -184,18 +184,18 @@ export function ProviderCardV2({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="text-sm font-semibold">{provider.name}</h3>
-              <Badge variant={provider.enabled ? 'default' : 'secondary'} className="text-xs">
+              <h3 className="truncate text-sm font-semibold">{provider.name}</h3>
+              <Badge variant={provider.enabled ? 'default' : 'secondary'} className="shrink-0 whitespace-nowrap text-xs">
                 {provider.enabled ? t('enabled') : t('disabled')}
               </Badge>
               {!provider.hasApiKey ? (
-                <Badge variant="outline" className="border-amber-500 text-xs text-amber-600">
+                <Badge variant="outline" className="shrink-0 whitespace-nowrap border-amber-500 text-xs text-amber-600">
                   {t('noKey')}
                 </Badge>
               ) : null}
-              <Badge variant="outline" className={`text-xs ${healthColor}`}>
-                <Activity className="mr-1 inline h-3 w-3" />
-                {provider.healthStatus}
+              <Badge variant="outline" className={`shrink-0 whitespace-nowrap text-xs ${healthColor}`}>
+                <Activity className="mr-1 inline h-3 w-3 shrink-0" />
+                <span className="whitespace-nowrap">{provider.healthStatus}</span>
               </Badge>
             </div>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -248,13 +248,13 @@ export function ProviderCardV2({
         {/* 30d Usage stats(Phase 1 新深度功能) */}
         {(provider.usage30dTokens > 0 || provider.usage30dCostCents > 0) && (
           <div className="grid grid-cols-2 gap-2 rounded-md border border-dashed bg-muted/30 p-2 text-xs">
-            <div>
-              <p className="text-muted-foreground">{t('usage30d')}</p>
-              <p className="font-mono">{(provider.usage30dTokens / 1000).toFixed(1)}K tokens</p>
+            <div className="min-w-0">
+              <p className="truncate text-muted-foreground">{t('usage30d')}</p>
+              <p className="whitespace-nowrap font-mono tabular-nums">{(provider.usage30dTokens / 1000).toFixed(1)}K tokens</p>
             </div>
-            <div>
-              <p className="text-muted-foreground">{t('cost30d')}</p>
-              <p className="font-mono">${(provider.usage30dCostCents / 100).toFixed(2)}</p>
+            <div className="min-w-0">
+              <p className="truncate text-muted-foreground">{t('cost30d')}</p>
+              <p className="whitespace-nowrap font-mono tabular-nums">${(provider.usage30dCostCents / 100).toFixed(2)}</p>
             </div>
           </div>
         )}
@@ -274,10 +274,10 @@ export function ProviderCardV2({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-6 shrink-0 px-2 text-xs"
+              className="h-6 shrink-0 whitespace-nowrap px-2 text-xs"
               onClick={() => onAddModel(provider)}
             >
-              <Plus className="mr-1 h-3 w-3" />
+              <Plus className="mr-1 h-3 w-3 shrink-0" />
               {t('addModel')}
             </Button>
           </div>
@@ -316,7 +316,7 @@ export function ProviderCardV2({
                       <span className="w-3" />
                     )}
                     <code className="truncate font-mono">{m.displayName || m.modelId}</code>
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                       {(m.contextLength / 1000).toFixed(0)}K
                     </span>
                   </div>
@@ -407,7 +407,7 @@ export function ProviderCardV2({
                   <li key={m.id} className="flex items-center justify-between gap-2">
                     <code className="truncate font-mono">{m.id}</code>
                     {m.context_length ? (
-                      <span className="shrink-0 text-xs text-muted-foreground">
+                      <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                         {(m.context_length / 1000).toFixed(0)}K
                       </span>
                     ) : null}
@@ -425,19 +425,19 @@ export function ProviderCardV2({
 
         {/* Actions */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex shrink-0 flex-nowrap items-center gap-1">
             <Tooltip content={!provider.hasApiKey ? t('needKeyFirst') : t('test')}>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 px-2 text-xs"
+                className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
                 onClick={() => testProvMut.mutate()}
                 disabled={testProvMut.isPending || !provider.hasApiKey}
               >
                 {testProvMut.isPending ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  <Loader2 className="mr-1 h-3 w-3 shrink-0 animate-spin" />
                 ) : (
-                  <ShieldCheck className="mr-1 h-3 w-3" />
+                  <ShieldCheck className="mr-1 h-3 w-3 shrink-0" />
                 )}
                 {t('test')}
               </Button>
@@ -446,23 +446,23 @@ export function ProviderCardV2({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 px-2 text-xs"
+                className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
                 onClick={() => {
                   setShowUpstream((s) => !s)
                   if (!showUpstream && upstreamModels.length === 0) fetchMut.mutate()
                 }}
               >
-                <Sparkles className="mr-1 h-3 w-3" />
+                <Sparkles className="mr-1 h-3 w-3 shrink-0" />
                 {showUpstream ? t('hideModels') : t('fetchModels')}
               </Button>
             </Tooltip>
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-xs"
+              className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
               onClick={() => onEditProvider(provider)}
             >
-              <Edit3 className="mr-1 h-3 w-3" />
+              <Edit3 className="mr-1 h-3 w-3 shrink-0" />
               {t('edit')}
             </Button>
           </div>

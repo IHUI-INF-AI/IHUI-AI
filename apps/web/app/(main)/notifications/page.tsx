@@ -122,13 +122,13 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Bell className="h-6 w-6 text-primary" />
-            {t('title')}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+            <Bell className="h-6 w-6 shrink-0 text-primary" />
+            <span className="truncate">{t('title')}</span>
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 whitespace-nowrap text-sm tabular-nums text-muted-foreground">
             {unread > 0 ? t('unreadCount', { count: unread }) : t('allRead')}
           </p>
         </div>
@@ -137,20 +137,21 @@ export default function NotificationsPage() {
           size="sm"
           onClick={() => readAllMut.mutate()}
           disabled={unread === 0 || readAllMut.isPending}
+          className="shrink-0 whitespace-nowrap"
         >
-          <CheckCheck className="mr-1.5 h-4 w-4" />
+          <CheckCheck className="mr-1.5 h-4 w-4 shrink-0" />
           {t('markAllRead')}
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
+        <div className="flex flex-1 flex-nowrap gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1">
           {TABS.map((tabItem) => (
             <button
               key={tabItem.value}
               onClick={() => setTab(tabItem.value)}
               className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 tab === tabItem.value
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
@@ -160,7 +161,7 @@ export default function NotificationsPage() {
             </button>
           ))}
         </div>
-        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
+        <div className="flex shrink-0 flex-nowrap gap-1 rounded-lg border bg-muted/30 p-1">
           <button
             onClick={() => setView('list')}
             className={cn(
@@ -187,14 +188,14 @@ export default function NotificationsPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">
+        <div className="whitespace-nowrap py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading')}
         </div>
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
+        <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Bell className="h-8 w-8 opacity-40" />
           <p className="text-sm">{t('noData')}</p>
         </div>

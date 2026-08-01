@@ -22,8 +22,8 @@ export function ThemeCard({ t, mounted, theme, onSelect }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Sun className="h-4 w-4" />
-          {t('theme')}
+          <Sun className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">{t('theme')}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -42,8 +42,8 @@ export function ThemeCard({ t, mounted, theme, onSelect }: Props) {
                     : 'hover:bg-accent hover:text-accent-foreground',
                 )}
               >
-                <Icon className="h-5 w-5" />
-                {t(item.labelKey)}
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className="whitespace-nowrap">{t(item.labelKey)}</span>
               </button>
             )
           })}

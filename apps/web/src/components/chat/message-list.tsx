@@ -493,7 +493,7 @@ const MessageItem = React.memo(function MessageItem({
           {showTimestamp && (
             <div
               className={cn(
-                'mt-1 flex items-center gap-1.5 text-[10px] tabular-nums',
+                'mt-1 flex items-center gap-1.5 whitespace-nowrap text-[10px] tabular-nums',
                 isUser
                   ? 'justify-end text-primary-foreground/60'
                   : 'justify-end text-muted-foreground/50',
