@@ -14843,7 +14843,25 @@
   "modelFree": "Free",
   "modelPointsMultiplier": "Points Multiplier",
   "errors": {
-    "requestFailed": "Request failed"
+    "requestFailed": "Request failed",
+    "region": "Error notifications",
+    "dismiss": "Dismiss",
+    "clearAll": "Clear all",
+    "validationFailed": "The submitted information is incorrect. Please check and try again.",
+    "unauthorized": "Your session has expired. Please log in again.",
+    "forbidden": "You do not have permission to perform this action.",
+    "notFound": "The requested resource was not found.",
+    "conflict": "Operation conflict. Please refresh and try again.",
+    "rateLimited": "Too many requests. Please try again later.",
+    "locked": "The resource is locked. Please try again later.",
+    "internalError": "The server encountered an issue. Please try again later.",
+    "upstreamFailure": "Upstream service error. Please try again later.",
+    "serviceUnavailable": "Service is temporarily unavailable. Please try again later.",
+    "memberExists": "This member already exists.",
+    "optimisticLock": "The data has been modified by someone else. Please refresh and try again.",
+    "invalidMoney": "Invalid amount format.",
+    "invalidTimezone": "Invalid timezone format.",
+    "unknown": "An unknown error occurred. Please try again later."
   },
   "a11y": {
     "searchOption": "Search options",
