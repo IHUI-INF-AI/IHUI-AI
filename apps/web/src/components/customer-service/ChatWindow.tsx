@@ -117,7 +117,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-modal flex h-[480px] w-[360px] flex-col overflow-hidden rounded-lg border bg-card shadow-xl">
+    <div className="fixed bottom-6 right-6 z-modal flex h-[min(480px,60vh)] w-[min(360px,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border bg-card shadow-xl">
       <div className="flex items-center justify-between border-b bg-primary px-4 py-3 text-primary-foreground">
         <div className="flex items-center gap-2">
           <span className={statusDot} />

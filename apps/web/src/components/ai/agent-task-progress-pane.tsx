@@ -489,7 +489,7 @@ function MinimizedSummaryBar({
       <button
         type="button"
         onClick={onExpand}
-        className="ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+        className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
         aria-label={t('expand')}
         title={t('expand')}
         data-testid="pane-expand"
@@ -1196,7 +1196,7 @@ export function AgentTaskProgressPane() {
           onClick={() => setExpandAll(expandAll === true ? false : true)}
           aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
           title={expandAll === true ? t('collapseAll') : t('expandAll')}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           data-testid="pane-expand-all"
         >
           {expandAll === true ? (
@@ -1214,7 +1214,7 @@ export function AgentTaskProgressPane() {
           aria-controls="pane-help-panel"
           title={t('helpToggle')}
           className={cn(
-            'inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
+            'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
             showHelp
               ? 'bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -1228,7 +1228,7 @@ export function AgentTaskProgressPane() {
           onClick={togglePin}
           aria-label={pinned ? t('unpin') : t('pin')}
           className={cn(
-            'inline-flex h-5 w-5 items-center justify-center rounded-sm transition-colors',
+            'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
             pinned
               ? 'bg-primary/10 text-primary hover:bg-primary/20'
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -1244,7 +1244,7 @@ export function AgentTaskProgressPane() {
           type="button"
           onClick={() => setIsMinimized(true)}
           aria-label={t('minimize')}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           title={`${t('minimize')}(${t('minimizeHint')})`}
           data-testid="pane-minimize"
         >

@@ -94,7 +94,7 @@ export function HomePage4Pricing() {
         <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{t('subtitle')}</p>
       </RevealOnView>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 tablet-lg:grid-cols-4 lg:gap-3">
         {PRICING_PLANS.map((plan, i) => {
           const isRecommended = plan.recommended
           return (

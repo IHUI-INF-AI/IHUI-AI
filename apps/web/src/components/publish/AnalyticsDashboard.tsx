@@ -85,8 +85,8 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
       </div>
 
       {/* 趋势图 + 平台分布 */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid gap-3 tablet-lg:grid-cols-3">
+        <Card className="tablet-lg:col-span-2">
           <CardContent className="p-4">
             <h3 className="mb-3 text-xs font-medium text-muted-foreground">{t('analytics.trend')}</h3>
             <TrendChart data={overview?.trend ?? []} />
