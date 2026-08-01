@@ -572,6 +572,13 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                   role="menu"
                   aria-label={plusLabel}
                   data-testid="global-topbar-plus-menu"
+                  // 2026-08-01 修复:portal + mousedown 陷阱
+                  // 菜单通过 createPortal 渲染到 body,不在 plusRef 内部。
+                  // 外部点击关闭监听(L286)用 mousedown 检查 !plusRef.contains(target),
+                  // 点击菜单项时 mousedown 先冒泡到 document → 触发关闭 → 菜单 unmount → click 丢失。
+                  // 阻止 mousedown 冒泡,菜单不提前关闭,click 正常触发 handleAction。
+                  // 外部点击仍冒泡到 document 触发关闭(菜单外部不 stopPropagation)。
+                  onMouseDown={(e) => e.stopPropagation()}
                   style={{
                     position: 'fixed',
                     top: plusRect.top,
