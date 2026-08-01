@@ -124,6 +124,18 @@ export async function listByUser(
   return jobs.filter((j) => j.data?.userId === userId)
 }
 
+/**
+ * 获取任务归属用户 ID(O(1) 单 job 查询,2026-08-02 立)。
+ * 用于路由层 IDOR ownership check,替代 listByUser 反查 O(n)。
+ * job 不存在或 data 无 userId 返回 null。
+ */
+export async function getJobOwner(jobId: string): Promise<string | null> {
+  const q = getQueue()
+  const job = (await q.getJob(jobId)) as Job<GenerationJobData> | undefined
+  if (!job) return null
+  return job.data?.userId ?? null
+}
+
 /** 关闭队列连接（应用退出时调用）。 */
 export async function closeQueue(): Promise<void> {
   if (queue) {
