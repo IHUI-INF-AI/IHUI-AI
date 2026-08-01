@@ -573,12 +573,21 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/edu/classes', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
+    // 2026-08-01 P1 修复:原直接 as 类型断言,补齐 Zod 校验防 NaN/超长字段。
+    const body = z
+      .object({
+        name: z.string().min(1).max(200),
+        teacherName: z.string().max(100).nullable().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .insert(lessons)
       .values({
-        title: String(b.name ?? ''),
-        lecturerName: (b.teacherName as string | undefined) ?? null,
+        title: body.data.name,
+        lecturerName: body.data.teacherName ?? null,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
@@ -588,12 +597,20 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/edu/classes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = request.body as Record<string, unknown>
+    const body = z
+      .object({
+        name: z.string().min(1).max(200).optional(),
+        teacherName: z.string().max(100).nullable().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .update(lessons)
       .set({
-        title: (b.name as string | undefined) ?? undefined,
-        lecturerName: (b.teacherName as string | null | undefined) ?? null,
+        ...(body.data.name !== undefined && { title: body.data.name }),
+        ...(body.data.teacherName !== undefined && { lecturerName: body.data.teacherName }),
         updatedAt: new Date(),
       })
       .where(eq(lessons.id, p.data.id))
@@ -658,12 +675,21 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/edu/classes/schedules', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
+    // 2026-08-01 P1 修复:原直接 as 类型断言,补齐 Zod 校验防 NaN/超长字段。
+    const body = z
+      .object({
+        classId: z.string().min(1).max(100),
+        title: z.string().min(1).max(200),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .insert(lessonChapters)
       .values({
-        lessonId: String(b.classId ?? ''),
-        title: String(b.title ?? ''),
+        lessonId: body.data.classId,
+        title: body.data.title,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
@@ -673,11 +699,18 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/edu/classes/schedules/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = request.body as Record<string, unknown>
+    const body = z
+      .object({
+        title: z.string().min(1).max(200).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .update(lessonChapters)
       .set({
-        title: (b.title as string | undefined) ?? undefined,
+        ...(body.data.title !== undefined && { title: body.data.title }),
       })
       .where(eq(lessonChapters.id, p.data.id))
       .returning()
@@ -735,14 +768,25 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/learn/materials', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
+    // 2026-08-01 P1 修复:原直接 as 类型断言,fileSize 传 "abc" 会写入 NaN,补齐 Zod 校验。
+    const body = z
+      .object({
+        title: z.string().min(1).max(200),
+        type: z.string().max(50).nullable().optional(),
+        fileUrl: z.string().max(2000).nullable().optional(),
+        fileSize: z.coerce.number().int().min(0).default(0),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .insert(resources)
       .values({
-        title: String(b.title ?? ''),
-        fileType: (b.type as string | undefined) ?? null,
-        fileUrl: (b.fileUrl as string | undefined) ?? null,
-        fileSize: (b.fileSize as number | undefined) ?? 0,
+        title: body.data.title,
+        fileType: body.data.type ?? null,
+        fileUrl: body.data.fileUrl ?? null,
+        fileSize: body.data.fileSize,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
@@ -752,14 +796,24 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/learn/materials/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = request.body as Record<string, unknown>
+    const body = z
+      .object({
+        title: z.string().min(1).max(200).optional(),
+        type: z.string().max(50).nullable().optional(),
+        fileUrl: z.string().max(2000).nullable().optional(),
+        fileSize: z.coerce.number().int().min(0).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .update(resources)
       .set({
-        title: (b.title as string | undefined) ?? undefined,
-        fileType: (b.type as string | null | undefined) ?? null,
-        fileUrl: (b.fileUrl as string | null | undefined) ?? null,
-        fileSize: (b.fileSize as number | undefined) ?? 0,
+        ...(body.data.title !== undefined && { title: body.data.title }),
+        ...(body.data.type !== undefined && { fileType: body.data.type }),
+        ...(body.data.fileUrl !== undefined && { fileUrl: body.data.fileUrl }),
+        ...(body.data.fileSize !== undefined && { fileSize: body.data.fileSize }),
         updatedAt: new Date(),
       })
       .where(eq(resources.id, p.data.id))
@@ -819,11 +873,19 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/learn/plans', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
+    // 2026-08-01 P1 修复:原直接 as 类型断言,补齐 Zod 校验防超长字段。
+    const body = z
+      .object({
+        title: z.string().min(1).max(200),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .insert(learnMaps)
       .values({
-        title: String(b.title ?? ''),
+        title: body.data.title,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
@@ -833,12 +895,22 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/learn/plans/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = request.body as Record<string, unknown>
+    const body = z
+      .object({
+        title: z.string().min(1).max(200).optional(),
+        status: z.enum(['active', 'expired']).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .update(learnMaps)
       .set({
-        title: (b.title as string | undefined) ?? undefined,
-        isPublished: b.status === 'active' ? true : b.status === 'expired' ? false : undefined,
+        ...(body.data.title !== undefined && { title: body.data.title }),
+        ...(body.data.status !== undefined && {
+          isPublished: body.data.status === 'active',
+        }),
         updatedAt: new Date(),
       })
       .where(eq(learnMaps.id, p.data.id))
@@ -902,14 +974,25 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/learn/reminds', async (request, reply) => {
-    const b = request.body as Record<string, unknown>
+    // 2026-08-01 P1 修复:原直接 as 类型断言,Number(b.userId ?? 0) 在 userId="abc" 时变 NaN,补齐 Zod 校验。
+    const body = z
+      .object({
+        userId: z.coerce.number().int().min(0),
+        title: z.string().min(1).max(200),
+        content: z.string().max(5000).nullable().optional(),
+        type: z.string().max(50).optional().default('system'),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .insert(eduNotification)
       .values({
-        memberId: Number(b.userId ?? 0),
-        title: (b.title as string | undefined) ?? null,
-        content: (b.content as string | undefined) ?? null,
-        notifType: (b.type as string | undefined) ?? 'system',
+        memberId: body.data.userId,
+        title: body.data.title,
+        content: body.data.content ?? null,
+        notifType: body.data.type,
       })
       .returning()
     if (!row) return reply.status(500).send(error(500, '创建失败'))
@@ -919,14 +1002,24 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.put('/learn/reminds/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = request.body as Record<string, unknown>
+    const body = z
+      .object({
+        title: z.string().min(1).max(200).nullable().optional(),
+        content: z.string().max(5000).nullable().optional(),
+        type: z.string().max(50).optional(),
+        isRead: z.boolean().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
     const [row] = await db
       .update(eduNotification)
       .set({
-        title: (b.title as string | null | undefined) ?? null,
-        content: (b.content as string | null | undefined) ?? null,
-        notifType: (b.type as string | undefined) ?? undefined,
-        isRead: (b.isRead as boolean | undefined) ?? undefined,
+        ...(body.data.title !== undefined && { title: body.data.title }),
+        ...(body.data.content !== undefined && { content: body.data.content }),
+        ...(body.data.type !== undefined && { notifType: body.data.type }),
+        ...(body.data.isRead !== undefined && { isRead: body.data.isRead }),
         updatedAt: new Date(),
       })
       .where(eq(eduNotification.id, Number(p.data.id)))
