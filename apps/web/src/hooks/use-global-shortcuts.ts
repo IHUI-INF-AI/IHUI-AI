@@ -208,6 +208,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
 
   // 注册默认快捷键
   React.useEffect(() => {
+    const registered = new Set<string>()
     for (const def of DEFAULT_SHORTCUTS) {
       const handler = () => {
         if (def.event === '__toggle_help__') {
@@ -230,9 +231,17 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
         scope: 'global',
         description: def.description,
       })
+      registered.add(def.key)
     }
     emitChange()
-    // 默认快捷键在组件卸载时由 GC 回收，无需手动清理
+    // 2026-08-02 修复:effect 重跑/卸载时移除本批注册的默认快捷键,
+    // 避免 shortcutsRef.current 持续持有旧 handler 引用(GC 不会回收)
+    return () => {
+      for (const key of registered) {
+        shortcutsRef.current.delete(key)
+      }
+      emitChange()
+    }
   }, [emitChange])
 
   // 全局 keydown 监听

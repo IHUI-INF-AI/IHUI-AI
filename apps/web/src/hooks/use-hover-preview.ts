@@ -65,7 +65,6 @@ export function useHoverPreview<T>({
         window.clearTimeout(closeTimerRef.current)
         closeTimerRef.current = null
       }
-      if (visible) return
       const anchor = anchorRef.current
       let x = 0
       let y = 0
@@ -83,7 +82,10 @@ export function useHoverPreview<T>({
         x = e.clientX + offsetX
         y = e.clientY + offsetY
       }
+      // 2026-08-02 修复:即使 visible 也重新计算 position
+      // (anchor 可能因滚动/布局变化移动了位置)
       setPosition({ x, y })
+      if (visible) return
       showTimerRef.current = window.setTimeout(() => {
         setVisible(true)
         showTimerRef.current = null
