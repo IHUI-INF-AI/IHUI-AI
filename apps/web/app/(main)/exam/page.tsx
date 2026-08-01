@@ -8,6 +8,7 @@ import { FileCheck, Clock, ListChecks, Target, Loader2, ArrowRight } from 'lucid
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface Paper {
   id: string
@@ -46,6 +47,7 @@ export default function ExamPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <FileCheck className="h-7 w-7 text-primary" />

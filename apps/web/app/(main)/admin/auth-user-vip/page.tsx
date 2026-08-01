@@ -33,6 +33,7 @@ import {
   authUserVipToForm,
 } from './helpers'
 import type { AuthUserVip, AuthUserVipForm, AuthUserVipSearch, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AuthUserVipPage() {
   const t = useTranslations('adminAuthUserVip')
@@ -118,6 +119,7 @@ export default function AuthUserVipPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Crown className="h-6 w-6 text-primary" />

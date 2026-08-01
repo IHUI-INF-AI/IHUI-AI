@@ -5,6 +5,7 @@ import { ShoppingBag, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { PointsProduct, PointsProductListData, PointsProductStatus } from './types'
+import { BackButton } from '@/components/common'
 
 const BADGE: Record<PointsProductStatus, string> = {
   on: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -38,6 +39,7 @@ export default function AdminPointsMallPage() {
   const head = ['商品名称', '类型', '积分', '库存', '已兑/限兑', '状态']
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
           <ShoppingBag className="h-6 w-6 shrink-0 text-primary" />

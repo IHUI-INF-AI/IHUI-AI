@@ -20,6 +20,7 @@ import { DynamicsTable } from './DynamicsTable'
 import { CommentsDialog } from './CommentsDialog'
 import { PAGE_SIZE, auditDynamic, deleteDynamic, fetchDynamics } from './helpers'
 import { EMPTY_FILTER, type CirclePost, type PostFilter } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminCirclesDynamicsPage() {
   const t = useTranslations('admin.circlesDynamics')
@@ -80,6 +81,7 @@ export default function AdminCirclesDynamicsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <DynamicsFilter
         filter={filter}
         onFilterChange={setFilter}

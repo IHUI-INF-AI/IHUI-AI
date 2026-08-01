@@ -36,6 +36,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 import {
   fetchKeyPool,
   toggleKeyPool,
@@ -147,6 +148,7 @@ export default function PageClient() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('channels.title')}</h1>

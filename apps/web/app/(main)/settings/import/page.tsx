@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import {
@@ -133,6 +134,7 @@ export default function CliImportPage() {
 
   return (
     <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <BackButton />
       {/* Header */}
       <header className="space-y-1 shrink-0">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

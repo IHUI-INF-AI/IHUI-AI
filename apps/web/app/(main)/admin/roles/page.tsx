@@ -9,6 +9,7 @@ import { RoleTable } from './RoleTable'
 import { RoleDialog } from './RoleDialog'
 import { api, EMPTY } from './helpers'
 import type { Role, RoleForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminRolesPage() {
   const t = useTranslations('admin.roles')
@@ -133,6 +134,7 @@ export default function AdminRolesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <RoleFilter onCreate={openCreate} />
 
       <RoleTable

@@ -15,6 +15,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 import { BillingRules } from './BillingRules'
 import { CodeExamples } from './CodeExamples'
@@ -113,6 +114,7 @@ export function PricingContent(): React.JSX.Element {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {/* Hero */}
       <div className="rounded-lg border bg-card p-5">
         <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">

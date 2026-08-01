@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { NotificationItem } from '@/components/business'
 import { Timeline } from '@/components/data/Timeline'
 import { formatDateOnly } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 type NotificationType = 'system' | 'order' | 'project' | 'comment' | 'mention' | 'follow'
 
@@ -122,6 +123,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">

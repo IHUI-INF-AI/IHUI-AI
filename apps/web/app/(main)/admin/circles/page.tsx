@@ -13,6 +13,7 @@ import { CircleDialog } from './CircleDialog'
 import { EMPTY_FORM, PAGE_SIZE, api, circleToForm, fetchCircles, parseCidList } from './helpers'
 import { slugify } from '@/lib/content'
 import type { Circle, CircleForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminCirclesPage() {
   const t = useTranslations('admin.circles')
@@ -129,6 +130,7 @@ export default function AdminCirclesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <CirclesFilter
         search={search}
         setSearch={setSearch}

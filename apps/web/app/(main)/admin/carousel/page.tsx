@@ -15,6 +15,7 @@ import { CarouselTable } from './CarouselTable'
 import { CarouselDialog } from './CarouselDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, carouselToForm } from './helpers'
 import type { Carousel, CarouselForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function CarouselPage() {
   const t = useTranslations('admin.carousel')
@@ -119,6 +120,7 @@ export default function CarouselPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">

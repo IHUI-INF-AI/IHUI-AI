@@ -26,6 +26,7 @@ import {
   Input,
 } from '@ihui/ui-react'
 import { type PageData } from '@ihui/api-client'
+import { BackButton } from '@/components/common'
 
 interface ExamRecord {
   id: string
@@ -94,6 +95,7 @@ function RecordsContent() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

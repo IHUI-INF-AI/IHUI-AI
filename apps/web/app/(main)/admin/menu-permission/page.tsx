@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { fetchApi } from '@/lib/api'
 import type { MenuPermissionListData, MenuPermissionStatus } from './types'
+import { BackButton } from '@/components/common'
 
 const filterSchema = z.object({
   name: z.string().max(64, 'maxLength'),
@@ -65,6 +66,7 @@ export default function AdminMenuPermissionPage() {
   const head = [t('colName'), t('colCode'), t('colPath'), t('colType'), t('colStatus'), t('colActions')]
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight"><KeyRound className="h-6 w-6 shrink-0 text-primary" /><span className="truncate">{t('title')}</span></h1>
         <form onSubmit={form.handleSubmit(() => undefined)}>

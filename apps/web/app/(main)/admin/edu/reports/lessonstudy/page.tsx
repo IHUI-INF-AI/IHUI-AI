@@ -16,6 +16,7 @@ import {
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -72,6 +73,7 @@ export default function EduReportsLessonStudyPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">课程学习报表</h1>
         <p className="mt-1 text-sm text-muted-foreground">统计各课程的学习人数、进度与时长</p>

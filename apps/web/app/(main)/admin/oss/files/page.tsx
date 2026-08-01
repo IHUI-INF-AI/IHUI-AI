@@ -16,6 +16,7 @@ import { OssFileTable } from './OssFileTable'
 import { OssFileDialog } from './OssFileDialog'
 import { PAGE_SIZE, api, EXPORT_COLUMNS } from './helpers'
 import type { OssFile, FileListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminOssFilesPage() {
   const t = useTranslations('common')
@@ -99,6 +100,7 @@ export default function AdminOssFilesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

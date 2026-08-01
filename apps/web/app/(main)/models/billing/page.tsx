@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, DollarSign, Wallet } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { generateProductSchema, type ProductSchema } from '@/lib/seo/schema-product'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(`billing.transactions.types.${var}`)` 动态拼接 */
 const BILLING_TX_TYPE_KEY: Record<string, string> = {
@@ -136,6 +137,7 @@ export default async function BillingPage() {
         />
       ) : null}
       <div className="space-y-4">
+        <BackButton />
         <header className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('billing.title')}</h1>
           <p className="text-xs text-muted-foreground">{t('billing.subtitle')}</p>

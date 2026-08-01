@@ -24,6 +24,7 @@ import {
   PAGE_SIZE,
 } from './helpers'
 import type { AnomalyEvent } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AnomaliesPage() {
   const t = useTranslations('admin.anomalies')
@@ -72,6 +73,7 @@ export default function AnomaliesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

@@ -10,6 +10,7 @@ import { OauthAppTable } from './OauthAppTable'
 import { OauthAppCreateDialog, OauthAppDeleteDialog } from './OauthAppDialog'
 import { api, EMPTY_FORM } from './helpers'
 import type { OAuthApp, OAuthAppForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminOAuthAppsPage() {
   const qc = useQueryClient()
@@ -97,6 +98,7 @@ export default function AdminOAuthAppsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -11,6 +11,7 @@ import { OfflineRecordList } from './OfflineRecordList'
 import { OfflineRecordDialog } from './OfflineRecordDialog'
 import { EMPTY_FORM, api, recordToForm } from './helpers'
 import type { OfflineRecord, RecordForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function OfflineRecordsPage() {
   const t = useTranslations('offlineRecords')
@@ -101,6 +102,7 @@ export default function OfflineRecordsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="flex items-start justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

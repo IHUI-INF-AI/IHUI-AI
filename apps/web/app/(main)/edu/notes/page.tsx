@@ -8,6 +8,7 @@ import { NotebookPen, Loader2, Trash2, Search } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface Note {
   id: string
@@ -66,6 +67,7 @@ export default function EduNotesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <NotebookPen className="h-7 w-7 text-primary" />

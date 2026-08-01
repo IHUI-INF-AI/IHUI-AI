@@ -12,6 +12,7 @@ import { DispatchFormView } from './DispatchFormView'
 import { DispatchResultView } from './DispatchResultView'
 import { EMPTY_FORM, parseUserIds } from './helpers'
 import type { DispatchForm, DispatchResult } from './types'
+import { BackButton } from '@/components/common'
 
 export default function NotificationDispatchPage() {
   const t = useTranslations('adminTools')
@@ -68,6 +69,7 @@ export default function NotificationDispatchPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Bell className="h-6 w-6 text-primary" />

@@ -12,6 +12,7 @@ import { MembersTable } from './MembersTable'
 import { MemberCreateDialog } from './MemberCreateDialog'
 import { MemberImportDialog } from './MemberImportDialog'
 import { MemberResetPwdDialog } from './MemberResetPwdDialog'
+import { BackButton } from '@/components/common'
 
 export default function AdminMembersPage() {
   const t = useTranslations('admin.members')
@@ -54,6 +55,7 @@ export default function AdminMembersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

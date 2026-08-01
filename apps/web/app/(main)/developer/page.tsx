@@ -24,6 +24,7 @@ import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 interface DevSummary {
   callCount?: number
@@ -100,6 +101,7 @@ export default function DeveloperHomePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {summaryQ.error && <Alert variant="danger" description={(summaryQ.error as Error).message} />}
 
       <div className="grid grid-cols-2 gap-3 min-[1024px]:grid-cols-4">

@@ -15,6 +15,7 @@ import { ZhsIdentityTable } from './ZhsIdentityTable'
 import { ZhsIdentityDialog } from './ZhsIdentityDialog'
 import { PAGE_SIZE, PERM, EMPTY, EMPTY_SEARCH, EXPORT_COLS, zhsIdentityToForm } from './helpers'
 import type { ZhsIdentity, CForm, Search } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduZhsIdentityPage() {
   const t = useTranslations('admin.eduZhsIdentity')
@@ -117,6 +118,7 @@ export default function EduZhsIdentityPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

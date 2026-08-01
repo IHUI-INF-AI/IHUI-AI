@@ -9,6 +9,7 @@ import { StatCard } from '@/components/data'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { UserStatResponse } from './types'
+import { BackButton } from '@/components/common'
 
 const FALLBACK: UserStatResponse = {
   overview: {
@@ -44,6 +45,7 @@ export default function UserStatPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Users className="h-6 w-6 text-primary" />

@@ -15,6 +15,7 @@ import { DeveloperCozeDialog } from './DeveloperCozeDialog'
 import { DeveloperKeyDialog, DeveloperWebhookDialog } from './DeveloperKeyDialog'
 import { useDeveloperCoze } from './useDeveloperCoze'
 import type { ApiKey, WebhookConfig, SdkItem } from './types'
+import { BackButton } from '@/components/common'
 
 export default function DeveloperPage() {
   const t = useTranslations('adminTools')
@@ -106,6 +107,7 @@ export default function DeveloperPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -17,6 +17,7 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface BotItem {
   id: string
@@ -113,6 +114,7 @@ export default function ClawdbotDashboardPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
