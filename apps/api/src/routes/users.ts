@@ -8,7 +8,13 @@ import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
 import { authenticate } from '../plugins/auth.js'
-import { findUserById, findUserByPhone, isSystemAdminUser, updateUser } from '../db/queries.js'
+import {
+  findUserById,
+  findUserByPhone,
+  isSystemAdminUser,
+  updateUser,
+  mergeUserAccounts,
+} from '../db/queries.js'
 import { countFollowing, countFollowers, countFavorites } from '../db/social-queries.js'
 import { updateUserPassword } from '../db/usercenter-queries.js'
 import { success, error } from '../utils/response.js'
@@ -314,13 +320,23 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ user: publicUser(updated) }))
   })
 
-  // POST /api/users/change-phone - 更换手机号(需验证码验证)
+  // POST /api/users/change-phone - 更换手机号(需旧+新手机号双验证码,新号有账号则合并)
+  // 业务规则:
+  //   1. 必须验证旧手机号(当前账号绑定的手机号)和新手机号各自的 6 位验证码
+  //   2. 新手机号若已被其他账号绑定,自动合并:把新号账号的所有外键数据迁移到当前账号,
+  //      保留当前账号(老手机号)的 nickname/avatar/bio 等资料,删除新号账号
+  //   3. 新手机号未被占用时,直接更新当前账号的手机号
   const changePhoneSchema = z.object({
+    oldPhone: z
+      .string()
+      .length(11, '手机号必须为 11 位')
+      .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+    oldCode: z.string().length(6, '验证码必须为 6 位'),
     newPhone: z
       .string()
       .length(11, '手机号必须为 11 位')
       .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
-    code: z.string().length(6, '验证码必须为 6 位'),
+    newCode: z.string().length(6, '验证码必须为 6 位'),
   })
   server.post('/change-phone', async (request, reply) => {
     try {
@@ -341,20 +357,54 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { newPhone, code } = parsed.data
+    const { oldPhone, oldCode, newPhone, newCode } = parsed.data
 
-    // 校验验证码
-    if (!(await verifyCode(newPhone, code))) {
-      return reply.status(400).send(error(400, '验证码无效或已过期'))
+    if (oldPhone === newPhone) {
+      return reply.status(400).send(error(400, '新手机号不能与旧手机号相同'))
     }
 
-    // 检查新手机号是否已被其他用户绑定
-    const existing = await findUserByPhone(newPhone)
-    if (existing && existing.id !== userId) {
-      return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+    // 当前账号信息
+    const currentUser = await findUserById(userId)
+    if (!currentUser) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+    if (currentUser.phone !== oldPhone) {
+      return reply.status(400).send(error(400, '旧手机号与当前账号绑定手机号不一致'))
     }
 
-    // 更新手机号
+    // 校验旧手机号验证码
+    if (!(await verifyCode(oldPhone, oldCode))) {
+      return reply.status(400).send(error(400, '旧手机号验证码无效或已过期'))
+    }
+    // 校验新手机号验证码
+    if (!(await verifyCode(newPhone, newCode))) {
+      return reply.status(400).send(error(400, '新手机号验证码无效或已过期'))
+    }
+
+    // 新手机号是否已被其他账号绑定
+    const existingNew = await findUserByPhone(newPhone)
+    if (existingNew && existingNew.id === userId) {
+      return reply.status(400).send(error(400, '新手机号已是当前账号绑定手机号'))
+    }
+
+    if (existingNew) {
+      // 合并账号:把 existingNew 的所有外键数据迁移到当前账号,删除 existingNew
+      // 保留当前账号(老手机号)的 nickname/avatar/bio 等资料
+      if (await isSystemAdminUser(existingNew.id)) {
+        return reply.status(403).send(error(403, '目标账号为系统管理员,不可合并'))
+      }
+      try {
+        await mergeUserAccounts({
+          fromUserId: existingNew.id,
+          toUserId: userId,
+        })
+      } catch (e) {
+        request.log.error({ err: e }, '账号合并失败')
+        return reply.status(500).send(error(500, '账号合并失败,请稍后重试'))
+      }
+    }
+
+    // 更新当前账号的手机号为新号(保留老账号的所有资料)
     const updated = await updateUser(userId, { phone: newPhone })
     return reply.send(success({ user: publicUser(updated) }))
   })
