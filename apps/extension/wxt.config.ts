@@ -27,6 +27,8 @@ export default defineConfig({
       'tabs',
       'scripting',
       'alarms',
+      // 2026-08-01 SSO 接入:chrome.identity.launchWebAuthFlow 打开 web SSO 登录页
+      'identity',
     ],
     host_permissions: ['http://localhost:8802/*', 'https://*.aizhs.top/*'],
     icons: {
