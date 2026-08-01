@@ -6817,7 +6817,8 @@
       "seoScore": "SEO 评分",
       "seoSuggestions": "优化建议",
       "emptyContent": "请先输入正文内容",
-      "retry": "重试"
+      "retry": "重试",
+      "analyzeAll": "批量分析"
     },
     "preview": {
       "title": "平台预览",
