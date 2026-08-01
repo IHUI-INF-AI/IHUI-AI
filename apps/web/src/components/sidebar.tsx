@@ -1457,11 +1457,13 @@ export function Sidebar({
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
 
   // 桌面端展开态拖拽调整宽度(130-180px),localStorage 持久化。
-  // 2026-07-22 修复首屏 width 闪烁:
-  // - 删除原 useEffect 延迟读取(原 1549-1557 行),由 layout.tsx inline script 在 React hydrate 前
-  //   同步预设 :root --sidebar-width CSS 变量,首帧 aside width = 持久化值,无 130 → 180 跳变。
-  // - aside 元素 width 改为 `var(--sidebar-width, 130px)` 字符串引用(SSR/CSR 字节级一致),
+  // 2026-07-22 修复首屏 width 闪烁(2026-08-01 修订,根治残留闪烁):
+  // - layout.tsx inline script 在 React hydrate 前同步预设 :root --sidebar-width CSS 变量
+  //   (读 localStorage sidebar-width,范围 130-180,fallback 160px),首帧 aside width = 预设值。
+  // - aside 元素 width 用 `var(--sidebar-width, 160px)` 字符串引用(SSR/CSR 字节级一致),
   //   React 不解析 CSS 变量,只比较 style 字符串,无 hydration mismatch 警告。
+  // - useEffect 首次 mount 只读 localStorage 同步 sidebarWidth state,不覆盖 inline script 预设的
+  //   CSS 变量(避免 160→localStorage 值的跳变);state 变化触发 effect 重新执行时才设 CSS 变量。
   // - 拖拽时 setSidebarWidth + useEffect 同步 CSS 变量保留(运行时宽度变化仍平滑过渡)。
   const [sidebarWidth, setSidebarWidth] = React.useState(SIDEBAR_WIDTH)
   const [isResizing, setIsResizing] = React.useState(false)
@@ -1471,24 +1473,39 @@ export function Sidebar({
   const desktopNavId = id ? `${id}-desktop` : 'sidebar-nav-desktop'
   const mobileNavId = id ? `${id}-mobile` : 'sidebar-nav-mobile'
 
-  // 2026-07-22 修复首屏 width 闪烁:删除原 useEffect 延迟读取(由 layout.tsx inline script
-  // 在 React hydrate 前同步预设 --sidebar-width CSS 变量完成,首帧 aside width = 持久化值)。
-  // 原代码(已删除):
-  //   React.useEffect(() => {
-  //     const saved = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
-  //     if (saved) {
-  //       const n = Number(saved)
-  //       if (Number.isFinite(n)) {
-  //         setSidebarWidth(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, n)))
-  //       }
-  //     }
-  //   }, [])
+  // 首次 render 标志:首次 effect 只读 localStorage 同步 state,不覆盖 inline script 预设的 CSS 变量。
+  // 根因:layout.tsx inline script 已在 hydrate 前预设 --sidebar-width(读 localStorage 或 fallback 160px),
+  // 若首次 effect 直接用 sidebarWidth state(SIDEBAR_WIDTH=160)覆盖 CSS 变量,当 localStorage 有非 160 值时
+  // 会触发"inline script 值 → state 值"跳变。首次跳过 setProperty,state 变化触发 effect 重新执行时才同步。
+  const isFirstRender = React.useRef(true)
 
   // 同步当前实际宽度(折叠态用 60px,展开态用 sidebarWidth)到 :root 的 --sidebar-width CSS 变量,
   // 供 AISidePanel 等 fixed 定位组件通过 left: var(--sidebar-width) 紧贴 Sidebar 右侧。
-  // 2026-07-22 升级:首帧值由 layout.tsx inline script 预设(读 localStorage),
-  // 此 useEffect 仅负责运行时同步(用户拖拽/折叠变化),不会触发首屏跳变。
+  // 2026-08-01 升级:首次 mount 读 localStorage 同步 state(不设 CSS 变量),根治首屏宽度闪烁。
   React.useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      // 首次 mount:读 localStorage 同步 sidebarWidth state。
+      // CSS 变量已由 layout.tsx inline script 预设(读 localStorage sidebar-width, fallback 160px),
+      // 这里不设 CSS 变量,避免覆盖 inline script 预设值;state 变化会触发 effect 重新执行。
+      try {
+        const saved = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
+        if (saved) {
+          const n = Number(saved)
+          if (Number.isFinite(n) && n >= SIDEBAR_MIN_WIDTH && n <= SIDEBAR_MAX_WIDTH) {
+            setSidebarWidth(n)
+            return // state 变化触发 effect 重新执行,届时设 CSS 变量
+          }
+        }
+      } catch {
+        // localStorage 不可用
+      }
+      // localStorage 无有效值,设 CSS 变量 = 默认值(与 inline script fallback 一致)
+      const effectiveDefault = collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
+      document.documentElement.style.setProperty('--sidebar-width', `${effectiveDefault}px`)
+      return
+    }
+    // 非首次:正常同步 state 到 CSS 变量(用户拖拽/折叠变化)
     const effective = collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
     document.documentElement.style.setProperty('--sidebar-width', `${effective}px`)
   }, [collapsed, sidebarWidth])
