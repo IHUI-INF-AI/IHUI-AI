@@ -185,7 +185,7 @@ export default function VipPage() {
                     {t('popular')}
                   </span>
                 )}
-                <CardHeader className="p-6 pb-3">
+                <CardHeader className="p-4 min-[768px]:p-6 pb-3">
                   <CardTitle className="text-xl">{level.levelName}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col p-4 min-[768px]:p-6 pt-0">

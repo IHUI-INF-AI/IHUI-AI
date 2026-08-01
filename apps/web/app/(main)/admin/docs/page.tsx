@@ -172,7 +172,7 @@ export default function AdminDocsPage() {
               <Label htmlFor="d-title">{t('fieldTitle')}</Label>
               <Input id="d-title" value={form.title} onChange={(e) => { const title = e.target.value; setForm({ ...form, title, slug: slugTouched ? form.slug : slugify(title) }) }} placeholder={t('titlePlaceholder')} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="d-slug">{t('fieldSlug')}</Label>
                 <Input id="d-slug" value={form.slug} onChange={(e) => { setSlugTouched(true); setForm({ ...form, slug: e.target.value }) }} placeholder={t('slugPlaceholder')} className="font-mono text-xs" />
