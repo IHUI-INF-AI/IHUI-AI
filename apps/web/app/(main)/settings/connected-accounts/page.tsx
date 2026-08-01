@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -122,7 +122,7 @@ export default function ConnectedAccountsPage() {
   }
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('connectedAccountsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('connectedAccountsDesc')}</p>
