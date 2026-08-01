@@ -304,6 +304,26 @@ def _model_to_provider_code(model: str) -> str:
     return "openai"
 
 
+# 免费/试用 credits provider 的 endpoint 解析表(2026-08-01 立,P0 Phase A H2)。
+# 替代旧硬编码 nvidia/cloudflare 前缀条件判断,新增 provider 只需加 entry。
+# prefix → (provider_code, default_api_base, require_full_api_base, strip_prefix)
+# - require_full_api_base=True:api_base 必须配置完整 URL(如 Cloudflare 含 account_id)
+# - strip_prefix=True:real_model 去掉前缀(cloudflare/x → x);False:保留原样(@cf/x → @cf/x)
+_FREE_PROVIDER_ENDPOINT_RESOLVERS: dict[str, tuple[str, str | None, bool, bool]] = {
+    "cloudflare/": ("cloudflare", None, True, True),
+    "@cf/": ("cloudflare", None, True, False),
+    "nvidia/": ("nvidia", "https://integrate.api.nvidia.com/v1", False, True),
+    "github/": ("github", "https://models.inference.ai.azure.com", False, True),
+    "vercel/": ("vercel", "https://ai-gateway.vercel.sh/v1", False, True),
+    "opencode/": ("opencode", "https://opencode.ai/zen/v1", False, True),
+    "modal/": ("modal", "https://modal.com/v1", False, True),
+    "inferencenet/": ("inference_net", "https://api.inference.net/v1", False, True),
+    "nlpcloud/": ("nlp_cloud", "https://api.nlpcloud.io/v1", False, True),
+    "scaleway/": ("scaleway", "https://api.scaleway.ai/ai-platform/v1", False, True),
+    "alibaba-intl/": ("alibaba_intl", "https://bailian-intl.alibabacloud.com/compatible-mode/v1", False, True),
+}
+
+
 async def _resolve_from_db(
     model: str,
     owner_uuid: Optional[str] = None,
@@ -340,6 +360,16 @@ async def _resolve_from_db(
             return None
         api_key = _decrypt_api_key(row["api_key_enc"])
         if not api_key:
+            return None
+        # H7(Phase D):占位符 key 不覆盖 .env
+        # 解密后的 api_key 若为占位符(以 '<' 开头如 <your-key> / 以 'sk-placeholder' 开头 / 空),
+        # 视为未配置,返回 None 降级到 .env 真实配置。双保险:SQL migration 已把占位符记录
+        # enabled=false,这里再加运行时检测防止管理员手动 enabled=true 但 key 仍是占位符。
+        if api_key.startswith("<") or api_key.startswith("sk-placeholder"):
+            logger.info(
+                "H7: provider=%s 的 api_key 为占位符(%s...),降级到 .env 配置",
+                provider_code, api_key[:16],
+            )
             return None
         base_url = row["base_url"] or None
         api_format = row["api_format"] or "openai_chat"
@@ -712,51 +742,19 @@ class LLMGateway:
         if m.startswith("bedrock/"):
             return settings.aws_access_key_id or None, None, model
         # 2026-07-22 接入:免费 / 试用 credits provider(均为 OpenAI 兼容,走 LiteLLM openai/{model} 路径)
-        # Cloudflare Workers AI:模型 ID 以 @cf/ 开头,API base 含 account_id
-        if m.startswith(("cloudflare/", "@cf/")):
-            real_model = model.split("/", 1)[1] if m.startswith("cloudflare/") else model
-            cfg = settings.get_provider_config("cloudflare")
-            # 阶段 3 主体:cloudflare_account_id 字段已删除,api_base 必须配置完整 URL
-            # (含 account_id,如 https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1)
-            if not cfg.api_key or not cfg.api_base:
-                return None, None, real_model
-            return cfg.api_key, cfg.api_base, f"openai/{real_model}"
-        if m.startswith("nvidia/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("nvidia")
-            return cfg.api_key or None, cfg.api_base or "https://integrate.api.nvidia.com/v1", f"openai/{real_model}"
-        if m.startswith("github/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("github")
-            return cfg.api_key or None, cfg.api_base or "https://models.inference.ai.azure.com", f"openai/{real_model}"
-        if m.startswith("vercel/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("vercel")
-            return cfg.api_key or None, cfg.api_base or "https://ai-gateway.vercel.sh/v1", f"openai/{real_model}"
-        if m.startswith("opencode/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("opencode")
-            return cfg.api_key or None, cfg.api_base or "https://opencode.ai/zen/v1", f"openai/{real_model}"
-        if m.startswith("modal/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("modal")
-            return cfg.api_key or None, cfg.api_base or "https://modal.com/v1", f"openai/{real_model}"
-        if m.startswith("inferencenet/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("inference_net")
-            return cfg.api_key or None, cfg.api_base or "https://api.inference.net/v1", f"openai/{real_model}"
-        if m.startswith("nlpcloud/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("nlp_cloud")
-            return cfg.api_key or None, cfg.api_base or "https://api.nlpcloud.io/v1", f"openai/{real_model}"
-        if m.startswith("scaleway/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("scaleway")
-            return cfg.api_key or None, cfg.api_base or "https://api.scaleway.ai/ai-platform/v1", f"openai/{real_model}"
-        if m.startswith("alibaba-intl/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("alibaba_intl")
-            return cfg.api_key or None, cfg.api_base or "https://bailian-intl.alibabacloud.com/compatible-mode/v1", f"openai/{real_model}"
+        # 2026-08-01 重构(P0 Phase A H2):消灭硬编码 nvidia/cloudflare 前缀判断,改为 dict 查表
+        # 新增 provider 只需在 _FREE_PROVIDER_ENDPOINT_RESOLVERS 加 entry,零代码改动
+        for prefix, (code, default_base, require_base, strip_prefix) in _FREE_PROVIDER_ENDPOINT_RESOLVERS.items():
+            if m.startswith(prefix):
+                real_model = model.split("/", 1)[1] if strip_prefix else model
+                cfg = settings.get_provider_config(code)
+                if require_base:
+                    # Cloudflare Workers AI:cloudflare_account_id 字段已删除,api_base 必须配置完整 URL
+                    # (含 account_id,如 https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1)
+                    if not cfg.api_key or not cfg.api_base:
+                        return None, None, real_model
+                    return cfg.api_key, cfg.api_base, f"openai/{real_model}"
+                return cfg.api_key or None, cfg.api_base or default_base, f"openai/{real_model}"
         # 2026-07-24 接入:10 个免费 LLM provider 内化(均为 OpenAI 兼容)
         if m.startswith("cerebras/"):
             real_model = model.split("/", 1)[1]
@@ -1072,7 +1070,7 @@ class LLMGateway:
             if api_base:
                 call_kwargs["api_base"] = api_base
             # 按 provider capability 设默认 timeout(NVIDIA NIM=120s / Cloudflare=60s / 其他=30s)
-            # 替代旧硬编码 `if used_model.startswith("nvidia/"): 120 else 30`(P0 Phase A)
+            # 替代旧硬编码 nvidia 前缀 120s timeout 判断(P0 Phase A)
             provider_code = _model_to_provider_code(used_model)
             cap = get_provider_cap(provider_code)
             call_kwargs["timeout"] = cap.default_timeout
@@ -1450,7 +1448,7 @@ class LLMGateway:
             # 不支持的 provider(NVIDIA/StepFun/Agnes/Ollama/CF)由下方 filter_call_kwargs 自动移除
             call_kwargs["stream_usage"] = True
             # 按 provider capability 设默认 timeout(NVIDIA NIM=120s / Cloudflare=60s / 其他=30s)
-            # 替代旧硬编码 `if used_model.startswith("nvidia/"): 120 else 30`(P0 Phase A)
+            # 替代旧硬编码 nvidia 前缀 120s timeout 判断(P0 Phase A)
             provider_code = _model_to_provider_code(used_model)
             cap = get_provider_cap(provider_code)
             call_kwargs["timeout"] = cap.default_timeout

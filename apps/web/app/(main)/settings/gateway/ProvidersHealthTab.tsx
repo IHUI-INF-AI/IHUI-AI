@@ -9,7 +9,6 @@ import {
   fetchModelSyncHealth,
   fetchModelSyncHistory,
   fetchModelSyncStatus,
-  fetchProvidersHealth,
   fetchSyncStats,
   resetProviderSync,
   triggerModelSync,
@@ -29,6 +28,12 @@ import {
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import {
+  fetchProvidersHealthSummary,
+  type ProviderHealthInfo,
+  type ProviderHealthStatus,
+} from '@/lib/models-api'
+import { ProviderStatusBadge } from '../../models/ProviderStatusBadge'
+import {
   Loader2,
   RefreshCw,
   ChevronRight,
@@ -38,27 +43,21 @@ import {
   RotateCcw,
   Save,
   Trash2,
+  Clock,
 } from 'lucide-react'
 
 import type {
-  GatewayProvider,
   ModelSyncResult,
   ModelSyncHistoryRecord,
-  ProviderStatus,
   SyncStatsResult,
 } from './types'
-
-const STATUS_BADGE: Record<ProviderStatus, string> = {
-  ok: 'border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-500',
-  invalid_key: 'border-transparent bg-red-500/15 text-red-600 dark:text-red-500',
-  unreachable: 'border-transparent bg-muted text-muted-foreground',
-}
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All' },
   { value: 'ok', label: 'OK' },
   { value: 'invalid_key', label: 'Invalid Key' },
   { value: 'unreachable', label: 'Unreachable' },
+  { value: 'not_configured', label: 'Not Configured' },
 ] as const
 
 // F4.3 dry-run 预览结果聚合(供 Dialog 渲染)
@@ -78,7 +77,7 @@ export function ProvidersHealthTab() {
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['gateway-providers-health'],
-    queryFn: fetchProvidersHealth,
+    queryFn: () => fetchProvidersHealthSummary(true),
     refetchInterval: 30_000,
   })
 
@@ -149,10 +148,17 @@ export function ProvidersHealthTab() {
     },
   })
 
-  const [filter, setFilter] = React.useState<'all' | ProviderStatus>('all')
+  const [filter, setFilter] = React.useState<'all' | ProviderHealthStatus>('all')
 
-  const summary = data?.summary ?? { total: 0, ok: 0, invalid_key: 0, unreachable: 0 }
-  const providers: GatewayProvider[] = React.useMemo(() => {
+  const summary = React.useMemo(() => {
+    if (!data) return { total: 0, ok: 0, invalid_key: 0, unreachable: 0, not_configured: 0 }
+    const counts = { ok: 0, invalid_key: 0, unreachable: 0, not_configured: 0 }
+    for (const p of data.providers) {
+      counts[p.status]++
+    }
+    return { total: data.total, ...counts }
+  }, [data])
+  const providers: ProviderHealthInfo[] = React.useMemo(() => {
     const list = data?.providers ?? []
     return filter === 'all' ? list : list.filter((p) => p.status === filter)
   }, [data, filter])
@@ -171,13 +177,21 @@ export function ProvidersHealthTab() {
 
   return (
     <div className="space-y-3">
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Summary + 最后检测时间(H4 Phase B) */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <SummaryCard label={t('summary.total')} value={summary.total} />
         <SummaryCard label="OK" value={summary.ok} tone="emerald" />
         <SummaryCard label="Invalid Key" value={summary.invalid_key} tone="red" />
-        <SummaryCard label="Unreachable" value={summary.unreachable} tone="muted" />
+        <SummaryCard label="Unreachable" value={summary.unreachable} tone="orange" />
+        <SummaryCard label="Not Configured" value={summary.not_configured} tone="muted" />
       </div>
+      {/* H4 Phase B:最后检测时间(checked_at) */}
+      {data?.checked_at && (
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          <span>最后检测:{timeFmt.format(new Date(data.checked_at))}</span>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
@@ -448,6 +462,7 @@ function SyncDiffDetail({ result }: { result: ModelSyncResult }) {
 }
 
 // F4.2 单 provider 行(含单 provider 同步按钮)
+// H4 Phase B:用 ProviderStatusBadge 显示状态徽章 + 延迟/模型数 tooltip
 function ProviderRow({
   provider,
   t,
@@ -455,7 +470,7 @@ function ProviderRow({
   onSync,
   syncError,
 }: {
-  provider: GatewayProvider
+  provider: ProviderHealthInfo
   t: ReturnType<typeof useTranslations>
   isSyncing: boolean
   onSync: () => void
@@ -469,11 +484,21 @@ function ProviderRow({
           <p className="text-sm font-medium">{provider.display_name || provider.provider}</p>
           <p className="text-[11px] text-muted-foreground">{provider.provider}</p>
         </div>
-        <span className="text-[11px] text-muted-foreground">{provider.latency_ms}ms</span>
-        <Badge variant="secondary" className="text-[11px]">
-          {provider.model_count} {t('models')}
-        </Badge>
-        <Badge className={STATUS_BADGE[provider.status]}>{provider.status}</Badge>
+        {/* H4 Phase B:ProviderStatusBadge(圆点 + 状态文字 + tooltip 延迟/模型数) */}
+        <ProviderStatusBadge
+          status={provider.status}
+          latency_ms={provider.latency_ms}
+          model_count={provider.model_count}
+          compact
+        />
+        {typeof provider.latency_ms === 'number' && (
+          <span className="text-[11px] text-muted-foreground">{provider.latency_ms}ms</span>
+        )}
+        {typeof provider.model_count === 'number' && (
+          <Badge variant="secondary" className="text-[11px]">
+            {provider.model_count} {t('models')}
+          </Badge>
+        )}
         {provider.category && (
           <Badge variant="outline" className="text-[11px]">
             {provider.category}
@@ -484,7 +509,7 @@ function ProviderRow({
         )}
         {provider.is_in_cooldown && (
           <Badge className="border-transparent bg-red-500/15 text-[11px] text-red-600 dark:text-red-500">
-            {t('cooldown')} · {provider.consecutive_failures} {t('failures')}
+            {t('cooldown')} · {provider.consecutive_failures ?? 0} {t('failures')}
           </Badge>
         )}
         <Button
@@ -839,16 +864,18 @@ function SummaryCard({
 }: {
   label: string
   value: number
-  tone?: 'emerald' | 'red' | 'muted'
+  tone?: 'emerald' | 'red' | 'orange' | 'muted'
 }) {
   const toneClass =
     tone === 'emerald'
       ? 'text-emerald-600 dark:text-emerald-500'
       : tone === 'red'
         ? 'text-red-600 dark:text-red-500'
-        : tone === 'muted'
-          ? 'text-muted-foreground'
-          : 'text-foreground'
+        : tone === 'orange'
+          ? 'text-orange-600 dark:text-orange-500'
+          : tone === 'muted'
+            ? 'text-muted-foreground'
+            : 'text-foreground'
   return (
     <Card>
       <CardContent className="p-3">

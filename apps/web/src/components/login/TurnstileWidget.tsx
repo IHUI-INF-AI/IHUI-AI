@@ -36,15 +36,9 @@ export interface TurnstileWidgetProps {
 /* 全局回调注册(类型安全,无 any)                                               */
 /* -------------------------------------------------------------------------- */
 
-type GlobalCallbackStore = Record<
-  string,
-  ((...args: unknown[]) => void) | undefined
->
+type GlobalCallbackStore = Record<string, ((...args: unknown[]) => void) | undefined>
 
-function setGlobalCallback(
-  name: string,
-  fn: (...args: unknown[]) => void,
-): void {
+function setGlobalCallback(name: string, fn: (...args: unknown[]) => void): void {
   ;(window as unknown as GlobalCallbackStore)[name] = fn
 }
 
@@ -101,9 +95,9 @@ export function TurnstileWidget({
   // 未配置 siteKey 时不渲染(自动跳过验证)
   if (!siteKey) return null
 
-  const containerClass = ['cf-turnstile', 'min-h-[65px]', className]
-    .filter(Boolean)
-    .join(' ')
+  // 不设 min-h:SDK 未加载/不可见模式时 div 高度 0 不占空间,
+  // SDK 接管后由 Cloudflare widget 自适应高度(约 65px)
+  const containerClass = ['cf-turnstile', className].filter(Boolean).join(' ')
 
   return (
     <>
