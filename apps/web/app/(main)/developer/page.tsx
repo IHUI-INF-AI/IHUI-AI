@@ -100,11 +100,6 @@ export default function DeveloperHomePage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
-      </div>
-
       {summaryQ.error && <Alert variant="danger" description={(summaryQ.error as Error).message} />}
 
       <div className="grid grid-cols-2 gap-3 min-[1024px]:grid-cols-4">

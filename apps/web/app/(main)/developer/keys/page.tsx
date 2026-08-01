@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Key, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
@@ -81,14 +81,7 @@ export default function KeysPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
-            <Key className="h-5 w-5 shrink-0 text-primary" />
-            <span className="whitespace-nowrap">密钥管理</span>
-          </h1>
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">创建与维护 API 密钥及权限范围</p>
-        </div>
+      <div className="flex justify-end">
         <Button size="sm" onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
           <Plus className="h-4 w-4 shrink-0" />
           <span className="whitespace-nowrap">新建密钥</span>

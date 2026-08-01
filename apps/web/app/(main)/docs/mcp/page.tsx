@@ -53,28 +53,14 @@ export const metadata: Metadata = {
 
 export default function McpDocsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <div className="space-y-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(mcpJsonLd) }}
       />
 
-      <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>🔌</span>
-          MCP 工具集成
-        </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
-          Model Context Protocol 集成
-        </h1>
-        <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-          智汇 AI 是首批原生支持 MCP 的 AI 平台之一。100+ 预置 Server 即插即用,
-          企业内部系统可封装为 MCP Server 给 Agent 使用。
-        </p>
-      </header>
-
       {/* 什么是 MCP */}
-      <section id="what-is-mcp" className="mt-16 space-y-6">
+      <section id="what-is-mcp" className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">什么是 MCP?</h2>
         <div className="rounded-2xl border bg-card p-6 space-y-3">
           <p className="text-sm text-muted-foreground">
@@ -245,6 +231,6 @@ await server.connect()`}</code>
           <a href="/docs/api" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">API 参考</a>
         </div>
       </section>
-    </main>
+    </div>
   )
 }

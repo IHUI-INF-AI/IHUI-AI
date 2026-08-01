@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, ShieldCheck, Clock, XCircle, User } from 'lucide-react'
+import { Loader2, ShieldCheck, Clock, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 
@@ -94,15 +94,7 @@ export default function RealnamePage() {
   const status = info?.status ?? null
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
-          <User className="h-6 w-6 text-primary" />
-          {t('realname.title')}
-        </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t('realname.subtitle')}</p>
-      </div>
-
+    <div className="space-y-4">
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />

@@ -25,16 +25,12 @@ export default async function GroupsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{t('groupsMgmt.title')}</h1>
-          <p className="text-xs text-muted-foreground">{t('groupsMgmt.subtitle')}</p>
-        </div>
+      <div className="flex justify-end">
         <Button size="sm" className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />
           {t('groupsMgmt.create')}
         </Button>
-      </header>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {GROUPS.map((g) => (

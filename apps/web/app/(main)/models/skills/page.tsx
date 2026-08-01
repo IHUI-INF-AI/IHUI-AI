@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { Search, Sparkles } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui-react'
 
@@ -130,14 +130,6 @@ export default async function SkillsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Sparkles className="h-6 w-6 text-primary" />
-          {t('skills.title')}
-        </h1>
-        <p className="text-xs text-muted-foreground">{t('skills.subtitle')}</p>
-      </header>
-
       {/* 搜索 */}
       <div className="relative w-full min-[640px]:max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

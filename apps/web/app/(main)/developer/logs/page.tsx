@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { FileText, Loader2, ChevronDown, ChevronRight, Search } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
@@ -88,14 +88,6 @@ export default function LogsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
-          <FileText className="h-5 w-5 shrink-0 text-primary" />
-          <span className="whitespace-nowrap">{t('title')}</span>
-        </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
-      </div>
-
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       <div className="flex flex-wrap items-center gap-2">

@@ -48,16 +48,12 @@ export default async function UsersPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{t('users.title')}</h1>
-          <p className="text-xs text-muted-foreground">{t('users.subtitle')}</p>
-        </div>
+      <div className="flex justify-end">
         <Button size="sm" className="gap-1.5">
           <UserPlus className="h-3.5 w-3.5" />
           {t('users.create')}
         </Button>
-      </header>
+      </div>
 
       <Card>
         <CardContent className="flex items-center gap-2 p-4">
