@@ -55,7 +55,7 @@ function ErrorView({
 }): React.JSX.Element {
   const t = useTranslations('h5SharePage')
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-10 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center px-5 min-[768px]:px-10 text-center">
       <AlertCircle className="mb-4 h-16 w-16 text-muted-foreground/40" />
       <p className="mb-6 text-sm text-muted-foreground">{message || t('errorDefault')}</p>
       <button

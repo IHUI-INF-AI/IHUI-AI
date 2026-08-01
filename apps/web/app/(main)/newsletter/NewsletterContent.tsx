@@ -63,7 +63,7 @@ export function NewsletterContent(): React.JSX.Element {
   const benefits = t.raw('benefits.items') as string[]
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10 md:px-8 md:py-14">
+    <main className="mx-auto w-full max-w-3xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
       {/* Hero */}
       <section className="text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -71,7 +71,7 @@ export function NewsletterContent(): React.JSX.Element {
           {t('hero.badge')}
         </div>
         <h1 className="mt-3 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('hero.title')}</h1>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('hero.subtitle')}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -108,9 +108,9 @@ export function NewsletterContent(): React.JSX.Element {
           </CardContent>
         </Card>
       ) : (
-        <div className="mt-10 grid gap-6 md:grid-cols-5">
+        <div className="mt-10 grid grid-cols-1 gap-6 min-[768px]:grid-cols-5">
           {/* Benefits */}
-          <Card className="border-border md:col-span-2">
+          <Card className="border-border min-[768px]:col-span-2">
             <CardContent className="p-5">
               <h2 className="mb-3 text-sm font-semibold text-foreground">{t('benefits.title')}</h2>
               <ul className="space-y-2.5">
@@ -125,7 +125,7 @@ export function NewsletterContent(): React.JSX.Element {
           </Card>
 
           {/* Form */}
-          <Card className="border-border md:col-span-3">
+          <Card className="border-border min-[768px]:col-span-3">
             <CardContent className="p-5">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">

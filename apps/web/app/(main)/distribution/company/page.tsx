@@ -123,7 +123,7 @@ export default function DistributionCompanyPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Building2 className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -160,7 +160,7 @@ export default function DistributionCompanyPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon
           return (
@@ -173,7 +173,7 @@ export default function DistributionCompanyPage() {
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 ) : (
-                  <div className={cn('text-xl font-bold tracking-tight md:text-2xl', s.tone)}>
+                  <div className={cn('text-xl font-bold tracking-tight min-[768px]:text-2xl', s.tone)}>
                     {s.value}
                   </div>
                 )}
@@ -194,7 +194,7 @@ export default function DistributionCompanyPage() {
               {t('viewDetail')}
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
             {teamStats.map((s) => (
               <div key={s.label} className="rounded-lg bg-muted/40 px-4 py-3 text-center">
                 <div className="text-xs text-muted-foreground">{s.label}</div>

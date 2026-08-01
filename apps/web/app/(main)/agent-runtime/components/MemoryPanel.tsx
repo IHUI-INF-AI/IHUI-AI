@@ -148,7 +148,7 @@ export function MemoryPanel({ agentId, timeRange, refreshKey }: MemoryPanelProps
           </div>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               {full.map((l) => (
                 <LayerCard key={l.layer} data={l} />
               ))}

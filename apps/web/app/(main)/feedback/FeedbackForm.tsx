@@ -59,7 +59,7 @@ export function FeedbackForm({
 
   return (
     <Card>
-      <CardContent className="p-4 md:p-6">
+      <CardContent className="p-4 min-[768px]:p-6">
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="fb-type">{t('type')}</Label>

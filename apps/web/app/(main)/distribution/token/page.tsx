@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -110,7 +110,7 @@ export default function TokenWalletPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Wallet className="h-7 w-7 text-primary" />
           {t('tokenTitle')}
         </h1>
@@ -124,7 +124,7 @@ export default function TokenWalletPage() {
           ) : balanceQ.error ? (
             <div className="text-sm text-destructive">{(balanceQ.error as Error).message}</div>
           ) : (
-            <div className="text-xl font-bold tracking-tight md:text-2xl">{balanceQ.data?.balance ?? 0}</div>
+            <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{balanceQ.data?.balance ?? 0}</div>
           )}
         </CardContent>
       </Card>

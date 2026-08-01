@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -86,7 +86,7 @@ export default function ImageGenGalleryPage() {
           <p className="text-sm">暂无作品</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           {columns.map((col, ci) => (
             <div key={ci} className="space-y-3">
               {col.map((item) => (

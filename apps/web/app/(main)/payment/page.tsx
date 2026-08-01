@@ -42,11 +42,11 @@ export default function PaymentPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1 text-center">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3 min-[1024px]:items-start">
         {PLANS.map((plan) => {
           const Icon = plan.icon
           const features = t.raw(`plans.${plan.id}.features`) as string[]
@@ -60,7 +60,7 @@ export default function PaymentPage() {
               key={plan.id}
               className={cn(
                 'relative flex flex-col transition-colors',
-                plan.highlighted ? 'border-primary shadow-md lg:scale-105' : 'hover:bg-accent',
+                plan.highlighted ? 'border-primary shadow-md min-[1024px]:scale-105' : 'hover:bg-accent',
               )}
             >
               {plan.highlighted && (
@@ -74,7 +74,7 @@ export default function PaymentPage() {
                 </div>
                 <CardTitle className="text-lg">{t(PLAN_NAME_KEY[plan.id] ?? 'plans.unknown.name')}</CardTitle>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-xl font-bold tracking-tight md:text-2xl">{priceLabel}</span>
+                  <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{priceLabel}</span>
                   {!isEnterprise && (
                     <span className="text-sm text-muted-foreground">{t('perMonth')}</span>
                   )}

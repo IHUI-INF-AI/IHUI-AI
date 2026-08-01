@@ -78,7 +78,7 @@ export function ModelsHeader({ total, freeCount, providerCount, highlightCount }
     <header className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl [&>span]:translate-y-[0.5px]">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl [&>span]:translate-y-[0.5px]">
             <Bot className="h-7 w-7 text-primary" />
             <span>{t('title')}</span>
           </h1>
@@ -88,7 +88,7 @@ export function ModelsHeader({ total, freeCount, providerCount, highlightCount }
         <ProviderStatusSummary />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon
           return (

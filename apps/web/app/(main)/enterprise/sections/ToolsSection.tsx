@@ -89,7 +89,7 @@ export function ToolsSection() {
         <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 min-[768px]:grid-cols-3">
         {CATEGORIES.map((cat) => (
           <Card key={cat.titleKey}>
             <CardContent className="space-y-3 p-5">

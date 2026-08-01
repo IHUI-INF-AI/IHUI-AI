@@ -133,7 +133,7 @@ export default function AgentRuntimePage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2">
           <ToolCallTree agentId={agentId} timeRange={timeRange} refreshKey={refreshKey} />
           <MemoryPanel agentId={agentId} timeRange={timeRange} refreshKey={refreshKey} />
           <SessionTree agentId={agentId} timeRange={timeRange} refreshKey={refreshKey} />

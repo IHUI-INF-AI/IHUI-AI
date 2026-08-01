@@ -317,8 +317,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                   原阈值 359px 误把"container 内容盒宽"当"面板内容宽",导致默认 400px 面板
                   (container 352 < 359)时 text 被隐藏,即使有 80px slack 可用。
                   badge 阈值保留 359px(面板 <= 407px 时隐藏),优先让 text 在更多面板宽度下可见。
-               不用 Tailwind hidden sm:inline 模式:
-               实测 Tailwind v4 把 sm:inline 编译为裸类(无 @media 包裹)且顺序在 .hidden 之后,
+               不用 Tailwind hidden min-[640px]:inline 模式:
+               实测 Tailwind v4 把 min-[640px]:inline 编译为裸类(无 @media 包裹)且顺序在 .hidden 之后,
                导致 specificity 相同时由顺序决定胜负,400px 默认宽度下 span 仍隐藏。
                改为不带任何 Tailwind display 类,默认 span inline,container query 决定隐藏。 */
             <span className="model-selector-text min-w-0 max-w-[6rem] truncate">

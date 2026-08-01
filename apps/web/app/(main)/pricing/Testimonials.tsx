@@ -28,14 +28,14 @@ export function Testimonials(): React.JSX.Element {
   return (
     <section className="mx-auto mt-14 max-w-5xl">
       <div className="text-center">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('testimonials.title')}
         </h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('testimonials.subtitle')}
         </p>
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         {items.map((item, idx) => (
           <Card key={idx} className="border-border">
             <CardContent className="flex flex-col gap-3 p-5">

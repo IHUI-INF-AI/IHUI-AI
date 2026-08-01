@@ -149,7 +149,7 @@ export default function WithdrawPage() {
 
       <div>
         <h2 className="mb-3 text-base font-semibold">{t('withdrawSummary')}</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
           {stats.map((s) => (
             <Card key={s.label}>
               <CardContent className="space-y-1 p-4">

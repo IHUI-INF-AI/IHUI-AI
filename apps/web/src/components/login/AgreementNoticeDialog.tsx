@@ -86,7 +86,7 @@ export function AgreementNoticeDialog({ open, onAgree, onCancel }: AgreementNoti
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent
         className={cn(
-          'login-scope w-[calc(100%-2rem)] max-w-[420px] gap-0 p-7 sm:rounded-xl',
+          'login-scope w-[calc(100%-2rem)] max-w-[420px] gap-0 p-7 min-[640px]:rounded-xl',
           'border border-border bg-card shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.04)]',
         )}
       >
