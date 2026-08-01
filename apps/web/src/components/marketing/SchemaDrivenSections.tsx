@@ -213,12 +213,8 @@ const sectionRegistry: Record<SectionComponentType, React.ComponentType<SectionP
   hero: HeroSection,
   featureGrid: createSingleComponentSection(HomeFeatureGrid, 'features.title', 'Features'),
   scenarios: createSingleComponentSection(HomeScenarios, 'scenarios.title', 'Scenarios'),
-  roi: createSingleComponentSection(HomeRoi, 'marketing.roi.title', 'ROI'),
-  comparison: createSingleComponentSection(
-    HomeComparison,
-    'marketing.comparison.title',
-    'Comparison',
-  ),
+  roi: createSingleComponentSection(HomeRoi, 'roi.title', 'ROI'),
+  comparison: createSingleComponentSection(HomeComparison, 'comparison.title', 'Comparison'),
   pricing: PricingSection,
   magazine: MagazineSection,
 }
