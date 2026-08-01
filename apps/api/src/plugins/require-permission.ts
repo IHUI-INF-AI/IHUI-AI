@@ -36,7 +36,7 @@ export function requirePermission(permission: string): preHandlerAsyncHookHandle
 
     const userId = request.userId
     if (!userId) {
-      return reply.status(401).send({ code: 401, message: 'Authentication required' })
+      return reply.status(401).send({ code: 401, message: '请先登录' })
     }
 
     const ok = await checkPermission(userId, permission)
