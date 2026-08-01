@@ -26,13 +26,11 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 
-const realnameSchema = z.object({
-  realName: z.string().min(2, '真实姓名至少2个字符').max(50, '真实姓名最多50个字符'),
-  idCard: z.string().min(15, '身份证号至少15位').max(20, '身份证号最多20位'),
-  source: z.enum(['pc', 'h5', 'miniapp']),
-})
-
-type RealnameValues = z.infer<typeof realnameSchema>
+type RealnameValues = {
+  realName: string
+  idCard: string
+  source: 'pc' | 'h5' | 'miniapp'
+}
 
 interface RealnameInfo {
   status: 'unverified' | 'pending' | 'approved' | 'rejected' | null
@@ -53,6 +51,16 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 export default function RealnamePage() {
   const t = useTranslations('user')
   const qc = useQueryClient()
+
+  const realnameSchema = React.useMemo(
+    () =>
+      z.object({
+        realName: z.string().min(2, t('realname.nameMin')).max(50, t('realname.nameMax')),
+        idCard: z.string().min(15, t('realname.idCardMin')).max(20, t('realname.idCardMax')),
+        source: z.enum(['pc', 'h5', 'miniapp']),
+      }),
+    [t],
+  )
 
   const { data: info, isLoading } = useQuery({
     queryKey: ['auth', 'realname', 'my'],
