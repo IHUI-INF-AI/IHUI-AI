@@ -36,7 +36,7 @@ export function InquiryContent(): React.JSX.Element {
       <div className="mt-10 grid grid-cols-1 gap-6 min-[1024px]:grid-cols-[1fr_280px]">
         {/* 表单区(InquiryForm 使用 useSearchParams,需 Suspense 边界) */}
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 min-[768px]:p-6">
             <Suspense fallback={null}>
               <InquiryForm />
             </Suspense>

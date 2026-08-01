@@ -56,7 +56,7 @@ export function Alert({
   return (
     <div className={cn('flex items-start gap-3 rounded-lg border p-3', variantClass, className)}>
       <Icon className="mt-0.5 h-5 w-5 shrink-0" />
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {title && <p className="font-medium">{title}</p>}
         {description && (
           <p className={cn('text-sm', title && 'mt-0.5 opacity-90')}>{description}</p>

@@ -77,6 +77,7 @@ export function UserCenterAssignDialog({ target, onClose }: Props) {
           ) : assignList.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">暂无可分配用户</div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
@@ -99,6 +100,7 @@ export function UserCenterAssignDialog({ target, onClose }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
         <DialogFooter>

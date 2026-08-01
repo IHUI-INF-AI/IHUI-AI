@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * ProviderFormDialog — Provider 添加/编辑对话框(2026-07-22 立)
@@ -350,9 +350,9 @@ export function ProviderFormDialog({
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="enabled" className="text-sm">
+          <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <Label htmlFor="enabled" className="block truncate text-sm">
                 {t('enableConfig')}
               </Label>
               <p className="text-xs text-muted-foreground">{t('enableConfigDesc')}</p>
@@ -361,16 +361,17 @@ export function ProviderFormDialog({
               id="enabled"
               checked={form.enabled}
               onCheckedChange={(v) => setForm({ ...form, enabled: v })}
+              className="shrink-0"
             />
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isPending}>
-              {t('cancel')}
+          <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isPending} className="shrink-0">
+              <span className="whitespace-nowrap">{t('cancel')}</span>
             </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-              {isEdit ? t('save') : t('create')}
+            <Button type="submit" disabled={isPending} className="shrink-0">
+              {isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin shrink-0" /> : null}
+              <span className="whitespace-nowrap">{isEdit ? t('save') : t('create')}</span>
             </Button>
           </DialogFooter>
         </form>

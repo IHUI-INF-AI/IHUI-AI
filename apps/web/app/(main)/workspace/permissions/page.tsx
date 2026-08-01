@@ -60,7 +60,7 @@ export default function WorkspacePermissionsPage() {
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>

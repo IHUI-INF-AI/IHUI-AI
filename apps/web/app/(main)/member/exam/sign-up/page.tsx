@@ -119,6 +119,7 @@ export default function MemberExamSignUpPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
@@ -179,6 +180,7 @@ export default function MemberExamSignUpPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

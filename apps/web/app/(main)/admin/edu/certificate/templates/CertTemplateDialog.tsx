@@ -240,15 +240,16 @@ export function CertTemplateDialog({
               </div>
             </>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
             {showPreview ? (
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowPreview(false)}
                 disabled={savePending}
+                className="shrink-0"
               >
-                {t('backToEdit')}
+                <span className="whitespace-nowrap">{t('backToEdit')}</span>
               </Button>
             ) : (
               <Button
@@ -256,17 +257,20 @@ export function CertTemplateDialog({
                 variant="outline"
                 onClick={() => setShowPreview(true)}
                 disabled={savePending}
+                className="shrink-0"
               >
-                {t('preview')}
+                <span className="whitespace-nowrap">{t('preview')}</span>
               </Button>
             )}
-            <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              {t('cancel')}
-            </Button>
-            <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t('save')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={onClose} disabled={savePending} className="shrink-0">
+                <span className="whitespace-nowrap">{t('cancel')}</span>
+              </Button>
+              <Button type="submit" disabled={savePending} className="shrink-0">
+                {savePending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                <span className="whitespace-nowrap">{t('save')}</span>
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

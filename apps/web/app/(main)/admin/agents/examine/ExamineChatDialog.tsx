@@ -145,7 +145,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
             {t('chatDialogTitle', { name: target?.agentName || target?.agentId || '' })}
           </DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4 h-[450px]">
+        <div className="grid grid-cols-1 gap-4 h-[450px] min-[768px]:grid-cols-2 overflow-y-auto">
           <div className="flex flex-col border rounded-lg">
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {chatMsgs.length === 0 ? (

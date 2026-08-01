@@ -74,7 +74,7 @@ export function RegistryItemCard({ item, installStatus, installing, onInstall }:
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 space-y-3 pb-3">
+      <CardContent className="flex-1 min-w-0 space-y-3 pb-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className={cn('rounded-md px-1.5 py-0.5 font-medium', src.cls)}>{src.label}</span>
           {item.version && <span>v{item.version}</span>}
