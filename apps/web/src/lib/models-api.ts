@@ -20,7 +20,11 @@
 
 import { fetchApi } from './api'
 import { logger } from './logger'
-import { fetchProvidersHealthLite } from '@ihui/api-client'
+import {
+  fetchProvidersHealthLite,
+  fetchProvidersHealth as fetchProvidersHealthShared,
+  fetchProvidersAvailability,
+} from '@ihui/api-client'
 import type { ProviderHealth } from '@ihui/api-client'
 import type { Model } from '../../app/(main)/models/types'
 
@@ -217,5 +221,177 @@ export async function fetchProvidersHealth(force = false): Promise<ProviderHealt
       logger.warn('[models-api] fetchProvidersHealth 失败,返回空数组', err)
     }
     return []
+  }
+}
+
+// ============================================================================
+// H4 Phase B:Provider 健康状态汇总(模型广场页头 + 网关 Dashboard 消费)
+// 4 态:ok / invalid_key / unreachable / not_configured
+// 主端点 GET /llm/providers/health(主动预检),降级 GET /llm/providers/availability
+// ============================================================================
+
+/** Provider 健康状态(4 态,H4 Phase B) */
+export type ProviderHealthStatus = 'ok' | 'invalid_key' | 'unreachable' | 'not_configured'
+
+/** 单个 Provider 的健康信息(H4 Phase B,模型广场页头 + 网关 Dashboard 消费)
+ *  基础字段(主端点 + 降级端点都返回):provider/status/latency_ms/model_count
+ *  富字段(仅主端点 /llm/providers/health 返回,降级端点缺失):display_name/category/free_quota 等 */
+export interface ProviderHealthInfo {
+  provider: string
+  status: ProviderHealthStatus
+  latency_ms?: number
+  model_count?: number
+  error?: string
+  /** 最后检测时间(ISO 字符串) */
+  last_check?: string
+  // 富字段(可选,仅主端点返回)
+  display_name?: string
+  category?: 'domestic' | 'international' | 'local' | 'credits'
+  free_quota?: string
+  is_in_cooldown?: boolean
+  consecutive_failures?: number
+}
+
+/** Provider 健康状态汇总响应(H4 Phase B) */
+export interface ProvidersHealthResponse {
+  providers: ProviderHealthInfo[]
+  total: number
+  healthy_count: number
+  /** 最后检测时间(ISO 字符串,取 providers 中最新的 last_check 或后端 checked_at) */
+  checked_at: string
+}
+
+const PROVIDERS_HEALTH_SUMMARY_TTL = 30_000 // 30s SWR 缓存
+let providersHealthSummaryCache: { data: ProvidersHealthResponse; ts: number } | null = null
+
+/** 10s 超时包装(共享层 fetchProvidersHealth 不接受 AbortSignal,用 Promise.race 兜底) */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
+/** 把 ProviderAvailabilityStatus(7 态)归并到 ProviderHealthStatus(4 态) */
+function mapAvailabilityStatus(
+  status: string,
+  errorType: string,
+): ProviderHealthStatus {
+  if (status === 'healthy' || status === 'degraded' || status === 'local' || status === 'zero_cost') {
+    return 'ok'
+  }
+  if (status === 'not_configured' || status === 'pending') {
+    return 'not_configured'
+  }
+  if (errorType === 'invalid_key' || errorType === 'forbidden') {
+    return 'invalid_key'
+  }
+  if (status === 'down') {
+    return errorType === 'invalid_key' || errorType === 'forbidden' ? 'invalid_key' : 'unreachable'
+  }
+  return 'unreachable'
+}
+
+/** 把 /llm/providers/availability 响应转换为 ProvidersHealthResponse */
+function transformAvailabilityToHealth(
+  avail: Awaited<ReturnType<typeof fetchProvidersAvailability>>,
+): ProvidersHealthResponse {
+  const providers: ProviderHealthInfo[] = avail.providers.map((p) => ({
+    provider: p.provider_code,
+    status: mapAvailabilityStatus(p.status, p.error_type),
+    latency_ms: p.latency_ms,
+    model_count: undefined, // availability 端点不返回 model_count
+    error: p.error || undefined,
+    last_check: p.last_check ? new Date(p.last_check * 1000).toISOString() : undefined,
+  }))
+  const healthyCount = providers.filter((p) => p.status === 'ok').length
+  const checkedAt = providers
+    .map((p) => p.last_check ?? '')
+    .sort()
+    .reverse()[0] || new Date().toISOString()
+  return {
+    providers,
+    total: providers.length,
+    healthy_count: healthyCount,
+    checked_at: checkedAt,
+  }
+}
+
+/** 把共享层 ProvidersHealthResult 转换为 ProvidersHealthResponse */
+function transformHealthResultToResponse(
+  result: Awaited<ReturnType<typeof fetchProvidersHealthShared>>,
+): ProvidersHealthResponse {
+  const providers: ProviderHealthInfo[] = result.providers.map((p) => ({
+    provider: p.provider,
+    status: p.status === 'ok' || p.status === 'invalid_key' || p.status === 'unreachable'
+      ? p.status
+      : 'not_configured',
+    latency_ms: p.latency_ms,
+    model_count: p.model_count,
+    last_check: p.last_check,
+    display_name: p.display_name,
+    category: p.category,
+    free_quota: p.free_quota,
+    is_in_cooldown: p.is_in_cooldown,
+    consecutive_failures: p.consecutive_failures,
+  }))
+  const checkedAt = providers
+    .map((p) => p.last_check ?? '')
+    .sort()
+    .reverse()[0] || new Date().toISOString()
+  return {
+    providers,
+    total: result.summary.total,
+    healthy_count: result.summary.ok,
+    checked_at: checkedAt,
+  }
+}
+
+/**
+ * 拉取 Provider 健康状态汇总(H4 Phase B,模型广场页头 + 网关 Dashboard 消费)
+ * - 主端点 GET /llm/providers/health(主动预检,返回 4 态 + 富字段)
+ * - 降级端点 GET /llm/providers/availability(余额/错误细分,转换为 4 态)
+ * - 10s 超时(Promise.race 兜底,共享层不支持 AbortSignal)
+ * - 30s stale-while-revalidate 缓存:命中缓存直接返回,失败时回退到 stale cache
+ * - force=true 跳过缓存(手动"重新检测"按钮用)
+ * - 两端点都失败且无缓存 → 抛错(调用方按"不可用"渲染)
+ */
+export async function fetchProvidersHealthSummary(
+  force = false,
+): Promise<ProvidersHealthResponse> {
+  const now = Date.now()
+  if (!force && providersHealthSummaryCache && now - providersHealthSummaryCache.ts < PROVIDERS_HEALTH_SUMMARY_TTL) {
+    return providersHealthSummaryCache.data
+  }
+
+  try {
+    // 主端点:/llm/providers/health(共享层 fetchProvidersHealth,返回 ProvidersHealthResult)
+    const result = await withTimeout(fetchProvidersHealthShared(), 10_000)
+    const response = transformHealthResultToResponse(result)
+    providersHealthSummaryCache = { data: response, ts: now }
+    return response
+  } catch (primaryErr) {
+    if (typeof window !== 'undefined') {
+      logger.warn('[models-api] fetchProvidersHealthSummary 主端点失败,降级 availability', primaryErr)
+    }
+    try {
+      // 降级端点:/llm/providers/availability
+      const avail = await withTimeout(fetchProvidersAvailability(), 10_000)
+      const response = transformAvailabilityToHealth(avail)
+      providersHealthSummaryCache = { data: response, ts: now }
+      return response
+    } catch (fallbackErr) {
+      // 两端点都失败:返回 stale cache(如果有),否则抛错
+      if (providersHealthSummaryCache) {
+        if (typeof window !== 'undefined') {
+          logger.warn('[models-api] fetchProvidersHealthSummary 降级也失败,返回 stale cache', fallbackErr)
+        }
+        return providersHealthSummaryCache.data
+      }
+      throw fallbackErr
+    }
   }
 }

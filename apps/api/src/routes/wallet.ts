@@ -8,6 +8,7 @@ import { success, error } from '../utils/response.js'
 import { generateOrderNumber } from '../utils/crypto-random.js'
 import { logAction } from '../services/audit-service.js'
 import { encryptJSON, decryptJSON } from '../utils/crypto.js'
+import { validateTopupAmount } from '../services/topup-discount-service.js'
 
 /**
  * 钱包路由 — /api/wallet/*
@@ -95,6 +96,11 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     const parsed = rechargeSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // P0-21 集成:校验最低充值额(按支付方式,阶梯折扣配置)
+    const validation = await validateTopupAmount(parsed.data.amount, parsed.data.payMethod)
+    if (!validation.valid) {
+      return reply.status(400).send(error(400, validation.reason ?? '充值金额校验失败'))
     }
     const orderNo = generateOrderNumber('RC')
     // 不 update userMargins,不 insert tokenFlows!余额增加只能走支付回调
@@ -247,7 +253,10 @@ const adminFlowsQuerySchema = z.object({
 
 const adjustSchema = z.object({
   userId: z.string().uuid('用户 ID 格式错误'),
-  amount: z.number().int().refine((v) => v !== 0, '调整金额不能为 0'),
+  amount: z
+    .number()
+    .int()
+    .refine((v) => v !== 0, '调整金额不能为 0'),
   opType: z.union([z.literal(0), z.literal(5)]),
   remark: z.string().max(500).optional(),
 })
@@ -329,8 +338,14 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
         totalWithdraw: withdrawSum[0]?.total ?? 0,
         totalCommission: commissionSum[0]?.total ?? 0,
         totalAdminAdjust: adjustSum[0]?.total ?? 0,
-        todayRecharge: { count: todayRecharge[0]?.count ?? 0, amount: todayRecharge[0]?.amount ?? 0 },
-        todayWithdraw: { count: todayWithdraw[0]?.count ?? 0, amount: todayWithdraw[0]?.amount ?? 0 },
+        todayRecharge: {
+          count: todayRecharge[0]?.count ?? 0,
+          amount: todayRecharge[0]?.amount ?? 0,
+        },
+        todayWithdraw: {
+          count: todayWithdraw[0]?.count ?? 0,
+          amount: todayWithdraw[0]?.amount ?? 0,
+        },
         daily,
         activeWallets: activeWallets[0]?.count ?? 0,
       }),
@@ -375,12 +390,19 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
         .orderBy(desc(tokenFlows.createdAt))
         .limit(pageSize)
         .offset(offset),
-      dbRead.select({ count: sql<number>`count(*)::int` }).from(tokenFlows).where(where),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(tokenFlows)
+        .where(where),
     ])
 
     return reply.send(
       success({
-        list: list.map((f) => ({ ...f, remark: decryptWithdrawalRemark(f.remark), createdAt: f.createdAt.toISOString() })),
+        list: list.map((f) => ({
+          ...f,
+          remark: decryptWithdrawalRemark(f.remark),
+          createdAt: f.createdAt.toISOString(),
+        })),
         total: totalRows[0]?.count ?? 0,
         page,
         pageSize,
