@@ -111,17 +111,17 @@ export default function SignInPage() {
         </div>
         <Link
           href="/points"
-          className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 shrink-0" />
           {t('backToPoints')}
         </Link>
       </header>
 
       {todayQ.isLoading ? (
         <div className="flex items-center justify-center py-10 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
+          <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+          <span className="whitespace-nowrap">{t('loading')}</span>
         </div>
       ) : todayQ.error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -130,40 +130,40 @@ export default function SignInPage() {
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 p-4 min-[640px]:p-6 min-[640px]:flex-row min-[640px]:justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-4">
               <div
                 className={cn(
-                  'flex h-12 w-12 items-center justify-center rounded-xl',
+                  'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl',
                   signedIn
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                     : 'bg-muted text-muted-foreground',
                 )}
               >
-                {signedIn ? <Check className="h-6 w-6" /> : <Calendar className="h-6 w-6" />}
+                {signedIn ? <Check className="h-6 w-6 shrink-0" /> : <Calendar className="h-6 w-6 shrink-0" />}
               </div>
-              <div className="space-y-1">
-                <p className="text-base font-semibold">
+              <div className="min-w-0 space-y-1">
+                <p className="truncate text-base font-semibold">
                   {signedIn ? t('signedIn') : t('notSignedIn')}
                 </p>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Flame className="h-4 w-4 text-orange-500" />
+                <div className="flex items-center gap-1 whitespace-nowrap text-sm text-muted-foreground">
+                  <Flame className="h-4 w-4 shrink-0 text-orange-500" />
                   {t('consecutiveDays', { days: consecutive })}
                 </div>
               </div>
             </div>
-            <div className="flex flex-col items-center gap-2 min-[640px]:items-end">
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Gift className="h-4 w-4 text-primary" />
+            <div className="flex shrink-0 flex-col items-center gap-2 min-[640px]:items-end">
+              <div className="flex items-center gap-1 whitespace-nowrap text-sm text-muted-foreground">
+                <Gift className="h-4 w-4 shrink-0 text-primary" />
                 {t('todayReward')}:{' '}
-                <span className="font-semibold text-foreground">+{today?.todayReward ?? 0}</span>
+                <span className="font-semibold tabular-nums text-foreground">+{today?.todayReward ?? 0}</span>
               </div>
-              <Button onClick={() => signMut.mutate()} disabled={signedIn || signMut.isPending}>
+              <Button className="whitespace-nowrap" onClick={() => signMut.mutate()} disabled={signedIn || signMut.isPending}>
                 {signMut.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
                 ) : signedIn ? (
-                  <Check className="h-4 w-4" />
+                  <Check className="h-4 w-4 shrink-0" />
                 ) : (
-                  <Calendar className="h-4 w-4" />
+                  <Calendar className="h-4 w-4 shrink-0" />
                 )}
                 {signedIn ? t('signedInBtn') : signMut.isPending ? t('signing') : t('signInBtn')}
               </Button>
@@ -184,8 +184,8 @@ export default function SignInPage() {
       )}
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-          <Calendar className="h-4 w-4" />
+        <h2 className="flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-muted-foreground">
+          <Calendar className="h-4 w-4 shrink-0" />
           {t('weekCalendar')}
         </h2>
         <div className="grid grid-cols-7 gap-2">
@@ -200,20 +200,20 @@ export default function SignInPage() {
                   isSigned ? 'border-primary/40 bg-primary/5' : 'hover:bg-accent/50',
                 )}
               >
-                <span className="text-xs text-muted-foreground">
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
                   {t(WEEKDAY_KEY[d] ?? 'dayUnknown')}
                 </span>
                 <span
                   className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium',
+                    'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium tabular-nums',
                     isSigned
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground',
                   )}
                 >
-                  {isSigned ? <Check className="h-4 w-4" /> : item ? fmtShort(item.date) : '-'}
+                  {isSigned ? <Check className="h-4 w-4 shrink-0" /> : item ? fmtShort(item.date) : '-'}
                 </span>
-                <span className="text-xs text-muted-foreground">+{item?.reward ?? 0}</span>
+                <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">+{item?.reward ?? 0}</span>
               </div>
             )
           })}
@@ -221,14 +221,14 @@ export default function SignInPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-          <Flame className="h-4 w-4" />
+        <h2 className="flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-muted-foreground">
+          <Flame className="h-4 w-4 shrink-0" />
           {t('history')}
         </h2>
         {historyQ.isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
+            <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+            <span className="whitespace-nowrap">{t('loading')}</span>
           </div>
         ) : historyQ.error ? (
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -250,11 +250,11 @@ export default function SignInPage() {
               <tbody className="divide-y">
                 {historyQ.data.map((h) => (
                   <tr key={h.signInDate} className="transition-colors hover:bg-accent/50">
-                    <td className="px-4 py-2 text-muted-foreground">{fmtFull(h.signInDate)}</td>
-                    <td className="px-4 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums text-muted-foreground">{fmtFull(h.signInDate)}</td>
+                    <td className="px-4 py-2 text-right font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                       +{h.rewardPoints}
                     </td>
-                    <td className="hidden px-4 py-2 text-right text-muted-foreground min-[640px]:table-cell">
+                    <td className="hidden px-4 py-2 text-right tabular-nums text-muted-foreground min-[640px]:table-cell">
                       {h.consecutiveDays}
                     </td>
                   </tr>
@@ -264,8 +264,8 @@ export default function SignInPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
-            <Calendar className="h-8 w-8 text-muted-foreground" />
+          <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
+            <Calendar className="h-8 w-8 shrink-0 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t('empty')}</p>
           </div>
         )}

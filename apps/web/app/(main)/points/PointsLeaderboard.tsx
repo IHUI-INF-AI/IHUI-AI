@@ -43,7 +43,7 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
               <td className="px-4 py-2">
                 <span
                   className={cn(
-                    'inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold',
+                    'inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold tabular-nums',
                     i < 3
                       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                       : 'bg-muted text-muted-foreground',
@@ -53,14 +53,16 @@ export function PointsLeaderboard({ isLoading, error, data }: Props) {
                 </span>
               </td>
               <td className="px-4 py-2">
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <Avatar src={u.avatar ?? undefined} name={u.nickname ?? 'U'} size="xs" />
-                  <span className="font-medium">{u.nickname}</span>
-                  {u.isMe && <span className="text-xs text-primary">({t('you')})</span>}
+                  <span className="max-w-[140px] truncate font-medium" title={u.nickname}>
+                    {u.nickname}
+                  </span>
+                  {u.isMe && <span className="shrink-0 whitespace-nowrap text-xs text-primary">({t('you')})</span>}
                 </div>
               </td>
-              <td className="px-4 py-2 text-right font-medium">{u.points}</td>
-              <td className="hidden px-4 py-2 text-right text-muted-foreground min-[640px]:table-cell">
+              <td className="px-4 py-2 text-right font-medium tabular-nums">{u.points}</td>
+              <td className="hidden px-4 py-2 text-right tabular-nums text-muted-foreground min-[640px]:table-cell">
                 Lv.{u.level}
               </td>
             </tr>
