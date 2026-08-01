@@ -119,11 +119,11 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth}>
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={prevMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm font-semibold">{monthLabel}</span>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth}>
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={nextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

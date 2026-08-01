@@ -62,10 +62,10 @@ export function OrdersTable({
                   <TableCell className="px-4 py-2.5 font-medium">
                     {it.orderNo ?? it.orderId ?? it.id}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                  <TableCell className="max-w-[140px] truncate px-4 py-2.5 text-muted-foreground" title={it.userNickname ?? String(it.userId ?? '')}>
                     {it.userNickname ?? it.userId ?? '-'}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-muted-foreground">
+                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 text-muted-foreground" title={it.productName ?? ''}>
                     {it.productName ?? '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
@@ -84,7 +84,7 @@ export function OrdersTable({
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
                         STATUS_CLS[it.status] ?? 'bg-muted text-muted-foreground',
                       )}
                     >

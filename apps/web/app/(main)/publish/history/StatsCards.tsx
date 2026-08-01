@@ -31,7 +31,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
   const rate = total && success ? `${((success / total) * 100).toFixed(1)}%` : '-'
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
       <Card>
         <CardContent className="p-3">
           <div className="text-xs text-muted-foreground">{t('stats.totalTasks')}</div>

@@ -124,7 +124,7 @@ export default function DistributionHomePage() {
             unoptimized
           />
           <div className="min-w-0 space-y-1">
-            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
               <Gift className="h-7 w-7 text-primary" />
               {t('title')}
             </h1>
@@ -133,7 +133,7 @@ export default function DistributionHomePage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {stats.map((s) => (
           <StatCard key={s.label} title={s.label} value={s.value} icon={s.icon} loading={loading} />
         ))}
@@ -141,7 +141,7 @@ export default function DistributionHomePage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">{t('quickEntry')}</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-5">
           {entries.map((e) => {
             const Icon = e.icon
             return (

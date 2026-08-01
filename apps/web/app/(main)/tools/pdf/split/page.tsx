@@ -69,7 +69,7 @@ export default function PdfSplitPage() {
       )}
       <div className="space-y-2">
         <Label>{t('modeLabel')}</Label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
           {MODE_KEYS.map((key) => (
             <button
               key={key}

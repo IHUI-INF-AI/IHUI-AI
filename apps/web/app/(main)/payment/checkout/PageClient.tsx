@@ -128,10 +128,10 @@ function CheckoutContent() {
         {t('checkout.back')}
       </Link>
 
-      <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('checkout.title')}</h1>
+      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('checkout.title')}</h1>
 
-      <form onSubmit={handlePay} className="grid gap-4 lg:grid-cols-5">
-        <div className="space-y-4 lg:col-span-3">
+      <form onSubmit={handlePay} className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-5">
+        <div className="space-y-4 min-[1024px]:col-span-3">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{t('checkout.orderSummary')}</CardTitle>
@@ -179,7 +179,7 @@ function CheckoutContent() {
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="min-[1024px]:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{t('checkout.paymentMethod')}</CardTitle>
@@ -222,7 +222,7 @@ function CheckoutContent() {
       </form>
 
       <Dialog open={!!qrCodeUrl} onOpenChange={(o) => !o && setQrCodeUrl('')}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="min-[640px]:max-w-md">
           <DialogHeader>
             <DialogTitle>{t('checkout.wechatScanTitle')}</DialogTitle>
             <DialogDescription>{t('checkout.wechatScanDesc')}</DialogDescription>

@@ -20,7 +20,7 @@ import { LoginWithTurnstile } from './LoginWithTurnstile'
  * - 与 /sso/login、/sso/register 视觉完全统一
  * - DialogContent 内置 Close(已统一视觉) 负责 onClose,AuthShell 不再渲染关闭按钮
  * - 2026-07-20:恢复 M-66/M-68/M-69 logo+welcome 并排方案,DialogContent max-w 同步 420→460
- * - 2026-07-31:移除 DialogContent 自身 sm:rounded-xl(AuthShell 内部已 rounded-xl),
+ * - 2026-07-31:移除 DialogContent 自身 min-[640px]:rounded-xl(AuthShell 内部已 rounded-xl),
  *   避免小屏双层圆角叠加视觉割裂;移除 pointer-events-none [&>div]:pointer-events-auto
  *   旧 Radix 策略(2026 Radix UI 已不需要,新版默认全启用,旧策略会导致子元素事件穿透)
  */

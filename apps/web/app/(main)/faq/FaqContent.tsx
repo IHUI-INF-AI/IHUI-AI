@@ -34,7 +34,7 @@ export function FaqContent(): React.JSX.Element {
   const t = useTranslations('faq')
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8 md:py-8">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -42,7 +42,7 @@ export function FaqContent(): React.JSX.Element {
           {t('heroBadge')}
         </div>
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
       </section>
@@ -56,7 +56,7 @@ export function FaqContent(): React.JSX.Element {
           <a
             key={cat.id}
             href={`#category-${cat.id}`}
-            className="rounded border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:text-sm"
+            className="rounded border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground min-[768px]:text-sm"
           >
             {t(cat.key)}
           </a>
@@ -74,7 +74,7 @@ export function FaqContent(): React.JSX.Element {
                 <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
                   <BookOpen className="h-4 w-4 text-primary" />
                 </div>
-                <h2 className="text-lg font-semibold md:text-xl">{t(cat.key)}</h2>
+                <h2 className="text-lg font-semibold min-[768px]:text-xl">{t(cat.key)}</h2>
               </div>
               <div className="space-y-3">
                 {items.map((item) => {
@@ -83,15 +83,15 @@ export function FaqContent(): React.JSX.Element {
                   return (
                     <details
                       key={item.id}
-                      className="group rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md md:p-5"
+                      className="group rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md min-[768px]:p-5"
                     >
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                        <h3 className="text-sm font-semibold md:text-base">
+                        <h3 className="text-sm font-semibold min-[768px]:text-base">
                           {t(questionKey)}
                         </h3>
                         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                       </summary>
-                      <div className="mt-3 pt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+                      <div className="mt-3 pt-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
                         {t(answerKey)}
                       </div>
                     </details>
@@ -104,10 +104,10 @@ export function FaqContent(): React.JSX.Element {
       </div>
 
       {/* CTA */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center md:p-12">
+      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
         <MessageCircle className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

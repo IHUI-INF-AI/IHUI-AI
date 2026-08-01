@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -94,7 +94,7 @@ export default function KnowledgeRagPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <BookMarked className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -171,7 +171,7 @@ export default function KnowledgeRagPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 min-[640px]:grid-cols-2">
           {docs.map((d) => (
             <Link key={d.id} href={`/knowledge-rag/${d.id}`} className="block">
               <Card className="h-full transition-colors hover:bg-accent/50">

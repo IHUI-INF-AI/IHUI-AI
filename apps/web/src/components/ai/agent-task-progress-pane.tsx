@@ -1168,7 +1168,7 @@ export function AgentTaskProgressPane() {
               label={t('stepBudgetLabel')}
               variant="inline"
               active={isStreaming}
-              className="ml-0.5 hidden sm:inline-flex"
+              className="ml-0.5 hidden min-[640px]:inline-flex"
               data-testid="pane-step-budget"
             />
           </div>
@@ -1337,7 +1337,7 @@ export function AgentTaskProgressPane() {
       {/* Phase 19: 移动端 ResourceBudget 块模式(无法在 header 内联时降级到内容顶部) */}
       {planSteps.length > 0 && (
         <div
-          className="border-b border-border/40 px-2 py-1 sm:hidden"
+          className="border-b border-border/40 px-2 py-1 min-[640px]:hidden"
           data-testid="pane-step-budget-block-wrapper"
         >
           <ResourceBudget

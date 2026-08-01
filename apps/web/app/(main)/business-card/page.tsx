@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -115,7 +115,7 @@ export default function BusinessCardPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -148,7 +148,7 @@ export default function BusinessCardPage() {
             <p className="text-sm text-muted-foreground">{t('emptyMine')}</p>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {(mine ?? []).map((card) => (
               <CardItem
                 key={card.id}
@@ -219,7 +219,7 @@ export default function BusinessCardPage() {
             <p className="text-sm text-muted-foreground">{t('emptyFavorites')}</p>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {(favs ?? []).slice(0, 4).map((card) => (
               <Link key={card.id} href={`/business-card/share/${card.id}`}>
                 <CardItem card={card} />

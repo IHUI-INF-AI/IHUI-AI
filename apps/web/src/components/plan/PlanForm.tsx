@@ -190,7 +190,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7"
+                    className="h-9 w-9"
                     onClick={() => moveStep(i, -1)}
                     disabled={i === 0}
                     aria-label="上移"
@@ -201,7 +201,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7"
+                    className="h-9 w-9"
                     onClick={() => moveStep(i, 1)}
                     disabled={i === steps.length - 1}
                     aria-label="下移"
@@ -212,7 +212,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
                     onClick={() => removeStep(i)}
                     aria-label="删除步骤"
                   >

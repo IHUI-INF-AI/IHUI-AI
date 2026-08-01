@@ -66,7 +66,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           // - ≥768px(平板):20px
           // - ≥1024px(大平板/小桌面):24px
           // - ≥1280px(桌面):32px
-          className="no-scrollbar flex-1 overflow-y-auto p-3 sm:p-4 tablet:p-5 tablet-lg:p-6 laptop:p-8"
+          className="no-scrollbar flex-1 overflow-y-auto p-3 min-[640px]:p-4 tablet:p-5 tablet-min-[1024px]:p-6 laptop:p-8"
         >
           {children}
         </main>

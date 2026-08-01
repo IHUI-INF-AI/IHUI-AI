@@ -102,7 +102,7 @@ export function CookieHealthIndicator({ accountId, initialLevel, compact, onRefr
         type="button"
         onClick={handleRefresh}
         disabled={refreshing}
-        className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+        className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
         title={t('cookieHealth.refresh')}
         aria-label={t('cookieHealth.refresh')}
       >

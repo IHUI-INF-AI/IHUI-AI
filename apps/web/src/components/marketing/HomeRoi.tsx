@@ -96,26 +96,26 @@ export function HomeRoi() {
       {/* 编辑式章节标题 */}
       <RevealOnView as="div" className="relative space-y-1.5 text-center">
         <div
-          className="font-edix pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 select-none text-[120px] font-bold leading-none tracking-tighter text-foreground animate-mag-section-breathe sm:text-[160px]"
+          className="font-edix pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 select-none text-[120px] font-bold leading-none tracking-tighter text-foreground animate-mag-section-breathe min-[640px]:text-[160px]"
           aria-hidden="true"
         >
           04
         </div>
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
+        <h2 className="text-2xl font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
         <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
-        <p className="mx-auto max-w-3xl text-sm text-muted-foreground sm:text-base">
+        <p className="mx-auto max-w-3xl text-sm text-muted-foreground min-[640px]:text-base">
           {t('subtitle')}
         </p>
       </RevealOnView>
 
-      <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-3 min-[768px]:grid-cols-2 md:gap-4 tablet-lg:grid-cols-4">
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-3 min-[768px]:grid-cols-2 min-[768px]:gap-4 tablet-min-[1024px]:grid-cols-4">
         {rois.map(({ icon: Icon, title, value, description, calculation, numericValue, prefix, suffix }, i) => (
           <RevealOnView
             key={title}
             delay={0.06 * (i + 1)}
-            className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/30 p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-primary/3 hover:shadow-xl hover:shadow-primary/5 sm:p-5"
+            className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/30 p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-primary/3 hover:shadow-xl hover:shadow-primary/5 min-[640px]:p-5"
           >
             {/* Ghost 编号 */}
             <span
@@ -138,7 +138,7 @@ export function HomeRoi() {
             </div>
 
             {/* 大号数值 — gradient text + AnimatedNumber */}
-            <span className="animate-mag-value-glow bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-base font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 sm:text-lg">
+            <span className="animate-mag-value-glow bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-base font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 min-[640px]:text-lg">
               {numericValue !== null ? (
                 <>
                   {prefix && <span>{prefix}</span>}
@@ -156,10 +156,10 @@ export function HomeRoi() {
             </h3>
 
             {/* 描述 */}
-            <p className="text-[11px] leading-relaxed text-muted-foreground sm:text-xs">{description}</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground min-[640px]:text-xs">{description}</p>
 
             {/* 计算公式 — monospace 风格 */}
-            <p className="mt-auto rounded bg-background/60 px-2 py-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground/60 sm:text-[10px]">
+            <p className="mt-auto rounded bg-background/60 px-2 py-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground/60 min-[640px]:text-[10px]">
               {calculation}
             </p>
           </RevealOnView>

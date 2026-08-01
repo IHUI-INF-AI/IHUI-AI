@@ -18,9 +18,9 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6 md:py-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 min-[768px]:px-6 min-[768px]:py-8">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
@@ -29,7 +29,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
           <span>{t('backToHome')}</span>
         </Link>
       </header>
-      <div className="grid gap-6 md:grid-cols-[200px_1fr]">
+      <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-[200px_1fr]">
         <nav className="space-y-1">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon

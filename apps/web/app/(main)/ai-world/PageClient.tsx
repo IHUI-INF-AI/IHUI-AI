@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -128,7 +128,7 @@ export default function AiWorldPage() {
       {activeTab === 'rankings' ? (
         <RankingTable />
       ) : activeTabDef.hasSidebar ? (
-        <div className="grid gap-4 lg:grid-cols-[200px_1fr]">
+        <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[200px_1fr]">
           <aside className="rounded-lg border bg-card p-2">
             <CategorySidebar
               categories={categories}

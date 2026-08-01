@@ -21,7 +21,7 @@ export async function ModelsGrid({ list }: Props) {
   const ctxFmt = new Intl.NumberFormat(locale, { notation: 'compact' })
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
       {list.map((m) => (
         <Card key={m.id} className="flex flex-col transition-colors hover:bg-accent">
           <CardHeader>

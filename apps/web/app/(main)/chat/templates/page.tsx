@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -129,7 +129,7 @@ export default function ChatTemplatesPage() {
           <p className="text-sm">暂无模板</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {templates.map((tpl) => (
             <Card
               key={tpl.id}
