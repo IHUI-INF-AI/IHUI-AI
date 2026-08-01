@@ -230,12 +230,17 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 }
               />
             </React.Suspense>
-            {children}
+            {/* 2026-08-01 架构改动:WebWorkPanel 从右列独立区域改为嵌入 work-area 内覆盖 children
+                (用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示")
+                - relative 容器包裹 children + WebWorkPanel
+                - WebWorkPanel 内部 absolute inset-0 覆盖 children(MainShell 工作区卡片)
+                - open=false 时 WebWorkPanel return null,children 正常显示
+                - open=true 时 WebWorkPanel 替换展示工作区内容(非右列独立窗口) */}
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              {children}
+              <WebWorkPanel />
+            </div>
           </div>
-          {/* 工作展示区(右侧固定面板):AI 对话内嵌浏览器 / URL 预览。
-              open=false 时渲染 null,不影响布局;open=true 时参与 flex 流,work-area 自动收缩。
-              不弹独立窗口,纯组件渲染(遵守用户规则:dev server 只在 TRAE 内部运行)。 */}
-          <WebWorkPanel />
         </div>
       </div>
       {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
