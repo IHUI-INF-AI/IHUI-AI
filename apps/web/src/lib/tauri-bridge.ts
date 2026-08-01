@@ -293,6 +293,31 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
   }
 }
 
+// ================== 外部链接 ==================
+
+/**
+ * 打开外部 URL(2026-08-01 立,SSO deep-link 闭环 outbound 入口)。
+ *
+ * Desktop(Tauri webview)中用 shell plugin 的 open() 唤起系统默认浏览器,
+ * 用于 SSO 登录等需要在外部浏览器完成的流程。
+ * 非桌面端(普通浏览器)用 window.open 新开标签页。
+ *
+ * Rust 端 tauri_plugin_shell 已在 lib.rs 注册,
+ * capabilities/default.json 已授权 shell:allow-open。
+ */
+export async function openExternalUrl(url: string): Promise<void> {
+  if (!isTauri()) {
+    window.open(url, '_blank')
+    return
+  }
+  try {
+    await invoke('plugin:shell|open', { url })
+  } catch (e) {
+    console.warn('[shell] open failed:', e)
+    window.open(url, '_blank')
+  }
+}
+
 // ================== 应用菜单(2026-07-25 立) ==================
 
 /** 原生菜单 ID 联合类型(HTML 顶栏 + web 端快捷键共用,前端 dispatcher 严格 switch)。 */
