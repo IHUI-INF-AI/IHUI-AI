@@ -20,7 +20,7 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
     // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: oauth-keys /generate 尚未实装',
+      message: '未实装:oauth-keys /generate 尚未实装',
       data: null,
     })
   })
@@ -32,7 +32,7 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
     // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: oauth-keys /rotate 尚未实装',
+      message: '未实装:oauth-keys /rotate 尚未实装',
       data: null,
     })
   })
@@ -44,7 +44,7 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
     // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: oauth-keys /revoke 尚未实装',
+      message: '未实装:oauth-keys /revoke 尚未实装',
       data: null,
     })
   })
@@ -54,7 +54,7 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
     // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: oauth-keys /list 尚未实装',
+      message: '未实装:oauth-keys /list 尚未实装',
       data: null,
     })
   })
@@ -68,7 +68,7 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
     // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: oauth-keys /active 尚未实装',
+      message: '未实装:oauth-keys /active 尚未实装',
       data: null,
     })
   })

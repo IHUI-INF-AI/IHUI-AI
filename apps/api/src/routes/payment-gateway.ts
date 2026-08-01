@@ -651,7 +651,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         // 2026-07-24 安全加固:必须用 transaction_id 作幂等键,缺失则拒绝(防重复支付)
         if (!transaction_id) {
           request.log.warn({ orderNo: out_trade_no }, 'wechat callback missing transaction_id')
-          return reply.code(400).send({ code: 'FAIL', message: 'missing transaction_id' })
+          return reply.code(400).send({ code: 'FAIL', message: '缺少 transaction_id 参数' })
         }
         const idemKey = transaction_id
         const idem = await server.paymentIdempotency.acquire(out_trade_no, idemKey)

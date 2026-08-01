@@ -232,9 +232,7 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     const allowExternal = networkConfig.allowExternal ?? true
 
     if (classification === 'internal' && !allowInternal) {
-      reply
-        .status(403)
-        .send({ code: 403, message: 'Internal network access not allowed for this route' })
+      reply.status(403).send({ code: 403, message: '此路由不允许内网访问' })
       return
     }
     if (classification === 'external' && !allowExternal) {
@@ -246,9 +244,7 @@ const networkSegmentPlugin: FastifyPluginAsync = async (server: FastifyInstance)
 
     // strict 模式:unknown 分类拒绝
     if (policy === 'strict' && classification === 'unknown') {
-      reply
-        .status(403)
-        .send({ code: 403, message: 'Unrecognized IP address in strict network policy mode' })
+      reply.status(403).send({ code: 403, message: '严格网络策略模式下无法识别 IP' })
       return
     }
   })

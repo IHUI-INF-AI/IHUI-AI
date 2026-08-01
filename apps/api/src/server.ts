@@ -126,15 +126,24 @@ function errorHandler(error: FastifyError, _request: FastifyRequest, reply: Fast
   }
 
   const errorCode = isAppError(error) ? error.errorCode : isZodErr ? 'VALIDATION_FAILED' : undefined
+  // 2026-08-01 错误中文化强化:Zod 默认英文 + AppError 英文 + 裸 Error 英文 全部兜底中文。
+  // 覆盖 ~150 处 Zod 默认错误透传 + 防御未来开发者写英文 AppError。
+  const zodMsg = (error as { issues?: Array<{ message?: string }> }).issues?.[0]?.message
+  const rawAppMsg = isAppError(error) ? error.message : undefined
+  const rawErrMsg = error.message
   const message = isZodErr
-    ? ((error as { issues?: Array<{ message?: string }> }).issues?.[0]?.message ?? '参数错误')
+    ? isMostlyEnglish(zodMsg)
+      ? '参数错误'
+      : (zodMsg ?? '参数错误')
     : statusCode >= 500
       ? '服务器错误'
       : isAppError(error)
-        ? error.message
-        : isMostlyEnglish(error.message)
+        ? isMostlyEnglish(rawAppMsg)
           ? '操作失败,请稍后重试'
-          : error.message
+          : (rawAppMsg ?? '操作失败,请稍后重试')
+        : isMostlyEnglish(rawErrMsg)
+          ? '操作失败,请稍后重试'
+          : rawErrMsg || '操作失败,请稍后重试'
 
   reply.status(statusCode).send({
     code: statusCode,
