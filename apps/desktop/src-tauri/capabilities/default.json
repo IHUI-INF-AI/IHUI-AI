@@ -36,6 +36,7 @@
     "os:default",
     "store:default",
     "updater:default",
-    "log:default"
+    "log:default",
+    "shell:allow-open"
   ]
 }
