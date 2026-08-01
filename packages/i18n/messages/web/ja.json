@@ -14868,7 +14868,25 @@
   "modelFree": "無料",
   "modelPointsMultiplier": "クレジット倍率",
   "errors": {
-    "requestFailed": "リクエスト失敗"
+    "requestFailed": "リクエスト失敗",
+    "region": "エラー通知",
+    "dismiss": "閉じる",
+    "clearAll": "すべて消去",
+    "validationFailed": "送信内容に誤りがあります。確認して再試行してください。",
+    "unauthorized": "ログインの有効期限が切れました。再度ログインしてください。",
+    "forbidden": "この操作を実行する権限がありません。",
+    "notFound": "対応するリソースが見つかりません。",
+    "conflict": "操作が競合しました。更新して再試行してください。",
+    "rateLimited": "操作が頻繁すぎます。後で再試行してください。",
+    "locked": "リソースはロックされています。後で再試行してください。",
+    "internalError": "サーバーに問題が発生しました。後で再試行してください。",
+    "upstreamFailure": "上流サービスに異常が発生しました。後で再試行してください。",
+    "serviceUnavailable": "サービスは一時的に利用できません。後で再試行してください。",
+    "memberExists": "このメンバーは既に存在しています。",
+    "optimisticLock": "データが他のユーザーによって変更されました。更新して再試行してください。",
+    "invalidMoney": "金額の形式が正しくありません。",
+    "invalidTimezone": "タイムゾーンの形式が正しくありません。",
+    "unknown": "不明なエラーが発生しました。後で再試行してください。"
   },
   "a11y": {
     "copyResponse": "レスポンスをコピー",

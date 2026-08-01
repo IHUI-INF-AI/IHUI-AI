@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, MessageSquare } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { pushError } from '@/stores/error-banner'
 
 interface CommentItem {
   id: string
@@ -42,6 +43,11 @@ export default function CommentPage() {
     },
   })
 
+  // 2026-08-01 错误推送全局 banner(常驻 + 顶部滑下),替代 inline 英文错误显示
+  React.useEffect(() => {
+    if (error) pushError(error)
+  }, [error])
+
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
@@ -59,8 +65,6 @@ export default function CommentPage() {
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {t('loading', { default: '加载中...' })}
         </div>
-      ) : error ? (
-        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <MessageSquare className="h-8 w-8 opacity-40" />

@@ -6,10 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, ShieldCheck, Clock, XCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common/Toaster'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
+import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
 import {
   Button,
@@ -92,10 +93,10 @@ export default function RealnamePage() {
         reset()
         qc.invalidateQueries({ queryKey: ['auth', 'realname', 'my'] })
       } else {
-        toast.error(r.error)
+        pushError(r.error)
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('realname.error'))
+      pushError(err instanceof Error ? err : t('realname.error'))
     }
   }
 

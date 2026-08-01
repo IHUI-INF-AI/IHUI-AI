@@ -14705,6 +14705,24 @@
   "modelFree": "免费",
   "modelPointsMultiplier": "积分消耗倍数",
   "errors": {
-    "requestFailed": "请求失败"
+    "requestFailed": "请求失败",
+    "region": "错误通知",
+    "dismiss": "关闭",
+    "clearAll": "清除全部",
+    "validationFailed": "提交的信息有误,请检查后重试",
+    "unauthorized": "登录已过期,请重新登录",
+    "forbidden": "没有权限执行此操作",
+    "notFound": "找不到对应的资源",
+    "conflict": "操作冲突,请刷新后重试",
+    "rateLimited": "操作过于频繁,请稍后再试",
+    "locked": "资源已被锁定,请稍后再试",
+    "internalError": "服务器开小差了,请稍后重试",
+    "upstreamFailure": "上游服务异常,请稍后重试",
+    "serviceUnavailable": "服务暂不可用,请稍后重试",
+    "memberExists": "该成员已存在",
+    "optimisticLock": "数据已被其他人修改,请刷新后重试",
+    "invalidMoney": "金额格式不正确",
+    "invalidTimezone": "时区格式不正确",
+    "unknown": "发生未知错误,请稍后重试"
   }
 }
