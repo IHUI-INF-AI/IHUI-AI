@@ -81,7 +81,7 @@ export default function PaymentPage() {
                 </div>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-4">
-                <ul className="flex-1 space-y-2">
+                <ul className="flex-1 min-w-0 space-y-2">
                   {features.map((feature, i) => (
                     <li key={`feature-${i}`} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />

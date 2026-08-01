@@ -243,37 +243,40 @@ export function TaskDetailDialog({
           )}
         </div>
 
-        <DialogFooter className="justify-between min-[640px]:justify-between">
+        <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
           <Button
             type="button"
             variant="destructive"
             size="sm"
             onClick={handleDelete}
             disabled={deleting || submitting}
+            className="shrink-0"
           >
             {deleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
             ) : (
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 shrink-0" />
             )}
-            {t('delete')}
+            <span className="whitespace-nowrap">{t('delete')}</span>
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-nowrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={submitting || deleting}
+              className="shrink-0"
             >
-              {t('cancel')}
+              <span className="whitespace-nowrap">{t('cancel')}</span>
             </Button>
             <Button
               type="button"
               onClick={handleConfirm}
               disabled={!canConfirm || submitting || deleting}
+              className="shrink-0"
             >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t('confirm')}
+              {submitting && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+              <span className="whitespace-nowrap">{t('confirm')}</span>
             </Button>
           </div>
         </DialogFooter>

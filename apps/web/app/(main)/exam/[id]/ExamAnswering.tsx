@@ -52,9 +52,11 @@ export function ExamAnswering({
       {paper.questions.map((q, i) => (
         <Card key={q.id}>
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-medium">
-              <span className="text-muted-foreground">{i + 1}.</span> {q.title}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">({q.score})</span>
+            <CardTitle className="flex items-start justify-between gap-2 text-sm font-medium">
+              <span className="min-w-0 break-words">
+                <span className="text-muted-foreground">{i + 1}.</span> {q.title}
+              </span>
+              <span className="ml-2 shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">({q.score})</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 p-4 pt-0 text-sm">

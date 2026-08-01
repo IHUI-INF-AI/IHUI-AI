@@ -38,7 +38,7 @@ export function Skeleton({ variant = 'text', count = 1, className }: SkeletonPro
         {items.map((i) => (
           <div key={`skeleton-${i}`} className="flex items-center gap-3">
             <div className="h-10 w-10 shrink-0 animate-pulse rounded-md bg-muted" />
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 min-w-0 space-y-2">
               <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
               <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
             </div>

@@ -48,6 +48,7 @@ export default function AdminLotteryPage() {
         <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索活动名" className="h-9 w-64" />
       </div>
       <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-border text-left text-muted-foreground">
             {head.map((h) => <th key={h} className={`${c} font-medium`}>{h}</th>)}
@@ -67,6 +68,7 @@ export default function AdminLotteryPage() {
               ))}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>

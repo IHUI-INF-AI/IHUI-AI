@@ -484,7 +484,7 @@ export default function AdminRelayChannelsPage() {
                 <Card key={g.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 space-y-1">
+                      <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <Checkbox
                             checked={selected.has(g.id)}
@@ -504,19 +504,19 @@ export default function AdminRelayChannelsPage() {
                               <ChevronRight className="h-4 w-4" />
                             )}
                           </Button>
-                          <CardTitle className="text-base">{g.name}</CardTitle>
-                          <Badge variant="secondary" className="text-xs">
+                          <CardTitle className="min-w-0 flex-1 truncate text-base">{g.name}</CardTitle>
+                          <Badge variant="secondary" className="shrink-0 text-xs">
                             {STRATEGY_LABEL[g.loadBalanceStrategy]}
                           </Badge>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="shrink-0 text-xs">
                             优先级 {g.priority}
                           </Badge>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="shrink-0 text-xs">
                             {g.memberCount} 成员
                           </Badge>
                         </div>
                         {g.description && (
-                          <CardDescription className="pl-9">{g.description}</CardDescription>
+                          <CardDescription className="line-clamp-2 break-words">{g.description}</CardDescription>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -578,6 +578,7 @@ export default function AdminRelayChannelsPage() {
                           )}
                         </div>
                         <div className="rounded-md border border-border">
+                          <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                               <tr>
@@ -690,6 +691,7 @@ export default function AdminRelayChannelsPage() {
                               )}
                             </tbody>
                           </table>
+                          </div>
                         </div>
                       </div>
                     </CardContent>

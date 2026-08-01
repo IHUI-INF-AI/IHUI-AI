@@ -194,7 +194,7 @@ export function WorkspacePermissionDialog({
                             : 'text-muted-foreground',
                     )}
                   />
-                  <div className="flex-1 space-y-1">
+                  <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">
                         {t(MODE_TITLE_KEY[opt.value] ?? 'mode.unknown.title')}
@@ -261,18 +261,19 @@ export function WorkspacePermissionDialog({
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={saveMutation.isPending}
+            className="shrink-0"
           >
-            {t('cancel')}
+            <span className="whitespace-nowrap">{t('cancel')}</span>
           </Button>
-          <Button type="button" onClick={handleSave} disabled={saveMutation.isPending}>
-            {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {saveMutation.isPending ? t('saving') : t('saveAndOpen')}
+          <Button type="button" onClick={handleSave} disabled={saveMutation.isPending} className="shrink-0">
+            {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+            <span className="whitespace-nowrap">{saveMutation.isPending ? t('saving') : t('saveAndOpen')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

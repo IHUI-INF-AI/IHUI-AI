@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -138,7 +138,7 @@ export default function EduExamTakePage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-6">
+        <CardContent className="space-y-4 p-4 min-[768px]:p-6">
           <p className="text-sm font-medium">
             {t('questionProgress', { current: current + 1, total: questions.length })}
             <span className="ml-2 text-xs text-muted-foreground">
