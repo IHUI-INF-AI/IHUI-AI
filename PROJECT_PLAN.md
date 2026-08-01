@@ -67,6 +67,91 @@
 
 ---
 
+## P0 SSO 全端补全 + 后端测试完善(2026-08-01 立,跨端:apps/api + apps/extension + apps/cli + apps/desktop + apps/web,AGENTS.md §24 用户已确认)
+
+> AGENTS.md §9 多端同步:本任务触及 api(后端测试 + redirectUri 扩展)+ extension(cli 共用 SSO Client)+ cli(本地回调服务器)+ desktop(deep-link scheme)+ web(前端 deep-link 处理)。共享层 `packages/shared/auth/sso-core.ts` 不变,沿用现有 SSO 核心逻辑。
+> AGENTS.md §24 用户已确认:"那就彻底接入开发好 完美完善" + "全端补全 + 测试 (推荐)"。
+
+### 目标
+
+现状:SSO 后端 5 端点(code/exchange/refresh/logout/validate)+ OAuth2 Server(authorize/token)+ 共享 sso-core + web/mobile-rn/miniapp-taro 3 端已接入,实际缺口是 extension/cli/desktop 3 端未接入 SSO Client + 后端 `/sso/refresh` 端点测试缺失 + OAuth2 Server 路由测试缺失 + API `isSafeRedirectUri` 过严(cli 本地服务器 `http://localhost:NNNN` 和 extension `chrome-extension://` 被拒)。
+
+本任务:
+
+1. **后端 API**:`isSafeRedirectUri` 扩展支持 localhost(cli 本地服务器)+ 配置化 origins(env `SSO_ALLOWED_ORIGINS`)
+2. **后端测试补全**:`auth-sso.test.ts` 补 `/sso/refresh` 端点用例;新增 OAuth2 Server 路由测试(`auth-oauth-server.test.ts`)
+3. **extension 端 SSO Client**:tab 监听模式,无需新 permissions(已有 `tabs`)
+4. **CLI 端 SSO Client**:`ihui login --sso` 启动本地 HTTP 服务器接收回调
+5. **desktop 端 SSO 完善**:Tauri 已加载 web 前端,SSO 已通过 web 间接工作;补 `ihui://` deep-link scheme 注册 + Rust 监听 emit 给 webview,完整闭环
+
+### 硬性指标(H1-H12)
+
+- [ ] H1:`apps/api/src/routes/auth-sso.ts` `isSafeRedirectUri` 扩展支持 `http://localhost:NNNN/*` + `SSO_ALLOWED_ORIGINS` env 配置化 origins
+- [ ] H2:`apps/api/tests/auth-sso.test.ts` 新增 `/sso/refresh` 端点测试(成功/无效 token/已吊销/用户禁用/用户不存在)
+- [ ] H3:新增 `apps/api/tests/auth-oauth-server.test.ts` 覆盖 `/auth/oauth/authorize` + `/auth/oauth/token`(成功/state 不匹配/应用不存在/凭证错误/授权码已用/已过期)
+- [ ] H4:`apps/extension/lib/sso.ts` 实现 `openSsoLogin()` + `subscribeSsoCallback()` + 复用 shared `exchangeSsoCode`
+- [ ] H5:`apps/extension/lib/login-api-client.ts` 新增 SSO 登录方式接入(wire 到 LoginForm tab)
+- [ ] H6:`apps/cli/src/commands/login.ts` 新增 `--sso` flag + 本地 HTTP server callback 接收 + token 持久化
+- [ ] H7:`apps/desktop/src-tauri/tauri.conf.json` 新增 `plugins.deep-link.schemes: ["ihui"]`
+- [ ] H8:`apps/desktop/src-tauri/src/lib.rs` 监听 deep-link 事件 emit 给 webview(`desktop-deep-link` 事件)
+- [ ] H9:`apps/web/src/lib/sso-desktop-bridge.ts` 监听 `desktop-deep-link` 事件,自动调 `/sso/exchange` 完成 desktop SSO 闭环
+- [ ] H10:`pnpm --filter @ihui/api typecheck && pnpm --filter @ihui/api test` exit 0
+- [ ] H11:`pnpm --filter @ihui/extension typecheck && pnpm --filter @ihui/cli typecheck` exit 0;`cargo check`(desktop)exit 0
+- [ ] H12:commit + push origin/main,local == remote,git-push-guard exit 0
+
+### 约束边界
+
+- 共享层 `packages/shared/src/auth/sso-core.ts` 不修改(已稳定,各端封装即可)
+- 不修改 web 端现有 SSO 页面流程(`/sso/login` `/sso/redirect` 已稳定)
+- 不破坏现有 `auth-sso.test.ts` 已通过的 13 个用例
+- 不增加 extension permissions(已有 `tabs` 够用,不引入 `identity`)
+- CLI 本地服务器端口:优先 1738,被占用则自动找空闲端口
+- `SSO_ALLOWED_ORIGINS` env 默认值:`http://localhost:8801,https://aizhs.top`
+- desktop deep-link scheme:`ihui` 单一 scheme,与 mobile-rn 共用
+
+### 执行批次(2 批次,每批次独立 commit)
+
+- **批次 1**:后端(API redirectUri 扩展 + /sso/refresh 测试 + OAuth2 Server 测试)+ commit + push
+- **批次 2**:3 端 SSO Client(extension + cli + desktop)+ web desktop bridge + commit + push
+
+---
+
+## 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及后端 `apps/api` 验证码校验逻辑 + `packages/database` 迁移,不涉及前端 UI/交互,无需 8 端同步。
+> AGENTS.md §24 豁免:用户已明确要求"验证码默认为 123456 就可以测试登录不需要收真实验证码 这条需要加到数据库"。
+> 配套 user_profile 规则:测试账号强制使用 admin(username=admin / password=admin123 / email=502319984@qq.com / phone=18643389808),禁止创建新测试账号。
+
+### 目标
+
+为 admin 账号(email=502319984@qq.com / phone=18643389808)在测试环境下启用固定验证码 123456,无需收真实验证码即可完成登录/注册/换绑手机等流程的自动化测试与 E2E 验证。
+
+### 硬性指标(H1-H5)— 全部达成 ✅
+
+- [x] ✅(2026-08-01) H1:新增迁移 `packages/database/drizzle/20260801040000_admin_test_verify_code_bypass.sql` 建 `test_verify_code_bypass` 表 + seed admin 邮箱/手机号 2 条 fixed_code=123456 记录(幂等可重复执行)
+- [x] ✅(2026-08-01) H2:`apps/api/src/utils/code-store.ts` `verifyCode` 改 async,非生产环境优先查 `test_verify_code_bypass` 表,命中且 code 匹配 → true(不消耗内存 code),查询失败降级到内存校验(不阻塞登录)
+- [x] ✅(2026-08-01) H3:13 处 `verifyCode` 调用方全部加 `await`(auth-codes.ts 1 处 + auth-extended.ts 7 处 + users.ts 1 处 + code-store.test.ts 4 处)
+- [x] ✅(2026-08-01) H4:`pnpm --filter @ihui/api typecheck` exit 0;本任务 5 文件 eslint exit 0(全量 lint 8 errors 均为其他 agent 文件 coupons.ts/export-csv.ts/api-key-tpm-service.ts/redemption-code-service.test.ts,不在本任务范围)
+- [x] ✅(2026-08-01) H5:commit + push origin/main,local == remote,git-push-guard exit 0
+
+### 约束边界
+
+- **安全**:仅 `NODE_ENV !== 'production'` 生效;生产环境永远走真实验证码流程,此表在生产环境不生效
+- **admin 不可变**:admin 账号由 0067/0071 触发器保证不可变(见 user_profile 测试账号强制规则)
+- **不修改发送验证码逻辑**:只改 `verifyCode` 校验侧,`generateCode` / `sendCode` 保持不变(测试时无需真发)
+- **降级策略**:db 查询失败(catch)降级到内存校验,不阻塞登录流程
+
+### 涉及文件
+
+- `packages/database/drizzle/20260801040000_admin_test_verify_code_bypass.sql`(新)
+- `apps/api/src/utils/code-store.ts`(改:verifyCode async + bypass)
+- `apps/api/src/routes/auth-codes.ts`(改:1 处 await)
+- `apps/api/src/routes/auth-extended.ts`(改:7 处 await)
+- `apps/api/src/routes/users.ts`(改:1 处 await)
+- `apps/api/tests/code-store.test.ts`(改:4 处 async/await)
+
+---
+
 ## 已完成任务:插件市场 Codex 10 插件对齐(2026-07-31 立,2026-08-01 完成 ✅)
 
 ### 目标
