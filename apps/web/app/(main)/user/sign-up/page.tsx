@@ -21,13 +21,6 @@ interface SignUpListResponse {
   total?: number
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: '待审核',
-  published: '已确认',
-  rejected: '已拒绝',
-  completed: '已完成',
-}
-
 const STATUS_STYLE: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   published: 'bg-green-500/10 text-green-600',
@@ -45,6 +38,12 @@ export default function UserSignUpPage() {
   const t = useTranslations('user.sign-up')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  const STATUS_LABEL: Record<string, string> = {
+    draft: t('statusDraft'),
+    published: t('statusPublished'),
+    rejected: t('statusRejected'),
+    completed: t('statusCompleted'),
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['user', 'sign-ups', user?.id],
