@@ -483,7 +483,7 @@ export function OrdersTab({
                 {err}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="o-userId">用户ID *</Label>
                 <Input

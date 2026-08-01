@@ -360,7 +360,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       </section>
 
       {/* 痛点 */}
-      <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-card p-5 min-[768px]:p-8 min-[1024px]:p-12">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{uc.problemTitle}</h2>
         <ul className="mt-6 space-y-3">
           {uc.problems.map((p, i) => (
@@ -410,7 +410,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       </section>
 
       {/* 核心收益 */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-primary/5 p-5 min-[768px]:p-8 min-[1024px]:p-12">
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">核心收益</h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {uc.benefits.map((b, i) => {

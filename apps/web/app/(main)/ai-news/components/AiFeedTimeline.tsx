@@ -343,7 +343,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
 
       {/* 时间线列表 */}
       {dayGroups.length === 0 ? (
-        <div className="p-8 text-center text-sm text-muted-foreground">
+        <div className="p-5 text-center text-sm text-muted-foreground min-[768px]:p-8">
           {keyword ? t('feed.searchEmpty') : t('feed.empty')}
         </div>
       ) : (
