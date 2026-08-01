@@ -1996,6 +1996,52 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - [x] ✅(2026-07-31) P1-6:反风控五层防线端到端强化 — 4 新模块(risk_scoring.py 6 维度评分 + cooldown_manager.py 4 级冷却策略 + cross_account_guard.py 4 维度跨账号隔离检查 + audit_logger.py JSONL 审计日志)+ 5 强化模块(proxy_pool 健康检查+自动剔除+区域匹配 / behavior_humanizer 5 类发布专属行为 / stealth WebRTC+permissions+噪声 / __init__ 导出 / scheduler 集成冷却检查+风险评分拦截+失败关键词检测+自动冷却)
 - [x] ✅(2026-07-31) P1-7:前端 UI 精装修 — 11 新组件(RiskBadge 5 色风控徽章 + CountdownTimer 倒计时 + UploadProgress XHR 真实进度 + TaskProgressBar 双色任务进度 + 4 new 子组件 + 3 history 子组件)+ 6 修改文件(new/page 409→186 行 / history/page 342→124 行 / accounts 集成 RiskBadge / ScanLoginDialog 集成 CountdownTimer / layout Tab 增强 / zh-CN.json +15 i18n key)
 
+### 第三批深度强化(2026-08-01)— 反风控 50+ 检测点 + 平台规则 20+ 维度 + 便捷度 9 大场景(用户反馈"反风控不够/便捷度不够/未深度适配平台最新规则")
+
+> **触发**:用户反馈三批工作"远远不够",痛点集中在反风控深度、便捷度、平台规则适配深度三个维度。
+> **目标**:把"工业级低风险"提升到"对抗 50+ 类深度指纹检测点 + 行为熵值对抗 + 设备关联图谱防护",平台规则从 5 维度升级到 20+ 维度深度适配,便捷度从 0 到 9 大场景(账号分组/批量导入导出/AI 写作助手/Cookie 自动保活/数据分析/发布日历/内容模板/平台预览/富文本编辑器)。
+
+- [x] ✅(2026-08-01) D1:反风控终极强化 — 13 个新深度反检测模块 + stealth_advanced 集成,检测点从 17 类扩展到 50+ 类:
+  - **device_graph_guard.py**:设备关联图谱防护(4 维关联检测:指纹相似度/IP 重叠/UA 相似度/Canvas 哈希,跨账号关联封号预警)
+  - **canvas_noise.py**:Canvas 指纹噪声增强(getImageData/toDataURL/toBlob/readPixels 4 入口拦截 + 同 seed 同噪声)
+  - **audio_fingerprint.py**:AudioContext 指纹防护(getChannelData/getFloatFrequencyData + AnalyserNode 噪声)
+  - **webrtc_guard.py**:WebRTC IP 泄漏防护(RTCPeerConnection relay-only 强制 + verify_no_leak 运行时验证)
+  - **tls_fingerprint.py**:TLS 指纹(JA3)伪装咨询层(5 浏览器配置库 + UA-TLS 一致性 + apply_tls_recommendation_to_context)
+  - **timezone_geo_consistency.py**:时区地理位置一致性校验(ip-api.com 查询 + 5 预设城市 + timezone-language-locale 三方一致性)
+  - **behavior_entropy.py**:行为序列熵值检测对抗(香农熵/KL 散度/diversify 扰动 + 3 类行为 mouse/click/type)
+  - **font_enum_guard.py**:字体枚举防护(document.fonts.check + Canvas 文本测量噪声 + offsetWidth/Height ±0.5px 微扰)
+  - **media_devices_guard.py**:多媒体设备指纹防护(enumerateDevices 固定列表 + getUserMedia reject + USB/HID/Serial 空响应)
+  - **hardware_concurrency_guard.py**:Hardware Concurrency/内存伪装(navigator.hardwareConcurrency/deviceMemory/connection/memory 固定值)
+  - **plugin_enum_guard.py**:插件枚举防护(navigator.plugins/mimeTypes/permissions 固定列表 + navigator.pdfViewerEnabled)
+  - **language_consistency.py**:语言偏好一致性(navigator.language/languages/Intl.DateTimeFormat 三方校验 + Accept-Language 头对齐)
+  - **navigator_integrity.py**:导航器属性完整性校验(webdriver=false/platform 对齐 UA/vendor/chrome/defineProperty 锁定)
+  - **stealth_advanced.py 集成**:13 模块在 apply_advanced_stealth 中按账号 seed 注入,与 stealth.py 幂等共存
+  - 验证:mypy 0 错误(修复 behavior_entropy no-any-return)+ 13 模块 import 全绿 + __init__.py 导出 13 类 30+ 符号
+- [x] ✅(2026-08-01) D2:平台规则深度适配(20+ 维度)— platform_rules.py 从 5 维度升级到 56 字段(11 字段分组:A 基础字数/B 标题规则/C 正文规则/D 标签规则/E 描述/F 图片规则/G 视频规则/H 内容类型/I 分类原创认证/J 发布频率/K 元数据/L 提示):
+  - 标题规则:禁用词/必含词/emoji/特殊字符
+  - 正文规则:禁用词/禁用模式(正则)/段落数/行长/外链/内嵌图
+  - 标签规则:数量上下限 + 分隔符 + 长度 + 中文 + 禁用词
+  - 图片规则:封面必填 + 比例 + 格式 + 大小 + 数量 + 水印
+  - 视频规则:必填 + 时长 + 分辨率 + 格式 + 大小 + 封面
+  - 分类/原创/认证:分类必填 + 可选分类 + 原创声明 + 实名认证
+  - 发布频率:最小间隔 + 每日上限
+  - 元数据:规则版本号 + 更新时间 + 官方规则页
+  - 新增 validate_content_deep(深度校验)+ auto_fix_content(自动修复)+ 38 平台规则全部更新到 20+ 维度
+- [x] ✅(2026-08-01) D3:平台专属排版扩展 — platform_formatter.py +526 行,新增 4 平台专属排版(百度知道/百度贴吧/豆瓣/36氪/虎嗅/钛媒体/AcFun/LOFTER/知乎日报/人民网/中国新闻网/虎扑),覆盖 12 平台专属变换(标题/段落/链接/emoji/引用/代码块等)
+- [x] ✅(2026-08-01) D4:平台规则版本管理 — platform_rule_versions.py 跟踪 38 平台规则版本号 + 最后更新时间 + 官方规则页 + change_log,check_rule_outdated 90 天阈值告警 + list_outdated_selectors 列出过期规则
+- [x] ✅(2026-08-01) D5:平台 DOM 选择器维护表 — platform_dom_selectors.py 维护 38 平台发布页 DOM 选择器(login_url/publish_url/title_input/content_editor/cover_upload/video_upload/tag_input/category_select/original_checkbox/submit_button + fallback_selectors 备用候选)+ verify_selector 运行时验证 + list_outdated_selectors 30 天阈值告警
+- [x] ✅(2026-08-01) D6:账号分组管理 + 批量操作 — account_groups.py 提供分组 CRUD + 成员管理 + 一键发布到分组 + 批量导入(CSV)+ 批量导出(不含凭证)+ 批量凭证验证 + Cookie 健康度查询 + 手动触发 Cookie 保活,DB 自动建表(publish_account_groups + publish_account_group_members)+ IDOR 防护(JWT 身份强制)
+- [x] ✅(2026-08-01) D7:AI 辅助写作服务 — ai_assistant.py 基于 llm_gateway 提供 6 大能力:generate_titles(标题候选)/ polish_content(正文润色)/ recommend_tags(标签推荐)/ generate_summary(SEO 摘要)/ analyze_seo(SEO 评分 + 建议)/ suggest_cover(封面建议)+ astream_* 流式版本(SSE 逐字输出)+ analyze_all 批量分析(一次调用返回多结果)+ 平台风格提示(6 平台:微信/知乎/小红书/CSDN/掘金/微博/B站)
+- [x] ✅(2026-08-01) D8:Cookie 自动保活守护进程 — cookie_refresh_daemon.py 每 6 小时遍历所有 browser_cookie 账号,Playwright headless 访问平台首页 5-10s 刷新 cookie,仅对 browser_cookie 类型有效(api_key/oauth 跳过),模块级单例 cookie_daemon,环境变量 COOKIE_REFRESH_ENABLED/COOKIE_REFRESH_INTERVAL_HOURS 可配置
+- [x] ✅(2026-08-01) D9:scan_login.py 强化(+148 行)— 扫码登录流程增加状态机细化 + Cookie 健康度检测集成 + 失败原因分类
+- [x] ✅(2026-08-01) D10:前端 9 大便捷度场景落地 — 9 个新组件 + 2 个新页面 + 7 个修改文件:
+  - 9 新组件:AccountGroupManager(分组管理)+ AiWritingAssistant(AI 写作助手 6 能力)+ AnalyticsDashboard(数据分析仪表盘)+ BatchImportDialog(CSV 批量导入导出)+ ContentTemplateLibrary(内容模板库)+ CookieHealthIndicator(Cookie 健康度徽章)+ PlatformPreview(平台预览 mobile/desktop)+ PublishCalendar(发布日历,拖拽排期)+ RichTextEditor(富文本编辑器 Markdown/富文本双模式)
+  - 2 新页面:/publish/analytics(数据分析,trend/platformDistribution/failureReasons/accountHealth)+ /publish/calendar(发布日历,月视图 + 拖拽 + 批量错峰)
+  - 7 修改:layout.tsx 新增 calendar/analytics Tab / accounts/page.tsx 集成分组管理 + 批量导入 / new/page.tsx 集成 AI 助手 + 模板库 + 平台预览 / new/ContentEditorCard.tsx 集成富文本编辑器 / helpers.ts 平台 key 同步 / use-publish-accounts.ts +100 行(分组/批量/Cookie 健康度 hook)
+- [x] ✅(2026-08-01) D11:API 代理层扩展 — apps/api/src/routes/publish-routes.ts +79 行(批量导入/导出/验证代理)+ publish-analytics.ts 新建(数据分析 5 端点代理:overview/accounts/trend/platformDistribution/failureReasons)+ index.ts 注册 publishAnalyticsRoutes
+- [x] ✅(2026-08-01) D12:api-client publish 端点扩展 — packages/api-client/src/endpoints/publish.ts +296 行,新增 PublishAccountGroup 类型 + 11 个分组管理函数 + 批量导入/导出/验证函数 + Cookie 健康度查询 + Cookie 保活触发函数
+- [x] ✅(2026-08-01) D13:i18n 5 语言 parity — publish 命名空间新增 60+ key × 5 语言(groups/batchImport/cookieHealth/calendar/analytics/ai/templates/preview/editor/tabs),check-i18n-keys.mjs parity OK,scan-i18n-zh-residue.mjs ko/zh-TW 仅预存非本任务残留
+
 ### 执行顺序(用户指定:先扩平台后精装修)
 
 **第一批·扩平台(友好 API + 反风控地基)**:R1(反风控基础设施)→ R2(4 友好平台)→ R3(2 视频平台)
