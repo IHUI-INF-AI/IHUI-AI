@@ -13,16 +13,16 @@ const sheetSideVariants = cva(
   // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
   //   - 默认(移动端):p-4 gap-3,sm(≥375px)及以上:p-6 gap-4
   //   - left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口,sm 起恢复 w-3/4 + max-w-sm
-  'fixed z-modal flex flex-col gap-3 bg-background p-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out sm:gap-4 sm:p-6',
+  'fixed z-modal flex flex-col gap-3 bg-background p-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4 min-[640px]:p-6',
   {
     variants: {
       side: {
         top: 'inset-x-0 top-0 w-full border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
         bottom:
           'inset-x-0 bottom-0 w-full border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-        left: 'inset-y-0 left-0 h-full w-[90vw] border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:w-3/4 sm:max-w-sm',
+        left: 'inset-y-0 left-0 h-full w-[90vw] border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left min-[640px]:w-3/4 min-[640px]:max-w-sm',
         right:
-          'inset-y-0 right-0 h-full w-[90vw] border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:w-3/4 sm:max-w-sm',
+          'inset-y-0 right-0 h-full w-[90vw] border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right min-[640px]:w-3/4 min-[640px]:max-w-sm',
       },
     },
     defaultVariants: {
@@ -71,13 +71,13 @@ const SheetContent = React.forwardRef<
 SheetContent.displayName = DialogPrimitive.Content.displayName
 
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
+  <div className={cn('flex flex-col space-y-1.5 text-center min-[640px]:text-left', className)} {...props} />
 )
 SheetHeader.displayName = 'SheetHeader'
 
 const SheetFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2', className)}
+    className={cn('flex flex-col-reverse min-[640px]:flex-row min-[640px]:justify-end min-[640px]:space-x-2', className)}
     {...props}
   />
 )

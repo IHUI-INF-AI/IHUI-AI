@@ -66,7 +66,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
             <span>2026-07</span>
           </span>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3 min-[1280px]:grid-cols-6">
           {fallbackItems.map((item) => (
             <FallbackNewsCard key={item.id} item={item} />
           ))}
@@ -108,7 +108,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3 min-[1280px]:grid-cols-6">
         {news.map((n) => (
           <NewsCard key={n.id} item={n} />
         ))}

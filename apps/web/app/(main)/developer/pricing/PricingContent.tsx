@@ -115,7 +115,7 @@ export function PricingContent(): React.JSX.Element {
     <div className="space-y-4">
       {/* Hero */}
       <div className="rounded-lg border bg-card p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
               <Coins className="h-5 w-5 text-primary" />

@@ -142,14 +142,14 @@ export default async function BillingPage() {
         </header>
 
       {/* 余额卡片 */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="sm:col-span-1">
+      <div className="grid gap-3 min-[640px]:grid-cols-3">
+        <Card className="min-[640px]:col-span-1">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Wallet className="h-3.5 w-3.5" />
               {t('billing.currentBalance')}
             </div>
-            <div className="mt-2 text-xl font-bold tracking-tight md:text-2xl">¥ 128.50</div>
+            <div className="mt-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">¥ 128.50</div>
             <Button className="mt-3 h-8 w-full gap-1.5 text-xs">
               <DollarSign className="h-3.5 w-3.5" />
               {t('billing.recharge')}
@@ -180,7 +180,7 @@ export default async function BillingPage() {
       {/* 充值套餐 */}
       <div>
         <h2 className="mb-3 text-base font-semibold">{t('billing.packages.title')}</h2>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 min-[768px]:grid-cols-3">
           {packages.map((p) => (
             <Card
               key={p.name}
@@ -194,7 +194,7 @@ export default async function BillingPage() {
               <CardContent className="p-5">
                 <div className="text-sm font-semibold">{p.name}</div>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-xl font-bold tracking-tight md:text-2xl">{p.price}</span>
+                  <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{p.price}</span>
                   <span className="text-xs text-muted-foreground">
                     {t('billing.packages.once')}
                   </span>

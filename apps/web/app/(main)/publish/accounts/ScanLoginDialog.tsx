@@ -146,7 +146,7 @@ export function ScanLoginDialog({ open, onOpenChange, onSuccess, defaultPlatform
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="min-[640px]:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5" />{t('accounts.scanLoginTitle')}

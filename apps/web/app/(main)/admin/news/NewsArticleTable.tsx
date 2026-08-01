@@ -182,10 +182,10 @@ export function NewsArticleTable(props: Props) {
                             {t('pinned')}
                           </span>
                         ) : null}
-                        <span className="max-w-xs break-words">{article.title}</span>
+                        <span className="block max-w-xs truncate" title={article.title}>{article.title}</span>
                       </div>
                       {article.summary ? (
-                        <div className="max-w-xs break-words text-xs text-muted-foreground">
+                        <div className="line-clamp-2 max-w-xs break-words text-xs text-muted-foreground">
                           {article.summary}
                         </div>
                       ) : null}
@@ -200,7 +200,7 @@ export function NewsArticleTable(props: Props) {
                     <TableCell className="px-4 py-2.5">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                          'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
                           published
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
                             : 'bg-muted text-muted-foreground',

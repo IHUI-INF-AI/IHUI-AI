@@ -27,13 +27,13 @@ export default async function BlogIndexPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8 md:py-8">
-      <header className="space-y-3 text-center md:text-left">
-        <div className="flex items-center justify-center gap-2 md:justify-start">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8 min-[768px]:py-8">
+      <header className="space-y-3 text-center min-[768px]:text-left">
+        <div className="flex items-center justify-center gap-2 min-[768px]:justify-start">
           <BookOpen className="h-7 w-7 text-primary" />
           <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('title')}</h1>
         </div>
-        <p className="text-base text-muted-foreground md:text-lg">{t('subtitle')}</p>
+        <p className="text-base text-muted-foreground min-[768px]:text-lg">{t('subtitle')}</p>
         <p className="text-xs text-muted-foreground">
           {t('stats', { count: posts.length })}
         </p>
@@ -60,7 +60,7 @@ export default async function BlogIndexPage() {
           </CardContent>
         </Card>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {posts.map((post) => (
             <li key={post.slug}>
               <Link

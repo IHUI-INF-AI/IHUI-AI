@@ -135,7 +135,7 @@ export default function AccountsPage() {
           <Button size="sm" variant="outline" onClick={() => openAdd()}><Plus className="h-4 w-4" />{t('accounts.add')}</Button>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {accounts.map((a) => {
             const schema = getPlatformSchema(a.platform)
             const isVerifying = verifyingId === a.id
@@ -203,7 +203,7 @@ export default function AccountsPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !saving && setDialogOpen(o)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="min-[640px]:max-w-lg">
           <form onSubmit={submit} className="space-y-3">
             <DialogHeader><DialogTitle>{editing ? t('accounts.edit') : t('accounts.add')}</DialogTitle></DialogHeader>
             <div className="space-y-1">

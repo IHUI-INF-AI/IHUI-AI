@@ -30,7 +30,7 @@ export function CompassSection() {
         <p className="text-sm text-muted-foreground">{t('compass.subtitle')}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[640px]:grid-cols-2">
         {quadrants.map((q, i) => {
           const Icon = QUADRANT_ICONS[i] ?? Zap
           const adoption = QUADRANT_ADOPTION[i] ?? 0

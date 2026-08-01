@@ -175,7 +175,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
         </div>
 
         {/* 内容 */}
-        <div className="grid gap-4 px-5 py-4 md:grid-cols-2">
+        <div className="grid gap-4 px-5 py-4 min-[768px]:grid-cols-2">
           {/* 左:核心参数 */}
           <div className="space-y-2">
             <h4 className="text-xs font-semibold text-muted-foreground">{t('coreParams')}</h4>

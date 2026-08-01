@@ -61,7 +61,7 @@ export default function HelpPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <HelpCircle className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
@@ -77,7 +77,7 @@ export default function HelpPage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
+      <div className="grid gap-6 min-[1024px]:grid-cols-[200px_1fr]">
         <nav className="space-y-1">
           <button
             type="button"

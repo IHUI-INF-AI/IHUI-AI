@@ -104,7 +104,7 @@ export default function SettingsPage() {
       <Card>
         <CardContent className="space-y-3 p-4">
           <p className="border-b pb-2 text-sm font-semibold">{t('infoTitle')}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-sm">{t('infoName')}</Label>
               <Input

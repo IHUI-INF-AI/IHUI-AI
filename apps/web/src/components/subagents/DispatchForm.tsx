@@ -117,7 +117,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         <div>
           <label htmlFor={`${fid}-affected`} className={labelClass}>受影响文件(每行一个)*</label>
           <textarea
@@ -174,7 +174,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
         <div>
           <label htmlFor={`${fid}-role`} className={labelClass}>Agent 角色</label>
           <select
@@ -230,7 +230,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           <ChevronDown className="h-4 w-4" />
           重试 / 资源配额
         </summary>
-        <div className="grid gap-3 p-3 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 p-3 min-[768px]:grid-cols-5">
           <div>
             <label htmlFor={`${fid}-retryMax`} className={labelClass}>重试次数</label>
             <Input id={`${fid}-retryMax`} type="number" min={1} max={3} value={retryMax} onChange={(e) => setRetryMax(e.target.value)} />
@@ -279,7 +279,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
               </Button>
             </div>
             {dagNodes.map((node, idx) => (
-              <div key={idx} className="grid gap-2 md:grid-cols-[1fr_1fr_2fr_auto]">
+              <div key={idx} className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-[1fr_1fr_2fr_auto]">
                 <Input
                   placeholder="id"
                   value={node.id}
@@ -339,7 +339,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
               </Button>
             </div>
             {dagEdges.map((edge, idx) => (
-              <div key={idx} className="grid gap-2 md:grid-cols-[1fr_1fr_2fr_auto]">
+              <div key={idx} className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-[1fr_1fr_2fr_auto]">
                 <Input
                   placeholder="from"
                   value={edge.from}

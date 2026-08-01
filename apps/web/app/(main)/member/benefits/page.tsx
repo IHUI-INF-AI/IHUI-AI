@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useQuery } from '@tanstack/react-query'
 import { Award, Loader2, Check, Crown } from 'lucide-react'
@@ -56,7 +56,7 @@ export default function MemberBenefitsPage() {
           <p className="text-sm text-muted-foreground">暂无权益数据</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {items.map((b) => {
             const benefits = Array.isArray(b.benefits) ? b.benefits : []
             return (

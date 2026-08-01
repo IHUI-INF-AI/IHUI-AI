@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -93,7 +93,7 @@ export default function WorkspacePage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ export default function WorkspacePage() {
           </div>
         </div>
       ) : data && data.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {data.map((project) => (
             <ProjectCard key={project.id} project={project as ProjectCardData} />
           ))}

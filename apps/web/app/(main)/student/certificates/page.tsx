@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -52,7 +52,7 @@ export default function MyCertificatesPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Award className="h-7 w-7 text-primary" />
           {t('myCertsTitle')}
         </h1>
@@ -73,7 +73,7 @@ export default function MyCertificatesPage() {
           <p className="text-xs text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {list.map((cert) => {
             const statusKey = cert.status === 2 ? 'statusRevoked' : 'statusValid'
             return (

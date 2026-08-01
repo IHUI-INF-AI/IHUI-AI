@@ -242,8 +242,8 @@ export default function AgentWorkbenchPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="space-y-2 lg:col-span-3">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-12">
+        <div className="space-y-2 min-[1024px]:col-span-3">
           {loading && agents.length === 0 ? (
             <Card>
               <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
@@ -291,7 +291,7 @@ export default function AgentWorkbenchPage() {
 
         {viewMode === 'management' ? (
           <>
-            <div className="space-y-4 lg:col-span-6">
+            <div className="space-y-4 min-[1024px]:col-span-6">
               {selected ? (
                 <>
                   <AgentDetailCard agent={selected} />
@@ -310,20 +310,20 @@ export default function AgentWorkbenchPage() {
                 </Card>
               )}
             </div>
-            <div className="lg:col-span-3">
-              <div className="h-[420px] min-[1024px]:h-full min-[1024px]:min-h-[540px]">
+            <div className="min-[1024px]:col-span-3">
+              <div className="h-[360px] min-[768px]:h-[420px] min-[1024px]:h-full min-[1024px]:min-h-[540px]">
                 <AgentSessionList agentId={selectedId} />
               </div>
             </div>
           </>
         ) : (
           <>
-            <div className="lg:col-span-3">
+            <div className="min-[1024px]:col-span-3">
               <div className="h-[400px] min-[1024px]:h-[600px]">
                 <SessionTree nodes={runtime.sessionTree} loading={runtime.loading} />
               </div>
             </div>
-            <div className="space-y-4 lg:col-span-5">
+            <div className="space-y-4 min-[1024px]:col-span-5">
               <div className="h-[290px]">
                 <TokenStream
                   tokens={runtime.tokenStream}
@@ -338,12 +338,12 @@ export default function AgentWorkbenchPage() {
                 />
               </div>
             </div>
-            <div className="lg:col-span-4">
+            <div className="min-[1024px]:col-span-4">
               <div className="h-[420px] min-[1024px]:h-[600px]">
                 {selected ? (
                   <AgentRuntimeLog agentId={selected.id} running={selected.status === 'running'} />
                 ) : (
-                  <div className="flex h-full items-center justify-center rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+                  <div className="flex h-full items-center justify-center rounded-lg border bg-card p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">
                     选择一个 Agent 查看运行日志
                   </div>
                 )}

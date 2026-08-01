@@ -139,7 +139,7 @@ export function InquiryForm(): React.JSX.Element {
         aria-hidden="true"
         className="absolute left-[-9999px] h-0 w-0 opacity-0"
       />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
           <label className="text-sm font-medium">
             {t('inquiry.fields.name')} <span className="text-destructive">*</span>
@@ -160,7 +160,7 @@ export function InquiryForm(): React.JSX.Element {
           />
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
           <label className="text-sm font-medium">
             {t('inquiry.fields.email')} <span className="text-destructive">*</span>
@@ -183,7 +183,7 @@ export function InquiryForm(): React.JSX.Element {
           />
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[640px]:grid-cols-2">
         <Select
           label={t('inquiry.fields.serviceType')}
           options={serviceOptions}
