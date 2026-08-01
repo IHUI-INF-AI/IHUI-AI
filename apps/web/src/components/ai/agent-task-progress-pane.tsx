@@ -1071,7 +1071,14 @@ export function AgentTaskProgressPane() {
   if (isLoginOpen) return null
 
   // Phase 23(2026-07-29):最小化模式 — 渲染摘要条替代完整面板
+  // 2026-08-01 修复:AI 未在执行(planSteps 空 + 非流式 + 无工具调用)时不渲染摘要条,
+  // 避免显示 "0 工具调用 · 0%" 假数据静态条(用户反馈"全都是假的")。
+  // isMinimized 状态保留(不违背 v17"minimize 完全由用户控制"),仅不渲染假数据 UI;
+  // 当 AI 真正执行且产生工具调用时,摘要条随真实数据动态显示。
   if (isMinimized) {
+    const hasActiveExecution =
+      planSteps.length > 0 || isStreaming || tools.length > 0
+    if (!hasActiveExecution) return null
     return (
       <div
         className="absolute z-sticky"
