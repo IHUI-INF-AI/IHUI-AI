@@ -11327,11 +11327,17 @@
     "shellSubtitle": "플랫폼 개발 및 통합 가이드",
     "navDocs": "문서",
     "navTools": "도구",
+    "navDevelopers": "개발자",
     "navOverview": "개요",
+    "navManual": "사용 설명서",
+    "navQuickstart": "퀵스타트",
     "navAgent": "Agent 개발",
     "navApi": "API 문서",
     "navMcp": "MCP 프로토콜",
     "navRag": "RAG 검색",
+    "navModels": "멀티모델 라우팅",
+    "navWorkflow": "워크플로우 오케스트레이션",
+    "navTeam": "팀 협업",
     "navSelfHost": "자체 호스팅"
   },
   "developer": {
