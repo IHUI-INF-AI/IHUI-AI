@@ -1,4 +1,5 @@
 import { createReadWriteDb, type Database } from '@ihui/database'
+import type { FastifyInstance } from 'fastify'
 import { config } from '../config/index.js'
 import { sqlEventBus } from './sql-event-bus.js'
 // P1 修复:集成 pool-leak-detector,跟踪 postgres.js 连接池中 active/idle 连接,
@@ -68,8 +69,9 @@ const poolTracker = setInterval(() => {
         untrackConnection(conn)
       }
     }
-  } catch {
-    // 内部属性访问失败时静默忽略(兼容不同 postgres.js 版本)
+  } catch (e) {
+    // 2026-08-02 修复:不再静默吞错,记录 warn 日志(便于排查 pool 状态采样失败)
+    console.warn('[pool-tracker] sampling failed:', e)
   }
 }, POOL_TRACK_INTERVAL_MS)
 // unref:不阻止进程退出,进程结束时 timer 自动清理
@@ -79,6 +81,16 @@ poolTracker.unref()
 /** 显式停止 poolTracker,避免 vitest/HMR 场景下累积。 */
 export function stopPoolTracker(): void {
   clearInterval(poolTracker)
+}
+
+/**
+ * 2026-08-02 修复:注册 onClose 钩子清理 poolTracker,防进程不退出。
+ * 在 Fastify 启动后调用:registerPoolTrackerCleanup(server)
+ */
+export function registerPoolTrackerCleanup(server: FastifyInstance): void {
+  server.addHook('onClose', () => {
+    clearInterval(poolTracker)
+  })
 }
 
 export type { Database }

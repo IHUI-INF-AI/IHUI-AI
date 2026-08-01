@@ -567,9 +567,14 @@ function TerminalViewport({
             (event.key === 'v' || event.key === 'V')
           ) {
             if (event.type === 'keydown') {
-              void navigator.clipboard.readText().then((text) => {
-                term.paste(text)
-              })
+              void navigator.clipboard
+                .readText()
+                .then((text) => {
+                  term.paste(text)
+                })
+                .catch(() => {
+                  // 2026-08-02 修复: Bug 4 — 剪贴板权限拒绝时静默忽略
+                })
             }
             return false
           }
@@ -619,23 +624,34 @@ function TerminalViewport({
             } else if (msg.type === 'exit') {
               term.write(`\r\n\x1b[33m${msg.data}\x1b[0m\r\n`)
               setConnected(false)
+              // 2026-08-02 修复: Bug 5 — Enter 时不再立即 recordHistory(exitCode:0),
+              // 改为在 exit 消息到达时统一记录(用真实退出码),避免历史混乱。
               // 进程退出码非 0 → 自动触发 AI 诊断(失败自动弹出,2026-07-23 立)
-              if (msg.code !== 0 && isActive && lastCommandRef.current) {
-                void diagnoseError(sessionId, {
-                  command: lastCommandRef.current,
-                  stderr: recentOutputRef.current,
-                  exitCode: msg.code,
-                  cwd: '',
-                }).then((result) => {
-                  if (result) {
-                    setAiDiagnoseOpen(true)
-                  }
-                })
-                // 记录失败命令到智能历史(exitCode != 0)
+              if (isActive && lastCommandRef.current) {
+                // 记录命令到智能历史(成功或失败均记录,用真实 exit code)
                 void recordHistory(sessionId, {
                   command: lastCommandRef.current,
                   exitCode: msg.code,
+                }).catch(() => {
+                  /* 历史记录失败不影响终端使用,静默忽略 */
                 })
+                if (msg.code !== 0) {
+                  void diagnoseError(sessionId, {
+                    command: lastCommandRef.current,
+                    stderr: recentOutputRef.current,
+                    exitCode: msg.code,
+                    cwd: '',
+                  })
+                    .then((result) => {
+                      if (result) {
+                        setAiDiagnoseOpen(true)
+                      }
+                    })
+                    .catch((e: unknown) => {
+                      // 2026-08-02 修复: Bug 4 — diagnoseError rejection 设 wsError
+                      setWsError(e instanceof Error ? e.message : String(e))
+                    })
+                }
                 lastCommandRef.current = ''
               }
             } else if (msg.type === 'error') {
@@ -662,9 +678,9 @@ function TerminalViewport({
               if (!commandTaintedRef.current) {
                 const cmd = commandBufferRef.current.trim()
                 if (cmd) {
+                  // 2026-08-02 修复: Bug 5 — Enter 时只缓存 lastCommandRef,
+                  // 不调 recordHistory(等 exit 消息到达时用真实 exit code 统一记录)
                   lastCommandRef.current = cmd
-                  // 命令成功完成(退出码 0,由后续 exit 消息覆盖非 0 情况)
-                  void recordHistory(sessionId, { command: cmd, exitCode: 0 })
                 }
               }
               commandBufferRef.current = ''
@@ -804,9 +820,14 @@ function TerminalViewport({
   const handlePaste = React.useCallback(() => {
     const t = termRef.current
     if (!t) return
-    void navigator.clipboard.readText().then((text) => {
-      t.paste?.(text)
-    })
+    void navigator.clipboard
+      .readText()
+      .then((text) => {
+        t.paste?.(text)
+      })
+      .catch(() => {
+        // 2026-08-02 修复: Bug 4 — 剪贴板权限拒绝时静默忽略
+      })
     setContextMenu(null)
   }, [])
 
@@ -865,11 +886,16 @@ function TerminalViewport({
   const handleAutoFix = React.useCallback(() => {
     const fixCommand = aiDiagnoseResult?.fixCommand
     if (!fixCommand) return
-    void autoFix(sessionId, fixCommand).then((result) => {
-      if (result?.applied) {
-        setAiDiagnoseOpen(false)
-      }
-    })
+    void autoFix(sessionId, fixCommand)
+      .then((result) => {
+        if (result?.applied) {
+          setAiDiagnoseOpen(false)
+        }
+      })
+      .catch((e: unknown) => {
+        // 2026-08-02 修复: Bug 4 — autoFix rejection 设 wsError(用户可见)
+        setWsError(e instanceof Error ? e.message : String(e))
+      })
   }, [aiDiagnoseResult, sessionId, autoFix, setAiDiagnoseOpen])
 
   /** 从历史搜索中选择一条命令插入终端 */

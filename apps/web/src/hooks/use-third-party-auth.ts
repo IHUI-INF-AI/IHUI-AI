@@ -455,9 +455,12 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
     (platform: ThirdPartyPlatform, error: unknown) => {
       const displayName = PLATFORM_DISPLAY_NAMES[platform] ?? platform
       const msg = error instanceof Error ? error.message : String(error) || '登录失败'
+      // 2026-08-02 修复: 闭包陷阱 - retryCountExceeds 判断基于 prev (函数式更新内), 避免读到旧闭包值
+      let exceeded = false
       setLoginStates((prev) => {
         const cur = prev[platform]
         const retryCount = (cur?.retryCount ?? 0) + 1
+        exceeded = retryCountExceeds(platform, prev)
         return {
           ...prev,
           [platform]: {
@@ -468,13 +471,13 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
           },
         }
       })
-      if (retryCountExceeds(platform, loginStates)) {
+      if (exceeded) {
         toast.error(`${displayName}登录多次失败，建议尝试其他登录方式`)
       } else {
         toast.error(msg || `${displayName}登录失败`)
       }
     },
-    [loginStates, toast],
+    [toast],
   )
 
   /** 重试登录 */
