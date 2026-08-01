@@ -118,14 +118,14 @@ function ListItem({ item }: { item: NewsItem }) {
 function Skeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 min-[1024px]:grid-cols-[1.6fr_1fr]">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1.6fr_1fr]">
         <div className="h-[300px] animate-pulse rounded-xl bg-muted min-[768px]:h-[340px]" />
         <div className="flex flex-col gap-4">
           <div className="h-[160px] animate-pulse rounded-lg bg-muted" />
           <div className="h-[160px] animate-pulse rounded-lg bg-muted" />
         </div>
       </div>
-      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="h-20 animate-pulse rounded-md bg-muted" />
         ))}
@@ -204,7 +204,7 @@ export function HomePage3Magazine() {
         </Card>
       ) : (
         <div className="flex flex-1 flex-col gap-4">
-          <div className="grid gap-4 min-[1024px]:grid-cols-[1.6fr_1fr]">
+          <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1.6fr_1fr]">
             {hero && <HeroCard item={hero} tag={t('tagHot')} />}
             <div className="flex flex-col gap-4">
               {sideItems.map((n) => (
@@ -212,7 +212,7 @@ export function HomePage3Magazine() {
               ))}
             </div>
           </div>
-          <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {listItems.map((n) => (
               <ListItem key={n.id} item={n} />
             ))}

@@ -73,7 +73,7 @@ export default function MobileAdapterPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('mobile.subtitle')}</p>
       </div>
 
-      <div className="grid gap-6 min-[1024px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 min-[1024px]:grid-cols-3">
         {/* 设备适配配置 */}
         <div className="min-[1024px]:col-span-2 space-y-3">
           <h2 className="text-lg font-semibold">{t('mobile.deviceConfig')}</h2>

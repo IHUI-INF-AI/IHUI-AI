@@ -135,7 +135,7 @@ export function FundingSection({ items }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-4 p-6 pt-3 min-[768px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 p-6 pt-3 min-[768px]:grid-cols-3">
         {filtered.length === 0 ? (
           <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
             {t('funding.empty')}

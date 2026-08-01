@@ -18,7 +18,7 @@ export function TeamInfoCard({ team }: { team: TeamDetail }) {
           <CardTitle className="text-xl">{team.name}</CardTitle>
           <CardDescription className="mt-1">{team.description || `@${team.slug}`}</CardDescription>
         </div>
-        <div className="hidden text-right text-xs text-muted-foreground sm:block">
+        <div className="hidden text-right text-xs text-muted-foreground min-[640px]:block">
           <div>
             {t('owner')}: {team.ownerName}
           </div>

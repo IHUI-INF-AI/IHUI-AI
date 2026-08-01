@@ -88,7 +88,7 @@ export default function EduDashboardPage() {
         <Alert variant="danger" description={tc('loadFailed')} />
       ) : (
         <>
-          <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {stats.map(({ label, value, icon: Icon }) => (
               <Card key={label}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -102,7 +102,7 @@ export default function EduDashboardPage() {
             ))}
           </div>
 
-          <div className="grid gap-4 min-[640px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
@@ -177,7 +177,7 @@ export default function EduDashboardPage() {
                 <p className="text-sm text-muted-foreground">{t('recentSection.empty')}</p>
               </div>
             ) : (
-              <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {(data?.recentCourses ?? []).map((c) => (
                   <Link key={c.id} href={`/edu/courses/${c.id}`}>
                     <Card className="transition-colors hover:bg-accent">
