@@ -552,10 +552,13 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                 // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
                 //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
                 //   - active 态:plusOpen 时 bg-accent text-foreground(属于状态指示,保留覆盖)
+                // 2026-08-01 用户规则:"暗色模式下背景色应该跟工作内容展示区底背景色一致"
+                //   - 暗色非 active 态用 bg-shell-panel(与 MainShell 工作区卡片同色),亮色保留 bg-card
+                //   - active 态(plusOpen)仍用 bg-accent 突出,不被 dark:bg-shell-panel 覆盖
                 className={cn(
                   TOPBAR_BTN_BASE,
                   TOPBAR_BTN_W9,
-                  plusOpen ? 'bg-accent text-foreground' : '',
+                  plusOpen ? 'bg-accent text-foreground' : 'dark:bg-shell-panel',
                 )}
               >
                 <Plus className="h-3.5 w-3.5" />
