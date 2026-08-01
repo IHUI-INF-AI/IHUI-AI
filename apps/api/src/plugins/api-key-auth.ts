@@ -572,7 +572,7 @@ export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, rep
     }
     return reply
       .status(statusCode)
-      .send({ code: statusCode, message: err.message || 'API key authentication required' })
+      .send({ code: statusCode, message: err.message || '请提供 API Key 鉴权' })
   }
 
   // === TPM 限流集成(鉴权通过后、请求转发前)===
@@ -618,7 +618,7 @@ export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, rep
 export function requireApiKeyPermission(perm: ApiKeyPermission): preHandlerAsyncHookHandler {
   return async (request, reply) => {
     if (!request.apiKey) {
-      return reply.status(401).send({ code: 401, message: 'API key authentication required' })
+      return reply.status(401).send({ code: 401, message: '请提供 API Key 鉴权' })
     }
     const perms = request.apiKey.permissions
     // 兼容三种格式:数组(正常) / 对象(老 seed-raw.mjs 误用 {permissions:[...]}) / null
@@ -642,7 +642,7 @@ export function requireApiKeyPermission(perm: ApiKeyPermission): preHandlerAsync
 export function requireApiKeyQuota(): preHandlerAsyncHookHandler {
   return async (request, reply) => {
     if (!request.apiKey) {
-      return reply.status(401).send({ code: 401, message: 'API key authentication required' })
+      return reply.status(401).send({ code: 401, message: '请提供 API Key 鉴权' })
     }
     const quota = new ApiKeyQuota()
     const result = await quota.checkAndConsume(request.apiKey.id)
@@ -651,7 +651,7 @@ export function requireApiKeyQuota(): preHandlerAsyncHookHandler {
       return reply
         .status(429)
         .header('Retry-After', String(retryAfter))
-        .send({ code: 429, message: 'Rate limit exceeded' })
+        .send({ code: 429, message: '请求过于频繁,请稍后再试' })
     }
   }
 }

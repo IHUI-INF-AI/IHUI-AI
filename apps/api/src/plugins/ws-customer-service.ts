@@ -144,7 +144,7 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
           try {
             msg = JSON.parse(data.toString())
           } catch {
-            socket.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }))
+            socket.send(JSON.stringify({ type: 'error', data: { message: 'JSON 格式错误' } }))
             return
           }
           // 坐席向某会话发消息

@@ -284,7 +284,7 @@ async function processOpenAIBatch(
           id: `batch_req_${randomUUID()}`,
           custom_id: customId,
           response: null,
-          error: { message: 'Invalid JSON line' },
+          error: { message: 'JSON 格式错误' },
         }),
       )
       continue
@@ -298,7 +298,7 @@ async function processOpenAIBatch(
           custom_id: 'unknown',
           response: null,
           error: {
-            message: 'Invalid batch input format (missing custom_id or body.model/messages)',
+            message: '批处理输入格式无效(缺少 custom_id 或 body.model/messages)',
           },
         }),
       )

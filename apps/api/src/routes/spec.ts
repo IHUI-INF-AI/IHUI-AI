@@ -464,7 +464,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     return reply
       .code(501)
-      .send({ code: 501, message: 'Not Implemented: spec /full-pipeline 尚未实装', data: null })
+      .send({ code: 501, message: '未实装:spec /full-pipeline 尚未实装', data: null })
   })
 
   server.post('/spec/pipeline-rollback', async (request, reply) => {
@@ -472,7 +472,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     return reply
       .code(501)
-      .send({ code: 501, message: 'Not Implemented: spec /pipeline-rollback 尚未实装', data: null })
+      .send({ code: 501, message: '未实装:spec /pipeline-rollback 尚未实装', data: null })
   })
 
   server.post('/spec/impact-analysis', async (request, reply) => {
@@ -480,15 +480,13 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     return reply
       .code(501)
-      .send({ code: 501, message: 'Not Implemented: spec /impact-analysis 尚未实装', data: null })
+      .send({ code: 501, message: '未实装:spec /impact-analysis 尚未实装', data: null })
   })
 
   server.post('/spec/branch', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply
-      .code(501)
-      .send({ code: 501, message: 'Not Implemented: spec /branch 尚未实装', data: null })
+    return reply.code(501).send({ code: 501, message: '未实装:spec /branch 尚未实装', data: null })
   })
 
   server.post('/spec/branch/merge', async (request, reply) => {
@@ -496,7 +494,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     return reply
       .code(501)
-      .send({ code: 501, message: 'Not Implemented: spec /branch/merge 尚未实装', data: null })
+      .send({ code: 501, message: '未实装:spec /branch/merge 尚未实装', data: null })
   })
 
   server.post('/spec/branch/abandon', async (request, reply) => {
@@ -504,7 +502,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     return reply
       .code(501)
-      .send({ code: 501, message: 'Not Implemented: spec /branch/abandon 尚未实装', data: null })
+      .send({ code: 501, message: '未实装:spec /branch/abandon 尚未实装', data: null })
   })
 
   server.post('/spec/generate-from-requirement', async (request, reply) => {
@@ -512,7 +510,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: spec /generate-from-requirement 尚未实装',
+      message: '未实装:spec /generate-from-requirement 尚未实装',
       data: null,
     })
   })
