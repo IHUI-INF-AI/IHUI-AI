@@ -196,7 +196,7 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await openLoginDialog(page, 'login-tab-email', 'login-email-input')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-email-input').fill('admin@ihui.ai')
+      await page.getByTestId('login-email-input').fill('502319984@qq.com')
       await page.getByTestId('login-email-input').press('Enter')
       await page.waitForTimeout(500)
 
@@ -209,7 +209,7 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await openLoginDialog(page, 'login-tab-email', 'login-email-input')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-email-input').fill('admin@ihui.ai')
+      await page.getByTestId('login-email-input').fill('502319984@qq.com')
       await page.getByTestId('login-email-code-input').fill('123456')
       await page.getByTestId('login-email-code-input').press('Enter')
       await page.waitForTimeout(500)
