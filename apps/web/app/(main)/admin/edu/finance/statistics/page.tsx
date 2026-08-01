@@ -90,7 +90,7 @@ export default function EduFinanceStatisticsPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             <Card>
               <CardContent className="flex items-center gap-3 p-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-400 text-white">

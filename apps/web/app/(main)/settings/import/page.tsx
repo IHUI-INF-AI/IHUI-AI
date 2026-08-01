@@ -341,9 +341,9 @@ export default function CliImportPage() {
               {history.map((h) => (
                 <div
                   key={h.id}
-                  className="flex items-center justify-between rounded-md border border-border p-2 text-xs"
+                  className="flex items-center justify-between gap-3 rounded-md border border-border p-2 text-xs"
                 >
-                  <div className="space-y-0.5">
+                  <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{t(sourceLabelKey(h.source) as never)}</span>
                       <span
@@ -360,7 +360,7 @@ export default function CliImportPage() {
                     </div>
                     <p className="truncate text-muted-foreground">{h.sourcePath}</p>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <div className="flex shrink-0 items-center gap-3 text-[11px] text-muted-foreground">
                     <span>
                       {t('historyImported')}: {h.importedCount}
                     </span>

@@ -236,7 +236,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
 
         {/* Actions */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <Tooltip content={!config.hasApiKey ? t('needKeyFirst') : t('test')}>
               <Button
                 variant="outline"
@@ -283,7 +283,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+              className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
               onClick={handleDelete}
               disabled={deleteMut.isPending}
             >

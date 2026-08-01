@@ -40,7 +40,7 @@ export function AdminExtraCharts({ stats }: Props) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs text-muted-foreground">Expected</p>
                 <LineChart
