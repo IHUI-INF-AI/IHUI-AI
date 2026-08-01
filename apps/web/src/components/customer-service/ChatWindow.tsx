@@ -82,7 +82,9 @@ export function ChatWindow({ roomId, onClose }: Props) {
       })
       if (r.success && r.data) {
         // 去重:如果已存在同 id 消息(轮询可能已带回),不重复添加
-        setMessages((prev) => (prev.some((m) => m.id === r.data!.id) ? prev : [...prev, r.data]))
+        setMessages((prev) =>
+          prev.some((m) => m.id === r.data!.id) ? prev : [...prev, r.data],
+        )
       }
       setInput('')
       requestAnimationFrame(() => textareaRef.current?.focus())
