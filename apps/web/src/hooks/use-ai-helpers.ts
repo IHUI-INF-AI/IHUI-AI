@@ -74,7 +74,7 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
 
   const promptRef = React.useRef<string>('')
   const progressIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
-  const progressIntervalaRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const progressIntervalSecondaryRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const agentContent1TimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const audioPollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const videoPollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
@@ -130,9 +130,9 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       clearInterval(progressIntervalRef.current)
       progressIntervalRef.current = null
     }
-    if (progressIntervalaRef.current) {
-      clearInterval(progressIntervalaRef.current)
-      progressIntervalaRef.current = null
+    if (progressIntervalSecondaryRef.current) {
+      clearInterval(progressIntervalSecondaryRef.current)
+      progressIntervalSecondaryRef.current = null
     }
     if (agentContent1TimerRef.current) {
       clearTimeout(agentContent1TimerRef.current)
@@ -250,7 +250,7 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       if (audioPollingRef.current) clearInterval(audioPollingRef.current)
       if (videoPollingRef.current) clearInterval(videoPollingRef.current)
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-      if (progressIntervalaRef.current) clearInterval(progressIntervalaRef.current)
+      if (progressIntervalSecondaryRef.current) clearInterval(progressIntervalSecondaryRef.current)
       if (agentContent1TimerRef.current) clearTimeout(agentContent1TimerRef.current)
     }
   }, [])
