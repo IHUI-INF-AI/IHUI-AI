@@ -2384,12 +2384,27 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
   - left/right 移动端 `w-[90vw]` 充分利用视口,sm 起恢复 `w-3/4 sm:max-w-sm`
 - [x] ✅(2026-07-31) Drawer 组件宽度响应式(`packages/ui-react/src/components/drawer.tsx`)
   - left/right 移动端 `w-[90vw]`,sm 起恢复 `w-3/4 sm:max-w-sm`(原 w-3/4 在 375px 屏仅 281px 偏窄)
+- [x] ✅(2026-08-01) 断点体系对齐 — 根治 576-1024px 平板区间三列挤压(`apps/web/src/hooks/use-media-query.ts` + `sidebar.tsx` + `ai-side-panel.tsx` + `GlobalShell.tsx`)
+  - 根因:`--breakpoint-lg:576px` 导致 `lg:` 断点在 576px 就触发桌面三列,576-1024px 平板区间 Sidebar(130px)+AISidePanel(400px)+WebWorkPanel 挤压 work-area 到极窄
+  - 修复:三列布局相关的 `lg:` 断点类改为 `min-[1024px]:`(Tailwind v4 任意值断点,确保 ≥1024px 才触发桌面态)
+    - sidebar.tsx 5 处:`lg:hidden`→`min-[1024px]:hidden`(3处)、`lg:flex`→`min-[1024px]:flex`(2处)
+    - ai-side-panel.tsx 2 处:`lg:block`→`min-[1024px]:block`(docked 关闭/打开态)
+    - GlobalShell.tsx 1 处:移动菜单按钮 `lg:hidden`→`min-[1024px]:hidden`
+  - useIsMobile 阈值从 768px 改为 1023px(与 min-[1024px] 断点对齐,<1024px 统一走移动模式 FAB+全屏)
+  - 不用 `tablet-lg:` 断点名(Tailwind v4 把 `tablet-lg:flex` 误解析为 `tablet:`+`lg:flex`,经 Playwright 验证确认无效)
+  - Playwright 三视口验证:375px/768px Sidebar display=none + FAB + 菜单按钮;1280px Sidebar display=flex + docked AISidePanel ✅
 
 ### 验证
 
 - `pnpm --filter @ihui/web typecheck` exit 0(全量 typecheck 全绿)
 - browser_use 验证:FAB 按钮位置正确(bottom: 16px, right: 16px)、浮窗全屏覆盖(position: fixed, borderRadius: 0px)、暗色模式切换正常、平板 768x1024 无白屏
 - 截图存档:`.trae-cn/tmp/mobile-home-default.png` / `mobile-fab.png` / `mobile-ai-fullscreen.png` / `mobile-dark.png` / `tablet-768.png`
+- 2026-08-01 补充验证:`node node_modules/typescript/bin/tsc --noEmit -p apps/web/tsconfig.json` exit 0
+- 2026-08-01 Playwright 三视口验证(375x812/768x1024/1280x800):
+  - 375px:Sidebar display=none + FAB 存在 + 菜单按钮存在 ✅
+  - 768px:Sidebar display=none + FAB 存在 + 菜单按钮存在 ✅(断点对齐后平板竖屏走移动模式)
+  - 1280px:Sidebar display=flex + AISidePanel docked display=flex + 无 FAB ✅(桌面三列)
+- 截图存档:`.trae-cn/tmp/mobile-375.png` / `tablet-768.png` / `desktop-1280.png`
 
 ---
 
