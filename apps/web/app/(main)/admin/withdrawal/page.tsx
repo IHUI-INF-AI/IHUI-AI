@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Banknote, ChevronLeft, ChevronRight, Check, X, Search } from 'lucide-react'
 import { Input, Button } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { TruncatedText } from '@/components/common'
+import { TruncatedText, BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { useWithdrawalMachine } from '@/lib/workflows'
 import type { Withdrawal, WithdrawalListData, WithdrawalStatus } from './types'
@@ -80,6 +80,7 @@ export default function AdminWithdrawalPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Banknote className="h-6 w-6 text-primary" />

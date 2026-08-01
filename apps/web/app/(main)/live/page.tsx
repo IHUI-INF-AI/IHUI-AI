@@ -22,6 +22,7 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface Category {
   id: string
@@ -94,6 +95,7 @@ export default function LivePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Radio className="h-7 w-7 text-primary" />

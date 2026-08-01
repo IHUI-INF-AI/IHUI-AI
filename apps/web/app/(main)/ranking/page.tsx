@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -20,6 +20,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface RankItem {
   id: string
@@ -54,6 +55,7 @@ export default function RankingPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Trophy className="h-6 w-6 text-primary" />

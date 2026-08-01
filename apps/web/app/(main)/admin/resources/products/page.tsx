@@ -13,6 +13,7 @@ import { ProductTable } from './ProductTable'
 import { ProductDialog } from './ProductDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, fetchProducts, productToForm } from './helpers'
 import type { Product, ProductForm, ResourcesData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminResourceProductsPage() {
   const t = useTranslations('admin.resources')
@@ -131,6 +132,7 @@ export default function AdminResourceProductsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('productsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('productsSubtitle')}</p>

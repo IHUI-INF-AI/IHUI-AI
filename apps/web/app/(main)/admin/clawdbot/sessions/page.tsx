@@ -7,6 +7,7 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface SessionItem {
   id: string
@@ -77,6 +78,7 @@ export default function ClawdbotSessionsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <MessageSquare className="h-6 w-6 text-primary" /> 会话管理
       </h1>

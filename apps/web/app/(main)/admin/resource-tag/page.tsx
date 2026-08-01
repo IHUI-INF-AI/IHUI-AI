@@ -7,6 +7,7 @@ import { Tag, ChevronLeft, ChevronRight, Plus, Trash2, Save, X } from 'lucide-re
 import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { ResourceTag, ResourceTagListData, ResourceTagForm } from './types'
+import { BackButton } from '@/components/common'
 
 const PAGE_SIZE = 20
 const EMPTY: ResourceTagForm = { pid: '', name: '', sort: '0', status: true }
@@ -96,6 +97,7 @@ export default function AdminResourceTagPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

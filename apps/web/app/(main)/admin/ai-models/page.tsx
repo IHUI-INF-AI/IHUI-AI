@@ -10,6 +10,7 @@ import { AiModelsFilter } from './AiModelsFilter'
 import { AiModelsTable } from './AiModelsTable'
 import { PAGE_SIZE, EMPTY_FORM, api, rowToForm, formToBody } from './helpers'
 import type { ModelRow, ListData, FormState, TestResult } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AiModelsPage() {
   const qc = useQueryClient()
@@ -119,6 +120,7 @@ export default function AiModelsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <AiModelsFilter search={search} onSearchChange={setSearch} onCreate={openCreate} />
 
       <AiModelsTable

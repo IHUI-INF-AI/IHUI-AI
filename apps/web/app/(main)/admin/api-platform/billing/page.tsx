@@ -16,6 +16,7 @@ import { BillingSummaryCards } from './BillingSummaryCards'
 import { BillingRecordsTable } from './BillingRecordsTable'
 import { selectClass, api } from './helpers'
 import type { BillingRecord, BillingSummary } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminApiPlatformBillingPage() {
   const t = useTranslations('adminApiBilling')
@@ -63,6 +64,7 @@ export default function AdminApiPlatformBillingPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Receipt className="h-6 w-6 text-primary" />

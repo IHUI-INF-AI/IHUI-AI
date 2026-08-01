@@ -24,6 +24,7 @@ import {
   buildExportUrl,
 } from './helpers'
 import type { JobLog, ListResp, SearchState, SortState } from './types'
+import { BackButton } from '@/components/common'
 
 export default function JobLogPage() {
   const t = useTranslations('admin.system')
@@ -89,6 +90,7 @@ export default function JobLogPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <ScrollText className="h-6 w-6 text-primary" />
         {t('tasksLog.title')}

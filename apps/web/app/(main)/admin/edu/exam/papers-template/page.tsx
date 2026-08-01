@@ -13,6 +13,7 @@ import { PapersTemplateTable } from './PapersTemplateTable'
 import { PapersTemplateDialog } from './PapersTemplateDialog'
 import { EMPTY_FORM, templateToForm } from './helpers'
 import type { Template, PageData, TForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduExamPapersTemplatePage() {
   const t = useTranslations('admin.edu.exam.papersTemplate')
@@ -96,6 +97,7 @@ export default function EduExamPapersTemplatePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

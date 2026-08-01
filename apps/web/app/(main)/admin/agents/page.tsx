@@ -12,6 +12,7 @@ import { AgentsTable } from './AgentsTable'
 import { AgentEditDialog } from './AgentEditDialog'
 import { PAGE_SIZE, EMPTY_FORM, api, fetchAgents } from './helpers'
 import type { Agent, AgentForm, CategoriesData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminAgentsPage() {
   const t = useTranslations('admin.agents')
@@ -129,6 +130,7 @@ export default function AdminAgentsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

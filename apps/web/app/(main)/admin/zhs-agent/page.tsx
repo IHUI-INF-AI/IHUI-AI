@@ -14,6 +14,7 @@ import { ZhsAgentTable } from './ZhsAgentTable'
 import { ZhsAgentDialog } from './ZhsAgentDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, zhsAgentToForm } from './helpers'
 import type { ZhsAgent, ZhsAgentForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function ZhsAgentPage() {
   const qc = useQueryClient()
@@ -124,6 +125,7 @@ export default function ZhsAgentPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight"><span className="truncate">ZHS Agent管理</span></h1>
         <div className="flex shrink-0 items-center gap-2">

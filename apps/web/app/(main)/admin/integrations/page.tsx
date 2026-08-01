@@ -9,6 +9,7 @@ import { IntegrationTable } from './IntegrationTable'
 import { IntegrationDialog } from './IntegrationDialog'
 import { EMPTY_FORM, api, normList, integrationToForm } from './helpers'
 import type { Integration, IntegrationForm, TestResult } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminIntegrationsPage() {
   const t = useTranslations('admin.integrations')
@@ -102,6 +103,7 @@ export default function AdminIntegrationsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <IntegrationFilter onCreate={openCreate} />
 
       <IntegrationTable

@@ -7,6 +7,7 @@ import { Upload, Trash2, Loader2, Image as ImageIcon } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface Asset {
   id: string
@@ -60,6 +61,7 @@ export default function AssetsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">品牌资产</h1>
         <p className="mt-1 text-sm text-muted-foreground">管理 Logo / Favicon / 品牌图片</p>

@@ -13,6 +13,7 @@ import { RefundDialog } from './RefundDialog'
 import { PAGE_SIZE, api } from './helpers'
 import { useRefundMachine } from '@/lib/workflows'
 import type { ActionState, EduRefund, PageData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminRefundPage() {
   const t = useTranslations('admin.refund')
@@ -132,6 +133,7 @@ function RefundList({
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <RefundFilter
         status={status}
         searchInput={searchInput}

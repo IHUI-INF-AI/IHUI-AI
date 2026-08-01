@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { pushError } from '@/stores/error-banner'
 import { formatDate } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 import {
   Button,
   Input,
@@ -104,6 +105,7 @@ export default function RealnamePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />

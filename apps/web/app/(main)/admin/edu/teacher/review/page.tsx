@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, ShieldCheck, Check, X } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
+import { BackButton } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -65,6 +66,7 @@ export default function EduTeacherReviewPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

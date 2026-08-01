@@ -39,6 +39,7 @@ import {
 } from './helpers'
 import type { ApiLog, LogsData, LogStats } from './types'
 import { formatNumber } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 export default function AdminLogsPage() {
   const t = useTranslations('admin.logs')
@@ -129,6 +130,7 @@ export default function AdminLogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

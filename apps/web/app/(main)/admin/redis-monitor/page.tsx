@@ -8,6 +8,7 @@ import { fetchApi } from '@/lib/api'
 import { StatCard } from '@/components/data'
 import { cn } from '@/lib/utils'
 import type { RedisMonitorResponse } from './types'
+import { BackButton } from '@/components/common'
 
 const FB: RedisMonitorResponse = {
   overview: { totalKeys: 0, usedMemory: 0, maxMemory: 0, hitRate: 0, missRate: 0, hits: 0, misses: 0, evictions: 0, connectedClients: 0, uptime: 0, opsPerSec: 0 },
@@ -46,6 +47,7 @@ export default function RedisMonitorPage() {
   const bc = mp > 80 ? 'bg-red-500/70' : mp > 60 ? 'bg-amber-500/70' : 'bg-emerald-500/70'
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Cpu className="h-6 w-6 text-primary" />Redis 监控
       </h1>

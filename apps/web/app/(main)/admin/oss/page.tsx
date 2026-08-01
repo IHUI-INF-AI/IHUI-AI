@@ -9,6 +9,7 @@ import { OssConfigTable } from './OssConfigTable'
 import { OssConfigDialog } from './OssConfigDialog'
 import { api, normList, parseJson, EMPTY_FORM, ossDriverToForm } from './helpers'
 import type { OssDriver, OssForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminOssPage() {
   const t = useTranslations('admin.oss')
@@ -85,6 +86,7 @@ export default function AdminOssPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <OssConfigFilter onCreate={openCreate} />
       <OssConfigTable
         list={list}

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Card, CardContent } from '@ihui/ui-react'
 import type { OssConfig, OssConfigForm, OssConfigListData, OssConfigStatus } from './types'
+import { BackButton } from '@/components/common'
 
 const EMPTY: OssConfigForm = { name: '', provider: 'aliyun', endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', isDefault: false, description: '' }
 const BADGE: Record<OssConfigStatus, string> = {
@@ -51,6 +52,7 @@ export default function AdminOssConfigPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Cloud className="h-6 w-6 text-primary" />OSS 配置</h1>
         <Button size="sm" onClick={() => { setEditing(null); setForm(EMPTY); setOpen(true) }}><Plus className="h-4 w-4" />新建配置</Button>

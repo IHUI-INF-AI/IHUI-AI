@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 
 interface RegionPricing {
@@ -101,6 +102,7 @@ export function ModelsPricingContent(): React.JSX.Element {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+      <BackButton />
       <header className="space-y-2 text-center">
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">模型定价</h1>
         <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">

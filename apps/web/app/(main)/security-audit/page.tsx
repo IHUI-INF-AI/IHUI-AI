@@ -18,6 +18,7 @@ import {
   TableRow,
   TableCell,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface AuditEvent {
   id: string
@@ -60,6 +61,7 @@ export default function SecurityAuditPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShieldAlert className="h-6 w-6 text-primary" />

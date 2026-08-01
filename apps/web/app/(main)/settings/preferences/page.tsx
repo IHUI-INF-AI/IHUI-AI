@@ -7,6 +7,7 @@ import { Sun, Moon, Monitor, Globe, Languages, Check, Trash2 } from 'lucide-reac
 import { toast } from 'sonner'
 
 import { Card, CardHeader, CardTitle, CardContent, Switch, Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { useDesktop } from '@/hooks/use-desktop'
 import { clearWebViewCache } from '@/lib/tauri-bridge'
@@ -68,6 +69,7 @@ export default function PreferencesPage() {
 
   return (
     <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <BackButton />
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('preferencesTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('preferencesDesc')}</p>

@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { CheckCircle2, Gift, Ticket } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(\`redeem.history.statusLabels.${var}\`)` 动态拼接 */
 const REDEEM_STATUS_KEY: Record<string, string> = {
@@ -21,6 +22,7 @@ export default async function RedeemPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {/* 兑换码输入 */}
       <Card>
         <CardHeader className="pb-3">

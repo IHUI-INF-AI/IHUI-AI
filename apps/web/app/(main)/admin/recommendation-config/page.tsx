@@ -13,6 +13,7 @@ import { RecConfigTable } from './RecConfigTable'
 import { RecConfigDialog } from './RecConfigDialog'
 import { EMPTY_FORM, slotToForm } from './helpers'
 import type { RecommendSlot, RecommendForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function RecommendationConfigPage() {
   const t = useTranslations('adminTools')
@@ -87,6 +88,7 @@ export default function RecommendationConfigPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

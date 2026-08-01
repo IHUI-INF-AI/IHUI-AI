@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { FolderTree, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { TruncatedText } from '@/components/common'
+import { TruncatedText, BackButton } from '@/components/common'
 
 interface ApiGroup {
   id: string
@@ -38,6 +38,7 @@ export default function ApiGroupsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <FolderTree className="h-6 w-6 text-primary" />

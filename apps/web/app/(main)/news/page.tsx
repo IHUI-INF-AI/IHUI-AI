@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { NewsHeader } from './NewsHeader'
 import { NewsList } from './NewsList'
 import { NewsSidebar } from './NewsSidebar'
+import { BackButton } from '@/components/common'
 import { PAGE_SIZE, api } from './helpers'
 import type { NewsArticle, NewsCategory, ArticlesData } from './types'
 
@@ -53,6 +54,7 @@ export default function NewsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <NewsHeader search={search} onSearchChange={setSearch} />
 
       <div className="flex flex-col gap-6 min-[1024px]:flex-row">

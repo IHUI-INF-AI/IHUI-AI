@@ -14,6 +14,7 @@ import { TopicsTable } from './TopicsTable'
 import { TopicsDialog } from './TopicsDialog'
 import { PAGE_SIZE, EMPTY, topicToForm } from './helpers'
 import type { Topic, TForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnTopicsPage() {
   const t = useTranslations('admin.edu.learn.topics')
@@ -110,6 +111,7 @@ export default function EduLearnTopicsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

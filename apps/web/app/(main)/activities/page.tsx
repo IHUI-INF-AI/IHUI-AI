@@ -7,6 +7,7 @@ import { Loader2, Calendar, Gift, Clock, ArrowRight, UserPlus } from 'lucide-rea
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -74,6 +75,7 @@ export default function ActivitiesPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

@@ -7,6 +7,7 @@ import { Award, Loader2, Star, TrendingUp, Coins } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface Channel {
   id: string
@@ -43,6 +44,7 @@ export default function EduPointsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Award className="h-7 w-7 text-primary" />
