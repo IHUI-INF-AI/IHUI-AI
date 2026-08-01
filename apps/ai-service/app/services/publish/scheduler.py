@@ -667,6 +667,56 @@ class PublishScheduler:
                     platform, type(e).__name__, e,
                 )
 
+        # ===== Anti-Risk B5: 时区地理一致性校验(2026-08-01 终极强化)=====
+        # 校验账号绑定的代理 IP 与 profile 时区是否一致(不一致 → warning,不阻塞)
+        # TimezoneGeoValidator.validate 接受字符串参数(account_id/timezone/proxy_ip/language),
+        # 无需 BrowserContext,scheduler 层可调用;字段缺失则跳过(不阻塞发布)
+        if account_id_str:
+            try:
+                proxy_ip = str(platform_config.get("proxy_ip") or credentials.get("proxy_ip") or "")
+                tz = str(platform_config.get("timezone") or "")
+                lang = str(platform_config.get("language") or "")
+                if proxy_ip and tz:
+                    from .anti_risk import get_timezone_geo_validator
+                    geo_validator = get_timezone_geo_validator()
+                    geo_report = await geo_validator.validate(
+                        account_id_str, tz, proxy_ip, lang,
+                    )
+                    if not geo_report.consistent:
+                        logger.warning(
+                            "[publish.scheduler] %s account %s 时区-地理不一致: %s"
+                            "(profile 可能需要修正,不阻塞发布)",
+                            platform, account_id_str, geo_report.suggestion,
+                        )
+                else:
+                    logger.debug(
+                        "[publish.scheduler] %s account %s 跳过 B5:缺少 proxy_ip/timezone 配置",
+                        platform, account_id_str,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s timezone-geo check error: %s: %s",
+                    platform, type(e).__name__, e,
+                )
+
+        # ===== Anti-Risk B6: TLS 指纹建议(2026-08-01 终极强化)=====
+        # 为账号绑定固定 TLS 配置推荐(跨会话稳定),注入 platform_config 传给 adapter
+        # 注意:Python Playwright 无法修改真实 TLS 握手,adapter 层可用此配置做 UA-TLS 一致性注入
+        if account_id_str:
+            try:
+                from .anti_risk import get_tls_recommendation
+                tls_profile = get_tls_recommendation(account_id_str)
+                platform_config["tls_profile"] = tls_profile.to_dict()
+                logger.debug(
+                    "[publish.scheduler] %s account %s TLS 配置已注入: %s",
+                    platform, account_id_str, tls_profile.browser_name,
+                )
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s tls recommendation error: %s: %s",
+                    platform, type(e).__name__, e,
+                )
+
         started = datetime.now(timezone.utc)
         try:
             result = await adapter.publish(platform_content, credentials, platform_config)
@@ -770,6 +820,61 @@ class PublishScheduler:
             except Exception as e:
                 logger.warning(
                     "[publish.scheduler] %s anti_risk post-check error: %s: %s",
+                    platform, type(e).__name__, e,
+                )
+
+        # ===== Anti-Risk B7: 行为熵分析(2026-08-01 终极强化)=====
+        # 分析本账号近期发布间隔序列的香农熵,熵值过低(行为过于规律)→ 记录风险事件
+        # 数据源:publish_history 表查询近期成功发布的间隔时间(秒),样本<5 跳过
+        if account_id_str and user_id:
+            try:
+                from .anti_risk import BEHAVIOR_TYPE, get_entropy_analyzer
+                conn_b7 = await self._get_conn()
+                if conn_b7 is not None:
+                    try:
+                        rows_b7 = await conn_b7.fetch(
+                            """
+                            SELECT EXTRACT(EPOCH FROM created_at)::float8 AS ts
+                            FROM publish_history
+                            WHERE user_id = $1 AND platform = $2 AND success = TRUE
+                            ORDER BY created_at DESC
+                            LIMIT 10
+                            """,
+                            user_id, platform,
+                        )
+                        if len(rows_b7) >= 5:
+                            # rows 倒序(最新在前),反转为正序后计算相邻间隔
+                            ts_list: list[float] = [
+                                float(r["ts"]) for r in reversed(rows_b7)
+                            ]
+                            intervals_b7: list[float] = [
+                                ts_list[i + 1] - ts_list[i]
+                                for i in range(len(ts_list) - 1)
+                            ]
+                            if len(intervals_b7) >= 5:
+                                entropy_report = get_entropy_analyzer().analyze(
+                                    intervals_b7, BEHAVIOR_TYPE,
+                                )
+                                if not entropy_report.is_human_like:
+                                    logger.warning(
+                                        "[publish.scheduler] %s account %s 行为熵值异常"
+                                        "(%.2f,%s),发布间隔过于规律",
+                                        platform, account_id_str,
+                                        entropy_report.shannon_entropy,
+                                        entropy_report.suggestion,
+                                    )
+                                    audit_b7 = AuditLogger.get_instance()
+                                    audit_b7.log_risk_event(
+                                        account_id_str, platform,
+                                        "low_behavior_entropy",
+                                        "warning",
+                                        entropy_report.to_dict(),
+                                    )
+                    finally:
+                        await conn_b7.close()
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s behavior entropy analysis error: %s: %s",
                     platform, type(e).__name__, e,
                 )
 
