@@ -496,7 +496,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium">{skill.name}</span>
+                      <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>
                       <span className="rounded-sm bg-muted px-1 text-[9px] text-muted-foreground">
                         {categoryLabel(skill.category)}
                       </span>
@@ -640,7 +640,7 @@ function CustomSkillItem({
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="flex-1 min-w-0 space-y-0.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium">{skill.name}</span>
+            <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>
             <span className="rounded-sm bg-muted px-1 text-[9px] text-muted-foreground">
               {scenarioLabel}
             </span>
@@ -824,7 +824,7 @@ function AiSkillItem({ skill, onPick }: AiSkillItemProps) {
       </div>
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium">{skill.name}</span>
+          <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>
           <span
             className={cn(
               'rounded-sm px-1 text-[9px]',

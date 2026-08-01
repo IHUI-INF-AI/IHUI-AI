@@ -25,16 +25,16 @@ export function PointsRedeemList() {
   if (redeemQ.isLoading) {
     return (
       <div className="flex items-center justify-center py-8 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        {t('loading')}
+        <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+        <span className="whitespace-nowrap">{t('loading')}</span>
       </div>
     )
   }
 
   if ((redeemQ.data ?? []).length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
-        <Gift className="h-8 w-8 text-muted-foreground opacity-40" />
+      <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
+        <Gift className="h-8 w-8 shrink-0 text-muted-foreground opacity-40" />
         <p className="text-sm text-muted-foreground">{t('redeemEmpty')}</p>
       </div>
     )
@@ -46,10 +46,10 @@ export function PointsRedeemList() {
         <Card key={item.id} className="transition-colors hover:bg-accent">
           <CardContent className="space-y-2 p-3">
             <p className="line-clamp-2 text-sm font-medium">{item.name}</p>
-            <p className="text-sm font-semibold text-primary">
+            <p className="text-sm font-semibold tabular-nums text-primary">
               {t('pointsUnit', { n: item.points })}
             </p>
-            <Button variant="outline" size="sm" className="w-full">
+            <Button variant="outline" size="sm" className="w-full whitespace-nowrap">
               {t('redeemBtn')}
             </Button>
           </CardContent>
