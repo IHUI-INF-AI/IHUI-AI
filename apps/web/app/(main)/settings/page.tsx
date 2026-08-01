@@ -5,7 +5,6 @@ import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
-import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import {
   DeviceManager,
@@ -22,7 +21,6 @@ import { LanguageCard } from './LanguageCard'
 import { SidebarCard } from './SidebarCard'
 import { MiniappQrCard } from './MiniappQrCard'
 import { DesktopSettingsCard } from './DesktopSettingsCard'
-import { SubPageAccordion } from './SubPageAccordion'
 import { SIDEBAR_KEY } from './helpers'
 
 export default function SettingsPage() {
@@ -49,20 +47,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-3 px-4 py-3">
-      <div className="shrink-0">
-        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
-      </div>
-
-      <Tabs defaultValue="appearance" className="flex w-full min-h-0 flex-1 flex-col">
-        <TabsList className="grid w-full shrink-0 grid-cols-2 min-[640px]:grid-cols-3">
+    <div className="space-y-3">
+      <Tabs defaultValue="appearance" className="flex w-full flex-col gap-3">
+        <TabsList className="grid w-full shrink-0 grid-cols-2 self-start">
           <TabsTrigger value="appearance">{t('appearance')}</TabsTrigger>
           <TabsTrigger value="security">{t('securityCenter')}</TabsTrigger>
-          <TabsTrigger value="more">{t('subPagesTitle')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="appearance" className="mt-3 min-h-0 flex-1 overflow-y-auto">
+        <TabsContent value="appearance" className="min-h-0">
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <ThemeCard t={t} mounted={mounted} theme={theme} onSelect={(k) => setTheme(k)} />
             <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
@@ -73,7 +65,7 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="security" className="mt-3 min-h-0 flex-1 overflow-y-auto">
+        <TabsContent value="security" className="min-h-0">
           <Alert variant="info" title={t('securityCenter')} closable />
           <div className="mt-2 grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <SecurityScore />
@@ -84,11 +76,7 @@ export default function SettingsPage() {
             <LoginHistory />
           </div>
         </TabsContent>
-
-        <TabsContent value="more" className="mt-3 min-h-0 flex-1 overflow-y-auto">
-          <SubPageAccordion t={t} />
-        </TabsContent>
       </Tabs>
-    </Container>
+    </div>
   )
 }

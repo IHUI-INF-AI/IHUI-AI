@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Users, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
@@ -104,14 +104,7 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
-            <Users className="h-5 w-5 shrink-0 text-primary" />
-            <span className="whitespace-nowrap">团队管理</span>
-          </h1>
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">成员列表、邀请与角色权限</p>
-        </div>
+      <div className="flex justify-end">
         <Button
           size="sm"
           onClick={() => {
