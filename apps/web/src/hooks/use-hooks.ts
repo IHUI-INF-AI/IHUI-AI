@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { fetchApi } from '@/lib/api'
 import type {
@@ -140,14 +140,11 @@ async function toggleHookApi(id: string, enabled: boolean): Promise<Hook> {
 }
 
 async function testHookApi(id: string, input: TestHookInput): Promise<TestHookResult> {
-  const res = await fetchApi<TestHookResult>(
-    `/api/hooks/${encodeURIComponent(id)}/test`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    },
-  )
+  const res = await fetchApi<TestHookResult>(`/api/hooks/${encodeURIComponent(id)}/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
   if (!res.success) throw new Error(res.error)
   return res.data
 }
@@ -161,10 +158,7 @@ async function fetchHookStats(hookId?: string): Promise<HookStats> {
 }
 
 /** 批量启用/禁用 Hook(2026-07-22 立) */
-async function batchToggleApi(
-  hookIds: string[],
-  enabled: boolean,
-): Promise<BatchToggleResponse> {
+async function batchToggleApi(hookIds: string[], enabled: boolean): Promise<BatchToggleResponse> {
   const res = await fetchApi<BatchToggleResponse>('/api/hooks/batch/toggle', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -196,8 +190,7 @@ export function useHooks(event?: string) {
   })
 
   const updateMut = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateHookInput }) =>
-      updateHookApi(id, input),
+    mutationFn: ({ id, input }: { id: string; input: UpdateHookInput }) => updateHookApi(id, input),
     onSuccess: () => {
       toast.success('Hook 已更新')
       void qc.invalidateQueries({ queryKey: HOOKS_QUERY_KEY })
@@ -215,8 +208,7 @@ export function useHooks(event?: string) {
   })
 
   const toggleMut = useMutation({
-    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
-      toggleHookApi(id, enabled),
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => toggleHookApi(id, enabled),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: HOOKS_QUERY_KEY })
     },
@@ -224,8 +216,7 @@ export function useHooks(event?: string) {
   })
 
   const testMut = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: TestHookInput }) =>
-      testHookApi(id, input),
+    mutationFn: ({ id, input }: { id: string; input: TestHookInput }) => testHookApi(id, input),
     onError: (e: Error) => toast.error('测试失败', { description: e.message }),
   })
 
@@ -263,15 +254,9 @@ export function useHooks(event?: string) {
 }
 
 /** 单个 Hook 的日志查询(支持过滤参数,2026-07-22 立) */
-export function useHookLogs(
-  hookId: string | null,
-  limit = 100,
-  filter?: HookLogsFilter,
-) {
+export function useHookLogs(hookId: string | null, limit = 100, filter?: HookLogsFilter) {
   const query = useQuery({
-    queryKey: hookId
-      ? [...hookLogsQueryKey(hookId), filter]
-      : ['hooks', 'logs', 'disabled'],
+    queryKey: hookId ? [...hookLogsQueryKey(hookId), filter] : ['hooks', 'logs', 'disabled'],
     queryFn: () => (hookId ? fetchHookLogs(hookId, limit, filter) : Promise.resolve([])),
     enabled: !!hookId,
   })
