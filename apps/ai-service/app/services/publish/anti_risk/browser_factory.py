@@ -134,9 +134,23 @@ async def create_stealth_browser_context(
     # 在 apply_stealth 之后注入,增强字体/WebGL/Battery/Sensor 等深度检测点
     await apply_advanced_stealth(context, account_id)
 
+    # 7. 记录设备绑定到持久化图谱(2026-08-01 深度强化,跨会话关联检测)
+    # 将账号的指纹/IP/UA 哈希持久化到 device_graph,供后续 detect_linkage
+    # 检测跨账号共享设备/IP/指纹/UA 的关联风险
+    try:
+        from .cross_account_guard import get_instance as get_cross_guard
+        cross_guard = get_cross_guard()
+        await cross_guard.async_record_device_binding(
+            account_id=account_id,
+            fingerprint=fingerprint,
+            proxy=profile.proxy,
+        )
+    except Exception as e:
+        logger.warning("[browser_factory] 设备图谱绑定记录失败(不阻塞): %s", e)
+
     logger.info(
         "[browser_factory] 反风控 context 就绪:account=%s seed=%d "
-        "stealth=已注入(基础17类+高级20类=37类检测点)",
+        "stealth=已注入(基础17类+高级20类=37类检测点)+设备图谱已绑定",
         account_id, fingerprint.fingerprint_seed,
     )
 
