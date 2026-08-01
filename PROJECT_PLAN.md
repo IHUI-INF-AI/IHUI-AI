@@ -114,6 +114,16 @@
 - **批次 1**:后端(API redirectUri 扩展 + /sso/refresh 测试 + OAuth2 Server 测试)+ commit + push
 - **批次 2**:3 端 SSO Client(extension + cli + desktop)+ web desktop bridge + commit + push
 
+### 诊断期修复 + P0 修复(2026-08-01 立,H12 commit 后发现的 5 个问题)
+
+> H1-H12 全部勾选后,在 Tauri Desktop SSO deep-link 静态验证 + curl 实测中发现 H1 遗漏 + 4 个运行时缺陷,本节统一修复。
+
+- [x] ✅(2026-08-01) F1:`apps/api/src/routes/auth-sso.ts` `/sso/exchange` 的 `redis.getdel` 在 Redis 5.x 不支持(6.2+ 才引入)导致 500,退化为 `get` + `del` 两步(非原子,但 sso_code 30s TTL + 一次性消费兜底)
+- [x] ✅(2026-08-01) F2:`packages/auth/src/jwt.ts` `signRefreshToken` 加 `jti: randomUUID()` claim,根治 `refresh_tokens_token_unique` 唯一约束冲突(同秒内两次签发 payload+iat 相同 → token 字符串相同 → 写库 500),符合 RFC 7519 §4.1.7 防重放语义
+- [x] ✅(2026-08-01) F3:`apps/cli/src/lib/sso.ts` `waitForCallback` 修复:无 `sso_code` 也无 `error` 的请求(健康检查/扫描器探测/用户误访问)不再关闭服务器,只返回友好提示让用户继续等待真正回调
+- [x] ✅(2026-08-01) F4:`apps/extension/entrypoints/sidepanel/pages/LoginPage.tsx` 接入 `loginWithSso()` SSO 一键登录按钮(chrome.identity.launchWebAuthFlow),使 H4-H5 的 SSO Client 从死代码变为可用功能(放在 LoginForm 上方,loading/error 态 + "或使用账号登录"分隔文案)
+- [x] ✅(2026-08-01) F5(P0):`apps/api/src/routes/auth-sso.ts` `isSafeRedirectUri` 扩展支持 deep-link custom scheme(H1 遗漏)— 新增 `isAllowedDeepLinkScheme` 函数 + `SSO_ALLOWED_DEEP_LINK_SCHEMES` env(默认 `ihui`),修复 mobile-rn(`ihui://sso/callback`)+ desktop(`ihui://sso`)SSO 闭环被 400 拒绝的阻塞性缺陷。curl 实测:ihui://sso → 200 ✅,ihui://sso/callback → 200 ✅,malicious://sso → 400 拒绝 ✅,ihui:// 裸 scheme → 400 拒绝 ✅(安全边界保持)
+
 ---
 
 ## 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database)

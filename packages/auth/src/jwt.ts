@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose'
+import { randomUUID } from 'node:crypto'
 
 /**
  * JWT payload 结构。
@@ -95,6 +96,14 @@ export function signAccessToken(payload: JWTPayload): Promise<string> {
 /**
  * 签发 refresh token (HS256, 默认 30d 过期,可经 env.JWT_REFRESH_TTL_SECONDS 覆盖)。
  * 与 access token 共享同样的 payload，但通过 type 字段区分。
+ *
+ * 2026-08-01 修复(refresh_tokens_token_unique 唯一约束冲突):
+ *   旧版未带 jti claim,理论上 jose 的 setIssuedAt() 已含秒级时间戳,
+ *   但当两次 signRefreshToken 在同一秒内对同一 user 调用时,
+ *   payload + iat 完全相同 → 签出的 token 字符串完全相同 →
+ *   写库时违反 refresh_tokens.token unique 约束(500 错误)。
+ *   加 randomUUID() 作为 jti claim 保证每次签发都唯一,
+ *   同时符合 RFC 7519 §4.1.7 jti 防重放语义。
  */
 export function signRefreshToken(payload: JWTPayload): Promise<string> {
   return new SignJWT({
@@ -102,6 +111,7 @@ export function signRefreshToken(payload: JWTPayload): Promise<string> {
     familyId: payload.familyId,
     roleId: payload.roleId,
     type: 'refresh',
+    jti: randomUUID(),
   })
     .setProtectedHeader({ alg: ALG })
     .setSubject(payload.userId)
