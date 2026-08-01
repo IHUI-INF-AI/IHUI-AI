@@ -346,7 +346,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { email, code } = parsed.data
       const { verifyCode } = await import('../utils/code-store.js')
-      if (!verifyCode(email, code)) return reply.status(400).send(error(400, '验证码错误或已过期'))
+      if (!(await verifyCode(email, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
       let user = await findUserByEmail(email)
       if (!user) {
         const emailPrefix = email.split('@')[0] ?? 'user'
@@ -471,7 +472,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { email, code, password, nickname } = parsed.data
-      if (!verifyCode(email, code)) {
+      if (!(await verifyCode(email, code))) {
         return reply.status(400).send(error(400, '验证码错误或已过期'))
       }
       if (await checkEmailExists(email)) {
@@ -941,7 +942,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { verifyCode } = await import('../utils/code-store.js')
-    const valid = verifyCode(parsed.data.phone, parsed.data.code)
+    const valid = await verifyCode(parsed.data.phone, parsed.data.code)
     if (!valid) return reply.status(400).send(error(400, '验证码错误或已过期'))
     return reply.send(success({ valid: true }))
   })
@@ -962,7 +963,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { phone, code, password, nickname } = parsed.data
       const { verifyCode } = await import('../utils/code-store.js')
-      if (!verifyCode(phone, code)) {
+      if (!(await verifyCode(phone, code))) {
         return reply.status(400).send(error(400, '验证码错误或已过期'))
       }
       if (await checkPhoneExists(phone)) {
@@ -1901,7 +1902,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { verifyCode } = await import('../utils/code-store.js')
-    if (!verifyCode(user.phone, parsed.data.code)) {
+    if (!(await verifyCode(user.phone, parsed.data.code))) {
       return reply.status(400).send(error(400, '验证码错误或已过期'))
     }
     return reply.send(success({ verified: true }))
@@ -1944,7 +1945,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { newPhone, code } = parsed.data
     const { verifyCode } = await import('../utils/code-store.js')
-    if (!verifyCode(newPhone, code)) {
+    if (!(await verifyCode(newPhone, code))) {
       return reply.status(400).send(error(400, '验证码错误或已过期'))
     }
     const existing = await findUserByPhone(newPhone)
@@ -2271,7 +2272,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { phone, code } = parsed.data
     const { verifyCode } = await import('../utils/code-store.js')
-    if (!verifyCode(phone, code)) return reply.status(400).send(error(400, '验证码错误或已过期'))
+    if (!(await verifyCode(phone, code)))
+      return reply.status(400).send(error(400, '验证码错误或已过期'))
     let user = await findUserByPhone(phone)
     if (!user) {
       user = await createUser({
