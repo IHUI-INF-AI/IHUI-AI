@@ -81,14 +81,6 @@ const useGenericWS = createWebSocketHook<AIWSMessage>({
   heartbeatMessage: () => JSON.stringify({ type: 'ping' }),
 })
 
-const PROVIDER_HOOKS: Record<AIWSProvider, () => WebSocketHookResult<AIWSMessage>> = {
-  qwen: useQwenWS,
-  zhipu: useZhipuWS,
-  deepseek: useDeepseekWS,
-  doubao: useDoubaoWS,
-  generic: useGenericWS,
-}
-
 /**
  * AI 厂商 WebSocket 客户端。
  *
@@ -101,11 +93,34 @@ const PROVIDER_HOOKS: Record<AIWSProvider, () => WebSocketHookResult<AIWSMessage
  *
  * 用法:
  *   const { send, isConnected, lastMessage } = useAIWebSocket('qwen')
+ *
+ * 2026-08-02 修复 Bug #17:重构为始终挂载 5 个 provider hook(符合 Rules of Hooks),
+ * 按 provider 选择 active hook,其他 hook enabled=false 不建立连接。
+ * 之前用 `React.useMemo(() => PROVIDER_HOOKS[provider], [provider]) + useProviderWS()`
+ * 是 React 反模式 — provider 切换时 useMemo 返回新函数引用,React 会把它当成同一
+ * hook 位置重新执行,导致旧 provider 的 state 丢失/残留(provider 切换场景下
+ * lastMessage/isConnected 会闪烁错乱)。
  */
 export function useAIWebSocket(provider: AIWSProvider): UseAIWebSocketReturn {
-  // provider 变化时切换到对应工厂 Hook(urlBuilder 引用变化 → 自动重连新端点)
-  const useProviderWS = React.useMemo(() => PROVIDER_HOOKS[provider], [provider])
-  const ws = useProviderWS()
+  // 始终挂载 5 个 hook(符合 Rules of Hooks),只有 active provider 的 hook enabled=true
+  const qwenWS = useQwenWS(provider === 'qwen')
+  const zhipuWS = useZhipuWS(provider === 'zhipu')
+  const deepseekWS = useDeepseekWS(provider === 'deepseek')
+  const doubaoWS = useDoubaoWS(provider === 'doubao')
+  const genericWS = useGenericWS(provider === 'generic')
+
+  // 按 provider 选择 active hook 的结果
+  const ws = React.useMemo<WebSocketHookResult<AIWSMessage>>(
+    () =>
+      ({
+        qwen: qwenWS,
+        zhipu: zhipuWS,
+        deepseek: deepseekWS,
+        doubao: doubaoWS,
+        generic: genericWS,
+      })[provider],
+    [provider, qwenWS, zhipuWS, deepseekWS, doubaoWS, genericWS],
+  )
 
   const send = React.useCallback(
     (data: unknown) => {
