@@ -76,6 +76,28 @@ function getRenamedPath(oldPath: string, newName: string): string {
   return lastSep >= 0 ? `${oldPath.substring(0, lastSep)}/${newName}` : newName
 }
 
+// 2026-08-02 修复: Bug 2 — Shell 命令注入防御。
+// runCommand 直接拼接用户输入到 shell 命令(touch/mkdir/mv/rm -rf),
+// 文件名含 shell 元字符(反引号 / $ / ; / | / & / \\ / 双引号)会被注入。
+// validateFileName 拒绝危险字符 + 路径穿越("..");validatePathInWorkspace
+// 校验路径必须在 workspacePath 子树内(防 rm -rf 越界删除)。
+const SHELL_UNSAFE_CHARS = /["`$;|&\\]/
+function validateFileName(name: string): string | null {
+  if (!name) return '文件名不能为空'
+  if (name.includes('..')) return '文件名不能包含 ..'
+  if (SHELL_UNSAFE_CHARS.test(name)) return '文件名包含非法字符'
+  return null
+}
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+function isPathInWorkspace(target: string, workspace: string): boolean {
+  const t = normalizePath(target)
+  const w = normalizePath(workspace)
+  if (t === w) return true
+  return t.startsWith(`${w}/`)
+}
+
 export function FileExplorer() {
   const t = useTranslations('ide')
   const locale = useLocale()
@@ -145,7 +167,17 @@ export function FileExplorer() {
   const handleCreate = async () => {
     const name = createName.trim()
     if (!name || !workspacePath || !creating) return
+    // 2026-08-02 修复: Bug 2 — 校验文件名,拒绝 shell 元字符
+    const err = validateFileName(name)
+    if (err) {
+      toast.error(err)
+      return
+    }
     const fullPath = `${workspacePath}/${name}`
+    if (!isPathInWorkspace(fullPath, workspacePath)) {
+      toast.error('路径越界')
+      return
+    }
     const command = creating === 'file' ? `touch "${fullPath}"` : `mkdir "${fullPath}"`
     try {
       const result = await runCommand({ command, workspacePath, mode: 'workspace-write' })
@@ -169,7 +201,17 @@ export function FileExplorer() {
       setRenamingNode(null)
       return
     }
+    // 2026-08-02 修复: Bug 2 — 校验新文件名,拒绝 shell 元字符
+    const err = validateFileName(newName)
+    if (err) {
+      toast.error(err)
+      return
+    }
     const newPath = getRenamedPath(renamingNode.path, newName)
+    if (!isPathInWorkspace(newPath, workspacePath)) {
+      toast.error('路径越界')
+      return
+    }
     try {
       const result = await runCommand({
         command: `mv "${renamingNode.path}" "${newPath}"`,
@@ -190,6 +232,11 @@ export function FileExplorer() {
 
   const handleDelete = async () => {
     if (!deletingNode || !workspacePath) return
+    // 2026-08-02 修复: Bug 2 — rm -rf 校验路径必须在 workspacePath 子树内(防穿越越界删除)
+    if (!isPathInWorkspace(deletingNode.path, workspacePath)) {
+      toast.error('路径越界')
+      return
+    }
     const command = deletingNode.type === 'folder'
       ? `rm -rf "${deletingNode.path}"`
       : `rm "${deletingNode.path}"`

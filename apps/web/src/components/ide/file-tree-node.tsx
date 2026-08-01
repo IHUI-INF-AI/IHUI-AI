@@ -21,6 +21,26 @@ function getRenamedPath(oldPath: string, newName: string): string {
   return lastSep >= 0 ? `${oldPath.substring(0, lastSep)}/${newName}` : newName
 }
 
+// 2026-08-02 修复: Bug 2 — Shell 命令注入防御(与 file-explorer.tsx 同源)。
+// runCommand 拼接用户输入到 shell 命令(mv/rm -rf),
+// 文件名含 shell 元字符会被注入;rm -rf 额外校验路径必须在 workspacePath 子树内。
+const SHELL_UNSAFE_CHARS = /["`$;|&\\]/
+function validateFileName(name: string): string | null {
+  if (!name) return '文件名不能为空'
+  if (name.includes('..')) return '文件名不能包含 ..'
+  if (SHELL_UNSAFE_CHARS.test(name)) return '文件名包含非法字符'
+  return null
+}
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+function isPathInWorkspace(target: string, workspace: string): boolean {
+  const t = normalizePath(target)
+  const w = normalizePath(workspace)
+  if (t === w) return true
+  return t.startsWith(`${w}/`)
+}
+
 /** 刷新文件树(清除 loadedFolders 强制重新加载已展开文件夹子项) */
 function refreshFileTree() {
   useIDEWorkspace.setState({ loadedFolders: new Set<string>() })
@@ -103,7 +123,17 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
       setRenaming(false)
       return
     }
+    // 2026-08-02 修复: Bug 2 — 校验新文件名,拒绝 shell 元字符
+    const err = validateFileName(newName)
+    if (err) {
+      toast.error(err)
+      return
+    }
     const newPath = getRenamedPath(node.path, newName)
+    if (!isPathInWorkspace(newPath, workspacePath)) {
+      toast.error('路径越界')
+      return
+    }
     try {
       const result = await runCommand({
         command: `mv "${node.path}" "${newPath}"`,
@@ -124,6 +154,11 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
 
   const handleDelete = async () => {
     if (!workspacePath) return
+    // 2026-08-02 修复: Bug 2 — rm -rf 校验路径必须在 workspacePath 子树内(防穿越越界删除)
+    if (!isPathInWorkspace(node.path, workspacePath)) {
+      toast.error('路径越界')
+      return
+    }
     const command = node.type === 'folder' ? `rm -rf "${node.path}"` : `rm "${node.path}"`
     try {
       const result = await runCommand({ command, workspacePath, mode: 'workspace-write' })
