@@ -2059,7 +2059,8 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **navigator_integrity.py**:导航器属性完整性校验(webdriver=false/platform 对齐 UA/vendor/chrome/defineProperty 锁定)
   - **stealth_advanced.py 集成**:13 模块在 apply_advanced_stealth 中按账号 seed 注入,与 stealth.py 幂等共存
   - **device_graph 端到端集成(2026-08-01 补完)**:cross_account_guard.py 新增 3 个 async 方法(async_record_device_binding / async_check_device_linkage / async_clear_device_binding)委托 DeviceGraphGuard 持久化图谱;browser_factory.py 在 context 创建后自动记录设备绑定(指纹哈希+IP+UA 哈希+Canvas seed);scheduler.py 发布前检测跨会话设备关联(>=60 高危自动冷却 1h + 审计 critical 事件,<60 仅警告不阻塞)。同步 4 维 + 异步深度 4 维 = 8 维跨账号关联检测。
-  - 验证:mypy 0 错误(修复 behavior_entropy no-any-return)+ 13 模块 import 全绿 + **init**.py 导出 13 类 30+ 符号 + device_graph 端到端集成 mypy 0 错误
+  - **behavior_entropy 端到端集成(2026-08-01 补完,commit a78e692f81)**:behavior_humanizer.py 三函数(human_move_mouse/human_click/human_type)集成 diversify 扰动行为间隔(BEHAVIOR_MOUSE/CLICK/TYPE),失败降级原始间隔;scheduler.py 新增 B5 时区地理一致性(timezone_geo_consistency.validate)/B6 TLS 指纹建议(tls_fingerprint.get_tls_recommendation 注入 platform_config)/B7 行为熵分析(publish_history 近 10 次间隔 analyze 异常 log_risk_event warning)三道决策层防线。同步 4 维 + 异步深度 4 维 + 行为熵 = 9 维跨账号关联检测。
+  - 验证:mypy 0 错误(修复 behavior_entropy no-any-return)+ 13 模块 import 全绿 + **init**.py 导出 13 类 30+ 符号 + device_graph 端到端集成 mypy 0 错误 + behavior_entropy 端到端集成 mypy 0 错误(3 source files)
 - [x] ✅(2026-08-01) D2:平台规则深度适配(20+ 维度)— platform_rules.py 从 5 维度升级到 56 字段(11 字段分组:A 基础字数/B 标题规则/C 正文规则/D 标签规则/E 描述/F 图片规则/G 视频规则/H 内容类型/I 分类原创认证/J 发布频率/K 元数据/L 提示):
   - 标题规则:禁用词/必含词/emoji/特殊字符
   - 正文规则:禁用词/禁用模式(正则)/段落数/行长/外链/内嵌图
@@ -2075,6 +2076,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - [x] ✅(2026-08-01) D5:平台 DOM 选择器维护表 — platform_dom_selectors.py 维护 38 平台发布页 DOM 选择器(login_url/publish_url/title_input/content_editor/cover_upload/video_upload/tag_input/category_select/original_checkbox/submit_button + fallback_selectors 备用候选)+ verify_selector 运行时验证 + list_outdated_selectors 30 天阈值告警
 - [x] ✅(2026-08-01) D6:账号分组管理 + 批量操作 — account_groups.py 提供分组 CRUD + 成员管理 + 一键发布到分组 + 批量导入(CSV)+ 批量导出(不含凭证)+ 批量凭证验证 + Cookie 健康度查询 + 手动触发 Cookie 保活,DB 自动建表(publish_account_groups + publish_account_group_members)+ IDOR 防护(JWT 身份强制)
 - [x] ✅(2026-08-01) D7:AI 辅助写作服务 — ai_assistant.py 基于 llm_gateway 提供 6 大能力:generate_titles(标题候选)/ polish_content(正文润色)/ recommend_tags(标签推荐)/ generate_summary(SEO 摘要)/ analyze_seo(SEO 评分 + 建议)/ suggest_cover(封面建议)+ astream_* 流式版本(SSE 逐字输出)+ analyze_all 批量分析(一次调用返回多结果)+ 平台风格提示(6 平台:微信/知乎/小红书/CSDN/掘金/微博/B站)
+  - **7 个 AI 写作 HTTP 端点(2026-08-01 补完,commit abb0a2fcfe)**:apps/ai-service/app/routers/publish.py 新增 7 个 POST /ai/* 端点(titles/polish/tags/summary/seo/cover/analyze-all),请求体用 Pydantic 模型校验,鉴权强制 JWT via _get_user_id,响应统一 {code, message, data},失败返回 500 + {code:1, message:str(e)};apps/api/src/routes/publish-routes.ts 新增 7 个代理路由 /publish/ai/* → /ai/* 透传 ai-service;packages/api-client/src/endpoints/publish.ts 新增 7 个函数(generateTitles/polishContent/recommendTags/generateSummary/analyzeSeo/suggestCover/analyzeAll)走 /api/publish/ai/* 路径
 - [x] ✅(2026-08-01) D8:Cookie 自动保活守护进程 — cookie_refresh_daemon.py 每 6 小时遍历所有 browser_cookie 账号,Playwright headless 访问平台首页 5-10s 刷新 cookie,仅对 browser_cookie 类型有效(api_key/oauth 跳过),模块级单例 cookie_daemon,环境变量 COOKIE_REFRESH_ENABLED/COOKIE_REFRESH_INTERVAL_HOURS 可配置
 - [x] ✅(2026-08-01) D9:scan_login.py 强化(+148 行)— 扫码登录流程增加状态机细化 + Cookie 健康度检测集成 + 失败原因分类
 - [x] ✅(2026-08-01) D10:前端 9 大便捷度场景落地 — 9 个新组件 + 2 个新页面 + 7 个修改文件:
@@ -2084,6 +2086,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - [x] ✅(2026-08-01) D11:API 代理层扩展 — apps/api/src/routes/publish-routes.ts +79 行(批量导入/导出/验证代理)+ publish-analytics.ts 新建(数据分析 5 端点代理:overview/accounts/trend/platformDistribution/failureReasons)+ index.ts 注册 publishAnalyticsRoutes
 - [x] ✅(2026-08-01) D12:api-client publish 端点扩展 — packages/api-client/src/endpoints/publish.ts +296 行,新增 PublishAccountGroup 类型 + 11 个分组管理函数 + 批量导入/导出/验证函数 + Cookie 健康度查询 + Cookie 保活触发函数
 - [x] ✅(2026-08-01) D13:i18n 5 语言 parity — publish 命名空间新增 60+ key × 5 语言(groups/batchImport/cookieHealth/calendar/analytics/ai/templates/preview/editor/tabs),check-i18n-keys.mjs parity OK,scan-i18n-zh-residue.mjs ko/zh-TW 仅预存非本任务残留
+  - **i18n 残留中文清零(2026-08-01 补完,commit eca5a2d982)**:修复 8 处中文残留 — en.json(stepError 失败→Failed / remark 备注→Remark / amountMin 最小→Min / amountMax 最大→Max)+ ko.json(stepError 失败→실패 / bank 银行卡→은행카드 / amountMin 最小→최소 / amountMax 最大→최대)+ zh-TW.json(stepError 失败简体→失敗繁体);同步 publish subtitle 文案 14→38 平台对齐(5 语言 + helpers.ts + platform-schemas.ts 注释 37→38)。scan-i18n-zh-residue.mjs ko/zh-TW 全部通过 0 残留
 
 ### 执行顺序(用户指定:先扩平台后精装修)
 
