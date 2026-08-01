@@ -55,10 +55,10 @@ export interface WorkPanelRecentUrlItem {
 export interface WorkPanelProps {
   /** 是否展开 */
   open: boolean
-  /** 面板宽度(px) */
-  width: number
-  /** 拖拽调整宽度回调(delta 像素) */
-  onResize: (delta: number) => void
+  /** 面板宽度(px,可选 — 不传时 w-full 填充父容器,用于嵌入工作区场景) */
+  width?: number
+  /** 拖拽调整宽度回调(可选 — 不传时不渲染 resize handle,用于嵌入工作区场景) */
+  onResize?: (delta: number) => void
   /** 拖拽开始(用于禁用过渡动画) */
   onResizeStart?: () => void
   /** 拖拽结束 */
@@ -265,15 +265,17 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
           'animate-in slide-in-from-right duration-200',
           className,
         )}
-        style={{ width }}
+        style={width ? { width } : undefined}
       >
-        {/* 左侧拖拽手柄 */}
-        <ResizableHandle
-          direction="left"
-          onResize={onResize}
-          onResizeStart={onResizeStart}
-          onResizeEnd={onResizeEnd}
-        />
+        {/* 左侧拖拽手柄(仅在传入 onResize 时渲染 — 嵌入工作区场景无 resize) */}
+        {onResize && (
+          <ResizableHandle
+            direction="left"
+            onResize={onResize}
+            onResizeStart={onResizeStart}
+            onResizeEnd={onResizeEnd}
+          />
+        )}
 
         {/* 顶部工具栏:导航按钮 + 地址栏 + 动作 */}
         <div className="flex items-center gap-1 px-2 py-1.5">
