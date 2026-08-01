@@ -297,6 +297,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/workflows', labelKey: 'workflows', icon: Workflow },
   { href: '/admin/tags', labelKey: 'tags', icon: Tag },
   { href: '/admin/configs', labelKey: 'configs', icon: SlidersHorizontal },
+  { href: '/admin/home-schema', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: '首页布局' },
   { href: '/admin/integrations', labelKey: 'integrations', icon: Plug },
   { href: '/admin/logs', labelKey: 'logs', icon: ScrollText },
   { href: '/admin/events', labelKey: 'events', icon: Activity },
