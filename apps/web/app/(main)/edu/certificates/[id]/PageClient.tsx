@@ -131,7 +131,7 @@ export default function EduCertificateDetailPage() {
           </span>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="mx-auto max-w-md space-y-4 rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-8 text-center">
+          <div className="mx-auto max-w-md space-y-4 rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-5 text-center min-[768px]:p-8">
             <p className="text-lg font-semibold">{cert.recipientName}</p>
             <p className="text-sm text-muted-foreground">{t('completed')}</p>
             <p className="text-base font-medium">{cert.courseName ?? cert.name}</p>

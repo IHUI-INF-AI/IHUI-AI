@@ -105,7 +105,7 @@ export default function AdminMonitorDashboardPage() {
             ) : services.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">暂无服务数据</p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-2">
                 {services.map((s) => {
                   const Icon = SERVICE_ICONS[s.name] ?? Server
                   const ok = s.status === 'healthy'

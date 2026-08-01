@@ -118,7 +118,7 @@ export function DynamicsTable({
                     {item.circle.name || '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 text-xs text-muted-foreground min-[768px]:grid-cols-2">
                       <span>
                         {t('view')} {item.viewCount}
                       </span>
@@ -144,11 +144,11 @@ export function DynamicsTable({
                       {t(STATUS_LABEL[item.status])}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-sm text-muted-foreground">
+                  <TableCell className="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">
                     {dateFormatter.format(new Date(item.createdAt))}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex flex-nowrap items-center justify-end gap-1">
                       {canPublish && (
                         <Tooltip content={t('auditPublish')}>
                           <Button
@@ -156,9 +156,9 @@ export function DynamicsTable({
                             size="sm"
                             onClick={() => onAudit(item, 'published')}
                             disabled={auditPending}
-                            className="text-emerald-600 hover:text-emerald-700"
+                            className="shrink-0 text-emerald-600 hover:text-emerald-700"
                           >
-                            <CheckCircle2 className="h-4 w-4" />
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>
                       )}
@@ -169,9 +169,9 @@ export function DynamicsTable({
                             size="sm"
                             onClick={() => onAudit(item, 'rejected')}
                             disabled={auditPending}
-                            className="text-rose-600 hover:text-rose-700"
+                            className="shrink-0 text-rose-600 hover:text-rose-700"
                           >
-                            <XCircle className="h-4 w-4" />
+                            <XCircle className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>
                       )}
@@ -179,9 +179,10 @@ export function DynamicsTable({
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="shrink-0"
                           onClick={() => onComments(item)}
                         >
-                          <MessageSquare className="h-4 w-4" />
+                          <MessageSquare className="h-4 w-4 shrink-0" />
                         </Button>
                       </Tooltip>
                       {canAudit && (
@@ -190,10 +191,10 @@ export function DynamicsTable({
                             variant="ghost"
                             size="sm"
                             onClick={() => onDelete(item)}
-                            className="text-destructive hover:text-destructive"
+                            className="shrink-0 text-destructive hover:text-destructive"
                             disabled={deletePending}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>
                       )}

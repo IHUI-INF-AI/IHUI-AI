@@ -130,7 +130,7 @@ export default function ClawdbotSessionsPage() {
               </Button>
             </div>
             <div className="max-h-[60vh] space-y-2 overflow-y-auto p-4">
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 gap-2 text-xs min-[768px]:grid-cols-2">
                 <div>
                   Bot: <span className="font-medium">{selected.botId}</span>
                 </div>
