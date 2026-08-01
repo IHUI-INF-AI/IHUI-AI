@@ -49,7 +49,9 @@ export async function exchangeSsoCode(
     })
     if (!resp.ok) return null
     const data = (await resp.json()) as { code: number; data: SsoTokenData }
-    if (data.code !== 200 || !data.data) return null
+    // API 统一响应格式 success() = { code: 0, message, data }
+    // 2026-08-01 修复:原 code !== 200 永远返回 null,导致 SSO 端到端失效
+    if (data.code !== 0 || !data.data) return null
     return data.data
   } catch {
     return null
@@ -67,7 +69,8 @@ export async function validateToken(
     })
     if (!resp.ok) return null
     const data = (await resp.json()) as { code: number; data: SsoValidateResponse }
-    if (data.code !== 200 || !data.data) return null
+    // 2026-08-01 修复:原 code !== 200 永远返回 null
+    if (data.code !== 0 || !data.data) return null
     return data.data
   } catch {
     return null

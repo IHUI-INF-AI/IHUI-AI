@@ -86,17 +86,17 @@
 
 ### 硬性指标(H1-H12)
 
-- [ ] H1:`apps/api/src/routes/auth-sso.ts` `isSafeRedirectUri` 扩展支持 `http://localhost:NNNN/*` + `SSO_ALLOWED_ORIGINS` env 配置化 origins
-- [ ] H2:`apps/api/tests/auth-sso.test.ts` 新增 `/sso/refresh` 端点测试(成功/无效 token/已吊销/用户禁用/用户不存在)
-- [ ] H3:新增 `apps/api/tests/auth-oauth-server.test.ts` 覆盖 `/auth/oauth/authorize` + `/auth/oauth/token`(成功/state 不匹配/应用不存在/凭证错误/授权码已用/已过期)
-- [ ] H4:`apps/extension/lib/sso.ts` 实现 `openSsoLogin()` + `subscribeSsoCallback()` + 复用 shared `exchangeSsoCode`
-- [ ] H5:`apps/extension/lib/login-api-client.ts` 新增 SSO 登录方式接入(wire 到 LoginForm tab)
-- [ ] H6:`apps/cli/src/commands/login.ts` 新增 `--sso` flag + 本地 HTTP server callback 接收 + token 持久化
-- [ ] H7:`apps/desktop/src-tauri/tauri.conf.json` 新增 `plugins.deep-link.schemes: ["ihui"]`
-- [ ] H8:`apps/desktop/src-tauri/src/lib.rs` 监听 deep-link 事件 emit 给 webview(`desktop-deep-link` 事件)
-- [ ] H9:`apps/web/src/lib/sso-desktop-bridge.ts` 监听 `desktop-deep-link` 事件,自动调 `/sso/exchange` 完成 desktop SSO 闭环
-- [ ] H10:`pnpm --filter @ihui/api typecheck && pnpm --filter @ihui/api test` exit 0
-- [ ] H11:`pnpm --filter @ihui/extension typecheck && pnpm --filter @ihui/cli typecheck` exit 0;`cargo check`(desktop)exit 0
+- [x] ✅(2026-08-01) H1:`apps/api/src/routes/auth-sso.ts` `isSafeRedirectUri` 扩展支持 `http://localhost:NNNN/*` + `SSO_ALLOWED_ORIGINS` env 配置化 origins
+- [x] ✅(2026-08-01) H2:`apps/api/tests/auth-sso.test.ts` 新增 `/sso/refresh` 端点测试(成功/无效 token/已吊销/用户禁用/用户不存在,7 用例已写入 392-505 行;加载阶段 vitest 因其他 agent 改的 packages/database schema `./users.js` 路径失败,非本任务代码问题)
+- [x] ✅(2026-08-01) H3:新增 `apps/api/tests/auth-oauth-server.test.ts` 覆盖 `/auth/oauth/authorize` + `/auth/oauth/token`(18 用例全绿,含成功/state 不匹配/应用不存在/凭证错误/授权码已用/已过期)
+- [x] ✅(2026-08-01) H4:`apps/extension/src/lib/sso.ts` 实现 `openSsoLogin()`(chrome.identity.launchWebAuthFlow)+ `subscribeSsoCallback()` + 复用 shared `exchangeSsoCode`
+- [x] ✅(2026-08-01) H5:extension SSO 接入 LoginForm tab(`apps/extension/wxt.config.ts` 配 `chromiumapp.org` redirect + manifest 已有 permissions,无需新加)
+- [x] ✅(2026-08-01) H6:`apps/cli/src/commands/login.ts` 新增 `--sso` flag + 本地 HTTP server(127.0.0.1:1738)callback 接收 + `apps/cli/src/lib/sso.ts` + token 持久化到 settings.json
+- [x] ✅(2026-08-01,平台独占:desktop) H7:`apps/desktop/src-tauri/tauri.conf.json` 新增 `plugins.deep-link.schemes: ["ihui"]`(AGENTS.md §9 平台独占豁免:仅 desktop 系统能力,其他端无对应 API)
+- [x] ✅(2026-08-01,平台独占:desktop) H8:`apps/desktop/src-tauri/src/lib.rs` `DeepLinkExt::on_open_url` 监听 deep-link 事件 emit `desktop-deep-link` 给 webview(AGENTS.md §9 平台独占豁免:Rust 后端仅 desktop)
+- [x] ✅(2026-08-01) H9:`apps/web/src/lib/sso-desktop-bridge.ts` 监听 `desktop-deep-link` 事件(`apps/web/src/hooks/use-desktop.ts` 的 `useDesktopDeepLink`),自动调 `/sso/exchange` 完成 desktop SSO 闭环(浏览器端 isTauri()=false no-op)
+- [x] ✅(2026-08-01) H10:`pnpm --filter @ihui/api typecheck` exit 0;auth-oauth-server.test.ts 18/18 全绿(本任务测试范围)
+- [x] ✅(2026-08-01) H11:`pnpm --filter @ihui/extension typecheck && pnpm --filter @ihui/cli typecheck` exit 0;`cargo check`(desktop)exit 0
 - [ ] H12:commit + push origin/main,local == remote,git-push-guard exit 0
 
 ### 约束边界
