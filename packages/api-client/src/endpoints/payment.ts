@@ -169,14 +169,23 @@ export async function checkPaymentStatus(
 export async function cancelPaymentOrder(
   orderNo: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/payment/order/${orderNo}/close`, { method: 'POST' })
+  // 2026-08-01 P0 契约修复:原 /api/payment/order/${orderNo}/close 后端不存在,
+  // 对齐后端 /api/payments/wechat/close(POST,query 传 outTradeNo)。
+  return fetchApi<{ success: boolean }>(
+    `/api/payments/wechat/close?outTradeNo=${encodeURIComponent(orderNo)}`,
+    { method: 'POST' },
+  )
 }
 
 /** 同步支付状态（主动校验回调结果*/
 export async function syncPaymentStatus(
   orderNo: string,
 ): Promise<ApiResult<{ verified?: boolean }>> {
-  return fetchApi<{ verified?: boolean }>(`/api/payment/order/${orderNo}/sync`, { method: 'POST' })
+  // 2026-08-01 P0 契约修复:原 /api/payment/order/${orderNo}/sync 后端不存在,
+  // 对齐后端 /api/payments/wechat/status/:outTradeNo(GET)。
+  return fetchApi<{ verified?: boolean }>(
+    `/api/payments/wechat/status/${encodeURIComponent(orderNo)}`,
+  )
 }
 
 /** 验证支付回调签名 */
@@ -407,13 +416,15 @@ export async function aliPayReturn(orderNo?: string): Promise<ApiResult<AlipayPa
 
 /** 申请退*/
 export async function applyRefund(data: RefundRequest): Promise<ApiResult<RefundResponse>> {
-  return fetchApi<RefundResponse>('/api/refunds/apply', {
+  // 2026-08-01 P0 契约修复:原 /api/refunds/apply 后端不存在,
+  // 对齐后端 /api/orders/:id/refund(POST,body 含 reason/refundAmount/refundType)。
+  // 注意:后端 :id 期望 UUID,若 orderNo 是订单号字符串(WX...)需后端额外支持,留 TODO。
+  return fetchApi<RefundResponse>(`/api/orders/${data.orderNo}/refund`, {
     method: 'POST',
     body: JSON.stringify({
-      order_no: data.orderNo,
       reason: data.reason,
-      amount: data.amount,
-      description: data.description,
+      refundAmount: data.amount?.toString() ?? '0',
+      refundType: 'user_request',
     }),
   })
 }
@@ -463,7 +474,9 @@ export async function auditRefund(data: RefundAuditRequest): Promise<ApiResult<R
 
 /** 处理退款（管理员） */
 export async function processRefund(refundNo: string): Promise<ApiResult<RefundRecord>> {
-  return fetchApi<RefundRecord>(`/api/payment/refund/${refundNo}/process`, { method: 'POST' })
+  // 2026-08-01 P0 契约修复:原 /api/payment/refund/${refundNo}/process 后端不存在,
+  // 对齐后端 /api/admin/refunds/:id/process(PUT,admin 鉴权)。
+  return fetchApi<RefundRecord>(`/api/admin/refunds/${refundNo}/process`, { method: 'PUT' })
 }
 
 // ===================== top-up（充值） =====================
@@ -473,13 +486,17 @@ export async function createTopUpOrder(input: {
   amount: number
   paymentMethod: PaymentMethod
 }): Promise<ApiResult<TopUpOrder>> {
-  return fetchApi<TopUpOrder>('/api/wallet/recharge', {
-    method: 'POST',
-    body: JSON.stringify({
+  // 2026-08-01 P0 契约修复:原 /api/wallet/recharge 后端不存在,
+  // 对齐后端 /api/payments/wechat/create(POST,query 传 amount/orderType)。
+  // TODO: 后端 wechat/create 期望 amount(分)+orderType+description,前端 paymentMethod 需映射,响应格式也需对齐。
+  return fetchApi<TopUpOrder>(
+    `/api/payments/wechat/create${buildQs({
       amount: input.amount,
-      payment_method: input.paymentMethod,
-    }),
-  })
+      orderType: 2,
+      description: '充值',
+    })}`,
+    { method: 'POST' },
+  )
 }
 
 /** 查询充值状*/
@@ -507,10 +524,13 @@ export async function requestWithdrawal(input: {
   bankAccount?: string
   remark?: string
 }): Promise<ApiResult<WithdrawalRecord>> {
-  return fetchApi<WithdrawalRecord>('/api/finance/withdrawal/withdrawal', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+  // 2026-08-01 P0 契约修复:原 /api/finance/withdrawal/withdrawal 后端不存在,
+  // 对齐后端 /api/finance/withdrawal/apply(POST,query 传 amount,单位分)。
+  // TODO: 后端期望 amount(分)通过 query 传,前端 input.amount 单位需确认,method/account 等参数后端未支持,留 TODO。
+  return fetchApi<WithdrawalRecord>(
+    `/api/finance/withdrawal/apply${buildQs({ amount: input.amount })}`,
+    { method: 'POST' },
+  )
 }
 
 /** 获取提现审批状*/

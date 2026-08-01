@@ -43,7 +43,9 @@ class AgentExecutor:
 
     def list_running(self) -> dict[str, dict[str, Any]]:
         """返回所有运行中/已完成任务的快照。"""
-        return {tid: dict(info) for tid, info in self._running.items()}
+        # 先 snapshot 再迭代,防止并发 run/cancel 修改 _running 触发
+        # RuntimeError: dictionary changed size during iteration(2026-08-01 P0 修复)
+        return {tid: dict(info) for tid, info in list(self._running.items())}
 
     def status(self, task_id: str) -> dict[str, Any] | None:
         """查询任务状态,不存在返回 None。"""
@@ -314,7 +316,7 @@ class AgentExecutor:
         Yields:
             事件字典,类型包括 message/thinking/usage/status/error。
         """
-        task_id = f"task-{id(goal)}"
+        task_id = f"task-{self._new_task_id()}"
         session_id = session_id or f"session-{int(time.time())}"
         max_iter = max_iterations or settings.max_agent_iterations  # noqa: F841
 
@@ -322,7 +324,7 @@ class AgentExecutor:
             "task_id": task_id,
             "session_id": session_id,
             "status": "running",
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": self._now(),
         }
 
         try:
