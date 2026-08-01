@@ -72,7 +72,7 @@ export function ProjectTable({
               <CardTitle className="flex items-center justify-between gap-2 text-base">
                 <span className="flex min-w-0 items-center gap-2">
                   <FolderCog className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="break-words">{p.name}</span>
+                  <span className="truncate">{p.name}</span>
                 </span>
                 <span
                   className={cn(

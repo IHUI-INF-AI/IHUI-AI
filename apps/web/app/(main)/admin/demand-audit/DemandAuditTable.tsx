@@ -71,24 +71,24 @@ export function DemandAuditTable({
       title: t('colActions'),
       align: 'right',
       render: (d) => (
-        <div className="flex justify-end gap-1">
-          <Button size="sm" variant="ghost" onClick={() => onApproval(d)}>
-            <Check className="h-4 w-4" />
-            {t('approveBtn')}
+        <div className="flex flex-nowrap justify-end gap-1">
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onApproval(d)}>
+            <Check className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">{t('approveBtn')}</span>
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => onEdit(d)}>
-            <Edit className="h-4 w-4" />
-            {t('edit')}
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onEdit(d)}>
+            <Edit className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">{t('edit')}</span>
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            className="text-destructive"
+            className="shrink-0 text-destructive"
             onClick={() => {
               if (confirm(t('deleteConfirm'))) onDelete(d.id)
             }}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4 shrink-0" />
           </Button>
         </div>
       ),

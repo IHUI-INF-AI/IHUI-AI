@@ -215,19 +215,20 @@ export function NewsArticleTable(props: Props) {
                         {published ? t('published') : t('unpublished')}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">
+                    <TableCell className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
                       {formatDate(article.createdAt)}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex flex-nowrap items-center justify-end gap-1">
                         <HasPermi code="system:news:edit">
                           <Tooltip content={t('edit')}>
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="shrink-0"
                               onClick={() => openEdit(article)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-4 w-4 shrink-0" />
                             </Button>
                           </Tooltip>
                         </HasPermi>
@@ -237,10 +238,10 @@ export function NewsArticleTable(props: Props) {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDelete(article)}
-                              className="text-destructive hover:text-destructive"
+                              className="shrink-0 text-destructive hover:text-destructive"
                               disabled={deleteMut.isPending}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4 shrink-0" />
                             </Button>
                           </Tooltip>
                         </HasPermi>

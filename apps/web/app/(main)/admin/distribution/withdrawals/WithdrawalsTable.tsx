@@ -61,10 +61,10 @@ export function WithdrawalsTable({ items, isLoading, reviewPending, onReview, fm
                     {STATUS_LABEL[it.status] ?? it.status}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-muted-foreground">
+                <TableCell className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
                   {fmtDate(it.createdAt)}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-muted-foreground">
+                <TableCell className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
                   {fmtDate(it.processedAt)}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

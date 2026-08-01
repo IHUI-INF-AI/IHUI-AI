@@ -56,7 +56,7 @@ function RefundList({
   const [action, setAction] = React.useState<ActionState | null>(null)
   const [reason, setReason] = React.useState('')
   const [err, setErr] = React.useState<string | null>(null)
-  const { state: refundState, can, send: dispatchRefund } = useRefundMachine()
+  const { can, send: dispatchRefund } = useRefundMachine()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'refund', 'list', status, page, search],
@@ -189,7 +189,6 @@ function RefundList({
         currencyFmt={currencyFmt}
         canApprove={can({ type: 'APPROVE_REFUND' })}
         canReject={can({ type: 'REJECT' })}
-        state={refundState}
         onReasonChange={setReason}
         onClose={close}
         onSubmit={submit}
