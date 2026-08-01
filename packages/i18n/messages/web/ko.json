@@ -6335,6 +6335,11 @@
       "saving": "저장중간"
     },
     "security": {
+      "password": "수정변경비밀번호",
+      "currentPassword": "현재 비밀번호",
+      "newPassword": "newPassword",
+      "confirmPassword": "새 비밀번호를 다시 입력하세요",
+      "updatePassword": "비밀번호 업데이트",
       "passwordHint": "6-20자, < > \" ' | \\ 등 특수문자 불가",
       "passwordTooShort": "비밀번호는 6자 이상이어야 합니다",
       "passwordTooLong": "비밀번호는 20자를 초과할 수 없습니다",
@@ -6347,16 +6352,18 @@
       "changePhoneDesc": "연결된 휴대폰 번호 변경",
       "newPhone": "새 휴대폰 번호",
       "newPhonePlaceholder": "새 휴대폰 번호를 입력하세요",
-      "resend": "재전송",
-      "phoneChanged": "휴대폰 번호가 변경되었습니다",
-      "title": "보안",
-      "subtitle": "포괄적인의개발문서및API참조",
-      "password": "수정변경비밀번호",
-      "newPassword": "newPassword",
-      "confirmPassword": "새 비밀번호를 다시 입력하세요",
+      "code": "인증 코드",
       "codePlaceholder": "인증 코드를 입력하세요",
       "sendCode": "전송인증 코드",
-      "devices": "기기"
+      "resend": "재전송",
+      "phoneChanged": "휴대폰 번호가 변경되었습니다",
+      "devices": "기기",
+      "currentDevice": "현재 기기",
+      "logout": "로그아웃",
+      "devicesLoading": "로딩 중...",
+      "devicesEmpty": "데이터 없음",
+      "title": "보안",
+      "subtitle": "포괄적인의개발문서및API참조"
     },
     "notifications": {
       "viewList": "목록 보기",
@@ -6393,6 +6400,10 @@
       "auditTime": "인증 시간",
       "pendingHint": "실명 인증이 심사 중입니다. 잠시만 기다려 주세요.",
       "noReason": "제공되지 않음",
+      "nameMin": "실명은 최소 2자 이상이어야 합니다",
+      "nameMax": "실명은 최대 50자 이하여야 합니다",
+      "idCardMin": "신분증 번호는 최소 15자리 이상이어야 합니다",
+      "idCardMax": "신분증 번호는 최대 20자리 이하여야 합니다",
       "form": {
         "name": "실명",
         "namePlaceholder": "실명 입력",
@@ -6444,7 +6455,12 @@
       "create": "새 글",
       "createFirst": "첫 글 쓰기",
       "empty": "아직 글이 없습니다",
-      "deleteSuccess": "삭제됨"
+      "deleteSuccess": "삭제됨",
+      "statusDraft": "초안",
+      "statusPublished": "게시됨",
+      "statusReviewing": "심사 중",
+      "prevPage": "이전",
+      "nextPage": "다음"
     },
     "learn-record": {
       "title": "학습 기록",
@@ -6462,14 +6478,16 @@
       "loading": "로딩 중...",
       "follow": "팔로우",
       "followed": "팔로우 중",
-      "followSuccess": "팔로우했습니다"
+      "followSuccess": "팔로우했습니다",
+      "anonymous": "익명 사용자"
     },
     "follow": {
       "title": "팔로우",
       "empty": "데이터가 없습니다",
       "loading": "로딩 중...",
       "unfollow": "팔로우 취소",
-      "unfollowSuccess": "팔로우가 취소되었습니다"
+      "unfollowSuccess": "팔로우가 취소되었습니다",
+      "anonymous": "익명 사용자"
     },
     "ask": {
       "title": "내 Q&A",
@@ -6490,12 +6508,21 @@
       "title": "내 시험",
       "empty": "데이터가 없습니다",
       "loading": "로딩 중...",
-      "continue": "시험 계속"
+      "continue": "시험 계속",
+      "statusDraft": "미시작",
+      "statusPublished": "진행 중",
+      "statusCompleted": "완료",
+      "statusReviewing": "채점 중",
+      "score": "점수"
     },
     "sign-up": {
       "title": "내 신청",
       "empty": "데이터가 없습니다",
-      "loading": "로딩 중..."
+      "loading": "로딩 중...",
+      "statusDraft": "심사 대기",
+      "statusPublished": "확인됨",
+      "statusRejected": "거절됨",
+      "statusCompleted": "완료"
     }
   },
   "certificate": {
