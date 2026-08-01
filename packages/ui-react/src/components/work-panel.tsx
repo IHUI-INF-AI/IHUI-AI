@@ -563,8 +563,10 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
         {/* 内容区(2026-07-25 用户反馈:彻底隐藏滚动条,鼠标滚轮/触摸板足够)
             - 加 work-panel-content 类,globals.css 用 !important 强制干掉 Webkit/Firefox/IE 滚动条
             - 改用 overflow-hidden(原 overflow-y-auto):即使内容溢出也不显示原生滚动条,
-              鼠标滚轮/触摸板驱动外层 / iframe 内部滚动 */}
-        <div className="work-panel-content hover-scroll flex-1 overflow-hidden p-2">{children}</div>
+              鼠标滚轮/触摸板驱动外层 / iframe 内部滚动
+            - 2026-08-01 加 bg-background:嵌入工作区场景(absolute inset-0 覆盖 children),
+              url 为空时内容区必须不透明,否则 work-area children(首页内容)透过来显示 */}
+        <div className="work-panel-content hover-scroll flex-1 overflow-hidden bg-background p-2">{children}</div>
       </div>
     )
   },
