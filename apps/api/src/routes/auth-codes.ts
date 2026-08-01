@@ -54,7 +54,7 @@ const authCodeRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { mobile, code } = parsed.data
-    const ok = verifyCode(mobile, code)
+    const ok = await verifyCode(mobile, code)
     return reply.send(success({ valid: ok }))
   })
 }
