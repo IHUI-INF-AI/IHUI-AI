@@ -58,7 +58,7 @@ export function NewsSection() {
           {t('empty')}
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 tablet-lg:grid-cols-3">
           {items.map((n) => (
             <Link
               key={n.id}

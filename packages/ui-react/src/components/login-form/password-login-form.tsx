@@ -277,7 +277,7 @@ export function PasswordLoginForm({
             type="button"
             onClick={() => setShowPassword((s) => !s)}
             aria-label={showPassword ? t('a11y.hidePassword') : t('a11y.showPassword')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             tabIndex={-1}
           >
             {showPassword ? (
