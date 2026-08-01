@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { ProfileForm } from './types'
+import { ChangePhoneModal } from './ChangePhoneModal'
 
 interface Props {
   form: UseFormReturn<ProfileForm>
@@ -34,8 +35,17 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors },
   } = form
+  const [phoneModalOpen, setPhoneModalOpen] = React.useState(false)
+
+  const handlePhoneChanged = (newPhone: string) => {
+    // 同步到表单字段(只读 input 的值)
+    setValue('phone', newPhone, { shouldValidate: false, shouldDirty: true })
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-1.5">
@@ -46,12 +56,24 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
 
       <div className="space-y-1.5">
         <Label htmlFor="phone">{t('phone')}</Label>
-        <Input
-          id="phone"
-          type="tel"
-          placeholder="请输入手机号"
-          {...register('phone')}
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            id="phone"
+            type="tel"
+            readOnly
+            disabled
+            className="bg-muted/50 flex-1"
+            {...register('phone')}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setPhoneModalOpen(true)}
+            className="shrink-0 whitespace-nowrap"
+          >
+            {t('changePhone')}
+          </Button>
+        </div>
         {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
       </div>
 
@@ -116,6 +138,13 @@ export function ProfileEditForm({ form, onSubmit, isSubmitting, saved, errorMsg 
           <p className="min-w-0 flex-1 break-words text-xs text-destructive">{errorMsg}</p>
         )}
       </div>
+
+      <ChangePhoneModal
+        open={phoneModalOpen}
+        onClose={() => setPhoneModalOpen(false)}
+        oldPhone={getValues('phone') ?? ''}
+        onSuccess={handlePhoneChanged}
+      />
     </form>
   )
 }
