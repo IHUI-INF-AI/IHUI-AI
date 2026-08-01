@@ -513,15 +513,17 @@ export function TagsView() {
                   // - 改用共享 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)
                   // - 真去掉所有 border(第六轮 v2 没做干净,残留 border-primary/30 /
                   //   border-border/40 / border-dashed border-primary/50 / 主类 border)
-                  // - active 态靠 bg-primary/20 + font-medium + text-primary 视觉指示
-                  //   (2026-08-01 用户反馈"/10 太淡看不出来"→ /20;active 加 hover:bg-primary/30)
+                  // - active 态:2026-08-01 用户反馈"bg-primary/20 跟底色一样看不出容器"
+                  //   → 改用 bg-accent text-accent-foreground(与 sidebar/GlobalTopBar 全局选中态一致,
+                  //     对比度足够,浅深模式都清晰可辨)+ font-medium
                   // - 拖拽视觉简化:目标位 + 源项共用 opacity-50,无 border-dashed 残留
-                  // - pl-11 (44px) 对应 X 关闭按钮 w-9 (36px) + gap-1 (4px) + pr-1 (4px) = 44px,
-                  //   左右对称,文字几何居中(2026-08-01 修正:w-9 非 w-5,pl-6 改 pl-11)
+                  // - pl-8 (32px) 对应 X 关闭按钮 w-6 (24px) + gap-1 (4px) + pr-1 (4px) = 32px,
+                  //   左右对称,文字几何居中(2026-08-01 修正:关闭按钮 h-9 w-9 太大 → h-6 w-6,
+                  //   与 Chrome 标签页关闭按钮一致,X 图标 h-4 w-4 不变)
                   TOPBAR_BTN_BASE,
-                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-11 pr-1 text-xs',
+                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
                   active
-                    ? 'bg-primary/20 font-medium text-primary hover:bg-primary/30'
+                    ? 'bg-accent font-medium text-accent-foreground hover:bg-accent'
                     : isPinned
                       ? // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
                         'bg-muted/70 font-medium text-foreground'
@@ -561,7 +563,9 @@ export function TagsView() {
                     }
                   }}
                   className={cn(
-                    'inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform',
+                    // 2026-08-01 修正:容器 h-9 w-9 (36px) 太大 → h-6 w-6 (24px),
+                    // 与 Chrome 标签页关闭按钮一致;X 图标 h-4 w-4 (16px) 不变
+                    'inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform',
                     'hover:bg-destructive/20 hover:text-destructive hover:rotate-90 active:scale-90',
                     // 默认 hidden hover 显示;减少动画偏好的用户始终可见 60% 不透明
                     'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
