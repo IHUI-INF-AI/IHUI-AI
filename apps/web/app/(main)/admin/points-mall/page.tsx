@@ -38,12 +38,12 @@ export default function AdminPointsMallPage() {
   const head = ['商品名称', '类型', '积分', '库存', '已兑/限兑', '状态']
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <ShoppingBag className="h-6 w-6 text-primary" />
-          积分商城
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+          <ShoppingBag className="h-6 w-6 shrink-0 text-primary" />
+          <span className="truncate">积分商城</span>
         </h1>
-        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索商品名" className="h-9 w-64" />
+        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索商品名" className="h-9 w-full shrink-0 sm:w-64" />
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">

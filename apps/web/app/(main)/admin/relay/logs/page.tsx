@@ -137,9 +137,9 @@ export default function AdminRelayLogsPage() {
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-              <span>区间调用次数</span>
-              <Clock className="h-4 w-4 text-primary" />
+            <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+              <span className="min-w-0 truncate">区间调用次数</span>
+              <Clock className="h-4 w-4 shrink-0 text-primary" />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -152,9 +152,9 @@ export default function AdminRelayLogsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-              <span>区间 Token 总量</span>
-              <Coins className="h-4 w-4 text-amber-600" />
+            <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+              <span className="min-w-0 truncate">区间 Token 总量</span>
+              <Coins className="h-4 w-4 shrink-0 text-amber-600" />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -167,9 +167,9 @@ export default function AdminRelayLogsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-              <span>区间成本(¥)</span>
-              <Coins className="h-4 w-4 text-emerald-600" />
+            <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+              <span className="min-w-0 truncate">区间成本(¥)</span>
+              <Coins className="h-4 w-4 shrink-0 text-emerald-600" />
             </CardTitle>
           </CardHeader>
           <CardContent>

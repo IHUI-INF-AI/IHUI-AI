@@ -14,14 +14,14 @@ export function FormField({ label, error, required = false, description, childre
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
-        <label className="text-sm font-medium leading-none">
+        <label className="text-sm font-medium leading-none whitespace-nowrap">
           {label}
           {required && <span className="ml-0.5 text-destructive">*</span>}
         </label>
       )}
       {children}
-      {description && !error && <p className="text-xs text-muted-foreground">{description}</p>}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {description && !error && <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>}
+      {error && <p className="line-clamp-2 text-xs text-destructive">{error}</p>}
     </div>
   )
 }
