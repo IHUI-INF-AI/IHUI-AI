@@ -87,7 +87,7 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
       </div>
       <ul ref={listRef} className="max-h-60 overflow-y-auto p-1">
         {filtered.length === 0 ? (
-          <li className="px-3 py-6 text-center text-sm text-muted-foreground">无匹配文件</li>
+          <li className="px-3 py-6 text-center text-sm text-muted-foreground">{t('noMatch')}</li>
         ) : (
           filtered.map((file, idx) => (
             <li key={file.id}>
