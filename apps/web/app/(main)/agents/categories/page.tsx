@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -84,7 +84,7 @@ export default function AgentCategoriesPage() {
           <p className="text-sm">暂无分类</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {categories.map((cat) => (
             <Link key={cat.categoryId} href={`/agents/categories/${cat.categoryId}`}>
               <Card className="transition-colors hover:bg-accent/40">

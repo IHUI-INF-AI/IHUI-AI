@@ -76,7 +76,7 @@ export default function EduReportsCompanyStudyPage() {
         <p className="mt-1 text-sm text-muted-foreground">统计各公司的员工学习活跃度与时长</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-3 p-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">

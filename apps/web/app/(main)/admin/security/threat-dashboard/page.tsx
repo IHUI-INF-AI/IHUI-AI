@@ -77,7 +77,7 @@ export default function ThreatDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {stats.map((s) => (
           <Card key={s.key} className="p-4">
             <div className="flex items-center justify-between">

@@ -1149,7 +1149,7 @@ function SyncStatsGrid({ data, timeFmt }: { data: SyncStatsResult; timeFmt: Intl
       {data.by_provider.length > 0 && (
         <div className="overflow-x-auto rounded bg-muted/30 p-2">
           <div className="min-w-[400px] space-y-0.5">
-            <div className="grid grid-cols-5 gap-2 pb-1 text-[10px] text-muted-foreground">
+            <div className="grid grid-cols-2 gap-2 pb-1 text-[10px] text-muted-foreground min-[640px]:grid-cols-5">
               <span>{tm('provider')}</span>
               <span>{tm('totalSyncs')}</span>
               <span>{tm('successRate')}</span>
@@ -1164,7 +1164,7 @@ function SyncStatsGrid({ data, timeFmt }: { data: SyncStatsResult; timeFmt: Intl
                     ? 'text-amber-600 dark:text-amber-500'
                     : 'text-red-600 dark:text-red-500'
               return (
-                <div key={p.provider_code} className="grid grid-cols-5 gap-2 text-[11px]">
+                <div key={p.provider_code} className="grid grid-cols-2 gap-2 text-[11px] min-[640px]:grid-cols-5">
                   <span className="truncate font-medium">{p.provider_code}</span>
                   <span className="tabular-nums">{p.total}</span>
                   <span className={`tabular-nums ${pRate}`}>

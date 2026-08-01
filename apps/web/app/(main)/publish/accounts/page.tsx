@@ -186,7 +186,7 @@ export default function AccountsPage() {
                     <Button size="sm" variant="ghost" onClick={() => openEdit(a)} className="h-7 text-xs">
                       <Pencil className="h-3 w-3" />{t('accounts.edit')}
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive"
+                    <Button size="sm" variant="ghost" className="h-9 text-xs text-destructive hover:text-destructive"
                       onClick={() => { setDeleteTarget(a); setDeleteOpen(true) }}>
                       <Trash2 className="h-3 w-3" />{t('accounts.delete')}
                     </Button>

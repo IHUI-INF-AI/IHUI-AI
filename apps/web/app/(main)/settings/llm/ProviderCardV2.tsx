@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * ProviderCardV2 — 展开式 provider + 多个 model(2026-07-22 立)
@@ -215,7 +215,7 @@ export function ProviderCardV2({
         </div>
 
         {/* Info Row 1: baseUrl / format / health check time */}
-        <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 text-xs min-[640px]:grid-cols-2">
           <div className="min-w-0">
             <p className="text-muted-foreground">{t('baseUrl')}</p>
             <TruncatedText value={provider.baseUrl} mono className="font-mono" />

@@ -94,25 +94,25 @@ export default async function AiEduPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd) }}
         />
       ) : null}
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         {/* Hero */}
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             <GraduationCap className="h-3.5 w-3.5 text-primary" />
             AI 教育
           </div>
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight min-[768px]:text-5xl">
             AI 教育 Agent:课程编排/智能答疑/学习推荐
           </h1>
-          <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">
+          <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
             基于 IHUI AI 全栈 AI 操作系统搭建,8 端同源分发,Apache 2.0 开源,支持私有化部署。
             课程结构化编排 + 智能答疑 + 作业批改 + 学习数据看板,30 分钟上线。
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
             {metrics.map((m) => (
               <div key={m.label} className="text-center">
-                <div className="text-2xl font-bold text-primary md:text-3xl">{m.value}</div>
-                <div className="mt-1 text-xs text-muted-foreground md:text-sm">{m.label}</div>
+                <div className="text-2xl font-bold text-primary min-[768px]:text-3xl">{m.value}</div>
+                <div className="mt-1 text-xs text-muted-foreground min-[768px]:text-sm">{m.label}</div>
               </div>
             ))}
           </div>
@@ -121,7 +121,7 @@ export default async function AiEduPage() {
         {/* 痛点 */}
         <section className="mt-12 space-y-4">
           <h2 className="text-2xl font-bold tracking-tight">教培行业面临的真实挑战</h2>
-          <ul className="space-y-2 text-sm text-muted-foreground md:text-base">
+          <ul className="space-y-2 text-sm text-muted-foreground min-[768px]:text-base">
             <li className="flex gap-2">
               <span className="text-rose-500">•</span>
               教师 70% 时间用于备课/批改/答疑,真正教学时间被挤压
@@ -148,7 +148,7 @@ export default async function AiEduPage() {
         {/* 解决方案 */}
         <section className="mt-12 space-y-4">
           <h2 className="text-2xl font-bold tracking-tight">IHUI AI 教育 Agent 解决方案</h2>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 min-[768px]:grid-cols-2">
             {capabilities.map((c) => (
               <div key={c.title} className="rounded-lg border bg-card p-5">
                 <div className="flex items-center gap-2 text-sm font-semibold">
@@ -185,7 +185,7 @@ export default async function AiEduPage() {
         </section>
 
         {/* 核心收益 */}
-        <section className="mt-12 grid gap-3 md:grid-cols-3">
+        <section className="mt-12 grid gap-3 min-[768px]:grid-cols-3">
           <div className="rounded-lg border bg-card p-5">
             <BookOpen className="h-5 w-5 text-primary" />
             <div className="mt-3 text-2xl font-bold">60%</div>
