@@ -6,6 +6,7 @@ import { Loader2, RotateCcw, Clock, CheckCircle, XCircle, Wallet } from 'lucide-
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 type RefundStatus = 'pending' | 'approved' | 'rejected' | 'completed'
@@ -66,6 +67,7 @@ export default function RefundPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -14,6 +14,7 @@ import { AboutUsTable } from './AboutUsTable'
 import { AboutUsDialog } from './AboutUsDialog'
 import { RESOURCE, PERM, PAGE_SIZE, EMPTY, SEARCH_KEYS, FIELDS, COLS, api } from './helpers'
 import type { AboutUsItem, AboutUsList } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AboutUsPage() {
   const t = useTranslations('admin.aboutUs')
@@ -97,6 +98,7 @@ export default function AboutUsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

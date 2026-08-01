@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Plus, UsersRound } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface GroupItem {
   id: number
@@ -25,6 +26,7 @@ export default async function GroupsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex justify-end">
         <Button size="sm" className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />

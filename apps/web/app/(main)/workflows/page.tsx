@@ -1,10 +1,11 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Workflow } from 'lucide-react'
+import { BackButton } from '@/components/common'
 import { WorkflowCreateDialog } from './WorkflowCreateDialog'
 import { WorkflowCardList } from './WorkflowCardList'
 import { api, EMPTY_FORM } from './helpers'
@@ -74,6 +75,7 @@ export default function WorkflowsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
+import { BackButton } from '@/components/common'
 
 interface FeatureStats {
   apiCount: number
@@ -88,6 +89,7 @@ export default function FeatureCenterPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 

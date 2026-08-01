@@ -26,6 +26,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 
 interface ChannelQuota {
   id: string
@@ -179,6 +180,7 @@ export default function AdminChannelQuotaPage() {
 
   return (
     <div className="space-y-4 p-6">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">渠道配额管理</h1>

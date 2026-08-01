@@ -33,6 +33,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { Badge } from '@/components/data/Badge'
+import { BackButton } from '@/components/common'
 
 interface WrongQuestion {
   id: string
@@ -148,6 +149,7 @@ export default function WrongQuestionsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <FileText className="h-7 w-7 text-primary" />

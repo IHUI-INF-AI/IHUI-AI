@@ -10,7 +10,7 @@ import { ArrowLeft, ChevronRight, Loader2, Eye, Bookmark, Heart, MessageSquare }
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
-import { SafeHtml } from '@/components/common'
+import { BackButton, SafeHtml } from '@/components/common'
 import { Breadcrumb } from '@/components/layout'
 import { HotNews } from '@/components/operation/HotNews'
 import { NewsInteraction } from '@/components/news/NewsInteraction'
@@ -92,6 +92,7 @@ export default function NewsDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <Breadcrumb
         items={[{ label: t('title'), href: '/news' }, { label: t('detail') }]}
         separator={<ChevronRight className="h-3.5 w-3.5" />}

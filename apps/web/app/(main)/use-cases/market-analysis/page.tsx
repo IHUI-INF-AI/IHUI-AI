@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Sparkles, ArrowRight, BarChart3 } from 'lucide-react'
+import { BackButton } from '@/components/common'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -94,6 +95,7 @@ export default function MarketAnalysisPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+        <BackButton />
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             <BarChart3 className="h-3.5 w-3.5 text-primary" />

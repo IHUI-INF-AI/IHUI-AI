@@ -8,6 +8,7 @@ import { toUserFriendlyMessage } from '@ihui/shared'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { BackButton } from '@/components/common'
 
 import { PasswordSection } from './PasswordSection'
 import { PhoneSection } from './PhoneSection'
@@ -149,6 +150,7 @@ export default function SecurityPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <PasswordSection pwMsg={pwMsg} pwLoading={pwLoading} onSubmit={onPasswordSubmit} />
       <PhoneSection
         phone={user?.phone}

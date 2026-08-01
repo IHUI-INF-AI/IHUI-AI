@@ -11,6 +11,7 @@ import { SensitiveWordsTable } from './SensitiveWordsTable'
 import { SensitiveWordDialog } from './SensitiveWordDialog'
 import { api, EMPTY } from './helpers'
 import type { SensitiveWord, SensitiveWordForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function SensitiveWordsPage() {
   const t = useTranslations('admin.sensitiveWords')
@@ -100,6 +101,7 @@ export default function SensitiveWordsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <Button size="sm" onClick={openCreate}>

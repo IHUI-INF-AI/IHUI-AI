@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Mail, MessageCircle, Phone, Send, Users } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 export default async function ContactPage() {
   const t = await getTranslations('models')
@@ -35,6 +36,7 @@ export default async function ContactPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('contact.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('contact.subtitle')}</p>

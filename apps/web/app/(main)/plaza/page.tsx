@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { PlazaHeader } from './PlazaHeader'
 import { CirclesPanel } from './CirclesPanel'
 import { AsksPanel } from './AsksPanel'
+import { BackButton } from '@/components/common'
 import { PREVIEW_SIZE, api } from './helpers'
 import type { CirclesData, AsksData, Tab } from './types'
 
@@ -27,6 +28,7 @@ export default function PlazaPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <PlazaHeader
         tab={tab}
         setTab={setTab}

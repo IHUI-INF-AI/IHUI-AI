@@ -15,6 +15,7 @@ import { TaskDeveloperTable } from './TaskDeveloperTable'
 import { TaskDeveloperDialog } from './TaskDeveloperDialog'
 import { RESOURCE, PERMS, EMPTY_FORM, EXPORT_COLS } from './helpers'
 import type { TaskDeveloper, TaskDeveloperForm, PageData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function TaskDeveloperPage() {
   const qc = useQueryClient()
@@ -140,6 +141,7 @@ export default function TaskDeveloperPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Terminal className="h-6 w-6 text-primary" />

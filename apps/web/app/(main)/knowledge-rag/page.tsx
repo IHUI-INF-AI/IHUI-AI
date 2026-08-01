@@ -9,6 +9,7 @@ import { BookMarked, Search, FileText, Loader2, Settings, Upload } from 'lucide-
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, Input, Button } from '@ihui/ui-react'
 import { UploadDialog } from './UploadDialog'
+import { BackButton } from '@/components/common'
 
 interface DocSummary {
   id: number
@@ -90,6 +91,7 @@ export default function KnowledgeRagPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

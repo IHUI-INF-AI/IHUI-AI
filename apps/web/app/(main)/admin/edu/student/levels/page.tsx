@@ -13,6 +13,7 @@ import { EMPTY } from './helpers'
 import type { Level, LForm } from './types'
 import { LevelTable } from './LevelTable'
 import { LevelDialog } from './LevelDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduStudentLevelsPage() {
   const t = useTranslations('admin.edu.student.levels')
@@ -95,6 +96,7 @@ export default function EduStudentLevelsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

@@ -5,6 +5,7 @@ import { Percent, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { PromotionRule, PromotionRuleListData, PromotionStatus, PromotionType } from './types'
+import { BackButton } from '@/components/common'
 
 const BADGE: Record<PromotionStatus, string> = {
   draft: 'bg-muted text-muted-foreground', active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -39,6 +40,7 @@ export default function AdminPromotionRulePage() {
   const head = ['规则名称', '类型', '门槛/优惠', '适用范围', '状态', '有效期']
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
           <Percent className="h-6 w-6 shrink-0 text-primary" /><span className="truncate">促销规则</span>

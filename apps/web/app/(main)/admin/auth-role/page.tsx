@@ -15,6 +15,7 @@ import { AuthRoleTable } from './AuthRoleTable'
 import { AuthRoleDialog, AuthRoleDeleteDialog } from './AuthRoleDialog'
 import { RESOURCE, PERM, EMPTY, EXPORT_COLS, api } from './helpers'
 import type { AuthRole, AuthRoleForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AuthRolePage() {
   const t = useTranslations('adminAuthRole')
@@ -105,6 +106,7 @@ export default function AuthRolePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Shield className="h-6 w-6 text-primary" />

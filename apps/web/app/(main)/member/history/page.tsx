@@ -7,6 +7,7 @@ import { History, Loader2, Trash2, FileText, Folder } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 type ResourceType = 'project' | 'file' | 'doc' | 'post'
 
@@ -58,6 +59,7 @@ export default function MemberHistoryPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">

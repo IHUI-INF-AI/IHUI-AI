@@ -11,6 +11,7 @@ import { CategoryTable } from './CategoryTable'
 import { CategoryDialog } from './CategoryDialog'
 import { PAGE_SIZE, EMPTY_FORM, api, fetchCategories, formFromCategory } from './helpers'
 import type { Category, CategoryForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminCategoriesPage() {
   const t = useTranslations('admin.agents.categories')
@@ -121,6 +122,7 @@ export default function AdminCategoriesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

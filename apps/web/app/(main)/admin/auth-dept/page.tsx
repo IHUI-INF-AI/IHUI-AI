@@ -15,6 +15,7 @@ import { AuthDeptTable } from './AuthDeptTable'
 import { AuthDeptDialog, AuthDeptDeleteDialog } from './AuthDeptDialog'
 import { RESOURCE, PERM, EMPTY, EXPORT_COLS, api } from './helpers'
 import type { AuthDept, AuthDeptForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AuthDeptPage() {
   const t = useTranslations('adminAuthDept')
@@ -105,6 +106,7 @@ export default function AuthDeptPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Building2 className="h-6 w-6 text-primary" />

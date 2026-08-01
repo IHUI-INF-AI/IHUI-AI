@@ -7,6 +7,7 @@ import { Loader2, BookOpen } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { pushError } from '@/stores/error-banner'
+import { BackButton } from '@/components/common'
 
 interface LearnRecord {
   id: string
@@ -53,6 +54,7 @@ export default function LearnRecordPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <BookOpen className="h-5 w-5 text-primary" />

@@ -15,6 +15,7 @@ import { RegistryTabs } from '@/components/registry/RegistryTabs'
 import { RegistryItemCard } from '@/components/registry/RegistryItemCard'
 import { SyncLogPanel } from '@/components/registry/SyncLogPanel'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 import type {
   RegistrySortKey,
@@ -72,6 +73,7 @@ export default function RegistryPage() {
 
   return (
     <div className="space-y-4 p-4 min-[768px]:p-6">
+      <BackButton />
       <h1 className="text-lg font-semibold">资源更新中心</h1>
 
       {upgradableCount > 0 && (

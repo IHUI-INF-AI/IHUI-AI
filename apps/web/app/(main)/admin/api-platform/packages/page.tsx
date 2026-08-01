@@ -10,6 +10,7 @@ import { ApiPackageTable } from './ApiPackageTable'
 import { ApiPackageDialog } from './ApiPackageDialog'
 import { api, EMPTY, packageToForm } from './helpers'
 import type { ApiPackage, ApiPackageForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminApiPlatformPackagesPage() {
   const t = useTranslations('adminApiPackages')
@@ -81,6 +82,7 @@ export default function AdminApiPlatformPackagesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -11,6 +11,7 @@ import { CompanyTypeTable } from './CompanyTypeTable'
 import { CompanyTypeDialog } from './CompanyTypeDialog'
 import { PAGE_SIZE, api, fetchCompanyTypes, EMPTY_FORM, companyTypeToForm } from './helpers'
 import type { CompanyType, CompanyTypeForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminMemberCompanyTypesPage() {
   const qc = useQueryClient()
@@ -99,6 +100,7 @@ export default function AdminMemberCompanyTypesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <CompanyTypeFilter onCreate={openCreate} />
       <CompanyTypeTable
         list={types}

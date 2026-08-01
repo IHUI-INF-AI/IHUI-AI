@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Copy, Key, Plus, Trash2 } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(`keys.statusLabels.${var}`)` 动态拼接 */
 const KEYS_STATUS_KEY: Record<string, string> = {
@@ -53,6 +54,7 @@ export default async function KeysPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex justify-end">
         <Button className="gap-1.5">
           <Plus className="h-4 w-4" />

@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import { Button, Input } from '@ihui/ui-react'
 import { DataTable, type Column, Badge } from '@/components/data'
+import { BackButton } from '@/components/common'
 
 interface OnlineUser {
   id: string
@@ -142,6 +143,7 @@ export default function OnlineUsersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

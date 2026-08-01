@@ -6,6 +6,7 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface ToolItem {
   name: string
@@ -88,6 +89,7 @@ export default function ClawdbotToolsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Wrench className="h-6 w-6 text-primary" /> 工具管理
       </h1>

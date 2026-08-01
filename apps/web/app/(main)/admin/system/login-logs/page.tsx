@@ -15,6 +15,7 @@ import { LoginLogFilter } from './LoginLogFilter'
 import { LoginLogTable } from './LoginLogTable'
 import { PAGE_SIZE, RESOURCE, api, EMPTY_SEARCH, getExportColumns } from './helpers'
 import type { LoginLogSearch, ListResp } from './types'
+import { BackButton } from '@/components/common'
 
 export default function LoginLogsPage() {
   const t = useTranslations('admin.system')
@@ -98,6 +99,7 @@ export default function LoginLogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LogIn className="h-6 w-6 text-primary" />

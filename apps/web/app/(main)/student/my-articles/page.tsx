@@ -10,6 +10,7 @@ import { Newspaper, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Edit } from
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface MyArticle {
   id: string
@@ -73,6 +74,7 @@ export default function MyArticlesPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="flex items-start justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

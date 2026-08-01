@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Plus, Network, Loader2, Eye } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { fetchActiveDispatches, fetchStats, fetchQueue } from '@/lib/subagents-api'
 import { StatsCards } from '@/components/subagents/StatsCards'
 import { QueueList, PRIORITY_BADGE, PRIORITY_LABEL } from '@/components/subagents/QueueList'
@@ -63,6 +64,7 @@ export default function SubagentsListPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Subagent 派单</h1>

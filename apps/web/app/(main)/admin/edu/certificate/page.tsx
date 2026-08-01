@@ -13,6 +13,7 @@ import type { Certificate, Template, CForm } from './types'
 import { CertificateFilter } from './CertificateFilter'
 import { CertificateTable } from './CertificateTable'
 import { CertificateDialog } from './CertificateDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduCertificatePage() {
   const t = useTranslations('admin.edu.certificate')
@@ -113,6 +114,7 @@ export default function EduCertificatePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

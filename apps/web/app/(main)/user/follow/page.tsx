@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import { pushError } from '@/stores/error-banner'
 import { Avatar } from '@/components/data'
 import { Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface FollowUser {
   id: string
@@ -72,6 +73,7 @@ export default function FollowPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />

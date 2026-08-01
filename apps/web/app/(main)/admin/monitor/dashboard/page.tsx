@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface ServiceItem {
   name: string
@@ -76,6 +77,7 @@ export default function AdminMonitorDashboardPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LayoutDashboard className="h-6 w-6 text-primary" />

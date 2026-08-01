@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 import { Button } from '@ihui/ui-react'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 
@@ -26,6 +27,7 @@ export default function ChatFavoritesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

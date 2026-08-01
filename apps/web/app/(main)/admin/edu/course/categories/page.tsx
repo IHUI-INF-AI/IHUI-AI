@@ -15,6 +15,7 @@ import type { Category, CForm } from './types'
 import { CategoryFilter } from './CategoryFilter'
 import { CategoryTable } from './CategoryTable'
 import { CategoryDialog } from './CategoryDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduCourseCategoriesPage() {
   const t = useTranslations('admin.edu.course.categories')
@@ -129,6 +130,7 @@ export default function EduCourseCategoriesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

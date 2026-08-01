@@ -11,6 +11,7 @@ import { WorkflowDialog } from './WorkflowDialog'
 import { WorkflowViewDialog, WorkflowDeleteDialog } from './WorkflowDialogs'
 import { api, fetchWorkflows, EMPTY_FORM, stepsToText, textToSteps } from './helpers'
 import type { WorkflowItem, WorkflowForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminWorkflowsPage() {
   const t = useTranslations('admin.workflows')
@@ -97,6 +98,7 @@ export default function AdminWorkflowsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

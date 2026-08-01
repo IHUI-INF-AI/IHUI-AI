@@ -10,6 +10,7 @@ import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
 import { MemoryCard } from '@/components/memory/MemoryCard'
 import { MemoryScopeTabs, type ScopeFilter } from '@/components/memory/MemoryScopeTabs'
 import { MemoryTypeFilter, type TypeFilter } from '@/components/memory/MemoryTypeFilter'
+import { BackButton } from '@/components/common'
 
 export default function MemoryListPage() {
   const router = useRouter()
@@ -61,6 +62,7 @@ export default function MemoryListPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
+      <BackButton />
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-6 w-6 text-primary" />

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Loader2, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface HotWord {
   id: string
@@ -78,6 +79,7 @@ export default function AdminSearchHotWordsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
 
       <form onSubmit={onAdd} className="flex items-center gap-2">

@@ -13,6 +13,7 @@ import { VariableTable } from './VariableTable'
 import { VariableDialog } from './VariableDialog'
 import { EMPTY_VARIABLE_FORM, api } from './helpers'
 import type { Variable, VariableForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminVariablesPage() {
   const t = useTranslations('common')
@@ -105,6 +106,7 @@ export default function AdminVariablesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">变量管理</h1>
         <Button size="sm" onClick={openCreate}>
