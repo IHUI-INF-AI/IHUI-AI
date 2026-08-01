@@ -55,10 +55,10 @@ export function DeveloperLinkTable({ list, isLoading, onEdit, onDelete }: Props)
           ) : (
             list.map((item) => (
               <TableRow key={item.id} className="hover:bg-muted/30">
-                <TableCell className="px-4 py-2.5 font-mono text-xs">
+                <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={item.developerId ?? ''}>
                   {item.developerId?.slice(0, 8) ?? '-'}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 font-mono text-xs">
+                <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={item.agentId ?? ''}>
                   {item.agentId?.slice(0, 8) ?? '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">

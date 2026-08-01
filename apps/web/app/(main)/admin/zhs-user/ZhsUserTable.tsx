@@ -51,17 +51,17 @@ export function ZhsUserTable({ list, isLoading, onEdit, onDelete }: Props) {
               <TableRow key={item.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5 font-medium">{item.nickname || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{item.userName || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.phone || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.inviteCode || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.balance || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.totalEarnings || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap px-4 py-2.5 tabular-nums">{item.phone || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{item.inviteCode || '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">{item.balance || '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">{item.totalEarnings || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{item.isVip || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{item.identityTypy || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 text-muted-foreground">
+                <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs tabular-nums text-muted-foreground">
                   {item.createdAt || '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1">
                     <HasPermi code="ai:zhs_user:edit">
                       <Tooltip content="编辑">
                         <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>

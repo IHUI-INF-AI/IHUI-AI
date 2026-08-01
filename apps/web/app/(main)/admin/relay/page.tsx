@@ -184,9 +184,9 @@ export default function AdminRelayOverviewPage() {
         {STATS.map((s) => (
           <Card key={s.key}>
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-                <span>{s.label}</span>
-                <s.icon className={`h-4 w-4 ${s.color}`} />
+              <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                <span className="min-w-0 truncate">{s.label}</span>
+                <s.icon className={`h-4 w-4 shrink-0 ${s.color}`} />
               </CardTitle>
             </CardHeader>
             <CardContent>

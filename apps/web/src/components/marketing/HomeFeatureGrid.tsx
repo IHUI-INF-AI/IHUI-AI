@@ -78,7 +78,7 @@ export function HomeFeatureGrid() {
             </div>
 
             {/* 大号标题 — gradient text */}
-            <span className="animate-mag-value-glow bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-xl font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 min-[640px]:text-2xl">
+            <span className="animate-mag-value-glow line-clamp-2 bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-xl font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 min-[640px]:text-2xl">
               {title}
             </span>
 
