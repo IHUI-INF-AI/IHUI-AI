@@ -803,7 +803,7 @@
       "expandReasoning": "Expand reasoning",
       "collapseReasoning": "Collapse reasoning",
       "jumpToMessage": "Jump to message",
-      "stepError": "Failed"
+      "stepError": "失败"
     },
     "question": {
       "title": "AI needs your answer",
@@ -5737,7 +5737,7 @@
           "updatedAt": "Updated At",
           "type": "Type",
           "amount": "Amount",
-          "remark": "Remark",
+          "remark": "备注",
           "time": "Time"
         }
       },
@@ -5896,8 +5896,8 @@
           "searchOutBillNo": "External Bill No",
           "searchReviewer": "Reviewer",
           "amountRange": "Amount Range",
-          "amountMin": "Min",
-          "amountMax": "Max",
+          "amountMin": "最小",
+          "amountMax": "最大",
           "noData": "No withdrawal details",
           "approve": "Approve",
           "reject": "Reject",
@@ -6575,6 +6575,21 @@
   "publish": {
     "title": "Multi-Platform Publishing",
     "subtitle": "Supports md/docx/html/pdf/image/video → 14 platforms one-click publishing",
+    "riskLevelSafe": "Safe",
+    "riskLevelLow": "Low risk",
+    "riskLevelMedium": "Medium risk",
+    "riskLevelHigh": "High risk",
+    "riskLevelCritical": "Critical risk",
+    "cooldownRemaining": "Cooldown remaining",
+    "countdownRemaining": "Time remaining",
+    "uploadProgress": "Uploading",
+    "uploadSuccess": "Upload succeeded",
+    "uploadFailed": "Upload failed",
+    "taskProgress": "Completed",
+    "taskAllComplete": "All completed",
+    "taskRunning": "Publishing",
+    "riskNotEvaluated": "Not evaluated",
+    "cooldownActive": "Cooling down",
     "accounts": {
       "title": "Account Management",
       "subtitle": "Configure login credentials for each platform (encrypted storage)",
@@ -6607,7 +6622,77 @@
       "minimize": "Minimize (keep waiting in background)",
       "taskId": "Task",
       "cookiesSaved": "{count} cookies saved",
-      "waitingForScan": "Waiting for {platform} app to scan..."
+      "waitingForScan": "Waiting for {platform} app to scan...",
+      "statusActive": "Active",
+      "statusDisabled": "Disabled",
+      "statusExpired": "Expired",
+      "statusUnknown": "Unknown",
+      "batchImport": "Batch Import",
+      "batchVerify": "Batch Verify"
+    },
+    "cookieHealth": {
+      "healthy": "Healthy",
+      "expiring": "Expiring soon",
+      "expired": "Expired",
+      "refresh": "Refresh Cookie",
+      "refreshSuccess": "Cookie keepalive succeeded",
+      "refreshFailed": "Cookie keepalive failed",
+      "lastVerified": "Last verified",
+      "predictedExpiry": "Predicted expiry",
+      "daysSince": "Days since",
+      "days": "days"
+    },
+    "batchImport": {
+      "title": "Batch Import Accounts",
+      "description": "Download template, fill in and upload, or export existing accounts",
+      "downloadTemplate": "Download Template",
+      "templateDownloaded": "Template downloaded",
+      "templateFailed": "Template download failed",
+      "export": "Export All",
+      "exportSuccess": "Exported {count} accounts",
+      "exportFailed": "Export failed",
+      "selectFile": "Select CSV File",
+      "previewCount": "{count} records total",
+      "colPlatform": "Platform",
+      "colNickname": "Nickname",
+      "colCreds": "Credentials count",
+      "moreRows": "{count} more rows...",
+      "importing": "Importing...",
+      "importSuccess": "Successfully imported {count} accounts",
+      "importFailed": "Import failed",
+      "confirmImport": "Confirm import {count} records",
+      "parseError": "CSV parsing failed, please check the format",
+      "readError": "File read failed",
+      "successCount": "Success {count}",
+      "failedCount": "Failed {count}"
+    },
+    "groups": {
+      "title": "Account Groups",
+      "create": "New Group",
+      "edit": "Edit Group",
+      "delete": "Delete Group",
+      "deleteConfirm": "Are you sure to delete group \"{name}\"? Accounts in the group will not be deleted.",
+      "name": "Group name",
+      "description": "Group description",
+      "namePlaceholder": "Enter group name",
+      "descPlaceholder": "Optional, enter group description",
+      "created": "Group created",
+      "updated": "Group updated",
+      "deleted": "Group deleted",
+      "createFailed": "Failed to create group",
+      "updateFailed": "Failed to update group",
+      "deleteFailed": "Failed to delete group",
+      "empty": "No groups yet, click the top right to create one",
+      "addAccount": "Add account",
+      "addAccountTitle": "Select accounts to add",
+      "addSelected": "Add {count} accounts",
+      "noMembers": "No members in this group",
+      "noAvailableAccounts": "No accounts available to add (may already all be in the group)",
+      "accountRemoved": "Removed from group",
+      "accountsAdded": "Added {count} accounts to the group",
+      "addFailed": "Failed to add accounts",
+      "removeFailed": "Failed to remove accounts",
+      "removeAccount": "Remove"
     },
     "new": {
       "title": "New Publish Task",
@@ -6703,8 +6788,103 @@
     },
     "tabs": {
       "accounts": "",
+      "analytics": "Analytics",
+      "calendar": "Publish Calendar",
       "history": "",
       "new": ""
+    },
+    "editor": {
+      "markdown": "Markdown",
+      "richText": "Rich Text",
+      "bold": "Bold",
+      "italic": "Italic",
+      "heading": "Heading",
+      "link": "Link",
+      "image": "Image",
+      "code": "Code",
+      "quote": "Quote",
+      "list": "List",
+      "table": "Table",
+      "wordCount": "{count} words",
+      "readingTime": "{minutes} min read",
+      "autoSaved": "Auto saved",
+      "preview": "Preview",
+      "split": "Split view"
+    },
+    "ai": {
+      "title": "AI Assistant",
+      "generateTitles": "Generate titles",
+      "polishContent": "Polish content",
+      "recommendTags": "Recommend tags",
+      "generateSummary": "Generate summary",
+      "seoAnalysis": "SEO analysis",
+      "thinking": "AI thinking...",
+      "apply": "Apply",
+      "candidates": "Candidates",
+      "coverSuggestion": "Cover suggestion",
+      "seoScore": "SEO score",
+      "seoSuggestions": "Optimization suggestions",
+      "emptyContent": "Please enter content first",
+      "retry": "Retry"
+    },
+    "preview": {
+      "title": "Platform Preview",
+      "mobile": "Mobile view",
+      "desktop": "Desktop view",
+      "selectPlatform": "Select platform to preview",
+      "wechat": "WeChat Official Account",
+      "zhihu": "Zhihu",
+      "xiaohongshu": "Xiaohongshu",
+      "csdn": "CSDN"
+    },
+    "calendar": {
+      "title": "Publish Calendar",
+      "subtitle": "Visual scheduling, drag to adjust publish time",
+      "today": "Today",
+      "scheduled": "Scheduled",
+      "published": "Published",
+      "failed": "Failed",
+      "draft": "Draft",
+      "batchSchedule": "Batch stagger",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "noTasks": "No tasks on this day",
+      "taskCount": "{count} tasks",
+      "createTask": "New task",
+      "dragHint": "Drag tasks to other dates to reschedule"
+    },
+    "analytics": {
+      "title": "Analytics",
+      "subtitle": "Publish trends, platform distribution and account health",
+      "totalPublished": "Total published",
+      "successRate": "Success rate",
+      "avgDuration": "Avg duration",
+      "activeAccounts": "Active accounts",
+      "trend": "Trend",
+      "platformDistribution": "Platform distribution",
+      "failureReasons": "Failure reasons TOP5",
+      "accountHealth": "Account health",
+      "lastPublished": "Last published",
+      "riskStatus": "Risk status",
+      "period7d": "7 days",
+      "period30d": "30 days",
+      "period90d": "90 days",
+      "noData": "No data"
+    },
+    "templates": {
+      "title": "Content Templates",
+      "techBlog": "Tech blog",
+      "marketing": "Marketing copy",
+      "productIntro": "Product intro",
+      "newsRelease": "Press release",
+      "tutorial": "Tutorial article",
+      "saveAsTemplate": "Save as template",
+      "apply": "Apply template",
+      "customTemplates": "My templates",
+      "presetTemplates": "Preset templates",
+      "empty": "No custom templates",
+      "saved": "Template saved",
+      "deleted": "Template deleted"
     }
   },
   "settings": {
@@ -9797,32 +9977,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -10221,19 +10427,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -10354,25 +10572,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -11980,7 +12210,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
