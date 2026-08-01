@@ -33,20 +33,20 @@ import { Tooltip } from '@/components/feedback'
  *     - 右:ICP + 版权
  *
  * 历史变更:
- * - v6(2026-07-20):py-1 md:py-1.5(从 py-1.5 md:py-2 再省 2px),
+ * - v6(2026-07-20):py-1 min-[768px]:py-1.5(从 py-1.5 min-[768px]:py-2 再省 2px),
  *   gap-1(从 gap-1.5 再省 2px),grid gap-2(从 gap-3 再省 4px),
  *   icons h-6 w-6(从 h-7 w-7 减 4px),QR h-14 w-14(从 h-16 w-16 减 8px),
  *   section title text-[10px](从 text-xs 再省 2px),row 2 pt-0.5(从 pt-1 再省 2px),
  *   关键:**删除 与 sidebar 重复的 3 个 Link(关于/帮助/反馈)**,
  *   底部行只保留 3 个 Dialog button + ICP+版权,信息更纯粹。
  * - v5(2026-07-20):合并 4 个子标题为 1"生态合作"、缩小 icon/QR、链接内联到底部行。
- * - v4(2026-07-20):py-2 md:py-3,gap-2,grid gap-4,加 Dialog 弹窗触发行。
+ * - v4(2026-07-20):py-2 min-[768px]:py-3,gap-2,grid gap-4,加 Dialog 弹窗触发行。
  * - v3:Dialog 弹窗替换页面跳转(用户要求"弹窗窗口 而不是完整页面")。
  */
 
 // 生态合作 5 类分组(2026-07-30 v11 拆分:原 4 类 → 5 类,模型拆为国际/国产 2 组)
 // - 移动端/平板:grid-cols-2(2 列,5 类需换行 2-3 行)
-// - 桌面 lg+:lg:grid-cols-5(5 列,5 类 1 行;1024 边界 8 个图标分 2 组各 4 个,每列 4 个图标只换 1 行,布局更舒展)
+// - 桌面 lg+:min-[1024px]:grid-cols-5(5 列,5 类 1 行;1024 边界 8 个图标分 2 组各 4 个,每列 4 个图标只换 1 行,布局更舒展)
 const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] = [
   { titleKey: 'supportedPlatforms', items: SUPPORTED },
   { titleKey: 'internationalModels', items: INTERNATIONAL_MODELS },
@@ -56,7 +56,7 @@ const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] 
 ]
 
 // 排版原子 — v10 拉高放宽
-// - footer padding py-2 md:py-3(从 v9 py-0.5 md:py-1 拉回,footer 整体从 95px → ~140px)
+// - footer padding py-2 min-[768px]:py-3(从 v9 py-0.5 min-[768px]:py-1 拉回,footer 整体从 95px → ~140px)
 // - section title: text-[11px](从 v9 text-[10px] 放大 1px,可读性更佳)
 // - icon box: h-7 w-7(从 h-5 w-5 放大 8px,触摸目标 + 视觉都更稳)
 // - QR box: h-16 w-16(从 h-12 w-12 放大 16px,3 个 QR 完全可见 + 可扫)
@@ -238,7 +238,7 @@ export function SiteFooter({ className }: { className?: string }) {
 
   return (
     // v10 排版(2026-07-30 第七次重构,用户反馈"footer 三个二维码被截断 + 备案图标未显示"):
-    // - py-2 md:py-3(从 v9 py-0.5 md:py-1 拉回,footer 高度 95→~140px,3 个 QR + ICP 图标完全可见)
+    // - py-2 min-[768px]:py-3(从 v9 py-0.5 min-[768px]:py-1 拉回,footer 高度 95→~140px,3 个 QR + ICP 图标完全可见)
     // - 内部 gap-1.5(从 v9 gap-0.5 放宽)
     // - icon box h-7 w-7 + QR box h-16 w-16(配合 ICON_BOX/QR_BOX 原子常量)
     // - 备案图标 h-5 w-5(从 h-4 w-4 放大 4px,清晰可见)
@@ -249,10 +249,10 @@ export function SiteFooter({ className }: { className?: string }) {
       <div className="flex w-full flex-col gap-1.5">
         {/* Row 1: 3 栏布局(v10 — 2026-07-30 配合 footer 拉高放宽)
             - 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底) — flex justify-between 消除空白
-            - 栏 2: 生态合作 4 类分组 — grid-cols-2 md:grid-cols-4 响应式自适应屏幕宽度
+            - 栏 2: 生态合作 4 类分组 — grid-cols-2 min-[768px]:grid-cols-4 响应式自适应屏幕宽度
             - 栏 3: 官方推广 + QR(不变)
             v10: gap-3(从 v9 gap-1 放大),与 footer 整体拉高对齐 */}
-        <div className="grid gap-3 md:grid-cols-[1fr_1.5fr_1fr] md:items-start">
+        <div className="grid gap-3 min-[768px]:grid-cols-[1fr_1.5fr_1fr] min-[768px]:items-start">
           {/* 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底)
               - flex flex-col justify-between 让按钮沉底,消除公司信息下方空白
               - 公司信息用 space-y-1,按钮用 flex flex-wrap gap-x-2 gap-y-1 */}
@@ -291,8 +291,8 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
 
           {/* 栏 2: 生态合作 5 类分组(响应式自适应,2026-07-30 v11 拆分大模型为国际/国产 2 组)
-              - grid-cols-2(移动端/平板 2 列)+ lg:grid-cols-5(桌面 lg+ 5 列 1 行)
-              - 1024 边界修复:768-1023px 用 md:grid-cols-2 留出更多列宽,避免 5 列过挤图标溢出
+              - grid-cols-2(移动端/平板 2 列)+ min-[1024px]:grid-cols-5(桌面 lg+ 5 列 1 行)
+              - 1024 边界修复:768-1023px 用 min-[768px]:grid-cols-2 留出更多列宽,避免 5 列过挤图标溢出
               - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1 */}
           <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>

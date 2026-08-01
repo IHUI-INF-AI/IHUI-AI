@@ -44,7 +44,7 @@ export function MobileDashboardClient() {
   return (
     <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
       <header className="space-y-1 px-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Smartphone className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -52,7 +52,7 @@ export function MobileDashboardClient() {
       </header>
 
       {/* Stat 卡片 */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 min-[768px]:grid-cols-4">
         {STATS.map(({ labelKey, value, trend, trendUp, Icon }) => (
           <Card key={labelKey}>
             <CardContent className="flex items-center gap-3 p-5">
@@ -73,9 +73,9 @@ export function MobileDashboardClient() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 min-[1024px]:grid-cols-3">
         {/* DAU 趋势 */}
-        <Card className="lg:col-span-2">
+        <Card className="min-[1024px]:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t('dauTrend.title')}</CardTitle>
             <p className="text-xs text-muted-foreground">{t('dauTrend.subtitle')}</p>

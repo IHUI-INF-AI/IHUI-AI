@@ -129,7 +129,7 @@ export default function ReviewPage() {
         <p className="text-xs text-muted-foreground">基于 SM-2 间隔重复算法,巩固长期记忆。</p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         <StatCard icon={Brain} label="待复习" value={stats?.totalDue ?? 0} />
         <StatCard icon={CheckCircle2} label="今日已复习" value={reviewedCount} />
         <StatCard icon={Flame} label="连续天数" value={stats?.streak ?? 0} />
@@ -215,7 +215,7 @@ export default function ReviewPage() {
                   </div>
                 )}
                 {result && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
+                  <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 text-center text-xs">
                     <div className="rounded-md bg-muted/50 p-2">
                       <div className="text-muted-foreground">下次复习</div>
                       <div className="mt-1 font-medium">

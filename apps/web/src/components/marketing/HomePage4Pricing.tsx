@@ -85,16 +85,16 @@ export function HomePage4Pricing() {
 
   return (
     // 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
-    <section className="w-full px-4 py-4 sm:py-6">
-      <RevealOnView as="div" className="mb-4 text-center sm:mb-5">
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
+    <section className="w-full px-4 py-4 min-[640px]:py-6">
+      <RevealOnView as="div" className="mb-4 text-center min-[640px]:mb-5">
+        <h2 className="text-xl font-bold tracking-tight min-[640px]:text-2xl">{t('title')}</h2>
         <h3 className="font-edix mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {t('titleEn')}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{t('subtitle')}</p>
+        <p className="mt-1 text-xs text-muted-foreground min-[640px]:text-sm">{t('subtitle')}</p>
       </RevealOnView>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 tablet-lg:grid-cols-4 lg:gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 tablet-min-[1024px]:grid-cols-4 min-[1024px]:gap-3">
         {PRICING_PLANS.map((plan, i) => {
           const isRecommended = plan.recommended
           return (

@@ -82,7 +82,7 @@ export default function SubagentsListPage() {
 
       <StatsCards stats={statsQ.data} isLoading={statsQ.isLoading} />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_320px]">
         <Card>
           <CardHeader className="p-4">
             <CardTitle className="text-sm">活跃派单({dispatches.length})</CardTitle>

@@ -46,7 +46,7 @@ export function AddressForm({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
             <Input
               placeholder={t('province')}
               value={editing.province}

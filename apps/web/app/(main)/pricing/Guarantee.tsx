@@ -23,11 +23,11 @@ export function Guarantee(): React.JSX.Element {
   return (
     <section className="mx-auto mt-14 max-w-5xl">
       <div className="text-center">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('guarantee.title')}
         </h2>
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
         {ITEMS.map(({ icon: Icon, titleKey, descKey }) => (
           <Card key={titleKey} className="border-border">
             <CardContent className="flex flex-col items-center gap-3 p-5 text-center">

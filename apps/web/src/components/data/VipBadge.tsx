@@ -15,7 +15,7 @@ export function VipBadge({ className, size = 'sm' }: VipBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-md bg-amber-500/10 font-medium text-amber-600 dark:text-amber-500',
+        'inline-flex items-center whitespace-nowrap rounded-md bg-amber-500/10 font-medium text-amber-600 dark:text-amber-500',
         sizing,
         className,
       )}

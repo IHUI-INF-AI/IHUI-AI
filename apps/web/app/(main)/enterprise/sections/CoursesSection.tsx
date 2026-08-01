@@ -81,7 +81,7 @@ export function CoursesSection() {
                   <p className="text-sm text-muted-foreground">{phase.description}</p>
                 </div>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 min-[640px]:grid-cols-2">
                 {phase.courses.map((course) => (
                   <div
                     key={course.name}

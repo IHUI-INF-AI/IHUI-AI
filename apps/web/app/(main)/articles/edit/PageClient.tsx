@@ -108,7 +108,7 @@ export default function ArticleEditPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Edit className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
             {isEdit ? t('editTitle', { default: '编辑文章' }) : t('editTitle')}
           </h1>
         </div>

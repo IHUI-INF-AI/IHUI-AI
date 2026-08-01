@@ -85,7 +85,7 @@ export default async function OverviewPage() {
       </header>
 
       {/* 统计卡片 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon
           return (
@@ -122,7 +122,7 @@ export default async function OverviewPage() {
           <CardTitle className="text-base">{t('overview.quickActions.title')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
             {quickActions.map((a) => {
               const Icon = a.icon
               return (

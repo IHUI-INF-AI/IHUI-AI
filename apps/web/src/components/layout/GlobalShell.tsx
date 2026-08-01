@@ -33,7 +33,7 @@ import { startAutoRefresh } from '@/lib/tokenUtils'
  *     <Sidebar />                       ← 桌面端固定侧边栏(相对定位,flex 流)
  *     <div id="work-area-portal-root"   ← 内容区,作为 Sidebar 搜索弹层的 portal 目标
  *         relative flex-1 flex-col overflow-hidden>
- *       <Button mobile menu />          ← 移动端浮动菜单按钮(lg:hidden)
+ *       <Button mobile menu />          ← 移动端浮动菜单按钮(min-[1024px]:hidden)
  *       {children}                      ← 各路由组 layout 内容填充此处
  *     </div>
  *   </div>
@@ -201,7 +201,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                   → 根因:与 TagsViewSearchButton (36x36 bg-card,同位置 left:0) 物理重叠,
                     即使 z-modal 也无法在所有 stacking context 下稳定覆盖
                 - 新方案:作为 GlobalTopBar flex 流的第 0 个元素,物理上不重叠任何现有按钮
-                - 桌面端 lg:flex 隐藏,移动端 lg 以下显示 */}
+                - 桌面端 min-[1024px]:flex 隐藏,移动端 lg 以下显示 */}
             <React.Suspense fallback={null}>
               <GlobalTopBar
                 mobileMenu={

@@ -105,7 +105,7 @@ export default function MemberCouponsPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {coupons.map((c) => (
             <div
               key={c.id}

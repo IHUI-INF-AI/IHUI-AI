@@ -237,7 +237,7 @@ export const metadata: Metadata = {
 
 export default function QuickstartPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8 md:py-8">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(quickstartJsonLd) }}
@@ -252,7 +252,7 @@ export default function QuickstartPage() {
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           5 分钟上手智汇 AI
         </h1>
-        <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
           从注册到发布第一个 AI Agent,只需 5 步。
           智汇 AI 是开源的全栈 AI 操作系统,Apache 2.0 协议,支持私有化部署。
         </p>

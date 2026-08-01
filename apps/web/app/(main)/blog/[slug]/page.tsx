@@ -109,7 +109,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             <BookOpen className="h-5 w-5 text-primary" />
             {t('relatedTitle')}
           </h2>
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {related.map((p) => (
               <li key={p.slug}>
                 <Link

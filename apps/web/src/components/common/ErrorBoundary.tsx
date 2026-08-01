@@ -18,7 +18,7 @@ interface ErrorBoundaryState {
 function ErrorFallback({ error, onReset }: { error?: Error; onReset: () => void }) {
   const t = useTranslations('common')
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-5 min-[768px]:p-8 text-center">
       <AlertCircle className="h-10 w-10 text-destructive" />
       <h3 className="text-base font-medium">{t('errorTitle')}</h3>
       <p className="max-w-md text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -79,7 +79,7 @@ export default function MyAsksPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <HelpCircle className="h-7 w-7 text-primary" />
           {ta('title')}
         </h1>
