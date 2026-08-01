@@ -1,4 +1,12 @@
 import { QueryClient, defaultShouldDehydrateQuery, isServer } from '@tanstack/react-query'
+// 2026-08-01 错误中文化:全局 mutation onError 必须走 toastProxy(走事件总线 + Toaster 拦截器
+// + toUserFriendlyMessage 中文化)。原来动态 import 'sonner' 会绕过拦截器直接显示英文。
+// 不能用静态 import(会引入 query-client → components/common → Toaster 循环依赖),
+// 改用懒加载 @/components/common 的 toastProxy。
+async function getToast() {
+  const { toast } = await import('@/components/common')
+  return toast
+}
 
 function makeQueryClient() {
   return new QueryClient({
@@ -13,7 +21,8 @@ function makeQueryClient() {
       mutations: {
         onError: (error) => {
           if (!isServer) {
-            import('sonner').then(({ toast }) => toast.error(error.message))
+            // 走 toastProxy → __ihui_toast__ 事件 → Toaster 拦截器 → toUserFriendlyMessage 中文化
+            void getToast().then((toast) => toast.error(error.message))
           }
         },
       },

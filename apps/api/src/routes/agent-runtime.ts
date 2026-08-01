@@ -36,7 +36,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       try {
         session = sessionManager.get(sessionId)
       } catch {
-        return reply.code(404).send(error(404, 'session not found'))
+        return reply.code(404).send(error(404, '会话不存在'))
       }
     } else {
       session = sessionManager.create(botId ?? 'default', req.userId ?? 'anonymous')
@@ -52,7 +52,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
     reply.raw.setHeader('X-Accel-Buffering', 'no')
     const parsed = executeSchema.safeParse(req.body)
     if (!parsed.success) {
-      reply.raw.write(`event: error\ndata: ${JSON.stringify({ message: 'invalid body' })}\n\n`)
+      reply.raw.write(`event: error\ndata: ${JSON.stringify({ message: '请求参数无效' })}\n\n`)
       return reply.raw.end()
     }
     const { message, mode, sessionId, botId } = parsed.data
@@ -62,9 +62,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       try {
         session = sessionManager.get(sessionId)
       } catch {
-        reply.raw.write(
-          `event: error\ndata: ${JSON.stringify({ message: 'session not found' })}\n\n`,
-        )
+        reply.raw.write(`event: error\ndata: ${JSON.stringify({ message: '会话不存在' })}\n\n`)
         return reply.raw.end()
       }
     } else {
@@ -90,7 +88,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
 
       if (!upstream.ok || !upstream.body) {
         reply.raw.write(
-          `event: error\ndata: ${JSON.stringify({ message: `upstream error: ${upstream.status}` })}\n\n`,
+          `event: error\ndata: ${JSON.stringify({ message: `上游服务异常(状态码 ${upstream.status})` })}\n\n`,
         )
         return reply.raw.end()
       }
@@ -146,7 +144,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       }
       reply.raw.write(
         `event: error\ndata: ${JSON.stringify({
-          message: 'upstream connection failed',
+          message: '上游连接失败',
           error: String(err),
         })}\n\n`,
       )
@@ -171,7 +169,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       const session = sessionManager.get(sessionId)
       return success(session)
     } catch {
-      return reply.code(404).send(error(404, 'session not found'))
+      return reply.code(404).send(error(404, '会话不存在'))
     }
   })
 
@@ -181,7 +179,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       sessionManager.resume(sessionId)
       return success({ sessionId, status: 'running' })
     } catch {
-      return reply.code(404).send(error(404, 'session not found'))
+      return reply.code(404).send(error(404, '会话不存在'))
     }
   })
 
@@ -195,7 +193,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
         messageCount: session.context.messages.length,
       })
     } catch {
-      return reply.code(404).send(error(404, 'session not found'))
+      return reply.code(404).send(error(404, '会话不存在'))
     }
   })
 
@@ -206,22 +204,22 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       sessionManager.close(sessionId)
       return success({ sessionId, status: 'cancelled' })
     } catch {
-      return reply.code(404).send(error(404, 'session not found'))
+      return reply.code(404).send(error(404, '会话不存在'))
     }
   })
 
   app.get('/permission/check', async (req) => {
-    const { toolName, mode = 'default', dangerLevel = 'read' } = req.query as {
+    const {
+      toolName,
+      mode = 'default',
+      dangerLevel = 'read',
+    } = req.query as {
       toolName: string
       mode?: string
       dangerLevel?: string
     }
     const permMode = parsePermissionMode(mode) ?? 'default'
-    const decision = checkPermissionMode(
-      toolName,
-      permMode,
-      (dangerLevel as DangerLevel) ?? 'read',
-    )
+    const decision = checkPermissionMode(toolName, permMode, (dangerLevel as DangerLevel) ?? 'read')
     return success({ toolName, mode: permMode, dangerLevel, decision })
   })
 }
