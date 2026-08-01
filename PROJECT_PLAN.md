@@ -1959,7 +1959,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ### 阶段 5:最终交付(目标达成后)
 
 - [x] ✅(2026-07-30) P3-5.1 README 同步更新(AGENTS.md §21) — 跨端共享架构章节 + 维护倍数对比表(在 8 端架构后追加 2 个 H2 章节:跨端共享架构覆盖 packages/app 共享层 7 包表格 + props 注入模式 + mobile-rn 151/153 wrapper + 49 features 5 批次清单 + react-native-web 验证页;维护倍数对比覆盖 6.8x→5.4x→5.3x→4.7x→4.2x→3.9x→3.1x→2.9x 7 阶段总览 + 2.9x→2.7x→2.3x→1.72x→2.0x P3 5 阶段路线 + commit `6ba6f3064c` 实测证据 + 维护倍数计算方法)
-- [ ] P3-5.2 STATE.md + loop-run-log.md 清理(AGENTS.md §8 第 7 步) — 目标摘要追加到 PROJECT_PLAN.md,删除运行时文件
+- [x] ✅(2026-08-01) P3-5.2 STATE.md + loop-run-log.md 清理(AGENTS.md §8 第 7 步) — goal 目标"补齐 CLI 端能力完全对齐 Web 端"已 achieved(commit 7bdd1c226f),摘要:ihui memory/workflows/spec/plan 4 命令注册 + login 命令修复 + --api-url 默认值修复;已删除 .trae-cn/goal-runtime/STATE.md + loop-run-log.md(保留 SECURITY-AUDIT-2026-07-21.md 非运行时文件)
 
 ---
 
