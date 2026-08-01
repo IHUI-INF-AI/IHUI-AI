@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Loader2, Upload } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 

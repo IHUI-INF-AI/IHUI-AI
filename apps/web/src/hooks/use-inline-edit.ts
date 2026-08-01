@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { streamChat, formatSSEError } from '@ihui/api-client'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { useInlineEditStore, type InlineEditSelection } from '@/stores/inline-edit'
 import { useChatStore } from '@/stores/chat'

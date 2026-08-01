@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Loader2, Minimize2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
 import { Popover } from '@/components/feedback'

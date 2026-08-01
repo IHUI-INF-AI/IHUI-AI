@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Plug, PlugZap, Plus, Server, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import {
   Button,

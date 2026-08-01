@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'

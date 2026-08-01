@@ -26,7 +26,7 @@ import {
   GitMerge,
   RotateCcw,
 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import type { SpecGenerateOutput } from '@ihui/types'
 import type { SpecScopeType } from '@ihui/shared/spec'
 import { fetchApi } from '@/lib/api'
@@ -1363,9 +1363,9 @@ export function SpecPanel({ className }: { className?: string }) {
                       onClick={handleApplyConfirm}
                       disabled={confirmLoading}
                       className={cn(
-                      'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60',
-                      confirmLoading && 'cursor-not-allowed opacity-60',
-                    )}
+                        'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md border border-border bg-background px-3 text-xs text-foreground hover:bg-muted/60',
+                        confirmLoading && 'cursor-not-allowed opacity-60',
+                      )}
                     >
                       {confirmLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin" />

@@ -97,7 +97,19 @@ const logger = pino(loggerConfig)
 /**
  * 统一错误响应处理器。
  * 将抛出的带 statusCode 的错误转换为 { code, message } 格式。
+ *
+ * 2026-08-01 错误中文化:4xx 非 AppError 的裸 Error,如果 message 是英文,
+ * 用 "操作失败,请稍后重试" 兜底,避免英文错误消息到达前端用户。
+ * AppError 的 message 通常是业务方写的中文,原样透传。
  */
+function isMostlyEnglish(s: string | undefined): boolean {
+  if (!s) return false
+  // 含中文 → 视为已中文化
+  if (/[\u4e00-\u9fa5]/.test(s)) return false
+  // 含英文字母 → 视为英文
+  return /[a-zA-Z]/.test(s)
+}
+
 function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
   const isZodErr =
     error.name === 'ZodError' && Array.isArray((error as { issues?: unknown[] }).issues)
@@ -118,7 +130,11 @@ function errorHandler(error: FastifyError, _request: FastifyRequest, reply: Fast
     ? ((error as { issues?: Array<{ message?: string }> }).issues?.[0]?.message ?? '参数错误')
     : statusCode >= 500
       ? '服务器错误'
-      : error.message
+      : isAppError(error)
+        ? error.message
+        : isMostlyEnglish(error.message)
+          ? '操作失败,请稍后重试'
+          : error.message
 
   reply.status(statusCode).send({
     code: statusCode,

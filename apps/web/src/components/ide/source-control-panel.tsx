@@ -1,14 +1,25 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import { runCommand } from '@ihui/api-client'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 import { getFileIcon, getFileColor } from './file-icons'
 import {
-  GitBranch, RefreshCw, MoreHorizontal, Check, ChevronDown,
-  Plus, Minus, ArrowUp, ArrowDown, GitCommit, Upload, Download, Loader2,
+  GitBranch,
+  RefreshCw,
+  MoreHorizontal,
+  Check,
+  ChevronDown,
+  Plus,
+  Minus,
+  ArrowUp,
+  ArrowDown,
+  GitCommit,
+  Upload,
+  Download,
+  Loader2,
 } from 'lucide-react'
 
 /** unknown 错误归一化为字符串 */
@@ -102,7 +113,7 @@ export function SourceControlPanel() {
     }
   }
 
-  const toggleStage = async (file: typeof diffFiles[number]) => {
+  const toggleStage = async (file: (typeof diffFiles)[number]) => {
     if (!workspacePath) return
     const isStaged = stagedIds.has(file.id)
     const command = isStaged
@@ -215,12 +226,7 @@ export function SourceControlPanel() {
       if (result.success) {
         setBranch(target)
         toast.success(t('sourceControl.branchSwitched', { branch: target }))
-        await Promise.all([
-          fetchGitBranches(),
-          fetchGitLog(),
-          fetchDiffFiles(),
-          syncStagedFiles(),
-        ])
+        await Promise.all([fetchGitBranches(), fetchGitLog(), fetchDiffFiles(), syncStagedFiles()])
       } else {
         toast.error(result.error)
       }
@@ -234,7 +240,7 @@ export function SourceControlPanel() {
   const stagedFiles = diffFiles.filter((f) => stagedIds.has(f.id))
   const unstagedFiles = diffFiles.filter((f) => !stagedIds.has(f.id))
 
-  const renderFile = (file: typeof diffFiles[number], staged: boolean) => {
+  const renderFile = (file: (typeof diffFiles)[number], staged: boolean) => {
     const Icon = getFileIcon(file.filename)
     return (
       <div
@@ -267,7 +273,9 @@ export function SourceControlPanel() {
             disabled={switchingBranch}
             className="flex items-center gap-1 rounded px-1 py-0.5 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
           >
-            <GitBranch className={cn('h-3.5 w-3.5 text-muted-foreground', switchingBranch && 'animate-spin')} />
+            <GitBranch
+              className={cn('h-3.5 w-3.5 text-muted-foreground', switchingBranch && 'animate-spin')}
+            />
             <span>{branch}</span>
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
@@ -285,7 +293,9 @@ export function SourceControlPanel() {
                   disabled={switchingBranch}
                   className={cn(
                     'flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors disabled:opacity-50',
-                    b === branch ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                    b === branch
+                      ? 'bg-muted text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
                   )}
                 >
                   <GitBranch className="h-3 w-3" />
@@ -298,10 +308,12 @@ export function SourceControlPanel() {
         </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
-            <ArrowUp className="h-3 w-3" />{ahead}
+            <ArrowUp className="h-3 w-3" />
+            {ahead}
           </span>
           <span className="flex items-center gap-0.5 text-red-600 dark:text-red-400">
-            <ArrowDown className="h-3 w-3" />{behind}
+            <ArrowDown className="h-3 w-3" />
+            {behind}
           </span>
         </div>
         <div className="ml-auto flex gap-1">
@@ -321,10 +333,19 @@ export function SourceControlPanel() {
           >
             <Upload className={cn('h-3.5 w-3.5', pushing && 'animate-spin')} />
           </button>
-          <button onClick={handleRefresh} className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('sourceControl.refresh')}>
+          <button
+            onClick={handleRefresh}
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            aria-label={t('sourceControl.refresh')}
+          >
             <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
           </button>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('sourceControl.more')}><MoreHorizontal className="h-3.5 w-3.5" /></button>
+          <button
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            aria-label={t('sourceControl.more')}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
@@ -343,7 +364,11 @@ export function SourceControlPanel() {
           aria-label={t('sourceControl.commit')}
           className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground py-1 text-xs text-background hover:bg-foreground/90 disabled:opacity-50"
         >
-          {committing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          {committing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Check className="h-3.5 w-3.5" />
+          )}
           <span>{committing ? t('sourceControl.committing') : t('sourceControl.commit')}</span>
         </button>
       </div>
@@ -378,7 +403,9 @@ export function SourceControlPanel() {
           {unstagedFiles.length > 0 ? (
             unstagedFiles.map((f) => renderFile(f, false))
           ) : (
-            <div className="px-2 py-1 text-xs text-muted-foreground">{t('sourceControl.noChanges')}</div>
+            <div className="px-2 py-1 text-xs text-muted-foreground">
+              {t('sourceControl.noChanges')}
+            </div>
           )}
         </div>
 
