@@ -22,13 +22,6 @@ interface ExamListResponse {
   total?: number
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: '未开始',
-  published: '进行中',
-  completed: '已完成',
-  reviewing: '批改中',
-}
-
 const STATUS_STYLE: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   published: 'bg-green-500/10 text-green-600',
@@ -46,6 +39,12 @@ export default function UserExamPage() {
   const t = useTranslations('user.exam')
   const locale = useLocale()
   const user = useAuthStore((s) => s.user)
+  const STATUS_LABEL: Record<string, string> = {
+    draft: t('statusDraft'),
+    published: t('statusPublished'),
+    completed: t('statusCompleted'),
+    reviewing: t('statusReviewing'),
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['user', 'exams', user?.id],
@@ -98,7 +97,11 @@ export default function UserExamPage() {
                       ) : null}
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                      {typeof e.score === 'number' ? <span>得分: {e.score}</span> : null}
+                      {typeof e.score === 'number' ? (
+                        <span>
+                          {t('score')}: {e.score}
+                        </span>
+                      ) : null}
                       {e.createdAt ? <span>{dateFmt.format(new Date(e.createdAt))}</span> : null}
                     </div>
                   </div>

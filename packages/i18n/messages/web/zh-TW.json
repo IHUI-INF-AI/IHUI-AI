@@ -6325,6 +6325,11 @@
       "avatarHint": "支援 JPG / PNG，建議 200x200"
     },
     "security": {
+      "password": "密碼",
+      "currentPassword": "當前密碼",
+      "newPassword": "新密碼",
+      "confirmPassword": "確認密碼",
+      "updatePassword": "更新密碼",
       "passwordHint": "6-20 位,不能包含 < > \" ' | \\ 等特殊字元",
       "passwordTooShort": "密碼長度不能少於 6 位",
       "passwordTooLong": "密碼長度不能超過 20 位",
@@ -6337,15 +6342,18 @@
       "changePhoneDesc": "更換繫結的手機號",
       "newPhone": "新手機號",
       "newPhonePlaceholder": "請輸入新手機號",
+      "code": "驗證碼",
+      "codePlaceholder": "請輸入驗證碼",
+      "sendCode": "獲取驗證碼",
       "resend": "{seconds}s 後重發",
       "phoneChanged": "手機號已更換",
-      "title": "安全設定",
-      "subtitle": "保護您的賬號安全",
-      "currentPassword": "當前密碼",
-      "sendCode": "獲取驗證碼",
       "devices": "登入裝置",
       "currentDevice": "當前裝置",
-      "logout": "退出登入"
+      "logout": "退出登入",
+      "devicesLoading": "載入中...",
+      "devicesEmpty": "暫無資料",
+      "title": "安全設定",
+      "subtitle": "保護您的賬號安全"
     },
     "notifications": {
       "viewList": "列表檢視",
@@ -6379,6 +6387,10 @@
       "auditTime": "認證時間",
       "pendingHint": "您的實名認證正在審核中，請耐心等待",
       "noReason": "未提供",
+      "nameMin": "真實姓名至少2個字元",
+      "nameMax": "真實姓名最多50個字元",
+      "idCardMin": "身分證號至少15位",
+      "idCardMax": "身分證號最多20位",
       "form": {
         "name": "真實姓名",
         "namePlaceholder": "請輸入真實姓名",
@@ -6434,7 +6446,12 @@
       "create": "新建文章",
       "createFirst": "寫第一篇",
       "empty": "還沒有文章",
-      "deleteSuccess": "已刪除"
+      "deleteSuccess": "已刪除",
+      "statusDraft": "草稿",
+      "statusPublished": "已發布",
+      "statusReviewing": "審核中",
+      "prevPage": "上一頁",
+      "nextPage": "下一頁"
     },
     "learn-record": {
       "title": "學習記錄",
@@ -6452,14 +6469,16 @@
       "loading": "載入中...",
       "follow": "關注",
       "followed": "已關注",
-      "followSuccess": "已關注"
+      "followSuccess": "已關注",
+      "anonymous": "匿名使用者"
     },
     "follow": {
       "title": "我的關注",
       "empty": "目前還沒有資料",
       "loading": "載入中...",
       "unfollow": "取消關注",
-      "unfollowSuccess": "已取消關注"
+      "unfollowSuccess": "已取消關注",
+      "anonymous": "匿名使用者"
     },
     "ask": {
       "title": "我的問答",
@@ -6480,12 +6499,21 @@
       "title": "我的考試",
       "empty": "目前還沒有資料",
       "loading": "載入中...",
-      "continue": "繼續考試"
+      "continue": "繼續考試",
+      "statusDraft": "未開始",
+      "statusPublished": "進行中",
+      "statusCompleted": "已完成",
+      "statusReviewing": "批改中",
+      "score": "得分"
     },
     "sign-up": {
       "title": "我的報名",
       "empty": "目前還沒有資料",
-      "loading": "載入中..."
+      "loading": "載入中...",
+      "statusDraft": "待審核",
+      "statusPublished": "已確認",
+      "statusRejected": "已拒絕",
+      "statusCompleted": "已完成"
     }
   },
   "certificate": {
