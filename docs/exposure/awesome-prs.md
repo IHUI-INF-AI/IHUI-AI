@@ -1,6 +1,6 @@
 # Awesome List PR Submissions
 
-> Last updated: 2026-07-28
+> Last updated: 2026-08-01
 >
 > Purpose: Track IHUI-AI submissions to high-quality curated lists (Awesome-style) to build organic backlinks and discoverability.
 
@@ -10,7 +10,7 @@
 - 🔗 [Release v1.1.0](https://github.com/IHUI-INF-AI/IHUI-AI/releases/tag/v1.1.0) — 5 Awesome PRs + 10 blog posts × 5 languages + 204 commits
 - 🔗 [Announcement Discussion #20](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/20)
 
-## Active PRs (7 open / 3 closed)
+## Active PRs (9 open / 3 closed + 1 existing entry)
 
 | # | Target List | Stars | PR | Section | Status | Notes |
 |---|---|---|---|---|---|---|
@@ -24,8 +24,27 @@
 | 8 | svcvit/Awesome-Dify-Workflow | 10.7k | [#54](https://github.com/svcvit/Awesome-Dify-Workflow/pull/54) | — | Open | Dify 工作流相关 |
 | 9 | awesome-rag/awesome-rag | — | [#10](https://github.com/awesome-rag/awesome-rag/pull/10) | — | Open | RAG 系统列表 |
 | 10 | Shubhamsaboo/awesome-llm-apps | — | [#1040](https://github.com/Shubhamsaboo/awesome-llm-apps/pull/1040) | — | Closed | 2026-07-28 关闭,维护者明确反馈:"awesome-llm-apps 是自包含可运行教程集合,每个条目需要自己的文件夹+可运行代码,纯链接 PR 不符合格式";**机会**:维护者邀请贡献自包含示例 |
+| 11 | jondot/awesome-react-native | 35.7k | [#1227](https://github.com/jondot/awesome-react-native/pull/1227) | Apps | Open ✨ NEW | 2026-08-01 自动提交 via GitHub API;React Native + Expo mobile AI client |
+| 12 | tauri-apps/awesome-tauri | 8k | [#831](https://github.com/tauri-apps/awesome-tauri/pull/831) | Apps | Open ✨ NEW | 2026-08-01 自动提交 via GitHub API;Tauri 2.0 desktop AI client;base=dev 分支 |
+| — | e2b-dev/awesome-ai-agents | 29.2k | (existing entry) | Open Source | Already Listed | README 已包含 IHUI-AI 条目,无需重复提交 |
 
-**潜在曝光**(open 7 个):~140k+ stars(mahmoud/awesome-python-applications 17.9k + steven2358/awesome-generative-ai 12.4k + Hannibal046/Awesome-LLM 27k + punkpeye/awesome-mcp-servers 91k + punkpeye/awesome-mcp-clients + svcvit/Awesome-Dify-Workflow 10.7k + awesome-rag/awesome-rag)。
+**潜在曝光**(open 9 个 + 1 existing = 10 个活跃条目):~232k+ stars(punkpeye/awesome-mcp-servers 91k + jondot/awesome-react-native 35.7k + e2b-dev/awesome-ai-agents 29.2k + Hannibal046/Awesome-LLM 27k + mahmoud/awesome-python-applications 17.9k + steven2358/awesome-generative-ai 12.4k + svcvit/Awesome-Dify-Workflow 10.7k + tauri-apps/awesome-tauri 8k + punkpeye/awesome-mcp-clients + awesome-rag/awesome-rag)。
+
+## 2026-08-01 新增 PR 说明
+
+本轮评估了 7 个候选 awesome 列表(对应 PROJECT_PLAN.md P2 待办),实际可操作的只有 5 个:
+
+| 候选 | 结果 | 原因 |
+|---|---|---|
+| jondot/awesome-react-native | ✅ PR #1227 | 仓库存在(35.7k stars),PR 已创建 |
+| tauri-apps/awesome-tauri | ✅ PR #831 | 仓库存在(8k stars),PR 已创建(base=dev) |
+| e2b-dev/awesome-ai-agents | ✅ 已有条目 | README 已包含 IHUI-AI,无需重复提交 |
+| wong2/awesome-mcp-servers | ❌ PRs 禁用 | 仓库存在(4.2k stars)但 has_issues=False,PR API 返回 404 |
+| NervJS/awesome-taro | ❌ Fork 401 | 仓库存在(2.9k stars)但 fork 操作返回 401 未经授权 |
+| openai/awesome-openai | ❌ 仓库不存在 | 404,openai 官方无 awesome-openai 仓库 |
+| kyrolabs/awesome-langgraph | ❌ 仓库不存在 | 404,LangGraph 社区无 awesome-langgraph 仓库 |
+| fastify/awesome-fastify | ❌ 仓库不存在 | 404,Fastify 官方无 awesome-fastify 仓库 |
+| Mooler0410/Awesome-LLMs-In-China | ❌ 仓库不存在/已改名 | 404,可能已改名或删除 |
 
 ## 教训与改进(2026-07-28)
 
