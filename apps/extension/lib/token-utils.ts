@@ -1,7 +1,8 @@
 import { refreshAccessToken } from '@ihui/api-client'
 import { readExp } from '@ihui/shared/utils/jwt-utils'
 import { createChromePlatform } from '@ihui/browser-platform'
-import { REFRESH_LEAD_MS, REFRESH_ALARM_NAME } from './config'
+import { computeRefreshDelay, createInFlightRefresh } from '@ihui/shared/auth/auto-refresh'
+import { REFRESH_ALARM_NAME } from './config'
 import { getRefreshToken, setTokenPair, clearAllTokens } from './token'
 
 // re-export 保持外部引用不变(如 tests/refresh-token.test.ts 直接从 token-utils 导入 readExp)
@@ -9,16 +10,11 @@ export { readExp }
 
 const platform = createChromePlatform()
 
-let inFlightRefresh: Promise<boolean> | null = null
+const inFlight = createInFlightRefresh<boolean>()
 
 export function scheduleRefreshAlarm(accessToken: string): void {
-  const exp = readExp(accessToken)
-  if (!exp) return
-  const delayMs = exp * 1000 - Date.now() - REFRESH_LEAD_MS
-  if (delayMs <= 0) {
-    void doRefresh()
-    return
-  }
+  const delayMs = computeRefreshDelay(accessToken)
+  if (delayMs === null) return
   // scheduleOnce 内部已封装 create + addListener + 触发后自动 removeListener,
   // clampToMinutes 由 chrome-impl.ts 内部处理,无需双重 clamp。
   // doRefresh 完成后会递归调用 scheduleRefreshAlarm 排下一次,维持 refresh 链。
@@ -28,8 +24,11 @@ export function scheduleRefreshAlarm(accessToken: string): void {
 }
 
 export async function doRefresh(): Promise<boolean> {
-  if (inFlightRefresh) return inFlightRefresh
-  inFlightRefresh = (async () => {
+  const existing = inFlight.get()
+  if (existing) {
+    return (await existing) ?? false
+  }
+  const promise = (async (): Promise<boolean> => {
     const refreshToken = getRefreshToken()
     if (!refreshToken) {
       await clearAllTokens()
@@ -52,10 +51,11 @@ export async function doRefresh(): Promise<boolean> {
       await clearAllTokens()
       return false
     } finally {
-      inFlightRefresh = null
+      inFlight.clear()
     }
   })()
-  return inFlightRefresh
+  inFlight.set(promise)
+  return promise
 }
 
 export function startAutoRefresh(): void {
