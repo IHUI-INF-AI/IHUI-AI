@@ -604,6 +604,69 @@ class PublishScheduler:
                     platform, type(e).__name__, e,
                 )
 
+        # ===== Anti-Risk:设备关联图谱检测(2026-08-01 深度强化)=====
+        # 发布前检测账号是否与其他账号共享设备/IP/指纹/UA(跨会话持久化检测)
+        # 委托 DeviceGraphGuard.detect_linkage,命中关联则记录风险事件 + 自动冷却
+        if account_id_str:
+            try:
+                from .anti_risk import CrossAccountGuard
+                cross_guard = CrossAccountGuard.get_instance()
+                is_linked, linkage_risk, linkage_types = (
+                    await cross_guard.async_check_device_linkage(account_id_str)
+                )
+                if is_linked and linkage_risk >= 60:
+                    # 高危关联(>=60):自动冷却 1h + 记录风险事件
+                    cooldown_mgr = CooldownManager.get_instance()
+                    cooldown_mgr.enter_cooldown(
+                        account_id_str, platform, 3600,
+                        f"设备关联图谱检测命中({','.join(linkage_types)},风险={linkage_risk})",
+                    )
+                    audit = AuditLogger()
+                    audit.log_risk_event(
+                        account_id_str, platform,
+                        "device_linkage_detected",
+                        "critical",
+                        {
+                            "linkage_types": linkage_types,
+                            "risk_score": linkage_risk,
+                        },
+                    )
+                    err_msg = (
+                        f"账号检测到跨会话设备关联"
+                        f"(类型:{','.join(linkage_types)},风险:{linkage_risk}/100),"
+                        f"已自动冷却 1h,请检查账号隔离配置"
+                    )
+                    logger.warning(
+                        "[publish.scheduler] %s account %s device linkage: %s",
+                        platform, account_id_str, err_msg,
+                    )
+                    result = PublishResult(
+                        success=False, platform=platform,
+                        error_message=err_msg,
+                    )
+                    await self._write_history(task_id, user_id, result)
+                    try:
+                        await notifications.notify_progress(
+                            task_id, user_id, platform, "failed", err_msg,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "publish.scheduler 进度通知(device_linkage)失败: %s",
+                            e, exc_info=True,
+                        )
+                    return result
+                if is_linked:
+                    # 中低危关联(<60):仅记录警告,不阻塞发布
+                    logger.info(
+                        "[publish.scheduler] %s account %s 设备关联风险较低(%d),继续发布",
+                        platform, account_id_str, linkage_risk,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "[publish.scheduler] %s device linkage check error: %s: %s",
+                    platform, type(e).__name__, e,
+                )
+
         started = datetime.now(timezone.utc)
         try:
             result = await adapter.publish(platform_content, credentials, platform_config)
