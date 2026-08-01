@@ -154,6 +154,30 @@
 - curl 实测 ihui:// 裸 scheme → 400 拒绝 ✅(安全边界保持)
 - sso-desktop-bridge.ts 去重逻辑确认:lastProcessedCode 缓存 + exchange 前判断 + exchange 后更新 ✅
 
+### 路由不一致修复 + i18n 化 + Desktop 静态验证(2026-08-02 立,F1-F12 commit 后收尾)
+
+> 用户指令:"继续按你的建议去做执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏" + "7 和模块不一致得问题也要修复完美深度思考最优方案最完美的解决彻底"。并行派 3 个 subagent:路由修复 + i18n 化 + Desktop 静态验证。
+
+- [x] ✅(2026-08-02) F13:8 处前端↔后端路由不一致修复(原计划 7 处 + 隐藏第 8 处),`node scripts/check-api-routes.mjs` exit 0,后端 3936 条路由 + 前端 1332 处调用全匹配
+  - F13.1(前端):`apps/web/app/(main)/admin/channel-quota/page.tsx` PATCH `/api/admin/relay/channels/${ch.id}` 改模板字符串(原字符串拼接被脚本截断误识别)
+  - F13.2(前端):`apps/web/app/(main)/admin/demand-audit/[id]/PageClient.tsx` pass/reject 改 PUT + ID 参数(reject 带 body `{reason}`),原 POST 无 ID 与后端 `PUT /examine/:id/pass` `PUT /examine/:id/reject` 不匹配
+  - F13.3(前端):`apps/web/app/(main)/admin/shop/products/page.tsx` PATCH → PUT(后端只有 `PUT /shop/products/:id`,PATCH 路由不存在)
+  - F13.4(前端):`apps/web/app/(main)/publish/new/page.tsx` 加 `// method: POST` 注释(check-api-routes.mjs methodRe 正则不识别 `xhr.open('POST', ...)`,fallback 到默认 GET)
+  - F13.5(后端):`apps/api/src/routes/developer-relay.ts` 新增 `GET /developer/relay/subscriptions`(复用 `getUserSubscriptionStatus`)+ `POST /developer/relay/subscriptions/subscribe`(复用 `listApiSubscriptionPlans` 校验 plan + `placeOrder` 创建 pending 订单 orderType=6,返回 `checkoutUrl` 跳支付页,支付回调触发 `activateApiSubscription`)
+  - F13.6(后端,隐藏第 8 处):`apps/api/src/routes/admin/channel-quota.ts` PATCH 路由移除 generics `server.patch<{...}>('/relay/channels/:id', ...)`,改为函数体内类型断言 `(req.params as { id: string })`,因 check-api-routes.mjs methodRe 正则不支持 `.<T>(` 形式导致该路由被遗漏识别;后端注册路由数 3935 → 3936
+- [x] ✅(2026-08-02) F14:`apps/web/src/components/login/LoginDialog.tsx` SSO 按钮"在浏览器中登录"硬编码文案 i18n 化,新增 `auth.loginInBrowser` key 同步 5 语言(zh-CN "在浏览器中登录" / zh-TW "在瀏覽器中登入" / ko "브라우저에서 로그인" / ja "ブラウザでログイン" / en "Log in via browser"),复用现有 `useTranslations('auth')` 命名空间
+- [x] ✅(2026-08-02) F15:Desktop 端 SSO deep-link 闭环静态验证全部通过(outbound 6 步 + 后端校验 + inbound 7 步 + OS 路由 + 去重防护 + 共享层一致性),F5-F10 修复点逐一确认;唯一 P2 非阻塞建议:LoginDialog 行 38 `isTauri()` 可改 `useDesktop().isDesktop` 与项目其他 Tauri 检测点统一(Tauri 2.x 异步注入时机理论隐患,实际场景不触发)
+
+#### 验证证据
+
+- `pnpm --filter @ihui/web typecheck` exit 0 ✅
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- `node scripts/check-api-routes.mjs` exit 0 ✅(3936 后端路由 + 1332 前端调用全匹配)
+- `node scripts/check-i18n-keys.mjs` exit 0 ✅(5 语言 parity OK)
+- `node scripts/scan-i18n-zh-residue.mjs ko` exit 0 ✅(无中文残留)
+- `node scripts/scan-i18n-zh-residue.mjs zh-TW` exit 0 ✅(无简体字)
+- `node scripts/check-i18n-broken-en.mjs` exit 0 ✅(0 处破碎英文)
+
 ---
 
 ## 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database)

@@ -29,6 +29,11 @@ import { createKey, updateKey } from '../services/developer-api-keys-service.js'
 import { claimCoupon, listUserCoupons } from '../services/coupon-service.js'
 import { listUserCommissions } from '../services/relay-commission-service.js'
 import { getTieredProgress } from '../services/tiered-pricing-service.js'
+import {
+  listApiSubscriptionPlans,
+  getUserSubscriptionStatus,
+} from '../services/api-subscription-service.js'
+import { placeOrder } from '../services/order-service.js'
 
 const usageQuerySchema = z.object({
   /** 起始日期 YYYY-MM-DD(默认近 30 天) */
@@ -66,15 +71,19 @@ const logsQuerySchema = paginationSchema.extend({
   maxCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
 
-const rechargeBodySchema = z.object({
-  /** 充值 token 数(与 costCentsCents 二选一,或都填) */
-  tokenDelta: z.number().int().optional(),
-  /** 充值成本额度(分) */
-  costDeltaCents: z.number().int().optional(),
-}).refine(
-  (d) => (d.tokenDelta !== undefined && d.tokenDelta !== 0) || (d.costDeltaCents !== undefined && d.costDeltaCents !== 0),
-  { message: 'tokenDelta 或 costDeltaCents 至少填一个且非 0' },
-)
+const rechargeBodySchema = z
+  .object({
+    /** 充值 token 数(与 costCentsCents 二选一,或都填) */
+    tokenDelta: z.number().int().optional(),
+    /** 充值成本额度(分) */
+    costDeltaCents: z.number().int().optional(),
+  })
+  .refine(
+    (d) =>
+      (d.tokenDelta !== undefined && d.tokenDelta !== 0) ||
+      (d.costDeltaCents !== undefined && d.costDeltaCents !== 0),
+    { message: 'tokenDelta 或 costDeltaCents 至少填一个且非 0' },
+  )
 
 /** 兑换码兑换 body(P0-5 刮刮卡式裂变充值,2026-07-31 立) */
 const redeemBodySchema = z.object({
@@ -231,7 +240,8 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
     const q = usageQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { startDate, groupBy, mode } = q.data
 
     const conds: ReturnType<typeof eq>[] = [eq(llmCallLogs.userId, userId)]
@@ -245,7 +255,9 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     if (mode === 'byok') {
       conds.push(sql`${llmCallLogs.metadata}->>'byokMode' = 'true'`)
     } else if (mode === 'relay') {
-      conds.push(sql`${llmCallLogs.metadata}->>'byokMode' IS NULL OR ${llmCallLogs.metadata}->>'byokMode' != 'true'`)
+      conds.push(
+        sql`${llmCallLogs.metadata}->>'byokMode' IS NULL OR ${llmCallLogs.metadata}->>'byokMode' != 'true'`,
+      )
     }
     const where = and(...conds)
 
@@ -321,7 +333,8 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
     const q = logsQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const {
       page,
       pageSize,
@@ -429,9 +442,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return reply.status(401).send(error(401, '未登录'))
     const parsed = redeemBodySchema.safeParse(request.body ?? {})
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {
@@ -447,7 +458,10 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           no_active_key: { status: 404, msg: '您还没有可用的 API Key,请先创建' },
           key_not_found: { status: 404, msg: '指定的 API Key 不存在' },
         }
-        const mapped = reasonMap[result.reason ?? ''] ?? { status: 400, msg: result.reason ?? '兑换失败' }
+        const mapped = reasonMap[result.reason ?? ''] ?? {
+          status: 400,
+          msg: result.reason ?? '兑换失败',
+        }
         return reply.status(mapped.status).send(error(mapped.status, mapped.msg))
       }
       return reply.send(
@@ -633,8 +647,10 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           per_user_limit_exceeded: { status: 409, msg: '已超过每人限领数量' },
           insert_failed: { status: 500, msg: '领取失败' },
         }
-        const mapped =
-          reasonMap[result.reason ?? ''] ?? { status: 400, msg: result.reason ?? '领取失败' }
+        const mapped = reasonMap[result.reason ?? ''] ?? {
+          status: 400,
+          msg: result.reason ?? '领取失败',
+        }
         return reply.status(mapped.status).send(error(mapped.status, mapped.msg))
       }
       return reply.send(success(result.userCoupon))
@@ -664,6 +680,80 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询阶梯计价进度失败'))
+    }
+  })
+
+  // ===== 12. GET /developer/relay/subscriptions — 当前用户订阅状态 + 可订阅方案 =====
+  // 返回 { status: UserSubscriptionStatus, plans: PlanInfo[] }
+  // 复用 api-subscription-service 的 getUserSubscriptionStatus + listApiSubscriptionPlans
+  server.get('/developer/relay/subscriptions', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    try {
+      const [status, planList] = await Promise.all([
+        getUserSubscriptionStatus(userId),
+        listApiSubscriptionPlans(),
+      ])
+      return reply.send(success({ status, plans: planList }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询订阅状态失败'))
+    }
+  })
+
+  // ===== 13. POST /developer/relay/subscriptions/subscribe — 创建订阅订单 =====
+  // body: { planId: string, payMethod: string }
+  // 返回: { orderNo, amount, planId, planName, payMethod, checkoutUrl }
+  // 流程:创建 pending 订单(orderType=6) → 前端跳转 checkoutUrl 支付 →
+  //       支付回调触发 completeOrderWithSaga → activateOrderSubscription → activateApiSubscription
+  // (支付激活链路已在 order-service + api-subscription-service 中实现)
+  const subscribeBodySchema = z.object({
+    planId: z.string().min(1, 'planId 不能为空'),
+    payMethod: z.string().min(1, 'payMethod 不能为空'),
+  })
+  server.post('/developer/relay/subscriptions/subscribe', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const parsed = subscribeBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { planId, payMethod } = parsed.data
+
+    try {
+      // 校验 plan 存在且为 API 订阅方案(复用 listApiSubscriptionPlans 避免直接 import plans 表)
+      const planList = await listApiSubscriptionPlans()
+      const plan = planList.find((p) => p.id === planId)
+      if (!plan) {
+        return reply.status(404).send(error(404, '订阅方案不存在或不可用'))
+      }
+
+      // 创建 pending 订单(orderType=6 = API 订阅,productId=planId)
+      const order = await placeOrder(
+        {
+          userId,
+          amount: plan.price,
+          orderType: 6,
+          productId: planId,
+          payType: payMethod,
+          description: `API 订阅 - ${plan.name}`,
+        },
+        userId,
+      )
+
+      return reply.status(201).send(
+        success({
+          orderNo: order.orderNo,
+          amount: order.amount,
+          planId,
+          planName: plan.name,
+          payMethod,
+          checkoutUrl: `/payment/checkout?orderNo=${encodeURIComponent(order.orderNo)}`,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建订阅订单失败'))
     }
   })
 }
