@@ -1436,6 +1436,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               bytes: { type: 'number' },
               createdAt: { type: 'string' },
               persisted: { type: 'boolean' },
+              // OpenAI Batch API 兼容字段(purpose="batch" 分支)
+              created_at: { type: 'number' },
+              purpose: { type: 'string' },
+              status: { type: 'string' },
             },
           },
           400: errorResponseSchema,
@@ -1464,6 +1468,34 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       const buffer = await data.toBuffer()
       if (buffer.length === 0) {
         return reply.status(400).send(error(400, 'File is empty'))
+      }
+
+      // OpenAI Batch API 兼容:purpose="batch" 时存 Redis 供 batch-worker 读取
+      const purposeField = data.fields?.purpose
+      const purpose = purposeField && typeof purposeField === 'object' && 'value' in purposeField
+        ? String((purposeField as { value: unknown }).value)
+        : undefined
+      if (purpose === 'batch') {
+        const batchFileId = `file-${randomUUID()}`
+        const content = buffer.toString('utf8')
+        try {
+          const { saveBatchInput } = await import('../queue/batch-queue.js')
+          const IORedis = (await import('ioredis')).default
+          const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 2 })
+          await saveBatchInput(redis, batchFileId, content)
+          redis.disconnect()
+          return reply.status(201).send({
+            id: batchFileId,
+            object: 'file',
+            bytes: buffer.length,
+            created_at: Math.floor(Date.now() / 1000),
+            filename: data.filename || `batch-${Date.now()}.jsonl`,
+            purpose: 'batch',
+            status: 'processed',
+          })
+        } catch {
+          return reply.status(500).send(error(500, 'Batch file save failed'))
+        }
       }
 
       const filename = data.filename || `upload-${Date.now()}`
