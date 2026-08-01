@@ -809,7 +809,7 @@
       "expandReasoning": "展開推理過程",
       "collapseReasoning": "摺疊推理過程",
       "jumpToMessage": "跳轉到對應消息",
-      "stepError": "失败"
+      "stepError": "失敗"
     },
     "question": {
       "title": "AI 需要你的回答",
@@ -6612,7 +6612,7 @@
   },
   "publish": {
     "title": "多平臺一鍵發布",
-    "subtitle": "支援 md/docx/html/pdf/圖片/影片 → 14 平臺一鍵發布",
+    "subtitle": "支援 md/docx/html/pdf/圖片/影片 → 38 平臺一鍵發布",
     "riskLevelSafe": "安全",
     "riskLevelLow": "低風險",
     "riskLevelMedium": "中風險",
