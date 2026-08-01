@@ -914,8 +914,8 @@ export function registerRoutes(server: FastifyInstance) {
   // ===== R83 补建: 路径别名 redirect (前端兼容) =====
   // 旧前端调用路径 → 308 Permanent Redirect → 新规范化路径
   // 守门脚本 check-api-migration-completeness.mjs [5/7] + [7/7] 要求 5 个 redirect
-  // 1. /api/agents → /api/agents/list (修复 use-agent.ts:34 404)
-  server.get('/api/agents', async (_req, reply) => reply.redirect('/api/agents/list', 308))
+  // 1. /api/agents — 已删除 redirect(2026-08-01):agents.ts:176 现在直接处理 GET /api/agents,
+  //    redirect 到 /api/agents/list 已过时(冲突 FST_ERR_DUPLICATED_ROUTE)
   // 2. /api/agent-withdrawal-detail → /api/agent-ext/withdrawal/list (旧路由名 → agent-extended.ts)
   server.get('/api/agent-withdrawal-detail', async (_req, reply) =>
     reply.redirect('/api/agent-ext/withdrawal/list', 308),
