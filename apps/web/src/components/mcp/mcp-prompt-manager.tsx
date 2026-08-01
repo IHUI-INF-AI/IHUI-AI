@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Eye, Loader2, Play } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import {
   Button,
@@ -18,10 +18,7 @@ import {
 import { fetchApi } from '@/lib/api'
 
 import { McpResultPreview } from './mcp-result-preview'
-import {
-  type McpToolParameter,
-  McpToolParameterForm,
-} from './mcp-tool-parameter-form'
+import { type McpToolParameter, McpToolParameterForm } from './mcp-tool-parameter-form'
 
 export interface McpPromptArgument {
   name: string
@@ -47,12 +44,8 @@ function promptToFormParams(prompt: McpPrompt): McpToolParameter[] {
 
 export function McpPromptManager() {
   const t = useTranslations('mcp')
-  const [previewPrompt, setPreviewPrompt] = React.useState<McpPrompt | null>(
-    null,
-  )
-  const [executePrompt, setExecutePrompt] = React.useState<McpPrompt | null>(
-    null,
-  )
+  const [previewPrompt, setPreviewPrompt] = React.useState<McpPrompt | null>(null)
+  const [executePrompt, setExecutePrompt] = React.useState<McpPrompt | null>(null)
 
   const { data: prompts, isLoading } = useQuery({
     queryKey: ['mcp', 'prompts'],
@@ -64,10 +57,7 @@ export function McpPromptManager() {
   })
 
   const execMutation = useMutation({
-    mutationFn: async (input: {
-      name: string
-      args: Record<string, unknown>
-    }) => {
+    mutationFn: async (input: { name: string; args: Record<string, unknown> }) => {
       const res = await fetchApi<unknown>(
         `/api/ai/mcp/prompts/${encodeURIComponent(input.name)}/execute`,
         {
@@ -109,9 +99,7 @@ export function McpPromptManager() {
             <Card key={prompt.name}>
               <CardContent className="p-4">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-medium">
-                    {prompt.name}
-                  </span>
+                  <span className="font-mono text-sm font-medium">{prompt.name}</span>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
@@ -134,9 +122,7 @@ export function McpPromptManager() {
                   </div>
                 </div>
                 {prompt.description && (
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    {prompt.description}
-                  </p>
+                  <p className="mb-2 text-xs text-muted-foreground">{prompt.description}</p>
                 )}
                 {prompt.arguments && prompt.arguments.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -157,33 +143,23 @@ export function McpPromptManager() {
         </div>
       )}
 
-      <Dialog
-        open={!!previewPrompt}
-        onOpenChange={(o) => !o && setPreviewPrompt(null)}
-      >
+      <Dialog open={!!previewPrompt} onOpenChange={(o) => !o && setPreviewPrompt(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{previewPrompt?.name}</DialogTitle>
           </DialogHeader>
           {previewPrompt?.description && (
-            <p className="text-sm text-muted-foreground">
-              {previewPrompt.description}
-            </p>
+            <p className="text-sm text-muted-foreground">{previewPrompt.description}</p>
           )}
           {previewPrompt?.arguments && previewPrompt.arguments.length > 0 && (
             <div className="space-y-1">
-              <span className="text-xs font-medium text-muted-foreground">
-                {t('parameters')}
-              </span>
+              <span className="text-xs font-medium text-muted-foreground">{t('parameters')}</span>
               {previewPrompt.arguments.map((arg) => (
                 <div key={arg.name} className="text-xs">
                   <span className="font-mono">{arg.name}</span>
                   {arg.required && <span className="text-destructive">*</span>}
                   {arg.description && (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      — {arg.description}
-                    </span>
+                    <span className="text-muted-foreground"> — {arg.description}</span>
                   )}
                 </div>
               ))}
@@ -197,10 +173,7 @@ export function McpPromptManager() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={!!executePrompt}
-        onOpenChange={(o) => !o && setExecutePrompt(null)}
-      >
+      <Dialog open={!!executePrompt} onOpenChange={(o) => !o && setExecutePrompt(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -223,17 +196,13 @@ export function McpPromptManager() {
               )}
               {execMutation.isSuccess && (
                 <div className="space-y-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {t('result')}
-                  </span>
+                  <span className="text-xs font-medium text-muted-foreground">{t('result')}</span>
                   <McpResultPreview result={execMutation.data} />
                 </div>
               )}
               {execMutation.isError && (
                 <p className="text-xs text-destructive">
-                  {execMutation.error instanceof Error
-                    ? execMutation.error.message
-                    : t('error')}
+                  {execMutation.error instanceof Error ? execMutation.error.message : t('error')}
                 </p>
               )}
             </div>

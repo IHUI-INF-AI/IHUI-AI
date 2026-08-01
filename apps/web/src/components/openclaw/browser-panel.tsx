@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import { Globe, Camera, ExternalLink, Loader2, Wrench, Download, MessageSquare } from 'lucide-react'
 
 import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'

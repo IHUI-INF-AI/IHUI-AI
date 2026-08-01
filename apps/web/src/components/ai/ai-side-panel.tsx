@@ -7,7 +7,7 @@ import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { X, Plus, Minus, Pin, PanelLeft, ChevronUp } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'

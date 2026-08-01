@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { fetchApi } from '@/lib/api'
 

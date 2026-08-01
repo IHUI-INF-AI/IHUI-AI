@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { type AIWSProvider, PROVIDER_PATHS } from '@/hooks/use-ai-websocket'
 import { useAuthStore } from '@/stores/auth'

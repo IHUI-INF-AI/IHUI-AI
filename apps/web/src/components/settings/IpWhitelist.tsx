@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Shield, Plus, Trash2, Loader2 } from 'lucide-react'
 import { z } from 'zod'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
