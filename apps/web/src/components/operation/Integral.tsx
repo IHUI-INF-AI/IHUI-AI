@@ -82,7 +82,7 @@ export function Integral({ className, defaultData }: IntegralProps) {
         </Button>
       </CardHeader>
       <CardContent className="p-4 pt-2">
-        <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-3">
+        <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 rounded-lg bg-muted/40 p-3">
           <div className="text-center">
             <div className="text-xl font-bold tracking-tight">
               {loading ? '—' : data.total.toLocaleString('zh-CN')}
