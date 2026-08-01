@@ -183,7 +183,7 @@ export function AgentDetailCard({ agent }: DetailProps) {
             ))}
           </div>
         )}
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="grid grid-cols-1 gap-2 text-xs min-[768px]:grid-cols-2">
           <div className="rounded-md border p-2">
             <div className="text-muted-foreground">权限模式</div>
             <div className="mt-0.5 font-medium">{agent.permissionMode ?? 'default'}</div>
