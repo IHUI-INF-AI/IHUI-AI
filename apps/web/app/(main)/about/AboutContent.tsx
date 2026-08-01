@@ -71,14 +71,14 @@ export function AboutContent(): React.JSX.Element {
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-4xl font-bold tracking-tight md:text-6xl">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-6xl font-bold tracking-tight">{t('heroTitle')}</h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">
           {t('heroSubtitle')}
         </p>
       </section>
 
       {/* 我们的故事 */}
-      <section className="mt-16 rounded-2xl border bg-card p-8 md:p-12">
+      <section className="mt-8 min-[768px]:mt-16 rounded-2xl border bg-card p-5 min-[768px]:p-8 min-[1024px]:p-12">
         <div className="mb-4 inline-flex items-center gap-2 rounded bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <BookOpen className="h-3.5 w-3.5" />
           {t('storyBadge')}
@@ -136,14 +136,14 @@ export function AboutContent(): React.JSX.Element {
       </section>
 
       {/* 数字见证 */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 md:p-12">
+      <section className="mt-8 min-[768px]:mt-16 rounded-2xl border bg-primary/5 p-5 min-[768px]:p-8 min-[1024px]:p-12">
         <h2 className="text-center text-xl font-bold tracking-tight md:text-2xl">
           {t('numbersTitle')}
         </h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map(({ valueKey, descKey }) => (
             <div key={valueKey} className="text-center">
-              <div className="text-4xl font-bold tracking-tight text-primary md:text-5xl">
+              <div className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight text-primary">
                 {t(valueKey)}
               </div>
               <div className="mt-2 text-sm text-muted-foreground md:text-base">{t(descKey)}</div>
@@ -153,7 +153,7 @@ export function AboutContent(): React.JSX.Element {
       </section>
 
       {/* CTA */}
-      <section className="mt-16 rounded-2xl border bg-card p-8 text-center md:p-12">
+      <section className="mt-8 min-[768px]:mt-16 rounded-2xl border bg-card p-5 min-[768px]:p-8 min-[1024px]:p-12 text-center">
         <Rocket className="mx-auto h-10 w-10 text-primary" />
         <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">

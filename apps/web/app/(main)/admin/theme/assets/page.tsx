@@ -69,7 +69,7 @@ export default function AssetsPage() {
       {error && <Alert variant="danger" description={error} />}
 
       <Card>
-        <CardContent className="grid gap-4 p-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 p-4 min-[640px]:grid-cols-3">
           {UPLOAD_TYPES.map(({ label, type }) => {
             const cur = findByType(type)
             return (
@@ -144,7 +144,7 @@ export default function AssetsPage() {
           {images.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">暂无图片</p>
           ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+            <div className="grid grid-cols-3 gap-2 min-[640px]:grid-cols-4 min-[768px]:grid-cols-6">
               {images.map((a) => (
                 <div
                   key={a.id}

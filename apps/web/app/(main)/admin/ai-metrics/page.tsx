@@ -168,7 +168,7 @@ export default function AiMetricsPage() {
               <p className="text-xs text-muted-foreground">{t('sseMetricsDesc')}</p>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
                 {sseCards.map((c, i) => (
                   <MetricCell key={i} {...c} />
                 ))}
@@ -185,7 +185,7 @@ export default function AiMetricsPage() {
               <p className="text-xs text-muted-foreground">{t('promptCacheDesc')}</p>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
                 {pcCards.map((c, i) => (
                   <MetricCell key={i} {...c} />
                 ))}
@@ -207,7 +207,7 @@ export default function AiMetricsPage() {
               <p className="text-xs text-muted-foreground">{t('vipDiscountDesc')}</p>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
                 <MetricCell label={t('vipApplies')} value={fmtNum(vip?.applies ?? 0)} />
                 <MetricCell label={t('vipTotalDiscounted')} value={fmtNum(vip?.totalDiscounted ?? 0)} />
                 {vipLevels.map(([level, count]) => (

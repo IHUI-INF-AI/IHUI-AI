@@ -259,9 +259,12 @@ def test_parse_docx_uses_mammoth_when_available(monkeypatch, tmp_path):
 
 
 def test_parse_docx_falls_back_to_python_docx(monkeypatch, tmp_path):
-    """mammoth 不可用但 python-docx 可用时降级。"""
-    # mammoth 不安装
-    monkeypatch.delitem(sys.modules, "mammoth", raising=False)
+    """mammoth 不可用但 python-docx 可用时降级。
+
+    用 sys.modules["mammoth"] = None 阻断 import(不能 delitem,否则重新加载
+    真实 mammoth 库导致 convert_to_html 被调用抛 BadZipFile 而非 ImportError)。
+    """
+    monkeypatch.setitem(sys.modules, "mammoth", None)
     _install_fake_docx(monkeypatch, [
         ("第一段", "Normal"),
         ("标题1", "Heading 1"),
