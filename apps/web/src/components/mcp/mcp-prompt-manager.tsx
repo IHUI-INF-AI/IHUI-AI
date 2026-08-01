@@ -104,7 +104,7 @@ export function McpPromptManager() {
           {t('noPrompts')}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {prompts.map((prompt) => (
             <Card key={prompt.name}>
               <CardContent className="p-4">
@@ -116,7 +116,7 @@ export function McpPromptManager() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-9 w-9"
                       onClick={() => setPreviewPrompt(prompt)}
                       title={t('preview')}
                     >
@@ -125,7 +125,7 @@ export function McpPromptManager() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-9 w-9"
                       onClick={() => openExecute(prompt)}
                       title={t('executePrompt')}
                     >

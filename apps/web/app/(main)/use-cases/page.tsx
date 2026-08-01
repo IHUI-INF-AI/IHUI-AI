@@ -74,21 +74,21 @@ export default function UseCasesIndexPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
             用例中心
           </div>
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight min-[768px]:text-5xl">
             4 大核心 AI 用例
           </h1>
-          <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+          <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
             基于 IHUI AI 全栈 AI 操作系统搭建,Apache 2.0 开源,5 分钟上线。
           </p>
         </section>
 
-        <section className="mt-12 grid gap-6 md:grid-cols-2">
+        <section className="mt-12 grid gap-6 min-[768px]:grid-cols-2">
           {USE_CASES.map((uc) => {
             const Icon = uc.icon
             return (

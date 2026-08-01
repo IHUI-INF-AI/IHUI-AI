@@ -147,7 +147,7 @@ export default function BiDashboardPage() {
         <p className="mt-1 text-sm text-muted-foreground">业务核心指标与趋势可视化</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {STAT_CARDS.map((c) => {
           const Icon = c.icon
           return (
@@ -178,7 +178,7 @@ export default function BiDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">分类对比</CardTitle>

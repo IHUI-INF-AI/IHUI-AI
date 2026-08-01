@@ -109,7 +109,7 @@ export function NewsArticleDialog(props: Props) {
               className="min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label htmlFor="art-sort">{t('fieldSort')}</Label>
               <Input

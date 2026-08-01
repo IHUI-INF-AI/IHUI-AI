@@ -82,7 +82,7 @@ export function HeroCarousel({
 
   return (
     <div
-      className="relative flex min-h-[420px] overflow-hidden rounded-2xl border bg-card shadow-sm md:min-h-[480px]"
+      className="relative flex min-h-[420px] overflow-hidden rounded-2xl border bg-card shadow-sm min-[768px]:min-h-[480px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -90,14 +90,14 @@ export function HeroCarousel({
       {slides.map((slide, idx) => (
         <div
           key={idx}
-          className={`absolute inset-0 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-8 transition-opacity duration-700 md:px-16 ${
+          className={`absolute inset-0 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-6 transition-opacity duration-700 min-[768px]:px-16 ${
             idx === current ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <h2 className="max-w-2xl text-3xl font-bold text-white drop-shadow-lg md:text-5xl">
+          <h2 className="max-w-2xl text-2xl font-bold text-white drop-shadow-lg min-[768px]:text-3xl min-[1024px]:text-5xl">
             {t(slide.titleKey)}
           </h2>
-          <p className="mt-3 max-w-xl text-sm text-white/85 md:text-lg">{t(slide.subtitleKey)}</p>
+          <p className="mt-3 max-w-xl text-sm text-white/85 min-[768px]:text-lg">{t(slide.subtitleKey)}</p>
           <Link href={slide.href} className="mt-6 inline-block w-fit">
             <Button
               size="lg"

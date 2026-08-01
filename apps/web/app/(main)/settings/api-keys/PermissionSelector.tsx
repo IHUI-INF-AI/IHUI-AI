@@ -50,7 +50,7 @@ export function PermissionSelector({ value, onChange, disabled }: Props) {
   }
 
   return (
-    <div className="grid grid-cols: any-2 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
       {API_KEY_PERMISSIONS.map((perm) => {
         const checked = value.includes(perm)
         return (

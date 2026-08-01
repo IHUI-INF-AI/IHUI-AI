@@ -30,14 +30,14 @@ export default function I18nDashboardPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Globe className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">国际化数据看板</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">国际化数据看板</h1>
         </div>
         <p className="text-xs text-muted-foreground">
           5 种语言翻译进度概览 · 平均完成度 {avgCompletion}%
         </p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">语言数量</CardTitle>
@@ -80,7 +80,7 @@ export default function I18nDashboardPage() {
           加载中...
         </div>
       ) : (
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {d.languages.map((lang) => (
             <Card key={lang.locale}>
               <CardContent className="flex items-center gap-4 p-4">

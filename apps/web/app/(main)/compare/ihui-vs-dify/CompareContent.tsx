@@ -3008,7 +3008,7 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
           <Layers className="h-3.5 w-3.5 text-primary" />
           深度对比
         </div>
-        <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           IHUI AI vs {config.name}
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">

@@ -38,45 +38,45 @@ export function HomeComparison() {
       {/* 编辑式章节标题 */}
       <RevealOnView as="div" className="relative space-y-1.5 text-center">
         <div
-          className="font-edix pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 select-none text-[120px] font-bold leading-none tracking-tighter text-foreground animate-mag-section-breathe sm:text-[160px]"
+          className="font-edix pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2 select-none text-[120px] font-bold leading-none tracking-tighter text-foreground animate-mag-section-breathe min-[640px]:text-[160px]"
           aria-hidden="true"
         >
           05
         </div>
-        <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
+        <h2 className="text-2xl font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
         <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
-        <p className="mx-auto max-w-3xl text-sm text-muted-foreground sm:text-base">
+        <p className="mx-auto max-w-3xl text-sm text-muted-foreground min-[640px]:text-base">
           {t('subtitle')}
         </p>
       </RevealOnView>
 
       <RevealOnView as="div" delay={0.1} className="overflow-hidden rounded-lg border">
-        <table className="w-full text-left text-xs sm:text-sm">
+        <table className="w-full text-left text-xs min-[640px]:text-sm">
           <thead className="bg-muted/50">
             <tr>
-              <th className="px-3 py-3 font-semibold sm:px-4 sm:py-3.5">
+              <th className="px-3 py-3 font-semibold min-[640px]:px-4 min-[640px]:py-3.5">
                 <span className="font-edix text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                   {t('colFeature')}
                 </span>
               </th>
-              <th className="bg-primary/8 px-3 py-3 font-semibold text-primary sm:px-4 sm:py-3.5">
+              <th className="bg-primary/8 px-3 py-3 font-semibold text-primary min-[640px]:px-4 min-[640px]:py-3.5">
                 <span className="font-edix text-[10px] uppercase tracking-[0.15em]">
                   {t('colUs')}
                 </span>
               </th>
-              <th className="px-3 py-3 font-semibold sm:px-4 sm:py-3.5">
+              <th className="px-3 py-3 font-semibold min-[640px]:px-4 min-[640px]:py-3.5">
                 <span className="font-edix text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                   {t('colClaude')}
                 </span>
               </th>
-              <th className="px-3 py-3 font-semibold sm:px-4 sm:py-3.5">
+              <th className="px-3 py-3 font-semibold min-[640px]:px-4 min-[640px]:py-3.5">
                 <span className="font-edix text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                   {t('colCursor')}
                 </span>
               </th>
-              <th className="px-3 py-3 font-semibold sm:px-4 sm:py-3.5">
+              <th className="px-3 py-3 font-semibold min-[640px]:px-4 min-[640px]:py-3.5">
                 <span className="font-edix text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
                   {t('colChatgpt')}
                 </span>
@@ -99,7 +99,7 @@ export function HomeComparison() {
                   className="group/row relative border-t border-border/50 transition-colors duration-200 hover:bg-primary/3"
                 >
                   {/* hover 左侧 accent bar */}
-                  <td className="relative px-3 py-3 font-medium sm:px-4 sm:py-3.5">
+                  <td className="relative px-3 py-3 font-medium min-[640px]:px-4 min-[640px]:py-3.5">
                     <span
                       className="absolute left-0 top-1/2 h-0 w-0.5 -translate-y-1/2 bg-primary transition-all duration-300 group-hover/row:h-3/4"
                       aria-hidden="true"
@@ -109,7 +109,7 @@ export function HomeComparison() {
                     </span>
                     {feature}
                   </td>
-                  <td className="bg-primary/5 px-3 py-3 font-medium text-primary transition-colors duration-200 group-hover/row:bg-primary/8 sm:px-4 sm:py-3.5">
+                  <td className="bg-primary/5 px-3 py-3 font-medium text-primary transition-colors duration-200 group-hover/row:bg-primary/8 min-[640px]:px-4 min-[640px]:py-3.5">
                     <div className="flex items-center gap-1.5">
                       <Check
                         className="h-3.5 w-3.5 shrink-0 text-primary transition-transform duration-300 group-hover/row:scale-125"
@@ -118,7 +118,7 @@ export function HomeComparison() {
                       <span>{us}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-muted-foreground sm:px-4 sm:py-3.5">
+                  <td className="px-3 py-3 text-muted-foreground min-[640px]:px-4 min-[640px]:py-3.5">
                     <div className="flex items-center gap-1.5">
                       {claude === '无' ? (
                         <X
@@ -129,7 +129,7 @@ export function HomeComparison() {
                       <span>{claude}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-muted-foreground sm:px-4 sm:py-3.5">
+                  <td className="px-3 py-3 text-muted-foreground min-[640px]:px-4 min-[640px]:py-3.5">
                     <div className="flex items-center gap-1.5">
                       {cursor === '无' ? (
                         <X
@@ -140,7 +140,7 @@ export function HomeComparison() {
                       <span>{cursor}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-muted-foreground sm:px-4 sm:py-3.5">
+                  <td className="px-3 py-3 text-muted-foreground min-[640px]:px-4 min-[640px]:py-3.5">
                     <div className="flex items-center gap-1.5">
                       {chatgpt === '无' ? (
                         <X

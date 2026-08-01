@@ -447,7 +447,7 @@ export default function AdminTopupConfigPage() {
             </Button>
           </div>
           {previewResult && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
               <div className="rounded-md border border-border bg-muted/30 p-3">
                 <div className="text-xs text-muted-foreground">命中倍率</div>
                 <div className="text-lg font-semibold tabular-nums">

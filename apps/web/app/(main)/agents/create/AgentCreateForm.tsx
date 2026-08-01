@@ -66,7 +66,7 @@ export function AgentCreateForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[640px]:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="ag-avatar">{t('fieldAvatar')}</Label>
           <Input
@@ -87,7 +87,7 @@ export function AgentCreateForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[640px]:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="ag-cat">{t('fieldCategory')}</Label>
           <Select value={form.categoryId} onValueChange={(v) => update('categoryId', v)}>
@@ -120,7 +120,7 @@ export function AgentCreateForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 min-[640px]:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor="ag-price">{t('fieldPrice')}</Label>
           <Input

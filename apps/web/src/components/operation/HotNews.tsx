@@ -114,7 +114,7 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
                       <Eye className="h-3 w-3" />
                       {formatViews(item.viewCount, t('tenK'))}
                     </span>
-                    <time className="hidden shrink-0 text-xs text-muted-foreground/70 sm:block">
+                    <time className="hidden shrink-0 text-xs text-muted-foreground/70 min-[640px]:block">
                       {dateFmt.format(new Date(item.publishedAt))}
                     </time>
                   </Link>

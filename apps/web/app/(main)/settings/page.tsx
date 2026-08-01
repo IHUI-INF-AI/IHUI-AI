@@ -57,14 +57,14 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="appearance" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 min-[640px]:grid-cols-3">
           <TabsTrigger value="appearance">{t('appearance')}</TabsTrigger>
           <TabsTrigger value="security">{t('securityCenter')}</TabsTrigger>
           <TabsTrigger value="more">{t('subPagesTitle')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="appearance" className="mt-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <ThemeCard t={t} mounted={mounted} theme={theme} onSelect={(k) => setTheme(k)} />
             <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
             <SidebarCard t={t} collapsed={collapsed} onToggle={toggleCollapsed} />
@@ -76,7 +76,7 @@ export default function SettingsPage() {
 
         <TabsContent value="security" className="mt-3">
           <Alert variant="info" title={t('securityCenter')} closable />
-          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mt-2 grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <SecurityScore />
             <TwoFactorAuth />
             <DeviceManager />
@@ -87,7 +87,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="more" className="mt-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             <Link href="/settings/api-keys">
               <Card className="transition-colors hover:bg-accent">
                 <CardContent className="flex items-start gap-2 p-3">

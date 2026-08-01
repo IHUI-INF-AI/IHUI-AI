@@ -97,7 +97,7 @@ export default function ApiDebugPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('apiDebug.subtitle')}</p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 min-[1024px]:grid-cols-2">
         <ApiDebugFilter
           method={method}
           setMethod={setMethod}

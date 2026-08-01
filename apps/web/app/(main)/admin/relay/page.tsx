@@ -180,7 +180,7 @@ export default function AdminRelayOverviewPage() {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {STATS.map((s) => (
           <Card key={s.key}>
             <CardHeader className="pb-2">
@@ -202,7 +202,7 @@ export default function AdminRelayOverviewPage() {
         ))}
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
@@ -312,7 +312,7 @@ export default function AdminRelayOverviewPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {[
           { href: '/admin/relay/models', label: '模型管理', desc: '上下架 / 定价 / 排序', icon: Package },
           { href: '/admin/relay/key-pool', label: 'Key 池', desc: '调度 / 健康检查', icon: KeyRound },
