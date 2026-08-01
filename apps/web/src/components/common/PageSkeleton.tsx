@@ -21,7 +21,7 @@ export function PageSkeleton({ hasHeader = true, className }: PageSkeletonProps)
           </div>
         </div>
       )}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 tablet-lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={`skel-${i}`} className="rounded-xl border p-4 shadow">
             <div className="mb-3 h-10 w-10 animate-pulse rounded-lg bg-muted" />

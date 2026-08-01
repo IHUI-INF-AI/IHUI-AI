@@ -244,7 +244,7 @@ export function SiteFooter({ className }: { className?: string }) {
     // - 备案图标 h-5 w-5(从 h-4 w-4 放大 4px,清晰可见)
     // - 取消 max-w-7xl mx-auto,撑满 w-full,与 page-7 容器左右对齐
     <footer
-      className={`border-t bg-card/50 px-4 py-2 md:px-8 md:py-3${className ? ` ${className}` : ''}`}
+      className={`border-t bg-card/50 px-4 py-2 min-[768px]:px-8 min-[768px]:py-3${className ? ` ${className}` : ''}`}
     >
       <div className="flex w-full flex-col gap-1.5">
         {/* Row 1: 3 栏布局(v10 — 2026-07-30 配合 footer 拉高放宽)
@@ -296,7 +296,7 @@ export function SiteFooter({ className }: { className?: string }) {
               - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1 */}
           <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
-            <div className="grid grid-cols-2 gap-1 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-1 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-5">
               {ECOSYSTEM_GROUPS.map((g) => (
                 <div key={g.titleKey} className="space-y-1">
                   <h5 className="text-[11px] font-medium text-foreground/50">{t(g.titleKey)}</h5>

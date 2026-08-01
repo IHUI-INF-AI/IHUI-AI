@@ -1069,8 +1069,8 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
-      <aside className="hidden w-52 shrink-0 self-start lg:sticky lg:top-4 lg:block">
+    <div className="flex flex-col gap-4 min-[1024px]:gap-6 min-[1024px]:flex-row">
+      <aside className="hidden w-52 shrink-0 self-start min-[1024px]:sticky min-[1024px]:top-4 min-[1024px]:block">
         <div className="mb-4 flex items-center gap-2 px-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <ShieldCheck className="h-5 w-5" />
@@ -1085,7 +1085,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
 
-      <nav className="flex flex-wrap gap-1 rounded-md bg-muted/40 p-2 pb-2 lg:hidden">
+      <nav className="flex flex-wrap gap-1 rounded-md bg-muted/40 p-2 pb-2 min-[1024px]:hidden">
         {flatItems.map((item) => renderItem(item, isActive(item.href), true))}
         {ADMIN_NAV_GROUPS.flatMap((g) => g.items).map((item) =>
           renderItem(item, isActive(item.href), true),

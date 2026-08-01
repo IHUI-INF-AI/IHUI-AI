@@ -15,7 +15,7 @@ interface DescriptionListProps {
 const colMap = {
   1: 'grid-cols-1',
   2: 'grid-cols-1 sm:grid-cols-2',
-  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  3: 'grid-cols-1 sm:grid-cols-2 tablet-lg:grid-cols-3',
 }
 
 export function DescriptionList({ items, column = 2, className }: DescriptionListProps) {
