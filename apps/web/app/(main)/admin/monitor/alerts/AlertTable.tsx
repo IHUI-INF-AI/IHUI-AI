@@ -87,7 +87,7 @@ export function AlertTable({
                       {STATUS_LABEL[a.status]}
                     </span>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                     {formatDate(a.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">

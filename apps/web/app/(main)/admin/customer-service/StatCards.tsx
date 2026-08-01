@@ -33,8 +33,8 @@ export function StatCards({ stats }: { stats: CsStats }) {
         <div key={c.key} className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <c.icon className={cn('h-5 w-5', c.cls)} />
           <div>
-            <p className="text-lg font-semibold">{c.value(stats)}</p>
-            <p className="text-xs text-muted-foreground">{c.label}</p>
+            <p className="text-lg font-semibold tabular-nums">{c.value(stats)}</p>
+            <p className="text-xs whitespace-nowrap text-muted-foreground">{c.label}</p>
           </div>
         </div>
       ))}

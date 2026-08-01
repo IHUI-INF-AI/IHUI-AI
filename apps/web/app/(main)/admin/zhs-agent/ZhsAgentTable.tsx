@@ -59,13 +59,13 @@ export function ZhsAgentTable({ list, isLoading, onEdit, onDelete }: Props) {
                     <span className="text-muted-foreground">-</span>
                   )}
                 </TableCell>
-                <TableCell className="px-4 py-2.5">{item.consume || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.seqencing ?? '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.price || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.typeName || item.type || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5">{item.heat || '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">{item.consume || '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">{item.seqencing ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">{item.price || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap px-4 py-2.5">{item.typeName || item.type || '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">{item.heat || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1">
                     <HasPermi code="ai:zhsagent:edit">
                       <Tooltip content="编辑">
                         <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
