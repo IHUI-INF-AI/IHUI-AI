@@ -134,9 +134,7 @@ function parseSseFrame(frame: string): SSEEvent | null {
   }
 }
 
-export function useAgentStream(
-  options: UseAgentStreamOptions,
-): UseAgentStreamReturn {
+export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamReturn {
   const { threadId, onEvent, onInterrupt, onDone, onError, autoReconnect = false } = options
 
   const [state, setState] = useState<StreamState>(initialState)
@@ -153,6 +151,9 @@ export function useAgentStream(
   const autoReconnectRef = useRef(autoReconnect)
   autoReconnectRef.current = autoReconnect
   const receivedDoneRef = useRef(false)
+  // 2026-08-02 修复 Bug #12:跟踪是否收到过任何事件,
+  // stream 正常结束(done=true)但无 done event 时,只在完全没收到事件才重连
+  const receivedAnyEventRef = useRef(false)
   const userStoppedRef = useRef(false)
   const lastInputRef = useRef<Record<string, unknown> | undefined>(undefined)
   const reconnectAttemptRef = useRef(0)
@@ -204,6 +205,7 @@ export function useAgentStream(
       clearReconnectTimer()
       // 重置重连标志(每次主动 start 都视为新会话)
       receivedDoneRef.current = false
+      receivedAnyEventRef.current = false
       userStoppedRef.current = false
       lastInputRef.current = input
       // 主动 start 时重置重连计数(但重连内部调用 start 时不重置)
@@ -212,18 +214,29 @@ export function useAgentStream(
         setReconnectAttempt(0)
       }
 
-      const query = input
-        ? `?input=${encodeURIComponent(JSON.stringify(input))}`
-        : ''
+      const query = input ? `?input=${encodeURIComponent(JSON.stringify(input))}` : ''
       const url = `/api/agent-langgraph/${threadId}/stream${query}`
 
       const controller = new AbortController()
       abortRef.current = controller
 
-      setState((s) => ({ ...initialState, events: s.events }))
+      // 2026-08-02 修复 Bug #13:重连时保留累积的 content/lastState/lastPlan,
+      // 避免服务端只发增量 token 时重连后 content 从空开始累积导致内容不连续
+      if (reconnectAttemptRef.current === 0) {
+        setState(initialState)
+      } else {
+        setState((s) => ({
+          ...initialState,
+          events: s.events,
+          content: s.content,
+          lastState: s.lastState,
+          lastPlan: s.lastPlan,
+        }))
+      }
       setIsStreaming(true)
 
       const dispatch = (evt: SSEEvent) => {
+        receivedAnyEventRef.current = true
         setState((prev) => {
           const events = [...prev.events, evt]
           // 截断保留最近 MAX_EVENTS 条
@@ -349,8 +362,12 @@ export function useAgentStream(
               idx = buffer.indexOf('\n\n')
             }
           }
-          // stream 正常结束但未收到 done event → 可能是 server 主动关闭,尝试重连
-          tryReconnect()
+          // 2026-08-02 修复 Bug #12:stream 正常结束但未收到 done event
+          // 只在完全没收到任何事件时才重连(真正的连接问题),
+          // 收到过事件但无 done → 视为服务端正常关闭流(忘记发 done),不重连
+          if (!receivedAnyEventRef.current) {
+            tryReconnect()
+          }
         } catch (err) {
           if (controller.signal.aborted) {
             // 主动 stop,不报错

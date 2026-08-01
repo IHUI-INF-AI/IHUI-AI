@@ -230,9 +230,7 @@ export function useTerminalSession() {
     async (sessionId: string, name: string): Promise<boolean> => {
       const trimmed = name.trim()
       // 乐观更新 store
-      const prev = useTerminalStore
-        .getState()
-        .sessions.find((s) => s.id === sessionId)?.name
+      const prev = useTerminalStore.getState().sessions.find((s) => s.id === sessionId)?.name
       renameSessionInStore(sessionId, trimmed)
       try {
         const body: TerminalRenameInput = { name: trimmed }
@@ -259,12 +257,15 @@ export function useTerminalSession() {
 
   /** 创建 WebSocket 连接(供 terminal-panel 组件使用) */
   const connectWS = React.useCallback(
-    (sessionId: string, handlers: {
-      onMessage?: (msg: TerminalWSServerMessage) => void
-      onOpen?: () => void
-      onClose?: () => void
-      onError?: (err: string) => void
-    }): TerminalWSHandle => {
+    (
+      sessionId: string,
+      handlers: {
+        onMessage?: (msg: TerminalWSServerMessage) => void
+        onOpen?: () => void
+        onClose?: () => void
+        onError?: (err: string) => void
+      },
+    ): TerminalWSHandle => {
       if (!token) {
         return { ws: null, send: () => {}, close: () => {}, readyState: WebSocket.CLOSED }
       }
@@ -276,32 +277,36 @@ export function useTerminalSession() {
       const maxReconnectAttempts = 5
       let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
+      // 2026-08-02 修复:handle 在 connect 外部创建一次,避免重连时创建新 handle
+      // 导致返回给调用方的 handle.ws 永远指向第一次(已关闭)的 WebSocket
+      const handle: TerminalWSHandle = {
+        ws: null,
+        send: (msg: unknown) => {
+          if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(msg))
+          }
+        },
+        close: () => {
+          closedByUser = true
+          if (reconnectTimer) {
+            clearTimeout(reconnectTimer)
+            reconnectTimer = null
+          }
+          if (ws && ws.readyState !== WebSocket.CLOSED) {
+            ws.close(1000, 'client disconnect')
+          }
+        },
+        readyState: WebSocket.CLOSED,
+      }
+
       const connect = () => {
         try {
           ws = new WebSocket(buildWsUrl(sessionId, token))
+          // 同步更新 handle.ws,保证调用方拿到的始终是当前活跃连接
+          handle.ws = ws
         } catch (e) {
           handlers.onError?.((e as Error).message)
           return
-        }
-
-        const handle: TerminalWSHandle = {
-          ws,
-          send: (msg: unknown) => {
-            if (ws?.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(msg))
-            }
-          },
-          close: () => {
-            closedByUser = true
-            if (reconnectTimer) {
-              clearTimeout(reconnectTimer)
-              reconnectTimer = null
-            }
-            if (ws && ws.readyState !== WebSocket.CLOSED) {
-              ws.close(1000, 'client disconnect')
-            }
-          },
-          readyState: ws.readyState,
         }
 
         ws.onopen = () => {
@@ -337,12 +342,10 @@ export function useTerminalSession() {
             handlers.onError?.('WebSocket 连接失败(已达最大重连次数)')
           }
         }
-
-        return handle
       }
 
-      const handle = connect()
-      if (!handle) {
+      connect()
+      if (!ws) {
         return { ws: null, send: () => {}, close: () => {}, readyState: WebSocket.CLOSED }
       }
 
@@ -352,32 +355,27 @@ export function useTerminalSession() {
   )
 
   /** 获取会话 scrollback(REST,用于前端独立恢复历史输出) */
-  const getScrollback = React.useCallback(
-    async (sessionId: string): Promise<string[]> => {
-      try {
-        const result = await fetchApi<TerminalScrollbackResponse>(
-          `/terminal/sessions/${sessionId}/scrollback`,
-        )
-        if (result.success) {
-          return result.data.lines
-        }
-        return []
-      } catch {
-        /* 路由未注册或服务端降级,返回空 */
-        return []
+  const getScrollback = React.useCallback(async (sessionId: string): Promise<string[]> => {
+    try {
+      const result = await fetchApi<TerminalScrollbackResponse>(
+        `/terminal/sessions/${sessionId}/scrollback`,
+      )
+      if (result.success) {
+        return result.data.lines
       }
-    },
-    [],
-  )
+      return []
+    } catch {
+      /* 路由未注册或服务端降级,返回空 */
+      return []
+    }
+  }, [])
 
   /** 列出最近 7 天的历史会话(REST,从 Redis 扫描 terminal:session:* keys) */
   const listHistorySessions = React.useCallback(async (): Promise<
     TerminalHistoryListResponse['sessions']
   > => {
     try {
-      const result = await fetchApi<TerminalHistoryListResponse>(
-        '/terminal/sessions/history',
-      )
+      const result = await fetchApi<TerminalHistoryListResponse>('/terminal/sessions/history')
       if (result.success) {
         return result.data.sessions
       }
@@ -395,7 +393,10 @@ export function useTerminalSession() {
    * LLM 不可用时服务端返回 503 + errorCode='ai_unavailable',此处返回 null + 写入 aiError。
    */
   const suggestCommand = React.useCallback(
-    async (sessionId: string, input: TerminalSuggestInput): Promise<TerminalSuggestResponse | null> => {
+    async (
+      sessionId: string,
+      input: TerminalSuggestInput,
+    ): Promise<TerminalSuggestResponse | null> => {
       setAiSuggestLoading(true)
       setAiError(null)
       try {
@@ -425,7 +426,10 @@ export function useTerminalSession() {
    * 命令失败时由 terminal-panel 自动触发,诊断结果写入 store 浮层。
    */
   const diagnoseError = React.useCallback(
-    async (sessionId: string, input: TerminalDiagnoseInput): Promise<TerminalDiagnoseResponse | null> => {
+    async (
+      sessionId: string,
+      input: TerminalDiagnoseInput,
+    ): Promise<TerminalDiagnoseResponse | null> => {
       setAiDiagnoseLoading(true)
       setAiError(null)
       try {
@@ -598,11 +602,18 @@ export function useTerminalSession() {
           // 更新列表项的 eventCount + title
           const r = result.data.recording
           setRecordings(
-            useTerminalStore.getState().recordings.map((item) =>
-              item.id === recordingId
-                ? { ...item, eventCount: r.events.length, title: r.title, durationMs: r.durationMs }
-                : item,
-            ),
+            useTerminalStore
+              .getState()
+              .recordings.map((item) =>
+                item.id === recordingId
+                  ? {
+                      ...item,
+                      eventCount: r.events.length,
+                      title: r.title,
+                      durationMs: r.durationMs,
+                    }
+                  : item,
+              ),
           )
           return true
         }
@@ -718,8 +729,7 @@ export function useTerminalSession() {
 
   /** 获取 session 的分屏方向 */
   const getSplitDirection = React.useCallback(
-    (sessionId: string): TerminalSplitDirection =>
-      getSplitDirectionInStore(sessionId),
+    (sessionId: string): TerminalSplitDirection => getSplitDirectionInStore(sessionId),
     [getSplitDirectionInStore],
   )
 

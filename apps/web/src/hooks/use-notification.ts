@@ -141,20 +141,36 @@ export function useNotification(): UseNotificationReturn {
   )
 
   const markAsRead = React.useCallback(async (id: string) => {
-    const prev = notificationsRef.current
+    // 2026-08-02 修复:用 ref 同步读取快照,回滚时只撤销该 id 的 isRead,
+    // 不覆盖整个数组(避免丢失乐观更新与回滚之间到达的新 WS 通知)
+    const snapshot = notificationsRef.current
     setNotifications((p) => p.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
     // 后端 PATCH /api/notifications/:id/read (notifications.ts:176)
     const res = await fetchApi(`/api/notifications/${id}/read`, { method: 'PATCH' })
     if (!mountedRef.current) return
-    if (!res.success) setNotifications(prev)
+    if (!res.success) {
+      const original = snapshot.find((s) => s.id === id)
+      if (original) {
+        setNotifications((current) =>
+          current.map((n) => (n.id === id ? { ...n, isRead: original.isRead } : n)),
+        )
+      }
+    }
   }, [])
 
   const clearAll = React.useCallback(async () => {
-    const prev = notificationsRef.current
+    // 2026-08-02 修复:回滚时把被清空的通知 prepend 回来,按 id 去重避免覆盖新通知
+    const snapshot = notificationsRef.current
     setNotifications([])
     const res = await fetchApi('/api/notifications', { method: 'DELETE' })
     if (!mountedRef.current) return
-    if (!res.success) setNotifications(prev)
+    if (!res.success) {
+      setNotifications((current) => {
+        const existingIds = new Set(current.map((n) => n.id))
+        const restored = snapshot.filter((n) => !existingIds.has(n.id))
+        return [...restored, ...current]
+      })
+    }
   }, [])
 
   return {
