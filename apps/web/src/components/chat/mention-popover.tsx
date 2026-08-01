@@ -34,7 +34,7 @@ export function MentionChips() {
         return (
           <span
             key={m.id}
-            className="inline-flex h-6 items-center gap-1 rounded bg-muted px-2 text-xs text-muted-foreground"
+            className="inline-flex h-6 items-center gap-1 whitespace-nowrap rounded bg-muted px-2 text-xs text-muted-foreground"
           >
             <Icon className="h-3 w-3 shrink-0" />
             <span className="max-w-[12rem] truncate">{m.label}</span>

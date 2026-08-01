@@ -31,7 +31,7 @@ function Highlight({ text, keyword }: { text: string; keyword: string }) {
 
 function EmptyState({ icon: Icon, text }: { icon: IconType; text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
+    <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
       <Icon className="h-8 w-8 opacity-40" />
       <p className="text-sm">{text}</p>
     </div>
@@ -51,10 +51,10 @@ function ResultGroup({
 }) {
   return (
     <section className="space-y-2">
-      <h2 className="flex items-center gap-2 text-sm font-semibold">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        {title}
-        <span className="text-muted-foreground">({count})</span>
+      <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="truncate whitespace-nowrap">{title}</span>
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">({count})</span>
       </h2>
       {children}
     </section>
@@ -86,7 +86,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
   if (!q.trim()) return <EmptyState icon={Search} text={t('emptyKeyword')} />
   if (isLoading)
     return (
-      <div className="py-10 text-center text-muted-foreground">
+      <div className="whitespace-nowrap py-10 text-center text-muted-foreground">
         <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
         {t('loading')}
       </div>
@@ -108,11 +108,11 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
                       <User className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <CardTitle className="text-sm">
+                      <CardTitle className="truncate text-sm">
                         <Highlight text={u.nickname} keyword={q} />
                       </CardTitle>
                       {u.bio && (
-                        <CardDescription className="text-xs">
+                        <CardDescription className="line-clamp-2 text-xs">
                           <Highlight text={u.bio} keyword={q} />
                         </CardDescription>
                       )}

@@ -23,8 +23,8 @@ export function LanguageCard({ t, locale, onSelect }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Languages className="h-4 w-4" />
-          {t('language')}
+          <Languages className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">{t('language')}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -42,9 +42,9 @@ export function LanguageCard({ t, locale, onSelect }: Props) {
                     : 'hover:bg-accent hover:text-accent-foreground',
                 )}
               >
-                <Globe className="h-4 w-4" />
-                {item.label}
-                {active && <Check className="h-4 w-4" />}
+                <Globe className="h-4 w-4 shrink-0" />
+                <span className="whitespace-nowrap">{item.label}</span>
+                {active && <Check className="h-4 w-4 shrink-0" />}
               </button>
             )
           })}

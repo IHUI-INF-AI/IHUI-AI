@@ -49,12 +49,14 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="font-medium">{tx.source}</span>
+                    <span className="max-w-[180px] truncate font-medium" title={tx.source}>
+                      {tx.source}
+                    </span>
                   </div>
                 </td>
                 <td
                   className={cn(
-                    'px-4 py-2 text-right font-medium',
+                    'px-4 py-2 text-right font-medium tabular-nums',
                     positive
                       ? 'text-emerald-600 dark:text-emerald-400'
                       : 'text-red-600 dark:text-red-400',
@@ -63,13 +65,13 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
                   {positive ? '+' : ''}
                   {tx.amount}
                 </td>
-                <td className="hidden px-4 py-2 text-right text-muted-foreground min-[640px]:table-cell">
+                <td className="hidden px-4 py-2 text-right tabular-nums text-muted-foreground min-[640px]:table-cell">
                   {tx.balanceAfter}
                 </td>
                 <td className="hidden px-4 py-2 text-muted-foreground min-[768px]:table-cell">
                   {tx.description ?? '-'}
                 </td>
-                <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                <td className="whitespace-nowrap px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">
                   {fmt(tx.createdAt)}
                 </td>
               </tr>
