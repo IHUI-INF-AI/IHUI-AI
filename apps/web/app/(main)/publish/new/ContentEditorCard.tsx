@@ -15,6 +15,7 @@ import { Upload } from 'lucide-react'
 import { Card, CardContent, Input, Label, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@ihui/ui-react'
 import { CONTENT_FORMAT_KEY } from '../helpers'
 import { UploadProgress } from '@/components/publish/UploadProgress'
+import { RichTextEditor } from '@/components/publish/RichTextEditor'
 
 const FORMATS = ['md', 'docx', 'html', 'pdf', 'image', 'video'] as const
 type Format = (typeof FORMATS)[number]
@@ -103,7 +104,13 @@ export function ContentEditorCard({
         </div>
         <div className="space-y-2">
           <Label>{isTextFormat ? t('new.contentText') : t('new.uploadFile')}</Label>
-          {isTextFormat ? (
+          {format === 'md' ? (
+            <RichTextEditor
+              value={textContent}
+              onChange={onTextContentChange}
+              placeholder={t('new.contentTextPlaceholder')}
+            />
+          ) : format === 'html' ? (
             <textarea
               value={textContent}
               onChange={(e) => onTextContentChange(e.target.value)}

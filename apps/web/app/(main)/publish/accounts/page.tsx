@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, QrCode } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, QrCode, Upload, ShieldCheck } from 'lucide-react'
 import {
   Button, Card, CardContent, Input, Label,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -15,6 +15,9 @@ import { CredentialGuide } from '@/components/publish/CredentialGuide'
 import { PLATFORM_SCHEMAS, getPlatformSchema, normalizeCredentials } from '@/lib/publish/platform-schemas'
 import { ScanLoginDialog } from './ScanLoginDialog'
 import { RiskBadge, type RiskLevel } from '@/components/publish/RiskBadge'
+import { CookieHealthIndicator } from '@/components/publish/CookieHealthIndicator'
+import { BatchImportDialog } from '@/components/publish/BatchImportDialog'
+import { AccountGroupManager } from '@/components/publish/AccountGroupManager'
 
 /** 扩展 PublishAccount 加入风控字段(API 暂未返回时 riskLevel 为 undefined → 显示"未评估") */
 interface AccountWithRisk extends PublishAccount {
@@ -33,14 +36,11 @@ const ACCOUNTS_STATUS_KEY: Record<PublishAccount['status'], string> = {
   disabled: 'accounts.statusDisabled',
   expired: 'accounts.statusExpired',
 }
-const TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Shanghai',
-})
 
 export default function AccountsPage() {
   const t = useTranslations('publish')
   const tc = useTranslations('common')
-  const { accounts, loading, saving, verifyingId, create, update, verify, remove, reload } = usePublishAccounts()
+  const { accounts, loading, saving, verifyingId, batchVerifying, create, update, verify, remove, batchVerify, reload } = usePublishAccounts()
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<PublishAccount | null>(null)
   const [form, setForm] = React.useState({ platform: 'wordpress', nickname: '' })
@@ -49,6 +49,7 @@ export default function AccountsPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<PublishAccount | null>(null)
   const [scanOpen, setScanOpen] = React.useState(false)
   const [scanDefaultPlatform, setScanDefaultPlatform] = React.useState<string | undefined>(undefined)
+  const [batchOpen, setBatchOpen] = React.useState(false)
 
   const pendingPlatforms = React.useMemo(
     () => {
@@ -96,6 +97,13 @@ export default function AccountsPage() {
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => openScanLogin()}>
             <QrCode className="h-4 w-4" />{t('accounts.scanLogin')}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setBatchOpen(true)}>
+            <Upload className="h-4 w-4" />{t('accounts.batchImport')}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void batchVerify()} disabled={batchVerifying || accounts.length === 0}>
+            {batchVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {t('accounts.batchVerify')}
           </Button>
           <Button size="sm" onClick={() => openAdd()}><Plus className="h-4 w-4" />{t('accounts.add')}</Button>
         </div>
@@ -165,9 +173,7 @@ export default function AccountsPage() {
                         {t('riskNotEvaluated')}
                       </span>
                     )}
-                    <span className="text-xs text-muted-foreground">
-                      {t('accounts.lastVerified')}: {a.lastVerifiedAt ? TIME_FMT.format(new Date(a.lastVerifiedAt)) : '-'}
-                    </span>
+                    <CookieHealthIndicator accountId={a.id} compact={false} onRefreshed={() => void reload()} />
                   </div>
                   <div className="flex flex-wrap gap-1">
                     <Button size="sm" variant="outline" onClick={() => verify(a.id)} disabled={isVerifying} className="h-7 text-xs">
@@ -190,6 +196,10 @@ export default function AccountsPage() {
             )
           })}
         </div>
+      )}
+
+      {!loading && accounts.length > 0 && (
+        <AccountGroupManager accounts={accounts} />
       )}
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !saving && setDialogOpen(o)}>
@@ -242,6 +252,12 @@ export default function AccountsPage() {
         onOpenChange={setScanOpen}
         onSuccess={() => void reload()}
         defaultPlatform={scanDefaultPlatform}
+      />
+
+      <BatchImportDialog
+        open={batchOpen}
+        onOpenChange={setBatchOpen}
+        onSuccess={() => void reload()}
       />
     </div>
   )
