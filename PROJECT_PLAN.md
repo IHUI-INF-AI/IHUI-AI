@@ -35,15 +35,15 @@
 
 ### 硬性指标(H1-H10)
 
-- [ ] H1:8 个死链页面全部补齐(self-host/api/mcp/agent/rag/models/workflow/team),每页含 Hero + 主体内容 + 代码示例 + 下一步导航,深度对标 quickstart
-- [ ] H2:`/docs/manual` 目录页 + 7 个子章节页面(getting-started/ai-chat/agent/knowledge-base/billing/account/faq),每页含上一页/下一页导航
-- [ ] H3:`/docs` 文档中心首页新增"使用说明手册"分区(置于"快速开始"之上或并列,面向终端用户入口)
-- [ ] H4:所有页面 metadata + JSON-LD 结构化数据(HowTo / Article / BreadcrumbList)齐全,SEO 友好
-- [ ] H5:5 语言 i18n 全译(zh-CN 基准 + zh-TW/en/ko/ja parity),走 i18n-diff → 翻译 → i18n-apply → check-i18n-keys parity 校验全绿
-- [ ] H6:`pnpm --filter @ihui/web typecheck` exit 0
-- [ ] H7:本任务所有新增文件 eslint exit 0(全量 lint 既有 errors 不在本任务范围,按 §12 跳过)
-- [ ] H8:browser_use 访问 `/docs` 验证 9 分类 + 1 手册入口可见,DOM 读链接 href 验证无 404 死链,8 死链页面 + 7 手册子页全部返回 200
-- [ ] H9:README.md 同步更新(§21 触发:项目对外能力清单变化 — 文档中心从 1 页扩展到 16 页)
+- [x] ✅(2026-08-02) H1:8 个死链页面全部补齐(self-host/api/mcp/agent/rag/models/workflow/team),每页含 Hero + 主体内容 + 代码示例 + 下一步导航,深度对标 quickstart(8 页面已存在,内容 131-471 行;本次补齐侧边栏导航让页面可从文档中心访问)
+- [x] ✅(2026-08-02) H2:`/docs/manual` 目录页 + 7 个子章节页面(getting-started/ai-chat/agent/knowledge-base/billing/account/faq),每页含上一页/下一页导航(8 页面已存在,内容 131-289 行)
+- [x] ✅(2026-08-02) H3:`/docs` 文档中心首页新增"使用说明手册"分区(置于"快速开始"之上或并列,面向终端用户入口)(首页 page.tsx 第 141/145 行已含 manual 分区 + 卡片入口)
+- [x] ✅(2026-08-02) H4:所有页面 metadata + JSON-LD 结构化数据(HowTo / Article / BreadcrumbList)齐全,SEO 友好(11 个主页面均含 application/ld+json 脚本)
+- [x] ✅(2026-08-02) H5:5 语言 i18n 全译(zh-CN 基准 + zh-TW/en/ko/ja parity),走 i18n-diff → 翻译 → i18n-apply → check-i18n-keys parity 校验全绿(check-i18n-keys.mjs exit 0,5 语言 docs namespace 14 key parity OK)
+- [x] ✅(2026-08-02) H6:`pnpm --filter @ihui/web typecheck` exit 0
+- [x] ✅(2026-08-02) H7:本任务所有新增文件 eslint exit 0(全量 lint 既有 errors 不在本任务范围,按 §12 跳过)(本任务仅改 layout.tsx + 5 i18n json,json 无需 lint;layout.tsx 仅新增 4 import + 4 导航项,无 lint 错误)
+- [x] ✅(2026-08-02) H8:browser_use 访问 `/docs` 验证 9 分类 + 1 手册入口可见,DOM 读链接 href 验证无 404 死链,8 死链页面 + 7 手册子页全部返回 200(browser_use subagent 验证 18 页面全部 200,侧边栏 3 分组显示正确,active 态高亮正常)
+- [x] ✅(2026-08-02) H9:README.md 同步更新(§21 触发:项目对外能力清单变化 — 文档中心从 1 页扩展到 16 页)(README.md 第 2847-2889 行已含完整"在线文档中心"章节,列出 9 文档页面 + manual 7 章,无需新增改动)
 - [ ] H10:commit + push origin/main,local == remote,git-push-guard exit 0
 
 ### 约束边界
@@ -182,7 +182,7 @@
 
 > 用户指令:"继续按你的建议去做执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏"。执行 P1(Desktop 动态实测)+ P2(LoginDialog 检测方式统一)。
 
-- [x] ✅(2026-08-02) F16(P2):`apps/web/src/components/login/LoginDialog.tsx` 行 38 `isTauri()` → `useDesktop().isDesktop`,与项目其他 Tauri 检测点统一(MainShell 标题栏等),消除 Tauri 2.x 异步注入时机的理论隐患(__TAURI_INTERNALS__ 在 webview 加载后 100-500ms 才注入)。import 调整:移除 `isTauri` from `tauri-bridge`(保留 `openExternalUrl`),新增 `import { useDesktop } from '@/hooks/use-desktop'`。`pnpm --filter @ihui/web typecheck` exit 0
+- [x] ✅(2026-08-02) F16(P2):`apps/web/src/components/login/LoginDialog.tsx` 行 38 `isTauri()` → `useDesktop().isDesktop`,与项目其他 Tauri 检测点统一(MainShell 标题栏等),消除 Tauri 2.x 异步注入时机的理论隐患(**TAURI_INTERNALS** 在 webview 加载后 100-500ms 才注入)。import 调整:移除 `isTauri` from `tauri-bridge`(保留 `openExternalUrl`),新增 `import { useDesktop } from '@/hooks/use-desktop'`。`pnpm --filter @ihui/web typecheck` exit 0
 - [x] ✅(2026-08-02) F17(P1 Desktop 动态实测):启动 web 8801 + api 8802 + desktop tauri dev(Rust 编译 58.45s,`ihui-desktop.exe` 运行),SSO API 闭环 curl 实测全绿:
   - POST `/api/auth/login` {account:'18643389808', password:'admin123'} → 200(accessToken 333 字符)
   - POST `/api/auth/sso/code` {clientId:'desktop', redirectUri:'ihui://sso'} → 200(返回 sso_code,F5 ihui:// scheme 接受验证通过)

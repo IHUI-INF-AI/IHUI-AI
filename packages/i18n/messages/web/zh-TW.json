@@ -11291,11 +11291,17 @@
     "shellSubtitle": "平臺開發與整合指南",
     "navDocs": "文件",
     "navTools": "工具",
+    "navDevelopers": "開發者",
     "navOverview": "概覽",
+    "navManual": "使用說明手冊",
+    "navQuickstart": "快速開始",
     "navAgent": "Agent 開發",
     "navApi": "API 文件",
     "navMcp": "MCP 協議",
     "navRag": "RAG 檢索",
+    "navModels": "多模型調度",
+    "navWorkflow": "工作流編排",
+    "navTeam": "團隊協作",
     "navSelfHost": "私有化部署"
   },
   "developer": {
