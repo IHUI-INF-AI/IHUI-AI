@@ -16,7 +16,7 @@ import { SchemaDrivenSections } from '@/components/marketing/SchemaDrivenSection
  * system_configs(category='home_schema')配置,admin 可编辑,前端渲染时加载。
  *
  * - 路由层 (marketing)/page.tsx 与 (main)/home/page.tsx 各自负责外壳:
- *   scroll 容器 + useFullPageScroll + PageIndicator + ScrollDownButton
+ *   scroll 容器 + useFullPageScroll + PageIndicator
  * - 本组件只负责 section 渲染(schema 驱动),不引入任何滚动 hook
  * - showFooter 默认 true(营销页需要 footer);(main)/home 传 false 隐藏(工作区不需要)
  * - schema 默认 DEFAULT_HOME_SCHEMA(零回归);路由层可通过 useHomeSchema hook 加载后端配置
