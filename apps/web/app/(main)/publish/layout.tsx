@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Users, Plus, History } from 'lucide-react'
+import { Users, Plus, History, Calendar, BarChart3 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -12,6 +12,8 @@ const TABS = [
   { href: '/publish/accounts', labelKey: 'accounts', icon: Users },
   { href: '/publish/new', labelKey: 'new', icon: Plus },
   { href: '/publish/history', labelKey: 'history', icon: History },
+  { href: '/publish/calendar', labelKey: 'calendar', icon: Calendar },
+  { href: '/publish/analytics', labelKey: 'analytics', icon: BarChart3 },
 ] as const
 
 /**
@@ -31,7 +33,7 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
-      <nav className="flex items-center gap-1 border-b border-border/60">
+      <nav className="flex items-center gap-1 rounded-md bg-muted/30 p-1">
         {TABS.map((tab) => {
           const active = pathname.startsWith(tab.href)
           const Icon = tab.icon
@@ -40,10 +42,10 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
               key={tab.href}
               href={tab.href}
               className={cn(
-                'inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
                 active
-                  ? 'border-primary bg-accent/50 text-foreground'
-                  : 'border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                  ? 'bg-card font-medium text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
               )}
             >
               <Icon className="h-4 w-4" />

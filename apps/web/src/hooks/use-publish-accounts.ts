@@ -157,6 +157,26 @@ export function usePublishAccounts() {
     [toast, load],
   )
 
+  const [batchVerifying, setBatchVerifying] = React.useState(false)
+
+  const batchVerify = React.useCallback(
+    async (): Promise<boolean> => {
+      setBatchVerifying(true)
+      try {
+        await api('/api/publish/accounts/batch-verify', { method: 'POST' })
+        toast.success('批量验证完成')
+        await load()
+        return true
+      } catch (e) {
+        reportError(toast, e)
+        return false
+      } finally {
+        setBatchVerifying(false)
+      }
+    },
+    [toast, load],
+  )
+
   React.useEffect(() => {
     void load()
   }, [load])
@@ -166,10 +186,90 @@ export function usePublishAccounts() {
     loading,
     saving,
     verifyingId,
+    batchVerifying,
     create,
     update,
     verify,
     remove,
+    batchVerify,
     reload: load,
+  }
+}
+
+// =============================================================================
+// 内容模板 hook(2026-08-01 新增)— 从 ContentTemplateLibrary 抽取,可复用
+// =============================================================================
+
+export interface ContentTemplate {
+  readonly id: string
+  readonly name: string
+  readonly title: string
+  readonly content: string
+  readonly tags: readonly string[]
+  readonly coverHint: string
+  readonly preset?: boolean
+}
+
+const CUSTOM_TEMPLATE_KEY = 'ihui-publish-templates'
+const MAX_CUSTOM_TEMPLATES = 20
+
+function loadCustomTemplates(): ContentTemplate[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(CUSTOM_TEMPLATE_KEY)
+    if (!raw) return []
+    const arr = JSON.parse(raw) as ContentTemplate[]
+    return Array.isArray(arr) ? arr.filter((t) => t && typeof t.id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function persistCustomTemplates(list: ContentTemplate[]): void {
+  try {
+    localStorage.setItem(CUSTOM_TEMPLATE_KEY, JSON.stringify(list))
+  } catch {
+    // localStorage 满或禁用,静默
+  }
+}
+
+/**
+ * 内容模板管理 hook — 封装 localStorage 自定义模板的 CRUD。
+ * 预设模板为常量(由组件维护),本 hook 只管自定义模板。
+ */
+export function useContentTemplates() {
+  const [customTemplates, setCustomTemplates] = React.useState<ContentTemplate[]>([])
+
+  React.useEffect(() => {
+    setCustomTemplates(loadCustomTemplates())
+  }, [])
+
+  const saveTemplate = React.useCallback((template: Omit<ContentTemplate, 'id' | 'preset'>): boolean => {
+    if (!template.content.trim()) return false
+    const tpl: ContentTemplate = {
+      ...template,
+      id: `custom-${Date.now()}`,
+      preset: false,
+    }
+    setCustomTemplates((prev) => {
+      const next = [tpl, ...prev].slice(0, MAX_CUSTOM_TEMPLATES)
+      persistCustomTemplates(next)
+      return next
+    })
+    return true
+  }, [])
+
+  const removeTemplate = React.useCallback((id: string): void => {
+    setCustomTemplates((prev) => {
+      const next = prev.filter((t) => t.id !== id)
+      persistCustomTemplates(next)
+      return next
+    })
+  }, [])
+
+  return {
+    customTemplates,
+    saveTemplate,
+    removeTemplate,
   }
 }
