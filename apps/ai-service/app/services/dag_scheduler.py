@@ -174,8 +174,22 @@ class DAGScheduler:
             logger.info("DAG 层级 %d:执行 %d 个节点 %s", level_idx, len(executable), executable)
 
             # 并行执行同层节点
+            # 2026-08-01 P1 修复:return_exceptions=True 防止单节点异常(BaseException/CancelledError)
+            # 崩溃整个 gather,_execute_node 外部异常(如 condition 函数抛出)不会丢失其他节点结果。
             tasks = [self._execute_node(nid, context, node_results, trace) for nid in executable]
-            results = await asyncio.gather(*tasks, return_exceptions=False)
+            gathered_raw = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # 处理可能的异常,构建统一的 results 列表
+            results: list[NodeResult] = []
+            for nid, raw in zip(executable, gathered_raw):
+                if isinstance(raw, BaseException):
+                    logger.error("DAG 节点 %s 未捕获异常: %s", nid, raw)
+                    result = NodeResult(node_id=nid, status="failed", error=f"未捕获异常: {raw}")
+                    node_results[nid] = result
+                    trace.append({"node_id": nid, "status": "failed", "error": str(raw)})
+                    results.append(result)
+                else:
+                    results.append(raw)
 
             # 检查失败节点,决定是否 fail_fast 或标记后续 skipped
             for nid, result in zip(executable, results):
@@ -270,11 +284,12 @@ class DAGScheduler:
                 logger.warning("节点 %s 第 %d 次执行失败: %s", node_id, attempt, e)
 
             # 重试延迟(指数退避)
+            # 2026-08-01 P1 修复:retry_count 在 sleep 前递增,确保 sleep 期间取消时计数准确。
             if attempt < node.max_retries:
-                delay = node.retry_delay * (2 ** (attempt - 1))
-                logger.info("节点 %s 等待 %.1fs 后重试", node_id, delay)
-                await asyncio.sleep(delay)
                 result.retry_count += 1
+                delay = node.retry_delay * (2 ** (attempt - 1))
+                logger.info("节点 %s 等待 %.1fs 后重试(第 %d 次重试)", node_id, delay, result.retry_count)
+                await asyncio.sleep(delay)
 
         # 所有重试失败
         result.status = "failed"
