@@ -72,6 +72,12 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
     const flow = await getWithdrawalById(id)
+    if (!flow) return reply.status(404).send(error(404, '记录不存在'))
+    // P1 安全修复(2026-08-02):IDOR 防护,非本人提现流水禁止访问(管理员 roleId >= 1 豁免)
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin && flow.userId !== request.userId) {
+      return reply.status(403).send(error(403, '无权访问他人提现流水'))
+    }
     return reply.send(success({ flow }))
   })
 

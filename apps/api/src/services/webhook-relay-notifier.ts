@@ -16,13 +16,9 @@
  * - 重试:指数退避(2^attempt 秒),最多 3 次,耗尽 → status='failed'
  */
 import { createHmac, randomBytes } from 'node:crypto'
-import { eq, and, lte, sql } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import {
-  webhookSubscriptions,
-  webhookDeliveryLogs,
-  type RelayWebhookEvent,
-} from '@ihui/database'
+import { webhookSubscriptions, webhookDeliveryLogs, type RelayWebhookEvent } from '@ihui/database'
 
 // =============================================================================
 // 常量
@@ -81,11 +77,7 @@ interface DeliveryResult {
  * POST 请求体到 webhook URL,带 X-IHUI-Signature 头。
  * 超时 10s,返回响应状态码 + 截断的响应体。
  */
-async function deliver(
-  url: string,
-  body: string,
-  signature: string,
-): Promise<DeliveryResult> {
+async function deliver(url: string, body: string, signature: string): Promise<DeliveryResult> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS)
   try {
@@ -192,89 +184,108 @@ export async function notifyRelayEvent(params: {
 // 2. retryPendingWebhooks — 重试到期通知(定时任务调)
 // =============================================================================
 
+/** 安全提取 db.execute 结果为数组行。 */
+function toRows(raw: unknown): Record<string, unknown>[] {
+  if (Array.isArray(raw)) return raw as Record<string, unknown>[]
+  if (raw && typeof raw === 'object' && Array.isArray((raw as { rows?: unknown }).rows)) {
+    return (raw as { rows: Record<string, unknown>[] }).rows
+  }
+  return []
+}
+
 /**
  * 重试到期的 webhook 投递。
  *
+ * P1 修复:用乐观锁抢占(原子 UPDATE status='processing' RETURNING),防止定时任务
+ * 无分布式锁导致上一次未完成就触发下一次,产生重复投递。
+ *
  * 逻辑:
- * 1. 查 status='retrying' AND nextRetryAt <= now 的日志
- * 2. 对每条:
- *    - 查关联 subscription(若已删除则标记 failed 跳过)
- *    - attempt++ → 重新签名 + POST
- *    - 成功 → status='success'
- *    - 失败且 attempt < MAX_ATTEMPTS → status='retrying', nextRetryAt = now + 2^attempt 秒
- *    - 失败且 attempt >= MAX_ATTEMPTS → status='failed'(耗尽)
+ * 1. 原子 UPDATE:retrying → processing(LIMIT 100 + FOR UPDATE SKIP LOCKED 分批)
+ * 2. 批量查关联 subscription → 逐条重试(并行)
+ * 3. 成功 → status='success';失败且未耗尽 → status='retrying';耗尽 → status='failed'
+ * 4. finally 兜底:把仍为 processing 的记录改回 retrying(防中途崩溃/异常)
  *
  * 返回处理的日志数。
  */
 export async function retryPendingWebhooks(): Promise<number> {
-  // 1. 查到期待重试的日志
-  const pendingLogs = await dbRead
-    .select({
-      id: webhookDeliveryLogs.id,
-      subscriptionId: webhookDeliveryLogs.subscriptionId,
-      event: webhookDeliveryLogs.event,
-      payload: webhookDeliveryLogs.payload,
-      attempt: webhookDeliveryLogs.attempt,
-    })
-    .from(webhookDeliveryLogs)
-    .where(
-      and(
-        eq(webhookDeliveryLogs.status, 'retrying'),
-        lte(webhookDeliveryLogs.nextRetryAt, new Date()),
-      ),
+  // P1 修复:用乐观锁抢占,防止定时任务重复投递
+  const lockedLogsRaw = await db.execute(sql`
+    UPDATE webhook_delivery_logs
+    SET status = 'processing'
+    WHERE ctid IN (
+      SELECT ctid FROM webhook_delivery_logs
+      WHERE status = 'retrying' AND next_retry_at <= now()
+      LIMIT 100
+      FOR UPDATE SKIP LOCKED
     )
-    .limit(100) // 每轮最多处理 100 条,避免单轮过长
+    RETURNING id, subscription_id, event, payload, attempt
+  `)
+  const lockedLogs = toRows(lockedLogsRaw).map((r) => ({
+    id: String(r['id']),
+    subscriptionId: String(r['subscription_id']),
+    event: String(r['event']),
+    payload: r['payload'] as Record<string, unknown>,
+    attempt: Number(r['attempt']),
+  }))
 
-  if (pendingLogs.length === 0) return 0
+  if (lockedLogs.length === 0) return 0
 
-  // 2. 批量查关联 subscription(避免 N+1)
-  const subIds = [...new Set(pendingLogs.map((l) => l.subscriptionId))]
-  const subs = await dbRead
-    .select({
-      id: webhookSubscriptions.id,
-      url: webhookSubscriptions.url,
-      secret: webhookSubscriptions.secret,
-      enabled: webhookSubscriptions.enabled,
-    })
-    .from(webhookSubscriptions)
-    .where(sql`${webhookSubscriptions.id} IN ${subIds}`)
+  try {
+    // 2. 批量查关联 subscription(避免 N+1)
+    const subIds = [...new Set(lockedLogs.map((l) => l.subscriptionId))]
+    const subs = await dbRead
+      .select({
+        id: webhookSubscriptions.id,
+        url: webhookSubscriptions.url,
+        secret: webhookSubscriptions.secret,
+        enabled: webhookSubscriptions.enabled,
+      })
+      .from(webhookSubscriptions)
+      .where(sql`${webhookSubscriptions.id} IN ${subIds}`)
 
-  const subMap = new Map(subs.map((s) => [s.id, s]))
+    const subMap = new Map(subs.map((s) => [s.id, s]))
 
-  // 3. 逐条重试(并行)
-  await Promise.all(
-    pendingLogs.map(async (log) => {
-      const sub = subMap.get(log.subscriptionId)
-      // subscription 已删除或已禁用 → 标记 failed
-      if (!sub || !sub.enabled) {
+    // 3. 逐条重试(并行)
+    await Promise.all(
+      lockedLogs.map(async (log) => {
+        const sub = subMap.get(log.subscriptionId)
+        // subscription 已删除或已禁用 → 标记 failed
+        if (!sub || !sub.enabled) {
+          await db
+            .update(webhookDeliveryLogs)
+            .set({ status: 'failed', responseBody: 'subscription deleted or disabled' })
+            .where(eq(webhookDeliveryLogs.id, log.id))
+          return
+        }
+
+        const nextAttempt = log.attempt + 1
+        // payload 已是 { event, data, timestamp } 结构,直接 stringify
+        const body = JSON.stringify(log.payload)
+        const signature = signBody(body, sub.secret)
+        const result = await deliver(sub.url, body, signature)
+
+        const isSuccess = result.ok
+        const exhausted = nextAttempt >= MAX_ATTEMPTS
+
         await db
           .update(webhookDeliveryLogs)
-          .set({ status: 'failed', responseBody: 'subscription deleted or disabled' })
+          .set({
+            responseStatus: result.status,
+            responseBody: result.body,
+            attempt: nextAttempt,
+            status: isSuccess ? 'success' : exhausted ? 'failed' : 'retrying',
+            nextRetryAt: isSuccess || exhausted ? null : calcNextRetryAt(nextAttempt),
+          })
           .where(eq(webhookDeliveryLogs.id, log.id))
-        return
-      }
+      }),
+    )
+  } finally {
+    // 4. 兜底:把仍为 processing 的记录改回 retrying(防中途崩溃/异常)
+    await db
+      .update(webhookDeliveryLogs)
+      .set({ status: 'retrying' })
+      .where(eq(webhookDeliveryLogs.status, 'processing'))
+  }
 
-      const nextAttempt = log.attempt + 1
-      // payload 已是 { event, data, timestamp } 结构,直接 stringify
-      const body = JSON.stringify(log.payload)
-      const signature = signBody(body, sub.secret)
-      const result = await deliver(sub.url, body, signature)
-
-      const isSuccess = result.ok
-      const exhausted = nextAttempt >= MAX_ATTEMPTS
-
-      await db
-        .update(webhookDeliveryLogs)
-        .set({
-          responseStatus: result.status,
-          responseBody: result.body,
-          attempt: nextAttempt,
-          status: isSuccess ? 'success' : exhausted ? 'failed' : 'retrying',
-          nextRetryAt: isSuccess || exhausted ? null : calcNextRetryAt(nextAttempt),
-        })
-        .where(eq(webhookDeliveryLogs.id, log.id))
-    }),
-  )
-
-  return pendingLogs.length
+  return lockedLogs.length
 }

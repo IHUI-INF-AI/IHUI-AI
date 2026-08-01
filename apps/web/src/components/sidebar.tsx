@@ -1775,7 +1775,7 @@ export function Sidebar({
 
   // 桌面端 logo 长按拖拽窗口(Tauri decorations:false 无边框窗口)。
   // 短按(< 300ms)→ ThemeLogo 自身 onClick 跳首页保持不变;长按(≥ 300ms)→ startWindowDrag()。
-  const isDesktop = useDesktop()
+  const { isDesktop } = useDesktop()
   const logoDragTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleLogoMouseDown = (e: React.MouseEvent) => {

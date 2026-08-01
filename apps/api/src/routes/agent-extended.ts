@@ -239,6 +239,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const row = await rawById('zhs_agent_need_task', parsed.data.id)
       if (!row) return reply.status(404).send(error(404, '需求任务不存在'))
+      // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止访问(管理员 roleId >= 1 豁免)
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && row['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权访问他人记录'))
+      }
       return reply.send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -248,6 +253,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.post('/need-task', async (req, reply) => {
     try {
       const body = req.body as Record<string, unknown>
+      // P1 安全修复(2026-08-02):强制 user_id = 当前登录用户,防止 user_id 欺骗
+      body.user_id = req.userId
       if (body.status === undefined) body.status = 0
       const row = await rawInsert('zhs_agent_need_task', needTaskCols, body, reply)
       if (!row) return
@@ -261,6 +268,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
+      // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
+      const existing = await rawById('zhs_agent_need_task', parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '需求任务不存在'))
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && existing['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权操作他人记录'))
+      }
       const row = await rawUpdate(
         'zhs_agent_need_task',
         needTaskCols,
@@ -277,6 +291,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
+      // P1 安全修复(2026-08-02):IDOR 防护,删除前校验 ownership
+      const existing = await rawById('zhs_agent_need_task', parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '需求任务不存在'))
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && existing['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权操作他人记录'))
+      }
       await rawDelete('zhs_agent_need_task', parsed.data.id)
       return reply.send(success({ id: parsed.data.id, deleted: true }))
     } catch (e) {
@@ -332,6 +353,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const row = await rawById('agent_uploads', parsed.data.id)
       if (!row) return reply.status(404).send(error(404, '上传记录不存在'))
+      // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止访问(管理员 roleId >= 1 豁免)
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && row['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权访问他人记录'))
+      }
       return reply.send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -341,6 +367,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.post('/upload', async (req, reply) => {
     try {
       const body = req.body as Record<string, unknown>
+      // P1 安全修复(2026-08-02):强制 user_id = 当前登录用户,防止 user_id 欺骗
+      body.user_id = req.userId
       if (body.status === undefined) body.status = 1
       const row = await rawInsert('agent_uploads', uploadCols, body, reply)
       if (!row) return
@@ -354,8 +382,15 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
+      // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
+      const existing = await rawById('agent_uploads', parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '上传记录不存在'))
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && existing['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权操作他人记录'))
+      }
       const row = await rawUpdate(
-        'agent_upload',
+        'agent_uploads',
         uploadCols,
         parsed.data.id,
         req.body as Record<string, unknown>,
@@ -370,6 +405,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
+      // P1 安全修复(2026-08-02):IDOR 防护,删除前校验 ownership
+      const existing = await rawById('agent_uploads', parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '上传记录不存在'))
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && existing['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权操作他人记录'))
+      }
       // 软删除：status=0（与旧架构一致）
       await db.execute(
         sql`UPDATE ${sql.raw('"agent_uploads"')} SET "status" = 0 WHERE "id"::text = ${parsed.data.id}`,
@@ -411,8 +453,15 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
     const { page, pageSize } = parsePaging(q)
     const conds: SQL[] = []
+    // P1 安全修复(2026-08-02):非管理员强制按本人 user_id 过滤,防止跨用户数据泄露
+    // 管理员可选传 user_id 查指定用户
+    const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin) {
+      conds.push(sql`"user_id" = ${req.userId}`)
+    } else if (q.user_id) {
+      conds.push(sql`"user_id" = ${q.user_id}`)
+    }
     if (q.agent_id) conds.push(sql`"agent_id" = ${q.agent_id}`)
-    if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
     if (q.type) conds.push(sql`"type" = ${q.type}`)
     if (q.start_date) conds.push(sql`"created_at" >= ${q.start_date}::timestamp`)
     if (q.end_date) conds.push(sql`"created_at" <= ${`${q.end_date} 23:59:59`}::timestamp`)
@@ -430,6 +479,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     try {
       const row = await rawById('zhs_agent_usedetail', parsed.data.id)
       if (!row) return reply.status(404).send(error(404, '使用明细不存在'))
+      // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止访问(管理员 roleId >= 1 豁免)
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && row['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权访问他人记录'))
+      }
       return reply.send(success(row))
     } catch (e) {
       req.log.error(e)
@@ -439,6 +493,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.post('/usedetail', async (req, reply) => {
     try {
       const body = req.body as Record<string, unknown>
+      // P1 安全修复(2026-08-02):强制 user_id = 当前登录用户,防止 user_id 欺骗
+      body.user_id = req.userId
       if (body.status === undefined) body.status = 1
       const row = await rawInsert('zhs_agent_usedetail', usedetailCols, body, reply)
       if (!row) return
@@ -452,6 +508,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
+      // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
+      const existing = await rawById('zhs_agent_usedetail', parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '使用明细不存在'))
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && existing['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权操作他人记录'))
+      }
       const row = await rawUpdate(
         'zhs_agent_usedetail',
         usedetailCols,
@@ -468,6 +531,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
+      // P1 安全修复(2026-08-02):IDOR 防护,删除前校验 ownership
+      const existing = await rawById('zhs_agent_usedetail', parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '使用明细不存在'))
+      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+      if (!isAdmin && existing['user_id'] !== req.userId) {
+        return reply.status(403).send(error(403, '无权操作他人记录'))
+      }
       await rawDelete('zhs_agent_usedetail', parsed.data.id)
       return reply.send(success({ id: parsed.data.id, deleted: true }))
     } catch (e) {
@@ -557,6 +627,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const { id } = idParamSchema.parse(request.params)
     const result = await db.select().from(zhsAgentBuy).where(eq(zhsAgentBuy.id, id)).limit(1)
     if (!result[0]) return reply.code(404).send({ error: '购买记录不存在' })
+    // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止访问(管理员 roleId >= 1 豁免)
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin && result[0].userId !== request.userId) {
+      return reply.code(403).send({ code: 403, message: '无权访问他人购买记录', data: null })
+    }
     return result[0]
   })
 
@@ -668,6 +743,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       .where(eq(zhsAgentWithdrawalDetail.id, id))
       .limit(1)
     if (!rows[0]) return reply.code(404).send({ error: '提现记录不存在' })
+    // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止访问(管理员 roleId >= 1 豁免)
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin && rows[0].userId !== request.userId) {
+      return reply.code(403).send({ code: 403, message: '无权访问他人提现记录', data: null })
+    }
     return rows[0]
   })
 
@@ -676,18 +756,29 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     amount: z.number().min(0.01).max(100000).optional(),
     type: z.number().int().min(1).max(3).optional(),
     bankInfo: z.string().optional(),
-    status: z.string().max(32).optional(),
+    // P0 安全修复(2026-08-02):移除 status 字段,状态变更只走 /review 和 /process 管理员端点
+    // 原代码允许用户自行设置 status=completed/approved/processing/failed,绕过管理员审核
   })
   server.put('/withdrawal/:id', async (request, reply) => {
     const { id } = idParamSchema.parse(request.params)
     const body = withdrawalUpdateSchema.parse(request.body)
+    // P0 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership(管理员 roleId >= 1 豁免)
+    const existing = await db
+      .select({ userId: zhsAgentWithdrawalDetail.userId })
+      .from(zhsAgentWithdrawalDetail)
+      .where(eq(zhsAgentWithdrawalDetail.id, id))
+      .limit(1)
+    if (!existing[0]) return reply.code(404).send({ error: '提现记录不存在' })
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin && existing[0].userId !== request.userId) {
+      return reply.code(403).send({ code: 403, message: '无权操作他人提现记录', data: null })
+    }
     const [row] = await db
       .update(zhsAgentWithdrawalDetail)
       .set({
         ...(body.amount !== undefined && { amount: body.amount.toString() }),
         ...(body.type !== undefined && { type: body.type }),
         ...(body.bankInfo !== undefined && { bankInfo: body.bankInfo }),
-        ...(body.status !== undefined && { status: body.status }),
         updatedAt: new Date(),
       })
       .where(eq(zhsAgentWithdrawalDetail.id, id))
@@ -705,6 +796,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       .where(eq(zhsAgentWithdrawalDetail.id, id))
       .limit(1)
     if (!rows[0]) return reply.code(404).send({ error: '提现记录不存在' })
+    // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止删除(管理员 roleId >= 1 豁免)
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    if (!isAdmin && rows[0].userId !== request.userId) {
+      return reply.code(403).send({ code: 403, message: '无权删除他人提现记录', data: null })
+    }
     if (rows[0].status !== 'pending') {
       return reply.code(400).send({ error: '仅待审核状态可删除' })
     }
@@ -780,14 +876,18 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.post('/withdrawal/batch-delete', async (request) => {
     const { ids } = withdrawalBatchDeleteSchema.parse(request.body)
+    // P1 安全修复(2026-08-02):IDOR 防护,非管理员仅删本人 pending 记录(管理员可删任意 pending)
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    const idList = sql.join(
+      ids.map((id) => sql`${id}::uuid`),
+      sql`,`,
+    )
+    const whereSql = isAdmin
+      ? sql`${zhsAgentWithdrawalDetail.id} IN (${idList}) AND ${zhsAgentWithdrawalDetail.status} = 'pending'`
+      : sql`${zhsAgentWithdrawalDetail.id} IN (${idList}) AND ${zhsAgentWithdrawalDetail.status} = 'pending' AND ${zhsAgentWithdrawalDetail.userId} = ${request.userId}`
     const result = await db
       .delete(zhsAgentWithdrawalDetail)
-      .where(
-        sql`${zhsAgentWithdrawalDetail.id} IN (${sql.join(
-          ids.map((id) => sql`${id}::uuid`),
-          sql`,`,
-        )}) AND ${zhsAgentWithdrawalDetail.status} = 'pending'`,
-      )
+      .where(whereSql)
       .returning({ id: zhsAgentWithdrawalDetail.id })
     return { deletedCount: result.length, deletedIds: result.map((r) => r.id) }
   })
