@@ -140,8 +140,10 @@ export default function SubagentDetailClient() {
       <Card>
         <CardHeader className="p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <CardTitle className="text-base">{dispatch?.goal ?? `派单 ${id}`}</CardTitle>
+            <div className="min-w-0 flex-1 space-y-1">
+              <CardTitle className="truncate text-base" title={dispatch?.goal ?? `派单 ${id}`}>
+                {dispatch?.goal ?? `派单 ${id}`}
+              </CardTitle>
               <p className="text-xs text-muted-foreground">ID: {id}</p>
             </div>
             {dispatch && (
