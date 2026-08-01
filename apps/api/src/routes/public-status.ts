@@ -299,8 +299,10 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
         )
         return reply.send(success(data))
       } catch (e) {
-        request.log.error(e)
-        return reply.status(503).send({ error: 'status_unavailable' })
+        // schema drift(provider_code 字段未迁移)或其他查询错误时降级返回空 incidents,
+        // 避免阻塞公开状态页整体可用性。错误详情记日志便于排查。
+        request.log.error({ err: e, endpoint: 'incidents' }, 'status incidents query failed, degrading to empty')
+        return reply.send(success({ incidents: [] }))
       }
     },
   )

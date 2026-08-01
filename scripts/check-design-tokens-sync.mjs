@@ -40,9 +40,11 @@ import { dirname, join } from 'node:path'
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码中文绝对路径) ───
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const TOKENS_PATH = join(root, 'packages/design-tokens/src/styles/tokens.css')
+const TOKEN_REGISTRY_PATH = join(root, 'packages/design-tokens/src/token-registry.ts')
+const RN_GLOBAL_CSS_PATH = join(root, 'apps/mobile-rn/global.css')
 
 // ─── 目标配置 ───
-/** @type {Record<string, { label: string, cssPath: string, mode: 'value-match' | 'import-check' }>} */
+/** @type {Record<string, { label: string, cssPath: string, mode: 'value-match' | 'import-check' | 'registry-check' }>} */
 const TARGETS = {
   'miniapp-taro': {
     label: 'miniapp-taro/src/app.css',
@@ -51,13 +53,18 @@ const TARGETS = {
   },
   'mobile-rn': {
     label: 'mobile-rn/global.css',
-    cssPath: join(root, 'apps/mobile-rn/global.css'),
+    cssPath: RN_GLOBAL_CSS_PATH,
     mode: 'value-match',
   },
   web: {
     label: 'web/app/globals.css',
     cssPath: join(root, 'apps/web/app/globals.css'),
     mode: 'import-check',
+  },
+  registry: {
+    label: 'token-registry.ts vs tokens.css + RN name set',
+    cssPath: TOKENS_PATH,
+    mode: 'registry-check',
   },
 }
 
@@ -90,6 +97,7 @@ check-design-tokens-sync.mjs — 统一 design-tokens 同步守门(P1-C + P1-F)
   miniapp-taro   校验 apps/miniapp-taro/src/app.css 变量值与 tokens.css 一致
   mobile-rn      校验 apps/mobile-rn/global.css 变量值与 tokens.css 一致
   web            校验 apps/web/app/globals.css @import 单源 + 无手抄回归
+  registry       校验 token-registry.ts 与 tokens.css 双向一致 + RN token 名称子集
 
 选项:
   --quiet, -q    仅输出错误(抑制通过消息)
@@ -250,11 +258,11 @@ function runValueMatchCheck(targetName, targetCssPath) {
   if (diffs.length === 0) {
     const total = Object.keys(appRoot).length + Object.keys(appDark).length
     if (!quiet)
-      console.log(`[check-design-tokens-sync] All ${total} variables are in sync`)
+      console.log(`[check-design-tokens-sync] [PASS] All ${total} variables are in sync`)
     process.exit(0)
   }
 
-  console.error(`[check-design-tokens-sync] Found ${diffs.length} mismatch(es):`)
+  console.error(`[check-design-tokens-sync] [FAIL] Found ${diffs.length} mismatch(es):`)
   for (const block of [':root', '.dark']) {
     const items = diffs.filter((d) => d.block === block)
     if (!items.length) continue
@@ -398,11 +406,11 @@ function runImportCheck(targetName, targetCssPath) {
   // ① 校验 @import tokens.css 存在
   const hasImport = /@import\s+['"][^'"]*design-tokens\/src\/styles\/tokens\.css['"]/.test(webCss)
   if (!hasImport) {
-    console.error('[check-design-tokens-sync] REGRESSION: globals.css missing @import tokens.css!')
+    console.error('[check-design-tokens-sync] [FAIL] REGRESSION: globals.css missing @import tokens.css!')
     console.error('  web must @import single source token, do not remove.')
     exitCode = 1
   } else if (!quiet) {
-    console.log('[check-design-tokens-sync] @import tokens.css OK')
+    console.log('[check-design-tokens-sync] [PASS] @import tokens.css OK')
   }
 
   // ② 校验顶层 :root/.dark 未手抄 @theme 变量(P1-C:覆盖所有 @theme 变量,非仅 --color-*)
@@ -431,7 +439,7 @@ function runImportCheck(targetName, targetCssPath) {
     }
     if (regressions.length > 0) {
       console.error(
-        '[check-design-tokens-sync] REGRESSION: top-level :root/.dark hand-copies tokens.css @theme vars!',
+        '[check-design-tokens-sync] [FAIL] REGRESSION: top-level :root/.dark hand-copies tokens.css @theme vars!',
       )
       console.error('  Should use @import, duplicate defs cause multi-end drift.')
       for (const r of regressions) {
@@ -440,14 +448,147 @@ function runImportCheck(targetName, targetCssPath) {
       exitCode = 1
     } else if (!quiet) {
       console.log(
-        '[check-design-tokens-sync] ' + topBlocks.length + ' top-level blocks no dup OK',
+        '[check-design-tokens-sync] [PASS] ' + topBlocks.length + ' top-level blocks no dup OK',
       )
     }
   }
 
   if (exitCode === 0) {
     if (!quiet)
-      console.log('[check-design-tokens-sync] OK token single source normal, no regression')
+      console.log('[check-design-tokens-sync] [PASS] OK token single source normal, no regression')
+    process.exit(0)
+  }
+  process.exit(exitCode)
+}
+
+// ─── 模式 3:TOKEN_REGISTRY 校验(P3-1.3 立,2026-08-01) ──────────────
+
+/** 从 token-registry.ts 文本中提取所有 token 名称(regex 匹配 name: '--xxx')。
+ *  @param {string} content
+ *  @returns {Set<string>} */
+function extractRegistryTokenNames(content) {
+  const names = new Set()
+  const re = /name:\s*('[^']*--[^']*'|"[^"]*--[^"]*")/g
+  let m
+  while ((m = re.exec(content)) !== null) {
+    // 去引号
+    names.add(m[1].slice(1, -1))
+  }
+  return names
+}
+
+/** 从 CSS 文本中提取所有 CSS 变量名(任意 --* 前缀,去注释)。
+ *  @param {string} css
+ *  @returns {Set<string>} */
+function extractAllCssVarNames(css) {
+  const clean = stripComments(css)
+  const names = new Set()
+  const re = /(--[\w-]+)\s*:/g
+  let m
+  while ((m = re.exec(clean)) !== null) names.add(m[1])
+  return names
+}
+
+function runRegistryCheck() {
+  if (!quiet)
+    console.log('[check-design-tokens-sync] Checking token-registry.ts vs tokens.css + RN name set...')
+
+  /** @type {number} */
+  let exitCode = 0
+
+  // ── 校验 1:TOKEN_REGISTRY ↔ tokens.css 双向一致 ──
+  let registryContent, tokensCss
+  try {
+    registryContent = readCss(TOKEN_REGISTRY_PATH)
+    tokensCss = readCss(TOKENS_PATH)
+  } catch (e) {
+    console.error('[check-design-tokens-sync] [FAIL] Read fail: ' + e.message)
+    process.exit(1)
+  }
+
+  const registryNames = extractRegistryTokenNames(registryContent)
+  const cssVarNames = extractAllCssVarNames(tokensCss)
+
+  if (registryNames.size === 0) {
+    console.error('[check-design-tokens-sync] [FAIL] token-registry.ts: no token names extracted')
+    exitCode = 1
+  } else if (!quiet) {
+    console.log(`[check-design-tokens-sync] [PASS] token-registry.ts: ${registryNames.size} tokens registered`)
+  }
+
+  if (cssVarNames.size === 0) {
+    console.error('[check-design-tokens-sync] [FAIL] tokens.css: no CSS variables found')
+    exitCode = 1
+  } else if (!quiet) {
+    console.log(`[check-design-tokens-sync] [PASS] tokens.css: ${cssVarNames.size} CSS variables defined`)
+  }
+
+  // registry → tokens.css:注册表中的 token 必须在 tokens.css 中定义
+  /** @type {string[]} */
+  const missingInCss = []
+  for (const name of registryNames) {
+    if (!cssVarNames.has(name)) missingInCss.push(name)
+  }
+  if (missingInCss.length > 0) {
+    console.error(`[check-design-tokens-sync] [FAIL] ${missingInCss.length} registry token(s) missing in tokens.css:`)
+    for (const n of missingInCss) console.error(`  ${n}`)
+    exitCode = 1
+  } else if (!quiet) {
+    console.log('[check-design-tokens-sync] [PASS] All registry tokens exist in tokens.css')
+  }
+
+  // tokens.css → registry:tokens.css 中的 design-token 变量应在注册表中(信息性,warn-only)
+  // 注:tokens.css 可能有注册表未覆盖的边缘变量(如 --el-* / --app-* 语义层),仅 warn
+  /** @type {string[]} */
+  const missingInRegistry = []
+  for (const name of cssVarNames) {
+    if (!registryNames.has(name)) missingInRegistry.push(name)
+  }
+  if (missingInRegistry.length > 0 && !quiet) {
+    console.log(`[check-design-tokens-sync] [WARN] ${missingInRegistry.length} CSS var(s) not in registry (semantic/alias layer, acceptable):`)
+    for (const n of missingInRegistry.slice(0, 15)) console.log(`  ${n}`)
+    if (missingInRegistry.length > 15) console.log(`  ... and ${missingInRegistry.length - 15} more`)
+  }
+
+  // ── 校验 2:RN token 名称是 web CSS token 名称的子集 ──
+  let rnCss = null
+  try {
+    rnCss = readCss(RN_GLOBAL_CSS_PATH)
+  } catch {
+    if (!quiet) console.log('[check-design-tokens-sync] [WARN] mobile-rn/global.css not found, skipping RN name set check')
+  }
+
+  if (rnCss) {
+    // 提取 RN 中的 design-token 变量名(7 类,同 DESIGN_TOKEN_VAR_RE)
+    const rnRootVars = mergeFirstVars(rnCss, [':root'])
+    const rnDarkVars = mergeFirstVars(rnCss, ['.dark'])
+    const rnNames = new Set([...Object.keys(rnRootVars), ...Object.keys(rnDarkVars)])
+
+    // tokens.css 中的 design-token 变量名(7 类)
+    const tokensRootVars = mergeAllVars(tokensCss, ['@theme', ':root'])
+    const tokensDarkVars = mergeAllVars(tokensCss, ['.dark'])
+    const tokensDesignNames = new Set([
+      ...Object.keys(tokensRootVars),
+      ...Object.keys(tokensDarkVars),
+    ])
+
+    /** @type {string[]} */
+    const rnExtra = []
+    for (const name of rnNames) {
+      if (!tokensDesignNames.has(name)) rnExtra.push(name)
+    }
+
+    if (rnExtra.length > 0) {
+      console.error(`[check-design-tokens-sync] [FAIL] ${rnExtra.length} RN token(s) not in tokens.css:`)
+      for (const n of rnExtra) console.error(`  ${n}`)
+      exitCode = 1
+    } else if (!quiet) {
+      console.log(`[check-design-tokens-sync] [PASS] RN name set is subset of tokens.css (${rnNames.size} RN tokens)`)
+    }
+  }
+
+  if (exitCode === 0) {
+    if (!quiet) console.log('[check-design-tokens-sync] [PASS] Registry + RN name set consistency OK')
     process.exit(0)
   }
   process.exit(exitCode)
@@ -456,6 +597,8 @@ function runImportCheck(targetName, targetCssPath) {
 // ─── 主入口 ───
 if (config.mode === 'value-match') {
   runValueMatchCheck(config.label, config.cssPath)
+} else if (config.mode === 'registry-check') {
+  runRegistryCheck()
 } else {
   runImportCheck(config.label, config.cssPath)
 }

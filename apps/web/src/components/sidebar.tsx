@@ -57,6 +57,7 @@ import {
   Key,
   Terminal,
   TrendingUp,
+  Flame,
   FlaskConical,
   Gauge,
   GitBranch,
@@ -322,7 +323,11 @@ const DEVELOPER_ITEMS: NavItem[] = [
   { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
   { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
   // P0 API 订阅包产品化(2026-07-31 立):3 档 API 订阅方案(Starter/Pro/Enterprise)
-  { href: '/developer/relay/subscriptions', labelKey: 'developerRelaySubscriptions', icon: CreditCard },
+  {
+    href: '/developer/relay/subscriptions',
+    labelKey: 'developerRelaySubscriptions',
+    icon: CreditCard,
+  },
   // P0 Playground 内置在线测试页(2026-07-31 立):用当前用户 API Key 走 /v1/chat/completions 在线测试
   { href: '/playground', labelKey: 'playground', icon: FlaskConical },
   { href: '/developer/webhooks', labelKey: 'developerWebhooks', icon: Webhook },
@@ -341,6 +346,16 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '',
     items: [{ href: '/', labelKey: 'home', icon: Home }],
+  },
+  // 热门分组(2026-08-01 新增):高频常用功能快捷入口,放在首页下方
+  {
+    label: 'hotGroupLabel',
+    items: [
+      { href: '/publish', labelKey: 'publishPlatform', icon: Send },
+      { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
+      { href: '/models', labelKey: 'models', icon: Bot },
+      { href: '/settings/import', labelKey: 'hotModelImport', icon: Download },
+    ],
   },
   {
     label: 'aiGroupLabel',
@@ -575,9 +590,12 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // - 移除原 [&_svg]:size-5 (20px) 覆盖,改用 [&>svg]:h-3.5 [&>svg]:w-3.5 (14px) 强制统一,
   //   Flag(原来 20px)现在跟其他 3 个按钮(原本就 14px)完全一致
   // 2026-07-31 立:用户反馈"底部按钮跟 web 端不一致,为什么要单独配置图标"
+  // 2026-08-01 立:用户要求这4个工具栏按钮(语言/下载/消息/主题)默认无背景容器色,
+  // 用 bg-transparent 覆盖 TOPBAR_BTN_BASE 的 bg-card(tailwind-merge 后写胜出),
+  // hover:bg-accent / focus-visible:bg-accent 仍生效(不同状态类不冲突)。
   const btnClass = cn(
     TOPBAR_BTN_BASE,
-    'h-[26px] w-[26px] p-0',
+    'h-[26px] w-[26px] p-0 bg-transparent',
     '[&>svg]:h-3.5 [&>svg]:w-3.5',
   )
 
@@ -1250,7 +1268,10 @@ const NavGroupSection = React.memo(function NavGroupSection({
   //   - AI:核心分类,所有用户高频入口
   //   - 管理:admin 用户的核心入口(非 admin 用户此分组被 visibleGroups 过滤掉,此设置不影响)
   // 其余分组(AI教育/内容/交易/个人)默认折叠,降低视觉噪音。
-  const defaultOpen = group.label === 'aiGroupLabel' || group.label === 'adminGroupLabel'
+  const defaultOpen =
+    group.label === 'hotGroupLabel' ||
+    group.label === 'aiGroupLabel' ||
+    group.label === 'adminGroupLabel'
   // v3 后缀:版本化 key。重要:旧实现用 useEffect 在 open 变化时写 localStorage,
   // 导致首次挂载 setOpen(defaultOpen) 触发写入,污染了测试环境的 localStorage。
   // 新实现只在用户主动 toggle 时写,首次挂载只读不写,因此 localStorage 在用户切换前保持空,
@@ -1372,7 +1393,19 @@ const NavGroupSection = React.memo(function NavGroupSection({
           )}
           aria-hidden="true"
         />
-        <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
+        {group.label === 'hotGroupLabel' ? (
+          <>
+            <span className="min-w-0 whitespace-nowrap text-left text-red-600 transition-colors group-hover/grp:text-red-700 dark:text-red-400 dark:group-hover/grp:text-red-300">
+              {groupLabel}
+            </span>
+            <Flame
+              className="h-3 w-3 shrink-0 text-orange-500 transition-colors group-hover/grp:text-orange-600 dark:text-orange-400 dark:group-hover/grp:text-orange-300"
+              aria-hidden="true"
+            />
+          </>
+        ) : (
+          <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
+        )}
       </button>
       {/*
         分组折叠动画(2026-07-20 立):用 CSS grid-template-rows 0fr↔1fr 现代方案。
@@ -1780,11 +1813,8 @@ export function Sidebar({
           // 跟移动端关闭按钮 / 顶栏 Plus 按钮同源(bg-card + hover:bg-accent + text-foreground/80)
           // 统一按钮风格,杜绝"桌面端用 hover:bg-foreground/20 / 移动端用 hover:bg-accent"风格漂移
           // h-9 显式覆盖 TOPBAR_BTN_BASE 的 h-full(父容器 h-[44px] 用 h-full 会撑到 44px,跟其他元素不对齐)
-          className={cn(
-            TOPBAR_BTN_BASE,
-            TOPBAR_BTN_W9,
-            'h-9 p-0 hidden lg:flex',
-          )}
+          // 2026-08-01 立:用户要求收起按钮默认无背景容器色,用 bg-transparent 覆盖 bg-card。
+          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'h-9 p-0 hidden lg:flex bg-transparent')}
           aria-label={collapsed ? t('expand') : t('collapse')}
         >
           {/* 图标统一 14px (h-3.5 w-3.5),跟 web 端顶栏 Plus / X / Min 完全一致 */}

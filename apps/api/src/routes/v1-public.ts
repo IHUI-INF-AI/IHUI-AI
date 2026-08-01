@@ -65,6 +65,8 @@ import {
   buildStreamUsageChunk,
   type ChatCompletionRequest,
 } from './v1-protocol-extensions.js'
+// P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
+import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -560,13 +562,17 @@ async function streamChatCompletion(
     if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
     if (opts.seed !== undefined) body.seed = opts.seed
 
+    // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
+    const paramOpsResult = await applyParamOpsToBody(body, { model })
+    const upstreamBody = paramOpsResult.body
+
     const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(upstreamBody),
       signal: controller.signal,
     })
 
@@ -1155,10 +1161,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           body.metadata = { userId: apiKey.userId, ...(mode === 'byok' ? { byokMode: true } : {}) }
         }
 
+        // P0-20b 参数覆盖系统转发层集成(2026-08-01):转发前应用 applyParamOps
+        const paramOpsResult = await applyParamOpsToBody(body, { model: resolvedModel })
+        const upstreamBody = paramOpsResult.body
+
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify(upstreamBody),
         })
 
         if (!resp.ok) {
