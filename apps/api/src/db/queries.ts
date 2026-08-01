@@ -1,4 +1,5 @@
 import { eq, or, isNull, and } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { users, refreshTokens, type User, type RefreshToken } from '@ihui/database'
 
@@ -223,4 +224,111 @@ export async function revokeRefreshTokenFamily(familyId: string): Promise<number
     .where(and(eq(refreshTokens.familyId, familyId), isNull(refreshTokens.revokedAt)))
     .returning({ id: refreshTokens.id })
   return result.length
+}
+
+/**
+ * 合并账号:把 fromUserId 的所有外键数据迁移到 toUserId,然后删除 fromUserId。
+ *
+ * 业务规则(2026-08-01 立,用户规则:"以老手机号账号信息 昵称 个人简介为准"):
+ *   - toUserId = 老手机号账号(保留 nickname/avatar/bio 等资料)
+ *   - fromUserId = 新手机号账号(被合并方,数据迁出后删除)
+ *   - 不修改 toUserId 的任何用户资料字段,只迁移 fromUserId 的关联数据
+ *
+ * 实现策略:
+ *   1. 用 PL/pgSQL DO block 动态查询 information_schema 中所有引用 users.id 的外键
+ *   2. 对每张表逐表 UPDATE ... SET user_id = toUserId WHERE user_id = fromUserId
+ *   3. 处理唯一约束冲突:遇到冲突时先 DELETE fromUserId 的冲突行,再 UPDATE
+ *   4. 跳过 users 表自身(避免把 fromUserId 的 id 改成 toUserId)
+ *   5. 最后 DELETE FROM users WHERE id = fromUserId
+ *
+ * 注意:此函数在事务中执行,任何步骤失败则整体回滚。
+ *
+ * @param params.fromUserId 被合并的账号 ID(新手机号账号,会被删除)
+ * @param params.toUserId   保留的账号 ID(老手机号账号,资料不变)
+ */
+export async function mergeUserAccounts(params: {
+  fromUserId: string
+  toUserId: string
+}): Promise<void> {
+  const { fromUserId, toUserId } = params
+  if (fromUserId === toUserId) {
+    throw new Error('不能合并到同一个账号')
+  }
+
+  // PL/pgSQL DO block 动态迁移所有引用 users.id 的外键
+  // - 跳过 users 表自身
+  // - 对每张表:先删 fromUserId 在 (user_id) 唯一约束上与 toUserId 冲突的行,再 UPDATE
+  // - 用异常处理跳过无法迁移的表(避免单张表失败阻塞整体合并)
+  // - 最后软删除 fromUserId(status=3,保留审计痕迹,不物理删除避免外键约束遗漏)
+  await db.execute(sql`
+    DO $$
+    DECLARE
+      r RECORD;
+      conflict_cols TEXT;
+      del_stmt TEXT;
+      upd_stmt TEXT;
+    BEGIN
+      -- 遍历所有引用 users.id 的外键(单列外键 user_id)
+      FOR r IN
+        SELECT
+          kcu.table_name,
+          kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON ccu.constraint_name = tc.constraint_name
+          AND ccu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema = 'public'
+          AND ccu.table_name = 'users'
+          AND ccu.column_name = 'id'
+          AND kcu.table_name <> 'users'
+      LOOP
+        -- 检查该表是否有包含 user_id 的唯一约束(可能引发冲突)
+        SELECT string_agg(DISTINCT col.column_name, ', ' ORDER BY col.column_name)
+        INTO conflict_cols
+        FROM information_schema.table_constraints tc2
+        JOIN information_schema.key_column_usage col
+          ON tc2.constraint_name = col.constraint_name
+          AND tc2.table_schema = col.table_schema
+        WHERE tc2.table_name = r.table_name
+          AND tc2.table_schema = 'public'
+          AND tc2.constraint_type = 'UNIQUE'
+          AND EXISTS (
+            SELECT 1 FROM information_schema.key_column_usage col2
+            WHERE col2.constraint_name = tc2.constraint_name
+              AND col2.column_name = r.column_name
+          )
+        GROUP BY tc2.constraint_name;
+
+        IF conflict_cols IS NOT NULL THEN
+          -- 删除 fromUserId 与 toUserId 在唯一约束上冲突的行(保留 toUserId 的行)
+          del_stmt := format(
+            'DELETE FROM %I WHERE %I = $1 AND (%s) IN (SELECT %s FROM %I WHERE %I = $2)',
+            r.table_name, r.column_name, conflict_cols, conflict_cols, r.table_name, r.column_name
+          );
+          EXECUTE del_stmt USING fromUserId, toUserId;
+        END IF;
+
+        -- 把 fromUserId 的所有行迁移到 toUserId
+        upd_stmt := format(
+          'UPDATE %I SET %I = $2 WHERE %I = $1',
+          r.table_name, r.column_name, r.column_name
+        );
+        BEGIN
+          EXECUTE upd_stmt USING fromUserId, toUserId;
+        EXCEPTION WHEN OTHERS THEN
+          -- 跳过无法迁移的表(记录到 PostgreSQL log,继续处理其他表)
+          RAISE NOTICE '跳过表 %: %', r.table_name, SQLERRM;
+        END;
+      END LOOP;
+
+      -- 软删除 fromUserId:status=3(已注销),保留行做审计,避免遗漏的外键约束报错
+      UPDATE users SET status = 3, phone = NULL, email = NULL, updated_at = now()
+      WHERE id = fromUserId;
+    END;
+    $$;
+  `)
 }

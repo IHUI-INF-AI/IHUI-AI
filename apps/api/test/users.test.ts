@@ -27,14 +27,19 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const { mockFindUserById, mockFindUserByPhone, mockIsSystemAdminUser, mockUpdateUser } = vi.hoisted(
-  () => ({
-    mockFindUserById: vi.fn(),
-    mockFindUserByPhone: vi.fn(),
-    mockIsSystemAdminUser: vi.fn(),
-    mockUpdateUser: vi.fn(),
-  }),
-)
+const {
+  mockFindUserById,
+  mockFindUserByPhone,
+  mockIsSystemAdminUser,
+  mockUpdateUser,
+  mockMergeUserAccounts,
+} = vi.hoisted(() => ({
+  mockFindUserById: vi.fn(),
+  mockFindUserByPhone: vi.fn(),
+  mockIsSystemAdminUser: vi.fn(),
+  mockUpdateUser: vi.fn(),
+  mockMergeUserAccounts: vi.fn(),
+}))
 
 vi.mock('../src/db/queries.js', () => ({
   findUserById: mockFindUserById,
@@ -42,6 +47,7 @@ vi.mock('../src/db/queries.js', () => ({
   findUserByAccount: vi.fn(),
   isSystemAdminUser: mockIsSystemAdminUser,
   updateUser: mockUpdateUser,
+  mergeUserAccounts: mockMergeUserAccounts,
   createUser: vi.fn(),
   cancelUserAccount: vi.fn(),
   findRefreshToken: vi.fn(),
@@ -368,36 +374,98 @@ describe('users routes', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/users/change-phone',
-        payload: { newPhone: '123', code: '123456' },
+        payload: {
+          oldPhone: '13800000001',
+          oldCode: '123456',
+          newPhone: '123',
+          newCode: '123456',
+        },
       })
       expect(res.statusCode).toBe(400)
     })
 
-    it('验证码无效返回 400', async () => {
+    it('旧手机号与当前账号不一致返回 400', async () => {
       authAs('user-001')
       mockIsSystemAdminUser.mockResolvedValueOnce(false)
-      mockVerifyCode.mockReturnValueOnce(false)
+      mockFindUserById.mockResolvedValueOnce(makeUser({ phone: '13800000001' }))
       const res = await app.inject({
         method: 'POST',
         url: '/api/users/change-phone',
-        payload: { newPhone: '13900000000', code: '000000' },
+        payload: {
+          oldPhone: '13900000099',
+          oldCode: '123456',
+          newPhone: '13900000000',
+          newCode: '123456',
+        },
       })
       expect(res.statusCode).toBe(400)
-      expect(res.json().message).toContain('验证码无效')
+      expect(res.json().message).toContain('旧手机号')
     })
 
-    it('手机号已被绑定返回 409', async () => {
+    it('旧验证码无效返回 400', async () => {
       authAs('user-001')
       mockIsSystemAdminUser.mockResolvedValueOnce(false)
-      mockVerifyCode.mockReturnValueOnce(true)
+      mockFindUserById.mockResolvedValueOnce(makeUser({ phone: '13800000001' }))
+      mockVerifyCode.mockResolvedValueOnce(false) // 旧验证码失败
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/users/change-phone',
+        payload: {
+          oldPhone: '13800000001',
+          oldCode: '000000',
+          newPhone: '13900000000',
+          newCode: '123456',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('旧手机号验证码无效')
+    })
+
+    it('新验证码无效返回 400', async () => {
+      authAs('user-001')
+      mockIsSystemAdminUser.mockResolvedValueOnce(false)
+      mockFindUserById.mockResolvedValueOnce(makeUser({ phone: '13800000001' }))
+      mockVerifyCode.mockResolvedValueOnce(true) // 旧验证码通过
+      mockVerifyCode.mockResolvedValueOnce(false) // 新验证码失败
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/users/change-phone',
+        payload: {
+          oldPhone: '13800000001',
+          oldCode: '123456',
+          newPhone: '13900000000',
+          newCode: '000000',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('新手机号验证码无效')
+    })
+
+    it('新手机号已被其他账号绑定触发合并(200)', async () => {
+      authAs('user-001')
+      mockIsSystemAdminUser.mockResolvedValueOnce(false) // 当前用户非管理员
+      mockFindUserById.mockResolvedValueOnce(makeUser({ id: 'user-001', phone: '13800000001' }))
+      mockVerifyCode.mockResolvedValueOnce(true) // 旧验证码
+      mockVerifyCode.mockResolvedValueOnce(true) // 新验证码
       mockFindUserByPhone.mockResolvedValueOnce(makeUser({ id: 'user-002' }))
+      mockIsSystemAdminUser.mockResolvedValueOnce(false) // 目标账号非管理员
+      mockMergeUserAccounts.mockResolvedValueOnce(undefined)
+      mockUpdateUser.mockResolvedValueOnce(makeUser({ phone: '13900000000' }))
       const res = await app.inject({
         method: 'POST',
         url: '/api/users/change-phone',
-        payload: { newPhone: '13900000000', code: '123456' },
+        payload: {
+          oldPhone: '13800000001',
+          oldCode: '123456',
+          newPhone: '13900000000',
+          newCode: '123456',
+        },
       })
-      expect(res.statusCode).toBe(409)
-      expect(res.json().message).toContain('已被其他账号')
+      expect(res.statusCode).toBe(200)
+      expect(mockMergeUserAccounts).toHaveBeenCalledWith({
+        fromUserId: 'user-002',
+        toUserId: 'user-001',
+      })
     })
 
     it('系统管理员不可修改返回 403', async () => {
@@ -406,7 +474,12 @@ describe('users routes', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/users/change-phone',
-        payload: { newPhone: '13900000000', code: '123456' },
+        payload: {
+          oldPhone: '13800000001',
+          oldCode: '123456',
+          newPhone: '13900000000',
+          newCode: '123456',
+        },
       })
       expect(res.statusCode).toBe(403)
     })
