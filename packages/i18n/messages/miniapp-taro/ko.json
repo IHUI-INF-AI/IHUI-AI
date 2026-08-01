@@ -108,7 +108,14 @@
       "subtitle": "{{n}}개 강의"
     },
     "ratingTitle": "코스 평가",
-    "ratingLabels": ["", "매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음"],
+    "ratingLabels": [
+      "",
+      "매우 나쁨",
+      "나쁨",
+      "보통",
+      "좋음",
+      "매우 좋음"
+    ],
     "ratingPlaceholder": "평가해주세요",
     "ratingDescLabel": "리뷰를 작성하세요",
     "ratingInputPlaceholder": "코스는 어땠나요? 생각을 공유하세요...",
@@ -460,7 +467,12 @@
       "timbre": "음색"
     },
     "image": {
-      "examples": ["귀여운 고양이", "일몰 산 풍경", "미래 도시", "추상 예술"],
+      "examples": [
+        "귀여운 고양이",
+        "일몰 산 풍경",
+        "미래 도시",
+        "추상 예술"
+      ],
       "emptyHint": "이미지 생성 설명 입력",
       "tryThese": "이것들 시도",
       "placeholder": "생성할 이미지 설명",
@@ -474,7 +486,14 @@
       "favorited": "즐겨찾기됨",
       "history": "기록",
       "empty": "생성 기록 없음",
-      "styles": ["실사", "애니메이션", "유화", "수채화", "3D", "픽셀"],
+      "styles": [
+        "실사",
+        "애니메이션",
+        "유화",
+        "수채화",
+        "3D",
+        "픽셀"
+      ],
       "generateFailed": "생성 실패, 재시도",
       "downloadSuccess": "앨범에 저장됨",
       "downloadFailed": "다운로드 실패, 재시도",
@@ -598,6 +617,29 @@
       "agentTipInputDesc": "하단 입력란에 질문을 입력하고 전송을 누르세요",
       "agentTipHistory": "기록",
       "agentTipHistoryDesc": "대화 기록을 조회할 수 있습니다"
+    },
+    "uploadMaterialTab": "{{tab}} 자료 업로드",
+    "messageAction": {
+      "reuse": "재사용"
+    },
+    "chatDrawers": {
+      "selectModel": "모델 선택",
+      "materialLibrary": "자료실",
+      "emptyMaterial": "자료가 없습니다",
+      "skillDetail": "스킬 상세"
+    },
+    "aiAssistant": {
+      "nothingToCopy": "복사할 내용이 없습니다",
+      "copySuccess": "복사 성공",
+      "pleaseInputDesc": "설명을 입력해 주세요",
+      "pleaseWait": "잠시만 기다려 주세요",
+      "insufficientTokens": "토큰이 부족합니다",
+      "goRecharge": "토큰이 부족합니다. 충전하시겠습니까?",
+      "pleaseLogin": "먼저 로그인해 주세요",
+      "generateFailed": "생성 실패, 재시도"
+    },
+    "intelligentAssistant": {
+      "greeting": "안녕하세요, IHUI AI 어시스턴트입니다"
     }
   },
   "share": {
@@ -883,7 +925,10 @@
       "starting": "시험 입장 중…"
     },
     "answer": {
-      "judgmentOptions": ["맞음", "틀림"],
+      "judgmentOptions": [
+        "맞음",
+        "틀림"
+      ],
       "loadFailed": "문제 로딩 실패",
       "answerPlaceholder": "답 입력",
       "prev": "이전 문제",
@@ -1196,7 +1241,13 @@
       }
     },
     "appPermission": {
-      "names": ["앨범 권한", "카메라 권한", "마이크 권한", "위치 권한", "알림 권한"],
+      "names": [
+        "앨범 권한",
+        "카메라 권한",
+        "마이크 권한",
+        "위치 권한",
+        "알림 권한"
+      ],
       "descs": [
         "이미지를 앨범에 저장하고 업로드",
         "사진 촬영 및 동영상 녹화",
@@ -1536,8 +1587,18 @@
         "도움 요청",
         "경험 요약"
       ],
-      "levels": ["초급", "중급", "고급", "전문가"],
-      "budgets": ["1000위안 이하", "1000-5000위안", "5000-10000위안", "10000위안 이상"],
+      "levels": [
+        "초급",
+        "중급",
+        "고급",
+        "전문가"
+      ],
+      "budgets": [
+        "1000위안 이하",
+        "1000-5000위안",
+        "5000-10000위안",
+        "10000위안 이상"
+      ],
       "selectAtLeast": "최소 1개 선택",
       "saved": "저장됨",
       "directionTitle": "학습 방향",
@@ -1870,7 +1931,11 @@
         "도움 요청",
         "경험 요약"
       ],
-      "visibilityOptions": ["공개", "친구만", "비공개"],
+      "visibilityOptions": [
+        "공개",
+        "친구만",
+        "비공개"
+      ],
       "enterTitle": "제목 입력",
       "enterContent": "내용 입력",
       "published": "게시됨",
@@ -2149,7 +2214,14 @@
       "bannerTitle": "VIP로 업그레이드",
       "bannerDesc": "더 많은 전용 특권 잠금 해제",
       "rightsTitle": "회원 혜택",
-      "rights": ["전용 고객지원", "우선 체험", "고급 기능", "광고 제거", "전용 배지", "할인 혜택"],
+      "rights": [
+        "전용 고객지원",
+        "우선 체험",
+        "고급 기능",
+        "광고 제거",
+        "전용 배지",
+        "할인 혜택"
+      ],
       "loadFailed": "로딩 실패",
       "operationFailed": "작업 실패",
       "originalPrice": "원가 ¥{{n}}",
@@ -2196,7 +2268,8 @@
         "modelAccess": "모델 접근",
         "prioritySupport": "우선 지원",
         "exclusiveGroup": "전용 그룹",
-        "adExperience": "광고 경험"
+        "adExperience": "광고 경험",
+        "vipColumn": "VIP 회원"
       },
       "monthlyPlan": "월간 멤버십",
       "yearlyPlan": "연간 멤버십",

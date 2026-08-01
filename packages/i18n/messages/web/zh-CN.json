@@ -1112,7 +1112,9 @@
     "errors": {
       "timeout15s": "AI 响应超时(15 秒内未收到任何内容),请稍后重试",
       "timeout60s": "AI 思考超时(60 秒内未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型"
-    }
+    },
+    "clearInputAriaLabel": "清除输入",
+    "clearInputTitle": "清除输入内容"
   },
   "learn": {
     "title": "学习中心",
@@ -1305,7 +1307,13 @@
       "free": {
         "name": "免费版",
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"]
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
@@ -1322,7 +1330,13 @@
         "name": "企业版",
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"]
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ]
       }
     },
     "checkout": {
@@ -1506,7 +1520,11 @@
       "signupsSubtitle": "查看与管理课程报名记录",
       "backToLearnSignups": "返回课程管理",
       "signupsTotal": "共 {total} 条记录",
-      "signupsUpdateSuccess": "状态更新成功"
+      "signupsUpdateSuccess": "状态更新成功",
+      "signupsSearchPlaceholder": "搜索课程/用户/手机号",
+      "colSignupStatus": "报名状态",
+      "updateStatus": "更新状态",
+      "signupsNoData": "暂无报名记录"
     },
     "edu": {
       "learn": {
@@ -3282,7 +3300,23 @@
         "rowSuccess": "成功",
         "rowFailure": "失败",
         "noDetails": "后端暂未返回逐条明细,如需查看失败行详情请扩展后端接口返回 resultItemList。"
-      }
+      },
+      "usernameRequired": "请输入用户名",
+      "passwordRequired": "请输入密码",
+      "fieldUsername": "用户名",
+      "fieldMobile": "手机号",
+      "mobilePlaceholder": "请输入手机号",
+      "fieldGender": "性别",
+      "genderUnknown": "未知",
+      "noLevel": "无等级",
+      "newPasswordRequired": "请输入新密码",
+      "resetTitle": "重置密码",
+      "resetDesc": "将重置该用户的密码",
+      "fieldNewPassword": "新密码",
+      "newPasswordPlaceholder": "请输入新密码",
+      "statPending": "待审核",
+      "statSealed": "已封禁",
+      "statCompany": "企业数"
     },
     "resources": {
       "title": "资源管理",
@@ -3354,7 +3388,10 @@
       "resourceRequired": "请选择关联资源",
       "tagsTitle": "资源标签管理",
       "tagsSubtitle": "管理资源标签",
-      "rootTag": "无上级标签"
+      "rootTag": "无上级标签",
+      "fieldFileType": "文件类型",
+      "fileTypePlaceholder": "请输入文件类型",
+      "fieldFileSize": "文件大小"
     },
     "live": {
       "title": "直播管理",
@@ -3411,7 +3448,21 @@
       "lecturersTitle": "讲师管理",
       "lecturersSubtitle": "管理直播讲师",
       "fieldAvatar": "头像地址",
-      "avatarPlaceholder": "请输入头像 URL(选填)"
+      "avatarPlaceholder": "请输入头像 URL(选填)",
+      "noLecturer": "无讲师",
+      "fieldIntroduction": "详细介绍",
+      "fieldShowNumber": "显示序号",
+      "fieldEnableChat": "启用聊天",
+      "fieldPushUrl": "推流地址",
+      "pushUrlPlaceholder": "请输入推流地址",
+      "fieldPlayUrl": "播放地址",
+      "playUrlPlaceholder": "请输入播放地址",
+      "timePlaceholder": "请选择时间",
+      "fieldIsLive": "是否直播中",
+      "statChannelTotal": "频道总数",
+      "statLiving": "直播中",
+      "statPublished": "已发布",
+      "statViewSum": "总观看数"
     },
     "saas": {
       "title": "租户管理",
@@ -3716,7 +3767,19 @@
       "subtitle": "管理平台订单、退款与发票申请",
       "tabOrders": "订单",
       "tabRefunds": "退款",
-      "tabInvoices": "发票申请"
+      "tabInvoices": "发票申请",
+      "invoiceType": "发票类型",
+      "changeStatus": "修改状态",
+      "changeStatusTitle": "修改发票状态",
+      "changeStatusDesc": "请选择新的发票状态",
+      "payType": "支付方式",
+      "noRefunds": "暂无退款记录",
+      "process": "处理",
+      "noAction": "无需操作",
+      "processTitle": "处理退款",
+      "handleTitle": "完成退款",
+      "processDesc": "确认处理该退款申请",
+      "handleDesc": "确认完成该退款处理"
     },
     "workflows": {
       "title": "工作流管理",
@@ -4530,7 +4593,11 @@
       "exportName": "Agent任务",
       "total": "共 {total} 条",
       "prev": "上一页",
-      "next": "下一页"
+      "next": "下一页",
+      "colContext": "需求描述",
+      "colCycleFull": "完整周期",
+      "colLowestPrice": "最低价",
+      "colPeakPrice": "最高价"
     },
     "demandAudit": {
       "title": "需求审核",
@@ -7315,7 +7382,10 @@
     "preferencesTitle": "偏好设置",
     "privacyTitle": "隐私设置",
     "subtitle": "管理账户、安全、偏好和开发者配置",
-    "title": "设置"
+    "title": "设置",
+    "billingInvoiceNo": "发票号",
+    "billingInvoiceType": "发票类型",
+    "billingNoData": "暂无账单记录"
   },
   "favorites": {
     "title": "收藏夹",
@@ -8273,7 +8343,9 @@
     "noSnapshots": "暂无快照",
     "data": "数据",
     "actions": "操作",
-    "delete": "删除"
+    "delete": "删除",
+    "signups": "报名数",
+    "examRecords": "考试记录数"
   },
   "messages": {
     "loading": "加载中...",
@@ -9210,7 +9282,13 @@
     },
     "monitor": {
       "title": "监控仪表盘",
-      "subtitle": "平台运行状态总览"
+      "subtitle": "平台运行状态总览",
+      "alerts": "告警",
+      "logSummary": "日志摘要",
+      "logTotal": "日志总数",
+      "logErrors": "错误数",
+      "logWarnings": "警告数",
+      "perf": "性能指标"
     }
   },
   "aiGeneration": {
@@ -10080,32 +10158,58 @@
       "chat": {
         "label": "AI 对话",
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"]
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"]
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ]
       },
       "settings": {
         "label": "系统设置",
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -10512,19 +10616,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -10645,25 +10761,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -12157,7 +12285,11 @@
       "period": "/人/年",
       "desc": "早鸟售罄后自动切换至此方案",
       "cta": "了解详情",
-      "features": ["全年所有课程免费参加", "线下探索活动优先参与名额", "智汇 AI 会员社群无限次互动"]
+      "features": [
+        "全年所有课程免费参加",
+        "线下探索活动优先参与名额",
+        "智汇 AI 会员社群无限次互动"
+      ]
     },
     "enterprise": {
       "name": "企业服务",
@@ -12285,7 +12417,15 @@
       "sessions": "会话数",
       "crashRate": "崩溃率"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趋势",
       "subtitle": "每日活跃用户数变化曲线"
@@ -12429,8 +12569,18 @@
     "title": "AI 生涯指导",
     "subtitle": "填写孩子学习情况,AI 为您生成个性化生涯指导建议",
     "options": {
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"],
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -14007,7 +14157,12 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       },
       "pro": {
         "features": [
@@ -14489,7 +14644,13 @@
         "price": "¥999",
         "unit": "/小时",
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"]
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ]
       }
     },
     "socialProof": {
