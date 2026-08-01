@@ -5,7 +5,6 @@ import { HomeSections, TOTAL_PAGES } from '@/components/marketing/HomeSections'
 import { getEnabledSectionCount } from '@/components/marketing/home-schema'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { PreviewBanner } from '@/components/marketing/PreviewBanner'
-import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 import { useHomeSchema } from '@/hooks/use-home-schema'
 
@@ -13,17 +12,17 @@ import { useHomeSchema } from '@/hooks/use-home-schema'
  * 营销首页(/)
  *
  * 2026-07-28 改造:7-section 主体抽到 HomeSections 共享组件,工作区版首页 /home 也复用
- * 同一份内容,保证两处完全一致(分页结构 + 右侧 PageIndicator + 底部 ScrollDownButton)。
+ * 同一份内容,保证两处完全一致(分页结构 + 右侧 PageIndicator)。
  * 2026-08-01 P3-4.3:接入 Server-Driven UI,通过 useHomeSchema 加载后端 schema 配置,
  * section 顺序/显隐可由 admin 在 system_configs(category='home_schema')调整。
  *
  * - 外壳:scroll 容器(全屏 100vh - 58px) + useFullPageScroll hook
  * - 内容:HomeSections(schema 驱动,showFooter=true 渲染 SiteFooter)
- * - 控件:PageIndicator(右侧分页指示器)+ ScrollDownButton(底部向下按钮)
+ * - 控件:PageIndicator(右侧分页指示器)
  */
 export default function HomePage() {
   const schema = useHomeSchema()
-  const { section, total, setTotal, scrollTo, next } = useFullPageScroll(TOTAL_PAGES)
+  const { section, total, setTotal, scrollTo } = useFullPageScroll(TOTAL_PAGES)
 
   // schema 加载后同步更新分页总数(enabled section 数量)
   React.useEffect(() => {
@@ -51,9 +50,6 @@ export default function HomePage() {
 
       {/* 右侧分页指示器 */}
       <PageIndicator current={section} total={total} onClick={scrollTo} />
-
-      {/* 底部向下滚动按钮 */}
-      <ScrollDownButton current={section} total={total} onNext={next} />
     </>
   )
 }

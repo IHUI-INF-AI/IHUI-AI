@@ -303,16 +303,6 @@
   }
 }
 
-@keyframes subtle-bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(3px);
-  }
-}
-
 @keyframes unifiedFadeIn {
   to {
     opacity: 1;
@@ -2652,9 +2642,6 @@
 }
 .animate-flipIn {
   animation: flipIn 1s linear;
-}
-.animate-subtle-bounce {
-  animation: subtle-bounce 2s ease-in-out infinite;
 }
 .animate-unifiedFadeIn {
   animation: unifiedFadeIn 0.5s ease forwards;
