@@ -14,7 +14,7 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center py-12 min-[768px]:py-20 text-sm text-muted-foreground">
           加载中...
         </div>
       }

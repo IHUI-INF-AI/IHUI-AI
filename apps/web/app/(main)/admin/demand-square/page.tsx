@@ -108,7 +108,7 @@ export default function AdminDemandSquarePage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         {statCards.map((s) => {
           const Icon = s.icon
           return (

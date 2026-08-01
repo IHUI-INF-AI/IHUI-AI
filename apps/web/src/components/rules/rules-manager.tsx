@@ -344,10 +344,10 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
       >
         P{rule.priority}
       </Badge>
-      <span className="hidden shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
+      <span className="hidden shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground min-[640px]:inline">
         {scopeLabel(rule.scope)}
       </span>
-      <span className="hidden shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground md:inline">
+      <span className="hidden shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground min-[768px]:inline">
         {matchTypeLabel(rule.matchType)}
       </span>
       <button
@@ -368,7 +368,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
           type="button"
           onClick={onShowDetail}
           aria-label="详情"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <BarChart3 className="h-3.5 w-3.5" />
         </button>
@@ -376,7 +376,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
           type="button"
           onClick={() => openTestDialog(rule)}
           aria-label="测试"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <FlaskConical className="h-3.5 w-3.5" />
         </button>
@@ -384,7 +384,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
           type="button"
           onClick={onEdit}
           aria-label="编辑"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
@@ -396,7 +396,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
               setConfirmDel(false)
             }}
             aria-label="确认删除"
-            className="flex h-6 w-6 items-center justify-center rounded-md bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20"
+            className="flex h-9 w-9 items-center justify-center rounded-md bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -405,7 +405,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
             type="button"
             onClick={() => setConfirmDel(true)}
             aria-label="删除"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -415,7 +415,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
             type="button"
             onClick={() => setConfirmDel(false)}
             aria-label="取消删除"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -492,7 +492,7 @@ function RuleEditDialog() {
             type="button"
             onClick={closeEditor}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -654,7 +654,7 @@ function RuleTestDialog() {
             type="button"
             onClick={closeTestDialog}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -779,7 +779,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -963,7 +963,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1179,7 +1179,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1235,7 +1235,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
         ) : tab === 'stats' ? (
           stats && (
             <div className="thin-scroll space-y-3 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
                 <StatCard label="命中次数" value={String(stats.matchCount)} />
                 <StatCard label="7天命中" value={String(stats.hits7d)} />
                 <StatCard label="30天命中" value={String(stats.hits30d)} />
@@ -1595,7 +1595,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1764,7 +1764,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1948,7 +1948,7 @@ function RuleAutoGenerateDialog({ onClose, onCreated }: RuleAutoGenerateDialogPr
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -2120,7 +2120,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>

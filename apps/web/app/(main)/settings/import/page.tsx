@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -154,7 +154,7 @@ export default function CliImportPage() {
               {t('parsing')}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
               {sources.map((s) => {
                 const active = source === s.source
                 return (
@@ -284,7 +284,7 @@ export default function CliImportPage() {
             {/* Conflict strategy */}
             <div className="space-y-2">
               <p className="text-xs font-medium">{t('conflictStrategy')}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
                 {CONFLICT_STRATEGIES.map((s) => {
                   const active = strategy === s
                   return (

@@ -101,7 +101,7 @@ export default function EduLearnRankingPage() {
       </div>
 
       {!noEndpoint && top3.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
           {top3.map((r, i) => {
             const icon = i === 0 ? Trophy : i === 1 ? Medal : Award
             const Icon = icon

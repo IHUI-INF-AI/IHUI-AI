@@ -27,7 +27,7 @@ export function Hero() {
             <Sparkles className="h-3.5 w-3.5" />
             <span>{t('hero.badge')}</span>
           </div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold leading-tight tracking-tight md:text-4xl">
+          <h1 className="flex items-center gap-2 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold leading-tight tracking-tight">
             <Newspaper className="h-7 w-7 text-primary md:h-8 md:w-8" />
             {t('hero.title')}
           </h1>

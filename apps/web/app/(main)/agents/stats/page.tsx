@@ -101,7 +101,7 @@ export default function AgentStatsPage() {
       </Link>
 
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <BarChart3 className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
@@ -118,7 +118,7 @@ export default function AgentStatsPage() {
           {(error as Error).message}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           {cards.map((card) => {
             const Icon = card.icon
             return (

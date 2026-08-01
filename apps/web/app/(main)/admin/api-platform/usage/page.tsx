@@ -125,7 +125,7 @@ export default function AdminApiPlatformUsagePage() {
         </Select>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {cards.map((c) => {
           const Icon = c.icon
           return (
