@@ -320,7 +320,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
     <Popover
       content={
         <div
-          className="w-[360px] space-y-2"
+          className="w-[min(360px,calc(100vw-2rem))] space-y-2"
           // 阻止 popover 内部 click 冒泡到 document(onKey 监听器在 document 上,
           // 若用户点击卡片,卡片自身 onClick 触发 handleSelect,不需要 document 再次处理)
         >

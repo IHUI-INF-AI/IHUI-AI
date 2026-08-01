@@ -89,7 +89,7 @@ export default function AdminSettlementPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         {summaryCards.map((s) => {
           const Icon = s.icon
           return (
