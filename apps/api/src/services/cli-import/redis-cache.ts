@@ -36,7 +36,7 @@ function getRedis(): Redis | null {
         })
       })
       const quit = (): void => {
-        redisClient?.quit().catch(() => {
+        redisClient?.quit()?.catch(() => {
           /* ignore */
         })
       }

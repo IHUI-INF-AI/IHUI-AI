@@ -648,7 +648,7 @@ describe('message routes', () => {
       expect(res.statusCode).toBe(404)
     })
 
-    it('会话存在返回 202(未持久化)', async () => {
+    it('会话存在返回 200(已持久化 lastReadAt)', async () => {
       authAs()
       enqueue([{ id: UUID }]) // chatConversations
       const res = await app.inject({
@@ -656,8 +656,8 @@ describe('message routes', () => {
         url: `/api/messages/${UUID}/read`,
         headers: { authorization: 'Bearer t' },
       })
-      expect(res.statusCode).toBe(202)
-      expect(res.json().data.persisted).toBe(false)
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.persisted).toBe(true)
     })
   })
 

@@ -11,6 +11,7 @@
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type * as CryptoNamespace from 'crypto'
 
 // =============================================================================
 // Mock 工具:构建链式查询 mock
@@ -113,7 +114,7 @@ vi.mock('../src/services/relay-billing-service.js', () => ({
 
 // Mock crypto.randomUUID 用于确定性测试
 vi.mock('crypto', async (importOriginal) => {
-  const actual = (await importOriginal()) as typeof import('crypto')
+  const actual = (await importOriginal()) as typeof CryptoNamespace
   return {
     ...actual,
     randomUUID: vi.fn().mockReturnValue('test-batch-uuid'),

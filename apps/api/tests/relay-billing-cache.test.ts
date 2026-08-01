@@ -21,12 +21,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 /**
  * 构建链式 mock:dbRead.select(...).from(...).where(...).limit() / .orderBy().limit()
  * 返回值是 dbRead.select() 的返回值(即 { from: fn }),从 from 开始链式调用。
+ *
+ * 同时支持三种链式:
+ * - select().from().where().limit()(calculateByokCost modelRow)
+ * - select().from().where().orderBy().limit()(calculateByokCost pricingRow)
+ * - select().from().innerJoin().where().limit()(getKeyGroup,2026-08-01 补)
  */
 function chain(limitReturn: unknown[]) {
   const limit = vi.fn().mockResolvedValue(limitReturn)
   const orderBy = vi.fn().mockReturnValue({ limit })
+  // where 返回既有 limit 又有 orderBy 的对象(两种链式都满足)
   const where = vi.fn().mockReturnValue({ limit, orderBy })
-  const from = vi.fn().mockReturnValue({ where })
+  // innerJoin 返回 { where }(getKeyGroup 链式:from().innerJoin().where().limit())
+  const innerJoin = vi.fn().mockReturnValue({ where })
+  const from = vi.fn().mockReturnValue({ where, innerJoin })
   return { from }
 }
 
@@ -84,6 +92,66 @@ vi.mock('@ihui/database', () => ({
     enabled: 'enabled',
     byokCommissionRate: 'byok_commission_rate',
   },
+  // 2026-08-01 补:relay-billing-service.ts 调 getKeyGroup → api-key-group-service.ts
+  // 用 apiKeyGroups/apiKeyGroupMembers/apiKeyGroupInvites;调 getUserModelMultiplier →
+  // user-billing-group-service.ts 用 userBillingGroups/userBillingGroupMembers/
+  // userBillingGroupModelMultipliers。mock 缺这些 export 会触发 vitest "No X export" 错误。
+  apiKeyGroups: {
+    id: 'id',
+    name: 'name',
+    ownerUuid: 'owner_uuid',
+    createdAt: 'created_at',
+  },
+  apiKeyGroupMembers: {
+    groupId: 'group_id',
+    apiKeyId: 'api_key_id',
+    role: 'role',
+    addedAt: 'added_at',
+  },
+  apiKeyGroupInvites: {
+    id: 'id',
+    groupId: 'group_id',
+    inviteCode: 'invite_code',
+  },
+  userBillingGroups: {
+    id: 'id',
+    name: 'name',
+    ownerUuid: 'owner_uuid',
+  },
+  userBillingGroupMembers: {
+    groupId: 'group_id',
+    userUuid: 'user_uuid',
+    expiresAt: 'expires_at',
+  },
+  userBillingGroupModelMultipliers: {
+    groupId: 'group_id',
+    modelId: 'model_id',
+    multiplier: 'multiplier',
+  },
+}))
+
+// 2026-08-01 补:mock 掉 relay-billing-service.ts 的 5 个外部依赖,避免触达
+// tiered-pricing / user-billing-group / api-key-group / relay-commission / webhook-notifier
+// 的真实 DB 查询(测试只关心计费逻辑本身)。
+vi.mock('../src/services/tiered-pricing-service.js', () => ({
+  getCurrentTierMultiplier: vi.fn().mockResolvedValue({
+    multiplier: 1,
+    currentTokens: 0,
+    nextTierThreshold: null,
+    nextTierMultiplier: null,
+  }),
+}))
+vi.mock('../src/services/user-billing-group-service.js', () => ({
+  getUserModelMultiplier: vi.fn().mockResolvedValue(1),
+}))
+vi.mock('../src/services/api-key-group-service.js', () => ({
+  getKeyGroup: vi.fn().mockResolvedValue(null),
+}))
+vi.mock('../src/services/relay-commission-service.js', () => ({
+  recordRelayCommission: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('../src/services/webhook-relay-notifier.js', () => ({
+  notifyRelayEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
 import { calculateCost, recordCall } from '../src/services/relay-billing-service.js'

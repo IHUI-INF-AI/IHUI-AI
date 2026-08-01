@@ -69,7 +69,7 @@ vi.mock('../src/db/index.js', () => ({
   dbClient: {},
 }))
 
-import tokenBalanceRoutes from '../src/routes/admin/token-balance.js'
+import { tokenBalanceService } from '../src/plugins/token-balance-service.js'
 import statsRoutes from '../src/routes/admin/stats.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
@@ -97,9 +97,9 @@ describe('admin-stats routes', () => {
   const server = Fastify({ logger: false, pluginTimeout: 60000 })
 
   beforeAll(async () => {
-    // tokenBalanceRoutes 内部注册 /metrics,挂载到 /api/admin/token-balance
-    // 最终暴露为 GET /api/admin/token-balance/metrics
-    await server.register(tokenBalanceRoutes, { prefix: '/api/admin/token-balance' })
+    // tokenBalanceService 插件内部已声明完整路径 /api/admin/token-balance/metrics,
+    // 不需要 prefix(与 server.ts 生产注册方式一致:server.register(tokenBalanceService))
+    await server.register(tokenBalanceService)
     // statsRoutes 内部注册 /stats/*,挂载到 /api/admin
     // 最终暴露为 GET /api/admin/stats/dashboard 和 /api/admin/stats/revenue
     await server.register(statsRoutes, { prefix: '/api/admin' })
@@ -112,6 +112,8 @@ describe('admin-stats routes', () => {
 
   // ===========================================================================
   // 1. GET /api/admin/token-balance/metrics
+  //    实现:apps/api/src/plugins/token-balance-service.ts L269
+  //    说明:VIP 折扣实时计数器,内存累加(无 DB 查询),返回 { applies, totalDiscounted, byLevel }
   // ===========================================================================
   describe('GET /api/admin/token-balance/metrics', () => {
     it('未登录返回 401', async () => {
@@ -136,14 +138,10 @@ describe('admin-stats routes', () => {
       expect(body.message).toContain('管理员')
     })
 
-    it('admin 返回 200 + VipMetrics 结构', async () => {
+    it('admin 返回 200 + VipMetrics 内存结构', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ c: 5 }]) // appliesRow (tokenFlows count)
-      mockSelectResult.mockResolvedValueOnce([
-        { levelValue: 1, c: 3 },
-        { levelValue: 2, c: 2 },
-      ]) // byLevelRows (userVips groupBy)
-
+      // token-balance-service.ts 的 metrics 端点返回内存 vipDiscountMetrics,
+      // 不查询 DB(与旧 routes/admin/token-balance.ts 的 DB 实现不同)。
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/token-balance/metrics',
@@ -161,10 +159,8 @@ describe('admin-stats routes', () => {
       expect(typeof body.data.byLevel).toBe('object')
     })
 
-    it('DB 异常时返回 200 + 零值兜底', async () => {
+    it('内存计数器初始为零值', async () => {
       mockAdmin()
-      mockSelectResult.mockRejectedValueOnce(new Error('DB connection failed'))
-
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/token-balance/metrics',
@@ -173,6 +169,7 @@ describe('admin-stats routes', () => {
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
+      // 测试环境无 VIP 折扣调用,内存计数器应为零值
       expect(body.data.applies).toBe(0)
       expect(body.data.totalDiscounted).toBe(0)
       expect(body.data.byLevel).toEqual({})

@@ -45,7 +45,7 @@ function getRedis(): Redis {
       logger.error('[ws-dedup] redis error', { error: err })
     })
     const quit = (): void => {
-      redisClient?.quit().catch(() => {
+      redisClient?.quit()?.catch(() => {
         /* ignore */
       })
     }

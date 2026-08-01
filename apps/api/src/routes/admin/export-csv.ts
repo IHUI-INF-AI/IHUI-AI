@@ -86,7 +86,7 @@ function generateCsv(rows: Record<string, unknown>[], columns: CsvColumn[]): str
     columns
       .map((col) => {
         const raw = row[col.key]
-        const formatted = col.formatter ? col.formatter(raw) : raw == null ? '' : String(raw)
+        const formatted = col.formatter ? col.formatter(raw) : (raw === null || raw === undefined) ? '' : String(raw)
         return escapeCsvField(formatted)
       })
       .join(','),
@@ -96,7 +96,7 @@ function generateCsv(rows: Record<string, unknown>[], columns: CsvColumn[]): str
 
 /** Date/时间字段 → ISO 8601 字符串(null/undefined → 空字符串) */
 function formatIsoDate(value: unknown): string {
-  if (value == null) return ''
+  if (value === null || value === undefined) return ''
   if (value instanceof Date) return value.toISOString()
   return String(value)
 }
@@ -116,7 +116,7 @@ function formatOrderType(value: unknown): string {
     const n = Number(value)
     return Number.isNaN(n) ? value : map[n] ?? value
   }
-  return value == null ? '' : String(value)
+  return (value === null || value === undefined) ? '' : String(value)
 }
 
 // =============================================================================

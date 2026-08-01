@@ -11,8 +11,6 @@
  * 共享组件只负责纯 UI 渲染,不直接依赖任何平台 API。
  */
 
-import type { ReactNode } from 'react'
-
 /** i18n 翻译函数契约(兼容 next-intl / i18next / 自定义) */
 export type TFunction = (key: string, options?: Record<string, string | number>) => string
 
@@ -4005,7 +4003,8 @@ export interface VideoPlayerScreenProps {
   error: string
   onComplete: () => void
   onBack: () => void
-  playerContent?: ReactNode
+  /** 平台播放器 slot(web/RN wrapper 注入,共享层不渲染故用 unknown,与 onMessageRef el: unknown 同模式) */
+  playerContent?: unknown
   colorScheme?: 'light' | 'dark'
 }
 

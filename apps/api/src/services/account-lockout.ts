@@ -35,7 +35,9 @@ function getRedis(): Redis | null {
       logger.error('[account-lockout] redis error', { error: err })
     })
     const quit = (): void => {
-      redisClient?.quit().catch(() => {
+      // 注意:redisClient?.quit() 在 redisClient 为 null 时返回 undefined,
+      // 此时 .catch() 会抛 TypeError。用 ?.catch() 短路避免(与 ws-dedup.ts 同模式)。
+      redisClient?.quit()?.catch(() => {
         /* ignore */
       })
     }
@@ -149,7 +151,9 @@ export const ACCOUNT_LOCKOUT_CONFIG = {
 
 /** 仅供测试:重置内部 Redis 单例 + fallback 存储。 */
 export function _resetAccountLockoutForTests(): void {
-  redisClient?.quit().catch(() => {
+  // 关键:测试时 redisClient 可能为 null(从未初始化),
+  // redisClient?.quit() 返回 undefined,.catch() 会抛 TypeError。用 ?.catch() 短路。
+  redisClient?.quit()?.catch(() => {
     /* ignore */
   })
   redisClient = null

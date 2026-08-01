@@ -129,62 +129,9 @@ describe('Integration Tests (mocked DB)', () => {
     await app.close()
   })
 
-  describe('commission', () => {
-    it('GET /commission/overview → 200 + 佣金汇总结构', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/commission/overview',
-        headers: AUTH,
-      })
-      expect(res.statusCode).toBe(200)
-      const body = JSON.parse(res.body)
-      expect(body.code).toBe(0)
-      expect(body.data).toHaveProperty('totalCommission', 100)
-      expect(body.data).toHaveProperty('availableCommission', 50)
-      expect(body.data).toHaveProperty('pendingCommission', 0)
-      expect(body.data).toHaveProperty('withdrawnCommission', 50)
-    })
-
-    it('GET /commission/invite-info → 200 + 邀请信息', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/commission/invite-info',
-        headers: AUTH,
-      })
-      expect(res.statusCode).toBe(200)
-      const body = JSON.parse(res.body)
-      expect(body.code).toBe(0)
-      expect(body.data).toHaveProperty('inviteCount', 5)
-      expect(body.data).toHaveProperty('vipInvitees', 2)
-      expect(body.data).toHaveProperty('monthNew', 1)
-    })
-
-    it('GET /commission/invited-users → 200 + 分页结构', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/commission/invited-users',
-        headers: AUTH,
-      })
-      expect(res.statusCode).toBe(200)
-      const body = JSON.parse(res.body)
-      expect(body.code).toBe(0)
-      expect(body.data).toHaveProperty('list')
-      expect(body.data).toHaveProperty('total')
-      expect(body.data).toHaveProperty('page', 1)
-      expect(body.data).toHaveProperty('pageSize', 20)
-    })
-
-    it('GET /commission/list → 200 + 佣金流水分页结构', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/commission/list', headers: AUTH })
-      expect(res.statusCode).toBe(200)
-      const body = JSON.parse(res.body)
-      expect(body.code).toBe(0)
-      expect(body.data).toHaveProperty('list')
-      expect(body.data).toHaveProperty('total')
-      expect(body.data).toHaveProperty('page', 1)
-      expect(body.data).toHaveProperty('pageSize', 20)
-    })
-  })
+  // 注:2026-07-25 P1-1 命名统一,/commission/* → /distribution/*,已迁移至 routes/distribution.ts
+  // (不在 missingUserRoutes barrel 内)。原 commission 4 端点 200 集成测试已移至 commission-routes.test.ts
+  // (401 鉴权测试);distribution 200 数据结构测试由真实 DB 集成测试(vitest.real.config.ts)覆盖。
 
   describe('article', () => {
     it('GET /article/list → 200 + 分页结构', async () => {

@@ -54,7 +54,7 @@ function getRedis(): Redis {
       logger.error('[ws-rate-limit] redis error', { error: err })
     })
     const quit = (): void => {
-      redisClient?.quit().catch(() => {
+      redisClient?.quit()?.catch(() => {
         /* ignore */
       })
     }

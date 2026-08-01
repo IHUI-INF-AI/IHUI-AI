@@ -230,8 +230,8 @@ export async function getMinuteUsage(apiKeyId: string): Promise<MinuteUsage> {
     const tokensRaw = results?.[0]?.[1]
     const reqRaw = results?.[1]?.[1]
     return {
-      tokens: tokensRaw != null ? Number(tokensRaw) : 0,
-      requests: reqRaw != null ? Number(reqRaw) : 0,
+      tokens: tokensRaw !== null && tokensRaw !== undefined ? Number(tokensRaw) : 0,
+      requests: reqRaw !== null && reqRaw !== undefined ? Number(reqRaw) : 0,
       resetAt,
     }
   } catch {

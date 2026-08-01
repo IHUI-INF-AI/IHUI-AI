@@ -68,13 +68,8 @@ describe('Auth Extended API', () => {
   })
 
   describe('公开端点（不依赖 db 的配置查询）', () => {
-    it('GET /api/auth/google/config 返回 200 与 configured 字段', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/auth/google/config' })
-      expect(res.statusCode).toBe(200)
-      const body = res.json()
-      expect(body.code).toBe(0)
-      expect(body.data).toHaveProperty('configured')
-    })
+    // 注:/api/auth/google/config 端点已删除 — 前端通过 NEXT_PUBLIC_GOOGLE_* env vars
+    // 直接读取 Google 配置(third-party-config.ts),无需后端代理。
 
     it('GET /api/sms-proxy/config 返回 200 与 provider 字段（dev 模式）', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/sms-proxy/config' })

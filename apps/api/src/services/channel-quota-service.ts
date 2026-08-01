@@ -171,7 +171,7 @@ function getRedis(): Redis | null {
       logger.warn('[channel-quota] redis error', { error: err.message })
     })
     const quit = (): void => {
-      redisClient?.quit().catch(() => {
+      redisClient?.quit()?.catch(() => {
         /* ignore */
       })
     }

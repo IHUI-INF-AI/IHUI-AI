@@ -53,7 +53,9 @@ function getRedis(): Redis {
       logger.error('[ws-replay-buffer] redis error', { error: err })
     })
     const quit = (): void => {
-      redisClient?.quit().catch(() => {
+      // 注意:redisClient?.quit() 在 redisClient 为 null 时返回 undefined,
+      // 此时 .catch() 会抛 TypeError。用 ?.catch() 短路避免(与 ws-dedup.ts 同模式)。
+      redisClient?.quit()?.catch(() => {
         /* ignore */
       })
     }

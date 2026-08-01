@@ -72,7 +72,7 @@ function getRedis(): Redis {
       logger.error('[expiration-monitor] redis error', { error: err })
     })
     const quit = (): void => {
-      redisClient?.quit().catch(() => {})
+      redisClient?.quit()?.catch(() => {})
     }
     process.once('SIGTERM', quit)
     process.once('SIGINT', quit)

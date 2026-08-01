@@ -129,7 +129,7 @@ const adminCouponsRoutes: FastifyPluginAsync = async (server) => {
           code: generateCouponCode(),
           name: d.name,
           type: d.type,
-          value: d.value != null ? String(d.value) : null,
+          value: d.value !== null && d.value !== undefined ? String(d.value) : null,
           minSpend: d.minSpend ?? null,
           referrerGets: d.referrerGets ?? null,
           referralValue: d.referralValue ?? null,
@@ -267,7 +267,7 @@ const adminCouponsRoutes: FastifyPluginAsync = async (server) => {
         template: {
           name: t.name,
           type: t.type,
-          value: t.value != null ? String(t.value) : null,
+          value: t.value !== null && t.value !== undefined ? String(t.value) : null,
           minSpend: t.minSpend ?? null,
           referrerGets: t.referrerGets ?? null,
           referralValue: t.referralValue ?? null,
