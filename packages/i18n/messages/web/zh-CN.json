@@ -7279,6 +7279,7 @@
     "unfavorite": "取消收藏",
     "viewFavorites": "查看收藏",
     "backToHistory": "返回任务列表",
+    "viewAll": "查看全部",
     "loginRequired": "请先登录",
     "select": "选择",
     "selectAll": "全选",
@@ -12273,6 +12274,16 @@
     "result": {
       "title": "AI 生涯指导建议",
       "failed": "AI 分析失败"
+    },
+    "export": {
+      "button": "导出报告",
+      "exporting": "导出中...",
+      "pdf": "导出 PDF",
+      "word": "导出 Word",
+      "ppt": "导出 PPT",
+      "success": "导出成功",
+      "failed": "导出失败",
+      "empty": "请先生成生涯指导建议"
     }
   },
   "memberExamRecordPage": {
