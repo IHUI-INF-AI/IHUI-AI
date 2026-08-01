@@ -6344,6 +6344,11 @@
       "saved": "しました"
     },
     "security": {
+      "password": "パスワード",
+      "currentPassword": "のパスワード",
+      "newPassword": "しいパスワード",
+      "confirmPassword": "ごしいパスワード",
+      "updatePassword": "パスワードを",
       "passwordHint": "6-20文字、< > \" ' | \\ などの特殊文字は使用不可",
       "passwordTooShort": "パスワードは6文字以上で入力してください",
       "passwordTooLong": "パスワードは20文字以内で入力してください",
@@ -6356,20 +6361,18 @@
       "changePhoneDesc": "バインディングしたを",
       "newPhone": "しい",
       "newPhonePlaceholder": "しいをしてください",
-      "resend": "{seconds}sに",
-      "phoneChanged": "をしました",
-      "title": "セキュリティ",
-      "subtitle": "のなドキュメントとAPIリファレンス",
-      "password": "パスワード",
-      "currentPassword": "のパスワード",
-      "newPassword": "しいパスワード",
-      "confirmPassword": "ごしいパスワード",
-      "updatePassword": "パスワードを",
       "code": "コード",
       "codePlaceholder": "ご",
       "sendCode": "コード取得",
+      "resend": "{seconds}sに",
+      "phoneChanged": "をしました",
       "devices": "デバイス",
-      "currentDevice": "のデバイス"
+      "currentDevice": "のデバイス",
+      "logout": "ログアウト",
+      "devicesLoading": "読み込み中...",
+      "devicesEmpty": "データなし",
+      "title": "セキュリティ",
+      "subtitle": "のなドキュメントとAPIリファレンス"
     },
     "notifications": {
       "viewList": "リストビュー",
@@ -6407,6 +6410,10 @@
       "auditTime": "認証時間",
       "pendingHint": "はです。しばらくおちください。",
       "noReason": "なし",
+      "nameMin": "本名は2文字以上必要です",
+      "nameMax": "本名は50文字以内です",
+      "idCardMin": "身分証番号は15桁以上必要です",
+      "idCardMax": "身分証番号は20桁以内です",
       "form": {
         "name": "本名",
         "namePlaceholder": "を",
@@ -6466,7 +6473,12 @@
       "create": "しい",
       "createFirst": "のをく",
       "empty": "まだがありません",
-      "deleteSuccess": "しました"
+      "deleteSuccess": "しました",
+      "statusDraft": "下書き",
+      "statusPublished": "公開済み",
+      "statusReviewing": "審査中",
+      "prevPage": "前へ",
+      "nextPage": "次へ"
     },
     "learn-record": {
       "title": "学習記録",
@@ -6484,14 +6496,16 @@
       "loading": "読み込み中...",
       "follow": "フォロー",
       "followed": "フォロー中",
-      "followSuccess": "フォローしました"
+      "followSuccess": "フォローしました",
+      "anonymous": "匿名ユーザー"
     },
     "follow": {
       "title": "フォロー",
       "empty": "データがありません",
       "loading": "読み込み中...",
       "unfollow": "フォロー解除",
-      "unfollowSuccess": "フォローを解除しました"
+      "unfollowSuccess": "フォローを解除しました",
+      "anonymous": "匿名ユーザー"
     },
     "ask": {
       "title": "マイQ&A",
@@ -6512,12 +6526,21 @@
       "title": "マイ試験",
       "empty": "データがありません",
       "loading": "読み込み中...",
-      "continue": "試験を続ける"
+      "continue": "試験を続ける",
+      "statusDraft": "未開始",
+      "statusPublished": "進行中",
+      "statusCompleted": "完了",
+      "statusReviewing": "採点中",
+      "score": "得点"
     },
     "sign-up": {
       "title": "マイ申込",
       "empty": "データがありません",
-      "loading": "読み込み中..."
+      "loading": "読み込み中...",
+      "statusDraft": "審査待ち",
+      "statusPublished": "確認済み",
+      "statusRejected": "拒否",
+      "statusCompleted": "完了"
     }
   },
   "certificate": {
