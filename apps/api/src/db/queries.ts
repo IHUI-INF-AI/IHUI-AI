@@ -86,9 +86,31 @@ export async function checkEmailExists(email: string): Promise<boolean> {
 
 /**
  * 软注销账户（status=3）。
+ *
+ * 2026-08-01 升级(用户规则:"完美细致完整毫无遗漏"):
+ *   - 旧版仅置 status=3,残留 phone/email/username/inviteCode 占用唯一约束
+ *     → 新用户无法注册同名账号,inviteCode 永久占用
+ *   - 新版 NULL 化所有唯一约束字段(phone/email/username/inviteCode)
+ *   - 清空 2FA 字段(twoFactorSecret/BackupCodes/EnabledAt,Enabled=false)
+ *     数据卫生:避免注销账号的加密密文/备份码残留
+ *   - 与 mergeUserAccounts 软删除策略保持一致
  */
 export async function cancelUserAccount(id: string): Promise<void> {
-  await db.update(users).set({ status: 3, updatedAt: new Date() }).where(eq(users.id, id))
+  await db
+    .update(users)
+    .set({
+      status: 3,
+      phone: null,
+      email: null,
+      username: null,
+      inviteCode: null,
+      twoFactorSecret: null,
+      twoFactorEnabled: false,
+      twoFactorBackupCodes: [],
+      twoFactorEnabledAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, id))
 }
 
 /**
@@ -320,13 +342,27 @@ export async function mergeUserAccounts(params: {
         BEGIN
           EXECUTE upd_stmt USING fromUserId, toUserId;
         EXCEPTION WHEN OTHERS THEN
-          -- 跳过无法迁移的表(记录到 PostgreSQL log,继续处理其他表)
-          RAISE NOTICE '跳过表 %: %', r.table_name, SQLERRM;
+          -- 跳过无法迁移的表(WARNING 级别写入 PostgreSQL log,便于运维排查)
+          -- 2026-08-01 升级:NOTICE → WARNING,让失败在 log 中更可见
+          RAISE WARNING '账号合并跳过表 %: %', r.table_name, SQLERRM;
         END;
       END LOOP;
 
       -- 软删除 fromUserId:status=3(已注销),保留行做审计,避免遗漏的外键约束报错
-      UPDATE users SET status = 3, phone = NULL, email = NULL, updated_at = now()
+      -- 2026-08-01 升级(用户规则:"完美细致完整毫无遗漏"):
+      --   NULL 化所有唯一约束字段(phone/email/username/inviteCode),避免占用导致新注册冲突
+      --   清空 2FA 字段,数据卫生(与 cancelUserAccount 策略一致)
+      UPDATE users SET
+        status = 3,
+        phone = NULL,
+        email = NULL,
+        username = NULL,
+        invite_code = NULL,
+        two_factor_secret = NULL,
+        two_factor_enabled = false,
+        two_factor_backup_codes = '[]'::jsonb,
+        two_factor_enabled_at = NULL,
+        updated_at = now()
       WHERE id = fromUserId;
     END;
     $$;
