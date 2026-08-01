@@ -32,6 +32,7 @@ export function BillingRules(): React.JSX.Element {
 
         {/* 公式参数说明 */}
         <div className="overflow-hidden rounded-md border">
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-muted/40">
               <tr className="text-left">
@@ -66,6 +67,7 @@ export function BillingRules(): React.JSX.Element {
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* 示例 */}

@@ -379,10 +379,12 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
               })
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddAccountsOpen(null)}>{tCommon('cancel')}</Button>
-            <Button onClick={submitAddAccounts} disabled={selectedAccountIds.size === 0}>
-              {t('groups.addSelected', { count: selectedAccountIds.size })}
+          <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
+            <Button variant="outline" onClick={() => setAddAccountsOpen(null)} className="shrink-0">
+              <span className="whitespace-nowrap">{tCommon('cancel')}</span>
+            </Button>
+            <Button onClick={submitAddAccounts} disabled={selectedAccountIds.size === 0} className="shrink-0 min-w-0">
+              <span className="truncate">{t('groups.addSelected', { count: selectedAccountIds.size })}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

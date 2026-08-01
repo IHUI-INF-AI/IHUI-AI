@@ -37,7 +37,7 @@ export function Skeleton({ variant = 'default', rows = 1, className, ...props }:
         {Array.from({ length: rows }, (_, i) => (
           <div key={`sk-l-${i}`} className="flex items-center gap-3">
             <PulseLine className="h-10 w-10 shrink-0" />
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 min-w-0 space-y-2">
               <PulseLine className="h-4 w-1/3" />
               <PulseLine className="h-3 w-1/2" />
             </div>

@@ -124,11 +124,12 @@ export default function PrivacyPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{item.desc}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">{item.desc}</span>
                   <Switch
                     checked={prefs[item.key]}
                     onCheckedChange={(v) => update(item.key, v)}
+                    className="shrink-0"
                   />
                 </div>
               </CardContent>

@@ -158,7 +158,7 @@ export function EnterpriseContent() {
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Target className="h-7 w-7" />
               </div>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 min-w-0 space-y-2">
                 <h2 className="text-lg font-semibold tracking-tight">{t('positioning.title')}</h2>
                 <p className="text-sm text-muted-foreground">{t('positioning.description')}</p>
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -234,7 +234,7 @@ export function EnterpriseContent() {
             {t('join.label')}
           </div>
           <Card className="overflow-hidden border-primary/20">
-            <CardContent className="space-y-5 p-6">
+            <CardContent className="space-y-5 p-4 min-[768px]:p-6">
               <div className="flex flex-col items-start justify-between gap-4 min-[768px]:flex-row min-[768px]:items-center">
                 <div className="space-y-1">
                   <h2 className="text-xl font-bold tracking-tight">{t('join.title')}</h2>

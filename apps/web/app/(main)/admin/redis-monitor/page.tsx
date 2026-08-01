@@ -86,6 +86,7 @@ export default function RedisMonitorPage() {
           {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
         {k.length === 0 ? <Empty /> : (
+          <div className="overflow-x-auto">
           <table className="mt-3 w-full text-sm">
             <thead><tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="px-3 py-2 font-medium">键</th><th className="px-3 py-2 font-medium">类型</th>
@@ -101,6 +102,7 @@ export default function RedisMonitorPage() {
               <td className="px-3 py-2 text-right"><Button size="sm" variant="ghost" disabled={delMut.isPending} onClick={() => delMut.mutate(it.key)}><Trash2 className="h-4 w-4" /></Button></td>
             </tr>))}</tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

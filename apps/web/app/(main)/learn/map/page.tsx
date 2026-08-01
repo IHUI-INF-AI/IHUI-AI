@@ -124,7 +124,7 @@ export default function LearnMapPage() {
                       <PlayCircle className="h-5 w-5" />
                     )}
                   </div>
-                  <div className="flex-1 space-y-0.5">
+                  <div className="flex-1 min-w-0 space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">
                         {t('stageN', { n: idx + 1 })}

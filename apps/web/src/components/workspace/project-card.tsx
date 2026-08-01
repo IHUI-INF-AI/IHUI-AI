@@ -39,7 +39,7 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
           {project.description || t('description')}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <FileText className="h-4 w-4" />
           <span>{t('fileCount', { count: fileCount })}</span>

@@ -43,7 +43,7 @@ export function PWAInstallPrompt({ className, promptEvent }: PWAInstallPromptPro
   return (
     <div className={cn('flex items-center gap-3 rounded-lg border bg-card p-3 shadow', className)}>
       <Download className="h-5 w-5 shrink-0 text-primary" />
-      <div className="flex-1 text-sm">
+      <div className="flex-1 min-w-0 text-sm">
         <p className="font-medium">安装应用</p>
         <p className="text-xs text-muted-foreground">添加到主屏幕,获得更好体验</p>
       </div>

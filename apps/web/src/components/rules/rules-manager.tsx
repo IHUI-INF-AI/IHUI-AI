@@ -519,7 +519,7 @@ function RuleEditDialog() {
             className="h-8 text-sm"
           />
           <div className="flex gap-2">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <label htmlFor="rule-scope" className="text-xs text-muted-foreground">
                 作用域
               </label>
@@ -552,7 +552,7 @@ function RuleEditDialog() {
             </div>
           </div>
           <div className="flex gap-2">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <label htmlFor="rule-match-type" className="text-xs text-muted-foreground">
                 匹配类型
               </label>
@@ -569,7 +569,7 @@ function RuleEditDialog() {
               </select>
             </div>
             {matchType !== 'always' && (
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <label htmlFor="rule-match-pattern" className="text-xs text-muted-foreground">
                   匹配模式
                 </label>
@@ -833,7 +833,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                   >
                     {conflictTypeLabel(conflict.type)}
                   </span>
-                  <span className="flex-1 text-xs text-muted-foreground">{conflict.detail}</span>
+                  <span className="flex-1 min-w-0 text-xs text-muted-foreground">{conflict.detail}</span>
                   {conflict.ruleIds.length >= 2 && (
                     <button
                       type="button"
