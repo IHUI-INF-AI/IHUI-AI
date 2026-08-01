@@ -227,7 +227,7 @@ export function buildSwaggerApiKeyHook(apiKey: string) {
     if (!providedStr || providedStr.length !== apiKey.length) {
       reply.status(401).send({
         code: 401,
-        message: 'Invalid or missing X-API-Key header',
+        message: 'X-API-Key 请求头无效或缺失',
       })
       return
     }
@@ -239,7 +239,7 @@ export function buildSwaggerApiKeyHook(apiKey: string) {
     if (!timingSafeEqual(a, b)) {
       reply.status(401).send({
         code: 401,
-        message: 'Invalid or missing X-API-Key header',
+        message: 'X-API-Key 请求头无效或缺失',
       })
       return
     }
