@@ -495,3 +495,31 @@ export async function analyzePublishSeo(
     body: JSON.stringify({ title, content, platform }),
   })
 }
+
+export async function suggestPublishCovers(
+  content: string,
+): Promise<ApiResult<{ covers: string[] }>> {
+  return fetchApi<{ covers: string[] }>('/api/publish/ai/cover', {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+}
+
+export interface AiAnalyzeAllResult {
+  titles: string[]
+  tags: string[]
+  summary: string
+  seo: SeoReport | null
+  covers: string[]
+}
+
+export async function analyzePublishAll(
+  content: string,
+  title: string,
+  platform = '',
+): Promise<ApiResult<AiAnalyzeAllResult>> {
+  return fetchApi<AiAnalyzeAllResult>('/api/publish/ai/analyze-all', {
+    method: 'POST',
+    body: JSON.stringify({ content, title, platform }),
+  })
+}
