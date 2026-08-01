@@ -279,6 +279,46 @@ export function useDesktopEvents(): void {
 }
 
 /**
+ * useDesktopDeepLink — 监听 desktop deep-link 事件,自动完成 SSO 登录闭环(2026-08-01 立)。
+ *
+ * 流程:
+ * - Rust on_deeplink 捕获 `ihui://sso?sso_code=xxx` → emit "desktop-deep-link" 事件
+ * - 本 hook 监听事件 → 调 handleDesktopDeepLink 解析 code + 换 token + 持久化
+ *
+ * 浏览器端 isTauri()=false,本 hook 不注册监听,无副作用。
+ */
+export function useDesktopDeepLink(): void {
+  React.useEffect(() => {
+    if (!isTauri()) return
+    let unlistenDeepLink: (() => void) | undefined
+    let cancelled = false
+
+    void (async () => {
+      const { listen } = await import('@tauri-apps/api/event')
+      if (cancelled) return
+
+      // 动态 import 避免浏览器端加载 desktop bridge 模块
+      const { handleDesktopDeepLink } = await import('@/lib/sso-desktop-bridge')
+      if (cancelled) return
+
+      unlistenDeepLink = await listen<string>('desktop-deep-link', async (event) => {
+        const url = event.payload
+        if (!url) return
+        const ok = await handleDesktopDeepLink(url)
+        if (ok) {
+          window.dispatchEvent(new CustomEvent('desktop-sso-success'))
+        }
+      })
+    })()
+
+    return () => {
+      cancelled = true
+      unlistenDeepLink?.()
+    }
+  }, [])
+}
+
+/**
  * useTrayStatus — 根据聊天状态自动切换托盘 tooltip(2026-07-29 #10 立)。
  *
  * 监听:

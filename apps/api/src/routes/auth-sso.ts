@@ -19,14 +19,78 @@ const ADMIN_ROLE_ID = 1
 const ADMIN_WILDCARD_PERMISSIONS = ['*:*:*']
 
 /**
- * redirectUri 校验:
- * - 必须以 "/" 开头(站内路径,防 open redirect)
- * - 不允许以 "//" 开头(防 protocol-relative URL open redirect)
+ * redirectUri 校验(2026-08-01 扩展:支持 localhost + 配置化 origins + Chrome 扩展 chromiumapp.org):
+ * - 相对路径:必须以 "/" 开头(站内路径,防 open redirect),不允许以 "//" 开头
+ * - localhost:http://localhost:NNNN/* 或 http://127.0.0.1:NNNN/*(CLI 本地回调服务器)
+ * - 配置化 origins:env SSO_ALLOWED_ORIGINS(逗号分隔,如 http://localhost:8801,https://aizhs.top)
+ * - Chrome 扩展 redirect:https://<extension-id>.chromiumapp.org/(chrome.identity.launchWebAuthFlow 固定域)
  * - 不允许包含 "\n\r" 等控制字符
  * - 总长度不超过 2048
+ *
+ * 安全边界:relative path 防 open redirect;localhost 仅限 loopback;origins 走 env 白名单;
+ * chromiumapp.org 是 Chrome 扩展 identity 固定 redirect 域,只有已安装的扩展能接收该 URL 回调。
  */
-const isSafeRedirectUri = (s: string): boolean =>
-  s.startsWith('/') && !s.startsWith('//') && !/[\r\n\t]/.test(s) && s.length <= 2048
+const SSO_ALLOWED_ORIGINS = (process.env.SSO_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+function isAllowedOrigin(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    // 仅允许 http(s) scheme,防 javascript:/data: 等
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+    return SSO_ALLOWED_ORIGINS.includes(parsed.origin)
+  } catch {
+    return false
+  }
+}
+
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:') return false
+    // 仅 loopback 地址(cli 本地回调服务器),不允许 0.0.0.0 或外网 IP
+    return (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '::1'
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Chrome 扩展 chrome.identity.launchWebAuthFlow 的固定 redirect 域。
+ * 格式:https://<extension-id>.chromiumapp.org/
+ * 安全性:只有已安装的 Chrome 扩展能接收该 URL 回调,第三方无法截获。
+ */
+function isChromeExtensionRedirectUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return false
+    // chromiumapp.org 是 Chrome 扩展 identity 固定 redirect 域
+    // 子域是 extension-id(32 字符 a-p),path 通常为 / 或 /callback
+    return parsed.hostname.endsWith('.chromiumapp.org')
+  } catch {
+    return false
+  }
+}
+
+const isSafeRedirectUri = (s: string): boolean => {
+  if (!s || s.length > 2048) return false
+  if (/[\r\n\t]/.test(s)) return false
+  // 1. 相对路径(站内重定向)
+  if (s.startsWith('/') && !s.startsWith('//')) return true
+  // 2. localhost(cli 本地回调服务器)
+  if (isLocalhostUrl(s)) return true
+  // 3. 配置化 origins(env SSO_ALLOWED_ORIGINS)
+  if (isAllowedOrigin(s)) return true
+  // 4. Chrome 扩展 redirect(chromiumapp.org 固定域)
+  if (isChromeExtensionRedirectUrl(s)) return true
+  return false
+}
 
 const generateCodeSchema = z.object({
   clientId: z.string().min(1).max(128),
