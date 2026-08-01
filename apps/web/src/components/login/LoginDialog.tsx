@@ -8,8 +8,9 @@ import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { AuthShell } from '@/components/auth/AuthShell'
-import { isTauri, openExternalUrl } from '@/lib/tauri-bridge'
+import { openExternalUrl } from '@/lib/tauri-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
+import { useDesktop } from '@/hooks/use-desktop'
 import { LoginFormContent } from './LoginFormContent'
 import { RegisterFormContent } from './RegisterFormContent'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
@@ -35,7 +36,9 @@ export function LoginDialog() {
   const close = useLoginDialogStore((s) => s.close)
   const setMode = useLoginDialogStore((s) => s.setMode)
 
-  const showDesktopSso = isTauri()
+  const { isDesktop } = useDesktop()
+
+  const showDesktopSso = isDesktop
 
   const handleDesktopSso = React.useCallback(async () => {
     // Dev: desktop webview loads from http://localhost:8801 → 外部浏览器可访问同一 dev server
