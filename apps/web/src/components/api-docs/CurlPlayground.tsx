@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Play, Wand2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { Button, Card, CardContent } from '@ihui/ui-react'
 
@@ -119,7 +119,8 @@ export function CurlPlayground(): React.JSX.Element {
           <p className="text-sm font-semibold">curl 联动 Playground</p>
         </div>
         <p className="text-xs text-muted-foreground">
-          粘贴 curl 命令,自动解析 model / messages / temperature / max_tokens 并在 Playground 中打开。
+          粘贴 curl 命令,自动解析 model / messages / temperature / max_tokens 并在 Playground
+          中打开。
         </p>
 
         <textarea
@@ -135,8 +136,7 @@ export function CurlPlayground(): React.JSX.Element {
             重置示例
           </Button>
           <Button size="sm" onClick={openInPlayground}>
-            <Play className="h-3.5 w-3.5" />
-            在 Playground 中打开
+            <Play className="h-3.5 w-3.5" />在 Playground 中打开
           </Button>
         </div>
       </CardContent>

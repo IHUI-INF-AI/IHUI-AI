@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
 import type { ReferenceItem } from '@/hooks/use-message-references'

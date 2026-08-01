@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 
 import {
   Card,
@@ -22,10 +22,7 @@ import { fetchApi } from '@/lib/api'
 
 import type { McpServer } from './mcp-manager'
 import { McpToolCallResult } from './mcp-tool-call-result'
-import {
-  type McpToolParameter,
-  McpToolParameterForm,
-} from './mcp-tool-parameter-form'
+import { type McpToolParameter, McpToolParameterForm } from './mcp-tool-parameter-form'
 
 export interface McpTool {
   name: string
@@ -76,9 +73,7 @@ export interface McpQuickCallProps {
 
 export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
   const t = useTranslations('mcp')
-  const [selectedServer, setSelectedServer] = React.useState(
-    fixedServerId ?? '',
-  )
+  const [selectedServer, setSelectedServer] = React.useState(fixedServerId ?? '')
   const [selectedTool, setSelectedTool] = React.useState('')
 
   const serverId = fixedServerId ?? selectedServer
@@ -96,9 +91,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
   const { data: tools, isLoading: toolsLoading } = useQuery({
     queryKey: ['mcp', 'servers', serverId, 'tools'],
     queryFn: async () => {
-      const res = await fetchApi<McpTool[]>(
-        `/api/ai/mcp/servers/${serverId}/tools`,
-      )
+      const res = await fetchApi<McpTool[]>(`/api/ai/mcp/servers/${serverId}/tools`)
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -149,10 +142,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
         {!fixedServerId && (
           <div className="space-y-1.5">
             <Label>{t('selectServer')}</Label>
-            <Select
-              value={selectedServer}
-              onValueChange={handleServerChange}
-            >
+            <Select value={selectedServer} onValueChange={handleServerChange}>
               <SelectTrigger>
                 <SelectValue placeholder={t('selectServer')} />
               </SelectTrigger>
@@ -168,11 +158,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
         )}
         <div className="space-y-1.5">
           <Label>{t('selectTool')}</Label>
-          <Select
-            value={selectedTool}
-            onValueChange={setSelectedTool}
-            disabled={!serverId}
-          >
+          <Select value={selectedTool} onValueChange={setSelectedTool} disabled={!serverId}>
             <SelectTrigger>
               <SelectValue placeholder={t('selectTool')} />
             </SelectTrigger>
@@ -188,9 +174,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
       </div>
 
       {currentTool?.description && (
-        <p className="text-sm text-muted-foreground">
-          {currentTool.description}
-        </p>
+        <p className="text-sm text-muted-foreground">{currentTool.description}</p>
       )}
 
       {serverId && toolsLoading && (
@@ -234,11 +218,7 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
           toolName={selectedTool}
           result={null}
           status="error"
-          error={
-            callMutation.error instanceof Error
-              ? callMutation.error.message
-              : t('error')
-          }
+          error={callMutation.error instanceof Error ? callMutation.error.message : t('error')}
         />
       )}
     </div>
