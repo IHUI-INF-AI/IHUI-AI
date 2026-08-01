@@ -163,6 +163,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   const [activeIndex, setActiveIndex] = React.useState(0)
   const plusRef = React.useRef<HTMLDivElement>(null)
   const plusInputRef = React.useRef<HTMLInputElement>(null)
+  // 2026-08-01 立:顶栏内层 flex 容器 ref,用于 ResizeObserver 动态测量搜索按钮 left,
+  // 设置 --topbar-content-left CSS 变量,根治工作区卡片与搜索按钮对齐问题。
+  // 详见下方 useEffect 注释。
+  const topbarInnerRef = React.useRef<HTMLDivElement>(null)
 
   // 桌面端:窗口最大化状态(Tauri onResized 事件)
   const [isMaximized, setIsMaximized] = React.useState(false)
@@ -192,6 +196,56 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
         clearTimeout(dragTimer.current)
         dragTimer.current = null
       }
+    }
+  }, [])
+
+  // 2026-08-01 立:动态测量搜索按钮 left,设置 --topbar-content-left CSS 变量。
+  //
+  // 根治背景:工作区卡片(MainShell)需与顶栏搜索按钮左对齐。移动端(<1024px)顶栏
+  // 第 0 个元素是 mobileMenu(ml-1.5 w-9 gap-1=46px),把搜索按钮挤到 left=46px;
+  // 桌面端(≥1024px)mobileMenu hidden,搜索按钮 left=0。工作区卡片需 pl=搜索按钮 left 才对齐。
+  //
+  // 旧方案(已废弃):globals.css 硬编码 --topbar-content-left: calc(0.375rem+2.25rem+0.25rem)=46px,
+  // @media (min-width:1024px) 覆盖为 0px。问题:46px 完全依赖 mobileMenu 的 ml-1.5/w-9/gap-1
+  // 三个 Tailwind 类,一旦 mobileMenu 样式变化(如改 ml-2/w-10)立刻失效,需手动同步两个文件
+  // → 这就是"反反复复修不好"的根因(跨组件隐式耦合契约,无显式约束)。
+  //
+  // 新方案(根治):用 ResizeObserver 动态测量搜索按钮的实际 left,设置到 --topbar-content-left
+  // (inline style 优先级最高,覆盖 globals.css 的 SSR fallback)。工作区卡片自动跟随 mobileMenu
+  // 样式变化,无需手动同步。globals.css 的硬编码保留作为 SSR 首屏 fallback(JS 未执行时防错位)。
+  //
+  // 测量原理:searchRect.left - innerRect.left = 搜索按钮相对于内层 flex 容器的 left
+  //   = 搜索按钮相对于 work-area-portal-root 的 left(内层 flex 紧贴 work-area left=0,顶栏外层无 px padding)
+  // 工作区卡片 left = workArea.left + pl(CSS 变量) = searchBtn.left → 对齐。
+  //
+  // 触发场景覆盖:
+  // 1. 首次 measure + 两次 setTimeout(100ms/500ms):兜底 Suspense lazy-loaded 搜索按钮挂载
+  // 2. ResizeObserver:内层 flex 容器尺寸变化触发(如 TagsView 标签数量变化)
+  // 3. matchMedia(1024px):移动端↔桌面端切换触发(mobileMenu 可见性变化,ResizeObserver 不监听 display:none)
+  // 4. window resize:视口宽度变化触发(保险)
+  React.useEffect(() => {
+    const inner = topbarInnerRef.current
+    if (!inner) return
+    const measure = () => {
+      const searchBtn = inner.querySelector('[data-topbar-search-btn]')
+      if (!(searchBtn instanceof HTMLElement)) return
+      const innerRect = inner.getBoundingClientRect()
+      const searchRect = searchBtn.getBoundingClientRect()
+      const offset = Math.round(searchRect.left - innerRect.left)
+      document.documentElement.style.setProperty('--topbar-content-left', `${offset}px`)
+    }
+    measure()
+    const t1 = setTimeout(measure, 100)
+    const t2 = setTimeout(measure, 500)
+    const ro = new ResizeObserver(measure)
+    ro.observe(inner)
+    const mql = window.matchMedia('(min-width: 1024px)')
+    mql.addEventListener('change', measure)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      ro.disconnect()
+      mql.removeEventListener('change', measure)
     }
   }, [])
 
@@ -455,7 +509,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
             3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
             4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间 */}
-        <div className="flex h-9 items-center gap-1">
+        <div ref={topbarInnerRef} className="flex h-9 items-center gap-1">
           {/* 0. 移动端汉堡菜单按钮(2026-07-31 第十三轮立,GlobalShell 注入)
               - 物理上作为顶栏 flex 第一个元素,跟 TagsViewSearchButton 36x36 尺寸一致,
                 杜绝 absolute 定位与顶栏子元素 z-index/stacking-context 冲突(原 bug:z-modal 也无法覆盖)
