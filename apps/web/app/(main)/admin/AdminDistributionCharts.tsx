@@ -44,7 +44,7 @@ export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
   ]
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-4 min-[1024px]:grid-cols-2">
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -80,12 +80,12 @@ export function AdminDistributionCharts({ stats, numFmt, curFmt }: Props) {
         <CardContent>
           <div className="flex items-baseline gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            <span className="text-xl font-bold tracking-tight md:text-2xl">
+            <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
               {curFmt.format(stats.orderStats.totalAmount)}
             </span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{t('totalAmountLabel')}</p>
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 border-t pt-4">
+          <div className="mt-4 grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 border-t pt-4">
             {orderItems.map((o) => {
               const Icon = o.icon
               return (

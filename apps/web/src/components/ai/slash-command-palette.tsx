@@ -267,7 +267,7 @@ export function SlashCommandPalette({
               requestAnimationFrame(() => inputRef.current?.focus())
             }}
             aria-label={t('backAriaLabel')}
-            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>
@@ -292,7 +292,7 @@ export function SlashCommandPalette({
             type="button"
             onClick={() => setQuery('')}
             aria-label={t('clearAriaLabel')}
-            className="ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <X className="h-3 w-3" />
           </button>

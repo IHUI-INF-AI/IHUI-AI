@@ -274,7 +274,7 @@ export function PermissionHistoryPanel() {
     <>
       <Popover
         content={
-          <div className="w-[320px] space-y-2" data-testid="permission-history-panel">
+          <div className="w-[min(320px,calc(100vw-2rem))] space-y-2" data-testid="permission-history-panel">
             {/* 顶部标题 + 清空按钮 */}
             <div className="flex items-center justify-between gap-2 px-1 pb-1">
               <div className="flex items-center gap-1.5">
@@ -339,7 +339,7 @@ export function PermissionHistoryPanel() {
           title={t('historyOpenExternal')}
           data-testid="permission-history-trigger"
           className={cn(
-            'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+            'inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors',
             'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}

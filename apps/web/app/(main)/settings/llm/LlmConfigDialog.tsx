@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
@@ -58,7 +58,7 @@ function TemplateGrid({
 }) {
   const t = useTranslations('llmSettings.dialog')
   return (
-    <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
       {templates.map((tpl) => {
         const active = tpl.code === current
         return (
@@ -281,7 +281,7 @@ export function LlmConfigDialog({
           </div>
 
           {/* 名称 / 描述 */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="llm-name" className="text-sm">
                 {t('nameLabel')}
@@ -422,7 +422,7 @@ export function LlmConfigDialog({
             </div>
           ) : null}
 
-          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
+          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
             <Button
               type="button"
               variant="outline"

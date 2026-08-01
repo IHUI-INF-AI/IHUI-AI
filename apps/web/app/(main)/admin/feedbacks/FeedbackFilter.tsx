@@ -62,7 +62,7 @@ export function FeedbackFilter({
 
   return (
     <>
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 min-[768px]:flex-row min-[768px]:items-center min-[768px]:justify-between">
         {renderTabs(TYPE_TABS, type, onTypeChange, 'type', tf)}
         {renderTabs(STATUS_TABS, status, onStatusChange, 'status', tf)}
       </div>

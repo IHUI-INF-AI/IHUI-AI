@@ -130,7 +130,7 @@ export default function ClawdbotDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {statCards.map((c) => (
           <div key={c.key} className="flex items-center gap-3 rounded-lg border bg-card p-3">
             <c.icon className={cn('h-5 w-5', c.cls)} />

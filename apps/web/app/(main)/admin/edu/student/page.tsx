@@ -131,7 +131,7 @@ export default function EduStudentPage() {
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardContent className="p-5">
             <div className="text-sm text-muted-foreground">{t('totalStudents')}</div>

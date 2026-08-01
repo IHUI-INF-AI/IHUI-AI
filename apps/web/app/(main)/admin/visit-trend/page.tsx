@@ -79,7 +79,7 @@ export default function VisitTrendPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <StatCard title="总 PV" value={numFmt.format(stats.totalPv)} icon={Eye} loading={isLoading} />
         <StatCard title="总 UV" value={numFmt.format(stats.totalUv)} icon={Users} loading={isLoading} />
         <StatCard title="平均时长" value={`${stats.avgDuration}s`} icon={Timer} loading={isLoading} />
@@ -122,7 +122,7 @@ export default function VisitTrendPage() {
         )}
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 min-[1024px]:grid-cols-2">
         <section className="space-y-3 rounded-lg border p-4">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Globe className="h-4 w-4 text-primary" />

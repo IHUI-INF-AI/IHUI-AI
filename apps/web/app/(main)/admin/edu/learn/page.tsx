@@ -130,7 +130,7 @@ export default function EduLearnPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 min-[1024px]:grid-cols-5">
         {SUB_LINKS.map((s) => {
           const Icon = s.icon
           return (
@@ -146,7 +146,7 @@ export default function EduLearnPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-700 text-white">
