@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -63,7 +63,7 @@ export default function ApiKeysSettingsPage() {
   }
 
   return (
-    <Container maxWidth="md" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
       <header className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
