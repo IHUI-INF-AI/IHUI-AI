@@ -38,6 +38,7 @@ export default function ProfilePage() {
     defaultValues: {
       nickname: user?.nickname ?? '',
       email: '',
+      phone: '',
       bio: '',
       gender: 0,
     },
@@ -79,6 +80,7 @@ export default function ProfilePage() {
     reset({
       nickname: data.user.nickname ?? '',
       email: data.user.email ?? '',
+      phone: data.user.phone ?? '',
       bio: data.user.bio ?? '',
       gender: data.user.gender ?? 0,
     })
@@ -158,7 +160,6 @@ export default function ProfilePage() {
         isSubmitting={form.formState.isSubmitting}
         saved={saved}
         errorMsg={errorMsg}
-        phone={user?.phone ?? ''}
       />
     </div>
   )
