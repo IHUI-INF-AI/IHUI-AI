@@ -114,112 +114,111 @@ export default function DataExportPage() {
   const hasExport = Boolean(lastExport.url)
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
-      <div>
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('dataExportTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('dataExportDesc')}</p>
       </div>
 
-      <Alert variant="info" title={t('exportScope')} description={t('exportScopeDesc')} />
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        <Alert variant="info" title={t('exportScope')} description={t('exportScopeDesc')} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileJson className="h-4 w-4" />
-            {t('exportJson')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('exportJsonDesc')}</span>
-            <Button size="sm" onClick={handleExport} disabled={creating}>
-              {creating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileJson className="h-4 w-4" />
-              )}
-              {creating ? t('exportCreating') : t('download')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="opacity-60">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText className="h-4 w-4" />
-            {t('exportCsv')}
-            <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              {tc('comingSoon')}
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('exportCsvDesc')}</span>
-            <Button size="sm" disabled>
-              <Download className="h-4 w-4" />
-              {t('download')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {loading ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
-      ) : error ? (
-        <p className="py-4 text-center text-sm text-destructive">{error}</p>
-      ) : hasExport ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Download className="h-4 w-4" />
-              {t('exportLastExport')}
+              <FileJson className="h-4 w-4" />
+              {t('exportJson')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-col gap-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">{t('exportLastExport')}</span>
-                <span>{formatTime(lastExport.exportedAt)}</span>
-              </div>
-              {expiresAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t('exportExpiresAt')}</span>
-                  <span>{formatTime(expiresAt)}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => lastExport.url && handleDownload(lastExport.url)}
-              >
-                <Download className="h-4 w-4" />
-                {t('download')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExport} disabled={creating}>
-                <RefreshCw className="h-4 w-4" />
-                {t('exportRecreate')}
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{t('exportJsonDesc')}</span>
+              <Button size="sm" onClick={handleExport} disabled={creating}>
+                {creating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileJson className="h-4 w-4" />
+                )}
+                {creating ? t('exportCreating') : t('download')}
               </Button>
             </div>
           </CardContent>
         </Card>
-      ) : (
-        <p className="py-4 text-center text-sm text-muted-foreground">{t('exportNoHistory')}</p>
-      )}
 
-      {toast && (
-        <div
-          className={
-            toast.type === 'success'
-              ? 'fixed bottom-4 right-4 z-50 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 shadow-md dark:text-emerald-400'
-              : 'fixed bottom-4 right-4 z-50 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
-          }
-        >
-          {toast.msg}
-        </div>
-      )}
+        <Card className="opacity-60">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
+              {t('exportCsv')}
+              <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                {tc('comingSoon')}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{t('exportCsvDesc')}</span>
+              <Button size="sm" disabled>
+                <Download className="h-4 w-4" />
+                {t('download')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {loading ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+        ) : error ? (
+          <p className="py-4 text-center text-sm text-destructive">{error}</p>
+        ) : hasExport ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Download className="h-4 w-4" />
+                {t('exportLastExport')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col gap-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">{t('exportLastExport')}</span>
+                  <span>{formatTime(lastExport.exportedAt)}</span>
+                </div>
+                {expiresAt && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{t('exportExpiresAt')}</span>
+                    <span>{formatTime(expiresAt)}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => lastExport.url && handleDownload(lastExport.url)}>
+                  <Download className="h-4 w-4" />
+                  {t('download')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExport} disabled={creating}>
+                  <RefreshCw className="h-4 w-4" />
+                  {t('exportRecreate')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <p className="py-4 text-center text-sm text-muted-foreground">{t('exportNoHistory')}</p>
+        )}
+
+        {toast && (
+          <div
+            className={
+              toast.type === 'success'
+                ? 'fixed bottom-4 right-4 z-50 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 shadow-md dark:text-emerald-400'
+                : 'fixed bottom-4 right-4 z-50 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
+            }
+          >
+            {toast.msg}
+          </div>
+        )}
+      </div>
     </Container>
   )
 }
