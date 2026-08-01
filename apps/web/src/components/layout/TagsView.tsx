@@ -495,12 +495,10 @@ export function TagsView() {
             const isOver = overIndex === index && dragIndex !== null
             const isDirty = dirtyPaths.has(tag.path)
             return (
-              // 标签宽度契约(2026-07-30 第十一轮"做减法 v8"用户反馈"X 关闭按钮右侧空间也要在左侧复刻"):
-              // - 文字到右边缘: gap-1 (4) + X span w-5 (20) + pr-1 (4) = 28px
-              //   (X 按钮 + 它的右内边距 = 24px 是"X 关闭按钮占的右侧空间")
-              // - 文字到左边缘: pl-6 (24px) — 与 X 关闭按钮+pr 的 24px 对称,文字几何居中
-              //   (gap-1 是 X 按钮前的视觉留白,不算"X 关闭按钮占的"空间,对称以 X 视觉边界为准)
-              // - 若 X 宽度调整,需同步修改 pl-6 → pl-±N(每 ±4px X 宽度 → ±4px pl)
+              // 标签宽度契约(2026-08-01 修正:关闭按钮 w-5→w-9,pl-6→pl-11 保持对称):
+              // - 文字到右边缘: gap-1 (4) + X span w-9 (36) + pr-1 (4) = 44px
+              // - 文字到左边缘: pl-11 (44px) — 与右侧 44px 对称,文字几何居中
+              // - 若 X 宽度调整,需同步修改 pl-11 → pl-±N(每 ±4px X 宽度 → ±4px pl)
               <Link
                 key={tag.path}
                 href={buildHref(tag)}
@@ -515,14 +513,15 @@ export function TagsView() {
                   // - 改用共享 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)
                   // - 真去掉所有 border(第六轮 v2 没做干净,残留 border-primary/30 /
                   //   border-border/40 / border-dashed border-primary/50 / 主类 border)
-                  // - active 态靠 bg-primary/10 + font-medium + text-primary 已足够视觉指示
+                  // - active 态靠 bg-primary/20 + font-medium + text-primary 视觉指示
+                  //   (2026-08-01 用户反馈"/10 太淡看不出来"→ /20;active 加 hover:bg-primary/30)
                   // - 拖拽视觉简化:目标位 + 源项共用 opacity-50,无 border-dashed 残留
-                  // - pl-6 (24px) 对应 X 关闭按钮 w-5 (20px) + pr-1 (4px) = 24px,
-                  //   左右对称,文字几何居中(用户规则 2026-07-30)
+                  // - pl-11 (44px) 对应 X 关闭按钮 w-9 (36px) + gap-1 (4px) + pr-1 (4px) = 44px,
+                  //   左右对称,文字几何居中(2026-08-01 修正:w-9 非 w-5,pl-6 改 pl-11)
                   TOPBAR_BTN_BASE,
-                  'group relative cursor-pointer gap-1 pl-6 pr-1 text-xs',
+                  'group relative cursor-pointer gap-1 pl-11 pr-1 text-xs',
                   active
-                    ? 'bg-primary/10 font-medium text-primary'
+                    ? 'bg-primary/20 font-medium text-primary hover:bg-primary/30'
                     : isPinned
                       ? // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
                         'bg-muted/70 font-medium text-foreground'
