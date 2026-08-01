@@ -13,6 +13,7 @@ import { CategoriesTable } from './CategoriesTable'
 import { CategoriesDialog } from './CategoriesDialog'
 import { EMPTY } from './helpers'
 import type { Category } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduExamCategoriesPage() {
   const t = useTranslations('admin.edu.exam.categories')
@@ -87,6 +88,7 @@ export default function EduExamCategoriesPage() {
   const categories = data ?? []
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

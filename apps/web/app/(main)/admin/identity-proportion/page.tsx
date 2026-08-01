@@ -15,6 +15,7 @@ import { IdentityProportionTable } from './IdentityProportionTable'
 import { IdentityProportionDialog } from './IdentityProportionDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, identityProportionToForm } from './helpers'
 import type { IdentityProportion, IdentityProportionForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function IdentityProportionPage() {
   const t = useTranslations('admin.identityProportion')
@@ -119,6 +120,7 @@ export default function IdentityProportionPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">

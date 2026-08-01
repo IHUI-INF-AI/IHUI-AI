@@ -14,6 +14,7 @@ import { CourseAuditTable } from './CourseAuditTable'
 import { CourseAuditDialog } from './CourseAuditDialog'
 import { PAGE_SIZE, EXPORT_COLS, EMPTY_SEARCH } from './helpers'
 import type { Audit, CompareData, CourseAuditSearch, Snapshot } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduCourseAuditPage() {
   const t = useTranslations('admin.edu.course.audit')
@@ -103,6 +104,7 @@ export default function EduCourseAuditPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

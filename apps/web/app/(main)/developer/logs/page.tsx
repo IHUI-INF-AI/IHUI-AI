@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 interface LogItem {
   id: string
@@ -88,6 +89,7 @@ export default function LogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       <div className="flex flex-wrap items-center gap-2">

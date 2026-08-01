@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Activity, ArrowUpRight, Bot, DollarSign, Key, Zap } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(`overview.recentCalls.statusLabels.${var}`)` 动态拼接 */
 const OVERVIEW_RECENTCALLS_STATUS_KEY: Record<string, string> = {
@@ -79,6 +80,7 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('overview.title')}</h1>
         <p className="text-xs text-muted-foreground">{t('overview.subtitle')}</p>

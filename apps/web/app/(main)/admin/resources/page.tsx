@@ -26,6 +26,7 @@ import { type Resource, type Category, fetchResources, api, selectClass, PAGE_SI
 import { StatCard } from './StatCard'
 import { ResourcesTable } from './ResourcesTable'
 import { ResourceFormDialog } from './ResourceFormDialog'
+import { BackButton } from '@/components/common'
 
 export default function AdminResourcesPage() {
   const t = useTranslations('admin.resources')
@@ -80,6 +81,7 @@ export default function AdminResourcesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

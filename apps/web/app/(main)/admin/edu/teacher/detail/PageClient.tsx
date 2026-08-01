@@ -19,6 +19,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
+import { BackButton } from '@/components/common'
 
 interface TeacherDetail {
   id: string
@@ -80,6 +81,7 @@ export default function EduTeacherDetailPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <Button asChild variant="ghost" size="sm">
         <Link href="/admin/edu/teacher">
           <ChevronLeft className="h-4 w-4" />

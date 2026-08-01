@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Layers, ArrowRight, Check, X, Sparkles, Github } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 const compareJsonLd = {
   '@context': 'https://schema.org',
@@ -114,6 +115,7 @@ export default function CompareIndexPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(compareJsonLd) }}
       />
       <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+        <BackButton />
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             <Layers className="h-3.5 w-3.5 text-primary" />

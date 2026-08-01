@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, Button, Table, TableHeader, T
 import { fetchApi } from '@/lib/api'
 import type { PluginStatsRow, PluginStatsSummary, PluginTrendRow } from '@ihui/types'
 import { MARKET_PLUGINS, PROJECT_PLUGINS } from '../../plugins/plugins-data'
+import { BackButton } from '@/components/common'
 
 // =============================================================================
 // 数据获取
@@ -154,6 +155,7 @@ export default function PluginStatsPage() {
 
   return (
     <div className="space-y-4 p-6">
+      <BackButton />
       {/* 页头 */}
       <div className="flex items-center justify-between">
         <div>

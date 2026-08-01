@@ -16,6 +16,7 @@ import { UserPlatformTable } from './UserPlatformTable'
 import { UserPlatformDialog } from './UserPlatformDialog'
 import { PAGE_SIZE, PERM, EMPTY_FORM, EMPTY_SEARCH, userPlatformToForm } from './helpers'
 import type { UserPlatform, CForm, SearchQ } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduUserPlatformPage() {
   const t = useTranslations('admin.eduUserPlatform')
@@ -121,6 +122,7 @@ export default function EduUserPlatformPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

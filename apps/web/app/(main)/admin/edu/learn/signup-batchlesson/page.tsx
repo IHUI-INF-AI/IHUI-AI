@@ -10,6 +10,7 @@ import { Loader2, ChevronLeft, ChevronRight, Download, Upload, BookCopy } from '
 import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -126,6 +127,7 @@ export default function AdminLearnSignupBatchLessonPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">批量课程报名</h1>
         <p className="mt-1 text-sm text-muted-foreground">管理课程批量报名,支持导入与重试</p>

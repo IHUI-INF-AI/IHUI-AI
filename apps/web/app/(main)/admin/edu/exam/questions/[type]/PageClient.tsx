@@ -15,6 +15,7 @@ import { QuestionTable } from './QuestionTable'
 import { QuestionDialog } from './QuestionDialog'
 import { TYPE_LABEL, TYPE_API, EMPTY, questionToForm, buildBody } from './helpers'
 import type { Paper, Question, QForm } from './types'
+import { BackButton } from '@/components/common'
 
 function TypeQuestionsContent() {
   const t = useTranslations('admin.edu.exam.questionsType')
@@ -135,6 +136,7 @@ function TypeQuestionsContent() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('titleWithType', { type: label })}</h1>
         <p className="mt-1 text-sm text-muted-foreground">

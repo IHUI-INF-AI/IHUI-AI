@@ -14,6 +14,7 @@ import { ProductIdentityTable } from './ProductIdentityTable'
 import { ProductIdentityDialog } from './ProductIdentityDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, productIdentityToForm } from './helpers'
 import type { ProductIdentity, ProductIdentityForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function ProductIdentityPage() {
   const qc = useQueryClient()
@@ -126,6 +127,7 @@ export default function ProductIdentityPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">产品身份管理</h1>
         <div className="flex gap-2">

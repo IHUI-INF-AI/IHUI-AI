@@ -14,6 +14,7 @@ import { PostTable } from './PostTable'
 import { PostDialog } from './PostDialog'
 import { RESOURCE, PAGE_SIZE, EMPTY, EXPORT_COLUMNS, api } from './helpers'
 import type { Post, ListResp, PostForm, PostSearch } from './types'
+import { BackButton } from '@/components/common'
 
 const EMPTY_SEARCH: PostSearch = { postCode: '', postName: '', status: '' }
 
@@ -124,6 +125,7 @@ export default function PostPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Briefcase className="h-6 w-6 text-primary" />

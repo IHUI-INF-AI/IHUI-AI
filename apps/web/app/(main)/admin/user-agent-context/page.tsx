@@ -14,6 +14,7 @@ import { UserAgentContextTable } from './UserAgentContextTable'
 import { UserAgentContextDialog } from './UserAgentContextDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, userAgentContextToForm } from './helpers'
 import type { UserAgentContext, UserAgentContextForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function UserAgentContextPage() {
   const qc = useQueryClient()
@@ -126,6 +127,7 @@ export default function UserAgentContextPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">用户Agent上下文</h1>
         <div className="flex gap-2">

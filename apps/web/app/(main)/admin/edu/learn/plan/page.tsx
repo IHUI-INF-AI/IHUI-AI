@@ -14,6 +14,7 @@ import { PlanTable } from './PlanTable'
 import { PlanDialog } from './PlanDialog'
 import { PAGE_SIZE, EMPTY, planToForm } from './helpers'
 import type { Plan, PForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduLearnPlanPage() {
   const t = useTranslations('admin.edu.learn.plan')
@@ -99,6 +100,7 @@ export default function EduLearnPlanPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

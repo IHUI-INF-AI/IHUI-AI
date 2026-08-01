@@ -14,6 +14,7 @@ import type { PayLog, CForm } from './types'
 import { PayLogFilter } from './PayLogFilter'
 import { PayLogTable } from './PayLogTable'
 import { PayLogDialog } from './PayLogDialog'
+import { BackButton } from '@/components/common'
 
 export default function EduFinancePage() {
   const t = useTranslations('admin.edu.finance.index')
@@ -132,6 +133,7 @@ export default function EduFinancePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

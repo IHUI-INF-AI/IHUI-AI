@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { ErrorCodeTable } from '@/components/api-docs/ErrorCodeTable'
 import { SdkExamples } from '@/components/api-docs/SdkExamples'
 import { CurlPlayground } from '@/components/api-docs/CurlPlayground'
+import { BackButton } from '@/components/common'
 
 interface ApiParam {
   name: string
@@ -142,6 +143,7 @@ export default function ApiDocsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Code className="h-5 w-5 text-primary" />

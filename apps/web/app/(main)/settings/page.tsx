@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 import {
   DeviceManager,
   IpWhitelist,
@@ -48,6 +49,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-3">
+      <BackButton />
       <Tabs defaultValue="appearance" className="flex w-full flex-col gap-3">
         <TabsList className="grid w-full shrink-0 grid-cols-2 self-start">
           <TabsTrigger value="appearance">{t('appearance')}</TabsTrigger>

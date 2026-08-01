@@ -30,6 +30,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 
 /** 后端 ParamOpRule 契约(简化版,ops 用 unknown[] 避免 any)。 */
 interface ParamOpRule {
@@ -233,6 +234,7 @@ export default function AdminRelayParamOpsPage() {
 
   return (
     <div className="space-y-4 p-6">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">{t('title')}</h1>

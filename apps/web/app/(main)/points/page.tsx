@@ -12,6 +12,7 @@ import { PointsLeaderboard } from './PointsLeaderboard'
 import { PointsRedeemList } from './PointsRedeemList'
 import { api } from './helpers'
 import type { Transaction, LeaderboardUser } from './types'
+import { BackButton } from '@/components/common'
 
 export default function PointsPage() {
   const t = useTranslations('points')
@@ -68,6 +69,7 @@ export default function PointsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <BackButton />
       <PointsSummary
         points={points}
         level={level}

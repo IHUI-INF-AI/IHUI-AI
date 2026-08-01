@@ -14,6 +14,7 @@ import { NewsArticleTable } from './NewsArticleTable'
 import { NewsArticleDialog } from './NewsArticleDialog'
 import { NewsInfoTable } from './NewsInfoTable'
 import { NewsInfoDialog } from './NewsInfoDialog'
+import { BackButton } from '@/components/common'
 
 export default function AdminNewsPage() {
   const t = useTranslations('admin.news')
@@ -32,6 +33,7 @@ export default function AdminNewsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('articlesTitle')}</h1>

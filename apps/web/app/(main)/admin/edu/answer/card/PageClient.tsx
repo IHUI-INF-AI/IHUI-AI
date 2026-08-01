@@ -19,6 +19,7 @@ import {
 } from '@ihui/ui-react'
 import { type PageData } from '@ihui/api-client'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { BackButton } from '@/components/common'
 
 interface AnswerRecord {
   id: string
@@ -73,6 +74,7 @@ function CardContent2() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

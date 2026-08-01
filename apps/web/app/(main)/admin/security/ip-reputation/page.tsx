@@ -21,6 +21,7 @@ import {
   SelectItem,
   cn,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import {
   fetchIpReputation,
   blockIp,
@@ -102,6 +103,7 @@ export default function IpReputationPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShieldAlert className="h-6 w-6 text-primary" />

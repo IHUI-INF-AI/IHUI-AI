@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, Package, Loader2 } from 'lucide
 import { Button } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 // 2026-07-25 P2 治理:resource_products.pid 自引用列 + GET /api/admin/resources/products/tree
 // 该页面为产品树形分类只读视图(完整 CRUD 在 /admin/resources/products)
@@ -102,6 +103,7 @@ export default function AdminProductCategoriesPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('productsTitle')}</h1>

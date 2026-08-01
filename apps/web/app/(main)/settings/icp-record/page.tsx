@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Globe, ShieldCheck } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 interface IcpRecord {
   labelKey: string
@@ -30,6 +31,7 @@ export default function IcpRecordPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

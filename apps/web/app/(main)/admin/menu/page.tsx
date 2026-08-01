@@ -12,6 +12,7 @@ import { MenuTable } from './MenuTable'
 import { MenuDialog } from './MenuDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, menuToForm } from './helpers'
 import type { MenuItem, MenuForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function MenuPage() {
   const t = useTranslations('admin.menu')
@@ -99,6 +100,7 @@ export default function MenuPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

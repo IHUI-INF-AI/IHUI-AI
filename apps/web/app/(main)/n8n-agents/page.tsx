@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server'
 import { Bot, Plus, Workflow } from 'lucide-react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
 import { Container } from '@/components/layout'
 
@@ -86,6 +87,7 @@ export default async function N8nAgentsPage() {
 
   return (
     <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
+      <BackButton />
       <header className="space-y-1 px-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Workflow className="h-7 w-7 text-primary" />

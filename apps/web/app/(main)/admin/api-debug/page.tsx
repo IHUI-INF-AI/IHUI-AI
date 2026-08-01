@@ -12,6 +12,7 @@ import { ApiDebugFilter } from './ApiDebugFilter'
 import { ApiDebugTable } from './ApiDebugTable'
 import { ApiDebugRequestPanel } from './ApiDebugRequestPanel'
 import type { Method, HistoryItem, ResponseState } from './types'
+import { BackButton } from '@/components/common'
 
 export default function ApiDebugPage() {
   const t = useTranslations('adminTools')
@@ -89,6 +90,7 @@ export default function ApiDebugPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Terminal className="h-6 w-6 text-primary" />

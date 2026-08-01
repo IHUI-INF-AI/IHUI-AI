@@ -9,6 +9,7 @@ import { api } from '@/lib/feedback'
 import type { FeedbackItem, FeedbackType } from './types'
 import { FeedbackList } from './FeedbackList'
 import { FeedbackForm } from './FeedbackForm'
+import { BackButton } from '@/components/common'
 
 /** i18n 静态映射表 — 用于消除 `t(\`tab_${var}\`)` 动态拼接 */
 const TAB_KEY: Record<'list' | 'new', string> = {
@@ -78,6 +79,7 @@ export default function FeedbackPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

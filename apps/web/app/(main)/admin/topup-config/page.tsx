@@ -22,6 +22,7 @@ import {
   Badge,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BackButton } from '@/components/common'
 
 /**
  * 前端 UI 层 tier(带 id 用于 React key),保存时剥离 id 字段以对齐后端 TopupTier schema。
@@ -204,6 +205,7 @@ export default function AdminTopupConfigPage() {
 
   return (
     <div className="space-y-4 p-6">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">充值阶梯折扣配置</h1>

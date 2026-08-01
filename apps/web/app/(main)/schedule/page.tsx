@@ -17,6 +17,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { formatDate } from '@/lib/date-utils'
 
 interface ScheduleTask {
@@ -85,6 +86,7 @@ export default function SchedulePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <CalendarClock className="h-7 w-7 text-primary" />

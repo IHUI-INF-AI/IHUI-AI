@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Mail, CheckCircle2, Loader2, ArrowRight } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label, Checkbox } from '@ihui/ui-react'
-import { AnimatedNumber } from '@/components/common'
+import { AnimatedNumber, BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -64,6 +64,7 @@ export function NewsletterContent(): React.JSX.Element {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+      <BackButton />
       {/* Hero */}
       <section className="text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
