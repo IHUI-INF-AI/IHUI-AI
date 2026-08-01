@@ -52,13 +52,21 @@ export default function DemandAuditDetailPage() {
 
   const [remark, setRemark] = React.useState('')
   const auditMut = useMutation({
-    mutationFn: (action: 'pass' | 'reject') =>
-      api(action === 'pass' ? '/api/admin/examine/pass' : '/api/admin/examine/reject', {
-        method: 'POST',
-        body: JSON.stringify(
-          action === 'pass' ? { recordId: row?.id } : { recordId: row?.id, reason: remark },
-        ),
-      }),
+    mutationFn: (action: 'pass' | 'reject') => {
+      if (!row?.id) throw new Error('记录 ID 缺失')
+      // 后端:PUT /api/admin/examine/:id/pass(无 body)/ PUT /api/admin/examine/:id/reject(body={reason})
+      const url =
+        action === 'pass'
+          ? `/api/admin/examine/${row.id}/pass`
+          : `/api/admin/examine/${row.id}/reject`
+      return api(url, {
+        method: 'PUT',
+        ...(action === 'reject' && {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: remark }),
+        }),
+      })
+    },
     onSuccess: () => {
       toast.success(t('operateSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'demand-audit'] })
