@@ -196,7 +196,11 @@ export class AnomalyDetector {
     return { name: 'request-frequency', score }
   }
 
-  private async slidingWindowCount(key: string, now: number, windowMs: number): Promise<number> {
+  private async slidingWindowCount(
+    key: string,
+    now: number,
+    windowMs: number,
+  ): Promise<number> {
     if (!this.redis) {
       const arr = AnomalyDetector.memFreq.get(key) ?? []
       const cutoff = now - windowMs
@@ -233,7 +237,9 @@ export class AnomalyDetector {
     if (!isLateNight) return { name: 'time-distribution', score: 0 }
 
     // 查历史活跃时段:若该用户从未在凌晨活跃过 → 可疑
-    const historicallyActive = ctx.userId ? await this.wasUserActiveAtHour(ctx.userId, hour) : false
+    const historicallyActive = ctx.userId
+      ? await this.wasUserActiveAtHour(ctx.userId, hour)
+      : false
     let score = 0
     if (ctx.userId && !historicallyActive) score = 70
     else if (!ctx.userId) score = 30
@@ -302,10 +308,7 @@ export class AnomalyDetector {
         const first = set.values().next().value
         if (first) set.delete(first)
       }
-      return {
-        name: 'device-fingerprint',
-        score: isNew && set.size >= DEVICE_NEW_THRESHOLD ? 80 : 0,
-      }
+      return { name: 'device-fingerprint', score: isNew && set.size >= DEVICE_NEW_THRESHOLD ? 80 : 0 }
     }
 
     try {
@@ -326,7 +329,9 @@ export class AnomalyDetector {
 
   /* ----------------------------- 维度 5:请求模式(扫描器) ----------------------------- */
 
-  private async dimRequestPattern(ctx: AnomalyContext): Promise<{ name: string; score: number }> {
+  private async dimRequestPattern(
+    ctx: AnomalyContext,
+  ): Promise<{ name: string; score: number }> {
     const path = ctx.url.split('?')[0] ?? ctx.url
     const lowerPath = path.toLowerCase()
 
@@ -348,9 +353,7 @@ export class AnomalyDetector {
 
     // UA 为脚本类工具访问敏感端点 → 加分
     if (
-      (isCurlLike(ctx.userAgent) ||
-        isHeadlessBrowser(ctx.userAgent) ||
-        isBotUserAgent(ctx.userAgent)) &&
+      (isCurlLike(ctx.userAgent) || isHeadlessBrowser(ctx.userAgent) || isBotUserAgent(ctx.userAgent)) &&
       (lowerPath.includes('/api/') || lowerPath.includes('/admin'))
     ) {
       return { name: 'request-pattern', score: 60 }
@@ -474,7 +477,9 @@ export class AnomalyDetector {
     }
   }
 
-  private async getBaseline(userId: string): Promise<{
+  private async getBaseline(
+    userId: string,
+  ): Promise<{
     avgReqPerMin: number
     stddev: number
     sampleCount: number

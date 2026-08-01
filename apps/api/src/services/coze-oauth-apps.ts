@@ -128,13 +128,11 @@ export class WebOAuthApp {
   clientSecret: string
   baseUrl: string
 
-  constructor(
-    opts: {
-      clientId?: string | null
-      clientSecret?: string | null
-      baseUrl?: string | null
-    } = {},
-  ) {
+  constructor(opts: {
+    clientId?: string | null
+    clientSecret?: string | null
+    baseUrl?: string | null
+  } = {}) {
     this.clientId = opts.clientId ?? env.COZE_OAUTH_APP_ID ?? ''
     this.clientSecret = opts.clientSecret ?? ''
     this.baseUrl = resolveBaseUrl(opts.baseUrl)
@@ -278,14 +276,12 @@ export class JWTOAuthApp {
   baseUrl: string
   private _privateKey: string | null
 
-  constructor(
-    opts: {
-      clientId?: string | null
-      privateKey?: string | null
-      publicKeyId?: string | null
-      baseUrl?: string | null
-    } = {},
-  ) {
+  constructor(opts: {
+    clientId?: string | null
+    privateKey?: string | null
+    publicKeyId?: string | null
+    baseUrl?: string | null
+  } = {}) {
     this.clientId = opts.clientId ?? env.COZE_OAUTH_APP_ID ?? ''
     this.publicKeyId = opts.publicKeyId ?? env.COZE_PUBLIC_KEY_ID ?? ''
     this.baseUrl = resolveBaseUrl(opts.baseUrl)
@@ -296,14 +292,12 @@ export class JWTOAuthApp {
     return this._privateKey ?? getPrivateKey()
   }
 
-  async getAccessToken(
-    opts: {
-      userUuid?: string | null
-      scope?: string | null
-      ttl?: number | null
-      forceRefresh?: boolean
-    } = {},
-  ): Promise<OAuthTokenResult> {
+  async getAccessToken(opts: {
+    userUuid?: string | null
+    scope?: string | null
+    ttl?: number | null
+    forceRefresh?: boolean
+  } = {}): Promise<OAuthTokenResult> {
     const privateKey = this.resolvePrivateKey()
     if (!privateKey) throw new Error('Coze 私钥未配置, 无法获取 access_token')
     const accessToken = await getCozeAccessToken({
