@@ -115,7 +115,7 @@ export function CategoryShell({
           className={cn(
             'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
             active
-              ? 'bg-accent text-accent-foreground font-semibold'
+              ? 'bg-primary text-primary-foreground font-semibold'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground',
           )}
         >
