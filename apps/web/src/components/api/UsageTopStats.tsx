@@ -29,7 +29,7 @@ export default function UsageTopStats({
   className,
 }: UsageTopStatsProps): React.JSX.Element {
   return (
-    <div className={cn('grid grid-cols-2 gap-3 lg:grid-cols-4', className)}>
+    <div className={cn('grid grid-cols-2 gap-3 tablet-lg:grid-cols-4', className)}>
       {items.map((it, i) => {
         const up = (it.delta ?? 0) >= 0
         return (

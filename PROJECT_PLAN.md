@@ -2421,6 +2421,15 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
   - Container:桌面 1280px /settings maxWidth=672px(原 max-w-screen-md=428px) ✅
   - GlobalTopBar:375px pt=4px pb=4px height=44px;1280px pt=8px pb=6px height=50px ✅
   - 截图存档:`.trae-cn/tmp/topbar-mobile-375.png` / `container-settings-1280.png`
+- [x] ✅(2026-08-01) 移动端尺寸适配深度修复(35 文件 6 批次,3 subagent 并行扫描 + 2 subagent 并行修复)
+  - **P0 断点错位**(3 文件):RightModule.tsx `xl:grid-cols-4`→`tablet:grid-cols-4`(1280px 桌面恢复 4 列);AdminNav.tsx `lg:`→`min-[1024px]:`(平板导航);SiteFooter.tsx `md:`→`min-[768px]:`(footer 三栏布局)
+  - **P0 固定宽度溢出**(2 文件):skill-library.tsx `w-[400px]`→`w-full max-w-[400px]`;ChatWindow.tsx `w-[360px] h-[480px]`→`w-[min(360px,calc(100vw-3rem))] h-[min(480px,60vh)]`
+  - **P0 共享组件触摸目标**(6 文件):dialog/drawer/sheet/auth-shell/code-block/password-login-form 关闭按钮 `h-7 w-7`(28px)→`h-9 w-9`(36px),全项目 Dialog/Drawer/Sheet 复用
+  - **P0/P1 字体间距降级**(3 文件):PageHeader `text-2xl`→`text-xl min-[640px]:text-2xl`;NotFound `py-20`→`py-12 min-[640px]:py-20` + `text-2xl`→`text-xl min-[640px]:text-2xl`;(auth)/layout `py-12`→`py-6 min-[640px]:py-12`
+  - **P1 grid-cols 断点**(19 文件 21 处):`lg:grid-cols-N`→`tablet-lg:grid-cols-N`(14 处,576px→1024px);6 处 `grid-cols-3/5` 无 fallback 加 `min-[640px]:grid-cols-N`;4 处 `md:grid-cols-2`→`min-[768px]:grid-cols-2`
+  - **P1 按钮触摸目标**(2 文件 7 处):ai-side-panel 浮窗折叠态 `h-6 w-6`→`h-9 w-9`(2 处);agent-task-progress-pane `h-5 w-5`→`h-9 w-9`(5 处,20px→36px 接近 44px 标准)
+  - Playwright 验证:375px grid 2 列 + h1 20px + forbidden py=48px;1280px grid 4 列(154px×4)✅
+  - typecheck exit 0 ✅
 
 ---
 

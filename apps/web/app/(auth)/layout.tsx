@@ -14,7 +14,7 @@ import { Sparkles } from 'lucide-react'
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-gradient-to-b from-background to-muted px-4 py-12">
+    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-gradient-to-b from-background to-muted px-4 py-6 min-[640px]:py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
           {/* 欢迎图:浅色 welcome.svg,深色 baiwelcome.svg,与 next-themes attribute="class" 配合 */}
