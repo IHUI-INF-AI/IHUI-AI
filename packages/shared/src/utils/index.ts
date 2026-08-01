@@ -12,6 +12,8 @@ export * from './format-ext'
 export * from './format-mobile'
 // 跨端图片处理工具(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
 export * from './image-helpers'
+// 跨端 compact 数字格式化(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/number-format.ts 下沉)
+export * from './number-format'
 // 跨端存储抽象(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
 export * from './storage'
 export * from './jwt-utils'
@@ -27,4 +29,6 @@ export * from './select-class'
 export * from './sse-parse'
 export * from './status-colors'
 export * from './storage-migration'
+// 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
+export * from './token-estimate'
 export * from './vip-utils'
