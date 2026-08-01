@@ -10,7 +10,7 @@ interface DemandAuditFilterProps {
 
 export function DemandAuditFilter({ value, onChange }: DemandAuditFilterProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-lg border p-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 rounded-lg border p-3 min-[640px]:grid-cols-4">
       {SEARCH_FIELDS.map((f) => (
         <div key={f.key}>
           <Label className="text-xs">{f.label}</Label>

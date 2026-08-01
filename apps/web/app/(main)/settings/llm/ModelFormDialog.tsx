@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * ModelFormDialog — 单 model 添加/编辑对话框(2026-07-22 升级)
@@ -204,7 +204,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
             />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
             <div className="space-y-1.5">
               <Label htmlFor="contextLength">{t('contextLength')}</Label>
               <Input

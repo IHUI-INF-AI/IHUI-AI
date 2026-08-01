@@ -41,7 +41,7 @@ export function PermissionsHeader({ total, resourceCount, actionCount }: Props) 
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         <StatCard icon={Shield} label={t('statsTotal')} value={total} />
         <StatCard icon={Boxes} label={t('statsResources')} value={resourceCount} />
         <StatCard icon={Zap} label={t('statsActions')} value={actionCount} />

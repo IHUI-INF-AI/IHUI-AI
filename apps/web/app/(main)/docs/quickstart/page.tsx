@@ -249,7 +249,7 @@ export default function QuickstartPage() {
           <span>📘</span>
           快速开始
         </div>
-        <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
+        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           5 分钟上手智汇 AI
         </h1>
         <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">

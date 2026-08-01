@@ -163,7 +163,7 @@ export default function IpReputationPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-baseline gap-3">
-              <span className={cn('text-4xl font-bold tabular-nums', scoreClass(data.score))}>
+              <span className={cn('text-2xl min-[768px]:text-4xl font-bold tabular-nums', scoreClass(data.score))}>
                 {data.score}
               </span>
               <span className={cn('text-sm font-medium', scoreClass(data.score))}>

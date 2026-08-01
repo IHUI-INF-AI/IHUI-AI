@@ -65,7 +65,7 @@ export function ProjectTable({
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {list.map((p) => (
           <Card key={p.id} className="transition-colors hover:bg-accent hover:shadow-md">
             <CardHeader>

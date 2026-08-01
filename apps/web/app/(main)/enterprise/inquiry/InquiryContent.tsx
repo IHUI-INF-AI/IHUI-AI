@@ -14,7 +14,7 @@ export function InquiryContent(): React.JSX.Element {
     <main className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-14">
       {/* Hero */}
       <section className="space-y-4 text-center">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t('enterpriseInquiry.title')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('enterpriseInquiry.title')}</h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
           {t('enterpriseInquiry.subtitle')}
         </p>

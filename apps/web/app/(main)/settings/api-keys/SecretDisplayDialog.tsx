@@ -69,7 +69,7 @@ export function SecretDisplayDialog({ open, secret, title = '密钥已创建', o
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={onClose} disabled={!canClose} className="w-full sm:w-auto">
+          <Button onClick={onClose} disabled={!canClose} className="w-full min-[640px]:w-auto">
             <span>我已保存,关闭</span>
           </Button>
         </DialogFooter>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -129,7 +129,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 text-xs min-[640px]:grid-cols-3">
           <div>
             <p className="text-muted-foreground">{t('model')}</p>
             <TruncatedText value={config.modelIdForTest ?? '—'} mono className="font-mono" />
@@ -142,13 +142,13 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
                 : config.contextLength}
             </p>
           </div>
-          <div className="col-span-2 sm:col-span-1">
+          <div className="col-span-2 min-[640px]:col-span-1">
             <p className="text-muted-foreground">{t('apiKey')}</p>
             <p className="truncate font-mono">{maskKey(config.hasApiKey)}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 text-xs min-[640px]:grid-cols-2">
           <div className="min-w-0">
             <p className="text-muted-foreground">{t('baseUrl')}</p>
             <TruncatedText value={config.baseUrl} mono className="font-mono" />
