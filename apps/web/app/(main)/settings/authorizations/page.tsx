@@ -22,7 +22,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
-import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 
@@ -135,13 +134,7 @@ export default function AuthorizationsPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('authorizationsTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('authorizationsDesc')}</p>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+    <div className="space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -266,7 +259,6 @@ export default function AuthorizationsPage() {
             {toast.msg}
           </div>
         )}
-      </div>
-    </Container>
+    </div>
   )
 }

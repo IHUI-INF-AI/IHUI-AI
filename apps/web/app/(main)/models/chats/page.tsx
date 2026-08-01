@@ -28,11 +28,6 @@ export default async function ChatsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('chats.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('chats.subtitle')}</p>
-      </header>
-
       <Card>
         <CardContent className="flex items-center gap-2 p-4">
           <Search className="h-4 w-4 text-muted-foreground" />
