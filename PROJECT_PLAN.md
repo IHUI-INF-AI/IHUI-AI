@@ -2480,3 +2480,36 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - TerminalSection inline(本批次未含,run_command 工具走 ToolCallCard 已可见,TerminalSection 与 ToolCallCard 去重后再考虑 inline)
 - subagent streamingContent 在 SubagentSection 中渲染(当前在 sub-agent-activity-feed.tsx 独立处理,未来可统一到 SubagentItem 详情区)
 - ToolCallCard 的 InlineDiffCard / ImageResultBlock / SummaryResultBlock 特殊渲染保持不变(本批次只加 MCP server badge)
+
+---
+
+## P1 AI 生涯指导页修复批次(2026-08-01 立,平台独占:apps/api + apps/web + packages/api-client + packages/i18n,AGENTS.md §24 用户报障修复)
+
+> **触发**:用户反馈"/ai-career 页面填写表单点击生成后,建议不是 AI 真实生成的 + 显示 AI 服务暂不可用 + 希望导出 PDF/Word/PPT + /ai-career 标签 I18N 未做好(显示 'Ai Career')"。
+> **性质**:bug 修复(AI 服务调用契约 + I18N 路由注册)+ 现有功能小幅扩展(PPT 导出,用户明确要求)。§24 不触发(非新功能),§21 README 豁免(不改变对外能力清单)。
+
+### 硬性指标(H1-H6)
+
+- [x] ✅(2026-08-01) H1:AI 服务调用契约对齐 — `apps/api/src/routes/user/ai-modules-routes.ts` 请求体从 `prompt` 改为 `messages: [{ role: 'user', content: prompt }]`,对齐 ai-service `/api/llm/complete` OpenAI 格式契约
+- [x] ✅(2026-08-01) H2:AI 模型切换 — 从 `stepfun/step-router-v1`(返回 tool_call 格式)切到 `stepfun/step-3.5-flash`,max_tokens 从 1500 提到 2500(reasoning 模型预算分配:reasoning ~1800 + content ~700 ≈ 800 字),增加 30s 超时控制(AbortController)
+- [x] ✅(2026-08-01) H3:空 content 回退 — reasoning 模型可能把建议放 `reasoning` 字段(content 为空),优先 content,回退 reasoning/text/output,空 content 时记录 warn 日志
+- [x] ✅(2026-08-01) H4:PPT 导出端点 — `POST /api/ai/career-advice/export` 支持 `format: 'pdf' | 'word' | 'ppt'`,PPT 用 pptxgenjs(封面页 + 每个 section 一张幻灯片,A4 布局 10×7.5)
+- [x] ✅(2026-08-01) H5:前端 PPT 导出按钮 — `apps/web/app/(main)/ai-career/page.tsx` 下拉菜单新增 PPT 选项(Presentation 图标),`packages/api-client/src/endpoints/ai.ts` `CareerReportFormat` 类型新增 `'ppt'`
+- [x] ✅(2026-08-01) H6:I18N 路由注册 — `apps/web/src/lib/path-labels.ts` 新增 `{ href: '/ai-career', spec: { ns: 'aiCareerPage', key: 'title' } }`,TagsView 不再走 deriveTitle 显示 "Ai Career";5 语言 i18n 文件 `aiCareerPage.export.ppt` 键补全(zh-CN/zh-TW/en/ko/ja)
+
+### 验证
+
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- `pnpm --filter @ihui/web typecheck` exit 0 ✅
+- `pnpm --filter @ihui/api-client typecheck` exit 0 ✅
+- AI 真实生成验证:API 测试返回 step-3.5-flash 真实输出(非模板兜底)✅
+- 导出功能验证:PDF/Word/PPT 三格式端点均返回正确 Content-Type + Content-Disposition ✅
+
+### 影响文件(6)
+
+- `apps/api/package.json` — 新增 pptxgenjs 依赖
+- `apps/api/src/routes/user/ai-modules-routes.ts` — AI 调用契约修复 + PPT 导出逻辑
+- `apps/web/app/(main)/ai-career/page.tsx` — 前端 PPT 导出按钮
+- `apps/web/src/lib/path-labels.ts` — I18N 路由注册
+- `packages/api-client/src/endpoints/ai.ts` — CareerReportFormat 类型扩展
+- `packages/i18n/messages/web/{zh-CN,zh-TW,en,ko,ja}.json` — export.ppt 翻译键

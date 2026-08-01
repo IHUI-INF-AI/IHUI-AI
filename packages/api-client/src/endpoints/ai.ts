@@ -6,7 +6,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi, getToken, normalizeUrlPublic } from '../client'
 import { buildQs, type PageData } from '../utils'
 
 // ===================== 类型定义 =====================
@@ -528,5 +528,24 @@ export async function getCareerAdvice(
   return fetchApi<CareerAdviceResult>('/api/ai/career-advice', {
     method: 'POST',
     body: JSON.stringify(input),
+  })
+}
+
+// AI 生涯指导报告导出(PDF / Word / PPT)— 结构化报告,返回二进制文件流
+// 复用 exportMyReport 同款鉴权模式(getToken + normalizeUrlPublic + credentials:include)
+export type CareerReportFormat = 'pdf' | 'word' | 'ppt'
+
+export async function exportCareerReport(
+  input: CareerAdviceInput & { format: CareerReportFormat; content: string },
+): Promise<Response> {
+  const token = getToken()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const url = normalizeUrlPublic('/api/ai/career-advice/export')
+  return fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(input),
+    credentials: 'include',
   })
 }
