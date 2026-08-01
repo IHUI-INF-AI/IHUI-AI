@@ -65,7 +65,7 @@ export function EarningsOverview({ data, loading }: Props) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 tablet-lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 tablet-min-[1024px]:grid-cols-4">
       {cards.map((c) => (
         <StatCard
           key={c.title}

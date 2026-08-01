@@ -129,7 +129,7 @@ describe('FileExplorer', () => {
     // 命中 app.ts:highlightMatch 把 'app' 拆为高亮 span,后缀 '.ts' 为独立文本节点
     expect(getByText('app')).not.toBeNull()
     expect(getByText('.ts')).not.toBeNull()
-    // 不命中 readme.md:readme 文本不存在
+    // 不命中 readme.min-[768px]:readme 文本不存在
     expect(queryByText('readme')).toBeNull()
   })
 

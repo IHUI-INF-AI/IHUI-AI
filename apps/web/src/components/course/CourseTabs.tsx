@@ -289,7 +289,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
             <Card>
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-primary">{rating.average}</p>
+                  <p className="text-2xl min-[768px]:text-3xl font-bold text-primary">{rating.average}</p>
                   <div className="mt-1 flex">
                     {[1, 2, 3, 4, 5].map((s) => (
                       <Star

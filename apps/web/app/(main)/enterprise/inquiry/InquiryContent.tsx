@@ -11,11 +11,11 @@ export function InquiryContent(): React.JSX.Element {
   const t = useTranslations('services')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-14">
+    <main className="mx-auto w-full max-w-6xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('enterpriseInquiry.title')}</h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('enterpriseInquiry.subtitle')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-sm">
@@ -33,7 +33,7 @@ export function InquiryContent(): React.JSX.Element {
       </section>
 
       {/* 主体:表单 + 侧边栏 */}
-      <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="mt-10 grid gap-6 min-[1024px]:grid-cols-[1fr_280px]">
         {/* 表单区(InquiryForm 使用 useSearchParams,需 Suspense 边界) */}
         <Card>
           <CardContent className="p-6">

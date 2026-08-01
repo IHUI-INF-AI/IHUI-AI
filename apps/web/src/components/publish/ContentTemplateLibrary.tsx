@@ -190,11 +190,11 @@ function TemplateRow({ tpl, labelKey, label, onApply, onRemove, t }: TemplateRow
         {labelKey ? t(labelKey as never) : (label ?? tpl.title)}
       </button>
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onApply}>
+        <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={onApply}>
           <Plus className="h-3 w-3" />
         </Button>
         {onRemove && (
-          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-rose-600" onClick={onRemove}>
+          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-rose-600" onClick={onRemove}>
             <Trash2 className="h-3 w-3" />
           </Button>
         )}

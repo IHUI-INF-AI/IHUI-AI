@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -114,7 +114,7 @@ export function ItemList({
           <div
             className={
               layout === 'grid'
-                ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'
+                ? 'grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3'
                 : 'space-y-2'
             }
           >

@@ -98,17 +98,17 @@ export function DevelopersContent(): React.JSX.Element {
   }'`
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 md:px-8 md:py-14">
+    <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Code2 className="h-3.5 w-3.5 text-primary" />
           开发者门户 · v{data.version}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">
+        <h1 className="text-3xl font-bold tracking-tight min-[768px]:text-5xl">
           {data.name} 开放平台
         </h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           为开发者提供 OpenAI 兼容 API、9 大厂商模型、4 档配额,一行代码切换模型,统一鉴权。
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
@@ -129,7 +129,7 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* 限流策略 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">限流策略</h2>
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">限流策略</h2>
         <Card>
           <CardContent className="p-0">
             <div className="grid grid-cols-2 gap-px bg-border/40 text-sm min-[640px]:grid-cols-4">
@@ -155,8 +155,8 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* 支持厂商 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">支持的厂商</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">支持的厂商</h2>
+        <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           {data.providers.map((p) => (
             <Card key={p} className="transition-colors hover:bg-accent">
               <CardContent className="flex items-center gap-2 p-4">
@@ -170,8 +170,8 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* SDK 计划 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">SDK 计划</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">SDK 计划</h2>
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {data.sdks.map((sdk) => (
             <Card key={sdk.language}>
               <CardHeader className="p-4 pb-2">
@@ -201,7 +201,7 @@ export function DevelopersContent(): React.JSX.Element {
 
       {/* 鉴权说明 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">鉴权说明</h2>
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">鉴权说明</h2>
         <Card>
           <CardHeader className="p-4 pb-2">
             <CardTitle className="flex items-center gap-2 text-base">

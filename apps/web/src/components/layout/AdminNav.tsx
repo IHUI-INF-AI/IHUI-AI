@@ -1020,7 +1020,9 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        <span>{item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}</span>
+        <span className="min-w-0 flex-1 truncate" title={item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}>
+          {item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}
+        </span>
       </Link>
     )
   }
@@ -1044,7 +1046,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
           )}
         >
           <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1 text-left">
+          <span className="min-w-0 flex-1 truncate text-left whitespace-nowrap" title={t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}>
             {t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}
           </span>
           <span className="text-[10px] tabular-nums text-muted-foreground/70">

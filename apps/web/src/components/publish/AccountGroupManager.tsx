@@ -282,7 +282,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                             </div>
                             <button
                               type="button"
-                              className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive"
                               onClick={() => removeMember(aid)}
                               aria-label={t('groups.removeAccount')}
                             >
@@ -302,7 +302,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
 
       {/* 创建/编辑分组 */}
       <Dialog open={createOpen} onOpenChange={(o) => !saving && setCreateOpen(o)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="min-[640px]:max-w-sm">
           <form onSubmit={submitGroup} className="space-y-3">
             <DialogHeader>
               <DialogTitle>{editTarget ? t('groups.edit') : t('groups.create')}</DialogTitle>
@@ -328,7 +328,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
 
       {/* 删除确认 */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="min-[640px]:max-w-sm">
           <DialogHeader><DialogTitle>{t('groups.delete')}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">{t('groups.deleteConfirm', { name: deleteTarget?.name ?? '' })}</p>
           <DialogFooter>
@@ -340,7 +340,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
 
       {/* 添加账号到分组 */}
       <Dialog open={!!addAccountsOpen} onOpenChange={(o) => !o && setAddAccountsOpen(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="min-[640px]:max-w-md">
           <DialogHeader><DialogTitle>{t('groups.addAccountTitle')}</DialogTitle></DialogHeader>
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {availableAccounts.length === 0 ? (

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -86,7 +86,7 @@ export default function SchedulePage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <CalendarClock className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
@@ -122,7 +122,7 @@ export default function SchedulePage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {tasks.map((task) => (
             <Card key={task.id} className="flex flex-col">
               <CardHeader className="pb-2">

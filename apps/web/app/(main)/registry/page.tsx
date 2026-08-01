@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useAuth } from '@/hooks/use-auth'
@@ -71,7 +71,7 @@ export default function RegistryPage() {
     installedIds.includes(item.id) ? 'installed' : 'not_installed'
 
   return (
-    <div className="space-y-4 p-4 md:p-6">
+    <div className="space-y-4 p-4 min-[768px]:p-6">
       <h1 className="text-lg font-semibold">资源更新中心</h1>
 
       {upgradableCount > 0 && (
@@ -114,7 +114,7 @@ export default function RegistryPage() {
           暂无资源
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {items.map((item) => (
             <RegistryItemCard
               key={item.id}

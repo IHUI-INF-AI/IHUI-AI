@@ -132,7 +132,7 @@ export function PlaygroundClient() {
       </div>
 
       {/* 主体:左右分栏,移动端堆叠 */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <div className="space-y-4">
           <MessageEditor
             messages={messages}
@@ -147,7 +147,7 @@ export function PlaygroundClient() {
             disabled={isStreaming}
           />
         </div>
-        <div className="lg:min-h-[600px]">
+        <div className="min-h-[400px] min-[768px]:min-h-[500px] min-[1024px]:min-h-[600px]">
           <ResponseViewer
             response={response}
             streamingContent={streamingContent}

@@ -28,7 +28,7 @@ export function ProductsContent(): React.JSX.Element {
   const t = useTranslations('products')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -36,13 +36,13 @@ export function ProductsContent(): React.JSX.Element {
           {t('heroBadge')}
         </div>
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
       </section>
 
       {/* Product cards */}
-      <section className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-12 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {PRODUCTS.map(({ id, icon: Icon, popular }) => {
           const title = t(`cards.${id}.title`)
           const mailto = `mailto:business@aizhs.top?subject=${encodeURIComponent(
@@ -80,10 +80,10 @@ export function ProductsContent(): React.JSX.Element {
       </section>
 
       {/* CTA */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center md:p-12">
+      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+        <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

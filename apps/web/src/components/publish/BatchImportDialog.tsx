@@ -163,7 +163,7 @@ export function BatchImportDialog({ open, onOpenChange, onSuccess }: BatchImport
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o) }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="min-[640px]:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />{t('batchImport.title')}

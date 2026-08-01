@@ -200,7 +200,7 @@ export default function ResourceDetailPage() {
       {related.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">{t('relatedResources')}</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((item) => (
               <Link key={item.id} href={`/resources/${item.id}`} className="group block">
                 <Card className="h-full overflow-hidden transition-colors hover:bg-accent">

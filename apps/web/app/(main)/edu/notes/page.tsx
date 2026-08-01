@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -97,7 +97,7 @@ export default function EduNotesPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {notes.map((note) => (
             <Card key={note.id} className="flex flex-col transition-colors hover:bg-accent">
               <CardContent className="flex-1 space-y-2 p-4">

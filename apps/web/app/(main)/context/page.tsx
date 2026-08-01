@@ -80,7 +80,7 @@ export default function ContextOverviewPage() {
           <span>加载失败:{(sourcesQ.error ?? vizQ.error)?.message ?? '未知错误'}</span>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">当前会话 Token 分布</CardTitle>
@@ -121,7 +121,7 @@ export default function ContextOverviewPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">子页面</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-2 pt-0 sm:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-2 pt-0 min-[640px]:grid-cols-3">
           {SUB_PAGES.map((p) => (
             <Link
               key={p.href}

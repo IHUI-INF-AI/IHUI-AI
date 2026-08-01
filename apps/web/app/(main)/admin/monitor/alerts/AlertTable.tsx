@@ -91,28 +91,32 @@ export function AlertTable({
                     {formatDate(a.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
-                    {a.status === 'active' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={ackPending}
-                        onClick={() => onAck(a.id)}
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                        确认
-                      </Button>
-                    )}
-                    {a.status !== 'resolved' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={resolvePending}
-                        onClick={() => onResolve(a.id)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        解决
-                      </Button>
-                    )}
+                    <div className="flex flex-nowrap justify-end gap-1">
+                      {a.status === 'active' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={ackPending}
+                          onClick={() => onAck(a.id)}
+                          className="shrink-0 whitespace-nowrap"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          确认
+                        </Button>
+                      )}
+                      {a.status !== 'resolved' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={resolvePending}
+                          onClick={() => onResolve(a.id)}
+                          className="shrink-0 whitespace-nowrap"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          解决
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               )

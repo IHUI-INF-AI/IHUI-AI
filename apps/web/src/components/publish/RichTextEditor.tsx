@@ -246,7 +246,7 @@ export function RichTextEditor({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-9 w-9"
                 title={t(act.labelKey as never) + (act.shortcut ? ` (${act.shortcut})` : '')}
                 onClick={() => applyWrap(act.wrap)}
               >
@@ -259,7 +259,7 @@ export function RichTextEditor({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-9 w-9"
               title={t('editor.image')}
               onClick={() => fileInputRef.current?.click()}
             >

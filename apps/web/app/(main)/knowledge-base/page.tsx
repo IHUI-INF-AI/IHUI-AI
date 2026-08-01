@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -86,13 +86,13 @@ export default function KnowledgeBasePage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">知识库</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">知识库</h1>
         </div>
         <p className="text-xs text-muted-foreground">浏览、搜索与管理知识库文章</p>
       </header>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <aside className="w-full shrink-0 lg:w-52">
+      <div className="flex flex-col gap-6 min-[1024px]:flex-row">
+        <aside className="w-full shrink-0 min-[1024px]:w-52">
           <div className="space-y-1 rounded-lg border p-2">
             <button
               type="button"

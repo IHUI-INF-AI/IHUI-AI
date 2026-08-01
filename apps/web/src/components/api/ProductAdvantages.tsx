@@ -26,7 +26,7 @@ export default function ProductAdvantages({
   className,
 }: ProductAdvantagesProps): React.JSX.Element {
   return (
-    <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4', className)}>
+    <div className={cn('grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4', className)}>
       {advantages.map((a, i) => (
         <div key={i} className="rounded-xl border bg-card p-5 text-card-foreground shadow">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">

@@ -190,8 +190,8 @@ export default function NewPublishPage() {
         <h2 className="text-base font-semibold">{t('new.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('new.subtitle')}</p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3">
+        <div className="space-y-4 min-[1024px]:col-span-2">
           <ContentEditorCard
             title={title} onTitleChange={setTitle} format={format} onFormatChange={setFormat}
             textContent={textContent} onTextContentChange={setTextContent}

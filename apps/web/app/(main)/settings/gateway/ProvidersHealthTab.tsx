@@ -178,7 +178,7 @@ export function ProvidersHealthTab() {
   return (
     <div className="space-y-3">
       {/* Summary + 最后检测时间(H4 Phase B) */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-5">
         <SummaryCard label={t('summary.total')} value={summary.total} />
         <SummaryCard label="OK" value={summary.ok} tone="emerald" />
         <SummaryCard label="Invalid Key" value={summary.invalid_key} tone="red" />
@@ -984,7 +984,7 @@ function SyncConfigPanel() {
     <Card>
       <CardContent className="space-y-2 p-3">
         <p className="text-sm font-medium">{tm('config')}</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
           <div className="space-y-1">
             <label className="text-[11px] text-muted-foreground">{tm('interval')}</label>
             <Input
@@ -1126,7 +1126,7 @@ function SyncStatsGrid({ data, timeFmt }: { data: SyncStatsResult; timeFmt: Intl
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded bg-muted/40 p-2">
             <p className="text-[10px] text-muted-foreground">{s.label}</p>

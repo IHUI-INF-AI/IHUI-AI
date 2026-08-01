@@ -212,7 +212,7 @@ function ActionButton({ label, onClick, danger, children }: ActionButtonProps) {
       aria-label={label}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+        'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
         danger && 'hover:bg-destructive/10 hover:text-destructive',
       )}
     >

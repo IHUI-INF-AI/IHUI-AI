@@ -288,7 +288,7 @@ export default async function StatusPage() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10">
         <Card>
-          <CardContent className="flex flex-col items-center gap-2 p-8 text-center">
+          <CardContent className="flex flex-col items-center gap-2 p-5 min-[768px]:p-8 text-center">
             <AlertTriangle className="h-8 w-8 text-rose-500" />
             <p className="text-sm font-medium">{result.error}</p>
             <p className="text-xs text-muted-foreground">页面将每 60 秒自动刷新重试</p>

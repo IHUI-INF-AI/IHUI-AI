@@ -103,7 +103,7 @@ export default function OfflineRecordsPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex items-start justify-between">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
             <CalendarClock className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>

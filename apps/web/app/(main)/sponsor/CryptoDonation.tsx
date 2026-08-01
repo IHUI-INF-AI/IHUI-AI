@@ -76,13 +76,13 @@ export function CryptoDonation(): React.JSX.Element {
   return (
     <section className="mt-16">
       <div className="text-center">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h2>
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('subtitle')}
         </p>
       </div>
 
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
+      <div className="mt-8 grid gap-6 min-[640px]:grid-cols-2">
         {WALLETS.map((w) => {
           const Icon = w.icon
           const copied = copiedId === w.id

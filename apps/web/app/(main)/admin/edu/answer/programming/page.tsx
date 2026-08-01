@@ -120,7 +120,7 @@ function ProgrammingContent() {
       />
 
       {recordId && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
           <ProgrammingQuestion
             current={current}
             qIdx={qIdx}

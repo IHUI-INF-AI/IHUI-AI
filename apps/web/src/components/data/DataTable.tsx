@@ -135,7 +135,7 @@ function DataTableImpl<T extends Record<string, unknown>>({
               <tr>
                 <td
                   colSpan={columns.length + (selectable ? 1 : 0)}
-                  className="px-3 py-8 text-center text-muted-foreground"
+                  className="px-3 py-5 min-[768px]:py-8 text-center text-muted-foreground"
                 >
                   加载中...
                 </td>
@@ -144,7 +144,7 @@ function DataTableImpl<T extends Record<string, unknown>>({
               <tr>
                 <td
                   colSpan={columns.length + (selectable ? 1 : 0)}
-                  className="px-3 py-8 text-center text-muted-foreground"
+                  className="px-3 py-5 min-[768px]:py-8 text-center text-muted-foreground"
                 >
                   暂无数据
                 </td>

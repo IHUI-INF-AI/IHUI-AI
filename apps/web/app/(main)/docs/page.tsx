@@ -170,7 +170,7 @@ const docSections = [
 
 export default function DocsIndexPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(docsJsonLd) }}
@@ -183,12 +183,12 @@ export default function DocsIndexPage() {
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
           智汇 AI 文档
         </h1>
-        <p className="mx-auto max-w-3xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
           从快速开始到深度开发,完整覆盖智汇 AI 全部能力。
         </p>
       </header>
 
-      <div className="mt-12 grid gap-6 md:grid-cols-2">
+      <div className="mt-12 grid gap-6 min-[768px]:grid-cols-2">
         {docSections.map((section) => (
           <section key={section.title} className="rounded-2xl border bg-card p-6">
             <div className="flex items-center gap-2">

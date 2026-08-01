@@ -42,7 +42,7 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
       {wfs.map((w) => {
         const stepCount = Array.isArray(w.steps) ? w.steps.length : 0
         const status: WfStatus = w.isActive ? 'active' : 'inactive'

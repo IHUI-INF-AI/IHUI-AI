@@ -60,7 +60,7 @@ export function StepItem({
     >
       {draggable && (
         <span
-          className="mt-0.5 hidden cursor-grab text-muted-foreground/40 hover:text-muted-foreground sm:block"
+          className="mt-0.5 hidden cursor-grab text-muted-foreground/40 hover:text-muted-foreground min-[640px]:block"
           aria-hidden
         >
           <GripVertical className="h-4 w-4" />
@@ -76,7 +76,7 @@ export function StepItem({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6"
+              className="h-9 w-9"
               onClick={onMoveUp}
               disabled={index === 0}
               aria-label="上移"
@@ -86,7 +86,7 @@ export function StepItem({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6"
+              className="h-9 w-9"
               onClick={onMoveDown}
               disabled={index === total - 1}
               aria-label="下移"
@@ -96,7 +96,7 @@ export function StepItem({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+              className="h-9 w-9 text-muted-foreground hover:text-destructive"
               onClick={onRemove}
               aria-label="删除步骤"
             >

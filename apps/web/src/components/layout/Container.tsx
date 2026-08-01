@@ -39,8 +39,8 @@ export function Container({
       className={cn(
         widthMap[maxWidth],
         centered && 'mx-auto',
-        // 2026-08-01 padding 断点对齐:原 sm:px-6/lg:px-8 依赖自定义断点
-        // (--breakpoint-sm:375px/--breakpoint-lg:576px),lg:px-8 在 576px 就触发过早。
+        // 2026-08-01 padding 断点对齐:原 min-[640px]:px-6/min-[1024px]:px-8 依赖自定义断点
+        // (--breakpoint-sm:375px/--breakpoint-lg:576px),min-[1024px]:px-8 在 576px 就触发过早。
         // 改为 min-[640px]/min-[1024px] 任意值,与移动端适配断点体系一致。
         padding && 'px-4 min-[640px]:px-6 min-[1024px]:px-8',
         'w-full',

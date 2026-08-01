@@ -89,7 +89,7 @@ export default function VipPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1 text-center">
-        <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Crown className="h-7 w-7 text-amber-500" />
           {t('title')}
         </h1>
@@ -98,7 +98,7 @@ export default function VipPage() {
 
       {/* 立即购买 VIP — 跳转收款落地页(支付宝支付) */}
       {!myVip && (
-        <div className="flex flex-col items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-50/40 p-4 sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-50/40 p-4 min-[640px]:flex-row">
           <div className="flex items-center gap-2 text-sm">
             <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
             <span className="font-medium text-amber-700">{t('limitedOffer')}</span>
@@ -125,7 +125,7 @@ export default function VipPage() {
 
       {myVip ? (
         <Card className="border-amber-500/40 bg-amber-50/40">
-          <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <CardContent className="flex flex-col gap-2 p-4 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{t('currentLevel')}</p>
               <p className="flex items-center gap-2 text-base font-semibold">
@@ -167,7 +167,7 @@ export default function VipPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
+        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3 min-[1024px]:items-stretch">
           {levels.map((level, idx) => {
             const isPopular = idx === popularIdx
             const benefits = Array.isArray(level.benefits) ? level.benefits : []
