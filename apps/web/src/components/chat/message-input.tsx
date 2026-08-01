@@ -595,13 +595,13 @@ export function MessageInput({
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
                 {/* 发送/停止按钮(2026-07-30 用户规则:清除按钮已挪回 WebInputCore 内部 textarea 右上角悬浮呈现,
                     不再占用 toolbar 槽位)
-                    - 流式中切 Stop(红底),否则 Send(主色,空输入/流式中禁用) */}
+                    - 流式中切 Stop(天蓝底 sky-500),否则 Send(主色,空输入/流式中禁用) */}
                 {isStreaming ? (
                   <Tooltip content={stopLabel ?? t('stop')}>
                     <button
                       type="button"
                       onClick={onStop}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-white hover:bg-sky-600"
                       aria-label={stopLabel ?? t('stop')}
                     >
                       <Square className="h-3.5 w-3.5" fill="currentColor" />
