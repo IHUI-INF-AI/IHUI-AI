@@ -11334,11 +11334,17 @@
     "shellSubtitle": "Platform development and integration guides",
     "navDocs": "Docs",
     "navTools": "Tools",
+    "navDevelopers": "Developers",
     "navOverview": "Overview",
+    "navManual": "User Manual",
+    "navQuickstart": "Quickstart",
     "navAgent": "Agent Development",
     "navApi": "API Docs",
     "navMcp": "MCP Protocol",
     "navRag": "RAG Retrieval",
+    "navModels": "Multi-model Routing",
+    "navWorkflow": "Workflow Orchestration",
+    "navTeam": "Team Collaboration",
     "navSelfHost": "Self-hosting"
   },
   "developer": {
