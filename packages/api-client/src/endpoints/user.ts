@@ -85,15 +85,27 @@ export async function bindPhone(input: {
   })
 }
 
+/**
+ * 更换手机号(2026-08-01 重构:需旧+新手机号双验证码,新号有账号则自动合并)
+ *
+ * 后端契约:POST /api/users/change-phone
+ *   body: { oldPhone, oldCode, newPhone, newCode }
+ *   - 校验旧手机号验证码 + 新手机号验证码
+ *   - 新手机号已被其他账号绑定时,自动合并账号(以老账号信息为准)
+ */
 export async function replacePhone(input: {
   oldPhone: string
+  oldCode: string
   newPhone: string
-  code: string
-}): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>('/api/users/change-phone', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+  newCode: string
+}): Promise<ApiResult<{ success: boolean; user: { id: string; phone: string } }>> {
+  return fetchApi<{ success: boolean; user: { id: string; phone: string } }>(
+    '/api/users/change-phone',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  )
 }
 
 export async function getUserStatistics(): Promise<ApiResult<UserStatistics>> {
