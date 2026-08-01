@@ -73,7 +73,7 @@ export default function AdminShopProductsPage() {
       }
       return editing
         ? api(`/api/admin/shop/products/${editing.id}`, {
-            method: 'PATCH',
+            method: 'PUT',
             body: JSON.stringify(body),
           })
         : api('/api/admin/shop/products', { method: 'POST', body: JSON.stringify(body) })
@@ -127,9 +127,12 @@ export default function AdminShopProductsPage() {
     e.preventDefault()
     setErr(null)
     if (!form.name.trim()) return setErr(t('products.validation.nameRequired'))
-    if (form.price === '' || Number(form.price) < 0) return setErr(t('products.validation.priceInvalid'))
-    if (form.stock === '' || Number(form.stock) < 0) return setErr(t('products.validation.stockInvalid'))
-    if (form.sales === '' || Number(form.sales) < 0) return setErr(t('products.validation.salesInvalid'))
+    if (form.price === '' || Number(form.price) < 0)
+      return setErr(t('products.validation.priceInvalid'))
+    if (form.stock === '' || Number(form.stock) < 0)
+      return setErr(t('products.validation.stockInvalid'))
+    if (form.sales === '' || Number(form.sales) < 0)
+      return setErr(t('products.validation.salesInvalid'))
     if (!form.category.trim()) return setErr(t('products.validation.categoryRequired'))
     if (!form.type.trim()) return setErr(t('products.validation.typeRequired'))
     saveMut.mutate()
