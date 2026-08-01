@@ -144,7 +144,7 @@ export function FoldableSection({
           )}
         />
         {Icon && <Icon className="h-3 w-3 shrink-0 text-muted-foreground/50" />}
-        <span className="flex-1 text-left">{title}</span>
+        <span className="flex-1 min-w-0 text-left">{title}</span>
         {/* 借鉴 Trae Thinking Process:折叠态显示当前摘要,展开态隐藏(避免冗余) */}
         {summary && !open && (
           <span

@@ -193,7 +193,7 @@ export default function CrewSessionDetailPage() {
       </div>
 
       <Tabs defaultValue="tasks">
-        <TabsList>
+        <TabsList className="flex w-full flex-wrap gap-1">
           <TabsTrigger value="tasks">任务 ({tasks.length})</TabsTrigger>
           <TabsTrigger value="messages">消息 ({messages.length})</TabsTrigger>
           <TabsTrigger value="artifacts">产物 ({artifacts.length})</TabsTrigger>

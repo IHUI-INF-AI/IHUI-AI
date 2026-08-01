@@ -15,7 +15,7 @@ interface Props {
  */
 export function EmptyState({ icon, message, hint, action }: Props) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-card/50 px-6 py-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-card/50 px-4 min-[768px]:px-6 py-6 min-[768px]:py-10 text-center">
       {icon ? <div className="text-muted-foreground/40">{icon}</div> : null}
       <p className="text-sm font-medium text-muted-foreground">{message}</p>
       {hint ? <p className="text-[10px] text-muted-foreground/60">{hint}</p> : null}

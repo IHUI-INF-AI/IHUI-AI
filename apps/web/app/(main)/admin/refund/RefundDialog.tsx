@@ -91,24 +91,43 @@ export function RefundDialog({
               className={textareaClass}
             />
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={disabled}>
-              {tc('cancel')}
-            </Button>
-            {action?.mode === 'audit' ? (
-              <>
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    onApprove()
-                  }}
-                  disabled={isApprovePending || !canApprove}
-                >
-                  {isApprovePending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  <Check className="mr-1 h-4 w-4" />
-                  {t('approve')}
-                </Button>
+          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
+            <span className="text-xs text-muted-foreground">state: {state}</span>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={onClose} disabled={disabled} className="shrink-0">
+                <span className="whitespace-nowrap">{tc('cancel')}</span>
+              </Button>
+              {action?.mode === 'audit' ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      onApprove()
+                    }}
+                    disabled={isApprovePending || !canApprove}
+                    className="shrink-0"
+                  >
+                    {isApprovePending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                    <Check className="mr-1 h-4 w-4 shrink-0" />
+                    <span className="whitespace-nowrap">{t('approve')}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={isRejectPending || !canReject}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      onReject()
+                    }}
+                    className="shrink-0"
+                  >
+                    {isRejectPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                    <X className="mr-1 h-4 w-4 shrink-0" />
+                    <span className="whitespace-nowrap">{t('reject')}</span>
+                  </Button>
+                </>
+              ) : (
                 <Button
                   type="button"
                   variant="destructive"
@@ -117,27 +136,13 @@ export function RefundDialog({
                     e.preventDefault()
                     onReject()
                   }}
+                  className="shrink-0"
                 >
-                  {isRejectPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  <X className="mr-1 h-4 w-4" />
-                  {t('reject')}
+                  {isRejectPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                  <span className="whitespace-nowrap">{t('reject')}</span>
                 </Button>
-              </>
-            ) : (
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={isRejectPending || !canReject}
-                onClick={(e) => {
-                  e.preventDefault()
-                  onReject()
-                }}
-              >
-                {isRejectPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('reject')}
-              </Button>
-            )}
-            <span className="text-xs text-muted-foreground">state: {state}</span>
+              )}
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

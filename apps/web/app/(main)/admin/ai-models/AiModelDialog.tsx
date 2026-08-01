@@ -32,7 +32,7 @@ export function AiModelDialog({
           <DialogTitle>{editingId ? '编辑模型' : '新增模型'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="name">名称 *</Label>
               <Input
@@ -63,7 +63,7 @@ export function AiModelDialog({
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="apiFormat">API 格式</Label>
               <select
@@ -99,7 +99,7 @@ export function AiModelDialog({
               placeholder="sk-..."
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="sortOrder">排序</Label>
               <Input

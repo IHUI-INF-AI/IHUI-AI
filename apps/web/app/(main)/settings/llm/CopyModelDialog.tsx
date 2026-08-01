@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * CopyModelDialog — 把一个 model 的配置一键复制到其他 provider(2026-07-22 立,深度功能)
@@ -221,13 +221,13 @@ export function CopyModelDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={copyMut.isPending}>
-            {t('cancel')}
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
+          <Button variant="ghost" onClick={onClose} disabled={copyMut.isPending} className="shrink-0">
+            <span className="whitespace-nowrap">{t('cancel')}</span>
           </Button>
-          <Button onClick={handleConfirm} disabled={copyMut.isPending || !targetId}>
-            {copyMut.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-            {t('confirm')}
+          <Button onClick={handleConfirm} disabled={copyMut.isPending || !targetId} className="shrink-0">
+            {copyMut.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin shrink-0" /> : null}
+            <span className="whitespace-nowrap">{t('confirm')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

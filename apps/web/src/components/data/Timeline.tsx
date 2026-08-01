@@ -41,7 +41,7 @@ export function Timeline({ items, mode = 'left', className }: TimelineProps) {
               >
                 {Icon && <Icon className="h-3 w-3 text-white" />}
               </div>
-              <div className={cn('flex-1 pt-0.5', mode === 'right' && 'text-right')}>
+              <div className={cn('flex-1 min-w-0 pt-0.5', mode === 'right' && 'text-right')}>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{item.title}</span>
                   {item.time && <span className="text-xs text-muted-foreground">{item.time}</span>}

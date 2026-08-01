@@ -181,7 +181,7 @@ export function PricingContent(): React.JSX.Element {
                     )}
                   </div>
 
-                  <ul className="mt-5 flex-1 space-y-2 text-sm">
+                  <ul className="mt-5 flex-1 min-w-0 space-y-2 text-sm">
                     {BENEFIT_ROWS.map(({ key, label, suffix }) => {
                       const val = benefits[key]
                       if (val === null || val === undefined) return null

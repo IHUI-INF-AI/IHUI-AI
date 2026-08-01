@@ -50,7 +50,7 @@ export function PlanCard({ plan }: PlanCardProps) {
           {plan.goal || '暂无目标描述'}
         </p>
       </CardHeader>
-      <CardContent className="flex-1 space-y-3 p-4 pt-0">
+      <CardContent className="flex-1 min-w-0 space-y-3 p-4 pt-0">
         <ProgressStats stats={stats} />
         {plan.tags && plan.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">

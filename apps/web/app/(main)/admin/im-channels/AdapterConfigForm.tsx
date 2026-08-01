@@ -138,19 +138,19 @@ export default function AdapterConfigForm({ platform, adapter, onSaved }: Adapte
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
+          <div className="min-w-0 flex-1 space-y-1">
             <CardTitle className="flex items-center gap-2 text-base">
-              {platform.icon ? <span aria-hidden>{platform.icon}</span> : null}
-              <span>{platform.displayName}</span>
+              {platform.icon ? <span aria-hidden className="shrink-0">{platform.icon}</span> : null}
+              <span className="truncate" title={platform.displayName}>{platform.displayName}</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="break-all">
               入站:{platform.inboundFieldType}
               {platform.signatureHeader
                 ? ` · 验签 ${platform.signatureHeader}(${platform.signatureEncoding})`
                 : ' · 无验签'}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Label htmlFor="adapter-enabled" className="text-xs text-muted-foreground">
               启用
             </Label>

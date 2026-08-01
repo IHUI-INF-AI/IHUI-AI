@@ -144,7 +144,7 @@ export function HomePage4Pricing() {
                   <span className="text-xs text-muted-foreground">{t('period')}</span>
                 </div>
 
-                <ul className="mb-3 flex-1 space-y-1.5">
+                <ul className="mb-3 flex-1 min-w-0 space-y-1.5">
                   {plan.featureKeys.map((featureKey) => (
                     <li key={featureKey} className="flex items-start gap-1.5 text-xs">
                       <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />

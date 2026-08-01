@@ -99,7 +99,7 @@ export default function LearnTopicDetailPage() {
 
       {/* 专题信息 */}
       <Card className="relative overflow-hidden">
-        <CardContent className="flex flex-col gap-4 p-6 min-[768px]:flex-row">
+        <CardContent className="flex flex-col gap-4 p-4 min-[768px]:p-6 min-[768px]:flex-row">
           <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 min-[768px]:w-64">
             {coverImage ? (
               <Image src={coverImage} alt={topic.title} fill className="rounded-lg object-cover" />
@@ -132,7 +132,7 @@ export default function LearnTopicDetailPage() {
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 min-w-0 space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">{topic.title}</h1>
             {topic.description && (
               <p className="text-sm text-muted-foreground">{topic.description}</p>

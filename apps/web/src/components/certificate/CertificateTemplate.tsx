@@ -177,7 +177,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
 
             {/* 颁发机构 + 颁发人 + 印章 */}
             <div className="mt-auto flex items-end justify-between gap-4">
-              <div className="flex-1 space-y-1.5 text-xs text-muted-foreground">
+              <div className="flex-1 min-w-0 space-y-1.5 text-xs text-muted-foreground">
                 {awardingOrganization && (
                   <p className="font-medium text-foreground">{awardingOrganization}</p>
                 )}

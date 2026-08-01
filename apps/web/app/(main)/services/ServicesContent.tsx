@@ -60,7 +60,7 @@ export function ServicesContent(): React.JSX.Element {
                   </span>
                   <span className="text-sm text-muted-foreground">{t(`cards.${key}.unit`)}</span>
                 </div>
-                <ul className="mt-4 flex-1 space-y-2 text-sm">
+                <ul className="mt-4 flex-1 min-w-0 space-y-2 text-sm">
                   {features.map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />

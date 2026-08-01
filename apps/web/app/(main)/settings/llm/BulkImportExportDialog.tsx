@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * BulkImportExportDialog — 批量导入/导出 LLM 配置(2026-07-22 立,深度功能)
@@ -377,9 +377,9 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isPending}>
-            {t('cancel')}
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isPending} className="shrink-0">
+            <span className="whitespace-nowrap">{t('cancel')}</span>
           </Button>
           {tab === 'import' ? (
             <>
@@ -388,16 +388,18 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
                 variant="outline"
                 onClick={handleParse}
                 disabled={isPending || !importText.trim()}
+                className="shrink-0"
               >
-                解析 JSON
+                <span className="whitespace-nowrap">解析 JSON</span>
               </Button>
               <Button
                 type="button"
                 onClick={() => parsed && importMut.mutate(parsed)}
                 disabled={isPending || !parsed}
+                className="shrink-0"
               >
-                {isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-                {t('importSubmit')}
+                {isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin shrink-0" /> : null}
+                <span className="whitespace-nowrap">{t('importSubmit')}</span>
               </Button>
             </>
           ) : null}

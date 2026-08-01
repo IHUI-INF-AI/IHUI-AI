@@ -63,7 +63,7 @@ export function Modal({
               )}
             </div>
           )}
-          <div className="flex-1">{children}</div>
+          <div className="flex-1 min-w-0">{children}</div>
           {footer && <div className="flex justify-end gap-2">{footer}</div>}
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100">
             <X className="h-4 w-4" />

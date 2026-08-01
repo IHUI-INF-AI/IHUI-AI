@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -40,7 +40,7 @@ export default function McpProjectsPage() {
       </header>
 
       <Tabs defaultValue="servers">
-        <TabsList>
+        <TabsList className="flex w-full flex-wrap gap-1">
           <TabsTrigger value="servers">{tm('managerTitle')}</TabsTrigger>
           <TabsTrigger value="tools">{tm('quickCallTitle')}</TabsTrigger>
           <TabsTrigger value="resources">{tc('resources')}</TabsTrigger>
