@@ -89,6 +89,31 @@
   background-color: hsl(0 0% 18%);
 }
 
+/* 顶栏内容左偏移(2026-08-01 立,根治移动端搜索按钮与工作区卡片 46px 错位):
+   移动端(<1024px):GlobalTopBar 内层 flex 第 0 个元素是移动端汉堡按钮(mobileMenu),
+     占 ml-1.5(6px) + w-9(36px) + gap-1(4px) = 46px,把搜索按钮挤到 left=46px。
+     MainShell 工作区卡片无 pl 紧贴 left=0,与搜索按钮错位 46px。
+   桌面端(≥1024px):汉堡按钮 min-[1024px]:hidden 隐藏,搜索按钮紧贴 left=0,偏移 0。
+   MainShell 外层 pl=var(--topbar-content-left) 让工作区卡片对齐搜索按钮 left。
+
+   ⚠️ 此处 :root + @media 定义仅作 SSR 首屏 fallback(JS 未执行时防错位)。
+   JS 执行后,GlobalTopBar 的 ResizeObserver 会动态测量搜索按钮实际 left,
+   用 document.documentElement.style.setProperty('--topbar-content-left', ...) 覆盖
+   (inline style 优先级 > stylesheet)。工作区卡片自动跟随 mobileMenu 样式变化,
+   无需手动同步本文件。详见 GlobalTopBar.tsx useEffect 注释。
+
+   历史根因:旧方案纯硬编码 calc(0.375rem+2.25rem+0.25rem)=46px,完全依赖 mobileMenu 的
+   ml-1.5/w-9/gap-1 三个 Tailwind 类,一旦 mobileMenu 样式变化立刻失效,需手动同步两个文件
+   → "反反复复修不好"的根因(跨组件隐式耦合契约)。新方案动态测量根治此问题。 */
+:root {
+  --topbar-content-left: calc(0.375rem + 2.25rem + 0.25rem);
+}
+@media (min-width: 1024px) {
+  :root {
+    --topbar-content-left: 0px;
+  }
+}
+
 * {
   border-color: var(--color-border);
 }
@@ -292,7 +317,8 @@ iframe::-webkit-scrollbar {
    避免与父元素 animate-update-slide-in 的 animation 简写冲突。
    不使用 mask-image / -webkit-mask(§4 禁止渐变遮罩)。 */
 @keyframes ihui-update-card-glow {
-  0%, 100% {
+  0%,
+  100% {
     border-color: rgba(129, 140, 248, 0.15);
   }
   50% {
@@ -319,11 +345,21 @@ iframe::-webkit-scrollbar {
 
 /* 按钮边框颜色旋转:border-color 在品牌色和透明之间循环,光效严格在边框内 */
 @keyframes ihui-update-orbit-btn {
-  0% { border-color: rgba(129, 140, 248, 0.1); }
-  25% { border-color: rgba(129, 140, 248, 0.8); }
-  50% { border-color: rgba(129, 140, 248, 0.1); }
-  75% { border-color: rgba(129, 140, 248, 0.8); }
-  100% { border-color: rgba(129, 140, 248, 0.1); }
+  0% {
+    border-color: rgba(129, 140, 248, 0.1);
+  }
+  25% {
+    border-color: rgba(129, 140, 248, 0.8);
+  }
+  50% {
+    border-color: rgba(129, 140, 248, 0.1);
+  }
+  75% {
+    border-color: rgba(129, 140, 248, 0.8);
+  }
+  100% {
+    border-color: rgba(129, 140, 248, 0.1);
+  }
 }
 .update-btn-orbit {
   position: relative;
@@ -376,8 +412,13 @@ iframe::-webkit-scrollbar {
 
 /* 图标微脉动 */
 @keyframes ihui-update-icon-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
 }
 .animate-update-icon-pulse {
   animation: ihui-update-icon-pulse 2s ease-in-out infinite;
