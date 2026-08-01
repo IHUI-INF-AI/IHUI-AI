@@ -7,6 +7,7 @@ import { BookOpen, Clock, Tag, ArrowRight } from 'lucide-react'
 import { Card, CardContent, Badge } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { listBlogPosts, listBlogCategories } from '@/lib/blog'
+import { BackButton } from '@/components/common'
 
 export const metadata: Metadata = {
   title: '技术博客',
@@ -28,6 +29,7 @@ export default async function BlogIndexPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8 min-[768px]:py-8">
+      <BackButton />
       <header className="space-y-3 text-center min-[768px]:text-left">
         <div className="flex items-center justify-center gap-2 min-[768px]:justify-start">
           <BookOpen className="h-7 w-7 text-primary" />

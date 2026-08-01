@@ -14,6 +14,7 @@ import { EduOrganizationTable } from './EduOrganizationTable'
 import { EduOrganizationDialog } from './EduOrganizationDialog'
 import { PAGE_SIZE, EMPTY_FORM, EMPTY_SEARCH, EXPORT_COLS, organizationToForm } from './helpers'
 import type { Organization, OrganizationForm, OrganizationSearch } from './types'
+import { BackButton } from '@/components/common'
 
 export default function EduOrganizationPage() {
   const t = useTranslations('admin.edu.organization')
@@ -103,6 +104,7 @@ export default function EduOrganizationPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

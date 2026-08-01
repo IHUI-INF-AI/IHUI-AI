@@ -13,6 +13,7 @@ import { CreateUserDialog } from './CreateUserDialog'
 import { DeleteUserDialog } from './DeleteUserDialog'
 import { PAGE_SIZE, api } from './helpers'
 import type { ListData, MemberUser, CreateUserForm } from './types'
+import { BackButton } from '@/components/common'
 
 const EMPTY_FORM: CreateUserForm = {
   nickname: '',
@@ -117,6 +118,7 @@ export default function AdminMemberUsersPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

@@ -8,6 +8,7 @@ import { Loader2, ChevronLeft, ChevronRight, TrendingUp, Search } from 'lucide-r
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 import {
   Table,
   TableHeader,
@@ -65,6 +66,7 @@ export default function EduLearnProgressPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

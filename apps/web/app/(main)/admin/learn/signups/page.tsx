@@ -12,6 +12,7 @@ import { SignupFilter } from './SignupFilter'
 import { SignupTable } from './SignupTable'
 import { PAGE_SIZE, api } from './helpers'
 import type { SignupRow, SignupsData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminLearnSignupsPage() {
   const t = useTranslations('admin.learn')
@@ -62,6 +63,7 @@ export default function AdminLearnSignupsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('signupsTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('signupsSubtitle')}</p>

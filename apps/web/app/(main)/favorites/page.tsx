@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 type ResourceType = 'project' | 'file' | 'doc' | 'post' | 'comment'
 
@@ -75,6 +76,7 @@ export default function FavoritesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Star className="h-6 w-6 text-primary" />

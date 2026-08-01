@@ -9,6 +9,7 @@ import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface LogRow {
   id: string
@@ -49,6 +50,7 @@ export default function AdminMemberLogsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ScrollText className="h-6 w-6 text-primary" />

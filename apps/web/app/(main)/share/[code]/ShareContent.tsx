@@ -7,6 +7,7 @@ import { AnswerArea } from './AnswerArea'
 import { BottomBar } from './BottomBar'
 import { formatTokens } from './helpers'
 import { formatDate } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 import type { ShareContentProps } from './types'
 
 export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
@@ -15,6 +16,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
 
   return (
     <div className="min-h-[60vh] bg-background pb-20">
+      <BackButton />
       {/* 头部：模型信息 */}
       <header className="flex items-center border-b border-border px-5 py-3.5">
         {modelIcon ? (

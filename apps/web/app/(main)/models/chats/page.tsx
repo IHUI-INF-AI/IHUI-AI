@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { MessagesSquare, Search } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 export default async function ChatsPage() {
   const t = await getTranslations('models')
@@ -28,6 +29,7 @@ export default async function ChatsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <Card>
         <CardContent className="flex items-center gap-2 p-4">
           <Search className="h-4 w-4 text-muted-foreground" />

@@ -7,7 +7,7 @@ import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { usePlanStore } from '@/lib/plan-store'
 import { PlanCard } from '@/components/plan/PlanCard'
-import { Empty } from '@/components/common'
+import { BackButton, Empty } from '@/components/common'
 import type { PlanDocument } from '@ihui/shared/plan/index'
 
 type StatusFilter = 'all' | PlanDocument['status']
@@ -36,6 +36,7 @@ export default function PlanListPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">Plan 模式</h1>

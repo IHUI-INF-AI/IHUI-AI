@@ -11,6 +11,7 @@ import { TagTable } from './TagTable'
 import { TagFormDialog, TagDeleteDialog } from './TagDialog'
 import { api, fetchTags, EMPTY_FORM, tagToForm } from './helpers'
 import type { TagItem, TagForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminTagsPage() {
   const t = useTranslations('admin.tags')
@@ -69,6 +70,7 @@ export default function AdminTagsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

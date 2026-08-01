@@ -10,6 +10,7 @@ import { AlertTable } from './AlertTable'
 import { AlertRules } from './AlertDialog'
 import { api } from './helpers'
 import type { Alert, AlertRule } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminMonitorAlertsPage() {
   const qc = useQueryClient()
@@ -49,6 +50,7 @@ export default function AdminMonitorAlertsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <AlertTriangle className="h-6 w-6 text-primary" />

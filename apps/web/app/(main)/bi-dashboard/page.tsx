@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BarChart } from '@/components/charts/BarChart'
 import { formatNumber } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface BiStats {
   totalUsers: number
@@ -52,6 +53,7 @@ export default function BiDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>

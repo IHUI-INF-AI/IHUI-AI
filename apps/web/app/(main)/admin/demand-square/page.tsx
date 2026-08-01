@@ -15,6 +15,7 @@ import { DemandSquareTable } from './DemandSquareTable'
 import { DemandSquareDialog } from './DemandSquareDialog'
 import { PAGE_SIZE, api, fetchExamine, EXPORT_COLUMNS, STAT_KEY } from './helpers'
 import type { Examine, ExamineStats } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminDemandSquarePage() {
   const t = useTranslations('admin.demandSquare')
@@ -100,6 +101,7 @@ export default function AdminDemandSquarePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <LayoutGrid className="h-6 w-6 text-primary" />

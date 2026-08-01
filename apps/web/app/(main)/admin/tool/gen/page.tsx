@@ -9,6 +9,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Inpu
 import { getToolGenMeta, postToolGen, type GenField, type GenResult, type GenType, type GenTypeMeta } from '@/lib/api/admin-tool-gen'
 import { FieldEditor, TemplateSelector } from '@/components/admin/tool/gen/field-editor'
 import { GenResultViewer } from '@/components/admin/tool/gen/result-viewer'
+import { BackButton } from '@/components/common'
 
 export default function ToolGenPage() {
   const t = useTranslations('admin.tool.gen')
@@ -77,6 +78,7 @@ export default function ToolGenPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Wand2 className="h-6 w-6 text-primary" />

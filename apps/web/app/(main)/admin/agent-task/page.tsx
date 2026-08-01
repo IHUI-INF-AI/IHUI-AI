@@ -16,6 +16,7 @@ import { AgentTaskDialog } from './AgentTaskDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, agentTaskToForm } from './helpers'
 import { getExportColumns } from './helpers'
 import type { AgentTask, AgentTaskForm, ListData } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AgentTaskPage() {
   const t = useTranslations('admin.agentTask')
@@ -136,6 +137,7 @@ export default function AgentTaskPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <div className="flex gap-2">

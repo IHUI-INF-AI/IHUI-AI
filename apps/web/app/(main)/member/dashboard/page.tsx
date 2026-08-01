@@ -8,6 +8,7 @@ import { Crown, Coins, Ticket, ShoppingBag, Loader2, ArrowRight } from 'lucide-r
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -100,6 +101,7 @@ export default function MemberDashboardPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>

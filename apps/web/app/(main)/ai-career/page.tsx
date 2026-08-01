@@ -13,6 +13,7 @@ import {
 import { useTranslations } from 'next-intl'
 
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { Textarea } from '@/components/form'
 import {
@@ -152,6 +153,7 @@ export default function AICareerPage() {
 
   return (
     <Container maxWidth="md" padding={false} className="space-y-6">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <GraduationCap className="h-7 w-7" />

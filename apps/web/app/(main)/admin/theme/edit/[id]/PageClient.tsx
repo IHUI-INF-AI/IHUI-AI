@@ -7,6 +7,7 @@ import { Save, Trash2, Copy, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface ThemeForm {
   name: string
@@ -138,6 +139,7 @@ export default function EditThemePage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="text-2xl font-bold tracking-tight">编辑主题</h1>
 
       <form onSubmit={submit} className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">

@@ -6,6 +6,7 @@ import { Loader2, Terminal, Send } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -49,6 +50,7 @@ export default function ApiTestPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Terminal className="h-6 w-6 text-primary" />

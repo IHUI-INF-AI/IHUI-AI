@@ -6,6 +6,7 @@ import { Download, Upload, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface Theme {
   id: string
@@ -104,6 +105,7 @@ export default function ExportPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">导出 / 导入</h1>
         <p className="mt-1 text-sm text-muted-foreground">主题配置的导出与导入</p>

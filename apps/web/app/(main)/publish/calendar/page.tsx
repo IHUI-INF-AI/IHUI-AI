@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { BackButton } from '@/components/common'
 import { PublishCalendar, type ScheduledTask } from '@/components/publish/PublishCalendar'
 
 interface Task {
@@ -76,6 +77,7 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-3">
+      <BackButton />
       <div>
         <h2 className="text-base font-semibold">{t('calendar.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('calendar.subtitle')}</p>

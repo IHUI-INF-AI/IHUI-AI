@@ -15,6 +15,7 @@ import { ProductTable } from './ProductTable'
 import { ProductDialog } from './ProductDialog'
 import { PAGE_SIZE, api, EMPTY_FORM, getExportColumns, productToForm } from './helpers'
 import type { Product, ListData, ProductForm, ProductSearch } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminShopProductsPage() {
   const t = useTranslations('admin.shop')
@@ -154,6 +155,7 @@ export default function AdminShopProductsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

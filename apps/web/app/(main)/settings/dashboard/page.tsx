@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { User, Receipt, Link2, Settings, Activity, Shield } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 const LINKS = [
   { href: '/user/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
@@ -36,6 +37,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {LINKS.map((item) => {
             const Icon = item.icon

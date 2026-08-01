@@ -7,6 +7,7 @@ import { Loader2, ClipboardList } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 interface SignUpItem {
   id: string
@@ -61,6 +62,7 @@ export default function UserSignUpPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />

@@ -5,6 +5,7 @@ import { BarChart, Loader2, Activity, Clock, CheckCircle, XCircle } from 'lucide
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 
 interface AnalyticsSummary {
   totalCalls: number
@@ -99,6 +100,7 @@ export default function ClawdbotAnalyticsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <BarChart className="h-6 w-6 text-primary" /> 分析统计
       </h1>

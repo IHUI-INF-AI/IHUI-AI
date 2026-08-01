@@ -9,6 +9,7 @@ import { Plus } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BackButton } from '@/components/common'
 import { TeamList } from './TeamList'
 import { TeamDialog } from './TeamDialog'
 import type { TeamMember } from './types'
@@ -104,6 +105,7 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex justify-end">
         <Button
           size="sm"

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { BackButton } from '@/components/common'
 import { RulesManager } from '@/components/rules/rules-manager'
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 export default function RulesPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold leading-tight">规则管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Newspaper, Mic, Clock } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 const TABS = [
   { href: '/self-media/wechat', labelKey: 'wechat', icon: Newspaper },
@@ -20,6 +21,7 @@ export default function SelfMediaLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>

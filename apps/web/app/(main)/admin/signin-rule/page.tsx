@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { fetchApi } from '@/lib/api'
 import type { SigninRule, SigninRuleListData, SigninRuleStatus } from './types'
+import { BackButton } from '@/components/common'
 
 const filterSchema = z.object({
   keyword: z.string().max(64, 'maxLength'),
@@ -60,6 +61,7 @@ export default function AdminSigninRulePage() {
   const head = [t('colDay'), t('colPoints'), t('colExtra'), t('colStatus'), t('colActions')]
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><CalendarCheck className="h-6 w-6 text-primary" />{t('title')}</h1>
         <div className="flex items-center gap-2">

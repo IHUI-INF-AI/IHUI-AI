@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface Preset {
   id: string
@@ -160,6 +161,7 @@ export default function PresetsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">预设主题</h1>
         <p className="mt-1 text-sm text-muted-foreground">一键应用内置主题</p>

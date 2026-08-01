@@ -9,6 +9,7 @@ import { FileText, Loader2, Trash2, ChevronLeft, ChevronRight, Eye, Download } f
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
 
 interface MyResource {
   id: string
@@ -81,6 +82,7 @@ export default function MyResourcesPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <FileText className="h-7 w-7 text-primary" />

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { KeyRound, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { ApiKeyListCard } from './ApiKeyListCard'
 import { CreateKeyDialog } from './CreateKeyDialog'
@@ -64,6 +65,7 @@ export default function ApiKeysSettingsPage() {
 
   return (
     <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <BackButton />
       <header className="flex shrink-0 items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
