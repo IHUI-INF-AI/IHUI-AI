@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
 
@@ -28,12 +29,13 @@ export function TokenUsagePanel({
   cost,
   model,
 }: TokenUsagePanelProps) {
+  const t = useTranslations('user.profile')
   return (
     <div className="rounded-lg border bg-card p-3 text-card-foreground">
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
-        <StatItem label="Prompt" value={promptTokens} />
-        <StatItem label="Completion" value={completionTokens} />
-        <StatItem label="Total" value={totalTokens} />
+        <StatItem label={t('promptTokens')} value={promptTokens} />
+        <StatItem label={t('completionTokens')} value={completionTokens} />
+        <StatItem label={t('totalTokens')} value={totalTokens} />
       </div>
       {(cost !== undefined || model) && (
         <div className="mt-2 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
