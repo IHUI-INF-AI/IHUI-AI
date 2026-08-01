@@ -1434,9 +1434,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
               object: { type: 'string' },
               filename: { type: 'string' },
               bytes: { type: 'number' },
-              createdAt: { type: 'string' },
               persisted: { type: 'boolean' },
-              // OpenAI Batch API 兼容字段(purpose="batch" 分支)
+              // OpenAI Files API 兼容字段(两个分支共用)
               created_at: { type: 'number' },
               purpose: { type: 'string' },
               status: { type: 'string' },
@@ -1548,7 +1547,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           object: 'file',
           filename,
           bytes: buffer.length,
-          createdAt: new Date().toISOString(),
+          created_at: Math.floor(Date.now() / 1000),
           persisted,
         })
       } catch {
