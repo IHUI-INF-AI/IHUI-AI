@@ -142,7 +142,7 @@ export default async function BillingPage() {
         </header>
 
       {/* 余额卡片 */}
-      <div className="grid gap-3 min-[640px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         <Card className="min-[640px]:col-span-1">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -180,7 +180,7 @@ export default async function BillingPage() {
       {/* 充值套餐 */}
       <div>
         <h2 className="mb-3 text-base font-semibold">{t('billing.packages.title')}</h2>
-        <div className="grid gap-3 min-[768px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           {packages.map((p) => (
             <Card
               key={p.name}

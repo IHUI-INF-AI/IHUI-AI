@@ -43,7 +43,7 @@ export function ServicesContent(): React.JSX.Element {
       </section>
 
       {/* 服务卡片网格 */}
-      <section className="mt-10 grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4 min-[1024px]:items-start">
+      <section className="mt-10 grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4 min-[1024px]:items-start">
         {SERVICE_CARDS.map(({ key, icon: Icon, id }) => {
           const features = t.raw(`cards.${key}.features`) as string[]
           return (
@@ -78,7 +78,7 @@ export function ServicesContent(): React.JSX.Element {
       </section>
 
       {/* 社会证明 */}
-      <section className="mt-12 grid gap-4 min-[640px]:grid-cols-3">
+      <section className="mt-12 grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         {[
           { value: 120, suffix: '+', labelKey: 'socialProof.clients' },
           { value: 86, suffix: '+', labelKey: 'socialProof.deployments' },

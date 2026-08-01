@@ -73,7 +73,7 @@ export default function EduCertificatesPage() {
           <p className="text-sm text-muted-foreground">暂无证书</p>
         </div>
       ) : (
-        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {certs.map((cert) => (
             <Card
               key={cert.id}

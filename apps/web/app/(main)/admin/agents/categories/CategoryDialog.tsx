@@ -71,7 +71,7 @@ export function CategoryDialog({
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
-          <div className="grid gap-4 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cat-icon">{t('fieldIcon')}</Label>
               <Input

@@ -55,7 +55,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     .slice(0, 4)
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-8 md:py-8">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-8 min-[768px]:py-8">
       <Link
         href="/blog"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -109,7 +109,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             <BookOpen className="h-5 w-5 text-primary" />
             {t('relatedTitle')}
           </h2>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {related.map((p) => (
               <li key={p.slug}>
                 <Link
