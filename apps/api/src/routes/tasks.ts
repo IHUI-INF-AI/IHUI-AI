@@ -95,6 +95,33 @@ const tasksFallback = new Map<string, TaskDispatch[]>()
 /** Redis 不可用时的设备注册表降级存储:userId → (deviceId → TaskDevice) */
 const devicesFallback = new Map<string, Map<string, TaskDevice>>()
 
+/**
+ * per-user 互斥锁(2026-08-01 立,P0 并发竞态修复)。
+ * 原代码 dispatch/result/cancel 三个端点都遵循 `readTasks → 修改 → writeTasks` 模式,
+ * 两个并发请求各读到旧数组,后写覆盖前写,丢失任务/状态更新。
+ * 此锁保证同一 userId 的 read-modify-write 序列串行执行,单实例下消除竞态。
+ * 多实例部署需引入 Redis 分布式锁(留作后续 P1 优化)。
+ */
+const userLocks = new Map<string, Promise<unknown>>()
+async function withUserLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = userLocks.get(userId) ?? Promise.resolve()
+  let release!: () => void
+  const next = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  userLocks.set(
+    userId,
+    prev.then(() => next),
+  )
+  await prev
+  try {
+    return await fn()
+  } finally {
+    release()
+    if (userLocks.get(userId) === next) userLocks.delete(userId)
+  }
+}
+
 function userKey(userId: string): string {
   return `tasks:${userId}`
 }
@@ -236,7 +263,10 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
     const now = new Date().toISOString()
     const task: TaskDispatch = {
       id: randomUUID(),
-      userId: Number(userId),
+      // P0 修复(2026-08-01):原 `Number(userId)` 对 UUID 字符串返回 NaN,
+      // 导致所有用户的任务都写入 `tasks:NaN` 同一 Redis key,严重数据泄露 + 串台。
+      // 改为保留 string UUID,与 TaskDispatch.userId 类型(已同步改为 string)一致。
+      userId: userId,
       fromDevice: 'api',
       toDevice,
       command,
@@ -249,9 +279,12 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const key = userKey(userId)
-    const tasks = await readTasks(server.redis, key)
-    tasks.push(task)
-    await writeTasks(server.redis, key, tasks)
+    // P0 并发竞态修复:用 per-user Mutex 串行化 read-modify-write,避免后写覆盖前写丢任务
+    await withUserLock(userId, async () => {
+      const tasks = await readTasks(server.redis, key)
+      tasks.push(task)
+      await writeTasks(server.redis, key, tasks)
+    })
 
     publishTaskWs(server, userId, 'task-dispatch', {
       type: 'task-dispatch',
@@ -275,30 +308,42 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
 
     const { taskId, status, output, error: taskError } = parsed.data
     const key = userKey(userId)
-    const tasks = await readTasks(server.redis, key)
-    const idx = tasks.findIndex((t) => t.id === taskId)
-    if (idx < 0) {
+    // P0 并发竞态修复:per-user Mutex 保护 read-modify-write
+    const task = await withUserLock(userId, async () => {
+      const tasks = await readTasks(server.redis, key)
+      const idx = tasks.findIndex((t) => t.id === taskId)
+      if (idx < 0) {
+        return null
+      }
+      const finishedAt = new Date().toISOString()
+      const result: TaskResult = {
+        taskId,
+        status,
+        output,
+        error: taskError,
+        finishedAt,
+      }
+      const t = tasks[idx]!
+      t.status = status
+      t.result = result
+      t.updatedAt = finishedAt
+      await writeTasks(server.redis, key, tasks)
+      return t
+    })
+    if (!task) {
       return reply.status(404).send(error(404, '任务不存在'))
     }
-
-    const finishedAt = new Date().toISOString()
-    const result: TaskResult = {
-      taskId,
-      status,
-      output,
-      error: taskError,
-      finishedAt,
-    }
-    const task = tasks[idx]!
-    task.status = status
-    task.result = result
-    task.updatedAt = finishedAt
-    await writeTasks(server.redis, key, tasks)
 
     publishTaskWs(server, userId, 'task-result', {
       type: 'task-result',
       taskId,
-      payload: result,
+      payload: {
+        taskId,
+        status,
+        output,
+        error: taskError,
+        finishedAt: task.updatedAt,
+      } as TaskResult,
     })
 
     return reply.send(success({ task }))
@@ -338,23 +383,31 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const key = userKey(userId)
-    const tasks = await readTasks(server.redis, key)
-    const idx = tasks.findIndex((t) => t.id === taskId)
-    if (idx < 0) {
+    // P0 并发竞态修复:per-user Mutex 保护 read-modify-write
+    const cancelResult = await withUserLock(userId, async () => {
+      const tasks = await readTasks(server.redis, key)
+      const idx = tasks.findIndex((t) => t.id === taskId)
+      if (idx < 0) return { kind: 'not_found' as const }
+      const task = tasks[idx]!
+      // 仅 pending / running 可取消;completed/failed/cancelled 返回 409
+      if (task.status !== 'pending' && task.status !== 'running') {
+        return { kind: 'conflict' as const, status: task.status }
+      }
+      const now = new Date().toISOString()
+      task.status = 'cancelled'
+      task.updatedAt = now
+      await writeTasks(server.redis, key, tasks)
+      return { kind: 'ok' as const, task }
+    })
+
+    if (cancelResult.kind === 'not_found') {
       return reply.status(404).send(error(404, '任务不存在'))
     }
-
-    const task = tasks[idx]!
-    // 仅 pending / running 可取消;completed/failed/cancelled 返回 409
-    if (task.status !== 'pending' && task.status !== 'running') {
-      return reply.status(409).send(error(409, `任务已处于 ${task.status} 状态,无法取消`))
+    if (cancelResult.kind === 'conflict') {
+      return reply.status(409).send(error(409, `任务已处于 ${cancelResult.status} 状态,无法取消`))
     }
 
-    const now = new Date().toISOString()
-    task.status = 'cancelled'
-    task.updatedAt = now
-    await writeTasks(server.redis, key, tasks)
-
+    const task = cancelResult.task
     // WS 推送 task-cancelled:<userId> 消息:taskId + 携带发起方设备标识(fromDevice)
     publishTaskWs(server, userId, 'task-cancelled', {
       type: 'task-cancelled',
