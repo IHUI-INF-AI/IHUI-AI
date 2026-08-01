@@ -148,7 +148,7 @@ export default async function AiEduPage() {
         {/* 解决方案 */}
         <section className="mt-12 space-y-4">
           <h2 className="text-2xl font-bold tracking-tight">IHUI AI 教育 Agent 解决方案</h2>
-          <div className="grid gap-3 min-[768px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             {capabilities.map((c) => (
               <div key={c.title} className="rounded-lg border bg-card p-5">
                 <div className="flex items-center gap-2 text-sm font-semibold">
@@ -185,7 +185,7 @@ export default async function AiEduPage() {
         </section>
 
         {/* 核心收益 */}
-        <section className="mt-12 grid gap-3 min-[768px]:grid-cols-3">
+        <section className="mt-12 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           <div className="rounded-lg border bg-card p-5">
             <BookOpen className="h-5 w-5 text-primary" />
             <div className="mt-3 text-2xl font-bold">60%</div>

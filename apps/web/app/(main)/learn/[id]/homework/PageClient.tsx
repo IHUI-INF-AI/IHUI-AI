@@ -134,7 +134,7 @@ export default function CourseHomeworkPage() {
             const submitted = item.submitted ?? (item.status === 'submitted' || item.status === 1)
             return (
               <Card key={item.id}>
-                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <CardContent className="flex flex-col gap-3 p-4 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
                   <div className="space-y-1.5">
                     <h3 className="text-base font-medium">{item.title}</h3>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

@@ -88,7 +88,7 @@ export default function ArticleDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{article.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{article.title}</h1>
         {article.summary && <p className="text-xs text-muted-foreground">{article.summary}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {article.authorName && <span>{article.authorName}</span>}

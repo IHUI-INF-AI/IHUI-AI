@@ -88,7 +88,7 @@ export default function AdminOssConfigPage() {
         <Card>
           <CardContent className="space-y-3 py-4">
             <h3 className="text-base font-semibold">{editing ? '编辑配置' : '新建配置'}</h3>
-            <div className="grid gap-3 min-[640px]:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               <div className="space-y-1"><label htmlFor="oss-config-name" className="text-xs text-muted-foreground">名称</label><Input id="oss-config-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div className="space-y-1"><label htmlFor="oss-config-provider" className="text-xs text-muted-foreground">提供商</label>
                 <select id="oss-config-provider" value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">

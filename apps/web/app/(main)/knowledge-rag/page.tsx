@@ -171,7 +171,7 @@ export default function KnowledgeRagPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-3 min-[640px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {docs.map((d) => (
             <Link key={d.id} href={`/knowledge-rag/${d.id}`} className="block">
               <Card className="h-full transition-colors hover:bg-accent/50">

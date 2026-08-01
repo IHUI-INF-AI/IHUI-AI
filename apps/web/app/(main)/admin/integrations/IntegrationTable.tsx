@@ -46,7 +46,7 @@ export function IntegrationTable({
   }
 
   return (
-    <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
       {list.map((i) => {
         const tr = testResults[i.id]
         return (

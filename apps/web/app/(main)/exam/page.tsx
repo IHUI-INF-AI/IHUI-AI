@@ -69,7 +69,7 @@ export default function ExamPage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {papers.map((paper) => (
             <Card key={paper.id} className="flex h-full flex-col transition-colors hover:bg-accent">
               <CardHeader className="p-4 pb-2">

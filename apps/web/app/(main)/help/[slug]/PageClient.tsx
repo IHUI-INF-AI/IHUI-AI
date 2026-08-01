@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -89,7 +89,7 @@ export default function HelpArticlePage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{a.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{a.title}</h1>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <BookOpen className="h-4 w-4" />
@@ -107,14 +107,14 @@ export default function HelpArticlePage() {
         </div>
       </header>
 
-      <div className="flex flex-col gap-8 lg:flex-row">
+      <div className="flex flex-col gap-8 min-[1024px]:flex-row">
         <article className="min-w-0 flex-1 prose prose-sm dark:prose-invert max-w-none">
           <ReactMarkdown components={markdownComponents}>{a.content}</ReactMarkdown>
         </article>
 
         {(toc.length > 0 || relatedItems.length > 0) && (
-          <aside className="w-full shrink-0 space-y-4 lg:w-56">
-            <div className="space-y-4 lg:sticky lg:top-4">
+          <aside className="w-full shrink-0 space-y-4 min-[1024px]:w-56">
+            <div className="space-y-4 min-[1024px]:sticky min-[1024px]:top-4">
               {toc.length > 0 && (
                 <Card>
                   <CardContent className="p-4">

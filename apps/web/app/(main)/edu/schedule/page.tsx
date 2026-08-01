@@ -75,7 +75,7 @@ export default function EduSchedulePage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4 min-[1280px]:grid-cols-7">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4 min-[1280px]:grid-cols-7">
           {weekdays.map((day, idx) => (
             <Card
               key={day}

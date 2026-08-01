@@ -52,14 +52,14 @@ export default function UserStatPage() {
         <p className="mt-1 text-sm text-muted-foreground">用户增长、活跃与留存指标</p>
       </div>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <StatCard title="用户总数" value={numFmt.format(stats.overview.totalUsers)} icon={Users} loading={isLoading} />
         <StatCard title="今日新增" value={numFmt.format(stats.overview.todayNew)} icon={UserPlus} loading={isLoading} />
         <StatCard title="本周新增" value={numFmt.format(stats.overview.weekNew)} icon={UserPlus} loading={isLoading} />
         <StatCard title="本月新增" value={numFmt.format(stats.overview.monthNew)} icon={UserPlus} loading={isLoading} />
       </div>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <StatCard title="日活跃" value={numFmt.format(stats.overview.dau)} icon={Activity} loading={isLoading} />
         <StatCard title="月活跃" value={numFmt.format(stats.overview.mau)} icon={Activity} loading={isLoading} />
         <StatCard title="7 日留存" value={`${stats.overview.retention7d}%`} icon={UserCheck} loading={isLoading} />
@@ -100,7 +100,7 @@ export default function UserStatPage() {
         )}
       </section>
 
-      <div className="grid gap-4 min-[1024px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <section className="space-y-3 rounded-lg border p-4">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Shield className="h-4 w-4 text-primary" />
