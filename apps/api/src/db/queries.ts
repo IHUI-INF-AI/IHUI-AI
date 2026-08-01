@@ -342,9 +342,14 @@ export async function mergeUserAccounts(params: {
         BEGIN
           EXECUTE upd_stmt USING fromUserId, toUserId;
         EXCEPTION WHEN OTHERS THEN
-          -- 跳过无法迁移的表(WARNING 级别写入 PostgreSQL log,便于运维排查)
-          -- 2026-08-01 升级:NOTICE → WARNING,让失败在 log 中更可见
-          RAISE WARNING '账号合并跳过表 %: %', r.table_name, SQLERRM;
+          -- 2026-08-02 修复:关键表迁移失败必须回滚,非关键表允许跳过
+          -- 关键表(wallets/orders/token_flows/user_margins)涉及资金/积分,失败必须 RAISE EXCEPTION
+          -- 非关键表(audit_logs 等)允许跳过,WARNING 级别记录便于排查
+          IF r.table_name IN ('wallets', 'orders', 'token_flows', 'user_margins') THEN
+            RAISE EXCEPTION '关键表 % 迁移失败: %', r.table_name, SQLERRM;
+          ELSE
+            RAISE WARNING '非关键表 % 迁移跳过: %', r.table_name, SQLERRM;
+          END IF;
         END;
       END LOOP;
 

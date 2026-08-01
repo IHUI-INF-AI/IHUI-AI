@@ -44,8 +44,11 @@ export function useLazyImage(src: string, placeholder?: string): UseLazyImageRet
 
   React.useEffect(() => {
     if (!isIntersecting || !src || isLoaded) return
+    // 2026-08-02 修复: Image 未清理, 卸载后 setState - 添加 cancelled 标志 + cleanup 中清除 onload
+    let cancelled = false
     const img = new Image()
     img.onload = () => {
+      if (cancelled) return
       setCurrentSrc(src)
       setLoaded(true)
     }
@@ -53,6 +56,11 @@ export function useLazyImage(src: string, placeholder?: string): UseLazyImageRet
       // 加载失败保留 placeholder
     }
     img.src = src
+    return () => {
+      cancelled = true
+      img.onload = null
+      img.onerror = null
+    }
   }, [isIntersecting, src, isLoaded])
 
   return { ref, isLoaded, currentSrc }
