@@ -109,7 +109,7 @@ export default function DarkModePage() {
         <CardHeader>
           <CardTitle className="text-base">暗色配色</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <CardContent className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
           <ColorField label="背景色" value={cfg.bgColor} onChange={(v) => set('bgColor', v)} />
           <ColorField label="文字色" value={cfg.textColor} onChange={(v) => set('textColor', v)} />
           <ColorField

@@ -28,7 +28,7 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
   return (
     <Link
       href={`/news/${item.id}`}
-      className="group relative flex min-h-[300px] overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5 md:min-h-[340px]"
+      className="group relative flex min-h-[300px] overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/40 hover:bg-primary/5 min-[768px]:min-h-[340px]"
     >
       <div className="absolute inset-0">
         {item.coverImage ? (
@@ -118,14 +118,14 @@ function ListItem({ item }: { item: NewsItem }) {
 function Skeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <div className="h-[300px] animate-pulse rounded-xl bg-muted md:h-[340px]" />
+      <div className="grid gap-4 min-[1024px]:grid-cols-[1.6fr_1fr]">
+        <div className="h-[300px] animate-pulse rounded-xl bg-muted min-[768px]:h-[340px]" />
         <div className="flex flex-col gap-4">
           <div className="h-[160px] animate-pulse rounded-lg bg-muted" />
           <div className="h-[160px] animate-pulse rounded-lg bg-muted" />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="h-20 animate-pulse rounded-md bg-muted" />
         ))}
@@ -170,7 +170,7 @@ export function HomePage3Magazine() {
     <section className="flex flex-1 flex-col space-y-4">
       <header className="flex flex-col items-center gap-3 text-center">
         <div className="flex flex-col items-center gap-1">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h2>
+          <h2 className="text-2xl font-bold tracking-tight min-[768px]:text-3xl">{t('title')}</h2>
           <h3 className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground/70">
             {t('titleEn')}
           </h3>
@@ -204,7 +204,7 @@ export function HomePage3Magazine() {
         </Card>
       ) : (
         <div className="flex flex-1 flex-col gap-4">
-          <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="grid gap-4 min-[1024px]:grid-cols-[1.6fr_1fr]">
             {hero && <HeroCard item={hero} tag={t('tagHot')} />}
             <div className="flex flex-col gap-4">
               {sideItems.map((n) => (
@@ -212,7 +212,7 @@ export function HomePage3Magazine() {
               ))}
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {listItems.map((n) => (
               <ListItem key={n.id} item={n} />
             ))}

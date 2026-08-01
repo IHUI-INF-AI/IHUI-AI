@@ -103,7 +103,7 @@ export default function ClawdbotAnalyticsPage() {
         <BarChart className="h-6 w-6 text-primary" /> 分析统计
       </h1>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 min-[1024px]:grid-cols-6">
         {statCards.map((c) => (
           <div key={c.key} className="flex items-center gap-2 rounded-lg border bg-card p-3">
             <c.icon className={cn('h-4 w-4 shrink-0', c.cls)} />
@@ -115,7 +115,7 @@ export default function ClawdbotAnalyticsPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 min-[768px]:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
           <p className="mb-3 text-sm font-medium">热门意图</p>
           {summary.topIntents.length === 0 ? (

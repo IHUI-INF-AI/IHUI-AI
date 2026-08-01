@@ -216,7 +216,7 @@ export default function TenantDetailPage() {
         </header>
 
         {/* 概览卡片组 */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           <InfoCard
             label={t('detail.status')}
             value={
@@ -264,11 +264,11 @@ export default function TenantDetailPage() {
         </div>
 
         {/* P1-2.2c: 配额占位卡片 + P1-2.3: 实时 Prometheus 指标 */}
-        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
-          <div className="lg:col-span-1">
+        <div className="grid gap-4 min-[640px]:grid-cols-1 min-[1024px]:grid-cols-3">
+          <div className="min-[1024px]:col-span-1">
             <QuotaCard slug={tenant.slug} />
           </div>
-          <div className="lg:col-span-1">
+          <div className="min-[1024px]:col-span-1">
             <MetricsCard slug={tenant.slug} />
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function TenantDetailPage() {
             <CardTitle>{t('detail.shortcuts')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+            <div className="grid gap-2 min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
               <Button variant="outline" asChild>
                 <Link href={`/admin/saas/${encodeURIComponent(tenant.slug)}/backups`}>
                   <Database className="h-4 w-4" />

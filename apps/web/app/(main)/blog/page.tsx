@@ -31,7 +31,7 @@ export default async function BlogIndexPage() {
       <header className="space-y-3 text-center md:text-left">
         <div className="flex items-center justify-center gap-2 md:justify-start">
           <BookOpen className="h-7 w-7 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t('title')}</h1>
+          <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('title')}</h1>
         </div>
         <p className="text-base text-muted-foreground md:text-lg">{t('subtitle')}</p>
         <p className="text-xs text-muted-foreground">

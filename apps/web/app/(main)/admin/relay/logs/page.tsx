@@ -134,7 +134,7 @@ export default function AdminRelayLogsPage() {
         <p className="mt-1 text-sm text-muted-foreground">中转站请求日志与按维度聚合统计</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 min-[640px]:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-xs font-medium text-muted-foreground">
