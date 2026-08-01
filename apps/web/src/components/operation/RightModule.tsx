@@ -104,7 +104,7 @@ export function RightModule({ quickEntries, ad, hotTags, children, className }: 
       <Card>
         <CardContent className="p-0">
           <SectionBlock title={t('quickEntries')}>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 tablet:grid-cols-4">
               {entries.map((entry) => {
                 const Icon = entry.icon
                 return (
