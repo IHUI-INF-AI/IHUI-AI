@@ -146,8 +146,23 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 4. POST /payment/usdt/callback/:network — 区块链 webhook 回调 =====
-  // 无鉴权(区块链节点/网关调用),验签 TODO(需对接具体 webhook 签名方案)
+  // 2026-08-02 修复:临时加 webhook 密钥校验,防任意伪造充值
+  // TODO: 对接 TronGrid/Etherscan 官方签名方案后替换为标准验签
+  const WEBHOOK_SECRET = process.env.USDT_WEBHOOK_SECRET
+  if (!WEBHOOK_SECRET) {
+    server.log.warn(
+      'USDT_WEBHOOK_SECRET 未设置,webhook 回调验签未启用(仅开发环境允许,生产环境必须配置)',
+    )
+  }
   server.post('/payment/usdt/callback/:network', async (request, reply) => {
+    // 临时校验:要求 X-Webhook-Secret header 与环境变量匹配
+    if (WEBHOOK_SECRET) {
+      const providedSecret = request.headers['x-webhook-secret'] as string | undefined
+      if (providedSecret !== WEBHOOK_SECRET) {
+        return reply.status(401).send({ code: 401, message: 'Webhook 签名校验失败', data: null })
+      }
+    }
+
     const parsedParams = callbackParamSchema.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, '不支持的网络'))
@@ -157,9 +172,6 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
     if (!parsedBody.success) {
       return reply.status(400).send(error(400, parsedBody.error.issues[0]?.message ?? '参数错误'))
     }
-
-    // TODO: 验签 — 校验 webhook 签名(TronGrid / Etherscan 各有方案)
-    // 当前未验签,生产环境上线前必须补全
 
     try {
       const result = await confirmUsdtPayment(
