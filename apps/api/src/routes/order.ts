@@ -305,7 +305,12 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       }
       const existing = await findOrderById(parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '订单不存在'))
-      if (existing.userId !== request.userId) return reply.status(403).send(error(403, '无权操作'))
+      // 2026-08-01 P1 修复:原代码仅允许订单归属人取消,admin 无法取消异常订单。
+      // 改为:订单归属人 OR 管理员(roleId >= ADMIN_ROLE_ID)可取消,与 /orders/:id/refund 权限对齐。
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (existing.userId !== request.userId && roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '无权操作'))
+      }
       if (existing.status !== 'pending')
         return reply.status(400).send(error(400, '订单状态不允许取消'))
       const order = await cancelOrder(parsed.data.id)
