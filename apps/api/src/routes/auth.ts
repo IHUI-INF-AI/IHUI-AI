@@ -1378,7 +1378,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: auth /qr/status 扫码状态查询尚未实装',
+      message: '未实装:auth /qr/status 扫码状态查询尚未实装',
       data: null,
     })
   })
@@ -1388,7 +1388,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
     return reply.code(501).send({
       code: 501,
-      message: 'Not Implemented: auth /qr/generate 二维码生成尚未实装',
+      message: '未实装:auth /qr/generate 二维码生成尚未实装',
       data: null,
     })
   })

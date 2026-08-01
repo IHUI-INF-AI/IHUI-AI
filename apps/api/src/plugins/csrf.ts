@@ -142,7 +142,8 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
 
     // auth_token cookie 鉴权豁免（与 auth 插件一致）
     // cookie token 也是 JWT，且 SameSite=Lax 已阻止跨站 POST 带 cookie，安全性与 Bearer 豁免一致
-    const authToken = (request as FastifyRequest & { cookies?: Record<string, string> }).cookies?.auth_token
+    const authToken = (request as FastifyRequest & { cookies?: Record<string, string> }).cookies
+      ?.auth_token
     if (authToken) return
 
     // Internal service token 请求豁免(服务间调用,非浏览器,无 CSRF 风险)
@@ -156,7 +157,7 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     if (!verifyCsrfToken(headerToken, cookieValue)) {
       return reply.status(403).send({
         code: 403,
-        message: 'CSRF token missing or invalid',
+        message: 'CSRF 令牌缺失或无效',
       })
     }
   })
