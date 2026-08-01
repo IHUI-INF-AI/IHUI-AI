@@ -145,6 +145,10 @@ export {
   removeFromLoginHistory,
 } from './lib/remember-credentials'
 export type { RememberedCredentials } from './lib/remember-credentials'
+// PageShell Web 系三端共用页面级布局外壳(2026-08-01 抽取到共享包,P3-2.3,
+// web + extension + desktop 共用 header/sidebar/main/footer app shell 结构)
+export { PageShell } from './page-shell'
+export type { PageShellProps } from './page-shell'
 
 // AuthShell + LoginForm 共享样式(单一来源,web + extension globals.css 都 @import 这份)
 import './styles/auth-shell.css'

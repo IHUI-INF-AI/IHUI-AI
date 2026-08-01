@@ -62,6 +62,7 @@ import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
 import { db } from '../db/index.js'
 import { zhsCourseVideo, vipLevels, developerPricing } from '@ihui/database'
 import { eq, sql, and } from 'drizzle-orm'
+import { calculateTopupBonus } from '../services/topup-discount-service.js'
 
 const notifyUrl = (type?: string): string => {
   if (type === 'course') return env.WX_PAY_COURSE_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
@@ -128,6 +129,46 @@ async function resolveProductAmountCents(
     return dbAmountCents
   }
   return null
+}
+
+/**
+ * P0-21 集成(部分):计算充值阶梯折扣到账额度并记录审计日志。
+ *
+ * TODO(主 agent):当前 completeOrder(order-service.ts)仅按订单原额到账,
+ * 阶梯折扣的 bonus 部分(actualCredit - paidAmount)尚未实际入账。
+ * 需在 order-service.ts 的 completeOrder 中调用 calculateTopupBonus,
+ * 用 actualCredit 替换原 amount 到账,或追加 bonus 部分为额外流水。
+ *
+ * 此函数先做审计日志,使 bonus 计算可见,不阻塞支付流程。
+ */
+async function auditTopupBonus(
+  orderNo: string,
+  amountCents: number,
+  method: string,
+  userId: string | null | undefined,
+  log: FastifyBaseLogger,
+): Promise<void> {
+  try {
+    const amountYuan = amountCents / 100
+    const bonus = await calculateTopupBonus(amountYuan, method)
+    if (bonus.actualCredit !== amountYuan) {
+      log.info(
+        {
+          orderNo,
+          userId,
+          method,
+          paidAmountYuan: amountYuan,
+          multiplier: bonus.multiplier,
+          bonus: bonus.bonus,
+          expectedCreditYuan: bonus.actualCredit,
+          pendingCrediting: true,
+        },
+        'topup bonus calculated (TODO: wire into completeOrder)',
+      )
+    }
+  } catch (e) {
+    log.warn({ err: e, orderNo }, 'calculateTopupBonus failed (non-blocking)')
+  }
 }
 
 // =============================================================================
@@ -625,6 +666,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           const result = await completeOrder(out_trade_no, transaction_id)
           // 支付成功后触发返佣（失败不阻塞支付完成）
           if (result.success && result.order) {
+            // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+            await auditTopupBonus(
+              out_trade_no,
+              result.order.amount,
+              'wechat',
+              result.order.userId,
+              request.log,
+            )
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
@@ -1052,6 +1101,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           const result = await completeOrder(outTradeNo, params.trade_no)
           // 支付成功后触发返佣（失败不阻塞支付完成）
           if (result.success && result.order) {
+            // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+            await auditTopupBonus(
+              outTradeNo,
+              result.order.amount,
+              'alipay',
+              result.order.userId,
+              request.log,
+            )
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
@@ -1301,6 +1358,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         try {
           const result = await completeOrder(outTradeNo, paymentIntentId)
           if (result.success && result.order) {
+            // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+            await auditTopupBonus(
+              outTradeNo,
+              result.order.amount,
+              'stripe',
+              result.order.userId,
+              request.log,
+            )
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
@@ -1585,6 +1650,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       try {
         const result = await completeOrder(outTradeNo, capture.id)
         if (result.success && result.order) {
+          // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+          await auditTopupBonus(
+            outTradeNo,
+            result.order.amount,
+            'paypal',
+            result.order.userId,
+            request.log,
+          )
           try {
             await activateOrderSubscription(result.order)
           } catch (ae) {
@@ -1718,6 +1791,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         try {
           const result = await completeOrder(outTradeNo, captureId)
           if (result.success && result.order) {
+            // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
+            await auditTopupBonus(
+              outTradeNo,
+              result.order.amount,
+              'paypal',
+              result.order.userId,
+              request.log,
+            )
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
