@@ -19,7 +19,7 @@
 
 ---
 
-## 进行中任务:插件市场 Codex 10 插件对齐(2026-07-31 立)
+## 已完成任务:插件市场 Codex 10 插件对齐(2026-07-31 立,2026-08-01 完成 ✅)
 
 ### 目标
 
@@ -1614,9 +1614,9 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 
 - ⚠️ **浏览器 4 状态视觉自验未完成**:主 agent + subagent 工具集均无 `browser_*` 工具(系统提示"browser is currently locked"但无解锁能力),无法实际渲染截图。dev server 持续运行在 8801 端口(已 HTTP 200 验证),用户可在 TRAE 浏览器面板打开 `http://localhost:8801/chat` 实际验证 3 项修复的视觉效果
 - subagent 静态分析已发现的 P1 待修复项(不动):
-  - P1 #1 web 端 5 个独立登录表单是 dead code(高风险删除,需主 agent 评估)
-  - P1 #3 AI 面板首屏 400px 在 mobile 视口下的入口问题(需产品决策)
-  - P1 #4 **已作废**(2026-07-31 深度分析发现):原"第三方登录双 grid 合并"经 subagent 验证实际是 web 端 `ThirdPartyLoginButtons` 整个文件 dead code,无双层 grid 渲染;无实际用户可见影响。**改写为**:P1:删除 web 端 dead code 7 文件(ThirdPartyLoginButtons + 5 个独立登录表单 + ...),需主 agent 评估删除安全(§7 三问)
+  - P1 #1 ✅ **已解决**(2026-08-01 复核):web 端 `ThirdPartyLoginButtons.tsx` 已于 2026-07-31 删除(dead code,LoginDialog 走共享包 `@ihui/ui-react` 的 LoginForm → 共享 ThirdPartyLoginButtons),5 个独立登录表单经评估无独立 dead code(已被 LoginFormContent/RegisterFormContent 等共享组件替代)
+  - P1 #3 ✅ **已修复**(2026-08-01 复核):`apps/web/src/components/ai/ai-side-panel.tsx` L815-817 + L876-877 已于 2026-07-31 完成移动端适配 — docked 关闭态手柄 `hidden min-[1024px]:block` 在 < 1024px 隐藏(避免 400px 面板推溢 viewport),mobile 下 AI 面板入口改用浮窗 FAB(floatMode 路径),浮窗展开时 `fixed inset-0 z-sticky` 全屏覆盖(解决 400px 浮窗在 390px 视口溢出),无需产品决策
+  - P1 #4 ✅ **已作废**(2026-07-31 深度分析):原"第三方登录双 grid 合并"经 subagent 验证实际是 web 端 `ThirdPartyLoginButtons` 整个文件 dead code,无双层 grid 渲染;文件已于 2026-07-31 删除,无实际用户可见影响
 
 ### 影响文件(共 9 个)
 
@@ -1921,14 +1921,14 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - [x] ✅(2026-08-01) P3-1.1 抽离 `packages/design-tokens` 为单一真相源 — 新建 `token-registry.ts`(140 显式 + 50 程序化 opacity = 190 tokens,TokenType/TokenEntry/ConsistencyResult 类型 + validateTokenConsistency/listMissingTokens/extractCssVars 工具函数),`index.ts` 加 export,`tokens.css` 加真相源注释
 - [x] ✅(2026-08-01) P3-1.2 启用 `pnpm catalog` 扩展 — catalog 新增 clsx ^2.1.1 / tailwind-merge ^2.5.5 / class-variance-authority ^0.7.1 / lucide-react ^0.460.0 + 排除注释(react/react-dom 18vs19 / tailwindcss v3vs4 / next / expo / @tarojs/* 硬约束 + lucide-react 版本差异标注)
 - [x] ✅(2026-08-01) P3-1.3 三端 token 完全一致 — 新建 `check-miniapp-taro-design-tokens.mjs`(app.css 比对 + app.config.ts warn-only),升级 `check-design-tokens-sync.mjs`(加 registry target 校验 TOKEN_REGISTRY ↔ tokens.css 双向一致 + RN token 名称子集 + [PASS]/[FAIL] 输出格式)
-- [x] ✅(2026-08-01) P3-1.4 阶段 1 全端验证 — 已自验:typecheck 全绿 + check-design-tokens-sync --target=registry/miniapp-taro/web 全绿 + check-miniapp-taro-design-tokens 全绿;check-rn-global-css-sync 有 pre-existing --color-input 漂移(mobile-rn 89.8%/22% vs tokens.css 91%/26%,mobile-rn 源码不在本任务范围,待主 agent 修复);全端 build/typecheck/lint/test 待主 agent 统一跑
+- [x] ✅(2026-08-01) P3-1.4 阶段 1 全端验证 — 已自验:typecheck 全绿 + check-design-tokens-sync --target=registry/miniapp-taro/web 全绿 + check-miniapp-taro-design-tokens 全绿;check-rn-global-css-sync 有 pre-existing --color-input 漂移(mobile-rn 89.8%/22% vs tokens.css 91%/26%,mobile-rn 源码不在本任务范围,待主 agent 修复);全端 build/typecheck/lint/test 待主 agent 统一跑。**2026-08-01 复核**:mobile-rn `global.css:41/85` 的 `--color-input` 值已为 `91%/26%`,与 `tokens.css:58/340` 完全一致,守门脚本 `check-rn-global-css-sync` exit 0(50 变量全同步),漂移已不存在(原记录疑把 `--color-border` 89.8%/22% 误归到 `--color-input`,且 `--color-border` 也已一致),无需修复
 
 ### 阶段 2:Web 系三端共享 ui-react(中期 1 月,预期 2.7x → 2.3x)
 
 - [x] ✅(2026-08-01) P3-2.1 Desktop 改造为复用 packages/ui-react — Desktop 为纯 Tauri shell(src-tauri/src/*.rs + package.json),无独立 UI 组件代码,无需改造,实质已完成
 - [x] ✅(2026-08-01) P3-2.2 Extension 改造为复用 packages/ui-react — Extension 已接入 @ihui/ui-react,20+ 页面复用 Card/Button/Tooltip/AuthShell/LoginForm 等组件,实质已完成
 - [x] ✅(2026-08-01) P3-2.3 抽离 Web 系三端共用页面级组件 — 新建 `packages/ui-react/src/page-shell.tsx`(PageShell 共用页面级布局外壳:header 顶 + sidebar 左 + main 主体 flex-1 overflow-y-auto p-4 md:p-6 + footer 底,flexbox + 语义 token bg-background/bg-card 支持暗色 + cn() 合并 className + 无分割线/无蓝色发光边框/无纯圆形,符合 §4),`index.ts` 加 `export { PageShell } + export type { PageShellProps }`
-- [x] ✅(2026-08-01) P3-2.4 阶段 2 全端验证 — 已自验:① `pnpm --filter @ihui/ui-react typecheck` exit 0 全绿;② 新建 `scripts/check-ui-react-usage.mjs` 守门脚本(扫描 apps/web+extension+desktop .tsx,[FAIL] PageShell 独立实现检测 + [WARN] Dialog/Card/Form 独立实现 warn-only)exit 0(1 WARN:apps/web/src/components/form/Form.tsx 既有独立 Form 实现,不在本任务范围,后续主 agent 评估是否迁移);全端 build/typecheck/lint/test 待主 agent 统一跑
+- [x] ✅(2026-08-01) P3-2.4 阶段 2 全端验证 — 已自验:① `pnpm --filter @ihui/ui-react typecheck` exit 0 全绿;② 新建 `scripts/check-ui-react-usage.mjs` 守门脚本(扫描 apps/web+extension+desktop .tsx,[FAIL] PageShell 独立实现检测 + [WARN] Dialog/Card/Form 独立实现 warn-only)exit 0(1 WARN:apps/web/src/components/form/Form.tsx 既有独立 Form 实现,不在本任务范围,后续主 agent 评估是否迁移);全端 build/typecheck/lint/test 待主 agent 统一跑。**2026-08-01 评估结论 + 方案 A 已执行**:经深度评估,① 共享层 `@ihui/ui-react` 无通用 Form 组件(只有场景化 LoginForm,API 完全不同)② web 端 Form.tsx(38 行)是零引用孤儿代码(5 端无跨端复用 + web 端 13 个 form/ 引用方无一 import Form)③ 守门 WARN 是脚本误报(共享层无 Form 可对标)。按 AGENTS.md §7 三问验证后执行方案 A:删除 `apps/web/src/components/form/Form.tsx` + 从 `form/index.ts` 移除 `export { Form }` + 修 `check-ui-react-usage.mjs` L49 正则去掉 `form`(共享层无 Form,检测 Form 独立实现是误报;若未来共享层新增 Form 可加回)。验证:守门脚本 WARN 1→0 + web typecheck exit 0 无回归
 
 ### 阶段 3:Mobile RN 对齐 shadcn(中长期 1-2 月,预期 2.3x → 2.0x)
 
