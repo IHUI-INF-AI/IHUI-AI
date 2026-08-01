@@ -3,9 +3,11 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { toast } from 'sonner'
+import { toast } from '@/components/common/Toaster'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 import { adminApi, ADMIN_PAGE_SIZE, buildAdminQs } from '@/lib/admin/api'
+import { pushError } from '@/stores/error-banner'
 import type { PageData } from '@ihui/api-client'
 
 /**
@@ -114,7 +116,7 @@ export function useCrudList<T extends { id: string }, TForm>(
       qc.invalidateQueries({ queryKey: ['admin', queryKeyBase] })
       closeDialog()
     },
-    onError: (e: Error) => setErr(e.message),
+    onError: (e: Error) => setErr(toUserFriendlyMessage(e)),
   })
 
   const deleteMut = useMutation({
@@ -123,7 +125,7 @@ export function useCrudList<T extends { id: string }, TForm>(
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', queryKeyBase] })
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => pushError(e),
   })
 
   function openCreate() {
