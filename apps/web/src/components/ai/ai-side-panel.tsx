@@ -160,20 +160,6 @@ export function AISidePanel() {
   // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。
   // 父组件通过 setWorkspaceName callback 接收项目名,不订阅 pathname。
 
-  // 同步 AISidePanel 占据宽度(含右侧 8px 视觉间距)到 :root 的 --ai-panel-width CSS 变量。
-  // 2026-07-30:AI 面板已移入 flex 流,不再需要 padding-left 避让。
-  // --ai-panel-width 仍保留供 ScrollDownButton(marketing 页面)计算居中偏移。
-  // - open=true:占位 = width + 8px(面板宽度 + 右侧间距)
-  // - open=false:占位 = 0(仅渲染 width:0 的拖拽手柄,不占视觉空间)
-  React.useEffect(() => {
-    const occupy = open ? width + 8 : 0
-    document.documentElement.style.setProperty('--ai-panel-width', `${occupy}px`)
-    return () => {
-      // 卸载时复位,避免残留 CSS 变量导致内容区永久避让
-      document.documentElement.style.setProperty('--ai-panel-width', '0px')
-    }
-  }, [open, width])
-
   // WebSocket 多端同步:统一处理 ai_response / ai_question / chat_question_answered 三种事件
   // - ai_response:其他端 AI 回复 → append/replace assistant 消息(原有逻辑)
   // - ai_question:其他端 AI 主动提问 → setPendingQuestion 弹窗(P2 新增)
