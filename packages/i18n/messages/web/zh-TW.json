@@ -1283,13 +1283,7 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": [
-          "每月 1000 積分",
-          "所有 AI 模型",
-          "所有 6 個使用者端",
-          "API 存取",
-          "社群支援"
-        ]
+        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個使用者端", "API 存取", "社群支援"]
       },
       "pro": {
         "name": "專業版",
@@ -1306,13 +1300,7 @@
         "name": "企業版",
         "contactSales": "聯絡銷售",
         "cta": "聯絡銷售",
-        "features": [
-          "不限積分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "稽核日誌",
-          "專屬技術支援"
-        ]
+        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
       }
     },
     "checkout": {
@@ -6287,6 +6275,24 @@
     "feedbackClearSuccess": "圖譜已清空"
   },
   "user": {
+    "title": "個人中心",
+    "subtitle": "管理個人資訊、內容與互動",
+    "navAccount": "帳戶",
+    "navContent": "內容",
+    "navInteraction": "互動",
+    "navLearning": "學習",
+    "navProfile": "個人資料",
+    "navRealname": "實名認證",
+    "navSecurity": "帳號安全",
+    "navArticles": "我的文章",
+    "navAsk": "我的提問",
+    "navComment": "我的評論",
+    "navCircle": "我的圈子",
+    "navFans": "我的粉絲",
+    "navFollow": "我的關注",
+    "navSignUp": "我的報名",
+    "navExam": "我的考試",
+    "navResource": "我的資源",
     "profile": {
       "cropTitle": "裁剪頭像",
       "cropDesc": "拖動方框調整頭像位置,固定 1:1 比例",
@@ -7392,6 +7398,21 @@
   "models": {
     "title": "模型市場",
     "subtitle": "選擇適合您的 AI 模型",
+    "shellTitle": "模型中心",
+    "shellSubtitle": "模型管理與用量統計",
+    "navModel": "模型",
+    "navUsage": "使用",
+    "navKey": "密鑰",
+    "navUser": "用戶",
+    "navOverview": "概覽",
+    "navGroups": "模型分組",
+    "navSkills": "技能",
+    "navChats": "對話",
+    "navUsageStats": "用量",
+    "navLogs": "日誌",
+    "navApiKeys": "API 密鑰",
+    "navRedeem": "兌換碼",
+    "navUserMgmt": "用戶管理",
     "all": "全部",
     "navAriaLabel": "按廠商篩選",
     "contextLength": "上下文長度",
@@ -10008,56 +10029,32 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": [
-          "對話",
-          "聊天",
-          "AI"
-        ]
+        "keywords": ["對話", "聊天", "AI"]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": [
-          "短劇",
-          "影片",
-          "AI"
-        ]
+        "keywords": ["短劇", "影片", "AI"]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": [
-          "搜尋",
-          "查詢",
-          "search"
-        ]
+        "keywords": ["搜尋", "查詢", "search"]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "應用"
-        ]
+        "keywords": ["AI", "世界", "應用"]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": [
-          "個人",
-          "資料",
-          "設定"
-        ]
+        "keywords": ["個人", "資料", "設定"]
       },
       "settings": {
         "label": "系統設定",
         "description": "系統偏好與配置",
-        "keywords": [
-          "設定",
-          "偏好",
-          "配置"
-        ]
+        "keywords": ["設定", "偏好", "配置"]
       }
     }
   },
@@ -10464,31 +10461,19 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度連結志同道合的決策者",
-          "features": [
-            "系統化課程",
-            "實踐探索",
-            "社群互助"
-          ]
+          "features": ["系統化課程", "實踐探索", "社群互助"]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的線上交流平臺,隨時隨地獲取資訊與支援",
-          "features": [
-            "交流平臺",
-            "經驗共享",
-            "資源對接"
-          ]
+          "features": ["交流平臺", "經驗共享", "資源對接"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智慧體服務,提供深度AI化諮詢與支援",
-          "features": [
-            "專業大模型",
-            "智慧體服務",
-            "諮詢服務"
-          ]
+          "features": ["專業大模型", "智慧體服務", "諮詢服務"]
         }
       ]
     },
@@ -10609,37 +10594,25 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": [
-            "知識問答",
-            "流程自動化"
-          ]
+          "examples": ["知識問答", "流程自動化"]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": [
-            "資料分析",
-            "決策支援"
-          ]
+          "examples": ["資料分析", "決策支援"]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": [
-            "會議安排",
-            "審批流程"
-          ]
+          "examples": ["會議安排", "審批流程"]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智慧體協作",
-          "examples": [
-            "營銷自動化",
-            "多智慧體協同"
-          ]
+          "examples": ["營銷自動化", "多智慧體協同"]
         }
       ]
     },
@@ -11138,7 +11111,28 @@
       "thinkingCharCountTitle": "{n} 個字元"
     }
   },
+  "docs": {
+    "shellTitle": "開發文件",
+    "shellSubtitle": "平臺開發與整合指南",
+    "navDocs": "文件",
+    "navTools": "工具",
+    "navOverview": "概覽",
+    "navAgent": "Agent 開發",
+    "navApi": "API 文件",
+    "navMcp": "MCP 協議",
+    "navRag": "RAG 檢索",
+    "navSelfHost": "私有化部署"
+  },
   "developer": {
+    "shellTitle": "開發者中心",
+    "shellSubtitle": "API 開放平臺與開發工具",
+    "navDeveloper": "開發者",
+    "navTools": "工具",
+    "navOverview": "概覽",
+    "navApiKeys": "API 密鑰",
+    "navLogs": "日誌",
+    "navTeam": "團隊",
+    "navIde": "線上 IDE",
     "settings": {
       "title": "設定",
       "subtitle": "開發者資訊、偏好與危險操作",
@@ -12112,11 +12106,7 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": [
-        "全年所有課程免費參加",
-        "線下探索活動優先參與名額",
-        "智匯 AI 會員社群無限次互動"
-      ]
+      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
     },
     "enterprise": {
       "name": "企業服務",
@@ -12244,15 +12234,7 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": [
-      "週一",
-      "週二",
-      "週三",
-      "週四",
-      "週五",
-      "週六",
-      "週日"
-    ],
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -12396,18 +12378,8 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": [
-        "重點中學",
-        "普通中學",
-        "國際學校",
-        "私立學校"
-      ],
-      "classLevel": [
-        "優秀(班級前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(後 30%)"
-      ],
+      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
+      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -13984,12 +13956,7 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": [
-          "1M tokens 額度",
-          "基礎模型可用",
-          "5 個 API 令牌",
-          "社群支援"
-        ]
+        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
       },
       "pro": {
         "features": [
@@ -14431,13 +14398,7 @@
         "price": "¥999",
         "unit": "/小時",
         "desc": "架構諮詢 / 技術選型 / 程式碼 review",
-        "features": [
-          "視訊會議 / 遠端桌面",
-          "2 小時起",
-          "故障排除",
-          "增值稅發票",
-          "回應 SLA 24h"
-        ]
+        "features": ["視訊會議 / 遠端桌面", "2 小時起", "故障排除", "增值稅發票", "回應 SLA 24h"]
       }
     },
     "socialProof": {
