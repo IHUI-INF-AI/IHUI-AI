@@ -406,6 +406,12 @@ def create_app() -> FastAPI:
     # 多平台扫码登录(2026-07-30 新增,WorkPanel 内置浏览器扫码 → 自动保存 cookies 到账号)
     from app.routers import scan_login as scan_login_router
     app.include_router(scan_login_router.router, prefix="/api", tags=["publish-scan-login"])
+    # 2026-08-01 新增:账号分组管理 + 批量账号导入/导出/验证 + Cookie 健康度查询
+    from app.services.publish.account_groups import router as account_groups_router
+    app.include_router(account_groups_router, prefix="/api", tags=["publish-account-groups"])
+    # 2026-08-01 新增:Cookie 自动保活守护进程(Playwright headless 每 6 小时刷新)
+    from app.services.publish.cookie_refresh_daemon import router as cookie_refresh_router
+    app.include_router(cookie_refresh_router, prefix="/api", tags=["publish-cookie-refresh"])
     # 2026-07-31 新增:Browser Hub(CDP 完整 Chrome 内置浏览器,对标 Trae/Cursor)
     # WebSocket 画面流 + REST API + 鼠标键盘事件回传
     from app.routers import browser_hub as browser_hub_router
