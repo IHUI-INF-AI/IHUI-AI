@@ -137,7 +137,9 @@ export class SelfEvolutionEngine extends EventEmitter {
 
   detectGap(description: string, severity: CapabilityGap['severity']): CapabilityGap {
     const gap: CapabilityGap = {
-      id: `gap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-08-02 P2 安全加固：用 CSPRNG(generateCompactId)替换漏改的 Math.random，
+      // 与同文件 recordBehavior(118 行)/evolve(160 行)的 ID 生成策略保持一致
+      id: generateCompactId('gap'),
       description,
       detectedAt: Date.now(),
       severity,
@@ -176,11 +178,14 @@ export class SelfEvolutionEngine extends EventEmitter {
       // 调 LLM 生成技能步骤(传入能力差距 + 现有技能上下文)
       let steps: SkillStep[] = []
       try {
-        const existingSkills = getSkillManager().list().slice(0, 10).map((s) => ({
-          name: s.name,
-          description: s.description,
-          stepCount: s.steps.length,
-        }))
+        const existingSkills = getSkillManager()
+          .list()
+          .slice(0, 10)
+          .map((s) => ({
+            name: s.name,
+            description: s.description,
+            stepCount: s.steps.length,
+          }))
         const messages: LlmMessage[] = [
           {
             role: 'system',

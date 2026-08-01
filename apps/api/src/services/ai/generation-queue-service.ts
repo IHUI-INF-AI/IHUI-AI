@@ -11,6 +11,7 @@
  * 在 Worker 中注册 processor 实现（与 plugins/queue.ts 的 createWorker 解耦）。
  */
 
+import { createHash } from 'node:crypto'
 import { Queue, type Job, type JobState } from 'bullmq'
 import { config } from '../../config/index.js'
 
@@ -53,11 +54,9 @@ function getQueue(): Queue<GenerationJobData> {
   return queue
 }
 
-/** 简单哈希：用于去重指纹。 */
+/** 去重指纹哈希：用 sha256 取前 16 字符，碰撞率远低于原 32 位乘法哈希。 */
 function hash(s: string): string {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return h.toString(16)
+  return createHash('sha256').update(s).digest('hex').slice(0, 16)
 }
 
 /** 入队一个生成任务。 */

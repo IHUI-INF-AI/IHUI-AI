@@ -42,16 +42,23 @@ export function useAiCapability(): UseAiCapabilityReturn {
     }
   }, [])
 
+  // 2026-08-02 修复 P1 数据不一致:乐观更新后调用 API,失败时回滚 + setError,
+  // 原实现无 try/catch 无回滚,UI 与服务端不一致。
   const toggleCapability = React.useCallback(
     async (id: string) => {
       const target = capabilities.find((c) => c.id === id)
       if (!target) return
       const next = !target.enabled
       setCapabilities((prev) => prev.map((c) => (c.id === id ? { ...c, enabled: next } : c)))
-      await fetchApi(`/api/ai-ext/capabilities/${id}/toggle`, {
+      const res = await fetchApi(`/api/ai-ext/capabilities/${id}/toggle`, {
         method: 'POST',
         body: JSON.stringify({ enabled: next }),
       })
+      if (!res.success) {
+        // 回滚到原状态
+        setCapabilities((prev) => prev.map((c) => (c.id === id ? { ...c, enabled: !next } : c)))
+        setError(res.error)
+      }
     },
     [capabilities],
   )
