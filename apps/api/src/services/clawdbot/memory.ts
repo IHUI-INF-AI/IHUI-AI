@@ -48,6 +48,11 @@ const DB_MEMORY_TYPE = 'long_term' as const
 const scaleImportanceToDb = (v: number): number => Math.round(Math.max(0, Math.min(1, v)) * 100)
 const scaleImportanceFromDb = (v: number): number => v / 100
 
+/** 每个桶内非短期记忆(long_term/working/episodic)容量上限(LRU 淘汰,防止内存泄露)。 */
+const MAX_LONG_TERM_PER_USER = 500
+/** 用户桶数量上限(LRU 淘汰,防止内存泄露)。 */
+const MAX_USERS = 10000
+
 export class MemoryService extends EventEmitter {
   /** 默认桶:系统级调用(无 userId),仅内存 */
   private memories = new Map<string, MemoryItem>()
@@ -73,6 +78,7 @@ export class MemoryService extends EventEmitter {
     this.memories.set(memory.id, memory)
     this.emit('stored', memory)
     if (memory.type === 'short_term') this.evictShortTerm(this.memories)
+    else this.evictNonShortTerm(this.memories)
     logger.debug({ id: memory.id, type: memory.type }, '[Memory] Stored')
     return memory
   }
@@ -146,6 +152,17 @@ export class MemoryService extends EventEmitter {
     }
   }
 
+  /** 淘汰超出上限的非短期记忆(long_term/working/episodic),按 lastAccessedAt 升序(LRU)。 */
+  private evictNonShortTerm(bucket: Map<string, MemoryItem>): void {
+    const nonShortTerm = Array.from(bucket.values())
+      .filter((m) => m.type !== 'short_term')
+      .sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)
+    while (nonShortTerm.length > MAX_LONG_TERM_PER_USER) {
+      const oldest = nonShortTerm.shift()!
+      bucket.delete(oldest.id)
+    }
+  }
+
   getStats() {
     const items = Array.from(this.memories.values())
     return {
@@ -162,11 +179,20 @@ export class MemoryService extends EventEmitter {
   // ============ 异步 API(用户桶 + DB 持久化,2026-07-22 新增)============
 
   private getBucket(userId: string): Map<string, MemoryItem> {
-    let bucket = this.userMemories.get(userId)
-    if (!bucket) {
-      bucket = new Map()
-      this.userMemories.set(userId, bucket)
+    const existing = this.userMemories.get(userId)
+    if (existing) {
+      // LRU: 删除后重新插入,移到末尾标记最近访问
+      this.userMemories.delete(userId)
+      this.userMemories.set(userId, existing)
+      return existing
     }
+    // 用户数上限:超过时淘汰最早访问的桶(迭代顺序第一个)
+    if (this.userMemories.size >= MAX_USERS) {
+      const oldestUser = this.userMemories.keys().next().value
+      if (oldestUser !== undefined) this.userMemories.delete(oldestUser)
+    }
+    const bucket = new Map<string, MemoryItem>()
+    this.userMemories.set(userId, bucket)
     return bucket
   }
 
@@ -192,6 +218,7 @@ export class MemoryService extends EventEmitter {
     const bucket = this.getBucket(userId)
     bucket.set(memory.id, memory)
     if (memory.type === 'short_term') this.evictShortTerm(bucket)
+    else this.evictNonShortTerm(bucket)
     this.emit('stored', memory)
 
     if (memory.type === 'long_term') {
@@ -342,11 +369,7 @@ export class MemoryService extends EventEmitter {
   /**
    * 更新用户记忆(内存 + DB)。
    */
-  async updateForUser(
-    userId: string,
-    id: string,
-    patch: Partial<MemoryItem>,
-  ): Promise<boolean> {
+  async updateForUser(userId: string, id: string, patch: Partial<MemoryItem>): Promise<boolean> {
     const bucket = this.getBucket(userId)
     const memory = bucket.get(id)
     if (memory) {
