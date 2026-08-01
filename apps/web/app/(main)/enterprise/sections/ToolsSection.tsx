@@ -96,7 +96,7 @@ export function ToolsSection() {
               <h3 className="text-sm font-semibold tracking-tight">
                 {t(CATEGORY_KEY[cat.titleKey] ?? 'categories.unknown')}
               </h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 min-[768px]:grid-cols-2">
                 {cat.items.map((item) => {
                   const Icon = item.icon
                   return (

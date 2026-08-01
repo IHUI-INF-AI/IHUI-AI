@@ -132,7 +132,7 @@ export default function CompareIndexPage() {
             <Link
               key={slug}
               href={`/compare/${slug}`}
-              className="group rounded-2xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
+              className="group rounded-2xl border bg-card p-4 min-[768px]:p-6 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">IHUI AI vs {competitor}</h2>
@@ -210,7 +210,7 @@ export default function CompareIndexPage() {
         </section>
 
         {/* CTA */}
-        <section className="mt-12 rounded-lg border bg-primary/5 p-8 text-center min-[768px]:p-12">
+        <section className="mt-12 rounded-lg border bg-primary/5 p-5 text-center min-[768px]:p-8 min-[1024px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
           <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">立即开始使用 IHUI-AI</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。</p>
