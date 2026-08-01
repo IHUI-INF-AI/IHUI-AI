@@ -248,7 +248,8 @@
     "username": "ユーザー名",
     "usernamePlaceholder": "ユーザー名を入力してください",
     "wechatLogin": "WeChat",
-    "login": "ログイン"
+    "login": "ログイン",
+    "captchaRefresh": "認証コードを更新"
   },
   "chat": {
     "send": "送信"
@@ -723,6 +724,26 @@
       "title": "サブスクリプション管理"
     }
   },
+  "exam": {
+    "title": "試験一覧",
+    "loadFailed": "試験の読み込みに失敗",
+    "empty": "試験がありません",
+    "ended": "試験終了",
+    "notStarted": "試験未開始",
+    "noAttemptsLeft": "受験回数なし",
+    "startHint": "試験開始:{title}",
+    "inProgress": "進行中",
+    "duration": "時間",
+    "totalScore": "総得点",
+    "passScore": "合格点",
+    "questionCount": "問題数",
+    "attempts": "受験回数",
+    "start": "試験開始",
+    "result": {
+      "correct": "正解",
+      "wrong": "不正解"
+    }
+  },
   "live": {
     "title": "ライブ",
     "loadFailed": "ライブの読み込みに失敗しました",
@@ -1116,26 +1137,6 @@
     "points": "ポイント",
     "isMe": "自分"
   },
-  "exam": {
-    "title": "試験一覧",
-    "loadFailed": "試験の読み込みに失敗",
-    "empty": "試験がありません",
-    "ended": "試験終了",
-    "notStarted": "試験未開始",
-    "noAttemptsLeft": "受験回数なし",
-    "startHint": "試験開始:{title}",
-    "inProgress": "進行中",
-    "duration": "時間",
-    "totalScore": "総得点",
-    "passScore": "合格点",
-    "questionCount": "問題数",
-    "attempts": "受験回数",
-    "start": "試験開始",
-    "result": {
-      "correct": "正解",
-      "wrong": "不正解"
-    }
-  },
   "vip": {
     "title": "VIP会員",
     "loadFailed": "会員情報の読み込みに失敗",
@@ -1304,6 +1305,84 @@
     "videoBadge": "▶ 動画",
     "promptLabel": "プロンプト:"
   },
+  "examHistory": {
+    "title": "試験履歴",
+    "loadFailed": "試験履歴の読み込みに失敗しました",
+    "empty": "試験記録がありません",
+    "passed": "合格",
+    "failed": "不合格"
+  },
+  "examResult": {
+    "title": "試験結果",
+    "loadFailed": "試験結果の読み込みに失敗しました",
+    "passed": "合格",
+    "failed": "不合格",
+    "correct": "正解 {count}/{total}",
+    "duration": "所要時間 {min} 分",
+    "wrongQuestions": "間違い問題",
+    "yourAnswer": "あなたの回答",
+    "correctAnswer": "正解"
+  },
+  "modelIncome": {
+    "title": "モデル収益",
+    "loadFailed": "読み込みに失敗しました",
+    "loadOverviewFailed": "概要の読み込みに失敗しました",
+    "loadListFailed": "明細の読み込みに失敗しました",
+    "networkError": "ネットワークエラー、後でもう一度お試しください",
+    "retry": "再試行",
+    "empty": "収益記録がありません",
+    "accumulated": "累計収益",
+    "withdrawBtn": "引き出す",
+    "withdrawable": "引き出し可能(元)",
+    "withdrawn": "引き出し済み(元)",
+    "today": "今日の収益",
+    "pending": "未清算",
+    "yuan": "元",
+    "tip": "期間中はサービス手数料無料",
+    "tab": {
+      "all": "全て",
+      "pending": "未清算",
+      "settled": "清算済み"
+    },
+    "orderLabel": "注文",
+    "rateLabel": "手数料率",
+    "withdrawModal": {
+      "title": "引き出し方法を選択",
+      "subtitle": "引き出し可能金額",
+      "wechat": "WeChat",
+      "moreMethods": "その他の引き出し方法は公式アプリをご利用ください",
+      "confirm": "確認",
+      "close": "閉じる"
+    }
+  },
+  "tokenValue": {
+    "title": "トークンチャージ",
+    "balanceLabel": "利用可能トークン",
+    "frozen": "凍結",
+    "totalCost": "累計消費",
+    "packagesTitle": "チャージパッケージ",
+    "tokenUnit": "Token",
+    "bonus": "ボーナス",
+    "popular": "人気",
+    "recordsTitle": "利用履歴",
+    "loadFailed": "読み込みに失敗しました",
+    "empty": "記録がありません",
+    "rechargeLabel": "チャージ",
+    "tab": {
+      "all": "全て",
+      "cost": "消費",
+      "recharge": "チャージ"
+    },
+    "recharge": {
+      "title": "チャージ確認",
+      "message": "{tokens}トークンを¥{price}でチャージしますか?",
+      "payBtn": "支払いを確認",
+      "success": {
+        "title": "チャージ成功",
+        "message": "{tokens}トークンをチャージしました"
+      }
+    }
+  },
   "liveDetail": {
     "title": "ライブ詳細",
     "loadFailed": "ライブ詳細の読み込みに失敗しました",
@@ -1449,84 +1528,6 @@
     "send": "送信",
     "clear": "クリア",
     "error": "送信に失敗しました。再試行してください"
-  },
-  "examHistory": {
-    "title": "試験履歴",
-    "loadFailed": "試験履歴の読み込みに失敗しました",
-    "empty": "試験記録がありません",
-    "passed": "合格",
-    "failed": "不合格"
-  },
-  "examResult": {
-    "title": "試験結果",
-    "loadFailed": "試験結果の読み込みに失敗しました",
-    "passed": "合格",
-    "failed": "不合格",
-    "correct": "正解 {count}/{total}",
-    "duration": "所要時間 {min} 分",
-    "wrongQuestions": "間違い問題",
-    "yourAnswer": "あなたの回答",
-    "correctAnswer": "正解"
-  },
-  "modelIncome": {
-    "title": "モデル収益",
-    "loadFailed": "読み込みに失敗しました",
-    "loadOverviewFailed": "概要の読み込みに失敗しました",
-    "loadListFailed": "明細の読み込みに失敗しました",
-    "networkError": "ネットワークエラー、後でもう一度お試しください",
-    "retry": "再試行",
-    "empty": "収益記録がありません",
-    "accumulated": "累計収益",
-    "withdrawBtn": "引き出す",
-    "withdrawable": "引き出し可能(元)",
-    "withdrawn": "引き出し済み(元)",
-    "today": "今日の収益",
-    "pending": "未清算",
-    "yuan": "元",
-    "tip": "期間中はサービス手数料無料",
-    "tab": {
-      "all": "全て",
-      "pending": "未清算",
-      "settled": "清算済み"
-    },
-    "orderLabel": "注文",
-    "rateLabel": "手数料率",
-    "withdrawModal": {
-      "title": "引き出し方法を選択",
-      "subtitle": "引き出し可能金額",
-      "wechat": "WeChat",
-      "moreMethods": "その他の引き出し方法は公式アプリをご利用ください",
-      "confirm": "確認",
-      "close": "閉じる"
-    }
-  },
-  "tokenValue": {
-    "title": "トークンチャージ",
-    "balanceLabel": "利用可能トークン",
-    "frozen": "凍結",
-    "totalCost": "累計消費",
-    "packagesTitle": "チャージパッケージ",
-    "tokenUnit": "Token",
-    "bonus": "ボーナス",
-    "popular": "人気",
-    "recordsTitle": "利用履歴",
-    "loadFailed": "読み込みに失敗しました",
-    "empty": "記録がありません",
-    "rechargeLabel": "チャージ",
-    "tab": {
-      "all": "全て",
-      "cost": "消費",
-      "recharge": "チャージ"
-    },
-    "recharge": {
-      "title": "チャージ確認",
-      "message": "{tokens}トークンを¥{price}でチャージしますか?",
-      "payBtn": "支払いを確認",
-      "success": {
-        "title": "チャージ成功",
-        "message": "{tokens}トークンをチャージしました"
-      }
-    }
   },
   "assistant": {
     "title": "マイアシスタント",

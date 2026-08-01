@@ -1128,7 +1128,9 @@
     "errors": {
       "timeout15s": "AI response timeout (no content received within 15 seconds), please try again later",
       "timeout60s": "AI thinking timeout (no answer produced within 60 seconds, reasoning model may be thinking too long), please try again later or switch to a regular model"
-    }
+    },
+    "clearInputAriaLabel": "Clear input",
+    "clearInputTitle": "Clear input content"
   },
   "learn": {
     "title": "Learning Center",
@@ -1534,7 +1536,11 @@
       "signupsSubtitle": "View and manage course signup records",
       "backToLearnSignups": "Back to Course Management",
       "signupsTotal": "{total} records in total",
-      "signupsUpdateSuccess": "Status updated successfully"
+      "signupsUpdateSuccess": "Status updated successfully",
+      "signupsSearchPlaceholder": "Search course/user/phone",
+      "colSignupStatus": "Signup Status",
+      "updateStatus": "Update Status",
+      "signupsNoData": "No signup records"
     },
     "edu": {
       "learn": {
@@ -3310,7 +3316,23 @@
         "rowSuccess": "Success",
         "rowFailure": "Failed",
         "noDetails": "Backend does not return per-row details yet. Extend the backend to return resultItemList for failure details."
-      }
+      },
+      "usernameRequired": "Username is required",
+      "passwordRequired": "Password is required",
+      "fieldUsername": "Username",
+      "fieldMobile": "Mobile",
+      "mobilePlaceholder": "Enter mobile number",
+      "fieldGender": "Gender",
+      "genderUnknown": "Unknown",
+      "noLevel": "No Level",
+      "newPasswordRequired": "New password is required",
+      "resetTitle": "Reset Password",
+      "resetDesc": "Reset password for this user",
+      "fieldNewPassword": "New Password",
+      "newPasswordPlaceholder": "Enter new password",
+      "statPending": "Pending",
+      "statSealed": "Banned",
+      "statCompany": "Companies"
     },
     "resources": {
       "title": "Resource Management",
@@ -3382,7 +3404,10 @@
       "resourceRequired": "Please select a related resource",
       "tagsTitle": "Resource Tag Management",
       "tagsSubtitle": "Manage resource tags",
-      "rootTag": "No parent tag"
+      "rootTag": "No parent tag",
+      "fieldFileType": "File Type",
+      "fileTypePlaceholder": "Enter file type",
+      "fieldFileSize": "File Size"
     },
     "live": {
       "title": "Live Management",
@@ -3439,7 +3464,21 @@
       "lecturersTitle": "Lecturer Management",
       "lecturersSubtitle": "Manage live lecturers",
       "fieldAvatar": "Avatar URL",
-      "avatarPlaceholder": "Enter avatar URL (optional)"
+      "avatarPlaceholder": "Enter avatar URL (optional)",
+      "noLecturer": "No Lecturer",
+      "fieldIntroduction": "Detailed Introduction",
+      "fieldShowNumber": "Display Order",
+      "fieldEnableChat": "Enable Chat",
+      "fieldPushUrl": "Push URL",
+      "pushUrlPlaceholder": "Enter push URL",
+      "fieldPlayUrl": "Play URL",
+      "playUrlPlaceholder": "Enter play URL",
+      "timePlaceholder": "Select time",
+      "fieldIsLive": "Is Live",
+      "statChannelTotal": "Total Channels",
+      "statLiving": "Live Now",
+      "statPublished": "Published",
+      "statViewSum": "Total Views"
     },
     "saas": {
       "title": "Tenant Management",
@@ -3744,7 +3783,19 @@
       "subtitle": "Manage platform orders, refunds and invoice applications",
       "tabOrders": "Orders",
       "tabRefunds": "Refunds",
-      "tabInvoices": "Invoices"
+      "tabInvoices": "Invoices",
+      "invoiceType": "Invoice Type",
+      "changeStatus": "Change Status",
+      "changeStatusTitle": "Change Invoice Status",
+      "changeStatusDesc": "Select a new invoice status",
+      "payType": "Payment Method",
+      "noRefunds": "No refund records",
+      "process": "Process",
+      "noAction": "No action needed",
+      "processTitle": "Process Refund",
+      "handleTitle": "Complete Refund",
+      "processDesc": "Confirm to process this refund request",
+      "handleDesc": "Confirm to complete this refund"
     },
     "workflows": {
       "title": "Workflow Management",
@@ -4558,7 +4609,11 @@
       "exportName": "Agent Task",
       "total": "Total {total}",
       "prev": "Previous",
-      "next": "Next"
+      "next": "Next",
+      "colContext": "Requirement Description",
+      "colCycleFull": "Full Cycle",
+      "colLowestPrice": "Lowest Price",
+      "colPeakPrice": "Peak Price"
     },
     "demandAudit": {
       "title": "Demand Audit",
@@ -7360,6 +7415,9 @@
     "privacyTitle": "Privacy",
     "subtitle": "Manage account, security, preferences and developer configuration",
     "title": "Settings",
+    "billingInvoiceNo": "Invoice No.",
+    "billingInvoiceType": "Invoice Type",
+    "billingNoData": "No billing records",
     "dashboardDesc": "Quick access to all settings options",
     "themeSystem": "System",
     "langZh": "mid",
@@ -8368,7 +8426,9 @@
     "noSnapshots": "No snapshots",
     "data": "Data",
     "actions": "Actions",
-    "delete": "Delete"
+    "delete": "Delete",
+    "signups": "Signups",
+    "examRecords": "Exam Records"
   },
   "messages": {
     "loading": "Loading...",
@@ -9305,7 +9365,13 @@
     },
     "monitor": {
       "title": "Monitoring Dashboard",
-      "subtitle": "Platform status overview"
+      "subtitle": "Platform status overview",
+      "alerts": "Alerts",
+      "logSummary": "Log Summary",
+      "logTotal": "Total Logs",
+      "logErrors": "Errors",
+      "logWarnings": "Warnings",
+      "perf": "Performance"
     }
   },
   "aiGeneration": {
@@ -10181,32 +10247,58 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"]
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ]
       },
       "drama": {
         "label": "AI Drama",
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"]
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ]
       },
       "search": {
         "label": "Search",
         "description": "Global content search",
-        "keywords": ["search", "find", "query"]
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"]
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ]
       },
       "profile": {
         "label": "Profile",
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"]
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ]
       },
       "settings": {
         "label": "Settings",
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"]
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ]
       }
     }
   },
@@ -10613,19 +10705,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -10746,25 +10850,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -12390,7 +12506,15 @@
       "sessions": "Sessions",
       "crashRate": "Crash Rate"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "dauTrend": {
       "title": "Last 7 Days DAU Trend",
       "subtitle": "Daily active users curve"
