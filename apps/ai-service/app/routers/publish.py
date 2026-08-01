@@ -960,7 +960,7 @@ class AiAnalyzeAllRequest(BaseModel):
     platform: str = ""
 
 
-@router.post("/ai/titles")
+@router.post("/ai/titles", response_model=None)
 async def ai_generate_titles(
     body: AiTitlesRequest, request: Request
 ) -> dict[str, Any] | JSONResponse:
@@ -976,7 +976,7 @@ async def ai_generate_titles(
         return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
 
 
-@router.post("/ai/polish")
+@router.post("/ai/polish", response_model=None)
 async def ai_polish_content(
     body: AiPolishRequest, request: Request
 ) -> dict[str, Any] | JSONResponse:
@@ -990,7 +990,7 @@ async def ai_polish_content(
         return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
 
 
-@router.post("/ai/tags")
+@router.post("/ai/tags", response_model=None)
 async def ai_recommend_tags(
     body: AiTagsRequest, request: Request
 ) -> dict[str, Any] | JSONResponse:
@@ -1006,7 +1006,7 @@ async def ai_recommend_tags(
         return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
 
 
-@router.post("/ai/summary")
+@router.post("/ai/summary", response_model=None)
 async def ai_generate_summary(
     body: AiSummaryRequest, request: Request
 ) -> dict[str, Any] | JSONResponse:
@@ -1020,7 +1020,7 @@ async def ai_generate_summary(
         return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
 
 
-@router.post("/ai/seo")
+@router.post("/ai/seo", response_model=None)
 async def ai_analyze_seo(
     body: AiSeoRequest, request: Request
 ) -> dict[str, Any] | JSONResponse:
@@ -1038,7 +1038,7 @@ async def ai_analyze_seo(
         return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
 
 
-@router.post("/ai/cover")
+@router.post("/ai/cover", response_model=None)
 async def ai_suggest_cover(
     body: AiCoverRequest, request: Request
 ) -> dict[str, Any] | JSONResponse:
@@ -1052,7 +1052,7 @@ async def ai_suggest_cover(
         return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
 
 
-@router.post("/ai/analyze-all")
+@router.post("/ai/analyze-all", response_model=None)
 async def ai_analyze_all(
     body: AiAnalyzeAllRequest, request: Request
 ) -> dict[str, Any] | JSONResponse:
