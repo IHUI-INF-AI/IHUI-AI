@@ -807,7 +807,7 @@
       "expandReasoning": "Expand reasoning",
       "collapseReasoning": "Collapse reasoning",
       "jumpToMessage": "Jump to message",
-      "stepError": "失败"
+      "stepError": "Failed"
     },
     "question": {
       "title": "AI needs your answer",
@@ -5794,7 +5794,7 @@
           "updatedAt": "Updated At",
           "type": "Type",
           "amount": "Amount",
-          "remark": "备注",
+          "remark": "Remark",
           "time": "Time"
         }
       },
@@ -5953,8 +5953,8 @@
           "searchOutBillNo": "External Bill No",
           "searchReviewer": "Reviewer",
           "amountRange": "Amount Range",
-          "amountMin": "最小",
-          "amountMax": "最大",
+          "amountMin": "Min",
+          "amountMax": "Max",
           "noData": "No withdrawal details",
           "approve": "Approve",
           "reject": "Reject",
@@ -6631,7 +6631,7 @@
   },
   "publish": {
     "title": "Multi-Platform Publishing",
-    "subtitle": "Supports md/docx/html/pdf/image/video → 14 platforms one-click publishing",
+    "subtitle": "Supports md/docx/html/pdf/image/video → 38 platforms one-click publishing",
     "riskLevelSafe": "Safe",
     "riskLevelLow": "Low risk",
     "riskLevelMedium": "Medium risk",
