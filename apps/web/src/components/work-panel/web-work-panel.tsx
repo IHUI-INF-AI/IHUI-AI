@@ -4,9 +4,7 @@ import * as React from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
 import type { WorkPanelTabItem } from '@ihui/ui-react'
-import {
-  useWorkPanelStore,
-} from '@/stores/work-panel'
+import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 
 import { CdpBrowserView } from './cdp-browser-view'
@@ -141,10 +139,11 @@ export function WebWorkPanel() {
     // - 新:absolute inset-0 覆盖父容器(GlobalShell 的 relative div),替换展示工作区内容
     // - 父容器(GlobalShell L239)是 relative,WebWorkPanel absolute inset-0 刚好覆盖 children
     // - z-30 确保覆盖 children(MainShell 可能有 z-index)
-    // - bg-background 确保不透明(即使 WorkPanel 内部有问题,外层也能覆盖 children)
+    // - bg-shell-panel 对齐 AI 对话框背景色(2026-08-01 用户反馈"背景色应该跟 ai 对话框背景色一致")
+    // - rounded-xl 对齐 AI 对话框圆角度(2026-08-01 用户反馈"圆角度也是应该一致")
     // - 不传 width/onResize 给 WorkPanel → WorkPanel w-full + 无 resize handle
     // - WorkPanel 的 border-l(左边框)在嵌入场景不需要,用 className='border-l-0' 覆盖
-    <div className="absolute inset-0 z-30 bg-background">
+    <div className="absolute inset-0 z-30 rounded-xl bg-shell-panel">
       <WorkPanel
         open={effectiveOpen}
         onClose={closePanel}
