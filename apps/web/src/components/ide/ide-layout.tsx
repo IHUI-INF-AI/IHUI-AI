@@ -116,7 +116,7 @@ export function IDELayout() {
   ])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-shell-panel">
+    <div className="flex h-full flex-col overflow-hidden bg-shell-panel">
       <IDETopBar />
       <div className="flex min-h-0 flex-1">
         <ActivityBar />
