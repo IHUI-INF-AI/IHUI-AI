@@ -14,11 +14,17 @@
  * 平台特有:仅 desktop(Tauri webview)调用,浏览器端 useDesktopDeepLink hook 不注册
  */
 
-import { exchangeSsoCode, extractSsoCode } from '@ihui/shared'
+import { exchangeSsoCode, extractSsoCode, SSO_CLIENT_IDS } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import type { AuthUser } from '@ihui/api-client'
 
-const DESKTOP_CLIENT_ID = 'desktop'
+const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
+
+/**
+ * 模块级去重缓存:记录最近一次处理的 sso_code,防止 OS 重复派发 deep-link
+ * 导致重复 exchange 请求(2026-08-01 P1-1 inbound 防护加固)。
+ */
+let lastProcessedCode: string | null = null
 
 function detectApiBaseUrl(): string {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
@@ -37,6 +43,9 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   const code = extractSsoCode(url)
   if (!code) return false
 
+  // 去重:OS 可能重复派发同一 deep-link,跳过已处理的 sso_code(2026-08-01 P1-1)
+  if (code === lastProcessedCode) return true
+
   const apiBase = detectApiBaseUrl()
   const tokenData = await exchangeSsoCode(apiBase, code, DESKTOP_CLIENT_ID)
   if (!tokenData) return false
@@ -49,5 +58,6 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
     avatar: tokenData.user.avatar,
   }
   setUser(user)
+  lastProcessedCode = code
   return true
 }
