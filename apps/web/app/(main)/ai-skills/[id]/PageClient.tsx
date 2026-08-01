@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -218,7 +218,7 @@ export default function AiSkillDetailPage() {
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Icon className="h-6 w-6" />
         </div>
-        <div className="flex-1 space-y-1">
+        <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight">{skill.name}</h1>
             <Badge variant={skill.available ? 'success' : 'default'}>

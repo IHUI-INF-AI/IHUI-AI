@@ -126,7 +126,7 @@ export default function RelaySubscriptionsPage() {
                     <p className="text-xs text-muted-foreground">{plan.description}</p>
                   )}
 
-                  <ul className="flex-1 space-y-1.5">
+                  <ul className="flex-1 min-w-0 space-y-1.5">
                     {plan.features.map((f, i) => (
                       <li key={i} className="flex items-start gap-1.5 text-xs">
                         <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />

@@ -175,9 +175,11 @@ export function DevelopersContent(): React.JSX.Element {
           {data.sdks.map((sdk) => (
             <Card key={sdk.language}>
               <CardHeader className="p-4 pb-2">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <span>{sdk.language}</span>
-                  <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                <CardTitle className="flex items-center justify-between gap-2 text-base">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate">{sdk.language}</span>
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap rounded bg-amber-500/10 px-2 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
                     规划中
                   </span>
                 </CardTitle>

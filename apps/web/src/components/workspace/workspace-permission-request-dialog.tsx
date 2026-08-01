@@ -149,23 +149,24 @@ export function WorkspacePermissionRequestDialog({
               )}
             </div>
 
-            <DialogFooter className="gap-2 min-[640px]:gap-2">
+            <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
               <Button
                 type="button"
                 variant="outline"
                 disabled={busy}
                 onClick={() => void handleDecision(false)}
+                className="shrink-0"
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                {t('deny')}
+                {busy ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <X className="h-4 w-4 shrink-0" />}
+                <span className="whitespace-nowrap">{t('deny')}</span>
               </Button>
-              <Button type="button" disabled={busy} onClick={() => void handleDecision(true)}>
+              <Button type="button" disabled={busy} onClick={() => void handleDecision(true)} className="shrink-0">
                 {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                 ) : (
-                  <Check className="h-4 w-4" />
+                  <Check className="h-4 w-4 shrink-0" />
                 )}
-                {t('allow')}
+                <span className="whitespace-nowrap">{t('allow')}</span>
               </Button>
             </DialogFooter>
           </>

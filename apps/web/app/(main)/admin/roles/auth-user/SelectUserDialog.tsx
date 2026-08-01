@@ -88,6 +88,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
       </div>
 
       <div className="max-h-64 overflow-auto rounded-md border">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-muted/50">
             <tr>
@@ -144,28 +145,29 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          共 {total} 条 · {page}/{totalPages}
-        </span>
-        <div className="flex gap-1">
+      <div className="flex items-center justify-between gap-3">
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">共 {total} 条 · {page}/{totalPages}</span>
+        <div className="flex shrink-0 gap-1">
           <Button
+            className="shrink-0"
             size="sm"
             variant="outline"
             disabled={page <= 1}
             onClick={() => setPage(page - 1)}
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
           </Button>
           <Button
+            className="shrink-0"
             size="sm"
             variant="outline"
             disabled={page >= totalPages}
             onClick={() => setPage(page + 1)}
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
           </Button>
         </div>
       </div>

@@ -145,11 +145,11 @@ export default function PreferencesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 flex-1 text-sm text-muted-foreground">
               {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
             </span>
-            <Switch checked={collapsed} onCheckedChange={toggleCollapsed} />
+            <Switch checked={collapsed} onCheckedChange={toggleCollapsed} className="shrink-0" />
           </div>
         </CardContent>
       </Card>
@@ -164,7 +164,7 @@ export default function PreferencesPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between gap-4">
-              <span className="text-sm text-muted-foreground">
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">
                 {t('cacheCleanDesc')}
               </span>
               <Button
@@ -172,6 +172,7 @@ export default function PreferencesPage() {
                 size="sm"
                 onClick={handleClearCache}
                 disabled={cacheCleaning}
+                className="shrink-0"
               >
                 {t('cacheCleanButton')}
               </Button>

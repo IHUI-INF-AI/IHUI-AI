@@ -713,7 +713,7 @@ export function LocalFolderPicker({
 
             {/* 工具栏:筛选 + 父级 + 系统选择器 */}
             <div className="flex items-center gap-1.5">
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-w-0">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={filter}
@@ -833,7 +833,7 @@ export function LocalFolderPicker({
             {errorMessage && (
               <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span className="flex-1">{errorMessage}</span>
+                <span className="flex-1 min-w-0">{errorMessage}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -851,7 +851,7 @@ export function LocalFolderPicker({
             {nativeHint && !errorMessage && (
               <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span className="flex-1">{nativeHint}</span>
+                <span className="flex-1 min-w-0">{nativeHint}</span>
                 <button
                   type="button"
                   onClick={() => setNativeHint(null)}
