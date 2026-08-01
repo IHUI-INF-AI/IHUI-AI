@@ -461,3 +461,42 @@ export async function getVisitStats(
 ): Promise<ApiResult<StatisticsData>> {
   return fetchApi<StatisticsData>(`/api/visit-tracking/stats${buildQs(query)}`)
 }
+
+// ===================== public-configs（公开系统配置,P3-4.3 Server-Driven UI） =====================
+
+/** 公开系统配置行(is_public=true,无鉴权可读) */
+export interface PublicConfig {
+  id: string
+  key: string
+  value: string
+  type: string
+  category: string
+  description: string | null
+  isPublic: boolean
+  updatedAt: string
+}
+
+/** 获取所有公开系统配置(GET /api/configs,无需鉴权) */
+export async function getPublicConfigs(): Promise<ApiResult<PublicConfig[]>> {
+  const res = await fetchApi<{ list: PublicConfig[] }>('/api/configs')
+  if (!res.success) return res
+  return { success: true, data: res.data.list }
+}
+
+/**
+ * 获取首页 schema(Server-Driven UI)。
+ * 从公开配置中取 key='home_schema' 的 value(JSON 字符串),解析为对象。
+ * 调用方需自行校验 + fallback 默认 schema(见 web/src/components/marketing/home-schema.ts)。
+ * 未配置或解析失败时返回 null,由调用方决定 fallback 策略。
+ */
+export async function getHomeSchemaConfig(): Promise<ApiResult<unknown | null>> {
+  const res = await getPublicConfigs()
+  if (!res.success) return res
+  const cfg = res.data.find((c) => c.key === 'home_schema' && c.type === 'json')
+  if (!cfg) return { success: true, data: null }
+  try {
+    return { success: true, data: JSON.parse(cfg.value) }
+  } catch {
+    return { success: true, data: null }
+  }
+}
