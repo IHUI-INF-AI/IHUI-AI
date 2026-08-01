@@ -69,11 +69,6 @@ export function IDETopBar() {
       )}
       <div className="ml-auto flex items-center gap-3 pr-1">
         <Clock />
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-red-500/80" />
-          <span className="h-2 w-2 rounded-full bg-yellow-500/80" />
-          <span className="h-2 w-2 rounded-full bg-green-500/80" />
-        </div>
       </div>
     </div>
   )
