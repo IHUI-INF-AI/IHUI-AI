@@ -48,9 +48,11 @@ import { carouselPublicRoutes } from './carousel.js'
 import { newsRoutes, adminNewsRoutes } from './news.js'
 import { certificateRoutes, adminCertificateRoutes } from './certificate.js'
 import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from './payment-gateway.js'
+import paymentUsdtRoutes from './payment-usdt.js'
 import { refundAuditRoutes, adminRefundAuditRoutes } from './refund-audit.js'
 import { financeRoutes } from './finance.js'
 import { authExtendedRoutes } from './auth-extended.js'
+import authPasskeyRoutes from './auth-passkey.js'
 import { authSsoRoutes } from './auth-sso.js'
 import { vipRoutes, adminVipRoutes } from './vip.js'
 // P0-3a/b 配套:AI 模型定价公开查询(/api/ai-pricing, /api/ai-pricing/stats, /api/ai-pricing/:modelId)
@@ -357,6 +359,7 @@ import adminRelayCommissionRoutes from './admin/relay-commission.js'
 import adminCouponsRoutes from './admin/coupons.js'
 import adminRelayChannelsRoutes from './admin/relay-channels.js'
 import adminTieredPricingRoutes from './admin/tiered-pricing.js'
+import adminTopupConfigRoutes from './admin/topup-config.js'
 import adminRelayPricingRoutes from './admin/relay-pricing.js'
 import adminUserBillingGroupsRoutes from './admin/user-billing-groups.js'
 import v1MessagesRoutes from './v1-messages.js'
@@ -365,6 +368,15 @@ import v1RerankModerationsRoutes from './v1-rerank-moderations.js'
 import { v1RealtimeRoutes } from './v1-realtime.js'
 import v1McpGatewayRoutes from './v1-mcp-gateway.js'
 import v1MidjourneyRoutes from './v1-midjourney.js'
+import v1ResponsesRoutes from './v1-responses.js'
+import v1Assistants from './v1-assistants.js'
+import v1ProtocolCompletenessRoutes from './v1-protocol-completeness.js'
+// P0-18 Batch API(2026-08-01 立,OpenAI/Anthropic Batch 兼容,BullMQ 异步处理 + 50% 折扣计费)
+import v1Batches from './v1-batches.js'
+// P0-18 配套:OpenAI Files API 文件上传端点(2026-08-01 立,§24 用户确认,供 v1-batches 上传 JSONL)
+import v1Files from './v1-files.js'
+// P0-20b 参数覆盖规则管理(2026-08-01 立,admin CRUD + dry-run 预览)
+import adminRelayParamOpsRoutes from './admin/relay-param-ops.js'
 // Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
 import developerWebhooksRoutes from './developer/webhooks.js'
 import adminWebhookDebugRoutes from './admin/webhook-debug.js'
@@ -522,6 +534,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 支付网关：微信/支付宝/基金/对账（R1 补完）
   server.register(paymentGatewayRoutes, { prefix: '/api' })
   server.register(adminPaymentGatewayRoutes, { prefix: '/api/admin' })
+  // USDT 加密货币支付网关(P0-23):/api/payment/usdt/* + /api/admin/payment/usdt/*
+  server.register(paymentUsdtRoutes, { prefix: '/api' })
   // 收款落地页(无 prefix,直接 /landing)
   server.register(landingRoutes)
   // 退款审核管理：退款列表/审核/驳回/详情/统计
@@ -531,6 +545,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(financeRoutes, { prefix: '/api' })
   // 多登录扩展：密码/邮箱/用户名/OAuth2/Google/微信/企微/验证码/绑定/SK（R1 补完）
   server.register(authExtendedRoutes, { prefix: '/api' })
+  // Passkey WebAuthn 无密码登录(P0-22):/api/auth/passkey/register|auth/*
+  server.register(authPasskeyRoutes, { prefix: '/api' })
   // SSO 统一登录：code 生成/交换/统一登出/token 验证（跨子项目共享登录态）
   server.register(authSsoRoutes, { prefix: '/api/auth' })
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
@@ -619,6 +635,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(walletRoutes, { prefix: '/api/wallet' })
   // 钱包管理后台(统计聚合 + 全量流水审计 + 管理员余额调整)
   server.register(adminWalletRoutes, { prefix: '/api/admin/wallet' })
+  // 充值阶梯折扣配置(P0-21):/api/admin/topup/config + /api/admin/topup/preview
+  server.register(adminTopupConfigRoutes, { prefix: '/api/admin' })
   // 交易员管理：/api/trader/*
   server.register(traderRoutes, { prefix: '/api/trader' })
   // SDK 管理：/api/sdks/*
@@ -1040,6 +1058,19 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(v1McpGatewayRoutes)
   // /v1/midjourney/*(Midjourney-Proxy 标准接口:imagine/tasks/:taskId/action/upscale,绝对路径字面量注册)
   server.register(v1MidjourneyRoutes)
+  // ===== P0 第三批次对外端点(2026-07-31 立,3 个 OpenAI 协议兼容路由)=====
+  // /v1/responses(OpenAI Responses API 兼容,Cursor/Codex 客户端,支持 stream)
+  server.register(v1ResponsesRoutes, { prefix: '/v1' })
+  // /v1/assistants + /v1/threads + /v1/messages + /v1/runs(OpenAI Assistants API v2 兼容,17 个端点)
+  server.register(v1Assistants, { prefix: '/v1' })
+  // /v1/midjourney/{describe,shorten,blend} + /v1/audio/translations + /v1/images/variations + /v1/fine_tuning/jobs
+  server.register(v1ProtocolCompletenessRoutes, { prefix: '/v1' })
+  // P0-18 Batch API(2026-08-01 立):/v1/batch + /v1/batches + /v1/messages/batches(OpenAI/Anthropic 兼容,BullMQ 异步)
+  server.register(v1Batches, { prefix: '/v1' })
+  // P0-18 配套:OpenAI Files API 文件上传(POST /v1/files,供 v1-batches 上传 JSONL 输入文件)
+  server.register(v1Files, { prefix: '/v1' })
+  // P0-20b 参数覆盖规则管理(2026-08-01 立):/api/admin/relay-param-ops(CRUD + dry-run)
+  server.register(adminRelayParamOpsRoutes, { prefix: '/api/admin' })
 
   // ===== Relay Webhook 系统(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)=====
   // developer 用户自助管理订阅(7 端点):/api/developer/webhooks/subscriptions/*

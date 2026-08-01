@@ -121,3 +121,18 @@ export {
   generateTelegramAuthToken,
   type TelegramProviderConfig,
 } from './telegram.js'
+
+// Passkey (WebAuthn/FIDO2) 无密码登录 Provider(2026-08-01 立)
+export {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+  getPasskeyConfig,
+  type PasskeyCredentialDescriptor,
+  type ExistingCredential,
+  type StoredPasskeyCredential,
+  type VerifiedRegistrationResult,
+  type VerifiedAuthenticationResult,
+  type PasskeyConfig,
+} from './passkey.js'

@@ -96,6 +96,11 @@ export const HEADER_BAR_CLASS =
  *  - text-foreground/80:统一文字色(原本散落在各使用处,现提到 base 统一)
  *  - 层级:bg-card(默认 亮100/暗10) < bg-accent(hover 亮88/暗17) ≤ bg-accent text-foreground(active,Plus 打开,文字加深)
  *  - close 变体保留红色 hover(WindowControlButton variant='close'),在 base 之后追加覆盖
+ *
+ *  ⚠️ 防回归(2026-08-01 立):本常量是顶栏/TagsView 等场景的共享 base,默认 bg-card 是用户既定要求,
+ *  不得擅自移除。侧边栏底部工具栏5按钮(收起/语言/下载/消息/主题)用户要求默认透明,
+ *  应在 sidebar.tsx 使用处用 cn(TOPBAR_BTN_BASE, 'bg-transparent', ...) 局部覆盖,
+ *  不得改本常量影响其他按钮(Plus/窗口控制/搜索/标签/Dropdown trigger 等)。
  */
 export const TOPBAR_BTN_BASE =
   'inline-flex h-full shrink-0 items-center justify-center rounded-md bg-card text-foreground/80 transition-colors hover:bg-accent focus:outline-none focus-visible:bg-accent [&>svg]:!h-3.5 [&>svg]:!w-3.5'
