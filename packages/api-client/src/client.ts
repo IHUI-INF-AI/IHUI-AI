@@ -1,10 +1,4 @@
-import type {
-  ApiResult,
-  ApiResponse,
-  PlanUpdateEvent,
-  TerminalStartEvent,
-  TerminalEndEvent,
-} from '@ihui/types'
+import type { ApiResult, ApiResponse, PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
 import { getTransport } from './transport'
 
@@ -1452,7 +1446,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           try {
             const json = JSON.parse(data) as Record<string, unknown>
             // 2026-07-31 立,提取工具来源字段(兼容 snake_case / camelCase)
-            const serverSource = (json.serverSource ?? json.server_source ?? '') as string
+            const serverSource = (
+              json.serverSource ??
+              json.server_source ??
+              ''
+            ) as string
             const validServerSource =
               serverSource === 'builtin' || serverSource === 'plugin' || serverSource === 'mcp'
                 ? serverSource
