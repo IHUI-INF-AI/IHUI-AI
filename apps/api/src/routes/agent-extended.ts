@@ -514,7 +514,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       })
       .returning()
     if (!order) {
-      return reply.code(500).send({ code: 1, message: 'Failed to create order', data: null })
+      return reply.code(500).send({ code: 1, message: '创建订单失败', data: null })
     }
     // 同步到结算表(按月度切分生成结算记录,幂等,失败不影响主业务)
     await syncAgentBuyToSettlement({
