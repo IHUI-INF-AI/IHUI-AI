@@ -823,6 +823,46 @@
       "criticalUsage": "即将耗尽"
     },
     "permission": {
+      "copied": "已复制",
+      "copyFailed": "复制失败",
+      "retry": "重试中…",
+      "copy": "复制",
+      "me": "我",
+      "stepThinking": "思考中",
+      "toolCallSkipped": "已跳过",
+      "stepAnswer": "回答",
+      "timelineUserMessage": "用户消息",
+      "timelineAiReply": "AI 回复",
+      "search": "搜索",
+      "fallbackNotice": "主体模型 {{primary}} 不可用,已自动切换到 {{fallback}}",
+      "loading": "加载中…",
+      "jumpToLatest": "跳转到最新",
+      "latest": "最新",
+      "tplSummary": "总结",
+      "tplSummaryContent": "请对以下内容进行总结,提炼关键信息",
+      "tplTranslate": "翻译",
+      "tplTranslateContent": "请将以下内容翻译为英文",
+      "tplExplain": "解释",
+      "tplExplainContent": "请解释以下内容",
+      "tplCode": "代码",
+      "tplCodeContent": "请优化以下代码",
+      "tplPolish": "润色",
+      "tplPolishContent": "请润色以下文字",
+      "contextMenu": {
+        "copyText": "复制文本",
+        "copyMarkdown": "复制 Markdown",
+        "regenerate": "重新生成",
+        "feedback": "反馈",
+        "deleteMessage": "删除消息"
+      },
+      "toast": {
+        "copiedText": "已复制到剪贴板",
+        "copiedMarkdown": "已复制 Markdown",
+        "regenerating": "正在重新生成…",
+        "feedbackRecorded": "已记录反馈",
+        "messageDeleted": "消息已删除",
+        "operationFailed": "操作失败"
+      },
       "buttonLabel": "权限模式",
       "buttonHintShortcut": "Shift+Tab 循环切换",
       "popoverTitle": "应如何批准 AI 操作?",
@@ -1037,10 +1077,22 @@
         "label": "开启循环",
         "description": "开启循环执行模式,AI 将持续迭代直到目标达成"
       },
-      "loopOff": { "label": "关闭循环", "description": "关闭循环执行模式,恢复单次执行" },
-      "loop5": { "label": "循环 5 次", "description": "设置最大迭代次数为 5" },
-      "loop10": { "label": "循环 10 次", "description": "设置最大迭代次数为 10" },
-      "loop20": { "label": "循环 20 次", "description": "设置最大迭代次数为 20(高风险,需人工监督)" }
+      "loopOff": {
+        "label": "关闭循环",
+        "description": "关闭循环执行模式,恢复单次执行"
+      },
+      "loop5": {
+        "label": "循环 5 次",
+        "description": "设置最大迭代次数为 5"
+      },
+      "loop10": {
+        "label": "循环 10 次",
+        "description": "设置最大迭代次数为 10"
+      },
+      "loop20": {
+        "label": "循环 20 次",
+        "description": "设置最大迭代次数为 20(高风险,需人工监督)"
+      }
     },
     "contextMenu": {
       "copyText": "复制文本",
@@ -1242,7 +1294,7 @@
     "viewCount": "{count} 浏览",
     "required": "标题和内容不能为空",
     "answerQuestion": "回答问题",
-    "all": ""
+    "all": "全部"
   },
   "payment": {
     "title": "定价方案",
@@ -6288,9 +6340,9 @@
       "totalTokens": "总计",
       "routines": "例行程序",
       "voiceRecord": "语音录制",
-      "gender_female": "",
-      "gender_male": "",
-      "gender_unknown": ""
+      "gender_female": "女",
+      "gender_male": "男",
+      "gender_unknown": "保密"
     },
     "security": {
       "password": "密码",
@@ -6329,12 +6381,12 @@
       "hoursAgo": "{hr} 小时前",
       "daysAgo": "{day} 天前",
       "tab": {
-        "all": "",
-        "comment": "",
-        "follow": "",
-        "order": "",
-        "project": "",
-        "system": ""
+        "all": "全部",
+        "comment": "评论",
+        "follow": "关注",
+        "order": "订单",
+        "project": "项目",
+        "system": "系统"
       }
     },
     "public": {
@@ -6614,9 +6666,9 @@
       "templateLoaded": "已打开 AI 对话面板,正在为你创建 {name} 自动化任务",
       "exampleInvokePrompt": "请帮我创建一个自动化任务。任务名称:{name}。任务描述:{desc}。执行时间:{schedule}。预期产出:{output}。请根据这个模板引导我完成配置,包括确认执行时间、内容来源、输出方式等细节。"
     },
-    "automation": "",
-    "koubo": "",
-    "wechat": ""
+    "automation": "自动化",
+    "koubo": "口播",
+    "wechat": "微信"
   },
   "publish": {
     "title": "多平台一键发布",
@@ -6766,12 +6818,12 @@
       "uploadSuccess": "已上传: {filename}",
       "uploadFailed": "上传失败",
       "uploadedHint": "文件已上传,可重新选择替换",
-      "contentFormatDocx": "",
-      "contentFormatHtml": "",
-      "contentFormatImage": "",
-      "contentFormatMd": "",
-      "contentFormatPdf": "",
-      "contentFormatVideo": ""
+      "contentFormatDocx": "DOCX",
+      "contentFormatHtml": "HTML",
+      "contentFormatImage": "图片",
+      "contentFormatMd": "Markdown",
+      "contentFormatPdf": "PDF",
+      "contentFormatVideo": "视频"
     },
     "history": {
       "duration": "耗时",
@@ -7190,38 +7242,38 @@
     "desc": {
       "notificationSound": "接收通知时播放声音"
     },
-    "billingAmount": "",
-    "billingCreatedAt": "",
-    "billingLoading": "",
-    "billingNext": "",
-    "billingOrderNo": "",
-    "billingPageInfo": "",
-    "billingPrev": "",
-    "billingStatus": "",
-    "billingTotal": "",
+    "billingAmount": "金额",
+    "billingCreatedAt": "创建时间",
+    "billingLoading": "加载中…",
+    "billingNext": "下一页",
+    "billingOrderNo": "订单号",
+    "billingPageInfo": "第 {{page}}/{{totalPages}} 页",
+    "billingPrev": "上一页",
+    "billingStatus": "状态",
+    "billingTotal": "共 {{count}} 条",
     "cliImportDesc": "导入 CLI 配置与凭证",
     "cliImportTitle": "CLI 导入",
-    "icpRecordEntity": "",
-    "icpRecordEntityType": "",
-    "icpRecordNumber": "",
-    "icpRecordScope": "",
-    "icpRecordTime": "",
-    "icpRecordUrl": "",
+    "icpRecordEntity": "备案主体",
+    "icpRecordEntityType": "主体类型",
+    "icpRecordNumber": "备案号",
+    "icpRecordScope": "备案范围",
+    "icpRecordTime": "备案时间",
+    "icpRecordUrl": "备案链接",
     "llmConfigsDesc": "配置大语言模型提供商与参数",
     "llmConfigsTitle": "LLM 配置",
-    "miniappQr": "",
-    "miniappQrDesc": "",
-    "modelRecordAlgorithmType": "",
-    "modelRecordApplicant": "",
-    "modelRecordApplyDate": "",
-    "modelRecordModelName": "",
-    "modelRecordNumber": "",
-    "modelRecordScope": "",
-    "modelRecordStatus": "",
-    "profileDesc": "",
-    "profileTitle": "",
-    "securityDesc": "",
-    "securityTitle": "",
+    "miniappQr": "小程序码",
+    "miniappQrDesc": "扫码体验小程序版本",
+    "modelRecordAlgorithmType": "算法类型",
+    "modelRecordApplicant": "备案主体",
+    "modelRecordApplyDate": "备案日期",
+    "modelRecordModelName": "模型名称",
+    "modelRecordNumber": "备案编号",
+    "modelRecordScope": "适用范围",
+    "modelRecordStatus": "备案状态",
+    "profileDesc": "查看和编辑你的个人信息",
+    "profileTitle": "个人资料",
+    "securityDesc": "管理密码、两步验证等安全选项",
+    "securityTitle": "安全设置",
     "accountDeletionTitle": "账号注销",
     "activityTitle": "活动记录",
     "apiKeysNavTitle": "API 密钥",
@@ -7248,9 +7300,9 @@
     "empty": "暂无收藏内容",
     "loading": "加载中...",
     "tabs": {
-      "all": "",
-      "file": "",
-      "project": ""
+      "all": "全部",
+      "file": "文件",
+      "project": "项目"
     }
   },
   "follows": {
@@ -7265,10 +7317,10 @@
     "empty": "暂无订阅",
     "loading": "加载中...",
     "tabs": {
-      "all": "",
-      "project": "",
-      "tag": "",
-      "user": ""
+      "all": "全部",
+      "project": "项目",
+      "tag": "标签",
+      "user": "用户"
     }
   },
   "tags": {
@@ -7634,8 +7686,8 @@
         "time": "兑换时间",
         "status": "状态",
         "statusLabels": {
-          "failed": "",
-          "success": ""
+          "failed": "失败",
+          "success": "成功"
         }
       }
     },
@@ -7672,12 +7724,12 @@
         }
       ],
       "features": {
-        "cache": "",
-        "loadBalance": "",
-        "monitor": "",
-        "multiModel": "",
-        "oneClick": "",
-        "scale": ""
+        "cache": "缓存",
+        "loadBalance": "负载均衡",
+        "monitor": "监控",
+        "multiModel": "多模型",
+        "oneClick": "一键部署",
+        "scale": "弹性扩容"
       }
     },
     "apiDocs": {
@@ -7703,7 +7755,10 @@
         "title": "调用示例",
         "curl": "cURL",
         "python": "Python"
-      }
+      },
+      "curlPlaceholder": "输入 cURL 命令进行测试…",
+      "searchPlaceholder": "搜索接口…",
+      "copyCodeAriaLabel": "复制代码"
     },
     "skills": {
       "title": "Skills 市场",
@@ -7715,51 +7770,51 @@
       "install": "安装",
       "installs": "{count} 安装",
       "categories": {
-        "code": "",
-        "communication": "",
-        "data": "",
-        "media": "",
-        "productivity": "",
-        "search": "",
-        "system": "",
-        "weather": ""
+        "code": "代码",
+        "communication": "沟通",
+        "data": "数据",
+        "media": "媒体",
+        "productivity": "效率",
+        "search": "搜索",
+        "system": "系统",
+        "weather": "天气"
       },
       "items": {
         "audioTranscribe": {
-          "desc": ""
+          "desc": "将音频转录为文字"
         },
         "calendar": {
-          "desc": ""
+          "desc": "管理日程和提醒"
         },
         "codeRunner": {
-          "desc": ""
+          "desc": "在线运行代码并查看结果"
         },
         "dataViz": {
-          "desc": ""
+          "desc": "将数据可视化为图表"
         },
         "databaseQuery": {
-          "desc": ""
+          "desc": "查询数据库并返回结果"
         },
         "emailSender": {
-          "desc": ""
+          "desc": "发送和管理邮件"
         },
         "healthcheck": {
-          "desc": ""
+          "desc": "检查服务健康状态"
         },
         "imageGen": {
-          "desc": ""
+          "desc": "根据描述生成图片"
         },
         "nodeConnect": {
-          "desc": ""
+          "desc": "连接和管理节点"
         },
         "pdfToolkit": {
-          "desc": ""
+          "desc": "处理和转换 PDF 文件"
         },
         "weather": {
-          "desc": ""
+          "desc": "查询天气预报信息"
         },
         "webSearch": {
-          "desc": ""
+          "desc": "搜索网络获取最新信息"
         }
       }
     },
@@ -7790,8 +7845,8 @@
       "statusLabels": {
         "success": "成功",
         "failed": "失败",
-        "disabled": "",
-        "enabled": ""
+        "disabled": "已禁用",
+        "enabled": "已启用"
       }
     },
     "chats": {
@@ -7825,13 +7880,13 @@
         "createdAt": "创建时间"
       },
       "roleLabels": {
-        "admin": "",
-        "user": "",
-        "vip": ""
+        "admin": "管理员",
+        "user": "用户",
+        "vip": "VIP"
       },
       "statusLabels": {
-        "active": "",
-        "disabled": ""
+        "active": "活跃",
+        "disabled": "已禁用"
       }
     },
     "contact": {
@@ -7987,8 +8042,8 @@
     "required": "标题和内容不能为空",
     "field_images": "截图",
     "imagesPlaceholder": "粘贴或拖拽图片到此处",
-    "tab_list": "",
-    "tab_new": ""
+    "tab_list": "列表",
+    "tab_new": "最新"
   },
   "comments": {
     "replyTitle": "管理员回复",
@@ -8047,18 +8102,18 @@
       "loading": "加载中...",
       "empty": "暂无签到记录",
       "backToPoints": "返回积分中心",
-      "day0": "",
-      "day1": "",
-      "day2": "",
-      "day3": "",
-      "day4": "",
-      "day5": "",
-      "day6": ""
+      "day0": "第1天",
+      "day1": "第2天",
+      "day2": "第3天",
+      "day3": "第4天",
+      "day4": "第5天",
+      "day5": "第6天",
+      "day6": "第7天"
     },
     "tab": {
-      "lb": "",
-      "redeem": "",
-      "tx": ""
+      "lb": "排行榜",
+      "redeem": "兑换",
+      "tx": "交易"
     }
   },
   "orders": {
@@ -8075,16 +8130,16 @@
     "total": "共 {total} 条",
     "orderType": "订单类型",
     "status": {
-      "all": "",
-      "cancelled": "",
-      "paid": "",
-      "pending": "",
-      "refunded": ""
+      "all": "全部",
+      "cancelled": "已取消",
+      "paid": "已支付",
+      "pending": "待支付",
+      "refunded": "已退款"
     },
     "type": {
-      "all": "",
-      "card": "",
-      "course": ""
+      "all": "全部",
+      "card": "卡密",
+      "course": "课程"
     }
   },
   "live": {
@@ -8554,14 +8609,14 @@
       "cancel": "取消",
       "connected": "已连接",
       "disconnected": "已断开",
-      "high": "",
-      "low": "",
-      "medium": ""
+      "high": "高",
+      "low": "低",
+      "medium": "中"
     },
-    "statusOffline": "",
-    "statusPending": "",
-    "statusPublished": "",
-    "statusRejected": ""
+    "statusOffline": "已下线",
+    "statusPending": "待审核",
+    "statusPublished": "已发布",
+    "statusRejected": "已拒绝"
   },
   "agents": {
     "kanban": {
@@ -8667,15 +8722,15 @@
     "currentBalance": "当前余额",
     "totalEarned": "累计获得",
     "totalUsed": "累计使用",
-    "colAgent": "",
-    "colAmount": "",
-    "colModel": "",
-    "colTime": "",
-    "colToken": "",
-    "range30d": "",
-    "range7d": "",
-    "rangeCustom": "",
-    "rangeToday": ""
+    "colAgent": "Agent",
+    "colAmount": "数量",
+    "colModel": "模型",
+    "colTime": "时间",
+    "colToken": "Token",
+    "range30d": "近30天",
+    "range7d": "近7天",
+    "rangeCustom": "自定义",
+    "rangeToday": "今天"
   },
   "distributionCompany": {
     "title": "我的公司",
@@ -9211,8 +9266,8 @@
     "pageTitle": "AI 内容生成",
     "pageSubtitle": "选择类型，生成文本、图像、视频、音频、3D 模型等内容",
     "clear": "清除",
-    "tabCode": "",
-    "tabText": "",
+    "tabCode": "代码",
+    "tabText": "文本",
     "defaultPromptPlaceholder": "描述你想要生成的内容...",
     "promptAriaLabel": "生成内容输入框",
     "imageTitle": "图像生成",
@@ -9410,34 +9465,34 @@
   "myAsks": {
     "delete": "删除",
     "deleteConfirm": "确定删除此问题？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "管理我的提问",
+    "title": "我的提问"
   },
   "myCircles": {
     "leave": "退出",
     "leaveConfirm": "确定退出此圈子？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "管理我的圈子",
+    "title": "我的圈子"
   },
   "myArticles": {
     "create": "写文章",
     "edit": "编辑",
     "delete": "删除",
     "deleteConfirm": "确定删除此文章？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "管理我的文章",
+    "title": "我的文章"
   },
   "myResources": {
     "deleteConfirm": "确定删除此资源？",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "管理我的资源",
+    "title": "我的资源"
   },
   "myComments": {
     "delete": "删除",
     "deleteConfirm": "确定删除此评论？",
     "targetType": "关联对象",
-    "subtitle": "",
-    "title": ""
+    "subtitle": "管理我的评论",
+    "title": "我的评论"
   },
   "sso": {
     "title": "统一登录",
@@ -9813,12 +9868,12 @@
       "searchPlaceholder": "搜索 API 名称或描述...",
       "loading": "加载中...",
       "noMatch": "暂无匹配的 API",
-      "catAll": "",
-      "catAudio": "",
-      "catChat": "",
-      "catImage": "",
-      "catTool": "",
-      "catVideo": ""
+      "catAll": "全部",
+      "catAudio": "音频",
+      "catChat": "对话",
+      "catImage": "图像",
+      "catTool": "工具",
+      "catVideo": "视频"
     },
     "models": {
       "title": "模型集市",
@@ -9836,12 +9891,12 @@
       "searchPlaceholder": "搜索 Agent 名称或描述...",
       "loading": "加载中...",
       "noMatch": "暂无匹配的 Agent",
-      "catAll": "",
-      "catAnalysis": "",
-      "catChat": "",
-      "catCoding": "",
-      "catTool": "",
-      "catWriting": ""
+      "catAll": "全部",
+      "catAnalysis": "分析",
+      "catChat": "对话",
+      "catCoding": "编程",
+      "catTool": "工具",
+      "catWriting": "写作"
     },
     "documents": {
       "title": "文档集市",
@@ -10205,9 +10260,9 @@
     "addedToChatModel": "已添加 {name} 到对话,需在 .env 配置对应 API Key 激活模型",
     "addedToChatPrompt": "已添加 {name} 到对话(仅 prompt 意图,后端暂无对应工具)",
     "removedFromChat": "已从对话移除 {name}",
-    "sortDefault": "",
-    "sortInstalled": "",
-    "sortName": ""
+    "sortDefault": "默认排序",
+    "sortInstalled": "已安装",
+    "sortName": "名称"
   },
   "aiWorld": {
     "admin": {
@@ -11519,22 +11574,22 @@
       "favToggle": "收藏/取消收藏",
       "colVisibility": "列显隐",
       "colVisibilityHint": "勾选显示列",
-      "categoryAgent": "",
-      "categoryAudio": "",
-      "categoryEmbedding": "",
-      "categoryImage": "",
-      "categoryLlm": "",
-      "categoryMultimodal": "",
-      "categoryOverall": "",
-      "categoryVideo": "",
-      "colArenaScore": "",
-      "colContextWindow": "",
-      "colInputPrice": "",
-      "colMaxOutput": "",
-      "colOutputPrice": "",
-      "colReleaseDate": "",
-      "colVoteCount": "",
-      "colWinRate": ""
+      "categoryAgent": "Agent",
+      "categoryAudio": "音频",
+      "categoryEmbedding": "嵌入",
+      "categoryImage": "图像",
+      "categoryLlm": "大模型",
+      "categoryMultimodal": "多模态",
+      "categoryOverall": "综合",
+      "categoryVideo": "视频",
+      "colArenaScore": "竞技分",
+      "colContextWindow": "上下文窗口",
+      "colInputPrice": "输入价格",
+      "colMaxOutput": "最大输出",
+      "colOutputPrice": "输出价格",
+      "colReleaseDate": "发布日期",
+      "colVoteCount": "投票数",
+      "colWinRate": "胜率"
     },
     "hero": {
       "label": "AI 资讯 Hero",
@@ -11572,21 +11627,21 @@
       "trendNotifyCollapse": "收起",
       "trendNotifyClose": "关闭",
       "langSwitch": "切换标题语言为{lang}",
-      "categoryAll": "",
-      "categoryIndustry": "",
-      "categoryModel": "",
-      "categoryPaper": "",
-      "categoryProduct": "",
-      "categoryTip": "",
-      "channelAll": "",
-      "channelFirstParty": "",
-      "channelHotlist": "",
-      "channelNews": "",
-      "channelPaper": "",
-      "trendAll": "",
-      "trendCooling": "",
-      "trendNew": "",
-      "trendRising": ""
+      "categoryAll": "全部",
+      "categoryIndustry": "行业",
+      "categoryModel": "模型",
+      "categoryPaper": "论文",
+      "categoryProduct": "产品",
+      "categoryTip": "技巧",
+      "channelAll": "全部",
+      "channelFirstParty": "官方",
+      "channelHotlist": "热门",
+      "channelNews": "资讯",
+      "channelPaper": "论文",
+      "trendAll": "全部",
+      "trendCooling": "降温",
+      "trendNew": "新品",
+      "trendRising": "上升"
     },
     "hotRanking": {
       "label": "热度排行榜",
@@ -11612,8 +11667,8 @@
       "sortLabel": "排序",
       "searchPlaceholder": "搜索标题 / 摘要 / 来源…",
       "resultCount": "共 {count} / {total} 条",
-      "sortByAmount": "",
-      "sortByDate": ""
+      "sortByAmount": "按金额",
+      "sortByDate": "按日期"
     },
     "detailDialog": {
       "arenaScore": "Arena 评分",
@@ -11675,11 +11730,11 @@
       "speedTesting": "测速中...",
       "sortBySpeed": "按延迟",
       "speedError": "超时",
-      "allBilling": "",
-      "billingFree": "",
-      "billingGpu": "",
-      "billingSubscription": "",
-      "billingToken": ""
+      "allBilling": "全部计费",
+      "billingFree": "免费",
+      "billingGpu": "GPU",
+      "billingSubscription": "订阅",
+      "billingToken": "Token"
     },
     "cta": {
       "label": "底部 CTA",
@@ -12083,7 +12138,7 @@
     "enterprise": {
       "name": "企业服务",
       "price": "商务洽谈",
-      "period": "",
+      "period": "/月",
       "desc": "面向企业决策者团队的定制方案",
       "cta": "联系商务",
       "features": [
@@ -12243,15 +12298,15 @@
     "submitting": "添加中...",
     "submit": "添加水印",
     "positions": {
-      "bottomCenter": "",
-      "bottomLeft": "",
-      "bottomRight": "",
-      "middleCenter": "",
-      "middleLeft": "",
-      "middleRight": "",
-      "topCenter": "",
-      "topLeft": "",
-      "topRight": ""
+      "bottomCenter": "底部居中",
+      "bottomLeft": "左下",
+      "bottomRight": "右下",
+      "middleCenter": "居中",
+      "middleLeft": "左中",
+      "middleRight": "右中",
+      "topCenter": "顶部居中",
+      "topLeft": "左上",
+      "topRight": "右上"
     }
   },
   "businessCardEditPage": {
@@ -12544,10 +12599,10 @@
     "loading": "加载中...",
     "empty": "暂无订单记录",
     "stats": {
-      "coupon": "",
-      "level": "",
-      "orders": "",
-      "points": ""
+      "coupon": "优惠券",
+      "level": "等级",
+      "orders": "订单",
+      "points": "积分"
     }
   },
   "developerHomePage": {
@@ -12758,11 +12813,11 @@
     "noDescription": "暂无描述",
     "free": "免费",
     "statusFilters": {
-      "all": "",
-      "offline": "",
-      "pending": "",
-      "published": "",
-      "rejected": ""
+      "all": "全部",
+      "offline": "已下线",
+      "pending": "待审核",
+      "published": "已发布",
+      "rejected": "已拒绝"
     }
   },
   "businessCardPage": {
@@ -12846,10 +12901,10 @@
     "requestBody": "请求体",
     "responseBody": "响应体",
     "statusFilter": {
-      "2xx": "",
-      "4xx": "",
-      "5xx": "",
-      "all": ""
+      "2xx": "2xx 成功",
+      "4xx": "4xx 客户端错误",
+      "5xx": "5xx 服务端错误",
+      "all": "全部"
     }
   },
   "eduCertificatesPage": {
@@ -12999,9 +13054,9 @@
     "minSpend": "满 {amount} 可用",
     "validUntil": "有效期至:{date}",
     "tab": {
-      "expired": "",
-      "unused": "",
-      "used": ""
+      "expired": "已过期",
+      "unused": "未使用",
+      "used": "已使用"
     }
   },
   "answerArea": {
@@ -13177,9 +13232,9 @@
     "submitting": "拆分中...",
     "resultHint": "拆分完成，结果已打包为 ZIP：",
     "mode": {
-      "bookmarks": "",
-      "every": "",
-      "range": ""
+      "bookmarks": "按书签",
+      "every": "每页",
+      "range": "按范围"
     }
   },
   "supportNewTicketForm": {
@@ -13307,9 +13362,9 @@
       "score": "积分"
     },
     "range": {
-      "month": "",
-      "total": "",
-      "week": ""
+      "month": "本月",
+      "total": "总计",
+      "week": "本周"
     }
   },
   "recruitmentPage": {
@@ -13485,11 +13540,11 @@
   "ide": {
     "activityBar": {
       "settings": "设置",
-      "applications": "",
-      "debug": "",
-      "files": "",
-      "search": "",
-      "sourceControl": ""
+      "applications": "应用",
+      "debug": "调试",
+      "files": "文件",
+      "search": "搜索",
+      "sourceControl": "源代码管理"
     },
     "topBar": {
       "editor": "编辑器",
@@ -13600,13 +13655,13 @@
       "browseFiles": "浏览文件",
       "recentFiles": "最近打开",
       "shortcuts": "快捷键",
-      "scGlobalSearch": "",
-      "scGotoLine": "",
-      "scOpenFile": "",
-      "scToggleSidebar": "",
-      "scToggleTerminal": "",
-      "settings": "",
-      "viewChanges": ""
+      "scGlobalSearch": "全局搜索",
+      "scGotoLine": "跳转到行",
+      "scOpenFile": "打开文件",
+      "scToggleSidebar": "切换侧边栏",
+      "scToggleTerminal": "切换终端",
+      "settings": "设置",
+      "viewChanges": "查看更改"
     },
     "editorTabBar": {
       "closeTab": "关闭标签",
@@ -13710,7 +13765,7 @@
     "statusBar": {
       "sync": "同步",
       "toggleTheme": "切换主题",
-      "unsynced": ""
+      "unsynced": "未同步"
     },
     "terminalPanel": {
       "loadFailed": "终端加载失败: {message}",
@@ -14088,6 +14143,46 @@
         "个性化学习路径推荐"
       ]
     }
+  },
+  "specPanel": {
+    "historyVersion": "历史版本",
+    "regenCompare": "重新生成对比",
+    "rejectReasonPlaceholder": "输入拒绝原因…",
+    "proposedChangePlaceholder": "输入提议的变更…",
+    "branchNamePlaceholder": "输入分支名称…",
+    "baselineVersion": "基线版本",
+    "mergeToMain": "合并到主分支",
+    "compareMain": "与主分支对比",
+    "abandonBranch": "放弃分支",
+    "requirementFormat": "需求格式",
+    "stopListening": "停止监听"
+  },
+  "dispatchDialog": {
+    "taskGoalPlaceholder": "描述任务目标…",
+    "taskDescPlaceholder": "描述任务详情…",
+    "conditionPlaceholder": "描述完成条件…",
+    "examplePlaceholder": "示例…",
+    "roleDescPlaceholder": "描述角色职责…"
+  },
+  "inlineEdit": {
+    "editDescPlaceholder": "描述编辑内容…",
+    "stopAriaLabel": "停止编辑",
+    "closeAriaLabel": "关闭编辑"
+  },
+  "agentSwarm": {
+    "listViewAriaLabel": "列表视图",
+    "topologyViewAriaLabel": "拓扑视图"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "搜索消息…",
+    "searchAriaLabel": "搜索消息"
+  },
+  "mentionSearch": {
+    "keywordAriaLabel": "关键词",
+    "mentionTypeAriaLabel": "提及类型"
+  },
+  "adminTool": {
+    "usernamePlaceholder": "用户名"
   },
   "useCasesCustomerSupport": {
     "reviewSchema": {

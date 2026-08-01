@@ -724,6 +724,20 @@
     }
   },
   "exam": {
+    "title": "考试列表",
+    "loadFailed": "加载考试失败",
+    "empty": "暂无考试",
+    "ended": "考试已结束",
+    "notStarted": "考试未开始",
+    "noAttemptsLeft": "已无考试次数",
+    "startHint": "开始考试:{title}",
+    "inProgress": "进行中",
+    "duration": "时长",
+    "totalScore": "总分",
+    "passScore": "及格分",
+    "questionCount": "题数",
+    "attempts": "已考次数",
+    "start": "开始考试",
     "result": {
       "correct": "答对",
       "wrong": "答错"
@@ -1121,26 +1135,6 @@
     "rank": "排名",
     "points": "积分",
     "isMe": "我"
-  },
-  "exam": {
-    "title": "考试列表",
-    "loadFailed": "加载考试失败",
-    "empty": "暂无考试",
-    "ended": "考试已结束",
-    "notStarted": "考试未开始",
-    "noAttemptsLeft": "已无考试次数",
-    "startHint": "开始考试:{title}",
-    "inProgress": "进行中",
-    "duration": "时长",
-    "totalScore": "总分",
-    "passScore": "及格分",
-    "questionCount": "题数",
-    "attempts": "已考次数",
-    "start": "开始考试",
-    "result": {
-      "correct": "答对",
-      "wrong": "答错"
-    }
   },
   "vip": {
     "title": "VIP 会员",
