@@ -51,9 +51,7 @@ export default function FansPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['user', 'fans'],
     queryFn: async (): Promise<FanUser[]> => {
-      const r = await fetchApi<{ list?: FanUser[] }>(
-        `/api/follows/followers?page=1&pageSize=100`,
-      )
+      const r = await fetchApi<{ list?: FanUser[] }>(`/api/follows/followers?page=1&pageSize=100`)
       if (!r.success) {
         if (r.status === 404) return []
         throw new Error(r.error)
@@ -122,7 +120,7 @@ export default function FansPage() {
                 <div className="flex items-center gap-3">
                   <Avatar src={fan.avatar ?? undefined} name={fan.nickname ?? '?'} size="md" />
                   <div className="min-w-0 flex-1 space-y-0.5">
-                    <p className="truncate text-sm font-medium">{fan.nickname ?? '匿名用户'}</p>
+                    <p className="truncate text-sm font-medium">{fan.nickname ?? t('anonymous')}</p>
                     {fan.bio ? (
                       <p className="truncate text-xs text-muted-foreground">{fan.bio}</p>
                     ) : null}
