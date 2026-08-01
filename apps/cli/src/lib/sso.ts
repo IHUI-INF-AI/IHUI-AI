@@ -108,9 +108,9 @@ function waitForCallback(): Promise<string> {
         server.close();
         clearTimeout(timer);
         resolve(code);
-      } else {
-        // 错误回调(如用户取消授权)
-        const errParam = parsed.query.error || 'no_code';
+      } else if (parsed.query.error) {
+        // 用户主动取消授权(error 参数,真正失败场景)
+        const errParam = parsed.query.error;
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录失败</title></head>' +
@@ -122,6 +122,17 @@ function waitForCallback(): Promise<string> {
         server.close();
         clearTimeout(timer);
         reject(new Error(`SSO 回调错误: ${errParam}`));
+      } else {
+        // 2026-08-01 修复:无 sso_code 也无 error 的请求(健康检查/扫描器探测/用户误访问)
+        // 不关闭服务器,只返回友好提示让用户继续等待真正的回调
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(
+          '<!DOCTYPE html><html><head><meta charset="utf-8"><title>等待 SSO 登录</title></head>' +
+          '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
+          '<h1>等待登录中</h1><p>请在弹出的登录页完成授权。</p>' +
+          '<p style="color:#888;font-size:14px;">本页面可关闭,CLI 仍在等待回调。</p>' +
+          '</body></html>',
+        );
       }
     });
 
