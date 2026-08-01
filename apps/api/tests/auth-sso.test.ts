@@ -1,30 +1,33 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
-const { mockVerifyAccessToken, mockUser, mockPermissions, mockTokenPair } = vi.hoisted(() => ({
-  mockVerifyAccessToken: vi.fn(),
-  mockUser: {
-    id: 'user-001',
-    phone: '13800000001',
-    email: 'test@example.com',
-    nickname: 'Tester',
-    avatar: 'https://example.com/a.png',
-    passwordHash: null,
-    roleId: 0,
-    status: 1,
-    familyId: 'fam-001',
-  },
-  mockPermissions: ['read:courses', 'write:notes'],
-  mockTokenPair: {
-    accessToken: 'real-access-token-abc123',
-    refreshToken: 'real-refresh-token-xyz789',
-    expiresIn: 3600,
-  },
-}))
+const { mockVerifyAccessToken, mockVerifyRefreshToken, mockUser, mockPermissions, mockTokenPair } =
+  vi.hoisted(() => ({
+    mockVerifyAccessToken: vi.fn(),
+    mockVerifyRefreshToken: vi.fn(),
+    mockUser: {
+      id: 'user-001',
+      phone: '13800000001',
+      email: 'test@example.com',
+      nickname: 'Tester',
+      avatar: 'https://example.com/a.png',
+      passwordHash: null,
+      roleId: 0,
+      status: 1,
+      familyId: 'fam-001',
+    },
+    mockPermissions: ['read:courses', 'write:notes'],
+    mockTokenPair: {
+      accessToken: 'real-access-token-abc123',
+      refreshToken: 'real-refresh-token-xyz789',
+      expiresIn: 3600,
+    },
+  }))
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: mockVerifyAccessToken,
+  verifyRefreshToken: mockVerifyRefreshToken,
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token-real'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token-real'),
   createFamilyId: vi.fn().mockReturnValue('fam-mock'),
@@ -40,11 +43,15 @@ vi.mock('../src/config/index.js', () => ({
 const {
   mockFindUserById,
   mockRevokeAllUserRefreshTokens,
+  mockFindRefreshToken,
+  mockRevokeRefreshToken,
   mockGetUserPermissions,
   mockIssueTokenPair,
 } = vi.hoisted(() => ({
   mockFindUserById: vi.fn(),
   mockRevokeAllUserRefreshTokens: vi.fn(),
+  mockFindRefreshToken: vi.fn(),
+  mockRevokeRefreshToken: vi.fn(),
   mockGetUserPermissions: vi.fn(),
   mockIssueTokenPair: vi.fn(),
 }))
@@ -52,6 +59,8 @@ const {
 vi.mock('../src/db/queries.js', () => ({
   findUserById: mockFindUserById,
   revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
+  findRefreshToken: mockFindRefreshToken,
+  revokeRefreshToken: mockRevokeRefreshToken,
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
@@ -110,10 +119,21 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
     redisStore.clear()
     mockVerifyAccessToken.mockReset()
     mockVerifyAccessToken.mockResolvedValue(mockPayload)
+    mockVerifyRefreshToken.mockReset()
+    mockVerifyRefreshToken.mockResolvedValue(mockPayload)
     mockFindUserById.mockReset()
     mockFindUserById.mockResolvedValue(mockUser)
     mockRevokeAllUserRefreshTokens.mockReset()
     mockRevokeAllUserRefreshTokens.mockResolvedValue(undefined)
+    mockFindRefreshToken.mockReset()
+    mockFindRefreshToken.mockResolvedValue({
+      token: 'real-refresh-token-xyz789',
+      userId: 'user-001',
+      familyId: 'fam-001',
+      revokedAt: null,
+    })
+    mockRevokeRefreshToken.mockReset()
+    mockRevokeRefreshToken.mockResolvedValue(undefined)
     mockGetUserPermissions.mockReset()
     mockGetUserPermissions.mockResolvedValue(mockPermissions)
     mockIssueTokenPair.mockReset()
@@ -179,6 +199,100 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
         url: '/api/auth/sso/code',
         headers: { authorization: 'Bearer valid-token' },
         payload: { clientId: 'miniapp', redirectUri: 'https://evil.com' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    // === 2026-08-01 新增:跨端 redirectUri 扩展(localhost + 配置化 origins)===
+
+    it('redirectUri localhost(http://localhost:1738/callback)通过(CLI 本地回调服务器)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'cli', redirectUri: 'http://localhost:1738/callback' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.redirectUri).toBe('http://localhost:1738/callback')
+    })
+
+    it('redirectUri 127.0.0.1 通过(loopback 地址)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'cli', redirectUri: 'http://127.0.0.1:1738/cb' },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('redirectUri 非 loopback IP 被拒(防外网回调)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'cli', redirectUri: 'http://192.168.1.1:1738/cb' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('redirectUri 0.0.0.0 被拒(仅允许 loopback)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'cli', redirectUri: 'http://0.0.0.0:1738/cb' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('redirectUri 非允许 origin 的 https URL 被拒', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'ext', redirectUri: 'https://evil.com/cb' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('redirectUri javascript: scheme 被拒(防 XSS)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'ext', redirectUri: 'javascript:alert(1)' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('redirectUri data: scheme 被拒', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'ext', redirectUri: 'data:text/html,<script>alert(1)</script>' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('redirectUri 含控制字符被拒(防 CRLF 注入)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'ext', redirectUri: '/cb\r\nSet-Cookie: evil=1' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('redirectUri 超长(>2048)被拒', async () => {
+      const longUri = '/' + 'a'.repeat(2048)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/code',
+        headers: { authorization: 'Bearer valid-token' },
+        payload: { clientId: 'ext', redirectUri: longUri },
       })
       expect(res.statusCode).toBe(400)
     })
@@ -273,6 +387,122 @@ describe('auth-sso — SSO 4 端点 + skipResponseSanitization', () => {
         payload: { code, clientId: 'miniapp' },
       })
       expect(res.statusCode).toBe(404)
+    })
+  })
+
+  // === 2026-08-01 新增:/sso/refresh 端点测试 ===
+  describe('POST /api/auth/sso/refresh — 刷新 token(轮换)', () => {
+    it('成功刷新并轮换 refresh token(旧 token 吊销,新 token 颁发)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'real-refresh-token-xyz789' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.accessToken).toBe('real-access-token-abc123')
+      expect(body.data.refreshToken).toBe('real-refresh-token-xyz789')
+      expect(body.data.expiresIn).toBe(3600)
+      expect(body.data.refreshExpiresIn).toBe(30 * 24 * 60 * 60)
+      expect(body.data.user.id).toBe('user-001')
+      expect(body.data.user.permissions).toEqual(['read:courses', 'write:notes'])
+      // 旧 token 被吊销
+      expect(mockRevokeRefreshToken).toHaveBeenCalledWith('real-refresh-token-xyz789')
+    })
+
+    it('refreshToken 缺失返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: {},
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('refreshToken 签名无效/过期返回 401', async () => {
+      mockVerifyRefreshToken.mockRejectedValueOnce(new Error('jwt expired'))
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'invalid-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(res.json().message).toContain('无效或已过期')
+    })
+
+    it('refreshToken 已被吊销(库中查不到)返回 401', async () => {
+      mockFindRefreshToken.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'revoked-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(res.json().message).toContain('已被吊销')
+    })
+
+    it('refreshToken 已被标记 revokedAt 返回 401', async () => {
+      mockFindRefreshToken.mockResolvedValueOnce({
+        token: 'revoked-token',
+        userId: 'user-001',
+        familyId: 'fam-001',
+        revokedAt: new Date('2026-07-01'),
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'revoked-token' },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(res.json().message).toContain('已被吊销')
+    })
+
+    it('用户不存在返回 404', async () => {
+      mockFindUserById.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'real-refresh-token-xyz789' },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('用户已被禁用返回 403', async () => {
+      mockFindUserById.mockResolvedValueOnce({ ...mockUser, status: 0 })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'real-refresh-token-xyz789' },
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('已被禁用')
+    })
+
+    it('admin 用户(roleId>=1)刷新返回通配权限 *:*:* — 不调用 getUserPermissions', async () => {
+      mockFindUserById.mockResolvedValueOnce({ ...mockUser, roleId: 1 })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'real-refresh-token-xyz789' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.user.permissions).toEqual(['*:*:*'])
+      expect(mockGetUserPermissions).not.toHaveBeenCalled()
+    })
+
+    it('刷新响应 token 不被脱敏(skipResponseSanitization 旁路)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/sso/refresh',
+        payload: { refreshToken: 'real-refresh-token-xyz789' },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.data.accessToken).toBe('real-access-token-abc123')
+      expect(body.data.accessToken).not.toBe('***')
+      expect(body.data.refreshToken).toBe('real-refresh-token-xyz789')
+      expect(body.data.refreshToken).not.toBe('***')
     })
   })
 
