@@ -49,10 +49,12 @@ export function useConfirm(): UseConfirmReturn {
   }, [])
 
   const handleClose = React.useCallback((result: boolean) => {
-    setState((prev) => {
-      prev?.resolve?.(result)
-      return null
-    })
+    // 2026-08-02 修复:在 setState 之外调用 resolve,避免 React 严格模式下
+    // updater 被调用两次导致 resolve 被调用两次(虽然 Promise 二次 resolve 是 no-op,
+    // 但违反 React 纯函数原则)
+    const prev = stateRef.current
+    setState(null)
+    prev?.resolve?.(result)
   }, [])
 
   const ConfirmDialogRenderer = React.useMemo<React.FC>(
@@ -120,10 +122,10 @@ export function usePrompt(): UsePromptReturn {
   }, [])
 
   const handleClose = React.useCallback((result: string | null) => {
-    setState((prev) => {
-      prev?.resolve?.(result)
-      return null
-    })
+    // 2026-08-02 修复:同 useConfirm 的 handleClose,在 setState 之外调用 resolve
+    const prev = stateRef.current
+    setState(null)
+    prev?.resolve?.(result)
   }, [])
 
   const PromptDialogRenderer = React.useMemo<React.FC>(

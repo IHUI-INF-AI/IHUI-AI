@@ -35,7 +35,7 @@ export interface UseRouteAnalyticsReturn {
  */
 export function useRouteAnalytics(): UseRouteAnalyticsReturn {
   const pathname = usePathname()
-  const { track, trackPageView, flush } = useAnalytics()
+  const { track, trackPageView, flushBeacon } = useAnalytics()
 
   const enterTimeRef = React.useRef<number>(Date.now())
   const prevPathRef = React.useRef<string>('')
@@ -89,14 +89,15 @@ export function useRouteAnalytics(): UseRouteAnalyticsReturn {
           label: prevPathRef.current,
         })
       }
-      void flush()
+      // 2026-08-02 修复:beforeunload 不等 async fetch,用 sendBeacon 同步发送
+      flushBeacon()
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
-  }, [track, flush])
+  }, [track, flushBeacon])
 
   // 不再返回 currentPath,避免调用方订阅 usePathname 触发重渲染
   return {}
