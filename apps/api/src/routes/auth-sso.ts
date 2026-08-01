@@ -180,6 +180,8 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
     '/sso/code',
     {
       preHandler: authenticate,
+      // P1 安全修复(2026-08-02):SSO 授权码生成端点无限流可被滥用。
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         summary: '生成 SSO 一次性授权码',
         description: '已登录用户生成一次性 code（30 秒有效），用于跨子项目共享登录态',
@@ -221,6 +223,8 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/sso/exchange',
     {
+      // P1 安全修复(2026-08-02):SSO code 换 token 端点无限流可暴力破解 code。
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         summary: 'SSO 授权码换取 Token',
         description: '子项目用一次性 code 换取 accessToken + refreshToken，实现跨子项目共享登录',
@@ -303,6 +307,8 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/sso/refresh',
     {
+      // P1 安全修复(2026-08-02):SSO refresh 端点无限流可暴力破解 refreshToken。
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       schema: {
         summary: 'SSO 刷新 Token',
         description: '使用 refreshToken 轮换签发新的 accessToken / refreshToken（旧 token 吊销）',

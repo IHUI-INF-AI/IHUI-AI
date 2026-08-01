@@ -16,6 +16,21 @@
 import { env } from 'node:process'
 import { createHash, randomUUID } from 'node:crypto'
 
+/** P1 修复:fetch 加 AbortController 超时,防止网络异常时请求挂起耗尽连接池 */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 15000,
+): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // =============================================================================
 // 类型定义
 // =============================================================================
@@ -129,7 +144,7 @@ async function getFcmAccessToken(): Promise<string | null> {
     exp: Math.floor(now / 1000) + 3600,
   }
   const jwt = await signJwtRS256(payload, sa.private_key)
-  const resp = await fetch(sa.token_uri, {
+  const resp = await fetchWithTimeout(sa.token_uri, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt&assertion=${jwt}`,
@@ -163,7 +178,7 @@ async function sendFcm(target: PushTarget, message: PushMessage): Promise<PushRe
     },
   }
   try {
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -203,7 +218,7 @@ async function getGetuiAuthToken(): Promise<string | null> {
   const sign = signGetuiAuth(appKey, masterSecret, timestamp)
   const url = `https://restapi.getui.com/v2/${appId}/auth`
   try {
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sign, timestamp, appkey: appKey }),
@@ -240,7 +255,7 @@ async function sendGetui(target: PushTarget, message: PushMessage): Promise<Push
     },
   }
   try {
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

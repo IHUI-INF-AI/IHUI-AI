@@ -25,7 +25,7 @@ import {
   vipLevels,
   wechatPayContracts,
 } from '@ihui/database'
-import { placeOrder, completeOrder } from '../services/order-service.js'
+import { placeOrder } from '../services/order-service.js'
 import {
   verifyCallbackSignature,
   isWechatPayConfigured,
@@ -173,7 +173,6 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const query = request.query as Record<string, string>
       const outTradeNo = query.out_trade_no ?? ''
-      const tradeNo = query.trade_no ?? ''
       const tradeStatus = query.trade_status ?? ''
 
       const failUrl = `${config.CORS_ORIGIN}/payment/fail`
@@ -205,16 +204,16 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
           return reply.redirect(successUrl)
         }
 
-        // 如果订单待支付，尝试完成订单
+        // P0 安全修复(2026-08-02):同步返回端点不验签,禁止在此调用 completeOrder 标记订单已支付。
+        // 攻击者构造 /payments/sync-return?out_trade_no=<pending订单号>&trade_no=fake&trade_status=TRADE_SUCCESS
+        // 即可免费完成任意待支付订单。订单状态变更只由验签后的异步回调(/payments/notify)触发。
+        // 待支付订单重定向到 pending 页面,前端轮询订单状态等待异步回调完成。
         if (order.status === 'pending') {
-          const result = await completeOrder(outTradeNo, tradeNo)
-          if (result.success) {
-            const successUrl = `${config.CORS_ORIGIN}/payment/success?orderNo=${outTradeNo}`
-            return reply.redirect(successUrl)
-          }
+          const pendingUrl = `${config.CORS_ORIGIN}/payment/result?orderNo=${outTradeNo}&status=pending`
+          return reply.redirect(pendingUrl)
         }
 
-        // 其他状态（cancelled / refunded）或完成失败，跳转失败页
+        // 其他状态（cancelled / refunded）跳转失败页
         return reply.redirect(failUrl)
       } catch (e) {
         request.log.error({ err: e, outTradeNo }, 'alipay sync return processing failed')
