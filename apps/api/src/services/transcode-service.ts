@@ -58,6 +58,10 @@ export interface TranscodeInput {
 const jobs = new Map<string, TranscodeJob>()
 const childProcesses = new Map<string, ReturnType<typeof spawn>>()
 
+// P1 修复:内存泄露防护 — Map 无 size 上限,completed/failed/cancelled 永留致 OOM
+// 超过 MAX_JOBS 时淘汰最旧的非活跃任务(全活跃则 FIFO 淘汰最早插入的)
+const MAX_JOBS = 1000
+
 const UPLOAD_DIR = env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
 const TRANSCODE_DIR = join(UPLOAD_DIR, 'transcoded')
 
@@ -129,7 +133,34 @@ function getOutputExtension(preset: TranscodePreset): string {
 // 核心转码逻辑
 // =============================================================================
 
+/** LRU 淘汰:优先删最旧的非活跃任务(completed/failed/cancelled);全活跃则 FIFO 删最早插入的。 */
+function evictOldestJob(): void {
+  for (const [id, job] of jobs) {
+    if (job.status !== 'pending' && job.status !== 'processing') {
+      jobs.delete(id)
+      childProcesses.delete(id)
+      // 最佳努力清理输出目录,不阻塞主流程
+      rm(job.outputDir, { recursive: true, force: true }).catch(() => {})
+      return
+    }
+  }
+  // 全部活跃:淘汰最早插入的(Map 保持插入顺序,keys().next() 即最旧)
+  const oldestId = jobs.keys().next().value
+  if (oldestId !== undefined) {
+    const job = jobs.get(oldestId)
+    jobs.delete(oldestId)
+    childProcesses.delete(oldestId)
+    if (job) {
+      rm(job.outputDir, { recursive: true, force: true }).catch(() => {})
+    }
+  }
+}
+
 export async function createTranscodeJob(input: TranscodeInput): Promise<TranscodeJob> {
+  // P1 修复:内存泄露防护 — 超过 MAX_JOBS 时淘汰最旧任务
+  if (jobs.size >= MAX_JOBS) {
+    evictOldestJob()
+  }
   const jobId = randomUUID()
   const outputDir = join(TRANSCODE_DIR, jobId)
   await mkdir(outputDir, { recursive: true })
