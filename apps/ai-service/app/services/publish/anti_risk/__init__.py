@@ -21,6 +21,21 @@
 14. cookie_health.py     — Cookie 健康度监控(过期预警/自动刷新/失效检测)
 15. content_dedup.py     — 内容指纹去重(SimHash + 同义词改写,多平台差异化)
 
+终极强化层(2026-08-01 新增)— 从 37 类扩展到 50+ 类深度检测点对抗:
+16. device_graph_guard.py       — 设备关联图谱防护(4 维关联检测:指纹/IP/UA/Canvas)
+17. canvas_noise.py             — Canvas 指纹噪声增强(getImageData/toDataURL/toBlob/readPixels)
+18. audio_fingerprint.py        — AudioContext 指纹防护(getChannelData/getFloatFrequencyData)
+19. webrtc_guard.py             — WebRTC IP 泄漏防护(RTCPeerConnection relay-only + verify_no_leak)
+20. tls_fingerprint.py          — TLS 指纹(JA3)伪装咨询层(5 浏览器配置库,UA-TLS 一致性)
+21. timezone_geo_consistency.py — 时区地理位置一致性校验(ip-api.com + 5 预设城市)
+22. behavior_entropy.py         — 行为序列熵值检测对抗(香农熵/KL 散度/diversify 扰动)
+23. font_enum_guard.py          — 字体枚举防护(document.fonts.check + Canvas 文本测量噪声)
+24. media_devices_guard.py      — 多媒体设备指纹防护(enumerateDevices/getUserMedia/usb)
+25. hardware_concurrency_guard.py — Hardware Concurrency/内存伪装(CPU/内存/connection/memory)
+26. plugin_enum_guard.py        — 插件枚举防护(plugins/mimeTypes/permissions)
+27. language_consistency.py     — 语言偏好一致性(language/languages/Intl.DateTimeFormat)
+28. navigator_integrity.py      — 导航器属性完整性校验(webdriver/platform/vendor/chrome/defineProperty)
+
 设计原则:
 - 每账号指纹/代理固定不变(同账号跨会话一致,避免异地登录告警)
 - 不同账号零共享(IP/指纹/Cookie/UA/屏幕/时区全差异化)
@@ -59,6 +74,33 @@ from .behavior_samples import HumanBehaviorSampler, ScrollStep, TypingEvent, get
 from .captcha_solver import CaptchaSolver, CaptchaInfo, get_solver
 from .cookie_health import CookieHealthMonitor, CookieHealth, ExpiryAlert, get_monitor
 from .content_dedup import ContentDeduplicator, SimilarityReport, get_deduplicator
+# 终极强化层(2026-08-01 新增)— 13 个反风控深度模块
+from .device_graph_guard import DeviceGraphGuard, LinkageReport, get_device_graph_guard
+from .canvas_noise import inject_canvas_noise
+from .audio_fingerprint import inject_audio_fingerprint_guard
+from .webrtc_guard import inject_webrtc_guard, verify_no_leak
+from .tls_fingerprint import TLSProfile, get_tls_recommendation, apply_tls_recommendation_to_context
+from .timezone_geo_consistency import (
+    TimezoneGeoValidator,
+    ConsistencyReport,
+    GeoInfo,
+    get_timezone_geo_validator,
+    apply_consistency,
+)
+from .behavior_entropy import (
+    BehaviorEntropyAnalyzer,
+    EntropyReport,
+    get_entropy_analyzer,
+    BEHAVIOR_MOUSE,
+    BEHAVIOR_CLICK,
+    BEHAVIOR_TYPE,
+)
+from .font_enum_guard import inject_font_enum_guard
+from .media_devices_guard import inject_media_devices_guard
+from .hardware_concurrency_guard import inject_hardware_guard
+from .plugin_enum_guard import inject_plugin_guard
+from .language_consistency import inject_language_guard, validate_language_consistency
+from .navigator_integrity import inject_navigator_integrity_guard
 
 __all__ = [
     # 五层防线基础
@@ -111,4 +153,33 @@ __all__ = [
     "ContentDeduplicator",
     "SimilarityReport",
     "get_deduplicator",
+    # 终极强化层(2026-08-01 新增)— 13 个反风控深度模块
+    "DeviceGraphGuard",
+    "LinkageReport",
+    "get_device_graph_guard",
+    "inject_canvas_noise",
+    "inject_audio_fingerprint_guard",
+    "inject_webrtc_guard",
+    "verify_no_leak",
+    "TLSProfile",
+    "get_tls_recommendation",
+    "apply_tls_recommendation_to_context",
+    "TimezoneGeoValidator",
+    "ConsistencyReport",
+    "GeoInfo",
+    "get_timezone_geo_validator",
+    "apply_consistency",
+    "BehaviorEntropyAnalyzer",
+    "EntropyReport",
+    "get_entropy_analyzer",
+    "BEHAVIOR_MOUSE",
+    "BEHAVIOR_CLICK",
+    "BEHAVIOR_TYPE",
+    "inject_font_enum_guard",
+    "inject_media_devices_guard",
+    "inject_hardware_guard",
+    "inject_plugin_guard",
+    "inject_language_guard",
+    "validate_language_consistency",
+    "inject_navigator_integrity_guard",
 ]
