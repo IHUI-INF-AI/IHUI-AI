@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -143,7 +143,7 @@ export default function ExamResultPage() {
             {result.isPassed ? t('passed') : t('failed')}
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <CardContent className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
           <div className="rounded-md border bg-muted/30 p-3 text-center">
             <div className="text-xs text-muted-foreground">{t('result.correct')}</div>
             <div className="mt-1 text-lg font-semibold text-emerald-600">{result.correctCount}</div>
@@ -194,7 +194,7 @@ export default function ExamResultPage() {
                         <p className="break-words text-sm font-medium">
                           {i + 1}. {d.title}
                         </p>
-                        <div className="grid gap-1 text-xs">
+                        <div className="grid grid-cols-1 gap-1 text-xs">
                           <div className="flex items-start gap-1">
                             <span className="shrink-0 text-muted-foreground">
                               {t('result.yourAnswer')}

@@ -324,7 +324,7 @@ export default function AdminRelayParamOpsPage() {
             <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
             <DialogDescription>{t('editDesc')}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
+          <div className="grid grid-cols-1 gap-3 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">{t('nameLabel')}</Label>
@@ -419,7 +419,7 @@ export default function AdminRelayParamOpsPage() {
             <DialogTitle>{t('dryRunTitle', { name: dryRunRule?.name ?? '' })}</DialogTitle>
             <DialogDescription>{t('dryRunDesc')}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
+          <div className="grid grid-cols-1 gap-3 py-2">
             <div className="space-y-1">
               <Label className="text-xs">{t('dryRunInput')}</Label>
               <textarea

@@ -99,7 +99,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
     <div key={tab} className="space-y-6 animate-in fade-in-0 duration-200">
       {showGroup('user') && users.length > 0 && (
         <ResultGroup icon={User} title={t('tabs.users')} count={users.length}>
-          <div className="grid gap-3 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {users.map((u) => (
               <Link key={u.id} href={`/user/${u.id}`} className="group block">
                 <Card className="transition-colors hover:bg-accent">
@@ -127,7 +127,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
 
       {showGroup('project') && projects.length > 0 && (
         <ResultGroup icon={FolderOpen} title={t('tabs.projects')} count={projects.length}>
-          <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {projects.map((p) => (
               <Link key={p.id} href={`/workspace/${p.id}`} className="group block">
                 <Card className="transition-colors hover:bg-accent">

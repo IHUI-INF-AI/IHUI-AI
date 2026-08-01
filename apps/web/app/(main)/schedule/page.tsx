@@ -122,7 +122,7 @@ export default function SchedulePage() {
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
-        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {tasks.map((task) => (
             <Card key={task.id} className="flex flex-col">
               <CardHeader className="pb-2">

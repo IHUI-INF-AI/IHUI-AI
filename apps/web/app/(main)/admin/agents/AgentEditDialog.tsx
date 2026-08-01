@@ -80,7 +80,7 @@ export function AgentEditDialog({
               className={textareaCls}
             />
           </div>
-          <div className="grid gap-4 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ed-avatar">{t('fieldAvatar')}</Label>
               <Input
@@ -102,7 +102,7 @@ export function AgentEditDialog({
               />
             </div>
           </div>
-          <div className="grid gap-4 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ed-cat">{t('fieldCategory')}</Label>
               <Select
@@ -140,7 +140,7 @@ export function AgentEditDialog({
               </Select>
             </div>
           </div>
-          <div className="grid gap-4 min-[640px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="ed-price">{t('fieldPrice')}</Label>
               <Input

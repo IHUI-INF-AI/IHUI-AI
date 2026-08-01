@@ -74,7 +74,7 @@ export function LiveChannelsBlock({ channels }: Props) {
           {t('live.viewMore')}
         </Link>
       </div>
-      <div className="grid gap-4 p-6 pt-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 p-6 pt-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {channels.map((c) => (
           <Card key={c.id} className="overflow-hidden transition-colors hover:bg-accent">
             <Link href={`/live/${c.id}`} className="block">

@@ -96,7 +96,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
             />
           </div>
 
-          <div className="grid gap-4 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="t-category">{t('categoryLabel')}</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
