@@ -1715,7 +1715,7 @@ commit: e086173c8(首批 3 子区) + b5e62eee4(完整 6 子区), 已 push, local
 
 ### [x] ✅(2026-07-28) Phase 19 + Phase 20 完整收尾(4 commit + 4 subagent 并行,累计 17 提交 + 132 单测 + 21 E2E)
 
-用户要求:"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。**测试账号统一 admin(admin@ihui.ai / admin123),禁止创建测试账号**(已写入用户规则 + AGENTS.md 配套)。
+用户要求:"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。**测试账号统一 admin(真实凭证:username=`admin` / password=`admin123` / email=`502319984@qq.com`;原误记为 `admin@ihui.ai`,该邮箱不存在,2026-08-01 已根治),禁止创建测试账号**(已写入用户规则 + AGENTS.md 配套)。
 
 - [x] **Subagent 1:浏览器 4 状态自验 admin 登录态**(PASS 16/16):登录 → 导航 /chat → 触发 AI 对话 → 4 状态(默认/hover/active/dark mode)截图 + DOM 数值,AgentTaskProgressPane 280px / Timeline 跳转 / 消息气泡 Copy 按钮 / ResourceBudget / SubAgentTaskTree / CompressionDivider / HoverPreviewCard / MessageContextMenu 全部 DOM 验证通过
 - [x] **Subagent 2:Phase 20 深度对标 v2**(commit fb442ae79):10 项探索清单 + 4 个 P1 项实现 — 键盘拖拽(↑↓←→ 调节 pane 宽度) + 一键复制整个任务摘要 + Timeline 导出 JSON/Markdown + SubAgentTaskTree 右键菜单(复制任务 ID / 跳转 message);50 单测 + 9 E2E
