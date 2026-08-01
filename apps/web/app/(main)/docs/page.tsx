@@ -32,62 +32,69 @@ const docsJsonLd = {
         {
           '@type': 'ListItem',
           position: 1,
+          name: '使用说明手册(终端用户)',
+          url: 'https://aizhs.top/docs/manual',
+          description: '面向终端用户的图文教程,7 章覆盖注册、对话、Agent、知识库、积分、账户、FAQ',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
           name: '快速开始(5 分钟)',
           url: 'https://aizhs.top/docs/quickstart',
           description: '5 分钟从注册到发布第一个 AI Agent',
         },
         {
           '@type': 'ListItem',
-          position: 2,
+          position: 3,
           name: '自托管部署',
           url: 'https://aizhs.top/docs/self-host',
           description: 'Docker Compose / Kubernetes Helm Chart 部署指南',
         },
         {
           '@type': 'ListItem',
-          position: 3,
+          position: 4,
           name: 'API 参考',
           url: 'https://aizhs.top/docs/api',
           description: 'REST API + Webhook + OpenAPI 3.1 规范',
         },
         {
           '@type': 'ListItem',
-          position: 4,
+          position: 5,
           name: 'MCP 工具集成',
           url: 'https://aizhs.top/docs/mcp',
           description: 'Model Context Protocol 接入指南',
         },
         {
           '@type': 'ListItem',
-          position: 5,
+          position: 6,
           name: 'Agent 开发',
           url: 'https://aizhs.top/docs/agent',
           description: '可视化编排 + 模板开发 + 最佳实践',
         },
         {
           '@type': 'ListItem',
-          position: 6,
+          position: 7,
           name: '知识库 RAG',
           url: 'https://aizhs.top/docs/rag',
           description: '文档解析、向量检索、BM25、知识图谱',
         },
         {
           '@type': 'ListItem',
-          position: 7,
+          position: 8,
           name: '多模型调度',
           url: 'https://aizhs.top/docs/models',
           description: '统一 API 接入 100+ 模型,自动 fallback',
         },
         {
           '@type': 'ListItem',
-          position: 8,
+          position: 9,
           name: '工作流编排',
           url: 'https://aizhs.top/docs/workflow',
           description: 'n8n 风格节点画布使用指南',
         },
         {
           '@type': 'ListItem',
-          position: 9,
+          position: 10,
           name: '团队协作',
           url: 'https://aizhs.top/docs/team',
           description: 'RBAC、SSO、审计、积分共享',
@@ -129,6 +136,14 @@ export const metadata: Metadata = {
 }
 
 const docSections = [
+  {
+    title: '使用说明手册',
+    description: '面向终端用户的图文教程(无需技术背景)',
+    icon: '📖',
+    items: [
+      { name: '使用说明手册', href: '/docs/manual', desc: '7 章:注册 / 对话 / Agent / 知识库 / 积分 / 账户 / FAQ' },
+    ],
+  },
   {
     title: '快速开始',
     description: '5 分钟从注册到发布',
