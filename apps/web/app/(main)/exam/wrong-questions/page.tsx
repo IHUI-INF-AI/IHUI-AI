@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -149,14 +149,14 @@ export default function WrongQuestionsPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <FileText className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 min-[640px]:grid-cols-3">
         {cards.map(({ label, value, Icon, tone }) => (
           <Card key={label} className="transition-colors hover:bg-accent">
             <CardContent className="flex items-center justify-between p-4">

@@ -99,7 +99,7 @@ export function ResponseViewer({
 
             {/* 统计信息 */}
             {response && !isStreaming && (
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
                 <StatChip icon={<Hash className="h-3 w-3" />} label="prompt" value={String(response.promptTokens)} />
                 <StatChip icon={<Hash className="h-3 w-3" />} label="completion" value={String(response.completionTokens)} />
                 <StatChip icon={<Clock className="h-3 w-3" />} label="耗时" value={`${response.latencyMs}ms`} />
@@ -166,7 +166,7 @@ export function ResponseViewer({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
+                          className="h-9 w-9"
                           onClick={() => onRestoreHistory(item)}
                           aria-label="恢复"
                         >
@@ -175,7 +175,7 @@ export function ResponseViewer({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          className="h-9 w-9 text-muted-foreground hover:text-destructive"
                           onClick={() => onRemoveHistory(item.id)}
                           aria-label="删除"
                         >

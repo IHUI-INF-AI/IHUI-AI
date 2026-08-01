@@ -78,7 +78,7 @@ export function MentionSearch({
             aria-selected={activeType === t.value}
             onClick={() => onTypeChange(t.value)}
             className={cn(
-              'shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+              'whitespace-nowrap min-[768px]:shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
               activeType === t.value
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -95,7 +95,7 @@ export function MentionSearch({
 
       <div className="max-h-[420px] space-y-1 overflow-y-auto rounded-md border bg-card p-1.5">
         {results.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
+          <div className="py-6 min-[768px]:py-10 text-center text-sm text-muted-foreground">
             {isLoading ? '检索中…' : '暂无结果,请输入关键词'}
           </div>
         ) : (

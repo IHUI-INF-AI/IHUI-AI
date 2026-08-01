@@ -203,10 +203,10 @@ function DetailsContent() {
         {tc('back')}
       </Link>
 
-      <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('details')}</h1>
+      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('details')}</h1>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
+      <div className="grid gap-4 min-[1024px]:grid-cols-5">
+        <div className="min-[1024px]:col-span-3">
           <Card>
             <CardHeader>
               <CardTitle className="text-xl">{level.levelName}</CardTitle>
@@ -238,7 +238,7 @@ function DetailsContent() {
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="min-[1024px]:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{t('choosePlan')}</CardTitle>

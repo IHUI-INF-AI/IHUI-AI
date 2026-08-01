@@ -42,7 +42,7 @@ export default function OauthPlatformPage() {
           {t('heroBadge')}
         </div>
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
         <div className="flex justify-center">
@@ -58,10 +58,10 @@ export default function OauthPlatformPage() {
       {/* Features */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('featuresTitle')}</h2>
+          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('featuresTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('featuresSubtitle')}</p>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {features.map((f) => {
             const Icon = f.icon
             return (
@@ -82,10 +82,10 @@ export default function OauthPlatformPage() {
       {/* Steps */}
       <section className="space-y-6">
         <div className="space-y-1 text-center">
-          <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('stepsTitle')}</h2>
+          <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('stepsTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('stepsSubtitle')}</p>
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-4">
           {steps.map((s, i) => {
             const Icon = s.icon
             return (
@@ -106,7 +106,7 @@ export default function OauthPlatformPage() {
 
       {/* Bottom CTA */}
       <section className="rounded-2xl bg-primary/5 px-6 py-8 text-center">
-        <h2 className="text-xl font-bold tracking-tight md:text-2xl">{t('ctaTitle')}</h2>
+        <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t('ctaSubtitle')}</p>
         <div className="mt-6 flex justify-center">
           <Link href="/oauth/my-authorized">

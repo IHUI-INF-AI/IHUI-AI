@@ -96,7 +96,7 @@ export function CommentsTable({ list, isLoading, onOpenDetail, onDelete, deleteP
                   <TableCell className="px-4 py-2.5">
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
                         item.isDeleted
                           ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                           : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',

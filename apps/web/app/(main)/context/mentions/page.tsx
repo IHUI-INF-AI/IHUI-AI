@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -62,7 +62,7 @@ export default function ContextMentionsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_360px]">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">检索</CardTitle>

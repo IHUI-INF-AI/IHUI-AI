@@ -91,7 +91,7 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
             type="button"
             variant={view === 'mobile' ? 'default' : 'ghost'}
             size="icon"
-            className="h-7 w-7"
+            className="h-9 w-9"
             title={t('preview.mobile')}
             onClick={() => setView('mobile')}
           >
@@ -101,7 +101,7 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
             type="button"
             variant={view === 'desktop' ? 'default' : 'ghost'}
             size="icon"
-            className="h-7 w-7"
+            className="h-9 w-9"
             title={t('preview.desktop')}
             onClick={() => setView('desktop')}
           >
