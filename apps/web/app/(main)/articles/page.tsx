@@ -56,7 +56,7 @@ export default function ArticlesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Newspaper className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
@@ -72,7 +72,7 @@ export default function ArticlesPage() {
         />
       </div>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-6 min-[1024px]:flex-row">
         <ArticlesList
           items={items}
           isLoading={isLoading}

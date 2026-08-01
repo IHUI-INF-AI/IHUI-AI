@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -143,7 +143,7 @@ export function RankingTable() {
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
           </div>
-          <span className="hidden shrink-0 text-xs text-muted-foreground/70 sm:inline">
+          <span className="hidden shrink-0 text-xs text-muted-foreground/70 min-[640px]:inline">
             {t('refresh')}
           </span>
         </div>
@@ -195,10 +195,10 @@ export function RankingTable() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-12">{t('columns.rank')}</TableHead>
                   <TableHead>{t('columns.model')}</TableHead>
-                  <TableHead className="hidden md:table-cell">{t('columns.provider')}</TableHead>
+                  <TableHead className="hidden min-[768px]:table-cell">{t('columns.provider')}</TableHead>
                   <TableHead className="w-20">{t('columns.score')}</TableHead>
-                  <TableHead className="hidden lg:table-cell">{t('columns.details')}</TableHead>
-                  <TableHead className="hidden w-28 md:table-cell">
+                  <TableHead className="hidden min-[1024px]:table-cell">{t('columns.details')}</TableHead>
+                  <TableHead className="hidden w-28 min-[768px]:table-cell">
                     {t('columns.fetchedAt')}
                   </TableHead>
                 </TableRow>
@@ -215,14 +215,14 @@ export function RankingTable() {
                           {item.rank}
                         </span>
                       </TableCell>
-                      <TableCell className="font-medium">{item.modelName}</TableCell>
-                      <TableCell className="hidden text-muted-foreground md:table-cell">
+                      <TableCell className="max-w-[200px] truncate font-medium" title={item.modelName}>{item.modelName}</TableCell>
+                      <TableCell className="hidden text-muted-foreground min-[768px]:table-cell">
                         {item.provider ?? '-'}
                       </TableCell>
                       <TableCell className="font-medium tabular-nums">
                         {item.score ?? '-'}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">
+                      <TableCell className="hidden min-[1024px]:table-cell">
                         {details.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {details.map((d) => (
@@ -239,7 +239,7 @@ export function RankingTable() {
                           <span className="text-muted-foreground/50">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden text-xs tabular-nums text-muted-foreground md:table-cell">
+                      <TableCell className="hidden text-xs tabular-nums text-muted-foreground min-[768px]:table-cell">
                         {fmtTime(item.fetchedAt) || '-'}
                       </TableCell>
                     </TableRow>

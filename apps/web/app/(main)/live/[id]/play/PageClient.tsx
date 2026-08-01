@@ -119,7 +119,7 @@ export default function LivePlayPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       {backLink}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
         <div className="space-y-3">
           <Card className="overflow-hidden">
             <div className="relative aspect-video bg-black">

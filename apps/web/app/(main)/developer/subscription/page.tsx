@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -173,7 +173,7 @@ export default function SubscriptionPage() {
           {plans.length > 0 && (
             <div>
               <p className="mb-2 text-sm font-semibold">{t('upgradePlans')}</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {plans.map((p) => (
                   <Card key={p.id} className={cn(p.isCurrent && 'border-primary bg-primary/5')}>
                     <CardContent className="space-y-2 p-4">

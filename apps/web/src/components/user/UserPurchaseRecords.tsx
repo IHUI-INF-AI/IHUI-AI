@@ -44,7 +44,7 @@ export default function UserPurchaseRecords({
         )}
       </div>
       {records.length === 0 ? (
-        <div className="p-8 text-center text-sm text-muted-foreground">暂无记录</div>
+        <div className="p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">暂无记录</div>
       ) : (
         <ul className="divide-y">
           {records.map((r) => (

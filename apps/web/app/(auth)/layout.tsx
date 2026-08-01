@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             alt="Welcome to IHUI AI"
             width={447}
             height={67}
-            className="welcome-img mb-4 h-auto w-[280px] max-w-full md:w-[340px]"
+            className="welcome-img mb-4 h-auto w-[280px] max-w-full min-[768px]:w-[340px]"
             loading="eager"
             unoptimized
           />
@@ -33,7 +33,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             aria-hidden="true"
             width={447}
             height={67}
-            className="welcome-img-dark mb-4 h-auto w-[280px] max-w-full md:w-[340px]"
+            className="welcome-img-dark mb-4 h-auto w-[280px] max-w-full min-[768px]:w-[340px]"
             loading="eager"
             unoptimized
           />

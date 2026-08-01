@@ -107,7 +107,7 @@ export default function DeveloperHomePage() {
 
       {summaryQ.error && <Alert variant="danger" description={(summaryQ.error as Error).message} />}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[1024px]:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon
           return (
@@ -155,7 +155,7 @@ export default function DeveloperHomePage() {
       <Card>
         <CardContent className="p-0">
           <div className="border-b px-4 py-2.5 text-sm font-semibold">{t('quickEntries')}</div>
-          <div className="grid grid-cols-2 gap-px bg-border/40 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-px bg-border/40 min-[1024px]:grid-cols-5">
             {quickEntries.map((q) => {
               const Icon = q.icon
               return (

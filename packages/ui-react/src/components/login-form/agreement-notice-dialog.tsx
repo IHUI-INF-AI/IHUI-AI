@@ -111,7 +111,7 @@ export function AgreementNoticeDialog({
           //   兜底,这里再移除是双保险)。
           //   AgreementNoticeDialog 内部无 Tabs/复选框/协议文本,完全不依赖
           //   .login-form-scope 的任何样式,安全移除。
-          'w-[calc(100%-2rem)] max-w-[420px] gap-0 p-7 sm:rounded-xl',
+          'w-[calc(100%-2rem)] max-w-[420px] gap-0 p-7 min-[640px]:rounded-xl',
           'border border-border bg-card shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.04)]',
         )}
       >

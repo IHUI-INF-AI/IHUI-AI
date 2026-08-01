@@ -287,8 +287,8 @@ export function ModelsMarketplace({ list }: Props) {
   return (
     <div className="space-y-4">
       {/* 工具栏:搜索 + 排序 + 视图切换 */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative w-full lg:max-w-sm">
+      <div className="flex flex-col gap-3 min-[1024px]:flex-row min-[1024px]:items-center min-[1024px]:justify-between">
+        <div className="relative w-full min-[1024px]:max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
@@ -409,7 +409,7 @@ export function ModelsMarketplace({ list }: Props) {
       {visible.length === 0 ? (
         <EmptyState onReset={handleResetFilters} />
       ) : viewMode === 'grid' ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {visible.map((m) => (
             <ModelCardGrid
               key={m.id}

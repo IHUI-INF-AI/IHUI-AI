@@ -35,7 +35,7 @@ export function ArchitectureSection() {
       <div className="space-y-2">
         <h2 className="text-xl font-bold tracking-tight">{t('architecture.title')}</h2>
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 min-[1024px]:grid-cols-3">
         <Card>
           <CardContent className="space-y-3 p-5">
             <div className="flex items-center gap-2">

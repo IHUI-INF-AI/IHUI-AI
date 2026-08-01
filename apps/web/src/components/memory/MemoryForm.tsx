@@ -60,7 +60,7 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
           <label htmlFor={`${fid}-scope`} className={labelCls}>作用域</label>
           <select
@@ -117,7 +117,7 @@ export function MemoryForm({ initial, onSubmit, submitLabel = '保存' }: Memory
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
         <div className="space-y-1.5">
           <label htmlFor={`${fid}-session`} className={labelCls}>会话 ID(可选)</label>
           <Input

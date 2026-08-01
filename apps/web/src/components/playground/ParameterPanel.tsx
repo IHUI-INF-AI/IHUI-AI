@@ -112,7 +112,7 @@ export function ParameterPanel({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="h-9 w-9"
               onClick={loadModels}
               disabled={disabled || loadingModels || !apiKey.trim()}
               aria-label="刷新模型列表"

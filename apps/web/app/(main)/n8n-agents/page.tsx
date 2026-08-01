@@ -87,7 +87,7 @@ export default async function N8nAgentsPage() {
   return (
     <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
       <header className="space-y-1 px-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Workflow className="h-7 w-7 text-primary" />
           N8N Agents
         </h1>
@@ -96,7 +96,7 @@ export default async function N8nAgentsPage() {
 
       {/* 介绍卡片 */}
       <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-col gap-4 p-5 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold tracking-tight">{t('cardTitle')}</h2>
@@ -113,7 +113,7 @@ export default async function N8nAgentsPage() {
       </Card>
 
       {/* Agent 列表 */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         {AGENTS.map((agent) => (
           <Card key={agent.id}>
             <CardHeader className="pb-3">

@@ -80,7 +80,7 @@ export function SecurityScore() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : data ? (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-4 min-[640px]:flex-row min-[640px]:items-center">
             <div className="relative h-32 w-32 shrink-0">
               <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
                 <circle

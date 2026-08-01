@@ -17,7 +17,7 @@
  *   - 无分割线(§4):header/sidebar/footer 之间用背景色对比(bg-card vs bg-background)分隔,禁止 border-t/divide-y
  *   - 无蓝色发光边框:仅用语义 token(bg-background / text-foreground / bg-card)
  *   - 无纯圆形容器:不使用 rounded-full(§4 圆角守门)
- *   - main 内边距:p-4 md:p-6(移动/桌面响应式)
+ *   - main 内边距:p-4 min-[768px]:p-6(移动/桌面响应式)
  *   - 暗色模式:语义 token 自动适配(bg-background / text-foreground / bg-card)
  *
  * 用法:
@@ -27,7 +27,7 @@
  *
  * 平台差异:
  *   - 外层高度默认 h-screen(锁定视口),extension popup 等固定高度场景可 className 覆盖
- *   - sidebar 默认 w-56 md:w-64,如需其他宽度可在 sidebar 内容外层包 div 设宽度(aside shrink-0)
+ *   - sidebar 默认 w-56 min-[768px]:w-64,如需其他宽度可在 sidebar 内容外层包 div 设宽度(aside shrink-0)
  *   - className 通过 cn() 合并(twMerge 支持冲突覆盖,如 min-h/h/w 等)
  */
 import * as React from 'react'
@@ -42,7 +42,7 @@ export interface PageShellProps {
   sidebar?: React.ReactNode
   /** 底部 slot(渲染为 footer,shrink-0) */
   footer?: React.ReactNode
-  /** 主体内容(渲染在 main 内,flex-1 overflow-y-auto + p-4 md:p-6) */
+  /** 主体内容(渲染在 main 内,flex-1 overflow-y-auto + p-4 min-[768px]:p-6) */
   children: React.ReactNode
   /** 外层容器 className(通过 cn() 合并,可覆盖 h-screen 等默认值) */
   className?: string
@@ -72,7 +72,7 @@ export function PageShell({
       )}
     >
       {hasHeader && (
-        <header className="flex shrink-0 items-center gap-3 bg-card px-4 py-3 md:px-6">
+        <header className="flex shrink-0 items-center gap-3 bg-card px-4 py-3 min-[768px]:px-6">
           {title && (
             <h1 className="shrink-0 text-lg font-semibold leading-none tracking-tight">
               {title}
@@ -83,12 +83,12 @@ export function PageShell({
       )}
       <div className="flex flex-1 overflow-hidden">
         {sidebar && (
-          <aside className="w-56 shrink-0 overflow-y-auto bg-card md:w-64">{sidebar}</aside>
+          <aside className="w-56 shrink-0 overflow-y-auto bg-card min-[768px]:w-64">{sidebar}</aside>
         )}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 min-[768px]:p-6">{children}</main>
       </div>
       {footer && (
-        <footer className="shrink-0 bg-card px-4 py-3 md:px-6">{footer}</footer>
+        <footer className="shrink-0 bg-card px-4 py-3 min-[768px]:px-6">{footer}</footer>
       )}
     </div>
   )

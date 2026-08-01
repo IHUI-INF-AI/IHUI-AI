@@ -30,10 +30,10 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
           <tr>
             <th className="px-4 py-2 text-left font-medium">{t('source')}</th>
             <th className="px-4 py-2 text-right font-medium">{t('amount')}</th>
-            <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">
+            <th className="hidden px-4 py-2 text-right font-medium min-[640px]:table-cell">
               {t('balance')}
             </th>
-            <th className="hidden px-4 py-2 text-left font-medium md:table-cell">
+            <th className="hidden px-4 py-2 text-left font-medium min-[768px]:table-cell">
               {t('description')}
             </th>
             <th className="px-4 py-2 text-right font-medium">{t('time')}</th>
@@ -62,10 +62,10 @@ export function PointsTransactionList({ isLoading, error, data }: Props) {
                   {positive ? '+' : ''}
                   {tx.amount}
                 </td>
-                <td className="hidden px-4 py-2 text-right text-muted-foreground sm:table-cell">
+                <td className="hidden px-4 py-2 text-right text-muted-foreground min-[640px]:table-cell">
                   {tx.balanceAfter}
                 </td>
-                <td className="hidden px-4 py-2 text-muted-foreground md:table-cell">
+                <td className="hidden px-4 py-2 text-muted-foreground min-[768px]:table-cell">
                   {tx.description ?? '-'}
                 </td>
                 <td className="px-4 py-2 text-right text-xs text-muted-foreground">

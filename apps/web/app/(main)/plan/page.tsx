@@ -38,7 +38,7 @@ export default function PlanListPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">Plan 模式</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">Plan 模式</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             单一计划文档管理 · 目标 + 修改范围 + 步骤追踪 · 适用于中小型功能与模块级重构
           </p>
@@ -74,13 +74,13 @@ export default function PlanListPage() {
       </div>
 
       {!mounted ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-48 animate-pulse rounded-lg border bg-muted/30" />
           ))}
         </div>
       ) : filtered.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {filtered.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />
           ))}
