@@ -248,7 +248,8 @@
     "username": "用戶名稱",
     "usernamePlaceholder": "請輸入用戶名稱",
     "wechatLogin": "微信",
-    "login": "登入"
+    "login": "登入",
+    "captchaRefresh": "重新整理驗證碼"
   },
   "chat": {
     "send": "發送"
@@ -723,6 +724,26 @@
       "title": "訂閱管理"
     }
   },
+  "exam": {
+    "title": "考試列表",
+    "loadFailed": "載入考試失敗",
+    "empty": "暫無考試",
+    "ended": "考試已結束",
+    "notStarted": "考試未開始",
+    "noAttemptsLeft": "已無考試次數",
+    "startHint": "開始考試:{title}",
+    "inProgress": "進行中",
+    "duration": "時長",
+    "totalScore": "總分",
+    "passScore": "及格分",
+    "questionCount": "題數",
+    "attempts": "已考次數",
+    "start": "開始考試",
+    "result": {
+      "correct": "答對",
+      "wrong": "答錯"
+    }
+  },
   "live": {
     "title": "直播",
     "loadFailed": "載入直播失敗",
@@ -1115,26 +1136,6 @@
     "rank": "排名",
     "points": "積分",
     "isMe": "我"
-  },
-  "exam": {
-    "title": "考試列表",
-    "loadFailed": "載入考試失敗",
-    "empty": "暫無考試",
-    "ended": "考試已結束",
-    "notStarted": "考試未開始",
-    "noAttemptsLeft": "已無考試次數",
-    "startHint": "開始考試:{title}",
-    "inProgress": "進行中",
-    "duration": "時長",
-    "totalScore": "總分",
-    "passScore": "及格分",
-    "questionCount": "題數",
-    "attempts": "已考次數",
-    "start": "開始考試",
-    "result": {
-      "correct": "答對",
-      "wrong": "答錯"
-    }
   },
   "vip": {
     "title": "VIP 會員",
