@@ -18,14 +18,14 @@ export function ProfileStatsCards({ stats, isError }: Props) {
     { label: t('favorites'), value: stats?.favoritesCount, href: '/favorites' },
   ]
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
       {items.map((item) => (
         <Link
           key={item.label}
           href={item.href}
           className="flex flex-col items-center justify-center rounded-lg border bg-card px-3 py-3 transition-colors hover:bg-accent"
         >
-          <span className="text-xl font-bold tabular-nums">
+          <span className="text-xl font-bold tabular-nums whitespace-nowrap">
             {isError ? (
               <span className="text-sm text-destructive">--</span>
             ) : item.value === undefined ? (
@@ -34,7 +34,7 @@ export function ProfileStatsCards({ stats, isError }: Props) {
               item.value
             )}
           </span>
-          <span className="mt-0.5 text-xs text-muted-foreground">{item.label}</span>
+          <span className="mt-0.5 whitespace-nowrap text-xs text-muted-foreground">{item.label}</span>
         </Link>
       ))}
     </div>

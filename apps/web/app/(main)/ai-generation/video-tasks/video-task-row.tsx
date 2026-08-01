@@ -31,7 +31,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
   const videoUrl = task.status === 'success' ? extractVideoUrl(task.result) : null
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 text-xs min-[640px]:grid-cols-4">
         <div>
           <div className="text-muted-foreground">火山 Task ID</div>
           <div className="font-mono">{task.taskId}</div>

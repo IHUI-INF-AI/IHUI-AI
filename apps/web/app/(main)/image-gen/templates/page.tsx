@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
@@ -131,7 +131,7 @@ export default function ImageGenTemplatesPage() {
           <p className="text-sm">暂无模板</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {templates.map((tpl) => (
             <Card
               key={tpl.id}

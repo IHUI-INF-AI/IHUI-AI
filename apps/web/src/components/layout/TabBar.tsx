@@ -36,7 +36,7 @@ export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
           onClick={() => !tab.disabled && onChange(tab.key)}
           disabled={tab.disabled}
           className={cn(
-            'relative shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors',
+            'relative shrink-0 whitespace-nowrap px-3 py-2 min-[768px]:px-4 text-sm font-medium transition-colors',
             tab.disabled && 'cursor-not-allowed opacity-50',
             activeTab === tab.key
               ? 'text-foreground'

@@ -56,7 +56,7 @@ export function PlatformSelectorCard({
         {platformMap.size === 0 ? (
           <p className="text-xs text-muted-foreground">{t('accounts.noAccounts')}</p>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
             {Array.from(platformMap.keys()).map((p) => {
               const checked = selected.has(p)
               return (

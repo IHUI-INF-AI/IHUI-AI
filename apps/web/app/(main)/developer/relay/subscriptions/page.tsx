@@ -97,7 +97,7 @@ export default function RelaySubscriptionsPage() {
       ) : plans.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted-foreground">暂无可订阅方案</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
           {plans.map((plan) => {
             const isCurrent = activePlan?.id === plan.id
             return (

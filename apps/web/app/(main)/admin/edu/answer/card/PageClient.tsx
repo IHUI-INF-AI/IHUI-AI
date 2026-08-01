@@ -86,7 +86,7 @@ function CardContent2() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         <div className="rounded-lg border p-4">
           <div className="text-xs text-muted-foreground">{t('statTotal')}</div>
           <div className="mt-1 text-2xl font-semibold">{total}</div>

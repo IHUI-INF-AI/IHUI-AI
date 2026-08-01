@@ -21,17 +21,17 @@ export function Hero() {
       aria-label={t('hero.label')}
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
-      <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:p-8">
+      <div className="grid gap-6 p-6 min-[768px]:grid-cols-[1fr_auto] min-[768px]:p-8">
         <div className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
             <Sparkles className="h-3.5 w-3.5" />
             <span>{t('hero.badge')}</span>
           </div>
           <h1 className="flex items-center gap-2 text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold leading-tight tracking-tight">
-            <Newspaper className="h-7 w-7 text-primary md:h-8 md:w-8" />
+            <Newspaper className="h-7 w-7 text-primary min-[768px]:h-8 min-[768px]:w-8" />
             {t('hero.title')}
           </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+          <p className="max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
             {t('hero.subtitle')}
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-1">

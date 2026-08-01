@@ -316,7 +316,7 @@ export default function AutomationPage() {
           <p className="text-xs text-muted-foreground">{t('examplesDesc')}</p>
         </CardHeader>
         <CardContent className="p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {AUTOMATION_EXAMPLES.map((ex) => {
               const ExIcon = ex.icon
               return (
@@ -358,7 +358,7 @@ export default function AutomationPage() {
       </Card>
 
       {/* 任务列表 */}
-      <div ref={tasksRef} className="grid gap-4 md:grid-cols-2 scroll-mt-4">
+      <div ref={tasksRef} className="grid gap-4 min-[768px]:grid-cols-2 scroll-mt-4">
         {tasks.map((task) => {
           const isEditing = editingTaskId === task.id
           const isTriggering = triggeringId === task.id

@@ -44,7 +44,7 @@ export default async function ReferralPage() {
             {t('link.title')}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{t('link.tip')}</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-3 flex flex-col gap-2 min-[640px]:flex-row">
             <div className="flex h-10 flex-1 items-center rounded-lg border border-input bg-background px-3 font-mono text-sm text-muted-foreground">
               {inviteLink}
             </div>
@@ -60,7 +60,7 @@ export default async function ReferralPage() {
       </Card>
 
       {/* 统计 */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         {stats.map((s) => {
           const Icon = s.icon
           return (

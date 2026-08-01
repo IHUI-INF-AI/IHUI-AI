@@ -100,10 +100,10 @@ export function ModelsPricingContent(): React.JSX.Element {
   }, [data, keyword])
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-14">
+    <main className="mx-auto w-full max-w-6xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
       <header className="space-y-2 text-center">
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">模型定价</h1>
-        <p className="mx-auto max-w-2xl text-xs text-muted-foreground md:text-base">
+        <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
           所有模型输入/输出 token 单价,单位:元 / 百万 token。按厂商分组,支持关键词搜索。
         </p>
       </header>
@@ -166,7 +166,7 @@ export function ModelsPricingContent(): React.JSX.Element {
                         .join(' / ')
                       return (
                         <TableRow key={p.id}>
-                          <TableCell className="font-mono text-xs">{p.modelId}</TableCell>
+                          <TableCell className="max-w-[180px] truncate font-mono text-xs" title={p.modelId}>{p.modelId}</TableCell>
                           <TableCell className="text-right tabular-nums">
                             {sym}
                             {formatPrice(p.inputTokenPrice)}

@@ -83,14 +83,14 @@ export function PricingContent(): React.JSX.Element {
   const popularIdx = levels.findIndex((l) => l.levelValue === 1)
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-10 md:px-8 md:py-14">
+    <main className="mx-auto w-full max-w-7xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
       <section className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           VIP 会员权益
         </div>
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">选择适合你的方案</h1>
-        <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
+        <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
           4 档 VIP 会员,从免费到企业级,满足不同使用场景。年付享 2 个月免费。
         </p>
       </section>
@@ -127,7 +127,7 @@ export function PricingContent(): React.JSX.Element {
       </section>
 
       {/* 4 档对比卡片 */}
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
+      <section className="mt-8 grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4 min-[1024px]:items-start">
         {isLoading ? (
           <div className="col-span-full flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -155,7 +155,7 @@ export function PricingContent(): React.JSX.Element {
                 key={level.id}
                 className={cn(
                   'relative flex flex-col',
-                  isPopular && 'border-primary shadow-md lg:scale-[1.02]',
+                  isPopular && 'border-primary shadow-md min-[1024px]:scale-[1.02]',
                 )}
               >
                 {isPopular && (
@@ -173,7 +173,7 @@ export function PricingContent(): React.JSX.Element {
                   </div>
 
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-xl font-bold tracking-tight md:text-2xl text-primary">
+                    <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl text-primary">
                       {isFree ? '免费' : formatCNY(displayPrice)}
                     </span>
                     {!isFree && (
@@ -233,7 +233,7 @@ export function PricingContent(): React.JSX.Element {
       <Guarantee />
 
       <section className="mt-14 rounded-lg border border-primary/30 bg-primary/5 p-8 text-center">
-        <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+        <h2 className="text-xl font-bold tracking-tight text-foreground min-[768px]:text-2xl">
           还不确定?免费试用 30 天
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">

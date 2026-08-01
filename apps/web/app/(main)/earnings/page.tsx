@@ -41,7 +41,7 @@ export default function EarningsPage() {
       <EarningsOverview data={overview} loading={loading} />
 
       {/* BYOK 抽成趋势 + 引流统计(两栏) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <ByokIncomeChart data={byokTrend} loading={loading} />
         <ReferralStats data={referral} loading={loading} />
       </div>
@@ -51,7 +51,7 @@ export default function EarningsPage() {
 
       {/* 配置 BYOK CTA */}
       <Card className="border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20">
-        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 min-[640px]:flex-row min-[640px]:items-center">
           <div className="flex items-start gap-3">
             <div className="rounded-lg bg-emerald-500/10 p-2.5">
               <KeyRound className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />

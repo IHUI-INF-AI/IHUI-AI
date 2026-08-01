@@ -84,7 +84,7 @@ function TextPreview({ url, name, className }: { url: string; name?: string; cla
   if (loading) return <div className="p-4 text-sm text-muted-foreground">加载中...</div>
   if (error)
     return (
-      <div className="flex flex-col items-center gap-2 p-8 text-muted-foreground">
+      <div className="flex flex-col items-center gap-2 p-5 min-[768px]:p-8 text-muted-foreground">
         <File className="h-10 w-10" />
         <p className="text-sm">无法预览此文件</p>
         {name && <FileText className="h-4 w-4" />}
