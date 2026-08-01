@@ -3,6 +3,7 @@
 import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner'
 import { useEffect } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 /**
  * Sonner Toaster + toast 统一入口(2026-07-24 立)。
@@ -15,6 +16,10 @@ import type { ComponentProps, ReactNode } from 'react'
  * 1. 导出的 toast 是一个代理,调用时派发 window CustomEvent
  * 2. <Toaster/> 在 useEffect 中监听该事件,在自己的模块上下文中调用真正的 sonnerToast
  * 3. 这样无论 toast() 在哪个模块中被调用,Toaster 都能收到并用自己的 Observer 渲染
+ *
+ * 2026-08-01 错误中文化:在 handler 接收事件处,对 error/warning 的 message + description
+ * 自动调用 toUserFriendlyMessage 转中文。所有走 toastProxy 的错误提示都会被中文化,
+ * 432 处 toast 调用无需逐个修改。
  */
 
 const TOAST_EVENT = '__ihui_toast__'
@@ -34,6 +39,31 @@ function dispatchToast(method: ToastMethod, args: unknown[]) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { method, args } }))
   }
+}
+
+/**
+ * 对 error/warning 的 args 做中文化处理。
+ * args[0] 是 message,args[1] 可能是 string / { description: string } / undefined / 其他对象。
+ */
+function localizeErrorArgs(args: unknown[]): unknown[] {
+  const newArgs = [...args]
+  // message 中文化
+  if (typeof newArgs[0] === 'string') {
+    newArgs[0] = toUserFriendlyMessage(newArgs[0])
+  } else if (newArgs[0] instanceof Error) {
+    newArgs[0] = toUserFriendlyMessage(newArgs[0])
+  }
+  // description / data 中文化
+  const data = newArgs[1]
+  if (typeof data === 'string') {
+    newArgs[1] = toUserFriendlyMessage(data)
+  } else if (data && typeof data === 'object' && 'description' in data) {
+    const obj = data as { description?: unknown; [key: string]: unknown }
+    if (typeof obj.description === 'string') {
+      newArgs[1] = { ...obj, description: toUserFriendlyMessage(obj.description) }
+    }
+  }
+  return newArgs
 }
 
 // 创建 toast 代理:所有方法调用都派发 window 事件,由 Toaster 统一处理
@@ -59,9 +89,11 @@ export function Toaster(props: ToasterProps) {
   useEffect(() => {
     const handler = (e: Event) => {
       const { method, args } = (e as CustomEvent).detail as { method: ToastMethod; args: unknown[] }
+      // error/warning 自动中文化(2026-08-01 立)
+      const finalArgs = method === 'error' || method === 'warning' ? localizeErrorArgs(args) : args
       const fn = (sonnerToast as unknown as Record<string, (...a: unknown[]) => unknown>)[method]
       if (typeof fn === 'function') {
-        fn.apply(sonnerToast, args)
+        fn.apply(sonnerToast, finalArgs)
       }
     }
     window.addEventListener(TOAST_EVENT, handler)

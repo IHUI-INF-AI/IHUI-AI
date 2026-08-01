@@ -20,7 +20,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import {
   Dialog,
   DialogContent,
