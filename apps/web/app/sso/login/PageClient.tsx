@@ -71,7 +71,18 @@ export default function SsoLoginPage() {
       })
       if (r.success && r.data?.code) {
         const separator = redirectUrl.includes('?') ? '&' : '?'
-        router.push(`${redirectUrl}${separator}sso_code=${r.data.code}`)
+        const finalUrl = `${redirectUrl}${separator}sso_code=${r.data.code}`
+        // Custom scheme(如 ihui://)需用 window.location.href 触发 OS deep-link handler,
+        // router.push 无法处理非 http/https 协议(2026-08-01 desktop SSO 闭环修复)
+        const isCustomScheme =
+          !redirectUrl.startsWith('http://') &&
+          !redirectUrl.startsWith('https://') &&
+          !redirectUrl.startsWith('/')
+        if (isCustomScheme) {
+          window.location.href = finalUrl
+        } else {
+          router.push(finalUrl)
+        }
       } else {
         toast.error(!r.success ? r.error : tSso('generateCodeFailed'))
       }
