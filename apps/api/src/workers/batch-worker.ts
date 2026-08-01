@@ -37,6 +37,7 @@ import {
 } from '../queue/batch-queue.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
+import { logger } from '../utils/logger.js'
 
 /** 终态状态(已终态任务不再处理,幂等) */
 const TERMINAL_STATUSES: BatchTaskStatus[] = ['completed', 'failed', 'cancelled', 'expired']
@@ -143,8 +144,9 @@ function recordBatchCall(
     providerCode: modelToProviderCode(model),
     clientIp: '',
     metadata: { batch: true, discount: 0.5, batchId },
-  }).catch(() => {
-    // 计费失败不阻塞批处理流程
+  }).catch((err: unknown) => {
+    // 计费失败不阻塞批处理流程,但记录日志便于排查
+    logger.warn('batch billing failed', { batchId, err })
   })
 }
 
