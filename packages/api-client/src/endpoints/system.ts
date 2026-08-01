@@ -500,3 +500,21 @@ export async function getHomeSchemaConfig(): Promise<ApiResult<unknown | null>> 
     return { success: true, data: null }
   }
 }
+
+/**
+ * 获取首页 schema 草稿(P3-4.6 草稿+预览模式)。
+ * 从公开配置中取 key='home_schema_draft' 的 value(JSON 字符串),解析为对象。
+ * admin 在 /admin/home-schema 编辑时保存为草稿,预览页 `/?preview=draft` 加载此配置。
+ * 草稿不存在时返回 null,由调用方决定 fallback 策略(通常 fallback 到生产 schema)。
+ */
+export async function getHomeSchemaDraftConfig(): Promise<ApiResult<unknown | null>> {
+  const res = await getPublicConfigs()
+  if (!res.success) return res
+  const cfg = res.data.find((c) => c.key === 'home_schema_draft' && c.type === 'json')
+  if (!cfg) return { success: true, data: null }
+  try {
+    return { success: true, data: JSON.parse(cfg.value) }
+  } catch {
+    return { success: true, data: null }
+  }
+}

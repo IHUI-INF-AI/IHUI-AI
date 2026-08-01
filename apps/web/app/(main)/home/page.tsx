@@ -4,6 +4,7 @@ import * as React from 'react'
 import { HomeSections, TOTAL_PAGES } from '@/components/marketing/HomeSections'
 import { getEnabledSectionCount } from '@/components/marketing/home-schema'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
+import { PreviewBanner } from '@/components/marketing/PreviewBanner'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 import { useHomeSchema } from '@/hooks/use-home-schema'
@@ -36,6 +37,7 @@ export default function WorkAreaHomePage() {
 
   return (
     <>
+      <PreviewBanner />
       {/* 抵消 MainShell main 的 padding,让 scroll 容器撑满工作区卡片可视区
           - 高度统一为 calc(100vh - 58px),与 (marketing)/page.tsx 一致
           - 负 margin 抵消 main 的 p-4/p-6/p-8,让容器在 padding 区延伸(不改变高度) */}
