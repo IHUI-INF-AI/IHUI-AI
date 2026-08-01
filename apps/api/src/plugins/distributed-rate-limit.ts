@@ -171,6 +171,24 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
   }
 
   /**
+   * 2026-08-02 修复:用 LRU 淘汰最旧 1000 个 key,而非全清,防限流穿透。
+   * Map 的迭代顺序是插入顺序,keys() 返回最旧插入的 key 优先。
+   * 原 localBuckets.clear() 会清空瞬间所有限流计数归零,攻击者可穿透。
+   */
+  function evictOldestBuckets(): void {
+    const keysToDelete: string[] = []
+    let count = 0
+    for (const key of localBuckets.keys()) {
+      keysToDelete.push(key)
+      count++
+      if (count >= 1000) break
+    }
+    for (const key of keysToDelete) {
+      localBuckets.delete(key)
+    }
+  }
+
+  /**
    * 本地 token bucket 降级(Redis 故障时使用)。
    * 进程内 Map 存储最近请求时间戳,按滑动窗口计数。
    * 多实例下每个实例独立计数(限额会被放大 N 倍),但仍提供基本保护。
@@ -192,7 +210,7 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
       const retryAfterMs = Math.max(0, oldest + windowMs - nowMs)
       // 更新 bucket(防止 Map 无限增长:超过 10000 个 key 时清理最旧的)
       if (localBuckets.size > 10_000) {
-        localBuckets.clear()
+        evictOldestBuckets()
       }
       localBuckets.set(bucketKey, bucket)
       return {
@@ -206,7 +224,7 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
     }
     bucket.timestamps.push(nowMs)
     if (localBuckets.size > 10_000) {
-      localBuckets.clear()
+      evictOldestBuckets()
     }
     localBuckets.set(bucketKey, bucket)
     return {

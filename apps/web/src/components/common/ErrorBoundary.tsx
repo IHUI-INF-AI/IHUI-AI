@@ -15,7 +15,7 @@ interface ErrorBoundaryState {
   error?: Error
 }
 
-function ErrorFallback({ error, onReset }: { error?: Error; onReset: () => void }) {
+export function ErrorFallback({ error, onReset }: { error?: Error; onReset: () => void }) {
   const t = useTranslations('common')
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-5 min-[768px]:p-8 text-center">
@@ -30,6 +30,28 @@ function ErrorFallback({ error, onReset }: { error?: Error; onReset: () => void 
       >
         <RefreshCw className="h-4 w-4" />
         {t('retry')}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * 2026-08-02 修复: Bug 9 — 不依赖任何 context 的纯静态 fallback。
+ * 当 next-intl Provider 自身崩溃时,原 ErrorFallback 调用 useTranslations 会二次抛错,
+ * 导致整个错误边界无效。StaticErrorFallback 不依赖任何 Provider,作为默认 fallback。
+ */
+function StaticErrorFallback({ onReset }: { onReset?: () => void }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
+      <AlertCircle className="h-10 w-10 text-destructive" />
+      <h1 className="text-2xl font-bold">页面出错了</h1>
+      <p className="text-muted-foreground">应用发生了错误,请刷新页面重试</p>
+      <button
+        type="button"
+        onClick={onReset}
+        className="rounded-md bg-primary px-4 py-2 text-primary-foreground"
+      >
+        重试
       </button>
     </div>
   )
@@ -56,7 +78,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   render(): React.ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback
-      return <ErrorFallback error={this.state.error} onReset={this.handleReset} />
+      // 2026-08-02 修复: Bug 9 — 默认 fallback 用 StaticErrorFallback(不依赖任何 Provider)
+      return <StaticErrorFallback onReset={this.handleReset} />
     }
     return this.props.children
   }

@@ -220,8 +220,10 @@ export function useDesktopEvents(): void {
     let unlistenShortcut: (() => void) | undefined
     let unlistenBeforeClose: (() => void) | undefined
     let cancelled = false
+    // 2026-08-02 修复: 异步监听器泄漏 - listen() 异步, cleanup 时可能未完成, unlisten 未赋值导致泄漏
+    let pendingPromise: Promise<void> | null = null
 
-    void (async () => {
+    pendingPromise = (async () => {
       const { listen } = await import('@tauri-apps/api/event')
       if (cancelled) return
 
@@ -274,6 +276,12 @@ export function useDesktopEvents(): void {
       unlistenTray?.()
       unlistenShortcut?.()
       unlistenBeforeClose?.()
+      // listen 尚未完成时, 等待完成后立即清理
+      pendingPromise?.then(() => {
+        unlistenTray?.()
+        unlistenShortcut?.()
+        unlistenBeforeClose?.()
+      })
     }
   }, [])
 }
@@ -292,8 +300,10 @@ export function useDesktopDeepLink(): void {
     if (!isTauri()) return
     let unlistenDeepLink: (() => void) | undefined
     let cancelled = false
+    // 2026-08-02 修复: 异步监听器泄漏 - listen() 异步, cleanup 时可能未完成, unlisten 未赋值导致泄漏
+    let pendingPromise: Promise<void> | null = null
 
-    void (async () => {
+    pendingPromise = (async () => {
       const { listen } = await import('@tauri-apps/api/event')
       if (cancelled) return
 
@@ -314,6 +324,10 @@ export function useDesktopDeepLink(): void {
     return () => {
       cancelled = true
       unlistenDeepLink?.()
+      // listen 尚未完成时, 等待完成后立即清理
+      pendingPromise?.then(() => {
+        unlistenDeepLink?.()
+      })
     }
   }, [])
 }
