@@ -221,6 +221,7 @@ export default function AdminResourceProductPage() {
       ) : null}
 
       <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
             <tr>
@@ -283,6 +284,7 @@ export default function AdminResourceProductPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">

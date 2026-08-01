@@ -130,11 +130,11 @@ export default function MemberSettingsPage() {
             {t('notifTitle')}
           </div>
           {NOTIF_KEYS.map((key) => (
-            <div key={key} className="flex items-center justify-between">
-              <Label className="text-sm font-normal text-muted-foreground">
+            <div key={key} className="flex items-center justify-between gap-3">
+              <Label className="min-w-0 flex-1 truncate text-sm font-normal text-muted-foreground">
                 {t(NOTIF_KEY[key] ?? 'notif.unknown')}
               </Label>
-              <Toggle checked={notif[key]} onChange={(v) => setNotif({ ...notif, [key]: v })} />
+              <Toggle checked={notif[key]} onChange={(v) => setNotif({ ...notif, [key]: v })} className="shrink-0" />
             </div>
           ))}
         </CardContent>
@@ -147,13 +147,14 @@ export default function MemberSettingsPage() {
             {t('privacyTitle')}
           </div>
           {PRIVACY_KEYS.map((key) => (
-            <div key={key} className="flex items-center justify-between">
-              <Label className="text-sm font-normal text-muted-foreground">
+            <div key={key} className="flex items-center justify-between gap-3">
+              <Label className="min-w-0 flex-1 truncate text-sm font-normal text-muted-foreground">
                 {t(PRIVACY_KEY[key] ?? 'privacy.unknown')}
               </Label>
               <Toggle
                 checked={privacy[key]}
                 onChange={(v) => setPrivacy({ ...privacy, [key]: v })}
+                className="shrink-0"
               />
             </div>
           ))}

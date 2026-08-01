@@ -71,22 +71,24 @@ export function ConfirmActionDialog({
             />
           </div>
         ) : null}
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
           <Button
             type="button"
             variant="ghost"
             onClick={() => onOpenChange(false)}
             disabled={pending}
+            className="shrink-0"
           >
-            {cancelText ?? t('confirm.cancel')}
+            <span className="whitespace-nowrap">{cancelText ?? t('confirm.cancel')}</span>
           </Button>
           <Button
             type="button"
             variant={isDestructive ? 'destructive' : 'default'}
             disabled={!canConfirm || pending}
             onClick={onConfirm}
+            className="shrink-0"
           >
-            {confirmText ?? t('confirm.confirm')}
+            <span className="whitespace-nowrap">{confirmText ?? t('confirm.confirm')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

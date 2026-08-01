@@ -183,7 +183,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
             ) : (
               <div className="flex items-center gap-4">
                 <Donut data={dist} />
-                <ul className="flex-1 space-y-1.5">
+                <ul className="flex-1 min-w-0 space-y-1.5">
                   {dist.map((d, i) => (
                     <li key={d.model} className="flex items-center gap-2 text-xs">
                       <span className="inline-block h-2.5 w-2.5 shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
@@ -231,6 +231,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
             <p className="py-8 text-center text-sm text-muted-foreground">暂无数据</p>
           ) : (
             <div className="overflow-hidden rounded-md border border-border">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                   <tr>
@@ -256,6 +257,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </CardContent>

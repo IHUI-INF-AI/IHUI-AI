@@ -90,7 +90,7 @@ export function FundingSection({ items }: Props) {
         </div>
       </div>
 
-      <div className="space-y-2 px-6 pb-3">
+      <div className="space-y-2 px-4 min-[768px]:px-6 pb-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
           <input

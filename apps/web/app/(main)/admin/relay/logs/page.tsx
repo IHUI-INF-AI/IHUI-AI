@@ -252,6 +252,7 @@ export default function AdminRelayLogsPage() {
             </SelectContent>
           </Select>
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
             <tr>
@@ -300,12 +301,14 @@ export default function AdminRelayLogsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card">
         <div className="border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
           调用明细
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border text-xs uppercase text-muted-foreground">
             <tr>
@@ -370,6 +373,7 @@ export default function AdminRelayLogsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">

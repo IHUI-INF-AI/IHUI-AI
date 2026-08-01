@@ -310,7 +310,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
                   )}
                 </div>
                 {rating.total > 0 && (
-                  <div className="flex-1 space-y-1">
+                  <div className="flex-1 min-w-0 space-y-1">
                     {[5, 4, 3, 2, 1].map((star, i) => (
                       <div key={star} className="flex items-center gap-2">
                         <span className="w-3 text-xs text-muted-foreground">{star}</span>

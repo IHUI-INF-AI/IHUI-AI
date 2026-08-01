@@ -102,16 +102,17 @@ export function CreateTenantDialog({
               <option value="enterprise">{t('form.planEnterprise')}</option>
             </select>
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
             <Button
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
+              className="shrink-0"
             >
-              {t('confirm.cancel')}
+              <span className="whitespace-nowrap">{t('confirm.cancel')}</span>
             </Button>
-            <Button type="submit" disabled={!canSubmit || submitting}>
-              {submitting ? t('creating') : t('confirm.confirm')}
+            <Button type="submit" disabled={!canSubmit || submitting} className="shrink-0">
+              <span className="whitespace-nowrap">{submitting ? t('creating') : t('confirm.confirm')}</span>
             </Button>
           </DialogFooter>
         </form>

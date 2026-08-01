@@ -38,7 +38,7 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
           下载
         </a>
       </div>
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-w-0">
         {loading && !error && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

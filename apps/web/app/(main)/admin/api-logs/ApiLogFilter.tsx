@@ -37,7 +37,7 @@ export function ApiLogFilter({
               <option value="5xx">5xx</option>
             </select>
           </div>
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 min-w-0 space-y-1.5">
             <Label className="text-xs">{t('apiLogs.filterEndpoint')}</Label>
             <Input
               value={endpointFilter}

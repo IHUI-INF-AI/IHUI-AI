@@ -72,6 +72,7 @@ export default function AdminMenuPermissionPage() {
         </form>
       </div>
       <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-border text-left text-muted-foreground">
             {head.map((h, i) => <th key={h} className={`${c} font-medium${i === 5 ? ' text-right' : ''}`}>{h}</th>)}
@@ -102,6 +103,7 @@ export default function AdminMenuPermissionPage() {
               ))}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('total', { total })}</span>

@@ -65,7 +65,7 @@ export default function PackageCard({
         <span className="text-2xl font-bold">¥{pkg.price}</span>
         {pkg.unit && <span className="text-xs text-muted-foreground">{pkg.unit}</span>}
       </div>
-      <ul className="mt-4 flex-1 space-y-2">
+      <ul className="mt-4 flex-1 min-w-0 space-y-2">
         {(pkg.features ?? []).map((f, i) => (
           <li key={i} className="flex items-center gap-2 text-sm">
             <span
