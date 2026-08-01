@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
-import { KeyRound, Bot } from 'lucide-react'
+import { KeyRound, Bot, ChevronRight } from 'lucide-react'
 
 import { Card, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
@@ -90,30 +90,32 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             <Link href="/settings/api-keys">
               <Card className="transition-colors hover:bg-accent">
-                <CardContent className="flex items-start gap-2 p-3">
+                <CardContent className="flex items-center gap-2 p-3">
                   <div className="rounded-md bg-muted p-1.5">
-                    <KeyRound className="h-3.5 w-3.5" />
+                    <KeyRound className="h-4 w-4" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium">API 密钥</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">管理开发者 API 密钥</p>
                   </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </CardContent>
               </Card>
             </Link>
             <Link href="/settings/llm">
               <Card className="transition-colors hover:bg-accent">
-                <CardContent className="flex items-start gap-2 p-3">
+                <CardContent className="flex items-center gap-2 p-3">
                   <div className="rounded-md bg-muted p-1.5">
-                    <Bot className="h-3.5 w-3.5" />
+                    <Bot className="h-4 w-4" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium">LLM 配置</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
                       配置你自己的 LLM API Key(BYOK),支持 OpenAI / Anthropic / DeepSeek /
-                      智谱等大厂。平台只收 5-20% 服务费,免费 provider 不收费。
+                      智谱等大厂。
                     </p>
                   </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </CardContent>
               </Card>
             </Link>
@@ -122,16 +124,17 @@ export default function SettingsPage() {
               return (
                 <Link key={item.href} href={item.href}>
                   <Card className="transition-colors hover:bg-accent">
-                    <CardContent className="flex items-start gap-2 p-3">
+                    <CardContent className="flex items-center gap-2 p-3">
                       <div className="rounded-md bg-muted p-1.5">
-                        <Icon className="h-3.5 w-3.5" />
+                        <Icon className="h-4 w-4" />
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium">{t(item.titleKey)}</p>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
                           {t(item.descKey)}
                         </p>
                       </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </CardContent>
                   </Card>
                 </Link>
