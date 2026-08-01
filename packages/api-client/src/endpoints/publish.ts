@@ -199,3 +199,299 @@ export async function detectLoginFromCdp(
     body: JSON.stringify({ session_id: sessionId, platform }),
   })
 }
+
+// =============================================================================
+// 账号分组管理(2026-08-01 新增)
+// =============================================================================
+export interface PublishAccountGroup {
+  group_id: string
+  user_id: string
+  name: string
+  description: string
+  account_ids: number[]
+  created_at: string
+  updated_at: string
+}
+
+export async function listPublishGroups(): Promise<ApiResult<{ items: PublishAccountGroup[]; count: number }>> {
+  return fetchApi('/api/publish/groups')
+}
+
+export async function createPublishGroup(body: {
+  name: string
+  description?: string
+}): Promise<ApiResult<PublishAccountGroup>> {
+  return fetchApi('/api/publish/groups', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export async function updatePublishGroup(
+  groupId: string,
+  body: { name?: string; description?: string },
+): Promise<ApiResult<PublishAccountGroup>> {
+  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}`, { method: 'PATCH', body: JSON.stringify(body) })
+}
+
+export async function deletePublishGroup(groupId: string): Promise<ApiResult<unknown>> {
+  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}`, { method: 'DELETE' })
+}
+
+export async function addToPublishGroup(
+  groupId: string,
+  accountIds: number[],
+): Promise<ApiResult<{ added: number }>> {
+  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}/add`, {
+    method: 'POST',
+    body: JSON.stringify({ account_ids: accountIds }),
+  })
+}
+
+export async function removeFromPublishGroup(
+  groupId: string,
+  accountIds: number[],
+): Promise<ApiResult<{ removed: number }>> {
+  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}/remove`, {
+    method: 'POST',
+    body: JSON.stringify({ account_ids: accountIds }),
+  })
+}
+
+export async function listPublishGroupMembers(
+  groupId: string,
+): Promise<ApiResult<{ account_ids: number[]; count: number }>> {
+  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}/members`)
+}
+
+export async function publishToGroup(
+  groupId: string,
+  body: {
+    title: string
+    format: string
+    text?: string
+    file_path?: string
+    cover_path?: string
+    html?: string
+    images?: string[]
+    extra?: Record<string, unknown>
+    platform_config?: Record<string, unknown>
+  },
+): Promise<ApiResult<{
+  results: Array<{ account_id: number; platform: string; success: boolean; error?: string; published_url?: string }>
+  success_count: number
+  failed_count: number
+  total: number
+}>> {
+  return fetchApi(`/api/publish/groups/${encodeURIComponent(groupId)}/publish`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+// =============================================================================
+// 批量账号导入 / 导出 / 验证 / 模板(2026-08-01 新增)
+// =============================================================================
+export interface BatchImportRow {
+  platform: string
+  nickname: string
+  credentials: Record<string, string>
+}
+
+export interface BatchImportResult {
+  success_count: number
+  failed_count: number
+  errors: Array<{ row: number; error: string }>
+  total: number
+}
+
+export async function batchImportAccounts(rows: BatchImportRow[]): Promise<ApiResult<BatchImportResult>> {
+  return fetchApi('/api/publish/accounts/batch-import', {
+    method: 'POST',
+    body: JSON.stringify({ rows }),
+  })
+}
+
+export async function batchExportAccounts(): Promise<ApiResult<{ csv: string; count: number }>> {
+  return fetchApi('/api/publish/accounts/batch-export', { method: 'POST' })
+}
+
+export interface BatchVerifyResult {
+  verified_count: number
+  invalid_count: number
+  results: Array<{ account_id: number; platform: string; valid: boolean; message: string }>
+  total: number
+}
+
+export async function batchVerifyAccounts(): Promise<ApiResult<BatchVerifyResult>> {
+  return fetchApi('/api/publish/accounts/batch-verify', { method: 'POST' })
+}
+
+export async function getBatchImportTemplate(): Promise<ApiResult<{ csv: string }>> {
+  return fetchApi('/api/publish/accounts/batch-template')
+}
+
+// =============================================================================
+// Cookie 健康度 + 手动保活(2026-08-01 新增)
+// =============================================================================
+export type CookieHealthLevel = 'healthy' | 'expiring' | 'expired'
+
+export interface CookieHealthInfo {
+  account_id: number
+  platform: string
+  level: CookieHealthLevel
+  days_since_verified: number | null
+  last_verified_at: string | null
+  predicted_expiry: string | null
+  last_verify_msg: string | null
+  status: string
+}
+
+export async function getCookieHealth(accountId: number): Promise<ApiResult<CookieHealthInfo>> {
+  return fetchApi(`/api/publish/accounts/${accountId}/cookie-health`)
+}
+
+export async function refreshAccountCookie(
+  accountId: number,
+): Promise<ApiResult<{ account_id: number; platform: string; success: boolean; message: string }>> {
+  return fetchApi(`/api/publish/accounts/${accountId}/refresh-cookie`, { method: 'POST' })
+}
+
+export interface CookieRefreshStats {
+  total: number
+  success: number
+  failed: number
+  skipped: number
+  last_run_at: string | null
+  running: boolean
+  interval_hours: number
+  auto_enabled: boolean
+}
+
+export async function getCookieRefreshStats(): Promise<ApiResult<CookieRefreshStats>> {
+  return fetchApi('/api/publish/cookie-refresh/stats')
+}
+
+export async function triggerCookieRefresh(): Promise<ApiResult<{ triggered: boolean }>> {
+  return fetchApi('/api/publish/cookie-refresh/trigger', { method: 'POST' })
+}
+
+// =============================================================================
+// 数据分析(2026-08-01 新增)
+// =============================================================================
+
+export type AnalyticsPeriod = '7d' | '30d' | '90d'
+
+export interface AnalyticsOverview {
+  totalPublished: number
+  successRate: number
+  avgDurationMs: number
+  activeAccounts: number
+  trend: ReadonlyArray<{ date: string; count: number }>
+  platformDistribution: ReadonlyArray<{ platform: string; count: number; color: string }>
+  failureReasons: ReadonlyArray<{ reason: string; count: number }>
+}
+
+export interface AccountHealth {
+  accountId: number
+  platform: string
+  displayName: string
+  successRate: number
+  lastPublishedAt: string | null
+  riskStatus: 'safe' | 'low' | 'medium' | 'high'
+}
+
+export interface PlatformStat {
+  platform: string
+  total: number
+  successRate: number
+  avgDurationMs: number
+}
+
+export async function getPublishAnalyticsOverview(
+  period: AnalyticsPeriod = '30d',
+): Promise<ApiResult<AnalyticsOverview>> {
+  return fetchApi<AnalyticsOverview>('/api/publish/analytics/overview', { params: { period } })
+}
+
+export async function getPublishAnalyticsAccounts(
+  period: AnalyticsPeriod = '30d',
+): Promise<ApiResult<AccountHealth[]>> {
+  return fetchApi<AccountHealth[]>('/api/publish/analytics/accounts', { params: { period } })
+}
+
+export async function getPublishAnalyticsPlatforms(
+  period: AnalyticsPeriod = '30d',
+): Promise<ApiResult<PlatformStat[]>> {
+  return fetchApi<PlatformStat[]>('/api/publish/analytics/platforms', { params: { period } })
+}
+
+// =============================================================================
+// AI 辅助写作(2026-08-01 新增)
+// =============================================================================
+
+export interface AiTitleResult {
+  titles: string[]
+}
+
+export interface AiTagResult {
+  tags: string[]
+}
+
+export async function generatePublishTitles(
+  content: string,
+  platform: string,
+  count = 5,
+): Promise<ApiResult<AiTitleResult>> {
+  return fetchApi<AiTitleResult>('/api/publish/ai/titles', {
+    method: 'POST',
+    body: JSON.stringify({ content, platform, count }),
+  })
+}
+
+export async function polishPublishContent(
+  content: string,
+  style = 'professional',
+): Promise<ApiResult<{ content: string }>> {
+  return fetchApi<{ content: string }>('/api/publish/ai/polish', {
+    method: 'POST',
+    body: JSON.stringify({ content, style }),
+  })
+}
+
+export async function recommendPublishTags(
+  content: string,
+  platform: string,
+  count = 8,
+): Promise<ApiResult<AiTagResult>> {
+  return fetchApi<AiTagResult>('/api/publish/ai/tags', {
+    method: 'POST',
+    body: JSON.stringify({ content, platform, count }),
+  })
+}
+
+export async function generatePublishSummary(
+  content: string,
+  maxLength = 100,
+): Promise<ApiResult<{ summary: string }>> {
+  return fetchApi<{ summary: string }>('/api/publish/ai/summary', {
+    method: 'POST',
+    body: JSON.stringify({ content, max_length: maxLength }),
+  })
+}
+
+export interface SeoReport {
+  score: number
+  titleScore: number
+  contentScore: number
+  keywordDensity: Record<string, number>
+  suggestions: string[]
+}
+
+export async function analyzePublishSeo(
+  title: string,
+  content: string,
+  platform: string,
+): Promise<ApiResult<{ seo: SeoReport }>> {
+  return fetchApi<{ seo: SeoReport }>('/api/publish/ai/seo', {
+    method: 'POST',
+    body: JSON.stringify({ title, content, platform }),
+  })
+}

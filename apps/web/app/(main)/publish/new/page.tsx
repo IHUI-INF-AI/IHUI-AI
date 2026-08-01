@@ -1,8 +1,9 @@
 'use client'
 
 /**
- * 新建发布任务页:状态管理 + 拉取账号 + 组合 4 个子组件 + 提交逻辑。
- * 任务进度轮询由 SubmitBar 内部管理。AGENTS.md §4:< 200 行 / rounded-md / 无分割线。
+ * 新建发布任务页:状态管理 + 拉取账号 + 组合子组件 + 提交逻辑。
+ * 含富文本编辑器 + AI 辅助写作 + 平台预览 + 内容模板库。
+ * 任务进度轮询由 SubmitBar 内部管理。AGENTS.md §4:< 250 行 / rounded-md / 无分割线。
  */
 
 import * as React from 'react'
@@ -14,6 +15,9 @@ import { ContentEditorCard, type UploadResult, type Format } from './ContentEdit
 import { PlatformSelectorCard } from './PlatformSelectorCard'
 import { ScheduleCard, type ScheduleMode } from './ScheduleCard'
 import { SubmitBar } from './SubmitBar'
+import { AiWritingAssistant } from '@/components/publish/AiWritingAssistant'
+import { PlatformPreview } from '@/components/publish/PlatformPreview'
+import { ContentTemplateLibrary, type ContentTemplate } from '@/components/publish/ContentTemplateLibrary'
 
 interface Account {
   id: number
@@ -70,6 +74,8 @@ export default function NewPublishPage() {
   const [scheduledAt, setScheduledAt] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
   const [submittedTaskId, setSubmittedTaskId] = React.useState<number | null>(null)
+  const [tags, setTags] = React.useState<string[]>([])
+  const [summary, setSummary] = React.useState('')
 
   React.useEffect(() => {
     void (async () => {
@@ -150,6 +156,8 @@ export default function NewPublishPage() {
         cover_path: coverMeta?.file_path || undefined,
         images: [] as string[],
         targets,
+        tags: tags.length > 0 ? tags : undefined,
+        summary: summary || undefined,
         scheduled_at: scheduleMode === 'schedule' ? new Date(scheduledAt).toISOString() : undefined,
       })
       const resp = await api<{ id?: number }>('/api/publish/tasks', {
@@ -167,24 +175,50 @@ export default function NewPublishPage() {
     }
   }
 
+  const previewPlatform = selected.size > 0 ? (Array.from(selected)[0] ?? 'wechat') : 'wechat'
+
+  function handleApplyTemplate(tpl: ContentTemplate) {
+    setTitle(tpl.title)
+    setTextContent(tpl.content)
+    if (tpl.tags.length > 0) setTags([...tpl.tags])
+    toast.success(t('templates.apply'))
+  }
+
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
         <h2 className="text-base font-semibold">{t('new.title')}</h2>
         <p className="text-xs text-muted-foreground">{t('new.subtitle')}</p>
       </div>
-      <ContentEditorCard
-        title={title} onTitleChange={setTitle} format={format} onFormatChange={setFormat}
-        textContent={textContent} onTextContentChange={setTextContent}
-        fileMeta={fileMeta} coverMeta={coverMeta} uploadingKey={uploadingKey}
-        fileProgress={fileProgress} coverProgress={coverProgress}
-        onUploadFile={(f) => uploadFile(f, 'file')} onUploadCover={(f) => uploadFile(f, 'cover')}
-      />
-      <PlatformSelectorCard
-        platformMap={platformMap} selected={selected} onToggle={togglePlatform}
-        onSelectAll={() => setSelected(new Set(platformMap.keys()))}
-        onClearAll={() => setSelected(new Set())}
-      />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <ContentEditorCard
+            title={title} onTitleChange={setTitle} format={format} onFormatChange={setFormat}
+            textContent={textContent} onTextContentChange={setTextContent}
+            fileMeta={fileMeta} coverMeta={coverMeta} uploadingKey={uploadingKey}
+            fileProgress={fileProgress} coverProgress={coverProgress}
+            onUploadFile={(f) => uploadFile(f, 'file')} onUploadCover={(f) => uploadFile(f, 'cover')}
+          />
+          <PlatformSelectorCard
+            platformMap={platformMap} selected={selected} onToggle={togglePlatform}
+            onSelectAll={() => setSelected(new Set(platformMap.keys()))}
+            onClearAll={() => setSelected(new Set())}
+          />
+          {format === 'md' && (
+            <PlatformPreview content={textContent} platform={previewPlatform} title={title} />
+          )}
+        </div>
+        <div className="space-y-4">
+          <ContentTemplateLibrary
+            currentContent={textContent} currentTitle={title} onApply={handleApplyTemplate}
+          />
+          <AiWritingAssistant
+            content={textContent} platform={previewPlatform}
+            onApplyTitle={setTitle} onApplyContent={setTextContent}
+            onApplyTags={setTags} onApplySummary={setSummary}
+          />
+        </div>
+      </div>
       <ScheduleCard
         scheduleMode={scheduleMode} onScheduleModeChange={setScheduleMode}
         scheduledAt={scheduledAt} onScheduledAtChange={setScheduledAt}
