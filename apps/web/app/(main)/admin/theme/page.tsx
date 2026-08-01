@@ -81,7 +81,7 @@ export default function ThemeListPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {themes.map((t) => (
           <Card key={t.id} className="overflow-hidden">
             <div

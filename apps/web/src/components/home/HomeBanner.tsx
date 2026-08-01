@@ -54,7 +54,7 @@ export function HomeBanner() {
 
   return (
     <div
-      className="relative flex min-h-[230px] flex-1 flex-col p-4 md:min-h-[350px]"
+      className="relative flex min-h-[230px] flex-1 flex-col p-4 min-[768px]:min-h-[350px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -66,10 +66,10 @@ export function HomeBanner() {
               idx === current ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <h2 className="max-w-md text-2xl font-bold text-white drop-shadow md:text-3xl">
+            <h2 className="max-w-md text-2xl font-bold text-white drop-shadow min-[768px]:text-3xl">
               {t(slide.titleKey)}
             </h2>
-            <p className="mt-2 max-w-sm text-sm text-white/80 md:text-base">
+            <p className="mt-2 max-w-sm text-sm text-white/80 min-[768px]:text-base">
               {t(slide.subtitleKey)}
             </p>
             <Link href={slide.href} className="mt-4 inline-block w-fit">

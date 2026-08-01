@@ -52,7 +52,7 @@ export function AgentEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v: boolean) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto min-[640px]:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t('editTitle')}</DialogTitle>
         </DialogHeader>
@@ -80,7 +80,7 @@ export function AgentEditDialog({
               className={textareaCls}
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ed-avatar">{t('fieldAvatar')}</Label>
               <Input
@@ -102,7 +102,7 @@ export function AgentEditDialog({
               />
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ed-cat">{t('fieldCategory')}</Label>
               <Select
@@ -140,7 +140,7 @@ export function AgentEditDialog({
               </Select>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 min-[640px]:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="ed-price">{t('fieldPrice')}</Label>
               <Input

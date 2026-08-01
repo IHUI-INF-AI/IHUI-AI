@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 /**
  * 知识图谱可视化页面(G5 - 2026-07-21)
@@ -255,7 +255,7 @@ export default function KnowledgeGraphPage() {
             <div className="overflow-auto rounded-md border bg-muted/30">
               <svg
                 viewBox="0 0 800 600"
-                className="h-[600px] w-full"
+                className="h-[420px] min-[768px]:h-[600px] w-full"
                 role="img"
                 aria-label={t('graphAriaLabel')}
               >

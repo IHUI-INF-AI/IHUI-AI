@@ -174,7 +174,7 @@ export default function AdminLogsPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
               <MetricCard
                 icon={Activity}
                 label={t('metricTotal')}

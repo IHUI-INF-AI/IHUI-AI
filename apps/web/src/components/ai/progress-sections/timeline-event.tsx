@@ -243,7 +243,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
           {event.title}
         </span>
         {description && !isExpanded && (
-          <span className="hidden truncate text-[10px] text-muted-foreground/60 lg:inline">
+          <span className="hidden truncate text-[10px] text-muted-foreground/60 min-[1024px]:inline">
             {description.slice(0, 60)}
             {description.length > 60 ? '…' : ''}
           </span>
