@@ -13,6 +13,7 @@
  *   ihui login                         # 交互式询问 account + password
  *   ihui login -a admin                 # 命令行指定账号,只问密码
  *   ihui login -a admin -p admin123     # 全自动(CI/脚本友好,密码会暴露在进程列表)
+ *   ihui login --sso                    # SSO 一键授权(打开浏览器,无需输密码)
  *   ihui login --check                  # 检查当前 token 是否有效
  *   ihui login --logout                 # 清除本地 token
  */
@@ -23,6 +24,7 @@ import type { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { loadSettings, getSettingsPath, type Settings } from './settings.js';
+import { loginWithSso } from '../lib/sso.js';
 
 interface LoginResponse {
   accessToken: string;
@@ -47,6 +49,7 @@ interface LoginOptions {
   apiUrl?: string;
   check?: boolean;
   logout?: boolean;
+  sso?: boolean;
 }
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -181,6 +184,39 @@ export async function runLogin(opts: LoginOptions): Promise<boolean> {
     return true;
   }
 
+  // --sso:SSO 一键授权登录(打开浏览器,无需输密码)
+  if (opts.sso) {
+    try {
+      const tokenData = await loginWithSso();
+      console.info(chalk.green('\n✓ SSO 授权登录成功,token 已写入 settings.json'));
+      const u = tokenData.user;
+      const name = u.nickname || u.phone || u.email || u.id;
+      const role = u.roleId && u.roleId >= 1 ? ' (admin)' : '';
+      console.info(chalk.dim(`  用户: ${name}${role}`));
+      const expiresIn = tokenData.expiresIn ?? 0;
+      const refreshExpiresIn = tokenData.refreshExpiresIn ?? 0;
+      const days = Math.floor(expiresIn / 86400);
+      const hours = Math.floor((expiresIn % 86400) / 3600);
+      const minutes = Math.floor((expiresIn % 3600) / 60);
+      const expiryText = days > 0
+        ? `${days} 天${hours > 0 ? ` ${hours} 小时` : ''}`
+        : hours > 0
+          ? `${hours} 小时${minutes > 0 ? ` ${minutes} 分钟` : ''}`
+          : `${minutes} 分钟`;
+      const refreshDays = Math.floor(refreshExpiresIn / 86400);
+      const refreshExpiryText = refreshDays > 0
+        ? `${refreshDays} 天`
+        : `${Math.floor(refreshExpiresIn / 3600)} 小时`;
+      console.info(chalk.dim(`  Access Token 有效期: ${expiryText}(过期自动续期,无需重登录)`));
+      console.info(chalk.dim(`  Refresh Token 有效期: ${refreshExpiryText}(到期需重新 ihui login)\n`));
+      return true;
+    } catch (err) {
+      console.error(chalk.red(`✗ SSO 登录失败: ${(err as Error).message}`));
+      console.info(chalk.dim('  可改用账号密码登录: ihui login -a admin'));
+      return false;
+    }
+  }
+
   const apiUrl = await getEffectiveApiUrl(opts);
 
   // --check:验证当前 token
@@ -282,6 +318,7 @@ interface CliLoginOptions {
   apiUrl?: string;
   check?: boolean;
   logout?: boolean;
+  sso?: boolean;
 }
 
 /**
@@ -290,6 +327,7 @@ interface CliLoginOptions {
  *   ihui login                         # 交互式
  *   ihui login -a admin                # 命令行指定账号
  *   ihui login -a admin -p admin123    # 全自动
+ *   ihui login --sso                    # SSO 一键授权(打开浏览器)
  *   ihui login --check                 # 检查 token
  *   ihui login --logout                # 清除 token
  */
@@ -300,6 +338,7 @@ export function registerLoginCommand(program: Command): void {
     .option('-a, --account <account>', '账号(用户名/手机号/邮箱)')
     .option('-p, --password <password>', '密码(会暴露在进程列表,推荐交互式输入)')
     .option('--api-url <url>', '后端 API 地址(默认读 settings.json)')
+    .option('--sso', 'SSO 一键授权登录(打开浏览器,无需输密码)')
     .option('--check', '检查当前 token 是否有效')
     .option('--logout', '清除本地 token(settings.json 的 apiKey 字段)')
     .action(async (opts: CliLoginOptions) => {
