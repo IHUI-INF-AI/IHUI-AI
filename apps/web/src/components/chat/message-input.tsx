@@ -625,26 +625,10 @@ export function MessageInput({
                     </button>
                   </Tooltip>
                 )}
-                {isStreaming ? (
-                  <Tooltip content={t('streamingIndicatorHint')}>
-                    <div
-                      role="status"
-                      aria-live="polite"
-                      className="flex h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-sm bg-primary"
-                      />
-                      <span
-                        className="whitespace-nowrap text-xs font-medium text-primary"
-                        style={{ transform: 'translateY(0.7px)' }}
-                      >
-                        {t('streamingIndicator')}
-                      </span>
-                    </div>
-                  </Tooltip>
-                ) : null}
+                {/* 流式生成指示已移除(2026-08-01 立,用户规则):
+                    不在输入区右侧显示"AI 正在生成中"文字 + 脉冲点。
+                    AI 生成状态由对话框内 TypingIndicator(三个跳动点,message-list showTyping)承担,
+                    停止操作由上方 stop 按钮承担(替换 send 按钮,大小一致)。 */}
               </div>
             </div>
           </div>
