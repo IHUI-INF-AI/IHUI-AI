@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -11,10 +11,17 @@ import { fetchApi } from '@/lib/api'
 import { Button, Input } from '@ihui/ui-react'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 
-async function fetchConversations(): Promise<Conversation[]> {
-  const res = await fetchApi<{ conversations: Conversation[] }>('/api/chat/conversations')
+interface ConversationsResponse {
+  conversations: Conversation[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+async function fetchConversations(): Promise<ConversationsResponse> {
+  const res = await fetchApi<ConversationsResponse>('/api/chat/conversations?pageSize=100')
   if (!res.success) throw new Error(res.error)
-  return res.data.conversations
+  return res.data
 }
 
 export default function ChatHistoryPage() {
@@ -28,8 +35,10 @@ export default function ChatHistoryPage() {
   })
 
   const keyword = q.trim().toLowerCase()
-  const items = (data ?? []).filter((c) => !keyword || c.title.toLowerCase().includes(keyword))
-  const total = data?.length ?? 0
+  const items = (data?.conversations ?? []).filter(
+    (c) => !keyword || c.title.toLowerCase().includes(keyword),
+  )
+  const total = data?.total ?? items.length
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
