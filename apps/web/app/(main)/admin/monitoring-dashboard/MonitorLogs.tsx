@@ -22,7 +22,7 @@ export function MonitorLogs({ logs, t }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="mb-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="mb-3 grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
           <div className="rounded-md border p-2 text-center">
             <div className="text-xs text-muted-foreground">{t('monitor.logTotal')}</div>
             <div className="mt-0.5 text-lg font-bold">{formatNumber(logs?.total ?? 0)}</div>

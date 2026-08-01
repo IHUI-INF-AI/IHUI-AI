@@ -348,7 +348,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
         title={t('searchPrev')}
         data-testid="message-search-prev"
         className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
           'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
           prevDisabled &&
             'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
@@ -364,7 +364,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
         title={t('searchNext')}
         data-testid="message-search-next"
         className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
           'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
           nextDisabled &&
             'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
@@ -379,7 +379,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
         title={t('searchClose')}
         data-testid="message-search-close"
         className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
           'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
         )}
       >
