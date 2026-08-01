@@ -723,12 +723,6 @@
       "title": "구독 관리"
     }
   },
-  "exam": {
-    "result": {
-      "correct": "정답",
-      "wrong": "오답"
-    }
-  },
   "live": {
     "title": "라이브",
     "loadFailed": "라이브 로드 실패",
