@@ -15,7 +15,6 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@ihui/ui-react'
-import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 import type { Order } from '@ihui/api-client'
@@ -73,13 +72,7 @@ export default function BillingPage() {
   })
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('billingTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('billingDesc')}</p>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+    <div className="space-y-4">
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
           <TabsList>
             <TabsTrigger value="orders">{t('billingOrders')}</TabsTrigger>
@@ -136,7 +129,6 @@ export default function BillingPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
-    </Container>
+    </div>
   )
 }

@@ -53,28 +53,14 @@ export const metadata: Metadata = {
 
 export default function AgentDocsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <div className="space-y-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(agentJsonLd) }}
       />
 
-      <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>🤖</span>
-          Agent 开发
-        </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
-          AI Agent 开发完整指南
-        </h1>
-        <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-          从提示词工程到工具集成,从知识库挂载到六端发布,从模板复用到市场变现。
-          零代码可视化编排 + 高级开发模式双轨。
-        </p>
-      </header>
-
       {/* Agent 结构 */}
-      <section id="structure" className="mt-16 space-y-6">
+      <section id="structure" className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">Agent 的核心结构</h2>
         <div className="rounded-2xl border bg-card p-6 space-y-3">
           <p className="text-sm text-muted-foreground">一个完整的 Agent 由 6 部分组成:</p>
@@ -238,6 +224,6 @@ export default defineAgentTemplate({
           <a href="/docs/mcp" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">MCP 工具</a>
         </div>
       </section>
-    </main>
+    </div>
   )
 }

@@ -33,11 +33,7 @@ export default async function UsagePage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{t('usage.title')}</h1>
-          <p className="text-xs text-muted-foreground">{t('usage.subtitle')}</p>
-        </div>
+      <div className="flex justify-end">
         <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
           {ranges.map((r, i) => (
             <button
@@ -53,7 +49,7 @@ export default async function UsagePage() {
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
       {/* 汇总卡片 */}
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
