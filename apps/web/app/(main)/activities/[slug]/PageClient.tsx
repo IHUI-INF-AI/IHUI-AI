@@ -132,11 +132,11 @@ export default function ActivityDetailPage() {
 
       <div className="overflow-hidden rounded-lg border bg-card">
         {a.banner ? (
-          <div className="relative h-48 w-full sm:h-64">
+          <div className="relative h-48 w-full min-[640px]:h-64">
             <Image src={a.banner} alt={a.title} fill className="object-cover" />
           </div>
         ) : (
-          <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 sm:h-64">
+          <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 min-[640px]:h-64">
             <Sparkles className="h-12 w-12 text-primary/40" />
           </div>
         )}

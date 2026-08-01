@@ -166,7 +166,7 @@ export function WorkspacePermissionDialog({
         {/* 三种模式卡片 */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">{t('selectMode')}</Label>
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {MODE_OPTIONS.map((opt) => {
               const Icon = opt.icon
               const isSel = selectedMode === opt.value

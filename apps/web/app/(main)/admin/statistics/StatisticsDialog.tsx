@@ -14,7 +14,7 @@ interface Props {
 export function StatisticsDialog({ learn, exam, content }: Props) {
   const t = useTranslations('statistics')
   return (
-    <div className="grid gap-4 min-[1024px]:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-3">
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">

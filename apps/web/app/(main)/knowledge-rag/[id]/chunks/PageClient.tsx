@@ -107,7 +107,7 @@ export default function KnowledgeRagChunksPage() {
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{doc.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{doc.title}</h1>
         <p className="text-xs text-muted-foreground">
           {t('totalCount', { count: doc.chunkCount })}
         </p>

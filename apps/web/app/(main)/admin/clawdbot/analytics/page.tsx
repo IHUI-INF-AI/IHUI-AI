@@ -115,7 +115,7 @@ export default function ClawdbotAnalyticsPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 min-[768px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
           <p className="mb-3 text-sm font-medium">热门意图</p>
           {summary.topIntents.length === 0 ? (

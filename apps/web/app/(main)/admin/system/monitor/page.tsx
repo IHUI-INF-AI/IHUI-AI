@@ -101,7 +101,7 @@ export default function AdminSystemMonitorPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('monitor.subtitle')}</p>
       </div>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {cards.map((c) => {
           const Icon = c.icon
           return (
@@ -138,7 +138,7 @@ export default function AdminSystemMonitorPage() {
         })}
       </div>
 
-      <div className="grid gap-4 min-[1024px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">

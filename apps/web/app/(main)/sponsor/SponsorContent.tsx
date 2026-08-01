@@ -55,7 +55,7 @@ export function SponsorContent(): React.JSX.Element {
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('whyTitle')}
         </h2>
-        <div className="mt-8 grid gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {REASONS.map(({ icon: Icon, key }) => (
             <div key={key} className="rounded-2xl border bg-card p-6 text-center">
               <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -75,7 +75,7 @@ export function SponsorContent(): React.JSX.Element {
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('tiersTitle')}
         </h2>
-        <div className="mt-8 grid gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {TIERS.map(({ id, emoji, accent }) => (
             <Card
               key={id}

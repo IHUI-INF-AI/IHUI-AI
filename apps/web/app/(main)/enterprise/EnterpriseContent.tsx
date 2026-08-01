@@ -180,7 +180,7 @@ export function EnterpriseContent() {
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {t('modules.label')}
           </div>
-          <div className="grid gap-4 min-[768px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
             {modules.map((m, i) => {
               const Icon = MODULE_ICONS[i] ?? Users
               return (
@@ -246,7 +246,7 @@ export function EnterpriseContent() {
                   <div className="text-xs text-muted-foreground">{t('join.perYear')}</div>
                 </div>
               </div>
-              <div className="grid gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {benefits.map((b) => (
                   <div key={b} className="flex items-center gap-2 text-sm">
                     <Check className="h-4 w-4 shrink-0 text-success" />

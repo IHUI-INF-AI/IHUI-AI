@@ -163,7 +163,7 @@ export default function VisitTrackingPage() {
         </Button>
       </div>
 
-      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {cards.map((c) => (
           <StatCard
             key={c.title}
@@ -175,7 +175,7 @@ export default function VisitTrackingPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 min-[1024px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         {(
           [
             { title: '浏览量趋势 (PV)', series: pvSeries, color: 'var(--primary)' },

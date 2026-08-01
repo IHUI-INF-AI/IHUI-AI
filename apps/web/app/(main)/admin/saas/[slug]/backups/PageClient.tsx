@@ -142,7 +142,7 @@ export default function TenantBackupsPage() {
         </header>
 
         {/* 统计卡片 */}
-        <div className="grid gap-4 min-[640px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
           <StatCard label={t('stats.total')} value={String(backups.length)} />
           <StatCard
             label={t('stats.totalSize')}

@@ -163,7 +163,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
             />
           </div>
 
-          <div className="grid gap-4 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label>角色</Label>
               <Select value={role} onValueChange={setRole}>
@@ -208,7 +208,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
             </div>
           </div>
 
-          <div className="grid gap-4 min-[640px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label>权限模式</Label>
               <Select value={permissionMode} onValueChange={setPermissionMode}>

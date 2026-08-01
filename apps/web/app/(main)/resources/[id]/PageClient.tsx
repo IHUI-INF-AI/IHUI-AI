@@ -138,7 +138,7 @@ export default function ResourceDetailPage() {
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{resource.title}</h1>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{resource.title}</h1>
         {resource.intro && <p className="text-xs text-muted-foreground">{resource.intro}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {resource.categoryName && (
@@ -200,7 +200,7 @@ export default function ResourceDetailPage() {
       {related.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">{t('relatedResources')}</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {related.map((item) => (
               <Link key={item.id} href={`/resources/${item.id}`} className="group block">
                 <Card className="h-full overflow-hidden transition-colors hover:bg-accent">

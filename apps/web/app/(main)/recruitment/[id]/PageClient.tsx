@@ -112,12 +112,12 @@ export default function RecruitmentDetailPage() {
           <Target className="h-4 w-4" />
           {data.subtitle ?? t('defaultSubtitle')}
         </div>
-        <h1 className="text-xl font-bold tracking-tight md:text-2xl">{data.title}</h1>
-        <p className="text-xs text-muted-foreground md:text-base">{data.description}</p>
+        <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{data.title}</h1>
+        <p className="text-xs text-muted-foreground min-[768px]:text-base">{data.description}</p>
       </header>
 
       {stats.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
           {stats.slice(0, 3).map((s, i) => {
             const Icon = statIcons[i] ?? TrendingUp
             const color = statColors[i] ?? 'text-primary'
@@ -143,7 +143,7 @@ export default function RecruitmentDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

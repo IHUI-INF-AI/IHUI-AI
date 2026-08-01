@@ -171,7 +171,7 @@ export default function DatabaseOptimizationPage() {
             {t('dbOpt.noData')}
           </div>
         ) : (
-          <div className="grid gap-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {suggestionsList.map((s) => {
               const style = SUGGESTION_STYLE[s.type as keyof typeof SUGGESTION_STYLE]
               return (
