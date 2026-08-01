@@ -463,9 +463,10 @@ class TestSchedulerB6TlsFingerprint:
         )
 
         # adapter.publish 被调用,platform_config 含 tls_profile
+        # 源码:adapter.publish(platform_content, credentials, platform_config) 位置参数
         adapter.publish.assert_awaited_once()
-        publish_kwargs = adapter.publish.call_args.kwargs
-        platform_config = publish_kwargs[2]  # 第 3 个参数
+        publish_args = adapter.publish.call_args.args
+        platform_config = publish_args[2]  # 第 3 个位置参数
         assert "tls_profile" in platform_config
         assert platform_config["tls_profile"]["browser_name"] == "Chrome 121"
         assert result.success is True
