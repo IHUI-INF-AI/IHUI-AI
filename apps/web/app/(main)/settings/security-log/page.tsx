@@ -102,124 +102,126 @@ export default function SecurityLogPage() {
   ]
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col space-y-4 overflow-y-auto px-4 py-3">
-      <div>
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('securityLogTitle')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('securityLogDesc')}</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-4 w-4" />
-            {t('securityLogTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex gap-2">
-            {tabs.map((tb) => (
-              <Button
-                key={tb.key}
-                variant={tab === tb.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTab(tb.key)}
-              >
-                {tb.label}
-              </Button>
-            ))}
-          </div>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4" />
+              {t('securityLogTitle')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 flex gap-2">
+              {tabs.map((tb) => (
+                <Button
+                  key={tb.key}
+                  variant={tab === tb.key ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTab(tb.key)}
+                >
+                  {tb.label}
+                </Button>
+              ))}
+            </div>
 
-          {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              {t('activityLoading')}
-            </p>
-          ) : error ? (
-            <p className="py-8 text-center text-sm text-destructive">{error}</p>
-          ) : filteredLogs.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('activityEmpty')}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('logTime')}</TableHead>
-                    <TableHead>{t('logEvent')}</TableHead>
-                    <TableHead>{t('logIp')}</TableHead>
-                    <TableHead>{t('logDevice')}</TableHead>
-                    <TableHead>{t('logStatus')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="whitespace-nowrap text-xs">{log.time}</TableCell>
-                      <TableCell className="text-xs">
-                        <span className="inline-flex items-center gap-1.5">
+            {loading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t('activityLoading')}
+              </p>
+            ) : error ? (
+              <p className="py-8 text-center text-sm text-destructive">{error}</p>
+            ) : filteredLogs.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">{t('activityEmpty')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('logTime')}</TableHead>
+                      <TableHead>{t('logEvent')}</TableHead>
+                      <TableHead>{t('logIp')}</TableHead>
+                      <TableHead>{t('logDevice')}</TableHead>
+                      <TableHead>{t('logStatus')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="whitespace-nowrap text-xs">{log.time}</TableCell>
+                        <TableCell className="text-xs">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                'inline-flex h-5 w-5 items-center justify-center rounded',
+                                log.status === 'failed' ? 'bg-red-100' : 'bg-green-100',
+                              )}
+                            >
+                              {log.status === 'failed' ? (
+                                <ShieldAlert className="h-3 w-3 text-red-600" />
+                              ) : (
+                                <ShieldCheck className="h-3 w-3 text-green-600" />
+                              )}
+                            </span>
+                            {eventLabels[log.event] ?? log.event}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{log.ip}</TableCell>
+                        <TableCell className="text-xs">{log.device}</TableCell>
+                        <TableCell>
                           <span
                             className={cn(
-                              'inline-flex h-5 w-5 items-center justify-center rounded',
-                              log.status === 'failed' ? 'bg-red-100' : 'bg-green-100',
+                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                              log.status === 'success'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700',
                             )}
                           >
-                            {log.status === 'failed' ? (
-                              <ShieldAlert className="h-3 w-3 text-red-600" />
-                            ) : (
-                              <ShieldCheck className="h-3 w-3 text-green-600" />
-                            )}
+                            {log.status === 'success' ? t('statusSuccess') : t('statusFailed')}
                           </span>
-                          {eventLabels[log.event] ?? log.event}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{log.ip}</TableCell>
-                      <TableCell className="text-xs">{log.device}</TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                            log.status === 'success'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700',
-                          )}
-                        >
-                          {log.status === 'success' ? t('statusSuccess') : t('statusFailed')}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {!loading && !error && logs.length > 0 && (
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                {t('activityPageInfo', { page, totalPages })}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {t('activityPrev')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  {t('activityNext')}
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+
+            {!loading && !error && logs.length > 0 && (
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {t('activityPageInfo', { page, totalPages })}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    {t('activityPrev')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    {t('activityNext')}
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </Container>
   )
 }
