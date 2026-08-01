@@ -178,6 +178,27 @@
 - `node scripts/scan-i18n-zh-residue.mjs zh-TW` exit 0 ✅(无简体字)
 - `node scripts/check-i18n-broken-en.mjs` exit 0 ✅(0 处破碎英文)
 
+### P2 修复 + Desktop 动态实测 + plans 表列补齐(2026-08-02 立,F13-F15 commit 后收尾)
+
+> 用户指令:"继续按你的建议去做执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏"。执行 P1(Desktop 动态实测)+ P2(LoginDialog 检测方式统一)。
+
+- [x] ✅(2026-08-02) F16(P2):`apps/web/src/components/login/LoginDialog.tsx` 行 38 `isTauri()` → `useDesktop().isDesktop`,与项目其他 Tauri 检测点统一(MainShell 标题栏等),消除 Tauri 2.x 异步注入时机的理论隐患(__TAURI_INTERNALS__ 在 webview 加载后 100-500ms 才注入)。import 调整:移除 `isTauri` from `tauri-bridge`(保留 `openExternalUrl`),新增 `import { useDesktop } from '@/hooks/use-desktop'`。`pnpm --filter @ihui/web typecheck` exit 0
+- [x] ✅(2026-08-02) F17(P1 Desktop 动态实测):启动 web 8801 + api 8802 + desktop tauri dev(Rust 编译 58.45s,`ihui-desktop.exe` 运行),SSO API 闭环 curl 实测全绿:
+  - POST `/api/auth/login` {account:'18643389808', password:'admin123'} → 200(accessToken 333 字符)
+  - POST `/api/auth/sso/code` {clientId:'desktop', redirectUri:'ihui://sso'} → 200(返回 sso_code,F5 ihui:// scheme 接受验证通过)
+  - POST `/api/auth/sso/exchange` {code, clientId:'desktop'} → 200(返回 accessToken+refreshToken+user,F1 redis get+del 修复验证通过,F2 jti 防重放验证通过)
+  - GET `/api/developer/relay/subscriptions` → 200(activePlan=null, remainingTokens=***, history=[], plans=[],F13.5 新端点验证通过)
+  - web `/sso/login?redirect=ihui%3A%2F%2Fsso&client_id=desktop` → 200(359KB,browser_use 确认页面渲染正常 + 客户端信息"desktop"正确展示)
+- [x] ✅(2026-08-02) F18(数据层 bug 修复):实测发现 `plans` 表数据库实际列缺少 `billing_period`/`wechat_plan_id`/`trial_days`/`is_recurring`(TS schema 有定义但 migration 0103 未执行),导致 `getUserSubscriptionStatus` 查询 `plans.billingPeriod` 时 Postgres 报 42703 errorMissingColumn 500 错误。修复:直接执行 ALTER TABLE plans ADD COLUMN IF NOT EXISTS 补齐 4 列(migration 0103 已有对应 SQL 但未应用)。修复后 subscriptions 端点 200 ✅
+
+#### 验证证据
+
+- `pnpm --filter @ihui/web typecheck` exit 0 ✅(F16 P2 修复后)
+- curl SSO 闭环 4 端点全绿(login → /sso/code → /sso/exchange → /subscriptions)✅
+- browser_use 确认 web /sso/login 页面渲染正常 + desktop 客户端信息正确展示 ✅
+- desktop tauri dev 编译成功(58.45s)+ app 运行 ✅
+- plans 表列补齐后 subscriptions 端点 200(修复前 500)✅
+
 ---
 
 ## 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database)
