@@ -7,7 +7,6 @@ import { AlertTriangle, Send, Loader2, CheckCircle2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { Input } from '@/components/form'
-import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -135,13 +134,7 @@ export default function AccountDeletionPage() {
       : 'fixed bottom-4 right-4 z-50 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('accountDeletionTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('accountDeletionDesc')}</p>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+    <div className="space-y-4">
         <Alert variant="warning" title={t('accountDeletionWarning')} />
 
         {loading ? (
@@ -227,7 +220,6 @@ export default function AccountDeletionPage() {
         )}
 
         {toast && <div className={toastClass}>{toast.msg}</div>}
-      </div>
-    </Container>
+    </div>
   )
 }

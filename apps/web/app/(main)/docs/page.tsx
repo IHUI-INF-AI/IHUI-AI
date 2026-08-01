@@ -185,25 +185,13 @@ const docSections = [
 
 export default function DocsIndexPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <div className="space-y-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(docsJsonLd) }}
       />
 
-      <header className="space-y-4 text-center">
-        <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          📚 文档中心
-        </div>
-        <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
-          智汇 AI 文档
-        </h1>
-        <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
-          从快速开始到深度开发,完整覆盖智汇 AI 全部能力。
-        </p>
-      </header>
-
-      <div className="mt-12 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
         {docSections.map((section) => (
           <section key={section.title} className="rounded-2xl border bg-card p-4 min-[768px]:p-6">
             <div className="flex items-center gap-2">
@@ -230,7 +218,7 @@ export default function DocsIndexPage() {
         ))}
       </div>
 
-      <div className="mt-12 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-6 text-center">
+      <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-6 text-center">
         <p className="text-sm text-muted-foreground">
           文档未覆盖到的问题?
           {' '}
@@ -239,6 +227,6 @@ export default function DocsIndexPage() {
           <a href="mailto:support@aizhs.top" className="text-primary underline">联系技术支持</a>
         </p>
       </div>
-    </main>
+    </div>
   )
 }

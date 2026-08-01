@@ -58,14 +58,9 @@ export default function MyArticlesPage() {
   return (
     <div className="space-y-4">
       <header className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {t('title', { default: '我的文章' })}
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            {t('total', { default: '共 {n} 篇', n: total })}
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {t('total', { default: '共 {n} 篇', n: total })}
+        </p>
         <Link href="/articles/edit">
           <Button size="sm">
             <Plus className="mr-1 h-4 w-4" />
