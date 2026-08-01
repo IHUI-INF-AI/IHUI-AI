@@ -71,3 +71,47 @@ export const CONTENT_FORMAT_KEY: Record<string, string> = {
   image: 'new.contentFormatImage',
   video: 'new.contentFormatVideo',
 }
+
+/**
+ * 发布页 Tab i18n key 静态映射表:tabs.${key}
+ * 用于消除 tabs.${var} 动态拼接(layout.tsx TAB_KEY 已内置,此表供子组件复用)
+ */
+export const TAB_KEY: Record<string, string> = {
+  accounts: 'tabs.accounts',
+  analytics: 'tabs.analytics',
+  calendar: 'tabs.calendar',
+  history: 'tabs.history',
+  new: 'tabs.new',
+}
+
+/**
+ * AI 辅助写作功能 i18n key 静态映射表:ai.${key}
+ */
+export const AI_FUNCTION_KEY: Record<string, string> = {
+  cover: 'ai.coverSuggestion',
+  polish: 'ai.polishContent',
+  seo: 'ai.seoAnalysis',
+  summary: 'ai.generateSummary',
+  tags: 'ai.recommendTags',
+  titles: 'ai.generateTitles',
+}
+
+/**
+ * 内容模板 i18n key 静态映射表:templates.${key}
+ */
+export const TEMPLATE_KEY: Record<string, string> = {
+  marketing: 'templates.marketing',
+  newsRelease: 'templates.newsRelease',
+  productIntro: 'templates.productIntro',
+  techBlog: 'templates.techBlog',
+  tutorial: 'templates.tutorial',
+}
+
+/**
+ * 数据分析周期 i18n key 静态映射表:analytics.period${P}
+ */
+export const ANALYTICS_PERIOD_KEY: Record<string, string> = {
+  '7d': 'analytics.period7d',
+  '30d': 'analytics.period30d',
+  '90d': 'analytics.period90d',
+}

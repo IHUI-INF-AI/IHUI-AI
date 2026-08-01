@@ -518,4 +518,83 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     const { taskId } = request.params as { taskId: string }
     await proxyToAiService(request, reply, `/scan-login/${encodeURIComponent(taskId)}/cancel`)
   })
+
+  // ===== 账号分组管理(2026-08-01 新增)=====
+
+  server.get('/publish/groups', async (request, reply) => {
+    await proxyToAiService(request, reply, '/groups')
+  })
+
+  server.post('/publish/groups', async (request, reply) => {
+    await proxyToAiService(request, reply, '/groups')
+  })
+
+  server.patch('/publish/groups/:groupId', async (request, reply) => {
+    const { groupId } = request.params as { groupId: string }
+    await proxyToAiService(request, reply, `/groups/${encodeURIComponent(groupId)}`)
+  })
+
+  server.delete('/publish/groups/:groupId', async (request, reply) => {
+    const { groupId } = request.params as { groupId: string }
+    await proxyToAiService(request, reply, `/groups/${encodeURIComponent(groupId)}`)
+  })
+
+  server.post('/publish/groups/:groupId/add', async (request, reply) => {
+    const { groupId } = request.params as { groupId: string }
+    await proxyToAiService(request, reply, `/groups/${encodeURIComponent(groupId)}/add`)
+  })
+
+  server.post('/publish/groups/:groupId/remove', async (request, reply) => {
+    const { groupId } = request.params as { groupId: string }
+    await proxyToAiService(request, reply, `/groups/${encodeURIComponent(groupId)}/remove`)
+  })
+
+  server.get('/publish/groups/:groupId/members', async (request, reply) => {
+    const { groupId } = request.params as { groupId: string }
+    await proxyToAiService(request, reply, `/groups/${encodeURIComponent(groupId)}/members`)
+  })
+
+  server.post('/publish/groups/:groupId/publish', async (request, reply) => {
+    const { groupId } = request.params as { groupId: string }
+    await proxyToAiService(request, reply, `/groups/${encodeURIComponent(groupId)}/publish`)
+  })
+
+  // ===== 批量账号导入/导出/验证/模板(2026-08-01 新增)=====
+  // 注意:batch-template 是 GET 静态路由,需在 /accounts/:userId 之前注册(Fastify 自动优先静态)
+
+  server.get('/publish/accounts/batch-template', async (request, reply) => {
+    await proxyToAiService(request, reply, '/accounts/batch-template')
+  })
+
+  server.post('/publish/accounts/batch-import', async (request, reply) => {
+    await proxyToAiService(request, reply, '/accounts/batch-import')
+  })
+
+  server.post('/publish/accounts/batch-export', async (request, reply) => {
+    await proxyToAiService(request, reply, '/accounts/batch-export')
+  })
+
+  server.post('/publish/accounts/batch-verify', async (request, reply) => {
+    await proxyToAiService(request, reply, '/accounts/batch-verify')
+  })
+
+  // ===== Cookie 健康度 + 手动保活(2026-08-01 新增)=====
+
+  server.get('/publish/accounts/:accountId/cookie-health', async (request, reply) => {
+    const { accountId } = request.params as { accountId: string }
+    await proxyToAiService(request, reply, `/accounts/${encodeURIComponent(accountId)}/cookie-health`)
+  })
+
+  server.post('/publish/accounts/:accountId/refresh-cookie', async (request, reply) => {
+    const { accountId } = request.params as { accountId: string }
+    await proxyToAiService(request, reply, `/accounts/${encodeURIComponent(accountId)}/refresh-cookie`)
+  })
+
+  server.get('/publish/cookie-refresh/stats', async (request, reply) => {
+    await proxyToAiService(request, reply, '/cookie-refresh/stats')
+  })
+
+  server.post('/publish/cookie-refresh/trigger', async (request, reply) => {
+    await proxyToAiService(request, reply, '/cookie-refresh/trigger')
+  })
 }
