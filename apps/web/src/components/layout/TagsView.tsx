@@ -527,7 +527,10 @@ export function TagsView() {
                     : isPinned
                       ? // pinned 标签:略亮背景 + 字重加深(Chrome 风格,2026-07-31 立)
                         'bg-muted/70 font-medium text-foreground'
-                      : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                      : // 未选中标签:2026-08-01 用户反馈"bg-transparent 跟底色一样看不出容器"
+                        //   → bg-muted/30 低对比度容器背景(三级层次:active bg-accent > pinned bg-muted/70 > 未选中 bg-muted/30)
+                        //   hover 升至 bg-muted 与 pinned 齐平,提供 hover 反馈
+                        'bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground',
                   // 拖拽中视觉简化:isOver 给 placeholder 半透明,源项半透明
                   dragIndex !== null && isOver && 'opacity-50',
                   dragIndex === index && 'opacity-40',
