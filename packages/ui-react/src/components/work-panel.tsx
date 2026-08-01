@@ -221,10 +221,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
       if (!dropdownOpen) return
       const handler = (e: MouseEvent) => {
         const target = e.target as Node
-        if (
-          dropdownRef.current?.contains(target) ||
-          dropdownTriggerRef.current?.contains(target)
-        ) {
+        if (dropdownRef.current?.contains(target) || dropdownTriggerRef.current?.contains(target)) {
           return
         }
         setDropdownOpen(false)
@@ -246,22 +243,21 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     if (!open) return null
 
     // 是否启用 dropdown(需要 onSelectFromList + 至少一个列表数据源)
-    const dropdownEnabled =
-      !!onSelectFromList && (!!favorites || !!recentUrls)
+    const dropdownEnabled = !!onSelectFromList && (!!favorites || !!recentUrls)
 
     // 当前 tab 列表数据
-    const dropdownItems =
-      dropdownTab === 'favorites' ? favorites ?? [] : recentUrls ?? []
+    const dropdownItems = dropdownTab === 'favorites' ? (favorites ?? []) : (recentUrls ?? [])
 
     return (
       <div
         ref={ref}
         className={cn(
-          // 2026-07-25 用户反馈:加 overflow-hidden 彻底干掉外层滚动条
-          // 原 'relative flex h-full flex-col border-l border-border bg-card'
-          // 缺 overflow-hidden → 内容区(工具栏+iframe)总高度 > 父容器时
-          // 浏览器自动给外层加竖向滚动条,鼠标滚轮/触摸板足够不需要它
-          'relative flex h-full flex-col overflow-hidden border-l border-border bg-card',
+          // 2026-08-01 用户反馈:"背景色应该跟 ai 对话框背景色一致,圆角度也是应该一致"
+          // - bg-card → bg-transparent:让外层 WebWorkPanel 的 bg-shell-panel 透出来(对齐 AI 对话框)
+          // - border-l 去掉:嵌入工作区场景不需要左边框(AI 对话框也无 border)
+          // - rounded-xl 对齐 AI 对话框圆角度(AI 对话框 L929 rounded-xl)
+          // - overflow-hidden 保留:彻底干掉外层滚动条(2026-07-25 用户反馈)
+          'relative flex h-full flex-col overflow-hidden rounded-xl bg-transparent',
           'animate-in slide-in-from-right duration-200',
           className,
         )}
@@ -289,11 +285,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             onClick={isLoading ? onStop : onReload}
             title={isLoading ? labels.stop : labels.reload}
           >
-            {isLoading ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <RotateCw className="h-4 w-4" />
-            )}
+            {isLoading ? <X className="h-4 w-4" /> : <RotateCw className="h-4 w-4" />}
           </ToolbarButton>
 
           {/* 地址栏 */}
@@ -315,7 +307,9 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 placeholder={labels.addressPlaceholder}
                 className="h-5 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0"
               />
-              {isLoading && <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />}
+              {isLoading && (
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
+              )}
             </div>
           </form>
 
@@ -564,9 +558,12 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             - 加 work-panel-content 类,globals.css 用 !important 强制干掉 Webkit/Firefox/IE 滚动条
             - 改用 overflow-hidden(原 overflow-y-auto):即使内容溢出也不显示原生滚动条,
               鼠标滚轮/触摸板驱动外层 / iframe 内部滚动
-            - 2026-08-01 加 bg-background:嵌入工作区场景(absolute inset-0 覆盖 children),
-              url 为空时内容区必须不透明,否则 work-area children(首页内容)透过来显示 */}
-        <div className="work-panel-content hover-scroll flex-1 overflow-hidden bg-background p-2">{children}</div>
+            - 2026-08-01 bg-background → bg-transparent:让外层 WebWorkPanel bg-shell-panel 透出来
+              (对齐 AI 对话框背景色,用户反馈"背景色应该跟 ai 对话框背景色一致")
+              外层 WebWorkPanel 已有 bg-shell-panel 不透明,内容区无需再设 bg */}
+        <div className="work-panel-content hover-scroll flex-1 overflow-hidden bg-transparent p-2">
+          {children}
+        </div>
       </div>
     )
   },
