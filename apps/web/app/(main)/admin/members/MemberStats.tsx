@@ -26,7 +26,7 @@ export function MemberStats({ t }: { t: ReturnType<typeof useTranslations<'admin
   const statCompany = companiesData?.total ?? 0
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
       <StatCard
         icon={Users}
         label={t('statTotal')}

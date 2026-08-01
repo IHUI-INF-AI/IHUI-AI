@@ -190,7 +190,7 @@ export default function VipPage() {
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col p-6 pt-0">
                   <div className="mb-4 flex flex-wrap items-baseline gap-1">
-                    <span className="text-3xl font-bold">{formatCNY(level.price)}</span>
+                    <span className="text-2xl min-[768px]:text-3xl font-bold">{formatCNY(level.price)}</span>
                     <span className="text-sm text-muted-foreground">
                       {t('durationDays', { days: level.durationDays })}
                     </span>

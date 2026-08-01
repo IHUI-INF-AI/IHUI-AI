@@ -254,7 +254,7 @@ export default function UserLlmConfigsPage() {
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[200px_1fr]">
+      <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-[200px_1fr]">
         <div className="rounded-lg border bg-card p-2">
           <GroupSidebar groups={groups} activeGroup={activeGroup} onChange={setActiveGroup} />
         </div>
@@ -322,7 +322,7 @@ export default function UserLlmConfigsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 min-[1280px]:grid-cols-2">
               {visibleProviders.map((p) => (
                 <ProviderCardV2
                   key={p.id}
@@ -392,7 +392,7 @@ export default function UserLlmConfigsPage() {
 
       {/* BYOK 模式 onboarding:首次访问引导 */}
       <Dialog open={mounted && showOnboarding} onOpenChange={(o) => !o && dismissOnboarding()}>
-        <DialogContent className="max-w-lg gap-0 p-0 sm:rounded-lg">
+        <DialogContent className="max-w-lg gap-0 p-0 min-[640px]:rounded-lg">
           <DialogHeader className="space-y-2 border-b p-4">
             <DialogTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
@@ -416,7 +416,7 @@ export default function UserLlmConfigsPage() {
             {/* 免费 provider 推荐 */}
             <section className="space-y-2">
               <p className="font-medium text-foreground">免费 Provider 推荐</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
                 <Card className="rounded-md">
                   <CardContent className="space-y-0.5 p-3">
                     <p className="text-xs font-medium">Cloudflare Workers AI</p>
@@ -441,7 +441,7 @@ export default function UserLlmConfigsPage() {
                     <p className="text-[11px] text-muted-foreground">pollinations/ · 免费,无需 API Key</p>
                   </CardContent>
                 </Card>
-                <Card className="rounded-md sm:col-span-2">
+                <Card className="rounded-md min-[640px]:col-span-2">
                   <CardContent className="space-y-0.5 p-3">
                     <p className="text-xs font-medium">LLM7</p>
                     <p className="text-[11px] text-muted-foreground">llm7/ · 免费,无需 API Key</p>
@@ -467,7 +467,7 @@ export default function UserLlmConfigsPage() {
           </div>
 
           <DialogFooter className="border-t p-4">
-            <Button onClick={dismissOnboarding} size="sm" className="w-full sm:w-auto">
+            <Button onClick={dismissOnboarding} size="sm" className="w-full min-[640px]:w-auto">
               知道了
             </Button>
           </DialogFooter>

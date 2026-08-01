@@ -132,7 +132,7 @@ export function DevelopersContent(): React.JSX.Element {
         <h2 className="text-xl font-bold tracking-tight md:text-2xl">限流策略</h2>
         <Card>
           <CardContent className="p-0">
-            <div className="grid grid-cols-4 gap-px bg-border/40 text-sm">
+            <div className="grid grid-cols-2 gap-px bg-border/40 text-sm min-[640px]:grid-cols-4">
               <div className="bg-card p-3 text-xs font-medium text-muted-foreground">档位</div>
               <div className="bg-card p-3 text-xs font-medium text-muted-foreground">QPS</div>
               <div className="bg-card p-3 text-xs font-medium text-muted-foreground">日 Token</div>

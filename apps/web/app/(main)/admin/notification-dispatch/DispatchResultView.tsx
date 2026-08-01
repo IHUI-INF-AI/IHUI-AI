@@ -20,7 +20,7 @@ export function DispatchResultView({ result }: Props) {
   return (
     <div className="rounded-lg border p-4">
       <h2 className="mb-3 text-sm font-medium">{t('nd.resultTitle')}</h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         {stats.map((s) => (
           <div key={s.key} className={cn('rounded-md px-3 py-2', s.cls)}>
             <div className="text-xs opacity-80">{t(RESULT_KEY[s.key as 'sent' | 'failed' | 'skipped' | 'queued'] ?? 'nd.result_unknown')}</div>
