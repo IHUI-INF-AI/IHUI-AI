@@ -40,12 +40,12 @@ export default function AdminLotteryPage() {
   const head = ['活动名称', '消耗积分', '参与/中奖', '奖品数', '状态', '时间']
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Gift className="h-6 w-6 text-primary" />
-          抽奖活动
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+          <Gift className="h-6 w-6 shrink-0 text-primary" />
+          <span className="truncate">抽奖活动</span>
         </h1>
-        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索活动名" className="h-9 w-64" />
+        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索活动名" className="h-9 w-full shrink-0 sm:w-64" />
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">

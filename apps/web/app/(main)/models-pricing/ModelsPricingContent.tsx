@@ -136,9 +136,9 @@ export function ModelsPricingContent(): React.JSX.Element {
           grouped.map(([vendor, items]) => (
             <Card key={vendor}>
               <CardHeader className="p-5 pb-3">
-                <CardTitle className="flex items-center justify-between text-base">
-                  <span>{vendor}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
+                <CardTitle className="flex items-center justify-between gap-2 text-base">
+                  <span className="min-w-0 truncate">{vendor}</span>
+                  <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
                     {items.length} 个模型
                   </span>
                 </CardTitle>
