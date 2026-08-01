@@ -723,12 +723,6 @@
       "title": "サブスクリプション管理"
     }
   },
-  "exam": {
-    "result": {
-      "correct": "正解",
-      "wrong": "不正解"
-    }
-  },
   "live": {
     "title": "ライブ",
     "loadFailed": "ライブの読み込みに失敗しました",
