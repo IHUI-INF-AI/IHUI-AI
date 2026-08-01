@@ -15,7 +15,7 @@ interface Props {
 export function ArticlesSidebar({ categories, categoryId, onSelectCategory }: Props) {
   const t = useTranslations('articles')
   return (
-    <aside className="w-full shrink-0 space-y-4 lg:w-72">
+    <aside className="w-full shrink-0 space-y-4 min-[1024px]:w-72">
       <Card>
         <CardHeader className="p-4 pb-2">
           <CardTitle className="text-sm">{t('categories')}</CardTitle>

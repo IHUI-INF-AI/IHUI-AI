@@ -219,8 +219,8 @@ export default function ApiDocsPage() {
         ) : filtered.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{t('noDocs')}</p>
         ) : (
-          <div className="grid gap-3 lg:grid-cols-[240px_1fr]">
-            <aside className="space-y-2 lg:max-h-[60vh] lg:overflow-y-auto lg:pr-1">
+          <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-[240px_1fr]">
+            <aside className="space-y-2 min-[1024px]:max-h-[60vh] min-[1024px]:overflow-y-auto min-[1024px]:pr-1">
               {filtered.map((g) => (
                 <div key={g.category}>
                   <p className="mb-1 px-1 text-xs font-semibold uppercase text-muted-foreground">

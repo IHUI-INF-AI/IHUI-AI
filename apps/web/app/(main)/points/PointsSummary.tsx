@@ -70,7 +70,7 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
               className="h-6 w-6"
               unoptimized
             />
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">{t('title')}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
           </div>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
@@ -82,7 +82,7 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
         </Link>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[1024px]:grid-cols-4">
         <StatCard
           icon={Star}
           label={t('current')}

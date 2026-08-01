@@ -36,7 +36,7 @@ export function AffiliatesContent(): React.JSX.Element {
   const t = useTranslations('affiliates')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
       {/* Hero */}
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -44,13 +44,13 @@ export function AffiliatesContent(): React.JSX.Element {
           {t('heroBadge')}
         </div>
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
-        <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+        <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
       </section>
 
       {/* Affiliate cards */}
-      <section className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-12 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {AFFILIATES.map(({ id, icon: Icon, url }) => (
           <Card key={id} className="flex flex-col p-6">
             <div className="flex items-center gap-3">
@@ -76,8 +76,8 @@ export function AffiliatesContent(): React.JSX.Element {
       </section>
 
       {/* Disclosure */}
-      <section className="mt-12 rounded-xl border bg-card p-6 text-center md:p-8">
-        <p className="mx-auto max-w-3xl text-xs leading-relaxed text-muted-foreground md:text-sm">
+      <section className="mt-12 rounded-xl border bg-card p-6 text-center min-[768px]:p-8">
+        <p className="mx-auto max-w-3xl text-xs leading-relaxed text-muted-foreground min-[768px]:text-sm">
           {t('disclosure')}
         </p>
       </section>

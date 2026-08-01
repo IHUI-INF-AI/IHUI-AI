@@ -97,8 +97,8 @@ export default function AiGenerationPage() {
         onSubTabClick={(v) => setters[type]?.(v)}
       />
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-3">
+      <div className="grid gap-4 min-[1024px]:grid-cols-5">
+        <div className="min-[1024px]:col-span-3">
           <AiGenerationContent
             type={type}
             autoMode={autoMode}
@@ -115,7 +115,7 @@ export default function AiGenerationPage() {
             onGenerate3D={onGenerate3D}
           />
         </div>
-        <div className="lg:col-span-2">
+        <div className="min-[1024px]:col-span-2">
           <ResourceLibrary type={resourceType} />
         </div>
       </div>

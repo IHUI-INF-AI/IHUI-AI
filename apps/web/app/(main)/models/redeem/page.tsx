@@ -35,7 +35,7 @@ export default async function RedeemPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 min-[640px]:flex-row">
             <Input
               placeholder={t('redeem.form.placeholder')}
               className="flex-1 font-mono text-sm"

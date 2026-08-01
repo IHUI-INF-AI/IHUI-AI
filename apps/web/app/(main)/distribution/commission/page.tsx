@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -124,13 +124,13 @@ export default function MyCommissionPage() {
       </Link>
 
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <DollarSign className="h-7 w-7 text-primary" />
           {t('commissionTitle')}
         </h1>
       </header>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
             <CardContent className="space-y-1 p-4">
@@ -138,7 +138,7 @@ export default function MyCommissionPage() {
               {summaryQ.isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               ) : (
-                <div className="text-xl font-bold tracking-tight md:text-2xl">{s.value}</div>
+                <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{s.value}</div>
               )}
             </CardContent>
           </Card>

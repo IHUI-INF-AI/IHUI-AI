@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -80,7 +80,7 @@ export default function AiWorldFavoritesPage() {
           <p className="text-sm">暂无收藏</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {items.map((item) => (
             <Link key={item.id} href={`/ai-world/${item.id}`}>
               <Card className="overflow-hidden transition-colors hover:bg-accent/40">

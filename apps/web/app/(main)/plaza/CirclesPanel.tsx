@@ -34,7 +34,7 @@ export function CirclesPanel({ isLoading, error, circles }: Props) {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {circles.map((c) => (
               <Link key={c.id} href={`/circles/${c.id}`}>
                 <Card className="h-full transition-colors hover:bg-accent">

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -94,7 +94,7 @@ export default function LimitsPage() {
       ) : items.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">暂无限额数据</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {items.map((item) => {
             const pct = item.total > 0 ? (item.used / item.total) * 100 : 0
             return (

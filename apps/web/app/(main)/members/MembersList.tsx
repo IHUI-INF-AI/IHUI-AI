@@ -73,7 +73,7 @@ export function MembersList({ members, isLoading, error, levelMap }: Props) {
             </CardTitle>
             <StatusBadge status={member.status} t={t} />
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0 text-sm sm:grid-cols-4">
+          <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0 text-sm min-[640px]:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">{t('username')}</p>
               <p className="break-words">{member.username ?? '-'}</p>

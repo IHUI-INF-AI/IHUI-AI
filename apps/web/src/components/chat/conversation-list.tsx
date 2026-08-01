@@ -558,7 +558,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
         open={pendingRenameId !== null}
         onOpenChange={(open) => !open && setPendingRenameId(null)}
       >
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="min-[640px]:max-w-sm">
           <DialogHeader>
             <DialogTitle>{tc('renameDialog.title')}</DialogTitle>
           </DialogHeader>

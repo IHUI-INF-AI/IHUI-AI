@@ -58,7 +58,7 @@ export default function SupportedRegionsPage() {
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold">{t('supportedTitle')}</h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
             {SUPPORTED_REGIONS.map((key) => (
               <div
                 key={key}
@@ -88,7 +88,7 @@ export default function SupportedRegionsPage() {
         <section className="space-y-2">
           <h2 className="text-base font-semibold">{t('paymentTitle')}</h2>
           <p className="text-sm text-muted-foreground">{t('paymentIntro')}</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
             {PAYMENTS.map((key) => (
               <div
                 key={key}

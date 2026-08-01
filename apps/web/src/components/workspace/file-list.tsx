@@ -41,7 +41,7 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
 
   if (files.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">
         {t('emptyFiles')}
       </div>
     )
@@ -54,8 +54,8 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
           <tr className="text-left">
             <th className="px-4 py-3 font-medium">{t('fileName')}</th>
             <th className="px-4 py-3 font-medium">{t('fileSize')}</th>
-            <th className="hidden px-4 py-3 font-medium md:table-cell">{t('fileType')}</th>
-            <th className="hidden px-4 py-3 font-medium sm:table-cell">{t('uploadedAt')}</th>
+            <th className="hidden px-4 py-3 font-medium min-[768px]:table-cell">{t('fileType')}</th>
+            <th className="hidden px-4 py-3 font-medium min-[640px]:table-cell">{t('uploadedAt')}</th>
             <th className="px-4 py-3 text-right font-medium">{t('actions')}</th>
           </tr>
         </thead>
@@ -67,14 +67,14 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="max-w-[12rem] break-words sm:max-w-xs">{file.name}</span>
+                    <span className="max-w-[12rem] break-words min-[640px]:max-w-xs">{file.name}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{formatSize(file.size)}</td>
-                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                <td className="hidden px-4 py-3 text-muted-foreground min-[768px]:table-cell">
                   {file.mimeType || '-'}
                 </td>
-                <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                <td className="hidden px-4 py-3 text-muted-foreground min-[640px]:table-cell">
                   {formatDate(file.createdAt) || '-'}
                 </td>
                 <td className="px-4 py-3">

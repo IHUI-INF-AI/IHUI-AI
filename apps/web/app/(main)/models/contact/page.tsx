@@ -41,7 +41,7 @@ export default async function ContactPage() {
       </header>
 
       {/* 联系方式 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {channels.map((c) => {
           const Icon = c.icon
           return (
@@ -66,7 +66,7 @@ export default async function ContactPage() {
         </CardHeader>
         <CardContent>
           <form className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">{t('contact.form.name')}</Label>
                 <Input placeholder={t('contact.form.namePlaceholder')} className="h-9 text-sm" />

@@ -14,12 +14,12 @@ export function CtaSection() {
       aria-label={t('cta.label')}
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
-      <CardContent className="grid gap-6 p-6 md:grid-cols-2 md:p-8">
+      <CardContent className="grid gap-6 p-6 min-[768px]:grid-cols-2 min-[768px]:p-8">
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold leading-tight tracking-tight md:text-3xl">
+          <h2 className="text-2xl font-bold leading-tight tracking-tight min-[768px]:text-3xl">
             {t('cta.title')}
           </h2>
-          <p className="text-sm text-muted-foreground md:text-base">{t('cta.subtitle')}</p>
+          <p className="text-sm text-muted-foreground min-[768px]:text-base">{t('cta.subtitle')}</p>
         </div>
         <div className="flex flex-col justify-center gap-3">
           <Button asChild className="h-10 w-full">

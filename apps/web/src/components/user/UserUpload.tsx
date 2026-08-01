@@ -50,7 +50,7 @@ export default function UserUpload({
           handleFiles(e.dataTransfer.files)
         }}
         className={cn(
-          'flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors',
+          'flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 min-[768px]:py-8 text-center transition-colors',
           drag ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50',
         )}
       >
