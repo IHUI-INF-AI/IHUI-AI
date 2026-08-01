@@ -38,34 +38,34 @@ describe('code-store — 验证码内存存储与校验', () => {
   })
 
   describe('verifyCode', () => {
-    it('匹配且未过期返回 true 并一次性删除', () => {
+    it('匹配且未过期返回 true 并一次性删除', async () => {
       codeStore.set('13800000000', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),
       })
-      expect(verifyCode('13800000000', '123456')).toBe(true)
+      expect(await verifyCode('13800000000', '123456')).toBe(true)
       expect(codeStore.has('13800000000')).toBe(false)
     })
-    it('验证码不存在返回 false', () => {
-      expect(verifyCode('13800000000', '123456')).toBe(false)
+    it('验证码不存在返回 false', async () => {
+      expect(await verifyCode('13800000000', '123456')).toBe(false)
     })
-    it('验证码不匹配返回 false', () => {
+    it('验证码不匹配返回 false', async () => {
       codeStore.set('13800000000', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),
       })
-      expect(verifyCode('13800000000', '000000')).toBe(false)
+      expect(await verifyCode('13800000000', '000000')).toBe(false)
       expect(codeStore.has('13800000000')).toBe(true)
     })
-    it('已过期返回 false 并保留（不主动删除）', () => {
+    it('已过期返回 false 并保留（不主动删除）', async () => {
       codeStore.set('13800000000', {
         code: '123456',
         expiresAt: Date.now() - 1000,
         sentAt: Date.now() - 2000,
       })
-      expect(verifyCode('13800000000', '123456')).toBe(false)
+      expect(await verifyCode('13800000000', '123456')).toBe(false)
       expect(codeStore.has('13800000000')).toBe(true)
     })
   })
