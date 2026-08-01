@@ -343,6 +343,9 @@ importers:
       '@ihui/context-compaction':
         specifier: workspace:*
         version: link:../../packages/context-compaction
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -356,7 +359,7 @@ importers:
         specifier: ^16.4.7
         version: 16.6.1
       gpt-tokenizer:
-        specifier: ^3.4.0
+        specifier: ^3.0.0
         version: 3.4.0
       inquirer:
         specifier: ^12.3.0
@@ -3406,7 +3409,6 @@ packages:
   '@esbuild/win32-x64@0.21.5':
     resolution: {integrity: sha512-tQd/1efJuzPC6rCFwEvLtci/xNFcTZknmXs98FYDfGE4wP9ClFV98nyKrzJKVPMhdDnjzLhdUyMX4PsQAPjwIw==}
     engines: {node: '>=12'}
-    cpu: [x64]
     os: [win32]
 
   '@esbuild/win32-x64@0.25.12':

@@ -7,7 +7,7 @@ import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
-import { useDesktopEvents } from '@/hooks/use-desktop'
+import { useDesktopEvents, useDesktopDeepLink } from '@/hooks/use-desktop'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 
 const SHORTCUT_ROUTES: Record<string, string> = {
@@ -43,6 +43,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useAuthBootstrap()
   // 桌面端事件监听:托盘菜单 + 系统级快捷键(浏览器端 no-op,仅在 Tauri 环境注册监听)
   useDesktopEvents()
+  // 桌面端 deep-link 监听:ihui:// scheme 回调,自动完成 SSO 闭环(浏览器端 no-op)
+  useDesktopDeepLink()
   const { setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent, TrayIconId};
 use tauri::{Emitter, Manager};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
 use base64::Engine;
@@ -1193,6 +1194,28 @@ pub fn run() {
                     window.open_devtools();
                 }
             }
+            // 2026-08-01 立:注册 deep-link scheme + 监听 ihui:// 回调
+            // - dev 模式下 Windows 需要 register_all() 才能接收 ihui:// scheme
+            // - on_open_url 监听外部浏览器 / 其他应用打开的 ihui://sso?sso_code=xxx
+            // - emit "desktop-deep-link" 事件给前端 webview,前端 useDesktopDeepLink 完成 SSO 闭环
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            {
+                let _ = app.deep_link().register_all();
+            }
+            app.deep_link().on_open_url({
+                let app = app.handle().clone();
+                move |event| {
+                    if let Some(window) = app.get_webview_window("main") {
+                        if let Some(first_url) = event.urls().first() {
+                            let url_str = first_url.as_str().to_string();
+                            log::info!("[desktop] deep-link received: {}", url_str);
+                            let _ = window.emit("desktop-deep-link", url_str);
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                }
+            });
             // 2026-07-25 修订:不再调用 build_app_menu(已删除),菜单全部走 web 端 HTML 顶栏
             // let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
