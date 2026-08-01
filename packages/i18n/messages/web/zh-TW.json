@@ -808,8 +808,8 @@
       "reasoningCopyFailed": "複製失敗",
       "expandReasoning": "展開推理過程",
       "collapseReasoning": "摺疊推理過程",
-      "jumpToMessage": "跳轉到對應訊息",
-      "stepError": "失敗"
+      "jumpToMessage": "跳轉到對應消息",
+      "stepError": "失败"
     },
     "question": {
       "title": "AI 需要你的回答",
@@ -1283,7 +1283,13 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個使用者端", "API 存取", "社群支援"]
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個使用者端",
+          "API 存取",
+          "社群支援"
+        ]
       },
       "pro": {
         "name": "專業版",
@@ -1300,7 +1306,13 @@
         "name": "企業版",
         "contactSales": "聯絡銷售",
         "cta": "聯絡銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "稽核日誌",
+          "專屬技術支援"
+        ]
       }
     },
     "checkout": {
@@ -6613,6 +6625,21 @@
   "publish": {
     "title": "多平臺一鍵發布",
     "subtitle": "支援 md/docx/html/pdf/圖片/影片 → 14 平臺一鍵發布",
+    "riskLevelSafe": "安全",
+    "riskLevelLow": "低風險",
+    "riskLevelMedium": "中風險",
+    "riskLevelHigh": "高風險",
+    "riskLevelCritical": "極高風險",
+    "cooldownRemaining": "冷卻剩餘",
+    "countdownRemaining": "剩餘時間",
+    "uploadProgress": "上傳中",
+    "uploadSuccess": "上傳成功",
+    "uploadFailed": "上傳失敗",
+    "taskProgress": "已完成",
+    "taskAllComplete": "全部完成",
+    "taskRunning": "發布中",
+    "riskNotEvaluated": "未評估",
+    "cooldownActive": "冷卻中",
     "accounts": {
       "title": "平臺帳號管理",
       "subtitle": "配置各平臺的登入憑證(加密儲存)",
@@ -6645,7 +6672,77 @@
       "minimize": "最小化(背景繼續等待)",
       "taskId": "任務",
       "cookiesSaved": "已儲存 {count} 個 cookies",
-      "waitingForScan": "等待 {platform} App 掃碼..."
+      "waitingForScan": "等待 {platform} App 掃碼...",
+      "statusActive": "正常",
+      "statusDisabled": "已停用",
+      "statusExpired": "已過期",
+      "statusUnknown": "未知",
+      "batchImport": "批次匯入",
+      "batchVerify": "批次驗證"
+    },
+    "cookieHealth": {
+      "healthy": "健康",
+      "expiring": "即將過期",
+      "expired": "已過期",
+      "refresh": "刷新 Cookie",
+      "refreshSuccess": "Cookie 保活成功",
+      "refreshFailed": "Cookie 保活失敗",
+      "lastVerified": "上次驗證",
+      "predictedExpiry": "預測過期",
+      "daysSince": "距今",
+      "days": "天"
+    },
+    "batchImport": {
+      "title": "批次匯入帳號",
+      "description": "下載模板填寫後上傳,或匯出已有帳號",
+      "downloadTemplate": "下載模板",
+      "templateDownloaded": "模板已下載",
+      "templateFailed": "模板下載失敗",
+      "export": "匯出全部",
+      "exportSuccess": "已匯出 {count} 個帳號",
+      "exportFailed": "匯出失敗",
+      "selectFile": "選擇 CSV 檔案",
+      "previewCount": "共 {count} 條記錄",
+      "colPlatform": "平臺",
+      "colNickname": "暱稱",
+      "colCreds": "憑證數",
+      "moreRows": "還有 {count} 條...",
+      "importing": "匯入中...",
+      "importSuccess": "成功匯入 {count} 個帳號",
+      "importFailed": "匯入失敗",
+      "confirmImport": "確認匯入 {count} 條",
+      "parseError": "CSV 解析失敗,請檢查格式",
+      "readError": "檔案讀取失敗",
+      "successCount": "成功 {count}",
+      "failedCount": "失敗 {count}"
+    },
+    "groups": {
+      "title": "帳號分組",
+      "create": "新建分組",
+      "edit": "編輯分組",
+      "delete": "刪除分組",
+      "deleteConfirm": "確定刪除分組「{name}」嗎?組內帳號不會被刪除。",
+      "name": "分組名稱",
+      "description": "分組描述",
+      "namePlaceholder": "輸入分組名稱",
+      "descPlaceholder": "可選,輸入分組描述",
+      "created": "分組已建立",
+      "updated": "分組已更新",
+      "deleted": "分組已刪除",
+      "createFailed": "建立分組失敗",
+      "updateFailed": "更新分組失敗",
+      "deleteFailed": "刪除分組失敗",
+      "empty": "暫無分組,點擊右上角建立",
+      "addAccount": "新增帳號",
+      "addAccountTitle": "選擇要新增的帳號",
+      "addSelected": "新增 {count} 個",
+      "noMembers": "分組暫無成員",
+      "noAvailableAccounts": "沒有可新增的帳號(可能已全部在分組中)",
+      "accountRemoved": "已從分組移除",
+      "accountsAdded": "已新增 {count} 個帳號到分組",
+      "addFailed": "新增帳號失敗",
+      "removeFailed": "移除帳號失敗",
+      "removeAccount": "移除"
     },
     "new": {
       "title": "新建發布任務",
@@ -6741,8 +6838,103 @@
     },
     "tabs": {
       "accounts": "",
+      "analytics": "數據分析",
+      "calendar": "發布日曆",
       "history": "",
       "new": ""
+    },
+    "editor": {
+      "markdown": "Markdown",
+      "richText": "富文本",
+      "bold": "粗體",
+      "italic": "斜體",
+      "heading": "標題",
+      "link": "連結",
+      "image": "圖片",
+      "code": "程式碼",
+      "quote": "引用",
+      "list": "列表",
+      "table": "表格",
+      "wordCount": "{count} 字",
+      "readingTime": "{minutes} 分鐘閱讀",
+      "autoSaved": "已自動儲存",
+      "preview": "預覽",
+      "split": "分屏"
+    },
+    "ai": {
+      "title": "AI 助手",
+      "generateTitles": "產生標題",
+      "polishContent": "潤色正文",
+      "recommendTags": "推薦標籤",
+      "generateSummary": "產生摘要",
+      "seoAnalysis": "SEO 分析",
+      "thinking": "AI 思考中...",
+      "apply": "套用",
+      "candidates": "候選",
+      "coverSuggestion": "封面建議",
+      "seoScore": "SEO 評分",
+      "seoSuggestions": "最佳化建議",
+      "emptyContent": "請先輸入正文內容",
+      "retry": "重試"
+    },
+    "preview": {
+      "title": "平臺預覽",
+      "mobile": "手機視圖",
+      "desktop": "電腦視圖",
+      "selectPlatform": "選擇平臺預覽",
+      "wechat": "微信公眾號",
+      "zhihu": "知乎",
+      "xiaohongshu": "小紅書",
+      "csdn": "CSDN"
+    },
+    "calendar": {
+      "title": "發布日曆",
+      "subtitle": "視覺化排期,拖曳調整發布時間",
+      "today": "今天",
+      "scheduled": "定時",
+      "published": "已發布",
+      "failed": "失敗",
+      "draft": "草稿",
+      "batchSchedule": "批次錯峰",
+      "prevMonth": "上月",
+      "nextMonth": "下月",
+      "noTasks": "當天暫無任務",
+      "taskCount": "{count} 個任務",
+      "createTask": "新建任務",
+      "dragHint": "拖曳任務到其他日期可調整排期"
+    },
+    "analytics": {
+      "title": "數據分析",
+      "subtitle": "發布趨勢、平臺分佈與帳號健康度",
+      "totalPublished": "總發布數",
+      "successRate": "成功率",
+      "avgDuration": "平均耗時",
+      "activeAccounts": "活躍帳號",
+      "trend": "趨勢",
+      "platformDistribution": "平臺分佈",
+      "failureReasons": "失敗原因 TOP5",
+      "accountHealth": "帳號健康度",
+      "lastPublished": "最後發布",
+      "riskStatus": "風控狀態",
+      "period7d": "7 天",
+      "period30d": "30 天",
+      "period90d": "90 天",
+      "noData": "暫無數據"
+    },
+    "templates": {
+      "title": "內容模板",
+      "techBlog": "技術部落格",
+      "marketing": "行銷文案",
+      "productIntro": "產品介紹",
+      "newsRelease": "新聞稿",
+      "tutorial": "教學文章",
+      "saveAsTemplate": "儲存為模板",
+      "apply": "套用模板",
+      "customTemplates": "我的模板",
+      "presetTemplates": "預設模板",
+      "empty": "暫無自訂模板",
+      "saved": "模板已儲存",
+      "deleted": "模板已刪除"
     }
   },
   "settings": {
@@ -9814,32 +10006,56 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI"]
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "影片", "AI"]
+        "keywords": [
+          "短劇",
+          "影片",
+          "AI"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": ["搜尋", "查詢", "search"]
+        "keywords": [
+          "搜尋",
+          "查詢",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": ["個人", "資料", "設定"]
+        "keywords": [
+          "個人",
+          "資料",
+          "設定"
+        ]
       },
       "settings": {
         "label": "系統設定",
         "description": "系統偏好與配置",
-        "keywords": ["設定", "偏好", "配置"]
+        "keywords": [
+          "設定",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -10238,19 +10454,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度連結志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的線上交流平臺,隨時隨地獲取資訊與支援",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智慧體服務,提供深度AI化諮詢與支援",
-          "features": ["專業大模型", "智慧體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智慧體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -10371,25 +10599,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["資料分析", "決策支援"]
+          "examples": [
+            "資料分析",
+            "決策支援"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智慧體協作",
-          "examples": ["營銷自動化", "多智慧體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智慧體協同"
+          ]
         }
       ]
     },
@@ -11865,7 +12105,11 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動"
+      ]
     },
     "enterprise": {
       "name": "企業服務",
@@ -11993,7 +12237,15 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -12137,8 +12389,18 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -13705,7 +13967,12 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社群支援"
+        ]
       },
       "pro": {
         "features": [
@@ -14147,7 +14414,13 @@
         "price": "¥999",
         "unit": "/小時",
         "desc": "架構諮詢 / 技術選型 / 程式碼 review",
-        "features": ["視訊會議 / 遠端桌面", "2 小時起", "故障排除", "增值稅發票", "回應 SLA 24h"]
+        "features": [
+          "視訊會議 / 遠端桌面",
+          "2 小時起",
+          "故障排除",
+          "增值稅發票",
+          "回應 SLA 24h"
+        ]
       }
     },
     "socialProof": {
