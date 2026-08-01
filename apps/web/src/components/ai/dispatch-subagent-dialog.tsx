@@ -165,6 +165,8 @@ interface DagNodeInput {
   task: string
 }
 interface DagEdgeInput {
+  /** 稳定 uid,仅用于 React key(可变列表删除中间项时避免 DOM 复用错乱) */
+  uid: string
   from: string
   to: string
   condition: string
@@ -277,7 +279,15 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
   }
   const addDagEdge = () => {
     if (dagNodes.length < 2) return
-    setDagEdges([...dagEdges, { from: dagNodes[0]!.id, to: dagNodes[1]!.id, condition: '' }])
+    setDagEdges([
+      ...dagEdges,
+      {
+        uid: Math.random().toString(36).slice(2, 10),
+        from: dagNodes[0]!.id,
+        to: dagNodes[1]!.id,
+        condition: '',
+      },
+    ])
   }
   const removeDagEdge = (idx: number) => setDagEdges(dagEdges.filter((_, i) => i !== idx))
   const updateDagEdge = (idx: number, field: 'from' | 'to' | 'condition', value: string) => {
@@ -550,7 +560,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
                 </button>
               </div>
               {dagEdges.map((edge, idx) => (
-                <div key={idx} className="flex items-center gap-1">
+                <div key={edge.uid} className="flex items-center gap-1">
                   <select
                     value={edge.from}
                     onChange={(e) => updateDagEdge(idx, 'from', e.target.value)}
