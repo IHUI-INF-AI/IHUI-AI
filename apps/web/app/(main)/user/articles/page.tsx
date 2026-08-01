@@ -6,9 +6,10 @@ import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Pencil, Trash2, Eye, Heart } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/components/common/Toaster'
 
 import { fetchApi } from '@/lib/api'
+import { pushError } from '@/stores/error-banner'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import type { ArticleItem, MyArticlesData } from '../../articles/types'
 import { formatDateOnly } from '@/lib/date-utils'
@@ -40,6 +41,11 @@ export default function MyArticlesPage() {
     queryFn: () => api<MyArticlesData>(`/api/article/my?page=${page}&pageSize=20`),
   })
 
+  // 2026-08-01 错误推送全局 banner(常驻 + 顶部滑下),替代 inline 英文错误显示
+  React.useEffect(() => {
+    if (error) pushError(error)
+  }, [error])
+
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
       api<{ success: boolean }>(`/api/article/${id}`, { method: 'DELETE' }),
@@ -47,7 +53,7 @@ export default function MyArticlesPage() {
       toast.success(t('deleteSuccess', { default: '已删除' }))
       qc.invalidateQueries({ queryKey: ['articles', 'my'] })
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => pushError(e),
   })
 
   const articles = data?.list ?? []
@@ -71,10 +77,6 @@ export default function MyArticlesPage() {
       {isLoading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : error ? (
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error).message}
         </div>
       ) : articles.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-8">
