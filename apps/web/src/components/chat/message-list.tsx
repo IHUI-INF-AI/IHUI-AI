@@ -30,6 +30,9 @@ import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
 import { TimelineTab } from '@/components/ai/progress-sections/timeline-tab'
+// 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan 组件 inline 到消息气泡
+import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
+import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'
 import {
   MessageContextMenu,
   MessageSearchBar,
@@ -461,6 +464,28 @@ const MessageItem = React.memo(function MessageItem({
                 isStreaming={streamingThis}
                 data-testid={`message-tool-call-summary-${m.id}`}
               />
+              {/* 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan inline 到消息气泡
+                - subagentActivities:SubAgentActivityFeed 实时刷新 subagent 生命周期
+                - terminalTasks:TerminalSection 展示命令执行 + 输出
+                - planSteps:PlanStepsCard 展示计划步骤
+                - 仅当消息级数据存在时渲染(后端 SSE 事件携带 messageId 时填充) */}
+              {m.subagentActivities && m.subagentActivities.length > 0 && (
+                <SubAgentActivityFeed
+                  swarmId={m.id}
+                  activities={m.subagentActivities}
+                  completed={!streamingThis}
+                />
+              )}
+              {m.terminalTasks && m.terminalTasks.length > 0 && (
+                <TerminalSection terminals={m.terminalTasks} />
+              )}
+              {m.planSteps && m.planSteps.length > 0 && (
+                <PlanStepsCard
+                  steps={m.planSteps}
+                  isStreaming={streamingThis}
+                  data-testid={`message-plan-steps-${m.id}`}
+                />
+              )}
             </div>
           )}
           {/* 时间戳 footer(2026-07-28 立):hover/focused 时显示在气泡底部,
@@ -1524,9 +1549,12 @@ export function MessageList({
                     contextMenu.contextMenuHandlers.onContextMenu(e)
                   }}
                 />
-                {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree */}
+                {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
+                  2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端) */}
                 {!m.error &&
                   m.id === lastAssistantMessageId &&
+                  (!m.planSteps || m.planSteps.length === 0) &&
+                  (!m.subagentActivities || m.subagentActivities.length === 0) &&
                   (planSteps.length > 0 || linkedSubagents.length > 0) && (
                     <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
                       {planSteps.length > 0 && (
