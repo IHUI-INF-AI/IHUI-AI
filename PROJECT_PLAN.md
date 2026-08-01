@@ -2394,6 +2394,17 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
   - useIsMobile 阈值从 768px 改为 1023px(与 min-[1024px] 断点对齐,<1024px 统一走移动模式 FAB+全屏)
   - 不用 `tablet-lg:` 断点名(Tailwind v4 把 `tablet-lg:flex` 误解析为 `tablet:`+`lg:flex`,经 Playwright 验证确认无效)
   - Playwright 三视口验证:375px/768px Sidebar display=none + FAB + 菜单按钮;1280px Sidebar display=flex + docked AISidePanel ✅
+- [x] ✅(2026-08-01) Container max-w-screen-* 错位修复(`apps/web/src/components/layout/Container.tsx`)
+  - 根因:`max-w-screen-*` 依赖 `--breakpoint-*` 变量,但项目自定义断点(`--breakpoint-lg:576px`/`--breakpoint-md:428px`/`--breakpoint-xl:1920px`)导致 max-w-screen-lg=576px/max-w-screen-md=428px/max-w-screen-xl=1920px 全部错位
+  - 影响:20 个 settings 页面用 `maxWidth="md"` 期望 672px,实际只有 428px(过窄);`maxWidth="xl"` 期望 1152px,实际 1920px(过宽)
+  - 修复:widthMap 改为固定 px 任意值(sm=420/md=672/lg=896/xl=1152/2xl=1280),不依赖断点变量
+  - padding 断点对齐:`px-4 sm:px-6 lg:px-8` → `px-4 min-[640px]:px-6 min-[1024px]:px-8`(原 lg:px-8 在 576px 触发过早)
+  - Playwright 验证:桌面 1280px /settings Container maxWidth=672px width=672px ✅
+- [x] ✅(2026-08-01) GlobalTopBar 移动端间距响应式(`apps/web/src/components/layout/GlobalTopBar.tsx`)
+  - 根因:外层 `pt-2 pb-1.5`(8px+6px=14px 垂直间距)无响应式,移动端偏松散
+  - 修复:`pt-1 pb-1 min-[1024px]:pt-2 min-[1024px]:pb-1.5`(移动端 4px+4px=8px,桌面端 8px+6px=14px)
+  - 移动端总高 44px(原 50px,节省 6px),桌面端 50px 不变
+  - Playwright 验证:375px pt=4px pb=4px height=44px;1280px pt=8px pb=6px height=50px ✅
 
 ### 验证
 
@@ -2406,6 +2417,10 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
   - 768px:Sidebar display=none + FAB 存在 + 菜单按钮存在 ✅(断点对齐后平板竖屏走移动模式)
   - 1280px:Sidebar display=flex + AISidePanel docked display=flex + 无 FAB ✅(桌面三列)
 - 截图存档:`.trae-cn/tmp/mobile-375.png` / `tablet-768.png` / `desktop-1280.png`
+- 2026-08-01 补充验证(Container + GlobalTopBar):
+  - Container:桌面 1280px /settings maxWidth=672px(原 max-w-screen-md=428px) ✅
+  - GlobalTopBar:375px pt=4px pb=4px height=44px;1280px pt=8px pb=6px height=50px ✅
+  - 截图存档:`.trae-cn/tmp/topbar-mobile-375.png` / `container-settings-1280.png`
 
 ---
 
