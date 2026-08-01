@@ -39,8 +39,6 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       //   - 工作区右边距 viewport 右边固定 8px(由 (marketing)/layout.tsx 与 MainShell.tsx 的 mr-2 决定)
       //   - 指示器贴工作区右边 24px → right = 8 + 24 = 32px(距 viewport 右边)
       //   - 与 sidebar 折叠/展开、ai-panel 开/关 全部无关(它们只影响工作区左边)
-      //   - 不与 ScrollDownButton 共用 CSS 变量:ScrollDownButton 用 left 居中需动态计算,
-      //     而 PageIndicator 用 right 是常量,二者几何模型不同,不应耦合
       // 2026-07-28 v9.3:卡片内边距感 — 10px → 12px(完全在卡片内)
       //   - 用户反馈"我就是要卡片内边距感 刚才你应该是弄错了"
       //   - v9.1 10px:指示器右边距工作区卡片右边 = 10 - 8 = 2px,探出卡片外,违反"卡片内"约束
