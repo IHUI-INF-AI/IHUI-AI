@@ -204,26 +204,26 @@ export default function UserLlmConfigsPage() {
     <Container maxWidth="xl" padding={false} className="space-y-5 py-6">
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <KeyRound className="h-6 w-6 text-primary" />
-            {t('title')}
+            <KeyRound className="h-6 w-6 shrink-0 text-primary" />
+            <span className="truncate">{t('title')}</span>
           </h1>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setBulkOpen(true)} size="sm" variant="outline">
-            <PackagePlus className="mr-1.5 h-4 w-4" />
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
+          <Button onClick={() => setBulkOpen(true)} size="sm" variant="outline" className="shrink-0 whitespace-nowrap">
+            <PackagePlus className="mr-1.5 h-4 w-4 shrink-0" />
             {tV2('bulk.title')}
           </Button>
-          <Button asChild size="sm" variant="outline">
+          <Button asChild size="sm" variant="outline" className="shrink-0 whitespace-nowrap">
             <a href="/settings/import">
-              <Upload className="mr-1.5 h-4 w-4" />
-              {t('importCliConfig')}
+              <Upload className="mr-1.5 h-4 w-4 shrink-0" />
+              <span className="whitespace-nowrap">{t('importCliConfig')}</span>
             </a>
           </Button>
-          <Button onClick={openCreateProvider} size="sm">
-            <Sparkles className="mr-1.5 h-4 w-4" />
+          <Button onClick={openCreateProvider} size="sm" className="shrink-0 whitespace-nowrap">
+            <Sparkles className="mr-1.5 h-4 w-4 shrink-0" />
             {tV2('newProvider')}
           </Button>
         </div>
@@ -235,8 +235,8 @@ export default function UserLlmConfigsPage() {
       {/* BYOK 模式提示 */}
       <div className="flex items-start gap-2 rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
-        <p className="flex-1">
-          <span className="font-medium text-foreground">BYOK 模式</span>
+        <p className="min-w-0 flex-1">
+          <span className="whitespace-nowrap font-medium text-foreground">BYOK 模式</span>
           :你配置的 API Key 加密存储(AES-256-GCM),调用时直接使用你的 Key 访问大厂。平台只收 5-20%
           服务费,Cloudflare / GitHub Models / HuggingFace 等免费 provider 不收费。
         </p>
@@ -245,10 +245,10 @@ export default function UserLlmConfigsPage() {
             onClick={reopenOnboarding}
             size="sm"
             variant="ghost"
-            className="h-7 shrink-0 px-2 text-xs"
+            className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
           >
-            <BookOpen className="mr-1 h-3.5 w-3.5" />
-            查看引导
+            <BookOpen className="mr-1 h-3.5 w-3.5 shrink-0" />
+            <span className="whitespace-nowrap">查看引导</span>
           </Button>
         )}
       </div>
@@ -261,12 +261,12 @@ export default function UserLlmConfigsPage() {
         <div className="space-y-3">
           {/* Toolbar */}
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
+            <p className="min-w-0 flex-1 truncate text-sm tabular-nums text-muted-foreground">
               {tV2('listCount', { total, enabledCount })}
             </p>
             {visibleProviders.length > 0 && (
-              <Button onClick={openCreateProvider} size="sm" variant="outline">
-                <Sparkles className="mr-1.5 h-4 w-4" />
+              <Button onClick={openCreateProvider} size="sm" variant="outline" className="shrink-0 whitespace-nowrap">
+                <Sparkles className="mr-1.5 h-4 w-4 shrink-0" />
                 {tV2('newProvider')}
               </Button>
             )}
@@ -274,8 +274,8 @@ export default function UserLlmConfigsPage() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('loading')}
+              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+              <span className="whitespace-nowrap">{t('loading')}</span>
             </div>
           ) : visibleProviders.length === 0 ? (
             <Card>
@@ -287,8 +287,8 @@ export default function UserLlmConfigsPage() {
                   <p className="text-sm font-medium">{tV2('emptyTitle')}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{tV2('emptyDesc')}</p>
                 </div>
-                <Button onClick={openCreateProvider} variant="outline" size="sm">
-                  <Sparkles className="mr-1.5 h-4 w-4" />
+                <Button onClick={openCreateProvider} variant="outline" size="sm" className="shrink-0 whitespace-nowrap">
+                  <Sparkles className="mr-1.5 h-4 w-4 shrink-0" />
                   {tV2('firstProvider')}
                 </Button>
                 {templates.length > 0 && (
@@ -395,8 +395,8 @@ export default function UserLlmConfigsPage() {
         <DialogContent className="max-w-lg gap-0 p-0 min-[640px]:rounded-lg">
           <DialogHeader className="space-y-2 border-b p-4">
             <DialogTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
-              欢迎使用 BYOK 平台模式
+              <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-500" />
+              <span className="whitespace-nowrap">欢迎使用 BYOK 平台模式</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
               自带 API Key 调用大厂模型,平台仅收 5-20% 服务费
@@ -467,8 +467,8 @@ export default function UserLlmConfigsPage() {
           </div>
 
           <DialogFooter className="border-t p-4">
-            <Button onClick={dismissOnboarding} size="sm" className="w-full min-[640px]:w-auto">
-              知道了
+            <Button onClick={dismissOnboarding} size="sm" className="w-full shrink-0 whitespace-nowrap min-[640px]:w-auto">
+              <span className="whitespace-nowrap">知道了</span>
             </Button>
           </DialogFooter>
         </DialogContent>
