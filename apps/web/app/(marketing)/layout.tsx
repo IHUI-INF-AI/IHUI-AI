@@ -64,11 +64,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     // 2026-07-31 第十六次微调(用户反馈"内容展示区左侧贴屏边 / 右侧有间距,应该统一"):
     // 拆成 wrapper + 卡片双层,跟 MainShell 完全对齐:
-    // - wrapper: pb-2 pl-2 pr-2  ← 给卡片 8px 边距(卡片本身不再贴屏边)
+    // - wrapper: pb-2 pl-[var(--topbar-content-left)] pr-2  ← 左侧对齐顶栏搜索按钮,右侧底部 8px 边距
     // - card:    rounded-xl bg-shell-panel overflow-hidden  ← 卡片视觉
-    // 移动端 sidebar 隐藏 → wrapper 占满 work-area → 卡片有 8px 左右呼吸空(对称)
-    // 桌面端 sidebar 130px → wrapper 在 sidebar 右侧 → 卡片有 8px 左右呼吸空 + sidebar 130px(总 138px 视觉缓冲)
-    <div className="flex min-h-0 flex-1 flex-col pb-2 pl-2 pr-2">
+    // 移动端 sidebar 隐藏 → wrapper 占满 work-area → 卡片有正确左侧偏移(=mobileMenu宽度)+右侧 8px 呼吸空
+    // 桌面端 sidebar 130px → wrapper 在 sidebar 右侧 → 卡片左侧对齐搜索按钮(pl=0)+右侧 8px 呼吸空
+    //
+    // ⚠️ 2026-08-01 修复:pl-2 硬编码 8px → pl-[var(--topbar-content-left)] 与 MainShell 对齐,
+    // 消除 8px 错位。与 MainShell 统一:
+    // - 桌面端(≥1024px):--topbar-content-left=0px,无左侧 padding
+    // - 移动端(<1024px):--topbar-content-left=46px(动态测量),对齐搜索按钮
+    // - pl-2 去掉:MainShell wrapper 也没有单独的 pl-2
+    <div className="flex min-h-0 flex-1 flex-col pb-2 pl-[var(--topbar-content-left)] pr-2">
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-shell-panel">
         {children}
       </div>
