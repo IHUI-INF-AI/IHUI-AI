@@ -38,7 +38,18 @@ const paginationSchema = z.object({
 const listConfigsQuerySchema = paginationSchema.extend({
   category: z.preprocess(
     emptyToUndefined,
-    z.enum(['general', 'mail', 'storage', 'security', 'payment', 'ai', 'home_schema']).optional(),
+    z
+      .enum([
+        'general',
+        'mail',
+        'storage',
+        'security',
+        'payment',
+        'ai',
+        'home_schema',
+        'home_schema_draft',
+      ])
+      .optional(),
   ),
 })
 
@@ -51,6 +62,7 @@ const configCategorySchema = z.enum([
   'payment',
   'ai',
   'home_schema',
+  'home_schema_draft',
 ])
 
 const createConfigBodySchema = z.object({
