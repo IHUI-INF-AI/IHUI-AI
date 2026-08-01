@@ -1130,7 +1130,9 @@
     "errors": {
       "timeout15s": "AI 回應逾時(15 秒內未收到任何內容),請稍後重試",
       "timeout60s": "AI 思考逾時(60 秒內未產出回答內容,可能 reasoning 模型思考過長),請稍後重試或改用一般模型"
-    }
+    },
+    "clearInputAriaLabel": "清除輸入",
+    "clearInputTitle": "清除輸入內容"
   },
   "learn": {
     "title": "學習中心",
@@ -1323,7 +1325,13 @@
       "free": {
         "name": "免費版",
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個使用者端", "API 存取", "社群支援"]
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個使用者端",
+          "API 存取",
+          "社群支援"
+        ]
       },
       "pro": {
         "name": "專業版",
@@ -1340,7 +1348,13 @@
         "name": "企業版",
         "contactSales": "聯絡銷售",
         "cta": "聯絡銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "稽核日誌", "專屬技術支援"]
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "稽核日誌",
+          "專屬技術支援"
+        ]
       }
     },
     "checkout": {
@@ -1524,7 +1538,11 @@
       "signupsSubtitle": "檢視與管理課程報名記錄",
       "backToLearnSignups": "返回課程管理",
       "signupsTotal": "共 {total} 條記錄",
-      "signupsUpdateSuccess": "狀態更新成功"
+      "signupsUpdateSuccess": "狀態更新成功",
+      "signupsSearchPlaceholder": "搜尋課程/使用者/手機號",
+      "colSignupStatus": "報名狀態",
+      "updateStatus": "更新狀態",
+      "signupsNoData": "暫無報名記錄"
     },
     "edu": {
       "learn": {
@@ -3300,7 +3318,23 @@
         "rowSuccess": "成功",
         "rowFailure": "失敗",
         "noDetails": "後端暫未返回逐條明細,如需檢視失敗行詳情請擴充套件後端介面返回 resultItemList。"
-      }
+      },
+      "usernameRequired": "請輸入使用者名稱",
+      "passwordRequired": "請輸入密碼",
+      "fieldUsername": "使用者名稱",
+      "fieldMobile": "手機號",
+      "mobilePlaceholder": "請輸入手機號",
+      "fieldGender": "性別",
+      "genderUnknown": "未知",
+      "noLevel": "無等級",
+      "newPasswordRequired": "請輸入新密碼",
+      "resetTitle": "重設密碼",
+      "resetDesc": "將重設該使用者的密碼",
+      "fieldNewPassword": "新密碼",
+      "newPasswordPlaceholder": "請輸入新密碼",
+      "statPending": "待審核",
+      "statSealed": "已封禁",
+      "statCompany": "企業數"
     },
     "resources": {
       "title": "資源管理",
@@ -3372,7 +3406,10 @@
       "resourceRequired": "請選擇關聯資源",
       "tagsTitle": "資源標籤管理",
       "tagsSubtitle": "管理資源標籤",
-      "rootTag": "無上級標籤"
+      "rootTag": "無上級標籤",
+      "fieldFileType": "檔案類型",
+      "fileTypePlaceholder": "請輸入檔案類型",
+      "fieldFileSize": "檔案大小"
     },
     "live": {
       "title": "直播管理",
@@ -3429,7 +3466,21 @@
       "lecturersTitle": "講師管理",
       "lecturersSubtitle": "管理直播講師",
       "fieldAvatar": "頭像地址",
-      "avatarPlaceholder": "請輸入頭像 URL(選填)"
+      "avatarPlaceholder": "請輸入頭像 URL(選填)",
+      "noLecturer": "無講師",
+      "fieldIntroduction": "詳細介紹",
+      "fieldShowNumber": "顯示序號",
+      "fieldEnableChat": "啟用聊天",
+      "fieldPushUrl": "推流地址",
+      "pushUrlPlaceholder": "請輸入推流地址",
+      "fieldPlayUrl": "播放地址",
+      "playUrlPlaceholder": "請輸入播放地址",
+      "timePlaceholder": "請選擇時間",
+      "fieldIsLive": "是否直播中",
+      "statChannelTotal": "頻道總數",
+      "statLiving": "直播中",
+      "statPublished": "已發布",
+      "statViewSum": "總觀看數"
     },
     "saas": {
       "title": "租戶管理",
@@ -3734,7 +3785,19 @@
       "subtitle": "管理平臺訂單、退款與發票申請",
       "tabOrders": "訂單",
       "tabRefunds": "退款",
-      "tabInvoices": "發票申請"
+      "tabInvoices": "發票申請",
+      "invoiceType": "發票類型",
+      "changeStatus": "修改狀態",
+      "changeStatusTitle": "修改發票狀態",
+      "changeStatusDesc": "請選擇新的發票狀態",
+      "payType": "支付方式",
+      "noRefunds": "暫無退款記錄",
+      "process": "處理",
+      "noAction": "無需操作",
+      "processTitle": "處理退款",
+      "handleTitle": "完成退款",
+      "processDesc": "確認處理該退款申請",
+      "handleDesc": "確認完成該退款處理"
     },
     "workflows": {
       "title": "工作流管理",
@@ -4548,7 +4611,11 @@
       "exportName": "Agent任務",
       "total": "共 {total} 條",
       "prev": "上一頁",
-      "next": "下一頁"
+      "next": "下一頁",
+      "colContext": "需求描述",
+      "colCycleFull": "完整週期",
+      "colLowestPrice": "最低價",
+      "colPeakPrice": "最高價"
     },
     "demandAudit": {
       "title": "需求審核",
@@ -7345,6 +7412,9 @@
     "privacyTitle": "隱私設定",
     "subtitle": "管理帳戶、安全、偏好和開發者配置",
     "title": "設定",
+    "billingInvoiceNo": "發票號",
+    "billingInvoiceType": "發票類型",
+    "billingNoData": "暫無帳單記錄",
     "dashboardDesc": "快速造訪所有設定選項",
     "preferencesDesc": "自定義您的應用體驗",
     "activityDesc": "檢視您的賬號活動記錄",
@@ -8329,7 +8399,9 @@
     "noSnapshots": "暫無快照",
     "data": "資料",
     "actions": "操作",
-    "delete": "刪除"
+    "delete": "刪除",
+    "signups": "報名數",
+    "examRecords": "考試記錄數"
   },
   "messages": {
     "loading": "載入中...",
@@ -9266,7 +9338,13 @@
     },
     "monitor": {
       "title": "監控儀表盤",
-      "subtitle": "平臺執行狀態總覽"
+      "subtitle": "平臺執行狀態總覽",
+      "alerts": "警示",
+      "logSummary": "日誌摘要",
+      "logTotal": "日誌總數",
+      "logErrors": "錯誤數",
+      "logWarnings": "警告數",
+      "perf": "效能指標"
     }
   },
   "aiGeneration": {
@@ -10138,32 +10216,56 @@
       "chat": {
         "label": "AI 對話",
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI"]
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "影片", "AI"]
+        "keywords": [
+          "短劇",
+          "影片",
+          "AI"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "全域內容搜尋",
-        "keywords": ["搜尋", "查詢", "search"]
+        "keywords": [
+          "搜尋",
+          "查詢",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"]
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "管理個人資料和設定",
-        "keywords": ["個人", "資料", "設定"]
+        "keywords": [
+          "個人",
+          "資料",
+          "設定"
+        ]
       },
       "settings": {
         "label": "系統設定",
         "description": "系統偏好與配置",
-        "keywords": ["設定", "偏好", "配置"]
+        "keywords": [
+          "設定",
+          "偏好",
+          "配置"
+        ]
       }
     }
   },
@@ -10570,19 +10672,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度連結志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的線上交流平臺,隨時隨地獲取資訊與支援",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智慧體服務,提供深度AI化諮詢與支援",
-          "features": ["專業大模型", "智慧體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智慧體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -10703,25 +10817,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["資料分析", "決策支援"]
+          "examples": [
+            "資料分析",
+            "決策支援"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智慧體協作",
-          "examples": ["營銷自動化", "多智慧體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智慧體協同"
+          ]
         }
       ]
     },
@@ -12215,7 +12341,11 @@
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
       "cta": "瞭解詳情",
-      "features": ["全年所有課程免費參加", "線下探索活動優先參與名額", "智匯 AI 會員社群無限次互動"]
+      "features": [
+        "全年所有課程免費參加",
+        "線下探索活動優先參與名額",
+        "智匯 AI 會員社群無限次互動"
+      ]
     },
     "enterprise": {
       "name": "企業服務",
@@ -12343,7 +12473,15 @@
       "sessions": "工作階段數",
       "crashRate": "當機率"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"],
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ],
     "dauTrend": {
       "title": "最近 7 天 DAU 趨勢",
       "subtitle": "每日活躍使用者數變化曲線"
@@ -12487,8 +12625,18 @@
     "title": "AI 生涯指導",
     "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
     "options": {
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"],
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -14065,7 +14213,12 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社群支援"
+        ]
       },
       "pro": {
         "features": [
@@ -14547,7 +14700,13 @@
         "price": "¥999",
         "unit": "/小時",
         "desc": "架構諮詢 / 技術選型 / 程式碼 review",
-        "features": ["視訊會議 / 遠端桌面", "2 小時起", "故障排除", "增值稅發票", "回應 SLA 24h"]
+        "features": [
+          "視訊會議 / 遠端桌面",
+          "2 小時起",
+          "故障排除",
+          "增值稅發票",
+          "回應 SLA 24h"
+        ]
       }
     },
     "socialProof": {
