@@ -69,7 +69,7 @@ export function MentionSearch({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1" role="tablist" aria-label={t('mentionTypeAriaLabel')}>
+      <div className="flex flex-nowrap gap-1 overflow-x-auto" role="tablist" aria-label={t('mentionTypeAriaLabel')}>
         {TYPE_TABS.map((t) => (
           <button
             key={t.value}
@@ -78,7 +78,7 @@ export function MentionSearch({
             aria-selected={activeType === t.value}
             onClick={() => onTypeChange(t.value)}
             className={cn(
-              'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+              'shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
               activeType === t.value
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',

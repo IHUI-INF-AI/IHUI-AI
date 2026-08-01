@@ -26,7 +26,7 @@ export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
   }, [activeTab, tabs])
 
   return (
-    <div className={cn('relative flex bg-muted/40', className)}>
+    <div className={cn('relative flex overflow-x-auto bg-muted/40', className)}>
       {tabs.map((tab) => (
         <button
           key={tab.key}
@@ -36,7 +36,7 @@ export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
           onClick={() => !tab.disabled && onChange(tab.key)}
           disabled={tab.disabled}
           className={cn(
-            'relative px-4 py-2 text-sm font-medium transition-colors',
+            'relative shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors',
             tab.disabled && 'cursor-not-allowed opacity-50',
             activeTab === tab.key
               ? 'text-foreground'
