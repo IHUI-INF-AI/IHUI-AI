@@ -59,9 +59,9 @@ export default function MemberHelpPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <HelpCircle className="h-5 w-5 text-primary" />
-          帮助中心
+        <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+          <HelpCircle className="h-5 w-5 shrink-0 text-primary" />
+          <span className="whitespace-nowrap">帮助中心</span>
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">查找常见问题与使用指南</p>
       </div>
@@ -80,12 +80,12 @@ export default function MemberHelpPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+          <span className="whitespace-nowrap">加载中...</span>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
-          <HelpCircle className="h-8 w-8 text-muted-foreground opacity-40" />
+        <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
+          <HelpCircle className="h-8 w-8 shrink-0 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground">{kw ? '未找到相关问题' : '暂无帮助文章'}</p>
         </div>
       ) : (
@@ -95,9 +95,9 @@ export default function MemberHelpPage() {
               <Card className="transition-colors hover:bg-accent">
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="text-sm font-semibold">{a.title}</h2>
+                    <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{a.title}</h2>
                     {a.updatedAt && (
-                      <span className="shrink-0 text-xs text-muted-foreground">
+                      <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                         {fmt(a.updatedAt)}
                       </span>
                     )}
@@ -118,10 +118,10 @@ export default function MemberHelpPage() {
       )}
 
       <div className="flex justify-center pt-2">
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="shrink-0 whitespace-nowrap">
           <Link href="mailto:support@aizhs.top">
-            <Mail className="h-4 w-4" />
-            联系客服
+            <Mail className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">联系客服</span>
           </Link>
         </Button>
       </div>

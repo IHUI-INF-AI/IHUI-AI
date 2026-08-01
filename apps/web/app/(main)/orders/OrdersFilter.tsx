@@ -45,13 +45,13 @@ export function OrdersFilter({ status, setStatus, orderType, setOrderType, view,
           ))}
         </SelectContent>
       </Select>
-      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
+      <div className="flex flex-nowrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setStatus(tab.value)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
               status === tab.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -61,7 +61,7 @@ export function OrdersFilter({ status, setStatus, orderType, setOrderType, view,
           </button>
         ))}
       </div>
-      <div className="ml-auto flex items-center gap-1 rounded-lg border p-1">
+      <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-1 rounded-lg border p-1">
         <button
           onClick={() => setView('table')}
           className={cn(
