@@ -19,6 +19,54 @@
 
 ---
 
+## P0 文档中心完整补齐 + 使用说明手册(2026-08-01 立,平台独占:apps/web + packages/i18n,AGENTS.md §24 用户已确认)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/web/app/(main)/docs/**` + `packages/i18n/messages/web/*.json`,不参与 api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli 跨端契约同步。
+> AGENTS.md §19 i18n:5 语言全译(zh-CN/zh-TW/en/ko/ja),走完整翻译流水线(i18n-diff → 翻译 → apply → parity 校验)。
+
+### 目标
+
+现状:`/docs` 文档中心列出 9 个分类,只有 `/docs/quickstart` 有实际内容,其他 8 个链接(self-host/api/mcp/agent/rag/models/workflow/team)都是 404 死链。用户反馈"这么大个项目就这点文档说得过去吗,使用说明手册也要有啊"。
+
+本任务两块并行:
+
+1. **补齐 8 个死链页面**(开发者文档):self-host / api / mcp / agent / rag / models / workflow / team,每页含完整内容,与 quickstart 同等深度
+2. **新增 /docs/manual 使用说明手册**(终端用户文档):多页分章节组织,面向终端用户操作指南(非开发者),包含注册登录/界面导览/AI对话/Agent使用/知识库/积分订阅/账户设置/常见问题等章节,每页一个主题 + 上一页/下一页导航
+
+### 硬性指标(H1-H10)
+
+- [ ] H1:8 个死链页面全部补齐(self-host/api/mcp/agent/rag/models/workflow/team),每页含 Hero + 主体内容 + 代码示例 + 下一步导航,深度对标 quickstart
+- [ ] H2:`/docs/manual` 目录页 + 7 个子章节页面(getting-started/ai-chat/agent/knowledge-base/billing/account/faq),每页含上一页/下一页导航
+- [ ] H3:`/docs` 文档中心首页新增"使用说明手册"分区(置于"快速开始"之上或并列,面向终端用户入口)
+- [ ] H4:所有页面 metadata + JSON-LD 结构化数据(HowTo / Article / BreadcrumbList)齐全,SEO 友好
+- [ ] H5:5 语言 i18n 全译(zh-CN 基准 + zh-TW/en/ko/ja parity),走 i18n-diff → 翻译 → i18n-apply → check-i18n-keys parity 校验全绿
+- [ ] H6:`pnpm --filter @ihui/web typecheck` exit 0
+- [ ] H7:本任务所有新增文件 eslint exit 0(全量 lint 既有 errors 不在本任务范围,按 §12 跳过)
+- [ ] H8:browser_use 访问 `/docs` 验证 9 分类 + 1 手册入口可见,DOM 读链接 href 验证无 404 死链,8 死链页面 + 7 手册子页全部返回 200
+- [ ] H9:README.md 同步更新(§21 触发:项目对外能力清单变化 — 文档中心从 1 页扩展到 16 页)
+- [ ] H10:commit + push origin/main,local == remote,git-push-guard exit 0
+
+### 约束边界
+
+- 涉及文件:
+  - `apps/web/app/(main)/docs/{self-host,api,mcp,agent,rag,models,workflow,team}/page.tsx`(8 个新文件)
+  - `apps/web/app/(main)/docs/manual/{page,getting-started,ai-chat,agent,knowledge-base,billing,account,faq}/page.tsx`(8 个新文件,含目录页)
+  - `apps/web/app/(main)/docs/page.tsx`(改:首页新增"使用说明手册"分区)
+  - `packages/i18n/messages/web/{zh-CN,zh-TW,en,ko,ja}.json`(5 文件,新增 docs.* + docs.manual.* 命名空间)
+  - `README.md`(§21 同步)
+- 不可触及:其他端(api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)、非 docs 路由的 web 页面
+- 文档内容深度:每页 ≥ 200 行(含代码示例/列表/注意事项),对标 quickstart 的 487 行
+- i18n 命名空间:`docs.<slug>` + `docs.manual.<slug>`,与现有 `docs` 命名空间同级
+- 平台独占:本任务仅 web 端,不涉及其他端代码改动
+
+### 执行批次(3 批次,每批次独立 commit)
+
+- **批次 1**:补齐 8 个死链页面(self-host/api/mcp/agent/rag/models/workflow/team)+ 5 语言 i18n + commit
+- **批次 2**:新增 /docs/manual 目录页 + 7 个子章节页面 + 5 语言 i18n + commit
+- **批次 3**:`/docs` 首页新增"使用说明手册"分区 + README.md 同步 + browser 验证 + 最终 commit + push
+
+---
+
 ## 已完成任务:插件市场 Codex 10 插件对齐(2026-07-31 立,2026-08-01 完成 ✅)
 
 ### 目标
