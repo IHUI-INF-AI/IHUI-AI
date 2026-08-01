@@ -108,7 +108,14 @@
       "subtitle": "{{n}} コース"
     },
     "ratingTitle": "コースを評価",
-    "ratingLabels": ["", "非常に悪い", "悪い", "普通", "良い", "非常に良い"],
+    "ratingLabels": [
+      "",
+      "非常に悪い",
+      "悪い",
+      "普通",
+      "良い",
+      "非常に良い"
+    ],
     "ratingPlaceholder": "評価してください",
     "ratingDescLabel": "レビューを書く",
     "ratingInputPlaceholder": "コースはどうでしたか?感想を共有してください...",
@@ -460,7 +467,12 @@
       "timbre": "音色"
     },
     "image": {
-      "examples": ["可愛い猫", "夕日の山風景", "未来都市", "抽象芸術"],
+      "examples": [
+        "可愛い猫",
+        "夕日の山風景",
+        "未来都市",
+        "抽象芸術"
+      ],
       "emptyHint": "画像生成の説明を入力",
       "tryThese": "これらを試す",
       "placeholder": "生成したい画像を説明",
@@ -474,7 +486,14 @@
       "favorited": "お気に入り済み",
       "history": "履歴",
       "empty": "生成記録なし",
-      "styles": ["リアル", "アニメ", "油絵", "水彩", "3D", "ピクセル"],
+      "styles": [
+        "リアル",
+        "アニメ",
+        "油絵",
+        "水彩",
+        "3D",
+        "ピクセル"
+      ],
       "generateFailed": "生成失敗、再試行してください",
       "downloadSuccess": "アルバムに保存しました",
       "downloadFailed": "ダウンロード失敗、再試行してください",
@@ -598,6 +617,29 @@
       "agentTipInputDesc": "下部の入力欄に質問を入力して送信",
       "agentTipHistory": "履歴",
       "agentTipHistoryDesc": "対話履歴を表示"
+    },
+    "uploadMaterialTab": "{{tab}}素材をアップロード",
+    "messageAction": {
+      "reuse": "再利用"
+    },
+    "chatDrawers": {
+      "selectModel": "モデルを選択",
+      "materialLibrary": "素材ライブラリ",
+      "emptyMaterial": "素材がありません",
+      "skillDetail": "スキル詳細"
+    },
+    "aiAssistant": {
+      "nothingToCopy": "コピーする内容がありません",
+      "copySuccess": "コピーしました",
+      "pleaseInputDesc": "説明を入力してください",
+      "pleaseWait": "お待ちください",
+      "insufficientTokens": "トークンが不足しています",
+      "goRecharge": "トークンが不足しています。チャージしますか?",
+      "pleaseLogin": "先にログインしてください",
+      "generateFailed": "生成失敗、再試行してください"
+    },
+    "intelligentAssistant": {
+      "greeting": "こんにちは、IHUI AIアシスタントです"
     }
   },
   "share": {
@@ -883,7 +925,10 @@
       "starting": "試験にアクセスしています…"
     },
     "answer": {
-      "judgmentOptions": ["正しい", "間違い"],
+      "judgmentOptions": [
+        "正しい",
+        "間違い"
+      ],
       "loadFailed": "問題の読み込み失敗",
       "answerPlaceholder": "答えを入力",
       "prev": "前の問題",
@@ -1196,7 +1241,13 @@
       }
     },
     "appPermission": {
-      "names": ["アルバム権限", "カメラ権限", "マイク権限", "位置権限", "通知権限"],
+      "names": [
+        "アルバム権限",
+        "カメラ権限",
+        "マイク権限",
+        "位置権限",
+        "通知権限"
+      ],
       "descs": [
         "画像をアルバムに保存・アップロード",
         "写真撮影・動画録画",
@@ -1536,8 +1587,18 @@
         "質問求助",
         "経験まとめ"
       ],
-      "levels": ["初級", "中級", "上級", "エキスパート"],
-      "budgets": ["1000元以下", "1000-5000元", "5000-10000元", "10000元以上"],
+      "levels": [
+        "初級",
+        "中級",
+        "上級",
+        "エキスパート"
+      ],
+      "budgets": [
+        "1000元以下",
+        "1000-5000元",
+        "5000-10000元",
+        "10000元以上"
+      ],
       "selectAtLeast": "1つ以上選択",
       "saved": "保存しました",
       "directionTitle": "学習方向",
@@ -1870,7 +1931,11 @@
         "質問求助",
         "経験まとめ"
       ],
-      "visibilityOptions": ["公開", "フレンドのみ", "プライベート"],
+      "visibilityOptions": [
+        "公開",
+        "フレンドのみ",
+        "プライベート"
+      ],
       "enterTitle": "タイトルを入力",
       "enterContent": "内容を入力",
       "published": "公開しました",
@@ -2149,7 +2214,14 @@
       "bannerTitle": "VIP会員へアップグレード",
       "bannerDesc": "さらに専用特権を解放",
       "rightsTitle": "会員特典",
-      "rights": ["専用サポート", "優先体験", "高级機能", "広告除去", "専用バッジ", "割引特典"],
+      "rights": [
+        "専用サポート",
+        "優先体験",
+        "高级機能",
+        "広告除去",
+        "専用バッジ",
+        "割引特典"
+      ],
       "loadFailed": "読み込み失敗",
       "operationFailed": "操作失敗",
       "originalPrice": "通常¥{{n}}",
@@ -2196,7 +2268,8 @@
         "modelAccess": "モデルアクセス",
         "prioritySupport": "優先サポート",
         "exclusiveGroup": "専用グループ",
-        "adExperience": "広告体験"
+        "adExperience": "広告体験",
+        "vipColumn": "VIP会員"
       },
       "monthlyPlan": "月額会員",
       "yearlyPlan": "年額会員",
