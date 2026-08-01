@@ -12,7 +12,7 @@ import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
 import { stopRelayChannelRouterSweep } from './services/relay-channel-router.js'
 import { stopRegistryRateLimitSweep } from './routes/registry-sync.js'
-import { stopPoolTracker } from './db/index.js'
+import { stopPoolTracker, registerPoolTrackerCleanup } from './db/index.js'
 import { logger } from './utils/logger.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
@@ -100,6 +100,8 @@ async function start() {
   }
 
   try {
+    // 2026-08-02 修复:注册 poolTracker onClose 清理,防进程不退出
+    registerPoolTrackerCleanup(server)
     await server.listen({ port: PORT, host: HOST })
     server.log.info(`🚀 API server listening on http://${HOST}:${PORT}`)
   } catch (err) {

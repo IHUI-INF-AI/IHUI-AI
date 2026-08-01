@@ -77,15 +77,21 @@ export function useLazyBackground<T extends HTMLElement = HTMLDivElement>(
   // 进入视口后加载真实背景图
   React.useEffect(() => {
     if (!isIntersecting || !src || isLoaded) return
-
+    // 2026-08-02 修复: Image 未清理, 卸载后 setState - 添加 cancelled 标志 + cleanup 中清除 onload
+    let cancelled = false
     const img = new Image()
     img.onload = () => {
+      if (cancelled) return
       if (ref.current) {
         ref.current.style.backgroundImage = `url(${src})`
       }
       setLoaded(true)
     }
     img.src = src
+    return () => {
+      cancelled = true
+      img.onload = null
+    }
   }, [isIntersecting, src, isLoaded])
 
   return { ref, isLoaded }
