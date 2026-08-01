@@ -102,7 +102,7 @@ function DataTableImpl<T extends Record<string, unknown>>({
                 <th
                   key={col.key}
                   className={cn(
-                    'px-3 py-2.5 font-medium',
+                    'whitespace-nowrap px-3 py-2.5 font-medium',
                     alignMap[col.align ?? 'left'],
                     col.width,
                   )}
@@ -110,17 +110,17 @@ function DataTableImpl<T extends Record<string, unknown>>({
                   {col.sortable ? (
                     <button
                       onClick={() => handleSort(col.key)}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      className="inline-flex flex-nowrap items-center gap-1 hover:text-foreground"
                     >
-                      {col.title}
+                      <span className="truncate">{col.title}</span>
                       {sort?.key === col.key ? (
                         sort.dir === 'asc' ? (
-                          <ChevronUp className="h-3 w-3" />
+                          <ChevronUp className="h-3 w-3 shrink-0" />
                         ) : (
-                          <ChevronDown className="h-3 w-3" />
+                          <ChevronDown className="h-3 w-3 shrink-0" />
                         )
                       ) : (
-                        <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                        <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-40" />
                       )}
                     </button>
                   ) : (
@@ -169,12 +169,11 @@ function DataTableImpl<T extends Record<string, unknown>>({
         </table>
       </div>
       {pagination && (
-        <div className="mt-3 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            共 {pagination.total} 条,第 {pagination.page}/
-            {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
+        <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+            共 {pagination.total} 条,第 {pagination.page}/{Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <button
               disabled={pagination.page <= 1}
               onClick={() => onPageChange?.(pagination.page - 1)}

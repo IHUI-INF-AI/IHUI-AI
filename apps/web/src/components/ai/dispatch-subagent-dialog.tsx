@@ -685,22 +685,23 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
           </div>
         )}
       </div>
-      <DialogFooter className="gap-2">
+      <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onOpenChange(false)}
           disabled={isSubmitting}
+          className="shrink-0"
         >
-          取消
+          <span className="whitespace-nowrap">取消</span>
         </Button>
         <Button
           size="sm"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="bg-emerald-600 text-white hover:bg-emerald-700"
+          className="bg-emerald-600 text-white hover:bg-emerald-700 shrink-0"
         >
-          {isSubmitting ? '派发中…' : '派发'}
+          <span className="whitespace-nowrap">{isSubmitting ? '派发中…' : '派发'}</span>
         </Button>
       </DialogFooter>
     </div>
@@ -791,7 +792,7 @@ function AutoPlanPanel() {
                 <code className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
                   {agent.role}
                 </code>
-                <span className="flex-1 text-muted-foreground">{agent.task}</span>
+                <span className="flex-1 min-w-0 text-muted-foreground">{agent.task}</span>
                 {agent.depends_on.length > 0 && (
                   <span className="shrink-0 text-[10px] text-muted-foreground/60">
                     ← {agent.depends_on.join(', ')}

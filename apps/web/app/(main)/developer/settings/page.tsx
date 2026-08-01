@@ -153,35 +153,37 @@ export default function SettingsPage() {
         <CardContent className="space-y-3 p-4">
           <p className="border-b pb-2 text-sm font-semibold">{t('prefsTitle')}</p>
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm">{t('prefsDefaultVersion')}</Label>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <Label className="block truncate text-sm">{t('prefsDefaultVersion')}</Label>
                 <p className="text-xs text-muted-foreground">{t('prefsDefaultVersionDesc')}</p>
               </div>
               <Input
                 value={prefs.defaultVersion}
                 onChange={(e) => setPrefs({ ...prefs, defaultVersion: e.target.value })}
-                className="w-24"
+                className="w-24 shrink-0"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm">{t('prefsSandboxAutoRun')}</Label>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <Label className="block truncate text-sm">{t('prefsSandboxAutoRun')}</Label>
                 <p className="text-xs text-muted-foreground">{t('prefsSandboxAutoRunDesc')}</p>
               </div>
               <Switch
                 checked={prefs.sandboxAutoRun}
                 onCheckedChange={(v) => setPrefs({ ...prefs, sandboxAutoRun: v })}
+                className="shrink-0"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm">{t('prefsErrorReport')}</Label>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <Label className="block truncate text-sm">{t('prefsErrorReport')}</Label>
                 <p className="text-xs text-muted-foreground">{t('prefsErrorReportDesc')}</p>
               </div>
               <Switch
                 checked={prefs.errorReport}
                 onCheckedChange={(v) => setPrefs({ ...prefs, errorReport: v })}
+                className="shrink-0"
               />
             </div>
           </div>
@@ -202,15 +204,15 @@ export default function SettingsPage() {
             <AlertTriangle className="h-4 w-4" />
             {t('dangerTitle')}
           </p>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm">{t('dangerDeleteLabel')}</Label>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <Label className="block truncate text-sm">{t('dangerDeleteLabel')}</Label>
               <p className="text-xs text-muted-foreground">{t('dangerDeleteDesc')}</p>
             </div>
             <Button
               size="sm"
               variant="outline"
-              className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
+              className="shrink-0 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
               onClick={() => confirm(t('dangerDeleteConfirm')) && deleteMut.mutate()}
               disabled={deleteMut.isPending}
             >

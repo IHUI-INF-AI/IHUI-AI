@@ -196,6 +196,7 @@ function DetailPanel({
               表结构({schema.columns.length} 列)
             </p>
             <div className="mt-1 max-h-[280px] overflow-y-auto rounded-md border">
+              <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-muted/50">
                   <tr>
@@ -216,6 +217,7 @@ function DetailPanel({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         ) : (

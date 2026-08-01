@@ -25,7 +25,7 @@ export function TemplateCard({ template, onUse, used }: TemplateCardProps) {
         <CardTitle className="text-base">{template.name}</CardTitle>
         <CardDescription className="text-xs">{template.description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className="flex-1 min-w-0">
         <div className="flex flex-wrap gap-1.5">
           {template.sections.map((s) => (
             <span

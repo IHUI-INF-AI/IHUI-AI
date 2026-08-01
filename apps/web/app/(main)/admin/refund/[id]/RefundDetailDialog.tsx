@@ -84,46 +84,51 @@ export function RefundDetailDialog({
               className={textareaClass}
             />
           </div>
-          <DialogFooter>
-            {action === 'audit' ? (
-              <>
-                <Button type="button" variant="outline" onClick={onClose} disabled={isAuditPending}>
-                  {tc('cancel')}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    onApprove()
-                  }}
-                  disabled={isAuditPending}
-                >
-                  {isAuditPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  <Check className="mr-1 h-4 w-4" />
-                  {t('approve')}
-                </Button>
-                <Button type="submit" variant="destructive" disabled={isAuditPending}>
-                  {isAuditPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  <X className="mr-1 h-4 w-4" />
-                  {t('reject')}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  disabled={isRejectPending}
-                >
-                  {tc('cancel')}
-                </Button>
-                <Button type="submit" variant="destructive" disabled={isRejectPending}>
-                  {isRejectPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {t('reject')}
-                </Button>
-              </>
-            )}
+          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 min-[640px]:flex-nowrap">
+            <span className="text-xs text-muted-foreground">state: {state}</span>
+            <div className="flex items-center gap-2">
+              {action === 'audit' ? (
+                <>
+                  <Button type="button" variant="outline" onClick={onClose} disabled={isAuditPending} className="shrink-0">
+                    <span className="whitespace-nowrap">{tc('cancel')}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      onApprove()
+                    }}
+                    disabled={isAuditPending}
+                    className="shrink-0"
+                  >
+                    {isAuditPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                    <Check className="mr-1 h-4 w-4 shrink-0" />
+                    <span className="whitespace-nowrap">{t('approve')}</span>
+                  </Button>
+                  <Button type="submit" variant="destructive" disabled={isAuditPending} className="shrink-0">
+                    {isAuditPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                    <X className="mr-1 h-4 w-4 shrink-0" />
+                    <span className="whitespace-nowrap">{t('reject')}</span>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={isRejectPending}
+                    className="shrink-0"
+                  >
+                    <span className="whitespace-nowrap">{tc('cancel')}</span>
+                  </Button>
+                  <Button type="submit" variant="destructive" disabled={isRejectPending} className="shrink-0">
+                    {isRejectPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+                    <span className="whitespace-nowrap">{t('reject')}</span>
+                  </Button>
+                </>
+              )}
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

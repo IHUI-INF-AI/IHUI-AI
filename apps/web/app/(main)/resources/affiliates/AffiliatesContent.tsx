@@ -52,7 +52,7 @@ export function AffiliatesContent(): React.JSX.Element {
       {/* Affiliate cards */}
       <section className="mt-12 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {AFFILIATES.map(({ id, icon: Icon, url }) => (
-          <Card key={id} className="flex flex-col p-6">
+          <Card key={id} className="flex flex-col p-4 min-[768px]:p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Icon className="h-5 w-5 text-primary" />

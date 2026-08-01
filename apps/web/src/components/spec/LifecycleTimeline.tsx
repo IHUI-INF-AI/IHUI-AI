@@ -76,7 +76,7 @@ export function LifecycleTimeline({
                 />
               )}
             </div>
-            <div className="flex-1 pb-3">
+            <div className="flex-1 min-w-0 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">{meta.label}</span>
                 {isCurrent && (

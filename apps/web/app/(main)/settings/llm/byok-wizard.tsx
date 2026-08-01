@@ -217,25 +217,22 @@ export function ByokWizard() {
           </DialogHeader>
 
           {/* Stepper */}
-          <div className="flex items-center justify-between gap-1 px-4 py-3">
+          <div className="grid grid-cols-4 items-center gap-1 px-4 py-3">
             {STEPS.map((s) => (
-              <React.Fragment key={s}>
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className={
-                      s < step
-                        ? 'flex h-7 w-7 items-center justify-center rounded-md bg-emerald-600 text-white'
-                        : s === step
-                          ? 'flex h-7 w-7 items-center justify-center rounded-md border-2 border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                          : 'flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground'
-                    }
-                  >
-                    {s < step ? <Check className="h-3.5 w-3.5" /> : s + 1}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{stepTitles[s]}</span>
+              <div key={s} className="flex min-w-0 flex-col items-center gap-1">
+                <div
+                  className={
+                    s < step
+                      ? 'flex h-7 w-7 items-center justify-center rounded-md bg-emerald-600 text-white'
+                      : s === step
+                        ? 'flex h-7 w-7 items-center justify-center rounded-md border-2 border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                        : 'flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground'
+                  }
+                >
+                  {s < step ? <Check className="h-3.5 w-3.5" /> : s + 1}
                 </div>
-                {s < 3 && <div className="mb-4 h-px flex-1 bg-border" />}
-              </React.Fragment>
+                <span className="truncate text-[10px] text-muted-foreground">{stepTitles[s]}</span>
+              </div>
             ))}
           </div>
 
@@ -397,13 +394,13 @@ export function ByokWizard() {
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">{t('step4Desc')}</p>
                 <div className="rounded-md border p-3 text-xs">
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-muted-foreground">{t('providerLabel')}</span>
-                    <span className="font-medium">{selected?.name}</span>
+                  <div className="flex items-center justify-between gap-3 py-1">
+                    <span className="min-w-0 flex-1 text-muted-foreground">{t('providerLabel')}</span>
+                    <span className="shrink-0 font-medium">{selected?.name}</span>
                   </div>
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-muted-foreground">{t('apiKeyLabel')}</span>
-                    <span className="font-medium">
+                  <div className="flex items-center justify-between gap-3 py-1">
+                    <span className="min-w-0 flex-1 text-muted-foreground">{t('apiKeyLabel')}</span>
+                    <span className="shrink-0 font-medium">
                       {selected?.free ? t('freeNoKey') : apiKey ? '••••••••' : '—'}
                     </span>
                   </div>

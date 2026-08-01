@@ -129,7 +129,7 @@ export default function SignInPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-6 min-[640px]:flex-row min-[640px]:justify-between">
+          <CardContent className="flex flex-col items-center gap-4 p-4 min-[640px]:p-6 min-[640px]:flex-row min-[640px]:justify-between">
             <div className="flex items-center gap-4">
               <div
                 className={cn(
@@ -236,6 +236,7 @@ export default function SignInPage() {
           </div>
         ) : historyQ.data && historyQ.data.length > 0 ? (
           <div className="overflow-hidden rounded-lg border">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr>
@@ -260,6 +261,7 @@ export default function SignInPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
