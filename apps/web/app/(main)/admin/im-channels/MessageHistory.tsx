@@ -142,7 +142,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
         {/* 表格(容器完整描边,无分割线) */}
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2 text-left">时间</th>
                 <th className="px-3 py-2 text-left">平台</th>

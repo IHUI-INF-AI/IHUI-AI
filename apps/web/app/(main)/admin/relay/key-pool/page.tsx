@@ -223,7 +223,7 @@ export default function AdminRelayKeyPoolPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
+          <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
             <tr>
               <th className="px-3 py-2 text-left">名称</th>
               <th className="px-3 py-2 text-left">Provider</th>
