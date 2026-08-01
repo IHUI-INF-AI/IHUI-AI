@@ -213,7 +213,7 @@ export function Select({
                   )}
                   onMouseEnter={() => setActiveIndex(idx)}
                 >
-                  {opt.label}
+                  <span className="whitespace-nowrap">{opt.label}</span>
                   {isSelected(opt.value) && <Check className="h-4 w-4 text-primary" />}
                 </div>
               ))

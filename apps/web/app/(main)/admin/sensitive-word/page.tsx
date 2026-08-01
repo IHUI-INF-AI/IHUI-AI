@@ -60,10 +60,10 @@ export default function AdminSensitiveWordPage() {
   const head = [t('colWord'), t('colCategory'), t('colLevel'), t('colStatus'), t('colActions')]
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><ShieldAlert className="h-6 w-6 text-primary" />{t('title')}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight"><ShieldAlert className="h-6 w-6 shrink-0 text-primary" /><span className="truncate">{t('title')}</span></h1>
         <form onSubmit={form.handleSubmit(() => undefined)}>
-          <Input {...form.register('word')} placeholder={t('searchPlaceholder')} className="h-9 w-64" />
+          <Input {...form.register('word')} placeholder={t('searchPlaceholder')} className="h-9 w-full shrink-0 sm:w-64" />
         </form>
       </div>
       <div className="rounded-lg border border-border bg-card">

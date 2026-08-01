@@ -22,7 +22,7 @@ export function Breadcrumb({ items, separator, className }: BreadcrumbProps) {
   const sep = separator ?? <ChevronRight className="h-4 w-4" />
   return (
     <nav aria-label={tA11y('breadcrumb')} className={cn('flex items-center text-sm', className)}>
-      <ol className="flex items-center gap-1.5">
+      <ol className="flex min-w-0 items-center gap-1.5">
         {items.map((item, i) => {
           const isLast = i === items.length - 1
           return (
@@ -45,6 +45,7 @@ export function Breadcrumb({ items, separator, className }: BreadcrumbProps) {
                 <span
                   className={cn(
                     'whitespace-nowrap',
+                    isLast && 'max-w-[200px] truncate',
                     isLast ? 'font-medium text-foreground' : 'text-muted-foreground',
                   )}
                 >

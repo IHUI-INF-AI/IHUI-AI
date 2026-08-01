@@ -106,17 +106,17 @@ export default function ZhsUserPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">ZHS用户管理</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="h-4 w-4" />
-            导出
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight"><span className="truncate">ZHS用户管理</span></h1>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="outline" size="sm" className="shrink-0" onClick={handleExport}>
+            <Download className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">导出</span>
           </Button>
           <HasPermi code="ai:zhs_user:add">
-            <Button size="sm" onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              新增
+            <Button size="sm" className="shrink-0" onClick={openCreate}>
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="whitespace-nowrap">新增</span>
             </Button>
           </HasPermi>
         </div>
@@ -126,9 +126,9 @@ export default function ZhsUserPage() {
 
       <ZhsUserTable list={list} isLoading={isLoading} onEdit={openEdit} onDelete={handleDelete} />
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">共 {total} 条</span>
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -136,9 +136,9 @@ export default function ZhsUserPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
-            上一页
+            <span className="whitespace-nowrap">上一页</span>
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button
@@ -147,7 +147,7 @@ export default function ZhsUserPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            <span className="whitespace-nowrap">下一页</span>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

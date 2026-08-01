@@ -1020,7 +1020,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate" title={item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}>
+        <span className="min-w-0 flex-1 truncate whitespace-nowrap" title={item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}>
           {item.dynamicLabel ?? t(NAV_LABEL_KEY[item.labelKey] ?? 'nav.unknown')}
         </span>
       </Link>

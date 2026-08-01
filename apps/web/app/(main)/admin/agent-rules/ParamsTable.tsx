@@ -59,10 +59,10 @@ export function ParamsTable({ rows, isLoading, error, onDelete, deletePending }:
               const enabled = param.status === 1
               return (
                 <TableRow key={param.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{param.id}</TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{param.ruleId}</TableCell>
+                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={param.id}>{param.id}</TableCell>
+                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={param.ruleId}>{param.ruleId}</TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{param.name}</TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{param.code}</TableCell>
+                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={param.code}>{param.code}</TableCell>
                   <TableCell className="px-4 py-2.5">{param.type}</TableCell>
                   <TableCell className="px-4 py-2.5">{param.value}</TableCell>
                   <TableCell className="px-4 py-2.5">

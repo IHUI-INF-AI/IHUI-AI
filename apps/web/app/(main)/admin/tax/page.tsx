@@ -31,12 +31,12 @@ export default function AdminTaxPage() {
   const head = ['规则名称', '类别', '税率', '起征额', '生效时间', '状态']
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Receipt className="h-6 w-6 text-primary" />
-          税务规则
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+          <Receipt className="h-6 w-6 shrink-0 text-primary" />
+          <span className="truncate">税务规则</span>
         </h1>
-        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索规则名称" className="h-9 w-64" />
+        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索规则名称" className="h-9 w-full shrink-0 sm:w-64" />
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">

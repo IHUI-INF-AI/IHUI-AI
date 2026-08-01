@@ -264,7 +264,7 @@ export function SiteFooter({ className }: { className?: string }) {
                 <br />
                 {t('addressLine2')}
               </p>
-              <p className="text-[11px] leading-snug text-muted-foreground">
+              <p className="whitespace-nowrap text-[11px] leading-snug text-muted-foreground">
                 {t('companyContact')} · {t('companyEmail')}
               </p>
             </div>
@@ -352,11 +352,11 @@ export function SiteFooter({ className }: { className?: string }) {
             className="h-5 w-5 object-contain"
             {...IMG_EAGER}
           />
-          <Link href="/settings/icp-record" className="transition-colors hover:text-primary">
+          <Link href="/settings/icp-record" className="whitespace-nowrap transition-colors hover:text-primary">
             {t('icp')}
           </Link>
           <span className="text-border">·</span>
-          <Link href="/settings/model-record" className="transition-colors hover:text-primary">
+          <Link href="/settings/model-record" className="whitespace-nowrap transition-colors hover:text-primary">
             {t('modelRecord')}
           </Link>
           <span className="text-border">·</span>

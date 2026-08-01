@@ -203,9 +203,9 @@ export function PricingContent(): React.JSX.Element {
           {grouped.map(([vendor, items]) => (
             <Card key={vendor}>
               <CardHeader className="px-4 py-2.5 pb-2">
-                <CardTitle className="flex items-center justify-between text-sm">
-                  <span>{vendor}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
+                <CardTitle className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate">{vendor}</span>
+                  <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
                     {t('itemsCount', { count: items.length })}
                   </span>
                 </CardTitle>

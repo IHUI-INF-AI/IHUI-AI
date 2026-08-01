@@ -60,10 +60,10 @@ export function RulesTable({ rows, isLoading, error, onEdit, onDelete, deletePen
               const enabled = rule.status === 1
               return (
                 <TableRow key={rule.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{rule.id}</TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{rule.agentId}</TableCell>
+                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={rule.id}>{rule.id}</TableCell>
+                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={rule.agentId}>{rule.agentId}</TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{rule.ruleName}</TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">{rule.ruleCode}</TableCell>
+                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={rule.ruleCode}>{rule.ruleCode}</TableCell>
                   <TableCell className="px-4 py-2.5">{rule.ruleType}</TableCell>
                   <TableCell className="px-4 py-2.5">{rule.priority}</TableCell>
                   <TableCell className="px-4 py-2.5">
