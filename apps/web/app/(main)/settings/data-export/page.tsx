@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { FileJson, FileText, Download, RefreshCw, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 
@@ -114,6 +115,7 @@ export default function DataExportPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         <Alert variant="info" title={t('exportScope')} description={t('exportScopeDesc')} />
 
         <Card>

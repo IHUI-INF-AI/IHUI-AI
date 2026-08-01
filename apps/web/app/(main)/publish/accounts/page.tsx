@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
@@ -89,6 +90,7 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold">{t('accounts.title')}</h2>

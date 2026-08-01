@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { useReportGenerator } from '@/hooks/use-report-generator'
+import { BackButton } from '@/components/common'
 
 interface Report {
   lessons: { total: number; completed: number; inProgress: number; avgProgress: number }
@@ -80,6 +81,7 @@ export default function StudentCenterPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="flex items-center justify-between space-y-1">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

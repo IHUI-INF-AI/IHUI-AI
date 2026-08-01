@@ -6,6 +6,7 @@ import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
+import { BackButton } from '@/components/common'
 
 interface ColorScheme {
   id: string
@@ -71,6 +72,7 @@ export default function ColorsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">颜色方案</h1>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -8,6 +8,7 @@ import { ModelsNav } from './ModelsNav'
 import { ModelsMarketplace } from './ModelsMarketplace'
 import { PROVIDERS, fetchModels } from './helpers'
 import type { Provider } from './types'
+import { BackButton } from '@/components/common'
 
 /**
  * A 套壳:output:export 不支持 searchParams: Promise + await fetchModels() SSR
@@ -39,6 +40,7 @@ export default function ModelsPageClient() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <ModelsHeader
         total={total}
         freeCount={freeCount}

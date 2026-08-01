@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 export default function OauthPlatformPage() {
   const t = useTranslations('oauthPlatform')
@@ -35,6 +36,7 @@ export default function OauthPlatformPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-16 py-10">
+      <BackButton />
       {/* Hero */}
       <section className="space-y-6 text-center">
         <div className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">

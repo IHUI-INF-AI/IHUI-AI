@@ -4,6 +4,7 @@ import { Check, Zap, Building2 } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface Plan {
@@ -41,6 +42,7 @@ export default function PaymentPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
       <header className="space-y-1 text-center">
         <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>

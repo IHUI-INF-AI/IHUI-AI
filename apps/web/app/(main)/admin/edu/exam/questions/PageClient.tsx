@@ -13,6 +13,7 @@ import type { Paper, Question, QForm } from './types'
 import { QuestionsFilter } from './QuestionsFilter'
 import { QuestionsTable } from './QuestionsTable'
 import { QuestionsDialog } from './QuestionsDialog'
+import { BackButton } from '@/components/common'
 
 function QuestionsContent() {
   const t = useTranslations('admin.edu.exam.questions')
@@ -151,6 +152,7 @@ function QuestionsContent() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>

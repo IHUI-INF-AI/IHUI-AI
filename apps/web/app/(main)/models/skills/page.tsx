@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Search } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 
 export default async function SkillsPage() {
   const t = await getTranslations('models')
@@ -130,6 +131,7 @@ export default async function SkillsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {/* 搜索 */}
       <div className="relative w-full min-[640px]:max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

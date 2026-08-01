@@ -11,6 +11,7 @@ import { ConfigTable } from './ConfigTable'
 import { ConfigDialog } from './ConfigDialog'
 import { EMPTY_FORM, api, normList, configToForm } from './helpers'
 import type { Category, Config, ConfigForm } from './types'
+import { BackButton } from '@/components/common'
 
 export default function AdminConfigsPage() {
   const t = useTranslations('admin.configs')
@@ -85,6 +86,7 @@ export default function AdminConfigsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

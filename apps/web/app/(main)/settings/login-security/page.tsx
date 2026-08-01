@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { LogIn, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import {
   fetchLoginPreferences,
   saveLoginPreferences,
@@ -68,6 +69,7 @@ export default function LoginSecurityPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         {/* 自动登录 */}
         <Card>
           <CardHeader>

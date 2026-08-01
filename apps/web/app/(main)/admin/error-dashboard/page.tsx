@@ -7,7 +7,7 @@ import { Bug, AlertTriangle, AlertOctagon, CheckCircle2, Loader2, Filter } from 
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
-import { TruncatedText } from '@/components/common'
+import { TruncatedText, BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
 
 interface ErrorStats {
@@ -97,6 +97,7 @@ export default function ErrorDashboardPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Bug className="h-6 w-6 text-primary" />

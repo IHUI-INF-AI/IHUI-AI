@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 
@@ -135,6 +136,7 @@ export default function AuthorizationsPage() {
 
   return (
     <div className="space-y-4">
+        <BackButton />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

@@ -9,6 +9,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { BackButton } from '@/components/common'
 
 const API_VERSION_STATUS_KEYS: Record<'stable' | 'beta' | 'deprecated' | 'sunset', string> = {
   stable: 'status.stable',
@@ -67,6 +68,7 @@ export default function VersionsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <GitBranch className="h-5 w-5 text-primary" />

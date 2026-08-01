@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -7,6 +7,7 @@ import { MessageSquare, Loader2, Send } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button, Input, Label } from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
@@ -102,6 +103,7 @@ export default function MemberFeedbackPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <MessageSquare className="h-5 w-5 text-primary" />
