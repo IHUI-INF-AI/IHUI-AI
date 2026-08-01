@@ -77,7 +77,7 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         <StatCard label={t('analytics.totalPublished')} value={overview ? String(overview.totalPublished) : '-'} />
         <StatCard label={t('analytics.successRate')} value={overview ? `${overview.successRate.toFixed(1)}%` : '-'} valueClass="text-emerald-600 dark:text-emerald-400" />
         <StatCard label={t('analytics.avgDuration')} value={overview ? formatDuration(overview.avgDurationMs) : '-'} />
@@ -85,8 +85,8 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
       </div>
 
       {/* 趋势图 + 平台分布 */}
-      <div className="grid gap-3 tablet-lg:grid-cols-3">
-        <Card className="tablet-lg:col-span-2">
+      <div className="grid gap-3 tablet-min-[1024px]:grid-cols-3">
+        <Card className="tablet-min-[1024px]:col-span-2">
           <CardContent className="p-4">
             <h3 className="mb-3 text-xs font-medium text-muted-foreground">{t('analytics.trend')}</h3>
             <TrendChart data={overview?.trend ?? []} />

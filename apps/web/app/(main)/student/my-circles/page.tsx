@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -68,7 +68,7 @@ export default function MyCirclesPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           <Users className="h-7 w-7 text-primary" />
           {tc('title')}
         </h1>
@@ -91,7 +91,7 @@ export default function MyCirclesPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {list.map((circle) => (
               <Card key={circle.id} className="overflow-hidden transition-colors hover:bg-accent">
                 <Link href={`/circles/${circle.id}`}>

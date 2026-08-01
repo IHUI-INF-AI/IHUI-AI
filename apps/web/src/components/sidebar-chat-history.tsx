@@ -584,7 +584,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
           if (!open) setPendingRenameId(null)
         }}
       >
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="min-[640px]:max-w-sm">
           <DialogHeader>
             <DialogTitle>{tc('renameDialog.title')}</DialogTitle>
           </DialogHeader>

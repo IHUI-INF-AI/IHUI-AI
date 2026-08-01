@@ -310,7 +310,7 @@ export function ApiRelaysSection() {
             </p>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
             {filtered.length === 0 ? (
               <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
                 {t('emptyResult')}

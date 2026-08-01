@@ -107,7 +107,7 @@ export function EnterpriseContent() {
             <span className="h-px w-8 bg-border" />
           </div>
           <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">{t('hero.title')}</h1>
-          <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
+          <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
             {t('hero.subtitle')}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -154,7 +154,7 @@ export function EnterpriseContent() {
             {t('positioning.label')}
           </div>
           <Card className="overflow-hidden">
-            <CardContent className="flex flex-col items-start gap-4 p-6 md:flex-row md:items-center md:gap-6">
+            <CardContent className="flex flex-col items-start gap-4 p-6 min-[768px]:flex-row min-[768px]:items-center min-[768px]:gap-6">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Target className="h-7 w-7" />
               </div>
@@ -180,7 +180,7 @@ export function EnterpriseContent() {
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {t('modules.label')}
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 min-[768px]:grid-cols-3">
             {modules.map((m, i) => {
               const Icon = MODULE_ICONS[i] ?? Users
               return (
@@ -235,18 +235,18 @@ export function EnterpriseContent() {
           </div>
           <Card className="overflow-hidden border-primary/20">
             <CardContent className="space-y-5 p-6">
-              <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+              <div className="flex flex-col items-start justify-between gap-4 min-[768px]:flex-row min-[768px]:items-center">
                 <div className="space-y-1">
                   <h2 className="text-xl font-bold tracking-tight">{t('join.title')}</h2>
                   <p className="text-sm text-muted-foreground">{t('join.subtitle')}</p>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground line-through">¥18000</div>
-                  <div className="text-xl font-bold tracking-tight md:text-2xl text-primary">¥6000</div>
+                  <div className="text-xl font-bold tracking-tight min-[768px]:text-2xl text-primary">¥6000</div>
                   <div className="text-xs text-muted-foreground">{t('join.perYear')}</div>
                 </div>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {benefits.map((b) => (
                   <div key={b} className="flex items-center gap-2 text-sm">
                     <Check className="h-4 w-4 shrink-0 text-success" />

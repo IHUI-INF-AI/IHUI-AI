@@ -141,7 +141,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
 
   if (!agentId) {
     return (
-      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">
         选择一个 Agent 查看运行日志
       </div>
     )

@@ -57,7 +57,7 @@ export default async function OpenClawPage() {
       {/* 特性 */}
       <div>
         <h2 className="mb-3 text-base font-semibold">{t('openclaw.featuresTitle')}</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {features.map((f) => (
             <Card key={f}>
               <CardContent className="flex items-start gap-2.5 p-4">
@@ -75,7 +75,7 @@ export default async function OpenClawPage() {
           <CardTitle className="text-base">{t('openclaw.stepsTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {steps.map((s) => (
               <div key={s.num} className="relative">
                 <div className="text-2xl min-[768px]:text-3xl font-bold text-primary/20">{s.num}</div>

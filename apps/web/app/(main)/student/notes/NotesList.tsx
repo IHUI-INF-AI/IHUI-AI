@@ -44,7 +44,7 @@ export function NotesList({ list, isLoading, error, onEdit, onDelete, deletePend
     )
   }
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
       {list.map((note) => (
         <Card key={note.id} className="transition-colors hover:bg-accent">
           <CardContent className="space-y-3 p-4">

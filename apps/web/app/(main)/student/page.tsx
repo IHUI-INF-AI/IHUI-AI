@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import Link from 'next/link'
@@ -82,7 +82,7 @@ export default function StudentCenterPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <header className="flex items-center justify-between space-y-1">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight md:text-2xl">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
             <BarChart3 className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
@@ -133,7 +133,7 @@ export default function StudentCenterPage() {
               <BookOpen className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">{t('lessons')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">{t('totalLessons')}</CardTitle>
@@ -181,7 +181,7 @@ export default function StudentCenterPage() {
               <BarChart3 className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">{t('exams')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">{t('totalExams')}</CardTitle>
@@ -220,7 +220,7 @@ export default function StudentCenterPage() {
               <Award className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">{t('certificates')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">{t('totalCerts')}</CardTitle>
@@ -239,7 +239,7 @@ export default function StudentCenterPage() {
               <ScrollText className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">{t('quickLinks')}</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
               {quickLinks.map(({ href, key, icon: Icon }) => (
                 <Link key={href} href={href}>
                   <Card className="transition-colors hover:bg-accent">

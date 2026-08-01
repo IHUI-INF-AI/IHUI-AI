@@ -378,7 +378,7 @@ export default function DocumentsPage() {
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -419,7 +419,7 @@ export default function DocumentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {list.map((item) => {
             const formatLabel = FORMAT_LABELS[item.format] ?? item.format
             const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category
@@ -473,7 +473,7 @@ export default function DocumentsPage() {
       )}
 
       {previewDoc && (
-        <Card className="fixed inset-4 z-modal flex flex-col overflow-hidden md:inset-x-1/4 md:top-1/4 md:bottom-1/4">
+        <Card className="fixed inset-4 z-modal flex flex-col overflow-hidden min-[768px]:inset-x-1/4 min-[768px]:top-1/4 min-[768px]:bottom-1/4">
           <CardContent className="flex flex-1 flex-col gap-3 p-6">
             <div className="flex shrink-0 items-center justify-between gap-2">
               <h3 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-semibold">
@@ -501,7 +501,7 @@ export default function DocumentsPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowTocDrawer(true)}
-                    className="md:hidden"
+                    className="min-[768px]:hidden"
                     aria-label="打开目录"
                   >
                     <List className="h-4 w-4" />
@@ -565,7 +565,7 @@ export default function DocumentsPage() {
               <div className="flex flex-1 gap-4 overflow-hidden">
                 {/* TOC 侧边栏(仅当有标题时显示) */}
                 {tocItems.length > 0 && (
-                  <nav className="hidden w-56 shrink-0 overflow-y-auto rounded-md bg-muted/40 p-2 md:block">
+                  <nav className="hidden w-56 shrink-0 overflow-y-auto rounded-md bg-muted/40 p-2 min-[768px]:block">
                     <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       目录
                     </div>
@@ -686,7 +686,7 @@ export default function DocumentsPage() {
                 </div>
                 {/* 移动端 TOC 抽屉:fixed 覆盖在内容区上方 */}
                 {showTocDrawer && tocItems.length > 0 && (
-                  <div className="fixed inset-y-0 right-0 z-10 w-64 overflow-y-auto bg-card p-3 shadow-lg md:hidden">
+                  <div className="fixed inset-y-0 right-0 z-10 w-64 overflow-y-auto bg-card p-3 shadow-lg min-[768px]:hidden">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         目录
@@ -695,7 +695,7 @@ export default function DocumentsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowTocDrawer(false)}
-                        className="h-7 w-7 p-0"
+                        className="h-9 w-9 p-0"
                         aria-label="关闭目录"
                       >
                         <X className="h-4 w-4" />

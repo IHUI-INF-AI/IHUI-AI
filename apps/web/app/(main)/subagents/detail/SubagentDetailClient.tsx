@@ -190,7 +190,7 @@ export default function SubagentDetailClient() {
               {activeQ.isLoading ? '加载中...' : '派单不存在或已结束(不在活跃列表)'}
             </p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-4">
               <div>
                 <p className="text-xs text-muted-foreground">状态</p>
                 <span
@@ -222,7 +222,7 @@ export default function SubagentDetailClient() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader className="p-4">
             <CardTitle className="text-sm">DAG 可视化</CardTitle>

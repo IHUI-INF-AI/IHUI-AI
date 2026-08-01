@@ -149,7 +149,7 @@ export function WorkspacePermissionRequestDialog({
               )}
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-2">
+            <DialogFooter className="gap-2 min-[640px]:gap-2">
               <Button
                 type="button"
                 variant="outline"

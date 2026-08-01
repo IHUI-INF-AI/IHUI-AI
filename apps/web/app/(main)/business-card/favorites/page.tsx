@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -78,7 +78,7 @@ export default function CardFavoritesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Star className="h-6 w-6 text-amber-500" />
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">收藏的名片</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">收藏的名片</h1>
         </div>
         <p className="text-xs text-muted-foreground">共收藏 {items.length} 张名片</p>
       </header>
@@ -98,7 +98,7 @@ export default function CardFavoritesPage() {
           <p className="text-sm text-muted-foreground">暂无收藏名片</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {items.map((entry) => {
             const card = entry.card
             return (
