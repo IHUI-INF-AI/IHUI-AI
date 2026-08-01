@@ -94,7 +94,7 @@ export function LoginDialog() {
             <div className="pb-3">
               <Button variant="outline" className="h-10 w-full" onClick={handleDesktopSso}>
                 <ExternalLink className="mr-2 h-4 w-4" />
-                <span>在浏览器中登录</span>
+                <span>{t('loginInBrowser')}</span>
               </Button>
             </div>
           )}
