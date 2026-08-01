@@ -28,6 +28,10 @@ export interface WebSocketHookResult<TMessage> {
  *
  * 封装通用能力：自动附加 JWT token、心跳、断线指数退避重连、消息类型守卫。
  * SSR 安全（typeof window 检查 + effect 内连接）。
+ *
+ * 2026-08-02 修复 Bug #17:新增 `enabled` 参数,支持多 hook 实例并存但只激活一个。
+ * 用于 use-ai-websocket.ts 始终挂载 5 个 provider hook(符合 Rules of Hooks),
+ * 按 provider 选择 active hook,其他 hook enabled=false 不建立连接。
  */
 export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMessage>) {
   const {
@@ -37,7 +41,7 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
     maxReconnectAttempts = 10,
   } = options
 
-  return function useWS(): WebSocketHookResult<TMessage> {
+  return function useWS(enabled = true): WebSocketHookResult<TMessage> {
     const token = useAuthStore((s) => s.token)
     const { urlBuilder, messageGuard } = options
 
@@ -79,7 +83,8 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
     )
 
     const connect = React.useCallback(() => {
-      if (!token || closedByUnmount.current) return
+      // 2026-08-02 Bug #17:enabled=false 时不建立连接
+      if (!enabled || !token || closedByUnmount.current) return
       if (typeof window === 'undefined') return
 
       let ws: WebSocket
@@ -114,7 +119,13 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
         setConnected(false)
         clearTimers()
         // 2026-07-22 P0 Round 4:达到 maxReconnectAttempts 后停止重连,防无限重连
-        if (!closedByUnmount.current && token && reconnectAttempt.current < maxReconnectAttempts) {
+        // 2026-08-02 Bug #17:enabled=false 时不重连(配合 enabled 切换关闭)
+        if (
+          enabled &&
+          !closedByUnmount.current &&
+          token &&
+          reconnectAttempt.current < maxReconnectAttempts
+        ) {
           const delay = Math.min(1000 * 2 ** reconnectAttempt.current, maxReconnectDelay)
           reconnectAttempt.current += 1
           reconnectTimer.current = setTimeout(connect, delay)
@@ -126,10 +137,35 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
       ws.onerror = () => {
         setError('WebSocket 连接错误')
       }
-    }, [token, urlBuilder, messageGuard, startHeartbeat, clearTimers, maxReconnectDelay, maxReconnectAttempts])
+    }, [
+      enabled,
+      token,
+      urlBuilder,
+      messageGuard,
+      startHeartbeat,
+      clearTimers,
+      maxReconnectDelay,
+      maxReconnectAttempts,
+    ])
 
     React.useEffect(() => {
       closedByUnmount.current = false
+      // 2026-08-02 Bug #17:enabled=false 时关闭现有连接,不建立新连接
+      if (!enabled) {
+        clearTimers()
+        reconnectAttempt.current = 0
+        if (wsRef.current) {
+          try {
+            wsRef.current.close()
+          } catch {
+            /* ignore */
+          }
+          wsRef.current = null
+        }
+        setConnected(false)
+        setError(null)
+        return
+      }
       if (token) {
         connect()
       } else {
@@ -153,7 +189,7 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
         }
         setConnected(false)
       }
-    }, [token, connect, clearTimers])
+    }, [enabled, token, connect, clearTimers])
 
     const send = React.useCallback((data: string) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
