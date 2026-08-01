@@ -144,7 +144,7 @@ export default function PublicUserProfilePage() {
               disabled={startDmMut.isPending}
             >
               <MessageCircle className="mr-1.5 h-4 w-4" />
-              {t('sendMessage', { default: '私信他' })}
+              {t('sendMessage')}
             </Button>
             {following ? (
               <Button

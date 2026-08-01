@@ -6293,6 +6293,11 @@
       "gender_unknown": ""
     },
     "security": {
+      "password": "密码",
+      "currentPassword": "当前密码",
+      "newPassword": "新密码",
+      "confirmPassword": "确认密码",
+      "updatePassword": "更新密码",
       "passwordHint": "6-20 位,不能包含 < > \" ' | \\ 等特殊字符",
       "passwordTooShort": "密码长度不能少于 6 位",
       "passwordTooLong": "密码长度不能超过 20 位",
@@ -6305,8 +6310,16 @@
       "changePhoneDesc": "更换绑定的手机号",
       "newPhone": "新手机号",
       "newPhonePlaceholder": "请输入新手机号",
+      "code": "验证码",
+      "codePlaceholder": "请输入验证码",
+      "sendCode": "发送验证码",
       "resend": "{seconds}s 后重发",
-      "phoneChanged": "手机号已更换"
+      "phoneChanged": "手机号已更换",
+      "devices": "登录设备",
+      "currentDevice": "当前设备",
+      "logout": "退出登录",
+      "devicesLoading": "加载中...",
+      "devicesEmpty": "暂无数据"
     },
     "notifications": {
       "viewList": "列表视图",
@@ -6339,6 +6352,10 @@
       "auditTime": "认证时间",
       "pendingHint": "您的实名认证正在审核中，请耐心等待",
       "noReason": "未提供",
+      "nameMin": "真实姓名至少2个字符",
+      "nameMax": "真实姓名最多50个字符",
+      "idCardMin": "身份证号至少15位",
+      "idCardMax": "身份证号最多20位",
       "form": {
         "name": "真实姓名",
         "namePlaceholder": "请输入真实姓名",
@@ -6388,7 +6405,12 @@
       "create": "新建文章",
       "createFirst": "写第一篇",
       "empty": "还没有文章",
-      "deleteSuccess": "已删除"
+      "deleteSuccess": "已删除",
+      "statusDraft": "草稿",
+      "statusPublished": "已发布",
+      "statusReviewing": "审核中",
+      "prevPage": "上一页",
+      "nextPage": "下一页"
     },
     "learn-record": {
       "title": "学习记录",
@@ -6406,14 +6428,16 @@
       "loading": "加载中...",
       "follow": "关注",
       "followed": "已关注",
-      "followSuccess": "已关注"
+      "followSuccess": "已关注",
+      "anonymous": "匿名用户"
     },
     "follow": {
       "title": "我的关注",
       "empty": "目前还没有数据",
       "loading": "加载中...",
       "unfollow": "取消关注",
-      "unfollowSuccess": "已取消关注"
+      "unfollowSuccess": "已取消关注",
+      "anonymous": "匿名用户"
     },
     "ask": {
       "title": "我的问答",
@@ -6434,12 +6458,21 @@
       "title": "我的考试",
       "empty": "目前还没有数据",
       "loading": "加载中...",
-      "continue": "继续考试"
+      "continue": "继续考试",
+      "statusDraft": "未开始",
+      "statusPublished": "进行中",
+      "statusCompleted": "已完成",
+      "statusReviewing": "批改中",
+      "score": "得分"
     },
     "sign-up": {
       "title": "我的报名",
       "empty": "目前还没有数据",
-      "loading": "加载中..."
+      "loading": "加载中...",
+      "statusDraft": "待审核",
+      "statusPublished": "已确认",
+      "statusRejected": "已拒绝",
+      "statusCompleted": "已完成"
     }
   },
   "certificate": {
