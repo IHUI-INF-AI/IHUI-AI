@@ -117,7 +117,7 @@ class BehaviorEntropyAnalyzer:
         prob = hist.astype(np.float64) / total
         # 避免零概率(KL 散度要求非零)
         epsilon = 1e-10
-        return prob + epsilon
+        return np.array(prob + epsilon, dtype=np.float64)
 
     def _compute_shannon_entropy(self, sequence: list[float]) -> float:
         """计算序列的香农熵(以 2 为底)。"""
