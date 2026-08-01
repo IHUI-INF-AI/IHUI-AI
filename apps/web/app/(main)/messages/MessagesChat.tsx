@@ -94,7 +94,7 @@ export function MessagesChat({
             </span>
           )}
         </div>
-        <p className="break-words text-sm font-medium">{selected.peerName}</p>
+        <p className="truncate text-sm font-medium">{selected.peerName}</p>
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -106,12 +106,12 @@ export function MessagesChat({
               size="sm"
               onClick={handleLoadMore}
               disabled={loadingMore}
-              className="text-xs text-muted-foreground"
+              className="whitespace-nowrap text-xs text-muted-foreground"
             >
               {loadingMore ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                <Loader2 className="mr-1 h-3 w-3 shrink-0 animate-spin" />
               ) : (
-                <ChevronUp className="mr-1 h-3 w-3" />
+                <ChevronUp className="mr-1 h-3 w-3 shrink-0" />
               )}
               {t('loadMore', { default: '加载更多' })}
             </Button>
@@ -133,7 +133,7 @@ export function MessagesChat({
                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 <p
                   className={cn(
-                    'mt-1 text-right text-xs',
+                    'mt-1 whitespace-nowrap text-right text-xs tabular-nums',
                     msg.isMine ? 'text-primary-foreground/70' : 'text-muted-foreground',
                   )}
                 >

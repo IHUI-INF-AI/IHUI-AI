@@ -23,14 +23,14 @@ interface Props {
 export function SearchControls({ tab, setTab, sort, setSort }: Props) {
   const t = useTranslations('search')
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-nowrap gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1">
         {TABS.map((tabItem) => (
           <button
             key={tabItem.value}
             onClick={() => setTab(tabItem.value)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
               tab === tabItem.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
@@ -40,7 +40,7 @@ export function SearchControls({ tab, setTab, sort, setSort }: Props) {
           </button>
         ))}
       </div>
-      <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <label className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
         {t('sort')}
         <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
           <SelectTrigger className="rounded-md border bg-background px-2 py-1 text-xs">

@@ -47,9 +47,9 @@ export function HighRiskWarningBanner(props: {
       <div className="min-w-0 flex-1 leading-snug">
         <div>{t('permission.inputWarning')}</div>
         {autoRevert.isActive ? (
-          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400">
             <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>
+            <span className="whitespace-nowrap">
               {t('permission.autoRevertIn', {
                 time: formatRemaining(autoRevert.remainingMs),
               })}
@@ -57,7 +57,7 @@ export function HighRiskWarningBanner(props: {
             <button
               type="button"
               onClick={autoRevert.cancelRevert}
-              className="ml-1 inline-flex items-center gap-0.5 rounded-sm border border-amber-500/30 px-1.5 py-px text-[10px] font-medium transition-colors hover:bg-amber-500/10"
+              className="ml-1 inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-sm border border-amber-500/30 px-1.5 py-px text-[10px] font-medium transition-colors hover:bg-amber-500/10"
               aria-label={t('permission.cancelAutoRevert')}
             >
               <X className="h-2.5 w-2.5" aria-hidden="true" />

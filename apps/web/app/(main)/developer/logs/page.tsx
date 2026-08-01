@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -89,9 +89,9 @@ export default function LogsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <FileText className="h-5 w-5 text-primary" />
-          {t('title')}
+        <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+          <FileText className="h-5 w-5 shrink-0 text-primary" />
+          <span className="whitespace-nowrap">{t('title')}</span>
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
@@ -99,13 +99,14 @@ export default function LogsPage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1">
+        <div className="flex shrink-0 flex-nowrap gap-1">
           {STATUS_FILTERS.map((f) => (
             <Button
               key={f.key}
               size="sm"
               variant={statusFilter === f.key ? 'default' : 'outline'}
               onClick={() => setStatusFilter(f.key)}
+              className="shrink-0 whitespace-nowrap"
             >
               {t(STATUS_FILTER_KEY[f.key] ?? `statusFilter.${f.key}`)}
             </Button>
@@ -126,8 +127,8 @@ export default function LogsPage() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('loading')}
+              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+              <span className="whitespace-nowrap">{t('loading')}</span>
             </div>
           ) : list.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
@@ -144,26 +145,30 @@ export default function LogsPage() {
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     )}
-                    <span className={cn('w-12 shrink-0 font-bold', METHOD_CLASS[log.method])}>
+                    <span className={cn('w-12 shrink-0 whitespace-nowrap font-bold', METHOD_CLASS[log.method])}>
                       {log.method}
                     </span>
-                    <span className="flex-1 truncate font-mono">{log.path}</span>
-                    <span className={cn('shrink-0 font-medium', statusClass(log.statusCode))}>
+                    <span className="min-w-0 flex-1 truncate font-mono">{log.path}</span>
+                    <span className={cn('shrink-0 whitespace-nowrap font-medium', statusClass(log.statusCode))}>
                       {log.statusCode}
                     </span>
-                    <span className="shrink-0 text-muted-foreground">{log.duration}ms</span>
-                    <span className="shrink-0 text-muted-foreground">
+                    <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{log.duration}ms</span>
+                    <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
                       {dateFmt.format(new Date(log.createdAt))}
                     </span>
                   </button>
                   {expanded[log.id] && (
-                    <div className="space-y-2 border-t bg-muted/30 px-4 py-3 text-xs">
+                    <div className="min-w-0 space-y-2 border-t bg-muted/30 px-4 py-3 text-xs">
                       {log.keyName && (
-                        <p className="text-muted-foreground">
+                        <p className="truncate text-muted-foreground" title={log.keyName}>
                           {t('keyValue', { value: log.keyName })}
                         </p>
                       )}
-                      {log.ip && <p className="text-muted-foreground">IP: {log.ip}</p>}
+                      {log.ip && (
+                        <p className="truncate text-muted-foreground" title={log.ip}>
+                          IP: {log.ip}
+                        </p>
+                      )}
                       {log.request && (
                         <div>
                           <p className="mb-1 font-semibold">{t('requestBody')}</p>

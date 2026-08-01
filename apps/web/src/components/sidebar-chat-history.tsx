@@ -380,9 +380,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
           )}
           <span className="relative block truncate text-[12px] font-medium">{item.title}</span>
           <span className="relative mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <span className="truncate">{item.model}</span>
+            <span className="min-w-0 truncate">{item.model}</span>
             {item.lastMessageAt && (
-              <span className="shrink-0">{dateFmt.format(new Date(item.lastMessageAt))}</span>
+              <span className="shrink-0 whitespace-nowrap tabular-nums">{dateFmt.format(new Date(item.lastMessageAt))}</span>
             )}
           </span>
         </button>
@@ -506,9 +506,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         className="mb-1 w-full rounded-md border border-border bg-card p-1.5"
       >
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-          <span>{tc('history')}</span>
+          <span className="min-w-0 truncate">{tc('history')}</span>
           {total > 0 && (
-            <span className="rounded-sm bg-muted px-1 py-0.5 text-[10px] font-medium tabular-nums leading-none text-muted-foreground">
+            <span className="ml-1 shrink-0 rounded-sm bg-muted px-1 py-0.5 text-[10px] font-medium whitespace-nowrap tabular-nums leading-none text-muted-foreground">
               {total}
             </span>
           )}
@@ -557,7 +557,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             </div>
             <Link
               href="/chat/history"
-              className="mt-1 flex items-center justify-center gap-1 rounded-sm px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap rounded-sm px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <span>{t('viewAll')}</span>
               {total > 0 && <span className="tabular-nums">{total}</span>}
