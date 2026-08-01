@@ -22,11 +22,11 @@ export function DevicesSection({ devicesList, devicesLoading, dateFmt }: Props) 
       {devicesLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          加载中...
+          {t('devicesLoading')}
         </div>
       ) : devicesList.length === 0 ? (
         <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-          暂无数据
+          {t('devicesEmpty')}
         </div>
       ) : (
         <ul className="divide-y rounded-lg border">

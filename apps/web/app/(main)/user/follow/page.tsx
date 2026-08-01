@@ -88,7 +88,9 @@ export default function FollowPage() {
               <div className="flex items-center gap-3">
                 <Avatar src={follow.avatar ?? undefined} name={follow.nickname ?? '?'} size="md" />
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="truncate text-sm font-medium">{follow.nickname ?? '匿名用户'}</p>
+                  <p className="truncate text-sm font-medium">
+                    {follow.nickname ?? t('anonymous')}
+                  </p>
                   {follow.bio ? (
                     <p className="truncate text-xs text-muted-foreground">{follow.bio}</p>
                   ) : null}
