@@ -7,6 +7,7 @@ import {
   getStatus,
   cancel,
   listByUser,
+  getJobOwner,
   getQueueStats,
 } from '../services/ai/generation-queue-service.js'
 
@@ -41,6 +42,19 @@ const listByUserQuerySchema = z.object({
   status: z.preprocess(emptyToUndefined, z.enum(JOB_STATES).optional()),
   limit: z.coerce.number().int().min(1).max(200).optional(),
 })
+
+/**
+ * IDOR 防护:验证当前用户是否拥有指定 job。
+ * 管理员(roleId >= 1)直接放行;否则用 getJobOwner O(1) 查询 job 归属(fail-closed)。
+ */
+async function checkJobOwnership(req: FastifyRequest, jobId: string): Promise<boolean> {
+  const isAdmin = (req.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+  if (isAdmin) return true
+  const currentUserId = req.jwtPayload?.userId
+  if (!currentUserId) return false
+  const owner = await getJobOwner(jobId)
+  return owner !== null && owner === currentUserId
+}
 
 const plugin: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有 generation 路由均需登录
@@ -78,6 +92,10 @@ const plugin: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
+      // IDOR 修复:非管理员只能查询自己的任务
+      if (!(await checkJobOwnership(req, parsed.data.jobId))) {
+        return reply.status(403).send(error(403, '无权访问该任务'))
+      }
       const status = await getStatus(parsed.data.jobId)
       if (!status) return reply.status(404).send(error(404, '任务不存在'))
       return reply.send(success(status))
@@ -94,6 +112,10 @@ const plugin: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
+      // IDOR 修复:非管理员只能取消自己的任务
+      if (!(await checkJobOwnership(req, parsed.data.jobId))) {
+        return reply.status(403).send(error(403, '无权访问该任务'))
+      }
       const removed = await cancel(parsed.data.jobId)
       if (!removed) return reply.status(404).send(error(404, '任务不存在'))
       return reply.send(success({ jobId: parsed.data.jobId, canceled: true }))
@@ -108,6 +130,12 @@ const plugin: FastifyPluginAsync = async (server) => {
     const paramsParsed = userIdParamSchema.safeParse(req.params)
     if (!paramsParsed.success) {
       return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // IDOR 修复:非管理员只能查询自己的任务列表
+    const isAdmin = (req.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+    const currentUserId = req.jwtPayload?.userId
+    if (!isAdmin && currentUserId !== paramsParsed.data.userId) {
+      return reply.status(403).send(error(403, '无权访问其他用户的任务'))
     }
     const queryParsed = listByUserQuerySchema.safeParse(req.query)
     if (!queryParsed.success) {

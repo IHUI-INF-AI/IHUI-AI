@@ -329,6 +329,8 @@ const LANDING_HTML = `<!DOCTYPE html>
 
 <script>
   let pendingProduct = null;
+  // P1 修复:JWT 不再持久化到 localStorage(XSS 可窃取),改用内存变量(符合 AUTHENTICATION.md 规范)
+  let authToken = null;
 
   async function loadProducts() {
     try {
@@ -402,7 +404,7 @@ const LANDING_HTML = `<!DOCTYPE html>
       });
       const json = await resp.json();
       if (json.code === 0 && json.data && json.data.accessToken) {
-        localStorage.setItem('ihui_token', json.data.accessToken);
+        authToken = json.data.accessToken;
         closeModal();
         showToast('登录成功,正在创建订单...');
         if (pendingProduct) {
