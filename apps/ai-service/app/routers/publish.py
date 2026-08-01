@@ -36,11 +36,13 @@ from typing import Any, Optional
 
 import asyncpg
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
+from app.services.publish.ai_assistant import ai_writing_service
 from app.services.publish.base_adapter import (
     PublishContent,
     get_adapter,
@@ -912,3 +914,155 @@ async def gen_credentials_key() -> dict[str, str]:
 async def list_running_tasks() -> dict[str, Any]:
     """列出当前正在执行的任务(内存)。"""
     return {"running": publish_scheduler.list_running(), "history": publish_scheduler.list_history(limit=20)}
+
+
+# ===== AI 辅助写作(2026-08-01 新增,暴露 ai_assistant.AiWritingService 单例)=====
+# 7 个 POST 端点,请求体用 Pydantic 模型,响应统一 {code, message, data}。
+# 鉴权与现有 publish 端点一致(强制 JWT via _get_user_id)。
+# 失败返回 500 + {code:1, message:str(e)},成功返回 200 + {code:0, message:"success", data:{...}}。
+
+
+class AiTitlesRequest(BaseModel):
+    content: str
+    platform: str = ""
+    count: int = Field(default=5, ge=1, le=20)
+
+
+class AiPolishRequest(BaseModel):
+    content: str
+    style: str = "professional"
+
+
+class AiTagsRequest(BaseModel):
+    content: str
+    platform: str = ""
+    count: int = Field(default=8, ge=1, le=30)
+
+
+class AiSummaryRequest(BaseModel):
+    content: str
+    max_length: int = Field(default=100, ge=10, le=500)
+
+
+class AiSeoRequest(BaseModel):
+    title: str
+    content: str
+    platform: str = ""
+
+
+class AiCoverRequest(BaseModel):
+    content: str
+
+
+class AiAnalyzeAllRequest(BaseModel):
+    content: str
+    title: str
+    platform: str = ""
+
+
+@router.post("/ai/titles")
+async def ai_generate_titles(
+    body: AiTitlesRequest, request: Request
+) -> dict[str, Any] | JSONResponse:
+    """AI 生成标题候选。"""
+    _get_user_id(request)
+    try:
+        titles = await ai_writing_service.generate_titles(
+            body.content, body.platform, body.count
+        )
+        return {"code": 0, "message": "success", "data": {"titles": titles}}
+    except Exception as e:
+        logger.warning("[publish.ai/titles] failed: %s", e)
+        return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
+
+
+@router.post("/ai/polish")
+async def ai_polish_content(
+    body: AiPolishRequest, request: Request
+) -> dict[str, Any] | JSONResponse:
+    """AI 正文润色。"""
+    _get_user_id(request)
+    try:
+        polished = await ai_writing_service.polish_content(body.content, body.style)
+        return {"code": 0, "message": "success", "data": {"content": polished}}
+    except Exception as e:
+        logger.warning("[publish.ai/polish] failed: %s", e)
+        return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
+
+
+@router.post("/ai/tags")
+async def ai_recommend_tags(
+    body: AiTagsRequest, request: Request
+) -> dict[str, Any] | JSONResponse:
+    """AI 推荐标签。"""
+    _get_user_id(request)
+    try:
+        tags = await ai_writing_service.recommend_tags(
+            body.content, body.platform, body.count
+        )
+        return {"code": 0, "message": "success", "data": {"tags": tags}}
+    except Exception as e:
+        logger.warning("[publish.ai/tags] failed: %s", e)
+        return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
+
+
+@router.post("/ai/summary")
+async def ai_generate_summary(
+    body: AiSummaryRequest, request: Request
+) -> dict[str, Any] | JSONResponse:
+    """AI 生成 SEO 摘要。"""
+    _get_user_id(request)
+    try:
+        summary = await ai_writing_service.generate_summary(body.content, body.max_length)
+        return {"code": 0, "message": "success", "data": {"summary": summary}}
+    except Exception as e:
+        logger.warning("[publish.ai/summary] failed: %s", e)
+        return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
+
+
+@router.post("/ai/seo")
+async def ai_analyze_seo(
+    body: AiSeoRequest, request: Request
+) -> dict[str, Any] | JSONResponse:
+    """AI SEO 分析(评分 + 建议)。"""
+    _get_user_id(request)
+    try:
+        seo = await ai_writing_service.analyze_seo(body.title, body.content, body.platform)
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {"seo": seo.model_dump() if seo else None},
+        }
+    except Exception as e:
+        logger.warning("[publish.ai/seo] failed: %s", e)
+        return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
+
+
+@router.post("/ai/cover")
+async def ai_suggest_cover(
+    body: AiCoverRequest, request: Request
+) -> dict[str, Any] | JSONResponse:
+    """AI 封面设计建议。"""
+    _get_user_id(request)
+    try:
+        covers = await ai_writing_service.suggest_cover(body.content)
+        return {"code": 0, "message": "success", "data": {"covers": covers}}
+    except Exception as e:
+        logger.warning("[publish.ai/cover] failed: %s", e)
+        return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
+
+
+@router.post("/ai/analyze-all")
+async def ai_analyze_all(
+    body: AiAnalyzeAllRequest, request: Request
+) -> dict[str, Any] | JSONResponse:
+    """AI 批量分析(标题 + 标签 + 摘要 + SEO + 封面,一次调用减少 LLM 往返)。"""
+    _get_user_id(request)
+    try:
+        result = await ai_writing_service.analyze_all(
+            body.content, body.title, body.platform
+        )
+        return {"code": 0, "message": "success", "data": result}
+    except Exception as e:
+        logger.warning("[publish.ai/analyze-all] failed: %s", e)
+        return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
