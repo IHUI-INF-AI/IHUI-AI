@@ -140,9 +140,11 @@ export function WebWorkPanel() {
     // - 旧:右列独立 flex item(mt-[50px] mr-2 固定宽度 + resize handle)
     // - 新:absolute inset-0 覆盖父容器(GlobalShell 的 relative div),替换展示工作区内容
     // - 父容器(GlobalShell L239)是 relative,WebWorkPanel absolute inset-0 刚好覆盖 children
+    // - z-30 确保覆盖 children(MainShell 可能有 z-index)
+    // - bg-background 确保不透明(即使 WorkPanel 内部有问题,外层也能覆盖 children)
     // - 不传 width/onResize 给 WorkPanel → WorkPanel w-full + 无 resize handle
     // - WorkPanel 的 border-l(左边框)在嵌入场景不需要,用 className='border-l-0' 覆盖
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 z-30 bg-background">
       <WorkPanel
         open={effectiveOpen}
         onClose={closePanel}
