@@ -385,12 +385,14 @@ async function adjustEduPoints(
   const delta = type === 'increase' ? input.amount : -input.amount
 
   return db.transaction(async (tx) => {
+    // P1 修复:加 FOR UPDATE 锁定,防止并发调整读到相同 balance 导致 balanceAfter 错误
     const rows = await tx
       .select({ balance: eduPointRecords.balance })
       .from(eduPointRecords)
       .where(eq(eduPointRecords.memberId, input.memberId))
       .orderBy(desc(eduPointRecords.createdAt))
       .limit(1)
+      .for('update')
     const beforeBalance = rows[0]?.balance ?? 0
     const afterBalance = beforeBalance + delta
 

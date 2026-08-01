@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, ilike } from 'drizzle-orm'
+import { eq, and, or, desc, asc, sql, ilike } from 'drizzle-orm'
 import { db } from './index.js'
 import { eduSettings, type EduSetting } from '@ihui/database'
 import {
@@ -262,12 +262,36 @@ export async function importEduSettings(
   let inserted = 0
   let updated = 0
   let skipped = 0
+
+  // P1 修复:批量查询已存在的设置项,避免循环中 N+1 查询
+  const validPairs: Array<{ group: string; key: string }> = []
+  for (const item of items) {
+    if (item.group && item.key) {
+      validPairs.push({ group: item.group, key: item.key })
+    }
+  }
+
+  const existingMap = new Map<string, EduSetting>()
+  if (validPairs.length > 0) {
+    const conds = validPairs.map((p) =>
+      and(eq(eduSettings.group, p.group), eq(eduSettings.key, p.key)),
+    )
+    const existingList = await db
+      .select()
+      .from(eduSettings)
+      .where(or(...conds))
+    for (const e of existingList) {
+      const decrypted = decryptSettingCredentials(e)
+      if (decrypted) existingMap.set(`${e.group}:${e.key}`, decrypted)
+    }
+  }
+
   for (const item of items) {
     if (!item.group || !item.key) {
       skipped++
       continue
     }
-    const existing = await findEduSettingByGroupKey(item.group, item.key)
+    const existing = existingMap.get(`${item.group}:${item.key}`)
     if (existing) {
       await updateEduSetting(existing.id, { ...item, updatedBy })
       updated++

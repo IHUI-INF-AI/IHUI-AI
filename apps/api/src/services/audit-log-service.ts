@@ -14,15 +14,15 @@
  * canonicalJSON:递归排序对象 key,确保 metadata 序列化稳定,
  * 避免 JSONB 读取后 key 顺序变化导致 hash 误报。
  */
+import { sql } from 'drizzle-orm'
 import { config, type Config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { hmacSHA256, secureRandomBytes } from '../utils/crypto-extra.js'
+import { db } from '../db/index.js'
 import {
-  insertAuditLog,
   selectAuditLogs,
   selectAuditLogChain,
   selectAuditLogsRange,
-  getLastAuditLogHash,
   countAuditLogs,
   groupByAction,
   groupByUser,
@@ -105,11 +105,7 @@ function canonicalStringify(value: unknown): string {
   }
   const obj = value as Record<string, unknown>
   const keys = Object.keys(obj).sort()
-  return (
-    '{' +
-    keys.map((k) => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') +
-    '}'
-  )
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') + '}'
 }
 
 /**
@@ -147,40 +143,73 @@ export function computeAuditHash(
 // 核心方法
 // =============================================================================
 
+/** 安全提取 db.execute / tx.execute 结果为数组行。 */
+function toRows(raw: unknown): Record<string, unknown>[] {
+  if (Array.isArray(raw)) return raw as Record<string, unknown>[]
+  if (raw && typeof raw === 'object' && Array.isArray((raw as { rows?: unknown }).rows)) {
+    return (raw as { rows: Record<string, unknown>[] }).rows
+  }
+  return []
+}
+
 /**
- * 记录一条审计日志:取链尾 hash → 算 current_hash → 落库。
+ * 记录一条审计日志:事务内取链尾 hash → 算 current_hash → 落库。
  *
- * 非原子操作(取尾 hash 与 INSERT 之间存在窗口);高并发场景下可能产生链分叉。
- * 国安级部署建议:主 agent 后续用 SELECT FOR UPDATE 或 SERIALIZABLE 事务加固。
- * 当前实现已满足"单线程事件循环 + 中等并发"场景的正确性。
+ * P0 修复:用 pg_advisory_xact_lock 串行化审计日志写入,防止并发 check-then-act
+ * 导致链分叉(两个并发调用读到相同 prevHash)。advisory lock 在事务结束时自动释放。
  *
  * @returns 新日志 id;落库失败(表未建等)返回 undefined
  */
 export async function recordAuditLog(params: RecordAuditLogParams): Promise<string | undefined> {
   const timestamp = new Date().toISOString()
-  const prevHash = await getLastAuditLogHash()
-  const currentHash = computeAuditHash(prevHash, {
-    timestamp,
-    userId: params.userId ?? null,
-    action: params.action,
-    resourceType: params.resourceType ?? null,
-    resourceId: params.resourceId ?? null,
-    result: params.result ?? null,
-    metadata: params.metadata ?? null,
-  })
-  return insertAuditLog({
-    timestamp,
-    userId: params.userId,
-    action: params.action,
-    resourceType: params.resourceType,
-    resourceId: params.resourceId,
-    ip: params.ip,
-    userAgent: params.userAgent,
-    result: params.result,
-    metadata: params.metadata,
-    prevHash,
-    currentHash,
-  })
+
+  try {
+    return await db.transaction(async (tx) => {
+      // 串行化审计日志写入,固定 lock key
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('audit_log_chain'))`)
+
+      // 在事务内获取链尾 hash(表不存在时降级为创世哈希)
+      let prevHash = GENESIS_HASH
+      try {
+        const raw = await tx.execute(sql`
+          SELECT current_hash FROM audit_logs_chain ORDER BY timestamp DESC LIMIT 1
+        `)
+        const h = toRows(raw)[0]?.['current_hash']
+        prevHash = h === null || h === undefined ? GENESIS_HASH : String(h)
+      } catch {
+        prevHash = GENESIS_HASH
+      }
+
+      const currentHash = computeAuditHash(prevHash, {
+        timestamp,
+        userId: params.userId ?? null,
+        action: params.action,
+        resourceType: params.resourceType ?? null,
+        resourceId: params.resourceId ?? null,
+        result: params.result ?? null,
+        metadata: params.metadata ?? null,
+      })
+
+      const metadataJson = JSON.stringify(params.metadata ?? {})
+      const insertRaw = await tx.execute(sql`
+        INSERT INTO audit_logs_chain
+          (timestamp, user_id, action, resource_type, resource_id, ip, user_agent, result, metadata, prev_hash, current_hash)
+        VALUES
+          (${timestamp}::timestamptz, ${params.userId ?? null}::uuid, ${params.action},
+           ${params.resourceType ?? null}, ${params.resourceId ?? null}, ${params.ip ?? null},
+           ${params.userAgent ?? null}, ${params.result ?? null}, ${metadataJson}::jsonb,
+           ${prevHash}, ${currentHash})
+        RETURNING id
+      `)
+      const id = toRows(insertRaw)[0]?.['id']
+      return id === null || id === undefined ? undefined : String(id)
+    })
+  } catch (e) {
+    logger.warn('[audit-log-service] recordAuditLog transaction failed', {
+      error: (e as Error).message,
+    })
+    return undefined
+  }
 }
 
 /** 分页查询审计日志(委托 audit-queries)。 */
@@ -280,9 +309,7 @@ export function exportAuditLogs(
 }
 
 /** 统计(总数 + 按 action 分组 + 按 user 分组)。 */
-export async function getAuditLogStats(
-  filters: AuditLogFilters,
-): Promise<AuditLogStatsResult> {
+export async function getAuditLogStats(filters: AuditLogFilters): Promise<AuditLogStatsResult> {
   const [total, byAction, byUser] = await Promise.all([
     countAuditLogs(filters),
     groupByAction(filters),
