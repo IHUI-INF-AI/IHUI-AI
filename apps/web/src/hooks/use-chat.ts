@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/common'
-import { streamChat, formatSSEError, type FallbackEvent } from '@ihui/api-client'
+import {
+  streamChat,
+  formatSSEError,
+  type FallbackEvent,
+  type ToolSummaryEvent,
+} from '@ihui/api-client'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 
 import { useChatStore } from '@/stores/chat'
@@ -15,6 +20,7 @@ import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
 import type { ChatMode } from '@ihui/types'
+import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
 import {
@@ -856,7 +862,7 @@ function createToolCallHandler(assistantMessageId: string) {
  * 让 ToolCallSummary 组件在 AI 回复末尾展示"搜索文件 N 个/网页 N 个/改了 N 个文件/N 行代码"。
  */
 function createToolSummaryHandler(assistantMessageId: string) {
-  return (summary: import('@ihui/api-client').ToolSummaryEvent) => {
+  return (summary: ToolSummaryEvent) => {
     useChatStore.getState().setMessageToolSummary(assistantMessageId, summary)
   }
 }
@@ -1300,6 +1306,45 @@ export function useChat(): UseChatReturn {
           },
           // 2026-07-31 立,AI 对话可视化深度接入:SSE 流末尾 tool-summary 事件落地
           onToolSummary: createToolSummaryHandler(assistantId),
+          // 2026-08-01 Phase 4a:消息级 plan/terminal 事件落地(inline 到消息气泡)
+          // subagent 事件无需新增回调:store 的 addSubagentSpawn/markSubagentEnd/updateSubagentProgress
+          // 已内部判断 event.messageId 同步写入 message.subagentActivities。
+          onPlanUpdate: (evt) => {
+            if (!evt.messageId) return
+            const steps: PlanStep[] = evt.plan.map((item, i) => ({
+              id: `plan-${i}-${item.step.slice(0, 16)}`,
+              step: item.step,
+              status: item.status,
+              explanation: evt.explanation,
+              startedAt: item.startedAt,
+              endedAt: item.endedAt,
+              durationMs: item.durationMs,
+              tokenUsage: item.tokenUsage,
+              messageId: evt.messageId,
+            }))
+            useChatStore.getState().setMessagePlanSteps(evt.messageId, steps)
+          },
+          onTerminalStart: (evt) => {
+            if (!evt.messageId) return
+            const task: TerminalTask = {
+              id: evt.terminalId,
+              command: evt.command,
+              status: 'running',
+              startedAt: evt.startedAt ?? new Date().toISOString(),
+              messageId: evt.messageId,
+            }
+            useChatStore.getState().appendMessageTerminalTask(evt.messageId, task)
+          },
+          onTerminalEnd: (evt) => {
+            if (!evt.messageId) return
+            useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
+              status: evt.status,
+              output: evt.output,
+              exitCode: evt.exitCode,
+              endedAt: evt.endedAt,
+              durationMs: evt.durationMs,
+            })
+          },
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1552,6 +1597,43 @@ export function useChat(): UseChatReturn {
         },
         // 2026-07-31 立,与 sendMessage 对称:sendAnswer 续流同样发出 tool-summary 事件
         onToolSummary: createToolSummaryHandler(assistantId),
+        // 2026-08-01 Phase 4a:与 sendMessage 对称,消息级 plan/terminal 事件落地
+        onPlanUpdate: (evt) => {
+          if (!evt.messageId) return
+          const steps: PlanStep[] = evt.plan.map((item, i) => ({
+            id: `plan-${i}-${item.step.slice(0, 16)}`,
+            step: item.step,
+            status: item.status,
+            explanation: evt.explanation,
+            startedAt: item.startedAt,
+            endedAt: item.endedAt,
+            durationMs: item.durationMs,
+            tokenUsage: item.tokenUsage,
+            messageId: evt.messageId,
+          }))
+          useChatStore.getState().setMessagePlanSteps(evt.messageId, steps)
+        },
+        onTerminalStart: (evt) => {
+          if (!evt.messageId) return
+          const task: TerminalTask = {
+            id: evt.terminalId,
+            command: evt.command,
+            status: 'running',
+            startedAt: evt.startedAt ?? new Date().toISOString(),
+            messageId: evt.messageId,
+          }
+          useChatStore.getState().appendMessageTerminalTask(evt.messageId, task)
+        },
+        onTerminalEnd: (evt) => {
+          if (!evt.messageId) return
+          useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
+            status: evt.status,
+            output: evt.output,
+            exitCode: evt.exitCode,
+            endedAt: evt.endedAt,
+            durationMs: evt.durationMs,
+          })
+        },
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
