@@ -248,7 +248,9 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         // - 仍用 TOPBAR_BTN_BASE(layout / 圆角 / transition / focus 行为)共享样式
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
         //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一,此处只保留 w-9 宽度差异项
-        className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9)}
+        // 2026-08-01 用户规则:"暗色模式下背景色应该跟工作内容展示区底背景色一致"
+        //   - 暗色用 bg-shell-panel(与 MainShell 工作区卡片同色),亮色保留 bg-card
+        className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'dark:bg-shell-panel')}
       >
         <Search className="h-4 w-4" />
       </button>
@@ -310,9 +312,11 @@ export const TagsViewChevronButton = React.memo(function TagsViewChevronButton()
         // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
         //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一,此处只保留 w-9 宽度
+        // 2026-08-01 用户规则:"暗色模式下背景色应该跟工作内容展示区底背景色一致"
+        //   - 暗色用 bg-shell-panel(与 MainShell 工作区卡片同色),亮色保留 bg-card
         <button
           type="button"
-          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9)}
+          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'dark:bg-shell-panel')}
           aria-label={tCommon('moreActions')}
         >
           <ChevronDown className="h-4 w-4" />
