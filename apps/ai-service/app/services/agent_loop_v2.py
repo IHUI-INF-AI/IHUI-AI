@@ -446,7 +446,10 @@ class AgentLoopV2:
                 tool_calls: list[ToolCall] = []
                 for tc_raw in tool_calls_raw:
                     tc = ToolCall(
-                        id=tc_raw.get("id", f"call_{len(tool_calls)}"),
+                        # 2026-08-01 P1 修复:LLM 未返回 id 时用 uuid 生成唯一 ID,
+                        # 原 f"call_{len(tool_calls)}" 会导致跨迭代 ID 碰撞(每次迭代都从 call_0 开始),
+                        # OpenAI/Anthropic API 要求 tool_call_id 在会话内全局唯一,碰撞会 400 或错配结果。
+                        id=tc_raw.get("id") or f"call_{uuid.uuid4().hex[:8]}",
                         name=tc_raw.get("name", ""),
                         args=tc_raw.get("args", {}),
                     )
@@ -653,16 +656,31 @@ class AgentLoopV2:
         """执行工具调用(并行或串行)。"""
         if self.parallel_tool_calls and len(tool_calls) > 1:
             # 并行执行
+            # 2026-08-01 P1 修复:return_exceptions=True 防止单个工具异常崩溃整个 gather,
+            # CancelledError(BaseException)不被 _execute_single 的 except Exception 捕获。
             tasks = [self._execute_single(tc) for tc in tool_calls]
-            gathered = await asyncio.gather(*tasks, return_exceptions=False)
-            return list(gathered)
-        else:
-            # 串行执行
+            gathered_raw = await asyncio.gather(*tasks, return_exceptions=True)
             results: list[ToolResult] = []
+            for tc, item in zip(tool_calls, gathered_raw):
+                if isinstance(item, BaseException):
+                    logger.error("工具 %s 未捕获异常: %s", tc.name, item)
+                    results.append(ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result=None,
+                        error=f"工具未捕获异常: {item}",
+                        duration_ms=0,
+                    ))
+                else:
+                    results.append(item)
+            return results
+        else:
+            # 串行执行(2026-08-01 P1 修复:变量名改为 serial_results,避免与并行分支的 results 重定义)
+            serial_results: list[ToolResult] = []
             for tc in tool_calls:
                 result = await self._execute_single(tc)
-                results.append(result)
-            return results
+                serial_results.append(result)
+            return serial_results
 
     async def _execute_single(self, tc: ToolCall) -> ToolResult:
         """执行单个工具调用(含超时 + 错误处理)。"""
