@@ -6882,7 +6882,8 @@
       "seoScore": "SEO score",
       "seoSuggestions": "Optimization suggestions",
       "emptyContent": "Please enter content first",
-      "retry": "Retry"
+      "retry": "Retry",
+      "analyzeAll": "Batch Analysis"
     },
     "preview": {
       "title": "Platform Preview",
