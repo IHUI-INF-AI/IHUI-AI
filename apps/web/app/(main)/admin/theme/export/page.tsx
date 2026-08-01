@@ -111,7 +111,7 @@ export default function ExportPage() {
 
       {error && <Alert variant="danger" description={error} />}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 min-[1024px]:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">导出</CardTitle>

@@ -49,7 +49,7 @@ export default function RedisMonitorPage() {
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Cpu className="h-6 w-6 text-primary" />Redis 监控
       </h1>
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-4">
         <StatCard title="键" value={nf.format(o.totalKeys)} icon={Database} loading={isLoading} />
         <StatCard title="内存" value={`${nf.format(o.usedMemory)} MB`} icon={HardDrive} loading={isLoading} />
         <StatCard title="命中率" value={`${o.hitRate}%`} icon={Target} loading={isLoading} />

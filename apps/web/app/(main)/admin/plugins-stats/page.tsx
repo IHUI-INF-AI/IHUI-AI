@@ -186,7 +186,7 @@ export default function PluginStatsPage() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         <StatCard
           icon={<Download className="h-5 w-5" />}
           label="总安装量"
@@ -214,9 +214,9 @@ export default function PluginStatsPage() {
       </div>
 
       {/* 热度榜 + 趋势 */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 min-[1024px]:grid-cols-3">
         {/* 热度榜(占 2 列) */}
-        <Card className="lg:col-span-2">
+        <Card className="min-[1024px]:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <TrendingUp className="h-4 w-4" />
