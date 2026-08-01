@@ -79,7 +79,7 @@ export function useAiSkills(open: boolean): {
         if (!res.success) {
           // 失败:重置 ref 允许下次打开时重试(避免一次性失败永久锁死)
           skillsLoadedRef.current = false
-           
+          // eslint-disable-next-line no-console
           console.warn('[slash-cmd] listAiSkills failed:', res.error, res.status)
           return
         }
@@ -94,7 +94,7 @@ export function useAiSkills(open: boolean): {
         } else {
           // 空响应:重置 ref 允许下次重试(后端可能临时返回空)
           skillsLoadedRef.current = false
-           
+          // eslint-disable-next-line no-console
           console.warn('[slash-cmd] listAiSkills returned empty or unexpected shape:', res.data)
         }
       })
@@ -102,7 +102,7 @@ export function useAiSkills(open: boolean): {
         // 网络错误:重置 ref 允许下次重试
         skillsLoadedRef.current = false
         // 静默失败 UI,但记录错误便于排查(生产环境不影响用户体验)
-         
+        // eslint-disable-next-line no-console
         console.error('[slash-cmd] listAiSkills network error:', err)
       })
       .finally(() => {
