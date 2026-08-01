@@ -14,7 +14,7 @@
 
 | # | Target List | Stars | PR | Section | Status | Notes |
 |---|---|---|---|---|---|---|
-| 1 | punkpeye/awesome-mcp-servers | 91k | [#11005](https://github.com/punkpeye/awesome-mcp-servers/pull/11005) | Aggregators | Open ⚠️ | Bot 要求注册 Glama + 加 badge;**待评估**:IHUI-AI 是 MCP client/host 非 server,定位存疑 |
+| 1 | punkpeye/awesome-mcp-servers | 91k | [#11005](https://github.com/punkpeye/awesome-mcp-servers/pull/11005) | Aggregators | Open ⚠️ | 2026-08-01 已回复维护者:IHUI-AI 是 MCP client/host 非 server,已正确归类到 awesome-mcp-clients #258;询问维护者是关闭还是迁移分区,等待回复 |
 | 2 | Hannibal046/Awesome-LLM | 27k | [#759](https://github.com/Hannibal046/Awesome-LLM/pull/759) | LLM Applications | Open | Top-level entry between dspy and LangChain |
 | 3 | awesome-selfhosted/awesome-selfhosted-data | 308k | [#2793](https://github.com/awesome-selfhosted/awesome-selfhosted-data/pull/2793) | Generative AI | Closed | 2026-07-27 关闭,无评论,可能定位不准(IHUI-AI 非纯 self-hosted 软件) |
 | 4 | mahmoud/awesome-python-applications | 17.9k | [#235](https://github.com/mahmoud/awesome-python-applications/pull/235) | AI/ML | Open | YAML entry in projects.yaml with ai/internet/dev tags |
@@ -56,11 +56,11 @@
 | awesome-langchain #463 | IHUI-AI 用 LangGraph(非 LangChain) | 框架归属要精确 — awesome-langchain 收录 LangChain 生态资源,LangGraph 应去 awesome-langgraph(若存在) |
 | awesome-llm-apps #1040 | 仓库是"自包含可运行教程集合" | 提交前看仓库定位 — awesome-llm-apps 每个条目需自带代码文件夹,纯 README 链接不符合 |
 
-### 待决策:#11005 Glama 注册反馈
+### 已回复:#11005 Glama 注册反馈(2026-08-01)
 
 awesome-mcp-servers #11005(91k stars)收到 github-actions[bot] 反馈:要求在 https://glama.ai/mcp/servers 注册并加 Glama score badge。
 
-**评估中**:IHUI-AI 本身不是 MCP server(没有提供 MCP 服务),它是 MCP **client/host**(消费 MCP 服务)。如果是这样,#11005 应该主动关闭,因为我们不在 awesome-mcp-servers 的正确分类 — 应保留 awesome-mcp-clients #258。
+**已回复维护者**(2026-08-01):说明 IHUI-AI 是 MCP client/host 非 server,已正确归类到 awesome-mcp-clients #258。询问维护者是关闭 PR 还是迁移到 Aggregators/Frameworks 分区。等待回复中。
 
 ## Submission entries
 
