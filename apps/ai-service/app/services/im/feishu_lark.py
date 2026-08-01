@@ -44,11 +44,11 @@ _TENANT_TOKEN_TTL_S = 7000
 
 # 尝试导入 lark-oapi SDK(可选,未安装则降级 httpx REST)
 try:
-    import lark_oapi as lark  # type: ignore[import-not-found]
+    import lark_oapi as lark
 
     _LARK_SDK_AVAILABLE = True
 except ImportError:
-    lark = None  # type: ignore[assignment]
+    lark = None
     _LARK_SDK_AVAILABLE = False
 
 
@@ -116,7 +116,7 @@ class FeishuLarkAdapter:
         if _LARK_SDK_AVAILABLE and app_id and app_secret:
             try:
                 self._lark_client = (
-                    lark.Client.builder()  # type: ignore[union-attr]
+                    lark.Client.builder()
                     .app_id(app_id)
                     .app_secret(app_secret)
                     .build()
@@ -165,7 +165,7 @@ class FeishuLarkAdapter:
             )
             return None
 
-        token = data.get("tenant_access_token")
+        token: str | None = data.get("tenant_access_token")
         expire = int(data.get("expire", 0))
         if not token or expire <= 0:
             return None

@@ -350,7 +350,7 @@ def _caveman_compress_text(text: str, stopwords: frozenset[str]) -> str:
     # 保护 RTK 占位符 $N(也保护用户文本中的 $N 如 "$1" 美元,语义等价保留)
     placeholders: list[str] = []
 
-    def _stash(m: re.Match) -> str:
+    def _stash(m: re.Match[str]) -> str:
         idx = len(placeholders)
         placeholders.append(m.group(0))
         # 用 SOH(0x01)+ 索引字符(0x10+i,避开 ASCII 数字/字母)+ STX(0x02)包裹
