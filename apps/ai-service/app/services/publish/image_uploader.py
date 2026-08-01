@@ -217,7 +217,7 @@ async def upload_to_csdn(
             logger.warning("[image_uploader] CSDN 上传失败: HTTP %s", resp.status_code)
             return None
         data = resp.json()
-        url = data.get("data", {}).get("url") or data.get("url")
+        url: Optional[str] = data.get("data", {}).get("url") or data.get("url")
         return url
     except Exception as e:
         logger.warning("[image_uploader] CSDN 上传异常: %s: %s", type(e).__name__, e)
@@ -256,7 +256,7 @@ async def upload_to_juejin(
             logger.warning("[image_uploader] 掘金上传失败: HTTP %s", resp.status_code)
             return None
         data = resp.json()
-        url = data.get("data", {}).get("url") or data.get("url")
+        url: Optional[str] = data.get("data", {}).get("url") or data.get("url")
         return url
     except Exception as e:
         logger.warning("[image_uploader] 掘金上传异常: %s: %s", type(e).__name__, e)
@@ -295,7 +295,7 @@ async def upload_to_jianshu(
             logger.warning("[image_uploader] 简书上传失败: HTTP %s", resp.status_code)
             return None
         data = resp.json()
-        url = data.get("url") or data.get("data", {}).get("url")
+        url: Optional[str] = data.get("url") or data.get("data", {}).get("url")
         return url
     except Exception as e:
         logger.warning("[image_uploader] 简书上传异常: %s: %s", type(e).__name__, e)
@@ -335,7 +335,7 @@ async def upload_to_zhihu(
             logger.warning("[image_uploader] 知乎上传失败: HTTP %s", resp.status_code)
             return None
         data = resp.json()
-        src = data.get("src") or data.get("data", {}).get("src")
+        src: Optional[str] = data.get("src") or data.get("data", {}).get("src")
         if src:
             # 知乎返回相对路径,需补全
             if not src.startswith("http"):
@@ -448,7 +448,7 @@ async def process_external_images(
     success_count = 0
     fail_count = 0
     for result in results:
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             fail_count += 1
             continue
         old_url, new_url = result
