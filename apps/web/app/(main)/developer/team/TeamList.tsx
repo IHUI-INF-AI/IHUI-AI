@@ -43,8 +43,13 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
                         {cfg.label}
                       </span>
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {m.email} · 加入于 {dateFmt.format(new Date(m.joinedAt))}
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <span className="min-w-0 flex-1 truncate" title={m.email}>
+                        {m.email}
+                      </span>
+                      <span className="shrink-0 whitespace-nowrap tabular-nums">
+                        · 加入于 {dateFmt.format(new Date(m.joinedAt))}
+                      </span>
                     </p>
                   </div>
                   {m.role !== 'owner' && (

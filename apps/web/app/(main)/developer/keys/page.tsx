@@ -83,15 +83,15 @@ export default function KeysPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <Key className="h-5 w-5 text-primary" />
-            密钥管理
+          <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+            <Key className="h-5 w-5 shrink-0 text-primary" />
+            <span className="whitespace-nowrap">密钥管理</span>
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">创建与维护 API 密钥及权限范围</p>
+          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">创建与维护 API 密钥及权限范围</p>
         </div>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" />
-          新建密钥
+        <Button size="sm" onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
+          <Plus className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">新建密钥</span>
         </Button>
       </div>
 

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -106,11 +106,11 @@ export default function TeamPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <Users className="h-5 w-5 text-primary" />
-            团队管理
+          <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight">
+            <Users className="h-5 w-5 shrink-0 text-primary" />
+            <span className="whitespace-nowrap">团队管理</span>
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">成员列表、邀请与角色权限</p>
+          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">成员列表、邀请与角色权限</p>
         </div>
         <Button
           size="sm"
@@ -118,9 +118,10 @@ export default function TeamPage() {
             closeDialog()
             setOpen(true)
           }}
+          className="shrink-0 whitespace-nowrap"
         >
-          <Plus className="h-4 w-4" />
-          邀请成员
+          <Plus className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">邀请成员</span>
         </Button>
       </div>
 
