@@ -53,7 +53,7 @@ export function FeedbackDetailHeader({ fb }: Props) {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
             <TypeIcon className="h-4 w-4" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight md:text-2xl">{fb.title}</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{fb.title}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge className={TYPE_BADGE[fb.type]}>{t(TYPE_KEY[fb.type] ?? 'type_unknown')}</Badge>

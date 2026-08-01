@@ -83,7 +83,7 @@ export default function SpecListPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 min-[1024px]:grid-cols-[1fr_220px]">
+      <div className="grid grid-cols-1 gap-6 min-[1024px]:grid-cols-[1fr_220px]">
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">历史版本</h2>
           {isLoading ? (

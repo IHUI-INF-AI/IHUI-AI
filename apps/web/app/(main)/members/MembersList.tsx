@@ -64,7 +64,7 @@ export function MembersList({ members, isLoading, error, levelMap }: Props) {
     )
   }
   return (
-    <div className="grid gap-3">
+    <div className="grid grid-cols-1 gap-3">
       {members.map((member) => (
         <Card key={member.id} className="transition-colors hover:bg-accent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -111,7 +111,7 @@ export default function EduCourseDetailPage() {
         ]}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 min-[1024px]:flex-row">
         <div className="min-w-0 flex-1 space-y-3">
           <CourseVideo
             src={currentSection?.videoUrl}
@@ -152,7 +152,7 @@ export default function EduCourseDetailPage() {
           </div>
         </div>
 
-        <aside className="w-full shrink-0 lg:w-[32%]">
+        <aside className="w-full shrink-0 min-[1024px]:w-[32%]">
           <div className="sticky top-4">
             <CourseTabs course={tabData} />
           </div>

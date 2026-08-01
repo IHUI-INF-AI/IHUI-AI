@@ -188,7 +188,7 @@ export default function DocsIndexPage() {
         </p>
       </header>
 
-      <div className="mt-12 grid gap-6 min-[768px]:grid-cols-2">
+      <div className="mt-12 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
         {docSections.map((section) => (
           <section key={section.title} className="rounded-2xl border bg-card p-6">
             <div className="flex items-center gap-2">

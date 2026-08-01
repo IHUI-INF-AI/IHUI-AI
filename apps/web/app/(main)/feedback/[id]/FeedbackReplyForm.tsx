@@ -46,13 +46,13 @@ export function FeedbackReplyForm({
 
   return (
     <Card>
-      <CardContent className="p-4 md:p-6">
+      <CardContent className="p-4 min-[768px]:p-6">
         <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <MessageSquare className="h-4 w-4" />
           {tc('replyTitle')}
         </p>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="fb-status">
                 {t('field_status')}
