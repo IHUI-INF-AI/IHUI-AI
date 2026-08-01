@@ -332,7 +332,7 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     const { newPhone, code } = parsed.data
 
     // 校验验证码
-    if (!verifyCode(newPhone, code)) {
+    if (!(await verifyCode(newPhone, code))) {
       return reply.status(400).send(error(400, '验证码无效或已过期'))
     }
 
