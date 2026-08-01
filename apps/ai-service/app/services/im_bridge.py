@@ -111,7 +111,7 @@ class ImBridgeService:
             RuntimeError: settings.redis_url 为空。
             Exception: Redis 连接失败(ping 超时/认证失败等)。
         """
-        import redis.asyncio as aioredis  # type: ignore[import-not-found]
+        import redis.asyncio as aioredis
 
         url = getattr(settings, "redis_url", "") or ""
         if not url:
