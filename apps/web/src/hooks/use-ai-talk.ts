@@ -76,13 +76,19 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
           reject(new Error('WebSocket 未连接'))
           return
         }
+        let timedOut = false
         const timer = setTimeout(() => {
+          timedOut = true
           wsWaitingRef.current = false
           wsResolverRef.current = null
           reject(new Error('WebSocket 请求超时'))
         }, timeoutMs)
         wsResolverRef.current = (msg) => {
           clearTimeout(timer)
+          if (timedOut) {
+            // 已超时但响应到达 — 静默丢弃,避免 unmounted resolve
+            return
+          }
           resolve(msg)
         }
         wsWaitingRef.current = true
@@ -284,32 +290,34 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
       // M-63 Round 14 P0 修复: hunyuan 3D 轮询改调真实端点
       // 之前错调 helpers.getvideo(/api/ai/sora/request/end) 永远拿不到结果
       // 现改为轮询 /api/ai/tencent/hunyuan3d/task/{task_id} (proxy-extended.ts:216)
-      const timer = setTimeout(() => {
-        timersRef.current.delete(timer)
-        const poll = async (): Promise<void> => {
-          try {
-            const r = await fetchApi<{ status?: string; videoUrl?: string; url?: string }>(
-              `/api/ai/tencent/hunyuan3d/task/${submit.data.task_id}`,
-              { method: 'GET' },
-            )
-            if (!r.success) return
-            const task = r.data
-            if (task?.status === 'completed' || task?.videoUrl || task?.url) {
-              helpers.pushData(makeItem({ videoUrl: task?.videoUrl ?? task?.url }))
-              return
-            }
-            if (timersRef.current.has(timer)) {
-              setTimeout(() => {
-                void poll()
-              }, 5000)
-            }
-          } catch (e) {
-            toast.error((e as Error).message)
+      // 2026-08-02 修复:之前 setTimeout 5min 才首次轮询 + 递归 timer 未入 timersRef
+      // (卸载时泄漏) + has(timer) 永远 false 导致递归轮询完全不执行
+      const poll = async (): Promise<void> => {
+        try {
+          const r = await fetchApi<{ status?: string; videoUrl?: string; url?: string }>(
+            `/api/ai/tencent/hunyuan3d/task/${submit.data.task_id}`,
+            { method: 'GET' },
+          )
+          if (!r.success) return
+          const task = r.data
+          if (task?.status === 'completed' || task?.videoUrl || task?.url) {
+            helpers.pushData(makeItem({ videoUrl: task?.videoUrl ?? task?.url }))
+            return
           }
+          const nextTimer = setTimeout(() => {
+            timersRef.current.delete(nextTimer)
+            void poll()
+          }, 5000)
+          timersRef.current.add(nextTimer)
+        } catch (e) {
+          toast.error((e as Error).message)
         }
+      }
+      const initialTimer = setTimeout(() => {
+        timersRef.current.delete(initialTimer)
         void poll()
-      }, 300000)
-      timersRef.current.add(timer)
+      }, 3000)
+      timersRef.current.add(initialTimer)
     },
     [helpers, buildIhuiLlmBody],
   )
