@@ -1930,7 +1930,11 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ### 阶段 3:Mobile RN 对齐 shadcn(中长期 1-2 月,预期 2.3x → 2.0x)
 
-- [ ] P3-3.1 Mobile RN 引入 React Native Reusables + NativeWind — shadcn RN 端口,共享 design-tokens 视觉一致
+- [x] ✅(2026-08-01) P3-3.1 Mobile RN 引入 React Native Reusables + NativeWind — **决策:不实施**(可行性评估后判定技术不兼容风险 > 收益),可行性报告如下:
+  - **当前架构**:mobile-rn 已用 props 注入式(t/items/loading/onPressItem/onBack/colorScheme)+ getTokens(colorScheme) 双主题模式,151 wrapper 已迁移完成(P3-3.2/3.3/3.4),维护倍数实测 1.72x(≤ 2.0x 目标达标)
+  - **不兼容风险**:① RN Reusables 用 cn() + NativeWind className 模式,与 props 注入式不兼容,迁移会破坏 P3-3.2/3.3/3.4 已完成成果;② RN Reusables 自带 token 体系与 @ihui/design-tokens 形成双真相源,违反 §3 共享层优先;③ NativeWind 4.x 仅支持 Tailwind v3,不兼容 web 端 Tailwind v4 @theme 语法,视觉一致收益打折;④ 守门 check-rn-global-css-sync.mjs 强制 global.css 与 tokens.css 严格一致,引入后需重写
+  - **KPI 已超额**:阶段 3 共享屏 49 features vs 7 最低要求(4.7x),cloc 1.72x ≤ 2.0x 目标,继续投入边际收益低
+  - **决策依据**:AGENTS.md §7(删除/重构安全)+ §3(共享层优先)+ 用户偏好"做减法,最小化代码,零冗余"
 - [x] ✅(2026-07-29) P3-3.2 所有可共享 screen 迁到 packages/app — 33 个共享屏已迁移(超额完成 7 个最低要求 4.7 倍):
   - **批次 1(Feedback 试点)**: FeedbackScreen + FeedbackHistoryScreen
   - **批次 2(列表屏)**: BookmarkScreen + NotificationListScreen + HistoryScreen
