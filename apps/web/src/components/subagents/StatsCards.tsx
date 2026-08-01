@@ -51,7 +51,7 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-2 tablet-lg:grid-cols-4">
       {items.map((it) => {
         const Icon = it.icon
         return (

@@ -358,7 +358,7 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
   }
 
   return (
-    <div className="flex w-[400px] flex-col gap-2">
+    <div className="flex w-full max-w-[400px] flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
