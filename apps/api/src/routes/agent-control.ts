@@ -16,11 +16,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import type {
-  AgentActionRequest,
-  AgentActionResponse,
-  AgentControlCapability,
-} from '@ihui/types'
+import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
 import { authenticate, checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
@@ -121,7 +117,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
 
     const result = capabilitySchema.safeParse(request.body)
     if (!result.success) {
-      return reply.status(400).send(error(400, 'Invalid capability payload'))
+      return reply.status(400).send(error(400, '控制指令参数无效'))
     }
     const cap = result.data as AgentControlCapability
 
@@ -147,7 +143,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
 
     const result = executeSchema.safeParse(request.body)
     if (!result.success) {
-      return reply.status(400).send(error(400, 'Invalid execute payload'))
+      return reply.status(400).send(error(400, '执行参数无效'))
     }
     const req = result.data as AgentActionRequest
 
@@ -157,7 +153,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       const response: AgentActionResponse = {
         requestId: req.requestId,
         success: false,
-        error: `No ${req.category === 'browser' ? 'extension' : 'desktop'} endpoint connected`,
+        error: `${req.category === 'browser' ? '浏览器扩展' : '桌面端'}未连接`,
         errorCode: 'TARGET_NOT_CONNECTED',
         durationMs: 0,
         executedBy: 'unknown',
@@ -193,7 +189,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
           resolve({
             requestId: req.requestId,
             success: false,
-            error: `Execution timed out after ${timeoutMs}ms`,
+            error: `执行超时(${timeoutMs} 毫秒)`,
             errorCode: 'TIMEOUT',
             durationMs: timeoutMs,
             executedBy: 'unknown',
