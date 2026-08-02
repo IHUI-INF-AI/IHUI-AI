@@ -107,65 +107,6 @@ function ProviderHealthDot({ health }: { health: ProviderHealth }) {
   )
 }
 
-/** 积分消耗倍数徽章(0=免费/1=经济/3=标准/10=高级/30=旗舰)
- *  2026-07-31 立:模型选择器内显示每个模型的扣分倍数,帮助用户直观判断成本
- *  颜色:免费绿/经济灰/标准蓝/高级紫/旗舰金;圆角 rounded-md(6px);无发光边框 */
-function PointsMultiplierBadge({ multiplier }: { multiplier: number }) {
-  const t = useTranslations('chat')
-  const tip = t('modelPointsMultiplier')
-  if (multiplier === 0) {
-    return (
-      <span
-        title={tip}
-        className="shrink-0 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-      >
-        {t('modelFree')}
-      </span>
-    )
-  }
-  if (multiplier === 1) {
-    return (
-      <span
-        title={tip}
-        className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-      >
-        ×1
-      </span>
-    )
-  }
-  if (multiplier === 3) {
-    return (
-      <span
-        title={tip}
-        className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400"
-      >
-        ×3
-      </span>
-    )
-  }
-  if (multiplier === 10) {
-    return (
-      <span
-        title={tip}
-        className="shrink-0 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-400"
-      >
-        ×10
-      </span>
-    )
-  }
-  if (multiplier >= 30) {
-    return (
-      <span
-        title={tip}
-        className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-      >
-        ×30
-      </span>
-    )
-  }
-  return null
-}
-
 /** 按厂商分组模型,返回有序的 [vendor, items[]] 数组 */
 function groupByVendor(options: ModelOption[]): Array<[string, ModelOption[]]> {
   const map = new Map<string, ModelOption[]>()
@@ -358,7 +299,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           align="end"
           sideOffset={6}
           className={cn(
-            'z-popover max-h-[60vh] min-w-[16rem] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
+            'z-popover max-h-[60vh] w-auto min-w-0 overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
@@ -405,12 +346,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 )}
               />
               <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-medium">{t('modelAuto')}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {t('modelAutoDescription')}
-                </span>
-              </div>
+              <span className="flex-1 truncate font-medium">{t('modelAuto')}</span>
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
           </DropdownMenu.Group>
@@ -455,18 +391,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                       size={14}
                       className="shrink-0 text-muted-foreground"
                     />
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate font-medium">{opt.label}</span>
-                        {typeof opt.pointsMultiplier === 'number' && (
-                          <PointsMultiplierBadge multiplier={opt.pointsMultiplier} />
-                        )}
-                      </div>
-                      {opt.descriptionKey && (
-                        <span className="truncate text-xs text-muted-foreground">
-                          {t(opt.descriptionKey)}
-                        </span>
-                      )}
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="truncate font-medium">{opt.label}</span>
                     </div>
                     {/* 配置感知徽章:已配置 → 绿色 ✓,未配置 → 琥珀 ⚠
                         (仅在 cfgData 加载完成后显示,避免登录前闪烁) */}
