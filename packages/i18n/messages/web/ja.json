@@ -1501,7 +1501,6 @@
     }
   },
   "admin": {
-    "title": "コンソール",
     "relayParamOps": {
       "title": "パラメータオーバーライドルール",
       "subtitle": "転送層 applyParamOps ルール管理(15 種 op + 条件 + JSON パス)",
@@ -14333,8 +14332,7 @@
       "empty": "コメントを表示するにはプレビューを保存してください",
       "noComments": "コメントなし",
       "loadingFailed": "コメントの読み込みに失敗",
-      "send": "コメントを送信",
-      "commented": "コメント済み"
+      "send": "コメントを送信"
     },
     "aiGenerate": {
       "button": "AI生成",
@@ -14356,13 +14354,7 @@
     "responsive": {
       "customWidth": "カスタム幅",
       "apply": "適用",
-      "deviceFrame": "デバイスフレーム",
-      "deviceMobilePortrait": "Mobile Portrait",
-      "deviceMobileLandscape": "Mobile Landscape",
-      "deviceTabletPortrait": "Tablet Portrait",
-      "deviceTabletLandscape": "Tablet Landscape",
-      "deviceDesktop": "Desktop",
-      "deviceCustom": "Custom"
+      "deviceFrame": "デバイスフレーム"
     },
     "templates": {
       "title": "テンプレート"
@@ -15125,13 +15117,6 @@
     "cardLabel": "API 価格",
     "cardDesc": "モデル価格と課金ルール"
   },
-  "messageInput": {
-    "document": "ファイル",
-    "removeFile": "ファイルを削除",
-    "placeholder": "メッセージを入力...",
-    "clear": "クリア",
-    "stop": "停止"
-  },
   "auth": {
     "emailLogin": "メール",
     "phoneCodeLogin": "携帯",
@@ -15257,8 +15242,6 @@
     }
   },
   "title": "管理ダッシュボード",
-  "modelFree": "無料",
-  "modelPointsMultiplier": "クレジット倍率",
   "errors": {
     "requestFailed": "リクエスト失敗",
     "region": "エラー通知",
