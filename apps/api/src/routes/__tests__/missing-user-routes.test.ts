@@ -52,7 +52,7 @@ describe('Missing User Routes API (支付/提现真实化端点)', () => {
         url: '/api/refunds/apply',
         payload: { orderId: '00000000-0000-0000-0000-000000000000' },
       },
-      { method: 'GET', url: '/api/top-up/status/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/top_up/status/00000000-0000-0000-0000-000000000000' },
     ]
 
     for (const { method, url, payload } of paymentEndpoints) {
