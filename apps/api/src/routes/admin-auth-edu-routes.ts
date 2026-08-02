@@ -313,6 +313,31 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-user-margin/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+
+    // 先查 margin 是否有资金,有余额/冻结时禁止硬删,防资金丢失(P0 修复)
+    const [margin] = await db
+      .select({
+        tokenQuantity: userMargins.tokenQuantity,
+        frozenQuantity: userMargins.frozenQuantity,
+      })
+      .from(userMargins)
+      .where(eq(userMargins.userId, p.data.id))
+      .limit(1)
+
+    if (!margin) {
+      return reply.status(404).send(error(404, '用户余额记录不存在'))
+    }
+
+    // 有余额或冻结资金时禁止硬删,需先处理资金
+    if ((margin.tokenQuantity ?? 0) > 0 || (margin.frozenQuantity ?? 0) > 0) {
+      return reply.status(400).send(
+        error(
+          400,
+          `无法删除有资金的余额记录(token=${margin.tokenQuantity}, frozen=${margin.frozenQuantity}),请先处理资金`,
+        ),
+      )
+    }
+
     await db.delete(userMargins).where(eq(userMargins.userId, p.data.id))
     return reply.send(success({ id: p.data.id, deleted: true }))
   })

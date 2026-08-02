@@ -157,44 +157,78 @@ export async function adjustPoints(
   const amount = Math.abs(data.amount);
   if (amount === 0) throw new Error('调整积分数不能为 0');
 
-  const current = await ensureUserPoints(data.userId);
-  let newPoints: number;
-  let newTotalEarned = current.totalEarned;
-  let newTotalSpent = current.totalSpent;
-  let newExperience = current.experience;
-
-  if (data.type === 'earn') {
-    newPoints = current.points + amount;
-    newTotalEarned = current.totalEarned + amount;
-    newExperience = current.experience + amount;
-  } else {
-    if (current.points < amount) throw new Error('积分余额不足');
-    newPoints = current.points - amount;
-    newTotalSpent = current.totalSpent + amount;
-  }
-
-  // earn 时提前计算新等级(levels 表基本不变,事务外读可接受)
-  let newLevel = current.level;
-  if (data.type === 'earn') {
-    const levelRow = await findLevelByExperience(newExperience);
-    newLevel = levelRow.level;
-  }
+  // 仅用于确保积分行存在;核心增减用原子 UPDATE,不依赖此快照计算新值(防 lost update)
+  await ensureUserPoints(data.userId);
 
   return db.transaction(async (tx) => {
+    if (data.type === 'earn') {
+      // earn 路径:原子 UPDATE 累加 points/totalEarned/experience,DB 级串行执行无 lost update
+      const updated = await tx
+        .update(userPoints)
+        .set({
+          points: sql`${userPoints.points} + ${amount}`,
+          totalEarned: sql`${userPoints.totalEarned} + ${amount}`,
+          experience: sql`${userPoints.experience} + ${amount}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(userPoints.userId, data.userId))
+        .returning(userPointsFields);
+      const pointsRow = updated[0];
+      if (!pointsRow) throw new Error('用户积分记录不存在');
+
+      // 等级更新:用 RETURNING 拿到新 experience 再查 levels 表,避免内存计算脏读
+      const levelRow = await findLevelByExperience(pointsRow.experience);
+      let finalPoints = pointsRow;
+      if (levelRow.level !== pointsRow.level) {
+        const reUpdated = await tx
+          .update(userPoints)
+          .set({ level: levelRow.level, updatedAt: new Date() })
+          .where(eq(userPoints.userId, data.userId))
+          .returning(userPointsFields);
+        finalPoints = reUpdated[0] ?? pointsRow;
+      }
+
+      const transaction = await tx
+        .insert(pointTransactions)
+        .values({
+          userId: data.userId,
+          type: data.type,
+          source: data.source,
+          amount,
+          balanceAfter: finalPoints.points,
+          description: data.description,
+          referenceId: data.referenceId,
+        })
+        .returning(transactionFields);
+      const txRow = transaction[0];
+      if (!txRow) throw new Error('创建积分流水失败');
+
+      return { points: finalPoints, transaction: txRow };
+    }
+
+    // spend 路径:原子 UPDATE 扣减 + WHERE 余额检查(0 行影响 = 余额不足或用户不存在)
     const updated = await tx
       .update(userPoints)
       .set({
-        points: newPoints,
-        totalEarned: newTotalEarned,
-        totalSpent: newTotalSpent,
-        experience: newExperience,
-        ...(newLevel !== current.level ? { level: newLevel } : {}),
+        points: sql`${userPoints.points} - ${amount}`,
+        totalSpent: sql`${userPoints.totalSpent} + ${amount}`,
         updatedAt: new Date(),
       })
-      .where(eq(userPoints.id, current.id))
+      .where(and(
+        eq(userPoints.userId, data.userId),
+        sql`${userPoints.points} >= ${amount}`,
+      ))
       .returning(userPointsFields);
     const pointsRow = updated[0];
-    if (!pointsRow) throw new Error('更新积分失败');
+    if (!pointsRow) {
+      const [existing] = await tx
+        .select(userPointsFields)
+        .from(userPoints)
+        .where(eq(userPoints.userId, data.userId))
+        .limit(1);
+      if (!existing) throw new Error('用户积分记录不存在');
+      throw new Error('积分余额不足');
+    }
 
     const transaction = await tx
       .insert(pointTransactions)
@@ -202,8 +236,8 @@ export async function adjustPoints(
         userId: data.userId,
         type: data.type,
         source: data.source,
-        amount: data.type === 'earn' ? amount : -amount,
-        balanceAfter: newPoints,
+        amount: -amount,
+        balanceAfter: pointsRow.points,
         description: data.description,
         referenceId: data.referenceId,
       })
