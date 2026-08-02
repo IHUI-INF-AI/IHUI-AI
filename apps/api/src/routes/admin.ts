@@ -22,6 +22,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
 import { orders, users, projects } from '@ihui/database'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 const ADMIN_ROLE_ID = 1
 
@@ -104,14 +105,14 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
+      const message = toUserFriendlyMessage(e) || 'Authentication required'
       return reply.status(statusCode).send(error(statusCode, message))
     }
     try {
       await requireActiveUser(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || '账号已注销'
+      const message = toUserFriendlyMessage(e) || '账号已注销'
       return reply.status(statusCode).send(error(statusCode, message))
     }
     const roleId = request.jwtPayload?.roleId ?? 0
@@ -722,7 +723,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success({ list, total, page, pageSize }))
     } catch (e) {
-      return reply.status(500).send(error(500, `文章列表查询失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `文章列表查询失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -764,7 +765,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       ])
       return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
     } catch (e) {
-      return reply.status(500).send(error(500, `智能体规则列表查询失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `智能体规则列表查询失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -801,7 +802,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       ])
       return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
     } catch (e) {
-      return reply.status(500).send(error(500, `智能体任务列表查询失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `智能体任务列表查询失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -856,7 +857,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `班级成员查询失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `班级成员查询失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -881,7 +882,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success({ report: data }))
     } catch (e) {
-      return reply.status(500).send(error(500, `报名报表查询失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `报名报表查询失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 

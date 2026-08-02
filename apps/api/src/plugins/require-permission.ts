@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
 import { authenticate } from './auth.js'
 import { checkPermission } from '../db/rbac-queries.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 /**
  * 与 admin 路由一致：roleId >= 1 视为系统管理员，直接放行所有权限。
@@ -27,7 +28,7 @@ export function requirePermission(permission: string): preHandlerAsyncHookHandle
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       return reply
         .status(statusCode)
-        .send({ code: statusCode, message: (e as Error).message || 'Authentication required' })
+        .send({ code: statusCode, message: toUserFriendlyMessage(e) || 'Authentication required' })
     }
 
     // 系统管理员放行
@@ -56,7 +57,7 @@ export const requireAuth = async (request: FastifyRequest, reply: FastifyReply):
     const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
     reply
       .status(statusCode)
-      .send({ code: statusCode, message: (e as Error).message || 'Authentication required' })
+      .send({ code: statusCode, message: toUserFriendlyMessage(e) || 'Authentication required' })
   }
 }
 
@@ -70,7 +71,7 @@ export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply)
     const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
     return reply
       .status(statusCode)
-      .send({ code: statusCode, message: (e as Error).message || 'Authentication required' })
+      .send({ code: statusCode, message: toUserFriendlyMessage(e) || 'Authentication required' })
   }
   const roleId = request.jwtPayload?.roleId ?? 0
   if (roleId < ADMIN_ROLE_ID) {
