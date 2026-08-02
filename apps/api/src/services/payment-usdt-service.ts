@@ -360,7 +360,7 @@ export async function checkUsdtPaymentStatus(orderId: string): Promise<UsdtPayme
     }
   } catch (err) {
     // 区块链 API 故障不阻断,返回 pending 等待下次轮询
-    console.error(`[usdt-payment] 区块链 API 查询失败(orderId=${orderId}):`, err)
+    console.error(`[usdt-payment] 区块链 API 查询失败(orderId=${orderId}):`, err instanceof Error ? err.message : String(err))
     return { orderId, status: 'pending', detected: false, txHash: null, amountPaid: null }
   }
 
@@ -608,7 +608,7 @@ export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResul
         confirmed++
       }
     } catch (err) {
-      console.error(`[usdt-payment] 轮询订单 ${orderId} 失败:`, err)
+      console.error(`[usdt-payment] 轮询订单 ${orderId} 失败:`, err instanceof Error ? err.message : String(err))
       failed++
     }
   }

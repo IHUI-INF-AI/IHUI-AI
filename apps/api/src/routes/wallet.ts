@@ -93,7 +93,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /recharge - P0-1 修复:不直接加余额,只创建订单号返回
   // 余额增加只能通过 payment-gateway.ts 支付回调调 rechargeToken(带幂等保护)
-  server.post('/recharge', async (request, reply) => {
+  server.post('/recharge', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = rechargeSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -113,7 +113,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
   // 改为代理调用 applyWithdrawal,它在事务内原子执行:
   //   token -= actualAmount, frozen += actualAmount, INSERT withdrawalFlows
   // 这样资金链路完整,后续审批/驳回/回调能正确流转。
-  server.post('/withdraw', async (request, reply) => {
+  server.post('/withdraw', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const userId = request.userId!
     const parsed = withdrawSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -396,7 +396,7 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /adjust — 管理员调整余额(事务:查余额 → 更新 → 记流水 → 审计)
-  server.post('/adjust', async (request, reply) => {
+  server.post('/adjust', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = adjustSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
