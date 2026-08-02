@@ -702,7 +702,7 @@ class LLMGateway:
         - stepfun/*  → STEPFUN_API_KEY + STEPFUN_API_BASE(OpenAI 兼容)
         - agnes/*    → AGNES_API_KEY + AGNES_API_BASE(OpenAI 兼容)
         - groq/*     → GROQ_API_KEY(LiteLLM 原生)
-        - gemini/*   → GEMINI_API_KEY(LiteLLM 原生)
+        - gemini/*   → GEMINI_API_KEY(Google AI Studio OpenAI 兼容接口,走 openai/<real_model>)
         - openrouter/* → OPENROUTER_API_KEY(LiteLLM 原生)
         - claude-*/anthropic/* → ANTHROPIC_API_KEY(LiteLLM 原生)
         - ollama/*   → OLLAMA_API_BASE(LiteLLM 原生,默认 http://localhost:11434)
