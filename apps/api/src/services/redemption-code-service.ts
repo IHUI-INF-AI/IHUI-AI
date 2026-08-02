@@ -16,7 +16,6 @@ import { randomBytes, randomUUID } from 'crypto'
 import { eq, and, sql, desc, ne, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { redemptionCodes, developerApiKeys } from '@ihui/database'
-import { rechargeByKey } from './relay-billing-service.js'
 import type { RedemptionCode } from '@ihui/database'
 
 // =============================================================================
@@ -142,7 +141,7 @@ export interface RedeemResult {
 }
 
 /**
- * 兑换码兑换(幂等)。
+ * 兑换码兑换(幂等 + 事务回滚)。
  *
  * - code: 兑换码(自动 normalize 去空格/转大写)
  * - userId: 兑换用户
@@ -151,8 +150,13 @@ export interface RedeemResult {
  * 幂等:用 UPDATE WHERE status='unused' AND (expires_at IS NULL OR expires_at > now())
  * RETURNING * 原子翻转状态。同一 code 多次兑换只有第一次 RETURNING 到行。
  *
- * 状态翻转:unused → used,填 usedBy/usedAt。
- * 余额到账:调 rechargeByKey 给用户指定 Key(或最新 active Key)加 tokenBalance。
+ * 事务原子性(P0 修复 2026-08-02):标记 used + 查 active Key + 充值 三步全部包在
+ * db.transaction 内。任一步失败(无 active Key / Key 不存在 / 充值 0 行)→ throw 触发
+ * 整事务回滚,码状态保持 unused,价值不丢失。原实现标记 used 后才充值,充值失败码已
+ * 消费但余额未到账(价值丢失)。
+ *
+ * 充值逻辑:内联 rechargeByKey 的 CASE WHEN(tokenBalance=-1 保持 -1,否则累加),
+ * 用 tx 而非全局 db,确保随事务回滚。
  */
 export async function redeemCode(
   code: string,
@@ -161,91 +165,126 @@ export async function redeemCode(
 ): Promise<RedeemResult> {
   const normalized = normalizeCode(code)
 
-  // 1. 原子翻转状态:unused → used(同时校验未过期)
-  //    RETURNING 到行 = 抢占成功;0 行 = 码不存在/已用/已过期/已禁用
-  const [claimed] = await db
-    .update(redemptionCodes)
-    .set({
-      status: 'used',
-      usedBy: userId,
-      usedAt: new Date(),
+  // 事务内错误标记:throw 触发回滚,外层 catch 转换为 RedeemResult
+  const ERR_NO_ACTIVE_KEY = 'REDEEM_NO_ACTIVE_KEY'
+  const ERR_KEY_RECHARGE_FAILED = 'REDEEM_KEY_RECHARGE_FAILED'
+
+  // 保存抢占到的 tokenAmount,供 catch 分支返回(事务回滚后 claimed 出作用域)
+  let claimedTokenAmount: number | undefined
+
+  try {
+    return await db.transaction(async (tx) => {
+      // 1. 原子翻转状态:unused → used(同时校验未过期)
+      //    RETURNING 到行 = 抢占成功;0 行 = 码不存在/已用/已过期/已禁用
+      const [claimed] = await tx
+        .update(redemptionCodes)
+        .set({
+          status: 'used',
+          usedBy: userId,
+          usedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(redemptionCodes.code, normalized),
+            eq(redemptionCodes.status, 'unused'),
+            sql`(${redemptionCodes.expiresAt} IS NULL OR ${redemptionCodes.expiresAt} > now())`,
+          ),
+        )
+        .returning()
+
+      if (!claimed) {
+        // 2. 抢占失败,查询真实原因(给用户准确反馈)— 只读诊断,无需纳入事务写
+        const [existing] = await dbRead
+          .select({
+            status: redemptionCodes.status,
+            expiresAt: redemptionCodes.expiresAt,
+          })
+          .from(redemptionCodes)
+          .where(eq(redemptionCodes.code, normalized))
+          .limit(1)
+
+        if (!existing) {
+          return { success: false, reason: 'code_not_found' }
+        }
+        if (existing.status === 'used') {
+          return { success: false, reason: 'already_used' }
+        }
+        if (existing.status === 'disabled') {
+          return { success: false, reason: 'disabled' }
+        }
+        if (existing.status === 'expired' || (existing.expiresAt && existing.expiresAt < new Date())) {
+          return { success: false, reason: 'expired' }
+        }
+        return { success: false, reason: 'not_unused' }
+      }
+
+      // 抢占成功,记录 tokenAmount 供 catch 分支使用
+      claimedTokenAmount = claimed.tokenAmount
+
+      // 3. 确定目标 Key(事务内查,保证与后续充值同快照)
+      let targetKeyId = apiKeyId
+      if (!targetKeyId) {
+        const [activeKey] = await tx
+          .select({ id: developerApiKeys.id })
+          .from(developerApiKeys)
+          .where(
+            and(
+              eq(developerApiKeys.userId, userId),
+              eq(developerApiKeys.status, 'active'),
+            ),
+          )
+          .orderBy(desc(developerApiKeys.createdAt))
+          .limit(1)
+
+        if (!activeKey) {
+          // 没有 active Key,抛错触发事务回滚(码保持 unused,价值不丢失)
+          throw new Error(ERR_NO_ACTIVE_KEY)
+        }
+        targetKeyId = activeKey.id
+      }
+
+      // 4. 原子充值(事务内,内联 rechargeByKey 核心 CASE WHEN 逻辑以纳入回滚)
+      //    rechargeByKey 用全局 db 无法随事务回滚,这里用 tx 重放:
+      //    tokenBalance = -1(无限额度)保持 -1,否则累加 tokenAmount
+      const [updated] = await tx
+        .update(developerApiKeys)
+        .set({
+          tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${claimed.tokenAmount} END`,
+          updatedAt: new Date(),
+        })
+        .where(eq(developerApiKeys.id, targetKeyId))
+        .returning({ tokenBalance: developerApiKeys.tokenBalance })
+
+      if (!updated) {
+        // Key 不存在(提供的 apiKeyId 无效,或并发删除),抛错触发事务回滚
+        throw new Error(ERR_KEY_RECHARGE_FAILED)
+      }
+
+      return {
+        success: true,
+        tokenAmount: claimed.tokenAmount,
+        newTokenBalance: updated.tokenBalance,
+      }
     })
-    .where(
-      and(
-        eq(redemptionCodes.code, normalized),
-        eq(redemptionCodes.status, 'unused'),
-        sql`(${redemptionCodes.expiresAt} IS NULL OR ${redemptionCodes.expiresAt} > now())`,
-      ),
-    )
-    .returning()
-
-  if (!claimed) {
-    // 2. 抢占失败,查询真实原因(给用户准确反馈)
-    const [existing] = await dbRead
-      .select({
-        status: redemptionCodes.status,
-        expiresAt: redemptionCodes.expiresAt,
-      })
-      .from(redemptionCodes)
-      .where(eq(redemptionCodes.code, normalized))
-      .limit(1)
-
-    if (!existing) {
-      return { success: false, reason: 'code_not_found' }
-    }
-    if (existing.status === 'used') {
-      return { success: false, reason: 'already_used' }
-    }
-    if (existing.status === 'disabled') {
-      return { success: false, reason: 'disabled' }
-    }
-    if (existing.status === 'expired' || (existing.expiresAt && existing.expiresAt < new Date())) {
-      return { success: false, reason: 'expired' }
-    }
-    return { success: false, reason: 'not_unused' }
-  }
-
-  // 3. 抢占成功,给用户 Key 充值
-  let targetKeyId = apiKeyId
-  if (!targetKeyId) {
-    // 查用户最新 active Key
-    const [activeKey] = await dbRead
-      .select({ id: developerApiKeys.id })
-      .from(developerApiKeys)
-      .where(
-        and(
-          eq(developerApiKeys.userId, userId),
-          eq(developerApiKeys.status, 'active'),
-        ),
-      )
-      .orderBy(desc(developerApiKeys.createdAt))
-      .limit(1)
-
-    if (!activeKey) {
-      // 用户没有 active Key,兑换码已标记 used 但无法充值
-      // (罕见场景:用户兑换后才知道没 Key;admin 可手动补偿)
+  } catch (err) {
+    if (err instanceof Error && err.message === ERR_NO_ACTIVE_KEY) {
+      // 事务已回滚,码保持 unused;tokenAmount 仅作提示
       return {
         success: false,
-        tokenAmount: claimed.tokenAmount,
+        tokenAmount: claimedTokenAmount,
         reason: 'no_active_key',
       }
     }
-    targetKeyId = activeKey.id
-  }
-
-  const rechargeResult = await rechargeByKey(targetKeyId, claimed.tokenAmount)
-  if (!rechargeResult) {
-    return {
-      success: false,
-      tokenAmount: claimed.tokenAmount,
-      reason: 'key_not_found',
+    if (err instanceof Error && err.message === ERR_KEY_RECHARGE_FAILED) {
+      // 事务已回滚,码保持 unused
+      return {
+        success: false,
+        tokenAmount: claimedTokenAmount,
+        reason: 'key_not_found',
+      }
     }
-  }
-
-  return {
-    success: true,
-    tokenAmount: claimed.tokenAmount,
-    newTokenBalance: rechargeResult.newTokenBalance,
+    // 其他异常(连接失败/死锁等)重新抛出,由上层统一错误处理
+    throw err
   }
 }
 
