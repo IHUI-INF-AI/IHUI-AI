@@ -13,7 +13,7 @@ import { parsePagination } from './_shared.js'
 const codeParam = z.object({ code: z.string() })
 
 const fundRoutes: FastifyPluginAsync = async (server) => {
-  server.post('/fund/ali/pay/create', async (request, reply) => {
+  server.post('/fund/ali/pay/create', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body =
       (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
     if (!body.amount || body.amount <= 0) {
@@ -45,7 +45,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ payUrl, orderId: order.id, orderNo: order.orderNo }))
   })
 
-  server.post('/fund/ali/pay/create2', async (request, reply) => {
+  server.post('/fund/ali/pay/create2', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body =
       (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
     if (!body.amount || body.amount <= 0) {

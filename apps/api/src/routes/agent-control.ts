@@ -19,6 +19,7 @@ import { z } from 'zod'
 import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
 import { authenticate, checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 // ---------------------------------------------------------------------------
 // 状态:已注册的端 + pending requests
@@ -172,7 +173,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       const response: AgentActionResponse = {
         requestId: req.requestId,
         success: false,
-        error: `Failed to push notification: ${(err as Error).message}`,
+        error: `Failed to push notification: ${toUserFriendlyMessage(err)}`,
         errorCode: 'EXECUTION_FAILED',
         durationMs: 0,
         executedBy: 'unknown',
@@ -209,7 +210,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       const response = await responsePromise
       return reply.send(success(response))
     } catch (err) {
-      return reply.status(500).send(error(500, (err as Error).message))
+      return reply.status(500).send(error(500, toUserFriendlyMessage(err)))
     }
   })
 

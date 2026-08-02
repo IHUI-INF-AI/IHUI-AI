@@ -164,6 +164,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       if (!(await checkAuth(request, reply))) return
@@ -201,7 +202,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /invitations/:code/verify - 公开：验证邀请码
-  server.post('/invitations/:code/verify', async (request, reply) => {
+  server.post('/invitations/:code/verify', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = codeParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -283,7 +284,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /activities/:id/join - 需登录：参与活动
-  server.post('/activities/:id/join', async (request, reply) => {
+  server.post('/activities/:id/join', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 
@@ -390,6 +391,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       if (!(await checkAuth(request, reply))) return
@@ -436,7 +438,7 @@ export const adminPromotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /activities - 创建活动
-  server.post('/activities', async (request, reply) => {
+  server.post('/activities', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = createActivitySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -507,7 +509,7 @@ export const adminPromotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /coupons - 创建优惠券
-  server.post('/coupons', async (request, reply) => {
+  server.post('/coupons', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = createCouponSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

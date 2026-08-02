@@ -17,6 +17,7 @@ import {
   updateSource,
   type UpdateSourcePatch,
 } from '../services/ai-feed-service.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 // =============================================================================
 // Zod schemas
@@ -163,7 +164,7 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
         .header('Access-Control-Allow-Origin', '*')
         .send(buffer)
     } catch (e) {
-      return reply.status(502).send(error(502, (e as Error).message ?? '图片代理失败'))
+      return reply.status(502).send(error(502, toUserFriendlyMessage(e) || '图片代理失败'))
     }
   })
 

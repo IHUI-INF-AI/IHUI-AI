@@ -488,7 +488,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // 1. DeepSeek — POST /deepseek/chat, POST /deepseek/chat/stream
   // ==========================================================================
 
-  server.post('/deepseek/chat', async (request, reply) => {
+  server.post('/deepseek/chat', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -518,7 +518,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.post('/deepseek/chat/stream', async (request, reply) => {
+  server.post('/deepseek/chat/stream', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -623,7 +623,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   //            POST /kling/image/generate, GET /kling/task/:taskId
   // ==========================================================================
 
-  server.post('/kling/video/generate', async (request, reply) => {
+  server.post('/kling/video/generate', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = klingVideoSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -654,7 +654,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.post('/kling/video/image-to-video', async (request, reply) => {
+  server.post('/kling/video/image-to-video', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = klingI2VSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -677,7 +677,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.post('/kling/image/generate', async (request, reply) => {
+  server.post('/kling/image/generate', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = klingImageSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -717,7 +717,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ vendors: Object.keys(VENDOR_CONFIGS) }))
   })
 
-  server.post('/multi/:vendor/chat', async (request, reply) => {
+  server.post('/multi/:vendor/chat', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { vendor } = vendorParam.parse(request.params)
     const parsed = multiChatSchema.omit({ vendors: true }).safeParse(mergeQueryBody(request))
