@@ -27,11 +27,11 @@ import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
 // ============================================================================
 
 const likeSchema = z.object({
-  commentId: z.string().uuid('commentId 必须为 UUID'),
+  commentId: z.string().uuid({ message: 'commentId 必须为 UUID' }),
 })
 
 const followSchema = z.object({
-  userId: z.string().uuid('userId 必须为 UUID'),
+  userId: z.string().uuid({ message: 'userId 必须为 UUID' }),
 })
 
 const commentCreateSchema = z.object({

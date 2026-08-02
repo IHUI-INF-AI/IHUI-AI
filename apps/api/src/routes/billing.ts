@@ -8,7 +8,7 @@ import { success, error } from '../utils/response.js';
 // =============================================================================
 
 const idParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
 });
 
 // =============================================================================

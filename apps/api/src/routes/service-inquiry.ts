@@ -55,7 +55,7 @@ const STATUSES = ['pending', 'contacted', 'quoted', 'won', 'lost'] as const
 const createInquirySchema = z.object({
   name: z.string().min(1, '请输入姓名').max(50),
   company: z.string().max(100).optional().nullable(),
-  email: z.string().min(1, '请输入邮箱').email('邮箱格式不正确'),
+  email: z.string().min(1, '请输入邮箱').email({ message: '邮箱格式不正确' }),
   phone: z.string().max(30).optional().nullable(),
   serviceType: z.enum(SERVICE_TYPES, { errorMap: () => ({ message: '请选择服务类型' }) }),
   budget: z.enum(BUDGETS, { errorMap: () => ({ message: '请选择预算范围' }) }),
@@ -72,7 +72,7 @@ const listQuerySchema = z.object({
   serviceType: z.enum(SERVICE_TYPES).optional(),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const updateStatusSchema = z.object({
   status: z.enum(STATUSES, { errorMap: () => ({ message: '无效的状态' }) }),

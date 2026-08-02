@@ -13,6 +13,7 @@
  *    lessons / lessonChapters / lessonChapterSections / comments / lessonRecords / lessonRecordLogs / lessonSignUps
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { eq, and, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
 import { success, error } from '../utils/response.js'
@@ -52,7 +53,7 @@ const pageQuerySchema = z.object({
 // Zod schemas(仅 /learn/* + /study/* 真实化端点使用)
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const createGroupSchema = z.object({
   title: z.string().min(1).max(200),
@@ -76,7 +77,7 @@ const updateCourseSchema = z.object({
 })
 
 const createVideoSchema = z.object({
-  chapterId: z.string().uuid('无效的章节 ID'),
+  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
   title: z.string().min(1).max(200),
   content: z.string().nullable().optional(),
   videoUrl: z.string().max(512).nullable().optional(),
@@ -95,13 +96,13 @@ const updateVideoSchema = z.object({
 })
 
 const videoCommentsQuerySchema = z.object({
-  videoId: z.string().uuid('无效的视频 ID'),
+  videoId: z.string().uuid({ message: '无效的视频 ID' }),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 const createVideoCommentSchema = z.object({
-  videoId: z.string().uuid('无效的视频 ID'),
+  videoId: z.string().uuid({ message: '无效的视频 ID' }),
   content: z.string().min(1).max(5000),
   parentId: z.string().uuid().nullable().optional(),
 })
@@ -126,17 +127,17 @@ const rankingQuerySchema = z.object({
 
 // /study/* 鉴权版端点(2026-07-26 真实化)
 const studySigninSchema = z.object({
-  lessonId: z.string().uuid('无效的课程 ID'),
+  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
 })
 
 const studyClockinSchema = z.object({
-  lessonId: z.string().uuid('无效的课程 ID'),
+  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
   duration: z.number().int().min(0),
   content: z.string().max(5000).optional(),
 })
 
 const studyProgressSchema = z.object({
-  lessonId: z.string().uuid('无效的课程 ID'),
+  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
   chapterId: z.string().uuid().optional(),
   sectionId: z.string().uuid().optional(),
   position: z.number().int().min(0),
@@ -144,7 +145,7 @@ const studyProgressSchema = z.object({
 })
 
 const studyShareSchema = z.object({
-  lessonId: z.string().uuid('无效的课程 ID'),
+  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
   platform: z.enum(['wechat', 'moments', 'link']).default('link'),
 })
 
@@ -1309,7 +1310,9 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   server.post('/agent/creation/share', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const body = z.object({ agentId: z.string().max(64).optional() }).parse(request.body ?? {})
-    const shareId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    // 2026-08-02 安全审计加固:用 CSPRNG 替代 Math.random()。
+    // shareId 用于分享 URL,Math.random() 可预测 → 攻击者可枚举他人分享链接。
+    const shareId = `${Date.now().toString(36)}-${randomBytes(4).toString('hex')}`
     const url = body.agentId ? `/agents/${body.agentId}?share=${shareId}` : ''
     return reply.send(success({ url, id: shareId }))
   })
@@ -1321,15 +1324,6 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
     return reply.send(success({ id: Date.now().toString() }))
   })
-
-  // 注释:DELETE /chat/history/:chatId 已由 chat-models.ts(line 1220)注册,
-  // 注册前缀 /api/chat → /api/chat/history/:chatId,此处重复注册会触发 FST_ERR_DUPLICATED_ROUTE。
-  // 保留空桩逻辑供后续如需覆盖时取消注释。
-  // server.delete('/chat/history/:chatId', async (request, reply) => {
-  //   if (!(await checkAuth(request, reply))) return
-  //   const { chatId } = request.params as { chatId: string }
-  //   return reply.send(success({ id: chatId }))
-  // })
 
   // ==========================================================================
   // /model/* (2 个)

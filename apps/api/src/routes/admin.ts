@@ -49,11 +49,11 @@ const listProjectsQuerySchema = z.object({
 })
 
 const projectIdParamSchema = z.object({
-  id: z.string().uuid('无效的项目 ID'),
+  id: z.string().uuid({ message: '无效的项目 ID' }),
 })
 
 const createProjectBodySchema = z.object({
-  userId: z.string().uuid('请指定项目所有者'),
+  userId: z.string().uuid({ message: '请指定项目所有者' }),
   name: z.string().min(1, '项目名不能为空').max(128, '项目名最多 128 字符'),
   description: z.string().max(2000).nullable().optional(),
   status: z.number().int().min(0).optional(),
@@ -66,7 +66,7 @@ const updateProjectBodySchema = z.object({
 })
 
 const idParamSchema = z.object({
-  id: z.string().uuid('无效的用户 ID'),
+  id: z.string().uuid({ message: '无效的用户 ID' }),
 })
 
 const updateUserBodySchema = z

@@ -93,7 +93,7 @@ const updateConfigBodySchema = z
   )
 
 const uuidParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
 })
 
 const integrationProviderSchema = z.enum([
@@ -155,7 +155,7 @@ const createEventBodySchema = z.object({
 })
 
 const eventIdParamSchema = z.object({
-  id: z.string().uuid('无效的事件 ID'),
+  id: z.string().uuid({ message: '无效的事件 ID' }),
 })
 
 const updateEventBodySchema = z.object({

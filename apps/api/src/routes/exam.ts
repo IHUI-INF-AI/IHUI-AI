@@ -134,7 +134,7 @@ const paperTypeSchema = z.enum(['normal', 'random', 'mock', 'exam'])
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const papersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -143,7 +143,7 @@ const papersQuerySchema = z.object({
   categoryId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid('无效的分类 ID'),
+      z.string().uuid({ message: '无效的分类 ID' }),
     )
     .optional(),
   cidList: z
@@ -156,7 +156,7 @@ const papersQuerySchema = z.object({
           .map((s) => s.trim())
           .filter(Boolean)
       },
-      z.array(z.string().uuid('无效的分类 ID')).max(100).optional(),
+      z.array(z.string().uuid({ message: '无效的分类 ID' })).max(100).optional(),
     )
     .optional(),
   paperType: paperTypeSchema.optional(),
@@ -200,7 +200,7 @@ const createPaperSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   categoryId: z.string().uuid().optional(),
-  cidList: z.array(z.string().uuid('无效的分类 ID')).max(100).optional(),
+  cidList: z.array(z.string().uuid({ message: '无效的分类 ID' })).max(100).optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -217,7 +217,7 @@ const updatePaperSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
-  cidList: z.array(z.string().uuid('无效的分类 ID')).max(100).nullable().optional(),
+  cidList: z.array(z.string().uuid({ message: '无效的分类 ID' })).max(100).nullable().optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -284,7 +284,7 @@ const randomQuestionsSchema = z.object({
 })
 
 const submitAnswersSchema = z.object({
-  examId: z.string().uuid('无效的试卷 ID'),
+  examId: z.string().uuid({ message: '无效的试卷 ID' }),
   examRecordId: z.string().uuid().optional(),
   // 兼容:前端 api-client submitAnswer 用 answer,原 userAnswer 保留
   answers: z
@@ -310,7 +310,7 @@ const wrongQuestionsQuerySchema = z.object({
   examId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid('无效的试卷 ID'),
+      z.string().uuid({ message: '无效的试卷 ID' }),
     )
     .optional(),
   isResolved: z
@@ -322,26 +322,26 @@ const wrongQuestionsQuerySchema = z.object({
 })
 
 const resolveQuestionParamSchema = z.object({
-  questionId: z.string().uuid('无效的题目 ID'),
+  questionId: z.string().uuid({ message: '无效的题目 ID' }),
 })
 
 // ----- 试卷分类/题库分类/阅卷 schemas -----
 
 const updateCategoryWithIdSchema = updateExamCategorySchema.extend({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
 })
 
 const deleteCategorySchema = z.object({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
 })
 
 const autoMarkPaperSchema = z.object({
-  recordId: z.string().uuid('无效的记录 ID'),
-  paperId: z.string().uuid('无效的试卷 ID'),
+  recordId: z.string().uuid({ message: '无效的记录 ID' }),
+  paperId: z.string().uuid({ message: '无效的试卷 ID' }),
 })
 
 const manualMarkPaperSchema = z.object({
-  recordId: z.string().uuid('无效的记录 ID'),
+  recordId: z.string().uuid({ message: '无效的记录 ID' }),
   scores: z
     .array(
       z.object({
@@ -354,21 +354,21 @@ const manualMarkPaperSchema = z.object({
 })
 
 const checkSubmittedSchema = z.object({
-  recordId: z.string().uuid('无效的记录 ID'),
-  paperId: z.string().uuid('无效的试卷 ID'),
+  recordId: z.string().uuid({ message: '无效的记录 ID' }),
+  paperId: z.string().uuid({ message: '无效的试卷 ID' }),
 })
 
 // ----- 章节/小节/排序/报名/待评分 schemas -----
 
 const chapterIdParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
-  chapterId: z.string().uuid('无效的章节 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
+  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
 })
 
 const sectionParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
-  chapterId: z.string().uuid('无效的章节 ID'),
-  sectionId: z.string().uuid('无效的小节 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
+  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
+  sectionId: z.string().uuid({ message: '无效的小节 ID' }),
 })
 
 const createChapterSchema = z.object({
@@ -425,7 +425,7 @@ const pendingMarksQuerySchema = z.object({
 // ----- 状态机 schemas -----
 
 const recordIdParamSchema = z.object({
-  recordId: z.string().uuid('无效的记录 ID'),
+  recordId: z.string().uuid({ message: '无效的记录 ID' }),
 })
 
 const gradeStatusSchema = z.object({
@@ -629,7 +629,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = z
       .object({
-        examId: z.string().uuid('无效的试卷 ID'),
+        examId: z.string().uuid({ message: '无效的试卷 ID' }),
       })
       .safeParse(request.query)
     if (!parsed.success) {
@@ -732,7 +732,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // 响应: ExamResult 形状(扁平),匹配前端 api-client ExamResult
   server.post('/exam/papers/:examId/submit-answers', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const examParam = z.object({ examId: z.string().uuid('无效的试卷 ID') }).safeParse(request.params)
+    const examParam = z.object({ examId: z.string().uuid({ message: '无效的试卷 ID' }) }).safeParse(request.params)
     if (!examParam.success) {
       return reply.status(400).send(error(400, examParam.error.issues[0]?.message ?? '参数错误'))
     }
@@ -1143,7 +1143,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // 响应: ExamChapter[]  直接数组,匹配前端 api-client getExamChapters
   server.get('/exam/papers/:examId/chapters', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const parsed = z.object({ examId: z.string().uuid('无效的试卷 ID') }).safeParse(request.params)
+    const parsed = z.object({ examId: z.string().uuid({ message: '无效的试卷 ID' }) }).safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }

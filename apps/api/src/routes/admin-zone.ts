@@ -1,4 +1,4 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, asc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -6,7 +6,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { zhsZone } from '@ihui/database'
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

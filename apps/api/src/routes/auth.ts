@@ -111,7 +111,7 @@ const loginPreferencesSchema = z.object({
 })
 
 const emailLoginQuerySchema = z.object({
-  email: z.string().email('邮箱格式不正确'),
+  email: z.string().email({ message: '邮箱格式不正确' }),
 })
 
 // 注:emailLoginSchema 已迁移至 auth-extended.ts:190(loginByEmailSchema)
@@ -241,10 +241,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     try {
       const result = await verifyTurnstile(token, request.ip)
       if (!result.success) {
-        return reply.code(403).send({ code: 403, message: '人机验证失败,请重试' })
+        return reply.code(403).send(error(403, '人机验证失败,请重试'))
       }
     } catch {
-      return reply.code(403).send({ code: 403, message: '人机验证服务异常,请重试' })
+      return reply.code(403).send(error(403, '人机验证服务异常,请重试'))
     }
   })
 
@@ -1435,11 +1435,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       z.object({ ticket: z.string().min(1) }).parse(request.query)
 
       // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
-      return reply.code(501).send({
-        code: 501,
-        message: '未实装:auth /qr/status 扫码状态查询尚未实装',
-        data: null,
-      })
+      return reply.code(501).send(error(501, '未实装:auth /qr/status 扫码状态查询尚未实装'))
     },
   )
 
@@ -1449,11 +1445,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (_request, reply) => {
       // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
-      return reply.code(501).send({
-        code: 501,
-        message: '未实装:auth /qr/generate 二维码生成尚未实装',
-        data: null,
-      })
+      return reply.code(501).send(error(501, '未实装:auth /qr/generate 二维码生成尚未实装'))
     },
   )
 }
