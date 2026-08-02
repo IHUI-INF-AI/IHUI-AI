@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2, Eye, Newspaper } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
+import { generateArticleSchema } from '@/lib/seo/schema-article'
 
 interface ArticleDetail {
   id: string
@@ -77,8 +78,26 @@ export default function ArticleDetailPage() {
 
   const article = data.article
 
+  // 2026-08-02 P0-5 GEO 强化:Article JSON-LD 注入(客户端渲染,Googlebot 2024+ 可解析)
+  const articleJsonLd = generateArticleSchema({
+    headline: article.title,
+    description: article.summary || article.title,
+    url: `https://aizhs.top/articles/${article.id}`,
+    datePublished: article.publishedAt || new Date().toISOString(),
+    authorName: article.authorName || '智汇 AI',
+    keywords: article.categoryName ? [article.categoryName] : ['IHUI AI'],
+    articleBody: article.content.replace(/<[^>]*>/g, '').slice(0, 5000),
+    articleSection: article.categoryName || '文章',
+    imageUrl: article.coverImage || undefined,
+    inLanguage: locale === 'zh-TW' ? 'zh-TW' : 'zh-CN',
+  })
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <Link
         href="/articles"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
