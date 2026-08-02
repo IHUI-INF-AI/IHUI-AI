@@ -28,6 +28,7 @@ import { success, error } from '../utils/response.js'
 import { encryptJSON, decryptJSON } from '../utils/crypto.js'
 import { db } from '../db/index.js'
 import { users } from '@ihui/database'
+import { toUserFriendlyMessage } from '@ihui/shared'
 import {
   generateSecret,
   verifyTotp,
@@ -549,7 +550,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 更新资料 (Phase 5 P0 修复:接受前端 api-client 全部字段)
-  server.put('/auth/profile', async (request, reply) => {
+  server.put('/auth/profile', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const parsed = z
       .object({
@@ -621,7 +622,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 修改密码 (Phase 5 P0 修复:同时接受 camelCase 与 snake_case 字段)
-  server.put('/auth/profile/password', async (request, reply) => {
+  server.put('/auth/profile/password', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const parsed = z
       .object({
@@ -651,7 +652,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 注销
-  server.delete('/auth/cancel', async (request, reply) => {
+  server.delete('/auth/cancel', { config: { rateLimit: { max: 3, timeWindow: '1 hour' } } }, async (request, reply) => {
     await authenticate(request)
     await cancelUserAccount(request.userId!)
     return reply.send(success({ cancelled: true }))
@@ -723,7 +724,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ userId: user.id, accessToken, refreshToken }))
   })
 
-  server.post('/auth/wechat/mini/phone', async (request, reply) => {
+  server.post('/auth/wechat/mini/phone', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const { code } = codeQuery.parse(request.query)
     if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
@@ -740,7 +741,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ userId: user.id, phone }))
   })
 
-  server.post('/auth/wechat/mini/rebind', async (request, reply) => {
+  server.post('/auth/wechat/mini/rebind', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const { code } = codeQuery.parse(request.query)
     if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
@@ -923,7 +924,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // SMS Proxy — 独立短信代理端点（解决旧前端 CORS 直连问题）
-  server.post('/sms-proxy/send', async (request, reply) => {
+  // P0 安全修复(2026-08-02):公开短信端点无限流可被刷短信轰炸,1 次/分钟/IP。
+  server.post('/sms-proxy/send', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = smsCodeSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -937,7 +939,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
    * @body { phone: string, code: string }
    * @returns { valid: boolean } 验证通过返回 true，否则 false（验证码一次性使用）
    */
-  server.post('/sms-proxy/verify', async (request, reply) => {
+  server.post('/sms-proxy/verify', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = smsVerifySchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1800,7 +1802,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
    * @body { token: string, baseUrl?: string }
    * @returns { success: true, user: { name, ... } }
    */
-  server.post('/auth/pat', async (request, reply) => {
+  server.post('/auth/pat', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = patRequestSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1833,7 +1835,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply
         .status(401)
-        .send(error(401, `认证失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(401, `认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
     }
   })
 
@@ -1841,7 +1843,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
    * POST /auth/pat/async — 使用 Coze PAT 验证身份（异步,语义与 /pat 一致,保留端点兼容）。
    * @body { token: string, baseUrl?: string }
    */
-  server.post('/auth/pat/async', async (request, reply) => {
+  server.post('/auth/pat/async', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = patRequestSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1874,7 +1876,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply
         .status(401)
-        .send(error(401, `异步认证失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(401, `异步认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
     }
   })
 
@@ -1883,7 +1885,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // ============================================================================
 
   // POST /auth/change-phone/send-old-code — 向当前手机号发送验证码
-  server.post('/auth/change-phone/send-old-code', async (request, reply) => {
+  // P0 安全修复(2026-08-02):换号短信验证码端点限流 1 次/分钟,防刷短信。
+  server.post('/auth/change-phone/send-old-code', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const user = await findUserById(request.userId!)
     if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
@@ -1894,7 +1897,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /auth/change-phone/verify-old-code — 校验当前手机号验证码
   const oldCodeSchema = z.object({ code: z.string().length(6) })
-  server.post('/auth/change-phone/verify-old-code', async (request, reply) => {
+  server.post('/auth/change-phone/verify-old-code', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const user = await findUserById(request.userId!)
     if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
@@ -1915,7 +1918,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .length(11, '手机号必须为 11 位')
       .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
   })
-  server.post('/auth/change-phone/send-new-code', async (request, reply) => {
+  server.post('/auth/change-phone/send-new-code', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const parsed = newPhoneSchema.safeParse(request.body)
     if (!parsed.success)
@@ -1938,7 +1941,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
     code: z.string().length(6, '验证码必须为 6 位'),
   })
-  server.post('/auth/change-phone/confirm', async (request, reply) => {
+  server.post('/auth/change-phone/confirm', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     await authenticate(request)
     const parsed = confirmSchema.safeParse(request.body)
     if (!parsed.success)
@@ -2194,7 +2197,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply
         .status(500)
-        .send(error(500, `${platform} 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(500, `${platform} 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
     }
 
     const binding = await findThirdPartyAccount(platform, openId)
@@ -2264,7 +2267,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 手机短信验证码登录
-  server.post('/auth/login/phone-code', async (request, reply) => {
+  server.post('/auth/login/phone-code', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = z
       .object({ phone: z.string().min(1), code: z.string().length(6) })
       .safeParse(request.body)
@@ -2804,7 +2807,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         .send(
           error(
             500,
-            `${provider} 授权 URL 构造失败: ${e instanceof Error ? e.message : String(e)}`,
+            `${provider} 授权 URL 构造失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
           ),
         )
     }
@@ -2841,7 +2844,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `OIDC 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(500, `OIDC 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
     }
   })
 
@@ -2874,7 +2877,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `Discord 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(500, `Discord 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
     }
   })
 
@@ -2907,7 +2910,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `LinuxDO 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(500, `LinuxDO 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
     }
   })
 
@@ -3000,7 +3003,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         request.log.error(e)
         return reply
           .status(500)
-          .send(error(500, `Telegram 登录失败: ${e instanceof Error ? e.message : String(e)}`))
+          .send(error(500, `Telegram 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
       }
     },
   )

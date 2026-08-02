@@ -17,6 +17,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { MAX_MULTIPART_UPLOAD_SIZE } from '../utils/file-type-validator.js'
 
 // =============================================================================
 // Coze 配置 & 通用请求工具
@@ -310,6 +311,10 @@ export const cozeEcosystemRoutes: FastifyPluginAsync = async (server) => {
     const data = await request.file()
     if (!data) return reply.status(400).send(error(400, '未检测到上传音频文件'))
     const buffer = await data.toBuffer()
+    // P1 安全加固(2026-08-02):音频文件大小限制(防 DoS,CWE-400)
+    if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+      return reply.status(400).send(error(400, '音频文件大小超过 100MB 限制'))
+    }
     const result = await cozeUpload(
       '/v1/audio/transcriptions',
       reply,

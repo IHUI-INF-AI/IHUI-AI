@@ -72,6 +72,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         auth: false,
         response: swaggerSchemas.callback,
       }),
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {
@@ -199,6 +200,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         auth: false,
         response: swaggerSchemas.public,
       }),
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const query = request.query as Record<string, string>
@@ -267,6 +269,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Payment'],
         body: subscriptionRenewSchema,
       }),
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       await authenticate(request)
@@ -412,6 +415,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
           '鉴权后查询当前用户的 VIP 订阅状态(返回 isVip/vipLevel/endTime/autoRenew/planName)',
         tags: ['Payment'],
       }),
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       await authenticate(request)
