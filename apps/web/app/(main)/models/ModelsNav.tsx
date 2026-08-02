@@ -53,7 +53,7 @@ export function ModelsNav({ active }: Props) {
         return (
           <div key={groupKey} className="flex flex-wrap items-center gap-1.5">
             <span
-              className="mr-1 inline-flex h-7 items-center rounded-md bg-background/60 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+              className="inline-flex h-7 items-center rounded-md bg-background/60 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
               data-group-label={groupKey}
             >
               {PROVIDER_GROUP_LABEL[groupKey]}
@@ -62,7 +62,7 @@ export function ModelsNav({ active }: Props) {
               <ProviderPill
                 key={p}
                 href={`/models?provider=${p}`}
-                label={PROVIDER_LABEL[p] ?? '其他'}
+                label={PROVIDER_LABEL[p] ? t(PROVIDER_LABEL[p]) : p}
                 icon={<BrandIcon vendor={p} size={14} />}
                 active={active === p}
               />
