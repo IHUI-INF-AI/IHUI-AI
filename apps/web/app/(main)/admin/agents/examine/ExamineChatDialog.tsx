@@ -195,7 +195,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('fieldDesc')}</span>
-                <span className="max-w-[150px] truncate">{target?.desc || '-'}</span>
+                <span className="min-w-0 max-w-[150px] truncate">{target?.desc || '-'}</span>
               </div>
             </div>
             <div className="space-y-2">

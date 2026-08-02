@@ -13,7 +13,7 @@ interface Props {
 export function Pagination({ page, totalPages, total, setPage }: Props) {
   const t = useTranslations('admin.agentRules')
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">{t('total', { total })}</span>
       <div className="flex shrink-0 items-center gap-2">
         <Button
