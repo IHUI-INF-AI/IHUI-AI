@@ -39,6 +39,15 @@ export const metadata: Metadata = {
     url: 'https://aizhs.top/en/pricing',
     type: 'website',
     locale: 'en_US',
+    images: [
+      {
+        url: '/og-image-en.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Pricing — Simple, Transparent Plans',
+        type: 'image/jpeg',
+      },
+    ],
   },
 }
 
