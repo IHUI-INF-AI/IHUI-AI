@@ -95,21 +95,20 @@ export const metadata: Metadata = {
     shortcut: [{ url: '/favicon.ico', type: 'image/x-icon' }],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
+  // 2026-08-02 hreflang 修正:移除 en/ko/ja 路由声明(对应路由文件不存在,
+  // AI 爬虫访问 /en/agents 会 404,严重损害 GEO 信任度 + Google Search Console 报错)。
+  // 全站主体只有 zh-CN,zh-TW 仅 5 个 use-cases 子页存在(在子页面单独声明)。
   alternates: {
     canonical: '/',
     languages: {
-      'zh-CN': '/zh-cn',
-      'zh-TW': '/zh-tw',
-      en: '/en',
-      ko: '/ko',
-      ja: '/ja',
       'x-default': '/',
     },
   },
+  // 2026-08-02 OG alternateLocale 修正:只保留实际存在路由的语言(zh-CN + zh-TW)
   openGraph: {
     type: 'website',
     locale: 'zh_CN',
-    alternateLocale: ['zh_TW', 'en_US', 'ko_KR', 'ja_JP'],
+    alternateLocale: ['zh_TW'],
     url: SITE_URL,
     siteName: 'IHUI AI',
     title: 'IHUI AI — 8 端全栈 AI 操作系统',
@@ -282,7 +281,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   name: 'IHUI AI — 8 端全栈 AI 操作系统',
                   description:
                     '8 端全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型调度、8 端同源分发(Web/API/AI Service/CLI/Desktop/Browser Extension/Mobile/Miniapp)。',
-                  inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+                  // 2026-08-02 inLanguage 修正:只保留实际存在路由的语言(zh-CN 主 + zh-TW 5 子页)
+                  inLanguage: ['zh-CN', 'zh-TW'],
                   publisher: { '@id': 'https://aizhs.top/#organization' },
                   potentialAction: {
                     '@type': 'SearchAction',
@@ -310,7 +310,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   softwareVersion: '2026.07',
                   datePublished: '2024-01-01',
                   dateModified: '2026-07-26',
-                  inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+                  // 2026-08-02 inLanguage 修正:只保留实际存在路由的语言(zh-CN 主 + zh-TW 5 子页)
+                  inLanguage: ['zh-CN', 'zh-TW'],
                   offers: {
                     '@type': 'Offer',
                     price: '0',
