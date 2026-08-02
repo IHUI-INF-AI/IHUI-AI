@@ -123,7 +123,7 @@ describe('P30 补写路由集成测试', () => {
 
     beforeAll(async () => {
       app = Fastify({ logger: false })
-      app.decorate('pushNotification', vi.fn())
+      app.decorate('pushNotification', vi.fn<(userId: string, payload: unknown) => void>())
       await app.register(rewardedVideoAdRoutes, { prefix: '/api/rewarded-video-ad' })
       await app.ready()
     })

@@ -237,7 +237,7 @@ const adminFlowsQuerySchema = z.object({
 })
 
 const adjustSchema = z.object({
-  userId: z.string().uuid('用户 ID 格式错误'),
+  userId: z.string().uuid({ message: '用户 ID 格式错误' }),
   amount: z
     .number()
     .int()

@@ -30,7 +30,7 @@ const ADMIN_ROLE_ID = 1
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -70,7 +70,7 @@ const transitionSchema = z.object({
 })
 
 const assignSchema = z.object({
-  agentId: z.string().uuid('assigneeId 不能为空'),
+  agentId: z.string().uuid({ message: 'assigneeId 不能为空' }),
 })
 
 const createCommentSchema = z.object({

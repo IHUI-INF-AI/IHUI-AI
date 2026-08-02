@@ -20,7 +20,7 @@ import {
 } from '../services/srs-review-service.js'
 
 const reviewSchema = z.object({
-  questionId: z.string().uuid('无效的题目 ID'),
+  questionId: z.string().uuid({ message: '无效的题目 ID' }),
   quality: z.number().int().min(0).max(5),
 })
 

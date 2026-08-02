@@ -77,7 +77,7 @@ const paginationQuery = {
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
 
-const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const resourcesListQuery = z.object({
   ...paginationQuery,
@@ -160,7 +160,7 @@ const productsListQuery = z.object({
 })
 
 const createProductSchema = z.object({
-  resourceId: z.string().uuid('无效的资源 ID'),
+  resourceId: z.string().uuid({ message: '无效的资源 ID' }),
   name: z.string().min(1).max(200),
   price: z
     .string()

@@ -99,7 +99,7 @@ const R = {
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -126,7 +126,7 @@ const companyListQuery = z.object({
 
 const byIdsQuery = z.object({ ids: z.string().min(1, 'ids 不能为空') })
 
-const byIdQuery = z.object({ id: z.string().uuid('无效的会员 ID') })
+const byIdQuery = z.object({ id: z.string().uuid({ message: '无效的会员 ID' }) })
 
 const registerSchema = z.object({
   username: z.string().min(1, '用户名不能为空').max(100),
@@ -158,7 +158,7 @@ const createMemberSchema = z.object({
 })
 
 const updateMemberSchema = z.object({
-  id: z.string().uuid('无效的会员 ID'),
+  id: z.string().uuid({ message: '无效的会员 ID' }),
   mobile: z.string().max(30).nullable().optional(),
   email: z.string().max(200).nullable().optional(),
   nickname: z.string().max(100).nullable().optional(),
@@ -170,10 +170,10 @@ const updateMemberSchema = z.object({
   growthValue: z.number().int().min(0).optional(),
 })
 
-const memberIdBodySchema = z.object({ id: z.string().uuid('无效的会员 ID') })
+const memberIdBodySchema = z.object({ id: z.string().uuid({ message: '无效的会员 ID' }) })
 
 const resetPwdSchema = z.object({
-  id: z.string().uuid('无效的会员 ID'),
+  id: z.string().uuid({ message: '无效的会员 ID' }),
   password: z.string().min(1, '密码不能为空'),
 })
 
@@ -188,7 +188,7 @@ const createLevelSchema = z.object({
 })
 
 const updateLevelSchema = z.object({
-  id: z.string().uuid('无效的等级 ID'),
+  id: z.string().uuid({ message: '无效的等级 ID' }),
   name: z.string().min(1).max(100).optional(),
   growthValue: z.number().int().min(0).optional(),
   discount: z
@@ -234,7 +234,7 @@ const departmentsListQuery = z.object({
 })
 
 const createDepartmentSchema = z.object({
-  companyId: z.string().uuid('无效的企业 ID'),
+  companyId: z.string().uuid({ message: '无效的企业 ID' }),
   name: z.string().min(1, '名称不能为空').max(200),
   pid: z.string().uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),

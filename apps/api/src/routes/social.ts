@@ -48,8 +48,8 @@ const paginationQuery = {
 
 const paginationOnlyQuery = z.object(paginationQuery);
 
-const userIdParam = z.object({ userId: z.string().uuid('无效的用户 ID') });
-const tagIdParam = z.object({ id: z.string().uuid('无效的标签 ID') });
+const userIdParam = z.object({ userId: z.string().uuid({ message: '无效的用户 ID' }) });
+const tagIdParam = z.object({ id: z.string().uuid({ message: '无效的标签 ID' }) });
 const slugParam = z.object({ slug: z.string().min(1).max(96) });
 
 const favoriteBody = z.object({
@@ -107,7 +107,7 @@ const attachBody = z.object({
 });
 
 const attachResourceParam = z.object({
-  id: z.string().uuid('无效的标签 ID'),
+  id: z.string().uuid({ message: '无效的标签 ID' }),
   resourceType: z.enum(TAG_RESOURCE_TYPES),
   resourceId: z.string().min(1).max(128),
 });

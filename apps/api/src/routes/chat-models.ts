@@ -1171,14 +1171,14 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     items.sort((a, b) => b.createTime - a.createTime)
     const total = items.length
     const paged = items.slice((page - 1) * limit, page * limit)
-    const data = paged.map((r) => ({
+    const list = paged.map((r) => ({
       id: r.id,
       user_uuid: r.userId,
       model_name: r.modelName,
       mark: r.mark,
       create_time: new Date(r.createTime).toISOString(),
     }))
-    return reply.send({ ...success(data), total })
+    return reply.send(success({ list, total, page, pageSize: limit }))
   })
 
   server.put('/history/:chatId/mark', async (request, reply) => {

@@ -22,15 +22,15 @@ const paginationQuery = {
 }
 
 const createSchema = z.object({
-  questionId: z.string().uuid('questionId 必须为 UUID'),
-  paperId: z.string().uuid('paperId 必须为 UUID'),
+  questionId: z.string().uuid({ message: 'questionId 必须为 UUID' }),
+  paperId: z.string().uuid({ message: 'paperId 必须为 UUID' }),
   paperTitle: z.string().max(200).optional(),
   userAnswer: z.string().min(1, '用户答案不能为空'),
   rightAnswer: z.string().min(1, '正确答案不能为空'),
 })
 
 const deleteSchema = z.object({
-  id: z.string().uuid('id 必须为 UUID'),
+  id: z.string().uuid({ message: 'id 必须为 UUID' }),
 })
 
 const listQuery = z.object({
