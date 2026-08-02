@@ -218,3 +218,5 @@ export * from './relay-conversations.js'
 export * from './ai-model-sync-log.js'
 // IM 多平台远程连接控制(2026-07-31 立,P0 16 平台适配器配置 + 消息历史)
 export * from './im-adapters.js'
+// 用户设备表(2026-08-02 立,按设备指纹识别真实设备,替代 api_logs 聚合 IP+UA 旧方案)
+export * from './user-devices.js'

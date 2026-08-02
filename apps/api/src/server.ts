@@ -84,6 +84,7 @@ import networkSegmentPlugin from './plugins/network-segment.js'
 import auditLoggerPlugin from './plugins/audit-logger.js'
 import antiAutomationPlugin from './plugins/anti-automation.js'
 import threatDetectorPlugin from './plugins/threat-detector.js'
+import { anomalyDetectorPlugin } from './plugins/anomaly-detector-plugin.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -472,6 +473,10 @@ async function registerPlugins(server: FastifyInstance) {
   // 国安级威胁检测:基于 IP 信誉评分主动封禁(与 anti-automation 互补:
   // anti-automation 基于 specific events,threat-detector 基于 reputation score)
   await server.register(threatDetectorPlugin)
+  // 异常行为检测(6 维度行为评分):基于频率/时间/地理/指纹/扫描器/基线实时分析,
+  // 与 threat-detector(IP 信誉评分)互补——信誉先行,行为补充。
+  // 顺序敏感:必须在 threatDetectorPlugin 之后、networkSegmentPlugin 之前。
+  await server.register(anomalyDetectorPlugin)
   await server.register(networkSegmentPlugin)
   await server.register(mtlsPlugin)
   await server.register(auditLoggerPlugin)

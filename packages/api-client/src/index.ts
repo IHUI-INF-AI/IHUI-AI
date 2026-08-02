@@ -4,6 +4,8 @@ export {
   fetchRaw,
   fetchText,
   setTokenProvider,
+  setDeviceFingerprintProvider,
+  getDeviceFingerprintProvider,
   setBaseUrl,
   setStreamBaseUrl,
   streamChat,
@@ -17,6 +19,7 @@ export {
 } from './client'
 export type {
   TokenProvider,
+  DeviceFingerprintProvider,
   StreamChatOptions,
   SSEErrorInfo,
   SSEErrorSeverity,
