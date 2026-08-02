@@ -204,7 +204,7 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   job.startedAt = new Date()
   job.progress = 0
 
-  return new Promise<TranscodeJob>((resolve) => {
+  return new Promise<TranscodeJob>((resolve, reject) => {
     const child = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] })
     childProcesses.set(jobId, child)
 
@@ -221,10 +221,17 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
       }
     })
 
-    child.on('close', async (code) => {
+    // P0 修复(2026-08-02):改 on 为 once,避免 close/error 重复触发;
+    // close 回调检查 cancelled 状态,防止 cancelTranscodeJob 的 cancelled 被 close 覆盖为 failed;
+    // error 时 reject(不再 resolve),让调用方能捕获 spawn 失败。
+    child.once('close', async (code) => {
       childProcesses.delete(jobId)
+      // 已取消:保持 cancelled 状态,不改写
+      if (job.status === 'cancelled') {
+        resolve(job)
+        return
+      }
       job.completedAt = new Date()
-
       if (code === 0) {
         try {
           const stats = await stat(job.outputPath)
@@ -242,12 +249,14 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
       resolve(job)
     })
 
-    child.on('error', (err) => {
+    child.once('error', (err) => {
+      // 已取消:不覆盖状态(reject 由 close 的 cancelled 分支 resolve)
+      if (job.status === 'cancelled') return
       childProcesses.delete(jobId)
       job.status = 'failed'
       job.error = `启动 FFmpeg 失败: ${err.message}（请确认系统已安装 ffmpeg）`
       job.completedAt = new Date()
-      resolve(job)
+      reject(err)
     })
   })
 }
@@ -264,12 +273,19 @@ export async function cancelTranscodeJob(jobId: string): Promise<TranscodeJob | 
   const job = jobs.get(jobId)
   if (!job) return undefined
   const child = childProcesses.get(jobId)
-  if (child) {
-    child.kill('SIGKILL')
-    childProcesses.delete(jobId)
-  }
+  // P0 修复(2026-08-02):先设 cancelled 状态,再 kill,等 close 事件再返回,
+  // 防止 startTranscodeJob 的 close 回调把 cancelled 覆盖为 failed + 避免僵尸进程。
   job.status = 'cancelled'
   job.completedAt = new Date()
+  if (child) {
+    child.kill('SIGKILL')
+    // 等 close 事件再继续,避免僵尸进程;5s 超时兜底防卡死
+    await new Promise<void>((resolve) => {
+      child.once('close', () => resolve())
+      setTimeout(resolve, 5000)
+    })
+    childProcesses.delete(jobId)
+  }
   // 清理输出目录
   try {
     await rm(job.outputDir, { recursive: true, force: true })
