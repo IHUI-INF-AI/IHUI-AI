@@ -1489,7 +1489,6 @@
     }
   },
   "admin": {
-    "title": "管理後臺",
     "relayParamOps": {
       "title": "參數覆蓋規則",
       "subtitle": "轉發層 applyParamOps 規則管理(15 種 op + 條件 + JSON 路徑)",
@@ -14259,8 +14258,7 @@
       "empty": "請先儲存預覽以檢視評論",
       "noComments": "暫無評論",
       "loadingFailed": "載入評論失敗",
-      "send": "傳送評論",
-      "commented": "已評論"
+      "send": "傳送評論"
     },
     "aiGenerate": {
       "button": "AI 生成",
@@ -14282,13 +14280,7 @@
     "responsive": {
       "customWidth": "自訂寬度",
       "apply": "套用",
-      "deviceFrame": "裝置外框",
-      "deviceMobilePortrait": "Mobile Portrait",
-      "deviceMobileLandscape": "Mobile Landscape",
-      "deviceTabletPortrait": "Tablet Portrait",
-      "deviceTabletLandscape": "Tablet Landscape",
-      "deviceDesktop": "Desktop",
-      "deviceCustom": "Custom"
+      "deviceFrame": "裝置外框"
     },
     "templates": {
       "title": "範本"
@@ -15040,13 +15032,6 @@
     "cardLabel": "API 定價",
     "cardDesc": "模型價格與計費規則"
   },
-  "messageInput": {
-    "document": "檔案",
-    "removeFile": "移除檔案",
-    "placeholder": "輸入訊息...",
-    "clear": "清空",
-    "stop": "停止"
-  },
   "auth": {
     "emailLogin": "郵箱",
     "phoneCodeLogin": "手機",
@@ -15172,8 +15157,6 @@
     }
   },
   "title": "管理後臺",
-  "modelFree": "免費",
-  "modelPointsMultiplier": "積分消耗倍數",
   "errors": {
     "requestFailed": "請求失敗",
     "region": "錯誤通知",

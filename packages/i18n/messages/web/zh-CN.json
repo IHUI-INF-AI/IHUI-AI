@@ -1471,7 +1471,6 @@
     }
   },
   "admin": {
-    "title": "管理后台",
     "relayParamOps": {
       "title": "参数覆盖规则",
       "subtitle": "转发层 applyParamOps 规则管理(15 种 op + 条件 + JSON 路径)",
@@ -14201,8 +14200,7 @@
       "empty": "请先保存预览以查看评论",
       "noComments": "暂无评论",
       "loadingFailed": "加载评论失败",
-      "send": "发送评论",
-      "commented": "已评论"
+      "send": "发送评论"
     },
     "aiGenerate": {
       "button": "AI 生成",
@@ -14224,13 +14222,7 @@
     "responsive": {
       "customWidth": "自定义宽度",
       "apply": "应用",
-      "deviceFrame": "设备外框",
-      "deviceMobilePortrait": "Mobile Portrait",
-      "deviceMobileLandscape": "Mobile Landscape",
-      "deviceTabletPortrait": "Tablet Portrait",
-      "deviceTabletLandscape": "Tablet Landscape",
-      "deviceDesktop": "Desktop",
-      "deviceCustom": "Custom"
+      "deviceFrame": "设备外框"
     },
     "templates": {
       "title": "模板"
@@ -14982,13 +14974,6 @@
     "cardLabel": "API 定价",
     "cardDesc": "模型价格与计费规则"
   },
-  "messageInput": {
-    "document": "文件",
-    "removeFile": "移除文件",
-    "placeholder": "输入消息...",
-    "clear": "清空",
-    "stop": "停止"
-  },
   "auth": {
     "emailLogin": "邮箱",
     "phoneCodeLogin": "手机",
@@ -15114,8 +15099,6 @@
     }
   },
   "title": "管理后台",
-  "modelFree": "免费",
-  "modelPointsMultiplier": "积分消耗倍数",
   "errors": {
     "requestFailed": "请求失败",
     "region": "错误通知",
