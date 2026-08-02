@@ -159,6 +159,7 @@ const VENDOR_COMPONENTS: Record<
   grok: XAI, // Grok 是 xAI 公司产品
   cohere: Cohere,
   nvidia: Nvidia,
+  nvidia_nim: Nvidia, // 2026-08-02 alias:后端 provider_code 用 nvidia_nim
   ai21: Ai21,
   microsoft: Microsoft,
   perplexity: Perplexity,
@@ -186,6 +187,7 @@ const VENDOR_COMPONENTS: Record<
   nous: NousResearch,
   nousresearch: NousResearch,
   github: Github,
+  github_models: Github, // 2026-08-02 alias:后端 provider_code 用 github_models
   githubcopilot: GithubCopilot,
   vertexai: VertexAI,
   vertex: VertexAI,
@@ -252,6 +254,7 @@ const VENDOR_COMPONENTS: Record<
   qingyan: Qingyan,
   chatglm: ChatGLM,
   alibaba: Alibaba,
+  alibaba_intl: Alibaba, // 2026-08-02 alias:后端 provider_code 用 alibaba_intl(阿里云国际版)
   tencent: Tencent,
   huawei: Huawei,
   // 2026-07-31 Codex 10 插件补全:Chrome / Figma(已收录) / Remotion / Hyperframes
@@ -261,7 +264,9 @@ const VENDOR_COMPONENTS: Record<
   hyperframes: Video, // lucide 兜底(@lobehub 无 Hyperframes 真实矢量,与 video 共享)
   // 2026-07-31 补全 7 个真实矢量:@lobehub/icons 5.14 已收录,此前遗漏映射
   vercel: Vercel,
+  vercel_ai_gateway: Vercel, // 2026-08-02 alias:后端 provider_code 用 vercel_ai_gateway
   cloudflare: Cloudflare,
+  cloudflare_workers_ai: Cloudflare, // 2026-08-02 alias:后端 provider_code 用 cloudflare_workers_ai
   notion: Notion,
   adobe: Adobe,
   brave: Brave,
