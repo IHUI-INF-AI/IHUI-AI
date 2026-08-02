@@ -60,10 +60,11 @@ export const NAV_CHILD_CLASS =
 /** 通用按钮:新建任务 / 工具栏触发器
  *  - h-9 w-full 与导航项高度一致
  *  - bg-foreground/10 浅色态背景,hover 加深到 20%
+ *  - gap-2.5 + px-2.5 + py-2 与 NAV_ITEM_BASE_CLASS 完全对齐(2026-08-02 修:原 gap-2/px-3 导致文字位置与导航项不一致)
  *  - [&>span]:translate-y-[var(--text-vcenter-offset)] 对齐(默认 0.3px)
  */
 export const BTN_NEW_CONVERSATION_CLASS =
-  'flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm font-medium leading-none transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
+  'flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
 
 /** 通用 chip / 可关闭标签
  *  - h-7 = 28px(比主导航项略矮)
