@@ -7,15 +7,16 @@
  * - 任一条日志被篡改 → 后续所有 hash 校验失败,可定位篡改位置
  *
  * secret 管理:
- * - 优先从 config.AUDIT_LOG_HMAC_SECRET 读取
- * - 缺失时启动期 logger.error 警告 + 降级为随机内存 secret
- *   (重启后链断裂无法验证历史,但运行期内链可验证;生产必须显式配置)
+ * - 优先从 config.AUDIT_LOG_HMAC_SECRET 读取(>= 32 字符)
+ * - 生产环境缺失/长度不足 → throw 拒绝启动(防止链断裂无法验证)
+ * - 非生产环境缺失 → logger.warn 警告 + 降级为随机内存 secret
+ *   (重启后链断裂无法验证历史,但运行期内链可验证;仅供开发使用)
  *
  * canonicalJSON:递归排序对象 key,确保 metadata 序列化稳定,
  * 避免 JSONB 读取后 key 顺序变化导致 hash 误报。
  */
 import { sql } from 'drizzle-orm'
-import { config, type Config } from '../config/index.js'
+import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { hmacSHA256, secureRandomBytes } from '../utils/crypto-extra.js'
 import { db } from '../db/index.js'
@@ -71,21 +72,28 @@ const GENESIS_HASH = '0'.repeat(64)
 /**
  * 读取 HMAC secret。
  *
- * config schema 当前未声明 AUDIT_LOG_HMAC_SECRET,用类型断言安全访问
- * (主 agent 后续可在 config/index.ts 增加该字段,无需改本文件)。
- * 缺失时生成随机内存 secret 并 logger.error 警告。
+ * config.AUDIT_LOG_HMAC_SECRET 已在 config/index.ts 声明(>= 32 字符或空字符串)。
+ * - 生产环境缺失/长度不足 → throw 拒绝启动(防止重启后链断裂 + 多实例 secret 不一致)
+ * - 非生产环境缺失 → logger.warn 警告 + 降级为随机内存 secret(仅供开发使用)
  */
 function resolveAuditSecret(): string {
-  const fromConfig = (config as Config & { AUDIT_LOG_HMAC_SECRET?: string }).AUDIT_LOG_HMAC_SECRET
-  if (fromConfig && fromConfig.length >= 32) return fromConfig
+  const secret = config.AUDIT_LOG_HMAC_SECRET
+  if (secret && secret.length >= 32) return secret
 
-  // 降级:随机 32 字节 hex(64 字符)。运行期可验证,重启后链断裂。
-  const fallback = secureRandomBytes(32).toString('hex')
-  logger.error(
-    '[audit-log-service] AUDIT_LOG_HMAC_SECRET 未配置或长度 < 32,降级为随机内存 secret。' +
+  // 生产环境强制要求配置,缺失时拒绝启动
+  if (config.NODE_ENV === 'production') {
+    throw new Error(
+      '[audit-log-service] AUDIT_LOG_HMAC_SECRET must be configured in production (>= 32 chars). ' +
+        'Without a stable secret, the audit log chain cannot be verified after restart or across instances.',
+    )
+  }
+
+  // 非生产环境保留降级:随机 32 字节 hex(64 字符)。运行期可验证,重启后链断裂。
+  logger.warn(
+    '[audit-log-service] AUDIT_LOG_HMAC_SECRET 未配置或长度 < 32,降级为随机内存 secret(仅限非生产环境)。' +
       '重启后历史链将无法验证,生产环境必须显式配置 config.AUDIT_LOG_HMAC_SECRET(>= 32 字符)。',
   )
-  return fallback
+  return secureRandomBytes(32).toString('hex')
 }
 
 let auditSecret: string | null = null

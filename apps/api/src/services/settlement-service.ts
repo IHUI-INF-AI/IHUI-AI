@@ -333,6 +333,29 @@ export async function getAgentName(agentId: string): Promise<string | null> {
 // =============================================================================
 
 /**
+ * P2 修复:价格字符串/数字 → 整数分,用字符串处理避免浮点精度丢失。
+ *
+ * 原实现 `Math.round(Number(price) * 100)` 在 `price = "19.99"` 等场景下,
+ * 因 IEEE 754 浮点 `19.99 * 100 = 1998.9999999999998`,Math.round 得 1999(正确)
+ * 但 `0.1 + 0.2 = 0.30000000000000004` 类场景下 *100 可能得 30.000000000000004
+ * 或 29.999999999999996,累加后产生 1 分级误差。
+ *
+ * 本函数全程字符串解析,不触发浮点运算:
+ * - "10"     → 10*100 + 0   = 1000 分
+ * - "10.5"   → 10*100 + 50  = 1050 分
+ * - "10.56"  → 10*100 + 56  = 1056 分
+ * - "10.567" → 10*100 + 56  = 1056 分(截断到 2 位,价格不应超过 2 位小数)
+ *
+ * @param priceStr 价格(string | number),number 会先 String() 转换
+ * @returns 整数分
+ */
+function priceToCents(priceStr: string | number): number {
+  const s = String(priceStr)
+  const [whole = '0', frac = ''] = s.split('.')
+  return parseInt(whole, 10) * 100 + parseInt(frac.padEnd(2, '0').slice(0, 2), 10)
+}
+
+/**
  * 将智能体购买记录同步到结算表（按月度切分生成结算记录）。
  *
  * 迁移自旧架构 app/utils/settlement_helper.py 的 sync_agent_buy_to_settlement。
@@ -359,7 +382,8 @@ export async function syncAgentBuyToSettlement(buyRecord: {
       return true
     }
 
-    const amountInCents = Math.round(Number(buyRecord.price) * 100)
+    // P2 修复:用字符串处理避免浮点精度丢失(原 Math.round(Number(price)*100) 在边界值有 1 分级误差)
+    const amountInCents = priceToCents(buyRecord.price)
     const records = await createSettlementRecordsForRange(
       buyRecord.agentId,
       buyRecord.createdAt,
