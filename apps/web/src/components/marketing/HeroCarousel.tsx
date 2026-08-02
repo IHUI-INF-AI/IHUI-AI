@@ -90,14 +90,16 @@ export function HeroCarousel({
       {slides.map((slide, idx) => (
         <div
           key={idx}
-          className={`absolute inset-0 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-6 transition-opacity duration-700 min-[768px]:px-16 ${
+          className={`absolute top-4 bottom-4 left-4 right-4 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-6 transition-opacity duration-700 min-[768px]:px-16 ${
             idx === current ? 'opacity-100' : 'opacity-0'
           }`}
         >
           <h2 className="line-clamp-2 max-w-2xl text-2xl font-bold text-white drop-shadow-lg min-[768px]:text-3xl min-[1024px]:text-5xl">
             {t(slide.titleKey)}
           </h2>
-          <p className="mt-3 line-clamp-2 max-w-xl text-sm text-white/85 min-[768px]:text-lg">{t(slide.subtitleKey)}</p>
+          <p className="mt-3 line-clamp-2 max-w-xl text-sm text-white/85 min-[768px]:text-lg">
+            {t(slide.subtitleKey)}
+          </p>
           <Link href={slide.href} className="mt-6 inline-block w-fit">
             <Button
               size="lg"
@@ -114,7 +116,9 @@ export function HeroCarousel({
       {/* 品牌标识 */}
       <div className="absolute left-6 top-5 z-10 flex items-center gap-2 text-white/90">
         <Sparkles className="h-5 w-5" />
-        <span className="whitespace-nowrap text-sm font-medium tracking-wide">{t('brandLabel')}</span>
+        <span className="whitespace-nowrap text-sm font-medium tracking-wide">
+          {t('brandLabel')}
+        </span>
       </div>
 
       {/* 右侧 5 个分页指示器 */}

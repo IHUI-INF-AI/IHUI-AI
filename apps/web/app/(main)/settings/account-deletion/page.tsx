@@ -131,97 +131,97 @@ export default function AccountDeletionPage() {
 
   const toastClass =
     toast?.type === 'success'
-      ? 'fixed bottom-4 right-4 z-50 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 shadow-md dark:text-emerald-400'
-      : 'fixed bottom-4 right-4 z-50 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
+      ? 'fixed bottom-4 right-4 z-notification rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 shadow-md dark:text-emerald-400'
+      : 'fixed bottom-4 right-4 z-notification rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 shadow-md dark:text-red-400'
 
   return (
     <div className="space-y-4">
       <BackButton />
       <Alert variant="warning" title={t('accountDeletionWarning')} />
 
-        {loading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
-        ) : status?.isScheduled ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CheckCircle2 className="h-4 w-4" />
-                {t('accountDeletionStatusScheduled')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {status.scheduledDate && (
-                <p className="text-sm text-muted-foreground">{formatDate(status.scheduledDate)}</p>
-              )}
-              {status.canCancel && (
-                <Button variant="outline" size="sm" onClick={handleCancel} disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {t('accountDeletionCancel')}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <AlertTriangle className="h-4 w-4" />
-                {t('accountDeletionConfirm')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                label={t('accountDeletionPhoneLabel')}
-                placeholder={t('accountDeletionPhonePlaceholder')}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-
-              <div className="space-y-2">
-                <Input
-                  label={t('accountDeletionCodeLabel')}
-                  placeholder={t('accountDeletionCodePlaceholder')}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSendCode}
-                  disabled={sending || countdown > 0 || !phone}
-                >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  {countdown > 0
-                    ? t('accountDeletionResend', { seconds: countdown })
-                    : t('accountDeletionSendCode')}
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">
-                  {t('accountDeletionConfirm')}
-                </span>
-                <Switch checked={confirmed} onCheckedChange={setConfirmed} className="shrink-0" />
-              </div>
-
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={handleSubmit}
-                disabled={!confirmed || !code || submitting}
-              >
+      {loading ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">{t('activityLoading')}</p>
+      ) : status?.isScheduled ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CheckCircle2 className="h-4 w-4" />
+              {t('accountDeletionStatusScheduled')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {status.scheduledDate && (
+              <p className="text-sm text-muted-foreground">{formatDate(status.scheduledDate)}</p>
+            )}
+            {status.canCancel && (
+              <Button variant="outline" size="sm" onClick={handleCancel} disabled={submitting}>
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {submitting ? t('accountDeletionSubmitting') : t('accountDeletionSubmit')}
+                {t('accountDeletionCancel')}
               </Button>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4" />
+              {t('accountDeletionConfirm')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              label={t('accountDeletionPhoneLabel')}
+              placeholder={t('accountDeletionPhonePlaceholder')}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
 
-        {toast && <div className={toastClass}>{toast.msg}</div>}
+            <div className="space-y-2">
+              <Input
+                label={t('accountDeletionCodeLabel')}
+                placeholder={t('accountDeletionCodePlaceholder')}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSendCode}
+                disabled={sending || countdown > 0 || !phone}
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {countdown > 0
+                  ? t('accountDeletionResend', { seconds: countdown })
+                  : t('accountDeletionSendCode')}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                {t('accountDeletionConfirm')}
+              </span>
+              <Switch checked={confirmed} onCheckedChange={setConfirmed} className="shrink-0" />
+            </div>
+
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleSubmit}
+              disabled={!confirmed || !code || submitting}
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {submitting ? t('accountDeletionSubmitting') : t('accountDeletionSubmit')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {toast && <div className={toastClass}>{toast.msg}</div>}
     </div>
   )
 }

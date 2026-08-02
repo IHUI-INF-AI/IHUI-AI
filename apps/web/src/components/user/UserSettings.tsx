@@ -29,7 +29,7 @@ export default function UserSettings({
   className,
 }: UserSettingsProps): React.JSX.Element {
   return (
-    <div className={cn('divide-y rounded-xl border bg-card', className)}>
+    <div className={cn('space-y-2 rounded-xl border bg-card p-2', className)}>
       {items.map((item) => (
         <button
           key={item.key}

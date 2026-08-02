@@ -313,7 +313,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
 
   return (
     <div
-      className="sticky top-0 z-20 flex shrink-0 items-center gap-1.5 border-b border-border/40 bg-background/95 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      className="sticky top-0 z-30 flex shrink-0 items-center gap-1.5 border-b border-border/40 bg-background/95 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       data-testid="message-search-bar"
       role="search"
       aria-label={t('search')}

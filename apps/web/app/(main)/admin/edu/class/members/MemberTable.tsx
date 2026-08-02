@@ -2,7 +2,15 @@
 import { Trash2, Loader2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isNotFound } from '@/lib/api-error'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { Member } from './types'
@@ -65,7 +73,7 @@ export function MemberTable({ rows, isLoading, error, classId, onRemove, removeP
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {rows.map((m) => (
             <TableRow key={m.id} className="hover:bg-muted/30">
               <TableCell className="px-4 py-2.5 font-medium">

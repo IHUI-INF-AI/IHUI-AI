@@ -92,7 +92,7 @@ export default async function UsagePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('usage.byModel.model')}</th>
                   <th className="px-4 py-2 font-medium">{t('usage.byModel.calls')}</th>
                   <th className="px-4 py-2 font-medium">{t('usage.byModel.tokens')}</th>
@@ -102,10 +102,7 @@ export default async function UsagePage() {
               </thead>
               <tbody>
                 {byModel.map((m) => (
-                  <tr
-                    key={m.model}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={m.model} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{m.model}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">
                       {m.calls.toLocaleString()}

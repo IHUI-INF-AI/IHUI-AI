@@ -108,7 +108,7 @@ export default function ClawdbotMessagesPage() {
       </div>
 
       <div className="rounded-lg border bg-card">
-        <div className="divide-y">
+        <div className="space-y-2">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
               暂无消息
@@ -153,7 +153,7 @@ export default function ClawdbotMessagesPage() {
             className="w-full max-w-lg overflow-hidden rounded-lg border bg-card"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b px-4 py-2.5">
+            <div className="flex items-center justify-between px-4 py-2.5">
               <p className="text-sm font-medium">消息详情</p>
               <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
                 <X className="h-4 w-4" />

@@ -4,15 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Package,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Power,
-  Pencil,
-  Loader2,
-} from 'lucide-react'
+import { Package, Search, ChevronLeft, ChevronRight, Power, Pencil, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -216,101 +208,110 @@ export default function AdminRelayModelsPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
-            <tr>
-              <th className="px-3 py-2 text-left">模型</th>
-              <th className="px-3 py-2 text-left">厂商</th>
-              <th className="px-3 py-2 text-right">上下文</th>
-              <th className="px-3 py-2 text-right">倍率</th>
-              <th className="px-3 py-2 text-right">排序</th>
-              <th className="px-3 py-2 text-left">状态</th>
-              <th className="px-3 py-2 text-left">更新时间</th>
-              <th className="px-3 py-2 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <tr key={`sk-${i}`} className="border-t border-border">
-                  <td colSpan={8} className="px-3 py-2">
-                    <Skeleton className="h-6 w-full" />
-                  </td>
-                </tr>
-              ))
-            ) : list.length === 0 ? (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
-                  暂无数据
-                </td>
+                <th className="px-3 py-2 text-left">模型</th>
+                <th className="px-3 py-2 text-left">厂商</th>
+                <th className="px-3 py-2 text-right">上下文</th>
+                <th className="px-3 py-2 text-right">倍率</th>
+                <th className="px-3 py-2 text-right">排序</th>
+                <th className="px-3 py-2 text-left">状态</th>
+                <th className="px-3 py-2 text-left">更新时间</th>
+                <th className="px-3 py-2 text-right">操作</th>
               </tr>
-            ) : (
-              list.map((m) => (
-                <tr key={m.id} className="border-t border-border">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{m.relayDisplayName || m.displayName || m.modelId}</div>
-                    <div className="text-xs text-muted-foreground">{m.modelId}</div>
-                  </td>
-                  <td className="px-3 py-2 text-xs">{m.providerCode}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {m.contextLength ? (m.contextLength / 1000).toFixed(0) + 'K' : '-'}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {m.relayPriceMultiplier ?? '1.0000'}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{m.relaySortOrder ?? 0}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs ${
-                        m.isRelayPublic
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {m.isRelayPublic ? '已上架' : '未上架'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {fmt.format(new Date(m.updatedAt))}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEdit(m)}
-                        title="编辑"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={toggleMutation.isPending}
-                        onClick={() => toggleMutation.mutate(m.id)}
-                        title={m.isRelayPublic ? '下架' : '上架'}
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                    </div>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    <td colSpan={8} className="px-3 py-2">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无数据
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                list.map((m) => (
+                  <tr key={m.id}>
+                    <td className="px-3 py-2">
+                      <div className="font-medium">
+                        {m.relayDisplayName || m.displayName || m.modelId}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{m.modelId}</div>
+                    </td>
+                    <td className="px-3 py-2 text-xs">{m.providerCode}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {m.contextLength ? (m.contextLength / 1000).toFixed(0) + 'K' : '-'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {m.relayPriceMultiplier ?? '1.0000'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{m.relaySortOrder ?? 0}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          m.isRelayPublic
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {m.isRelayPublic ? '已上架' : '未上架'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {fmt.format(new Date(m.updatedAt))}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(m)} title="编辑">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={toggleMutation.isPending}
+                          onClick={() => toggleMutation.mutate(m.id)}
+                          title={m.isRelayPublic ? '下架' : '上架'}
+                        >
+                          <Power className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>

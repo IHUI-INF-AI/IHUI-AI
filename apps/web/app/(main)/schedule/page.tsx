@@ -153,7 +153,7 @@ export default function SchedulePage() {
                     {task.targetMethod ? `.${task.targetMethod}` : ''}
                   </p>
                 )}
-                <div className="flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between mt-2 pt-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     {statusIcon(task.lastRunStatus)}
                     {task.lastRunStatus ?? t('neverRun')}

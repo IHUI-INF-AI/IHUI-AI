@@ -29,7 +29,7 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
             <th className={`${TH_CLASS} text-right`}>{t('colActions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td

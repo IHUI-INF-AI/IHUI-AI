@@ -2,7 +2,15 @@
 
 import { Loader2, Edit, Trash2, CreditCard } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
@@ -34,7 +42,7 @@ export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, 
             <TableHead className="px-4 py-2.5 text-right">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -74,7 +82,9 @@ export function CoursePayTable({ list, isLoading, error, deletePending, onEdit, 
                     {t(PAY_TYPE_KEY[r.payType] ?? 'payType.unknown')}
                   </span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5">{t(PAY_CROWD_KEY[r.payCrowd] ?? 'payCrowd.unknown')}</TableCell>
+                <TableCell className="px-4 py-2.5">
+                  {t(PAY_CROWD_KEY[r.payCrowd] ?? 'payCrowd.unknown')}
+                </TableCell>
                 <TableCell className="px-4 py-2.5">{r.amount}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.nickname ?? r.creator ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

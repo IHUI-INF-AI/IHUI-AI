@@ -127,7 +127,7 @@ export function TopUsersSection({ startDate, endDate }: { startDate: string; end
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">#</th>
                   <th className="py-2 pr-3 font-medium">{t('userLabel')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('totalTokens')}</th>
@@ -137,7 +137,7 @@ export function TopUsersSection({ startDate, endDate }: { startDate: string; end
               </thead>
               <tbody>
                 {data.map((u, i) => (
-                  <tr key={u.userId ?? i} className="border-b last:border-0">
+                  <tr key={u.userId ?? i}>
                     <td className="py-2 pr-3 text-xs text-muted-foreground">{i + 1}</td>
                     <td className="py-2 pr-3 truncate text-xs">{displayName(u)}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(u.totalTokens)}</td>
@@ -275,7 +275,7 @@ export function VipQuotasSection() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">{t('vipLevel')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('vipActiveUsers')}</th>
                   <th className="py-2 pr-3 text-right font-medium">{t('vipDailyToken')}</th>
@@ -286,7 +286,7 @@ export function VipQuotasSection() {
               </thead>
               <tbody>
                 {data.map((v) => (
-                  <tr key={v.id} className="border-b last:border-0">
+                  <tr key={v.id}>
                     <td className="py-2 pr-3">
                       <div className="flex items-center gap-1.5">
                         <span className="rounded bg-muted px-1.5 py-0.5 text-xs">

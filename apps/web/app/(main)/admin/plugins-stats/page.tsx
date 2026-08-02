@@ -2,15 +2,20 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Activity, Download, MousePointerClick, Pin, RefreshCw, TrendingUp } from 'lucide-react'
 import {
-  Activity,
-  Download,
-  MousePointerClick,
-  Pin,
-  RefreshCw,
-  TrendingUp,
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { PluginStatsRow, PluginStatsSummary, PluginTrendRow } from '@ihui/types'
 import { MARKET_PLUGINS, PROJECT_PLUGINS } from '../../plugins/plugins-data'
@@ -24,7 +29,9 @@ function useStatsSummary(days: number) {
   return useQuery({
     queryKey: ['admin', 'plugins', 'summary', days],
     queryFn: async () => {
-      const res = await fetchApi<PluginStatsSummary>(`/api/admin/plugins/stats/summary?days=${days}`)
+      const res = await fetchApi<PluginStatsSummary>(
+        `/api/admin/plugins/stats/summary?days=${days}`,
+      )
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -36,7 +43,9 @@ function useStatsTop(days: number, limit: number) {
   return useQuery({
     queryKey: ['admin', 'plugins', 'top', days, limit],
     queryFn: async () => {
-      const res = await fetchApi<PluginStatsRow[]>(`/api/admin/plugins/stats/top?days=${days}&limit=${limit}`)
+      const res = await fetchApi<PluginStatsRow[]>(
+        `/api/admin/plugins/stats/top?days=${days}&limit=${limit}`,
+      )
       if (!res.success) throw new Error(res.error)
       return res.data
     },
@@ -95,12 +104,12 @@ function StatCard({ icon, label, value, sublabel }: StatCardProps) {
           {icon}
         </div>
         <div className="flex flex-col">
-          <span className="text-xs text-muted-foreground [&>span]:translate-y-[0.5px]">
+          <span className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>{label}</span>
           </span>
           <span className="text-xl font-semibold tabular-nums">{formatNumber(value)}</span>
           {sublabel && (
-            <span className="text-[10px] text-muted-foreground/70 [&>span]:translate-y-[0.5px]">
+            <span className="text-[10px] text-muted-foreground/70 [&>span]:translate-y-[var(--text-vcenter-offset)]">
               <span>{sublabel}</span>
             </span>
           )}
@@ -110,7 +119,15 @@ function StatCard({ icon, label, value, sublabel }: StatCardProps) {
   )
 }
 
-function TrendBar({ row, maxInstalls, maxClicks }: { row: PluginTrendRow; maxInstalls: number; maxClicks: number }) {
+function TrendBar({
+  row,
+  maxInstalls,
+  maxClicks,
+}: {
+  row: PluginTrendRow
+  maxInstalls: number
+  maxClicks: number
+}) {
   const installPct = maxInstalls > 0 ? (row.installs / maxInstalls) * 100 : 0
   const clickPct = maxClicks > 0 ? (row.clicks / maxClicks) * 100 : 0
   return (
@@ -118,11 +135,17 @@ function TrendBar({ row, maxInstalls, maxClicks }: { row: PluginTrendRow; maxIns
       <span className="w-20 shrink-0 text-muted-foreground tabular-nums">{row.date.slice(5)}</span>
       <div className="flex flex-1 flex-col gap-1">
         <div className="flex items-center gap-1">
-          <div className="h-3 rounded-sm bg-primary/80" style={{ width: `${installPct}%`, minWidth: row.installs > 0 ? '4px' : '0' }} />
+          <div
+            className="h-3 rounded-sm bg-primary/80"
+            style={{ width: `${installPct}%`, minWidth: row.installs > 0 ? '4px' : '0' }}
+          />
           <span className="tabular-nums text-foreground/70">{row.installs}</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-3 rounded-sm bg-muted-foreground/50" style={{ width: `${clickPct}%`, minWidth: row.clicks > 0 ? '4px' : '0' }} />
+          <div
+            className="h-3 rounded-sm bg-muted-foreground/50"
+            style={{ width: `${clickPct}%`, minWidth: row.clicks > 0 ? '4px' : '0' }}
+          />
           <span className="tabular-nums text-foreground/70">{row.clicks}</span>
         </div>
       </div>
@@ -160,20 +183,22 @@ export default function PluginStatsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">插件市场监测</h1>
-          <p className="mt-1 text-xs text-muted-foreground [&>span]:translate-y-[0.5px]">
+          <p className="mt-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>实时追踪插件热度、安装量、点击量,辅助运营决策</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           {/* 时间窗口切换 */}
-          <div className="flex rounded-md bg-muted/60 p-0.5 [&>span]:translate-y-[0.5px]">
+          <div className="flex rounded-md bg-muted/60 p-0.5 [&>span]:translate-y-[var(--text-vcenter-offset)]">
             {[7, 30, 90].map((d) => (
               <button
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[0.5px] ${
-                  days === d ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                  days === d
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <span>{d}天</span>
@@ -181,7 +206,9 @@ export default function PluginStatsPage() {
             ))}
           </div>
           <Button variant="outline" size="sm" onClick={refetchAll} disabled={summaryQ.isFetching}>
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${summaryQ.isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`mr-1.5 h-3.5 w-3.5 ${summaryQ.isFetching ? 'animate-spin' : ''}`}
+            />
             刷新
           </Button>
         </div>
@@ -224,7 +251,9 @@ export default function PluginStatsPage() {
               <TrendingUp className="h-4 w-4" />
               热度榜单 Top 20
             </CardTitle>
-            <span className="text-[10px] text-muted-foreground">热度 = 安装×10 + 点击×1 + 收藏×20 - 卸载×5</span>
+            <span className="text-[10px] text-muted-foreground">
+              热度 = 安装×10 + 点击×1 + 收藏×20 - 卸载×5
+            </span>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -242,7 +271,10 @@ export default function PluginStatsPage() {
               <TableBody>
                 {topRows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-xs text-muted-foreground">
+                    <TableCell
+                      colSpan={7}
+                      className="py-8 text-center text-xs text-muted-foreground"
+                    >
                       暂无数据(可能 plugin_events 表未创建,请运行 drizzle-kit push)
                     </TableCell>
                   </TableRow>
@@ -256,7 +288,9 @@ export default function PluginStatsPage() {
                     <TableCell className="text-right tabular-nums">{row.installs}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.clicks}</TableCell>
                     <TableCell className="text-right tabular-nums">{row.pins}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{row.uninstalls}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {row.uninstalls}
+                    </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums text-primary">
                       {formatNumber(row.heat)}
                     </TableCell>
@@ -276,11 +310,19 @@ export default function PluginStatsPage() {
             {trendRows.length === 0 && (
               <div className="py-8 text-center text-xs text-muted-foreground">暂无趋势数据</div>
             )}
-            {trendRows.slice().reverse().map((row) => (
-              <TrendBar key={row.date} row={row} maxInstalls={maxInstalls} maxClicks={maxClicks} />
-            ))}
+            {trendRows
+              .slice()
+              .reverse()
+              .map((row) => (
+                <TrendBar
+                  key={row.date}
+                  row={row}
+                  maxInstalls={maxInstalls}
+                  maxClicks={maxClicks}
+                />
+              ))}
             {/* 图例 */}
-            <div className="flex items-center gap-4 pt-2 text-[10px] text-muted-foreground [&>span]:translate-y-[0.5px]">
+            <div className="flex items-center gap-4 pt-2 text-[10px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-sm bg-primary/80" />
                 <span>安装</span>

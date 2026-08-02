@@ -3,14 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import {
-  FileText,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Coins,
-} from 'lucide-react'
+import { FileText, Search, ChevronLeft, ChevronRight, Clock, Coins } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -241,7 +234,7 @@ export default function AdminRelayLogsPage() {
       </div>
 
       <div className="rounded-lg border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
+        <div className="flex items-center justify-between bg-muted/50 px-3 py-2">
           <span className="text-xs font-medium uppercase text-muted-foreground">聚合统计</span>
           <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'model' | 'day' | 'user')}>
             <SelectTrigger className={selectClass} aria-label="分组">
@@ -255,138 +248,158 @@ export default function AdminRelayLogsPage() {
           </Select>
         </div>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
-            <tr>
-              <th className="px-3 py-2 text-left">分组</th>
-              <th className="px-3 py-2 text-right">调用</th>
-              <th className="px-3 py-2 text-right">Tokens</th>
-              <th className="px-3 py-2 text-right">成功</th>
-              <th className="px-3 py-2 text-right">失败</th>
-              <th className="px-3 py-2 text-right">均延迟(ms)</th>
-              <th className="px-3 py-2 text-right">成本(¥)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {statsLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <tr key={`ss-${i}`} className="border-t border-border">
-                  <td colSpan={7} className="px-3 py-2">
-                    <Skeleton className="h-6 w-full" />
-                  </td>
-                </tr>
-              ))
-            ) : statsRows.length === 0 ? (
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
-                  暂无数据
-                </td>
+                <th className="px-3 py-2 text-left">分组</th>
+                <th className="px-3 py-2 text-right">调用</th>
+                <th className="px-3 py-2 text-right">Tokens</th>
+                <th className="px-3 py-2 text-right">成功</th>
+                <th className="px-3 py-2 text-right">失败</th>
+                <th className="px-3 py-2 text-right">均延迟(ms)</th>
+                <th className="px-3 py-2 text-right">成本(¥)</th>
               </tr>
-            ) : (
-              statsRows.map((r) => (
-                <tr key={r.groupKey} className="border-t border-border">
-                  <td className="px-3 py-2 font-medium">{r.groupKey}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{numFmt.format(r.callCount)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{numFmt.format(r.totalTokens)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-                    {numFmt.format(r.successCount)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-red-600 dark:text-red-400">
-                    {numFmt.format(r.errorCount)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{numFmt.format(r.avgLatencyMs)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {(r.totalCostCents / 100).toFixed(4)}
+            </thead>
+            <tbody>
+              {statsLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={`ss-${i}`}>
+                    <td colSpan={7} className="px-3 py-2">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : statsRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
+                    暂无数据
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                statsRows.map((r) => (
+                  <tr key={r.groupKey}>
+                    <td className="px-3 py-2 font-medium">{r.groupKey}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {numFmt.format(r.callCount)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {numFmt.format(r.totalTokens)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {numFmt.format(r.successCount)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-red-600 dark:text-red-400">
+                      {numFmt.format(r.errorCount)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {numFmt.format(r.avgLatencyMs)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {(r.totalCostCents / 100).toFixed(4)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card">
-        <div className="border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+        <div className="bg-muted/50 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
           调用明细
         </div>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">时间</th>
-              <th className="px-3 py-2 text-left">用户</th>
-              <th className="px-3 py-2 text-left">模型</th>
-              <th className="px-3 py-2 text-right">Tokens</th>
-              <th className="px-3 py-2 text-right">延迟(ms)</th>
-              <th className="px-3 py-2 text-left">状态</th>
-              <th className="px-3 py-2 text-left">错误</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <tr key={`sk-${i}`} className="border-t border-border">
-                  <td colSpan={7} className="px-3 py-2">
-                    <Skeleton className="h-6 w-full" />
-                  </td>
-                </tr>
-              ))
-            ) : list.length === 0 ? (
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
-                  暂无数据
-                </td>
+                <th className="px-3 py-2 text-left">时间</th>
+                <th className="px-3 py-2 text-left">用户</th>
+                <th className="px-3 py-2 text-left">模型</th>
+                <th className="px-3 py-2 text-right">Tokens</th>
+                <th className="px-3 py-2 text-right">延迟(ms)</th>
+                <th className="px-3 py-2 text-left">状态</th>
+                <th className="px-3 py-2 text-left">错误</th>
               </tr>
-            ) : (
-              list.map((l) => (
-                <tr key={l.id} className="border-t border-border">
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {fmt.format(new Date(l.createdAt))}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="text-xs">{l.username ?? l.userId.slice(0, 8)}</div>
-                    {l.email && <div className="text-[10px] text-muted-foreground">{l.email}</div>}
-                  </td>
-                  <td className="px-3 py-2 text-xs">{l.model}</td>
-                  <td className="px-3 py-2 text-right text-xs tabular-nums">
-                    {numFmt.format(l.totalTokens)}
-                    <div className="text-[10px] text-muted-foreground">
-                      {l.promptTokens}/{l.completionTokens}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-right text-xs tabular-nums">{l.latencyMs}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs ${
-                        l.status === 'success'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                      }`}
-                    >
-                      {l.status === 'success' ? '成功' : '错误'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-red-600 dark:text-red-400">
-                    {l.errorMessage ?? '-'}
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    <td colSpan={7} className="px-3 py-2">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无数据
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                list.map((l) => (
+                  <tr key={l.id}>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {fmt.format(new Date(l.createdAt))}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="text-xs">{l.username ?? l.userId.slice(0, 8)}</div>
+                      {l.email && (
+                        <div className="text-[10px] text-muted-foreground">{l.email}</div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-xs">{l.model}</td>
+                    <td className="px-3 py-2 text-right text-xs tabular-nums">
+                      {numFmt.format(l.totalTokens)}
+                      <div className="text-[10px] text-muted-foreground">
+                        {l.promptTokens}/{l.completionTokens}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs tabular-nums">{l.latencyMs}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          l.status === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                        }`}
+                      >
+                        {l.status === 'success' ? '成功' : '错误'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                      {l.errorMessage ?? '-'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>

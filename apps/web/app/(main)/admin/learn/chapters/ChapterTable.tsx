@@ -2,7 +2,15 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, ListOrdered } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import type { Chapter } from './types'
 
 interface Props {
@@ -35,7 +43,7 @@ export function ChapterTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {!lessonId ? (
             <TableRow>
               <TableCell colSpan={3} className="px-4 py-10 text-center text-muted-foreground">

@@ -29,7 +29,7 @@ export function LogTable({ list, isLoading, error, dateFmt, onSelect }: Props) {
             )}
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">

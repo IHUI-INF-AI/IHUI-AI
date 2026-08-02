@@ -167,7 +167,7 @@ export default function ExamMarkingPage() {
               ))}
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {isLoading ? (
               <StateRow
                 colSpan={6}
@@ -260,7 +260,7 @@ export default function ExamMarkingPage() {
                 ))}
               </div>
               {current.answers && current.answers.length > 0 ? (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto p-3">
                   {current.answers.map((a, idx) => (
                     <div key={a.questionId} className="rounded-md border p-3 space-y-2">
                       <div className="flex items-center justify-between">
@@ -319,7 +319,7 @@ export default function ExamMarkingPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">无答题数据</p>
               )}
-              <div className="flex items-center gap-2 text-sm border-t pt-3">
+              <div className="flex items-center gap-2 text-sm mt-3 pt-3">
                 <span className="text-muted-foreground">总得分：</span>
                 <span className="font-bold">{totalInputScore}</span>
                 <span className="ml-4 text-muted-foreground">判定：</span>

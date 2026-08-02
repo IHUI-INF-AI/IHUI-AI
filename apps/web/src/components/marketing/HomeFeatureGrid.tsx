@@ -2,7 +2,15 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Boxes, FileImage, Laptop, ShieldCheck, Terminal, Workflow, type LucideIcon } from 'lucide-react'
+import {
+  Boxes,
+  FileImage,
+  Laptop,
+  ShieldCheck,
+  Terminal,
+  Workflow,
+  type LucideIcon,
+} from 'lucide-react'
 import { RevealOnView } from '@/components/common'
 
 /**
@@ -67,11 +75,6 @@ export function HomeFeatureGrid() {
               {String(i + 1).padStart(2, '0')}
             </span>
 
-            {/* 光泽扫过 */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
-              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-            </div>
-
             {/* 图标 */}
             <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-primary/12 text-primary transition-all duration-300 group-hover:scale-110 group-hover:bg-primary/18">
               <Icon className="h-5 w-5" aria-hidden="true" />
@@ -83,7 +86,9 @@ export function HomeFeatureGrid() {
             </span>
 
             {/* 收益标签 */}
-            <span className="text-[11px] font-medium text-muted-foreground min-[640px]:text-xs">{benefit}</span>
+            <span className="text-[11px] font-medium text-muted-foreground min-[640px]:text-xs">
+              {benefit}
+            </span>
           </RevealOnView>
         ))}
       </div>

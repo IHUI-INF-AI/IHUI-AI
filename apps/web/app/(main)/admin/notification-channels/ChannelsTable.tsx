@@ -26,7 +26,7 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
             <th className="px-4 py-2.5 font-medium">{t('colActions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
@@ -44,7 +44,10 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
           ) : (
             list.map((item) => (
               <tr key={item.id} className="hover:bg-muted/30">
-                <td className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground" title={item.id}>
+                <td
+                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
+                  title={item.id}
+                >
                   {item.id.slice(0, 8)}
                 </td>
                 <td className="px-4 py-2.5 font-medium">{item.name}</td>
@@ -53,7 +56,10 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
                     {t(TYPE_KEY[item.type] ?? 'type_unknown')}
                   </span>
                 </td>
-                <td className="max-w-[200px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground" title={briefConfig(item.config)}>
+                <td
+                  className="max-w-[200px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
+                  title={briefConfig(item.config)}
+                >
                   {briefConfig(item.config)}
                 </td>
                 <td className="px-4 py-2.5">

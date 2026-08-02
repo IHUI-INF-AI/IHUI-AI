@@ -159,7 +159,7 @@ export default function KBDetailPage() {
         )}
       </div>
 
-      <nav className="flex items-center justify-between border-t pt-4">
+      <nav className="flex items-center justify-between mt-4 pt-4">
         {data.prev ? (
           <Link
             href={`/knowledge-base/${data.prev.id}`}

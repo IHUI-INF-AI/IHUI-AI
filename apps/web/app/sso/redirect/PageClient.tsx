@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { decodeUserFromToken, isAuthenticated } from '@/lib/auth-utils'
+import { Loader2 } from 'lucide-react'
 
 /**
  * A 套壳:output:export 不支持 cookies() + await fetch() + redirect() + searchParams: Promise SSR
@@ -142,7 +143,7 @@ export default function SsoRedirectPageClient() {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
       <div className="text-center space-y-2">
-        <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+        <Loader2 className="inline-block h-6 w-6 animate-spin text-muted-foreground" />
         <p className="text-muted-foreground text-sm">正在跳转...</p>
       </div>
     </div>

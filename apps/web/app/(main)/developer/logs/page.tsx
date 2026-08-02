@@ -127,7 +127,7 @@ export default function LogsPage() {
           ) : list.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
-            <div className="divide-y">
+            <div className="space-y-2">
               {list.map((log) => (
                 <div key={log.id}>
                   <button
@@ -139,20 +139,32 @@ export default function LogsPage() {
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     )}
-                    <span className={cn('w-12 shrink-0 whitespace-nowrap font-bold', METHOD_CLASS[log.method])}>
+                    <span
+                      className={cn(
+                        'w-12 shrink-0 whitespace-nowrap font-bold',
+                        METHOD_CLASS[log.method],
+                      )}
+                    >
                       {log.method}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-mono">{log.path}</span>
-                    <span className={cn('shrink-0 whitespace-nowrap font-medium', statusClass(log.statusCode))}>
+                    <span
+                      className={cn(
+                        'shrink-0 whitespace-nowrap font-medium',
+                        statusClass(log.statusCode),
+                      )}
+                    >
                       {log.statusCode}
                     </span>
-                    <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">{log.duration}ms</span>
+                    <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+                      {log.duration}ms
+                    </span>
                     <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
                       {dateFmt.format(new Date(log.createdAt))}
                     </span>
                   </button>
                   {expanded[log.id] && (
-                    <div className="min-w-0 space-y-2 border-t bg-muted/30 px-4 py-3 text-xs">
+                    <div className="min-w-0 space-y-2 bg-muted/30 px-4 py-3 text-xs">
                       {log.keyName && (
                         <p className="truncate text-muted-foreground" title={log.keyName}>
                           {t('keyValue', { value: log.keyName })}

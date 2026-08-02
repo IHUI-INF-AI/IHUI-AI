@@ -171,7 +171,7 @@ export function AgentCreateForm({
         <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</div>
       )}
 
-      <div className="flex justify-end gap-2 border-t pt-4">
+      <div className="flex justify-end gap-2 mt-4 pt-4">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
           {tc('cancel')}
         </Button>

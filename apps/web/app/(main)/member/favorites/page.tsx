@@ -112,7 +112,7 @@ export default function MemberFavoritesPage() {
           <p className="text-sm text-muted-foreground">还没有收藏任何内容</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="space-y-2 rounded-lg border p-2">
           {items.map((item) => {
             const Icon = TYPE_ICON[item.resourceType] ?? FileText
             return (
