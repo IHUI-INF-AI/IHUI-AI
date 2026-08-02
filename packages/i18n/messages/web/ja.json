@@ -1225,7 +1225,11 @@
       "timeout60s": "AI 思考タイムアウト(60 秒以内に回答が生成されませんでした。推論モデルの思考が長すぎる可能性があります)。後でもう一度お試しいただくか、通常モデルに切り替えてください"
     },
     "clearInputAriaLabel": "入力をクリア",
-    "clearInputTitle": "入力内容をクリア"
+    "clearInputTitle": "入力内容をクリア",
+    "errorTimeout15s": "AI レスポンスタイムアウト(15 秒以内にコンテンツを受信できませんでした)、後でもう一度お試しください",
+    "errorTimeout60s": "AI 思考タイムアウト(60 秒以内に回答が生成されませんでした、推論モデルの思考が長すぎる可能性があります)、後でもう一度お試しいただくか、通常モデルに切り替えてください",
+    "reconnecting": "再接続中",
+    "reconnectAttempt": "第 {n} 回試行、{ms}ms 後に再試行"
   },
   "learn": {
     "title": "APIテスト",
@@ -10618,7 +10622,15 @@
   },
   "slashPalette": {
     "backAriaLabel": "コマンドリストに戻る",
-    "clearAriaLabel": "検索をクリア"
+    "clearAriaLabel": "検索をクリア",
+    "searchArgsPlaceholder": "候補を検索...",
+    "searchPlaceholder": "コマンドを検索...",
+    "hintSelect": "選択",
+    "hintConfirm": "確認",
+    "hintBack": "戻る",
+    "hintClose": "閉じる",
+    "hintArgsCount": "{n} 件の候補",
+    "hintCommandsCount": "{n} 件のコマンド"
   },
   "floatingChat": {
     "openclaw": {
@@ -11384,7 +11396,8 @@
         "copyOutput": "ターミナル出力をコピー",
         "running": "{n} 実行中",
         "failed": "{n} 失敗",
-        "moreItems": "…あと {n} 件"
+        "moreItems": "…あと {n} 件",
+        "truncated": "...(切り詰め、合計 {total} 文字)"
       },
       "tools": {
         "title": "ツール呼び出し",
@@ -11462,6 +11475,31 @@
       "copyThinking": "思考内容をコピー",
       "thinkingElapsedTitle": "{time} 思考中",
       "thinkingCharCountTitle": "{n} 文字"
+    },
+    "toolCall": {
+      "statusRunning": "実行中",
+      "statusSuccess": "成功",
+      "statusFailed": "失敗",
+      "prompt": "プロンプト",
+      "imageLoadFailed": "画像の読み込みに失敗しました",
+      "imageAltDefault": "AI 生成画像",
+      "openInNewWindow": "新しいウィンドウで開く",
+      "plan": "計画 ({count})",
+      "reference": "参照 ({count})",
+      "toolCallStats": "ツール呼び出し ({count} 回)",
+      "moreItems": "... 残り {count} 件"
+    },
+    "agentManager": {
+      "title": "Agent 管理",
+      "create": "新規",
+      "active": "アクティブ",
+      "total": "合計",
+      "empty": "Agent がありません"
+    },
+    "checkpointHistory": {
+      "title": "チェックポイント履歴",
+      "empty": "チェックポイントがありません",
+      "restore": "復元"
     }
   },
   "docs": {
@@ -14496,14 +14534,53 @@
     "compareMain": "メインブランチと比較",
     "abandonBranch": "ブランチを破棄",
     "requirementFormat": "要件フォーマット",
-    "stopListening": "リスニングを停止"
+    "stopListening": "リスニングを停止",
+    "stageStatus": {
+      "pending": "待機中",
+      "running": "実行中",
+      "success": "成功",
+      "failed": "失敗",
+      "skipped": "スキップ"
+    },
+    "stage": {
+      "apply_spec": "patch 生成",
+      "apply_patch": "patch 適用",
+      "typecheck": "型チェック",
+      "test": "テスト",
+      "commit": "コミット"
+    },
+    "submitReviewFailed": "レビュー送信に失敗しました",
+    "reviewSubmitted": "レビューを送信しました",
+    "unknownError": "不明なエラー",
+    "pipelineRunning": "実行中",
+    "startPipeline": "パイプラインを開始",
+    "autoCommit": "自動コミット"
   },
   "dispatchDialog": {
     "taskGoalPlaceholder": "タスク目標を入力…",
     "taskDescPlaceholder": "タスク詳細を入力…",
     "conditionPlaceholder": "完了条件を入力…",
     "examplePlaceholder": "例…",
-    "roleDescPlaceholder": "役割の責務を入力…"
+    "roleDescPlaceholder": "役割の責務を入力…",
+    "evolutionSelectRole": "Agent ロールを選択",
+    "evolutionLoading": "読み込み中...",
+    "evolutionCurrentPrompt": "現在の Prompt (バージョン {version})",
+    "evolutionInitialVersion": "初期",
+    "evolutionVersions": "進化バージョン ({n})",
+    "evolutionRecentRecords": "最近のタスク ({n})",
+    "evolutionRetry": "再試行 {n}",
+    "evolutionAnalyzing": "LLM 再考中...",
+    "evolutionTrigger": "LLM 進化分析をトリガー",
+    "evolutionSuggestEvolve": "進化を提案 ({n} パッチ)",
+    "evolutionNoEvolve": "進化の必要なし",
+    "evolutionReason": "理由:",
+    "evolutionApplying": "適用中...",
+    "evolutionApply": "パッチ適用を確認",
+    "evolutionEmpty": "進化データがありません",
+    "evolutionAnalyzeSuccess": "進化分析が完了しました",
+    "evolutionAnalyzeFailed": "進化分析に失敗しました",
+    "evolutionApplySuccess": "パッチを適用しました",
+    "evolutionApplyFailed": "適用に失敗しました"
   },
   "inlineEdit": {
     "editDescPlaceholder": "編集内容を入力…",
@@ -15185,6 +15262,54 @@
     "invalidMoney": "金額の形式が正しくありません。",
     "invalidTimezone": "タイムゾーンの形式が正しくありません。",
     "unknown": "不明なエラーが発生しました。後で再試行してください。"
+  },
+  "agentWorkbench": {
+    "runtimeLog": {
+      "selectAgentPrompt": "Agent を選択して実行ログを表示",
+      "realtimeConnection": "リアルタイム接続",
+      "connectionFailed": "接続失敗",
+      "retry": "再試行",
+      "connecting": "接続中...",
+      "notRunning": "未実行",
+      "logCount": "{count} 件",
+      "pauseAutoScroll": "自動スクロールを一時停止",
+      "resumeAutoScroll": "自動スクロールを再開",
+      "sseConnectionFailed": "SSE 接続失敗",
+      "sseConnectionError": "SSE 接続失敗 ({status})",
+      "noLogs": "ログがありません"
+    },
+    "tokenStream": {
+      "realtimeStream": "リアルタイムストリーム",
+      "connecting": "接続中...",
+      "notRunning": "未実行",
+      "empty": "token ストリームがありません"
+    },
+    "toolCallChain": {
+      "title": "ツール呼び出しチェーン",
+      "waiting": "ツール呼び出しを待機中...",
+      "empty": "ツール呼び出しがありません",
+      "statusPending": "保留中",
+      "statusSuccess": "成功",
+      "statusError": "失敗"
+    }
+  },
+  "swarmTopology": {
+    "dispatchStatus": {
+      "pending": "待機中",
+      "running": "実行中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み",
+      "preempted": "プリエンプト済み",
+      "quota_exceeded": "クォータ超過"
+    },
+    "nodeStatus": {
+      "idle": "アイドル",
+      "running": "実行中",
+      "waiting": "待機中",
+      "completed": "完了",
+      "failed": "失敗"
+    }
   },
   "a11y": {
     "copyResponse": "レスポンスをコピー",
