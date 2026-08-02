@@ -501,7 +501,8 @@ export async function createTopUpOrder(input: {
 
 /** 查询充值状*/
 export async function getTopUpStatus(orderId: string): Promise<ApiResult<TopUpStatus>> {
-  return fetchApi<TopUpStatus>(`/api/top-up/status/${orderId}`)
+  // 2026-08-02 路由契约对齐:后端已由 /api/top-up/status/:orderId 改名为 /api/top_up/status/:orderId
+  return fetchApi<TopUpStatus>(`/api/top_up/status/${orderId}`)
 }
 
 /** 获取充值记录列*/
