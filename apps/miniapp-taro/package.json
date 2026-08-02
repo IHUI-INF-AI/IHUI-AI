@@ -29,7 +29,7 @@
     "clean": "rimraf dist dist-alipay .swc .turbo node_modules"
   },
   "dependencies": {
-    "@babel/runtime": "^7.21.5",
+    "@babel/runtime": "^7.27.0",
     "@ihui/api-client": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
     "@ihui/i18n": "workspace:*",
@@ -68,6 +68,6 @@
     "typescript": "catalog:",
     "vite": "^4.5.5",
     "vitest": "catalog:",
-    "weapp-tailwindcss": "5.1.16"
+    "weapp-tailwindcss": "5.2.9"
   }
 }
