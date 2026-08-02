@@ -68,19 +68,20 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        title={statusLabel}
         className="flex w-full items-center gap-2 text-left"
       >
         <span
           className={cn(
-            'inline-block h-2 w-2 shrink-0 rounded-full',
+            'inline-block h-2 w-2 shrink-0 rounded-full transition-colors duration-150',
             STATUS_DOT_COLOR[agent.status],
+            active && 'animate-pulse',
           )}
         />
         <span className="font-medium">{agent.name || agent.type || defaultName}</span>
         <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
           {badgeLabel}
         </span>
-        <span className="text-xs text-muted-foreground">{statusLabel}</span>
         <ChevronDown
           className={cn(
             'ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform',
