@@ -288,20 +288,14 @@ export async function checkQuota(keyPoolId: string): Promise<CheckQuotaResult> {
   // 5. 逐维度检查(任一超限即拒绝)
   let result: CheckQuotaResult
 
-  if (
-    limits.dailyCallLimit !== null &&
-    dailyUsage.callCount >= limits.dailyCallLimit
-  ) {
+  if (limits.dailyCallLimit !== null && dailyUsage.callCount >= limits.dailyCallLimit) {
     result = { allowed: false, reason: 'daily_call_limit_exceeded' }
   } else if (
     limits.monthlyCallLimit !== null &&
     monthlyUsage.callCount >= limits.monthlyCallLimit
   ) {
     result = { allowed: false, reason: 'monthly_call_limit_exceeded' }
-  } else if (
-    limits.dailyTokenLimit !== null &&
-    dailyUsage.totalTokens >= limits.dailyTokenLimit
-  ) {
+  } else if (limits.dailyTokenLimit !== null && dailyUsage.totalTokens >= limits.dailyTokenLimit) {
     result = { allowed: false, reason: 'daily_token_limit_exceeded' }
   } else if (
     limits.monthlyTokenLimit !== null &&
@@ -458,6 +452,10 @@ export async function recordUsage(
           updatedAt: new Date(),
         },
       })
+    // P1 修复(TOCTOU):recordUsage 后强制失效缓存,让 checkQuota 立即看到新用量,
+    // 避免缓存窗口期(10s)内并发请求因读旧缓存而超额。
+    // 原子预扣改造(需改 DB schema)记为 P2 后续优化。
+    await invalidateQuotaCache(keyPoolId)
   } catch (err) {
     // 失败不阻塞主链路:配额统计是辅助功能,不能影响正常调用
     logger.warn('[channel-quota] recordUsage failed', {
