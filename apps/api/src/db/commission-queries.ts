@@ -104,9 +104,14 @@ export async function deductToken(
 export async function refundToken(
   userId: string,
   quantity: number,
+  orderNo: string,
   remark?: string,
 ): Promise<number> {
-  return rechargeToken(userId, quantity, undefined, remark ?? '退款')
+  // P1 幂等修复(2026-08-02 Bug A5):原签名 orderNo 缺失,rechargeToken 收到 undefined
+  // 后 PostgreSQL unique 索引允许多个 NULL,导致重复退款不被拦截。
+  // 改为强制 orderNo 必传,作为幂等键下推到 rechargeToken 的 related_order_no。
+  if (!orderNo) throw new Error('ORDER_NO_REQUIRED_FOR_REFUND')
+  return rechargeToken(userId, quantity, orderNo, remark ?? `退款:${orderNo}`)
 }
 
 export async function expireToken(
@@ -208,6 +213,13 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
 
 /**
  * 记录佣金流水。
+ *
+ * P0 资金链路修复(2026-08-02 Bug A3):原实现只 INSERT commissionFlows,
+ * 不更新 userMargins.tokenQuantity,导致 token 类佣金(普通用户父级返佣)
+ * 账面余额与实际流水对不上,用户永远看不到佣金到账。
+ * 改为事务内 INSERT commissionFlows + UPSERT userMargins(仅当 status=1 已发放
+ * 且 token>0 时累加),事务保证原子性,异常自动回滚(配套 Bug A8)。
+ *
  * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null;系统自动分佣传 null。
  */
 export async function createCommissionFlow(
@@ -222,25 +234,45 @@ export async function createCommissionFlow(
   },
   operatorId: string | null,
 ): Promise<CommissionFlow> {
-  const [flow] = await db
-    .insert(commissionFlows)
-    .values(
-      withAuditBoth(
-        {
-          beneficiaryId: input.beneficiaryId,
-          invitedUserId: input.invitedUserId,
-          orderId: input.orderId,
-          amount: input.amount,
-          token: input.token,
-          type: input.type,
-          status: 1,
-          remark: input.remark,
-        },
-        operatorId,
-      ),
-    )
-    .returning()
-  return flow!
+  return db.transaction(async (tx) => {
+    const [flow] = await tx
+      .insert(commissionFlows)
+      .values(
+        withAuditBoth(
+          {
+            beneficiaryId: input.beneficiaryId,
+            invitedUserId: input.invitedUserId,
+            orderId: input.orderId,
+            amount: input.amount,
+            token: input.token,
+            type: input.type,
+            status: 1,
+            remark: input.remark,
+          },
+          operatorId,
+        ),
+      )
+      .returning()
+    // 仅当佣金状态为"已发放"(status=1)且 token 数量 > 0 时,同步到 userMargins.tokenQuantity
+    // amount 类佣金(现金)不入 token 钱包;token 类佣金(普通用户父级返佣)进 token 钱包
+    if (flow && input.token > 0) {
+      await tx
+        .insert(userMargins)
+        .values({
+          userId: input.beneficiaryId,
+          tokenQuantity: input.token,
+          frozenQuantity: 0,
+        })
+        .onConflictDoUpdate({
+          target: userMargins.userId,
+          set: {
+            tokenQuantity: sql`${userMargins.tokenQuantity} + ${input.token}`,
+            updatedAt: new Date(),
+          },
+        })
+    }
+    return flow!
+  })
 }
 
 /** 递归查父链（最多 2 级） */
@@ -312,12 +344,7 @@ export async function applyWithdrawal(
         frozenQuantity: sql`frozen_quantity + ${actualAmount}`,
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(userMargins.userId, input.userId),
-          sql`token_quantity >= ${actualAmount}`,
-        ),
-      )
+      .where(and(eq(userMargins.userId, input.userId), sql`token_quantity >= ${actualAmount}`))
       .returning()
 
     if (!updated) {
@@ -373,6 +400,13 @@ export async function getWithdrawalById(id: string): Promise<WithdrawalFlow | un
 
 /**
  * 审批通过提现。
+ *
+ * P0 状态机修复(2026-08-02 Bug A2):原实现 status 0→2(completed),
+ * 跳过 1(processing),导致微信支付回调中的 "释放 frozen" 逻辑(status=1 时
+ * 释放 frozen)永远不执行,frozen 永久沉淀。改为 status 0→1(processing),
+ * 与 finance.ts 的 admin 审核路由一致;条件 UPDATE(status=0)防并发重复审批,
+ * 0 行影响 = 已被处理或不存在,返回 undefined 让上层判断。
+ *
  * @param operatorId 操作者 userId(用于 updatedBy 审计)。admin route handler 传 request.userId ?? null。
  */
 export async function approveWithdrawal(
@@ -384,8 +418,7 @@ export async function approveWithdrawal(
     .set(
       withAudit(
         {
-          status: 2,
-          processedAt: new Date(),
+          status: 1,
           updatedAt: new Date(),
         },
         operatorId,
@@ -398,6 +431,15 @@ export async function approveWithdrawal(
 
 /**
  * 驳回提现。
+ *
+ * P0 资金链路修复(2026-08-02 Bug A1):原实现只更新 withdrawalFlows.status=3,
+ * 不退还 applyWithdrawal 已冻结的 tokenQuantity(applyWithdrawal 在申请阶段
+ * token -= actualAmount, frozen += actualAmount),导致驳回后用户的 token
+ * 永久卡在 frozenQuantity,既不能提现也不能消费。
+ * 改为事务内:① 条件 UPDATE status=0→3(只能驳回 pending,防并发)② 同时
+ * tokenQuantity += flow.amount,frozenQuantity -= flow.amount 退还冻结。
+ * 0 行影响 = 已被处理或不存在,返回 undefined 让上层判断。
+ *
  * @param operatorId 操作者 userId(用于 updatedBy 审计)。admin route handler 传 request.userId ?? null。
  */
 export async function rejectWithdrawal(
@@ -405,22 +447,39 @@ export async function rejectWithdrawal(
   reason: string,
   operatorId: string | null,
 ): Promise<WithdrawalFlow | undefined> {
-  const rows = await db
-    .update(withdrawalFlows)
-    .set(
-      withAudit(
-        {
-          status: 3,
-          rejectReason: reason,
-          processedAt: new Date(),
+  return db.transaction(async (tx) => {
+    // ① 条件 UPDATE pending→failed,RETURNING 拿到 flow 数据(防并发重复驳回)
+    const rows = await tx
+      .update(withdrawalFlows)
+      .set(
+        withAudit(
+          {
+            status: 3,
+            rejectReason: reason,
+            processedAt: new Date(),
+            updatedAt: new Date(),
+          },
+          operatorId,
+        ),
+      )
+      .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 0)))
+      .returning()
+    const flow = rows[0]
+    if (!flow) return undefined // 已被处理或不存在
+    // ② 退还冻结余额到可用余额(tokenQuantity += amount, frozenQuantity -= amount)
+    // flow.userId 可空(用户删除时 SET NULL),null 时无法退还(资金沉淀 frozen 等待人工处理)
+    if (flow.userId) {
+      await tx
+        .update(userMargins)
+        .set({
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${flow.amount}`,
+          frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
           updatedAt: new Date(),
-        },
-        operatorId,
-      ),
-    )
-    .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 0)))
-    .returning()
-  return rows[0]
+        })
+        .where(eq(userMargins.userId, flow.userId))
+    }
+    return flow
+  })
 }
 
 export async function withdrawalSummary(userId: string) {
