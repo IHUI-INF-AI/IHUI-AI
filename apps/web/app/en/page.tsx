@@ -49,6 +49,15 @@ export const metadata: Metadata = {
     url: 'https://aizhs.top/en',
     type: 'website',
     locale: 'en_US',
+    images: [
+      {
+        url: '/og-image-en.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'IHUI AI — All-in-One AI Operating System',
+        type: 'image/jpeg',
+      },
+    ],
   },
 }
 
