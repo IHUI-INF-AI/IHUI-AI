@@ -20,6 +20,7 @@ import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { db } from '../db/index.js'
 import { aiGcContent, mcpServers } from '@ihui/database'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 type GcType = 'text' | 'image' | 'audio' | 'video'
 
@@ -89,7 +90,7 @@ async function proxyToAiService(
     return reply.send(success(data))
   } catch (e) {
     request.log.error(e)
-    return reply.status(502).send(error(502, `ai-service 调用异常: ${(e as Error).message}`))
+    return reply.status(502).send(error(502, `ai-service 调用异常: ${toUserFriendlyMessage(e)}`))
   }
 }
 
@@ -125,7 +126,7 @@ async function proxyToSelfApi(
     return reply.code(res.statusCode).send(json)
   } catch (e) {
     request.log.error(e)
-    return reply.status(502).send(error(502, `内部路由调用异常: ${(e as Error).message}`))
+    return reply.status(502).send(error(502, `内部路由调用异常: ${toUserFriendlyMessage(e)}`))
   }
 }
 
@@ -154,7 +155,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       return reply
         .status(statusCode)
-        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+        .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
     }
   })
 
@@ -244,7 +245,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ list: tools, total: tools.length }))
     } catch (e) {
       request.log.error(e)
-      return reply.status(502).send(error(502, `ai-service 调用异常: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `ai-service 调用异常: ${toUserFriendlyMessage(e)}`))
     }
   })
 

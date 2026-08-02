@@ -10,6 +10,7 @@ import {
   getJobOwner,
   getQueueStats,
 } from '../services/ai/generation-queue-service.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 const ADMIN_ROLE_ID = 1
 
@@ -65,7 +66,7 @@ const plugin: FastifyPluginAsync = async (server) => {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       return reply
         .status(statusCode)
-        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+        .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
     }
   })
 

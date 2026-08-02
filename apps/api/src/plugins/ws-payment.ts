@@ -3,7 +3,7 @@ import type { WebSocket } from '@fastify/websocket'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { orders } from '@ihui/database'
-import { wsAuth } from './ws-helpers.js'
+import { wsAuth, WS_CLOSE } from './ws-helpers.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 interface PaymentStatusPayload {
@@ -57,6 +57,27 @@ const wsPaymentPlugin: FastifyPluginAsync = async (server) => {
     const query = request.query as { token?: string }
     const userId = await wsAuth(socket, query.token)
     if (!userId) return
+
+    // 2026-08-02 P0 安全审计修复:订单归属校验(IDOR)
+    // 风险:任何已认证用户均可监听任意订单状态变化 → 隐私泄露(订单存在性/状态/金额)
+    // 防护:查询订单 userId,与当前 JWT userId 不一致则 close(4003)
+    try {
+      const [order] = await db
+        .select({ orderUserId: orders.userId })
+        .from(orders)
+        .where(eq(orders.orderNo, orderNo))
+        .limit(1)
+      if (order?.orderUserId && order.orderUserId !== userId) {
+        server.log.warn(
+          { orderNo, userId, orderUserId: order.orderUserId },
+          'ws-payment IDOR 拒绝:订单不属于当前用户',
+        )
+        socket.close(WS_CLOSE.INVALID_TOKEN, '无权访问此订单')
+        return
+      }
+    } catch (err) {
+      server.log.warn({ err, orderNo, userId }, 'ws-payment IDOR 校验异常,降级放行')
+    }
 
     let lastStatus: string | null | undefined = undefined
     let closed = false

@@ -12,7 +12,6 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { pipeline } from 'node:stream/promises'
 import { createWriteStream } from 'node:fs'
 import { existsSync, mkdirSync, unlinkSync, copyFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -24,6 +23,12 @@ import { fileVersions, files } from '@ihui/database'
 import { findFileById } from '../db/workspace-queries.js'
 import { compareFiles, getSimilarity } from '../services/diff-service.js'
 import { success, error } from '../utils/response.js'
+import {
+  validateUploadFile,
+  MAX_MULTIPART_UPLOAD_SIZE,
+  extractExt,
+  ALLOWED_EXTENSIONS,
+} from '../utils/file-type-validator.js'
 
 const VERSIONS_DIR = join(process.cwd(), 'uploads', 'versions')
 
@@ -75,25 +80,54 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '文件不存在'))
     }
 
+    // P0 安全加固(2026-08-02):读取 buffer 后校验,不再流式直接写盘
+    // 防 CWE-434 恶意文件上传 + CWE-400 大文件 DoS
+    const buffer = await data.toBuffer()
+    if (buffer.length === 0) {
+      return reply.status(400).send(error(400, '文件内容为空'))
+    }
+    if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+      return reply.status(400).send(error(400, '文件大小超过 100MB 限制'))
+    }
+
+    // 文件类型校验:白名单内走 magic number + MIME 一致性校验;
+    // 白名单外校验新版本扩展名与原文件一致(防止上传可执行文件覆盖文档)
+    const uploadFilename = data.filename ?? file.name ?? 'version'
+    const uploadExt = extractExt(uploadFilename)
+    const originalExt = extractExt(file.name ?? '')
+    if (ALLOWED_EXTENSIONS.includes(uploadExt)) {
+      const declaredMime = data.mimetype ?? 'application/octet-stream'
+      const validation = validateUploadFile(buffer, uploadFilename, declaredMime, MAX_MULTIPART_UPLOAD_SIZE)
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+    } else {
+      // 非白名单扩展名:校验新版本与原文件扩展名一致(防止类型替换攻击)
+      if (uploadExt !== originalExt) {
+        return reply
+          .status(400)
+          .send(error(400, `版本文件扩展名(.${uploadExt})与原文件(.${originalExt})不一致`))
+      }
+    }
+
     ensureVersionsDir()
     const versionId = randomUUID()
     const versionPath = join(VERSIONS_DIR, versionId)
 
-    let totalSize = 0
-    // P2 修复:抽具名监听器,pipeline 完成或失败后用 finally 显式移除,避免流销毁前的事件累积
-    const onData = (chunk: Buffer) => {
-      totalSize += chunk.length
-    }
-    data.file.on('data', onData)
     try {
-      await pipeline(data.file, createWriteStream(versionPath))
+      await new Promise<void>((resolve, reject) => {
+        const stream = createWriteStream(versionPath)
+        stream.on('error', reject)
+        stream.on('finish', resolve)
+        stream.end(buffer)
+      })
     } catch (err) {
       request.log.error({ err }, '版本文件保存失败')
       if (existsSync(versionPath)) unlinkSync(versionPath)
       return reply.status(500).send(error(500, '版本文件保存失败'))
-    } finally {
-      data.file.removeListener('data', onData)
     }
+
+    const totalSize = buffer.length
 
     // 计算下一个版本号（当前最大版本 + 1）
     const maxRow = await db
