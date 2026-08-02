@@ -1120,7 +1120,7 @@ export function MessageList({
       })
     }
     return events
-  }, [messages, subAgentActivities])
+  }, [messages, subAgentActivities, t])
   // deferred 值:urgent render 返回旧值,空闲时再更新 → 减少 effect 写 store 频率
   const derivedEvents = React.useDeferredValue(derivedEventsValue)
 
@@ -1314,7 +1314,7 @@ export function MessageList({
         })
       }
     },
-    [contextMenu],
+    [contextMenu, t],
   )
 
   // 时间间隔格式化(用于 CompressionDivider label)
