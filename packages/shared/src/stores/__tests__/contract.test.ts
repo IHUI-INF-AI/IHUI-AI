@@ -10,7 +10,7 @@
  * 验证 3 个 store 工厂 + transport 抽象的接口契约,确保 5 端接入时行为一致。
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import {
   createMemoryTransport,
   createSyncTransport,
@@ -130,14 +130,14 @@ describe('transport 抽象', () => {
 describe('createAuthStore 工厂', () => {
   let tokenStore: ReturnType<typeof createMockTokenStore>
   let userTransport: PersistTransport
-  let onLogin: ReturnType<typeof vi.fn>
-  let onLogout: ReturnType<typeof vi.fn>
+  let onLogin: Mock<(user: AuthUser | null) => void>
+  let onLogout: Mock<() => void>
 
   beforeEach(() => {
     tokenStore = createMockTokenStore()
     userTransport = createMemoryTransport()
-    onLogin = vi.fn()
-    onLogout = vi.fn()
+    onLogin = vi.fn<(user: AuthUser | null) => void>()
+    onLogout = vi.fn<() => void>()
   })
 
   it('初始态:token/user 均为 null,isAuthenticated false', () => {

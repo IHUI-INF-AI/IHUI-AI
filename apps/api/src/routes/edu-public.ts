@@ -35,7 +35,7 @@ import { generateReportPDF } from '../services/pdf-service.js';
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') });
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) });
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

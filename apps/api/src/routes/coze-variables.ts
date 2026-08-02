@@ -35,7 +35,7 @@ const createBodySchema = z.object({
 });
 
 const updateBodySchema = z.object({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
   variableName: z.string().min(1).max(100).optional(),
   variableValue: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
@@ -43,7 +43,7 @@ const updateBodySchema = z.object({
 });
 
 const deleteBodySchema = z.object({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
 });
 
 // =============================================================================

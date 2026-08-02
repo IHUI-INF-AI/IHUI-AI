@@ -40,7 +40,7 @@ const businessCardCreateSchema = z.object({
   title: z.string().max(100).optional(),
   company: z.string().max(200).optional(),
   phone: optionalNonEmpty(z.string().max(20).regex(phoneRegex, '手机号格式不正确')),
-  email: optionalNonEmpty(z.string().max(200).email('邮箱格式不正确')),
+  email: optionalNonEmpty(z.string().max(200).email({ message: '邮箱格式不正确' })),
   avatar: z.string().max(500).optional(),
   intro: z.string().max(2000).optional(),
   qrCode: z.string().max(500).optional(),

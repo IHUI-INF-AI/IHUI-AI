@@ -18,7 +18,7 @@ import * as apiKeysService from '../services/developer-api-keys-service.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const permissionsSchema = z
   .array(z.string())
@@ -38,7 +38,7 @@ const updateKeySchema = z.object({
 })
 
 const subscribeBody = z.object({
-  pricingId: z.string().uuid('无效的套餐 ID'),
+  pricingId: z.string().uuid({ message: '无效的套餐 ID' }),
   period: z.enum(['monthly', 'yearly']).optional(),
   paymentMethod: z.string().optional().default('wechat'),
 })

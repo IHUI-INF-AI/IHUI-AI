@@ -9,18 +9,18 @@ import * as shareService from '../services/api-key-share-service.js'
 // =============================================================================
 
 const apiKeyIdParamSchema = z.object({
-  id: z.string().uuid('无效的 API Key ID'),
+  id: z.string().uuid({ message: '无效的 API Key ID' }),
 })
 
 const shareIdParamSchema = z.object({
-  shareId: z.string().uuid('无效的分享 ID'),
+  shareId: z.string().uuid({ message: '无效的分享 ID' }),
 })
 
 const endpointSchema = z.enum(['chat', 'embeddings', 'image'])
 
 const createShareBodySchema = z.object({
   /** 被分享给的用户 ID(可选,null = 公开分享链接) */
-  sharedWithUserId: z.string().uuid('无效的用户 ID').nullable().optional(),
+  sharedWithUserId: z.string().uuid({ message: '无效的用户 ID' }).nullable().optional(),
   /** 允许调用的模型列表(null/省略 = 继承源 Key) */
   scopeModels: z.array(z.string().min(1)).nullable().optional(),
   /** 允许的端点(null/省略 = 全部) */

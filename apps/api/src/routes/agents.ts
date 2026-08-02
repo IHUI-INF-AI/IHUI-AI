@@ -1353,12 +1353,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (typeof sigHeader !== 'string' || typeof tsHeader !== 'string') {
       return reply
         .status(401)
-        .send({ code: 401, message: 'webhook 缺少 X-Signature 或 X-Timestamp 头' })
+        .send(error(401, 'webhook 缺少 X-Signature 或 X-Timestamp 头'))
     }
     // 时间戳防重放:5 分钟窗口外拒绝
     const tsNum = Number(tsHeader)
     if (!Number.isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 5 * 60 * 1000) {
-      return reply.status(401).send({ code: 401, message: 'webhook 时间戳越界或非法' })
+      return reply.status(401).send(error(401, 'webhook 时间戳越界或非法'))
     }
     const rawBody = JSON.stringify(request.body ?? {})
     const expected = createHmac('sha256', runtimeWebhookSecret)
@@ -1368,7 +1368,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const b = Buffer.from(sigHeader, 'hex')
     if (a.length !== b.length || a.length === 0 || !timingSafeEqual(a, b)) {
       request.log.warn({ ip: request.ip }, 'Coze webhook 签名验证失败')
-      return reply.status(401).send({ code: 401, message: 'webhook 签名验证失败' })
+      return reply.status(401).send(error(401, 'webhook 签名验证失败'))
     }
 
     const parsed = cozeCallbackSchema.safeParse(request.body)

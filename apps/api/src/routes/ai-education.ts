@@ -16,7 +16,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // 通用 Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 // =============================================================================
 // 1. AI 教育政策 (ai_education_policy)

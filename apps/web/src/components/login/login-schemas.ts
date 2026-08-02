@@ -18,7 +18,7 @@ export const loginSchema = z.object({
 
 export type LoginValues = z.infer<typeof loginSchema>
 
-export const emailSchema = z.string().email('auth.invalidEmail')
+export const emailSchema = z.string().email({ message: 'auth.invalidEmail' })
 export const usernameSchema = z.string().min(3, 'auth.invalidUsername')
 
 export type TokenResult = {

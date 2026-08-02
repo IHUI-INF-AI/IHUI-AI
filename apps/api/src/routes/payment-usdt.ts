@@ -165,7 +165,7 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
         },
         '[usdt-webhook] unauthorized callback attempt',
       )
-      return reply.status(401).send({ code: 401, message: 'Webhook 签名校验失败', data: null })
+      return reply.status(401).send(error(401, 'Webhook 签名校验失败'))
     }
 
     const parsedParams = callbackParamSchema.safeParse(request.params)

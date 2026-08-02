@@ -35,8 +35,7 @@ langchain-core>=1.5.0
 langchain-openai>=1.4.0
 langchain-anthropic>=1.5.0
 litellm>=1.95.0
-# MCP 保持 1.x(2.0 是新主版本,可能有 breaking change,跳过)
-mcp>=1.29.0,<2.0.0
+# MCP 依赖已删除(2026-08-02):代码库未使用 mcp 库,mcp_server.py 是完全自定义实现
 
 # --- 网络 / 序列化 / 重试 ---
 httpx>=0.28.1

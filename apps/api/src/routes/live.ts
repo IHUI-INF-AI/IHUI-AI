@@ -63,7 +63,7 @@ const R = {
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),

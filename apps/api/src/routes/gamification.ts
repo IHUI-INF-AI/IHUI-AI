@@ -33,7 +33,7 @@ const listTransactionsQuerySchema = z.object({
 });
 
 const adjustPointsSchema = z.object({
-  userId: z.string().uuid('无效的用户 ID'),
+  userId: z.string().uuid({ message: '无效的用户 ID' }),
   amount: z.number().int().refine((v) => v !== 0, '调整积分数不能为 0'),
   description: z.string().max(255).optional(),
 });
