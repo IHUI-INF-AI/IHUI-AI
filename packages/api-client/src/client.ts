@@ -540,6 +540,11 @@ export interface StreamChatOptions {
    * 透传到后端用于注入 CLAUDE.md/AGENTS.md 项目记忆作为 system prompt。
    * 无绑定时为 undefined,后端使用默认 system prompt。 */
   workspacePath?: string
+  /** 浏览器端预加载的工作区文件内容(2026-08-02 立,阶段 1)。
+   * web 非 Tauri 环境下,前端用 FileSystemDirectoryHandle 遍历读取工作区关键文件,
+   * 把内容通过此字段传给后端,后端直接注入 system prompt(跳过从文件系统读取)。
+   * Tauri 桌面端为 undefined,走 workspacePath 逻辑。 */
+  workspaceContext?: string
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
    * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
   contextLimit?: number
@@ -1256,6 +1261,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.maxTokens !== undefined) body.maxTokens = opts.maxTokens
   if (opts.stop !== undefined) body.stop = opts.stop
   if (opts.workspacePath) body.workspacePath = opts.workspacePath
+  if (opts.workspaceContext) body.workspaceContext = opts.workspaceContext
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
   if (opts.agentId) body.agentId = opts.agentId
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
