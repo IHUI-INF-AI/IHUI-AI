@@ -427,6 +427,9 @@ export async function decreasePoints(input: PointOperationInput): Promise<PointO
 /**
  * 积分回退(admin,用于订单退款等场景):
  * 查原 record → 幂等校验(不可重复回退)→ 反向操作 → 写入 fallback 记录(refId 指向原记录)。
+ *
+ * P0 修复:幂等校验 + 余额读取 + 写入全部在事务内,SELECT ... FOR UPDATE 锁行,
+ * 防止并发回退导致 TOCTOU(检查时未回退,写入前已被另一请求回退)和 Lost Update。
  */
 export async function fallbackPoints(
   recordId: string,
@@ -438,18 +441,27 @@ export async function fallbackPoints(
     throw new AppError('不可回退已回退的记录', 400, 'VALIDATION_FAILED')
   if (!original.memberId) throw new AppError('原记录无关联会员', 400, 'VALIDATION_FAILED')
 
-  const reverted = await hasRecordBeenReverted(recordId)
-  if (reverted) throw new AppError('该记录已被回退', 409, 'CONFLICT')
-
   const reverseAmount = -original.point
 
   return db.transaction(async (tx) => {
+    // 事务内幂等校验(防 TOCTOU:检查时未回退,写入前已被另一请求回退)
+    const revertedRows = await tx
+      .select({ id: eduPointRecords.id })
+      .from(eduPointRecords)
+      .where(and(eq(eduPointRecords.refId, recordId), eq(eduPointRecords.type, 'fallback')))
+      .limit(1)
+    if (revertedRows.length > 0) {
+      throw new AppError('该记录已被回退', 409, 'CONFLICT')
+    }
+
+    // SELECT ... FOR UPDATE 锁定余额行,防止并发 fallback Lost Update
     const rows = await tx
       .select({ balance: eduPointRecords.balance })
       .from(eduPointRecords)
       .where(eq(eduPointRecords.memberId, original.memberId!))
       .orderBy(desc(eduPointRecords.createdAt))
       .limit(1)
+      .for('update')
     const beforeBalance = rows[0]?.balance ?? 0
     const afterBalance = beforeBalance + reverseAmount
 
@@ -469,5 +481,48 @@ export async function fallbackPoints(
     const record = inserted[0]
     if (!record) throw new Error('写入回退记录失败')
     return { record, beforeBalance, afterBalance }
+  })
+}
+
+/**
+ * 广告奖励积分发放(事务 + FOR UPDATE 防止 Lost Update)。
+ *
+ * 复用 adjustEduPoints 的 FOR UPDATE + INSERT 事务模式,但跳过渠道/规则校验
+ * (广告场景无对应渠道/规则),并支持写入 refId(广告事务 ID)。
+ *
+ * 供 rewarded-video-ad 路由调用。
+ */
+export async function awardAdPoints(
+  memberId: string,
+  amount: number,
+  description: string,
+  refId?: string | null,
+): Promise<{ beforeBalance: number; afterBalance: number }> {
+  return db.transaction(async (tx) => {
+    // FOR UPDATE 锁定最新余额行,防止并发广告回调 Lost Update
+    const rows = await tx
+      .select({ balance: eduPointRecords.balance })
+      .from(eduPointRecords)
+      .where(eq(eduPointRecords.memberId, memberId))
+      .orderBy(desc(eduPointRecords.createdAt))
+      .limit(1)
+      .for('update')
+    const beforeBalance = rows[0]?.balance ?? 0
+    const afterBalance = beforeBalance + amount
+
+    const inserted = await tx
+      .insert(eduPointRecords)
+      .values({
+        memberId,
+        point: amount,
+        balance: afterBalance,
+        type: 'rewarded_ad',
+        description,
+        refId: refId ?? null,
+      })
+      .returning()
+    const record = inserted[0]
+    if (!record) throw new Error('写入积分记录失败')
+    return { beforeBalance, afterBalance }
   })
 }

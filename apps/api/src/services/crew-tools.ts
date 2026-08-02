@@ -13,7 +13,6 @@
  * 6. knowledge_search  — RAG 知识库检索
  */
 import { execFile } from 'node:child_process'
-import vm from 'node:vm'
 import { logger } from './clawdbot/logger.js'
 import { callRealLlm } from './crew-llm-adapter.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
@@ -198,61 +197,8 @@ export const CREW_TOOLS: CrewTool[] = [
       }
     },
   },
-  // 4. 代码执行(Node.js vm 沙箱)
-  {
-    def: {
-      type: 'function',
-      function: {
-        name: 'code_execute',
-        description:
-          '在 Node.js vm 沙箱中执行 JavaScript 代码,返回 console.log 输出。可用于计算、数据处理、算法验证。',
-        parameters: {
-          type: 'object',
-          properties: {
-            code: { type: 'string', description: '要执行的 JavaScript 代码' },
-          },
-          required: ['code'],
-        },
-      },
-    },
-    handler: async (params) => {
-      const code = String(params.code ?? '')
-      const logs: string[] = []
-      const sandbox = {
-        console: {
-          log: (...args: unknown[]) =>
-            logs.push(
-              args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '),
-            ),
-          error: (...args: unknown[]) =>
-            logs.push(
-              '[ERROR] ' +
-                args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '),
-            ),
-        },
-        JSON,
-        Math,
-        Date,
-        Array,
-        Object,
-        String,
-        Number,
-        Boolean,
-      }
-      try {
-        const ctx = vm.createContext(sandbox)
-        vm.runInContext(code, ctx, { timeout: 5000 })
-        return {
-          success: true,
-          output: logs.join('\n') || '(无输出)',
-          metadata: { lines: logs.length },
-          duration: 0,
-        }
-      } catch (e) {
-        return { success: false, error: e instanceof Error ? e.message : String(e), duration: 0 }
-      }
-    },
-  },
+  // 4. 代码执行 — 2026-08-02 禁用:vm.runInContext 非安全沙箱,可通过 this.constructor.constructor 逃逸 RCE
+  //    彻底从工具列表移除,AI agent 无法调用;如需恢复应改用 isolated-vm(独立进程 + V8 isolate)
   // 5. 终端命令(白名单)
   {
     def: {

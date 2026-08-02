@@ -665,8 +665,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         }
         try {
           // P0 安全修复(2026-08-02):用 completeOrderWithSaga 替代 completeOrder,
-          // saga 编排 mark-order-paid + earnPoints + write-outbox(order.paid),
-          // 任一步失败自动补偿(订单回滚 pending + 扣回积分 + 写 compensated 事件)。
+          // saga 编排 mark-order-paid + rechargeTokens + earnPoints + write-outbox(order.paid),
+          // 任一步失败自动补偿(订单回滚 pending + 扣回 token/积分 + 写 compensated 事件)。
           const result = await completeOrderWithSaga(out_trade_no, transaction_id)
           // 支付成功后触发返佣（失败不阻塞支付完成,但 log error 触发监控告警）
           if (result.success && result.order) {
@@ -678,12 +678,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
               result.order.userId,
               request.log,
             )
+            // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+            let sideEffectFailed = false
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
-              // activateSubscription 不在 saga 内(本任务不改 order-service.ts),
-              // 失败时订单已 paid/积分已发/outbox 已写,log error 触发监控人工补激活
-              request.log.error({ err: ae, orderNo: out_trade_no }, 'subscription activation failed')
+              request.log.error(
+                { err: ae, orderNo: out_trade_no },
+                'subscription activation failed',
+              )
+              sideEffectFailed = true
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
@@ -698,8 +702,12 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
                 },
               )
             } catch (ce) {
-              // feedbackInvite 不在 saga 内,失败时 log error 触发监控人工补返佣
               request.log.error({ err: ce, orderNo: out_trade_no }, 'commission feedback failed')
+              sideEffectFailed = true
+            }
+            if (sideEffectFailed) {
+              await server.paymentIdempotency.fail(out_trade_no, idemKey, 'side effect failed')
+              return reply.code(500).send({ code: 'FAIL', message: '副作用处理失败,待重试' })
             }
           }
           await server.paymentIdempotency.complete(out_trade_no, idemKey, {
@@ -1116,10 +1124,13 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
               result.order.userId,
               request.log,
             )
+            // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+            let sideEffectFailed = false
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
-              request.log.warn({ err: ae, orderNo: outTradeNo }, 'subscription activation failed')
+              request.log.error({ err: ae, orderNo: outTradeNo }, 'subscription activation failed')
+              sideEffectFailed = true
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
@@ -1134,7 +1145,12 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
                 },
               )
             } catch (ce) {
-              request.log.warn({ err: ce, orderNo: outTradeNo }, 'commission feedback failed')
+              request.log.error({ err: ce, orderNo: outTradeNo }, 'commission feedback failed')
+              sideEffectFailed = true
+            }
+            if (sideEffectFailed) {
+              await server.paymentIdempotency.fail(outTradeNo, idemKey, 'side effect failed')
+              return reply.type('text/plain').send('fail')
             }
           }
           await server.paymentIdempotency.complete(outTradeNo, idemKey, { outTradeNo, tradeStatus })
@@ -1373,13 +1389,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
               result.order.userId,
               request.log,
             )
+            // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+            let sideEffectFailed = false
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
-              request.log.warn(
+              request.log.error(
                 { err: ae, orderNo: outTradeNo },
                 'stripe subscription activation failed',
               )
+              sideEffectFailed = true
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
@@ -1394,10 +1413,19 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
                 },
               )
             } catch (ce) {
-              request.log.warn(
+              request.log.error(
                 { err: ce, orderNo: outTradeNo },
                 'stripe commission feedback failed',
               )
+              sideEffectFailed = true
+            }
+            if (sideEffectFailed) {
+              await server.paymentIdempotency.fail(
+                outTradeNo,
+                paymentIntentId,
+                'side effect failed',
+              )
+              return reply.status(500).send(error(500, 'side effect failed, will retry'))
             }
           }
           await server.paymentIdempotency.complete(outTradeNo, paymentIntentId, {
@@ -1665,13 +1693,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             result.order.userId,
             request.log,
           )
+          // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+          let sideEffectFailed = false
           try {
             await activateOrderSubscription(result.order)
           } catch (ae) {
-            request.log.warn(
+            request.log.error(
               { err: ae, orderNo: outTradeNo },
               'paypal subscription activation failed',
             )
+            sideEffectFailed = true
           }
           try {
             if (!result.order.userId) throw new Error('order has no userId')
@@ -1686,7 +1717,12 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
               },
             )
           } catch (ce) {
-            request.log.warn({ err: ce, orderNo: outTradeNo }, 'paypal commission feedback failed')
+            request.log.error({ err: ce, orderNo: outTradeNo }, 'paypal commission feedback failed')
+            sideEffectFailed = true
+          }
+          if (sideEffectFailed) {
+            await server.paymentIdempotency.fail(outTradeNo, idemKey, 'side effect failed')
+            return reply.status(500).send(error(500, 'side effect failed, will retry'))
           }
         }
         await server.paymentIdempotency.complete(outTradeNo, idemKey, {
@@ -1806,13 +1842,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
               result.order.userId,
               request.log,
             )
+            // B7: 副作用失败时不标记 complete,释放锁让支付平台重试
+            let sideEffectFailed = false
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
-              request.log.warn(
+              request.log.error(
                 { err: ae, orderNo: outTradeNo },
                 'paypal webhook subscription activation failed',
               )
+              sideEffectFailed = true
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
@@ -1827,10 +1866,15 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
                 },
               )
             } catch (ce) {
-              request.log.warn(
+              request.log.error(
                 { err: ce, orderNo: outTradeNo },
                 'paypal webhook commission feedback failed',
               )
+              sideEffectFailed = true
+            }
+            if (sideEffectFailed) {
+              await server.paymentIdempotency.fail(outTradeNo, captureId, 'side effect failed')
+              return reply.status(500).send(error(500, 'side effect failed, will retry'))
             }
           }
           await server.paymentIdempotency.complete(outTradeNo, captureId, {

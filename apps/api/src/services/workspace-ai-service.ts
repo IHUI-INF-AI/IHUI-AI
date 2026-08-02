@@ -206,11 +206,11 @@ class SwarmManager {
           resolveWait()
         }
       }, 100)
-      timer.unref()  // 不阻止进程退出
+      timer.unref() // 不阻止进程退出
 
       const timeoutGuard = setTimeout(() => {
         clearInterval(timer)
-        resolveWait()  // 超时也 resolve,不阻塞流程
+        resolveWait() // 超时也 resolve,不阻塞流程
       }, TIMEOUT_MS)
       timeoutGuard.unref()
     })
@@ -812,10 +812,14 @@ class ComputerUseService {
 
   async keyboardType(params: { text: string }): Promise<void> {
     this.checkEnabled()
-    // 2026-07-21 安全审计加固:用 execFile + -Command 数组参数,无 shell 注入
-    // 原实现 execAsync(`... '${text.replace(/'/g, "''")}' ...`, { shell: powershell.exe })
-    // 攻击者可构造含 `'` 的输入(已 escape),但环境变量展开/重定向等仍可能被利用 → 改用 execFile
-    const escapedText = params.text.replace(/'/g, "''")
+    // 2026-08-02 修复 P0 PowerShell 命令注入:单引号转义不足以阻止表达式注入
+    // 攻击向量:`' + (Get-Process).Count + '` 等表达式在单引号内仍可能被 PowerShell 解析
+    // 修复:① 严格白名单拒绝 PowerShell 元字符;② 用 Base64 编码传文本,PowerShell 无法解析为表达式
+    const text = params.text
+    if (/[(){}[\];|&<>`'"\r\n]/.test(text) || text.length > 1000) {
+      throw new Error('Invalid keyboard input: contains forbidden characters or too long')
+    }
+    const encoded = Buffer.from(text, 'utf16le').toString('base64')
     await new Promise<void>((resolve, reject) => {
       execFile(
         'powershell.exe',
@@ -823,7 +827,7 @@ class ComputerUseService {
           '-NoProfile',
           '-NonInteractive',
           '-Command',
-          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escapedText}')`,
+          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String('${encoded}')))`,
         ],
         { timeout: 10000 },
         (err) => (err ? reject(err) : resolve()),
