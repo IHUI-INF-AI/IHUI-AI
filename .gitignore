@@ -48,6 +48,7 @@ __pycache__/
 *.pyc
 *.pyo
 .next/
+.next.old/
 .turbo/
 # TypeScript 增量构建缓存
 *.tsbuildinfo
