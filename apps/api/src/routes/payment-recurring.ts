@@ -41,7 +41,7 @@ const ADMIN_ROLE_ID = 1
 // =============================================================================
 
 const signBodySchema = z.object({
-  planId: z.string().uuid('无效的方案 ID'),
+  planId: z.string().uuid({ message: '无效的方案 ID' }),
   productId: z.coerce.number().optional(),
   openid: z.string().optional(),
 })
@@ -530,13 +530,23 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 : null
 
           if (matchCondition) {
-            const [existing] = await db
-              .select()
-              .from(wechatPayContracts)
-              .where(matchCondition)
-              .limit(1)
+            // P1 并发安全修复(2026-08-02):SELECT-then-UPDATE 在并发回调(微信重试)下
+            // 存在 TOCTOU 竞态,两次回调都通过 status!='active' 检查后都执行 UPDATE。
+            // 改为事务 + SELECT FOR UPDATE 行锁 + 条件 UPDATE(WHERE status != 'active'),
+            // 保证签约状态流转原子性,防重复设置 autoRenew=1 / 重复写 signedAt。
+            await db.transaction(async (tx) => {
+              const [existing] = await tx
+                .select()
+                .from(wechatPayContracts)
+                .where(matchCondition)
+                .for('update')
+                .limit(1)
 
-            if (existing) {
+              if (!existing) return
+
+              // 已 active 的签约:不重复处理(幂等),仅同步 contractExpiredAt
+              if (existing.status === 'active') return
+
               const now = new Date()
               const nextChargeTime = existing.trialEndAt
                 ? new Date(existing.trialEndAt.getTime())
@@ -547,7 +557,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 (decrypted.contract_expired_time as string | undefined) ?? undefined,
               )
 
-              await db
+              await tx
                 .update(wechatPayContracts)
                 .set({
                   status: 'active',
@@ -561,7 +571,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 .where(eq(wechatPayContracts.id, existing.id))
 
               await setUserVipAutoRenew(existing.userId, 1)
-            }
+            })
           }
         } else if (isTerminateEvent) {
           const matchCondition = contractId
@@ -571,15 +581,22 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
               : null
 
           if (matchCondition) {
-            const [existing] = await db
-              .select()
-              .from(wechatPayContracts)
-              .where(matchCondition)
-              .limit(1)
+            // P1 并发安全修复(2026-08-02):SELECT-then-UPDATE 有竞态,且原代码
+            // 已 cancelled 的签约被重复 terminate 会覆盖 cancelledAt 时间戳。
+            // 改为事务 + SELECT FOR UPDATE + 状态检查,已 cancelled 直接跳过(幂等)。
+            await db.transaction(async (tx) => {
+              const [existing] = await tx
+                .select()
+                .from(wechatPayContracts)
+                .where(matchCondition)
+                .for('update')
+                .limit(1)
 
-            if (existing && existing.status !== 'cancelled') {
+              if (!existing) return
+              if (existing.status === 'cancelled') return
+
               const now = new Date()
-              await db
+              await tx
                 .update(wechatPayContracts)
                 .set({
                   status: 'cancelled',
@@ -590,7 +607,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 .where(eq(wechatPayContracts.id, existing.id))
 
               await setUserVipAutoRenew(existing.userId, 0)
-            }
+            })
           }
         } else if (isChargeSuccessEvent) {
           const matchCondition = contractId
@@ -600,18 +617,38 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
               : null
 
           if (matchCondition) {
-            const [existing] = await db
-              .select()
-              .from(wechatPayContracts)
-              .where(matchCondition)
-              .limit(1)
+            // P0 资金安全 + 幂等修复(2026-08-02):原实现无事务、无幂等键,
+            // 微信回调重试时会重复 placeOrder + completeOrder,导致:
+            // (1) 同一笔扣款创建多个订单(订单号不同但都对应同一 outTradeNo);
+            // (2) 重复 completeOrder 触发上游重复发放 VIP/积分(资金超发)。
+            // 改为事务 + SELECT FOR UPDATE 行锁 + 幂等键(outTradeNo + lastChargeStatus):
+            // 若 lastChargeStatus='success' 且 outTradeNo 与本次相同 → 已处理,跳过;
+            // 否则条件 UPDATE(WHERE lastChargeStatus != 'success' OR outTradeNo != current),
+            // 0 行影响 = 重复回调,跳过 placeOrder,防资金超发。
+            await db.transaction(async (tx) => {
+              const [existing] = await tx
+                .select()
+                .from(wechatPayContracts)
+                .where(matchCondition)
+                .for('update')
+                .limit(1)
 
-            if (existing) {
+              if (!existing) return
+
+              // 幂等检查:同一 outTradeNo 已成功处理过 → 跳过(防重复创建订单)
+              if (
+                existing.lastChargeStatus === 'success' &&
+                outTradeNo &&
+                existing.outTradeNo === outTradeNo
+              ) {
+                return
+              }
+
               const billingPeriod = await getPlanBillingPeriod(existing.planId)
               const now = new Date()
 
               if (existing.planId) {
-                const [plan] = await db
+                const [plan] = await tx
                   .select()
                   .from(plans)
                   .where(eq(plans.id, existing.planId))
@@ -625,7 +662,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                     payType: 'wechat',
                     description: `连续包月自动扣款 - ${plan.name}`,
                   })
-                  await db
+                  await tx
                     .update(orders)
                     .set({ planId: plan.id, updatedAt: now })
                     .where(eq(orders.id, order.id))
@@ -633,7 +670,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 }
               }
 
-              await db
+              await tx
                 .update(wechatPayContracts)
                 .set({
                   lastChargeTime: now,
@@ -643,7 +680,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                   updatedAt: now,
                 })
                 .where(eq(wechatPayContracts.id, existing.id))
-            }
+            })
           }
         } else if (isChargeFailEvent) {
           const matchCondition = contractId
@@ -653,15 +690,30 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
               : null
 
           if (matchCondition) {
-            const now = new Date()
-            await db
-              .update(wechatPayContracts)
-              .set({
-                lastChargeTime: now,
-                lastChargeStatus: 'failed',
-                updatedAt: now,
-              })
-              .where(matchCondition)
+            // P2 数据完整性修复(2026-08-02):加事务保证 lastChargeTime/lastChargeStatus
+            // 原子更新,且避免与 isChargeSuccessEvent 并发时互相覆盖。
+            await db.transaction(async (tx) => {
+              const [existing] = await tx
+                .select()
+                .from(wechatPayContracts)
+                .where(matchCondition)
+                .for('update')
+                .limit(1)
+
+              if (!existing) return
+              // 若已成功扣款(success),不应被 fail 回调覆盖(可能是延迟到达的旧通知)
+              if (existing.lastChargeStatus === 'success') return
+
+              const now = new Date()
+              await tx
+                .update(wechatPayContracts)
+                .set({
+                  lastChargeTime: now,
+                  lastChargeStatus: 'failed',
+                  updatedAt: now,
+                })
+                .where(eq(wechatPayContracts.id, existing.id))
+            })
           }
         }
 

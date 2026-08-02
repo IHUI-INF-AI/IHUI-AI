@@ -86,7 +86,7 @@ async function resolveOrderAmount(
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 const orderNoParamSchema = z.object({ orderNo: z.string().min(1, '订单号不能为空') })
 
 const paginationQuery = {
@@ -1011,7 +1011,16 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
       }
       const existing = await findRefundById(parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '退款记录不存在'))
+      // P0 状态机校验(2026-08-02):仅 pending/approved/rejected 状态可被审核,
+      // 已 completed 的退款不可逆(资金已退还),禁止再改状态。底层 processRefund 已有
+      // 条件 UPDATE,这里提前校验给出明确错误信息,避免 admin 看到 0 行影响却以为成功。
+      if (!['pending', 'approved', 'rejected'].includes(existing.status)) {
+        return reply.status(400).send(error(400, `当前退款状态(${existing.status})不允许审核`))
+      }
       const refund = await processRefund(parsed.data.id, body.data.status, body.data.processMessage)
+      if (!refund) {
+        return reply.status(400).send(error(400, '退款状态不允许审核(可能已被并发处理)'))
+      }
       return reply.send(success({ refund }))
     },
   )
@@ -1038,7 +1047,17 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
       }
       const existing = await findRefundById(parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '退款记录不存在'))
+      // P0 状态机校验(2026-08-02):仅 approved/processing/failed 状态可被处理,
+      // pending(未审核)不能直接处理(必须先审核),rejected(已拒绝)不可逆,
+      // completed(已完成,资金已退还)不可逆。底层 handleRefund 已有条件 UPDATE,
+      // 这里提前校验给出明确错误信息。
+      if (!['approved', 'processing', 'failed'].includes(existing.status)) {
+        return reply.status(400).send(error(400, `当前退款状态(${existing.status})不允许处理`))
+      }
       const refund = await handleRefund(parsed.data.id, body.data.status, body.data.handleMessage)
+      if (!refund) {
+        return reply.status(400).send(error(400, '退款状态不允许处理(可能已被并发处理)'))
+      }
       return reply.send(success({ refund }))
     },
   )
@@ -1096,6 +1115,27 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
       }
       const existing = await findInvoiceApplicationById(parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '发票申请不存在'))
+      // P2 状态机校验(2026-08-02):发票申请状态流转图:
+      //   pending → approved/rejected/canceled
+      //   approved → invoicing/canceled
+      //   invoicing → invoiced/canceled
+      //   invoiced/rejected/canceled 为终态,不可再变更
+      // 原实现无状态校验,可从任意状态流转到任意状态(如 invoiced → pending 回退),
+      // 导致已开具发票的申请被错误重置,财务对账混乱。
+      const allowedTransitions: Record<string, ReadonlyArray<string>> = {
+        pending: ['approved', 'rejected', 'canceled'],
+        approved: ['invoicing', 'canceled'],
+        invoicing: ['invoiced', 'canceled'],
+        invoiced: [],
+        rejected: [],
+        canceled: [],
+      }
+      const allowed = allowedTransitions[existing.status] ?? []
+      if (!allowed.includes(body.data.status)) {
+        return reply
+          .status(400)
+          .send(error(400, `当前状态(${existing.status})不允许变更为 ${body.data.status}`))
+      }
       const application = await updateInvoiceApplication(parsed.data.id, {
         status: body.data.status,
       })

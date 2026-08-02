@@ -34,7 +34,7 @@ import { ensureSafeFetchUrl } from '../../utils/ssrf-guard.js'
 const ALLOWED_EVENTS = ['relay.call.completed', 'relay.call.failed', 'relay.balance.low'] as const
 type AllowedEvent = (typeof ALLOWED_EVENTS)[number]
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -44,7 +44,7 @@ const paginationSchema = z.object({
 const createSubscriptionSchema = z.object({
   url: z
     .string()
-    .url('无效的 URL')
+    .url({ message: '无效的 URL' })
     .max(512)
     .refine(async (url) => {
       try {
@@ -63,7 +63,7 @@ const updateSubscriptionSchema = z
   .object({
     url: z
       .string()
-      .url('无效的 URL')
+      .url({ message: '无效的 URL' })
       .max(512)
       .optional()
       .refine(async (url) => {
@@ -331,8 +331,8 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
   server.post('/webhooks/subscriptions/:id/redeliver/:logId', async (request, reply) => {
     const userId = request.userId!
     const paramsSchema = z.object({
-      id: z.string().uuid('无效的订阅 ID'),
-      logId: z.string().uuid('无效的日志 ID'),
+      id: z.string().uuid({ message: '无效的订阅 ID' }),
+      logId: z.string().uuid({ message: '无效的日志 ID' }),
     })
     const parsed = paramsSchema.safeParse(request.params)
     if (!parsed.success) {

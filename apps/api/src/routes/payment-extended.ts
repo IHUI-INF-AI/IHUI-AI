@@ -43,7 +43,7 @@ import { config } from '../config/index.js'
 // =============================================================================
 
 const subscriptionRenewSchema = z.object({
-  planId: z.string().uuid('无效的方案 ID'),
+  planId: z.string().uuid({ message: '无效的方案 ID' }),
   paymentMethod: z.enum(['wechat', 'alipay'], {
     message: '支付方式仅支持 wechat 或 alipay',
   }),
