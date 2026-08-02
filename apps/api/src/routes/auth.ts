@@ -38,6 +38,7 @@ import {
   CODE_RESEND_INTERVAL_MS,
   generateCode,
   cleanupExpiredCodes,
+  verifyCode,
 } from '../utils/code-store.js'
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
 import { evaluateLoginRisk } from '../services/risk-engine-service.js'
@@ -370,10 +371,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { phone, code, newPassword } = parsed.data
 
-      // 校验验证码
-      cleanupExpiredCodes()
-      const entry = codeStore.get(phone)
-      if (!entry || entry.code !== code || entry.expiresAt < Date.now()) {
+      // 2026-08-02 修复 P1:改用 verifyCode 统一入口,复用 admin bypass 与统一逻辑
+      // 原实现直接读 codeStore.get(phone) 绕过 verifyCode 的测试 bypass 与自动删除
+      const codeOk = await verifyCode(phone, code)
+      if (!codeOk) {
         return reply.status(400).send(error(400, '验证码错误或已过期'))
       }
 
@@ -398,8 +399,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 但旧 token 仍有效 → 攻击者仍可登录。必须吊销所有 token 迫使重新认证。
       await revokeAllUserRefreshTokens(user.id)
 
-      // 删除已使用的验证码
-      codeStore.delete(phone)
+      // verifyCode 内部已自动删除验证码,无需手动 codeStore.delete(phone)
 
       return reply.send(success({ reset: true }))
     },

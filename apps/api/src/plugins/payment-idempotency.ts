@@ -11,7 +11,8 @@ import { normalizeHeader } from '../utils/http-normalize.js'
  * 1. Redis SET NX EX 原子获取锁：首次请求置 processing，重复请求命中缓存结果。
  * 2. 状态机：new → processing → completed；失败释放锁允许平台重试。
  * 3. TTL 默认 24h（支付争议周期长）。
- * 4. Redis 不可用时 fail-open（放行），避免支付回调因基础设施故障被丢弃。
+ * 4. Redis 不可用时 fail-closed（返回 processing 让平台重试），避免并发请求被放行。
+ *    2026-08-02 P0 修复(B4)：原 fail-open 放行并发请求可导致重复扣款。
  * 5. 集成到 payment-gateway.ts 的微信/支付宝回调端点。
  */
 const KEY_PREFIX = 'idempotency:payment:'
@@ -56,46 +57,59 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
     paymentId: string,
     idemKey: string,
     ttlSec = DEFAULT_TTL_SEC,
+    maxRetries = 3,
   ): Promise<IdempotencyResult> {
     const key = buildKey(paymentId, idemKey)
-    const now = Math.floor(Date.now() / 1000)
-    try {
-      // SET NX: 仅当 key 不存在时写入 processing，原子获取锁
-      const wasSet = await server.redis.set(
-        key,
-        JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),
-        'EX',
-        ttlSec,
-        'NX',
-      )
-      if (wasSet === 'OK') {
-        return { status: 'new', retryAfterMs: 0 }
-      }
-      // key 已存在，读取当前状态
-      const raw = await server.redis.get(key)
-      if (!raw) {
-        // SET 与 GET 之间过期，递归重试获取
-        return acquire(paymentId, idemKey, ttlSec)
-      }
-      const parsed = JSON.parse(raw) as IdemRecord
-      if (parsed.status === 'processing') {
+    let retries = 0
+    while (retries < maxRetries) {
+      const now = Math.floor(Date.now() / 1000)
+      try {
+        // SET NX: 仅当 key 不存在时写入 processing，原子获取锁
+        const wasSet = await server.redis.set(
+          key,
+          JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),
+          'EX',
+          ttlSec,
+          'NX',
+        )
+        if (wasSet === 'OK') {
+          return { status: 'new', retryAfterMs: 0 }
+        }
+        // key 已存在，读取当前状态
+        const raw = await server.redis.get(key)
+        if (!raw) {
+          // B5: SET 与 GET 之间 key 过期，重试(有上限)而非无限递归
+          retries++
+          continue
+        }
+        const parsed = JSON.parse(raw) as IdemRecord
+        if (parsed.status === 'processing') {
+          return { status: 'processing', retryAfterMs: 5000 }
+        }
+        if (parsed.status === 'completed') {
+          return { status: 'completed', cachedResult: parsed.result, retryAfterMs: 0 }
+        }
+        // B6: 未知 / failed 状态恢复用 SET NX(原子)，两个并发请求只有一个能获取锁
+        const recovered = await server.redis.set(
+          key,
+          JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),
+          'EX',
+          ttlSec,
+          'NX',
+        )
+        if (recovered === 'OK') {
+          return { status: 'new', retryAfterMs: 0 }
+        }
+        // 另一个并发请求已获取锁，返回 processing
+        return { status: 'processing', retryAfterMs: 1000 }
+      } catch (e) {
+        // B4: Redis 故障时 fail-closed，让支付平台重试，而非放行并发请求
+        server.log.error({ err: e }, 'payment idempotency redis failed, fail-closed')
         return { status: 'processing', retryAfterMs: 5000 }
       }
-      if (parsed.status === 'completed') {
-        return { status: 'completed', cachedResult: parsed.result, retryAfterMs: 0 }
-      }
-      // 未知 / failed 状态：覆盖为 processing，允许重新处理
-      await server.redis.set(
-        key,
-        JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),
-        'EX',
-        ttlSec,
-      )
-      return { status: 'new', retryAfterMs: 0 }
-    } catch (e) {
-      server.log.warn({ err: e }, 'payment idempotency redis failed, fail-open')
-      return { status: 'new', retryAfterMs: 0 }
     }
+    // B5: 重试上限耗尽，返回 processing 让支付平台稍后重试
+    return { status: 'processing', retryAfterMs: 1000 }
   }
 
   async function complete(

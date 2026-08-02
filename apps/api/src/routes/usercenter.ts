@@ -17,7 +17,13 @@ import {
   deleteUserCertificate,
   getUserStatistics,
 } from '../db/usercenter-queries.js'
-import { findUserById, findUserByPhone, createUser, updateUser } from '../db/queries.js'
+import {
+  findUserById,
+  findUserByPhone,
+  createUser,
+  updateUser,
+  revokeAllUserRefreshTokens,
+} from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 // =============================================================================
@@ -464,6 +470,9 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       }
       const passwordHash = await hashPassword(parsed.data.newPassword)
       await updateUserPassword(idParsed.data.id, passwordHash)
+      // 2026-08-02 修复 P0:与 /auth/reset-password 保持一致,重置密码后吊销所有 refresh token
+      // 防御场景:管理员重置密码后,用户旧设备上的 refresh token 仍可换 access token 继续访问
+      await revokeAllUserRefreshTokens(user.id)
       return reply.send(success({ id: user.id }))
     },
   )

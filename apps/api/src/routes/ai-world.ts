@@ -23,6 +23,7 @@ import {
   getSourceStats,
 } from '../jobs/ai-world-sync.js'
 import { success } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 
 const ListQuerySchema = z.object({
   category: z.string().optional(),
@@ -218,7 +219,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /ai-world/sync — 手动触发同步(admin,支持 ?dry-run=true 只预估不写库)
-  server.post('/ai-world/sync', async (request, reply) => {
+  server.post('/ai-world/sync', { preHandler: [requireAdmin] }, async (request, reply) => {
     try {
       const query = (request.query ?? {}) as { 'dry-run'?: string }
       if (query['dry-run'] === 'true' || query['dry-run'] === '1') {
@@ -299,51 +300,59 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   // ===== 手动触发同步端点(2026-07-22 新增) =====
 
   // POST /ai-world/sync/rankings — 手动触发模型排行榜同步
-  server.post('/ai-world/sync/rankings', async (_request, reply) => {
-    try {
-      const results = await syncRankings()
-      const ok = results.filter((r) => r.status === 'success').length
-      const fail = results.filter((r) => r.status === 'failed').length
-      const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      return reply.send(
-        success({
-          total: results.length,
-          success: ok,
-          failed: fail,
-          totalItems,
-          results,
-        }),
-      )
-    } catch (err) {
-      server.log.error({ err }, 'ai-world sync/rankings failed')
-      return reply.status(500).send({ code: 500, message: '同步失败' })
-    }
-  })
+  server.post(
+    '/ai-world/sync/rankings',
+    { preHandler: [requireAdmin] },
+    async (_request, reply) => {
+      try {
+        const results = await syncRankings()
+        const ok = results.filter((r) => r.status === 'success').length
+        const fail = results.filter((r) => r.status === 'failed').length
+        const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+        return reply.send(
+          success({
+            total: results.length,
+            success: ok,
+            failed: fail,
+            totalItems,
+            results,
+          }),
+        )
+      } catch (err) {
+        server.log.error({ err }, 'ai-world sync/rankings failed')
+        return reply.status(500).send({ code: 500, message: '同步失败' })
+      }
+    },
+  )
 
   // POST /ai-world/sync/trending — 手动触发热度更新
-  server.post('/ai-world/sync/trending', async (_request, reply) => {
-    try {
-      const results = await syncTrendingMetrics()
-      const ok = results.filter((r) => r.status === 'success').length
-      const fail = results.filter((r) => r.status === 'failed').length
-      const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      return reply.send(
-        success({
-          total: results.length,
-          success: ok,
-          failed: fail,
-          totalItems,
-          results,
-        }),
-      )
-    } catch (err) {
-      server.log.error({ err }, 'ai-world sync/trending failed')
-      return reply.status(500).send({ code: 500, message: '同步失败' })
-    }
-  })
+  server.post(
+    '/ai-world/sync/trending',
+    { preHandler: [requireAdmin] },
+    async (_request, reply) => {
+      try {
+        const results = await syncTrendingMetrics()
+        const ok = results.filter((r) => r.status === 'success').length
+        const fail = results.filter((r) => r.status === 'failed').length
+        const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+        return reply.send(
+          success({
+            total: results.length,
+            success: ok,
+            failed: fail,
+            totalItems,
+            results,
+          }),
+        )
+      } catch (err) {
+        server.log.error({ err }, 'ai-world sync/trending failed')
+        return reply.status(500).send({ code: 500, message: '同步失败' })
+      }
+    },
+  )
 
   // POST /ai-world/sync/dry-run — 跑 dry-run(返回预计条目数,不写库)
-  server.post('/ai-world/sync/dry-run', async (_request, reply) => {
+  server.post('/ai-world/sync/dry-run', { preHandler: [requireAdmin] }, async (_request, reply) => {
     try {
       const results = await runDryRun()
       const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)

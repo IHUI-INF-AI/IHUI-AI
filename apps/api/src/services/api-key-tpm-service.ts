@@ -103,6 +103,24 @@ function getTpmReqKey(apiKeyId: string, minute: number): string {
   return `tpm:req:${apiKeyId}:${minute}`
 }
 
+/**
+ * Lua 脚本:原子 INCRBY + EXPIRE(防客户端崩溃后 key 无 TTL 永久累计)。
+ *
+ * KEYS[1] = token 计数 key,KEYS[2] = 请求计数 key
+ * ARGV[1] = 本次 token 数,ARGV[2] = TTL 秒数
+ * 返回 {tokenCount, reqCount}
+ */
+const RECORD_TPM_LUA = `
+local c = redis.call('INCRBY', KEYS[1], tonumber(ARGV[1]))
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
+local r = redis.call('INCR', KEYS[2])
+redis.call('EXPIRE', KEYS[2], tonumber(ARGV[2]))
+return {c, r}
+`
+
+/** TPM Redis key TTL(秒,2 分钟覆盖跨分钟边界) */
+const TPM_KEY_TTL_SEC = 120
+
 // ============================================================================
 // 核心函数
 // ============================================================================
@@ -177,22 +195,18 @@ export async function recordTpmUsage(apiKeyId: string, tokens: number): Promise<
   const tokenKey = getTpmTokenKey(apiKeyId, minute)
   const reqKey = getTpmReqKey(apiKeyId, minute)
 
-  // Redis pipeline: INCRBY + INCR + EXPIRE × 2
+  // Redis: Lua 脚本原子 INCRBY + EXPIRE(防 pipeline 非原子导致 key 无 TTL 永久累计)
   try {
     const redis = getRedisClient()
-    const pipeline = redis.pipeline()
-    pipeline.incrby(tokenKey, tokens)
-    pipeline.incr(reqKey)
-    pipeline.expire(tokenKey, 120)
-    pipeline.expire(reqKey, 120)
-    await pipeline.exec()
+    await redis.eval(RECORD_TPM_LUA, 2, tokenKey, reqKey, tokens, TPM_KEY_TTL_SEC)
   } catch {
     logger.warn('TPM usage Redis record failed (non-blocking)', { apiKeyId })
   }
 
   // 异步 UPSERT 到 DB(失败不阻塞)
   void db
-    .execute(sql`
+    .execute(
+      sql`
       INSERT INTO api_key_minute_usage (api_key_id, usage_minute, request_count, total_tokens, updated_at)
       VALUES (${apiKeyId}, date_trunc('minute', now()), 1, ${tokens}, now())
       ON CONFLICT (api_key_id, usage_minute)
@@ -200,7 +214,8 @@ export async function recordTpmUsage(apiKeyId: string, tokens: number): Promise<
         request_count = api_key_minute_usage.request_count + 1,
         total_tokens = api_key_minute_usage.total_tokens + ${tokens},
         updated_at = now()
-    `)
+    `,
+    )
     .catch((err: unknown) => {
       logger.warn('TPM usage DB upsert failed (non-blocking)', { apiKeyId, error: String(err) })
     })
@@ -230,8 +245,8 @@ export async function getMinuteUsage(apiKeyId: string): Promise<MinuteUsage> {
     const tokensRaw = results?.[0]?.[1]
     const reqRaw = results?.[1]?.[1]
     return {
-      tokens: tokensRaw != null ? Number(tokensRaw) : 0,
-      requests: reqRaw != null ? Number(reqRaw) : 0,
+      tokens: tokensRaw !== null && tokensRaw !== undefined ? Number(tokensRaw) : 0,
+      requests: reqRaw !== null && reqRaw !== undefined ? Number(reqRaw) : 0,
       resetAt,
     }
   } catch {
