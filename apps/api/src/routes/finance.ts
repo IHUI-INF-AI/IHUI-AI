@@ -324,7 +324,7 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     if (roleId < 1) {
       return reply.status(403).send(error(403, '需要管理员权限'))
     }
-    const parsedParams = z.object({ id: z.string().uuid('无效的 ID') }).safeParse(request.params)
+    const parsedParams = z.object({ id: z.string().uuid({ message: '无效的 ID' }) }).safeParse(request.params)
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
     }

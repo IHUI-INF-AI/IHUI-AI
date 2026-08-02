@@ -19,13 +19,13 @@ import { success, parseOrThrow } from '../utils/response.js'
 const ADMIN_ROLE_ID = 1
 
 const subscribeSchema = z.object({
-  email: z.string().email('邮箱格式不正确'),
+  email: z.string().email({ message: '邮箱格式不正确' }),
   interests: z.array(z.string()).default([]),
   agreedPrivacy: z.boolean().refine((v) => v === true, '必须同意隐私政策'),
 })
 
 const unsubscribeSchema = z.object({
-  email: z.string().email('邮箱格式不正确'),
+  email: z.string().email({ message: '邮箱格式不正确' }),
 })
 
 const sendSchema = z.object({

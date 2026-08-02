@@ -78,7 +78,7 @@ const batchFileIdsSchema = z.object({
     .max(100, '单次最多操作 100 个文件'),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 // =============================================================================
 // 序列化辅助

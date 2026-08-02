@@ -45,7 +45,7 @@ import { getLessonProgress } from '../db/learn-record-queries.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -591,8 +591,8 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
   // POST /learn/:id/homework/:hwId/submit - 学员提交作业
   server.post('/learn/:id/homework/:hwId/submit', async (request, reply) => {
     const paramsSchema = z.object({
-      id: z.string().uuid('无效的课程 ID'),
-      hwId: z.string().uuid('无效的作业 ID'),
+      id: z.string().uuid({ message: '无效的课程 ID' }),
+      hwId: z.string().uuid({ message: '无效的作业 ID' }),
     })
     const parsed = paramsSchema.safeParse(request.params)
     if (!parsed.success) {
