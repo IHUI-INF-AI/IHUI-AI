@@ -153,7 +153,7 @@ export default async function OverviewPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('overview.recentCalls.time')}</th>
                   <th className="px-4 py-2 font-medium">{t('overview.recentCalls.model')}</th>
                   <th className="px-4 py-2 font-medium">{t('overview.recentCalls.tokens')}</th>
@@ -163,10 +163,7 @@ export default async function OverviewPage() {
               </thead>
               <tbody>
                 {recentCalls.map((c, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={i} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{c.time}</td>
                     <td className="px-4 py-2.5 font-medium">{c.model}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{c.tokens}</td>
@@ -179,7 +176,10 @@ export default async function OverviewPage() {
                             : 'inline-flex items-center rounded bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400'
                         }
                       >
-                        {t(OVERVIEW_RECENTCALLS_STATUS_KEY[c.status] ?? 'overview.recentCalls.statusLabels.unknown')}
+                        {t(
+                          OVERVIEW_RECENTCALLS_STATUS_KEY[c.status] ??
+                            'overview.recentCalls.statusLabels.unknown',
+                        )}
                       </span>
                     </td>
                   </tr>

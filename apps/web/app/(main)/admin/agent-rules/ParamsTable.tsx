@@ -1,7 +1,15 @@
 'use client'
 import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, Shield } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { badgeCls, dotCls } from './helpers'
 import type { RuleParam } from './types'
@@ -33,7 +41,7 @@ export function ParamsTable({ rows, isLoading, error, onDelete, deletePending }:
             <TableHead className="px-4 py-2.5 text-right">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
@@ -59,10 +67,25 @@ export function ParamsTable({ rows, isLoading, error, onDelete, deletePending }:
               const enabled = param.status === 1
               return (
                 <TableRow key={param.id} className="hover:bg-muted/30">
-                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={param.id}>{param.id}</TableCell>
-                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={param.ruleId}>{param.ruleId}</TableCell>
+                  <TableCell
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    title={param.id}
+                  >
+                    {param.id}
+                  </TableCell>
+                  <TableCell
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    title={param.ruleId}
+                  >
+                    {param.ruleId}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{param.name}</TableCell>
-                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={param.code}>{param.code}</TableCell>
+                  <TableCell
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    title={param.code}
+                  >
+                    {param.code}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">{param.type}</TableCell>
                   <TableCell className="px-4 py-2.5">{param.value}</TableCell>
                   <TableCell className="px-4 py-2.5">

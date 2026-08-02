@@ -1,13 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-  Button,
-} from '@ihui/ui-react'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, Button } from '@ihui/ui-react'
 import {
   Check,
   X,
@@ -29,7 +22,7 @@ export const metadata: Metadata = {
     canonical: '/en/pricing',
     languages: {
       'x-default': '/pricing',
-      'en': '/en/pricing',
+      en: '/en/pricing',
       'zh-CN': '/pricing',
     },
   },
@@ -127,12 +120,36 @@ const plans = [
 ]
 
 const comparison = [
-  { feature: 'Messages', free: '100/mo', individual: '3,000/mo', team: '20,000/mo', enterprise: 'Unlimited' },
-  { feature: 'Agents', free: '3 templates', individual: 'Unlimited', team: 'Unlimited', enterprise: 'Unlimited' },
+  {
+    feature: 'Messages',
+    free: '100/mo',
+    individual: '3,000/mo',
+    team: '20,000/mo',
+    enterprise: 'Unlimited',
+  },
+  {
+    feature: 'Agents',
+    free: '3 templates',
+    individual: 'Unlimited',
+    team: 'Unlimited',
+    enterprise: 'Unlimited',
+  },
   { feature: 'Knowledge Bases', free: '1', individual: '5', team: '50', enterprise: 'Unlimited' },
-  { feature: 'Models', free: 'Limited', individual: 'All 176+', team: 'All 176+', enterprise: 'All 176+' },
+  {
+    feature: 'Models',
+    free: 'Limited',
+    individual: 'All 176+',
+    team: 'All 176+',
+    enterprise: 'All 176+',
+  },
   { feature: 'Team Members', free: '1', individual: '1', team: '10', enterprise: 'Unlimited' },
-  { feature: 'Support', free: 'Community', individual: 'Email', team: 'Priority', enterprise: 'Dedicated' },
+  {
+    feature: 'Support',
+    free: 'Community',
+    individual: 'Email',
+    team: 'Priority',
+    enterprise: 'Dedicated',
+  },
   { feature: 'SSO/SAML', free: false, individual: false, team: false, enterprise: true },
   { feature: 'Self-hosted', free: false, individual: false, team: false, enterprise: true },
 ]
@@ -237,8 +254,8 @@ export default function PricingLandingPage() {
                   </div>
                   <ul className="space-y-2">
                     {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm">
-                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <li key={f} className="flex items-center gap-2 text-sm">
+                        <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                         <span>{f}</span>
                       </li>
                     ))}
@@ -320,8 +337,8 @@ export default function PricingLandingPage() {
                 Open Source. Self-Host. Free Forever.
               </h2>
               <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
-                IHUI AI is licensed under Apache 2.0. Deploy on your own infrastructure with
-                Docker Compose one-click deployment. Your data, your rules.
+                IHUI AI is licensed under Apache 2.0. Deploy on your own infrastructure with Docker
+                Compose one-click deployment. Your data, your rules.
               </p>
               <div className="mt-6">
                 <Button asChild variant="outline" size="lg">

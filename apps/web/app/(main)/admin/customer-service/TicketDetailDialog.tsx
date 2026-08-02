@@ -197,7 +197,7 @@ export function TicketDetailDialog({
             {comments.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('noReply')}</p>
             ) : (
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md bg-muted/30 p-3">
                 {comments.map((c) => (
                   <div
                     key={c.id}

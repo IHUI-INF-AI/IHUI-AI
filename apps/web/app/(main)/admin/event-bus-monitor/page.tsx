@@ -128,7 +128,7 @@ export default function EventBusMonitorPage() {
                   <th className="px-4 py-2.5 font-medium">{t('eventBus.colTime')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {eventsList.map((e) => {
                   const st = STATUS_STYLE[e.status]
                   return (

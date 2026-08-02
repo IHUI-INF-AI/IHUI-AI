@@ -378,7 +378,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
       <Field label="任务目标" required>
         <textarea
           value={goal}
@@ -754,7 +754,7 @@ function AutoPlanPanel() {
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
       <Field label="任务描述" required>
         <textarea
           value={task}
@@ -950,7 +950,7 @@ function CustomRolesPanel() {
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
       {/* 自动生成 */}
       <div className="space-y-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-2">
         <div className="text-[11px] font-medium text-violet-700 dark:text-violet-400">
@@ -1094,7 +1094,7 @@ function CustomRoleForm({
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
       <div className="text-[11px] font-medium text-foreground">
         {existing ? '编辑角色' : '创建角色'}
       </div>
@@ -1233,7 +1233,7 @@ function EvolutionPanel() {
   }
 
   return (
-    <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 text-xs">
+    <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
       <Field label="选择 Agent 角色">
         <Select
           value={selectedRole}

@@ -5,7 +5,15 @@ import { useTranslations } from 'next-intl'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, X, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
+import {
+  Button,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useChatWs, AGENT_INFO, textareaClass, api } from './helpers'
 import { useApprovalMachine } from '@/lib/workflows'
@@ -99,7 +107,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
               {isConnected ? t('wsConnected') : t('wsDisconnected')}
             </div>
             <div
-              className="flex-1 space-y-2 overflow-y-auto rounded-md border p-2"
+              className="flex-1 space-y-2 overflow-y-auto rounded-md bg-muted/30 p-3"
               style={{ minHeight: '200px', maxHeight: '300px' }}
             >
               {chatMsgs.length === 0 ? (
@@ -136,7 +144,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
             </div>
           </div>
           <div className="flex flex-col gap-3">
-            <div className="space-y-1.5 rounded-md border p-3">
+            <div className="space-y-1.5 rounded-md bg-muted/30 p-3">
               {AGENT_INFO.map((f) => (
                 <div key={f.key} className="flex justify-between text-xs">
                   <span className="text-muted-foreground">{f.label}</span>

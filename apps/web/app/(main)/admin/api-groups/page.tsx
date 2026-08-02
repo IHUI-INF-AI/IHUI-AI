@@ -71,7 +71,7 @@ export default function ApiGroupsPage() {
                 <th className={th}>{t('apiGroups.colCreatedAt')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {list.map((g) => (
                 <tr key={g.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5 font-medium">{g.name}</td>

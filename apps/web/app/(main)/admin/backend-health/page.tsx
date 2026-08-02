@@ -192,7 +192,7 @@ export default function BackendHealthPage() {
                   <th className="px-4 py-2.5 font-medium">{t('backendHealth.colTime')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {eventsList.map((e) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{e.service}</td>

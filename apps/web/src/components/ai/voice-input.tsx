@@ -221,7 +221,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
               {[0, 1, 2, 3].map((i) => (
                 <span
                   key={`bar-${i}`}
-                  className="w-0.5 rounded-full bg-white"
+                  className="w-0.5 rounded bg-white"
                   style={{
                     height: '100%',
                     transformOrigin: 'center',

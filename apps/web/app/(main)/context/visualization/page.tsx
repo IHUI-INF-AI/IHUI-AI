@@ -67,8 +67,8 @@ export default function ContextVisualizationPage() {
           加载中…
         </div>
       ) : vizQ.error ? (
-        <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           <span>加载失败:{(vizQ.error as Error).message}</span>
         </div>
       ) : !data ? (

@@ -185,15 +185,24 @@ export function ProviderCardV2({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <h3 className="truncate text-sm font-semibold">{provider.name}</h3>
-              <Badge variant={provider.enabled ? 'default' : 'secondary'} className="shrink-0 whitespace-nowrap text-xs">
+              <Badge
+                variant={provider.enabled ? 'default' : 'secondary'}
+                className="shrink-0 whitespace-nowrap text-xs"
+              >
                 {provider.enabled ? t('enabled') : t('disabled')}
               </Badge>
               {!provider.hasApiKey ? (
-                <Badge variant="outline" className="shrink-0 whitespace-nowrap border-amber-500 text-xs text-amber-600">
+                <Badge
+                  variant="outline"
+                  className="shrink-0 whitespace-nowrap border-amber-500 text-xs text-amber-600"
+                >
                   {t('noKey')}
                 </Badge>
               ) : null}
-              <Badge variant="outline" className={`shrink-0 whitespace-nowrap text-xs ${healthColor}`}>
+              <Badge
+                variant="outline"
+                className={`shrink-0 whitespace-nowrap text-xs ${healthColor}`}
+              >
                 <Activity className="mr-1 inline h-3 w-3 shrink-0" />
                 <span className="whitespace-nowrap">{provider.healthStatus}</span>
               </Badge>
@@ -250,11 +259,15 @@ export function ProviderCardV2({
           <div className="grid grid-cols-2 gap-2 rounded-md border border-dashed bg-muted/30 p-2 text-xs">
             <div className="min-w-0">
               <p className="truncate text-muted-foreground">{t('usage30d')}</p>
-              <p className="whitespace-nowrap font-mono tabular-nums">{(provider.usage30dTokens / 1000).toFixed(1)}K tokens</p>
+              <p className="whitespace-nowrap font-mono tabular-nums">
+                {(provider.usage30dTokens / 1000).toFixed(1)}K tokens
+              </p>
             </div>
             <div className="min-w-0">
               <p className="truncate text-muted-foreground">{t('cost30d')}</p>
-              <p className="whitespace-nowrap font-mono tabular-nums">${(provider.usage30dCostCents / 100).toFixed(2)}</p>
+              <p className="whitespace-nowrap font-mono tabular-nums">
+                ${(provider.usage30dCostCents / 100).toFixed(2)}
+              </p>
             </div>
           </div>
         )}
@@ -424,7 +437,7 @@ export function ProviderCardV2({
         ) : null}
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-2 pt-2">
           <div className="flex shrink-0 flex-nowrap items-center gap-1">
             <Tooltip content={!provider.hasApiKey ? t('needKeyFirst') : t('test')}>
               <Button

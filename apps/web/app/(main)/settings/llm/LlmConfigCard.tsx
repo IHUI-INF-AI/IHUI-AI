@@ -235,7 +235,7 @@ export function LlmConfigCard({ config, template, onEdit, onDeleted }: Props) {
         ) : null}
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-2 pt-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <Tooltip content={!config.hasApiKey ? t('needKeyFirst') : t('test')}>
               <Button

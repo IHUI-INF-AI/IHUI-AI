@@ -123,7 +123,7 @@ export default function WithdrawRecordsPage() {
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
-            <CardContent className="space-y-1 p-4">
+            <CardContent className="space-y-1 p-4 min-[640px]:p-6">
               <div className="text-xs text-muted-foreground">{s.label}</div>
               {summaryQ.isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

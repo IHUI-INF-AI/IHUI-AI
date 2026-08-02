@@ -62,7 +62,7 @@ export default function VisitTrendPage() {
           <p className="mt-1 text-sm text-muted-foreground">PV / UV 趋势、来源与热门页面</p>
         </div>
         <div className="flex items-center gap-1 rounded-md border bg-muted/30 p-0.5">
-          <ArrowDownUp className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
+          <ArrowDownUp className="h-3.5 w-3.5 text-muted-foreground" />
           {GRANULARITY_OPTS.map((g) => (
             <button
               key={g.value}
@@ -82,10 +82,30 @@ export default function VisitTrendPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
-        <StatCard title="总 PV" value={numFmt.format(stats.totalPv)} icon={Eye} loading={isLoading} />
-        <StatCard title="总 UV" value={numFmt.format(stats.totalUv)} icon={Users} loading={isLoading} />
-        <StatCard title="平均时长" value={`${stats.avgDuration}s`} icon={Timer} loading={isLoading} />
-        <StatCard title="跳出率" value={`${stats.bounceRate}%`} icon={ArrowDownUp} loading={isLoading} />
+        <StatCard
+          title="总 PV"
+          value={numFmt.format(stats.totalPv)}
+          icon={Eye}
+          loading={isLoading}
+        />
+        <StatCard
+          title="总 UV"
+          value={numFmt.format(stats.totalUv)}
+          icon={Users}
+          loading={isLoading}
+        />
+        <StatCard
+          title="平均时长"
+          value={`${stats.avgDuration}s`}
+          icon={Timer}
+          loading={isLoading}
+        />
+        <StatCard
+          title="跳出率"
+          value={`${stats.bounceRate}%`}
+          icon={ArrowDownUp}
+          loading={isLoading}
+        />
       </div>
 
       <section className="space-y-3 rounded-lg border p-4">
@@ -93,7 +113,10 @@ export default function VisitTrendPage() {
           <h2 className="text-base font-semibold">PV 趋势</h2>
         </div>
         {isLoading ? (
-          <div className="grid grid-flow-col gap-2" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+          <div
+            className="grid grid-flow-col gap-2"
+            style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+          >
             {Array.from({ length: 7 }).map((_, i) => (
               <div key={`sk-${i}`} className="flex flex-col items-center gap-1.5">
                 <Skeleton className="h-32 w-full" />
@@ -103,9 +126,14 @@ export default function VisitTrendPage() {
             ))}
           </div>
         ) : stats.trend.length === 0 ? (
-          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">暂无数据</div>
+          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+            暂无数据
+          </div>
         ) : (
-          <div className="grid grid-flow-col gap-2" style={{ gridTemplateColumns: `repeat(${stats.trend.length}, minmax(0, 1fr))` }}>
+          <div
+            className="grid grid-flow-col gap-2"
+            style={{ gridTemplateColumns: `repeat(${stats.trend.length}, minmax(0, 1fr))` }}
+          >
             {stats.trend.map((p) => (
               <div key={p.date} className="flex flex-col items-center gap-1.5">
                 <div className="flex h-32 w-full items-end rounded-md bg-muted/30 px-1">
@@ -116,7 +144,9 @@ export default function VisitTrendPage() {
                     />
                   </Tooltip>
                 </div>
-                <span className="text-xs text-muted-foreground tabular-nums">{p.date.slice(5)}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {p.date.slice(5)}
+                </span>
                 <span className="text-xs font-semibold tabular-nums">{numFmt.format(p.pv)}</span>
               </div>
             ))}
@@ -131,7 +161,9 @@ export default function VisitTrendPage() {
             来源占比
           </h2>
           {stats.bySource.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">暂无数据</div>
+            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+              暂无数据
+            </div>
           ) : (
             <div className="space-y-2">
               {stats.bySource.map((s) => (
@@ -160,7 +192,9 @@ export default function VisitTrendPage() {
             热门页面
           </h2>
           {stats.topPages.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">暂无数据</div>
+            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+              暂无数据
+            </div>
           ) : (
             <div className="space-y-1.5">
               {stats.topPages.slice(0, 8).map((p, i) => (

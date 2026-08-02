@@ -35,7 +35,7 @@ export function UserCenterTable({
             <th className={th}>操作</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">

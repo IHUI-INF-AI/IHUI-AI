@@ -5,7 +5,16 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Server, Package, KeyRound, Activity, Coins, ArrowRight, Pencil, Percent } from 'lucide-react'
+import {
+  Server,
+  Package,
+  KeyRound,
+  Activity,
+  Coins,
+  ArrowRight,
+  Pencil,
+  Percent,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { getAuthCookie } from '@/lib/cookie-utils'
@@ -52,9 +61,19 @@ interface CommissionProvider {
 
 const STATS = [
   { key: 'totalModels' as const, label: '模型总数', icon: Package, color: 'text-primary' },
-  { key: 'publicModels' as const, label: '已上架', icon: Server, color: 'text-emerald-600 dark:text-emerald-400' },
+  {
+    key: 'publicModels' as const,
+    label: '已上架',
+    icon: Server,
+    color: 'text-emerald-600 dark:text-emerald-400',
+  },
   { key: 'privateModels' as const, label: '未上架', icon: Server, color: 'text-muted-foreground' },
-  { key: 'last30dCalls' as const, label: '近 30 天调用', icon: Activity, color: 'text-amber-600 dark:text-amber-400' },
+  {
+    key: 'last30dCalls' as const,
+    label: '近 30 天调用',
+    icon: Activity,
+    color: 'text-amber-600 dark:text-amber-400',
+  },
 ]
 
 export default function AdminRelayOverviewPage() {
@@ -75,9 +94,7 @@ export default function AdminRelayOverviewPage() {
   const commissionQ = useQuery({
     queryKey: ['admin', 'relay', 'commission'],
     queryFn: async () => {
-      const r = await fetchApi<{ providers: CommissionProvider[] }>(
-        '/api/admin/relay/commission',
-      )
+      const r = await fetchApi<{ providers: CommissionProvider[] }>('/api/admin/relay/commission')
       if (!r.success) throw new Error(r.error)
       return r.data.providers
     },
@@ -95,7 +112,7 @@ export default function AdminRelayOverviewPage() {
       const baseUrl =
         typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
           ? 'http://127.0.0.1:8802'
-          : (process.env.NEXT_PUBLIC_API_BASE_URL || '')
+          : process.env.NEXT_PUBLIC_API_BASE_URL || ''
       const token = useAuthStore.getState().token ?? getAuthCookie()
       const res = await fetch(
         `${baseUrl}/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`,
@@ -108,9 +125,10 @@ export default function AdminRelayOverviewPage() {
           body: JSON.stringify({ byokCommissionRate: vars.rate }),
         },
       )
-      const body = (await res.json().catch(() => null)) as
-        | { data?: { providerCode?: string; byokCommissionRate?: number }; message?: string }
-        | null
+      const body = (await res.json().catch(() => null)) as {
+        data?: { providerCode?: string; byokCommissionRate?: number }
+        message?: string
+      } | null
       if (!res.ok) {
         throw new Error(body?.message || `HTTP ${res.status}`)
       }
@@ -208,8 +226,7 @@ export default function AdminRelayOverviewPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Coins className="h-4 w-4 text-amber-600" />
-              近 30 天 Token 用量
+              <Coins className="h-4 w-4 text-amber-600" />近 30 天 Token 用量
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -236,7 +253,9 @@ export default function AdminRelayOverviewPage() {
             ) : (
               stats.providerDistribution.map((p) => (
                 <div key={p.providerCode} className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-xs text-muted-foreground">{p.providerCode}</span>
+                  <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                    {p.providerCode}
+                  </span>
                   <div className="h-2 flex-1 overflow-hidden rounded-sm bg-muted">
                     <div
                       className="h-full bg-primary"
@@ -269,47 +288,47 @@ export default function AdminRelayOverviewPage() {
           ) : (
             <div className="overflow-hidden rounded-md border border-border">
               <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Provider</th>
-                    <th className="px-3 py-2 text-right">抽成率</th>
-                    <th className="px-3 py-2 text-left">状态</th>
-                    <th className="px-3 py-2 text-right">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {commissionList.map((p) => (
-                    <tr key={p.providerCode} className="border-t border-border">
-                      <td className="px-3 py-2 font-mono text-xs">{p.providerCode}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {(p.byokCommissionRate * 100).toFixed(1)}%
-                      </td>
-                      <td className="px-3 py-2">
-                        {p.isEnabled ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            启用
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">禁用</Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => openCommissionEdit(p)}
-                        >
-                          <Pencil className="mr-1 h-3 w-3" />
-                          编辑
-                        </Button>
-                      </td>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Provider</th>
+                      <th className="px-3 py-2 text-right">抽成率</th>
+                      <th className="px-3 py-2 text-left">状态</th>
+                      <th className="px-3 py-2 text-right">操作</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {commissionList.map((p) => (
+                      <tr key={p.providerCode}>
+                        <td className="px-3 py-2 font-mono text-xs">{p.providerCode}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {(p.byokCommissionRate * 100).toFixed(1)}%
+                        </td>
+                        <td className="px-3 py-2">
+                          {p.isEnabled ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              启用
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">禁用</Badge>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => openCommissionEdit(p)}
+                          >
+                            <Pencil className="mr-1 h-3 w-3" />
+                            编辑
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -318,10 +337,30 @@ export default function AdminRelayOverviewPage() {
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {[
-          { href: '/admin/relay/models', label: '模型管理', desc: '上下架 / 定价 / 排序', icon: Package },
-          { href: '/admin/relay/key-pool', label: 'Key 池', desc: '调度 / 健康检查', icon: KeyRound },
-          { href: '/admin/relay/discovery', label: '动态发现', desc: '上游模型审批', icon: Activity },
-          { href: '/admin/relay/logs', label: '调用日志', desc: '请求 / Token / 错误', icon: Coins },
+          {
+            href: '/admin/relay/models',
+            label: '模型管理',
+            desc: '上下架 / 定价 / 排序',
+            icon: Package,
+          },
+          {
+            href: '/admin/relay/key-pool',
+            label: 'Key 池',
+            desc: '调度 / 健康检查',
+            icon: KeyRound,
+          },
+          {
+            href: '/admin/relay/discovery',
+            label: '动态发现',
+            desc: '上游模型审批',
+            icon: Activity,
+          },
+          {
+            href: '/admin/relay/logs',
+            label: '调用日志',
+            desc: '请求 / Token / 错误',
+            icon: Coins,
+          },
         ].map((entry) => (
           <Link
             key={entry.href}
@@ -366,7 +405,9 @@ export default function AdminRelayOverviewPage() {
                 onChange={(e) => setRateInput(e.target.value)}
                 className="h-9"
               />
-              <p className="text-xs text-muted-foreground">范围 0~100,支持 1 位小数(如 10.5 表示 10.5%)</p>
+              <p className="text-xs text-muted-foreground">
+                范围 0~100,支持 1 位小数(如 10.5 表示 10.5%)
+              </p>
             </div>
             <DialogFooter>
               <Button
