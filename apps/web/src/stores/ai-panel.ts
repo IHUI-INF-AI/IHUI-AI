@@ -123,6 +123,10 @@ export const useAiPanelStore = create<AiPanelState>()(
         ...((persistedState as Partial<AiPanelState>) || {}),
         open: true,
         floatMode: false,
+        // 强制非最小化/非折叠:防旧版本 localStorage 残留 floatMinimized:true
+        // 导致 AI 对话框默认收成 FAB(用户规则:默认展开正常态)
+        floatMinimized: false,
+        floatCollapsed: false,
         floatPosition: FLOAT_DEFAULT_POSITION,
       }),
     },
