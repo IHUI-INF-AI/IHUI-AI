@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
+  Calendar,
   CheckCircle2,
   Cpu,
   Gift,
@@ -17,6 +18,7 @@ import {
   Search,
   Sparkles,
   TriangleAlert,
+  Trophy,
   Zap,
   Cable,
 } from 'lucide-react'
@@ -38,6 +40,7 @@ import { fetchConfigs, type UserLlmConfig } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, hasPresetTemplate } from '@/lib/llm-templates'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { QuickKeyDialog } from './QuickKeyDialog'
@@ -533,9 +536,14 @@ function ModelCardGrid({
   onRelayKeys: () => void
 }) {
   const t = useTranslations('models')
+  const router = useRouter()
   const outputPrice = model.outputPrice ?? model.inputPrice * 3
   const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
   const description = model.description ? t(model.description) : t('market.defaultDescription')
+
+  const handleViewRanking = () => {
+    router.push(`/ai-news?model=${encodeURIComponent(model.id)}`)
+  }
 
   return (
     <Card
@@ -593,34 +601,45 @@ function ModelCardGrid({
 
       <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{description}</p>
 
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-md bg-muted/50 px-2 py-1.5">
-          <div className="flex items-center gap-1 text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
-            <Cpu className="h-3 w-3" />
-            <span>{t('contextLength')}</span>
-          </div>
-          <div className="mt-0.5 truncate font-medium text-foreground">
-            {formatContext(model.contextLength)}
-          </div>
-        </div>
-        <div className="rounded-md bg-muted/50 px-2 py-1.5">
-          <div className="flex items-center gap-1 text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+      {/* 上下文长度 — 单独一行,无容器包裹 */}
+      <div className="flex items-center gap-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+        <Cpu className="h-3 w-3" />
+        <span>{t('contextLength')}</span>
+        <span className="ml-auto font-medium text-foreground">
+          {formatContext(model.contextLength)}
+        </span>
+      </div>
+
+      {/* 价格 — 横向一排,容器包裹(输入价 + 输出价) */}
+      <div className="rounded-md bg-muted/50 px-2 py-1.5 text-xs">
+        <div className="flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
             <Zap className="h-3 w-3" />
-            <span>{t('market.inputPrice')}</span>
-          </div>
-          <div className="mt-0.5 truncate font-medium text-foreground">
+            {t('market.inputPrice')}
+          </span>
+          <span className="font-medium text-foreground">
             {model.inputPrice === 0 ? t('free') : `$${model.inputPrice.toFixed(2)}`}
-          </div>
+          </span>
+        </div>
+        <div className="mt-1 flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <span className="text-muted-foreground">{t('market.outputPrice')}</span>
+          <span className="font-medium text-foreground">
+            {outputPrice === 0 ? t('free') : `$${outputPrice.toFixed(2)}`}
+            <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
-        <span className="text-muted-foreground">{t('market.outputPrice')}</span>
-        <span className="font-medium text-foreground">
-          {outputPrice === 0 ? t('free') : `$${outputPrice.toFixed(2)}`}
-          <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
-        </span>
-      </div>
+      {/* 上架时间 — 单独一行,无容器包裹(仅当存在 releasedAt) */}
+      {model.releasedAt && (
+        <div className="flex items-center gap-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <Calendar className="h-3 w-3" />
+          <span>{t('market.releasedAt')}</span>
+          <span className="ml-auto font-medium text-foreground">
+            {formatDateOnly(model.releasedAt)}
+          </span>
+        </div>
+      )}
 
       {model.features.length > 0 && (
         <div className="flex flex-wrap gap-1">
@@ -644,6 +663,20 @@ function ModelCardGrid({
           <RelayBadge multiplier={model.relayPriceMultiplier} variant="tag" />
         </div>
       )}
+
+      {/* 查看排名按钮 — 跳转 /ai-news 模型排行榜对应模型页面 */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 w-full gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+        onClick={(e) => {
+          e.stopPropagation()
+          handleViewRanking()
+        }}
+      >
+        <Trophy className="h-3.5 w-3.5 text-amber-500" />
+        <span>{t('market.viewRanking')}</span>
+      </Button>
 
       {/* 操作区:立即体验为主;若可配置且未配置,显示「配置 API Key」次按钮;若中转站可用,显示「获取 API Key」次按钮(P0-5g) */}
       {canConfigure && !isConfigured ? (
@@ -742,7 +775,12 @@ function ModelCardList({
   onRelayKeys: () => void
 }) {
   const t = useTranslations('models')
+  const router = useRouter()
   const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
+
+  const handleViewRanking = () => {
+    router.push(`/ai-news?model=${encodeURIComponent(model.id)}`)
+  }
 
   return (
     <Card
@@ -787,7 +825,7 @@ function ModelCardList({
             <RelayBadge multiplier={model.relayPriceMultiplier} variant="tag" />
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <span className="inline-flex items-center gap-0.5">
             <Cpu className="h-3 w-3" />
             {formatContext(model.contextLength)}
@@ -797,6 +835,12 @@ function ModelCardList({
             {model.inputPrice === 0 ? t('free') : `$${model.inputPrice.toFixed(2)}`}
             <span className="text-muted-foreground/70">/{t('perMillion').replace('/', '')}</span>
           </span>
+          {model.releasedAt && (
+            <span className="inline-flex items-center gap-0.5">
+              <Calendar className="h-3 w-3" />
+              {formatDateOnly(model.releasedAt)}
+            </span>
+          )}
           {model.features.slice(0, 2).map((f) => (
             <span
               key={f}
@@ -816,6 +860,22 @@ function ModelCardList({
         }}
         className="shrink-0"
       />
+
+      {/* List 视图:查看排名按钮(跳转 /ai-news 模型排行榜) */}
+      <Tooltip content={t('market.viewRanking')}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleViewRanking()
+          }}
+        >
+          <Trophy className="h-3 w-3 text-amber-500" />
+          <span>{t('market.viewRanking')}</span>
+        </Button>
+      </Tooltip>
 
       {/* List 视图操作区:可配置且未配置时,显示「配置 API Key」小按钮;中转站可用时,显示「获取 API Key」小按钮(P0-5g) */}
       {canConfigure && !isConfigured && (
