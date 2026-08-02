@@ -266,11 +266,25 @@ export async function executeStockAnalysis(
   }
 
   // 2. 调用真实 AI 模型（调用失败时降级为本地分析；Bulkhead 限制并发）
+  // P1 资金链路修复(2026-08-02 Bug A7):AI 失败降级到本地分析,但 token 已扣减不退还,
+  // 导致用户付费却没拿到 AI 结果。在 onError 回调中退还 token(fire-and-forget,
+  // 退款失败只记日志不阻断主流程)。degradedMode 不 await onError,但退款会被触发。
   const ai = await degradedMode(
     () => getBulkhead('stock-ai', 5, 20).execute(() => callStockAIModel(req.symbol, req.question)),
     fallbackAnalysis(req.symbol, req.question),
-    (err) =>
-      logger.error('[stock-service] AI 模型调用失败, 降级为本地分析', { error: err.message }),
+    (err) => {
+      logger.error('[stock-service] AI 模型调用失败, 降级为本地分析', { error: err.message })
+      // AI 失败退还已扣 token;幂等键含 symbol + 时间戳,rechargeTokens 内部 unique 索引兜底
+      if (tokenBalance && req.userId) {
+        const refundReason = `stock_refund:${req.symbol}:${Date.now()}`
+        tokenBalance.rechargeTokens(req.userId, estimatedTokens, refundReason).catch((refundErr) =>
+          logger.error('[stock-service] token 退还失败', {
+            userId: req.userId,
+            error: (refundErr as Error).message,
+          }),
+        )
+      }
+    },
   )
 
   const result: StockAnalysisResult = {
