@@ -258,12 +258,12 @@ const MessageItem = React.memo(function MessageItem({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* 2026-08-02:用户消息保留气泡(bg-primary),AI 消息无气泡平铺(无模型名/图标) */}
+      {/* 2026-08-02:用户消息保留气泡(bg-primary rounded-lg),AI 消息无气泡平铺 */}
       <div
         className={cn(
           'relative max-w-[85%]',
           isUser
-            ? 'rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-primary-foreground'
+            ? 'rounded-lg rounded-br-sm bg-primary px-4 py-2.5 text-primary-foreground'
             : m.error
               ? 'text-destructive'
               : 'text-left',
