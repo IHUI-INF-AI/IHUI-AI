@@ -292,6 +292,22 @@ _REGISTRY: list[FreeProvider] = [
         notes="LPU 推理芯片,500+ tokens/s,免费层最快",
     ),
     FreeProvider(
+        # 2026-08-02 接入 Google AI Studio(Gemini 免费层)
+        provider_code="gemini",
+        display_name="Google AI Studio (Gemini)",
+        category=ProviderCategory.INTERNATIONAL,
+        signup_url="https://aistudio.google.com/apikey",
+        free_quota="gemini-2.5-flash / gemini-2.0-flash 免费层(每日限额,需代理)",
+        rate_limit="15 RPM / 1500 RPD / 100万 tokens/天(免费层)",
+        default_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        key_env_vars=["GEMINI_API_KEY"],
+        # 2026-08-02 修复顺序:gemini-2.5-flash 对新用户 404 下线,health check 用 [0] ping 会标 DOWN → 全部过滤
+        # 改 gemini-2.0-flash 放第一(429 配额耗尽=DEGRADED 仍显示,不是 404 DOWN)
+        default_models=["gemini/gemini-2.0-flash", "gemini/gemini-2.0-flash-lite", "gemini/gemini-2.5-flash"],
+        docs_url="https://ai.google.dev/gemini-api/docs",
+        notes="Google AI Studio OpenAI 兼容接口,1M context,免费层按日重置,国内需代理",
+    ),
+    FreeProvider(
         provider_code="mistral",
         display_name="Mistral AI",
         category=ProviderCategory.INTERNATIONAL,
