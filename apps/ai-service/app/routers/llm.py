@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator
 
 import httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -41,6 +41,21 @@ logger = logging.getLogger(__name__)
 
 # 持有待完成的回调 task 引用,防止 CPython GC 回收未持有的 task
 _pending_callbacks: set[asyncio.Task[None]] = set()
+
+# 浏览器端工具委托 session 管理(2026-08-02 立,阶段 2)
+# 每个 /llm/complete/stream 请求(workspace_context 模式)生成一个 session_id,
+# tool loop 遇到 fs 类工具时,通过 SSE 发 tool-delegate 事件委托前端执行,
+# 前端通过 POST /llm/complete/stream/{session_id}/tool-result 回传结果。
+_delegate_sessions: dict[str, dict[str, Any]] = {}
+_DELEGATE_TIMEOUT = 60  # 秒
+
+# fs 类工具集合(依赖本地文件系统,浏览器端需委托前端执行)
+_FS_DEPENDENT_TOOLS = {
+    "read_file", "write_file", "file_edit", "file_search",
+    "search_codebase", "list_files", "apply_patch",
+    "create_file", "delete_file", "move_file",
+    "analyze_code", "generate_test",
+}
 
 
 def _wrap_ok(data: Any, message: str = "ok") -> dict[str, Any]:
@@ -918,6 +933,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 每次 tool-call-start 事件发出时 append 一条记录,tool-result 事件到达时更新 result/durationMs/isError。
         # 在 SSE 流末尾(每个 done 事件之前)聚合统计,发出 tool-summary 事件。
         tool_calls_history: list[dict[str, Any]] = []
+        # 阶段 2:浏览器端工具委托 session_id(workspace_context 模式下生成)
+        session_id: str | None = None
+        if req.workspace_context:
+            session_id = str(uuid.uuid4())
         try:
             # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
             if compaction_info and compaction_info.get("compressed"):
@@ -1176,6 +1195,138 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
                             # 首次调用:记录到集合(不管成功失败都记录,防止 LLM 重复调用同一参数的同一工具)
                             executed_tool_keys.add(dedup_key)
+
+                            # ===== 阶段 2:浏览器端工具委托执行(2026-08-02 立)=====
+                            # web 非 Tauri 环境(workspace_context 模式)下,fs 类工具委托前端用
+                            # FileSystemDirectoryHandle 执行,通过 SSE tool-delegate 事件通知前端,
+                            # 前端执行完通过 POST /llm/complete/stream/{session_id}/tool-result 回传结果。
+                            # Tauri 桌面端走原有 _mcp.call_tool 逻辑(workspace_path 模式,ai-service 在本地)。
+                            if req.workspace_context and tool_name in _FS_DEPENDENT_TOOLS:
+                                if session_id is None:
+                                    # 兜底:理论上 gen() 开始时已生成,此处防御
+                                    session_id = str(uuid.uuid4())
+                                tool_call_id = tc.get("id", "")
+                                delegate_event_obj: dict[str, Any] = {
+                                    "type": "tool-delegate",
+                                    "session_id": session_id,
+                                    "tool_call_id": tool_call_id,
+                                    "tool_name": tool_name,
+                                    "args": args,
+                                    "iteration": _tool_iter + 1,
+                                }
+                                # 注册 pending Event 到 session
+                                _ev = asyncio.Event()
+                                _delegate_sessions.setdefault(session_id, {})["pending_" + tool_call_id] = _ev
+                                # 发送 tool-delegate SSE 事件
+                                yield f"event: tool-delegate\ndata: {json.dumps(delegate_event_obj, ensure_ascii=False)}\n\n"
+                                # 等待前端回传结果(超时 60 秒)
+                                try:
+                                    await asyncio.wait_for(_ev.wait(), timeout=_DELEGATE_TIMEOUT)
+                                except asyncio.TimeoutError:
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "error": f"前端工具执行超时({_DELEGATE_TIMEOUT}s)",
+                                        "errorCode": "DELEGATE_TIMEOUT",
+                                        "message": f"浏览器端工具 {tool_name} 执行超时",
+                                    }
+                                    ok = False
+                                    tool_exec_tracker.append(ok)
+                                    # 推送 tool-result 事件
+                                    _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
+                                    tc_result_evt = {
+                                        "type": "tool-result",
+                                        "toolCallId": tool_call_id,
+                                        "toolName": tool_name,
+                                        "args": args,
+                                        "result": exec_result,
+                                        "isError": True,
+                                        "iteration": _tool_iter + 1,
+                                        "delegated": True,
+                                        "serverSource": _r_src,
+                                        "serverId": _r_sid,
+                                        "serverName": _r_sname,
+                                    }
+                                    yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                                    _hist_idx = len(tool_calls_history) - 1
+                                    if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tool_call_id:
+                                        tool_calls_history[_hist_idx].update({
+                                            "result": exec_result,
+                                            "isError": True,
+                                            "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                        })
+                                    result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                    messages.append({
+                                        "role": "tool",
+                                        "tool_call_id": tool_call_id,
+                                        "name": tool_name,
+                                        "content": result_json,
+                                    })
+                                    # 清理 session
+                                    _delegate_sessions.get(session_id, {}).pop("pending_" + tool_call_id, None)
+                                    continue
+                                # 取前端回传的结果
+                                _sess = _delegate_sessions.get(session_id, {})
+                                _front_result = _sess.pop("result_" + tool_call_id, None)
+                                _sess.pop("pending_" + tool_call_id, None)
+                                if _front_result and _front_result.get("error"):
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "error": _front_result["error"],
+                                        "errorCode": "DELEGATE_ERROR",
+                                        "message": f"浏览器端工具 {tool_name} 执行失败: {_front_result['error']}",
+                                    }
+                                elif _front_result and _front_result.get("result") is not None:
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": True,
+                                        "result": _front_result["result"],
+                                        "delegated": True,
+                                        "message": f"浏览器端工具 {tool_name} 执行成功",
+                                    }
+                                else:
+                                    exec_result = {
+                                        "tool": tool_name,
+                                        "ok": False,
+                                        "error": "前端未返回有效结果",
+                                        "errorCode": "DELEGATE_NO_RESULT",
+                                    }
+                                ok = bool(exec_result.get("ok", True))
+                                tool_exec_tracker.append(ok)
+                                # 推送 tool-result 事件
+                                _r_src, _r_sid, _r_sname = resolve_tool_source(tool_name)
+                                tc_result_evt = {
+                                    "type": "tool-result",
+                                    "toolCallId": tool_call_id,
+                                    "toolName": tool_name,
+                                    "args": args,
+                                    "result": exec_result,
+                                    "isError": not ok,
+                                    "iteration": _tool_iter + 1,
+                                    "delegated": True,
+                                    "serverSource": _r_src,
+                                    "serverId": _r_sid,
+                                    "serverName": _r_sname,
+                                }
+                                yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                                # 更新 tool_calls_history
+                                _hist_idx = len(tool_calls_history) - 1
+                                if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tool_call_id:
+                                    tool_calls_history[_hist_idx].update({
+                                        "result": exec_result,
+                                        "isError": not ok,
+                                        "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                    })
+                                # 回灌工具结果到 messages
+                                result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call_id,
+                                    "name": tool_name,
+                                    "content": result_json,
+                                })
+                                continue  # 跳过后续的本地执行逻辑
 
                             # 执行工具(异常保护:网络/超时/JSON 错误不应崩溃 SSE 流)
                             # G6(2026-07-26):透传 owner_uuid(user_id)给 knowledge_lookup 查 LTM 源
@@ -1487,6 +1638,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             )
             yield f"event: error\ndata: {json.dumps(err, ensure_ascii=False)}\n\n"
             return
+        finally:
+            # 阶段 2:清理委托 session
+            if session_id and session_id in _delegate_sessions:
+                del _delegate_sessions[session_id]
 
         # 流结束后异步回调(仅当 metadata 含关联键且无错误时)
         # 客户端已断开则不触发 callback(避免 POST 到已废弃 URL)
@@ -1506,6 +1661,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲,确保实时流式
         },
     )
+
+
+@router.post("/llm/complete/stream/{session_id}/tool-result", response_model=None)
+async def post_delegated_tool_result(session_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """阶段 2:前端工具执行代理结果回传端点(2026-08-02 立)。
+
+    前端收到 SSE tool-delegate 事件后,用 FileSystemDirectoryHandle 执行 fs 类工具,
+    通过此端点回传结果,唤醒 ai-service tool loop 中等待的 asyncio.Event。
+    """
+    session = _delegate_sessions.get(session_id)
+    if not session:
+        return {"ok": False, "error": "session not found or expired"}
+    tool_call_id = body.get("tool_call_id", "")
+    result = body.get("result")
+    error = body.get("error")
+    # 存储结果
+    session["result_" + tool_call_id] = {"result": result, "error": error}
+    # 唤醒等待的 Event
+    event = session.get("pending_" + tool_call_id)
+    if event and isinstance(event, asyncio.Event):
+        event.set()
+    return {"ok": True}
 
 
 async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, Any] | None) -> None:
