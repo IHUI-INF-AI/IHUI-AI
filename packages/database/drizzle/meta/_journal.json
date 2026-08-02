@@ -1065,6 +1065,13 @@
       "when": 1784894400000,
       "tag": "20260724190000_resource_context_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1785702240000,
+      "tag": "20260802040000_user_devices",
+      "breakpoints": true
     }
   ]
 }
