@@ -155,6 +155,9 @@ TEMPmcp-verify.log
 
 # Agent 临时脚本(__ 前缀 + 数字命名无扩展名)
 __*
+# 豁免:__tests__ 是合法测试目录,不允许被 __* 误伤(lint-staged re-add 失败根因)
+!**/__tests__/
+!**/__tests__/**
 check_guard_final*.log
 deep_audit_round*.log
 stub_audit_round*.log
