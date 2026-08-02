@@ -7793,6 +7793,18 @@
         "removeFavorite": "즐겨찾기에서 제거"
       }
     },
+    "quickFilters": {
+      "favorite": "즐겨찾기",
+      "configured": "설정됨",
+      "notConfigured": "미설정",
+      "free": "무료",
+      "longContext": "긴 컨텍스트",
+      "reasoning": "추론",
+      "vision": "비전",
+      "coding": "코딩",
+      "chinese": "중국어",
+      "openSource": "오픈소스"
+    },
     "aiNews": {
       "title": "2026-07 AI 뉴스",
       "subtitle": "시드 데이터 흐름의 최신 릴리스",
