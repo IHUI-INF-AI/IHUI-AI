@@ -1223,7 +1223,11 @@
       "timeout60s": "AI thinking timeout (no answer produced within 60 seconds, reasoning model may be thinking too long), please try again later or switch to a regular model"
     },
     "clearInputAriaLabel": "Clear input",
-    "clearInputTitle": "Clear input content"
+    "clearInputTitle": "Clear input content",
+    "errorTimeout15s": "AI response timeout (no content received within 15 seconds), please retry later",
+    "errorTimeout60s": "AI thinking timeout (no answer produced within 60 seconds, reasoning model may be thinking too long), please retry later or switch to a regular model",
+    "reconnecting": "Reconnecting",
+    "reconnectAttempt": "Attempt {n}, retrying in {ms}ms"
   },
   "learn": {
     "title": "Learning Center",
@@ -10591,7 +10595,15 @@
   },
   "slashPalette": {
     "backAriaLabel": "Back to command list",
-    "clearAriaLabel": "Clear search"
+    "clearAriaLabel": "Clear search",
+    "searchArgsPlaceholder": "Search candidates...",
+    "searchPlaceholder": "Search commands...",
+    "hintSelect": "Select",
+    "hintConfirm": "Confirm",
+    "hintBack": "Back",
+    "hintClose": "Close",
+    "hintArgsCount": "{n} candidates",
+    "hintCommandsCount": "{n} commands"
   },
   "floatingChat": {
     "openclaw": {
@@ -11357,7 +11369,8 @@
         "copyOutput": "Copy terminal output",
         "running": "{n} running",
         "failed": "{n} failed",
-        "moreItems": "…{n} more"
+        "moreItems": "…{n} more",
+        "truncated": "...(truncated, {total} characters total)"
       },
       "tools": {
         "title": "Tool Calls",
@@ -11435,6 +11448,31 @@
       "copyThinking": "Copy thinking content",
       "thinkingElapsedTitle": "Thinking for {time}",
       "thinkingCharCountTitle": "{n} characters"
+    },
+    "toolCall": {
+      "statusRunning": "Running",
+      "statusSuccess": "Success",
+      "statusFailed": "Failed",
+      "prompt": "Prompt",
+      "imageLoadFailed": "Image load failed",
+      "imageAltDefault": "AI generated image",
+      "openInNewWindow": "Open in new window",
+      "plan": "Plan ({count})",
+      "reference": "References ({count})",
+      "toolCallStats": "Tool calls ({count})",
+      "moreItems": "... {count} more"
+    },
+    "agentManager": {
+      "title": "Agent Management",
+      "create": "New",
+      "active": "Active",
+      "total": "Total",
+      "empty": "No agents"
+    },
+    "checkpointHistory": {
+      "title": "Checkpoint History",
+      "empty": "No checkpoints",
+      "restore": "Restore"
     }
   },
   "docs": {
@@ -14479,14 +14517,53 @@
     "compareMain": "Compare with main",
     "abandonBranch": "Abandon branch",
     "requirementFormat": "Requirement format",
-    "stopListening": "Stop listening"
+    "stopListening": "Stop listening",
+    "stageStatus": {
+      "pending": "Pending",
+      "running": "Running",
+      "success": "Success",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    },
+    "stage": {
+      "apply_spec": "Generate patch",
+      "apply_patch": "Apply patch",
+      "typecheck": "Type check",
+      "test": "Test",
+      "commit": "Commit"
+    },
+    "submitReviewFailed": "Failed to submit review",
+    "reviewSubmitted": "Review submitted",
+    "unknownError": "Unknown error",
+    "pipelineRunning": "Running",
+    "startPipeline": "Start pipeline",
+    "autoCommit": "Auto commit"
   },
   "dispatchDialog": {
     "taskGoalPlaceholder": "Describe task goal…",
     "taskDescPlaceholder": "Describe task details…",
     "conditionPlaceholder": "Describe completion criteria…",
     "examplePlaceholder": "Example…",
-    "roleDescPlaceholder": "Describe role responsibilities…"
+    "roleDescPlaceholder": "Describe role responsibilities…",
+    "evolutionSelectRole": "Select Agent role",
+    "evolutionLoading": "Loading...",
+    "evolutionCurrentPrompt": "Current Prompt (version {version})",
+    "evolutionInitialVersion": "Initial",
+    "evolutionVersions": "Evolution versions ({n})",
+    "evolutionRecentRecords": "Recent tasks ({n})",
+    "evolutionRetry": "Retry {n}",
+    "evolutionAnalyzing": "LLM reviewing...",
+    "evolutionTrigger": "Trigger LLM evolution analysis",
+    "evolutionSuggestEvolve": "Suggest evolution ({n} patches)",
+    "evolutionNoEvolve": "No evolution needed",
+    "evolutionReason": "Reason:",
+    "evolutionApplying": "Applying...",
+    "evolutionApply": "Confirm apply patch",
+    "evolutionEmpty": "No evolution data",
+    "evolutionAnalyzeSuccess": "Evolution analysis completed",
+    "evolutionAnalyzeFailed": "Evolution analysis failed",
+    "evolutionApplySuccess": "Patch applied",
+    "evolutionApplyFailed": "Apply failed"
   },
   "inlineEdit": {
     "editDescPlaceholder": "Describe edit content…",
@@ -15168,6 +15245,54 @@
     "invalidMoney": "Invalid amount format.",
     "invalidTimezone": "Invalid timezone format.",
     "unknown": "An unknown error occurred. Please try again later."
+  },
+  "agentWorkbench": {
+    "runtimeLog": {
+      "selectAgentPrompt": "Select an Agent to view runtime logs",
+      "realtimeConnection": "Realtime connection",
+      "connectionFailed": "Connection failed",
+      "retry": "Retry",
+      "connecting": "Connecting...",
+      "notRunning": "Not running",
+      "logCount": "{count} entries",
+      "pauseAutoScroll": "Pause auto-scroll",
+      "resumeAutoScroll": "Resume auto-scroll",
+      "sseConnectionFailed": "SSE connection failed",
+      "sseConnectionError": "SSE connection failed ({status})",
+      "noLogs": "No logs"
+    },
+    "tokenStream": {
+      "realtimeStream": "Realtime stream",
+      "connecting": "Connecting...",
+      "notRunning": "Not running",
+      "empty": "No token stream"
+    },
+    "toolCallChain": {
+      "title": "Tool call chain",
+      "waiting": "Waiting for tool calls...",
+      "empty": "No tool calls",
+      "statusPending": "Pending",
+      "statusSuccess": "Success",
+      "statusError": "Failed"
+    }
+  },
+  "swarmTopology": {
+    "dispatchStatus": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "preempted": "Preempted",
+      "quota_exceeded": "Quota exceeded"
+    },
+    "nodeStatus": {
+      "idle": "Idle",
+      "running": "Running",
+      "waiting": "Waiting",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
   },
   "a11y": {
     "searchOption": "Search options",

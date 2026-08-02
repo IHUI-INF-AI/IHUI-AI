@@ -16,7 +16,6 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
 import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
-import { useIsMobile } from '@/hooks/use-media-query'
 import { dispatchMenuAction } from '@/lib/menu-actions'
 import { startAutoRefresh } from '@/lib/tokenUtils'
 
@@ -103,25 +102,13 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // 小尺寸自动折叠侧边栏(2026-08-02 立,用户规则"小尺寸也应显示最小化只显示图标的侧边栏"):
-  // - <1024px 自动 setCollapsed(true),侧边栏收成 60px 只图标宽度
-  // - ≥1024px 还原用户 localStorage 偏好(非小尺寸不强制折叠)
-  // - sidebar.tsx 桌面 aside 已改为始终 flex 挂载(不再 hidden min-[1024px]:flex),
-  //   配合此 effect 实现小尺寸下显示 60px 图标条而非完全隐藏
-  const isMobileViewport = useIsMobile()
-  React.useEffect(() => {
-    if (isMobileViewport) {
-      setCollapsed(true)
-    } else {
-      // 恢复桌面尺寸:读 localStorage 用户偏好(默认展开)
-      try {
-        const saved = localStorage.getItem('sidebar-collapsed')
-        setCollapsed(saved === 'true')
-      } catch {
-        setCollapsed(false)
-      }
-    }
-  }, [isMobileViewport])
+  // 小尺寸侧边栏折叠改用纯 CSS 方案(2026-08-02 修订):
+  // - 旧方案用 useIsMobile + setCollapsed effect,但 useIsMobile SSR 返回 false / CSR 返回 true
+  //   导致 hydration mismatch + 闪烁(首帧展开态 → effect 跑 setCollapsed(true) → 重渲染折叠态)
+  // - 新方案:不在 JS 层强制 collapsed,改由 sidebar.tsx aside 加 CSS 媒体查询类
+  //   `max-[1023px]:!w-[60px]` 在小尺寸下强制 60px 折叠宽度,导航项用 collapsed prop 控制图标态
+  // - collapsed prop 仍由用户手动折叠按钮控制(持久化 localStorage),小尺寸 CSS 只覆盖宽度
+  //   不改 collapsed state,避免 hydration 问题和 JS 时序闪烁
 
   // 页面刷新后:从 cookie 恢复 refreshToken + 按偏好启动自动续期(实现"记住 30 天")
   React.useEffect(() => {
