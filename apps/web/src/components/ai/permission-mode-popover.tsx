@@ -527,7 +527,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
             currentMode === 'default' && 'text-muted-foreground',
           )}
         />
-        <span className="whitespace-nowrap">{currentTitle}</span>
+        <span className="min-w-0 truncate whitespace-nowrap">{currentTitle}</span>
         {/* 屏幕阅读器公告 mode 变化(2026-07-25 深化,A11y):
             trigger button 的 aria-label 是静态的(buttonLabel),聚焦时听不到 mode 变化;
             aria-live="polite" + aria-atomic="true" 的 sr-only span 在 currentTitle 变化时

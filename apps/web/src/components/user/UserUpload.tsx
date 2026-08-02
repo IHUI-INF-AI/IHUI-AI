@@ -76,7 +76,7 @@ export default function UserUpload({
               key={`${f.name}-${i}`}
               className="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1 text-xs"
             >
-              <span className="truncate">{f.name}</span>
+              <span className="min-w-0 flex-1 truncate">{f.name}</span>
               <button
                 type="button"
                 onClick={() => removeFile(i)}

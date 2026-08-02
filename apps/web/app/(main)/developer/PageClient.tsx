@@ -182,7 +182,7 @@ export default function DeveloperHomePageClient() {
                   className="group flex flex-col gap-1 bg-card p-4 transition-colors hover:bg-accent"
                 >
                   <Icon className="h-5 w-5 shrink-0 text-primary" />
-                  <p className="mt-1 whitespace-nowrap text-sm font-medium">{q.label}</p>
+                  <p className="mt-1 text-sm font-medium break-words">{q.label}</p>
                   <p className="line-clamp-2 text-xs text-muted-foreground">{q.desc}</p>
                 </Link>
               )
