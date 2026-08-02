@@ -81,13 +81,10 @@ export async function navigateBrowser(
   url: string,
   waitUntil: string = 'domcontentloaded',
 ): Promise<ApiResult<BrowserNavigateResult>> {
-  return fetchApi<BrowserNavigateResult>(
-    `/api/browser/sessions/${sessionId}/navigate`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ url, wait_until: waitUntil }),
-    },
-  )
+  return fetchApi<BrowserNavigateResult>(`/api/browser/sessions/${sessionId}/navigate`, {
+    method: 'POST',
+    body: JSON.stringify({ url, wait_until: waitUntil }),
+  })
 }
 
 /** 获取会话 cookies(可选按 URL 过滤) */
@@ -106,27 +103,30 @@ export async function getBrowserCookies(
 export async function browserHubBack(
   sessionId: string,
 ): Promise<ApiResult<{ success: boolean; url: string }>> {
-  return fetchApi<{ success: boolean; url: string }>(
-    `/api/browser/sessions/${sessionId}/back`,
-    { method: 'POST' },
-  )
+  return fetchApi<{ success: boolean; url: string }>(`/api/browser/sessions/${sessionId}/back`, {
+    method: 'POST',
+  })
 }
 
 /** 前进 */
 export async function browserHubForward(
   sessionId: string,
 ): Promise<ApiResult<{ success: boolean; url: string }>> {
-  return fetchApi<{ success: boolean; url: string }>(
-    `/api/browser/sessions/${sessionId}/forward`,
-    { method: 'POST' },
-  )
+  return fetchApi<{ success: boolean; url: string }>(`/api/browser/sessions/${sessionId}/forward`, {
+    method: 'POST',
+  })
+}
+
+/** 刷新结果(2026-08-02:风控墙重建时返回新 session_id) */
+export interface BrowserReloadResult {
+  url: string
+  session_id?: string
+  recreated?: boolean
 }
 
 /** 刷新 */
-export async function browserHubReload(
-  sessionId: string,
-): Promise<ApiResult<{ url: string }>> {
-  return fetchApi<{ url: string }>(`/api/browser/sessions/${sessionId}/reload`, {
+export async function browserHubReload(sessionId: string): Promise<ApiResult<BrowserReloadResult>> {
+  return fetchApi<BrowserReloadResult>(`/api/browser/sessions/${sessionId}/reload`, {
     method: 'POST',
   })
 }
@@ -142,7 +142,7 @@ export async function browserHubReload(
 
 // Node 环境(tsconfig 无 DOM lib)无 window 全局,显式声明类型避免 TS2304。
 // 运行时 typeof window === 'undefined' 判定仍正确(Node 下返回 'undefined')。
-declare const window: { location: { protocol: string; host: string } } | undefined;
+declare const window: { location: { protocol: string; host: string } } | undefined
 
 export function buildBrowserWsUrl(sessionId: string): string {
   if (typeof window === 'undefined') {
