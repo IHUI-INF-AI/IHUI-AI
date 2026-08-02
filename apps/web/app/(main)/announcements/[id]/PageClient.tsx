@@ -145,7 +145,7 @@ export default function AnnouncementDetailPage() {
       </Card>
 
       {(prev || next) && (
-        <nav className="flex items-stretch gap-3 border-t pt-4">
+        <nav className="flex items-stretch gap-3 mt-4 pt-4">
           {prev ? (
             <Link
               href={`/announcements/${prev.id}`}

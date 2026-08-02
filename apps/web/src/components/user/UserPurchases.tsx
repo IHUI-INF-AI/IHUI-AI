@@ -37,7 +37,7 @@ export default function UserPurchases({
     )
   }
   return (
-    <ul className={cn('divide-y rounded-xl border bg-card', className)}>
+    <ul className={cn('space-y-2 rounded-xl border bg-card p-2', className)}>
       {items.map((it) => (
         <li key={it.id}>
           <button

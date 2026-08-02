@@ -1389,7 +1389,7 @@ function TerminalViewport({
       </div>
 
       {wsError && (
-        <div className="absolute inset-x-0 bottom-0 bg-destructive/10 px-3 py-1 text-xs text-destructive">
+        <div className="absolute left-2 right-2 bottom-2 bg-destructive/10 px-3 py-1 text-xs text-destructive">
           {wsError}
         </div>
       )}

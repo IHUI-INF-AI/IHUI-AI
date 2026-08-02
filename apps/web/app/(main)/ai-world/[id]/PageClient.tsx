@@ -161,7 +161,7 @@ export default function AiWorldDetailPage() {
             <p className="text-sm text-muted-foreground">暂无内容</p>
           )}
 
-          <div className="border-t pt-3 text-xs text-muted-foreground">
+          <div className="mt-3 pt-3 text-xs text-muted-foreground">
             更新时间：{fmt(world.updatedAt)}
           </div>
         </CardContent>

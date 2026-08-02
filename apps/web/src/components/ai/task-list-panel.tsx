@@ -43,7 +43,7 @@ export function TaskListPanel({ tasks, onToggle }: TaskListPanelProps) {
       <div className="border-b px-4 py-2.5">
         <h3 className="text-sm font-semibold">任务清单</h3>
       </div>
-      <ul className="divide-y">
+      <ul className="space-y-1">
         {tasks.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">暂无任务</p>
         ) : (

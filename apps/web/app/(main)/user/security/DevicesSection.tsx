@@ -14,7 +14,7 @@ interface Props {
 export function DevicesSection({ devicesList, devicesLoading, dateFmt }: Props) {
   const t = useTranslations('user.security')
   return (
-    <section className="space-y-3 border-t pt-6">
+    <section className="space-y-3 mt-6 pt-6">
       <div className="flex items-center gap-2">
         <Monitor className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold">{t('devices')}</h2>
@@ -29,7 +29,7 @@ export function DevicesSection({ devicesList, devicesLoading, dateFmt }: Props) 
           {t('devicesEmpty')}
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="space-y-2 rounded-lg border p-2">
           {devicesList.map((d) => (
             <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
               <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />

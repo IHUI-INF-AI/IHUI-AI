@@ -171,7 +171,7 @@ export default function RefundDetailPage() {
 
       <Card>
         <CardContent className="p-0">
-          <dl className="divide-y">
+          <dl className="space-y-2">
             <Row label={t('fields.refundNo')} value={refund.id} mono />
             <Row label={t('fields.orderNo')} value={refund.orderNo} mono />
             <Row label={t('fields.orderType')} value={refund.orderType} />

@@ -206,7 +206,7 @@ export default function ApiUsagePage() {
                   <th className="px-4 py-2.5 font-medium">{t('apiUsage.colErrorRate')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {topList.map((e, i) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>

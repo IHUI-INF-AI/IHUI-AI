@@ -50,7 +50,7 @@ export function KeysList({
         ) : list.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">暂无 API 密钥</p>
         ) : (
-          <div className="divide-y">
+          <div className="space-y-2">
             {list.map((k) => (
               <div key={k.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">

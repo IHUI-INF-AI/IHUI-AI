@@ -110,7 +110,7 @@ export default async function LogsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('logs.table.time')}</th>
                   <th className="px-4 py-2 font-medium">{t('logs.table.model')}</th>
                   <th className="px-4 py-2 font-medium">{t('logs.table.key')}</th>
@@ -122,10 +122,7 @@ export default async function LogsPage() {
               </thead>
               <tbody>
                 {logs.map((l) => (
-                  <tr
-                    key={l.id}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={l.id} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{l.time}</td>
                     <td className="px-4 py-2.5 font-medium">{l.model}</td>
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{l.key}</td>

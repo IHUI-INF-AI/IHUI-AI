@@ -86,7 +86,7 @@ export function AgentsPanel() {
               <th className="px-4 py-2.5 text-right font-medium">{t('colActions')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">

@@ -36,7 +36,7 @@ export function SelectUserTable({ list, isLoading, selected, onToggleAll, onTogg
             <th className={th}>创建时间</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">

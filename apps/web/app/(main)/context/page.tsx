@@ -35,15 +35,11 @@ export default function ContextOverviewPage() {
   const dist = vizQ.data?.current
 
   const handleToggle = React.useCallback((type: ContextType, enabled: boolean) => {
-    setSources((prev) =>
-      prev.map((s) => (s.type === type ? { ...s, enabled } : s)),
-    )
+    setSources((prev) => prev.map((s) => (s.type === type ? { ...s, enabled } : s)))
   }, [])
 
   const handleBudget = React.useCallback((type: ContextType, percent: number) => {
-    setSources((prev) =>
-      prev.map((s) => (s.type === type ? { ...s, budgetPercent: percent } : s)),
-    )
+    setSources((prev) => prev.map((s) => (s.type === type ? { ...s, budgetPercent: percent } : s)))
   }, [])
 
   const isLoading = sourcesQ.isLoading || vizQ.isLoading
@@ -77,8 +73,8 @@ export default function ContextOverviewPage() {
           加载中…
         </div>
       ) : sourcesQ.error || vizQ.error ? (
-        <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           <span>加载失败:{(sourcesQ.error ?? vizQ.error)?.message ?? '未知错误'}</span>
         </div>
       ) : (
@@ -110,9 +106,7 @@ export default function ContextOverviewPage() {
                   onBudgetChange={handleBudget}
                 />
               ) : (
-                <div className="py-10 text-center text-sm text-muted-foreground">
-                  暂无可用源
-                </div>
+                <div className="py-10 text-center text-sm text-muted-foreground">暂无可用源</div>
               )}
             </CardContent>
           </Card>

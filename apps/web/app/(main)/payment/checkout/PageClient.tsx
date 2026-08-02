@@ -128,7 +128,9 @@ function CheckoutContent() {
         {t('checkout.back')}
       </Link>
 
-      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('checkout.title')}</h1>
+      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        {t('checkout.title')}
+      </h1>
 
       <form onSubmit={handlePay} className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-5">
         <div className="space-y-4 min-[1024px]:col-span-3">
@@ -139,7 +141,9 @@ function CheckoutContent() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('checkout.plan')}</span>
-                <span className="font-medium">{t(PLAN_NAME_KEY[planId] ?? 'plans.unknown.name')}</span>
+                <span className="font-medium">
+                  {t(PLAN_NAME_KEY[planId] ?? 'plans.unknown.name')}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('checkout.subtotal')}</span>
@@ -151,7 +155,7 @@ function CheckoutContent() {
                   <span>-{formatCNY(discountAmount)}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between border-t pt-3 text-base font-semibold">
+              <div className="flex items-center justify-between mt-3 pt-3 text-base font-semibold">
                 <span>{t('checkout.total')}</span>
                 <span>{formatCNY(total)}</span>
               </div>

@@ -175,7 +175,9 @@ export default function AdminRelayKeyPoolPage() {
             <KeyRound className="h-6 w-6 text-primary" />
             Key 池管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">上游 API Key 调度、健康检查与余额监控</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            上游 API Key 调度、健康检查与余额监控
+          </p>
         </div>
         <Button onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -225,129 +227,153 @@ export default function AdminRelayKeyPoolPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
-            <tr>
-              <th className="px-3 py-2 text-left">名称</th>
-              <th className="px-3 py-2 text-left">Provider</th>
-              <th className="px-3 py-2 text-left">Key 前缀</th>
-              <th className="px-3 py-2 text-right">优先级</th>
-              <th className="px-3 py-2 text-right">权重</th>
-              <th className="px-3 py-2 text-left">启用</th>
-              <th className="px-3 py-2 text-left">健康</th>
-              <th className="px-3 py-2 text-right">余额(¥)</th>
-              <th className="px-3 py-2 text-left">更新</th>
-              <th className="px-3 py-2 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <tr key={`sk-${i}`} className="border-t border-border">
-                  <td colSpan={10} className="px-3 py-2">
-                    <Skeleton className="h-6 w-full" />
-                  </td>
-                </tr>
-              ))
-            ) : list.length === 0 ? (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
-                <td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">
-                  暂无数据
-                </td>
+                <th className="px-3 py-2 text-left">名称</th>
+                <th className="px-3 py-2 text-left">Provider</th>
+                <th className="px-3 py-2 text-left">Key 前缀</th>
+                <th className="px-3 py-2 text-right">优先级</th>
+                <th className="px-3 py-2 text-right">权重</th>
+                <th className="px-3 py-2 text-left">启用</th>
+                <th className="px-3 py-2 text-left">健康</th>
+                <th className="px-3 py-2 text-right">余额(¥)</th>
+                <th className="px-3 py-2 text-left">更新</th>
+                <th className="px-3 py-2 text-right">操作</th>
               </tr>
-            ) : (
-              list.map((k) => (
-                <tr key={k.id} className="border-t border-border">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{k.name}</div>
-                    {k.remark && <div className="text-xs text-muted-foreground">{k.remark}</div>}
-                  </td>
-                  <td className="px-3 py-2 text-xs">{k.providerCode}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{k.keyPrefix}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{k.priority}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{k.weight}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs ${
-                        k.isEnabled
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {k.isEnabled ? '启用' : '禁用'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs ${
-                        HEALTH_CLASS[k.healthStatus ?? 'unknown'] ?? 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {k.healthStatus ?? 'unknown'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {k.balanceCents !== null && k.balanceCents !== undefined ? (k.balanceCents / 100).toFixed(2) : '-'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {k.updatedAt ? fmt.format(new Date(k.updatedAt)) : '-'}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={act.isPending}
-                        onClick={() =>
-                          act.mutate({ url: `/api/admin/relay/key-pool/${k.id}/health`, method: 'POST' })
-                        }
-                        title="健康检查"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={act.isPending}
-                        onClick={() =>
-                          act.mutate({ url: `/api/admin/relay/key-pool/${k.id}/toggle`, method: 'POST' })
-                        }
-                        title="切换启用"
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={act.isPending}
-                        onClick={() => {
-                          if (confirm(`删除 Key "${k.name}"?`)) {
-                            act.mutate({ url: `/api/admin/relay/key-pool/${k.id}`, method: 'DELETE' })
-                          }
-                        }}
-                        title="删除"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    <td colSpan={10} className="px-3 py-2">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无数据
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                list.map((k) => (
+                  <tr key={k.id}>
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{k.name}</div>
+                      {k.remark && <div className="text-xs text-muted-foreground">{k.remark}</div>}
+                    </td>
+                    <td className="px-3 py-2 text-xs">{k.providerCode}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{k.keyPrefix}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{k.priority}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{k.weight}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          k.isEnabled
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {k.isEnabled ? '启用' : '禁用'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          HEALTH_CLASS[k.healthStatus ?? 'unknown'] ??
+                          'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {k.healthStatus ?? 'unknown'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {k.balanceCents !== null && k.balanceCents !== undefined
+                        ? (k.balanceCents / 100).toFixed(2)
+                        : '-'}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {k.updatedAt ? fmt.format(new Date(k.updatedAt)) : '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={act.isPending}
+                          onClick={() =>
+                            act.mutate({
+                              url: `/api/admin/relay/key-pool/${k.id}/health`,
+                              method: 'POST',
+                            })
+                          }
+                          title="健康检查"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={act.isPending}
+                          onClick={() =>
+                            act.mutate({
+                              url: `/api/admin/relay/key-pool/${k.id}/toggle`,
+                              method: 'POST',
+                            })
+                          }
+                          title="切换启用"
+                        >
+                          <Power className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={act.isPending}
+                          onClick={() => {
+                            if (confirm(`删除 Key "${k.name}"?`)) {
+                              act.mutate({
+                                url: `/api/admin/relay/key-pool/${k.id}`,
+                                method: 'DELETE',
+                              })
+                            }
+                          }}
+                          title="删除"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>

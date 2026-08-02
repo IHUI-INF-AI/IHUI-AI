@@ -58,7 +58,7 @@ export function InvoicesTab({
             <th className={thCls}>{t('billingCreatedAt')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
@@ -82,7 +82,9 @@ export function InvoicesTab({
             list.map((inv) => (
               <tr key={inv.id} className="transition-colors hover:bg-muted/30">
                 <td className={cn(tdCls, 'font-mono text-xs')}>{inv.invoiceNo}</td>
-                <td className={tdCls}>{t(INVOICE_TYPE_KEY[inv.type] ?? 'billingInvoiceTypeValue.unknown')}</td>
+                <td className={tdCls}>
+                  {t(INVOICE_TYPE_KEY[inv.type] ?? 'billingInvoiceTypeValue.unknown')}
+                </td>
                 <td className={cn(tdCls, 'font-medium')}>
                   {currencyFmt.format(Number(inv.amount))}
                 </td>

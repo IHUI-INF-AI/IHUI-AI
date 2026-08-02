@@ -143,6 +143,24 @@ export interface AgentOverview {
   reconnectAttempt: number
 }
 
+/** 当前正在执行的任务摘要(2026-08-02 新增,用于 TaskListPopover 实时显示)
+ * - kind:
+ *   - 'planning':正在规划(plan step 处于 in_progress 且无进行中的工具调用)
+ *   - 'tool':正在调用工具(普通工具或插件/MCP)
+ *   - 'subagent':正在子代理执行
+ *   - 'terminal':正在终端命令执行
+ *   - 'idle':无活动任务
+ * - label:展示给用户的简短描述(如 "规划进度"、"调用 web_search"、"调用 browser 插件" 等)
+ * - toolName / pluginName / mcpName:具体名称(若有)
+ */
+export interface CurrentTask {
+  kind: 'idle' | 'planning' | 'tool' | 'subagent' | 'terminal'
+  label: string
+  toolName?: string
+  pluginName?: string
+  mcpName?: string
+}
+
 export interface UseAgentProgressReturn {
   overview: AgentOverview
   planSteps: PlanStep[]
@@ -150,6 +168,8 @@ export interface UseAgentProgressReturn {
   terminals: TerminalTask[]
   tools: AgentToolCall[]
   changes: AgentChange[]
+  /** 当前正在执行的任务摘要(2026-08-02 新增) */
+  currentTask: CurrentTask
   /** 原始 SSE 事件流(用于流式渲染) */
   events: SSEEvent[]
   isStreaming: boolean
@@ -685,6 +705,46 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     reconnectAttempt,
   ])
 
+  // 聚合 currentTask(2026-08-02 新增,TaskListPopover 实时显示用)
+  // 优先级:进行中的工具调用 > 进行中的子代理 > 进行中的终端 > in_progress 的 plan step(规划)
+  const currentTask = React.useMemo<CurrentTask>(() => {
+    if (!isStreaming) return { kind: 'idle', label: '' }
+    // 1) 优先:取最后一个仍为 running 的 tool_call(最新的活动)
+    const runningTool = tools.find((t) => t.status === 'running')
+    if (runningTool) {
+      const toolName = runningTool.toolName
+      // 识别 MCP/插件命名约定:通常以 mcp_/plugin_ 前缀或包含 mcp/plugin 关键字
+      if (toolName.startsWith('mcp_') || toolName.includes('mcp__')) {
+        const mcpName = toolName.replace(/^mcp_+|mcp__+/g, '').split('__')[0] || toolName
+        return { kind: 'tool', label: `调用 ${mcpName} MCP`, toolName, mcpName }
+      }
+      if (toolName.startsWith('plugin_') || toolName.startsWith('dispatch_')) {
+        const pluginName = toolName.replace(/^(plugin_|dispatch_)/, '').split('_')[0] || toolName
+        return { kind: 'tool', label: `调用 ${pluginName} 插件`, toolName, pluginName }
+      }
+      // 通用工具调用
+      return { kind: 'tool', label: `调用 ${toolName}`, toolName }
+    }
+    // 2) 子代理进行中
+    const runningSub = subagents.find((s) => s.status === 'running' || s.status === 'spawned')
+    if (runningSub) {
+      const task = runningSub.currentTask ?? runningSub.handle
+      return { kind: 'subagent', label: `子代理 ${task}` }
+    }
+    // 3) 终端进行中
+    const runningTerm = terminals.find((t) => t.status === 'running')
+    if (runningTerm) {
+      return { kind: 'terminal', label: '执行终端命令' }
+    }
+    // 4) plan step 处于 in_progress → 规划进度
+    const planningStep = planSteps.find((s) => s.status === 'in_progress')
+    if (planningStep) {
+      return { kind: 'planning', label: '规划进度' }
+    }
+    // 5) 流式但无活动 → 通用"执行中"
+    return { kind: 'idle', label: '执行中' }
+  }, [isStreaming, tools, subagents, terminals, planSteps])
+
   return {
     overview,
     planSteps,
@@ -692,6 +752,7 @@ export function useAgentProgress(threadId: string | null): UseAgentProgressRetur
     terminals,
     tools,
     changes,
+    currentTask,
     events,
     isStreaming,
     start: stream.start,

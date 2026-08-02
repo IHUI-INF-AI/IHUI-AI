@@ -506,7 +506,9 @@ export default function AdminRelayChannelsPage() {
                               <ChevronRight className="h-4 w-4" />
                             )}
                           </Button>
-                          <CardTitle className="min-w-0 flex-1 truncate text-base">{g.name}</CardTitle>
+                          <CardTitle className="min-w-0 flex-1 truncate text-base">
+                            {g.name}
+                          </CardTitle>
                           <Badge variant="secondary" className="shrink-0 text-xs">
                             {STRATEGY_LABEL[g.loadBalanceStrategy]}
                           </Badge>
@@ -518,7 +520,9 @@ export default function AdminRelayChannelsPage() {
                           </Badge>
                         </div>
                         {g.description && (
-                          <CardDescription className="line-clamp-2 break-words">{g.description}</CardDescription>
+                          <CardDescription className="line-clamp-2 break-words">
+                            {g.description}
+                          </CardDescription>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -581,118 +585,121 @@ export default function AdminRelayChannelsPage() {
                         </div>
                         <div className="rounded-md border border-border">
                           <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                              <tr>
-                                <th className="px-3 py-2 text-left">Key Pool</th>
-                                <th className="px-3 py-2 text-left">Provider</th>
-                                <th className="px-3 py-2 text-right">权重</th>
-                                <th className="px-3 py-2 text-left">熔断</th>
-                                <th className="px-3 py-2 text-right">延迟</th>
-                                <th className="px-3 py-2 text-right">操作</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {members.length === 0 ? (
+                            <table className="w-full text-sm">
+                              <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                                 <tr>
-                                  <td
-                                    colSpan={6}
-                                    className="px-3 py-4 text-center text-muted-foreground"
-                                  >
-                                    暂无成员
-                                  </td>
+                                  <th className="px-3 py-2 text-left">Key Pool</th>
+                                  <th className="px-3 py-2 text-left">Provider</th>
+                                  <th className="px-3 py-2 text-right">权重</th>
+                                  <th className="px-3 py-2 text-left">熔断</th>
+                                  <th className="px-3 py-2 text-right">延迟</th>
+                                  <th className="px-3 py-2 text-right">操作</th>
                                 </tr>
-                              ) : (
-                                members.map((m) => (
-                                  <tr key={m.memberId} className="border-t border-border">
-                                    <td className="px-3 py-2 font-mono text-xs" title={m.keyPoolId}>
-                                      {m.keyPoolName ?? maskId(m.keyPoolId)}
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">
-                                      {m.keyPoolProviderCode ?? '—'}
-                                    </td>
-                                    <td className="px-3 py-2 text-right tabular-nums">
-                                      {m.weight}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <Badge className={CIRCUIT_CLASS[m.circuitState]}>
-                                        {CIRCUIT_LABEL[m.circuitState]}
-                                      </Badge>
-                                    </td>
-                                    <td className="px-3 py-2 text-right tabular-nums">
-                                      {m.avgLatencyMs === null
-                                        ? '—'
-                                        : `${Math.round(m.avgLatencyMs)}ms`}
-                                    </td>
-                                    <td className="px-3 py-2 text-right">
-                                      <div className="flex items-center justify-end gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 w-7 p-0"
-                                          disabled={probeMut.isPending}
-                                          onClick={() =>
-                                            probeMut.mutate({
-                                              keyPoolId: m.keyPoolId,
-                                              mode: 'test',
-                                            })
-                                          }
-                                          aria-label="测速"
-                                        >
-                                          <Zap className="h-3 w-3" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 w-7 p-0"
-                                          disabled={testChannelMut.isPending}
-                                          onClick={() =>
-                                            openTestDialog(
-                                              m.keyPoolId,
-                                              m.keyPoolName ?? maskId(m.keyPoolId),
-                                            )
-                                          }
-                                          aria-label="连通性测试"
-                                        >
-                                          <FlaskConical className="h-3 w-3" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 w-7 p-0"
-                                          disabled={probeMut.isPending}
-                                          onClick={() =>
-                                            probeMut.mutate({
-                                              keyPoolId: m.keyPoolId,
-                                              mode: 'reset',
-                                            })
-                                          }
-                                          aria-label="重置熔断"
-                                        >
-                                          <RotateCcw className="h-3 w-3" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                          onClick={() => {
-                                            if (window.confirm('确认移除该成员?'))
-                                              actMut.mutate({
-                                                url: `/api/admin/relay/channels/groups/${g.id}/members/${m.memberId}`,
-                                                method: 'DELETE',
-                                              })
-                                          }}
-                                          aria-label="移除"
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
+                              </thead>
+                              <tbody>
+                                {members.length === 0 ? (
+                                  <tr>
+                                    <td
+                                      colSpan={6}
+                                      className="px-3 py-4 text-center text-muted-foreground"
+                                    >
+                                      暂无成员
                                     </td>
                                   </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
+                                ) : (
+                                  members.map((m) => (
+                                    <tr key={m.memberId}>
+                                      <td
+                                        className="px-3 py-2 font-mono text-xs"
+                                        title={m.keyPoolId}
+                                      >
+                                        {m.keyPoolName ?? maskId(m.keyPoolId)}
+                                      </td>
+                                      <td className="px-3 py-2 text-xs">
+                                        {m.keyPoolProviderCode ?? '—'}
+                                      </td>
+                                      <td className="px-3 py-2 text-right tabular-nums">
+                                        {m.weight}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <Badge className={CIRCUIT_CLASS[m.circuitState]}>
+                                          {CIRCUIT_LABEL[m.circuitState]}
+                                        </Badge>
+                                      </td>
+                                      <td className="px-3 py-2 text-right tabular-nums">
+                                        {m.avgLatencyMs === null
+                                          ? '—'
+                                          : `${Math.round(m.avgLatencyMs)}ms`}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0"
+                                            disabled={probeMut.isPending}
+                                            onClick={() =>
+                                              probeMut.mutate({
+                                                keyPoolId: m.keyPoolId,
+                                                mode: 'test',
+                                              })
+                                            }
+                                            aria-label="测速"
+                                          >
+                                            <Zap className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0"
+                                            disabled={testChannelMut.isPending}
+                                            onClick={() =>
+                                              openTestDialog(
+                                                m.keyPoolId,
+                                                m.keyPoolName ?? maskId(m.keyPoolId),
+                                              )
+                                            }
+                                            aria-label="连通性测试"
+                                          >
+                                            <FlaskConical className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0"
+                                            disabled={probeMut.isPending}
+                                            onClick={() =>
+                                              probeMut.mutate({
+                                                keyPoolId: m.keyPoolId,
+                                                mode: 'reset',
+                                              })
+                                            }
+                                            aria-label="重置熔断"
+                                          >
+                                            <RotateCcw className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                            onClick={() => {
+                                              if (window.confirm('确认移除该成员?'))
+                                                actMut.mutate({
+                                                  url: `/api/admin/relay/channels/groups/${g.id}/members/${m.memberId}`,
+                                                  method: 'DELETE',
+                                                })
+                                            }}
+                                            aria-label="移除"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
                           </div>
                         </div>
                       </div>

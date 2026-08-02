@@ -2,7 +2,15 @@
 
 import { Loader2, Edit, Trash2, Image as ImageIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import type { Carousel } from './types'
@@ -29,7 +37,7 @@ export function CarouselTable({ list, isLoading, onEdit, onDelete }: Props) {
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
@@ -78,11 +86,7 @@ export function CarouselTable({ list, isLoading, onEdit, onDelete }: Props) {
                   <div className="flex justify-end gap-1">
                     <HasPermi code="ai:carousel:edit">
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(item)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

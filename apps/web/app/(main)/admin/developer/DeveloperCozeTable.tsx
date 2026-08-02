@@ -103,7 +103,7 @@ export function DeveloperCozeTable({
               <TableHead className="px-3 py-2.5 text-right">{t('colActions')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
@@ -150,11 +150,7 @@ export function DeveloperCozeTable({
                     <div className="flex items-center justify-end gap-1">
                       <HasPermi code="ai:developer:edit">
                         <Tooltip content={t('edit')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEdit(c)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => onEdit(c)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                         </Tooltip>

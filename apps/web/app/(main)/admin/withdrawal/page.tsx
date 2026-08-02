@@ -52,7 +52,13 @@ export default function AdminWithdrawalPage() {
   })
 
   const auditMut = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: { status: 'approved' | 'rejected'; remark?: string } }) =>
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string
+      body: { status: 'approved' | 'rejected'; remark?: string }
+    }) =>
       fetchApi(`/api/admin/finance/withdrawal/${id}/audit`, {
         method: 'PUT',
         body: JSON.stringify(body),
@@ -67,7 +73,8 @@ export default function AdminWithdrawalPage() {
   function handleAudit(w: Withdrawal, next: 'approved' | 'rejected') {
     if (auditMut.isPending) return
     const defaultRemark = next === 'rejected' ? t('defaultRejectRemark') : ''
-    const remark = typeof window !== 'undefined' ? window.prompt(t('remarkPrompt'), defaultRemark) : null
+    const remark =
+      typeof window !== 'undefined' ? window.prompt(t('remarkPrompt'), defaultRemark) : null
     if (remark === null) return
     auditMut.mutate({ id: w.id, body: { status: next, remark: remark.trim() || undefined } })
   }
@@ -121,89 +128,107 @@ export default function AdminWithdrawalPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">{t('colUser')}</th>
-              <th className="px-3 py-2 text-right">{t('colAmount')}</th>
-              <th className="px-3 py-2 text-left">{t('colChannel')}</th>
-              <th className="px-3 py-2 text-left">{t('colStatus')}</th>
-              <th className="px-3 py-2 text-left">{t('colRemark')}</th>
-              <th className="px-3 py-2 text-left">{t('colCreated')}</th>
-              <th className="px-3 py-2 text-right">{t('colActions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <tr key={`sk-${i}`} className="border-t border-border">
-                  <td colSpan={7} className="px-3 py-2"><Skeleton className="h-6 w-full" /></td>
-                </tr>
-              ))
-            ) : list.length === 0 ? (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
-                  {t('empty')}
-                </td>
+                <th className="px-3 py-2 text-left">{t('colUser')}</th>
+                <th className="px-3 py-2 text-right">{t('colAmount')}</th>
+                <th className="px-3 py-2 text-left">{t('colChannel')}</th>
+                <th className="px-3 py-2 text-left">{t('colStatus')}</th>
+                <th className="px-3 py-2 text-left">{t('colRemark')}</th>
+                <th className="px-3 py-2 text-left">{t('colCreated')}</th>
+                <th className="px-3 py-2 text-right">{t('colActions')}</th>
               </tr>
-            ) : (
-              list.map((w: Withdrawal) => (
-                <tr key={w.id} className="border-t border-border">
-                  <td className="px-3 py-2">{w.userName ?? w.userId}</td>
-                  <td className="px-3 py-2 text-right font-medium tabular-nums">{num.format(w.amount)}</td>
-                  <td className="px-3 py-2">{w.channel}</td>
-                  <td className="px-3 py-2">
-                    <span className={`rounded-md px-2 py-0.5 text-xs ${STATUS_CLASS[w.status]}`}>
-                      {t(STATUS_KEY[w.status] ?? 'status.unknown')}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    <TruncatedText value={w.remark ?? '—'} className="max-w-[200px]" />
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{fmt.format(new Date(w.createdAt))}</td>
-                  <td className="px-3 py-2 text-right">
-                    {w.status === 'pending' ? (
-                      <div className="inline-flex gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={auditMut.isPending || !can({ type: 'APPROVE' })}
-                          onClick={() => handleAudit(w, 'approved')}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          {t('approve')}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={auditMut.isPending || !can({ type: 'REJECT' })}
-                          onClick={() => handleAudit(w, 'rejected')}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                          {t('reject')}
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    <td colSpan={7} className="px-3 py-2">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                    {t('empty')}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                list.map((w: Withdrawal) => (
+                  <tr key={w.id}>
+                    <td className="px-3 py-2">{w.userName ?? w.userId}</td>
+                    <td className="px-3 py-2 text-right font-medium tabular-nums">
+                      {num.format(w.amount)}
+                    </td>
+                    <td className="px-3 py-2">{w.channel}</td>
+                    <td className="px-3 py-2">
+                      <span className={`rounded-md px-2 py-0.5 text-xs ${STATUS_CLASS[w.status]}`}>
+                        {t(STATUS_KEY[w.status] ?? 'status.unknown')}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <TruncatedText value={w.remark ?? '—'} className="max-w-[200px]" />
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {fmt.format(new Date(w.createdAt))}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {w.status === 'pending' ? (
+                        <div className="inline-flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={auditMut.isPending || !can({ type: 'APPROVE' })}
+                            onClick={() => handleAudit(w, 'approved')}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            {t('approve')}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={auditMut.isPending || !can({ type: 'REJECT' })}
+                            onClick={() => handleAudit(w, 'rejected')}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            {t('reject')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             {t('next')}
             <ChevronRight className="h-4 w-4" />
           </Button>

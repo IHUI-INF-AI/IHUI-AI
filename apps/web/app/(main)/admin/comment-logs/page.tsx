@@ -51,7 +51,7 @@ export default function CommentLogsPage() {
               <th className={th}>{t('colTime')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
