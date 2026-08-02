@@ -1,4 +1,7 @@
 export * from './user'
+// 跨端设备指纹采集契约(2026-08-02 立,设备维度风控,仿 use-clipboard 工厂模式)
+// 放 @ihui/types 避免与 @ihui/api-client 循环依赖(shared→api-client,api-client→types)
+export * from './device'
 export * from './api'
 // Token 对跨端共享类型(4 端统一引用,取代各端本地重复定义)
 export * from './token'

@@ -1,10 +1,11 @@
-import { setBaseUrl } from '@ihui/api-client'
+import { setBaseUrl, setDeviceFingerprintProvider } from '@ihui/api-client'
 import { type TokenPair } from '@ihui/types'
 import {
   bindTokenStoreToApiClient,
   createInMemoryTokenStore,
   type TokenStore,
 } from '@ihui/shared/auth'
+import { extensionDeviceFingerprintCollector } from '../src/lib/device-fingerprint'
 import { createChromePlatform } from '@ihui/browser-platform'
 import {
   initApiBaseUrl,
@@ -89,6 +90,7 @@ export async function initApi(): Promise<void> {
   })
 
   bindTokenStoreToApiClient(tokenStore)
+  setDeviceFingerprintProvider(extensionDeviceFingerprintCollector)
 }
 
 export async function setToken(token: string | null): Promise<void> {

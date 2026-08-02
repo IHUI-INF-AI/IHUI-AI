@@ -15,11 +15,17 @@ import { initPushSubscription } from './utils/push-init'
 import { isMiniAppEnvironment } from './utils/miniapp-login'
 import { useUserStore } from './stores/user'
 import { KEEP_KEYS_ON_CLEAR, IHUI_KEY_PREFIX } from './constants/storage'
-import { createNotificationClient, setBaseUrl, setTransport } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  setBaseUrl,
+  setTransport,
+  setDeviceFingerprintProvider,
+} from '@ihui/api-client'
 import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { createTaroTransport } from './utils/api-client-transport'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
 import { BASE_URL } from './utils/api-config'
+import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
@@ -30,6 +36,7 @@ import './app.css'
 bindTokenStoreToApiClient(tokenStore)
 setBaseUrl(BASE_URL.replace(/\/api$/, ''))
 setTransport(createTaroTransport())
+setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
 
 // 2026-07-22 P0 Round 5 鲁棒性加固:防 NetworkStatusListener 在组件卸载后仍触发 toast
 let networkListenerRegistered = false

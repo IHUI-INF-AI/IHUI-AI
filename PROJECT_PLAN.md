@@ -2754,3 +2754,58 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - `apps/web/src/lib/path-labels.ts` — I18N 路由注册
 - `packages/api-client/src/endpoints/ai.ts` — CareerReportFormat 类型扩展
 - `packages/i18n/messages/web/{zh-CN,zh-TW,en,ko,ja}.json` — export.ppt 翻译键
+
+---
+
+## P0 设备维度封控全链路激活(2026-08-02 立,8 端同步:apps/web + apps/api + apps/desktop + apps/extension + apps/mobile-rn + apps/miniapp-taro + apps/cli + packages/shared + packages/api-client + packages/database,AGENTS.md §24 用户已确认)
+
+> AGENTS.md §9 多端同步:本任务触及 6 端(web/api/desktop/extension/mobile-rn/miniapp-taro/cli)+ 3 共享层(shared/api-client/database),必须全端连通 + 各端 typecheck 全绿。
+> AGENTS.md §24 用户已确认:"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。
+> AGENTS.md §21 README 同步:触发(项目对外能力清单变化 — 新增设备维度风控能力)。
+
+### 触发背景
+
+前轮代码库盘点结论:项目风控"骨架"完整(IP 层 / 行为层 / 审计层 / 通知层都有),但"设备维度"这条神经没接上:
+
+- audit-logger 等了 `x-device-fingerprint` header 但前端从来没发(全 apps/web Grep 零命中)
+- AnomalyDetector 实现完整但**未在 server.ts 注册**(只在 security.ts 查事件用)
+- 没有 user_devices 表,/api/users/:id/devices 从 api_logs 聚合(换 IP/UA 即视为新设备)
+- 黑名单 UI 声明 device 类型但后端无表无接口
+- anomaly-detector 地理位置判断用"IP 前两段变化"降级,无 GeoIP 库
+
+### 目标
+
+激活设备维度封控全链路:前端采集 → api-client 注入 → 后端接收 → 设备表 upsert → anomaly-detector 评分 → 风控引擎决策 → 黑名单 device 分支 → GeoIP 精准判断。
+
+### 硬性指标(H1-H12)
+
+- [x] ✅(2026-08-02) H1:共享层契约 — `packages/types/src/device.ts` 工厂 `createDeviceFingerprintCollector` + 类型(放 @ihui/types 避免与 @ihui/api-client 循环依赖,非 @ihui/shared)
+- [x] ✅(2026-08-02) H2:api-client 注入点 — `packages/api-client/src/client.ts` 新增 `setDeviceFingerprintProvider` + `injectDeviceFingerprintHeader` helper,5 处 fetchApi 变体全部注入
+- [x] ✅(2026-08-02) H3:apps/web adapter — `apps/web/src/hooks/use-device-fingerprint.ts` Canvas+WebGL+UA+时区+屏幕 hash(djb2 算法,零 any)+ api.ts 注入
+- [x] ✅(2026-08-02) H4:apps/api AnomalyDetector 中间件 — `apps/api/src/plugins/anomaly-detector-plugin.ts` onRequest 钩子,block→403/challenge→403+CAPTCHA提示/monitor→放行+日志,fail-open;server.ts 注册(threat-detector 之后)
+- [x] ✅(2026-08-02) H5:packages/database user_devices 表 — `user-devices.ts` schema(userId uuid + fingerprintHash + 3 索引 + unique 约束)+ migration 0152 + 0152_snapshot.json + schema/index.ts 导出
+- [x] ✅(2026-08-02) H6:apps/api 设备路由改造 — users.ts /:id/devices 改查 user_devices 表 + auth.ts 登录成功 onConflictDoUpdate upsert(空指纹跳过)
+- [x] ✅(2026-08-02) H7:apps/api 黑名单 device 分支 — admin-auth-edu-routes.ts GET ?type=device 按 fingerprintHash 查 user_devices 富化返回
+- [x] ✅(2026-08-02) H8:apps/api GeoIP 服务 — `geoip.ts`(MaxMind GeoLite2 动态 import + Haversine + IP 前两段降级)+ anomaly-detector.ts dimGeoAnomaly 替换 + .env.example 配置
+- [x] ✅(2026-08-02) H9:5 端 adapter — desktop/extension/mobile-rn/miniapp-taro/cli 各端实现 + 4 端入口注入(desktop 无前端入口 adapter 待接入)
+- [x] ✅(2026-08-02) H10:全端 typecheck — types/api-client/shared/database/web/api/cli/extension/mobile-rn/miniapp-taro 全部 exit 0
+- [x] ✅(2026-08-02) H11:README.md 同步更新 — 国安级安全矩阵 E2/E5 行更新 + 新增"设备维度风控全链路"小节(采集层/注入层/接收层/存储层/路由层)
+- [ ] H12:commit + push origin/main,local == remote,git-push-guard exit 0
+
+### 约束边界
+
+- 共享层优先(§3):工厂模式 + 平台 adapter,禁止端内独立实现
+- 零依赖自实现设备指纹(不引入 FingerprintJS,§3 "做减法")
+- 平台特有代码标注 `// 平台特有:依赖 [DOM/RN/Taro] API,不适合共享`(§3)
+- api-client 注入点对现有请求零破坏(向后兼容,无 provider 时不发 header)
+- AnomalyDetector 插件 fail-open(评分失败放行,不阻塞业务,与 threat-detector 同模式)
+- user_devices 表 user_id 外键 onDelete: 'cascade'(用户删除时清理设备记录)
+- GeoIP 降级:MaxMind 库不可用时回退"IP 前两段变化"判断
+- 多 agent 并行:各 subagent 只管自己端,主 agent 负责跨端契约对齐
+- 测试用 admin 账号(§user_profile 强制规则)
+
+### 执行批次(3 阶段)
+
+- **阶段 0(主 agent)**:跨端契约对齐 — PROJECT_PLAN 追加 + 共享层 factory + api-client 注入点 + 导出
+- **阶段 1(5 subagent 并行)**:S1 apps/web adapter / S2 apps/api AnomalyDetector 插件 / S3 packages/database + apps/api 设备路由+黑名单 / S4 apps/api GeoIP / S5 5 端 adapter
+- **阶段 2(主 agent)**:README 同步 + 跨端契约验证 + commit + push + git-push-guard
