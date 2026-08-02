@@ -5,6 +5,7 @@ import { config } from '../config/index.js'
 import { resetBulkhead } from '../plugins/resilience-extended.js'
 import { authenticate } from '../plugins/auth.js'
 import { isWechatPayConfigured, isPlatformCertConfigured } from '../services/wechat-pay.js'
+import { success, error } from '../utils/response.js'
 
 interface HealthHistoryEntry {
   timestamp: string
@@ -180,7 +181,7 @@ export const healthRoutes: FastifyPluginAsync = async (server) => {
       if (matched) filteredPaths[path] = filteredMethods as never
     }
     if (Object.keys(filteredPaths).length === 0) {
-      return reply.status(404).send({ code: 404, message: `tag "${tagName}" 不存在` })
+      return reply.status(404).send(error(404, `tag "${tagName}" 不存在`))
     }
     return {
       openapi: (schema as { openapi?: string }).openapi ?? '3.0.0',
@@ -195,13 +196,13 @@ export const healthRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       await authenticate(request)
       const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < 1) return reply.status(403).send({ code: 403, message: '需要管理员权限' })
+      if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
       const { circuitName } = request.params
       const ok = resetBulkhead(circuitName)
       if (!ok) {
-        return reply.status(404).send({ code: 404, message: `隔离器 "${circuitName}" 不存在` })
+        return reply.status(404).send(error(404, `隔离器 "${circuitName}" 不存在`))
       }
-      return { code: 0, message: 'ok', data: { circuitName, reset: true } }
+      return reply.send(success({ circuitName, reset: true }))
     },
   )
 }

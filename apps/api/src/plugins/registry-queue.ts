@@ -43,14 +43,16 @@ export function getRegistrySyncQueue(connection: Redis): Queue {
 /** 注册定时同步 job(每 6 小时一次)。幂等:重复调用不会创建多个 repeat job。 */
 export async function scheduleRegistrySync(connection: Redis): Promise<void> {
   const queue = getRegistrySyncQueue(connection)
-  await queue.add(
+  await queue.upsertJobScheduler(
     'registry-sync-cron',
-    { sourceType: null, source: null, force: false } satisfies RegistrySyncJobData,
+    { pattern: '0 */6 * * *' },
     {
-      repeat: { pattern: '0 */6 * * *' },
-      jobId: 'registry-sync-cron',
-      removeOnComplete: 100,
-      removeOnFail: 500,
+      name: 'registry-sync-cron',
+      data: { sourceType: null, source: null, force: false } satisfies RegistrySyncJobData,
+      opts: {
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
     },
   )
 }
@@ -109,14 +111,16 @@ export function getRegistryCleanupQueue(connection: Redis): Queue {
  */
 export async function scheduleRegistryCleanup(connection: Redis): Promise<void> {
   const queue = getRegistryCleanupQueue(connection)
-  await queue.add(
+  await queue.upsertJobScheduler(
     'registry-cleanup-cron',
-    { type: 'cleanup' },
+    { pattern: CLEANUP_CRON_PATTERN },
     {
-      repeat: { pattern: CLEANUP_CRON_PATTERN },
-      jobId: 'registry-cleanup-cron',
-      removeOnComplete: 100,
-      removeOnFail: 500,
+      name: 'registry-cleanup-cron',
+      data: { type: 'cleanup' },
+      opts: {
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
     },
   )
 }

@@ -51,7 +51,7 @@ const paginationQuery = {
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 };
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') });
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) });
 
 const createWorkflowSchema = z.object({
   name: z.string().min(1, '名称不能为空').max(128, '名称最多 128 字符'),

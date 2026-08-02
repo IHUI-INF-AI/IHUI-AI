@@ -183,7 +183,7 @@
     "@ihui/api-client": "workspace:*",
     "@ihui/types": "workspace:*",
     "xstate": "^5.32.5",
-    "zod": "^3.25.76",
+    "zod": "catalog:",
     "zustand": "catalog:"
   },
   "peerDependencies": {
