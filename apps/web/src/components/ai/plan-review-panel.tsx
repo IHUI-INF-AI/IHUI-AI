@@ -25,7 +25,7 @@ interface PlanReviewPanelProps {
 export function PlanReviewPanel({ plan, onApprove, onModify, onReject }: PlanReviewPanelProps) {
   return (
     <div className="rounded-xl border bg-card">
-      <div className="flex items-center gap-2 border-b px-4 py-2.5">
+      <div className="flex items-center gap-2 px-4 py-2.5">
         <ClipboardList className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">执行计划</h3>
       </div>

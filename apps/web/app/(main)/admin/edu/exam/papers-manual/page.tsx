@@ -139,7 +139,7 @@ export default function EduExamPapersManualPage() {
               <TableHead className="px-4 py-2.5">{t('colScore')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {!paperId ? (
               <TableRow>
                 <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">

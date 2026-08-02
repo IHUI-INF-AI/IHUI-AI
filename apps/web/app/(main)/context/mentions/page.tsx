@@ -197,26 +197,26 @@ function DetailPanel({
             </p>
             <div className="mt-1 max-h-[280px] overflow-y-auto rounded-md border">
               <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-2 py-1 text-left font-medium">列</th>
-                    <th className="px-2 py-1 text-left font-medium">类型</th>
-                    <th className="px-2 py-1 text-center font-medium">空</th>
-                    <th className="px-2 py-1 text-center font-medium">主键</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {schema.columns.map((c) => (
-                    <tr key={c.name} className="border-t border-border/60">
-                      <td className="px-2 py-1 font-mono">{c.name}</td>
-                      <td className="px-2 py-1 text-muted-foreground">{c.type}</td>
-                      <td className="px-2 py-1 text-center">{c.nullable ? '✓' : '—'}</td>
-                      <td className="px-2 py-1 text-center">{c.primaryKey ? '✓' : '—'}</td>
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-medium">列</th>
+                      <th className="px-2 py-1 text-left font-medium">类型</th>
+                      <th className="px-2 py-1 text-center font-medium">空</th>
+                      <th className="px-2 py-1 text-center font-medium">主键</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {schema.columns.map((c) => (
+                      <tr key={c.name} className="">
+                        <td className="px-2 py-1 font-mono">{c.name}</td>
+                        <td className="px-2 py-1 text-muted-foreground">{c.type}</td>
+                        <td className="px-2 py-1 text-center">{c.nullable ? '✓' : '—'}</td>
+                        <td className="px-2 py-1 text-center">{c.primaryKey ? '✓' : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

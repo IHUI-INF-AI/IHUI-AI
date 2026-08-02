@@ -172,7 +172,7 @@ export function MemberImportDialog({
                         <TableHead className="px-3 py-2">{t('colMemberMobile')}</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className="divide-y">
+                    <TableBody>
                       {result.resultItemList.map((item) => (
                         <TableRow key={item.serialNum}>
                           <TableCell className="px-3 py-2">{item.serialNum}</TableCell>

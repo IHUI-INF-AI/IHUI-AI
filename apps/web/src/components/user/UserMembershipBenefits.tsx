@@ -34,7 +34,7 @@ export default function UserMembershipBenefits({
         <Crown className="h-4 w-4 text-amber-500" />
         <h3 className="text-sm font-medium">{level}权益</h3>
       </div>
-      <ul className="divide-y">
+      <ul className="space-y-2 px-2 pb-2">
         {benefits.map((b) => (
           <li key={b.title} className="flex items-center gap-3 px-4 py-3">
             <span

@@ -39,12 +39,8 @@ export function ManageRow({
 }: ManageRowProps) {
   return (
     <Card className={cn(checked && 'border-primary/50 bg-primary/5')}>
-      <CardContent className="flex items-center gap-3 p-3">
-        <Checkbox
-          checked={checked}
-          onCheckedChange={onToggle}
-          aria-label={deleteLabel}
-        />
+      <CardContent className="flex items-center gap-3 p-3 min-[640px]:p-4">
+        <Checkbox checked={checked} onCheckedChange={onToggle} aria-label={deleteLabel} />
         <Link href={`/knowledge-rag/${doc.id}`} className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="line-clamp-1 text-sm font-medium">{doc.title}</span>

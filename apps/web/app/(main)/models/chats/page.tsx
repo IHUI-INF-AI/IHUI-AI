@@ -8,7 +8,13 @@ export default async function ChatsPage() {
   const t = await getTranslations('models')
 
   const chats = Array.from({ length: 12 }).map((_, i) => {
-    const users = ['alice@aizhs.top', 'bob@aizhs.top', 'carol@aizhs.top', 'david@aizhs.top', 'eric@aizhs.top']
+    const users = [
+      'alice@aizhs.top',
+      'bob@aizhs.top',
+      'carol@aizhs.top',
+      'david@aizhs.top',
+      'eric@aizhs.top',
+    ]
     const models = ['GPT-4o', 'Claude 3.5 Sonnet', 'Gemini 2.0 Flash', 'DeepSeek V3']
     const msgs = [4, 12, 28, 6, 18, 32, 8, 22, 14, 26, 10, 38]
     const tokens = [1230, 4520, 8970, 2340, 6720, 12340, 3870, 8920, 5210, 9870, 4350, 11240]
@@ -48,7 +54,7 @@ export default async function ChatsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('chats.table.id')}</th>
                   <th className="px-4 py-2 font-medium">{t('chats.table.user')}</th>
                   <th className="px-4 py-2 font-medium">{t('chats.table.title')}</th>
@@ -60,10 +66,7 @@ export default async function ChatsPage() {
               </thead>
               <tbody>
                 {chats.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={c.id} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{c.id}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{c.user}</td>
                     <td className="px-4 py-2.5 font-medium">{c.title}</td>

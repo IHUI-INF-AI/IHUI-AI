@@ -119,7 +119,7 @@ function ModelsList({ models }: { models: UpstreamModel[] }) {
         {filtered.length === 0 ? (
           <div className="p-3 text-center text-xs text-muted-foreground">{t('noMatch')}</div>
         ) : (
-          <ul className="divide-y">
+          <ul className="space-y-2">
             {filtered.map((m) => (
               <li
                 key={m.id}

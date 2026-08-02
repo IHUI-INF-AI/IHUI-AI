@@ -32,7 +32,7 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
 
   return (
     <div className="rounded-xl border bg-card">
-      <div className="flex items-center gap-2 border-b px-4 py-2.5">
+      <div className="flex items-center gap-2 px-4 py-2.5">
         <History className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">检查点历史</h3>
       </div>
@@ -50,7 +50,7 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
                   {!isLast && (
                     <span className="absolute left-[7px] top-7 h-[calc(100%-0.5rem)] w-px bg-border" />
                   )}
-                  <span className="z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-md border-2 border-primary bg-card" />
+                  <span className="z-10 mt-0.5 h-3.5 w-3.5 shrink-0 rounded-md border-2 border-primary bg-card" />
                   <div className="min-w-0 flex-1 pb-2">
                     <div className="flex items-center justify-between gap-2">
                       <button

@@ -3,11 +3,7 @@
 import { Trash2, Pencil } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import {
-  formatMemoryTime,
-  getMemoryTypeOption,
-  getMemoryScopeOption,
-} from '@/lib/memory-api'
+import { formatMemoryTime, getMemoryTypeOption, getMemoryScopeOption } from '@/lib/memory-api'
 import type { MemoryEntry } from '@ihui/types'
 
 interface MemoryCardProps {
@@ -23,7 +19,7 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
 
   return (
     <div className="group flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20 hover:bg-accent/30">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-sm font-semibold leading-tight text-foreground">
             {entry.category}
@@ -63,9 +59,7 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
         </div>
       </div>
 
-      <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-        {entry.text}
-      </p>
+      <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">{entry.text}</p>
 
       <div className="flex items-center justify-between pt-0.5 text-[11px] text-muted-foreground/70">
         <span>

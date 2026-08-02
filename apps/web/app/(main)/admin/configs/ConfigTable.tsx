@@ -32,7 +32,7 @@ export function ConfigTable({ list, isLoading, isError, delPending, onEdit, onDe
             <th className={cn(th, 'text-right')}>{t('colActions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isError ? (
             <tr>
               <td colSpan={6} className="px-4 py-10 text-center text-destructive">

@@ -3,7 +3,15 @@ import { useTranslations } from 'next-intl'
 import { Loader2, ShieldCheck, Edit, Trash2, MessageCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import { STATUS_STYLE, STATUS_KEY } from './helpers'
@@ -34,7 +42,7 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -78,11 +86,7 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                     {item.status === 1 && (
                       <HasPermi code="ai:examine:edit">
                         <Tooltip content={t('chatApprove')}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onChat(item)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => onChat(item)}>
                             <MessageCircle className="h-4 w-4" />
                           </Button>
                         </Tooltip>
@@ -90,11 +94,7 @@ export function ExamineTable({ list, isLoading, onEdit, onDelete, onChat }: Exam
                     )}
                     <HasPermi code="ai:examine:edit">
                       <Tooltip content={tc('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(item)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

@@ -171,7 +171,7 @@ export default function DeveloperHomePageClient() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="border-b px-4 py-2.5 text-sm font-semibold">{t('quickEntries')}</div>
+          <div className="px-4 py-2.5 text-sm font-semibold">{t('quickEntries')}</div>
           <div className="grid grid-cols-2 gap-px bg-border/40 min-[1024px]:grid-cols-5">
             {quickEntries.map((q) => {
               const Icon = q.icon
@@ -203,7 +203,7 @@ export default function DeveloperHomePageClient() {
                 </span>
               </div>
               <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{tByok('cardDesc')}</p>
-              <ul className="mt-2 space-y-1 text-xs text-muted-foreground [&>li]:translate-y-[0px]">
+              <ul className="mt-2 space-y-1 text-xs text-muted-foreground [&>li]:translate-y-[var(--text-vcenter-offset)]">
                 <li className="flex items-center gap-1.5">
                   <Check className="h-3 w-3 shrink-0 text-emerald-500" />
                   <span className="whitespace-nowrap">{tByok('feature1')}</span>

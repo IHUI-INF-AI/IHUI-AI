@@ -92,13 +92,13 @@ export function ProjectTable({
                   {p.ownerNickname ?? p.ownerPhone ?? p.ownerEmail ?? p.userId.slice(0, 8)}
                 </span>
               </div>
-              <div className="flex items-center justify-between border-t pt-2">
+              <div className="mt-2 flex items-center justify-between pt-2">
                 <span className="text-muted-foreground">{t('createdAt')}</span>
                 <span className="text-xs text-muted-foreground">
                   {dateFmt.format(new Date(p.createdAt))}
                 </span>
               </div>
-              <div className="flex items-center gap-1 border-t pt-2">
+              <div className="mt-2 flex items-center gap-1 pt-2">
                 <Button size="sm" variant="ghost" className="flex-1" onClick={() => onEdit(p)}>
                   <Edit className="h-4 w-4" />
                   {tc('edit')}

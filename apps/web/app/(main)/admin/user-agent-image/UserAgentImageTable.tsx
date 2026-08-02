@@ -1,7 +1,15 @@
 'use client'
 
 import { Loader2, Edit, Trash2, Image as ImageIcon } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import type { UserAgentImage } from './types'
 
@@ -28,7 +36,7 @@ export function UserAgentImageTable({ list, isLoading, onEdit, onDelete }: Props
             <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={8} className="px-4 py-10 text-center text-muted-foreground">

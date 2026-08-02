@@ -178,13 +178,13 @@ export function LivePlayer({
       </video>
 
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+        <div className="absolute top-2 bottom-2 left-2 right-2 flex items-center justify-center bg-black/40">
           <Loader2 className="h-8 w-8 animate-spin text-white" />
         </div>
       )}
 
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
+        <div className="absolute top-2 bottom-2 left-2 right-2 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
           <AlertCircle className="h-8 w-8 text-red-400" />
           <p className="text-sm">{error}</p>
         </div>

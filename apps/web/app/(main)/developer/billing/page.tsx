@@ -149,7 +149,7 @@ export default function BillingPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="border-b px-4 py-2.5 text-sm font-semibold">{t('billRecords')}</div>
+          <div className="px-4 py-2.5 text-sm font-semibold">{t('billRecords')}</div>
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -158,7 +158,7 @@ export default function BillingPage() {
           ) : bills.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t('noBills')}</p>
           ) : (
-            <div className="divide-y">
+            <div className="space-y-2">
               {bills.map((b) => {
                 const cls = STATUS_CLASS[b.status]
                 return (

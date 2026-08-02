@@ -2,7 +2,15 @@
 
 import { Loader2, ClipboardCheck, Eye } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
@@ -35,7 +43,7 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
             <TableHead className="px-4 py-2.5 text-right">{t('column.actions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
@@ -60,7 +68,9 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
             list.map((r) => (
               <TableRow key={r.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5">{r.id}</TableCell>
-                <TableCell className="px-4 py-2.5">{t(TYPE_KEY[r.type] ?? 'type.unknown')}</TableCell>
+                <TableCell className="px-4 py-2.5">
+                  {t(TYPE_KEY[r.type] ?? 'type.unknown')}
+                </TableCell>
                 <TableCell className="px-4 py-2.5">{r.operate}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.sourceId}</TableCell>
                 <TableCell className="px-4 py-2.5">{r.targetId}</TableCell>
@@ -90,11 +100,7 @@ export function CourseAuditTable({ list, isLoading, error, onAudit }: Props) {
                 <TableCell className="px-4 py-2.5 text-right">
                   <HasPermi code={`${PERM}edit`}>
                     <Tooltip content={t('auditCompare')}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onAudit(r)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => onAudit(r)}>
                         <Eye className="h-4 w-4" />
                       </Button>
                     </Tooltip>

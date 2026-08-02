@@ -93,7 +93,7 @@ export function VideoPlayer({
         <track kind="captions" />
       </video>
       {controls && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-3 opacity-0 transition-opacity group-hover:opacity-100">
           <input
             type="range"
             min={0}

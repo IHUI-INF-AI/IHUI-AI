@@ -32,7 +32,7 @@ export function SignupTable({ rows, isLoading, error, pending, onStatusChange, t
             <TableHead className="px-4 py-2.5 text-right">{t('updateStatus')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">

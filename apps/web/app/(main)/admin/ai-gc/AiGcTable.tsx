@@ -29,7 +29,7 @@ export function AiGcTable({ list, isLoading, delPending, onEdit, onDelete }: Pro
             <th className={`${th} text-right`}>{t('colActions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td

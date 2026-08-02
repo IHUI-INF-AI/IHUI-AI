@@ -129,7 +129,7 @@ function AnswerOnlineContent() {
         />
       ) : (
         <>
-          <div className="sticky top-2 z-10 flex items-center justify-between rounded-lg border bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
+          <div className="sticky top-2 z-20 flex items-center justify-between rounded-lg border bg-background/95 px-4 py-2 shadow-sm backdrop-blur">
             <div className="flex items-center gap-2 text-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span

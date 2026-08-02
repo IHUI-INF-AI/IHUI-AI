@@ -109,7 +109,9 @@ export default function CourseDetailPage() {
             <div className="flex h-48 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5">
               <PlayCircle className="h-16 w-16 text-primary/30" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{lesson.title}</h1>
+            <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+              {lesson.title}
+            </h1>
             <p className="text-sm text-muted-foreground">{lesson.description}</p>
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{lesson.instructor}</span>
@@ -157,7 +159,7 @@ export default function CourseDetailPage() {
                         {chapter.sections.length}
                       </span>
                     </summary>
-                    <div className="border-t">
+                    <div className="mt-4 pt-4">
                       {chapter.sections.map((sec) => (
                         <div
                           key={sec.id}
@@ -184,7 +186,7 @@ export default function CourseDetailPage() {
         </div>
 
         <aside className="w-full shrink-0 min-[1024px]:w-72">
-          <Card className={cn('sticky top-4')}>
+          <Card className={cn('sticky top-4 z-10')}>
             <CardHeader>
               <CardTitle className="text-2xl">
                 {lesson.price > 0 ? formatCNY(lesson.price) : t('free')}

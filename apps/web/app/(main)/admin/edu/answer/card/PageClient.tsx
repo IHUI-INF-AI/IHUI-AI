@@ -126,7 +126,7 @@ function CardContent2() {
               <TableHead className="px-4 py-2.5">{t('colDuration')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">

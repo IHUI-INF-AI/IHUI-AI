@@ -214,10 +214,7 @@ export default function RelayUsagePage() {
           label="总消耗"
           value={summary ? (summary.totalCostCents / 100).toFixed(2) + ' 元' : '—'}
         />
-        <SummaryCard
-          label="BYOK 调用"
-          value={summary ? num.format(summary.byokCallCount) : '—'}
-        />
+        <SummaryCard label="BYOK 调用" value={summary ? num.format(summary.byokCallCount) : '—'} />
         <SummaryCard
           label="BYOK 上游成本"
           value={summary ? (summary.upstreamCostCents / 100).toFixed(4) + ' 元' : '—'}
@@ -230,71 +227,73 @@ export default function RelayUsagePage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">{groupBy === 'day' ? '日期' : '模型'}</th>
-              <th className="px-3 py-2 text-right">调用</th>
-              <th className="px-3 py-2 text-right">总 Token</th>
-              <th className="px-3 py-2 text-right">Prompt</th>
-              <th className="px-3 py-2 text-right">Completion</th>
-              <th className="px-3 py-2 text-right">成功</th>
-              <th className="px-3 py-2 text-right">失败</th>
-              <th className="px-3 py-2 text-left">调用模式</th>
-              <th className="px-3 py-2 text-right">消耗(元)</th>
-              <th className="px-3 py-2 text-right">上游成本(元)</th>
-              <th className="px-3 py-2 text-right">平台服务费(元)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                  加载中...
-                </td>
+                <th className="px-3 py-2 text-left">{groupBy === 'day' ? '日期' : '模型'}</th>
+                <th className="px-3 py-2 text-right">调用</th>
+                <th className="px-3 py-2 text-right">总 Token</th>
+                <th className="px-3 py-2 text-right">Prompt</th>
+                <th className="px-3 py-2 text-right">Completion</th>
+                <th className="px-3 py-2 text-right">成功</th>
+                <th className="px-3 py-2 text-right">失败</th>
+                <th className="px-3 py-2 text-left">调用模式</th>
+                <th className="px-3 py-2 text-right">消耗(元)</th>
+                <th className="px-3 py-2 text-right">上游成本(元)</th>
+                <th className="px-3 py-2 text-right">平台服务费(元)</th>
               </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
-                  暂无数据
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.groupKey} className="border-t border-border">
-                  <td className="px-3 py-2 font-medium">{r.groupKey}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{num.format(r.callCount)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{num.format(r.totalTokens)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {num.format(r.promptTokens)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {num.format(r.completionTokens)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-                    {r.successCount}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-rose-600 dark:text-rose-400">
-                    {r.errorCount}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ModeBadge byok={r.byokCallCount} relay={r.relayCallCount} />
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {(r.totalCostCents / 100).toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {r.byokCallCount > 0 ? (r.upstreamCostCents / 100).toFixed(4) : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {r.byokCallCount > 0 ? (r.platformFeeCents / 100).toFixed(4) : '—'}
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
+                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                    加载中...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无数据
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.groupKey} className="">
+                    <td className="px-3 py-2 font-medium">{r.groupKey}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{num.format(r.callCount)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {num.format(r.totalTokens)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {num.format(r.promptTokens)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {num.format(r.completionTokens)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {r.successCount}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-rose-600 dark:text-rose-400">
+                      {r.errorCount}
+                    </td>
+                    <td className="px-3 py-2">
+                      <ModeBadge byok={r.byokCallCount} relay={r.relayCallCount} />
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {(r.totalCostCents / 100).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {r.byokCallCount > 0 ? (r.upstreamCostCents / 100).toFixed(4) : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {r.byokCallCount > 0 ? (r.platformFeeCents / 100).toFixed(4) : '—'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

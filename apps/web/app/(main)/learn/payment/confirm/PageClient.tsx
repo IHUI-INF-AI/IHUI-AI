@@ -178,11 +178,7 @@ function PaymentConfirmContent() {
                   : t('statusPending')}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {isPaid
-              ? t('descPaid')
-              : isPending
-                ? t('descPending')
-                : t('descFailed')}
+            {isPaid ? t('descPaid') : isPending ? t('descPending') : t('descFailed')}
           </p>
         </CardHeader>
 
@@ -200,7 +196,7 @@ function PaymentConfirmContent() {
               <span className="text-muted-foreground">{t('fields.payMethod')}</span>
               <span>{order.payMethod ?? '-'}</span>
             </div>
-            <div className="flex items-center justify-between border-t pt-2">
+            <div className="flex items-center justify-between mt-2 pt-2">
               <span className="font-medium">{t('fields.payAmount')}</span>
               <span className="text-lg font-semibold text-primary">¥{order.payAmount}</span>
             </div>

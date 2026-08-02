@@ -156,7 +156,7 @@ export default function SubscriptionPage() {
                 )}
 
                 {data.features && data.features.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 border-t pt-2">
+                  <div className="mt-2 flex flex-wrap gap-1.5 pt-2">
                     {data.features.map((f) => (
                       <span
                         key={f}

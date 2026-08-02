@@ -4,13 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Bot, Sparkles, Building2, Gift, Activity, RefreshCw, Loader2 } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Button,
-} from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { fetchProvidersHealthSummary } from '@/lib/models-api'
@@ -78,7 +72,7 @@ export function ModelsHeader({ total, freeCount, providerCount, highlightCount }
     <header className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl [&>span]:translate-y-[0.5px]">
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <Bot className="h-7 w-7 text-primary" />
             <span>{t('title')}</span>
           </h1>
@@ -132,8 +126,10 @@ function ProviderStatusSummary() {
 
   // 状态文字 + 圆点颜色
   const summary = React.useMemo(() => {
-    if (isLoading) return { dot: 'bg-muted-foreground/40', text: '检测中...', tone: 'text-muted-foreground' }
-    if (isError || !data) return { dot: 'bg-muted-foreground/40', text: '不可用', tone: 'text-muted-foreground' }
+    if (isLoading)
+      return { dot: 'bg-muted-foreground/40', text: '检测中...', tone: 'text-muted-foreground' }
+    if (isError || !data)
+      return { dot: 'bg-muted-foreground/40', text: '不可用', tone: 'text-muted-foreground' }
     const allHealthy = data.healthy_count === data.total && data.total > 0
     return {
       dot: allHealthy ? 'bg-emerald-500' : data.healthy_count > 0 ? 'bg-orange-500' : 'bg-red-500',

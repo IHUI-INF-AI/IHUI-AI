@@ -106,7 +106,7 @@ export function ModelDetailDialog({
               <BrandIcon vendor={model.provider} size={26} />
             </div>
             <div className="min-w-0 flex-1 space-y-1">
-              <DialogTitle className="flex flex-wrap items-center gap-2 text-lg leading-tight [&>span]:translate-y-[0.5px]">
+              <DialogTitle className="flex flex-wrap items-center gap-2 text-lg leading-tight [&>span]:translate-y-[var(--text-vcenter-offset)]">
                 <span>{model.name.startsWith('model.') ? t(model.name) : model.name}</span>
                 {model.highlight && (
                   <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
@@ -129,7 +129,7 @@ export function ModelDetailDialog({
                   </span>
                 )}
               </DialogTitle>
-              <DialogDescription className="flex items-center gap-1 text-xs [&>span]:translate-y-[0.5px]">
+              <DialogDescription className="flex items-center gap-1 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
                 <Building2 className="h-3 w-3" />
                 <span>{vendorLabel}</span>
                 <span className="text-muted-foreground/60">·</span>
@@ -200,7 +200,7 @@ export function ModelDetailDialog({
           {/* P0-5g 中转站定价区(模型已上架中转站且倍率 ≠ 1.0 时显示) */}
           {model.relayPublic && hasRelayMultiplier && (
             <div className="rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2.5 dark:border-sky-900 dark:bg-sky-950/20">
-              <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-800 dark:text-sky-300 [&>span]:translate-y-[0.5px]">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-800 dark:text-sky-300 [&>span]:translate-y-[var(--text-vcenter-offset)]">
                 <Cable className="h-3 w-3" />
                 <span>{t('market.relayPricingTitle')}</span>
                 <span className="ml-auto rounded bg-sky-200/60 px-1.5 py-0.5 text-[10px] text-sky-800 dark:bg-sky-900 dark:text-sky-300">
@@ -209,7 +209,7 @@ export function ModelDetailDialog({
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <div className="text-muted-foreground [&>span]:translate-y-[0.5px]">
+                  <div className="text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('market.relayInputPrice')}</span>
                   </div>
                   <div className="mt-0.5 font-semibold text-foreground">
@@ -217,7 +217,7 @@ export function ModelDetailDialog({
                   </div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground [&>span]:translate-y-[0.5px]">
+                  <div className="text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <span>{t('market.relayOutputPrice')}</span>
                   </div>
                   <div className="mt-0.5 font-semibold text-foreground">
@@ -230,7 +230,7 @@ export function ModelDetailDialog({
 
           {model.features.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground [&>span]:translate-y-[0.5px]">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
                 <Tags className="h-3 w-3" />
                 <span>{t('detail.capabilities')}</span>
               </div>
@@ -294,7 +294,7 @@ function DetailStat({
 }) {
   return (
     <div className="rounded-md bg-muted/50 px-2.5 py-2">
-      <div className="flex items-center gap-1 text-[11px] text-muted-foreground [&>span]:translate-y-[0.5px]">
+      <div className="flex items-center gap-1 text-[11px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         {icon}
         <span>{label}</span>
       </div>

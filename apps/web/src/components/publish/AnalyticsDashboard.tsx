@@ -20,7 +20,11 @@ export interface AnalyticsOverview {
   readonly avgDurationMs: number
   readonly activeAccounts: number
   readonly trend: ReadonlyArray<{ readonly date: string; readonly count: number }>
-  readonly platformDistribution: ReadonlyArray<{ readonly platform: string; readonly count: number; readonly color: string }>
+  readonly platformDistribution: ReadonlyArray<{
+    readonly platform: string
+    readonly count: number
+    readonly color: string
+  }>
   readonly failureReasons: ReadonlyArray<{ readonly reason: string; readonly count: number }>
 }
 
@@ -43,9 +47,15 @@ export interface AnalyticsDashboardProps {
 const PERIODS: readonly AnalyticsPeriod[] = ['7d', '30d', '90d']
 
 const RISK_BADGE: Record<AccountHealth['riskStatus'], { label: string; class: string }> = {
-  safe: { label: '安全', class: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+  safe: {
+    label: '安全',
+    class: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+  },
   low: { label: '低风险', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
-  medium: { label: '中风险', class: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+  medium: {
+    label: '中风险',
+    class: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+  },
   high: { label: '高风险', class: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400' },
 }
 
@@ -55,7 +65,12 @@ function formatDuration(ms: number): string {
   return `${(ms / 60_000).toFixed(1)}min`
 }
 
-export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({
+  period,
+  onPeriodChange,
+  overview,
+  accounts,
+}: AnalyticsDashboardProps) {
   const t = useTranslations('publish')
 
   return (
@@ -71,30 +86,53 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
             className="h-7 px-3 text-xs"
             onClick={() => onPeriodChange(p)}
           >
-            {t(p === '7d' ? 'analytics.period7d' : p === '30d' ? 'analytics.period30d' : 'analytics.period90d')}
+            {t(
+              p === '7d'
+                ? 'analytics.period7d'
+                : p === '30d'
+                  ? 'analytics.period30d'
+                  : 'analytics.period90d',
+            )}
           </Button>
         ))}
       </div>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
-        <StatCard label={t('analytics.totalPublished')} value={overview ? String(overview.totalPublished) : '-'} />
-        <StatCard label={t('analytics.successRate')} value={overview ? `${overview.successRate.toFixed(1)}%` : '-'} valueClass="text-emerald-600 dark:text-emerald-400" />
-        <StatCard label={t('analytics.avgDuration')} value={overview ? formatDuration(overview.avgDurationMs) : '-'} />
-        <StatCard label={t('analytics.activeAccounts')} value={overview ? String(overview.activeAccounts) : '-'} />
+        <StatCard
+          label={t('analytics.totalPublished')}
+          value={overview ? String(overview.totalPublished) : '-'}
+        />
+        <StatCard
+          label={t('analytics.successRate')}
+          value={overview ? `${overview.successRate.toFixed(1)}%` : '-'}
+          valueClass="text-emerald-600 dark:text-emerald-400"
+        />
+        <StatCard
+          label={t('analytics.avgDuration')}
+          value={overview ? formatDuration(overview.avgDurationMs) : '-'}
+        />
+        <StatCard
+          label={t('analytics.activeAccounts')}
+          value={overview ? String(overview.activeAccounts) : '-'}
+        />
       </div>
 
       {/* 趋势图 + 平台分布 */}
       <div className="grid grid-cols-1 gap-3 tablet-min-[1024px]:grid-cols-3">
         <Card className="tablet-min-[1024px]:col-span-2">
-          <CardContent className="p-4">
-            <h3 className="mb-3 text-xs font-medium text-muted-foreground">{t('analytics.trend')}</h3>
+          <CardContent className="p-4 min-[640px]:p-6">
+            <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+              {t('analytics.trend')}
+            </h3>
             <TrendChart data={overview?.trend ?? []} />
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <h3 className="mb-3 text-xs font-medium text-muted-foreground">{t('analytics.platformDistribution')}</h3>
+          <CardContent className="p-4 min-[640px]:p-6">
+            <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+              {t('analytics.platformDistribution')}
+            </h3>
             <PieChart data={overview?.platformDistribution ?? []} />
           </CardContent>
         </Card>
@@ -103,7 +141,9 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
       {/* 失败原因 */}
       <Card>
         <CardContent className="p-4">
-          <h3 className="mb-3 text-xs font-medium text-muted-foreground">{t('analytics.failureReasons')}</h3>
+          <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+            {t('analytics.failureReasons')}
+          </h3>
           <BarChart data={overview?.failureReasons ?? []} />
         </CardContent>
       </Card>
@@ -111,9 +151,13 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
       {/* 账号健康度 */}
       <Card>
         <CardContent className="p-4">
-          <h3 className="mb-3 text-xs font-medium text-muted-foreground">{t('analytics.accountHealth')}</h3>
+          <h3 className="mb-3 text-xs font-medium text-muted-foreground">
+            {t('analytics.accountHealth')}
+          </h3>
           {accounts.length === 0 ? (
-            <p className="py-4 text-center text-xs text-muted-foreground">{t('analytics.noData')}</p>
+            <p className="py-4 text-center text-xs text-muted-foreground">
+              {t('analytics.noData')}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -129,24 +173,37 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
                   {accounts.map((a, idx) => {
                     const risk = RISK_BADGE[a.riskStatus]
                     return (
-                      <tr key={a.accountId} className={cn('bg-card', idx % 2 === 1 && 'bg-muted/20')}>
+                      <tr
+                        key={a.accountId}
+                        className={cn('bg-card', idx % 2 === 1 && 'bg-muted/20')}
+                      >
                         <td className="py-2 pr-3">
                           <div className="font-medium">{a.displayName}</div>
                           <div className="text-[10px] text-muted-foreground">{a.platform}</div>
                         </td>
                         <td className="px-3">
-                          <span className={cn(
-                            'font-mono',
-                            a.successRate >= 0.8 ? 'text-emerald-600 dark:text-emerald-400' : a.successRate >= 0.5 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400',
-                          )}>
+                          <span
+                            className={cn(
+                              'font-mono',
+                              a.successRate >= 0.8
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : a.successRate >= 0.5
+                                  ? 'text-amber-600 dark:text-amber-400'
+                                  : 'text-rose-600 dark:text-rose-400',
+                            )}
+                          >
                             {(a.successRate * 100).toFixed(1)}%
                           </span>
                         </td>
                         <td className="px-3 text-muted-foreground">
-                          {a.lastPublishedAt ? new Date(a.lastPublishedAt).toLocaleDateString('zh-CN') : '-'}
+                          {a.lastPublishedAt
+                            ? new Date(a.lastPublishedAt).toLocaleDateString('zh-CN')
+                            : '-'}
                         </td>
                         <td className="px-3">
-                          <Badge variant="secondary" className={cn('text-[10px]', risk.class)}>{risk.label}</Badge>
+                          <Badge variant="secondary" className={cn('text-[10px]', risk.class)}>
+                            {risk.label}
+                          </Badge>
                         </td>
                       </tr>
                     )
@@ -161,7 +218,15 @@ export function AnalyticsDashboard({ period, onPeriodChange, overview, accounts 
   )
 }
 
-function StatCard({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+function StatCard({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string
+  value: string
+  valueClass?: string
+}) {
   return (
     <Card>
       <CardContent className="p-3">
@@ -174,17 +239,22 @@ function StatCard({ label, value, valueClass }: { label: string; value: string; 
 
 function TrendChart({ data }: { data: ReadonlyArray<{ date: string; count: number }> }) {
   const t = useTranslations('publish')
-  if (data.length === 0) return <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+  if (data.length === 0)
+    return (
+      <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+    )
   const max = Math.max(...data.map((d) => d.count), 1)
   const width = 600
   const height = 160
   const padding = 24
   const stepX = (width - padding * 2) / Math.max(1, data.length - 1)
-  const points = data.map((d, i) => {
-    const x = padding + i * stepX
-    const y = height - padding - (d.count / max) * (height - padding * 2)
-    return `${x},${y}`
-  }).join(' ')
+  const points = data
+    .map((d, i) => {
+      const x = padding + i * stepX
+      const y = height - padding - (d.count / max) * (height - padding * 2)
+      return `${x},${y}`
+    })
+    .join(' ')
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img">
       <polyline
@@ -200,7 +270,12 @@ function TrendChart({ data }: { data: ReadonlyArray<{ date: string; count: numbe
         return (
           <g key={i}>
             <circle cx={x} cy={y} r="3" className="fill-primary" />
-            <text x={x} y={height - 4} textAnchor="middle" className="fill-muted-foreground text-[8px]">
+            <text
+              x={x}
+              y={height - 4}
+              textAnchor="middle"
+              className="fill-muted-foreground text-[8px]"
+            >
               {d.date.slice(5)}
             </text>
           </g>
@@ -210,9 +285,16 @@ function TrendChart({ data }: { data: ReadonlyArray<{ date: string; count: numbe
   )
 }
 
-function PieChart({ data }: { data: ReadonlyArray<{ platform: string; count: number; color: string }> }) {
+function PieChart({
+  data,
+}: {
+  data: ReadonlyArray<{ platform: string; count: number; color: string }>
+}) {
   const t = useTranslations('publish')
-  if (data.length === 0) return <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+  if (data.length === 0)
+    return (
+      <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+    )
   const total = data.reduce((s, d) => s + d.count, 0)
   let cumulative = 0
   const radius = 60
@@ -254,20 +336,27 @@ function PieChart({ data }: { data: ReadonlyArray<{ platform: string; count: num
 
 function BarChart({ data }: { data: ReadonlyArray<{ reason: string; count: number }> }) {
   const t = useTranslations('publish')
-  if (data.length === 0) return <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+  if (data.length === 0)
+    return (
+      <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+    )
   const max = Math.max(...data.map((d) => d.count), 1)
   return (
     <div className="space-y-2">
       {data.map((d, i) => (
         <div key={i} className="flex items-center gap-2">
-          <span className="w-32 shrink-0 truncate text-right text-[11px] text-muted-foreground">{d.reason}</span>
+          <span className="w-32 shrink-0 truncate text-right text-[11px] text-muted-foreground">
+            {d.reason}
+          </span>
           <div className="h-4 flex-1 overflow-hidden rounded-sm bg-muted">
             <div
               className="h-full rounded-sm bg-primary/70 transition-all"
               style={{ width: `${(d.count / max) * 100}%` }}
             />
           </div>
-          <span className="w-8 shrink-0 text-[11px] font-mono text-muted-foreground">{d.count}</span>
+          <span className="w-8 shrink-0 text-[11px] font-mono text-muted-foreground">
+            {d.count}
+          </span>
         </div>
       ))}
     </div>

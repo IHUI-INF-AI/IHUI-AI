@@ -111,7 +111,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
   return (
     <div className="flex flex-1 flex-col px-4 pb-24 pt-6">
       <article className="flex-1 overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <header className="flex items-center gap-2.5 border-b px-4 py-3">
+        <header className="flex items-center gap-2.5 px-4 py-3">
           {data.modelIcon ? (
             <Image
               src={data.modelIcon}
@@ -229,9 +229,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             </audio>
           )}
 
-          {createdAt && (
-            <div className="border-t pt-2 text-xs text-muted-foreground">{createdAt}</div>
-          )}
+          {createdAt && <div className="mt-2 pt-2 text-xs text-muted-foreground">{createdAt}</div>}
         </div>
       </article>
 
@@ -241,7 +239,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
         </div>
       )}
 
-      <footer className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md border-t bg-background/95 p-3 backdrop-blur">
+      <footer className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md bg-background/95 p-3 backdrop-blur">
         <div className="flex gap-2">
           <button
             type="button"

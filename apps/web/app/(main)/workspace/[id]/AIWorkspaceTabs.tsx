@@ -35,13 +35,13 @@ export function AIWorkspaceTabs({ selectedFolder, onSelectFolder }: Props) {
           />
           <InlineDiffViewer content={AI_MOCK.inlineDiff} filename="src/auth.ts" />
         </TabsContent>
-        <TabsContent value="tasks">
+        <TabsContent value="tasks" className="mt-3 space-y-3">
           <TaskListPanel tasks={AI_MOCK.tasks} />
         </TabsContent>
-        <TabsContent value="routines">
+        <TabsContent value="routines" className="mt-3 space-y-3">
           <RoutinesPanel routines={AI_MOCK.routines} />
         </TabsContent>
-        <TabsContent value="folders">
+        <TabsContent value="folders" className="mt-3 space-y-3">
           <WorkspaceFolderSelector
             folders={AI_MOCK.folders}
             selected={selectedFolder}

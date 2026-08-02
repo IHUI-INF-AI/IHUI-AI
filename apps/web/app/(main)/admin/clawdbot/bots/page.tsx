@@ -154,7 +154,7 @@ export default function ClawdbotBotsPage() {
       )}
 
       <div className="rounded-lg border bg-card">
-        <div className="divide-y">
+        <div className="space-y-2">
           {bots.length === 0 ? (
             <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
               暂无 Bot

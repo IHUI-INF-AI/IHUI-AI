@@ -16,7 +16,7 @@ function FailContent() {
   return (
     <div className="mx-auto w-full max-w-md py-8">
       <Card>
-        <CardContent className="flex flex-col items-center gap-6 px-4 min-[768px]:px-6 py-6 min-[768px]:py-10 text-center">
+        <CardContent className="flex flex-col items-center gap-6 px-4 min-[640px]:px-6 py-6 min-[640px]:py-10 text-center">
           <XCircle className="h-16 w-16 text-red-500" />
           <div className="space-y-1">
             <h1 className="text-2xl font-bold tracking-tight">{t('rechargeFail')}</h1>

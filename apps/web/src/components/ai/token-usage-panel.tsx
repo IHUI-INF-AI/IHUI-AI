@@ -38,7 +38,7 @@ export function TokenUsagePanel({
         <StatItem label={t('totalTokens')} value={totalTokens} />
       </div>
       {(cost !== undefined || model) && (
-        <div className="mt-2 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
+        <div className="mt-2 flex items-center justify-between mt-2 pt-2 text-xs text-muted-foreground">
           {model && <span className="break-words">{model}</span>}
           {cost !== undefined && (
             <span className={cn('tabular-nums', cost > 0 && 'text-foreground font-medium')}>

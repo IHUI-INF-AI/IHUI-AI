@@ -124,7 +124,7 @@ export default function AgreementTypePage() {
             <CardTitle className="text-lg">{data.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b pb-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 text-sm text-muted-foreground">
               {data.version && (
                 <span className="inline-flex items-center gap-1">
                   <Tag className="h-4 w-4" />

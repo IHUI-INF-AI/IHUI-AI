@@ -88,7 +88,7 @@ export default async function ReferralPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('list.user')}</th>
                   <th className="px-4 py-2 font-medium">{t('list.joined')}</th>
                   <th className="px-4 py-2 font-medium">{t('list.reward')}</th>
@@ -97,10 +97,7 @@ export default async function ReferralPage() {
               </thead>
               <tbody>
                 {referrals.map((r, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={i} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{r.user}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{r.joined}</td>
                     <td className="px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">

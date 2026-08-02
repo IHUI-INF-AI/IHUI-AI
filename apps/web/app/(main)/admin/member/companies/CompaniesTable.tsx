@@ -4,7 +4,15 @@ import { Loader2, Building2, Edit, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { Company } from './types'
 
@@ -40,7 +48,7 @@ export function CompaniesTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -92,11 +100,7 @@ export function CompaniesTable({
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(company)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(company)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

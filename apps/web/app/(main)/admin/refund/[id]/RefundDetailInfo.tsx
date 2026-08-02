@@ -85,7 +85,10 @@ export function RefundDetailInfo({
             value={currencyFmt.format(Number(refund.refundAmount))}
             highlight
           />
-          <DetailItem label={t('refundType')} value={t(REFUND_TYPE_KEY[refund.refundType] ?? refund.refundType)} />
+          <DetailItem
+            label={t('refundType')}
+            value={t(REFUND_TYPE_KEY[refund.refundType] ?? refund.refundType)}
+          />
           <DetailItem label={t('reason')} value={refund.reason ?? '-'} />
           <DetailItem
             label={t('applyTime')}
@@ -109,7 +112,7 @@ export function RefundDetailInfo({
         </div>
 
         {canAct && (
-          <div className="mt-5 flex items-center gap-2 border-t pt-4">
+          <div className="mt-5 flex items-center gap-2 mt-4 pt-4">
             <Button size="sm" onClick={onAudit}>
               <Check className="mr-1 h-4 w-4" />
               {t('approve')}

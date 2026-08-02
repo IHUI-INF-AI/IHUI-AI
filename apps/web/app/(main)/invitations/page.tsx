@@ -203,34 +203,34 @@ export default function InvitationsPage() {
         ) : invitees.length > 0 ? (
           <div className="overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium">{t('user')}</th>
-                  <th className="px-4 py-2 text-left font-medium">{t('registeredAt')}</th>
-                  <th className="px-4 py-2 text-left font-medium">{t('reward')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {invitees.map((u) => {
-                  const name = u.inviteeNickname ?? u.inviteeEmail ?? '-'
-                  return (
-                    <tr key={u.invitationId} className="transition-colors hover:bg-accent/50">
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <Avatar name={name ?? 'U'} size="xs" />
-                          <span className="font-medium">{name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">
-                        {fmt(u.usedAt ?? u.createdAt)}
-                      </td>
-                      <td className="px-4 py-2 text-muted-foreground">{u.rewardInvitee}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium">{t('user')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('registeredAt')}</th>
+                    <th className="px-4 py-2 text-left font-medium">{t('reward')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invitees.map((u) => {
+                    const name = u.inviteeNickname ?? u.inviteeEmail ?? '-'
+                    return (
+                      <tr key={u.invitationId} className="transition-colors hover:bg-accent/50">
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar name={name ?? 'U'} size="xs" />
+                            <span className="font-medium">{name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-muted-foreground">
+                          {fmt(u.usedAt ?? u.createdAt)}
+                        </td>
+                        <td className="px-4 py-2 text-muted-foreground">{u.rewardInvitee}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : (

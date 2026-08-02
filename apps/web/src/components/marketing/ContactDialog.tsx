@@ -35,7 +35,7 @@ export function ContactDialog({
 
         <div className="space-y-3 text-sm">
           <div className="flex items-start gap-2">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <MapPin className="mt-px h-4 w-4 shrink-0 text-primary" />
             <div>
               <div className="font-medium">{t('companyName')}</div>
               <div className="text-xs text-muted-foreground">
@@ -47,14 +47,14 @@ export function ContactDialog({
           </div>
 
           <div className="flex items-start gap-2">
-            <Phone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <Phone className="mt-px h-4 w-4 shrink-0 text-primary" />
             <div className="text-xs">
               <div>{t('companyContact')}</div>
             </div>
           </div>
 
           <div className="flex items-start gap-2">
-            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <Mail className="mt-px h-4 w-4 shrink-0 text-primary" />
             <div className="text-xs text-muted-foreground">{t('companyEmail')}</div>
           </div>
 
