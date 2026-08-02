@@ -26,6 +26,25 @@ vi.mock('../src/tools/github-pr.js', () => ({ GITHUB_PR_TOOLS: [] }));
 // 先触发 index.js 完整加载,避免 lsp.ts ↔ index.ts 循环依赖导致 registerLspTools 未定义
 import '../src/tools/index.js';
 import { spawn, spawnSync } from 'node:child_process';
+
+// Vitest 4 修复:vscode-jsonrpc@9.0.1(由 vscode-languageserver-protocol@3.18.2 内部使用)的
+// RAL (Runtime Abstraction Layer) 未安装。原因是 Vite 的 CJS 转换可能使用 exports 的 default
+// 条件而非 node 条件,导致 9.0.1 的 lib/node/main.js(含 RAL.install())未被加载。
+// 修复:直接 require 9.0.1 的 lib/node/main.js 来强制安装 RAL。
+try {
+  const _vslspPath = require.resolve('vscode-languageserver-protocol/package.json', { paths: [process.cwd()] });
+  const _vslspDir = require('node:path').dirname(_vslspPath);
+  // vscode-languageserver-protocol@3.18.2 的 node_modules/vscode-jsonrpc → 9.0.1
+  const _vsjsonrpc9Main = require('node:path').join(_vslspDir, 'node_modules', 'vscode-jsonrpc', 'lib', 'node', 'main.js');
+  require(_vsjsonrpc9Main);
+} catch {
+  // 如果路径解析失败,尝试通过 module.paths 查找
+  try {
+    require('vscode-languageserver-protocol/node');
+  } catch {
+    // 忽略,后续测试会暴露 RAL 未安装的错误
+  }
+}
 import {
   getLspClientForFile,
   getLspClientByLanguage,
@@ -51,8 +70,8 @@ import type { ToolContext } from '../src/tools/index.js';
 // ==================== Mock LSP server ====================
 
 interface MockLspChild {
-  child: EventEmitter & { stdout: EventEmitter; stdin: PassThrough; stderr: PassThrough; pid: number; kill: ReturnType<typeof vi.fn>; killed: boolean };
-  stdout: EventEmitter;
+  child: EventEmitter & { stdout: PassThrough; stdin: PassThrough; stderr: PassThrough; pid: number; kill: ReturnType<typeof vi.fn>; killed: boolean };
+  stdout: PassThrough;
   stdin: PassThrough;
   sent: Array<{ method: string; params?: unknown; id?: number | string }>;
 }
@@ -93,9 +112,9 @@ function getLspResult(method: string, _params: unknown): unknown {
 }
 
 function createMockLspChild(): MockLspChild {
-  // 用 EventEmitter 模拟 stdout(vscode-jsonrpc 的 StreamMessageReader 只需 on/off 方法),
-  // 用 setImmediate 异步 emit data 事件,避免在 stdin.on('data') 回调内同步写 stdout 导致重入
-  const stdout = new EventEmitter();
+  // 用 PassThrough 模拟 stdout(vscode-jsonrpc 的 StreamMessageReader 需要 Readable Stream),
+  // 用 setImmediate 异步 write data,避免在 stdin.on('data') 回调内同步写 stdout 导致重入
+  const stdout = new PassThrough();
   const stdin = new PassThrough();
   const child = new EventEmitter() as MockLspChild['child'];
   child.stdout = stdout;
@@ -133,7 +152,9 @@ function createMockLspChild(): MockLspChild {
           if (msg.id !== undefined) {
             const result = getLspResult(msg.method, msg.params);
             const respStr = encodeLspMessage({ jsonrpc: '2.0', id: msg.id, result });
-            setImmediate(() => stdout.emit('data', Buffer.from(respStr)));
+            setImmediate(() => {
+              stdout.write(Buffer.from(respStr));
+            });
           }
         }
       } catch {
@@ -157,7 +178,6 @@ beforeEach(() => {
   process.env.IHUI_HOOKS_CONFIG = path.join(os.tmpdir(), 'ihui-no-hooks-lsp-' + Date.now() + '.json');
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-lsp-test-'));
   ctx = { workspacePath: workspace };
-
   // 默认 mock:spawn 返回可自动回复的 LSP server
   vi.mocked(spawn).mockImplementation(
     (() => {
@@ -469,7 +489,7 @@ describe('LSP 消息解码(从 buffer 解析)', () => {
                 // 第二条是一个无关的 notification(不干扰)
                 const resp2 = encodeLspMessage({ jsonrpc: '2.0', method: '$/progress', params: {} });
                 // 粘包:两条消息拼接后一次 emit
-                setImmediate(() => mock.stdout.emit('data', Buffer.from(resp1 + resp2)));
+                setImmediate(() => mock.stdout.write(Buffer.from(resp1 + resp2)));
               }
             } catch {
               // 忽略
@@ -682,7 +702,7 @@ describe('lsp_workspace_symbol(workspace/symbol 请求 + query 透传)', () => {
                 let result: unknown = getLspResult(msg.method, msg.params);
                 if (msg.method === 'workspace/symbol') result = []; // 空结果
                 const respStr = encodeLspMessage({ jsonrpc: '2.0', id: msg.id, result });
-                setImmediate(() => mock.stdout.emit('data', Buffer.from(respStr)));
+                setImmediate(() => mock.stdout.write(Buffer.from(respStr)));
               }
             } catch {
               // 忽略
@@ -828,7 +848,7 @@ describe('lsp_code_actions(textDocument/codeAction 请求 + range 透传)', () =
                 let result: unknown = getLspResult(msg.method, msg.params);
                 if (msg.method === 'textDocument/codeAction') result = [];
                 const respStr = encodeLspMessage({ jsonrpc: '2.0', id: msg.id, result });
-                setImmediate(() => mock.stdout.emit('data', Buffer.from(respStr)));
+                setImmediate(() => mock.stdout.write(Buffer.from(respStr)));
               }
             } catch {
               // 忽略
