@@ -1499,7 +1499,6 @@
     }
   },
   "admin": {
-    "title": "Admin Console",
     "relayParamOps": {
       "title": "Param Override Rules",
       "subtitle": "Forwarding layer applyParamOps rules (15 ops + conditions + JSON path)",
@@ -14316,8 +14315,7 @@
       "empty": "Save preview first to view comments",
       "noComments": "No comments yet",
       "loadingFailed": "Failed to load comments",
-      "send": "Send Comment",
-      "commented": "Commented"
+      "send": "Send Comment"
     },
     "aiGenerate": {
       "button": "AI Generate",
@@ -14339,13 +14337,7 @@
     "responsive": {
       "customWidth": "Custom Width",
       "apply": "Apply",
-      "deviceFrame": "Device Frame",
-      "deviceMobilePortrait": "Mobile Portrait",
-      "deviceMobileLandscape": "Mobile Landscape",
-      "deviceTabletPortrait": "Tablet Portrait",
-      "deviceTabletLandscape": "Tablet Landscape",
-      "deviceDesktop": "Desktop",
-      "deviceCustom": "Custom"
+      "deviceFrame": "Device Frame"
     },
     "templates": {
       "title": "Templates"
@@ -15108,13 +15100,6 @@
     "cardLabel": "API Pricing",
     "cardDesc": "Model prices & billing rules"
   },
-  "messageInput": {
-    "document": "File",
-    "removeFile": "Remove file",
-    "placeholder": "Type a message...",
-    "clear": "Clear",
-    "stop": "Stop"
-  },
   "auth": {
     "emailLogin": "Email",
     "phoneCodeLogin": "Phone",
@@ -15240,8 +15225,6 @@
     }
   },
   "title": "Admin Dashboard",
-  "modelFree": "Free",
-  "modelPointsMultiplier": "Points Multiplier",
   "errors": {
     "requestFailed": "Request failed",
     "region": "Error notifications",
