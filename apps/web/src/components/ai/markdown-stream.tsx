@@ -310,10 +310,18 @@ function hasUnclosedFence(content: string): boolean {
 }
 
 export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
-  // 200ms throttle(leading + trailing)合并解析频率:
-  // - leading:距上次 flush 已过 200ms,立即 flush
-  // - trailing:200ms 内的后续变化安排 trailing flush
-  // 长回答(>10k tokens)时 react-markdown 解析耗时线性增长,节流后解析频率从 60fps 降到 5fps
+  // 自适应 throttle(leading + trailing)合并解析频率:
+  // - 短内容(<2000 字符)用 50ms 保证跟手感
+  // - 中等内容(2000-5000 字符)用 150ms 平衡
+  // - 长内容(>5000 字符)用 400ms 降低解析频率
+  // 修复"全量 re-parse 锯齿卡顿":固定 200ms 节流后长回答仍每次全量解析 react-markdown,
+  // 改用按长度自适应 + useDeferredValue 让 React 在空闲时更新,避免阻塞主流式渲染
+  const throttleRef = React.useRef<number>(50)
+  React.useEffect(() => {
+    const len = content.length
+    throttleRef.current = len < 2000 ? 50 : len < 5000 ? 150 : 400
+  }, [content.length])
+
   const [throttledContent, setThrottledContent] = React.useState(content)
   const lastFlushRef = React.useRef<number>(0)
   const trailingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -321,7 +329,8 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
   React.useEffect(() => {
     const now = Date.now()
     const elapsed = now - lastFlushRef.current
-    if (elapsed >= 200) {
+    const throttle = throttleRef.current
+    if (elapsed >= throttle) {
       lastFlushRef.current = now
       setThrottledContent(content)
       if (trailingTimerRef.current) {
@@ -333,7 +342,7 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
         lastFlushRef.current = Date.now()
         trailingTimerRef.current = null
         setThrottledContent(content)
-      }, 200 - elapsed)
+      }, throttle - elapsed)
     }
   }, [content])
 
@@ -346,17 +355,21 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
     }
   }, [])
 
+  // useDeferredValue:让 React 在空闲时才更新 deferredContent,避免阻塞主流式渲染。
+  // 副作用:流式光标动画看起来"滞后",但用户感知是"内容正在生成"而非"光标在跳",可接受
+  const deferredContent = React.useDeferredValue(throttledContent)
+
   // 流式场景:未闭合代码块临时闭合让 react-markdown 能解析
   // 流式中的代码块用 isStreamingCodeRef 标记,渲染时 opacity-60
   const isStreamingCodeRef = React.useRef(false)
   const parseContent = React.useMemo(() => {
-    if (hasUnclosedFence(throttledContent)) {
+    if (hasUnclosedFence(deferredContent)) {
       isStreamingCodeRef.current = true
-      return throttledContent + '\n```\n'
+      return deferredContent + '\n```\n'
     }
     isStreamingCodeRef.current = false
-    return throttledContent
-  }, [throttledContent])
+    return deferredContent
+  }, [deferredContent])
 
   // components memo:无依赖(主题感知在 ThemedCodeBlock 内部 useTheme 处理)
   const components = React.useMemo<Components>(

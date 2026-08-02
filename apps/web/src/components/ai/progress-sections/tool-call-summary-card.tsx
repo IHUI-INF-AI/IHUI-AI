@@ -27,8 +27,9 @@ interface ToolCallSummaryCardProps {
   summary?: ToolCallSummary
   /** 本地 toolCalls 数组(后端未发 tool-summary 时降级聚合)
    *  - 优先级低于 summary prop(summary 非空时直接用)
-   *  - 仅当 summary 为 undefined 时才用本地聚合 */
-  toolCalls?: Array<{ toolName: string; args?: Record<string, unknown> }>
+   *  - 仅当 summary 为 undefined 时才用本地聚合
+   *  - status 可选:运行时携带工具状态(running/success/failed),用于 fingerprint */
+  toolCalls?: Array<{ toolName: string; args?: Record<string, unknown>; status?: string }>
   /** 是否流式中(流式时折叠态显示 "统计中..." 提示,完成后显示数字) */
   isStreaming?: boolean
   'data-testid'?: string
@@ -43,7 +44,7 @@ const FILE_MODIFY_TOOLS = new Set(['edit_file', 'write_file', 'create_file', 'de
 // ─── 本地聚合降级实现(后端未发 tool-summary 时使用) ──
 
 function deriveToolSummary(
-  toolCalls: Array<{ toolName: string; args?: Record<string, unknown> }>,
+  toolCalls: Array<{ toolName: string; args?: Record<string, unknown>; status?: string }>,
 ): ToolCallSummary {
   const toolsByCategory: Record<string, number> = {}
   let filesSearched = 0
@@ -163,12 +164,22 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
 }: ToolCallSummaryCardProps) {
   const t = useTranslations('ai.pane')
 
-  // 优先用 summary prop,缺失时降级本地聚合
+  // toolCalls fingerprint:基于内容(toolName + status)生成稳定字符串。
+  // 父级每次 setMessages 会创建新数组引用(即使内容相同),直接依赖 toolCalls 引用
+  // 会导致 useMemo 失效 & deriveToolSummary 在每个 token 上重算。改用 fingerprint 比较。
+  const toolCallsFingerprint = React.useMemo(() => {
+    if (!toolCalls || toolCalls.length === 0) return ''
+    return toolCalls.map((tc) => `${tc.toolName}:${tc.status ?? ''}`).join('|')
+  }, [toolCalls])
+
+  // 优先用 summary prop,缺失时降级本地聚合。
+  // 依赖 fingerprint 而非 toolCalls 引用:内容不变则跳过重算。
   const effectiveSummary = React.useMemo<ToolCallSummary | null>(() => {
     if (summary) return summary
     if (toolCalls && toolCalls.length > 0) return deriveToolSummary(toolCalls)
     return null
-  }, [summary, toolCalls])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意基于 fingerprint 比较,避免引用变化触发重算
+  }, [summary, toolCallsFingerprint])
 
   // 流式中且无 summary 时,不渲染卡片(等首个 summary 到达再显示)
   if (!effectiveSummary) {

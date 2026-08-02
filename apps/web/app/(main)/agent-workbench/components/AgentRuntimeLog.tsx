@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Pause,
   Play,
+  RotateCw,
 } from 'lucide-react'
 import { Button, cn } from '@ihui/ui-react'
 import { useAuthStore } from '@/stores/auth'
@@ -38,13 +39,8 @@ const TYPE_CONFIG: Record<
   error: { icon: AlertTriangle, color: 'text-destructive' },
 }
 
-// SSE 不可用时的降级静态日志
-const SAMPLE_LOGS: LogEntry[] = [
-  { ts: new Date(Date.now() - 60000).toISOString(), type: 'token', content: '你好,我是 Agent,准备开始任务...' },
-  { ts: new Date(Date.now() - 45000).toISOString(), type: 'tool_call', content: 'grep(pattern="TODO", path="src/")' },
-  { ts: new Date(Date.now() - 30000).toISOString(), type: 'tool_result', content: '找到 3 处匹配', success: true },
-  { ts: new Date(Date.now() - 15000).toISOString(), type: 'token', content: '分析完成,生成报告...' },
-]
+// 2026-08-02 修复 Bug #9:删除 SAMPLE_LOGS 假数据,
+// SSE 失败时显示明确错误状态 + 重试按钮,不再用静态日志误导用户
 
 const timeFmt = new Intl.DateTimeFormat('zh-CN', {
   hour: '2-digit',
@@ -57,15 +53,26 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
   const [autoScroll, setAutoScroll] = React.useState(true)
   const [connected, setConnected] = React.useState(false)
   const [usingFallback, setUsingFallback] = React.useState(false)
+  // 2026-08-02 修复 Bug #9:SSE 失败时记录错误信息,显示给用户而非降级假数据
+  const [connectionError, setConnectionError] = React.useState<string | null>(null)
+  // 2026-08-02 修复 Bug #9:retryKey 递增触发 effect 重跑,实现"重试"按钮
+  const [retryKey, setRetryKey] = React.useState(0)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const abortRef = React.useRef<AbortController | null>(null)
+  // 2026-08-02 修复 Bug #12:滚动 throttle 状态(leading + trailing,200ms 合并)
+  const scrollThrottleRef = React.useRef<{ last: number; timer: number | null }>({
+    last: 0,
+    timer: null,
+  })
 
   // SSE 流式订阅 /api/agents/:id/stream
+  // 2026-08-02 修复 Bug #9:retryKey 变化时重新订阅 SSE,实现重试按钮
   React.useEffect(() => {
     abortRef.current?.abort()
     setLogs([])
     setConnected(false)
     setUsingFallback(false)
+    setConnectionError(null)
     if (!agentId) return
 
     const controller = new AbortController()
@@ -118,9 +125,11 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') return
-        // 降级:显示静态日志
+        // 2026-08-02 修复 Bug #9:不再降级到 SAMPLE_LOGS 假数据,
+        // 显示明确错误状态 + 重试按钮,避免误导用户以为 Agent 在跑
         setUsingFallback(true)
-        setLogs(SAMPLE_LOGS)
+        setLogs([])
+        setConnectionError(e instanceof Error ? e.message : String(e))
       } finally {
         setConnected(false)
       }
@@ -129,15 +138,52 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
     return () => {
       controller.abort()
     }
-  }, [agentId])
+  }, [agentId, retryKey])
 
   // 自动滚动到底部
+  // 2026-08-02 修复 Bug #12:用 leading + trailing 200ms throttle 合并滚动赋值,
+  // 避免高频 token 日志每秒数十次 scrollTop 写入导致滚动抖动
   React.useEffect(() => {
     if (!autoScroll) return
     const el = scrollRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+
+    const now = Date.now()
+    const st = scrollThrottleRef.current
+    const remaining = 200 - (now - st.last)
+
+    if (remaining <= 0) {
+      // leading:立即滚动
+      st.last = now
+      if (st.timer !== null) {
+        clearTimeout(st.timer)
+        st.timer = null
+      }
+      el.scrollTop = el.scrollHeight
+    } else if (st.timer === null) {
+      // trailing:200ms 窗口内首次触发,安排 trailing 滚动兜底
+      st.timer = window.setTimeout(
+        () => {
+          st.last = Date.now()
+          st.timer = null
+          const trailingEl = scrollRef.current
+          if (trailingEl) trailingEl.scrollTop = trailingEl.scrollHeight
+        },
+        remaining,
+      )
+    }
   }, [logs, autoScroll])
+
+  // 卸载时清理 throttle timer,避免泄漏
+  React.useEffect(() => {
+    const st = scrollThrottleRef.current
+    return () => {
+      if (st.timer !== null) {
+        clearTimeout(st.timer)
+        st.timer = null
+      }
+    }
+  }, [])
 
   if (!agentId) {
     return (
@@ -157,9 +203,29 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
               实时连接
             </span>
           ) : usingFallback ? (
-            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
+            // 2026-08-02 修复 Bug #9:失败时显示错误状态 + 重试按钮,不再伪装"静态日志"
+            <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
               <AlertTriangle className="h-3.5 w-3.5" />
-              静态日志(SSE 不可用)
+              连接失败
+              {connectionError && (
+                <span
+                  className="ml-1 text-[10px] text-muted-foreground/60"
+                  title={connectionError}
+                >
+                  ({connectionError.slice(0, 30)})
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setUsingFallback(false)
+                  setConnectionError(null)
+                  setRetryKey((k) => k + 1)
+                }}
+                className="ml-2 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-primary hover:bg-accent/40"
+              >
+                <RotateCw className="h-2.5 w-2.5" /> 重试
+              </button>
             </span>
           ) : running ? (
             <span className="flex items-center gap-1 text-muted-foreground">
@@ -181,7 +247,25 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
       </div>
       <div ref={scrollRef} className="flex-1 overflow-auto px-3 py-2">
         {logs.length === 0 ? (
-          <div className="py-8 text-center text-xs text-muted-foreground">暂无日志</div>
+          usingFallback ? (
+            // 2026-08-02 修复 Bug #9:SSE 失败时显示明确错误占位 + 重试按钮
+            <div className="py-8 text-center text-xs text-red-500/70">
+              <AlertTriangle className="mx-auto mb-2 h-5 w-5" />
+              <p>SSE 连接失败</p>
+              {connectionError && (
+                <p className="mt-1 text-[10px] text-muted-foreground/60">{connectionError}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => setRetryKey((k) => k + 1)}
+                className="mt-3 inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[11px] hover:bg-accent/40"
+              >
+                <RotateCw className="h-3 w-3" /> 重试
+              </button>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-xs text-muted-foreground">暂无日志</div>
+          )
         ) : (
           <div className="space-y-1.5">
             {logs.map((entry, i) => {
