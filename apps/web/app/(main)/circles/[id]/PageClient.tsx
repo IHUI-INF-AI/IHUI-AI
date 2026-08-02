@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2, Users, MessageSquare, Circle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui-react'
+import { generateArticleSchema } from '@/lib/seo/schema-article'
 
 interface CircleDetail {
   id: string
@@ -97,8 +98,28 @@ export default function CircleDetailPage() {
     )
   }
 
+  // 2026-08-02 P0-5 GEO 强化:Article JSON-LD 注入(圈子详情页,客户端渲染,Googlebot 2024+ 可解析)
+  const circleJsonLd = generateArticleSchema({
+    headline: circle.name,
+    description:
+      circle.description || `智汇 AI 社区圈子 · ${circle.name} · ${circle.memberCount} 成员`,
+    url: `https://aizhs.top/circles/${circle.id}`,
+    datePublished: circle.createdAt,
+    authorName: '智汇 AI 社区',
+    keywords: ['IHUI AI', '社区圈子', circle.name],
+    articleBody:
+      circle.description ||
+      `智汇 AI 社区圈子,${circle.memberCount} 位成员,${circle.postCount} 篇帖子。`,
+    articleSection: '社区圈子',
+    inLanguage: locale === 'zh-TW' ? 'zh-TW' : 'zh-CN',
+  })
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(circleJsonLd) }}
+      />
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
         {tc('back')}
