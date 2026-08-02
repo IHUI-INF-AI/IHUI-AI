@@ -45,6 +45,15 @@ export const metadata: Metadata = {
     url: 'https://aizhs.top/en/agents',
     type: 'website',
     locale: 'en_US',
+    images: [
+      {
+        url: '/og-image-en.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'AI Agent Marketplace — 200+ Agent Templates',
+        type: 'image/jpeg',
+      },
+    ],
   },
 }
 
