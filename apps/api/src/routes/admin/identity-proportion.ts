@@ -2,6 +2,7 @@
  * /api/admin/identity-proportion 路由(从 admin-missing-routes.ts 拆分)。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
 import { identityProportions } from '@ihui/database'
@@ -9,9 +10,21 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
+
+const createIdentityProportionSchema = z.object({
+  status: z.coerce.number().int().min(0).default(0),
+  gift: z.coerce.number().int().min(0).default(0),
+  tokenProportion: z.coerce.number().int().min(0).default(0),
+})
+
+const updateIdentityProportionSchema = z.object({
+  status: z.coerce.number().int().min(0).optional(),
+  gift: z.coerce.number().int().min(0).optional(),
+})
+
 const identityProportionRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-server.get('/identity-proportion', async (request, reply) => {
+  server.get('/identity-proportion', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize } = q.data
@@ -26,13 +39,16 @@ server.get('/identity-proportion', async (request, reply) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
   server.post('/identity-proportion', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const parsed = createIdentityProportionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数校验失败'))
+    }
     const [row] = await db
       .insert(identityProportions)
       .values({
-        status: Number(body.status ?? 0),
-        gift: Number(body.gift ?? 0),
-        tokenProportion: Number(body.tokenProportion ?? 0),
+        status: parsed.data.status,
+        gift: parsed.data.gift,
+        tokenProportion: parsed.data.tokenProportion,
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -40,12 +56,15 @@ server.get('/identity-proportion', async (request, reply) => {
   server.put('/identity-proportion/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const parsed = updateIdentityProportionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数校验失败'))
+    }
     const [row] = await db
       .update(identityProportions)
       .set({
-        ...(body.status !== undefined && { status: Number(body.status) }),
-        ...(body.gift !== undefined && { gift: Number(body.gift) }),
+        ...(parsed.data.status !== undefined && { status: parsed.data.status }),
+        ...(parsed.data.gift !== undefined && { gift: parsed.data.gift }),
         updatedAt: new Date(),
       })
       .where(eq(identityProportions.id, p.data.id))
