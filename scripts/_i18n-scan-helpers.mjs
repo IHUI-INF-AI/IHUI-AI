@@ -73,6 +73,16 @@ export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]\s*\)
 // 2026-07-26 增强:getTranslations 是 next-intl/server 在 server component 使用的 API(等价于 useTranslations),
 // subagent-D commit 5ebb17915 仅识别 useTranslations 模式,导致 server component 引用 namespace 被误判为死 key。
 export const USE_T_RE = /\b(?:useTranslations|getTranslations)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]\s*\)/g
+// 2026-08-02 新增:无参数 useTranslations() / getTranslations() 调用检测(根命名空间)
+// 背景:AdminNav.tsx L964 useTranslations()(无参数)+ L1081 t('title') 引用根级别 title,
+// 原 USE_T_RE 只匹配带参数调用,漏判无参数形式,导致根级别 title 被误判为死 key(真实事故 2026-08-02)。
+// 无参数 useTranslations() 返回根级别 t 函数,t('key') 引用根级别 key(不含点的单段 key)。
+// 修复:检测到无参数调用时,启用 STATIC_T_ROOT_RE 扫描单段 key,加入 staticRefs。
+export const USE_T_NO_ARG_RE = /\b(?:useTranslations|getTranslations)\s*\(\s*\)/g
+// 2026-08-02 新增:单段 key 扫描 t('key') / tt('key') — 不含点,根级别引用
+// 仅在文件含无参数 useTranslations() 时启用,避免误报(误报风险低:useTranslations 是 next-intl API)
+// 正则说明:[a-zA-Z][a-zA-Z0-9_]* 不含点,引号后紧跟 ) 或 ,(与 STATIC_T_RE 的多段 key 互补)
+export const STATIC_T_ROOT_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*)['"`]\s*(?:\)|,)/g
 // 备用:i18n.t / getFixedT 链式调用
 export const I18N_T_RE = /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // JSX prop 字面量: <Xxx namespace="literal" />
@@ -202,6 +212,23 @@ export function scanCode(files) {
     while ((m = STATIC_T_RE.exec(codeOnly)) !== null) staticRefs.add(m[1])
     TLIST_RE.lastIndex = 0
     while ((m = TLIST_RE.exec(codeOnly)) !== null) staticRefs.add(m[1])
+    // 2026-08-02 修复:无参数 useTranslations() / getTranslations() + 单段根级别 key 扫描
+    // 背景:AdminNav.tsx L964 useTranslations()(无参数)+ L1081 t('title') 引用根级别 title,
+    // 原 STATIC_T_RE 要求 key 含至少 1 个点(`\.[a-zA-Z0-9_]+`),漏识别单段 key,
+    // 导致根级别 title 被误判为死 key(真实事故 2026-08-02)。
+    // 修复:① 先检测文件是否含无参数 useTranslations()/getTranslations() 调用;
+    // ② 若命中,启用 STATIC_T_ROOT_RE 扫描单段 key(不含点),加入 staticRefs。
+    // 限定:仅在无参数调用命中时启用,避免误报(任意 t('foo') 不一定都是 i18n key)。
+    USE_T_NO_ARG_RE.lastIndex = 0
+    let hasNoArgUseT = false
+    while ((m = USE_T_NO_ARG_RE.exec(codeOnly)) !== null) {
+      hasNoArgUseT = true
+      break
+    }
+    if (hasNoArgUseT) {
+      STATIC_T_ROOT_RE.lastIndex = 0
+      while ((m = STATIC_T_ROOT_RE.exec(codeOnly)) !== null) staticRefs.add(m[1])
+    }
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const trimmed = line.trim()
