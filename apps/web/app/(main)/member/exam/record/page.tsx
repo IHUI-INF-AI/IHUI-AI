@@ -108,7 +108,7 @@ export default function MemberExamRecordPage() {
                 <th className="px-3 py-2 text-right font-medium">{t('table.action')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {rows.map((r) => {
                 const passed = !!r.isPassed
                 return (
@@ -228,14 +228,14 @@ export default function MemberExamRecordPage() {
               </div>
               <div className="max-h-[40vh] overflow-y-auto rounded-lg border">
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-muted/50 text-left text-xs text-muted-foreground">
+                  <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 font-medium">{t('detail.question')}</th>
                       <th className="px-3 py-2 font-medium">{t('detail.score')}</th>
                       <th className="px-3 py-2 font-medium">{t('detail.resultCol')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody>
                     {detail.details.map((d: ExamResultDetail) => (
                       <tr key={d.questionId} className="hover:bg-muted/30">
                         <td className="px-3 py-2">{d.title}</td>

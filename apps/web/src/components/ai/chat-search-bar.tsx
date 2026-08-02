@@ -74,7 +74,7 @@ export function ChatSearchBar({
         />
       </div>
       {results.length > 0 && (
-        <div className="max-h-48 overflow-y-auto border-t border-border">
+        <div className="max-h-48 overflow-y-auto mt-1 p-1">
           {results.map((result) => (
             <button
               key={result.id}

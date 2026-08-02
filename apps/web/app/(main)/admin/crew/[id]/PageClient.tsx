@@ -200,12 +200,12 @@ export default function CrewSessionDetailPage() {
           <TabsTrigger value="logs">实时日志 ({logs.length})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="tasks" className="mt-3">
+        <TabsContent value="tasks" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
             {tasks.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">暂无任务</div>
             ) : (
-              <div className="divide-y">
+              <div className="space-y-2">
                 {tasks.map((t) => (
                   <div key={t.id} className="p-3">
                     <div className="flex items-center justify-between">
@@ -238,12 +238,12 @@ export default function CrewSessionDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="messages" className="mt-3">
+        <TabsContent value="messages" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
             {messages.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">暂无消息</div>
             ) : (
-              <div className="divide-y">
+              <div className="space-y-2">
                 {messages.map((m) => (
                   <div key={m.id} className="flex gap-3 p-3">
                     <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -265,12 +265,12 @@ export default function CrewSessionDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="artifacts" className="mt-3">
+        <TabsContent value="artifacts" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
             {artifacts.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">暂无产物</div>
             ) : (
-              <div className="divide-y">
+              <div className="space-y-2">
                 {artifacts.map((a) => (
                   <div key={a.id} className="p-3">
                     <div className="flex items-center gap-2">
@@ -293,9 +293,9 @@ export default function CrewSessionDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="logs" className="mt-3">
+        <TabsContent value="logs" className="mt-3 space-y-3">
           <div className="rounded-lg border bg-card">
-            <div className="flex items-center justify-between border-b px-3 py-2">
+            <div className="flex items-center justify-between px-3 py-2">
               <span className="flex items-center gap-1.5 text-xs font-medium">
                 <Terminal className="h-4 w-4" /> 实时日志
               </span>

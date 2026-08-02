@@ -17,7 +17,7 @@ export function ModelCompareBar({ entries, onRemove, onClear, onCompare }: Props
   const t = useTranslations('aiNews')
 
   return (
-    <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 bg-primary/5 px-4 py-2.5 backdrop-blur">
+    <div className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 bg-primary/5 px-4 py-2.5 backdrop-blur">
       <GitCompare className="h-3.5 w-3.5 shrink-0 text-primary" />
       <span className="shrink-0 text-xs font-medium text-muted-foreground">
         {t('compare.selected', { count: entries.length })}

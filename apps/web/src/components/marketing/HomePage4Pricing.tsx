@@ -98,11 +98,7 @@ export function HomePage4Pricing() {
         {PRICING_PLANS.map((plan, i) => {
           const isRecommended = plan.recommended
           return (
-            <RevealOnView
-              key={plan.id}
-              delay={0.05 * (i + 1)}
-              className="group h-full"
-            >
+            <RevealOnView key={plan.id} delay={0.05 * (i + 1)} className="group h-full">
               <Card
                 className={
                   isRecommended
@@ -111,10 +107,10 @@ export function HomePage4Pricing() {
                 }
               >
                 {/* 卡片顶部渐变高光(所有卡片 hover 时显现) */}
-                <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <span className="absolute left-3 right-3 top-0 h-px bg-primary/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 {/* 推荐计划专属:顶部强光晕 */}
                 {isRecommended && (
-                  <span className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-80" />
+                  <span className="absolute left-3 right-3 top-0 h-0.5 bg-primary opacity-80" />
                 )}
                 {isRecommended && (
                   <div className="absolute right-2 top-2 z-10">
@@ -134,11 +130,13 @@ export function HomePage4Pricing() {
 
                 <div className="mb-3 flex items-baseline gap-1">
                   <span className="text-sm font-semibold text-muted-foreground">¥</span>
-                  <span className={
-                    isRecommended
-                      ? 'bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-2xl font-bold leading-none tracking-tight text-transparent'
-                      : 'text-2xl font-bold leading-none tracking-tight'
-                  }>
+                  <span
+                    className={
+                      isRecommended
+                        ? 'bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-2xl font-bold leading-none tracking-tight text-transparent'
+                        : 'text-2xl font-bold leading-none tracking-tight'
+                    }
+                  >
                     {plan.price}
                   </span>
                   <span className="text-xs text-muted-foreground">{t('period')}</span>

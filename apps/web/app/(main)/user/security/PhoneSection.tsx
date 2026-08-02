@@ -36,7 +36,7 @@ export function PhoneSection({
 }: Props) {
   const t = useTranslations('user.security')
   return (
-    <section className="space-y-4 border-t pt-6">
+    <section className="space-y-4 mt-6 pt-6">
       <div className="flex items-center gap-2">
         <Smartphone className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold">{t('phone')}</h2>

@@ -2983,22 +2983,47 @@ const COMPETITORS: Record<CompetitorConfig['id'], CompetitorConfig> = {
   },
 }
 
-function Cell({ value, isIhui, dimension }: { value: CellValue; dimension: string; isIhui: boolean }) {
+function Cell({
+  value,
+  isIhui,
+  dimension,
+}: {
+  value: CellValue
+  dimension: string
+  isIhui: boolean
+}) {
   if (typeof value === 'boolean') {
     return value ? (
-      <Check className="mx-auto h-5 w-5 text-primary" aria-label={`${isIhui ? 'IHUI AI' : '竞品'}支持 ${dimension}`} />
+      <Check
+        className="mx-auto h-5 w-5 text-primary"
+        aria-label={`${isIhui ? 'IHUI AI' : '竞品'}支持 ${dimension}`}
+      />
     ) : (
-      <X className="mx-auto h-5 w-5 text-muted-foreground/40" aria-label={`${isIhui ? 'IHUI AI' : '竞品'}不支持 ${dimension}`} />
+      <X
+        className="mx-auto h-5 w-5 text-muted-foreground/40"
+        aria-label={`${isIhui ? 'IHUI AI' : '竞品'}不支持 ${dimension}`}
+      />
     )
   }
   return <span className="text-sm font-medium">{value}</span>
 }
 
-export function CompareContent({ competitor }: { competitor: CompetitorConfig['id'] }): React.JSX.Element {
+export function CompareContent({
+  competitor,
+}: {
+  competitor: CompetitorConfig['id']
+}): React.JSX.Element {
   const config = COMPETITORS[competitor]
   const yesCount = config.rows.filter((r) => r.ihui === true).length
   const competitorYesCount = config.rows.filter((r) => r.competitor === true).length
-  const competitorLimitedCount = config.rows.filter((r) => r.competitor === '基础' || r.competitor === '有限' || r.competitor === '受限' || r.competitor === '部分' || (typeof r.competitor === 'string' && r.competitor.includes('only'))).length
+  const competitorLimitedCount = config.rows.filter(
+    (r) =>
+      r.competitor === '基础' ||
+      r.competitor === '有限' ||
+      r.competitor === '受限' ||
+      r.competitor === '部分' ||
+      (typeof r.competitor === 'string' && r.competitor.includes('only')),
+  ).length
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
@@ -3017,7 +3042,9 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
         <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-sm">
           <div className="flex items-center gap-2">
             <Check className="h-4 w-4 text-primary" />
-            <span>IHUI AI: {yesCount}/{config.rows.length} 项支持</span>
+            <span>
+              IHUI AI: {yesCount}/{config.rows.length} 项支持
+            </span>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <span>
@@ -3032,10 +3059,16 @@ export function CompareContent({ competitor }: { competitor: CompetitorConfig['i
       <section className="mt-12 overflow-x-auto rounded-2xl border bg-card shadow-sm">
         <table className="w-full">
           <thead>
-            <tr className="border-b bg-muted/30">
-              <th className="px-4 py-4 text-left text-sm font-semibold min-[768px]:px-6">对比维度</th>
-              <th className="px-4 py-4 text-center text-sm font-semibold text-primary min-[768px]:px-6">IHUI AI</th>
-              <th className="px-4 py-4 text-center text-sm font-semibold min-[768px]:px-6">{config.name}</th>
+            <tr className="bg-muted/30">
+              <th className="px-4 py-4 text-left text-sm font-semibold min-[768px]:px-6">
+                对比维度
+              </th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-primary min-[768px]:px-6">
+                IHUI AI
+              </th>
+              <th className="px-4 py-4 text-center text-sm font-semibold min-[768px]:px-6">
+                {config.name}
+              </th>
             </tr>
           </thead>
           <tbody>

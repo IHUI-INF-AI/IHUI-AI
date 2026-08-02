@@ -99,7 +99,7 @@ export default function HistoryPage() {
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="space-y-2 rounded-lg border p-2">
           {items.map((item) => (
             <li
               key={item.id}

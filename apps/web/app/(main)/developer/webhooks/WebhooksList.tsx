@@ -37,7 +37,7 @@ export function WebhooksList({
         ) : list.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">暂无 Webhook 配置</p>
         ) : (
-          <div className="divide-y">
+          <div className="space-y-2">
             {list.map((wh) => (
               <div key={wh.id} className="px-4 py-3">
                 <div className="flex items-center gap-3">

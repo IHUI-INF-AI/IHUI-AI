@@ -2,7 +2,15 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, LayoutTemplate } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { Template } from './types'
 
@@ -35,7 +43,7 @@ export function PapersTemplateTable({
             <TableHead className="px-4 py-2.5 text-right">{tc('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">

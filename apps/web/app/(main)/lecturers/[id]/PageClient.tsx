@@ -143,10 +143,10 @@ export default function LecturerDetailPageClient() {
                       </span>
                     )}
                   </div>
-                  <CardHeader className="p-4 pb-2">
+                  <CardHeader className="p-4 min-[640px]:p-6 pb-2">
                     <CardTitle className="text-base">{channel.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
+                  <CardContent className="space-y-1.5 p-4 pt-0 min-[640px]:p-6 min-[640px]:pt-0 text-sm">
                     <p className="text-muted-foreground">
                       {channel.lecturerName ?? tl('unknownLecturer')}
                     </p>

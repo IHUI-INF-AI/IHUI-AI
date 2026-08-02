@@ -330,8 +330,8 @@ export default function AiSkillDetailPage() {
           </div>
 
           {invokeError && (
-            <div className="flex items-start gap-1.5 rounded-md border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
-              <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <div className="flex items-center gap-1.5 rounded-md border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+              <XCircle className="h-3.5 w-3.5 shrink-0" />
               <span>{invokeError}</span>
             </div>
           )}

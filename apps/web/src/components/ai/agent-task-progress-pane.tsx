@@ -1076,8 +1076,7 @@ export function AgentTaskProgressPane() {
   // isMinimized 状态保留(不违背 v17"minimize 完全由用户控制"),仅不渲染假数据 UI;
   // 当 AI 真正执行且产生工具调用时,摘要条随真实数据动态显示。
   if (isMinimized) {
-    const hasActiveExecution =
-      planSteps.length > 0 || isStreaming || tools.length > 0
+    const hasActiveExecution = planSteps.length > 0 || isStreaming || tools.length > 0
     if (!hasActiveExecution) return null
     return (
       <div
@@ -1413,9 +1412,9 @@ export function AgentTaskProgressPane() {
           <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
             {Array.from({ length: PLAN_SKELETON_ROWS }, (_, i) => (
               <div key={i} className="flex items-center gap-1.5">
-                <div className="h-3 w-3 shrink-0 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]" />
+                <div className="h-3 w-3 shrink-0 rounded-sm bg-muted/60 animate-pulse" />
                 <div
-                  className="h-2.5 animate-skeleton rounded-sm bg-gradient-to-r from-muted/40 via-muted/70 to-muted/40 bg-[length:200%_100%]"
+                  className="h-2.5 rounded-sm bg-muted/60 animate-pulse"
                   style={{ width: `${50 + i * 12}%` }}
                 />
               </div>

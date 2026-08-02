@@ -30,7 +30,7 @@ export function ApiDebugTable({ list }: Props) {
             <th className="px-4 py-2 font-medium">{t('apiDebug.colTime')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {list.map((h) => (
             <tr key={h.id} className="transition-colors hover:bg-muted/30">
               <td className="px-4 py-2">

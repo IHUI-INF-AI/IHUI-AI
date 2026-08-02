@@ -55,7 +55,9 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
             <th className="px-4 py-3 font-medium">{t('fileName')}</th>
             <th className="px-4 py-3 font-medium">{t('fileSize')}</th>
             <th className="hidden px-4 py-3 font-medium min-[768px]:table-cell">{t('fileType')}</th>
-            <th className="hidden px-4 py-3 font-medium min-[640px]:table-cell">{t('uploadedAt')}</th>
+            <th className="hidden px-4 py-3 font-medium min-[640px]:table-cell">
+              {t('uploadedAt')}
+            </th>
             <th className="px-4 py-3 text-right font-medium">{t('actions')}</th>
           </tr>
         </thead>
@@ -63,11 +65,13 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
           {files.map((file) => {
             const isDownloading = downloadingId === file.id
             return (
-              <tr key={file.id} className="border-t transition-colors hover:bg-muted/30">
+              <tr key={file.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="max-w-[12rem] break-words min-[640px]:max-w-xs">{file.name}</span>
+                    <span className="max-w-[12rem] break-words min-[640px]:max-w-xs">
+                      {file.name}
+                    </span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{formatSize(file.size)}</td>

@@ -57,16 +57,96 @@ interface WizardProvider {
 }
 
 const PROVIDERS: readonly WizardProvider[] = [
-  { code: 'openai', name: 'OpenAI', free: false, apiFormat: 'openai_chat', baseUrl: 'https://api.openai.com/v1', defaultModelId: 'gpt-4o-mini', signupUrl: 'https://platform.openai.com/api-keys' },
-  { code: 'anthropic', name: 'Anthropic', free: false, apiFormat: 'anthropic_messages', baseUrl: 'https://api.anthropic.com', defaultModelId: 'claude-3-5-sonnet-20241022', signupUrl: 'https://console.anthropic.com/settings/keys' },
-  { code: 'deepseek', name: 'DeepSeek', free: false, apiFormat: 'openai_chat', baseUrl: 'https://api.deepseek.com/v1', defaultModelId: 'deepseek-chat', signupUrl: 'https://platform.deepseek.com/api_keys' },
-  { code: 'zhipu', name: 'Zhipu AI', free: false, apiFormat: 'openai_chat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', defaultModelId: 'glm-4-flash', signupUrl: 'https://open.bigmodel.cn/usercenter/apikeys' },
-  { code: 'stepfun', name: 'StepFun', free: false, apiFormat: 'openai_chat', baseUrl: 'https://api.stepfun.com/v1', defaultModelId: 'step-1-flash', signupUrl: 'https://platform.stepfun.com/interface-key' },
-  { code: 'groq', name: 'Groq', free: false, apiFormat: 'openai_chat', baseUrl: 'https://api.groq.com/openai/v1', defaultModelId: 'llama-3.1-8b-instant', signupUrl: 'https://console.groq.com/keys' },
-  { code: 'siliconflow', name: 'SiliconFlow', free: false, apiFormat: 'openai_chat', baseUrl: 'https://api.siliconflow.cn/v1', defaultModelId: 'Qwen/Qwen2.5-7B-Instruct', signupUrl: 'https://cloud.siliconflow.cn/account/ak' },
-  { code: 'agnes', name: 'Agnes', free: false, apiFormat: 'openai_chat', baseUrl: 'https://api.agnes.ai/v1', defaultModelId: 'agnes-chat', signupUrl: 'https://agnes.ai/api-keys' },
-  { code: 'cloudflare', name: 'Cloudflare Workers AI', free: true, apiFormat: 'openai_chat', baseUrl: 'https://api.cloudflare.com/client/v4/accounts', defaultModelId: '@cf/meta/llama-3.1-8b-instruct', signupUrl: 'https://dash.cloudflare.com' },
-  { code: 'github', name: 'GitHub Models', free: true, apiFormat: 'openai_chat', baseUrl: 'https://models.inference.ai.azure.com', defaultModelId: 'gpt-4o-mini', signupUrl: 'https://github.com/settings/tokens' },
+  {
+    code: 'openai',
+    name: 'OpenAI',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.openai.com/v1',
+    defaultModelId: 'gpt-4o-mini',
+    signupUrl: 'https://platform.openai.com/api-keys',
+  },
+  {
+    code: 'anthropic',
+    name: 'Anthropic',
+    free: false,
+    apiFormat: 'anthropic_messages',
+    baseUrl: 'https://api.anthropic.com',
+    defaultModelId: 'claude-3-5-sonnet-20241022',
+    signupUrl: 'https://console.anthropic.com/settings/keys',
+  },
+  {
+    code: 'deepseek',
+    name: 'DeepSeek',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultModelId: 'deepseek-chat',
+    signupUrl: 'https://platform.deepseek.com/api_keys',
+  },
+  {
+    code: 'zhipu',
+    name: 'Zhipu AI',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModelId: 'glm-4-flash',
+    signupUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
+  },
+  {
+    code: 'stepfun',
+    name: 'StepFun',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.stepfun.com/v1',
+    defaultModelId: 'step-1-flash',
+    signupUrl: 'https://platform.stepfun.com/interface-key',
+  },
+  {
+    code: 'groq',
+    name: 'Groq',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    defaultModelId: 'llama-3.1-8b-instant',
+    signupUrl: 'https://console.groq.com/keys',
+  },
+  {
+    code: 'siliconflow',
+    name: 'SiliconFlow',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    defaultModelId: 'Qwen/Qwen2.5-7B-Instruct',
+    signupUrl: 'https://cloud.siliconflow.cn/account/ak',
+  },
+  {
+    code: 'agnes',
+    name: 'Agnes',
+    free: false,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.agnes.ai/v1',
+    defaultModelId: 'agnes-chat',
+    signupUrl: 'https://agnes.ai/api-keys',
+  },
+  {
+    code: 'cloudflare',
+    name: 'Cloudflare Workers AI',
+    free: true,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://api.cloudflare.com/client/v4/accounts',
+    defaultModelId: '@cf/meta/llama-3.1-8b-instruct',
+    signupUrl: 'https://dash.cloudflare.com',
+  },
+  {
+    code: 'github',
+    name: 'GitHub Models',
+    free: true,
+    apiFormat: 'openai_chat',
+    baseUrl: 'https://models.inference.ai.azure.com',
+    defaultModelId: 'gpt-4o-mini',
+    signupUrl: 'https://github.com/settings/tokens',
+  },
 ] as const
 
 // =============================================================================
@@ -81,7 +161,12 @@ interface VerifyResponse {
 }
 
 function isVerifyResponse(v: unknown): v is VerifyResponse {
-  return typeof v === 'object' && v !== null && 'valid' in v && typeof (v as VerifyResponse).valid === 'boolean'
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'valid' in v &&
+    typeof (v as VerifyResponse).valid === 'boolean'
+  )
 }
 
 // =============================================================================
@@ -200,7 +285,7 @@ export function ByokWizard() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-emerald-700"
+        className="fixed bottom-6 right-6 z-sticky flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-emerald-700"
       >
         <Wand2 className="h-4 w-4" />
         {t('trigger')}
@@ -301,7 +386,11 @@ export function ByokWizard() {
                           onClick={() => setShowKey(!showKey)}
                           className="rounded-sm p-1 text-muted-foreground hover:bg-accent"
                         >
-                          {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          {showKey ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
                         </button>
                         <button
                           type="button"
@@ -395,7 +484,9 @@ export function ByokWizard() {
                 <p className="text-xs text-muted-foreground">{t('step4Desc')}</p>
                 <div className="rounded-md border p-3 text-xs">
                   <div className="flex items-center justify-between gap-3 py-1">
-                    <span className="min-w-0 flex-1 text-muted-foreground">{t('providerLabel')}</span>
+                    <span className="min-w-0 flex-1 text-muted-foreground">
+                      {t('providerLabel')}
+                    </span>
                     <span className="shrink-0 font-medium">{selected?.name}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 py-1">

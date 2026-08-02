@@ -1,7 +1,15 @@
 'use client'
 import { Loader2, Edit, Trash2, Settings, FileText } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import type { AgentRule } from './types'
@@ -30,7 +38,7 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -73,21 +81,13 @@ export function AgentRuleTable({ list, isLoading, onParams, onEdit, onDelete }: 
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <Tooltip content={t('titleParams')}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onParams(item)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => onParams(item)}>
                         <Settings className="h-4 w-4" />
                       </Button>
                     </Tooltip>
                     <HasPermi code="ai:agentrule:edit">
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(item)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

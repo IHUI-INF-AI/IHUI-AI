@@ -81,7 +81,7 @@ export function Integral({ className, defaultData }: IntegralProps) {
           </Link>
         </Button>
       </CardHeader>
-      <CardContent className="p-4 pt-2">
+      <CardContent className="p-4 pt-3">
         <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 rounded-lg bg-muted/40 p-3">
           <div className="text-center">
             <div className="text-xl font-bold tracking-tight">

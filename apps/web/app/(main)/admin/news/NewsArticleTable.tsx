@@ -149,7 +149,7 @@ export function NewsArticleTable(props: Props) {
               <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -182,7 +182,9 @@ export function NewsArticleTable(props: Props) {
                             {t('pinned')}
                           </span>
                         ) : null}
-                        <span className="block max-w-xs truncate" title={article.title}>{article.title}</span>
+                        <span className="block max-w-xs truncate" title={article.title}>
+                          {article.title}
+                        </span>
                       </div>
                       {article.summary ? (
                         <div className="line-clamp-2 max-w-xs break-words text-xs text-muted-foreground">

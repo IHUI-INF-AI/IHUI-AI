@@ -33,6 +33,7 @@ const GROUP_ORDER: ProviderGroup[] = [
  */
 export function ModelsNav({ active }: Props) {
   const t = useTranslations('models')
+  const tChat = useTranslations('chat')
 
   return (
     <nav aria-label={t('navAriaLabel')} className="flex flex-col gap-3 rounded-lg bg-muted/30 p-3">
@@ -62,7 +63,7 @@ export function ModelsNav({ active }: Props) {
               <ProviderPill
                 key={p}
                 href={`/models?provider=${p}`}
-                label={PROVIDER_LABEL[p] ? t(PROVIDER_LABEL[p]) : p}
+                label={PROVIDER_LABEL[p] ? tChat(PROVIDER_LABEL[p]) : p}
                 icon={<BrandIcon vendor={p} size={14} />}
                 active={active === p}
               />

@@ -209,8 +209,8 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
               </CardHeader>
               <CardContent className="space-y-1.5">
                 {course.objectives.map((obj, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                     <span>{obj}</span>
                   </div>
                 ))}
@@ -289,7 +289,9 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
             <Card>
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="text-center">
-                  <p className="text-2xl min-[768px]:text-3xl font-bold text-primary">{rating.average}</p>
+                  <p className="text-2xl min-[768px]:text-3xl font-bold text-primary">
+                    {rating.average}
+                  </p>
                   <div className="mt-1 flex">
                     {[1, 2, 3, 4, 5].map((s) => (
                       <Star

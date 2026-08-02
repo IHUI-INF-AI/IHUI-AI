@@ -30,7 +30,7 @@ export function OssConfigTable({ list, isLoading, deletePending, onEdit, onDelet
             <th className={cn(th, 'text-right')}>{t('colActions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">

@@ -79,7 +79,10 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
       className="w-full rounded-md border border-border bg-card p-3 text-left shadow-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
       <div className="flex items-start gap-2">
-        <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', PRIORITY_DOT_CLASS[level])} aria-hidden />
+        <span
+          className={cn('mt-0.5 h-2 w-2 shrink-0 rounded-full', PRIORITY_DOT_CLASS[level])}
+          aria-hidden
+        />
         <div className="min-w-0 flex-1 space-y-1">
           <p className="truncate text-sm font-medium leading-snug">{task.name}</p>
           {task.description && (
