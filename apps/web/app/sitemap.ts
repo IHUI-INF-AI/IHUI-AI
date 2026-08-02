@@ -27,6 +27,23 @@ const ZH_TW_PAGES = new Set([
   '/use-cases/ai-design',
 ])
 
+// 英文版本路由(2026-08-02 立,英文 landing pages)
+// 每个英文页面声明 x-default + en + zh-CN hreflang:
+// - x-default 和 zh-CN 指向中文主版本(zhPath)
+// - en 指向英文版本(enPath)
+const EN_PAGES: Array<{
+  enPath: string
+  zhPath: string
+  changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency']
+  priority: number
+}> = [
+  { enPath: '/en', zhPath: '/', changeFrequency: 'weekly', priority: 0.9 },
+  { enPath: '/en/agents', zhPath: '/agents', changeFrequency: 'weekly', priority: 0.9 },
+  { enPath: '/en/models', zhPath: '/models', changeFrequency: 'weekly', priority: 0.9 },
+  { enPath: '/en/pricing', zhPath: '/pricing', changeFrequency: 'monthly', priority: 0.9 },
+  { enPath: '/en/docs', zhPath: '/docs', changeFrequency: 'weekly', priority: 0.9 },
+]
+
 // 核心公开页面清单
 // changeFrequency: 页面更新频率
 // priority: 相对优先级(0.0-1.0,首页=1.0)
@@ -200,7 +217,7 @@ const PAGES: Array<{
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date()
 
-  return PAGES.map(({ path, changeFrequency, priority }) => {
+  const zhRoutes = PAGES.map(({ path, changeFrequency, priority }) => {
     // hreflang 策略(2026-08-02 修正):
     // - 所有页面都声明 x-default(指向 zh-CN 主版本)
     // - 只有实际存在 zh-TW 路由的 5 个 use-cases 子页才声明 zh-CN + zh-TW hreflang
@@ -224,4 +241,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
       },
     }
   })
+
+  // 英文路由追加(2026-08-02 立)
+  // 5 个英文 landing page(/en、/en/agents、/en/models、/en/pricing、/en/docs)
+  // 每个声明 x-default + en + zh-CN hreflang,x-default 与 zh-CN 指向中文主版本
+  const enRoutes: MetadataRoute.Sitemap = EN_PAGES.map(
+    ({ enPath, zhPath, changeFrequency, priority }) => ({
+      url: `${SITE_URL}${enPath}`,
+      lastModified,
+      changeFrequency,
+      priority,
+      alternates: {
+        languages: {
+          'x-default': `${SITE_URL}${zhPath}`,
+          en: `${SITE_URL}${enPath}`,
+          'zh-CN': `${SITE_URL}${zhPath}`,
+        },
+      },
+    }),
+  )
+
+  return [...zhRoutes, ...enRoutes]
 }
