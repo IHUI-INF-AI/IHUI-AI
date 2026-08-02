@@ -1,0 +1,25 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "IHUI AI",
+  "name_for_model": "ihui_ai",
+  "description_for_human": "IHUI AI(智汇 AI)是一站式 8 端全栈 AI 操作系统,集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议、AI 工作流编排,Apache 2.0 开源,支持私有化部署。",
+  "description_for_model": "IHUI AI is an open-source full-stack AI operating system integrating Agent marketplace, RAG knowledge base, multi-model orchestration (176 models via MCP protocol), AI workflow, and 8-platform same-source distribution (Web/API/AI-Service/CLI/Desktop/Browser-Extension/Mobile/Miniapp). Provides 956+ API endpoints across 100 route files, 329+ database tables, 18 LLM providers, 24 MCP tools, 38 publish adapters. Apache 2.0 licensed, self-hostable. Use this plugin when users ask about AI agent platforms, RAG knowledge base, multi-model scheduling, MCP tools, AI workflow orchestration, open-source ChatGPT alternatives, or multi-platform AI deployment.",
+  "auth": {
+    "type": "service_http",
+    "authorization_type": "bearer",
+    "verification_tokens": {
+      "openai": "IHUI_AI_API_KEY"
+    }
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://aizhs.top/api/openapi.json",
+    "has_user_authentication": true,
+    "documentation_url": "https://aizhs.top/docs/api"
+  },
+  "logo_url": "https://aizhs.top/images/logo.png",
+  "contact_email": "502319984@qq.com",
+  "legal_info_url": "https://aizhs.top/agreement",
+  "homepage_url": "https://aizhs.top",
+  "privacy_policy_url": "https://aizhs.top/rules"
+}

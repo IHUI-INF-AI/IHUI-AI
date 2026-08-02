@@ -1,82 +1,24 @@
-'use client'
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import PageClient from './PageClient'
 
-import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+export const metadata: Metadata = {
+  title: 'AI 行业资讯 — 最新人工智能新闻动态 | 智汇 AI',
+  description:
+    '智汇 AI 行业资讯:聚焦 AI 大模型、Agent、RAG、MCP、多模态等前沿动态。每日更新 OpenAI / Anthropic / Google / 百度 / 阿里等最新发布。',
+  alternates: { canonical: '/news' },
+  openGraph: {
+    title: 'AI 行业资讯 — 最新人工智能新闻动态',
+    description: '每日更新 AI 大模型 / Agent / RAG / MCP 前沿动态',
+    url: 'https://aizhs.top/news',
+    type: 'website',
+  },
+}
 
-import { NewsHeader } from './NewsHeader'
-import { NewsList } from './NewsList'
-import { NewsSidebar } from './NewsSidebar'
-import { BackButton } from '@/components/common'
-import { PAGE_SIZE, api } from './helpers'
-import type { NewsArticle, NewsCategory, ArticlesData } from './types'
-
-export default function NewsPage() {
-  const [search, setSearch] = React.useState('')
-  const [debounced, setDebounced] = React.useState('')
-  const [categoryId, setCategoryId] = React.useState<string>('all')
-  const [page, setPage] = React.useState(1)
-
-  React.useEffect(() => {
-    const tm = setTimeout(() => {
-      setDebounced(search)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(tm)
-  }, [search])
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ['news', 'categories'],
-    queryFn: () => api<{ list: NewsCategory[] }>(`/api/news/categories`).then((d) => d.list ?? []),
-  })
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['news', 'articles', debounced, categoryId, page],
-    queryFn: () => {
-      const qs = new URLSearchParams({
-        page: String(page),
-        pageSize: String(PAGE_SIZE),
-      })
-      if (categoryId !== 'all') qs.set('categoryId', categoryId)
-      if (debounced) qs.set('search', debounced)
-      return api<ArticlesData>(`/api/news/articles?${qs.toString()}`)
-    },
-  })
-
-  const { data: pinned = [] } = useQuery({
-    queryKey: ['news', 'pinned'],
-    queryFn: () =>
-      api<{ list: NewsArticle[] }>(`/api/news/articles/pinned`).then((d) => d.list ?? []),
-  })
-
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const items = data?.list ?? []
-
+export default function Page() {
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
-      <BackButton />
-      <NewsHeader search={search} onSearchChange={setSearch} />
-
-      <div className="flex flex-col gap-6 min-[1024px]:flex-row">
-        <NewsList
-          items={items}
-          isLoading={isLoading}
-          error={error}
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          onPageChange={setPage}
-        />
-        <NewsSidebar
-          categories={categories}
-          categoryId={categoryId}
-          onCategoryChange={(id) => {
-            setCategoryId(id)
-            setPage(1)
-          }}
-          pinned={pinned}
-        />
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <PageClient />
+    </Suspense>
   )
 }
