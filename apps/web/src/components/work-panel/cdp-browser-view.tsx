@@ -203,15 +203,22 @@ export function CdpBrowserView({
   }, [sessionId])
 
   // 坐标转换:canvas 显示坐标 → 设备坐标(后端 Chromium 视口)
+  // 2026-08-02 fix:canvas 为 object-contain 布局,内容居中于 CSS 盒并保持 16:9,
+  // 面板宽高比 ≠ 16:9 时存在 letterbox 留白;直接按整盒缩放会把点击坐标偏移
+  // (实测 ~40-70px,微信/抖音精确点击落空)。必须先算出实际内容区再映射。
   const toDeviceCoords = React.useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
+    const scale = Math.min(rect.width / canvas.width, rect.height / canvas.height)
+    if (!scale || !Number.isFinite(scale)) return { x: 0, y: 0 }
+    const contentW = canvas.width * scale
+    const contentH = canvas.height * scale
+    const offsetX = rect.left + (rect.width - contentW) / 2
+    const offsetY = rect.top + (rect.height - contentH) / 2
     return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
+      x: (clientX - offsetX) / scale,
+      y: (clientY - offsetY) / scale,
     }
   }, [])
 
