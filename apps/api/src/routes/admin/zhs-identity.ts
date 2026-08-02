@@ -2,6 +2,7 @@
  * /api/admin/zhs-identity 路由(从 admin-missing-routes.ts 拆分)。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
 import { zhsIdentity } from '@ihui/database'
@@ -9,6 +10,19 @@ import { eq, ilike, desc, sql } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
+
+const createZhsIdentitySchema = z.object({
+  identityName: z.string().max(100).default(''),
+  identityType: z.string().max(50).nullable().optional(),
+  status: z.coerce.number().int().min(0).default(1),
+})
+
+const updateZhsIdentitySchema = z.object({
+  identityName: z.string().max(100).optional(),
+  identityType: z.string().max(50).nullable().optional(),
+  status: z.coerce.number().int().min(0).optional(),
+})
+
 const zhsIdentityRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   server.get('/zhs-identity', async (request, reply) => {
@@ -44,13 +58,16 @@ const zhsIdentityRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(row))
   })
   server.post('/zhs-identity', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const parsed = createZhsIdentitySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数校验失败'))
+    }
     const [row] = await db
       .insert(zhsIdentity)
       .values({
-        identityName: String(body.identityName ?? ''),
-        identityType: body.identityType ? String(body.identityType) : null,
-        status: Number(body.status ?? 1),
+        identityName: parsed.data.identityName,
+        identityType: parsed.data.identityType ?? null,
+        status: parsed.data.status,
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -58,15 +75,18 @@ const zhsIdentityRoutes: FastifyPluginAsync = async (server) => {
   server.put('/zhs-identity/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const parsed = updateZhsIdentitySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数校验失败'))
+    }
     const [row] = await db
       .update(zhsIdentity)
       .set({
-        ...(body.identityName !== undefined && { identityName: String(body.identityName) }),
-        ...(body.identityType !== undefined && {
-          identityType: body.identityType ? String(body.identityType) : null,
+        ...(parsed.data.identityName !== undefined && { identityName: parsed.data.identityName }),
+        ...(parsed.data.identityType !== undefined && {
+          identityType: parsed.data.identityType ?? null,
         }),
-        ...(body.status !== undefined && { status: Number(body.status) }),
+        ...(parsed.data.status !== undefined && { status: parsed.data.status }),
         updatedAt: new Date(),
       })
       .where(eq(zhsIdentity.id, Number(p.data.id)))
