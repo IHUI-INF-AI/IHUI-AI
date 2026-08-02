@@ -515,6 +515,12 @@ export function MessageList({
   // - ref 在键盘 handler 内同步更新,避免 ↑/↓ 后的 Enter/Escape 看不到新 focusedIndex
   // - state 仍用于驱动 UI re-render(focused ring / data-message-focused)
   const focusedIndexRef = React.useRef<number>(-1)
+  // 2026-08-02 修复 P1(问题 6-1/6-2):messages 镜像 ref。
+  // 原键盘 useEffect 依赖 [messages],每个 token 触发 listener 拆卸/重装,
+  // 高频流下每秒数十次 DOM 监听器抖动 + 微秒窗口内按键可能丢失。
+  // 改用 ref 镜像后 effect 依赖可去掉 messages,listener 仅挂载一次。
+  const messagesRef = React.useRef(messages)
+  messagesRef.current = messages
   const setFocusedIndexBoth = React.useCallback((next: number) => {
     focusedIndexRef.current = next
     setFocusedIndex(next)
@@ -845,7 +851,11 @@ export function MessageList({
   // 用 window keydown 监听确保焦点在 message 容器内任意子元素都能响应
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (messages.length === 0) return
+      // 2026-08-02 修复 P1(问题 6-1):用 messagesRef.current 读最新 messages,
+      // effect 依赖仅 [setFocusedIndexBoth](稳定引用),listener 仅挂载一次,
+      // 避免每个 token 触发拆卸/重装造成 DOM 监听器抖动 + 按键丢失。
+      const msgs = messagesRef.current
+      if (msgs.length === 0) return
       const target = e.target as HTMLElement | null
       // 焦点在输入控件时不拦截(避免与用户输入冲突)
       if (target) {
@@ -860,23 +870,19 @@ export function MessageList({
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         const next =
-          focusedIndexRef.current < 0
-            ? 0
-            : Math.min(messages.length - 1, focusedIndexRef.current + 1)
+          focusedIndexRef.current < 0 ? 0 : Math.min(msgs.length - 1, focusedIndexRef.current + 1)
         setFocusedIndexBoth(next)
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         const next =
-          focusedIndexRef.current < 0
-            ? messages.length - 1
-            : Math.max(0, focusedIndexRef.current - 1)
+          focusedIndexRef.current < 0 ? msgs.length - 1 : Math.max(0, focusedIndexRef.current - 1)
         setFocusedIndexBoth(next)
       } else if (e.key === 'Home') {
         e.preventDefault()
         setFocusedIndexBoth(0)
       } else if (e.key === 'End') {
         e.preventDefault()
-        setFocusedIndexBoth(messages.length - 1)
+        setFocusedIndexBoth(msgs.length - 1)
       } else if (e.key === 'Escape') {
         // 2026-07-28 立:用 focusedIndexRef 读最新值,避免 stale closure
         // (键盘事件连续触发时 listener 闭包内的 focusedIndex 可能滞后)
@@ -888,7 +894,7 @@ export function MessageList({
         // 2026-07-28 立:同上,用 ref 读最新 focusedIndex
         const idx = focusedIndexRef.current
         if (idx >= 0) {
-          const m = messages[idx]
+          const m = msgs[idx]
           if (m?.reasoning) {
             e.preventDefault()
             window.dispatchEvent(
@@ -900,13 +906,17 @@ export function MessageList({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [messages, setFocusedIndexBoth])
+  }, [setFocusedIndexBoth])
 
   // 2026-07-28 立:focused message 变更后自动 scrollIntoView(确保可见)
   // 配合键盘 ↑/↓ 用,避免焦点切到屏幕外时用户看不到
+  // 2026-08-02 修复 P2(问题 6-2):依赖去掉 messages,改用 messagesRef.current 读最新。
+  // 原 [focusedIndex, messages] 每个 token 触发 effect 重跑,即使 focusedIndex 未变
+  // 仍执行 querySelector + scrollIntoView,造成不必要的 DOM 查询和滚动。
   React.useEffect(() => {
-    if (focusedIndex < 0 || focusedIndex >= messages.length) return
-    const id = messages[focusedIndex]?.id
+    const msgs = messagesRef.current
+    if (focusedIndex < 0 || focusedIndex >= msgs.length) return
+    const id = msgs[focusedIndex]?.id
     if (!id) return
     const el = containerRef.current?.querySelector(
       `[data-message-id="${id}"]`,
@@ -914,7 +924,7 @@ export function MessageList({
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }
-  }, [focusedIndex, messages])
+  }, [focusedIndex])
 
   // 2026-07-28 立:focusedIndex 越界保护(messages 删除时索引可能失效)
   React.useEffect(() => {
