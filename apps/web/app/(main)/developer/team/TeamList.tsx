@@ -28,7 +28,7 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
         ) : list.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">暂无团队成员</p>
         ) : (
-          <div className="divide-y">
+          <div className="space-y-2">
             {list.map((m) => {
               const cfg = ROLE_CONFIG[m.role]
               return (
@@ -37,9 +37,7 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-medium">{m.nickname}</p>
-                      <span
-                        className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cfg.cls)}
-                      >
+                      <span className={cn('rounded px-1.5 py-0.5 text-xs font-medium', cfg.cls)}>
                         {cfg.label}
                       </span>
                     </div>

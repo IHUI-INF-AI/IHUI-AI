@@ -14,15 +14,7 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import {
-  ArrowLeftRight,
-  Check,
-  CheckCircle2,
-  Circle,
-  Crown,
-  Sparkles,
-  X,
-} from 'lucide-react'
+import { ArrowLeftRight, Check, CheckCircle2, Circle, Crown, Sparkles, X } from 'lucide-react'
 
 import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 
@@ -127,9 +119,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
 
         {/* 选区 */}
         <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-          <p className="text-xs text-muted-foreground">
-            {t('pickHint', { max: MAX_COMPARE })}
-          </p>
+          <p className="text-xs text-muted-foreground">{t('pickHint', { max: MAX_COMPARE })}</p>
           <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
             {allOptions.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('noModels')}</p>
@@ -174,7 +164,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b bg-muted/30 text-left">
+                <tr className="bg-muted/30 text-left">
                   <th className="w-32 px-3 py-2 font-medium text-muted-foreground">
                     {t('colDimension')}
                   </th>
@@ -296,10 +286,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
                 <Row label={t('rowParams')}>
                   {compared.map((c) => (
                     <Cell key={c.model.id}>
-                      <ParamsSummary
-                        params={c.model.defaultParams ?? {}}
-                        t={t}
-                      />
+                      <ParamsSummary params={c.model.defaultParams ?? {}} t={t} />
                     </Cell>
                   ))}
                 </Row>
@@ -320,7 +307,7 @@ export function CompareModelsDialog({ open, providers, initialSelectedIds, onClo
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <tr className="border-b last:border-b-0">
+    <tr>
       <td className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </td>
@@ -329,17 +316,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-function Cell({
-  children,
-  highlight,
-}: {
-  children: React.ReactNode
-  highlight?: boolean
-}) {
+function Cell({ children, highlight }: { children: React.ReactNode; highlight?: boolean }) {
   return (
     <td
       className={`px-3 py-2 align-top text-xs ${
-        highlight ? 'bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' : ''
+        highlight
+          ? 'bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+          : ''
       }`}
     >
       {children}
@@ -348,7 +331,13 @@ function Cell({
 }
 
 /** 默认参数摘要(最多展示 3 个关键项,剩余显示 +N) */
-function ParamsSummary({ params, t }: { params: Record<string, unknown>; t: ReturnType<typeof useTranslations<string>> }) {
+function ParamsSummary({
+  params,
+  t,
+}: {
+  params: Record<string, unknown>
+  t: ReturnType<typeof useTranslations<string>>
+}) {
   const items: string[] = []
   if (typeof params.temperature === 'number') items.push(`T=${params.temperature}`)
   if (typeof params.max_tokens === 'number') items.push(`max=${params.max_tokens}`)

@@ -89,67 +89,69 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
 
       <div className="max-h-64 overflow-auto rounded-md border">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-muted/50">
-            <tr>
-              <th className="w-10 px-3 py-2">
-                <Checkbox
-                  checked={list.length > 0 && selected.size === list.length}
-                  onCheckedChange={toggleAll}
-                />
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                用户名
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                昵称
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                手机号
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10 bg-muted/50">
               <tr>
-                <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                </td>
+                <th className="w-10 px-3 py-2">
+                  <Checkbox
+                    checked={list.length > 0 && selected.size === list.length}
+                    onCheckedChange={toggleAll}
+                  />
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  用户名
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  昵称
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  手机号
+                </th>
               </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                  暂无可授权用户
-                </td>
-              </tr>
-            ) : (
-              list.map((u) => (
-                <tr
-                  key={u.id}
-                  className="cursor-pointer transition-colors hover:bg-muted/30"
-                  onClick={() => toggleOne(u.id)}
-                >
-                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selected.has(u.id)}
-                      onCheckedChange={() => toggleOne(u.id)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 font-medium">{u.userName}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{u.nickName}</td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {u.phonenumber || '-'}
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
+                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无可授权用户
+                  </td>
+                </tr>
+              ) : (
+                list.map((u) => (
+                  <tr
+                    key={u.id}
+                    className="cursor-pointer transition-colors hover:bg-muted/30"
+                    onClick={() => toggleOne(u.id)}
+                  >
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.has(u.id)}
+                        onCheckedChange={() => toggleOne(u.id)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 font-medium">{u.userName}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{u.nickName}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {u.phonenumber || '-'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">共 {total} 条 · {page}/{totalPages}</span>
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+          共 {total} 条 · {page}/{totalPages}
+        </span>
         <div className="flex shrink-0 gap-1">
           <Button
             className="shrink-0"

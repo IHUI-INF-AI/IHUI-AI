@@ -119,7 +119,7 @@ export default function GrayReleasePage() {
                 <th className={cn(th, 'text-right')}>{t('grayRelease.colActions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {rules.map((r) => (
                 <tr key={r.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-2.5">

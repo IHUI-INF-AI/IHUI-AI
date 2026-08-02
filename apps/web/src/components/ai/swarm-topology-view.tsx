@@ -743,7 +743,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
             msg.collaborationType
           ] ?? { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' }
           return (
-            <div key={i} className="flex items-start gap-1.5">
+            <div key={i} className="flex items-stretch gap-1.5">
               {/* 时间轴线 + 圆点 */}
               <div className="flex flex-col items-center pt-0.5">
                 <span className={cn('inline-block h-2 w-2 rounded-sm', style.bg)} />

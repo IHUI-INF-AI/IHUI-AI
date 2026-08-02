@@ -2,7 +2,15 @@
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { STATUS_CLASS, STATUS_KEY, createMoneyFmt } from './helpers'
 import type { Settlement } from './types'
 
@@ -40,7 +48,7 @@ export function SettlementTable({ list, isLoading, error, settlePending, onSettl
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">

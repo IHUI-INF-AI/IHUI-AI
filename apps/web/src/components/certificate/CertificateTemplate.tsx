@@ -115,7 +115,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
           {/* 顶部装饰线 */}
           <div
             aria-hidden
-            className="absolute left-0 right-0 top-0 h-1 bg-foreground/70 dark:bg-foreground/60"
+            className="absolute left-2 right-2 top-2 h-1 bg-foreground/70 dark:bg-foreground/60"
           />
 
           <div className={cn('relative h-full w-full', innerPad, 'flex flex-col')}>
@@ -272,14 +272,7 @@ function CertificateSeal({ size = 80, orgShort = 'IHUI' }: CertificateSealProps)
         />
       </defs>
       {/* 外圈 */}
-      <circle
-        cx={center}
-        cy={center}
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-      />
+      <circle cx={center} cy={center} r={r} fill="none" stroke="currentColor" strokeWidth={2} />
       {/* 内圈 */}
       <circle
         cx={center}
@@ -291,13 +284,7 @@ function CertificateSeal({ size = 80, orgShort = 'IHUI' }: CertificateSealProps)
         strokeDasharray="2 2"
       />
       {/* 外圈文字(机构缩写,环绕) */}
-      <text
-        fill="currentColor"
-        fontSize={9}
-        fontFamily="serif"
-        fontWeight="600"
-        letterSpacing="2"
-      >
+      <text fill="currentColor" fontSize={9} fontFamily="serif" fontWeight="600" letterSpacing="2">
         <textPath href="#seal-circle-path" startOffset="0%">
           {`★ ${orgShort} ★ OFFICIAL SEAL ★ ${orgShort} ★`}
         </textPath>

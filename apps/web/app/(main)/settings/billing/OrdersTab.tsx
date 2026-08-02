@@ -48,7 +48,7 @@ export function OrdersTab({
             <th className={thCls}>{t('billingCreatedAt')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">

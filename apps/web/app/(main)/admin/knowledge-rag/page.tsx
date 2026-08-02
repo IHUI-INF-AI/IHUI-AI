@@ -229,7 +229,7 @@ export default function KnowledgeRagPage() {
       </div>
 
       <div className="rounded-lg border bg-card">
-        <div className="flex items-center justify-between border-b px-4 py-2.5">
+        <div className="flex items-center justify-between px-4 py-2.5">
           <p className="text-sm font-medium">文档列表</p>
           {selected.size > 0 && (
             <Button
@@ -251,7 +251,7 @@ export default function KnowledgeRagPage() {
             暂无文档,点击「文本入库」开始
           </div>
         ) : (
-          <div className="divide-y">
+          <div className="space-y-2">
             {docs.map((d) => (
               <div key={d.id} className="flex items-center gap-3 px-4 py-3">
                 <input
@@ -295,7 +295,7 @@ export default function KnowledgeRagPage() {
       </div>
 
       <div className="rounded-lg border bg-card">
-        <div className="border-b px-4 py-2.5">
+        <div className="px-4 py-2.5">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <Search className="h-4 w-4" /> 检索测试
           </p>
@@ -367,7 +367,7 @@ export default function KnowledgeRagPage() {
         </form>
 
         {hits.length > 0 && (
-          <div className="divide-y border-t">
+          <div className="space-y-2">
             {hits.map((h) => (
               <div key={h.id} className="p-3">
                 <div className="flex items-center justify-between">

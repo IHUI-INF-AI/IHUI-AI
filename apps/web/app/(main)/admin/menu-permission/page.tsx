@@ -18,8 +18,10 @@ const filterSchema = z.object({
 type FilterForm = z.infer<typeof filterSchema>
 
 const BADGE: Record<MenuPermissionStatus, string> = {
-  draft: 'bg-muted text-muted-foreground', pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  published: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  draft: 'bg-muted text-muted-foreground',
+  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  published: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
 }
 const TYPE_KEY: Record<string, string> = {
   menu: 'type_menu',
@@ -56,63 +58,147 @@ export default function AdminMenuPermissionPage() {
   })
   const audit = useMutation({
     mutationFn: ({ id, status }: { id: string; status: MenuPermissionStatus }) =>
-      fetchApi(`/api/admin/sys-menu/${id}/audit`, { method: 'PUT', body: JSON.stringify({ status }) }),
-    onSuccess: (_d, v) => { toast.success(v.status === 'published' ? '已通过' : '已拒绝'); qc.invalidateQueries({ queryKey: ['admin', 'menu-permission'] }) },
+      fetchApi(`/api/admin/sys-menu/${id}/audit`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: (_d, v) => {
+      toast.success(v.status === 'published' ? '已通过' : '已拒绝')
+      qc.invalidateQueries({ queryKey: ['admin', 'menu-permission'] })
+    },
     onError: (e: Error) => toast.error(e.message),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / 10))
-  const head = [t('colName'), t('colCode'), t('colPath'), t('colType'), t('colStatus'), t('colActions')]
+  const head = [
+    t('colName'),
+    t('colCode'),
+    t('colPath'),
+    t('colType'),
+    t('colStatus'),
+    t('colActions'),
+  ]
   return (
     <div className="space-y-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight"><KeyRound className="h-6 w-6 shrink-0 text-primary" /><span className="truncate">{t('title')}</span></h1>
+        <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
+          <KeyRound className="h-6 w-6 shrink-0 text-primary" />
+          <span className="truncate">{t('title')}</span>
+        </h1>
         <form onSubmit={form.handleSubmit(() => undefined)}>
-          <Input {...form.register('name')} placeholder={t('searchPlaceholder')} className="h-9 w-full shrink-0 sm:w-64" />
+          <Input
+            {...form.register('name')}
+            placeholder={t('searchPlaceholder')}
+            className="h-9 w-full shrink-0 sm:w-64"
+          />
         </form>
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-border text-left text-muted-foreground">
-            {head.map((h, i) => <th key={h} className={`${c} font-medium${i === 5 ? ' text-right' : ''}`}>{h}</th>)}
-          </tr></thead>
-          <tbody>
-            {isLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <tr key={`sk-${i}`} className="border-b border-border last:border-0">
-                  <td colSpan={6} className={`${c} py-3`}><Skeleton className="h-5 w-full" /></td>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                {head.map((h, i) => (
+                  <th key={h} className={`${c} font-medium${i === 5 ? ' text-right' : ''}`}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`sk-${i}`}>
+                    <td colSpan={6} className={`${c} py-3`}>
+                      <Skeleton className="h-5 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : !list.length ? (
+                <tr>
+                  <td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>
+                    {t('noData')}
+                  </td>
                 </tr>
-              ))
-            ) : !list.length
-              ? <tr><td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>{t('noData')}</td></tr>
-              : list.map((m) => (
-                <tr key={m.id} className="border-b border-border last:border-0">
-                  <td className={`${c} font-medium`}>{m.name}</td>
-                  <td className={`${c} text-muted-foreground font-mono text-xs`}>{m.code ?? '—'}</td>
-                  <td className={`${c} text-muted-foreground font-mono text-xs`}>{m.path ?? '—'}</td>
-                  <td className={c}><span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t(TYPE_KEY[m.type] ?? 'type_unknown')}</span></td>
-                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[m.status]}`}>{t(MENU_STATUS_KEYS[m.status]!)}</span></td>
-                  <td className={c}><div className="flex justify-end gap-1">
-                    {m.status === 'pending' && (<>
-                      <Button size="sm" variant="ghost" disabled={audit.isPending} onClick={() => audit.mutate({ id: m.id, status: 'published' })}><Check className="h-4 w-4" />{t('approve')}</Button>
-                      <Button size="sm" variant="ghost" disabled={audit.isPending} onClick={() => audit.mutate({ id: m.id, status: 'rejected' })}><X className="h-4 w-4" />{t('reject')}</Button>
-                    </>)}
-                  </div></td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+              ) : (
+                list.map((m) => (
+                  <tr key={m.id}>
+                    <td className={`${c} font-medium`}>{m.name}</td>
+                    <td className={`${c} text-muted-foreground font-mono text-xs`}>
+                      {m.code ?? '—'}
+                    </td>
+                    <td className={`${c} text-muted-foreground font-mono text-xs`}>
+                      {m.path ?? '—'}
+                    </td>
+                    <td className={c}>
+                      <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        {t(TYPE_KEY[m.type] ?? 'type_unknown')}
+                      </span>
+                    </td>
+                    <td className={c}>
+                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[m.status]}`}>
+                        {t(MENU_STATUS_KEYS[m.status]!)}
+                      </span>
+                    </td>
+                    <td className={c}>
+                      <div className="flex justify-end gap-1">
+                        {m.status === 'pending' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={audit.isPending}
+                              onClick={() => audit.mutate({ id: m.id, status: 'published' })}
+                            >
+                              <Check className="h-4 w-4" />
+                              {t('approve')}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={audit.isPending}
+                              onClick={() => audit.mutate({ id: m.id, status: 'rejected' })}
+                            >
+                              <X className="h-4 w-4" />
+                              {t('reject')}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" />{t('prev')}</Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>{t('next')}<ChevronRight className="h-4 w-4" /></Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            {t('prev')}
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            {t('next')}
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

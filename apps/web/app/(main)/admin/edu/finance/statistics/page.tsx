@@ -155,7 +155,7 @@ export default function EduFinanceStatisticsPage() {
                       <TableHead className="px-4 py-2.5">{tc('colAmount')}</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody className="divide-y">
+                  <TableBody>
                     {stats.byType?.length ? (
                       stats.byType.map((t) => (
                         <TableRow key={t.type} className="hover:bg-muted/30">
@@ -191,7 +191,7 @@ export default function EduFinanceStatisticsPage() {
                       <TableHead className="px-4 py-2.5">{tc('colRevenue')}</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody className="divide-y">
+                  <TableBody>
                     {stats.byMonth?.length ? (
                       stats.byMonth.map((m) => (
                         <TableRow key={m.month} className="hover:bg-muted/30">

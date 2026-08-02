@@ -163,11 +163,15 @@ export function WithdrawalFlowTable(props: Props) {
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.status')}</th>
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.createdAt')}</th>
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.updatedAt')}</th>
-              <th className="px-4 py-2.5 font-medium">{t('withdrawals.flow.table.transferDetail')}</th>
-              <th className="px-4 py-2.5 text-right font-medium">{t('withdrawals.flow.table.action')}</th>
+              <th className="px-4 py-2.5 font-medium">
+                {t('withdrawals.flow.table.transferDetail')}
+              </th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                {t('withdrawals.flow.table.action')}
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {fLoading ? (
               <tr>
                 <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">

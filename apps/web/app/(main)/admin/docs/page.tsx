@@ -124,7 +124,7 @@ export default function AdminDocsPage() {
               <th className={cn(th, 'text-right')}>{t('colActions')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {isLoading ? (
               <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('loading')}

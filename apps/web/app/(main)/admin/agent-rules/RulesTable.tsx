@@ -1,7 +1,15 @@
 'use client'
 import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, Shield } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { badgeCls, dotCls } from './helpers'
 import type { AgentRule } from './types'
@@ -34,7 +42,7 @@ export function RulesTable({ rows, isLoading, error, onEdit, onDelete, deletePen
             <TableHead className="px-4 py-2.5 text-right">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
@@ -60,10 +68,25 @@ export function RulesTable({ rows, isLoading, error, onEdit, onDelete, deletePen
               const enabled = rule.status === 1
               return (
                 <TableRow key={rule.id} className="hover:bg-muted/30">
-                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={rule.id}>{rule.id}</TableCell>
-                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={rule.agentId}>{rule.agentId}</TableCell>
+                  <TableCell
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    title={rule.id}
+                  >
+                    {rule.id}
+                  </TableCell>
+                  <TableCell
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    title={rule.agentId}
+                  >
+                    {rule.agentId}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5 font-medium">{rule.ruleName}</TableCell>
-                  <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={rule.ruleCode}>{rule.ruleCode}</TableCell>
+                  <TableCell
+                    className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                    title={rule.ruleCode}
+                  >
+                    {rule.ruleCode}
+                  </TableCell>
                   <TableCell className="px-4 py-2.5">{rule.ruleType}</TableCell>
                   <TableCell className="px-4 py-2.5">{rule.priority}</TableCell>
                   <TableCell className="px-4 py-2.5">
@@ -75,11 +98,7 @@ export function RulesTable({ rows, isLoading, error, onEdit, onDelete, deletePen
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(rule)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(rule)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

@@ -210,8 +210,7 @@ export default function AgentDetailPage() {
                     >
                       {permInfo.hasPermission ? t('permissionAllowed') : t('permissionDenied')}
                       {(() => {
-                        const reasonKey =
-                          permInfo.type && PERMISSION_REASON_KEY[permInfo.type]
+                        const reasonKey = permInfo.type && PERMISSION_REASON_KEY[permInfo.type]
                         return reasonKey ? ` · ${t(reasonKey)}` : ''
                       })()}
                     </div>
@@ -221,7 +220,7 @@ export default function AgentDetailPage() {
               <p className="whitespace-pre-wrap text-sm leading-relaxed">
                 {agent.description || t('noDescription')}
               </p>
-              <div className="border-t pt-3">
+              <div className="mt-4 pt-4">
                 <DescriptionList
                   column={3}
                   items={[
@@ -264,19 +263,19 @@ export default function AgentDetailPage() {
               <AgentProgressPanel steps={[]} />
               <TaskListPanel tasks={[]} />
             </TabsContent>
-            <TabsContent value="swarm">
+            <TabsContent value="swarm" className="mt-3 space-y-4">
               <AgentSwarmMonitor swarmId={agent.agentId} swarmData={null} />
             </TabsContent>
-            <TabsContent value="checkpoint">
+            <TabsContent value="checkpoint" className="mt-3 space-y-4">
               <CheckpointHistoryPanel checkpoints={[]} />
             </TabsContent>
-            <TabsContent value="plan">
+            <TabsContent value="plan" className="mt-3 space-y-4">
               <PlanReviewPanel plan={{ steps: [] }} />
             </TabsContent>
-            <TabsContent value="activity">
+            <TabsContent value="activity" className="mt-3 space-y-4">
               <SubAgentActivityFeed swarmId={agent.agentId} activities={subAgentActivities} />
             </TabsContent>
-            <TabsContent value="background">
+            <TabsContent value="background" className="mt-3 space-y-4">
               <BackgroundAgentsPanel agents={[]} />
             </TabsContent>
             <TabsContent value="permission" className="space-y-3">
@@ -285,7 +284,7 @@ export default function AgentDetailPage() {
               </Button>
               <PermissionConfirmDialog open={permOpen} onOpenChange={setPermOpen} toolCall={null} />
             </TabsContent>
-            <TabsContent value="runtime">
+            <TabsContent value="runtime" className="mt-3 space-y-4">
               <div className="h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border">
                 <AgentRuntimePanel />
               </div>

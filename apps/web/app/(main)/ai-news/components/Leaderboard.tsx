@@ -2,7 +2,20 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, GitCompare, Search, Star, Settings2 } from 'lucide-react'
+import {
+  Trophy,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  GitCompare,
+  Search,
+  Star,
+  Settings2,
+} from 'lucide-react'
 import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { ModelCompareBar } from './ModelCompareBar'
@@ -161,8 +174,20 @@ function rankBg(idx: number): string {
 /** 排名变化箭头 */
 function RankDelta({ delta }: { delta: number | null }) {
   if (delta === null) return <span className="text-[10px] text-muted-foreground/40">NEW</span>
-  if (delta > 0) return <span className="inline-flex items-center text-[10px] font-medium text-emerald-600"><TrendingUp className="h-2.5 w-2.5" />{delta}</span>
-  if (delta < 0) return <span className="inline-flex items-center text-[10px] font-medium text-rose-600"><TrendingDown className="h-2.5 w-2.5" />{Math.abs(delta)}</span>
+  if (delta > 0)
+    return (
+      <span className="inline-flex items-center text-[10px] font-medium text-emerald-600">
+        <TrendingUp className="h-2.5 w-2.5" />
+        {delta}
+      </span>
+    )
+  if (delta < 0)
+    return (
+      <span className="inline-flex items-center text-[10px] font-medium text-rose-600">
+        <TrendingDown className="h-2.5 w-2.5" />
+        {Math.abs(delta)}
+      </span>
+    )
   return <Minus className="h-2.5 w-2.5 text-muted-foreground/40" />
 }
 
@@ -211,9 +236,8 @@ export function Leaderboard({ entries }: Props) {
     }
     const q = searchQuery.trim().toLowerCase()
     if (q) {
-      list = list.filter((e) =>
-        e.modelName.toLowerCase().includes(q) ||
-        e.vendor.toLowerCase().includes(q)
+      list = list.filter(
+        (e) => e.modelName.toLowerCase().includes(q) || e.vendor.toLowerCase().includes(q),
       )
     }
     if (activeVendor) {
@@ -349,10 +373,13 @@ export function Leaderboard({ entries }: Props) {
 
   /** 渲染排序图标 */
   function SortIcon({ field }: { field: SortField }) {
-    if (sortField !== field) return <ArrowUpDown className="ml-0.5 inline h-2.5 w-2.5 text-muted-foreground/40" />
-    return sortDir === 'asc'
-      ? <ArrowUp className="ml-0.5 inline h-2.5 w-2.5 text-primary" />
-      : <ArrowDown className="ml-0.5 inline h-2.5 w-2.5 text-primary" />
+    if (sortField !== field)
+      return <ArrowUpDown className="ml-0.5 inline h-2.5 w-2.5 text-muted-foreground/40" />
+    return sortDir === 'asc' ? (
+      <ArrowUp className="ml-0.5 inline h-2.5 w-2.5 text-primary" />
+    ) : (
+      <ArrowDown className="ml-0.5 inline h-2.5 w-2.5 text-primary" />
+    )
   }
 
   /** 可排序表头 props */
@@ -381,7 +408,9 @@ export function Leaderboard({ entries }: Props) {
       <div className="flex items-center gap-2 bg-primary/5 px-5 py-3">
         <Trophy className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold">{t('leaderboard.title')}</h2>
-        <span className="ml-auto text-[10px] text-muted-foreground">{t('leaderboard.subtitle')}</span>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {t('leaderboard.subtitle')}
+        </span>
       </div>
 
       {/* 分类 Tab */}
@@ -406,7 +435,9 @@ export function Leaderboard({ entries }: Props) {
       {/* LLM 子分类 Tab */}
       {activeCategory === 'llm' ? (
         <div className="flex items-center gap-1 bg-muted/10 px-3 py-1.5">
-          <span className="mr-1 text-[10px] text-muted-foreground">{t('leaderboard.llmSubcatLabel')}</span>
+          <span className="mr-1 text-[10px] text-muted-foreground">
+            {t('leaderboard.llmSubcatLabel')}
+          </span>
           {LLM_SUBCATS.map((sub) => (
             <button
               key={sub.key}
@@ -502,9 +533,7 @@ export function Leaderboard({ entries }: Props) {
             >
               <Star className={`h-2.5 w-2.5 ${favOnly ? 'fill-current' : ''}`} />
               {t('leaderboard.favOnly')}
-              {favIds.size > 0 ? (
-                <span className="tabular-nums">{favIds.size}</span>
-              ) : null}
+              {favIds.size > 0 ? <span className="tabular-nums">{favIds.size}</span> : null}
             </button>
           </div>
 
@@ -523,11 +552,8 @@ export function Leaderboard({ entries }: Props) {
               <>
                 {/* 点击外部关闭 */}
                 {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 下拉菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互 */}
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowColMenu(false)}
-                />
-                <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
+                <div className="fixed inset-0 z-overlay" onClick={() => setShowColMenu(false)} />
+                <div className="absolute right-0 top-full z-popover mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
                   <p className="px-2 py-1 text-[9px] uppercase tracking-wide text-muted-foreground">
                     {t('leaderboard.colVisibilityHint')}
                   </p>
@@ -605,7 +631,10 @@ export function Leaderboard({ entries }: Props) {
                       <p>{t('leaderboard.noMatch')}</p>
                       <button
                         type="button"
-                        onClick={() => { setSearchQuery(''); setActiveVendor(null) }}
+                        onClick={() => {
+                          setSearchQuery('')
+                          setActiveVendor(null)
+                        }}
                         className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
                       >
                         {t('leaderboard.clearFilter')}
@@ -623,7 +652,7 @@ export function Leaderboard({ entries }: Props) {
                   <tr
                     key={entry.id}
                     onClick={() => setSelectedEntry(entry)}
-                    className="cursor-pointer border-b border-muted/30 transition-colors last:border-0 hover:bg-accent/30"
+                    className="cursor-pointer border-b border-muted/30 transition-colors hover:bg-accent/30"
                   >
                     {/* 对比勾选 */}
                     <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -654,66 +683,76 @@ export function Leaderboard({ entries }: Props) {
                     </td>
                     {/* 排名 */}
                     <td className="px-3 py-2.5">
-                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold tabular-nums ${rankBg(idx)}`}>
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold tabular-nums ${rankBg(idx)}`}
+                      >
                         {rank}
                       </span>
                     </td>
                     {/* 模型名 — 单行竖向排列,核心亮点移至详情弹窗 */}
                     <td className="px-3 py-2.5">
-                      <span className="text-xs font-semibold leading-tight">{highlight(entry.modelName, searchQuery)}</span>
+                      <span className="text-xs font-semibold leading-tight">
+                        {highlight(entry.modelName, searchQuery)}
+                      </span>
                     </td>
                     {/* 厂商 */}
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground">{highlight(entry.vendor, searchQuery)}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                      {highlight(entry.vendor, searchQuery)}
+                    </td>
                     {/* Arena 评分 */}
                     {colVisible('arenaScore') ? (
-                    <td className="px-3 py-2.5 text-right">
-                      {entry.arenaScore ? (
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs font-bold tabular-nums">{entry.arenaScore}</span>
-                          {entry.scoreCi ? (
-                            <span className="text-[9px] text-muted-foreground">±{entry.scoreCi}</span>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </td>
+                      <td className="px-3 py-2.5 text-right">
+                        {entry.arenaScore ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-xs font-bold tabular-nums">
+                              {entry.arenaScore}
+                            </span>
+                            {entry.scoreCi ? (
+                              <span className="text-[9px] text-muted-foreground">
+                                ±{entry.scoreCi}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </td>
                     ) : null}
                     {/* 胜率 */}
                     {colVisible('winRate') ? (
-                    <td className="px-3 py-2.5 text-right text-xs tabular-nums">
-                      {entry.winRate !== null ? `${entry.winRate.toFixed(1)}%` : '-'}
-                    </td>
+                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                        {entry.winRate !== null ? `${entry.winRate.toFixed(1)}%` : '-'}
+                      </td>
                     ) : null}
                     {/* 投票数 */}
                     {colVisible('voteCount') ? (
-                    <td className="px-3 py-2.5 text-right text-[10px] tabular-nums text-muted-foreground">
-                      {formatVotes(entry.voteCount) || '-'}
-                    </td>
+                      <td className="px-3 py-2.5 text-right text-[10px] tabular-nums text-muted-foreground">
+                        {formatVotes(entry.voteCount) || '-'}
+                      </td>
                     ) : null}
                     {/* 上下文窗口 */}
                     {colVisible('contextWindow') ? (
-                    <td className="px-3 py-2.5 text-right text-xs tabular-nums">
-                      {entry.contextWindow ?? '-'}
-                    </td>
+                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                        {entry.contextWindow ?? '-'}
+                      </td>
                     ) : null}
                     {/* 最大输出 */}
                     {colVisible('maxOutput') ? (
-                    <td className="px-3 py-2.5 text-right text-xs tabular-nums">
-                      {entry.maxOutput ?? '-'}
-                    </td>
+                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                        {entry.maxOutput ?? '-'}
+                      </td>
                     ) : null}
                     {/* 输入价 */}
                     {colVisible('inputPrice') ? (
-                    <td className="px-3 py-2.5 text-right text-xs tabular-nums">
-                      {entry.inputPrice ?? '-'}
-                    </td>
+                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                        {entry.inputPrice ?? '-'}
+                      </td>
                     ) : null}
                     {/* 输出价 */}
                     {colVisible('outputPrice') ? (
-                    <td className="px-3 py-2.5 text-right text-xs tabular-nums">
-                      {entry.outputPrice ?? '-'}
-                    </td>
+                      <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                        {entry.outputPrice ?? '-'}
+                      </td>
                     ) : null}
                     {/* 排名变化 */}
                     <td className="px-3 py-2.5">
@@ -723,9 +762,9 @@ export function Leaderboard({ entries }: Props) {
                     </td>
                     {/* 发布时间 */}
                     {colVisible('releaseDate') ? (
-                    <td className="px-3 py-2.5 text-[10px] tabular-nums text-muted-foreground">
-                      {entry.releaseDate ?? '-'}
-                    </td>
+                      <td className="px-3 py-2.5 text-[10px] tabular-nums text-muted-foreground">
+                        {entry.releaseDate ?? '-'}
+                      </td>
                     ) : null}
                     {/* 展开箭头 */}
                     <td className="px-3 py-2.5">
@@ -742,7 +781,9 @@ export function Leaderboard({ entries }: Props) {
       {/* 底部说明 */}
       <div className="flex items-center gap-2 bg-muted/10 px-4 py-2 text-[10px] text-muted-foreground">
         <span>{t('leaderboard.footerDataRef')}</span>
-        <span className="ml-auto">{t('leaderboard.sortHint')} · {t('leaderboard.footerClickHint')}</span>
+        <span className="ml-auto">
+          {t('leaderboard.sortHint')} · {t('leaderboard.footerClickHint')}
+        </span>
       </div>
 
       {/* 对比栏 */}

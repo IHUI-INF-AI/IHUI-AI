@@ -47,13 +47,23 @@ const COMPARISONS = [
     slug: 'ihui-vs-dify',
     competitor: 'Dify',
     tagline: 'IHUI AI 六端同源全栈 AI 操作系统 vs Dify Web 端 LLM 应用开发框架',
-    keyPoints: ['六端 vs Web only', 'Agent 市场 vs 无', 'MCP 原生支持 vs 不支持', 'Apache 2.0 vs BSL'],
+    keyPoints: [
+      '六端 vs Web only',
+      'Agent 市场 vs 无',
+      'MCP 原生支持 vs 不支持',
+      'Apache 2.0 vs BSL',
+    ],
   },
   {
     slug: 'ihui-vs-coze',
     competitor: 'Coze',
     tagline: 'IHUI AI 开源 + 私有化 vs Coze 字节闭源 Agent 平台',
-    keyPoints: ['开源 Apache 2.0 vs 闭源', '自托管 vs 字节云', '数据主权 vs 字节掌控', '10+ 模型 vs 豆包为主'],
+    keyPoints: [
+      '开源 Apache 2.0 vs 闭源',
+      '自托管 vs 字节云',
+      '数据主权 vs 字节掌控',
+      '10+ 模型 vs 豆包为主',
+    ],
   },
   {
     slug: 'ihui-vs-fastgpt',
@@ -65,46 +75,256 @@ const COMPARISONS = [
     slug: 'ihui-vs-n8n',
     competitor: 'n8n',
     tagline: 'IHUI AI AI 优先全栈 vs n8n 通用工作流自动化',
-    keyPoints: ['AI 一等公民 vs 节点', '内置 RAG vs 外部集成', 'Agent 编排 vs 无 Agent', 'Apache 2.0 vs SUL'],
+    keyPoints: [
+      'AI 一等公民 vs 节点',
+      '内置 RAG vs 外部集成',
+      'Agent 编排 vs 无 Agent',
+      'Apache 2.0 vs SUL',
+    ],
   },
 ]
 
 const TABLE_COLS = ['IHUI-AI', 'ChatGPT Plus', 'Dify', 'LangChain', 'Coze', 'FastGPT'] as const
-const TABLE_ROWS: [string, string, boolean, string, boolean, string, boolean, string, boolean, string, boolean, string, boolean][] = [
-  ['开源协议', 'Apache 2.0', true, '闭源', false, 'Apache 2.0', true, 'MIT', true, '闭源', false, 'Apache 2.0', true],
-  ['私有化部署', '免费', true, '不支持', false, '付费', true, '支持', true, '不支持', false, '付费', true],
-  ['8 端同源', 'Web/API/CLI/Desktop/Ext/Mobile/Miniapp', true, '仅 Web', false, '仅 Web', false, '库', false, '仅 Web', false, '仅 Web', false],
-  ['LLM 模型数', '176', true, '1 (GPT)', false, '50+', true, '100+', true, '10+', true, '50+', true],
-  ['MCP 协议', '支持', true, '不支持', false, '不支持', false, '不支持', false, '不支持', false, '不支持', false],
-  ['A2A 协议', '支持', true, '不支持', false, '不支持', false, '不支持', false, '不支持', false, '不支持', false],
-  ['RAG 知识库', '引用追溯', true, '支持', true, '支持', true, '库', false, '支持', true, '支持', true],
-  ['Agent 市场', '支持', true, 'GPT Store', true, '不支持', false, '不支持', false, '支持', true, '不支持', false],
-  ['SaaS 计费', '内置', true, '不支持', false, '支持', true, '不支持', false, '不支持', false, '支持', true],
+const TABLE_ROWS: [
+  string,
+  string,
+  boolean,
+  string,
+  boolean,
+  string,
+  boolean,
+  string,
+  boolean,
+  string,
+  boolean,
+  string,
+  boolean,
+][] = [
+  [
+    '开源协议',
+    'Apache 2.0',
+    true,
+    '闭源',
+    false,
+    'Apache 2.0',
+    true,
+    'MIT',
+    true,
+    '闭源',
+    false,
+    'Apache 2.0',
+    true,
+  ],
+  [
+    '私有化部署',
+    '免费',
+    true,
+    '不支持',
+    false,
+    '付费',
+    true,
+    '支持',
+    true,
+    '不支持',
+    false,
+    '付费',
+    true,
+  ],
+  [
+    '8 端同源',
+    'Web/API/CLI/Desktop/Ext/Mobile/Miniapp',
+    true,
+    '仅 Web',
+    false,
+    '仅 Web',
+    false,
+    '库',
+    false,
+    '仅 Web',
+    false,
+    '仅 Web',
+    false,
+  ],
+  [
+    'LLM 模型数',
+    '176',
+    true,
+    '1 (GPT)',
+    false,
+    '50+',
+    true,
+    '100+',
+    true,
+    '10+',
+    true,
+    '50+',
+    true,
+  ],
+  [
+    'MCP 协议',
+    '支持',
+    true,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '不支持',
+    false,
+  ],
+  [
+    'A2A 协议',
+    '支持',
+    true,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '不支持',
+    false,
+  ],
+  [
+    'RAG 知识库',
+    '引用追溯',
+    true,
+    '支持',
+    true,
+    '支持',
+    true,
+    '库',
+    false,
+    '支持',
+    true,
+    '支持',
+    true,
+  ],
+  [
+    'Agent 市场',
+    '支持',
+    true,
+    'GPT Store',
+    true,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '支持',
+    true,
+    '不支持',
+    false,
+  ],
+  [
+    'SaaS 计费',
+    '内置',
+    true,
+    '不支持',
+    false,
+    '支持',
+    true,
+    '不支持',
+    false,
+    '不支持',
+    false,
+    '支持',
+    true,
+  ],
   ['数据库表', '340', true, '?', false, '?', false, '无', false, '?', false, '?', false],
   ['测试覆盖', '5346', true, '?', false, '?', false, '?', false, '?', false, '?', false],
-  ['价格', '免费/¥99月起', true, '$20/月起', false, '免费/付费', true, '免费', true, '免费/付费', true, '免费/付费', true],
+  [
+    '价格',
+    '免费/¥99月起',
+    true,
+    '$20/月起',
+    false,
+    '免费/付费',
+    true,
+    '免费',
+    true,
+    '免费/付费',
+    true,
+    '免费/付费',
+    true,
+  ],
 ]
 
 const ALL_COMPARISONS = [
   { group: 'AI 应用平台', items: ['dify', 'coze', 'fastgpt', 'flowise', 'typebot', 'stack-ai'] },
   { group: 'AI 编排框架', items: ['langchain', 'llamaindex', 'crewai', 'autogen', 'openai-agent'] },
   { group: '自动化工具', items: ['n8n', 'make', 'zapier-ai', 'wordware', 'spark', 'relevance-ai'] },
-  { group: 'AI 编程助手', items: ['cursor', 'github-copilot', 'claude-code', 'bolt-new', 'v0-dev', 'lovable', 'replit-agent', 'windsurf', 'devin', 'manus'] },
-  { group: '国内大模型平台', items: ['qwen-platform', 'deepseek-platform', 'doubao', 'kimi-platform', 'minimax', 'zhipu', 'ernie'] },
+  {
+    group: 'AI 编程助手',
+    items: [
+      'cursor',
+      'github-copilot',
+      'claude-code',
+      'bolt-new',
+      'v0-dev',
+      'lovable',
+      'replit-agent',
+      'windsurf',
+      'devin',
+      'manus',
+    ],
+  },
+  {
+    group: '国内大模型平台',
+    items: [
+      'qwen-platform',
+      'deepseek-platform',
+      'doubao',
+      'kimi-platform',
+      'minimax',
+      'zhipu',
+      'ernie',
+    ],
+  },
   { group: '企业级', items: ['copilot-studio', 'voiceflow'] },
 ]
 
 const LABELS: Record<string, string> = {
-  'dify': 'Dify', 'coze': 'Coze', 'fastgpt': 'FastGPT', 'flowise': 'Flowise', 'typebot': 'Typebot',
-  'stack-ai': 'Stack AI', 'langchain': 'LangChain', 'llamaindex': 'LlamaIndex', 'crewai': 'CrewAI',
-  'autogen': 'AutoGen', 'openai-agent': 'OpenAI Agent', 'n8n': 'n8n', 'make': 'Make',
-  'zapier-ai': 'Zapier AI', 'wordware': 'Wordware', 'spark': 'Spark', 'relevance-ai': 'Relevance AI',
-  'cursor': 'Cursor', 'github-copilot': 'GitHub Copilot', 'claude-code': 'Claude Code',
-  'bolt-new': 'Bolt.new', 'v0-dev': 'v0.dev', 'lovable': 'Lovable', 'replit-agent': 'Replit Agent',
-  'windsurf': 'Windsurf', 'devin': 'Devin', 'manus': 'Manus', 'qwen-platform': '通义千问平台',
-  'deepseek-platform': 'DeepSeek 平台', 'doubao': '豆包', 'kimi-platform': 'Kimi 平台',
-  'minimax': 'MiniMax', 'zhipu': '智谱', 'ernie': '文心一言', 'copilot-studio': 'Copilot Studio',
-  'voiceflow': 'Voiceflow',
+  dify: 'Dify',
+  coze: 'Coze',
+  fastgpt: 'FastGPT',
+  flowise: 'Flowise',
+  typebot: 'Typebot',
+  'stack-ai': 'Stack AI',
+  langchain: 'LangChain',
+  llamaindex: 'LlamaIndex',
+  crewai: 'CrewAI',
+  autogen: 'AutoGen',
+  'openai-agent': 'OpenAI Agent',
+  n8n: 'n8n',
+  make: 'Make',
+  'zapier-ai': 'Zapier AI',
+  wordware: 'Wordware',
+  spark: 'Spark',
+  'relevance-ai': 'Relevance AI',
+  cursor: 'Cursor',
+  'github-copilot': 'GitHub Copilot',
+  'claude-code': 'Claude Code',
+  'bolt-new': 'Bolt.new',
+  'v0-dev': 'v0.dev',
+  lovable: 'Lovable',
+  'replit-agent': 'Replit Agent',
+  windsurf: 'Windsurf',
+  devin: 'Devin',
+  manus: 'Manus',
+  'qwen-platform': '通义千问平台',
+  'deepseek-platform': 'DeepSeek 平台',
+  doubao: '豆包',
+  'kimi-platform': 'Kimi 平台',
+  minimax: 'MiniMax',
+  zhipu: '智谱',
+  ernie: '文心一言',
+  'copilot-studio': 'Copilot Studio',
+  voiceflow: 'Voiceflow',
 }
 
 export default function CompareIndexPage() {
@@ -160,10 +380,17 @@ export default function CompareIndexPage() {
           <div className="mt-6 overflow-x-auto rounded-lg border bg-card shadow-sm">
             <table className="w-full min-w-[760px]">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="px-3 py-3 text-left text-sm font-semibold min-[768px]:px-4">特性</th>
+                <tr className="bg-muted/30">
+                  <th className="px-3 py-3 text-left text-sm font-semibold min-[768px]:px-4">
+                    特性
+                  </th>
                   {TABLE_COLS.map((col, i) => (
-                    <th key={col} className={`px-3 py-3 text-center text-sm font-semibold min-[768px]:px-4 ${i === 0 ? 'text-primary' : ''}`}>{col}</th>
+                    <th
+                      key={col}
+                      className={`px-3 py-3 text-center text-sm font-semibold min-[768px]:px-4 ${i === 0 ? 'text-primary' : ''}`}
+                    >
+                      {col}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -175,10 +402,17 @@ export default function CompareIndexPage() {
                       const text = row[ci * 2 + 1]
                       const ok = row[ci * 2 + 2]
                       return (
-                        <td key={ci} className={`px-3 py-3 text-center text-sm min-[768px]:px-4 ${ci === 0 ? 'bg-primary/5 font-medium' : ''}`}>
+                        <td
+                          key={ci}
+                          className={`px-3 py-3 text-center text-sm min-[768px]:px-4 ${ci === 0 ? 'bg-primary/5 font-medium' : ''}`}
+                        >
                           <span className="inline-flex items-center gap-1.5">
-                            {ok === true && <Check className="h-4 w-4 shrink-0 text-green-600" aria-hidden />}
-                            {ok === false && <X className="h-4 w-4 shrink-0 text-red-600" aria-hidden />}
+                            {ok === true && (
+                              <Check className="h-4 w-4 shrink-0 text-green-600" aria-hidden />
+                            )}
+                            {ok === false && (
+                              <X className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
+                            )}
                             <span className={ok === false ? 'text-red-600' : ''}>{text}</span>
                           </span>
                         </td>
@@ -201,7 +435,11 @@ export default function CompareIndexPage() {
                 <h3 className="text-sm font-semibold text-muted-foreground">{group}</h3>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {items.map((slug) => (
-                    <Link key={slug} href={`/compare/ihui-vs-${slug}`} className="inline-flex items-center rounded-md border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5">
+                    <Link
+                      key={slug}
+                      href={`/compare/ihui-vs-${slug}`}
+                      className="inline-flex items-center rounded-md border bg-card px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    >
                       {LABELS[slug] ?? slug}
                     </Link>
                   ))}
@@ -214,12 +452,22 @@ export default function CompareIndexPage() {
         {/* CTA */}
         <section className="mt-12 rounded-lg border bg-primary/5 p-5 text-center min-[768px]:p-8 min-[1024px]:p-12">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">立即开始使用 IHUI-AI</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。</p>
+          <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+            立即开始使用 IHUI-AI
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+            开源、免费、8 端同源,176 模型 + LangGraph + MCP + A2A 三栈合一。
+          </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Button size="lg" asChild><Link href="/pricing">立即开始</Link></Button>
+            <Button size="lg" asChild>
+              <Link href="/pricing">立即开始</Link>
+            </Button>
             <Button size="lg" variant="outline" asChild>
-              <a href="https://github.com/IHUI-INF-AI/IHUI-AI" target="_blank" rel="noopener noreferrer">
+              <a
+                href="https://github.com/IHUI-INF-AI/IHUI-AI"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Github className="mr-2 h-4 w-4" />
                 查看 GitHub
               </a>

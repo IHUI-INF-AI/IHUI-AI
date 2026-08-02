@@ -52,7 +52,7 @@ export function InstanceLogs({ logs, isLoading, logLevel, setLogLevel, fmt }: Pr
           {logs.map((l) => (
             <div
               key={l.id}
-              className="flex items-start gap-3 border-b px-3 py-1.5 text-xs last:border-0 transition-colors hover:bg-muted/30"
+              className="flex items-start gap-3 px-3 py-1.5 text-xs transition-colors hover:bg-muted/30"
             >
               <span className="shrink-0 font-mono text-muted-foreground">{fmt(l.timestamp)}</span>
               <span className={cn('w-12 shrink-0 font-semibold uppercase', LEVEL_COLOR[l.level])}>

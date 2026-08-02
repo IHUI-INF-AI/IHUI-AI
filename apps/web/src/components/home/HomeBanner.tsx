@@ -62,7 +62,7 @@ export function HomeBanner() {
         {SLIDES.map((slide, idx) => (
           <div
             key={idx}
-            className={`absolute inset-0 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-5 min-[768px]:px-8 transition-opacity duration-500 ${
+            className={`absolute top-2 bottom-2 left-2 right-2 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-5 min-[768px]:px-8 transition-opacity duration-500 ${
               idx === current ? 'opacity-100' : 'opacity-0'
             }`}
           >

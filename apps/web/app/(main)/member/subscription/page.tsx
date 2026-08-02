@@ -119,7 +119,7 @@ export default function MemberSubscriptionPage() {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between border-t pt-3 text-sm">
+              <div className="flex items-center justify-between mt-3 pt-3 text-sm">
                 <span className="text-muted-foreground">{t('subscriptionAmount')}</span>
                 <span className="font-semibold">{currencyFmt.format(Number(sub.amount))}</span>
               </div>

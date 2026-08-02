@@ -126,7 +126,7 @@ export default function ProvidersHealthPage() {
                   <th className="px-4 py-2.5 font-medium">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {providers.map((p) => {
                   const cfg = getStatusConfig(p.status)
                   const needsRecharge =

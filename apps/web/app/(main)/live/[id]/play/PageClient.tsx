@@ -79,7 +79,10 @@ export default function LivePlayPage() {
 
   const handleSendDanmu = () => {
     if (!newDanmu.trim()) return
-    setDanmuList((prev) => [...prev, { id: Date.now(), userName: t('me'), content: newDanmu.trim() }])
+    setDanmuList((prev) => [
+      ...prev,
+      { id: Date.now(), userName: t('me'), content: newDanmu.trim() },
+    ])
     setNewDanmu('')
   }
 
@@ -182,7 +185,7 @@ export default function LivePlayPage() {
         </div>
 
         <Card className="flex h-[420px] min-[768px]:h-[600px] flex-col">
-          <div className="border-b px-4 py-3">
+          <div className="px-4 py-3">
             <h2 className="text-sm font-medium">{t('danmuTitle')}</h2>
           </div>
           <div ref={danmuRef} className="flex-1 space-y-2 overflow-y-auto p-4">

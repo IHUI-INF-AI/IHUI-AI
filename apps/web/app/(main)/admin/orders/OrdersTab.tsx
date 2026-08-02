@@ -9,7 +9,16 @@ import { cn } from '@/lib/utils'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
-import { type EduOrder, type PageData, api, PAGE_SIZE, ORDER_STATUS_CFG, ORDER_STATUS_KEY, ORDER_TAB_LABEL_KEY, ORDER_TYPE_KEY } from './types'
+import {
+  type EduOrder,
+  type PageData,
+  api,
+  PAGE_SIZE,
+  ORDER_STATUS_CFG,
+  ORDER_STATUS_KEY,
+  ORDER_TAB_LABEL_KEY,
+  ORDER_TYPE_KEY,
+} from './types'
 import { Pagination } from './Pagination'
 import {
   Button,
@@ -383,7 +392,7 @@ export function OrdersTab({
               <th className="px-4 py-2.5 font-medium text-right">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
@@ -412,7 +421,10 @@ export function OrdersTab({
                     <td className="px-4 py-2.5 font-mono text-xs">{o.orderNo}</td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium">
-                        {t(ORDER_TYPE_KEY[o.orderType === 'course' ? 'course' : 'card'] ?? o.orderType)}
+                        {t(
+                          ORDER_TYPE_KEY[o.orderType === 'course' ? 'course' : 'card'] ??
+                            o.orderType,
+                        )}
                       </span>
                     </td>
                     <td className="max-w-xs break-words px-4 py-2.5">{o.targetTitle ?? '-'}</td>
@@ -438,11 +450,7 @@ export function OrdersTab({
                       <div className="flex items-center justify-end gap-1">
                         <HasPermi code="ai:order:edit">
                           <Tooltip content="编辑">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEdit(o)}
-                            >
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(o)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                           </Tooltip>

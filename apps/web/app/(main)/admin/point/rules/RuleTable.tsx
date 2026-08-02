@@ -2,7 +2,15 @@
 
 import { Loader2, Edit, Trash2, ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { Channel, Rule } from './types'
 
@@ -43,7 +51,7 @@ export function RuleTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
