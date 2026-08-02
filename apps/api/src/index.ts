@@ -64,31 +64,51 @@ async function start() {
     server.log.warn({ err }, 'AI 厂商配置初始化跳过（数据库/表未就绪）')
   })
 
-  const shutdown = async (signal: string, exitCode = 0): Promise<never> => {
+  // P1 修复(2026-08-02):加 shuttingDown 守卫,防 SIGTERM/SIGINT 重复触发 shutdown;
+  // 配合下方 once 注册,二次信号直接走默认行为(强制退出)。
+  let shuttingDown = false
+  const shutdown = async (signal: string, exitCode = 0): Promise<void> => {
+    if (shuttingDown) return
+    shuttingDown = true
     server.log.info({ signal }, 'Shutting down...')
+    // P2 修复(2026-08-02):7 个清理函数的空 catch 加 logger.warn,避免静默吞错难诊断
     try {
       stopAiWorldSyncScheduler()
-    } catch {}
+    } catch (e) {
+      logger.warn('stopAiWorldSyncScheduler failed', { err: e })
+    }
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
     try {
       stopAutoRollbackMonitor()
-    } catch {}
+    } catch (e) {
+      logger.warn('stopAutoRollbackMonitor failed', { err: e })
+    }
     try {
       routineManager.stopScheduler()
-    } catch {}
+    } catch (e) {
+      logger.warn('routineManager.stopScheduler failed', { err: e })
+    }
     try {
       stopScheduledWarmup()
-    } catch {}
+    } catch (e) {
+      logger.warn('stopScheduledWarmup failed', { err: e })
+    }
     // P2 修复(2026-07-31):显式停止模块作用域 setInterval,不依赖 unref
     try {
       stopRelayChannelRouterSweep()
-    } catch {}
+    } catch (e) {
+      logger.warn('stopRelayChannelRouterSweep failed', { err: e })
+    }
     try {
       stopRegistryRateLimitSweep()
-    } catch {}
+    } catch (e) {
+      logger.warn('stopRegistryRateLimitSweep failed', { err: e })
+    }
     try {
       stopPoolTracker()
-    } catch {}
+    } catch (e) {
+      logger.warn('stopPoolTracker failed', { err: e })
+    }
     if (workers) {
       await Promise.allSettled(workers.map((w) => w.close()))
     }
@@ -117,8 +137,9 @@ async function start() {
     startAiWorldSyncScheduler()
   }
 
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
-  process.on('SIGINT', () => shutdown('SIGINT'))
+  // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出
+  process.once('SIGTERM', () => shutdown('SIGTERM'))
+  process.once('SIGINT', () => shutdown('SIGINT'))
 }
 
 // P0 修复(2026-07-31):全局未捕获错误处理 — 记录明确日志便于诊断,

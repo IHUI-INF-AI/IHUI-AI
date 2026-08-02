@@ -7,8 +7,9 @@ import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { generateOrderNumber } from '../utils/crypto-random.js'
 import { logAction } from '../services/audit-service.js'
-import { encryptJSON, decryptJSON } from '../utils/crypto.js'
+import { decryptJSON } from '../utils/crypto.js'
 import { validateTopupAmount } from '../services/topup-discount-service.js'
+import { applyWithdrawal } from '../db/commission-queries.js'
 
 /**
  * 钱包路由 — /api/wallet/*
@@ -107,7 +108,11 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ orderNo, payUrl: undefined }))
   })
 
-  // POST /withdraw - P0-9 修复:冻结余额 + 记录流水用事务保证原子性
+  // POST /withdraw - P0 死锁修复(2026-08-02 Bug A4):原实现只 frozen += amount,
+  // 不扣 token,不写 withdrawalFlows,资金永久冻结(用户无法提现也无法消费)。
+  // 改为代理调用 applyWithdrawal,它在事务内原子执行:
+  //   token -= actualAmount, frozen += actualAmount, INSERT withdrawalFlows
+  // 这样资金链路完整,后续审批/驳回/回调能正确流转。
   server.post('/withdraw', async (request, reply) => {
     const userId = request.userId!
     const parsed = withdrawSchema.safeParse(request.body)
@@ -116,41 +121,16 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     }
     const { amount, account, accountType } = parsed.data
     try {
-      const result = await db.transaction(async (tx) => {
-        // P0 并发竞态修复(2026-08-01):原 read-then-write(SELECT frozen → 计算 → UPDATE)
-        // 在两个并发提现下会丢失更新(后写覆盖前写,冻结金额少算)。
-        // 改为原子 UPDATE:WHERE 子句内联 `token_quantity - frozen_quantity >= amount`,
-        // 一次 UPDATE 完成余额校验 + 冻结金额自增,PostgreSQL 行级锁保证原子性。
-        const [updated] = await tx
-          .update(userMargins)
-          .set({ frozenQuantity: sql`frozen_quantity + ${amount}`, updatedAt: new Date() })
-          .where(
-            and(eq(userMargins.userId, userId), sql`token_quantity - frozen_quantity >= ${amount}`),
-          )
-          .returning()
-        if (!updated) {
-          // 没有命中行:要么用户无 margin 记录,要么可用余额不足
-          const [margin] = await tx
-            .select()
-            .from(userMargins)
-            .where(eq(userMargins.userId, userId))
-            .limit(1)
-          if (!margin) {
-            await tx.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: 0 })
-            throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
-          }
-          throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
-        }
-        await tx.insert(tokenFlows).values({
+      const flow = await applyWithdrawal(
+        {
           userId,
-          opType: 1,
-          quantity: -amount,
-          balanceAfter: updated.tokenQuantity - amount,
-          remark: 'withdrawal:' + JSON.stringify(encryptJSON({ accountType, account })),
-        })
-        return { success: true }
-      })
-      return reply.status(201).send(success(result))
+          amount,
+          method: accountType,
+          accountInfo: { accountType, account },
+        },
+        userId,
+      )
+      return reply.status(201).send(success(flow))
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
       return reply.status(statusCode).send(error(statusCode, (e as Error).message))

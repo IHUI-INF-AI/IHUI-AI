@@ -118,8 +118,9 @@ const wsPaymentPlugin: FastifyPluginAsync = async (server) => {
         if (currentStatus !== null && currentStatus !== 'pending') {
           return
         }
-      } catch {
-        /* 查询失败时不关闭连接，等待下次轮询 */
+      } catch (err) {
+        // P1 修复(2026-08-02):空 catch 加日志,避免静默吞错;查询失败不关闭连接,等下次轮询
+        server.log.warn({ err, orderNo }, 'ws-payment pushStatus failed')
       }
     }
 

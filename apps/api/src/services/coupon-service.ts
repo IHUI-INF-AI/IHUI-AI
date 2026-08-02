@@ -68,13 +68,15 @@ export interface ClaimResult {
   reason?: string
 }
 
+/** drizzle 事务回调参数类型(供 rewardReferrerTx 复用,避免内联) */
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
 /**
  * 领券:用户输入码领取。
  *
- * 逻辑:
- * 1. 查券 → 校验启用/时间/库存/perUserLimit
- * 2. 原子递增 issued_count(防超发)+ 写 user_coupons
- * 3. 裂变券:给 referrer 发券或余额
+ * P1 修复:整个领取流程(FOR UPDATE 锁券 + perUserLimit 校验 + issued_count 递增 +
+ * user_coupons INSERT + 裂变奖励)包在单事务内,失败自动回滚,防 issued_count 递增后
+ * user_coupons INSERT 失败导致库存泄漏。
  *
  * @param referrerUserCouponId 裂变券专属:分享人的 user_coupon.id(被分享人通过分享链接领取时传入)
  */
@@ -85,7 +87,7 @@ export async function claimCoupon(
 ): Promise<ClaimResult> {
   const normalized = normalizeCode(code)
 
-  // 1. 查券
+  // 1. 查券(事务外预查,快速失败,减少事务持锁时间)
   const [coupon] = await dbRead
     .select()
     .from(promoCoupons)
@@ -96,7 +98,7 @@ export async function claimCoupon(
     return { success: false, reason: 'code_not_found' }
   }
 
-  // 2. 校验启用/时间
+  // 2. 校验启用/时间(事务外快速失败)
   const now = new Date()
   if (!coupon.enabled) {
     return { success: false, reason: 'disabled' }
@@ -108,28 +110,12 @@ export async function claimCoupon(
     return { success: false, reason: 'expired' }
   }
 
-  // 3. 校验库存
+  // 3. 事务外预检库存(事务内会再次原子校验)
   if (coupon.totalQuota !== null && coupon.issuedCount >= coupon.totalQuota) {
     return { success: false, reason: 'sold_out' }
   }
 
-  // 4. 校验 perUserLimit
-  if (coupon.perUserLimit > 0) {
-    const userClaimed = await dbRead
-      .select({ c: sql<number>`count(*)::int` })
-      .from(userCoupons)
-      .where(
-        and(
-          eq(userCoupons.userId, userId),
-          eq(userCoupons.couponId, coupon.id),
-        ),
-      )
-    if ((userClaimed[0]?.c ?? 0) >= coupon.perUserLimit) {
-      return { success: false, reason: 'per_user_limit_exceeded' }
-    }
-  }
-
-  // 5. 裂变券:查 referrer 的 user_coupon(如果指定了 referrerUserCouponId)
+  // 4. 裂变券:查 referrer 的 user_coupon(事务外预查,referrer 数据不参与事务一致性)
   let referrerUserId: string | null = null
   if (coupon.type === 'referral' && referrerUserCouponId) {
     const [referrerCoupon] = await dbRead
@@ -142,72 +128,113 @@ export async function claimCoupon(
     }
   }
 
-  // 6. 原子递增 issued_count(防超发)
-  let incremented: { id: string } | null = null
-  if (coupon.totalQuota !== null) {
-    const rows = await db
-      .update(promoCoupons)
-      .set({ issuedCount: sql`${promoCoupons.issuedCount} + 1` })
-      .where(
-        and(
-          eq(promoCoupons.id, coupon.id),
-          sql`${promoCoupons.issuedCount} < ${coupon.totalQuota}`,
-        ),
-      )
-      .returning({ id: promoCoupons.id })
-    incremented = rows[0] ?? null
-  } else {
-    // 无限发行量,直接递增
-    const rows = await db
-      .update(promoCoupons)
-      .set({ issuedCount: sql`${promoCoupons.issuedCount} + 1` })
-      .where(eq(promoCoupons.id, coupon.id))
-      .returning({ id: promoCoupons.id })
-    incremented = rows[0] ?? null
-  }
+  // 5. 事务:FOR UPDATE 锁券 + perUserLimit 校验 + 原子递增 issued_count + INSERT user_coupons + rewardReferrer
+  try {
+    const userCoupon = await db.transaction(async (tx) => {
+      // FOR UPDATE 锁定券行,防止并发领取读到相同 issuedCount
+      const [lockedCoupon] = await tx
+        .select()
+        .from(promoCoupons)
+        .where(eq(promoCoupons.id, coupon.id))
+        .for('update')
 
-  if (!incremented) {
-    return { success: false, reason: 'sold_out' }
-  }
+      if (!lockedCoupon) {
+        throw new ClaimError('code_not_found')
+      }
 
-  // 7. 写 user_coupons
-  const [userCoupon] = await db
-    .insert(userCoupons)
-    .values({
-      userId,
-      couponId: coupon.id,
-      status: 'unused',
-      referrerUserId: referrerUserId ?? undefined,
-      referredBy: referrerUserCouponId ?? undefined,
+      // 事务内 perUserLimit 校验(防 TOCTOU:检查时未超限,INSERT 前已被并发请求超限)
+      if (lockedCoupon.perUserLimit > 0) {
+        const userClaimed = await tx
+          .select({ c: sql<number>`count(*)::int` })
+          .from(userCoupons)
+          .where(and(eq(userCoupons.userId, userId), eq(userCoupons.couponId, lockedCoupon.id)))
+        if ((userClaimed[0]?.c ?? 0) >= lockedCoupon.perUserLimit) {
+          throw new ClaimError('per_user_limit_exceeded')
+        }
+      }
+
+      // 原子递增 issued_count(条件 UPDATE,防超发)
+      let incremented: { id: string } | null = null
+      if (lockedCoupon.totalQuota !== null) {
+        const rows = await tx
+          .update(promoCoupons)
+          .set({ issuedCount: sql`${promoCoupons.issuedCount} + 1` })
+          .where(
+            and(
+              eq(promoCoupons.id, lockedCoupon.id),
+              sql`${promoCoupons.issuedCount} < ${lockedCoupon.totalQuota}`,
+            ),
+          )
+          .returning({ id: promoCoupons.id })
+        incremented = rows[0] ?? null
+      } else {
+        const rows = await tx
+          .update(promoCoupons)
+          .set({ issuedCount: sql`${promoCoupons.issuedCount} + 1` })
+          .where(eq(promoCoupons.id, lockedCoupon.id))
+          .returning({ id: promoCoupons.id })
+        incremented = rows[0] ?? null
+      }
+
+      if (!incremented) {
+        throw new ClaimError('sold_out')
+      }
+
+      // INSERT user_coupons(事务内,失败回滚 issued_count 递增)
+      const [userCoupon] = await tx
+        .insert(userCoupons)
+        .values({
+          userId,
+          couponId: lockedCoupon.id,
+          status: 'unused',
+          referrerUserId: referrerUserId ?? undefined,
+          referredBy: referrerUserCouponId ?? undefined,
+        })
+        .returning()
+
+      if (!userCoupon) {
+        throw new ClaimError('insert_failed')
+      }
+
+      // 裂变券:给 referrer 发券或余额(同事务内,失败回滚整个领取)
+      if (lockedCoupon.type === 'referral' && referrerUserId) {
+        await rewardReferrerTx(tx, lockedCoupon, referrerUserId, userCoupon.id)
+      }
+
+      return userCoupon
     })
-    .returning()
 
-  if (!userCoupon) {
-    // 回滚 issued_count
-    await db
-      .update(promoCoupons)
-      .set({ issuedCount: sql`${promoCoupons.issuedCount} - 1` })
-      .where(eq(promoCoupons.id, coupon.id))
-    return { success: false, reason: 'insert_failed' }
+    return {
+      success: true,
+      userCoupon: { ...userCoupon, coupon },
+    }
+  } catch (err) {
+    if (err instanceof ClaimError) {
+      return { success: false, reason: err.reason }
+    }
+    throw err
   }
+}
 
-  // 8. 裂变券:给 referrer 发券或余额
-  if (coupon.type === 'referral' && referrerUserId) {
-    await rewardReferrer(coupon, referrerUserId, userCoupon.id)
-  }
-
-  return {
-    success: true,
-    userCoupon: { ...userCoupon, coupon },
+/** claimCoupon 事务内错误(携带 reason 字段,供 catch 块映射返回值) */
+class ClaimError extends Error {
+  readonly reason: string
+  constructor(reason: string) {
+    super(reason)
+    this.name = 'ClaimError'
+    this.reason = reason
   }
 }
 
 /**
- * 裂变券:奖励分享人。
+ * 裂变券:奖励分享人(事务内版本,使用 tx 替代 db/dbRead)。
  * - referrerGets='duplicate': 给分享人发一张相同的券
  * - referrerGets='credit': 给分享人的 API Key 加余额
+ *
+ * P1 修复:改为接受 tx 参数,与 claimCoupon 同事务执行,失败回滚。
  */
-async function rewardReferrer(
+async function rewardReferrerTx(
+  tx: DbTx,
   coupon: PromoCoupon,
   referrerUserId: string,
   sourceUserCouponId: string,
@@ -215,7 +242,7 @@ async function rewardReferrer(
   if (coupon.referrerGets === 'duplicate') {
     // 原子递增 issued_count(防超发)
     if (coupon.totalQuota !== null) {
-      const rows = await db
+      const rows = await tx
         .update(promoCoupons)
         .set({ issuedCount: sql`${promoCoupons.issuedCount} + 1` })
         .where(
@@ -230,13 +257,13 @@ async function rewardReferrer(
         return
       }
     } else {
-      await db
+      await tx
         .update(promoCoupons)
         .set({ issuedCount: sql`${promoCoupons.issuedCount} + 1` })
         .where(eq(promoCoupons.id, coupon.id))
     }
 
-    await db.insert(userCoupons).values({
+    await tx.insert(userCoupons).values({
       userId: referrerUserId,
       couponId: coupon.id,
       status: 'unused',
@@ -245,20 +272,17 @@ async function rewardReferrer(
     })
   } else if (coupon.referrerGets === 'credit' && coupon.referralValue !== null) {
     // 给分享人的 API Key 加余额(referralValue 分)
-    const [activeKey] = await dbRead
+    const [activeKey] = await tx
       .select({ id: developerApiKeys.id })
       .from(developerApiKeys)
       .where(
-        and(
-          eq(developerApiKeys.userId, referrerUserId),
-          eq(developerApiKeys.status, 'active'),
-        ),
+        and(eq(developerApiKeys.userId, referrerUserId), eq(developerApiKeys.status, 'active')),
       )
       .orderBy(desc(developerApiKeys.createdAt))
       .limit(1)
 
     if (activeKey) {
-      await db
+      await tx
         .update(developerApiKeys)
         .set({
           costBalanceCents: sql`${developerApiKeys.costBalanceCents} + ${coupon.referralValue}`,
@@ -377,12 +401,7 @@ export async function redeemCoupon(
       usedAt: new Date(),
       discountCents,
     })
-    .where(
-      and(
-        eq(userCoupons.id, userCouponId),
-        eq(userCoupons.status, 'unused'),
-      ),
-    )
+    .where(and(eq(userCoupons.id, userCouponId), eq(userCoupons.status, 'unused')))
     .returning()
 
   if (!updated) {
@@ -413,12 +432,7 @@ export async function refundCoupon(userCouponId: string): Promise<void> {
       usedAt: null,
       discountCents: null,
     })
-    .where(
-      and(
-        eq(userCoupons.id, userCouponId),
-        eq(userCoupons.status, 'used'),
-      ),
-    )
+    .where(and(eq(userCoupons.id, userCouponId), eq(userCoupons.status, 'used')))
 }
 
 // =============================================================================
@@ -467,12 +481,7 @@ export async function getReferralStats(couponId: string): Promise<ReferralStats>
   const [shared] = await dbRead
     .select({ c: sql<number>`count(*)::int` })
     .from(userCoupons)
-    .where(
-      and(
-        eq(userCoupons.couponId, couponId),
-        sql`${userCoupons.referrerUserId} IS NOT NULL`,
-      ),
-    )
+    .where(and(eq(userCoupons.couponId, couponId), sql`${userCoupons.referrerUserId} IS NOT NULL`))
 
   const [converted] = await dbRead
     .select({ c: sql<number>`count(*)::int` })
@@ -528,10 +537,7 @@ export async function batchGenerateCoupons(
     issuedCount: 0,
   }))
 
-  const inserted = await db
-    .insert(promoCoupons)
-    .values(rows)
-    .returning()
+  const inserted = await db.insert(promoCoupons).values(rows).returning()
 
   return inserted
 }
@@ -600,22 +606,12 @@ export async function getCouponStats(couponId: string): Promise<CouponStats> {
   const [used] = await dbRead
     .select({ c: sql<number>`count(*)::int` })
     .from(userCoupons)
-    .where(
-      and(
-        eq(userCoupons.couponId, couponId),
-        eq(userCoupons.status, 'used'),
-      ),
-    )
+    .where(and(eq(userCoupons.couponId, couponId), eq(userCoupons.status, 'used')))
 
   const [expired] = await dbRead
     .select({ c: sql<number>`count(*)::int` })
     .from(userCoupons)
-    .where(
-      and(
-        eq(userCoupons.couponId, couponId),
-        eq(userCoupons.status, 'expired'),
-      ),
-    )
+    .where(and(eq(userCoupons.couponId, couponId), eq(userCoupons.status, 'expired')))
 
   const referral = await getReferralStats(couponId)
 
