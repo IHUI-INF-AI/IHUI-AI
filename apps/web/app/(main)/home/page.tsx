@@ -20,7 +20,7 @@ import { useHomeSchema } from '@/hooks/use-home-schema'
  * - scroll 容器高度统一用 calc(100vh - 58px),与 (marketing)/page.tsx 完全一致
  *   (2026-07-31 修复:原 calc(100dvh - 180px) 是错误硬编码,导致 /home 与 // 首页高度不一致;
  *    统一基准 = 视口 - GlobalTopBar(50px) - MainShell pb-2(8px) = 100vh - 58px)
- * - 外层 -mx-4/-my-4 md:-mx-6/-my-6 lg:-mx-8/-my-8 抵消 MainShell main 的 padding,
+ * - 外层 div 包裹 scroll 容器(2026-08-02:删除原负 margin抵消,因 MainShell main 已无 padding)
  *   让 scroll 容器撑满工作区卡片可视区(高度等于工作区卡片高度 = 100vh - 58px)
  * - 不渲染 SiteFooter(由 HomeSections showFooter={false} 控制,工作区不需要 footer)
  * - 不再自动展开 AI 对话面板(避免遮挡分页内容)
@@ -37,10 +37,12 @@ export default function WorkAreaHomePage() {
   return (
     <>
       <PreviewBanner />
-      {/* 抵消 MainShell main 的 padding,让 scroll 容器撑满工作区卡片可视区
-          - 高度统一为 calc(100vh - 58px),与 (marketing)/page.tsx 一致
-          - 负 margin 抵消 main 的 p-4/p-6/p-8,让容器在 padding 区延伸(不改变高度) */}
-      <div className="-mx-4 -my-4 md:-mx-6 md:-my-6 lg:-mx-8 lg:-my-8">
+      {/* 2026-08-02 修复:删除 -mx-4/-my-4 md:-mx-6/-my-6 lg:-mx-8/-my-8 负 margin
+          根因:MainShell main 在 2026-08-01 已去掉 padding(原 p-3 laptop:p-8),
+          负 margin 无 padding 可抵消 → home-scroll-container 左右各超出 #main 32px(共 64px),
+          被工作区卡片 overflow-hidden 裁剪,视觉上右侧内容超出容器。
+          高度仍统一为 calc(100vh - 58px),与 (marketing)/page.tsx 一致。 */}
+      <div>
         <div
           id="home-scroll-container"
           className="snap-y snap-proximity overflow-x-hidden overflow-y-scroll"
