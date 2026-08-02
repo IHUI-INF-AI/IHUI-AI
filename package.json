@@ -74,7 +74,7 @@
     "eslint": "catalog:",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "lint-staged": "^15.5.2",
+    "lint-staged": "^17.3.0",
     "opencc-js": "^1.4.1",
     "prettier": "^3.9.6",
     "rimraf": "catalog:",
@@ -84,11 +84,11 @@
   },
   "pnpm": {
     "overrides": {
-      "ioredis": "5.4.2",
+      "ioredis": "6.0.0",
       "webpack": "5.91.0",
       "@types/react": "19.2.18",
       "@types/react-dom": "19.2.4",
-      "drizzle-orm": "0.38.4",
+      "drizzle-orm": "0.45.2",
       "fast-jwt": "6.3.1",
       "metro": "0.81.5",
       "html-encoding-sniffer": "4.0.0",
