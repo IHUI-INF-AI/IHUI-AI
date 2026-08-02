@@ -1448,7 +1448,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _sa_status = "done" if ok else "failed"
                                 _sa_error_msg = None
                                 if not ok:
-                                    _sa_error_msg = exec_result.get("error") or exec_result.get("message")
+                                    # 2026-08-02 补充默认错误信息:当 error/message 都为空时,
+                                    # 前端 markSubagentEnd 会显示"执行失败"(无原因),用户无法排查
+                                    _sa_error_msg = exec_result.get("error") or exec_result.get("message") or "subagent 执行失败(无详细错误信息)"
                                 _end_now = datetime.now(timezone.utc).isoformat()
                                 for _sa_id in _spawned_sub_ids:
                                     _end_evt = {
