@@ -100,48 +100,53 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
           return reply.code(400).send({ code: 'FAIL', message: '缺少必要回调头' })
         }
 
-        // 根据 out_bill_no 查询提现流水（out_bill_no 对应 partnerTradeNo）
-        const [flow] = await db
-          .select()
-          .from(withdrawalFlows)
-          .where(eq(withdrawalFlows.partnerTradeNo, outBillNo))
-          .limit(1)
+        // P2 并发安全修复(2026-08-02):原代码状态检查与更新无事务,并发回调可能同时通过
+        // status 检查导致重复处理。改为事务内 SELECT FOR UPDATE 行锁,保证检查与更新原子性。
+        await db.transaction(async (tx) => {
+          // 根据 out_bill_no 查询提现流水（out_bill_no 对应 partnerTradeNo）
+          const [flow] = await tx
+            .select()
+            .from(withdrawalFlows)
+            .where(eq(withdrawalFlows.partnerTradeNo, outBillNo))
+            .for('update') // 行锁防并发重复处理
+            .limit(1)
 
-        if (!flow) {
-          request.log.warn({ outBillNo }, 'withdrawal flow not found for callback')
-          return reply.send({ code: 'SUCCESS', message: 'OK' })
-        }
+          if (!flow) {
+            request.log.warn({ outBillNo }, 'withdrawal flow not found for callback')
+            return
+          }
 
-        // 只处理 pending(0) 或 processing(1) 状态的流水，避免重复处理
-        if (flow.status !== 0 && flow.status !== 1) {
-          return reply.send({ code: 'SUCCESS', message: 'OK' })
-        }
+          // 只处理 pending(0) 或 processing(1) 状态的流水，避免重复处理
+          if (flow.status !== 0 && flow.status !== 1) {
+            return
+          }
 
-        if (state === 'SUCCESS') {
-          // 转账成功：更新状态为 completed(2)
-          await db
-            .update(withdrawalFlows)
-            .set({
-              status: 2,
-              paymentNo: (body.transfer_bill_no as string) ?? null,
-              processedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(withdrawalFlows.id, flow.id))
-        } else if (state === 'FAIL') {
-          // 转账失败：更新状态为 failed(3)，记录失败原因
-          const failReason = (body.fail_reason as string) ?? '转账失败'
-          await db
-            .update(withdrawalFlows)
-            .set({
-              status: 3,
-              rejectReason: failReason,
-              processedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(withdrawalFlows.id, flow.id))
-        }
-        // ACCEPTED / TRANSFERING / WAIT_USER_CONFIRM 等中间状态不更新，等待最终状态回调
+          if (state === 'SUCCESS') {
+            // 转账成功：更新状态为 completed(2)
+            await tx
+              .update(withdrawalFlows)
+              .set({
+                status: 2,
+                paymentNo: (body.transfer_bill_no as string) ?? null,
+                processedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(withdrawalFlows.id, flow.id))
+          } else if (state === 'FAIL') {
+            // 转账失败：更新状态为 failed(3)，记录失败原因
+            const failReason = (body.fail_reason as string) ?? '转账失败'
+            await tx
+              .update(withdrawalFlows)
+              .set({
+                status: 3,
+                rejectReason: failReason,
+                processedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(withdrawalFlows.id, flow.id))
+          }
+          // ACCEPTED / TRANSFERING / WAIT_USER_CONFIRM 等中间状态不更新，等待最终状态回调
+        })
 
         return reply.send({ code: 'SUCCESS', message: 'OK' })
       } catch (e) {
