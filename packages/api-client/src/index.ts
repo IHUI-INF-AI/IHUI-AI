@@ -16,6 +16,7 @@ export {
   getSSEErrorInfo,
   formatSSEError,
   mergeAbortSignals,
+  postToolResult,
 } from './client'
 export type {
   TokenProvider,
@@ -28,6 +29,7 @@ export type {
   ToolCallEvent,
   ToolSummaryEvent,
   FallbackEvent,
+  ToolDelegateEvent,
   SubagentSpawnEvent,
   SubagentEndEvent,
   SubagentProgressEvent,
