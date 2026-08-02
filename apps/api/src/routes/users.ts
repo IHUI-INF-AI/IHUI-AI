@@ -28,7 +28,7 @@ const ADMIN_ROLE_ID = 1
 const updateSchema = z.object({
   nickname: z.string().min(1).max(64).optional(),
   avatar: z.string().max(512).optional(),
-  email: z.string().email('邮箱格式不正确').optional(),
+  email: z.string().email({ message: '邮箱格式不正确' }).optional(),
   bio: z.string().max(500).optional(),
   gender: z.number().int().min(0).max(2).optional().describe('0=未知 1=男 2=女'),
   phone: z

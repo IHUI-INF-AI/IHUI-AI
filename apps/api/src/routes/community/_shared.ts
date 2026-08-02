@@ -42,7 +42,7 @@ export const circleIdParamSchema = z.object({
   id: z.string().min(1).max(120, '无效的 ID'),
 })
 
-export const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+export const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 export const createPostSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长'),

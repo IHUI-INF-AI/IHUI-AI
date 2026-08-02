@@ -55,7 +55,7 @@ const updateCommentSchema = z.object({
   content: z.string().min(1, '内容不能为空').max(5000, '内容过长'),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const paginationOnlyQuery = z.object(paginationQuery)
 

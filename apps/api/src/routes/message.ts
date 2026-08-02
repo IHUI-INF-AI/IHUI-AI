@@ -47,7 +47,7 @@ const messageListQuery = z.object({
   isRead: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
 })
 
-const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const createAnnouncementSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长'),
@@ -1089,7 +1089,7 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
       const parsed = z
         .object({
           ...paginationQuery,
-          memberId: z.preprocess(emptyToUndefined, z.string().uuid('无效的用户 ID').optional()),
+          memberId: z.preprocess(emptyToUndefined, z.string().uuid({ message: '无效的用户 ID' }).optional()),
           msgType: z.preprocess(emptyToUndefined, z.string().min(1).max(32).optional()),
           isRead: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
         })

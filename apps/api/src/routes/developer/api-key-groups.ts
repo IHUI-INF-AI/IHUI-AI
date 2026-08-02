@@ -78,7 +78,7 @@ const rechargeBodySchema = z
 const joinBodySchema = z.object({
   inviteCode: z.string().min(1, '邀请码不能为空').max(16),
   /** 要加入组的 API Key id(必须属于当前用户) */
-  apiKeyId: z.string().uuid('API Key id 格式错误'),
+  apiKeyId: z.string().uuid({ message: 'API Key id 格式错误' }),
 })
 
 // =============================================================================

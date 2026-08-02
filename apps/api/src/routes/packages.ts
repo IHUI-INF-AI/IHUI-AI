@@ -12,7 +12,7 @@ import { success, error } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const createPackageSchema = z.object({
   name: z.string().min(1).max(64),

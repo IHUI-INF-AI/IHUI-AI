@@ -23,6 +23,7 @@
  */
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -90,7 +91,9 @@ function nowIso(): string {
 }
 
 function genId(): string {
-  return `cr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  // 2026-08-02 安全审计加固:用 CSPRNG 替代 Math.random()。
+  // cr_ ID 作为自定义角色唯一标识,Math.random() 可预测 → 攻击者可枚举他人角色 ID。
+  return `cr_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`
 }
 
 /** 从任务描述生成 kebab-case 角色 slug(用于 auto-generate 桩) */

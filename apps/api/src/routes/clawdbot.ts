@@ -130,7 +130,7 @@ const voiceTtsSchema = z
 
 const browserNavigateSchema = z
   .object({
-    url: z.string().url('url 必须为合法 URL'),
+    url: z.string().url({ message: 'url 必须为合法 URL' }),
     headers: z.record(z.string()).optional(),
     timeout: z.number().int().positive().optional(),
   })
@@ -138,7 +138,7 @@ const browserNavigateSchema = z
 
 const browserScrapeSchema = z
   .object({
-    url: z.string().url('url 必须为合法 URL'),
+    url: z.string().url({ message: 'url 必须为合法 URL' }),
     selector: z.string().optional(),
     extract: z.array(z.record(z.unknown())).optional(),
     headers: z.record(z.string()).optional(),

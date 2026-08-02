@@ -10,11 +10,11 @@ import { success, error } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const createWebhookSchema = z.object({
   name: z.string().min(1).max(100),
-  url: z.string().url('无效的 URL').max(512),
+  url: z.string().url({ message: '无效的 URL' }).max(512),
   events: z.array(z.string()).max(100).default([]),
   secret: z.string().max(255).optional(),
 })
