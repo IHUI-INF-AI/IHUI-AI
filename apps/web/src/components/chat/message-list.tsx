@@ -19,12 +19,14 @@ import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
-import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 // 2026-07-31 立,AI 对话可视化深度接入:把 popover 内的富 UI 组件 inline 到消息气泡主流
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
-import { TimelineTab } from '@/components/ai/progress-sections/timeline-tab'
+// 2026-08-02 隐藏:TimelineTab + SubAgentTaskTree 不再 inline 到对话流(冗余可视化)
+// 功能保留在右侧 AI 面板的独立入口,日后恢复时重新 import
+// import { TimelineTab } from '@/components/ai/progress-sections/timeline-tab'
+// import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
 // 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan 组件 inline 到消息气泡
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'
@@ -240,10 +242,9 @@ const MessageItem = React.memo(function MessageItem({
   return (
     <div
       className={cn(
-        'group/msg relative flex w-full flex-col gap-1 rounded-md px-1 transition-colors duration-300',
+        'group/msg relative flex w-full flex-col gap-1 px-1',
         isUser ? 'items-end' : 'items-start',
-        isHighlighted && 'bg-primary/5 ring-1 ring-primary/30 animate-message-highlight-pulse',
-        isHovered && !isHighlighted && 'bg-accent/20',
+        isHighlighted && 'ring-1 ring-primary/30 animate-message-highlight-pulse',
         isFocused && 'ring-1 ring-primary/40',
         // Phase 23: 搜索匹配高亮(当前匹配 ring-2 优先于普通匹配 ring-1)
         isSearchMatch && !isSearchCurrent && 'ring-1 ring-yellow-400/40',
@@ -257,12 +258,15 @@ const MessageItem = React.memo(function MessageItem({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* 2026-08-02:用户要求极简 — 无头像 / 无模型名 / 无气泡,内容直接平铺 */}
+      {/* 2026-08-02:用户消息保留气泡(bg-primary),AI 消息无气泡平铺(无模型名/图标) */}
       <div
         className={cn(
           'relative max-w-[85%]',
-          isUser ? 'text-right' : 'text-left',
-          m.error && 'text-destructive',
+          isUser
+            ? 'rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-primary-foreground'
+            : m.error
+              ? 'text-destructive'
+              : 'text-left',
         )}
       >
           {/* Copy 按钮(2026-07-28 立):hover/focused 时显示在气泡右上角
@@ -293,12 +297,17 @@ const MessageItem = React.memo(function MessageItem({
             </button>
           )}
           {showTyping ? (
-            <TypingIndicator />
+            // P0 修复(2026-08-02):TypingIndicator 加 fade-in,流式开始时平滑出现;
+            // 内容区(下方 div)也加 fade-in,第一个 token 到达时平滑替换 TypingIndicator,
+            // 避免硬切换造成的短暂空白闪烁(TypingIndicator 硬切 → 内容区 fade-in 0→1 过渡)
+            <div className="animate-in fade-in-0 duration-150 fill-mode-both">
+              <TypingIndicator />
+            </div>
           ) : isUser ? (
             // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
             <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 animate-in fade-in-0 duration-150 fill-mode-both">
               {m.reasoning && (
                 <ThinkingSection
                   content={m.reasoning}
@@ -592,7 +601,16 @@ export function MessageList({
 
     // 标记用户是否向上滚动(远离底部)
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    const scrolledUp = distanceFromBottom > 120
+    // P0 修复(2026-08-02):hysteresis 滞后 50px,避免边界抖动
+    // - 未显示按钮时:distanceFromBottom > 120(UPPER)才显示(向上滚超过 120px)
+    // - 已显示按钮时:distanceFromBottom > 70(LOWER)才保持显示,否则隐藏(向下滚低于 70px)
+    // - 70~120px 之间保持当前状态,用户在边界附近微小滚动不会触发按钮频繁显隐
+    const UPPER_THRESHOLD = 120
+    const LOWER_THRESHOLD = 70
+    const currentlyScrolledUp = userScrolledUpMirrorRef.current
+    const scrolledUp = currentlyScrolledUp
+      ? distanceFromBottom > LOWER_THRESHOLD
+      : distanceFromBottom > UPPER_THRESHOLD
     userScrolledUpRef.current = scrolledUp
     // 同步到 state 镜像(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
     // 用 ref 镜像对比避免 handleScroll 依赖 state(useCallback 才能保持稳定引用)
@@ -770,6 +788,8 @@ export function MessageList({
   React.useEffect(() => {
     if (messages.length === 0) {
       heightMapRef.current.clear()
+      // P0 优化(2026-08-02):清空 planSteps 缓存,避免旧会话条目累积
+      completedPlanStepsRef.current.clear()
       setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
       userScrolledUpRef.current = false
       userScrolledUpMirrorRef.current = false
@@ -951,6 +971,14 @@ export function MessageList({
     return null
   }, [messages])
 
+  // P0 流式性能优化(2026-08-02):缓存"已完成" assistant 消息的 planSteps
+  // - 每个 token 到达 → messages 引用变化 → planSteps useMemo 重算 + linkPlanStepToMessage effect 触发写 store
+  // - 已完成消息(非最后一条 / 非流式中)的 planSteps 不会变,缓存命中跳过 O(stepsPerMessage) 重算
+  // - key 用 msg.id,切换会话(messages.length===0)时清空(见上方 cleanup effect)
+  // - 语言切换时 next-intl 返回新 t 引用 → 触发 useMemo 重算 → prevTRef 检测到变化清空缓存,避免旧翻译残留
+  const completedPlanStepsRef = React.useRef<Map<string, PlanStep[]>>(new Map())
+  const prevTRef = React.useRef<typeof t | null>(null)
+
   // PlanStepsCard 数据源(2026-07-31 深度优化,对标 Codex /plan + Trae Thinking Process):
   // 普通对话走 streamChat → /api/ai/chat/stream → /api/llm/complete/stream,
   // 不经过 LangGraph agent,因此 useAgentProgress.start() 即使接通也得不到 plan events
@@ -963,6 +991,11 @@ export function MessageList({
   //   - sourceMessageId: 关联消息 ID,用于点击步骤跳转消息 + hover 联动
   //   - groupIndex: 同一条 assistant 消息的步骤同组,组间视觉分隔
   const planSteps = React.useMemo<PlanStep[]>(() => {
+    // 语言切换时清空缓存(避免缓存中保留旧翻译,t 加入 deps 确保 useMemo 在 t 变化时重算)
+    if (prevTRef.current !== t) {
+      completedPlanStepsRef.current.clear()
+      prevTRef.current = t
+    }
     const steps: PlanStep[] = []
     const assistantMsgs = messages.filter((m) => m.role === 'assistant')
     assistantMsgs.forEach((msg, idx) => {
@@ -970,10 +1003,24 @@ export function MessageList({
       const isLast = msg.id === lastAssistantMessageId
       const isStreamingThis = isLast && isStreaming
 
+      // P0 优化:已完成消息(非最后一条 或 非流式中)的 planSteps 不会变,优先读缓存
+      // - 流式中:只有最后一条 assistant 消息每次重算(token 变化),其余命中缓存
+      // - 流式结束:最后一条消息也变为已完成,首次重算后缓存,后续渲染命中缓存
+      const isCompleted = !isLast || !isStreaming
+      if (isCompleted) {
+        const cached = completedPlanStepsRef.current.get(msg.id)
+        if (cached) {
+          steps.push(...cached)
+          return
+        }
+      }
+
+      const msgSteps: PlanStep[] = []
+
       // ① reasoning → "思考" 步骤(reasoning 模型输出,如 o1/R1)
       //    explanation 完整保留(不截断),PlanStepsCard 内部用 MarkdownViewer 渲染
       if (msg.reasoning && msg.reasoning.trim().length > 0) {
-        steps.push({
+        msgSteps.push({
           id: `${msg.id}-reasoning`,
           step: t('stepThinking'),
           status: isStreamingThis && !msg.content ? 'in_progress' : 'completed',
@@ -987,7 +1034,7 @@ export function MessageList({
       if (msg.toolCalls?.length) {
         for (const tc of msg.toolCalls) {
           const isError = tc.status === 'error'
-          steps.push({
+          msgSteps.push({
             id: tc.id,
             step: tc.toolName,
             status: tc.status === 'running' ? 'in_progress' : 'completed',
@@ -1002,7 +1049,7 @@ export function MessageList({
 
       // ③ content → "回答" 步骤(只有当有 content 时才显示)
       if (msg.content && msg.content.trim().length > 0) {
-        steps.push({
+        msgSteps.push({
           id: `${msg.id}-answer`,
           step: t('stepAnswer'),
           status: isStreamingThis ? 'in_progress' : 'completed',
@@ -1010,9 +1057,16 @@ export function MessageList({
           groupIndex,
         })
       }
+
+      // 缓存已完成消息的 planSteps(下次 token 到达时直接命中,跳过重算)
+      if (isCompleted) {
+        completedPlanStepsRef.current.set(msg.id, msgSteps)
+      }
+
+      steps.push(...msgSteps)
     })
     return steps
-  }, [messages, lastAssistantMessageId, isStreaming])
+  }, [messages, lastAssistantMessageId, isStreaming, t])
 
   // Phase 19 集成(2026-07-31 立):把 planStep → message 映射写入 ProgressJumpStore
   // 供 PlanStepsCard 点击步骤跳转 + hover 联动 + message-list 反向高亮
@@ -1027,7 +1081,10 @@ export function MessageList({
 
   // 从 messages + subAgentActivities 派生 TimelineEvent 列表
   // 上游没传 events 时,本地基于 messages 派生供右侧时间线 tab 渲染
-  const derivedEvents = React.useMemo<TimelineEvent[]>(() => {
+  // P0 流式性能优化(2026-08-02):useDeferredValue 延迟 derivedEvents 的可见更新,
+  // 流式 token 到达时(useMemo 仍重算,但 deferred 返回旧值)避免 effect 频繁写 store
+  // → store 订阅组件(plan-steps-card / timeline-tab)不会每个 token 都 re-render
+  const derivedEventsValue = React.useMemo<TimelineEvent[]>(() => {
     const events: TimelineEvent[] = []
     for (const m of messages) {
       events.push({
@@ -1064,6 +1121,8 @@ export function MessageList({
     }
     return events
   }, [messages, subAgentActivities])
+  // deferred 值:urgent render 返回旧值,空闲时再更新 → 减少 effect 写 store 频率
+  const derivedEvents = React.useDeferredValue(derivedEventsValue)
 
   // 上游无 events 时,同步派生 events 到 store(供外部组件共享)
   React.useEffect(() => {
@@ -1072,37 +1131,8 @@ export function MessageList({
     }
   }, [derivedEvents, timelineEvents.length, setTimelineEvents])
 
-  // 为每个 message 派生"关联的 subagent 列表"
-  // 把 SubAgentActivity 映射为 SubAgent(SubAgentTaskTree 要求的类型)
-  // AgentStatus → SubagentStatus 映射:
-  //   idle/pending → spawned; thinking/acting/reflecting/running → running
-  //   completed → done; failed → failed; cancelled/waiting → dead
-  const linkedSubagents = React.useMemo(() => {
-    if (!lastAssistantMessageId || subAgentActivities.length === 0) return []
-    const colors = ['cyan', 'blue', 'green', 'yellow', 'magenta', 'red'] as const
-    const statusMap: Record<string, 'spawned' | 'running' | 'done' | 'failed' | 'dead'> = {
-      idle: 'spawned',
-      pending: 'spawned',
-      thinking: 'running',
-      acting: 'running',
-      reflecting: 'running',
-      waiting: 'dead',
-      running: 'running',
-      completed: 'done',
-      failed: 'failed',
-      cancelled: 'dead',
-    }
-    return subAgentActivities.map((sa, idx) => ({
-      id: sa.agentId,
-      threadId: sa.agentId,
-      nickname: sa.name,
-      handle: `@${sa.name.replace(/^@/, '')}`,
-      color: colors[idx % colors.length] ?? 'cyan',
-      status: statusMap[sa.status] ?? 'spawned',
-      spawnedAt: new Date().toISOString(),
-      currentTask: sa.currentStep,
-    }))
-  }, [lastAssistantMessageId, subAgentActivities])
+  // 2026-08-02 隐藏:linkedSubagents 派生已移除(不再 inline SubAgentTaskTree 到对话流)
+  // 日后恢复时重新派生:SubAgentActivity → SubAgent 映射(idle/pending→spawned 等)
 
   // ── Phase 23 消息搜索(2026-07-29 立)──────────────────────────────────
   // 右键菜单"搜索消息" + Ctrl+F 快捷键 → 弹出搜索栏 → 高亮匹配 + 滚动到第一个匹配
@@ -1478,30 +1508,9 @@ export function MessageList({
                   }}
                 />
                 {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
-                  2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端) */}
-                {!m.error &&
-                  m.id === lastAssistantMessageId &&
-                  (!m.planSteps || m.planSteps.length === 0) &&
-                  (!m.subagentActivities || m.subagentActivities.length === 0) &&
-                  (planSteps.length > 0 || linkedSubagents.length > 0) && (
-                    <div className="ml-1 mt-1 flex w-full max-w-full flex-col gap-1.5">
-                      {planSteps.length > 0 && (
-                        <PlanStepsCard
-                          steps={planSteps}
-                          isStreaming={isStreaming}
-                          data-testid="message-plan-steps-card"
-                        />
-                      )}
-                      {linkedSubagents.map((sub) => (
-                        <SubAgentTaskTree
-                          key={sub.id}
-                          subagent={sub}
-                          defaultCollapsed
-                          data-testid={`message-subagent-tree-${sub.id}`}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端)
+                  2026-08-02 隐藏:对话流底部不再渲染 PlanStepsCard/SubAgentTaskTree(冗余可视化,与 Trae Codex 简洁风格不一致)
+                  功能保留在右侧 AI 面板(PlanStepsCard + TimelineTab 独立入口) */}
               </div>
             </React.Fragment>
           )
@@ -1513,15 +1522,9 @@ export function MessageList({
           - 实时刷新(useTimelineStore 响应式)
           - 类型筛选 + 搜索 + 状态计数 + Markdown 导出
           - 仅当有事件时显示(无事件空状态折叠,避免污染空对话)
-          - 用 bg 色对比替代 border-t 分割线(AGENTS.md §4 禁止分割线) */}
-        {timelineEvents.length > 0 && (
-          <div
-            className="mt-1 rounded-sm bg-muted/20 px-1.5 py-1 text-[10px] opacity-70 transition-opacity hover:opacity-100"
-            data-testid="message-list-inline-timeline"
-          >
-            <TimelineTab showTabs={false} emptyText="" data-testid="inline-timeline-events" />
-          </div>
-        )}
+          - 用 bg 色对比替代 border-t 分割线(AGENTS.md §4 禁止分割线)
+          2026-08-02 隐藏:对话流底部不再渲染 inline-timeline(冗余可视化,与 Trae Codex 简洁风格不一致)
+          功能保留在右侧 AI 面板的 TimelineTab 独立入口 */}
         <div ref={bottomRef} />
       </div>
     </div>
