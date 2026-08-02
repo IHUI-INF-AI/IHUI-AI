@@ -67,7 +67,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
                   <TableHead className="px-4 py-2 font-medium">{t('createdAt')}</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y">
+              <TableBody>
                 {list.map((p) => (
                   <TableRow key={p.id} className="transition-colors hover:bg-muted/20">
                     <TableCell className="px-4 py-2">

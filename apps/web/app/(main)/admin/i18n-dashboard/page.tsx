@@ -127,7 +127,7 @@ export default function I18nDashboardPage() {
           </Link>
         </div>
         <Card>
-          <CardContent className="divide-y p-0">
+          <CardContent className="space-y-2 p-0">
             {d.recentUpdates.map((u) => (
               <div
                 key={u.id}

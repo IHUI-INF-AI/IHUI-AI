@@ -61,9 +61,10 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
 
   const KindIcon = KIND_ICON[item.kind] ?? Sparkles
   const date = fmt(item.publishedAt ?? item.fetchedAt)
-  const stars = item.metadata && typeof item.metadata === 'object' && 'stars' in item.metadata
-    ? Number(item.metadata.stars) || 0
-    : 0
+  const stars =
+    item.metadata && typeof item.metadata === 'object' && 'stars' in item.metadata
+      ? Number(item.metadata.stars) || 0
+      : 0
   const detailHref = `/ai-world/items/${item.id}`
   const externalHref = item.url ?? item.sourceUrl ?? '#'
   const isExternal = item.kind === 'project' || item.kind === 'news' || item.kind === 'paper'
@@ -71,9 +72,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
   const Cover = (
     <div
       className={
-        layout === 'grid'
-          ? 'relative h-32 w-full bg-muted'
-          : 'relative h-16 w-16 shrink-0 bg-muted'
+        layout === 'grid' ? 'relative h-32 w-full bg-muted' : 'relative h-16 w-16 shrink-0 bg-muted'
       }
     >
       {item.coverImage ? (
@@ -147,7 +146,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
       >
         <Card className="overflow-hidden transition-colors hover:bg-accent/40">
           {Cover}
-          <CardContent className="space-y-2 p-3">
+          <CardContent className="space-y-2 p-4 min-[640px]:p-6">
             {Title}
             {Summary}
             {Meta}
@@ -165,8 +164,8 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
       className="block"
     >
       <Card className="transition-colors hover:bg-accent/40">
-        <CardContent className="flex items-start gap-3 p-3">
-          <div className="overflow-hidden rounded-md">{Cover}</div>
+        <CardContent className="flex items-start gap-3 p-3 min-[640px]:p-4">
+          <div className="overflow-hidden rounded-lg">{Cover}</div>
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
               {Title}

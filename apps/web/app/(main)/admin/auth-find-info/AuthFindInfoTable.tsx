@@ -30,7 +30,7 @@ export function AuthFindInfoTable({ list, isLoading, onEdit, onDelete }: Props) 
             <th className={TABLE_TH_CLASS}>{t('colActions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">

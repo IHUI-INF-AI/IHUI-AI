@@ -2,7 +2,15 @@
 
 import { Loader2, Edit, Trash2, Percent } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import type { IdentityProportion } from './types'
@@ -33,7 +41,7 @@ export function IdentityProportionTable({ list, isLoading, onEdit, onDelete }: P
             <TableHead className="px-4 py-2.5 text-right">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
@@ -77,11 +85,7 @@ export function IdentityProportionTable({ list, isLoading, onEdit, onDelete }: P
                   <div className="flex justify-end gap-1">
                     <HasPermi code="ai:identity_proportion:edit">
                       <Tooltip content={tc('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(item)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

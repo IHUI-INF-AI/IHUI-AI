@@ -66,7 +66,7 @@ interface PluginUIPrefs {
  * 卡片设计:
  *  - 圆角 rounded-lg,无 rounded-full
  *  - hover:bg-accent/40 + hover:shadow-md,无蓝色发光边框
- *  - icon + 中文 span 同行 [&>span]:translate-y-[0.5px] 视觉对齐
+ *  - icon + 中文 span 同行 [&>span]:translate-y-[var(--text-vcenter-offset)] 视觉对齐(button/a 由全局 CSS 自动处理)
  */
 export function PluginMarketplace() {
   const t = useTranslations('plugins')
@@ -212,8 +212,16 @@ export function PluginMarketplace() {
       { key: 'ide' as Filter, label: t('catIde'), count: counts.ide ?? 0 },
       { key: 'workflow' as Filter, label: t('catWorkflow'), count: counts.workflow ?? 0 },
       { key: 'design' as Filter, label: t('catDesign'), count: counts.design ?? 0 },
-      { key: 'productivity' as Filter, label: t('catProductivity'), count: counts.productivity ?? 0 },
-      { key: 'communication' as Filter, label: t('catCommunication'), count: counts.communication ?? 0 },
+      {
+        key: 'productivity' as Filter,
+        label: t('catProductivity'),
+        count: counts.productivity ?? 0,
+      },
+      {
+        key: 'communication' as Filter,
+        label: t('catCommunication'),
+        count: counts.communication ?? 0,
+      },
       { key: 'security' as Filter, label: t('catSecurity'), count: counts.security ?? 0 },
       { key: 'model' as Filter, label: t('catModel'), count: counts.model ?? 0 },
       { key: 'tool' as Filter, label: t('catTool'), count: counts.tool ?? 0 },
@@ -316,7 +324,7 @@ export function PluginMarketplace() {
             value={queryInput}
             onChange={(e) => setQueryInput(e.target.value)}
             placeholder={t('searchPlaceholder')}
-            className="h-9 pl-9 pr-9 [&>span]:translate-y-[0.5px]"
+            className="h-9 pl-9 pr-9 [&>span]:translate-y-[var(--text-vcenter-offset)]"
           />
           {queryInput && (
             <button
@@ -329,7 +337,7 @@ export function PluginMarketplace() {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
+        <div className="flex items-center gap-2 [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <span className="text-xs text-muted-foreground">{t('sortLabel')}</span>
           <div className="flex rounded-md bg-muted/60 p-0.5">
             {(['default', 'name', 'installed'] as const).map((s) => (
@@ -338,13 +346,15 @@ export function PluginMarketplace() {
                 type="button"
                 onClick={() => setUiPrefs((prev) => ({ ...prev, sort: s }))}
                 className={cn(
-                  'rounded px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[0.5px]',
+                  'rounded px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
                   sort === s
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                <span>{t(s === 'default' ? 'sortDefault' : s === 'name' ? 'sortName' : 'sortInstalled')}</span>
+                <span>
+                  {t(s === 'default' ? 'sortDefault' : s === 'name' ? 'sortName' : 'sortInstalled')}
+                </span>
               </button>
             ))}
           </div>
@@ -359,7 +369,7 @@ export function PluginMarketplace() {
             type="button"
             onClick={() => setUiPrefs((prev) => ({ ...prev, filter: cat.key }))}
             className={cn(
-              'inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[0.5px]',
+              'inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
               filter === cat.key
                 ? 'bg-foreground/10 text-foreground'
                 : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -372,7 +382,7 @@ export function PluginMarketplace() {
       </div>
 
       {/* 统计行 */}
-      <div className="text-xs text-muted-foreground [&>span]:translate-y-[0.5px]">
+      <div className="text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <span>{t('resultCount', { count: filtered.length })}</span>
       </div>
 
@@ -479,7 +489,7 @@ function SectionHeader({ title, desc, count }: { title: string; desc: string; co
         <h2 className="text-lg font-semibold leading-tight">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
       </div>
-      <span className="shrink-0 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium text-muted-foreground [&>span]:translate-y-[0.5px]">
+      <span className="shrink-0 rounded-md bg-muted/60 px-2 py-1 text-xs font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <span>{count}</span>
       </span>
     </div>
@@ -523,7 +533,7 @@ function PluginCardActions({
         aria-label={isPinned ? unpinLabel : pinLabel}
         title={isPinned ? unpinLabel : pinLabel}
         className={cn(
-          'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[0.5px]',
+          'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
           isPinned
             ? 'text-amber-500 hover:bg-amber-500/10'
             : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -542,7 +552,7 @@ function PluginCardActions({
         aria-label={isInstalled ? uninstallLabel : installLabel}
         title={isInstalled ? uninstallLabel : installLabel}
         className={cn(
-          'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[0.5px]',
+          'flex h-6 w-6 items-center justify-center rounded transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
           isInstalled
             ? 'text-emerald-500 hover:bg-emerald-500/10'
             : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -557,7 +567,7 @@ function PluginCardActions({
 /** 已安装徽章(右上角,与操作按钮同区) */
 function InstalledBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 [&>span]:translate-y-[0.5px]">
+    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 [&>span]:translate-y-[var(--text-vcenter-offset)]">
       <span>{label}</span>
     </span>
   )
@@ -605,7 +615,7 @@ function ProjectPluginCard({
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-semibold leading-tight">{plugin.name}</h3>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[0.5px]">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
               <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
                 <Shield className="mr-0.5 h-3 w-3" />
                 {builtinLabel}
@@ -625,7 +635,9 @@ function ProjectPluginCard({
             unpinLabel={unpinLabel}
           />
         </div>
-        <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{plugin.description}</p>
+        <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">
+          {plugin.description}
+        </p>
         <div className="mt-auto flex flex-wrap gap-1">
           {plugin.tags.map((tag) => (
             <span
@@ -636,7 +648,7 @@ function ProjectPluginCard({
             </span>
           ))}
         </div>
-        <div className="flex items-center justify-end text-xs font-medium text-primary [&>span]:translate-y-[0.5px]">
+        <div className="flex items-center justify-end text-xs font-medium text-primary [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <span>{openLabel}</span>
           <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </div>
@@ -738,7 +750,7 @@ function MarketPluginCard({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-semibold leading-tight">{plugin.name}</h3>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[0.5px]">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]">
             {plugin.official && (
               <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400">
                 <Shield className="mr-0.5 h-3 w-3" />
@@ -802,7 +814,9 @@ function MarketPluginCard({
           unpinLabel={unpinLabel}
         />
       </div>
-      <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">{plugin.description}</p>
+      <p className="line-clamp-2 min-h-[2.5rem] text-xs text-muted-foreground">
+        {plugin.description}
+      </p>
       <div className="mt-auto flex flex-wrap gap-1">
         {plugin.tags.map((tag) => (
           <span
@@ -814,7 +828,7 @@ function MarketPluginCard({
         ))}
       </div>
       {/* 底部行动条:dialog 模式显示"调用"(Zap 图标),external 模式显示"访问"(ExternalLink 图标) */}
-      <div className="flex items-center justify-end text-xs font-medium text-primary [&>span]:translate-y-[0.5px]">
+      <div className="flex items-center justify-end text-xs font-medium text-primary [&>span]:translate-y-[var(--text-vcenter-offset)]">
         {isDialogMode ? (
           <>
             <span>{invokeLabel}</span>

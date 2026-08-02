@@ -149,7 +149,7 @@ export default function OauthAuditDashboardPage() {
                   <th className="px-4 py-2.5 font-medium">{t('oauthAudit.colIp')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {logsList.map((l) => {
                   const st = STATUS_STYLE[l.status]
                   return (

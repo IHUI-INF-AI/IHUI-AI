@@ -55,7 +55,7 @@ export default async function RedeemPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('redeem.history.code')}</th>
                   <th className="px-4 py-2 font-medium">{t('redeem.history.amount')}</th>
                   <th className="px-4 py-2 font-medium">{t('redeem.history.time')}</th>
@@ -64,10 +64,7 @@ export default async function RedeemPage() {
               </thead>
               <tbody>
                 {history.map((h, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={i} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{h.code}</td>
                     <td className="px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">
                       {h.status === 'success' ? `+¥ ${h.amount.toFixed(2)}` : '—'}

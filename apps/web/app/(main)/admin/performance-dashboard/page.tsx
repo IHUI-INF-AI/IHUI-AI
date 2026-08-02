@@ -155,7 +155,7 @@ export default function PerformanceDashboardPage() {
                   <th className="px-4 py-2.5 font-medium">{t('performance.colErrorRate')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {endpointsList.map((e) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs">{e.endpoint}</td>

@@ -155,7 +155,7 @@ export default function DistributionTeamDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 border-t pt-4 min-[768px]:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 mt-4 pt-4 min-[768px]:grid-cols-2">
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">{t('subordinateCount')}</div>
               <div className="flex items-center gap-1 text-lg font-bold">

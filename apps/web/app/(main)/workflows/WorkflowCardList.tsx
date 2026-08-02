@@ -68,9 +68,11 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
                 </span>
               </div>
               <CardTitle className="text-base">{w.name}</CardTitle>
-              <CardDescription className="line-clamp-2 break-words text-xs">{w.description || '-'}</CardDescription>
+              <CardDescription className="line-clamp-2 break-words text-xs">
+                {w.description || '-'}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-between border-t p-3 text-xs text-muted-foreground">
+            <CardContent className="flex items-center justify-between p-4 pt-0 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Play className="h-3 w-3" />
                 {t('stepsCount', { count: stepCount })}

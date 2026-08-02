@@ -383,7 +383,7 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
 
             {/* 高级 JSON 折叠区 */}
             {showAdvanced ? (
-              <div className="space-y-1.5 border-t pt-2">
+              <div className="space-y-1.5 mt-2 pt-2">
                 <Label htmlFor="advancedJson" className="text-xs">
                   {t('defaultParams')} (JSON)
                 </Label>
@@ -432,7 +432,13 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
           </div>
 
           <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isPending} className="shrink-0">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={isPending}
+              className="shrink-0"
+            >
               <span className="whitespace-nowrap">{t('cancel')}</span>
             </Button>
             <Button type="submit" disabled={isPending} className="shrink-0">

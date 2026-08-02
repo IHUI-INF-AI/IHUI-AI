@@ -1,7 +1,15 @@
 'use client'
 import { Edit, Trash2, Loader2, GraduationCap } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import { LEVEL_MAP, LEVEL_KEY } from './helpers'
@@ -34,7 +42,7 @@ export function StudentTable({ rows, isLoading, error, onEdit, onDelete, deleteP
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
