@@ -559,7 +559,7 @@ export function AgentTaskProgressPane() {
   // - 不再需要 `if (!paneAnchor) return null` → 加载即渲染,0 状态机可漂移。
 
   const progress = useAgentProgress(open ? threadId : null)
-  const { planSteps, isStreaming, subagents, tools, changes, terminals, overview } = progress
+  const { planSteps, isStreaming, subagents, tools, changes, terminals, overview, currentTask } = progress
 
   // v15: 实时计时器 — 仅在 streaming 或 sessionStart 存在时每秒 tick,空闲时停止
   // elapsed 派生:基于 sessionStart + 累计 tick 秒数,避免依赖当前 Date.now()(避免重渲染后时间跳变)
@@ -1479,6 +1479,22 @@ export function AgentTaskProgressPane() {
                 currentNode={overview.currentNode}
                 isStreaming={isStreaming}
               />
+              {/* v19(2026-08-02 整合):当前任务摘要条 — 替代之前 v9 在 trigger 下方弹
+                  的 TaskListPopover。当前任务(规划/MCP/插件调用/工具调用/终端/子代理)
+                  以统一 label + spinner 形式显示在 Pane 顶部,用户在 AI 面板右上角
+                  直接看到实时活动,无需额外 popover。 */}
+              {currentTask && currentTask.kind !== 'idle' && currentTask.label && (
+                <div
+                  className="mx-1.5 mt-1 flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-foreground/80"
+                  data-testid="pane-current-task-summary"
+                  data-task-kind={currentTask.kind}
+                >
+                  <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate" title={currentTask.label}>
+                    {currentTask.label}
+                  </span>
+                </div>
+              )}
               <ToolCallsSection tools={tools} />
               {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
               {subagents.length > 0 && (
