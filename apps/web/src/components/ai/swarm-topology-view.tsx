@@ -32,6 +32,7 @@
  */
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -59,65 +60,58 @@ interface RichTopologyNode extends TopologyNode {
   dagNodeStatus?: ExtendedDispatchStatus
 }
 
-/** dispatch 状态 → 颜色 + 是否脉冲 + 中文标签 */
+/** dispatch 状态 → 颜色 + 是否脉冲(label 走 i18n,见组件内 dispatchStatusLabel) */
 const DISPATCH_STATUS_STYLE: Record<
   ExtendedDispatchStatus,
-  { fill: string; stroke: string; pulse: boolean; label: string }
+  { fill: string; stroke: string; pulse: boolean }
 > = {
   pending: {
     fill: 'fill-muted',
     stroke: 'stroke-muted-foreground/40',
     pulse: false,
-    label: '等待中',
   },
-  running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true, label: '运行中' },
+  running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true },
   completed: {
     fill: 'fill-green-500/20',
     stroke: 'stroke-green-500',
     pulse: false,
-    label: '已完成',
   },
-  failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false, label: '失败' },
+  failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false },
   cancelled: {
     fill: 'fill-yellow-500/20',
     stroke: 'stroke-yellow-500',
     pulse: false,
-    label: '已取消',
   },
   preempted: {
     fill: 'fill-orange-500/20',
     stroke: 'stroke-orange-500',
     pulse: false,
-    label: '已抢占',
   },
   quota_exceeded: {
     fill: 'fill-purple-500/20',
     stroke: 'stroke-purple-500',
     pulse: false,
-    label: '配额超限',
   },
 }
 
-/** 节点状态 → 颜色(回退,当无 dispatchStatus 时用) */
+/** 节点状态 → 颜色(回退,当无 dispatchStatus 时用;label 走 i18n,见组件内 nodeStatusLabel) */
 const NODE_STATUS_STYLE: Record<
   TopologyNodeStatus,
-  { fill: string; stroke: string; pulse: boolean; label: string }
+  { fill: string; stroke: string; pulse: boolean }
 > = {
-  idle: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false, label: '空闲' },
-  running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true, label: '运行中' },
+  idle: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false },
+  running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true },
   waiting: {
     fill: 'fill-muted',
     stroke: 'stroke-muted-foreground/40',
     pulse: false,
-    label: '等待中',
   },
   completed: {
     fill: 'fill-green-500/20',
     stroke: 'stroke-green-500',
     pulse: false,
-    label: '已完成',
   },
-  failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false, label: '失败' },
+  failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false },
 }
 
 /** 边类型 → 颜色 + 线型 + 是否动画 */
@@ -133,12 +127,11 @@ const EDGE_TYPE_STYLE: Record<
   communication: { stroke: '#3b82f6', dash: '4 3', animate: true },
 }
 
-/** 获取节点样式(优先 dispatchStatus,回退 TopologyNodeStatus) */
+/** 获取节点样式(优先 dispatchStatus,回退 TopologyNodeStatus;label 走组件内 helper) */
 function getNodeStyle(node: RichTopologyNode): {
   fill: string
   stroke: string
   pulse: boolean
-  label: string
 } {
   if (node.dispatchStatus) {
     return DISPATCH_STATUS_STYLE[node.dispatchStatus]
@@ -233,6 +226,7 @@ export function SwarmTopologyView({
   className,
 }: SwarmTopologyViewProps) {
   const query = useSwarmTopology()
+  const t = useTranslations('swarmTopology')
   const topology = injectedTopology ?? query.data ?? { nodes: [], edges: [] }
 
   const richNodes: RichTopologyNode[] = topology.nodes as RichTopologyNode[]
@@ -241,6 +235,40 @@ export function SwarmTopologyView({
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null)
 
   const positions = React.useMemo(() => layoutNodes(richNodes), [richNodes])
+
+  // dispatch/节点状态 → 中文 label(i18n,替代原模块级硬编码 label 字段)
+  const dispatchStatusLabel = React.useMemo<Record<ExtendedDispatchStatus, string>>(
+    () => ({
+      pending: t('dispatchStatus.pending'),
+      running: t('dispatchStatus.running'),
+      completed: t('dispatchStatus.completed'),
+      failed: t('dispatchStatus.failed'),
+      cancelled: t('dispatchStatus.cancelled'),
+      preempted: t('dispatchStatus.preempted'),
+      quota_exceeded: t('dispatchStatus.quota_exceeded'),
+    }),
+    [t],
+  )
+  const nodeStatusLabel = React.useMemo<Record<TopologyNodeStatus, string>>(
+    () => ({
+      idle: t('nodeStatus.idle'),
+      running: t('nodeStatus.running'),
+      waiting: t('nodeStatus.waiting'),
+      completed: t('nodeStatus.completed'),
+      failed: t('nodeStatus.failed'),
+    }),
+    [t],
+  )
+  // 节点显示 label(优先 dispatchStatus,回退 nodeStatus)
+  const getNodeDisplayLabel = React.useCallback(
+    (node: RichTopologyNode): string => {
+      if (node.dispatchStatus) {
+        return dispatchStatusLabel[node.dispatchStatus] ?? node.dispatchStatus
+      }
+      return nodeStatusLabel[node.status] ?? node.status
+    },
+    [dispatchStatusLabel, nodeStatusLabel],
+  )
 
   const highlightNodeId = selectedNodeId ?? hoveredNodeId
   const highlightedEdgeKeys = React.useMemo(() => {
@@ -448,7 +476,7 @@ export function SwarmTopologyView({
                   <div key={status} className="flex items-center gap-1">
                     <span className={cn('inline-block h-2 w-2 rounded-sm', s.fill, s.stroke)} />
                     <span className="text-muted-foreground">
-                      {s.label}({count})
+                      {dispatchStatusLabel[status] ?? status}({count})
                     </span>
                   </div>
                 )
@@ -468,7 +496,6 @@ export function SwarmTopologyView({
           if (!pos) return null
           const leftPct = (pos.x / 400) * 100
           const topPct = (pos.y / 260) * 100
-          const style = getNodeStyle(node)
           return (
             <div
               className="pointer-events-none absolute z-10 rounded-md border border-border bg-popover px-2 py-1 text-[10px] shadow-md"
@@ -483,7 +510,7 @@ export function SwarmTopologyView({
                 {node.isDagNode && <span className="ml-1 text-cyan-500">DAG</span>}
               </div>
               <div className="text-muted-foreground">
-                角色:{node.role} · {style.label}
+                角色:{node.role} · {getNodeDisplayLabel(node)}
               </div>
             </div>
           )
@@ -527,7 +554,7 @@ export function SwarmTopologyView({
                   selectedNode.dispatchStatus === 'pending' && 'text-muted-foreground',
                 )}
               >
-                {getNodeStyle(selectedNode).label}
+                {getNodeDisplayLabel(selectedNode)}
               </span>
             </div>
             <div>耗时:{formatDuration(selectedNode.durationMs)}</div>
@@ -536,8 +563,7 @@ export function SwarmTopologyView({
               <div>
                 DAG 状态:
                 <span className="ml-1 text-cyan-600">
-                  {DISPATCH_STATUS_STYLE[selectedNode.dagNodeStatus]?.label ??
-                    selectedNode.dagNodeStatus}
+                  {dispatchStatusLabel[selectedNode.dagNodeStatus] ?? selectedNode.dagNodeStatus}
                 </span>
               </div>
             )}
