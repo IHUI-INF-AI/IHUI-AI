@@ -4,11 +4,11 @@ import { persist } from 'zustand/middleware'
 import { createPersistConfig } from './persist-helpers'
 
 /** AI 侧边 docked 面板默认宽度
- * - 2026-08-02 立(用户规则"我原来设置的哪有1022那么宽啊 给我设置为680"):
- *   默认 680px(用户原偏好),旧 localStorage 残留 width < 680 由 persist migrate 一次性提升。
+ * - 2026-08-02 立(用户规则"默认宽度设置为380"):
+ *   默认 380px,旧 localStorage 残留由 persist migrate version 3→4 强制覆盖为 380。
  * - 1022px 全屏宽度是 isMobile 误判 bug(已在 ai-side-panel.tsx 修复,阈值 1023→768),与本常量无关。
  */
-export const AI_PANEL_DEFAULT_WIDTH = 680
+export const AI_PANEL_DEFAULT_WIDTH = 380
 export const AI_PANEL_MIN_WIDTH = 320
 export const AI_PANEL_MAX_WIDTH = 720
 
@@ -123,14 +123,16 @@ export const useAiPanelStore = create<AiPanelState>()(
       // 现改为会话级状态:每次刷新回到 docked 默认态,移动端 effect 仅在当前会话生效不污染桌面端。
       // merge 显式强制 floatMode:false + floatPosition:默认值,忽略旧 localStorage 残留的 true。
       //
-      // 2026-08-02 version 0→1→2 迁移(用户规则"给我设置为680"):
-      // - v0→v1:仅把 width < 680 提升到 680,但漏了 width > 680 的情况(MAX 720 / isMobile bug 期间 1022)
-      // - v1→v2(本次):无论 localStorage 残留 width 是多少(400/514/720/1022),强制设为 680
-      //   用户明确"设置为680",覆盖所有旧值,用户后续拖拽正常持久化(setWidth 受 MIN/MAX 钳制)
-      version: 2,
+      // 2026-08-02 version 0→1→2→3→4 迁移(用户规则"默认宽度设置为380"):
+      // - v0→v1:仅 width < 680 提升到 680(漏了 width > 680)
+      // - v1→v2:无论 width 多少强制设为 680(用户反馈没生效)
+      // - v2→v3:强制设为 460 验证 migrate 生效(用户确认生效)
+      // - v3→v4(本次):强制设为 380(用户最终偏好)
+      //   用户后续拖拽正常持久化(setWidth 受 MIN 320 / MAX 720 钳制)
+      version: 4,
       migrate: (persistedState: unknown, version: number) => {
         const s = ((persistedState as Partial<AiPanelState>) || {})
-        if (version < 2 && typeof s.width === 'number') {
+        if (version < 4 && typeof s.width === 'number') {
           s.width = AI_PANEL_DEFAULT_WIDTH
         }
         return s as Partial<AiPanelState>
