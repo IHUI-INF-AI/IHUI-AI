@@ -7771,6 +7771,18 @@
         "removeFavorite": "取消收藏"
       }
     },
+    "quickFilters": {
+      "favorite": "收藏",
+      "configured": "已配置",
+      "notConfigured": "未配置",
+      "free": "免費",
+      "longContext": "長上下文",
+      "reasoning": "推理",
+      "vision": "視覺",
+      "coding": "代碼",
+      "chinese": "中文",
+      "openSource": "開源"
+    },
     "aiNews": {
       "title": "2026-07 AI 資訊",
       "subtitle": "基於 seed 資料流的最新發布",
