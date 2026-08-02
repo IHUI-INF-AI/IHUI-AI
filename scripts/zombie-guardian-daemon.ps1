@@ -226,7 +226,7 @@ while ($true) {
             Write-Log 'INFO' "Periodic full cleanup pass (loop #$loopCount)"
             if (Test-Path $CleanupScript) {
                 try {
-                    & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $CleanupScript -AutoClean -Quiet -ErrorAction SilentlyContinue
+                    & $CleanupScript -AutoClean -Quiet -ErrorAction SilentlyContinue
                     Write-Log 'INFO' 'Full cleanup pass completed'
                 } catch {
                     Write-Log 'ERROR' "Full cleanup failed: $($_.Exception.Message)"
