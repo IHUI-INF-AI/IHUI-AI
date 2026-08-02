@@ -109,6 +109,15 @@ const SCANNER_PATTERNS: readonly string[] = [
 
 const MAX_EVENTS_STORED = 10_000
 
+/**
+ * 内存降级 Map 的 LRU 上限(Redis 不可用时防止每个用户/IP 的集合无限增长)。
+ * 50_000 条对中大型站点足够覆盖活跃用户/IP 窗口,超出按插入顺序淘汰最早条目。
+ */
+const MAX_MEM_ENTRIES = 50_000
+
+/** memKv 过期项定期清理间隔(毫秒)。memKv 带 expiresAt 但无主动清理,需定时扫描。 */
+const KV_CLEANUP_INTERVAL_MS = 5 * 60_000
+
 /* -------------------------------------------------------------------------- */
 /* Redis key 命名                                                              */
 /* -------------------------------------------------------------------------- */
@@ -206,6 +215,7 @@ export class AnomalyDetector {
       const cutoff = now - windowMs
       const kept = arr.filter((t) => t > cutoff)
       AnomalyDetector.memFreq.set(key, kept)
+      evictOldest(AnomalyDetector.memFreq, MAX_MEM_ENTRIES)
       return kept.length
     }
     try {
@@ -303,6 +313,7 @@ export class AnomalyDetector {
       const isNew = !set.has(ctx.deviceFingerprint)
       set.add(ctx.deviceFingerprint)
       AnomalyDetector.memDevices.set(key, set)
+      evictOldest(AnomalyDetector.memDevices, MAX_MEM_ENTRIES)
       // 简化:内存模式不按 TTL 清理,仅按数量上限
       if (set.size > DEVICE_NEW_THRESHOLD * 2) {
         const first = set.values().next().value
@@ -368,6 +379,7 @@ export class AnomalyDetector {
       arr.push(url)
       if (arr.length > 20) arr.shift()
       AnomalyDetector.memUrlSeq.set(key, arr)
+      evictOldest(AnomalyDetector.memUrlSeq, MAX_MEM_ENTRIES)
       return arr
     }
     try {
@@ -467,12 +479,14 @@ export class AnomalyDetector {
     const ttlSec = 7 * 24 * 3600
     if (!this.redis) {
       AnomalyDetector.memActiveHour.set(`${userId}:${hour}`, true)
+      evictOldest(AnomalyDetector.memActiveHour, MAX_MEM_ENTRIES)
       return
     }
     try {
       await this.redis.set(key, '1', 'EX', ttlSec)
     } catch (e) {
       AnomalyDetector.memActiveHour.set(`${userId}:${hour}`, true)
+      evictOldest(AnomalyDetector.memActiveHour, MAX_MEM_ENTRIES)
       logger.warn('anomaly: markActiveHour failed, used mem', { err: e })
     }
   }
@@ -517,6 +531,7 @@ export class AnomalyDetector {
   ): Promise<void> {
     if (!this.redis) {
       AnomalyDetector.memBaseline.set(userId, b)
+      evictOldest(AnomalyDetector.memBaseline, MAX_MEM_ENTRIES)
       return
     }
     try {
@@ -529,6 +544,7 @@ export class AnomalyDetector {
       })
     } catch (e) {
       AnomalyDetector.memBaseline.set(userId, b)
+      evictOldest(AnomalyDetector.memBaseline, MAX_MEM_ENTRIES)
       logger.warn('anomaly: setBaseline failed, used mem', { err: e })
     }
   }
@@ -614,12 +630,14 @@ export class AnomalyDetector {
   private async setString(key: string, value: string, ttlSec: number): Promise<void> {
     if (!this.redis) {
       AnomalyDetector.memKv.set(key, { value, expiresAt: Date.now() + ttlSec * 1000 })
+      evictOldest(AnomalyDetector.memKv, MAX_MEM_ENTRIES)
       return
     }
     try {
       await this.redis.set(key, value, 'EX', ttlSec)
     } catch (e) {
       AnomalyDetector.memKv.set(key, { value, expiresAt: Date.now() + ttlSec * 1000 })
+      evictOldest(AnomalyDetector.memKv, MAX_MEM_ENTRIES)
       logger.warn('anomaly: setString failed, used mem', { err: e })
     }
   }
@@ -642,6 +660,22 @@ export class AnomalyDetector {
   >()
   private static readonly memActiveHour = new Map<string, boolean>()
   private static readonly memEvents: AnomalyEvent[] = []
+
+  /**
+   * memKv 定期清理过期项:memKv 带 expiresAt 但仅靠 getString 惰性清理不足,
+   * 长期不被读取的过期项会一直占用内存。每 KV_CLEANUP_INTERVAL_MS 扫描一次。
+   * Map 迭代中删除当前条目是安全的(ES 规范保证)。timer.unref() 不阻止进程退出。
+   */
+  static {
+    const timer = setInterval(() => {
+      const now = Date.now()
+      for (const [k, v] of AnomalyDetector.memKv) {
+        if (v.expiresAt < now) AnomalyDetector.memKv.delete(k)
+      }
+      evictOldest(AnomalyDetector.memKv, MAX_MEM_ENTRIES)
+    }, KV_CLEANUP_INTERVAL_MS)
+    timer.unref?.()
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -657,6 +691,18 @@ function ipNetworkSegmentChanged(a: string, b: string): boolean {
     return a !== b
   }
   return pa[0] !== pb[0] || pa[1] !== pb[1]
+}
+
+/**
+ * LRU 淘汰:Map 按插入顺序遍历,超出上限时删除最早的条目。
+ * 在每次 set 后调用,确保 Redis 不可用回退内存时各 Map 不会无限增长。
+ */
+function evictOldest<K, V>(map: Map<K, V>, max: number): void {
+  while (map.size > max) {
+    const firstKey = map.keys().next().value
+    if (firstKey === undefined) break
+    map.delete(firstKey)
+  }
 }
 
 /** 单例工厂。 */

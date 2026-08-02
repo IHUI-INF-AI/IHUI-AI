@@ -52,9 +52,32 @@ const TOKEN_TTL_SEC = 10 * 60
 const RATE_LIMIT_PER_MIN = 10
 const RATE_LIMIT_WINDOW_SEC = 60
 
+// 内存降级存储 LRU 上限(防止 Redis 不可用时 OOM,单实例上限)
+const MEM_CHALLENGES_MAX = 10000
+const MEM_TOKENS_MAX = 10000
+const MEM_RATE_MAX = 10000
+const MEM_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+
 const K_CHALLENGE = (id: string) => `captcha:${id}`
 const K_TOKEN = (token: string) => `captcha:token:${token}`
 const K_RATE = (ip: string) => `captcha:ratelimit:${ip}`
+
+/* -------------------------------------------------------------------------- */
+/* 内存降级 LRU 工具                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Map 写入并保持 LRU 上限。
+ * Map 的 keys() 按插入顺序迭代,超限时删除最早插入的 key(简易 LRU)。
+ * 已存在 key 时直接覆盖(不触发淘汰),保持 LRU 语义。
+ */
+function setWithLRU<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
+  if (map.size >= max && !map.has(key)) {
+    const firstKey = map.keys().next().value
+    if (firstKey !== undefined) map.delete(firstKey)
+  }
+  map.set(key, value)
+}
 
 /* -------------------------------------------------------------------------- */
 /* 服务实现                                                                    */
@@ -186,7 +209,12 @@ export class CaptchaService {
     if (!token) return false
     if (!this.redis) {
       const v = CaptchaService.memTokens.get(token)
-      return !!v && v > Date.now()
+      if (!v) return false
+      if (v <= Date.now()) {
+        CaptchaService.memTokens.delete(token)
+        return false
+      }
+      return true
     }
     try {
       const r = await this.redis.exists(K_TOKEN(token))
@@ -242,11 +270,12 @@ export class CaptchaService {
 
   private async checkRateLimit(ip: string): Promise<boolean> {
     if (!this.redis) {
+      const now = Date.now()
       const cur = CaptchaService.memRate.get(ip) ?? { count: 0, expiresAt: 0 }
-      if (cur.expiresAt < Date.now()) cur.count = 0
+      if (cur.expiresAt < now) cur.count = 0
       cur.count += 1
-      cur.expiresAt = Date.now() + RATE_LIMIT_WINDOW_SEC * 1000
-      CaptchaService.memRate.set(ip, cur)
+      cur.expiresAt = now + RATE_LIMIT_WINDOW_SEC * 1000
+      setWithLRU(CaptchaService.memRate, ip, cur, MEM_RATE_MAX)
       return cur.count <= RATE_LIMIT_PER_MIN
     }
     try {
@@ -264,13 +293,23 @@ export class CaptchaService {
 
   private async storeChallenge(id: string, data: { answer: string; type: ChallengeType }): Promise<void> {
     if (!this.redis) {
-      CaptchaService.memChallenges.set(id, { ...data, expiresAt: Date.now() + CHALLENGE_TTL_SEC * 1000 })
+      setWithLRU(
+        CaptchaService.memChallenges,
+        id,
+        { ...data, expiresAt: Date.now() + CHALLENGE_TTL_SEC * 1000 },
+        MEM_CHALLENGES_MAX,
+      )
       return
     }
     try {
       await this.redis.set(K_CHALLENGE(id), JSON.stringify(data), 'EX', CHALLENGE_TTL_SEC)
     } catch (e) {
-      CaptchaService.memChallenges.set(id, { ...data, expiresAt: Date.now() + CHALLENGE_TTL_SEC * 1000 })
+      setWithLRU(
+        CaptchaService.memChallenges,
+        id,
+        { ...data, expiresAt: Date.now() + CHALLENGE_TTL_SEC * 1000 },
+        MEM_CHALLENGES_MAX,
+      )
       logger.warn('captcha: storeChallenge failed, used mem', { err: e })
     }
   }
@@ -309,13 +348,13 @@ export class CaptchaService {
   private async issueToken(): Promise<string> {
     const token = randomBytes(24).toString('hex')
     if (!this.redis) {
-      CaptchaService.memTokens.set(token, Date.now() + TOKEN_TTL_SEC * 1000)
+      setWithLRU(CaptchaService.memTokens, token, Date.now() + TOKEN_TTL_SEC * 1000, MEM_TOKENS_MAX)
       return token
     }
     try {
       await this.redis.set(K_TOKEN(token), '1', 'EX', TOKEN_TTL_SEC)
     } catch (e) {
-      CaptchaService.memTokens.set(token, Date.now() + TOKEN_TTL_SEC * 1000)
+      setWithLRU(CaptchaService.memTokens, token, Date.now() + TOKEN_TTL_SEC * 1000, MEM_TOKENS_MAX)
       logger.warn('captcha: issueToken failed, used mem', { err: e })
     }
     return token
@@ -329,6 +368,27 @@ export class CaptchaService {
   >()
   private static readonly memTokens = new Map<string, number>()
   private static readonly memRate = new Map<string, { count: number; expiresAt: number }>()
+
+  /**
+   * 定期清理过期内存降级条目(long-running server 有效)。
+   * unref 避免定时器阻止进程退出;模块加载即启动,资源占用可忽略(每 5 分钟扫 3 个 Map)。
+   * 与各 get/set 处的懒清理互补,防止长期不访问的 IP/challenge/token 累积导致 OOM。
+   */
+  static {
+    const timer = setInterval(() => {
+      const now = Date.now()
+      for (const [k, v] of CaptchaService.memChallenges) {
+        if (v.expiresAt < now) CaptchaService.memChallenges.delete(k)
+      }
+      for (const [k, v] of CaptchaService.memTokens) {
+        if (v <= now) CaptchaService.memTokens.delete(k)
+      }
+      for (const [k, v] of CaptchaService.memRate) {
+        if (v.expiresAt < now) CaptchaService.memRate.delete(k)
+      }
+    }, MEM_CLEANUP_INTERVAL_MS)
+    timer.unref?.()
+  }
 }
 
 /* -------------------------------------------------------------------------- */
