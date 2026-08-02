@@ -8,6 +8,7 @@ import {
   placeOrder,
   getOrder,
   completeOrder,
+  completeOrderWithSaga,
   cancelOrder,
   refundOrder,
   activateOrderSubscription,
@@ -663,8 +664,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           return reply.send({ code: 'SUCCESS', message: 'OK (processing)' })
         }
         try {
-          const result = await completeOrder(out_trade_no, transaction_id)
-          // 支付成功后触发返佣（失败不阻塞支付完成）
+          // P0 安全修复(2026-08-02):用 completeOrderWithSaga 替代 completeOrder,
+          // saga 编排 mark-order-paid + earnPoints + write-outbox(order.paid),
+          // 任一步失败自动补偿(订单回滚 pending + 扣回积分 + 写 compensated 事件)。
+          const result = await completeOrderWithSaga(out_trade_no, transaction_id)
+          // 支付成功后触发返佣（失败不阻塞支付完成,但 log error 触发监控告警）
           if (result.success && result.order) {
             // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
             await auditTopupBonus(
@@ -677,7 +681,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
             try {
               await activateOrderSubscription(result.order)
             } catch (ae) {
-              request.log.warn({ err: ae, orderNo: out_trade_no }, 'subscription activation failed')
+              // activateSubscription 不在 saga 内(本任务不改 order-service.ts),
+              // 失败时订单已 paid/积分已发/outbox 已写,log error 触发监控人工补激活
+              request.log.error({ err: ae, orderNo: out_trade_no }, 'subscription activation failed')
             }
             try {
               if (!result.order.userId) throw new Error('order has no userId')
@@ -692,7 +698,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
                 },
               )
             } catch (ce) {
-              request.log.warn({ err: ce, orderNo: out_trade_no }, 'commission feedback failed')
+              // feedbackInvite 不在 saga 内,失败时 log error 触发监控人工补返佣
+              request.log.error({ err: ce, orderNo: out_trade_no }, 'commission feedback failed')
             }
           }
           await server.paymentIdempotency.complete(out_trade_no, idemKey, {
