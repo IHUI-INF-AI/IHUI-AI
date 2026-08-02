@@ -14,7 +14,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
 import { parseIdParam } from './_shared.js'
@@ -201,6 +201,12 @@ export const pdfRoutes: FastifyPluginAsync = async (server) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
     const filePath = join(PDF_UPLOAD_DIR, id)
+    // 2026-08-02 修复 P0 路径遍历:纵深防御,即使 idParamSchema 被绕过也拒绝逃逸 PDF_UPLOAD_DIR
+    const resolvedPath = resolve(filePath)
+    const resolvedBase = resolve(PDF_UPLOAD_DIR)
+    if (!resolvedPath.startsWith(resolvedBase + sep)) {
+      return reply.status(400).send(error(400, '无效的文件路径'))
+    }
     if (!existsSync(filePath)) return reply.status(404).send(error(404, '结果文件不存在'))
     reply.header('Content-Type', 'application/pdf')
     return reply.send(readFileSync(filePath))
