@@ -278,7 +278,19 @@ export async function getActiveProportion() {
 
 /**
  * 申请提现。
+ *
+ * P0 资金安全(2026-08-02):原实现只插 withdrawalFlows 流水不动 userMargins,导致:
+ * (1) getBalance 返回 tokenQuantity(不含 frozen),用户申请提现后余额未冻结可重复提现(资金超发);
+ * (2) 上轮 payment-extended.ts 修复在提现失败时 frozen -= flow.amount,
+ *     但 applyWithdrawal 未冻结过 → frozen_quantity 变负数。
+ *
+ * 修复:事务内原子冻结余额(token -= actualAmount, frozen += actualAmount),
+ * DB 级 WHERE token_quantity >= actualAmount 检查防超发,0 行影响 = 余额不足或用户无 margin 记录。
+ * 冻结量用 actualAmount(= flow.amount)而非 input.amount,与 payment-extended.ts 严格配套,
+ * 避免 frozen 永久泄漏 fee(input.amount - actualAmount)。
+ *
  * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null。
+ * @throws {Error & { statusCode: 400 }} 余额不足或用户无 margin 记录时抛出,Fastify 自动转 400 响应。
  */
 export async function applyWithdrawal(
   input: {
@@ -291,25 +303,50 @@ export async function applyWithdrawal(
 ): Promise<WithdrawalFlow> {
   const fee = Math.floor(input.amount * 0.02)
   const actualAmount = input.amount - fee
-  const [flow] = await db
-    .insert(withdrawalFlows)
-    .values(
-      withAuditBoth(
-        {
-          userId: input.userId,
-          amount: actualAmount,
-          fee,
-          originalAmount: input.amount,
-          status: 0,
-          method: input.method,
-          accountInfo: input.accountInfo,
-          partnerTradeNo: `WD${Date.now()}`,
-        },
-        operatorId,
-      ),
-    )
-    .returning()
-  return flow!
+  return await db.transaction(async (tx) => {
+    // ① 原子冻结余额:DB 级 WHERE token_quantity >= actualAmount 防超发(绕过应用层竞态)
+    const [updated] = await tx
+      .update(userMargins)
+      .set({
+        tokenQuantity: sql`token_quantity - ${actualAmount}`,
+        frozenQuantity: sql`frozen_quantity + ${actualAmount}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(userMargins.userId, input.userId),
+          sql`token_quantity >= ${actualAmount}`,
+        ),
+      )
+      .returning()
+
+    if (!updated) {
+      // 0 行影响 = 余额不足 OR 用户无 margin 记录 → 拒绝提现申请
+      // 抛带 statusCode 的错误,与 finance.ts 既有模式一致,Fastify 自动转 400 响应,调用方无需改动
+      throw Object.assign(new Error('可提现余额不足'), { statusCode: 400 })
+    }
+
+    // ② 插入提现流水(冻结成功后才插,事务保证一致性)
+    const [flow] = await tx
+      .insert(withdrawalFlows)
+      .values(
+        withAuditBoth(
+          {
+            userId: input.userId,
+            amount: actualAmount,
+            fee,
+            originalAmount: input.amount,
+            status: 0,
+            method: input.method,
+            accountInfo: input.accountInfo,
+            partnerTradeNo: `WD${Date.now()}`,
+          },
+          operatorId,
+        ),
+      )
+      .returning()
+    return flow!
+  })
 }
 
 export async function listWithdrawals(userId: string, page: number, limit: number) {
