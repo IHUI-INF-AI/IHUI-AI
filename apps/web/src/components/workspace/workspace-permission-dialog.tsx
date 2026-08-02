@@ -415,7 +415,7 @@ function RulesEditor({
               <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 {t(RULE_TYPE_KEY[rule.ruleType] ?? 'ruleType.unknown')}
               </span>
-              <span className="flex-1 truncate font-mono">{rule.pattern}</span>
+              <span className="min-w-0 flex-1 truncate font-mono">{rule.pattern}</span>
               {rule.builtin && (
                 <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                   {t('builtin')}

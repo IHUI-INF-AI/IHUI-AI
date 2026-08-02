@@ -46,7 +46,7 @@ export function LogFilter({
         inputMode="numeric"
         aria-label={t('statusCode')}
       />
-      <div className="relative min-w-[200px] flex-1">
+      <div className="relative min-w-[140px] min-[640px]:min-w-[200px] flex-1">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={path}

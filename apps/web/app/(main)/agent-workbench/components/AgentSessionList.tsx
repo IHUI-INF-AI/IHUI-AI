@@ -149,7 +149,7 @@ export function AgentSessionList({ agentId }: Props) {
                   className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/50"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-mono text-xs">{truncate(s.id)}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs">{truncate(s.id)}</span>
                     <span
                       className={cn(
                         'inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium',
