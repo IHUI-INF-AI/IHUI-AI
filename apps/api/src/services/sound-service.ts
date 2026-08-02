@@ -16,10 +16,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { env } from 'node:process'
-import { logger } from '../utils/logger.js'
 import { generateCompactId } from '../utils/crypto-random.js'
-
-let fallbackSignSecretWarned = false
 
 export type SoundCategory =
   | 'ui' // 界面音效（点击/悬停/成功/错误）
@@ -142,45 +139,65 @@ export function getPopularSounds(limit = 20): SoundAsset[] {
     .slice(0, limit)
 }
 
-/** 生成签名密钥。配置 SOUND_SIGN_SECRET 时使用 HMAC-SHA256；未配置时降级为明文拼接（开发环境）。 */
+/** 读取签名密钥。配置 SOUND_SIGN_SECRET 时返回该值；未配置时返回 null。 */
 function getSignSecret(): string | null {
   const secret = env.SOUND_SIGN_SECRET
   return secret && secret.length > 0 ? secret : null
 }
 
+/**
+ * 生成 HMAC-SHA256 签名。
+ * 2026-08-02 P0 安全修复:fail-closed,未配置 secret 时抛错,而非降级到明文拼接。
+ */
 function signPayload(soundId: string, expiresAt: number): string {
   const secret = getSignSecret()
   if (!secret) {
-    if (!fallbackSignSecretWarned) {
-      logger.warn('SOUND_SIGN_SECRET 未配置,播放 URL 使用明文降级签名(仅开发环境)')
-      fallbackSignSecretWarned = true
-    }
-    return `${soundId}.${expiresAt.toString(36)}`
+    // fail-closed:未配置 secret 时拒绝签发,防止明文降级被伪造
+    throw new Error('SOUND_SIGN_SECRET not configured')
   }
   return createHmac('sha256', secret).update(`${soundId}.${expiresAt}`).digest('hex')
 }
 
-/** 生成带 TTL 签名的播放 URL（防盗链）。 */
+/**
+ * 生成带 TTL 签名的播放 URL（防盗链）。
+ * 2026-08-02 P0 安全修复:signPayload fail-closed 后,url 在 secret 未配置时返回 null。
+ * 调用方需检查 url 是否为 null,并返回 503 或明确错误。
+ */
 export function signPlayUrl(
   sound: SoundAsset,
   ttlSec = 3600,
 ): {
-  url: string
+  url: string | null
   expiresAt: number
+  error?: string
 } {
   const expiresAt = Date.now() + ttlSec * 1000
-  const signature = signPayload(sound.id, expiresAt)
-  const separator = sound.url.includes('?') ? '&' : '?'
-  return {
-    url: `${sound.url}${separator}sig=${signature}&expires=${expiresAt}`,
-    expiresAt,
+  try {
+    const signature = signPayload(sound.id, expiresAt)
+    const separator = sound.url.includes('?') ? '&' : '?'
+    return {
+      url: `${sound.url}${separator}sig=${signature}&expires=${expiresAt}`,
+      expiresAt,
+    }
+  } catch {
+    return {
+      url: null,
+      expiresAt,
+      error: 'SOUND_SIGN_SECRET not configured',
+    }
   }
 }
 
 /** 校验播放 URL 签名。返回 true 表示签名有效且未过期。 */
 export function verifyPlayUrl(soundId: string, expiresAt: number, signature: string): boolean {
   if (Date.now() > expiresAt) return false
-  const expected = signPayload(soundId, expiresAt)
+  // fail-closed:secret 未配置时 signPayload 抛错 → 拒绝所有请求
+  let expected: string
+  try {
+    expected = signPayload(soundId, expiresAt)
+  } catch {
+    return false
+  }
   if (expected.length !== signature.length) return false
   try {
     return timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
