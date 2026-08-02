@@ -1600,7 +1600,7 @@ export function MessageList({
           - 用 bg 色对比替代 border-t 分割线(AGENTS.md §4 禁止分割线) */}
         {timelineEvents.length > 0 && (
           <div
-            className="mt-2 rounded-md bg-muted/30 p-2"
+            className="mt-1 rounded-sm bg-muted/20 px-1.5 py-1 text-[10px] opacity-70 transition-opacity hover:opacity-100"
             data-testid="message-list-inline-timeline"
           >
             <TimelineTab showTabs={false} emptyText="" data-testid="inline-timeline-events" />
