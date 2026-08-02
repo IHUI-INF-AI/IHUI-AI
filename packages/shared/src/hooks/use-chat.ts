@@ -280,17 +280,22 @@ export function useChat<TMessage extends ChatMessage = ChatMessage>(
       abortRef.current = controller
 
       // delta 累积到 assistant 消息
+      // 性能优化:早返回避免无谓状态更新;浅拷贝数组只替换最后一条消息引用,
+      // 其他消息引用保持不变,React.memo 可跳过重渲染(长对话时关键)。
       const onDelta = (delta: string) => {
         setMessages((prev) => {
-          const copy = [...prev]
-          const last = copy[copy.length - 1]
-          if (last && last.role === 'assistant') {
-            copy[copy.length - 1] = {
-              ...last,
-              content: last.content + delta,
-            } as TMessage
-          }
-          return copy
+          const len = prev.length
+          if (len === 0) return prev
+          const last = prev[len - 1]
+          if (!last || last.role !== 'assistant') return prev
+          // prev.slice() 浅拷贝(O(n),但比 [...prev] 略快);只替换最后一条消息引用,
+          // 其他消息引用保持不变,下游 React.memo 子组件可跳过重渲染
+          const next = prev.slice()
+          next[len - 1] = {
+            ...last,
+            content: last.content + delta,
+          } as TMessage
+          return next
         })
       }
 
