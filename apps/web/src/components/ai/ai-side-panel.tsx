@@ -113,22 +113,23 @@ export function AISidePanel() {
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
 
-  // 移动端深度适配(2026-07-31 立,2026-08-01 阈值对齐):
+  // 移动端深度适配(2026-07-31 立,2026-08-01 阈值对齐,2026-08-02 改默认展开):
   // - useIsMobile 检测 <1024px 视口(与 tablet-lg 断点一致),SSR 安全(默认 false,客户端 mount 后修正)
-  // - 移动端/平板竖屏自动切换到浮窗 FAB 模式(不破坏桌面端 docked 体验)
+  // - 移动端/平板竖屏自动切换到浮窗模式(全屏展开正常态,不破坏桌面端 docked 体验)
   // - 浮窗展开时全屏覆盖(利用现有 floatMode,移动端样式覆盖)
   const isMobile = useIsMobile()
 
-  // 移动端自动切换:进入移动端视口时,自动设为浮窗 FAB 模式
+  // 移动端自动切换:进入移动端视口时,自动切为浮窗展开模式(默认正常态)
   // - 仅在 floatMode=false(docked)时触发,避免覆盖用户已手动切换的浮窗状态
+  // - 不设 floatMinimized:true(2026-08-02 改,用户规则"默认展开正常态"):
+  //   浮窗默认全屏展开,用户可手动点最小化按钮收成 FAB,而非默认就收成 FAB
   // - 桌面端恢复时不自动切回 docked(保留用户持久化的 floatMode 偏好)
   React.useEffect(() => {
     if (isMobile && !floatMode) {
       setFloatMode(true)
-      setFloatMinimized(true)
       setFloatCollapsed(false)
     }
-  }, [isMobile, floatMode, setFloatMode, setFloatMinimized, setFloatCollapsed])
+  }, [isMobile, floatMode, setFloatMode, setFloatCollapsed])
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
