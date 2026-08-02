@@ -3,8 +3,12 @@ import { persist } from 'zustand/middleware'
 
 import { createPersistConfig } from './persist-helpers'
 
-/** AI 侧边 docked 面板默认宽度(对齐旧架构 _sidebar-layout.scss --ai-panel-default-width) */
-export const AI_PANEL_DEFAULT_WIDTH = 400
+/** AI 侧边 docked 面板默认宽度
+ * - 2026-08-02 立(用户规则"我原来设置的哪有1022那么宽啊 给我设置为680"):
+ *   默认 680px(用户原偏好),旧 localStorage 残留 width < 680 由 persist migrate 一次性提升。
+ * - 1022px 全屏宽度是 isMobile 误判 bug(已在 ai-side-panel.tsx 修复,阈值 1023→768),与本常量无关。
+ */
+export const AI_PANEL_DEFAULT_WIDTH = 680
 export const AI_PANEL_MIN_WIDTH = 320
 export const AI_PANEL_MAX_WIDTH = 720
 
@@ -118,6 +122,19 @@ export const useAiPanelStore = create<AiPanelState>()(
       // 会 setFloatMode(true) 并被持久化,导致回到桌面端刷新后仍为浮窗态,违反默认 docked 期望。
       // 现改为会话级状态:每次刷新回到 docked 默认态,移动端 effect 仅在当前会话生效不污染桌面端。
       // merge 显式强制 floatMode:false + floatPosition:默认值,忽略旧 localStorage 残留的 true。
+      //
+      // 2026-08-02 version 0→1 迁移(用户规则"给我设置为680"):
+      // 旧 localStorage 可能残留 width=400(老默认值)或 width=514(isMobile bug 期间浮窗宽度),
+      // migrate 把 < 680 的 width 一次性提升到 AI_PANEL_DEFAULT_WIDTH(680),merge 后生效。
+      // 用户后续拖拽正常持久化(setWidth 仍受 MIN/MAX 钳制)。
+      version: 1,
+      migrate: (persistedState: unknown, version: number) => {
+        const s = ((persistedState as Partial<AiPanelState>) || {})
+        if (version < 1 && typeof s.width === 'number' && s.width < AI_PANEL_DEFAULT_WIDTH) {
+          s.width = AI_PANEL_DEFAULT_WIDTH
+        }
+        return s as Partial<AiPanelState>
+      },
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...((persistedState as Partial<AiPanelState>) || {}),
