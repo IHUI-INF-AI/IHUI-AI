@@ -18,6 +18,15 @@ function parsePaging(q: { page?: string; pageSize?: string }): { page: number; p
   return { page, pageSize }
 }
 
+// 允许访问的表名白名单（防止 sql.raw 拼接 table 参数时引入注入风险）
+const ALLOWED_TABLES = new Set(['zhs_category_dictionary'])
+
+function assertTable(table: string): void {
+  if (!ALLOWED_TABLES.has(table)) {
+    throw new Error(`Table not in allowlist: ${table}`)
+  }
+}
+
 // 允许的 ORDER BY 白名单（key → 安全 SQL 片段，防止 sql.raw(order) 注入）
 const ALLOWED_ORDERS: Record<string, string> = {
   id_desc: '"id" DESC',
@@ -33,6 +42,7 @@ async function rawList(
   table: string,
   opts: { page: number; pageSize: number; conds?: SQL[]; orderBy?: string },
 ) {
+  assertTable(table)
   const where =
     opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
   const order = (opts.orderBy ? ALLOWED_ORDERS[opts.orderBy] : undefined) ?? '"id" DESC'
@@ -53,6 +63,7 @@ async function rawList(
 }
 
 async function rawById(table: string, id: string) {
+  assertTable(table)
   const rows = await db.execute(
     sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} LIMIT 1`,
   )
@@ -65,6 +76,7 @@ async function rawInsert(
   body: Record<string, unknown>,
   reply: FastifyReply,
 ): Promise<Record<string, unknown> | null> {
+  assertTable(table)
   const cols: string[] = []
   const vals: unknown[] = []
   for (const c of columns) {
@@ -97,6 +109,7 @@ async function rawUpdate(
   id: string,
   body: Record<string, unknown>,
 ) {
+  assertTable(table)
   const sets: SQL[] = []
   for (const c of columns) {
     if (body[c] !== undefined) sets.push(sql`${sql.raw(`"${c}"`)} = ${body[c]}`)
@@ -109,6 +122,7 @@ async function rawUpdate(
 }
 
 async function rawDelete(table: string, id: string) {
+  assertTable(table)
   await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
 }
 

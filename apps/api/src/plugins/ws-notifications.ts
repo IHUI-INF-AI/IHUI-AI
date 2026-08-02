@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
-import { wsAuth } from './ws-helpers.js'
+import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
@@ -37,6 +37,8 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
   const connections = new Map<string, Set<WebSocket>>()
   // 当前 WebSocket 连接总数（用于指标上报）
   let wsConnectionCount = 0
+  // 2026-08-02 P1 安全审计:单用户并发连接数限制(防资源耗尽)
+  const userConnectionLimiter = new WsUserConnectionLimiter(8)
 
   /** 更新 WebSocket 连接数 Gauge（同时更新 business 和 infra 两套指标） */
   function updateWsConnectionGauges(): void {
@@ -205,6 +207,17 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
         }
         return
       }
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-notifications 拒绝连接:单用户连接数超限')
+        try {
+          server.recordWsAuthFailure('too_many_connections')
+        } catch {
+          /* 指标采集失败不影响业务 */
+        }
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
 
       // 注册连接
       if (!connections.has(userId)) connections.set(userId, new Set())
@@ -228,6 +241,8 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
         // 连接数递减并上报 Gauge
         wsConnectionCount--
         updateWsConnectionGauges()
+        // 2026-08-02 P1 安全审计:释放连接槽位
+        userConnectionLimiter.release(userId)
       })
     })()
   })

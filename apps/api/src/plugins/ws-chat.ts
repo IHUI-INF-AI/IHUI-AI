@@ -4,11 +4,12 @@ import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { z } from 'zod'
 import { authenticate } from './auth.js'
-import { wsAuth } from './ws-helpers.js'
+import { wsAuth, WS_CLOSE, WsUserConnectionLimiter, WsRateLimiter } from './ws-helpers.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { generateCompactId } from '../utils/crypto-random.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -26,6 +27,23 @@ interface RoomMember {
 }
 
 const ALLOWED_MSG_TYPES = new Set(['text', 'image', 'file', 'system'])
+
+// 2026-08-02 P1 安全审计:WebSocket 消息 Zod schema 校验
+// 风险:客户端可发任意类型字段(text 为对象/数组/url 长度无上限)→ 注入/越权/资源耗尽
+// 防护:每条业务消息必须通过 schema,safeParse 失败直接丢弃
+const ROOM_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/
+const wsChatMessageSchema = z.object({
+  type: z.string().max(32),
+  text: z.string().max(8000).optional(),
+  url: z.string().max(2048).optional(),
+  filename: z.string().max(255).optional(),
+  // 中途切换房间(room action)字段
+  action: z.enum(['join', 'leave']).optional(),
+  room: z.string().max(128).optional(),
+  // 兼容 typing 等扩展字段(无强约束,但限制 key 数量防滥用)
+})
+  .passthrough()
+  .refine((v) => Object.keys(v).length <= 20, { message: '字段过多' })
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
@@ -56,6 +74,30 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   // 2026-07-21 加固:用 generateCompactId 替代 Math.random,防止 CWE-330 可预测实例标识导致 Pub/Sub 消息伪造
   const instanceId = generateCompactId('inst')
   const channelFor = (roomId: string) => `chatroom:${roomId}`
+
+  // 2026-08-02 P1 安全审计:单用户并发连接数限制(防资源耗尽)
+  // 风险:单用户可创建无限多 ws 连接 → 房间广播放大攻击 / Redis 内存耗尽
+  // 防护:每用户最多 8 个并发 ws 连接,超限 close(4005)
+  const userConnectionLimiter = new WsUserConnectionLimiter(8)
+  // 2026-08-02 P1 安全审计:消息速率限制(防 flooding)
+  // 风险:单连接高频发消息 → Redis 写爆 + 广播压垮其他客户端
+  // 防护:每用户 60 条/分钟(含 room 切换/typing),超限 close(4002)
+  const messageRateLimiter = new WsRateLimiter(60, 60_000)
+
+  /** IDOR 校验:用户是否有权访问某房间(房主或已加入成员) */
+  async function checkRoomOwnership(
+    redis: Redis | null,
+    roomId: string,
+    userId: string,
+  ): Promise<boolean> {
+    if (!redis) return true // Redis 不可用时降级放行
+    const meta = await redis.hgetall(`chatroom:meta:${roomId}`)
+    if (!meta || Object.keys(meta).length === 0) return true // 房间不存在(允许 join 用于创建)
+    const isOwner = meta.createdBy === userId
+    if (isOwner) return true
+    const isMember = (await redis.sismember(`chatroom:user_rooms:${userId}`, roomId)) === 1
+    return isMember
+  }
 
   const localBroadcast = (roomId: string, payload: unknown, exclude?: WebSocket): void => {
     const members = rooms.get(roomId)
@@ -144,7 +186,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       return request.userId ?? null
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
+      reply.status(statusCode).send(error(statusCode, toUserFriendlyMessage(e) || '需要登录'))
       return null
     }
   }
@@ -399,7 +441,6 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     const roomId = (request.params as { roomId: string }).roomId
     // 2026-07-24 安全审计:roomId 格式校验(防 channel 注入 + 防 Redis key 注入)
     // 允许 UUID 或 字母数字_- 组合(最长 128 字符)
-    const ROOM_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/
     if (!ROOM_ID_RE.test(roomId)) {
       socket.close(1008, '无效的 roomId 格式')
       return
@@ -407,22 +448,22 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-chat 拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       // 2026-07-25 IDOR 防护:仅房主或曾经加入成员可访问,Redis 不可用时降级放行
       try {
         const idorRedis = getRedis()
         if (!idorRedis) {
           server.log.warn({ roomId, userId }, 'ws-chat IDOR 校验降级:Redis 不可用')
         } else {
-          const meta = await idorRedis.hgetall(`chatroom:meta:${roomId}`)
-          if (meta && Object.keys(meta).length > 0) {
-            const isOwner = meta.createdBy === userId
-            const isMember = isOwner
-              ? true
-              : (await idorRedis.sismember(`chatroom:user_rooms:${userId}`, roomId)) === 1
-            if (!isOwner && !isMember) {
-              socket.close(1008, '无权加入此房间')
-              return
-            }
+          const allowed = await checkRoomOwnership(idorRedis, roomId, userId)
+          if (!allowed) {
+            socket.close(1008, '无权加入此房间')
+            return
           }
         }
       } catch (err) {
@@ -505,12 +546,25 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           socket.send('pong')
           return
         }
+        // 2026-08-02 P1 安全审计:消息速率限制(防 flooding)
+        if (!messageRateLimiter.allow(userId)) {
+          server.log.warn({ userId }, 'ws-chat 拒绝消息:速率超限')
+          socket.close(WS_CLOSE.RATE_LIMITED, '消息发送过快')
+          return
+        }
         let msg: Record<string, unknown>
         try {
           msg = JSON.parse(raw) as Record<string, unknown>
         } catch {
           return
         }
+        // 2026-08-02 P1 安全审计:Zod schema 校验消息结构(防注入/越权/资源耗尽)
+        const parsed = wsChatMessageSchema.safeParse(msg)
+        if (!parsed.success) {
+          send(socket, { type: 'error', message: '消息格式非法' })
+          return
+        }
+        msg = parsed.data as Record<string, unknown>
         const mtype = (msg.type as string) || 'text'
 
         // 中途切换房间: {"type":"room","action":"join|leave","room":"..."}
@@ -518,7 +572,29 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           const action = msg.action as string
           const targetRoom = msg.room as string
           if (action === 'join') {
-            joinRoom(targetRoom)
+            // 2026-08-02 P1 安全审计:中途切换房间 IDOR 校验
+            // 风险:已加入 room1 的用户可中途切换到他人 room2 窃听消息
+            // 防护:与初始 join 一致,校验目标房间归属
+            if (!ROOM_ID_RE.test(targetRoom)) {
+              send(socket, { type: 'room', event: 'error', message: '无效的 roomId 格式' })
+              return
+            }
+            void (async () => {
+              const idorRedis = getRedis()
+              try {
+                const allowed = await checkRoomOwnership(idorRedis, targetRoom, userId)
+                if (!allowed) {
+                  send(socket, { type: 'room', event: 'error', message: '无权加入此房间' })
+                  return
+                }
+              } catch (err) {
+                server.log.warn(
+                  { err, targetRoom, userId },
+                  'ws-chat 中途切换 IDOR 校验异常,降级放行',
+                )
+              }
+              joinRoom(targetRoom)
+            })()
           } else if (action === 'leave') {
             leaveRoom(targetRoom)
           } else {
@@ -562,6 +638,9 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           publish(targetRoom, { type: 'room', event: 'member_leave', user: userId, nickname })
         }
         member.rooms.clear()
+        // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+        userConnectionLimiter.release(userId)
+        messageRateLimiter.reset(userId)
       })
     })()
   })
