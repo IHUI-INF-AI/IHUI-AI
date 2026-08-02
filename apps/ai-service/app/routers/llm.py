@@ -609,6 +609,40 @@ async def list_providers_availability() -> dict[str, Any]:
     return _wrap_ok(model_availability.get_health_summary())
 
 
+@router.get("/llm/debug/avail", response_model=None)
+async def debug_avail(model: str = "gemini/gemini-2.5-flash") -> dict[str, Any]:
+    """临时调试端点:返回 is_model_available 判定详情(2026-08-02 排查 gemini 不显示)"""
+    from ..services.model_availability import (
+        model_availability,
+        _infer_provider_code,
+        _to_llm_providers_name,
+    )
+    from ..core.config import settings
+    from ..services.free_provider_registry import free_provider_registry, ProviderStatus
+    code = _infer_provider_code(model)
+    cfg_name = _to_llm_providers_name(code) if code else None
+    cfg = settings.get_provider_config(cfg_name) if cfg_name else None
+    has_key = bool(cfg.api_key) if cfg else False
+    env_configured = free_provider_registry.is_key_configured(code) == ProviderStatus.CONFIGURED if code else False
+    health = model_availability.get_provider_health(code) if code else None
+    avail = model_availability.is_model_available(model)
+    return _wrap_ok({
+        "model": model,
+        "code": code,
+        "cfg_name": cfg_name,
+        "has_key": has_key,
+        "env_configured": env_configured,
+        "health_status": health.status.value if health else None,
+        "health_error": health.error if health else None,
+        "health_error_type": health.error_type.value if health else None,
+        "health_latency_ms": health.latency_ms if health else None,
+        "health_last_check": health.last_check if health else None,
+        "is_available": avail,
+        "health_dict_keys": list(model_availability._health.keys()),
+        "health_dict_size": len(model_availability._health),
+    })
+
+
 @router.post("/llm/models/sync", response_model=None)
 async def sync_models(provider: str | None = None, dry_run: bool = False) -> dict[str, Any]:
     """手动触发模型自动同步(可选 provider 定向 + dry_run 预览)。
