@@ -11,7 +11,7 @@
 
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userMargins, users } from '@ihui/database'
 import { authenticate } from './auth.js'
@@ -190,16 +190,29 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         ? Math.ceil(amount * info.discountRate * 0.8) // 促销期额外8折
         : Math.ceil(amount * info.discountRate)
 
-      if (info.balance < actualAmount) {
+      // P0 修复(假成功):不再依赖缓存预检查结果作最终判断,
+      // 改为原子 UPDATE + WHERE 余额检查 + RETURNING,
+      // 0 行影响 = 余额不足 OR 用户不存在 → 返回 success=false。
+      const updated = await db
+        .update(userMargins)
+        .set({
+          tokenQuantity: sql`${userMargins.tokenQuantity} - ${actualAmount}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(userMargins.userId, userId),
+            sql`${userMargins.tokenQuantity} >= ${actualAmount}`,
+          ),
+        )
+        .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+      if (updated.length === 0) {
+        // 0 行影响 = 余额不足 OR 用户不存在
         return { success: false, remaining: info.balance }
       }
 
-      // 事务扣减（opType: 1=扣减）
-      const newBalance = info.balance - actualAmount
-      await db.execute(sql`
-        UPDATE "user_margins" SET "token_quantity" = ${newBalance}, "updated_at" = now()
-        WHERE "user_id" = ${userId} AND "token_quantity" >= ${actualAmount}
-      `)
+      const newBalance = updated[0]!.tokenQuantity
 
       // 写流水:带 related_order_no = idempotencyKey,ON CONFLICT DO NOTHING 兜底
       // (并发场景下两个 worker 同时通过 pre-check 时,第二个 INSERT 命中 unique index 被丢弃)
@@ -227,14 +240,22 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       amount: number,
       reason?: string,
     ): Promise<{ success: boolean; balance: number }> {
-      const info = await this.getBalance(userId)
-      const newBalance = info.balance + amount
+      // P0 修复(lost update):不再 getBalance + 内存计算 + UPSERT 覆盖,
+      // 改为原子 UPSERT 用 SQL 表达式 token_quantity = token_quantity + amount,
+      // 并 RETURNING 拿到实际更新后的余额作为流水 balanceAfter。
+      const [updated] = await db
+        .insert(userMargins)
+        .values({ userId, tokenQuantity: amount, frozenQuantity: 0 })
+        .onConflictDoUpdate({
+          target: userMargins.userId,
+          set: {
+            tokenQuantity: sql`${userMargins.tokenQuantity} + ${amount}`,
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ tokenQuantity: userMargins.tokenQuantity })
 
-      await db.execute(sql`
-        INSERT INTO "user_margins" ("user_id", "token_quantity", "updated_at")
-        VALUES (${userId}, ${newBalance}, now())
-        ON CONFLICT ("user_id") DO UPDATE SET "token_quantity" = ${newBalance}, "updated_at" = now()
-      `)
+      const newBalance = updated!.tokenQuantity
 
       // opType: 0=充值
       await db.execute(sql`
