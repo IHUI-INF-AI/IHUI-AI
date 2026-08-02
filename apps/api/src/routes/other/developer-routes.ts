@@ -68,7 +68,7 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
   server.post('/developer/subscription', async (request, reply) => {
     const body = z
       .object({
-        pricingId: z.string().uuid('无效的套餐 ID'),
+        pricingId: z.string().uuid({ message: '无效的套餐 ID' }),
         period: z.enum(['monthly', 'yearly']).optional(),
       })
       .safeParse(request.body)
@@ -129,7 +129,7 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /developer/subscription/upgrade — 升级套餐
   server.post('/developer/subscription/upgrade', async (request, reply) => {
-    const body = z.object({ pricingId: z.string().uuid('无效的套餐 ID') }).safeParse(request.body)
+    const body = z.object({ pricingId: z.string().uuid({ message: '无效的套餐 ID' }) }).safeParse(request.body)
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     const [pricing] = await dbRead

@@ -41,12 +41,12 @@ const myWatchListQuery = z.object({
 })
 
 const deleteWatchQuery = z.object({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
   userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 })
 
 const clearWatchQuery = z.object({
-  userId: z.string().uuid('无效的用户 ID'),
+  userId: z.string().uuid({ message: '无效的用户 ID' }),
 })
 
 const likeCountsSchema = z.object({

@@ -20,7 +20,7 @@ import { success, error, parseOrThrow } from '../utils/response.js'
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL ?? 'http://localhost:8803'
 
 const screenshotSchema = z.object({
-  url: z.string().url('Invalid URL'),
+  url: z.string().url({ message: 'Invalid URL' }),
   width: z.number().int().min(320).max(3840).optional().default(1280),
   height: z.number().int().min(240).max(2160).optional().default(720),
   fullPage: z.boolean().optional().default(false),
@@ -29,7 +29,7 @@ const screenshotSchema = z.object({
 })
 
 const probeSchema = z.object({
-  url: z.string().url('Invalid URL'),
+  url: z.string().url({ message: 'Invalid URL' }),
 })
 
 export const browserRoutes: FastifyPluginAsync = async (server) => {

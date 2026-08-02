@@ -100,7 +100,8 @@ publicHoistPattern:
 catalog:
   typescript: ^5.7.2 # L1:保持 5.x(TS 7.0 是 major,留 L2 评估)
   rimraf: ^6.1.3 # L1:6.0.1 → 6.1.3 minor
-  vitest: ^3.2.7 # L3:2.x→3.x major(vite 4/5/6 全兼容,miniapp-taro vite 4.5.5 可用)
+  vitest: ^4.0.0 # L3:3.x→4.x major(内部 vite 自动升 6,miniapp-taro vite 4.5.5 隔离不受影响)
+  zod: ^3.25.76 # Zod 保持 3.x 最新(v4 breaking 太多,前置准备:字符串参数对象化已在进行)
   eslint: ^9.16.0 # L1:保持 9.x(v10 是 major,留 L2)
   zustand: ^5.0.14 # L1:5.0.2 → 5.0.14 patch
   # P3-1.2 新增(2026-08-01)— 类名合并 + 样式变体 + 图标库,design-tokens/ui-react/web 共用

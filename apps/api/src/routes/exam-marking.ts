@@ -11,7 +11,7 @@ import { gradeExam, getExamRecordStatus } from '../db/exam-extended-queries.js'
 // =============================================================================
 
 const markPaperSchema = z.object({
-  recordId: z.string().uuid('recordId 必须为 UUID'),
+  recordId: z.string().uuid({ message: 'recordId 必须为 UUID' }),
   score: z
     .number()
     .min(0, '分数不能为负')

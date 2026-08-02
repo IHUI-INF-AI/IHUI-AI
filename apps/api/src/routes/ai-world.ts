@@ -22,7 +22,7 @@ import {
   syncTrendingMetrics,
   getSourceStats,
 } from '../jobs/ai-world-sync.js'
-import { success } from '../utils/response.js'
+import { success, error } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 
 const ListQuerySchema = z.object({
@@ -104,7 +104,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-world/tools', async (request, reply) => {
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+      return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
     }
     const { category, limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
@@ -125,7 +125,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-world/apps', async (request, reply) => {
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+      return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
     }
     const { category, limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
@@ -146,7 +146,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-world/news', async (request, reply) => {
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+      return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
     }
     const { category, limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
@@ -167,7 +167,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-world/papers', async (request, reply) => {
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+      return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
     }
     const { limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
@@ -181,7 +181,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-world/projects', async (request, reply) => {
     const parsed = ListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+      return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
     }
     const { limit, offset, search, order } = parsed.data
     const [items, total] = await Promise.all([
@@ -195,7 +195,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get<{ Params: { id: string } }>('/ai-world/items/:id', async (request, reply) => {
     const item = await findAiWorldItemById(request.params.id)
     if (!item) {
-      return reply.status(404).send({ code: 404, message: '资源不存在', data: null })
+      return reply.status(404).send(error(404, '资源不存在'))
     }
     // 异步增浏览数,不阻塞响应;挂 catch 避免未处理 Promise 拒绝
     void incrementViewCount(item.id).catch((err) => {
@@ -214,7 +214,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ logs, stats }))
     } catch (err) {
       server.log.error({ err }, 'ai-world sync/logs failed')
-      return reply.status(500).send({ code: 500, message: '同步失败' })
+      return reply.status(500).send(error(500, '同步失败'))
     }
   })
 
@@ -255,7 +255,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       )
     } catch (err) {
       server.log.error({ err }, 'ai-world sync failed')
-      return reply.status(500).send({ code: 500, message: '同步失败' })
+      return reply.status(500).send(error(500, '同步失败'))
     }
   })
 
@@ -271,7 +271,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-world/rankings', async (request, reply) => {
     const parsed = RankingQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+      return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
     }
     const { leaderboard, category, limit, offset } = parsed.data
     const [items, total] = await Promise.all([
@@ -287,7 +287,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai-world/trending', async (request, reply) => {
     const parsed = TrendingQuerySchema.safeParse(request.query)
     if (!parsed.success) {
-      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+      return reply.status(400).send(error(400, parsed.error.message ?? '参数错误'))
     }
     const { kind, limit, offset } = parsed.data
     const [items, total] = await Promise.all([
@@ -320,7 +320,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
         )
       } catch (err) {
         server.log.error({ err }, 'ai-world sync/rankings failed')
-        return reply.status(500).send({ code: 500, message: '同步失败' })
+        return reply.status(500).send(error(500, '同步失败'))
       }
     },
   )
@@ -346,7 +346,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
         )
       } catch (err) {
         server.log.error({ err }, 'ai-world sync/trending failed')
-        return reply.status(500).send({ code: 500, message: '同步失败' })
+        return reply.status(500).send(error(500, '同步失败'))
       }
     },
   )
@@ -369,7 +369,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       )
     } catch (err) {
       server.log.error({ err }, 'ai-world sync/dry-run failed')
-      return reply.status(500).send({ code: 500, message: '同步失败' })
+      return reply.status(500).send(error(500, '同步失败'))
     }
   })
 }

@@ -120,7 +120,7 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/settings/authorizations/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
     const ok = await revokeSession(request.userId!, id)
-    if (!ok) return reply.code(404).send({ code: 404, message: 'Session not found', data: null })
+    if (!ok) return reply.code(404).send(error(404, 'Session not found'))
     return reply.send(success({ revoked: true }))
   })
 

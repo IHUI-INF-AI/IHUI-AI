@@ -53,11 +53,11 @@ const adminListNotificationsQuery = z.object({
   userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
-const userIdParamSchema = z.object({ userId: z.string().uuid('无效的用户 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const userIdParamSchema = z.object({ userId: z.string().uuid({ message: '无效的用户 ID' }) })
 
 const sendMessageSchema = z.object({
-  receiverId: z.string().uuid('无效的接收者 ID'),
+  receiverId: z.string().uuid({ message: '无效的接收者 ID' }),
   content: z.string().min(1, '内容不能为空').max(5000, '内容过长'),
 })
 
