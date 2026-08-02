@@ -471,8 +471,28 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         if (!tab || !tab.url) return
 
         // CDP 模式:后端浏览器刷新
-        if (tab.state.mode === 'cdp' && tab.state.sessionId) {
-          void browserHubReload(tab.state.sessionId)
+        const cdpSessionId = tab.state.sessionId
+        if (tab.state.mode === 'cdp' && cdpSessionId) {
+          void (async () => {
+            const result = await browserHubReload(cdpSessionId)
+            const { tabs: curTabs, activeTabId: curId } = get()
+            if (!curId) return
+            // 2026-08-02 fix:命中反爬/风控墙时后端重建会话,前端需切换到新 sessionId
+            if (
+              result.success &&
+              result.data?.session_id &&
+              result.data.session_id !== tab.state.sessionId
+            ) {
+              set({
+                tabs: patchActiveTabState(curTabs, curId, {
+                  status: 'loaded',
+                  sessionId: result.data.session_id,
+                  error: undefined,
+                  screenshot: undefined,
+                }),
+              })
+            }
+          })()
           return
         }
 
