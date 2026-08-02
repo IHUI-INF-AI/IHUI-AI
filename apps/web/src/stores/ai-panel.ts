@@ -123,14 +123,14 @@ export const useAiPanelStore = create<AiPanelState>()(
       // 现改为会话级状态:每次刷新回到 docked 默认态,移动端 effect 仅在当前会话生效不污染桌面端。
       // merge 显式强制 floatMode:false + floatPosition:默认值,忽略旧 localStorage 残留的 true。
       //
-      // 2026-08-02 version 0→1 迁移(用户规则"给我设置为680"):
-      // 旧 localStorage 可能残留 width=400(老默认值)或 width=514(isMobile bug 期间浮窗宽度),
-      // migrate 把 < 680 的 width 一次性提升到 AI_PANEL_DEFAULT_WIDTH(680),merge 后生效。
-      // 用户后续拖拽正常持久化(setWidth 仍受 MIN/MAX 钳制)。
-      version: 1,
+      // 2026-08-02 version 0→1→2 迁移(用户规则"给我设置为680"):
+      // - v0→v1:仅把 width < 680 提升到 680,但漏了 width > 680 的情况(MAX 720 / isMobile bug 期间 1022)
+      // - v1→v2(本次):无论 localStorage 残留 width 是多少(400/514/720/1022),强制设为 680
+      //   用户明确"设置为680",覆盖所有旧值,用户后续拖拽正常持久化(setWidth 受 MIN/MAX 钳制)
+      version: 2,
       migrate: (persistedState: unknown, version: number) => {
         const s = ((persistedState as Partial<AiPanelState>) || {})
-        if (version < 1 && typeof s.width === 'number' && s.width < AI_PANEL_DEFAULT_WIDTH) {
+        if (version < 2 && typeof s.width === 'number') {
           s.width = AI_PANEL_DEFAULT_WIDTH
         }
         return s as Partial<AiPanelState>
