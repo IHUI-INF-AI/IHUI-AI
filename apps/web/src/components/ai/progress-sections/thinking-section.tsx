@@ -181,10 +181,13 @@ export const ThinkingSection = React.memo(function ThinkingSection({
             <span>{t('thinkingStreaming')}</span>
           </span>
         )}
-        {/* v2: 折叠态内容预览(1 行高度,最后 60 字符) */}
+        {/* v2: 折叠态内容预览(1 行高度,最后 60 字符)
+         *  修复 #5:内容长度跨过 60 字符边界时,显示从"完整 trimmed"突然变成"…后60字",
+         *  视觉跳变。保持原 slice(-60) 逻辑,在 span 上加 transition-all duration-150
+         *  让容器在文本变化时有轻微过渡,缓解边界跳变。 */}
         {!expanded && preview && (
           <span
-            className="min-w-0 flex-1 truncate text-[10px] font-normal text-muted-foreground/60"
+            className="min-w-0 flex-1 truncate text-[10px] font-normal text-muted-foreground/60 transition-all duration-150"
             data-testid="thinking-preview"
           >
             {preview}
