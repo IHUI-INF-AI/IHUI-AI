@@ -5,7 +5,7 @@
   "models": [
     {
       "id": "stepfun/step-router-v1",
-      "name": "Step Router v1 (StepFun 智能路由,默认主力)",
+      "name": "Step Router v1",
       "provider": "stepfun",
       "context_length": 128000,
       "input_price": 0,
@@ -19,7 +19,7 @@
     },
     {
       "id": "stepfun/step-3.7-flash",
-      "name": "Step 3.7 Flash (StepFun,轻量快版)",
+      "name": "Step 3.7 Flash",
       "provider": "stepfun",
       "context_length": 128000,
       "input_price": 0,
@@ -1253,7 +1253,7 @@
     },
     {
       "id": "opencode/big-pickle",
-      "name": "Big Pickle (OpenCode Zen 免费,2026-07-31 修复:正确模型名无 -stealth 后缀)",
+      "name": "Big Pickle",
       "provider": "opencode_zen",
       "context_length": 256000,
       "input_price": 0,
@@ -1337,7 +1337,7 @@
     },
     {
       "id": "llm7/gpt-oss:20b",
-      "name": "GPT-OSS 20B (LLM7 免费镜像,2026-07-31 修复:gpt-4o/qwen3-235b 已下线,已实测调通)",
+      "name": "GPT-OSS 20B",
       "provider": "llm7",
       "context_length": 128000,
       "input_price": 0,
@@ -1351,7 +1351,7 @@
     },
     {
       "id": "pollinations/openai-fast",
-      "name": "OpenAI Fast (Pollinations 无 key 免费,2026-07-31 修复:gpt-5 已下线)",
+      "name": "OpenAI Fast",
       "provider": "pollinations",
       "context_length": 128000,
       "input_price": 0,
@@ -1379,7 +1379,7 @@
     },
     {
       "id": "aihorde/auto",
-      "name": "Auto (AI Horde 众包 GPU,⚠️ 2026-07-31 评估:非 OpenAI 兼容协议,当前 LiteLLM 路径不可用,待原生 provider 适配)",
+      "name": "Auto",
       "provider": "aihorde",
       "context_length": 32768,
       "input_price": 0,
