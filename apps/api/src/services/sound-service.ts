@@ -62,6 +62,25 @@ function genId(): string {
   return generateCompactId('snd')
 }
 
+/** 危险键:可能通过 [[Set]] 触发原型链污染(Object.prototype.__proto__ setter / constructor 重写) */
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/**
+ * 过滤 patch 中的原型链污染键(2026-08-02 安全修复:防 __proto__/constructor/prototype 注入)。
+ *
+ * 不用 `{ ...patch }` + `delete`:spread 在 patch 含 `__proto__` 作为 own property 时
+ * 会触发 Object.prototype.__proto__ setter,污染中间对象 [[Prototype]];
+ * 改用 Object.keys 显式白名单复制,只写非危险键,中间对象 [[Prototype]] 始终是 Object.prototype。
+ */
+function sanitizePatch<T extends Record<string, unknown>>(patch: T): T {
+  const cleaned: Record<string, unknown> = {}
+  for (const key of Object.keys(patch)) {
+    if (DANGEROUS_KEYS.has(key)) continue
+    cleaned[key] = patch[key]
+  }
+  return cleaned as T
+}
+
 /** 添加音效到库。 */
 export function addSound(
   input: Omit<SoundAsset, 'id' | 'playCount' | 'lastPlayedAt' | 'createdAt'>,
@@ -89,7 +108,8 @@ export function updateSound(
 ): boolean {
   const asset = library.get(id)
   if (!asset) return false
-  Object.assign(asset, updates)
+  const safeUpdates = sanitizePatch(updates as Record<string, unknown>)
+  Object.assign(asset, safeUpdates)
   return true
 }
 

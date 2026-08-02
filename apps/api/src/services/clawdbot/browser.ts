@@ -7,6 +7,12 @@
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
+import { ensureSafeFetchUrl } from '../../utils/ssrf-guard.js'
+
+/** 转义字符串中的正则元字符,防止用户输入注入 ReDoS(2026-08-02 安全加固) */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 export interface BrowserPage {
   id: string
@@ -48,6 +54,8 @@ export class BrowserAutomation extends EventEmitter {
   ): Promise<BrowserPage> {
     const start = Date.now()
     logger.info({ url }, '[Browser] Navigating')
+    // 2026-08-02 SSRF 防护:fetch 前校验 URL,拒绝内网/保留地址
+    await ensureSafeFetchUrl(url)
     try {
       const response = await fetch(url, {
         headers: { 'User-Agent': 'Clawdbot/1.0', ...options?.headers },
@@ -107,6 +115,8 @@ export class BrowserAutomation extends EventEmitter {
       '[Browser] Form fill',
     )
     try {
+      // 2026-08-02 SSRF 防护:fetch 前校验 URL,拒绝内网/保留地址
+      await ensureSafeFetchUrl(options.url)
       // 降级模式：使用 fetch 发送表单数据
       const response = await fetch(options.url, {
         method: 'POST',
@@ -138,19 +148,26 @@ export class BrowserAutomation extends EventEmitter {
     selector: string,
     _attribute?: string,
   ): string | string[] {
+    // 2026-08-02 ReDoS 防护:拒绝含正则元字符的 selector(防 catastrophic backtracking)
+    // 允许:#id / .class / 标签名(字母数字+连字符),其余一律拒绝
+    if (!/^[#.a-zA-Z0-9_-]+$/.test(selector)) {
+      logger.warn({ selector }, '[Browser] selector rejected: contains forbidden chars')
+      return ''
+    }
     // 简化的选择器解析：支持标签名和 class/id 基础匹配
     if (selector.startsWith('#')) {
-      const id = selector.slice(1)
+      const id = escapeRegex(selector.slice(1))
       const regex = new RegExp(`id=["']${id}["'][^>]*>([\\s\\S]*?)<`, 'i')
       return html.match(regex)?.[1]?.trim() ?? ''
     }
     if (selector.startsWith('.')) {
-      const cls = selector.slice(1)
+      const cls = escapeRegex(selector.slice(1))
       const regex = new RegExp(`class=["'][^"']*${cls}[^"']*["'][^>]*>([\\s\\S]*?)<`, 'gi')
       const matches = html.match(regex)
       return matches?.map((m) => m.trim()) ?? []
     }
-    const tagRegex = new RegExp(`<${selector}[^>]*>([\\s\\S]*?)</${selector}>`, 'gi')
+    const tag = escapeRegex(selector)
+    const tagRegex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'gi')
     const matches = html.match(tagRegex)
     return matches?.map((m) => m.replace(/<[^>]+>/g, '').trim()) ?? []
   }

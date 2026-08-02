@@ -16,6 +16,7 @@ import { execFile } from 'node:child_process'
 import { logger } from './clawdbot/logger.js'
 import { callRealLlm } from './crew-llm-adapter.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
+import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
 import type { ToolDefinition, ToolHandler, ToolContext } from './clawdbot/tools.js'
 
 // 2026-07-21 安全审计加固:移除 exec(shell),统一改用 execFile
@@ -176,6 +177,12 @@ export const CREW_TOOLS: CrewTool[] = [
     handler: async (params) => {
       const url = String(params.url ?? '')
       const maxLen = Number(params.max_length ?? 5000)
+      // 2026-08-02 SSRF 防护:校验 URL,拒绝内网/保留地址
+      try {
+        await ensureSafeFetchUrl(url)
+      } catch (err) {
+        return { success: false, error: (err as Error).message, duration: 0 }
+      }
       const resp = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         signal: AbortSignal.timeout(20000),

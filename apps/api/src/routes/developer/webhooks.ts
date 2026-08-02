@@ -24,6 +24,7 @@ import { webhookSubscriptions, webhookDeliveryLogs } from '@ihui/database'
 import { requireAuth } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { generateWebhookSecret } from '../../services/webhook-relay-notifier.js'
+import { ensureSafeFetchUrl } from '../../utils/ssrf-guard.js'
 
 // =============================================================================
 // 常量与 Zod schemas
@@ -41,7 +42,18 @@ const paginationSchema = z.object({
 })
 
 const createSubscriptionSchema = z.object({
-  url: z.string().url('无效的 URL').max(512),
+  url: z
+    .string()
+    .url('无效的 URL')
+    .max(512)
+    .refine(async (url) => {
+      try {
+        await ensureSafeFetchUrl(url)
+        return true
+      } catch {
+        return false
+      }
+    }, 'URL 指向内网或被禁止的地址'),
   events: z.array(z.enum(ALLOWED_EVENTS)).min(1, '至少订阅一个事件').max(10),
   enabled: z.boolean().optional(),
   balanceThresholdCents: z.number().int().min(0).max(1_000_000_00).optional(),
@@ -49,7 +61,20 @@ const createSubscriptionSchema = z.object({
 
 const updateSubscriptionSchema = z
   .object({
-    url: z.string().url('无效的 URL').max(512).optional(),
+    url: z
+      .string()
+      .url('无效的 URL')
+      .max(512)
+      .optional()
+      .refine(async (url) => {
+        if (url === undefined) return true
+        try {
+          await ensureSafeFetchUrl(url)
+          return true
+        } catch {
+          return false
+        }
+      }, 'URL 指向内网或被禁止的地址'),
     events: z.array(z.enum(ALLOWED_EVENTS)).min(1).max(10).optional(),
     enabled: z.boolean().optional(),
     balanceThresholdCents: z.number().int().min(0).max(1_000_000_00).optional(),
@@ -117,6 +142,8 @@ async function deliverOnce(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 10_000)
   try {
+    // 2026-08-02 SSRF 防护:fetch 前再次校验(防 DNS rebinding,创建时校验后 IP 可能已变)
+    await ensureSafeFetchUrl(url)
     const resp = await fetch(url, {
       method: 'POST',
       headers: {
@@ -127,8 +154,7 @@ async function deliverOnce(
       signal: controller.signal,
     })
     const rawBody = await resp.text().catch(() => '')
-    const truncated =
-      rawBody.length > 2000 ? rawBody.slice(0, 2000) + '...[truncated]' : rawBody
+    const truncated = rawBody.length > 2000 ? rawBody.slice(0, 2000) + '...[truncated]' : rawBody
     return { ok: resp.ok, status: resp.status, body: truncated }
   } catch (e) {
     return { ok: false, status: 0, body: (e as Error).message || '投递失败' }
@@ -164,7 +190,7 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
   // ===== 2. POST /webhooks/subscriptions — 建订阅(secret 仅返回一次)=====
   server.post('/webhooks/subscriptions', async (request, reply) => {
     const userId = request.userId!
-    const parsed = createSubscriptionSchema.safeParse(request.body)
+    const parsed = await createSubscriptionSchema.safeParseAsync(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
@@ -191,7 +217,7 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const parsed = updateSubscriptionSchema.safeParse(request.body)
+    const parsed = await updateSubscriptionSchema.safeParseAsync(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
