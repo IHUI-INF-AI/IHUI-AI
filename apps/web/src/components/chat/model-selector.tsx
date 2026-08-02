@@ -299,7 +299,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           align="end"
           sideOffset={6}
           className={cn(
-            'z-popover max-h-[60vh] w-fit overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
+            'z-popover max-h-[60vh] w-fit max-w-[300px] overflow-y-auto rounded-lg border bg-card p-1 text-card-foreground shadow-md',
             ' [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
           )}
         >
