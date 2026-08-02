@@ -231,39 +231,62 @@ def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str 
 
 
 def _inject_workspace_memory(
-    messages: list[dict[str, Any]], workspace_path: str | None
+    messages: list[dict[str, Any]],
+    workspace_path: str | None,
+    workspace_context: str | None = None,
 ) -> list[dict[str, Any]]:
-    """将工作区项目记忆(CLAUDE.md/AGENTS.md/.ihui/memory.md)注入为 system message。
+    """将工作区项目记忆注入为 system message。
+
+    两种来源(优先级:workspace_context > workspace_path):
+    1. workspace_context(2026-08-02 立,阶段 1):浏览器端用 FileSystemDirectoryHandle
+       预加载的工作区文件内容(目录树 + 关键文件),直接注入,跳过文件系统读取。
+       适用于 web 非 Tauri 环境(ai-service 在远程服务器访问不到用户本地文件)。
+    2. workspace_path:后端从文件系统读取 CLAUDE.md/AGENTS.md/.ihui/memory.md。
+       适用于 Tauri 桌面端(ai-service 在本地,能访问真实路径)。
 
     行为(参考 Claude Code CLAUDE.md 机制):
-    - workspace_path 为 None 或路径无项目记忆文件 → 原样返回 messages
+    - 两者都为 None → 原样返回 messages
     - messages[0].role == 'system' → 把项目记忆追加到现有 system content 后面
     - messages 无 system → 在开头插入新 system message
 
     Args:
         messages: 原始消息列表
-        workspace_path: 工作区路径(None 时跳过注入)
+        workspace_path: 工作区路径(None 时跳过文件系统读取)
+        workspace_context: 浏览器端预加载的工作区文件内容(优先于 workspace_path)
 
     Returns:
         注入项目记忆后的新消息列表(不修改原列表)
     """
-    if not workspace_path:
+    # 1. 优先用 workspace_context(浏览器端预加载,直接注入)
+    if workspace_context:
+        # 附加引导:告知 LLM 文件已预加载,无需调 read_file 等工具
+        memory_content = (
+            "以下为工作区文件的预加载内容(由浏览器端 FileSystemDirectoryHandle 读取)。\n"
+            "你可以直接引用这些文件内容回答问题,无需调用 read_file / search_codebase 等工具。\n"
+            "如需读取未在预加载范围内的文件,请告知用户该文件未被预加载。\n\n"
+            f"{workspace_context}"
+        )
+        workspace_label = "browser-context"
+    elif workspace_path:
+        memory_content = build_system_prompt(workspace_path=workspace_path)
+        # 项目记忆服务返回的内容已包含默认 system prompt 前缀,直接拼接即可
+        if not memory_content:
+            return messages
+        workspace_label = workspace_path
+    else:
         return messages
-    memory_content = build_system_prompt(workspace_path=workspace_path)
-    # 项目记忆服务返回的内容已包含默认 system prompt 前缀,直接拼接即可
-    if not memory_content:
-        return messages
+
     new_messages = list(messages)
     if new_messages and new_messages[0].get("role") == "system":
         existing = new_messages[0].get("content", "")
-        # 避免重复注入(同一 workspace_path 已注入过则跳过)
-        marker = f"<!-- workspace:{workspace_path} -->"
+        # 避免重复注入(同一 workspace 已注入过则跳过)
+        marker = f"<!-- workspace:{workspace_label} -->"
         if marker in str(existing):
             return messages
         # 用 XML 隔离标签包裹工作区记忆,防 prompt injection:
         # 明确告知 LLM 这部分是"项目上下文"而非用户指令,降低被注入指令劫持的风险
         isolated_memory = (
-            f"<workspace_memory path=\"{workspace_path}\">\n"
+            f"<workspace_memory path=\"{workspace_label}\">\n"
             f"{memory_content}\n"
             f"</workspace_memory>"
         )
@@ -271,7 +294,7 @@ def _inject_workspace_memory(
         new_messages[0] = {**new_messages[0], "content": merged}
     else:
         isolated_memory = (
-            f"<workspace_memory path=\"{workspace_path}\">\n"
+            f"<workspace_memory path=\"{workspace_label}\">\n"
             f"{memory_content}\n"
             f"</workspace_memory>"
         )
@@ -415,6 +438,13 @@ class LLMCompleteRequest(BaseModel):
     workspace_path: str | None = Field(
         None, description="工作区路径,自动加载并注入项目记忆文件(CLAUDE.md/AGENTS.md/.ihui/memory.md)"
     )
+    # 浏览器端预加载的工作区文件内容(2026-08-02 立,阶段 1)
+    # web 非 Tauri 环境下,前端用 FileSystemDirectoryHandle 遍历读取工作区关键文件,
+    # 把内容通过此字段传给后端,后端直接注入 system prompt(跳过从文件系统读取)。
+    # 优先级:workspace_context > workspace_path
+    workspace_context: str | None = Field(
+        None, description="浏览器端预加载的工作区文件内容,直接注入 system prompt(优先于 workspace_path)"
+    )
     # 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一,Python 端兜底)
     context_limit: int | None = Field(
         None, description="模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或 None = 不压缩"
@@ -435,7 +465,7 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any] | JSONResponse
     """直接调用 LLM 完成对话(支持 function calling)。"""
     owner_uuid = (req.metadata or {}).get("userId")
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
-    messages = _inject_workspace_memory(req.messages, req.workspace_path)
+    messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     if req.context_limit and req.context_limit > 0:
         messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
@@ -541,17 +571,35 @@ async def list_models() -> dict[str, Any]:
         seen = {m["id"] for m in default_models}
         for r in rows:
             mid = r["model_id"]
-            # OpenRouter 模型需要 "openrouter/" 前缀(调用时 _model_to_provider_code 匹配)
-            if r["provider_code"] == "openrouter" and not mid.startswith("openrouter/"):
+            provider_code = r["provider_code"]
+            # 2026-08-02 立:DB 模型 id 规范化(修复 /llm/models 模型缺失),按 provider 分支:
+            # - gemini:剥掉 "models/" 前缀再加 "gemini/"(DB 中两种格式混存,如
+            #   "models/gemini-2.0-flash" 与 "gemini-2.5-flash",统一为 "gemini/<name>")
+            # - agnes:统一加 "agnes/" 前缀
+            # - nvidia / nvidia_nim:统一加 "nvidia/" 前缀
+            # - openrouter / stepfun:已有前缀逻辑,保持
+            # - cloudflare_workers_ai:DB id 已带 "@cf/" 前缀,保持原样
+            if provider_code == "gemini":
+                mid = mid.split("models/", 1)[-1] if mid.startswith("models/") else mid
+                if not mid.startswith("gemini/"):
+                    mid = f"gemini/{mid}"
+            elif provider_code == "agnes" and not mid.startswith("agnes/"):
+                mid = f"agnes/{mid}"
+            elif provider_code in ("nvidia", "nvidia_nim") and not mid.startswith("nvidia/"):
+                mid = f"nvidia/{mid}"
+            elif provider_code == "openrouter" and not mid.startswith("openrouter/"):
+                # OpenRouter 模型需要 "openrouter/" 前缀(调用时 _model_to_provider_code 匹配)
                 mid = f"openrouter/{mid}"
-            # StepFun 模型加 "stepfun/" 前缀(与 default_models.json 对齐,避免重复)
-            elif r["provider_code"] == "stepfun" and not mid.startswith("stepfun/"):
+            elif provider_code == "stepfun" and not mid.startswith("stepfun/"):
+                # StepFun 模型加 "stepfun/" 前缀(与 default_models.json 对齐,避免重复)
                 mid = f"stepfun/{mid}"
+            # 以规范化后的 mid 作为去重键(seen 在遍历 DB 行时持续累加,保证全局唯一,
+            # 修复 DB 内部重复,如 stepfun 18 条=9 个唯一 id)
             if mid not in seen:
                 default_models.append({
                     "id": mid,
                     "name": r["display_name"] or mid,
-                    "provider": r["provider_code"],
+                    "provider": provider_code,
                     "context_length": r["context_length"] or 4096,
                 })
                 seen.add(mid)
@@ -829,7 +877,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # 确保 Plan Mode 引导位于 system prompt 最顶部);act 模式原样返回
     messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
-    messages = _inject_workspace_memory(messages, req.workspace_path)
+    messages = _inject_workspace_memory(messages, req.workspace_path, req.workspace_context)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:

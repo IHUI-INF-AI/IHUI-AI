@@ -30,6 +30,8 @@ import {
 } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
+import { isTauri } from '@/lib/tauri-bridge'
+import { loadWorkspaceContext, getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import {
   mapSpawnToTimelineEvent,
   mapProgressToTimelineUpdate,
@@ -748,10 +750,74 @@ const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
  * 调用时机:sendMessage / sendAnswer 构造 streamChat 参数前。
  * 去重保证工具名唯一,ai-service 收到后从 mcp_server 加载完整 schema。
  */
+/** 依赖本地文件系统的工具集合(web 非 Tauri 环境下移除,2026-08-02 立) */
+const FS_DEPENDENT_TOOLS = new Set([
+  'read_file',
+  'write_file',
+  'file_edit',
+  'file_search',
+  'search_codebase',
+  'list_files',
+  'apply_patch',
+  'create_file',
+  'delete_file',
+  'move_file',
+  'analyze_code',
+  'generate_test',
+])
+
 function mergeAgentTools(): string[] {
   const selected = useChatStore.getState().selectedTools
   const extra = selected.flatMap((id) => PLUGIN_ID_TO_TOOLS[id] ?? [])
-  return [...new Set([...AGENT_TOOLS, ...extra])]
+  const tools = [...new Set([...AGENT_TOOLS, ...extra])]
+  // web 非 Tauri 环境:移除依赖本地文件系统的工具
+  // 浏览器端 ai-service 在远程服务器上,无法访问用户本地文件,这些工具调用必然失败。
+  // 阶段 1 通过 workspaceContext 预加载文件内容到 system prompt,LLM 直接看无需调工具;
+  // 阶段 2 实现"前端工具执行代理"后可恢复这些工具。
+  if (!isTauri()) {
+    return tools.filter((t) => !FS_DEPENDENT_TOOLS.has(t))
+  }
+  return tools
+}
+
+/**
+ * 加载浏览器端工作区上下文(2026-08-02 立,阶段 1 核心)。
+ *
+ * 仅在 web 非 Tauri 环境下生效:
+ *   1. 从 ai-panel store 取 activeWorkspace.name
+ *   2. 用 name 从 module-level Map 取 FileSystemDirectoryHandle
+ *   3. 用 handle 遍历读取工作区关键文件,返回格式化 context 字符串
+ *
+ * Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑(ai-service 直接读本地文件)。
+ *
+ * 缓存:同一工作区只加载一次,切换工作区后自动重新加载。
+ */
+let cachedBrowserContext: { name: string; text: string } | null = null
+
+async function loadBrowserWorkspaceContext(): Promise<string | undefined> {
+  // Tauri 桌面端走 workspacePath,不需要 workspaceContext
+  if (isTauri()) return undefined
+  // 非 Tauri 环境:从 ai-panel store 拿 activeWorkspace
+  const ws = useAiPanelStore.getState().activeWorkspace
+  if (!ws?.name) return undefined
+  // 缓存命中(同一工作区不重复加载)
+  if (cachedBrowserContext && cachedBrowserContext.name === ws.name) {
+    return cachedBrowserContext.text
+  }
+  const handle = getBrowserWorkspaceHandle(ws.name)
+  if (!handle) return undefined
+  try {
+    const result = await loadWorkspaceContext(handle)
+    cachedBrowserContext = { name: ws.name, text: result.text }
+    logger.info(
+      `[workspace-context] loaded ${result.stats.fileCount} files, ` +
+        `${result.stats.totalSize} bytes, truncated=${result.stats.truncated}`,
+    )
+    return result.text
+  } catch (err) {
+    logger.warn('[workspace-context] load failed:', err)
+    return undefined
+  }
 }
 
 /** 浏览器类工具:命中即自动在右侧 WorkPanel 打开 URL(2026-07-22 立,P2 联动) */
@@ -1187,6 +1253,9 @@ export function useChat(): UseChatReturn {
       const userId = useAuthStore.getState().user?.id ?? ''
       // 从 ai-panel store 获取当前绑定的本地工作区路径(用于注入 CLAUDE.md/AGENTS.md 项目记忆)
       const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+      // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(阶段 1)
+      // Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑
+      const workspaceContext = await loadBrowserWorkspaceContext()
 
       // 2026-07-31 防御性降级:'auto' 模型后端不支持,降级到 stepfun/step-router-v1
       // (正常路径 setModel 已降级,此处防止其他路径绕过 setModel 直接传 'auto')
@@ -1208,6 +1277,7 @@ export function useChat(): UseChatReturn {
             mode: useModeStore.getState().currentMode,
           },
           workspacePath,
+          workspaceContext,
           // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
           contextLimit: getModelContextCapacity(effectiveModel),
           onCompaction: (info) => {
@@ -1524,6 +1594,8 @@ export function useChat(): UseChatReturn {
 
     const userId = useAuthStore.getState().user?.id ?? ''
     const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+    // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(与 sendMessage 对称)
+    const workspaceContext = await loadBrowserWorkspaceContext()
 
     // 2026-07-31 防御性降级:与 sendMessage 对称,'auto' → stepfun/step-router-v1
     const effectiveModel = model === 'auto' ? 'stepfun/step-router-v1' : model
@@ -1546,6 +1618,7 @@ export function useChat(): UseChatReturn {
           messageId: assistantId,
         },
         workspacePath,
+        workspaceContext,
         contextLimit: getModelContextCapacity(effectiveModel),
         // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
         onFallback: (event) => setFallbackNotice(event),
