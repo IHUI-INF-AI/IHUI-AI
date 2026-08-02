@@ -112,7 +112,9 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     # === OpenRouter / Groq / Gemini 前缀 ===
     ("openrouter/", "openrouter"),
     ("groq/", "groq"),
-    ("gemini/", "google"),
+    # 2026-08-02 修复:与 free_provider_registry.provider_code="gemini" + LLM_PROVIDERS["gemini"] 对齐
+    # 原映射 "google" 导致 is_model_available 找 LLM_PROVIDERS["google"] 找不到 key,gemini 模型被过滤
+    ("gemini/", "gemini"),
     # === Anthropic ===
     ("anthropic/", "anthropic"),
     # === 本地 LLM(无需 key)===
@@ -177,7 +179,8 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     ("o3", "openai"),
     ("o4-", "openai"),
     ("claude-", "anthropic"),
-    ("gemini-", "google"),
+    # 2026-08-02 修复:与 gemini/ 前缀映射保持一致(均走 gemini provider_code)
+    ("gemini-", "gemini"),
     ("gemma-", "gemma"),
     ("llama-", "meta"),
     ("grok-", "xai"),
@@ -598,7 +601,9 @@ class ModelAvailabilityService:
         且能识别 402 余额不足(/models 端点不返回 402)。
         """
         url = api_base.rstrip("/")
-        if url.endswith("/v1"):
+        # 2026-08-02 修复:Google AI Studio api_base 以 /openai 结尾(非 /v1),
+        # 直接接 /chat/completions(加 /v1 会变 /v1beta/openai/v1/chat/completions → 404)
+        if url.endswith("/v1") or url.endswith("/openai"):
             url = f"{url}/chat/completions"
         else:
             url = f"{url}/v1/chat/completions"
@@ -607,7 +612,9 @@ class ModelAvailabilityService:
         model_id = ""
         if provider and provider.default_models:
             model_id = provider.default_models[0]
-            for prefix in ("stepfun/", "agnes/"):
+            # 2026-08-02 修复:加 gemini/ 前缀(原只去 stepfun/agnes,导致 gemini ping 时
+            # model_id="gemini/gemini-2.5-flash" 带 / 被 Google API 拒绝 → health=DOWN → 模型被过滤)
+            for prefix in ("stepfun/", "agnes/", "gemini/"):
                 if model_id.startswith(prefix):
                     model_id = model_id[len(prefix):]
                     break
