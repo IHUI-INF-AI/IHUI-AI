@@ -7,6 +7,25 @@ import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { getNodeExecutor, type NodeExecutionContext } from './nodes.js'
 
+/** 危险键:可能通过 [[Set]] 触发原型链污染(Object.prototype.__proto__ setter / constructor 重写) */
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+/**
+ * 过滤 patch 中的原型链污染键(2026-08-02 安全修复:防 __proto__/constructor/prototype 注入)。
+ *
+ * 不用 `{ ...patch }` + `delete`:spread 在 patch 含 `__proto__` 作为 own property 时
+ * 会触发 Object.prototype.__proto__ setter,污染中间对象 [[Prototype]];
+ * 改用 Object.keys 显式白名单复制,只写非危险键,中间对象 [[Prototype]] 始终是 Object.prototype。
+ */
+function sanitizePatch<T extends Record<string, unknown>>(patch: T): T {
+  const cleaned: Record<string, unknown> = {}
+  for (const key of Object.keys(patch)) {
+    if (DANGEROUS_KEYS.has(key)) continue
+    cleaned[key] = patch[key]
+  }
+  return cleaned as T
+}
+
 export interface CanvasNode {
   id: string
   type: string
@@ -81,7 +100,8 @@ export class CanvasService extends EventEmitter {
   update(id: string, patch: Partial<Canvas>): Canvas | null {
     const canvas = this.canvases.get(id)
     if (!canvas) return null
-    Object.assign(canvas, patch, { updatedAt: Date.now(), version: canvas.version + 1 })
+    const safePatch = sanitizePatch(patch as Record<string, unknown>)
+    Object.assign(canvas, safePatch, { updatedAt: Date.now(), version: canvas.version + 1 })
     this.emit('updated', canvas)
     return canvas
   }
@@ -94,7 +114,8 @@ export class CanvasService extends EventEmitter {
 
   async execute(id: string, inputs: Record<string, unknown>): Promise<CanvasExecutionResult> {
     const canvas = this.canvases.get(id)
-    if (!canvas) return { canvasId: id, success: false, outputs: {}, duration: 0, error: 'Canvas not found' }
+    if (!canvas)
+      return { canvasId: id, success: false, outputs: {}, duration: 0, error: 'Canvas not found' }
 
     const start = Date.now()
     const nodeExecutor = getNodeExecutor()
@@ -108,13 +129,21 @@ export class CanvasService extends EventEmitter {
         name: node.id,
         config: node.data,
         next: edges.filter((e) => !e.condition).map((e) => e.target),
-        branches: edges.filter((e) => e.condition).map((e) => ({ condition: e.condition!, next: e.target })),
+        branches: edges
+          .filter((e) => e.condition)
+          .map((e) => ({ condition: e.condition!, next: e.target })),
       })
     }
 
     const startNode = canvas.nodes.find((n) => n.type === 'start') ?? canvas.nodes[0]
     if (!startNode) {
-      return { canvasId: id, success: false, outputs: {}, duration: Date.now() - start, error: 'No start node' }
+      return {
+        canvasId: id,
+        success: false,
+        outputs: {},
+        duration: Date.now() - start,
+        error: 'No start node',
+      }
     }
 
     const context: NodeExecutionContext = {
@@ -130,7 +159,13 @@ export class CanvasService extends EventEmitter {
       while (current) {
         const result = await nodeExecutor.execute(current, context)
         if (!result.success) {
-          return { canvasId: id, success: false, outputs: context.outputs, duration: Date.now() - start, error: result.error }
+          return {
+            canvasId: id,
+            success: false,
+            outputs: context.outputs,
+            duration: Date.now() - start,
+            error: result.error,
+          }
         }
         current = result.nextNodes[0] ?? ''
       }
