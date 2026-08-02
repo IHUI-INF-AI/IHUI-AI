@@ -15,9 +15,15 @@ import {
   Trash2,
   MessageCircle,
   BarChart3,
+  Eye,
+  EyeOff,
+  Download,
+  Code,
+  Megaphone,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
+import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 
 import type { ChatMessage } from '@/stores/chat'
 import type { InlineDiffInfo, SubAgentActivity } from '@/components/ai/types'
@@ -78,6 +84,35 @@ function formatMessageTimestamp(createdAt: number): string {
   const mo = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   return `${mo}-${dd} ${hh}:${mm}`
+}
+
+/** 元数据 usage 展开面板(2026-08-02 立,原项目 toggleMetadata 展开内容)
+ *  展示 promptTokens / completionTokens / totalTokens 细分,类型安全读取 unknown 字段 */
+function UsageBreakdown({ usage }: { usage: unknown }) {
+  if (typeof usage !== 'object' || usage === null) return null
+  const u = usage as Record<string, unknown>
+  const prompt = typeof u.promptTokens === 'number' ? u.promptTokens : null
+  const completion = typeof u.completionTokens === 'number' ? u.completionTokens : null
+  const total = typeof u.totalTokens === 'number' ? u.totalTokens : null
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      {prompt !== null && (
+        <span className="text-muted-foreground">
+          Prompt: <span className="font-medium text-foreground">{prompt}</span>
+        </span>
+      )}
+      {completion !== null && (
+        <span className="text-muted-foreground">
+          Completion: <span className="font-medium text-foreground">{completion}</span>
+        </span>
+      )}
+      {total !== null && (
+        <span className="text-muted-foreground">
+          Total: <span className="font-medium text-foreground">{total}</span>
+        </span>
+      )}
+    </div>
+  )
 }
 
 // 2026-08-02:消息交互按钮基础样式(完全复用原项目 AIChat.vue 统一按钮系统)
@@ -242,6 +277,48 @@ const MessageItem = React.memo(function MessageItem({
     toast.info(t('editComingSoon') === 'editComingSoon' ? 'Edit coming soon' : t('editComingSoon'))
   }, [t])
 
+  // 2026-08-02:补建原项目 AIChat.vue 4 个缺失 AI 消息按钮
+  // 1. 内容可见性切换(Eye/EyeOff)— 原项目 toggleAssistantContentVisibility
+  const [contentVisible, setContentVisible] = React.useState(true)
+  const handleToggleVisibility = React.useCallback(() => {
+    setContentVisible((prev) => !prev)
+  }, [])
+
+  // 2. 下载图片(Download)— 原项目 downloadAssistantImages
+  // 从 toolCalls 提取所有 image_url,触发浏览器下载
+  const messageImages = React.useMemo(() => {
+    if (!m.toolCalls) return []
+    return m.toolCalls
+      .map((tc) => tc.image_url)
+      .filter((url): url is string => typeof url === 'string' && url.length > 0)
+  }, [m.toolCalls])
+  const handleDownloadImages = React.useCallback(() => {
+    if (messageImages.length === 0) return
+    messageImages.forEach((url, idx) => {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ai-image-${m.id}-${idx + 1}`
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    })
+    toast.success(
+      t('downloadStarted') === 'downloadStarted' ? 'Download started' : t('downloadStarted'),
+    )
+  }, [messageImages, m.id, t])
+
+  // 3. 元数据 toggle(Code)— 原项目 toggleMetadata,展开/折叠 usage 细分面板
+  const [metadataExpanded, setMetadataExpanded] = React.useState(false)
+  const handleToggleMetadata = React.useCallback(() => {
+    setMetadataExpanded((prev) => !prev)
+  }, [])
+  const hasMetadata = Boolean(m.meta?.usage) && typeof m.meta?.usage === 'object'
+
+  // 4. 发布到社区(Megaphone)— 原项目 publishToCommunity
+  const [publishDialogOpen, setPublishDialogOpen] = React.useState(false)
+
   // 卸载清理 timer
   React.useEffect(() => {
     return () => {
@@ -330,7 +407,13 @@ const MessageItem = React.memo(function MessageItem({
           // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
           <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
         ) : (
-          <div className="space-y-2 animate-in fade-in-0 duration-150 fill-mode-both">
+          <div
+            className={cn(
+              'space-y-2 animate-in fade-in-0 duration-150 fill-mode-both',
+              // 2026-08-02:内容可见性切换(Eye/EyeOff)— 折叠时限高,仅显示前几行
+              !contentVisible && 'max-h-20 overflow-hidden',
+            )}
+          >
             {m.reasoning && (
               <ThinkingSection
                 content={m.reasoning}
@@ -439,17 +522,34 @@ const MessageItem = React.memo(function MessageItem({
             )}
           </div>
         )}
-        {/* 2026-08-02:消息交互按钮区(完全复用原项目 AIChat.vue + _message-list.scss 样式)
+        {/* 2026-08-02:消息交互按钮区(完全复用原项目 AIChat.vue 9 按钮 + _message-list.scss 样式)
             - opacity:1 始终显示(原项目 _message-list.scss line 199-205)
             - gap:8px(原项目 .message-actions gap:8px)
             - 按钮 28x28px / 6px 圆角 / 16px 图标(原项目 --fcd-btn-size/--fcd-btn-radius/--fcd-btn-icon-size)
-            - AI 消息: Like / Copy / Share / Regenerate / Reply + Token(条件)
-            - 用户消息: Copy / Edit / Reply / Delete */}
+            - AI 消息(9按钮): Eye/EyeOff / Like / Copy / Download(条件) / Share / Code(条件) / Regenerate / Megaphone / Reply + Token(条件)
+            - 用户消息(4按钮): Copy / Edit / Reply / Delete */}
         {!streamingThis && m.content.length > 0 && (
           <div
             className="flex items-center gap-2 opacity-100 mt-1"
             data-testid={`message-actions-${m.id}`}
           >
+            {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
+            {!isUser && (
+              <button
+                type="button"
+                onClick={handleToggleVisibility}
+                data-testid={`message-visibility-${m.id}`}
+                aria-label={contentVisible ? 'Hide content' : 'Show content'}
+                title={contentVisible ? 'Hide content' : 'Show content'}
+                className={ACTION_BTN_CLASS}
+              >
+                {contentVisible ? (
+                  <Eye className="h-4 w-4" aria-hidden />
+                ) : (
+                  <EyeOff className="h-4 w-4" aria-hidden />
+                )}
+              </button>
+            )}
             {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
             {!isUser && (
               <button
@@ -478,6 +578,19 @@ const MessageItem = React.memo(function MessageItem({
                 <Copy className="h-4 w-4" aria-hidden />
               )}
             </button>
+            {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
+            {!isUser && messageImages.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDownloadImages}
+                data-testid={`message-download-${m.id}`}
+                aria-label="Download images"
+                title="Download images"
+                className={ACTION_BTN_CLASS}
+              >
+                <Download className="h-4 w-4" aria-hidden />
+              </button>
+            )}
             {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
             {!isUser && (
               <button
@@ -489,6 +602,19 @@ const MessageItem = React.memo(function MessageItem({
                 className={ACTION_BTN_CLASS}
               >
                 <Share2 className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {/* AI 消息:Code(元数据 toggle)— 原项目 toggleMetadata,有 metadata 时显示 */}
+            {!isUser && hasMetadata && (
+              <button
+                type="button"
+                onClick={handleToggleMetadata}
+                data-testid={`message-metadata-${m.id}`}
+                aria-label="Toggle metadata"
+                title="Toggle metadata"
+                className={cn(ACTION_BTN_CLASS, metadataExpanded && 'text-primary bg-muted/60')}
+              >
+                <Code className="h-4 w-4" aria-hidden />
               </button>
             )}
             {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
@@ -503,6 +629,19 @@ const MessageItem = React.memo(function MessageItem({
                 className={cn(ACTION_BTN_CLASS, 'disabled:opacity-40 disabled:cursor-not-allowed')}
               >
                 <RefreshCw className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
+            {!isUser && (
+              <button
+                type="button"
+                onClick={() => setPublishDialogOpen(true)}
+                data-testid={`message-publish-${m.id}`}
+                aria-label="Publish to community"
+                title="Publish to community"
+                className={ACTION_BTN_CLASS}
+              >
+                <Megaphone className="h-4 w-4" aria-hidden />
               </button>
             )}
             {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
@@ -543,20 +682,27 @@ const MessageItem = React.memo(function MessageItem({
               </button>
             )}
             {/* AI 消息:Token 计数(条件显示)— 原项目 .token-usage,有 metadata.usage 时渲染 */}
-            {!isUser &&
-              Boolean(m.meta?.usage) &&
-              typeof m.meta?.usage === 'object' &&
-              'totalTokens' in (m.meta?.usage as object) && (
-                <span
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground ml-2"
-                  data-testid={`message-token-${m.id}`}
-                >
-                  <BarChart3 className="h-3.5 w-3.5" aria-hidden />
-                  <span className="font-medium">
-                    {(m.meta?.usage as { totalTokens: number }).totalTokens} tokens
-                  </span>
+            {!isUser && hasMetadata && 'totalTokens' in (m.meta?.usage as object) && (
+              <span
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground ml-2"
+                data-testid={`message-token-${m.id}`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+                <span className="font-medium">
+                  {(m.meta?.usage as { totalTokens: number }).totalTokens} tokens
                 </span>
-              )}
+              </span>
+            )}
+          </div>
+        )}
+        {/* AI 消息:元数据展开面板(Code 按钮切换)— 原项目 metadata 详情
+            展示 promptTokens / completionTokens / totalTokens 细分 */}
+        {!isUser && hasMetadata && metadataExpanded && (
+          <div
+            className="mt-1.5 rounded-md border border-border bg-muted/30 p-2 text-xs"
+            data-testid={`message-metadata-panel-${m.id}`}
+          >
+            <UsageBreakdown usage={m.meta?.usage} />
           </div>
         )}
       </div>
@@ -587,6 +733,15 @@ const MessageItem = React.memo(function MessageItem({
           <RefreshCw className="h-3 w-3" aria-hidden />
           <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
         </button>
+      )}
+      {/* 2026-08-02:社区发布对话框(Megaphone 按钮触发)— 原项目 publishToCommunity */}
+      {!isUser && (
+        <CommunityPublishDialog
+          open={publishDialogOpen}
+          onOpenChange={setPublishDialogOpen}
+          content={plainTextForClipboard(m.content)}
+          images={messageImages}
+        />
       )}
     </div>
   )
