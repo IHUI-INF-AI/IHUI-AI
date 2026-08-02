@@ -11,6 +11,7 @@ import { db } from '../../db/index.js'
 import { users } from '@ihui/database'
 import { isSystemAdminUser } from '../../db/queries.js'
 import { parsePagination } from './_shared.js'
+import { requireAdmin } from '../../plugins/require-permission.js'
 
 const aiUserItemSchema = z.object({
   id: z.string().min(1).max(64).optional(),
@@ -26,6 +27,11 @@ const aiUserItemSchema = z.object({
 })
 
 const aiUsersRoutes: FastifyPluginAsync = async (server) => {
+  // P0 安全修复(2026-08-02):/ai/users/* 全部为 admin 操作(列出全量用户 email/phone、
+  // 写 role 字段、删除用户等),普通用户可访问构成越权 + 权限提升。
+  // 全端点强制 requireAdmin(roleId >= 1),堵住普通用户越权与 set/user/identity 提权。
+  server.addHook('preHandler', requireAdmin)
+
   server.get('/ai/users/list', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
@@ -133,6 +139,18 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
       })
       .safeParse(request.body ?? {})
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    // P0 安全修复(2026-08-02):直接写 users.role 是高危操作(可绕过 RBAC),
+    // 上方 requireAdmin 已确保只有管理员可调用;此处补审计日志,记录 caller + target + new identity。
+    request.log.warn(
+      {
+        callerUserId: request.userId,
+        targetUuid: body.data.uuid,
+        newIdentity: body.data.identity ?? null,
+        ip: request.ip,
+        endpoint: request.url,
+      },
+      '[ai-users] set/user/identity role change by admin',
+    )
     await db
       .update(users)
       .set({ role: body.data.identity ?? null, updatedAt: new Date() } as never)

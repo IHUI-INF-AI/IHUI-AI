@@ -309,32 +309,36 @@ export async function releaseExpiredCommissions(batchSize = 100): Promise<Releas
       continue
     }
 
-    // 3. 原子翻转状态:frozen → released(只有仍为 frozen 时才翻转,防并发)
-    const [updated] = await db
-      .update(relayCommissionRecords)
-      .set({ status: 'released', releasedAt: now })
-      .where(
-        and(
-          eq(relayCommissionRecords.id, record.id),
-          eq(relayCommissionRecords.status, 'frozen'),
-        ),
-      )
-      .returning({ id: relayCommissionRecords.id })
+    // 3. 事务包裹两步操作,任一失败整体回滚,记录保持 frozen 下次重试,防资金丢失(P0 修复)
+    //    ① 翻转状态 frozen→released(乐观锁,只有仍为 frozen 时才翻转,防并发重复释放)
+    //    ② 加 commissionCents 到 beneficiary Key 的 costBalanceCents
+    await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(relayCommissionRecords)
+        .set({ status: 'released', releasedAt: now })
+        .where(
+          and(
+            eq(relayCommissionRecords.id, record.id),
+            eq(relayCommissionRecords.status, 'frozen'), // 乐观锁,防重复释放
+          ),
+        )
+        .returning({ id: relayCommissionRecords.id })
 
-    if (!updated) continue // 已被并发释放,跳过
+      if (!updated) return // 已被并发释放,跳过(不累加统计)
 
-    // 4. 加 commissionCents 到 beneficiary Key 的 costBalanceCents
-    //    -1(无限额度)保持 -1,否则累加(与 rechargeByKey 同模式,用 SQL CASE 原子操作)
-    await db
-      .update(developerApiKeys)
-      .set({
-        costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${record.commissionCents} END`,
-        updatedAt: now,
-      })
-      .where(eq(developerApiKeys.id, activeKey.id))
+      // 4. 加 commissionCents 到 beneficiary Key 的 costBalanceCents
+      //    -1(无限额度)保持 -1,否则累加(与 rechargeByKey 同模式,用 SQL CASE 原子操作)
+      await tx
+        .update(developerApiKeys)
+        .set({
+          costBalanceCents: sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 ELSE ${developerApiKeys.costBalanceCents} + ${record.commissionCents} END`,
+          updatedAt: now,
+        })
+        .where(eq(developerApiKeys.id, activeKey.id))
 
-    releasedCount++
-    releasedCents += record.commissionCents
+      releasedCount++
+      releasedCents += record.commissionCents
+    })
   }
 
   return { releasedCount, releasedCents, skippedNoKey }

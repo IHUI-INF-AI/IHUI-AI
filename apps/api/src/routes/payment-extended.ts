@@ -12,7 +12,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { env } from 'node:process'
 import { z } from 'zod'
-import { eq, and, desc, gte } from 'drizzle-orm'
+import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
@@ -24,6 +24,7 @@ import {
   userVips,
   vipLevels,
   wechatPayContracts,
+  userMargins,
 } from '@ihui/database'
 import { placeOrder } from '../services/order-service.js'
 import {
@@ -122,7 +123,7 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
           }
 
           if (state === 'SUCCESS') {
-            // 转账成功：更新状态为 completed(2)
+            // 转账成功:更新状态为 completed(2)
             await tx
               .update(withdrawalFlows)
               .set({
@@ -132,8 +133,20 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
                 updatedAt: new Date(),
               })
               .where(eq(withdrawalFlows.id, flow.id))
+            // P0 资金守恒(2026-08-02 修正):applyWithdrawal 申请时已 token -= amount + frozen += amount,
+            // 成功回调只需释放冻结(frozen -= amount),禁止再扣 token(否则双重扣减)。
+            // flow.userId 可空(用户删除时置 NULL),此时无法更新余额,跳过(流水状态已更新,人工对账)。
+            if (flow.userId) {
+              await tx
+                .update(userMargins)
+                .set({
+                  frozenQuantity: sql`frozen_quantity - ${flow.amount}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userMargins.userId, flow.userId))
+            }
           } else if (state === 'FAIL') {
-            // 转账失败：更新状态为 failed(3)，记录失败原因
+            // 转账失败:更新状态为 failed(3),记录失败原因
             const failReason = (body.fail_reason as string) ?? '转账失败'
             await tx
               .update(withdrawalFlows)
@@ -144,6 +157,18 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
                 updatedAt: new Date(),
               })
               .where(eq(withdrawalFlows.id, flow.id))
+            // P0 资金守恒(2026-08-02 修正):applyWithdrawal 申请时已 token -= amount + frozen += amount,
+            // 失败回调必须退还 token(token += amount)+ 释放冻结(frozen -= amount),否则用户余额被锁死。
+            if (flow.userId) {
+              await tx
+                .update(userMargins)
+                .set({
+                  tokenQuantity: sql`token_quantity + ${flow.amount}`,
+                  frozenQuantity: sql`frozen_quantity - ${flow.amount}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(userMargins.userId, flow.userId))
+            }
           }
           // ACCEPTED / TRANSFERING / WAIT_USER_CONFIRM 等中间状态不更新，等待最终状态回调
         })
