@@ -119,7 +119,7 @@ export default function AdminCustomerServicePage() {
 
       <div className="flex h-[calc(100vh-280px)] overflow-hidden rounded-lg border bg-card">
         <div className="flex w-72 shrink-0 flex-col border-r">
-          <div className="border-b px-4 py-2.5">
+          <div className="px-4 py-2.5">
             <p className="flex items-center gap-1.5 text-sm font-medium">
               <Users className="h-4 w-4" /> 会话列表
             </p>
@@ -136,7 +136,7 @@ export default function AdminCustomerServicePage() {
                   type="button"
                   onClick={() => setSelectedId(s.id)}
                   className={cn(
-                    'flex w-full items-center gap-3 border-b px-3 py-2.5 text-left transition-colors',
+                    'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
                     s.id === selectedId ? 'bg-accent' : 'hover:bg-muted/50',
                   )}
                 >
@@ -180,7 +180,7 @@ export default function AdminCustomerServicePage() {
         <div className="flex flex-1 flex-col">
           {selected ? (
             <>
-              <div className="flex items-center gap-2 border-b px-4 py-2.5">
+              <div className="flex items-center gap-2 px-4 py-2.5">
                 <MessageCircle className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm font-medium">{selected.userName}</p>
               </div>

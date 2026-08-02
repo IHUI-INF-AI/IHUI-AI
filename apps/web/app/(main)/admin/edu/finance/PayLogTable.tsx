@@ -65,7 +65,7 @@ export function PayLogTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colAction')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
@@ -96,7 +96,12 @@ export function PayLogTable({
                   />
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">{r.id}</TableCell>
-                <TableCell className="max-w-[160px] truncate px-4 py-2.5 text-xs font-mono" title={r.userUuid}>{r.userUuid}</TableCell>
+                <TableCell
+                  className="max-w-[160px] truncate px-4 py-2.5 text-xs font-mono"
+                  title={r.userUuid}
+                >
+                  {r.userUuid}
+                </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.courseId ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.videoId ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.outBillOn ?? '-'}</TableCell>

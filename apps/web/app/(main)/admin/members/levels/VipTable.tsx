@@ -104,7 +104,7 @@ export function VipTable({
               <th className={th}>{t('colActions')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {isLoading ? (
               <tr>
                 <td

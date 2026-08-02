@@ -129,11 +129,21 @@ export default function AdminResourceTagPage() {
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <label htmlFor="rt-name" className="space-y-1 text-sm">
               <span className="text-muted-foreground">标签名称</span>
-              <Input id="rt-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <Input
+                id="rt-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
             </label>
             <label htmlFor="rt-pid" className="space-y-1 text-sm">
               <span className="text-muted-foreground">父标签 ID</span>
-              <Input id="rt-pid" value={form.pid} onChange={(e) => setForm({ ...form, pid: e.target.value })} placeholder="留空为顶级" />
+              <Input
+                id="rt-pid"
+                value={form.pid}
+                onChange={(e) => setForm({ ...form, pid: e.target.value })}
+                placeholder="留空为顶级"
+              />
             </label>
             <label htmlFor="rt-sort" className="space-y-1 text-sm">
               <span className="text-muted-foreground">排序</span>
@@ -170,74 +180,93 @@ export default function AdminResourceTagPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">标签名称</th>
-              <th className="px-3 py-2 text-left">父标签</th>
-              <th className="px-3 py-2 text-right">排序</th>
-              <th className="px-3 py-2 text-left">状态</th>
-              <th className="px-3 py-2 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">加载中…</td>
+                <th className="px-3 py-2 text-left">标签名称</th>
+                <th className="px-3 py-2 text-left">父标签</th>
+                <th className="px-3 py-2 text-right">排序</th>
+                <th className="px-3 py-2 text-left">状态</th>
+                <th className="px-3 py-2 text-right">操作</th>
               </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">暂无标签</td>
-              </tr>
-            ) : (
-              list.map((t) => (
-                <tr key={t.id} className="border-t border-border">
-                  <td className="px-3 py-2 font-medium">{t.name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{t.pid ?? '—'}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{t.sort}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs ${
-                        t.status === 1
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {t.status === 1 ? '启用' : '禁用'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="inline-flex gap-1">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(t)}>编辑</Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={deleteMut.isPending}
-                        onClick={() => {
-                          if (window.confirm(`确定删除标签 ${t.name} 吗？`)) deleteMut.mutate(t.id)
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                    加载中…
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无标签
+                  </td>
+                </tr>
+              ) : (
+                list.map((t) => (
+                  <tr key={t.id}>
+                    <td className="px-3 py-2 font-medium">{t.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{t.pid ?? '—'}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{t.sort}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          t.status === 1
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {t.status === 1 ? '启用' : '禁用'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(t)}>
+                          编辑
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={deleteMut.isPending}
+                          onClick={() => {
+                            if (window.confirm(`确定删除标签 ${t.name} 吗？`))
+                              deleteMut.mutate(t.id)
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 个标签</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>

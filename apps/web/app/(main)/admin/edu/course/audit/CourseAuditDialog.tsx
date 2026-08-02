@@ -89,7 +89,7 @@ export function CourseAuditDialog({
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 border-b pb-2 text-xs font-semibold text-muted-foreground">
+            <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 pb-2 text-xs font-semibold text-muted-foreground">
               <div>{t('dialog.field')}</div>
               <div className="text-red-600 dark:text-red-400">{t('dialog.before')}</div>
               <div className="text-emerald-600 dark:text-emerald-400">{t('dialog.after')}</div>
@@ -115,7 +115,13 @@ export function CourseAuditDialog({
           </div>
         )}
         <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
-          <Button type="button" variant="outline" onClick={onClose} disabled={pending} className="shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={pending}
+            className="shrink-0"
+          >
             <span className="whitespace-nowrap">{t('dialog.close')}</span>
           </Button>
           <Button
@@ -127,7 +133,12 @@ export function CourseAuditDialog({
           >
             <span className="whitespace-nowrap">{t('dialog.rectify')}</span>
           </Button>
-          <Button type="button" onClick={onApprove} disabled={pending || loadingCompare} className="shrink-0">
+          <Button
+            type="button"
+            onClick={onApprove}
+            disabled={pending || loadingCompare}
+            className="shrink-0"
+          >
             {pending && <Loader2 className="mr-1 h-4 w-4 animate-spin shrink-0" />}
             <span className="whitespace-nowrap">{t('dialog.approve')}</span>
           </Button>

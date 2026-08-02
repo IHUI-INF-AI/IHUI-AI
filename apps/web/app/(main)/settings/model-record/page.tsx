@@ -27,37 +27,35 @@ export default function ModelRecordPage() {
 
   return (
     <div className="space-y-4">
-        <BackButton />
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Cpu className="h-4 w-4" />
-              {t('modelRecordCardTitle')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="divide-y">
-              {records.map((item) => (
-                <div
-                  key={item.labelKey}
-                  className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
-                >
-                  <dt className="shrink-0 text-sm text-muted-foreground">{t(item.labelKey)}</dt>
-                  <dd className="max-w-[60%] text-right text-sm font-medium">{item.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
+      <BackButton />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Cpu className="h-4 w-4" />
+            {t('modelRecordCardTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="space-y-2">
+            {records.map((item) => (
+              <div
+                key={item.labelKey}
+                className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
+              >
+                <dt className="shrink-0 text-sm text-muted-foreground">{t(item.labelKey)}</dt>
+                <dd className="max-w-[60%] text-right text-sm font-medium">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardContent className="flex items-start gap-3 p-4">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {t('modelRecordNotice')}
-            </p>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardContent className="flex items-start gap-3 p-4">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('modelRecordNotice')}</p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

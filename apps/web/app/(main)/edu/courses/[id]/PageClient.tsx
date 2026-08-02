@@ -153,7 +153,7 @@ export default function EduCourseDetailPage() {
         </div>
 
         <aside className="w-full shrink-0 min-[1024px]:w-[32%]">
-          <div className="sticky top-4">
+          <div className="sticky top-4 z-10">
             <CourseTabs course={tabData} />
           </div>
         </aside>

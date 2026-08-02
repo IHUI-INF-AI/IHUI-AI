@@ -8,7 +8,14 @@ import { useTranslations, useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, PRIORITY_BADGE, STATUS_KEY, PRIORITY_KEY } from '@/lib/feedback'
+import {
+  TYPE_ICON,
+  TYPE_BADGE,
+  STATUS_BADGE,
+  PRIORITY_BADGE,
+  STATUS_KEY,
+  PRIORITY_KEY,
+} from '@/lib/feedback'
 import type { AdminFeedbackItem } from './types'
 
 interface FeedbackTableProps {
@@ -50,7 +57,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
             <th className="px-4 py-2.5 text-right font-medium">{t('actions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">

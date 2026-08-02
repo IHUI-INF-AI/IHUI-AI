@@ -1,7 +1,15 @@
 'use client'
 
 import { Loader2, Edit, Trash2, Users } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import type { ZhsUser } from './types'
@@ -31,7 +39,7 @@ export function ZhsUserTable({ list, isLoading, onEdit, onDelete }: Props) {
             <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={10} className="px-4 py-10 text-center text-muted-foreground">
@@ -51,10 +59,16 @@ export function ZhsUserTable({ list, isLoading, onEdit, onDelete }: Props) {
               <TableRow key={item.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5 font-medium">{item.nickname || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{item.userName || '-'}</TableCell>
-                <TableCell className="whitespace-nowrap px-4 py-2.5 tabular-nums">{item.phone || '-'}</TableCell>
-                <TableCell className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{item.inviteCode || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap px-4 py-2.5 tabular-nums">
+                  {item.phone || '-'}
+                </TableCell>
+                <TableCell className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">
+                  {item.inviteCode || '-'}
+                </TableCell>
                 <TableCell className="px-4 py-2.5 tabular-nums">{item.balance || '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 tabular-nums">{item.totalEarnings || '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 tabular-nums">
+                  {item.totalEarnings || '-'}
+                </TableCell>
                 <TableCell className="px-4 py-2.5">{item.isVip || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">{item.identityTypy || '-'}</TableCell>
                 <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs tabular-nums text-muted-foreground">

@@ -385,7 +385,7 @@ export function ToolCallCard({
         </button>
       </CardHeader>
       {expanded && (
-        <CardContent className="space-y-2 p-3 pt-0 text-xs">
+        <CardContent className="space-y-2 p-4 pt-0 text-xs">
           {/* edit_file/write_file:InlineDiffCard 替代 <pre> 渲染 */}
           {showInlineDiff && diffInfo && (
             <InlineDiffCard

@@ -84,7 +84,7 @@ export default function ClawdbotSessionsPage() {
       </h1>
 
       <div className="rounded-lg border bg-card">
-        <div className="divide-y">
+        <div className="space-y-2">
           {sessions.length === 0 ? (
             <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
               暂无会话
@@ -125,7 +125,7 @@ export default function ClawdbotSessionsPage() {
             className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-lg border bg-card"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b px-4 py-2.5">
+            <div className="flex items-center justify-between px-4 py-2.5">
               <p className="text-sm font-medium">会话详情 · {selected.id}</p>
               <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
                 <X className="h-4 w-4" />
@@ -149,7 +149,7 @@ export default function ClawdbotSessionsPage() {
                   </span>
                 </div>
               </div>
-              <div className="border-t pt-3">
+              <div className="mt-3 pt-3">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">消息记录</p>
                 {(selected.context?.messages ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground">暂无消息</p>

@@ -54,7 +54,9 @@ function ResultGroup({
       <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="truncate whitespace-nowrap">{title}</span>
-        <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">({count})</span>
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+          ({count})
+        </span>
       </h2>
       {children}
     </section>
@@ -151,7 +153,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
 
       {showGroup('file') && files.length > 0 && (
         <ResultGroup icon={FileText} title={t('tabs.files')} count={files.length}>
-          <ul className="divide-y rounded-lg border">
+          <ul className="space-y-2 rounded-lg border p-2">
             {files.map((f) => (
               <li
                 key={f.id}

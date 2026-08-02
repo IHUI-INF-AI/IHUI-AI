@@ -143,144 +143,150 @@ export default async function BillingPage() {
           <p className="text-xs text-muted-foreground">{t('billing.subtitle')}</p>
         </header>
 
-      {/* 余额卡片 */}
-      <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
-        <Card className="min-[640px]:col-span-1">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Wallet className="h-3.5 w-3.5" />
-              {t('billing.currentBalance')}
-            </div>
-            <div className="mt-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">¥ 128.50</div>
-            <Button className="mt-3 h-8 w-full gap-1.5 text-xs">
-              <DollarSign className="h-3.5 w-3.5" />
-              {t('billing.recharge')}
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground">{t('billing.monthConsume')}</div>
-            <div className="mt-2 text-2xl font-bold">¥ 285.40</div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
-              <ArrowUpRight className="h-3 w-3" />
-              {tp('consumeTrend', { n: 8.7 })}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground">{t('billing.totalRecharge')}</div>
-            <div className="mt-2 text-2xl font-bold">¥ 1,500.00</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {tp('rechargeCount', { n: 6 })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 充值套餐 */}
-      <div>
-        <h2 className="mb-3 text-base font-semibold">{t('billing.packages.title')}</h2>
-        <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-          {packages.map((p) => (
-            <Card
-              key={p.name}
-              className={p.highlighted ? 'relative border-primary shadow-md' : 'relative'}
-            >
-              {p.highlighted && (
-                <span className="absolute -top-2 left-4 inline-flex items-center rounded bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                  {t('billing.packages.recommended')}
-                </span>
-              )}
-              <CardContent className="p-5">
-                <div className="text-sm font-semibold">{p.name}</div>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{p.price}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {t('billing.packages.once')}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-primary">{p.bonus}</div>
-                <ul className="mt-4 space-y-1.5">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-1.5 text-xs">
-                      <Check className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
-                      <span className="text-muted-foreground">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className="mt-4 h-8 w-full text-xs"
-                  variant={p.highlighted ? 'default' : 'outline'}
-                >
-                  {p.cta}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+        {/* 余额卡片 */}
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
+          <Card className="min-[640px]:col-span-1">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Wallet className="h-3.5 w-3.5" />
+                {t('billing.currentBalance')}
+              </div>
+              <div className="mt-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                ¥ 128.50
+              </div>
+              <Button className="mt-3 h-8 w-full gap-1.5 text-xs">
+                <DollarSign className="h-3.5 w-3.5" />
+                {t('billing.recharge')}
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5">
+              <div className="text-xs text-muted-foreground">{t('billing.monthConsume')}</div>
+              <div className="mt-2 text-2xl font-bold">¥ 285.40</div>
+              <div className="mt-1 flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
+                <ArrowUpRight className="h-3 w-3" />
+                {tp('consumeTrend', { n: 8.7 })}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-5">
+              <div className="text-xs text-muted-foreground">{t('billing.totalRecharge')}</div>
+              <div className="mt-2 text-2xl font-bold">¥ 1,500.00</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {tp('rechargeCount', { n: 6 })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
 
-      {/* 交易记录 */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t('billing.transactions.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-4 py-2 font-medium">{t('billing.transactions.id')}</th>
-                  <th className="px-4 py-2 font-medium">{t('billing.transactions.type')}</th>
-                  <th className="px-4 py-2 font-medium">{t('billing.transactions.amount')}</th>
-                  <th className="px-4 py-2 font-medium">{t('billing.transactions.balance')}</th>
-                  <th className="px-4 py-2 font-medium">{t('billing.transactions.time')}</th>
-                  <th className="px-4 py-2 font-medium">{t('billing.transactions.status')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr
-                    key={tx.id}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
+        {/* 充值套餐 */}
+        <div>
+          <h2 className="mb-3 text-base font-semibold">{t('billing.packages.title')}</h2>
+          <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
+            {packages.map((p) => (
+              <Card
+                key={p.name}
+                className={p.highlighted ? 'relative border-primary shadow-md' : 'relative'}
+              >
+                {p.highlighted && (
+                  <span className="absolute -top-2 left-4 inline-flex items-center rounded bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                    {t('billing.packages.recommended')}
+                  </span>
+                )}
+                <CardContent className="p-5">
+                  <div className="text-sm font-semibold">{p.name}</div>
+                  <div className="mt-2 flex items-baseline gap-1">
+                    <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+                      {p.price}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('billing.packages.once')}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-primary">{p.bonus}</div>
+                  <ul className="mt-4 space-y-1.5">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-start gap-1.5 text-xs">
+                        <Check className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
+                        <span className="text-muted-foreground">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    className="mt-4 h-8 w-full text-xs"
+                    variant={p.highlighted ? 'default' : 'outline'}
                   >
-                    <td className="px-4 py-2.5 font-mono text-muted-foreground">{tx.id}</td>
-                    <td className="px-4 py-2.5">
-                      <span
+                    {p.cta}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* 交易记录 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t('billing.transactions.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground">
+                    <th className="px-4 py-2 font-medium">{t('billing.transactions.id')}</th>
+                    <th className="px-4 py-2 font-medium">{t('billing.transactions.type')}</th>
+                    <th className="px-4 py-2 font-medium">{t('billing.transactions.amount')}</th>
+                    <th className="px-4 py-2 font-medium">{t('billing.transactions.balance')}</th>
+                    <th className="px-4 py-2 font-medium">{t('billing.transactions.time')}</th>
+                    <th className="px-4 py-2 font-medium">{t('billing.transactions.status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => (
+                    <tr key={tx.id} className="text-xs hover:bg-muted/30">
+                      <td className="px-4 py-2.5 font-mono text-muted-foreground">{tx.id}</td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={
+                            tx.type === 'recharge'
+                              ? 'inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
+                              : 'inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
+                          }
+                        >
+                          {t(BILLING_TX_TYPE_KEY[tx.type] ?? 'billing.transactions.types.unknown')}
+                        </span>
+                      </td>
+                      <td
                         className={
-                          tx.type === 'recharge'
-                            ? 'inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400'
-                            : 'inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
+                          tx.amount > 0
+                            ? 'px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400'
+                            : 'px-4 py-2.5 font-medium text-foreground'
                         }
                       >
-                        {t(BILLING_TX_TYPE_KEY[tx.type] ?? 'billing.transactions.types.unknown')}
-                      </span>
-                    </td>
-                    <td
-                      className={
-                        tx.amount > 0
-                          ? 'px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400'
-                          : 'px-4 py-2.5 font-medium text-foreground'
-                      }
-                    >
-                      {tx.amount > 0 ? '+' : ''}¥ {Math.abs(tx.amount).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">¥ {tx.balance.toFixed(2)}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{tx.time}</td>
-                    <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                        {t(BILLING_TX_STATUS_KEY[tx.status] ?? 'billing.transactions.statusLabels.unknown')}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                        {tx.amount > 0 ? '+' : ''}¥ {Math.abs(tx.amount).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        ¥ {tx.balance.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{tx.time}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          {t(
+                            BILLING_TX_STATUS_KEY[tx.status] ??
+                              'billing.transactions.statusLabels.unknown',
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </>
   )

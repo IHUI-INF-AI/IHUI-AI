@@ -356,7 +356,7 @@ export default function AgentWorkbenchPage() {
       <AgentCreator open={creatorOpen} onOpenChange={setCreatorOpen} onCreated={loadAgents} />
 
       {toast && (
-        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-foreground px-4 py-2 text-sm text-background shadow-lg">
+        <div className="fixed bottom-4 left-1/2 z-notification -translate-x-1/2 rounded-md bg-foreground px-4 py-2 text-sm text-background shadow-lg">
           {toast}
         </div>
       )}

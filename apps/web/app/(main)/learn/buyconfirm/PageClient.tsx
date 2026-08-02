@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -210,7 +210,7 @@ function BuyConfirmContent() {
                   <span className="text-emerald-600">-¥{discount}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between border-t pt-2">
+              <div className="flex items-center justify-between mt-2 pt-2">
                 <span className="font-medium">{t('actualPay')}</span>
                 <span className="text-lg font-semibold text-primary">¥{price}</span>
               </div>

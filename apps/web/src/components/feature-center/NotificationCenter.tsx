@@ -91,7 +91,7 @@ export function NotificationCenter({
                 }
               >
                 <span
-                  className={'mt-1.5 h-2 w-2 shrink-0 rounded-full ' + TYPE_COLORS[item.type]}
+                  className={'mt-0.5 h-2 w-2 shrink-0 rounded-full ' + TYPE_COLORS[item.type]}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-sm font-medium">{item.title}</p>

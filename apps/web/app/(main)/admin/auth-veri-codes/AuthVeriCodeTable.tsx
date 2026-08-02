@@ -32,7 +32,7 @@ export function AuthVeriCodeTable({ list, isLoading, onEdit, onDelete }: Props) 
             <th className={th}>{t('colActions')}</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {isLoading ? (
             <tr>
               <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground">

@@ -15,10 +15,8 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { fetchModels } from '@ihui/api-client'
-
 import { cn } from '@/lib/utils'
-import { fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
+import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import {
   FALLBACK_MODELS,
@@ -218,10 +216,14 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   React.useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetchModels()
-      .then((res) => {
+    // 2026-08-02 修复:改用 fetchSelectorModels(@/lib/models-api)。
+    // 原 fetchModels(@ihui/api-client)走 fetchApi 校验 {code:0} 信封,而 ai-service
+    // /llm/models 返回非标准格式 {models,...}(无 code 字段)→ 被误判业务失败 throw →
+    // 选择器恒降级到 FALLBACK_MODELS(仅 3 个模型)。fetchSelectorModels 用
+    // fetchAiServiceJson 直接消费 body,返回完整模型列表(DB 1380 enabled + default_models)。
+    fetchSelectorModels()
+      .then((models) => {
         if (cancelled) return
-        const models = res?.models ?? []
         if (models.length === 0) {
           setOptions(FALLBACK_MODELS.map(toOption))
           return
@@ -230,8 +232,14 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           models.map((m) => ({
             value: m.id,
             label: m.name || m.id,
-            vendor: inferVendor(m.id) ?? m.provider,
-            pointsMultiplier: inferPointsMultiplier(m.id),
+            // 2026-08-02 修复:优先用后端权威 provider(避免 inferVendor 误判导致分组错乱,
+            // 如 ollama/lmstudio 的 llama 模型被归入 meta、nvidia 的 deepseek/snowflake 系被归入对应厂商)
+            vendor: m.provider || inferVendor(m.id),
+            // 后端 points_multiplier(free_provider_registry 推断)优先,缺失时本地推断兜底
+            pointsMultiplier:
+              typeof m.points_multiplier === 'number'
+                ? m.points_multiplier
+                : inferPointsMultiplier(m.id),
           })),
         )
       })
@@ -411,7 +419,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               <DropdownMenu.Label
                 className={cn(
                   'flex items-center gap-1.5 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide',
-                  'sticky top-0 z-10 bg-card text-muted-foreground',
+                  'bg-card text-muted-foreground',
                 )}
               >
                 <BrandIcon vendor={vendor} size={12} className="text-muted-foreground" />

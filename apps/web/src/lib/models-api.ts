@@ -21,11 +21,12 @@
 import { fetchApi } from './api'
 import { logger } from './logger'
 import {
+  fetchAiServiceJson,
   fetchProvidersHealthLite,
   fetchProvidersHealth as fetchProvidersHealthShared,
   fetchProvidersAvailability,
 } from '@ihui/api-client'
-import type { ProviderHealth } from '@ihui/api-client'
+import type { LlmModel, ProviderHealth } from '@ihui/api-client'
 import type { Model } from '../../app/(main)/models/types'
 
 // Provider 健康状态类型(Phase C+D,从共享层 re-export,供模型选择器消费)
@@ -34,6 +35,42 @@ export type { ProviderHealth } from '@ihui/api-client'
 // ============================================================================
 // 类型定义
 // ============================================================================
+
+/** /llm/models 动态拉取返回的模型项(带积分倍数,后端非标准格式直接解析) */
+export interface SelectorModel extends LlmModel {
+  /** 积分消耗倍数(0=免费/1=经济/3=标准/10=高级/30=旗舰,后端 free_provider_registry 推断) */
+  points_multiplier?: number
+}
+
+/**
+ * 拉取可用模型列表(模型选择器数据源)。
+ *
+ * 2026-08-02 修复:ai-service /llm/models 返回**非标准格式**
+ * `{"models":[...], "default":"...", "stub_mode":false}`(无 {code,data} 包装),
+ * 共享层 fetchApi 要求 `json.code === 0` 才算成功,缺失 code 字段会被误判为业务失败
+ * (success=false)→ fetchModels() throw → 模型选择器降级到 FALLBACK_MODELS(仅 3 个模型)。
+ * 故改用 fetchAiServiceJson(直接把响应 body 当作 data,不校验 code 包装)。
+ * 失败/空 → 返回空数组(调用方按 fallback 渲染),永不抛出。
+ */
+export async function fetchSelectorModels(): Promise<SelectorModel[]> {
+  try {
+    const res = await fetchAiServiceJson<{ models: SelectorModel[] }>('/llm/models', {
+      method: 'GET',
+    })
+    if (!res.success) {
+      if (typeof window !== 'undefined') {
+        logger.warn('[models-api] fetchSelectorModels 失败', res.error)
+      }
+      return []
+    }
+    return res.data?.models ?? []
+  } catch (err) {
+    if (typeof window !== 'undefined') {
+      logger.warn('[models-api] fetchSelectorModels 异常,返回空数组', err)
+    }
+    return []
+  }
+}
 
 /** AI 资讯条目(从 newsArticles schema 派生的前端展示型) */
 export interface AiNewsItem {
@@ -91,10 +128,9 @@ export async function getMarketModels(): Promise<Model[]> {
 export async function getAiNewsFeed(limit = 6): Promise<AiNewsItem[]> {
   // 主路由:合并 feed
   try {
-    const r = await fetchApi<{ items: AiNewsItem[] }>(
-      `/api/news/feed?limit=${limit}`,
-      { next: { revalidate: 300 } } as RequestInit & { next: { revalidate: number } },
-    )
+    const r = await fetchApi<{ items: AiNewsItem[] }>(`/api/news/feed?limit=${limit}`, {
+      next: { revalidate: 300 },
+    } as RequestInit & { next: { revalidate: number } })
     if (r.success && Array.isArray(r.data?.items) && r.data.items.length > 0) {
       return r.data.items
     }
@@ -276,11 +312,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /** 把 ProviderAvailabilityStatus(7 态)归并到 ProviderHealthStatus(4 态) */
-function mapAvailabilityStatus(
-  status: string,
-  errorType: string,
-): ProviderHealthStatus {
-  if (status === 'healthy' || status === 'degraded' || status === 'local' || status === 'zero_cost') {
+function mapAvailabilityStatus(status: string, errorType: string): ProviderHealthStatus {
+  if (
+    status === 'healthy' ||
+    status === 'degraded' ||
+    status === 'local' ||
+    status === 'zero_cost'
+  ) {
     return 'ok'
   }
   if (status === 'not_configured' || status === 'pending') {
@@ -308,10 +346,11 @@ function transformAvailabilityToHealth(
     last_check: p.last_check ? new Date(p.last_check * 1000).toISOString() : undefined,
   }))
   const healthyCount = providers.filter((p) => p.status === 'ok').length
-  const checkedAt = providers
-    .map((p) => p.last_check ?? '')
-    .sort()
-    .reverse()[0] || new Date().toISOString()
+  const checkedAt =
+    providers
+      .map((p) => p.last_check ?? '')
+      .sort()
+      .reverse()[0] || new Date().toISOString()
   return {
     providers,
     total: providers.length,
@@ -326,9 +365,10 @@ function transformHealthResultToResponse(
 ): ProvidersHealthResponse {
   const providers: ProviderHealthInfo[] = result.providers.map((p) => ({
     provider: p.provider,
-    status: p.status === 'ok' || p.status === 'invalid_key' || p.status === 'unreachable'
-      ? p.status
-      : 'not_configured',
+    status:
+      p.status === 'ok' || p.status === 'invalid_key' || p.status === 'unreachable'
+        ? p.status
+        : 'not_configured',
     latency_ms: p.latency_ms,
     model_count: p.model_count,
     last_check: p.last_check,
@@ -338,10 +378,11 @@ function transformHealthResultToResponse(
     is_in_cooldown: p.is_in_cooldown,
     consecutive_failures: p.consecutive_failures,
   }))
-  const checkedAt = providers
-    .map((p) => p.last_check ?? '')
-    .sort()
-    .reverse()[0] || new Date().toISOString()
+  const checkedAt =
+    providers
+      .map((p) => p.last_check ?? '')
+      .sort()
+      .reverse()[0] || new Date().toISOString()
   return {
     providers,
     total: result.summary.total,
@@ -359,11 +400,13 @@ function transformHealthResultToResponse(
  * - force=true 跳过缓存(手动"重新检测"按钮用)
  * - 两端点都失败且无缓存 → 抛错(调用方按"不可用"渲染)
  */
-export async function fetchProvidersHealthSummary(
-  force = false,
-): Promise<ProvidersHealthResponse> {
+export async function fetchProvidersHealthSummary(force = false): Promise<ProvidersHealthResponse> {
   const now = Date.now()
-  if (!force && providersHealthSummaryCache && now - providersHealthSummaryCache.ts < PROVIDERS_HEALTH_SUMMARY_TTL) {
+  if (
+    !force &&
+    providersHealthSummaryCache &&
+    now - providersHealthSummaryCache.ts < PROVIDERS_HEALTH_SUMMARY_TTL
+  ) {
     return providersHealthSummaryCache.data
   }
 
@@ -375,7 +418,10 @@ export async function fetchProvidersHealthSummary(
     return response
   } catch (primaryErr) {
     if (typeof window !== 'undefined') {
-      logger.warn('[models-api] fetchProvidersHealthSummary 主端点失败,降级 availability', primaryErr)
+      logger.warn(
+        '[models-api] fetchProvidersHealthSummary 主端点失败,降级 availability',
+        primaryErr,
+      )
     }
     try {
       // 降级端点:/llm/providers/availability
@@ -387,7 +433,10 @@ export async function fetchProvidersHealthSummary(
       // 两端点都失败:返回 stale cache(如果有),否则抛错
       if (providersHealthSummaryCache) {
         if (typeof window !== 'undefined') {
-          logger.warn('[models-api] fetchProvidersHealthSummary 降级也失败,返回 stale cache', fallbackErr)
+          logger.warn(
+            '[models-api] fetchProvidersHealthSummary 降级也失败,返回 stale cache',
+            fallbackErr,
+          )
         }
         return providersHealthSummaryCache.data
       }

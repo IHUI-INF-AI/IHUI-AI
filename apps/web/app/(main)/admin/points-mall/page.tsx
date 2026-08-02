@@ -45,37 +45,82 @@ export default function AdminPointsMallPage() {
           <ShoppingBag className="h-6 w-6 shrink-0 text-primary" />
           <span className="truncate">积分商城</span>
         </h1>
-        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索商品名" className="h-9 w-full shrink-0 sm:w-64" />
+        <Input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="搜索商品名"
+          className="h-9 w-full shrink-0 sm:w-64"
+        />
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-border text-left text-muted-foreground">
-            {head.map((h) => <th key={h} className={`${c} font-medium`}>{h}</th>)}
-          </tr></thead>
-          <tbody>
-            {!list.length
-              ? <tr><td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>{isLoading ? '…' : '暂无商品'}</td></tr>
-              : list.map((p: PointsProduct) => (
-                <tr key={p.id} className="border-b border-border last:border-0">
-                  <td className={`${c} font-medium`}>{p.name}</td>
-                  <td className={c}>{CATEGORY_LABEL[p.category]}</td>
-                  <td className={`${c} tabular-nums font-medium`}>{p.pointsCost}</td>
-                  <td className={`${c} tabular-nums`}>{p.stock}</td>
-                  <td className={`${c} tabular-nums`}>{p.sold}<span className="text-muted-foreground">/{p.limitPerUser}</span></td>
-                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[p.status]}`}>{p.status === 'on' ? '上架' : p.status === 'off' ? '下架' : '售罄'}</span></td>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                {head.map((h) => (
+                  <th key={h} className={`${c} font-medium`}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!list.length ? (
+                <tr>
+                  <td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>
+                    {isLoading ? '…' : '暂无商品'}
+                  </td>
                 </tr>
-              ))}
-          </tbody>
-        </table>
+              ) : (
+                list.map((p: PointsProduct) => (
+                  <tr key={p.id}>
+                    <td className={`${c} font-medium`}>{p.name}</td>
+                    <td className={c}>{CATEGORY_LABEL[p.category]}</td>
+                    <td className={`${c} tabular-nums font-medium`}>{p.pointsCost}</td>
+                    <td className={`${c} tabular-nums`}>{p.stock}</td>
+                    <td className={`${c} tabular-nums`}>
+                      {p.sold}
+                      <span className="text-muted-foreground">/{p.limitPerUser}</span>
+                    </td>
+                    <td className={c}>
+                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[p.status]}`}>
+                        {p.status === 'on' ? '上架' : p.status === 'off' ? '下架' : '售罄'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" />上一页</Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>下一页<ChevronRight className="h-4 w-4" /></Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            上一页
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            下一页
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

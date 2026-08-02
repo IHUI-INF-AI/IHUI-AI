@@ -8,21 +8,8 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import {
-  ArrowLeft,
-  Database,
-  Download,
-  History,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react'
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@ihui/ui-react'
+import { ArrowLeft, Database, Download, History, RefreshCw, Trash2 } from 'lucide-react'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CenteredText, Skeleton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 
@@ -35,9 +22,7 @@ import {
 } from '@/hooks/use-saas-tenant-mutations'
 import type { Backup } from '../../types'
 
-type ConfirmAction =
-  | { type: 'create' | 'restore' | 'delete'; backup?: Backup }
-  | null
+type ConfirmAction = { type: 'create' | 'restore' | 'delete'; backup?: Backup } | null
 
 export default function TenantBackupsPage() {
   const t = useTranslations('admin.saas.backups')
@@ -79,10 +64,7 @@ export default function TenantBackupsPage() {
         { onSettled: () => setPending(null) },
       )
     } else if (type === 'delete' && backup) {
-      deleteMut.mutate(
-        { slug, timestamp: backup.timestamp },
-        { onSettled: () => setPending(null) },
-      )
+      deleteMut.mutate({ slug, timestamp: backup.timestamp }, { onSettled: () => setPending(null) })
     }
     setConfirmAction(null)
   }
@@ -242,7 +224,7 @@ function BackupsTable({ backups, dateFmt, pending, onRestore, onDelete }: Backup
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
-        <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+        <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 text-left font-medium">{t('table.timestamp')}</th>
             <th className="px-4 py-2.5 text-left font-medium">{t('table.size')}</th>
@@ -254,7 +236,7 @@ function BackupsTable({ backups, dateFmt, pending, onRestore, onDelete }: Backup
         </thead>
         <tbody>
           {backups.map((b) => (
-            <tr key={b.timestamp} className="border-b last:border-0 hover:bg-muted/20">
+            <tr key={b.timestamp} className=" hover:bg-muted/20">
               <td className="px-4 py-2.5 font-mono">{b.timestamp}</td>
               <td className="px-4 py-2.5 text-muted-foreground">{b.size}</td>
               <td className="px-4 py-2.5 text-muted-foreground">{b.fileCount}</td>
@@ -293,12 +275,7 @@ function BackupsTable({ backups, dateFmt, pending, onRestore, onDelete }: Backup
                     </Button>
                   </Tooltip>
                   <Tooltip content={t('download')}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      asChild
-                      aria-label={t('download')}
-                    >
+                    <Button size="sm" variant="ghost" asChild aria-label={t('download')}>
                       <a
                         href={`/api/admin-saas/customers/${encodeURIComponent(
                           b.timestamp,
@@ -319,15 +296,7 @@ function BackupsTable({ backups, dateFmt, pending, onRestore, onDelete }: Backup
   )
 }
 
-function StatCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: string
-  hint?: string
-}) {
+function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <Card>
       <CardHeader className="pb-2">

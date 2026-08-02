@@ -78,28 +78,28 @@ export function UserCenterAssignDialog({ target, onClose }: Props) {
             <div className="py-10 text-center text-muted-foreground">暂无可分配用户</div>
           ) : (
             <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className={th}>用户名</th>
-                  <th className={th}>昵称</th>
-                  <th className={th}>角色</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {assignList.map((u) => (
-                  <tr
-                    key={u.userId}
-                    className={`cursor-pointer hover:bg-muted/30 ${selectedAssign?.userId === u.userId ? 'bg-primary/10' : ''}`}
-                    onClick={() => setSelectedAssign(u)}
-                  >
-                    <td className="px-4 py-2.5 font-medium">{u.userName ?? '-'}</td>
-                    <td className="px-4 py-2.5">{u.nickname ?? '-'}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{u.roles ?? '-'}</td>
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className={th}>用户名</th>
+                    <th className={th}>昵称</th>
+                    <th className={th}>角色</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {assignList.map((u) => (
+                    <tr
+                      key={u.userId}
+                      className={`cursor-pointer hover:bg-muted/30 ${selectedAssign?.userId === u.userId ? 'bg-primary/10' : ''}`}
+                      onClick={() => setSelectedAssign(u)}
+                    >
+                      <td className="px-4 py-2.5 font-medium">{u.userName ?? '-'}</td>
+                      <td className="px-4 py-2.5">{u.nickname ?? '-'}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{u.roles ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

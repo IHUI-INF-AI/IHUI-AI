@@ -123,7 +123,7 @@ export function ArticleTable(props: ArticleTableProps) {
               <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -183,7 +183,12 @@ export function ArticleTable(props: ArticleTableProps) {
                     <TableCell className="px-4 py-2.5 text-right">
                       <div className="flex flex-nowrap items-center justify-end gap-1">
                         <Tooltip content="编辑">
-                          <Button variant="ghost" size="sm" className="shrink-0" onClick={() => onEdit(a)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => onEdit(a)}
+                          >
                             <Edit className="h-4 w-4 shrink-0" />
                           </Button>
                         </Tooltip>

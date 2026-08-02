@@ -20,12 +20,22 @@ const STATS: StatItem[] = [
   { labelKey: 'stats.dau', value: '128,450', trend: '+5.2%', trendUp: true, Icon: Users },
   { labelKey: 'stats.newUsers', value: '3,210', trend: '+12.4%', trendUp: true, Icon: UserPlus },
   { labelKey: 'stats.sessions', value: '456,789', trend: '+3.1%', trendUp: true, Icon: Activity },
-  { labelKey: 'stats.crashRate', value: '0.32%', trend: '-0.08%', trendUp: false, Icon: AlertTriangle },
+  {
+    labelKey: 'stats.crashRate',
+    value: '0.32%',
+    trend: '-0.08%',
+    trendUp: false,
+    Icon: AlertTriangle,
+  },
 ]
 
 const DAU_TREND_DATA: number[] = [110200, 115600, 118900, 122400, 119800, 126700, 128450]
 
-const DEVICE_DISTRIBUTION: { name: 'iOS' | 'Android' | 'others'; percent: number; color: string }[] = [
+const DEVICE_DISTRIBUTION: {
+  name: 'iOS' | 'Android' | 'others'
+  percent: number
+  color: string
+}[] = [
   { name: 'iOS', percent: 52, color: 'bg-primary' },
   { name: 'Android', percent: 41, color: 'bg-emerald-500' },
   { name: 'others', percent: 7, color: 'bg-amber-500' },
@@ -134,7 +144,7 @@ export function MobileDashboardClient() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="w-12 px-5 py-2 font-medium">{t('topPages.rankHeader')}</th>
                   <th className="px-5 py-2 font-medium">{t('topPages.pathHeader')}</th>
                   <th className="px-5 py-2 text-right font-medium">{t('topPages.visitsHeader')}</th>
@@ -143,7 +153,7 @@ export function MobileDashboardClient() {
               </thead>
               <tbody>
                 {TOP_PAGES.map((p) => (
-                  <tr key={p.rank} className="border-b last:border-0">
+                  <tr key={p.rank} className="border-b ">
                     <td className="px-5 py-2.5">
                       <span
                         className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${

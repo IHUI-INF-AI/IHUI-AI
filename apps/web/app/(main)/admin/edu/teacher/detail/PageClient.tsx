@@ -140,7 +140,7 @@ export default function EduTeacherDetailPage() {
                 <TableHead className="px-4 py-2.5">{t('rating')}</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y">
+            <TableBody>
               {data.courses?.length ? (
                 data.courses.map((c) => (
                   <TableRow key={c.id} className="hover:bg-muted/30">

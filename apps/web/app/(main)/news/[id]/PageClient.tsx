@@ -121,7 +121,7 @@ export default function NewsDetailPage() {
         <div className="min-w-0 space-y-5 min-[1024px]:col-span-3">
           <Card>
             <CardContent className="p-4 min-[768px]:p-6">
-              <header className="space-y-3 border-b pb-4">
+              <header className="space-y-3 pb-4">
                 <h1 className="text-2xl font-bold tracking-tight">{article.title}</h1>
                 {article.summary && (
                   <p className="text-xs text-muted-foreground">{article.summary}</p>
@@ -175,7 +175,7 @@ export default function NewsDetailPage() {
               />
 
               {tags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+                <div className="flex flex-wrap items-center gap-2 mt-4 pt-4">
                   <span className="text-xs text-muted-foreground">{t('tags')}</span>
                   {tags.map((tag: string) => (
                     <Badge key={tag} variant="primary">
@@ -185,7 +185,7 @@ export default function NewsDetailPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end border-t pt-4">
+              <div className="flex items-center justify-end mt-4 pt-4">
                 <NewsInteraction likeCount={likeCount} favoriteCount={favoriteCount} />
               </div>
             </CardContent>
@@ -195,7 +195,7 @@ export default function NewsDetailPage() {
         </div>
 
         <aside className="min-[1024px]:col-span-1">
-          <div className="sticky top-4 space-y-4">
+          <div className="sticky top-4 z-10 space-y-4">
             <HotNews limit={5} />
           </div>
         </aside>

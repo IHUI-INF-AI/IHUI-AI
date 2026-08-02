@@ -78,7 +78,7 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
           {t('more')}
         </Link>
       </CardHeader>
-      <CardContent className="p-2 pt-0">
+      <CardContent className="p-4 pt-0">
         {loading ? (
           <div className="space-y-1.5 p-2">
             {Array.from({ length: 5 }).map((_, i) => (
