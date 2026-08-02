@@ -605,7 +605,10 @@ export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, rep
     const usage = (request as FastifyRequest & { usage?: { totalTokens?: number } }).usage
     const totalTokens = usage?.totalTokens
     if (typeof totalTokens === 'number' && totalTokens > 0) {
-      void recordTpmUsage(apiKey.id, totalTokens).catch(() => {})
+      // P2 修复(2026-08-02):空 catch 加日志,避免 TPM 记录失败静默丢失(不影响主响应)
+      void recordTpmUsage(apiKey.id, totalTokens).catch((err) => {
+        request.log.warn({ err, apiKeyId: apiKey.id }, 'TPM usage record failed')
+      })
     }
   })
 }

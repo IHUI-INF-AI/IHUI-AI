@@ -119,9 +119,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     let vipLevel: number
     if (isVipRaw === null || isVipRaw === undefined) {
       vipLevel = 0
-      logger.warn(
-        `[token-balance] isVip 为 null, 降级 vipLevel=0: userId=${userId}`,
-      )
+      logger.warn(`[token-balance] isVip 为 null, 降级 vipLevel=0: userId=${userId}`)
     } else {
       vipLevel = isVipRaw
     }
@@ -171,68 +169,73 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     ): Promise<{ success: boolean; remaining: number }> {
       const info = await this.getBalance(userId)
 
-      // G3: 幂等保护 - 若 idempotencyKey 已存在于 token_flows(同 op_type=1 扣减),
-      // 说明是 BullMQ 重试重复消费,直接返回当前余额不重复扣
-      // (依赖 G2 已建的 unique index (related_order_no, op_type))
-      if (idempotencyKey) {
-        const existing = await db.execute(sql`
-          SELECT 1 FROM "token_flows"
-          WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
-          LIMIT 1
-        `)
-        if (existing.length > 0) {
-          return { success: true, remaining: info.balance }
-        }
-      }
-
-      // 促销期折扣
+      // 促销期折扣(discountRate 是用户属性,不会在事务中改变,事务外计算无并发风险)
       const actualAmount = checkPromotionPeriod()
         ? Math.ceil(amount * info.discountRate * 0.8) // 促销期额外8折
         : Math.ceil(amount * info.discountRate)
 
-      // P0 修复(假成功):不再依赖缓存预检查结果作最终判断,
-      // 改为原子 UPDATE + WHERE 余额检查 + RETURNING,
-      // 0 行影响 = 余额不足 OR 用户不存在 → 返回 success=false。
-      const updated = await db
-        .update(userMargins)
-        .set({
-          tokenQuantity: sql`${userMargins.tokenQuantity} - ${actualAmount}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(userMargins.userId, userId),
-            sql`${userMargins.tokenQuantity} >= ${actualAmount}`,
-          ),
-        )
-        .returning({ tokenQuantity: userMargins.tokenQuantity })
+      // P0 修复:幂等检查 + 原子扣减 + 流水写入全部包在事务内,
+      // 防止 UPDATE 成功后 INSERT 失败导致余额扣了无流水。
+      const result = await db.transaction(async (tx) => {
+        // G3: 事务内幂等检查 - 若 idempotencyKey 已存在于 token_flows(同 op_type=1 扣减),
+        // 说明是 BullMQ 重试重复消费,直接返回当前余额不重复扣
+        // (依赖 G2 已建的 unique index (related_order_no, op_type))
+        if (idempotencyKey) {
+          const existing = await tx.execute(sql`
+            SELECT 1 FROM "token_flows"
+            WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
+            LIMIT 1
+          `)
+          if (existing.length > 0) {
+            return { success: true, remaining: info.balance }
+          }
+        }
 
-      if (updated.length === 0) {
-        // 0 行影响 = 余额不足 OR 用户不存在
-        return { success: false, remaining: info.balance }
+        // 原子 UPDATE + WHERE 余额检查 + RETURNING
+        // (0 行影响 = 余额不足 OR 用户不存在 → success=false)
+        const updated = await tx
+          .update(userMargins)
+          .set({
+            tokenQuantity: sql`${userMargins.tokenQuantity} - ${actualAmount}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(userMargins.userId, userId),
+              sql`${userMargins.tokenQuantity} >= ${actualAmount}`,
+            ),
+          )
+          .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+        if (updated.length === 0) {
+          return { success: false, remaining: info.balance }
+        }
+
+        const newBalance = updated[0]!.tokenQuantity
+
+        // 写流水:事务内,失败回滚 UPDATE(带 ON CONFLICT DO NOTHING 幂等兜底)
+        await tx.execute(sql`
+          INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
+          VALUES (${userId}, 1, ${actualAmount}, ${newBalance}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
+          ON CONFLICT ("related_order_no", "op_type") DO NOTHING
+        `)
+
+        return { success: true, remaining: newBalance }
+      })
+
+      // 事务提交成功后:invalidate cache + VIP 折扣埋点(事务外,失败不影响主流程)
+      if (result.success) {
+        await this.invalidateCache(userId)
+        // P3-1 VIP 折扣指标埋点:仅当 discountRate < 1.0 且 vipLevel > 0 时算应用了 VIP 折扣
+        if (info.discountRate < 1.0 && info.vipLevel > 0) {
+          vipDiscountMetrics.applies++
+          vipDiscountMetrics.totalDiscounted += Math.max(0, amount - actualAmount)
+          vipDiscountMetrics.byLevel[info.vipLevel] =
+            (vipDiscountMetrics.byLevel[info.vipLevel] ?? 0) + 1
+        }
       }
 
-      const newBalance = updated[0]!.tokenQuantity
-
-      // 写流水:带 related_order_no = idempotencyKey,ON CONFLICT DO NOTHING 兜底
-      // (并发场景下两个 worker 同时通过 pre-check 时,第二个 INSERT 命中 unique index 被丢弃)
-      await db.execute(sql`
-        INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
-        VALUES (${userId}, 1, ${actualAmount}, ${newBalance}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
-        ON CONFLICT ("related_order_no", "op_type") DO NOTHING
-      `)
-
-      await this.invalidateCache(userId)
-
-      // P3-1 VIP 折扣指标埋点:仅当 discountRate < 1.0 且 vipLevel > 0 时算应用了 VIP 折扣
-      if (info.discountRate < 1.0 && info.vipLevel > 0) {
-        vipDiscountMetrics.applies++
-        vipDiscountMetrics.totalDiscounted += Math.max(0, amount - actualAmount)
-        vipDiscountMetrics.byLevel[info.vipLevel] =
-          (vipDiscountMetrics.byLevel[info.vipLevel] ?? 0) + 1
-      }
-
-      return { success: true, remaining: newBalance }
+      return result
     },
 
     async rechargeTokens(
@@ -240,28 +243,32 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       amount: number,
       reason?: string,
     ): Promise<{ success: boolean; balance: number }> {
-      // P0 修复(lost update):不再 getBalance + 内存计算 + UPSERT 覆盖,
-      // 改为原子 UPSERT 用 SQL 表达式 token_quantity = token_quantity + amount,
-      // 并 RETURNING 拿到实际更新后的余额作为流水 balanceAfter。
-      const [updated] = await db
-        .insert(userMargins)
-        .values({ userId, tokenQuantity: amount, frozenQuantity: 0 })
-        .onConflictDoUpdate({
-          target: userMargins.userId,
-          set: {
-            tokenQuantity: sql`${userMargins.tokenQuantity} + ${amount}`,
-            updatedAt: new Date(),
-          },
-        })
-        .returning({ tokenQuantity: userMargins.tokenQuantity })
+      // P0 修复:原子 UPSERT + 流水写入包在事务内,
+      // 防止 UPSERT 成功后 INSERT 失败导致余额加了无流水。
+      const newBalance = await db.transaction(async (tx) => {
+        // 原子 UPSERT 用 SQL 表达式 token_quantity = token_quantity + amount(防 lost update)
+        const [updated] = await tx
+          .insert(userMargins)
+          .values({ userId, tokenQuantity: amount, frozenQuantity: 0 })
+          .onConflictDoUpdate({
+            target: userMargins.userId,
+            set: {
+              tokenQuantity: sql`${userMargins.tokenQuantity} + ${amount}`,
+              updatedAt: new Date(),
+            },
+          })
+          .returning({ tokenQuantity: userMargins.tokenQuantity })
 
-      const newBalance = updated!.tokenQuantity
+        const balance = updated!.tokenQuantity
 
-      // opType: 0=充值
-      await db.execute(sql`
-        INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "created_at")
-        VALUES (${userId}, 0, ${amount}, ${newBalance}, ${reason ?? 'manual'}, now())
-      `)
+        // opType: 0=充值(事务内,失败回滚 UPSERT)
+        await tx.execute(sql`
+          INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "created_at")
+          VALUES (${userId}, 0, ${amount}, ${balance}, ${reason ?? 'manual'}, now())
+        `)
+
+        return balance
+      })
 
       await this.invalidateCache(userId)
       return { success: true, balance: newBalance }

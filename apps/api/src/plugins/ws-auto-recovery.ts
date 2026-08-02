@@ -332,6 +332,11 @@ export function getWsAutoRecoveryManager(options?: WsAutoRecoveryOptions): WsAut
 const wsAutoRecoveryPlugin: FastifyPluginAsync<WsAutoRecoveryOptions> = async (fastify, opts) => {
   const manager = getWsAutoRecoveryManager(opts)
   manager.setFastify(fastify)
+  // P0 修复(2026-08-02):注册 onClose 钩子清理 5 个 setInterval 定时器,
+  // 防止进程关闭后定时器仍触发导致资源泄漏 + 句柄残留阻止 exit。
+  fastify.addHook('onClose', async () => {
+    await manager.stopMonitoring()
+  })
 }
 
 export default fp(wsAutoRecoveryPlugin, {
