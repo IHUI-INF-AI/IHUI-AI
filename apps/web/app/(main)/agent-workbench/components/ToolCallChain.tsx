@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Wrench, CheckCircle2, XCircle, Loader2, ChevronRight } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@ihui/ui-react'
 import type { ToolCallEvent } from '@/hooks/use-agent-runtime'
 
@@ -12,11 +13,23 @@ interface Props {
 
 const STATUS_CONFIG: Record<
   ToolCallEvent['status'],
-  { icon: React.ComponentType<{ className?: string }>; color: string; label: string }
+  { icon: React.ComponentType<{ className?: string }>; color: string }
 > = {
-  pending: { icon: Loader2, color: 'text-sky-600 dark:text-sky-400', label: '进行中' },
-  success: { icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-500', label: '成功' },
-  error: { icon: XCircle, color: 'text-destructive', label: '失败' },
+  pending: { icon: Loader2, color: 'text-sky-600 dark:text-sky-400' },
+  success: { icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-500' },
+  error: { icon: XCircle, color: 'text-destructive' },
+}
+
+/** status → i18n label key(组件内调 t() 翻译,避免顶层 const 持有硬编码文案) */
+function statusLabelKey(status: ToolCallEvent['status']): string {
+  switch (status) {
+    case 'pending':
+      return 'statusPending'
+    case 'success':
+      return 'statusSuccess'
+    case 'error':
+      return 'statusError'
+  }
 }
 
 function truncate(s: string, len = 60): string {
@@ -24,6 +37,7 @@ function truncate(s: string, len = 60): string {
 }
 
 function ToolCallItem({ call, isLast }: { call: ToolCallEvent; isLast: boolean }) {
+  const t = useTranslations('agentWorkbench.toolCallChain')
   const [expanded, setExpanded] = React.useState(false)
   const cfg = STATUS_CONFIG[call.status]
   const Icon = cfg.icon
@@ -57,7 +71,7 @@ function ToolCallItem({ call, isLast }: { call: ToolCallEvent; isLast: boolean }
             )}
           />
           <span className="font-mono text-xs font-medium">{call.tool}</span>
-          <span className={cn('text-[10px]', cfg.color)}>{cfg.label}</span>
+          <span className={cn('text-[10px]', cfg.color)}>{t(statusLabelKey(call.status))}</span>
           <ChevronRight
             className={cn(
               'ml-auto h-3 w-3 text-muted-foreground transition-transform',
@@ -86,17 +100,18 @@ function ToolCallItem({ call, isLast }: { call: ToolCallEvent; isLast: boolean }
 }
 
 export function ToolCallChain({ toolCalls, running }: Props) {
+  const t = useTranslations('agentWorkbench.toolCallChain')
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card">
       <div className="flex items-center gap-2 px-3 py-2 text-sm">
         <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="font-medium">工具调用链</span>
+        <span className="font-medium">{t('title')}</span>
         <span className="text-xs text-muted-foreground">{toolCalls.length}</span>
       </div>
       <div className="flex-1 overflow-auto px-3 py-2">
         {toolCalls.length === 0 ? (
           <div className="py-8 text-center text-xs text-muted-foreground">
-            {running ? '等待工具调用...' : '暂无工具调用'}
+            {running ? t('waiting') : t('empty')}
           </div>
         ) : (
           <div className="space-y-2">
