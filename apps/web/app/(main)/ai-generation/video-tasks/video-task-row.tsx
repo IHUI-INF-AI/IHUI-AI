@@ -46,7 +46,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
         </div>
         <div>
           <div className="text-muted-foreground">消息</div>
-          <div className="truncate">{task.message || '-'}</div>
+          <div className="min-w-0 truncate">{task.message || '-'}</div>
         </div>
       </div>
       {warning ? (

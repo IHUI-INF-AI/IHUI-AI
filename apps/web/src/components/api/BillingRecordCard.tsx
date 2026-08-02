@@ -40,7 +40,7 @@ export default function BillingRecordCard({
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium">
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {r.apiName ?? r.method ?? '调用记录'}
           </span>
           {r.cost !== undefined && <span className="shrink-0 text-sm font-medium">¥{r.cost}</span>}

@@ -299,7 +299,7 @@ export function ModelsMarketplace({ list }: Props) {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
             <SelectTrigger className="h-9 w-[140px] gap-1.5 rounded-md text-xs">
               <SelectValue placeholder={t('sort.recommended')} />

@@ -659,16 +659,16 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   const spec = resolvePathLabelSpec(path)
   // spec 为 null 时也必须无条件调用 useTranslations(React hook 规则)
   const t = useTranslations(spec?.ns ?? 'common')
-  if (!spec) return <span className="truncate text-sm leading-none">{deriveTitle(path)}</span>
+  if (!spec) return <span className="min-w-0 flex-1 truncate text-sm leading-none">{deriveTitle(path)}</span>
   // 2026-07-29 根治"标签栏显示 i18n 键名"问题:
   // next-intl 的 t() 在 key 缺失时不会抛错,而是调用 onError 后返回 key 路径字符串
   // (如 "aiChat.title"),导致标签栏直接显示键名。原 try/catch 永远进不去 catch 分支。
   // 改用 t.has() 显式检查 key 是否存在,不存在则回退到 deriveTitle(英文 Title Case 兜底),
   // 至少不泄露键名;后续可由 path-labels.ts 补齐 key 让标签显示正确翻译。
   if (!t.has(spec.key)) {
-    return <span className="truncate text-sm leading-none">{deriveTitle(path)}</span>
+    return <span className="min-w-0 flex-1 truncate text-sm leading-none">{deriveTitle(path)}</span>
   }
-  return <span className="truncate text-sm leading-none">{t(spec.key)}</span>
+  return <span className="min-w-0 flex-1 truncate text-sm leading-none">{t(spec.key)}</span>
 })
 
 export default TagsView
