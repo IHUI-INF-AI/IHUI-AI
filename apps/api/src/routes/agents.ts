@@ -5,6 +5,7 @@ import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 import { db, dbRead } from '../db/index.js'
 import {
   agents,
@@ -1330,7 +1331,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `获取智能体详情失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `获取智能体详情失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1482,7 +1483,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `生成测试回调失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `生成测试回调失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1502,7 +1503,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `查询回调记录失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `查询回调记录失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1552,7 +1553,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
           if (resp.ok) remote = (await resp.json()) as Record<string, unknown>
           else cozeError = `Coze API ${resp.status} ${resp.statusText}`
         } catch (err) {
-          cozeError = (err as Error).message
+          cozeError = toUserFriendlyMessage(err)
         }
       } else {
         cozeError = '未配置 COZE_API_TOKEN, 仅返回本地查询'
@@ -1568,7 +1569,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `测试获取智能体详情失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `测试获取智能体详情失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1606,7 +1607,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       const list = await dbRead.select().from(agents).where(where).limit(pageSize)
       return reply.send(success({ list, total: list.length, pageSize, allInOne: true }))
     } catch (e) {
-      return reply.status(500).send(error(500, `查询全部智能体失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `查询全部智能体失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1624,7 +1625,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       }
       return reply.send(success({ billing: rows[0] }))
     } catch (e) {
-      return reply.status(500).send(error(500, `查询账单失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `查询账单失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1649,7 +1650,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `查询智能体详情失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `查询智能体详情失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1678,7 +1679,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         .offset(offset)
       return reply.send(success({ list, total: list.length, page, pageSize }))
     } catch (e) {
-      return reply.status(500).send(error(500, `查询回调列表失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `查询回调列表失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1731,7 +1732,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `设置 Webhook 密钥失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `设置 Webhook 密钥失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1784,7 +1785,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply
         .status(500)
-        .send(error(500, `生成 Coze 订阅测试事件失败: ${(e as Error).message}`))
+        .send(error(500, `生成 Coze 订阅测试事件失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1822,7 +1823,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `签名验证失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `签名验证失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1868,7 +1869,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `更新 token 余额失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `更新 token 余额失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1912,7 +1913,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         success({ list, total: list.length, page, pageSize, period: type, startTime, uuid }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `查询用户账单失败: ${(e as Error).message}`))
+      return reply.status(500).send(error(500, `查询用户账单失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 

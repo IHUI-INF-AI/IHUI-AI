@@ -67,6 +67,12 @@ import {
 } from './v1-protocol-extensions.js'
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
+// 文件上传安全校验(CWE-434 防护:magic number + 扩展名白名单 + 大小限制)
+import {
+  validateUploadFile,
+  MAX_MULTIPART_UPLOAD_SIZE,
+  extractExt,
+} from '../utils/file-type-validator.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -1469,12 +1475,22 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, 'File is empty'))
       }
 
+      // P0 安全加固(2026-08-02):文件大小限制(防 DoS,CWE-400)
+      if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+        return reply.status(400).send(error(400, '文件大小超过 100MB 限制'))
+      }
+
       // OpenAI Batch API 兼容:purpose="batch" 时存 Redis 供 batch-worker 读取
       const purposeField = data.fields?.purpose
       const purpose = purposeField && typeof purposeField === 'object' && 'value' in purposeField
         ? String((purposeField as { value: unknown }).value)
         : undefined
       if (purpose === 'batch') {
+        // P0 安全加固(2026-08-02):batch 文件只允许 .jsonl 扩展名(OpenAI Batch API 规范)
+        const batchExt = extractExt(data.filename ?? '')
+        if (batchExt !== 'jsonl') {
+          return reply.status(400).send(error(400, 'Batch 文件必须是 .jsonl 格式'))
+        }
         const batchFileId = `file-${randomUUID()}`
         const content = buffer.toString('utf8')
         try {
@@ -1499,6 +1515,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
 
       const filename = data.filename || `upload-${Date.now()}`
       const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
+
+      // P0 安全加固(2026-08-02):文件类型校验(防 CWE-434 恶意文件上传)
+      // magic number + 扩展名白名单 + MIME 一致性校验
+      const declaredMime = data.mimetype || 'application/octet-stream'
+      const validation = validateUploadFile(buffer, filename, declaredMime, MAX_MULTIPART_UPLOAD_SIZE)
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
 
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })

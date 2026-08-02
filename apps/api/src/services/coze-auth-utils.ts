@@ -136,7 +136,7 @@ export async function getCozeAccessToken(options: {
     tokenCache.expireTime = now + TOKEN_TTL
     return result.access_token
   } catch (e) {
-    console.error('[coze-auth-utils] getCozeAccessToken 失败:', e)
+    console.error('[coze-auth-utils] getCozeAccessToken 失败:', e instanceof Error ? e.message : String(e))
     return null
   }
 }

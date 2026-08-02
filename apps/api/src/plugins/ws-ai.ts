@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
-import { wsAuth } from './ws-helpers.js'
+import { wsAuth, WS_CLOSE, WsUserConnectionLimiter, WsRateLimiter } from './ws-helpers.js'
 import { cloneTimbre } from '../routes/ai-vendors.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
@@ -51,6 +52,15 @@ async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal):
  *   - /ws/realtime/pcm   双向实时音频(ASR 输入 + TTS 输出,PCM16 16kHz)
  */
 const wsAiPlugin: FastifyPluginAsync = async (server) => {
+  // 2026-08-02 P1 安全审计:单用户并发连接数限制(防资源耗尽,AI 端点 1:1 流式)
+  // 风险:单用户开多连接同时发起 AI 调用 → AI 服务成本爆炸 / 资源占用
+  // 防护:每用户最多 16 个并发 ws 连接(AI 端点较多,阈值放宽),超限 close(4005)
+  const userConnectionLimiter = new WsUserConnectionLimiter(16)
+  // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用,20 次/分钟/用户)
+  // 风险:单连接高频发 synthesize/capability.start/chat.message → AI 服务成本爆炸
+  // 防护:每用户 20 次 AI 调用/分钟,超限 close(4002)
+  const aiCallRateLimiter = new WsRateLimiter(20, 60_000)
+
   // ==========================================================================
   // 1. /ws/agent/stream — Agent 流式输出
   //    客户端发送: {"text":"..."} 或 {"command":"interrupt"|"continue"|"cancel"}
@@ -62,6 +72,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-ai(agent/stream)拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       send(socket, { event: 'ready', bot_id: botId, user: userId })
 
       let controller: AbortController | null = null
@@ -106,6 +122,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           send(socket, { event: 'error', msg: '已暂停,请先发送 continue' })
           return
         }
+        // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+        if (!aiCallRateLimiter.allow(userId)) {
+          send(socket, { event: 'error', msg: 'AI 调用频率超限,请稍后重试' })
+          return
+        }
         // 多 agent 多路复用:透传客户端 agentId,start/delta/done 携带该字段,
         // 前端据此把 chunk 分流到对应 subagent 卡片;缺失时降级为单 agent 模式
         const streamAgentId = msg.agentId as string | undefined
@@ -142,7 +163,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         } catch (e) {
           // interrupt/cancel 触发的 AbortError 已发送对应事件,此处不重复报错
           if ((e as Error).name !== 'AbortError') {
-            send(socket, { event: 'error', msg: (e as Error).message })
+            send(socket, { event: 'error', msg: toUserFriendlyMessage(e) })
           }
         } finally {
           send(socket, { event: 'done', agentId: streamAgentId })
@@ -150,7 +171,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         }
       })
 
-      socket.on('close', () => controller?.abort())
+      socket.on('close', () => {
+        controller?.abort()
+        // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+        userConnectionLimiter.release(userId)
+        aiCallRateLimiter.reset(userId)
+      })
     })()
   })
 
@@ -165,9 +191,18 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-ai(tts/stream)拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       let aborted = false
       socket.on('close', () => {
         aborted = true
+        // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+        userConnectionLimiter.release(userId)
+        aiCallRateLimiter.reset(userId)
       })
 
       socket.on('message', async (data: Buffer) => {
@@ -199,6 +234,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           send(socket, { code: 400, event: 'error', message: '缺少 text' })
           return
         }
+        // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+        if (!aiCallRateLimiter.allow(userId)) {
+          send(socket, { code: 429, event: 'task.error', message: 'AI 调用频率超限,请稍后重试' })
+          return
+        }
         aborted = false
         send(socket, { code: 0, event: 'task.start', ts: Date.now() })
         try {
@@ -219,7 +259,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           }
           send(socket, { code: 0, event: 'audio.done', size: audio.length })
         } catch (e) {
-          send(socket, { code: 500, event: 'task.error', message: (e as Error).message })
+          send(socket, { code: 500, event: 'task.error', message: toUserFriendlyMessage(e) })
         }
       })
     })()
@@ -239,6 +279,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-ai(realtime/pcm)拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       send(socket, {
         event: 'ready',
         user: userId,
@@ -275,7 +321,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             const result = (await resp.json().catch(() => ({}))) as { text?: string }
             send(socket, { event: 'asr.result', text: result.text ?? '' })
           } catch (e) {
-            send(socket, { event: 'error', msg: `ASR 失败: ${(e as Error).message}` })
+            send(socket, { event: 'error', msg: `ASR 失败: ${toUserFriendlyMessage(e)}` })
           }
           return
         }
@@ -291,6 +337,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         if (type === 'tts.request') {
           const text = msg.text as string | undefined
           if (!text) return
+          // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+          if (!aiCallRateLimiter.allow(userId)) {
+            send(socket, { event: 'error', msg: 'AI 调用频率超限,请稍后重试' })
+            return
+          }
           ttsController?.abort()
           ttsController = new AbortController()
           try {
@@ -321,7 +372,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         }
       })
 
-      socket.on('close', () => ttsController?.abort())
+      socket.on('close', () => {
+        ttsController?.abort()
+        // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+        userConnectionLimiter.release(userId)
+        aiCallRateLimiter.reset(userId)
+      })
     })()
   })
 
@@ -339,6 +395,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-ai(capabilities/stream)拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       send(socket, { event: 'ready', user: userId })
 
       let controller: AbortController | null = null
@@ -375,6 +437,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         const capabilityName = (msg.capabilityName as string | undefined) ?? 'generic'
         const metadata = (msg.metadata as Record<string, unknown> | undefined) ?? {}
 
+        // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+        if (!aiCallRateLimiter.allow(userId)) {
+          send(socket, { event: 'capability.error', message: 'AI 调用频率超限,请稍后重试' })
+          return
+        }
         controller?.abort()
         controller = new AbortController()
         const startTs = Date.now()
@@ -452,8 +519,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           if ((e as Error).name !== 'AbortError') {
             send(socket, {
               event: 'capability.error',
-              message: (e as Error).message,
-              data: { error: (e as Error).message },
+              message: toUserFriendlyMessage(e),
+              data: { error: toUserFriendlyMessage(e) },
             })
           }
         } finally {
@@ -461,7 +528,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         }
       })
 
-      socket.on('close', () => controller?.abort())
+      socket.on('close', () => {
+        controller?.abort()
+        // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+        userConnectionLimiter.release(userId)
+        aiCallRateLimiter.reset(userId)
+      })
     })()
   })
 
@@ -476,6 +548,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
       ;(async () => {
         const userId = await wsAuth(socket, query.token)
         if (!userId) return
+        // 2026-08-02 P1 安全审计:单用户并发连接数限制
+        if (!userConnectionLimiter.acquire(userId)) {
+          server.log.warn({ userId, provider }, 'ws-ai(provider)拒绝连接:单用户连接数超限')
+          socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+          return
+        }
         send(socket, { event: 'ready', user: userId, provider })
 
         let controller: AbortController | null = null
@@ -512,6 +590,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           const capabilityName = (msg.capabilityName as string | undefined) ?? provider
           const metadata = (msg.metadata as Record<string, unknown> | undefined) ?? {}
 
+          // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+          if (!aiCallRateLimiter.allow(userId)) {
+            send(socket, { event: 'capability.error', provider, message: 'AI 调用频率超限,请稍后重试' })
+            return
+          }
           controller?.abort()
           controller = new AbortController()
           const startTs = Date.now()
@@ -594,8 +677,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               send(socket, {
                 event: 'capability.error',
                 provider,
-                message: (e as Error).message,
-                data: { error: (e as Error).message },
+                message: toUserFriendlyMessage(e),
+                data: { error: toUserFriendlyMessage(e) },
               })
             }
           } finally {
@@ -603,7 +686,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           }
         })
 
-        socket.on('close', () => controller?.abort())
+        socket.on('close', () => {
+          controller?.abort()
+          // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+          userConnectionLimiter.release(userId)
+          aiCallRateLimiter.reset(userId)
+        })
       })()
     })
   }
@@ -623,6 +711,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-ai(stock/stream)拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       send(socket, { event: 'ready', user: userId })
 
       socket.on('message', async (data: Buffer) => {
@@ -642,6 +736,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         const question = msg.question as string | undefined
         if (!symbol || !question) {
           send(socket, { event: 'error', msg: '缺少 symbol 或 question' })
+          return
+        }
+
+        // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+        if (!aiCallRateLimiter.allow(userId)) {
+          send(socket, { event: 'error', msg: 'AI 调用频率超限,请稍后重试' })
           return
         }
 
@@ -672,6 +772,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
         send(socket, { event: 'done', symbol, ts: Date.now() })
       })
+
+      // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+      socket.on('close', () => {
+        userConnectionLimiter.release(userId)
+        aiCallRateLimiter.reset(userId)
+      })
     })()
   })
 
@@ -686,6 +792,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-ai(timbre/generate)拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       send(socket, { code: 0, event: 'auth.ok', user: userId })
 
       socket.on('message', async (data: Buffer) => {
@@ -720,6 +832,11 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         }
         const vendor = (msg.vendor as string) ?? 'doubao'
         const taskId = `timbre_${Date.now()}_${userId.slice(0, 8)}`
+        // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+        if (!aiCallRateLimiter.allow(userId)) {
+          send(socket, { code: 429, event: 'task.error', message: 'AI 调用频率超限,请稍后重试' })
+          return
+        }
         send(socket, { code: 0, event: 'task.start', taskId })
 
         const result = await cloneTimbre(userId, voiceName, audioUrl, vendor)
@@ -728,6 +845,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         } else {
           send(socket, { code: 0, event: 'task.done', taskId, data: result.timbre })
         }
+      })
+
+      // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+      socket.on('close', () => {
+        userConnectionLimiter.release(userId)
+        aiCallRateLimiter.reset(userId)
       })
     })()
   })
@@ -747,6 +870,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-08-02 P1 安全审计:单用户并发连接数限制
+      if (!userConnectionLimiter.acquire(userId)) {
+        server.log.warn({ userId }, 'ws-ai(coze/chat)拒绝连接:单用户连接数超限')
+        socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+        return
+      }
       send(socket, { code: 0, msg: 'success', event: 'ready', user: userId, bot_id: botId })
 
       const cozeKey = process.env.COZE_API_KEY
@@ -825,6 +954,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           const reqUserId = (msg.user_id as string) || userId
           if (!queryText) {
             send(socket, { code: 400, event: 'error', message: '缺少 content' })
+            return
+          }
+
+          // 2026-08-02 P1 安全审计:AI 调用速率限制(防滥用)
+          if (!aiCallRateLimiter.allow(userId)) {
+            send(socket, { code: 429, event: 'error', message: 'AI 调用频率超限,请稍后重试' })
             return
           }
 
@@ -918,7 +1053,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             send(socket, {
               code: 500,
               event: 'conversation.chat.failed',
-              message: (e as Error).message,
+              message: toUserFriendlyMessage(e),
             })
           }
           return
@@ -943,6 +1078,9 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
       socket.on('close', () => {
         stopHeartbeat()
+        // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
+        userConnectionLimiter.release(userId)
+        aiCallRateLimiter.reset(userId)
       })
     })()
   })

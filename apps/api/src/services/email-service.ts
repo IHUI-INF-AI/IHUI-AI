@@ -7,6 +7,16 @@ import type { FastifyInstance } from 'fastify'
 import type { EmailJobData } from '../plugins/queue.js'
 
 /**
+ * 邮箱本地脱敏:user@example.com → u***@example.com
+ * 用于 console / 独立 pino 实例打印(绕过 log-sanitizer 插件时的兜底)。
+ */
+function maskEmail(email: string): string {
+  const at = email.indexOf('@')
+  if (at < 1) return '***'
+  return `${email[0]}***${email.slice(at)}`
+}
+
+/**
  * 腾讯云 SES SendEmail API 不允许直接传 HTML/Text 字符串,
  * Simple.Html / Simple.Text 字段必须 base64 编码(UTF-8)。
  */
@@ -156,7 +166,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 
   let result: SendEmailResult
   if (primary === 'stub') {
-    console.info(`[email-stub] To: ${options.to}, Subject: ${options.subject}`)
+    console.info(`[email-stub] To: ${maskEmail(options.to)}, Subject: ${options.subject}`)
     result = { sent: false, stub: true, provider: 'stub' }
   } else {
     result = await dispatch(options, primary)
@@ -165,7 +175,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     if (!result.sent && primary !== 'smtp' && config.SMTP_ENABLED && config.SMTP_HOST) {
       const fallback = await sendViaSmtp(options)
       if (fallback.sent) {
-        logger.warn(`[email-fallback] primary=${primary} failed, smtp ok, To: ${options.to}`)
+        logger.warn(`[email-fallback] primary=${primary} failed, smtp ok, To: ${maskEmail(options.to)}`)
         result = fallback
       }
     }
@@ -173,7 +183,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     // 最终降级 stub(不抛错,保证调用方不崩)
     if (!result.sent) {
       logger.error(
-        `[email-error] provider=${primary} To: ${options.to} err: ${result.error ?? 'unknown'}`,
+        `[email-error] provider=${primary} To: ${maskEmail(options.to)} err: ${result.error ?? 'unknown'}`,
       )
     }
   }
