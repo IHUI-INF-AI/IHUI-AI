@@ -12,7 +12,14 @@ export const paginationSchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
 })
 
-export const idParamSchema = z.object({ id: z.string() })
+export const idParamSchema = z.object({
+  // 2026-08-02 修复 P0 路径遍历:禁止 ../ \ / 等路径分隔符,只允许字母数字下划线短横线
+  // 兼容 UUID / 自增数字 / slug,不影响 admin-extended 等复用方
+  id: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]+$/, '无效的 ID')
+    .max(128, 'ID 过长'),
+})
 
 export function parsePagination(request: FastifyRequest, reply: FastifyReply) {
   const parsed = paginationSchema.safeParse(request.query)
