@@ -178,7 +178,7 @@ export function NewsInfoTable(props: Props) {
               <TableHead className="px-3 py-2 text-xs text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {infoLoading ? (
               <TableRow>
                 <TableCell colSpan={9} className="px-3 py-10 text-center text-muted-foreground">
@@ -239,11 +239,7 @@ export function NewsInfoTable(props: Props) {
                     <div className="flex items-center justify-end gap-1">
                       <HasPermi code="ai:information:edit">
                         <Tooltip content="编辑">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditInfo(info)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => openEditInfo(info)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         </Tooltip>

@@ -94,7 +94,7 @@ export function BackgroundAgentsPanel({
           <p className="text-xs text-muted-foreground/70">{t('emptyHint')}</p>
         </div>
       ) : (
-        <ul className="divide-y">
+        <ul className="space-y-1">
           {agents.map((agent) => (
             <li key={agent.agent_id} className="px-3 py-2.5">
               <div className="flex items-start gap-2">
@@ -124,9 +124,7 @@ export function BackgroundAgentsPanel({
                   </div>
 
                   <Tooltip content={agent.prompt} side="bottom">
-                    <p className="mt-0.5 break-words text-sm">
-                      {truncate(agent.prompt, 80)}
-                    </p>
+                    <p className="mt-0.5 break-words text-sm">{truncate(agent.prompt, 80)}</p>
                   </Tooltip>
 
                   {agent.status === 'running' && agent.progress?.text_preview && (

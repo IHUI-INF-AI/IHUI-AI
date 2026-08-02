@@ -119,7 +119,7 @@ export default function NotificationsPage() {
       </div>
 
       <Card>
-        <CardContent className="divide-y p-0">
+        <CardContent className="space-y-2 p-0">
           {PREF_GROUPS.map((item) => {
             const Icon = item.icon
             return (

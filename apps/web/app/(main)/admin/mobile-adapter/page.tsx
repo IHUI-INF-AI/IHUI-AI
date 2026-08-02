@@ -99,7 +99,7 @@ export default function MobileAdapterPage() {
                     <th className={th}>{t('mobile.colStatus')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody>
                   {devicesList.map((d) => {
                     const st = STATUS_STYLE[d.status]
                     return (

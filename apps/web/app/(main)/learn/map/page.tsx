@@ -143,7 +143,7 @@ export default function LearnMapPage() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3 p-4 pt-2">
+                <CardContent className="space-y-3 p-4 pt-2 min-[640px]:p-6 min-[640px]:pt-2">
                   <div className="flex items-center gap-3">
                     <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted">
                       <div

@@ -161,7 +161,12 @@ export default function AdminResourceProductPage() {
             </label>
             <label htmlFor="rp-name" className="space-y-1 text-sm">
               <span className="text-muted-foreground">产品名称</span>
-              <Input id="rp-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <Input
+                id="rp-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
             </label>
             <label htmlFor="rp-price" className="space-y-1 text-sm">
               <span className="text-muted-foreground">价格</span>
@@ -224,80 +229,99 @@ export default function AdminResourceProductPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">产品名称</th>
-              <th className="px-3 py-2 text-left">资源 ID</th>
-              <th className="px-3 py-2 text-right">价格</th>
-              <th className="px-3 py-2 text-right">原价</th>
-              <th className="px-3 py-2 text-right">排序</th>
-              <th className="px-3 py-2 text-left">状态</th>
-              <th className="px-3 py-2 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">加载中…</td>
+                <th className="px-3 py-2 text-left">产品名称</th>
+                <th className="px-3 py-2 text-left">资源 ID</th>
+                <th className="px-3 py-2 text-right">价格</th>
+                <th className="px-3 py-2 text-right">原价</th>
+                <th className="px-3 py-2 text-right">排序</th>
+                <th className="px-3 py-2 text-left">状态</th>
+                <th className="px-3 py-2 text-right">操作</th>
               </tr>
-            ) : list.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">暂无产品</td>
-              </tr>
-            ) : (
-              list.map((p) => (
-                <tr key={p.id} className="border-t border-border">
-                  <td className="px-3 py-2 font-medium">{p.name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{p.resourceId}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">¥{p.price}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                    {p.originalPrice ? `¥${p.originalPrice}` : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{p.sort}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs ${
-                        p.isPublished
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {p.isPublished ? '上架' : '下架'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="inline-flex gap-1">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(p)}>编辑</Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={deleteMut.isPending}
-                        onClick={() => {
-                          if (window.confirm(`确定删除产品 ${p.name} 吗？`)) deleteMut.mutate(p.id)
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                    加载中…
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无产品
+                  </td>
+                </tr>
+              ) : (
+                list.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-3 py-2 font-medium">{p.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{p.resourceId}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">¥{p.price}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      {p.originalPrice ? `¥${p.originalPrice}` : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{p.sort}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-xs ${
+                          p.isPublished
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {p.isPublished ? '上架' : '下架'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(p)}>
+                          编辑
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={deleteMut.isPending}
+                          onClick={() => {
+                            if (window.confirm(`确定删除产品 ${p.name} 吗？`))
+                              deleteMut.mutate(p.id)
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 个产品</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>

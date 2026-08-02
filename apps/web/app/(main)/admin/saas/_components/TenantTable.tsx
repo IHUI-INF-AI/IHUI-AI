@@ -4,13 +4,7 @@
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import Link from 'next/link'
-import {
-  Database,
-  Eye,
-  Pause,
-  Play,
-  Trash2,
-} from 'lucide-react'
+import { Database, Eye, Pause, Play, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 
@@ -52,7 +46,7 @@ export function TenantTable({
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
-        <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+        <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 font-medium">{t('table.slug')}</th>
             <th className="px-4 py-2.5 font-medium">{t('table.domain')}</th>
@@ -60,19 +54,15 @@ export function TenantTable({
             <th className="px-4 py-2.5 font-medium">{t('table.containers')}</th>
             <th className="px-4 py-2.5 font-medium">{t('table.memory')}</th>
             <th className="px-4 py-2.5 font-medium">{t('table.cpu')}</th>
-            <th className="px-4 py-2.5 font-medium">
-              {t('table.stateChangedAt')}
-            </th>
-            <th className="px-4 py-2.5 text-right font-medium">
-              {t('table.actions')}
-            </th>
+            <th className="px-4 py-2.5 font-medium">{t('table.stateChangedAt')}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{t('table.actions')}</th>
           </tr>
         </thead>
         <tbody>
           {tenants.map((tn) => {
             const p = pending[tn.slug] ?? null
             return (
-              <tr key={tn.slug} className="border-b last:border-0 hover:bg-muted/20">
+              <tr key={tn.slug} className="hover:bg-muted/20">
                 <td className="px-4 py-2.5 font-mono font-medium">{tn.slug}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   {tn.domain === '-' ? '—' : tn.domain}
@@ -81,19 +71,12 @@ export function TenantTable({
                   <StateBadge state={tn.state} />
                 </td>
                 <td className="px-4 py-2.5">
-                  <ContainerStatusCell
-                    running={tn.containersRunning}
-                    total={tn.containersTotal}
-                  />
+                  <ContainerStatusCell running={tn.containersRunning} total={tn.containersTotal} />
                 </td>
-                <td className="px-4 py-2.5 text-muted-foreground">
-                  {tn.memory}
-                </td>
+                <td className="px-4 py-2.5 text-muted-foreground">{tn.memory}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{tn.cpu}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">
-                  {tn.stateChangedAt
-                    ? dateFmt.format(new Date(tn.stateChangedAt))
-                    : '—'}
+                  {tn.stateChangedAt ? dateFmt.format(new Date(tn.stateChangedAt)) : '—'}
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-1">

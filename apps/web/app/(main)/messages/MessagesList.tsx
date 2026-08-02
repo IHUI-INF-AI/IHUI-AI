@@ -16,7 +16,7 @@ export function MessagesList({ conversations, selectedId, onSelect }: Props) {
   const t = useTranslations('privateMessages')
   return (
     <div className="flex w-80 shrink-0 flex-col border-r">
-      <div className="border-b px-4 py-3">
+      <div className="px-4 py-3">
         <p className="text-sm font-medium">{t('conversations')}</p>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -28,7 +28,7 @@ export function MessagesList({ conversations, selectedId, onSelect }: Props) {
               type="button"
               onClick={() => onSelect(conv.id)}
               className={cn(
-                'flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-colors',
+                'flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
                 isActive ? 'bg-accent' : 'hover:bg-muted/50',
               )}
             >

@@ -343,7 +343,7 @@ export function SiteFooter({ className }: { className?: string }) {
         {/* Row 2: ICP + 版权居中(v10 拉高 — 备案图标 h-5 w-5 替代 h-4 w-4 让 16→20px 更清晰)
             - justify-center 居中显示
             - 只保留 ICP 图标 + ICP 文字 + 版权 */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2 pt-2 text-xs text-muted-foreground">
           <img
             src="/footer/erweima/footer-icon-1.png"
             alt={t('icp')}
@@ -352,11 +352,17 @@ export function SiteFooter({ className }: { className?: string }) {
             className="h-5 w-5 object-contain"
             {...IMG_EAGER}
           />
-          <Link href="/settings/icp-record" className="whitespace-nowrap transition-colors hover:text-primary">
+          <Link
+            href="/settings/icp-record"
+            className="whitespace-nowrap transition-colors hover:text-primary"
+          >
             {t('icp')}
           </Link>
           <span className="text-border">·</span>
-          <Link href="/settings/model-record" className="whitespace-nowrap transition-colors hover:text-primary">
+          <Link
+            href="/settings/model-record"
+            className="whitespace-nowrap transition-colors hover:text-primary"
+          >
             {t('modelRecord')}
           </Link>
           <span className="text-border">·</span>

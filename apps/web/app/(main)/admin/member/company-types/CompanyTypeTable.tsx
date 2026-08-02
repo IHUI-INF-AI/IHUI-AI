@@ -45,7 +45,7 @@ export function CompanyTypeTable({
             <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">

@@ -37,13 +37,13 @@ export function EventTable({ list, isLoading, onEdit, onDelete }: Props) {
       ) : list.length === 0 ? (
         <div className="py-8 text-center text-muted-foreground">{t('noData')}</div>
       ) : (
-        <ul className="divide-y">
+        <ul className="space-y-2">
           {list.map((ev) => (
             <li
               key={ev.id}
               className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
             >
-              <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', TYPE_DOT[ev.type])} />
+              <span className={cn('mt-0.5 h-2 w-2 shrink-0 rounded-full', TYPE_DOT[ev.type])} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-muted-foreground">

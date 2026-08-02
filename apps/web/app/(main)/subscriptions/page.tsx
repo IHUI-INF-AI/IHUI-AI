@@ -125,7 +125,7 @@ export default function SubscriptionsPage() {
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="space-y-2 rounded-lg border p-2">
           {items.map((s) => {
             const Icon = TYPE_ICON[s.targetType]
             return (

@@ -234,7 +234,7 @@ export default function VisitTrackingPage() {
                   <TableHead className="px-3 py-2">访问日期</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y">
+              <TableBody>
                 {ll ? (
                   <TableRow>
                     <TableCell colSpan={5} className="px-3 py-8 text-center text-muted-foreground">

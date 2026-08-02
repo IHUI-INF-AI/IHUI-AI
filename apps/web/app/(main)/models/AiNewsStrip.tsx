@@ -54,14 +54,14 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
     return (
       <Card className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
+          <div className="flex items-center gap-2 [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Newspaper className="h-3.5 w-3.5" />
             </div>
             <h2 className="text-sm font-semibold">{t('aiNews.title')}</h2>
             <span className="text-[10px] text-muted-foreground">{t('aiNews.fallbackHint')}</span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground [&>span]:translate-y-[0.5px]">
+          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <Calendar className="h-3 w-3" />
             <span>2026-07</span>
           </span>
@@ -87,7 +87,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
   return (
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
+        <div className="flex items-center gap-2 [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Newspaper className="h-3.5 w-3.5" />
           </div>
@@ -95,7 +95,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
           <span className="text-[10px] text-muted-foreground">{t('aiNews.subtitle')}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 [&>span]:translate-y-[0.5px]">
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <TrendingUp className="h-3 w-3" />
             <span>{t('aiNews.liveTag')}</span>
           </span>
@@ -126,7 +126,7 @@ function NewsCard({ item }: { item: AiNewsItem }) {
       href={item.relatedModelIds[0] ? `/models?provider=${item.relatedModelIds[0]}` : '/news'}
       className="group flex h-full flex-col gap-1.5 rounded-md border border-border bg-background p-2.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
     >
-      <div className="flex items-center gap-1 text-[10px] text-muted-foreground [&>span]:translate-y-[0.5px]">
+      <div className="flex items-center gap-1 text-[10px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <Calendar className="h-2.5 w-2.5" />
         <span>{dateLabel}</span>
         {item.relatedModelIds.length > 0 && (
@@ -157,7 +157,7 @@ function FallbackNewsCard({ item }: { item: FallbackItem }) {
       href="/models"
       className="group flex h-full flex-col gap-1.5 rounded-md border border-border bg-muted/30 p-2.5 transition-colors hover:border-primary/40 hover:bg-accent/40"
     >
-      <div className="flex items-center gap-1 text-[10px] text-muted-foreground [&>span]:translate-y-[0.5px]">
+      <div className="flex items-center gap-1 text-[10px] text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
         <Calendar className="h-2.5 w-2.5" />
         <span>{item.date || '2026-07'}</span>
         <span className="text-muted-foreground/60">·</span>

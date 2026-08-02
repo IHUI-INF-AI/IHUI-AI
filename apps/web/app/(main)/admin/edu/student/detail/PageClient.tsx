@@ -271,7 +271,7 @@ export default function EduStudentDetailPage() {
                 <TableHead className="px-4 py-2.5">{t('colProgress')}</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y">
+            <TableBody>
               {data.lessons?.length ? (
                 data.lessons.map((l) => (
                   <TableRow key={l.id} className="hover:bg-muted/30">

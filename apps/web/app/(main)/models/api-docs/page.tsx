@@ -79,7 +79,7 @@ export default async function ApiDocsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('apiDocs.endpoints.method')}</th>
                   <th className="px-4 py-2 font-medium">{t('apiDocs.endpoints.path')}</th>
                   <th className="px-4 py-2 font-medium">{t('apiDocs.endpoints.desc')}</th>
@@ -87,10 +87,7 @@ export default async function ApiDocsPage() {
               </thead>
               <tbody>
                 {endpoints.map((e) => (
-                  <tr
-                    key={e.path}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={e.path} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5">
                       <span
                         className={

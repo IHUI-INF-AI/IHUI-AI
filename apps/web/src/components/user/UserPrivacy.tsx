@@ -29,11 +29,11 @@ export default function UserPrivacy({
 }: UserPrivacyProps): React.JSX.Element {
   return (
     <div className={cn('rounded-xl border bg-card', className)}>
-      <div className="flex items-center gap-2 border-b px-4 py-3">
+      <div className="flex items-center gap-2 px-4 py-3 mb-2">
         <Lock className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium">隐私设置</h3>
       </div>
-      <ul className="divide-y">
+      <ul className="space-y-2 px-2 pb-2">
         {options.map((opt) => (
           <PrivacyRow key={opt.key} option={opt} />
         ))}

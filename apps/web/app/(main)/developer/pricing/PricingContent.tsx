@@ -3,13 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import {
-  Coins,
-  Loader2,
-  Search,
-  Database,
-  Tag,
-} from 'lucide-react'
+import { Coins, Loader2, Search, Database, Tag } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui-react'
@@ -128,25 +122,18 @@ export function PricingContent(): React.JSX.Element {
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Database className="h-3.5 w-3.5" />
-              <span>
-                {t('modelCount', { count: numFmt.format(total) })}
-              </span>
+              <span>{t('modelCount', { count: numFmt.format(total) })}</span>
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Tag className="h-3.5 w-3.5" />
-              <span>
-                {t('vendorCount', { count: numFmt.format(vendors.length) })}
-              </span>
+              <span>{t('vendorCount', { count: numFmt.format(vendors.length) })}</span>
             </div>
           </div>
         </div>
       </div>
 
       {(listQ.error || statsQ.error) && (
-        <Alert
-          variant="danger"
-          description={((listQ.error || statsQ.error) as Error).message}
-        />
+        <Alert variant="danger" description={((listQ.error || statsQ.error) as Error).message} />
       )}
 
       {/* 搜索 + 厂商 Tab */}
@@ -169,9 +156,7 @@ export function PricingContent(): React.JSX.Element {
             className="h-7"
           >
             {t('vendorAll')}
-            <span className="ml-1.5 text-xs opacity-70">
-              {numFmt.format(total)}
-            </span>
+            <span className="ml-1.5 text-xs opacity-70">{numFmt.format(total)}</span>
           </Button>
           {vendors.slice(0, 24).map((v) => (
             <Button
@@ -182,9 +167,7 @@ export function PricingContent(): React.JSX.Element {
               className="h-7"
             >
               {v.label}
-              <span className="ml-1.5 text-xs opacity-70">
-                {numFmt.format(v.count)}
-              </span>
+              <span className="ml-1.5 text-xs opacity-70">{numFmt.format(v.count)}</span>
             </Button>
           ))}
         </div>
@@ -197,9 +180,7 @@ export function PricingContent(): React.JSX.Element {
           {t('loading')}
         </div>
       ) : grouped.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          {t('noResults')}
-        </p>
+        <p className="py-8 text-center text-sm text-muted-foreground">{t('noResults')}</p>
       ) : (
         <div className="space-y-3">
           {grouped.map(([vendor, items]) => (
@@ -218,12 +199,8 @@ export function PricingContent(): React.JSX.Element {
                     <thead className="bg-muted/40">
                       <tr className="text-left">
                         <th className="px-3 py-1.5 font-medium">{t('colModel')}</th>
-                        <th className="px-3 py-1.5 text-right font-medium">
-                          {t('colInput')}
-                        </th>
-                        <th className="px-3 py-1.5 text-right font-medium">
-                          {t('colOutput')}
-                        </th>
+                        <th className="px-3 py-1.5 text-right font-medium">{t('colInput')}</th>
+                        <th className="px-3 py-1.5 text-right font-medium">{t('colOutput')}</th>
                         <th className="px-3 py-1.5 font-medium">{t('colCurrency')}</th>
                         <th className="px-3 py-1.5 font-medium">{t('colRegion')}</th>
                       </tr>
@@ -245,10 +222,7 @@ export function PricingContent(): React.JSX.Element {
                           .filter(Boolean)
                           .join(' / ')
                         return (
-                          <tr
-                            key={p.id}
-                            className={cn('border-t transition-colors hover:bg-muted/30')}
-                          >
+                          <tr key={p.id} className={cn('transition-colors hover:bg-muted/30')}>
                             <td className="px-3 py-1.5 font-mono">{p.modelId}</td>
                             <td className="px-3 py-1.5 text-right tabular-nums">
                               {sym}
@@ -258,9 +232,7 @@ export function PricingContent(): React.JSX.Element {
                               {sym}
                               {formatPrice(p.outputPrice)}
                             </td>
-                            <td className="px-3 py-1.5 text-muted-foreground">
-                              {p.currency}
-                            </td>
+                            <td className="px-3 py-1.5 text-muted-foreground">{p.currency}</td>
                             <td className="px-3 py-1.5 text-xs text-muted-foreground">
                               {regions || '—'}
                             </td>

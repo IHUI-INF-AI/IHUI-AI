@@ -109,7 +109,12 @@ export default function OrderDetailPage() {
   if (error || !order) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
-        <Button variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => router.back()}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="whitespace-nowrap"
+          onClick={() => router.back()}
+        >
           <ArrowLeft className="mr-1.5 h-4 w-4 shrink-0" />
           {tc('back')}
         </Button>
@@ -132,7 +137,10 @@ export default function OrderDetailPage() {
 
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="max-w-full truncate font-mono text-sm text-muted-foreground" title={order.orderNo}>
+        <p
+          className="max-w-full truncate font-mono text-sm text-muted-foreground"
+          title={order.orderNo}
+        >
           {order.orderNo}
         </p>
       </div>
@@ -147,7 +155,7 @@ export default function OrderDetailPage() {
         {t(ORDER_STATUS_KEYS[order.status]!)}
       </div>
 
-      <dl className="divide-y rounded-lg border">
+      <dl className="space-y-2 rounded-lg border p-2">
         <div className="flex justify-between gap-3 px-4 py-3 text-sm">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('orderNo')}</dt>
           <dd className="min-w-0 flex-1 truncate text-right font-mono" title={order.orderNo}>
@@ -156,7 +164,10 @@ export default function OrderDetailPage() {
         </div>
         <div className="flex justify-between gap-3 px-4 py-3 text-sm">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('target')}</dt>
-          <dd className="min-w-0 flex-1 truncate text-right font-medium" title={order.targetTitle ?? '-'}>
+          <dd
+            className="min-w-0 flex-1 truncate text-right font-medium"
+            title={order.targetTitle ?? '-'}
+          >
             {order.targetTitle ?? '-'}
           </dd>
         </div>
@@ -170,24 +181,32 @@ export default function OrderDetailPage() {
         </div>
         <div className="flex justify-between gap-3 px-4 py-3 text-sm">
           <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{t('createdAt')}</dt>
-          <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.createdAt))}</dd>
+          <dd className="whitespace-nowrap tabular-nums">
+            {dateFmt.format(new Date(order.createdAt))}
+          </dd>
         </div>
         {order.payTime && (
           <div className="flex justify-between gap-3 px-4 py-3 text-sm">
             <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('payTime')}</dt>
-            <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.payTime))}</dd>
+            <dd className="whitespace-nowrap tabular-nums">
+              {dateFmt.format(new Date(order.payTime))}
+            </dd>
           </div>
         )}
         {order.cancelTime && (
           <div className="flex justify-between gap-3 px-4 py-3 text-sm">
             <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('cancelTime')}</dt>
-            <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.cancelTime))}</dd>
+            <dd className="whitespace-nowrap tabular-nums">
+              {dateFmt.format(new Date(order.cancelTime))}
+            </dd>
           </div>
         )}
         {order.refundTime && (
           <div className="flex justify-between gap-3 px-4 py-3 text-sm">
             <dt className="shrink-0 whitespace-nowrap text-muted-foreground">{tc('refundTime')}</dt>
-            <dd className="whitespace-nowrap tabular-nums">{dateFmt.format(new Date(order.refundTime))}</dd>
+            <dd className="whitespace-nowrap tabular-nums">
+              {dateFmt.format(new Date(order.refundTime))}
+            </dd>
           </div>
         )}
         {order.remark && (
@@ -209,7 +228,7 @@ export default function OrderDetailPage() {
             -{currencyFmt.format(Number(order.discountAmount))}
           </span>
         </div>
-        <div className="flex justify-between border-t pt-2 text-base font-bold">
+        <div className="flex justify-between mt-2 pt-2 text-base font-bold">
           <span>{t('amount')}</span>
           <span className="tabular-nums">{currencyFmt.format(Number(order.payAmount))}</span>
         </div>
