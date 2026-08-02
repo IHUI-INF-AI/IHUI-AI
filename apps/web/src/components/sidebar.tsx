@@ -1664,7 +1664,7 @@ export function Sidebar({
               )}
             >
               <Plus className="h-5 w-5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{tchat('newConversation')}</span>
+              <span className="min-w-0 whitespace-nowrap text-left">{tchat('newConversation')}</span>
             </button>
           )}
         </div>
@@ -1704,7 +1704,7 @@ export function Sidebar({
               )}
             >
               <Package className="h-5 w-5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{t('pluginMarket')}</span>
+              <span className="min-w-0 whitespace-nowrap text-left">{t('pluginMarket')}</span>
             </Link>
           )}
         </div>
@@ -1746,7 +1746,7 @@ export function Sidebar({
               )}
             >
               <Clock className="h-5 w-5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{t('selfMediaAutomation')}</span>
+              <span className="min-w-0 whitespace-nowrap text-left">{t('selfMediaAutomation')}</span>
             </Link>
           )}
         </div>
@@ -1895,11 +1895,15 @@ export function Sidebar({
 
   return (
     <>
-      {/* 桌面端固定侧边栏 */}
+      {/* 桌面端固定侧边栏(2026-08-02 改:小尺寸也挂载,显示 collapsed 60px 图标条)
+          - 旧逻辑:hidden min-[1024px]:flex → <1024px 完全不挂载,只能靠移动端抽屉
+          - 新逻辑:始终 flex 挂载;小尺寸下由 GlobalShell effect 自动 setCollapsed(true)
+            收成 60px 只图标宽度(用户规则"小尺寸也应显示最小化只显示图标的侧边栏")
+          - 移动端抽屉 + PanelLeftOpen 按钮保留,点汉堡菜单仍可打开完整抽屉作为备用 */}
       <aside
         aria-label={t('mainNav')}
         className={cn(
-          'relative hidden h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 min-[1024px]:flex',
+          'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex',
           collapsed && 'w-[60px]',
         )}
         // 2026-07-22 修复首屏 width 闪烁:
