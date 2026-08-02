@@ -22,7 +22,7 @@ const withdrawalApplySchema = z.object({
 })
 
 const withdrawalRoutes: FastifyPluginAsync = async (server) => {
-  server.post('/finance/withdrawal/withdrawal', async (request, reply) => {
+  server.post('/finance/withdrawal/withdrawal', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = withdrawalApplySchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
     const available = await availableWithdrawal(request.userId!)
@@ -81,7 +81,7 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ flow }))
   })
 
-  server.post('/finance/withdrawal/flows/:id/approve', async (request, reply) => {
+  server.post('/finance/withdrawal/flows/:id/approve', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const roleId = request.jwtPayload?.roleId ?? 0
     if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
     const id = parseIdParam(request, reply)
@@ -91,7 +91,7 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true, flow }))
   })
 
-  server.post('/finance/withdrawal/flows/:id/reject', async (request, reply) => {
+  server.post('/finance/withdrawal/flows/:id/reject', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const roleId = request.jwtPayload?.roleId ?? 0
     if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
     const id = parseIdParam(request, reply)

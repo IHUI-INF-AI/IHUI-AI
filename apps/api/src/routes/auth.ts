@@ -32,6 +32,7 @@ import { success, error } from '../utils/response.js'
 import { jscode2session, isWechatMiniConfigured } from '../services/oauth-providers.js'
 import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 import {
   codeStore,
   CODE_TTL_MS,
@@ -43,6 +44,8 @@ import {
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
 import { evaluateLoginRisk } from '../services/risk-engine-service.js'
 import { verifyTurnstile } from '../services/turnstile-service.js'
+import { db } from '../db/index.js'
+import { userDevices } from '@ihui/database'
 
 // =============================================================================
 // Zod schemas
@@ -361,7 +364,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         },
       },
       config: {
-        rateLimit: { max: 10, timeWindow: '1 minute' },
+        // 2026-08-02 安全加固:密码重置端点配合账号锁定 + 验证码一次性,
+        // 限流收紧到 3 次/分钟,避免与 5 次锁定的验证码爆破窗口错位。
+        rateLimit: { max: 3, timeWindow: '1 minute' },
       },
     },
     async (request, reply) => {
@@ -443,7 +448,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         },
       },
       config: {
-        rateLimit: { max: 10, timeWindow: '1 minute' },
+        // 2026-08-02 安全加固:注册端点收紧到 3 次/小时,防机器人批量刷号。
+        rateLimit: { max: 3, timeWindow: '1 hour' },
       },
     },
     async (request, reply) => {
@@ -580,7 +586,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         },
       },
       config: {
-        rateLimit: { max: 10, timeWindow: '1 minute' },
+        // 2026-08-02 安全加固:登录端点配合账号锁定(5 次/锁定),限流收紧到 5 次/分钟。
+        rateLimit: { max: 5, timeWindow: '1 minute' },
       },
     },
     async (request, reply) => {
@@ -701,6 +708,39 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       })
 
       const permissions = await resolveUserPermissions(user.id, user.roleId)
+
+      // 登录成功 → upsert 设备指纹到 user_devices 表(从 x-device-fingerprint header 取)
+      // 指纹为空时跳过(不阻塞登录);失败仅 log,不影响登录流程
+      const fingerprintHeader = request.headers['x-device-fingerprint']
+      const fingerprint = typeof fingerprintHeader === 'string' ? fingerprintHeader : undefined
+      if (fingerprint) {
+        try {
+          const userAgent =
+            typeof request.headers['user-agent'] === 'string' ? request.headers['user-agent'] : null
+          await db
+            .insert(userDevices)
+            .values({
+              userId: user.id,
+              fingerprintHash: fingerprint,
+              userAgent,
+              ip: request.ip,
+            })
+            .onConflictDoUpdate({
+              target: [userDevices.userId, userDevices.fingerprintHash],
+              set: {
+                lastSeenAt: new Date(),
+                userAgent,
+                ip: request.ip,
+              },
+            })
+        } catch (devErr) {
+          request.log.warn(
+            { err: String(devErr), userId: user.id },
+            'upsert 登录设备失败,跳过(不影响登录)',
+          )
+        }
+      }
+
       return reply.send(
         success({
           ...tokens,
@@ -727,7 +767,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = phoneLoginSchema.safeParse(request.body)
@@ -848,7 +888,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = smsLoginSchema.safeParse(request.body)
@@ -910,7 +950,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = wechatLoginSchema.safeParse(request.body)
@@ -1080,6 +1120,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = refreshSchema.safeParse(request.body)
@@ -1141,24 +1182,28 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // GET /api/auth/me
-  server.get('/me', async (request, reply) => {
-    try {
-      await authenticate(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
-      return reply.status(statusCode).send(error(statusCode, message))
-    }
+  server.get(
+    '/me',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      try {
+        await authenticate(request)
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+        const message = toUserFriendlyMessage(e) || 'Authentication required'
+        return reply.status(statusCode).send(error(statusCode, message))
+      }
 
-    const userId = request.userId!
-    const user = await findUserById(userId)
-    if (!user) {
-      return reply.status(404).send(error(404, '用户不存在'))
-    }
+      const userId = request.userId!
+      const user = await findUserById(userId)
+      if (!user) {
+        return reply.status(404).send(error(404, '用户不存在'))
+      }
 
-    const permissions = await resolveUserPermissions(user.id, user.roleId)
-    return reply.send(success({ user: publicUser(user, permissions) }))
-  })
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+      return reply.send(success({ user: publicUser(user, permissions) }))
+    },
+  )
 
   // POST /api/auth/logout
   server.post(
@@ -1190,6 +1235,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = logoutSchema.safeParse(request.body)
@@ -1237,46 +1283,54 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // PUT /api/auth/password — 小程序别名（修改密码）
-  server.put('/password', async (request, reply) => {
-    try {
-      await authenticate(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      return reply
-        .status(statusCode)
-        .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    }
-    const body = (request.body as Record<string, string> | null) ?? {}
-    const oldPassword = body.old_password ?? body.oldPassword
-    const newPassword = body.new_password ?? body.newPassword
-    if (!oldPassword || !newPassword) {
-      return reply.status(400).send(error(400, '请提供原密码和新密码'))
-    }
-    if (newPassword.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
-    const user = await findUserById(request.userId!)
-    if (!user?.passwordHash || !(await verifyPassword(oldPassword, user.passwordHash))) {
-      return reply.status(400).send(error(400, '原密码错误'))
-    }
-    await updateUser(request.userId!, { passwordHash: await hashPassword(newPassword) })
-    // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
-    await revokeAllUserRefreshTokens(request.userId!)
-    return reply.send(success({ updated: true }))
-  })
+  // PUT /api/auth/password — 小程序别名(修改密码)
+  server.put(
+    '/password',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      try {
+        await authenticate(request)
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+        return reply
+          .status(statusCode)
+          .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
+      }
+      const body = (request.body as Record<string, string> | null) ?? {}
+      const oldPassword = body.old_password ?? body.oldPassword
+      const newPassword = body.new_password ?? body.newPassword
+      if (!oldPassword || !newPassword) {
+        return reply.status(400).send(error(400, '请提供原密码和新密码'))
+      }
+      if (newPassword.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
+      const user = await findUserById(request.userId!)
+      if (!user?.passwordHash || !(await verifyPassword(oldPassword, user.passwordHash))) {
+        return reply.status(400).send(error(400, '原密码错误'))
+      }
+      await updateUser(request.userId!, { passwordHash: await hashPassword(newPassword) })
+      // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
+      await revokeAllUserRefreshTokens(request.userId!)
+      return reply.send(success({ updated: true }))
+    },
+  )
 
-  // DELETE /api/auth/account — 小程序别名（注销账号）
-  server.delete('/account', async (request, reply) => {
-    try {
-      await authenticate(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      return reply
-        .status(statusCode)
-        .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    }
-    await cancelUserAccount(request.userId!)
-    return reply.send(success({ cancelled: true }))
-  })
+  // DELETE /api/auth/account — 小程序别名(注销账号)
+  server.delete(
+    '/account',
+    { config: { rateLimit: { max: 3, timeWindow: '1 hour' } } },
+    async (request, reply) => {
+      try {
+        await authenticate(request)
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+        return reply
+          .status(statusCode)
+          .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
+      }
+      await cancelUserAccount(request.userId!)
+      return reply.send(success({ cancelled: true }))
+    },
+  )
 
   // GET /api/auth/login-preferences — 读取用户登录偏好
   server.get(
@@ -1304,6 +1358,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const userId = request.userId!
@@ -1349,6 +1404,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = loginPreferencesSchema.safeParse(request.body)
@@ -1372,24 +1428,32 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // GET /qr/status - 查询扫码登录状态
-  server.get('/qr/status', async (request, reply) => {
-    z.object({ ticket: z.string().min(1) }).parse(request.query)
+  server.get(
+    '/qr/status',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      z.object({ ticket: z.string().min(1) }).parse(request.query)
 
-    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
-    return reply.code(501).send({
-      code: 501,
-      message: '未实装:auth /qr/status 扫码状态查询尚未实装',
-      data: null,
-    })
-  })
+      // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+      return reply.code(501).send({
+        code: 501,
+        message: '未实装:auth /qr/status 扫码状态查询尚未实装',
+        data: null,
+      })
+    },
+  )
 
   // POST /qr/generate - 生成扫码登录二维码
-  server.post('/qr/generate', async (_request, reply) => {
-    // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
-    return reply.code(501).send({
-      code: 501,
-      message: '未实装:auth /qr/generate 二维码生成尚未实装',
-      data: null,
-    })
-  })
+  server.post(
+    '/qr/generate',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (_request, reply) => {
+      // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
+      return reply.code(501).send({
+        code: 501,
+        message: '未实装:auth /qr/generate 二维码生成尚未实装',
+        data: null,
+      })
+    },
+  )
 }

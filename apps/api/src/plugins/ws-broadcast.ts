@@ -17,7 +17,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
-import { wsAuth } from './ws-helpers.js'
+import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 declare module 'fastify' {
@@ -28,6 +28,8 @@ declare module 'fastify' {
 
 const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
   const connections = new Map<string, Set<WebSocket>>()
+  // 2026-08-02 P1 安全审计:单用户并发连接数限制(防资源耗尽)
+  const userConnectionLimiter = new WsUserConnectionLimiter(8)
 
   server.decorate('broadcastToUser', (userId: string, event: string, data: unknown) => {
     const conns = connections.get(userId)
@@ -46,6 +48,12 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
     const token = (request.query as { token?: string }).token
     const userId = await wsAuth(socket, token)
     if (!userId) return
+    // 2026-08-02 P1 安全审计:单用户并发连接数限制
+    if (!userConnectionLimiter.acquire(userId)) {
+      server.log.warn({ userId }, 'ws-broadcast 拒绝连接:单用户连接数超限')
+      socket.close(WS_CLOSE.TOO_MANY_CONNECTIONS, '单用户连接数超限')
+      return
+    }
 
     if (!connections.has(userId)) connections.set(userId, new Set())
     connections.get(userId)!.add(socket)
@@ -60,6 +68,8 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         conns.delete(socket)
         if (conns.size === 0) connections.delete(userId)
       }
+      // 2026-08-02 P1 安全审计:释放连接槽位
+      userConnectionLimiter.release(userId)
     })
   })
 
