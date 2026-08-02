@@ -4,7 +4,7 @@
  * 检测维度(每维度返回 score 0-100,加权聚合):
  * 1. 请求频率异常:同 IP / 用户 1 分钟内 > 60 次 → 100
  * 2. 时间分布异常:凌晨密集 + 历史不活跃 → 70
- * 3. 地理位置异常:5 分钟内跨大洲登录 → 90(无 GeoIP 库时用"5 分钟内 IP 前两段剧变"代理)
+ * 3. 地理位置异常:5 分钟内跨大洲 / 跨城市登录 → 按距离评分(GeoIP 服务,无数据库时降级"IP 前两段剧变"代理)
  * 4. 设备指纹突变:同一用户 1 小时内 ≥3 个新设备 → 80
  * 5. 请求模式异常:URL 序列像扫描器(/admin /backup /test) → 95
  * 6. 用户行为基线:历史平均请求频率 +3σ → 75
@@ -25,6 +25,7 @@ import {
   isCurlLike,
   isHeadlessBrowser,
 } from '../utils/bot-detection.js'
+import { getGeoIpService } from './geoip.js'
 
 /* -------------------------------------------------------------------------- */
 /* 类型                                                                        */
@@ -205,11 +206,7 @@ export class AnomalyDetector {
     return { name: 'request-frequency', score }
   }
 
-  private async slidingWindowCount(
-    key: string,
-    now: number,
-    windowMs: number,
-  ): Promise<number> {
+  private async slidingWindowCount(key: string, now: number, windowMs: number): Promise<number> {
     if (!this.redis) {
       const arr = AnomalyDetector.memFreq.get(key) ?? []
       const cutoff = now - windowMs
@@ -247,9 +244,7 @@ export class AnomalyDetector {
     if (!isLateNight) return { name: 'time-distribution', score: 0 }
 
     // 查历史活跃时段:若该用户从未在凌晨活跃过 → 可疑
-    const historicallyActive = ctx.userId
-      ? await this.wasUserActiveAtHour(ctx.userId, hour)
-      : false
+    const historicallyActive = ctx.userId ? await this.wasUserActiveAtHour(ctx.userId, hour) : false
     let score = 0
     if (ctx.userId && !historicallyActive) score = 70
     else if (!ctx.userId) score = 30
@@ -279,17 +274,22 @@ export class AnomalyDetector {
     const prevTs = prevTsStr ? Number(prevTsStr) : 0
 
     if (prevIp && prevIp !== ctx.ip && ts - prevTs < WINDOW_5MIN_MS) {
-      // 5 分钟内 IP 变化:用前两段是否剧变做跨网段代理(无 GeoIP 时的降级判断)
-      if (ipNetworkSegmentChanged(prevIp, ctx.ip)) {
-        // 记录新 IP,返回高分
-        await this.setString(K_LAST_IP(ctx.userId), ctx.ip, WINDOW_5MIN_MS / 1000)
-        await this.setString(K_LAST_IP_TIME(ctx.userId), String(ts), WINDOW_5MIN_MS / 1000)
-        return { name: 'geo-anomaly', score: 90 }
+      // 5 分钟内 IP 变化:用 GeoIP 服务判断是否跨城市 / 跨大洲
+      // (无数据库时 isSameLocation 内部降级为"IP 前两段比较",向后兼容)
+      const geoService = getGeoIpService()
+      const sameLocation = await geoService.isSameLocation(prevIp, ctx.ip)
+      let score: number
+      if (sameLocation) {
+        // 同地切换(运营商 NAT 换 IP 等),低分
+        score = 25
+      } else {
+        // 不同地理位置:距离越远分越高;无距离数据(降级模式)取高分 90
+        const distKm = await geoService.getDistanceKm(prevIp, ctx.ip)
+        score = scoreGeoDistance(distKm)
       }
-      // 同网段切换(如运营商 NAT 换 IP),低分
       await this.setString(K_LAST_IP(ctx.userId), ctx.ip, WINDOW_5MIN_MS / 1000)
       await this.setString(K_LAST_IP_TIME(ctx.userId), String(ts), WINDOW_5MIN_MS / 1000)
-      return { name: 'geo-anomaly', score: 25 }
+      return { name: 'geo-anomaly', score }
     }
 
     if (!prevIp) {
@@ -319,7 +319,10 @@ export class AnomalyDetector {
         const first = set.values().next().value
         if (first) set.delete(first)
       }
-      return { name: 'device-fingerprint', score: isNew && set.size >= DEVICE_NEW_THRESHOLD ? 80 : 0 }
+      return {
+        name: 'device-fingerprint',
+        score: isNew && set.size >= DEVICE_NEW_THRESHOLD ? 80 : 0,
+      }
     }
 
     try {
@@ -340,9 +343,7 @@ export class AnomalyDetector {
 
   /* ----------------------------- 维度 5:请求模式(扫描器) ----------------------------- */
 
-  private async dimRequestPattern(
-    ctx: AnomalyContext,
-  ): Promise<{ name: string; score: number }> {
+  private async dimRequestPattern(ctx: AnomalyContext): Promise<{ name: string; score: number }> {
     const path = ctx.url.split('?')[0] ?? ctx.url
     const lowerPath = path.toLowerCase()
 
@@ -364,7 +365,9 @@ export class AnomalyDetector {
 
     // UA 为脚本类工具访问敏感端点 → 加分
     if (
-      (isCurlLike(ctx.userAgent) || isHeadlessBrowser(ctx.userAgent) || isBotUserAgent(ctx.userAgent)) &&
+      (isCurlLike(ctx.userAgent) ||
+        isHeadlessBrowser(ctx.userAgent) ||
+        isBotUserAgent(ctx.userAgent)) &&
       (lowerPath.includes('/api/') || lowerPath.includes('/admin'))
     ) {
       return { name: 'request-pattern', score: 60 }
@@ -491,9 +494,7 @@ export class AnomalyDetector {
     }
   }
 
-  private async getBaseline(
-    userId: string,
-  ): Promise<{
+  private async getBaseline(userId: string): Promise<{
     avgReqPerMin: number
     stddev: number
     sampleCount: number
@@ -682,15 +683,17 @@ export class AnomalyDetector {
 /* 辅助函数                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** 判断两个 IP 是否网段剧变(前两段不同视为跨网段,作为"跨大洲"的降级代理)。 */
-function ipNetworkSegmentChanged(a: string, b: string): boolean {
-  const pa = a.replace(/^::ffff:/, '').split('.')
-  const pb = b.replace(/^::ffff:/, '').split('.')
-  if (pa.length !== 4 || pb.length !== 4) {
-    // 非 IPv4,字符串不同即视为变化
-    return a !== b
-  }
-  return pa[0] !== pb[0] || pa[1] !== pb[1]
+/**
+ * 按地理距离评分:距离越远分越高。
+ * null = 无 GeoIP 或坐标缺失(降级模式),取高分 90(等同旧"跨网段"逻辑)。
+ */
+function scoreGeoDistance(distKm: number | null): number {
+  if (distKm === null) return 90 // 降级:无距离数据,保守取高分
+  if (distKm > 5000) return 90 // 跨大洲
+  if (distKm > 1000) return 75 // 跨国
+  if (distKm > 200) return 55 // 跨省
+  if (distKm > 50) return 40 // 跨城
+  return 30 // 同城不同点
 }
 
 /**
