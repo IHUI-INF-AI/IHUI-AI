@@ -528,6 +528,11 @@ class BrowserHub:
                 timezone_id="Asia/Shanghai",
                 user_agent=ua,
             )
+            # 2026-08-02 fix:隐藏 navigator.webdriver 标志(抖音/微信等对自动化检测严格,
+            # headless Playwright 默认 webdriver=true 会被风控拦截)
+            context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+            )
             page = context.new_page()
             return context, page
         context, page = await asyncio.get_running_loop().run_in_executor(self._executor, _sync_create)
