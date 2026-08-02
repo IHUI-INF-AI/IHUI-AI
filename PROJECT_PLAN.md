@@ -2790,7 +2790,7 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - [x] ✅(2026-08-02) H9:5 端 adapter — desktop/extension/mobile-rn/miniapp-taro/cli 各端实现 + 4 端入口注入(desktop 无前端入口 adapter 待接入)
 - [x] ✅(2026-08-02) H10:全端 typecheck — types/api-client/shared/database/web/api/cli/extension/mobile-rn/miniapp-taro 全部 exit 0
 - [x] ✅(2026-08-02) H11:README.md 同步更新 — 国安级安全矩阵 E2/E5 行更新 + 新增"设备维度风控全链路"小节(采集层/注入层/接收层/存储层/路由层)
-- [ ] H12:commit + push origin/main,local == remote,git-push-guard exit 0
+- [x] ✅(2026-08-02) H12:commit + push origin/main,local == remote,git-push-guard exit 0(commit `a46f83430f`,post-commit 钩子自动 push + tag sync,local HEAD `854f30d1c4` == remote HEAD `854f30d1c4`)
 
 ### 约束边界
 
