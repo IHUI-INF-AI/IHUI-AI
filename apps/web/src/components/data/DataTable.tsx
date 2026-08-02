@@ -169,7 +169,7 @@ function DataTableImpl<T extends Record<string, unknown>>({
         </table>
       </div>
       {pagination && (
-        <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
           <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
             共 {pagination.total} 条,第 {pagination.page}/{Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
           </span>
