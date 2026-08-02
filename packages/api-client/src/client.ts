@@ -1,10 +1,26 @@
-import type { ApiResult, ApiResponse, PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+import type {
+  ApiResult,
+  ApiResponse,
+  PlanUpdateEvent,
+  TerminalStartEvent,
+  TerminalEndEvent,
+} from '@ihui/types'
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
 import { getTransport } from './transport'
+import type { DeviceFingerprintCollector } from '@ihui/types'
+import { nullDeviceFingerprintCollector } from '@ihui/types'
 
 export interface TokenProvider {
   getToken(): string | null
 }
+
+/**
+ * 设备指纹 Provider 接口(2026-08-02 立,设备维度风控契约)。
+ * 各端通过 setDeviceFingerprintProvider 注入自己的采集器,
+ * fetchApi 自动把指纹塞进 x-device-fingerprint header。
+ * 未注入时降级为 nullDeviceFingerprintCollector(空指纹,不发 header)。
+ */
+export type DeviceFingerprintProvider = DeviceFingerprintCollector
 
 /** fetchApi 扩展选项:在 RequestInit 基础上追加 `params`(自动拼 query string) */
 export type FetchApiOptions = RequestInit & {
@@ -12,6 +28,8 @@ export type FetchApiOptions = RequestInit & {
 }
 
 let tokenProvider: TokenProvider = { getToken: () => null }
+// 2026-08-02 设备维度风控:默认空采集器,各端启动时注入实现
+let deviceFingerprintProvider: DeviceFingerprintProvider = nullDeviceFingerprintCollector
 let baseUrl: string = ''
 // SSE 流式请求专用 baseUrl(2026-07-27 立):
 // Next.js dev proxy 对 SSE 流有超时/缓冲问题,导致流式响应被中断(net::ERR_ABORTED)。
@@ -22,6 +40,42 @@ let circuitBreaker: CircuitBreaker | null = null
 
 export function setTokenProvider(provider: TokenProvider): void {
   tokenProvider = provider
+}
+
+/**
+ * 注入设备指纹采集器(2026-08-02 立,设备维度风控契约)。
+ * 各端在启动时调用,传入 createDeviceFingerprintCollector(impl) 返回的实例。
+ * fetchApi 会异步获取指纹并注入到 x-device-fingerprint header。
+ *
+ * 注意:指纹采集是异步的,首次调用会有微小延迟(后续走 1 分钟缓存)。
+ * 为避免阻塞请求,采集失败时静默降级(不发 header),不抛错。
+ */
+export function setDeviceFingerprintProvider(provider: DeviceFingerprintProvider): void {
+  deviceFingerprintProvider = provider
+}
+
+/** 读取当前注入的设备指纹采集器(测试与诊断用) */
+export function getDeviceFingerprintProvider(): DeviceFingerprintProvider {
+  return deviceFingerprintProvider
+}
+
+/**
+ * 把设备指纹注入到 headers 对象(2026-08-02 立,设备维度风控契约)。
+ * 供 fetchApi / fetchText / fetchRaw / streamChat 共用,避免重复代码。
+ *
+ * 采集失败时静默降级(不修改 headers),不阻塞业务(fail-open)。
+ * 调用方显式传入 x-device-fingerprint 时优先用调用方值(不覆盖)。
+ */
+async function injectDeviceFingerprintHeader(headers: Record<string, string>): Promise<void> {
+  if (headers['x-device-fingerprint']) return
+  try {
+    const fp = await deviceFingerprintProvider.get()
+    if (fp.fingerprint) {
+      headers['x-device-fingerprint'] = fp.fingerprint
+    }
+  } catch {
+    // 指纹采集失败,静默降级
+  }
 }
 
 export function setBaseUrl(url: string): void {
@@ -228,6 +282,10 @@ export async function fetchApi<T>(
     headers['X-Requested-With'] = 'XMLHttpRequest'
   }
 
+  // 2026-08-02 设备维度风控:注入 x-device-fingerprint header
+  // 后端 audit-logger / anomaly-detector / threat-detector 读取此 header 做设备维度风控。
+  await injectDeviceFingerprintHeader(headers)
+
   // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
   // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
   // streamChat SSE 流场景不经过 fetchApi(走独立 streamText),不受此超时影响
@@ -301,6 +359,8 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  // 2026-08-02 设备维度风控
+  await injectDeviceFingerprintHeader(headers)
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
@@ -360,6 +420,8 @@ export async function fetchAiServiceJson<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  // 2026-08-02 设备维度风控
+  await injectDeviceFingerprintHeader(headers)
 
   const DEFAULT_TIMEOUT_MS = 30_000
   const timeoutController = new AbortController()
@@ -423,6 +485,8 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  // 2026-08-02 设备维度风控
+  await injectDeviceFingerprintHeader(headers)
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
@@ -1181,6 +1245,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // 2026-08-02 P2 修复：与 fetchApi/postApi/putApi/patchApi/deleteApi 保持一致，
   // 注入 X-Requested-With 配合后端 CSRF 防护(无 Bearer token 时走 cookie 兜底路径)
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  // 2026-08-02 设备维度风控
+  await injectDeviceFingerprintHeader(headers)
 
   const body: Record<string, unknown> = { model: opts.model, messages: opts.messages }
   if (opts.metadata) body.metadata = opts.metadata
@@ -1446,11 +1512,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           try {
             const json = JSON.parse(data) as Record<string, unknown>
             // 2026-07-31 立,提取工具来源字段(兼容 snake_case / camelCase)
-            const serverSource = (
-              json.serverSource ??
-              json.server_source ??
-              ''
-            ) as string
+            const serverSource = (json.serverSource ?? json.server_source ?? '') as string
             const validServerSource =
               serverSource === 'builtin' || serverSource === 'plugin' || serverSource === 'mcp'
                 ? serverSource
