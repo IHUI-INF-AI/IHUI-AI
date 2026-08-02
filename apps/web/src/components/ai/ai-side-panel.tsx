@@ -939,7 +939,7 @@ export function AISidePanel() {
             </div>
             <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
               <span className="flex min-w-0 items-center gap-1">
-                <span className="whitespace-nowrap text-sm font-semibold">{displayTitle}</span>
+                <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
                 {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
                   空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
                 <WorkspaceSelector />

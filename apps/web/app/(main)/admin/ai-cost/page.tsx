@@ -261,7 +261,7 @@ export default function AiCostPage() {
                   d.byModel.slice(0, 10).map((m) => (
                     <div key={m.model} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="truncate font-mono text-xs">{m.model}</span>
+                        <span className="min-w-0 flex-1 truncate font-mono text-xs">{m.model}</span>
                         <span className="ml-2 shrink-0 tabular-nums text-muted-foreground">
                           {fmtNum(m.tokens)} tk ·{' '}
                           <span className="text-foreground font-medium">
