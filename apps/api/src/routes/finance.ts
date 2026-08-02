@@ -131,11 +131,18 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     if (roleId < 1) {
       return reply.status(403).send(error(403, '需要管理员权限'))
     }
-    const { quantity, remark } = z
-      .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
+    const { quantity, remark, orderNo } = z
+      .object({
+        quantity: z.coerce.number(),
+        remark: z.string().optional().default(''),
+        orderNo: z.string().optional(),
+      })
       .parse(request.query)
     const userId = request.userId!
-    const balance = await refundToken(userId, quantity, remark)
+    // 2026-08-02 修复:refundToken 签名改为必传 orderNo 做幂等键
+    // admin 手动退款未传 orderNo 时,用 timestamp 兜底(每次调用独立,防 unique 索引冲突)
+    const idemKey = orderNo || `manual_refund:${userId}:${Date.now()}`
+    const balance = await refundToken(userId, quantity, idemKey, remark)
     return reply.send(success({ balance }))
   })
 
