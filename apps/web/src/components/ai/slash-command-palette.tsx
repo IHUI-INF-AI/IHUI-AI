@@ -284,7 +284,7 @@ export function SlashCommandPalette({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={argMode ? '搜索候选...' : '搜索命令...'}
+          placeholder={argMode ? t('searchArgsPlaceholder') : t('searchPlaceholder')}
           className="h-7 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
         />
         {query && (
@@ -454,21 +454,21 @@ export function SlashCommandPalette({
           <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ↑↓
           </kbd>
-          选择
+          {t('hintSelect')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
           <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             Enter
           </kbd>
-          确认
+          {t('hintConfirm')}
         </span>
         <span className="text-muted-foreground/40">·</span>
         <span className="flex items-center gap-1">
           <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ESC
           </kbd>
-          {argMode ? '返回' : '关闭'}
+          {argMode ? t('hintBack') : t('hintClose')}
         </span>
         {argMode && (
           <>
@@ -477,12 +477,14 @@ export function SlashCommandPalette({
               <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
                 ⌫
               </kbd>
-              返回
+              {t('hintBack')}
             </span>
           </>
         )}
         <span className="ml-auto text-muted-foreground/60">
-          {argMode ? `${argSuggestions.length} 个候选` : `${flatItems.length} 个命令`}
+          {argMode
+            ? t('hintArgsCount', { n: argSuggestions.length })
+            : t('hintCommandsCount', { n: flatItems.length })}
         </span>
       </div>
     </div>

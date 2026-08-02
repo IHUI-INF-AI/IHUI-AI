@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { ChevronRight, Loader2, Check, AlertCircle, ExternalLink } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -51,9 +52,9 @@ interface ToolCallCardProps {
 }
 
 const STATUS_CONFIG = {
-  running: { icon: Loader2, className: 'animate-spin text-primary', label: '执行中' },
-  success: { icon: Check, className: 'text-green-500', label: '成功' },
-  error: { icon: AlertCircle, className: 'text-red-500', label: '失败' },
+  running: { icon: Loader2, className: 'animate-spin text-primary', labelKey: 'statusRunning' },
+  success: { icon: Check, className: 'text-green-500', labelKey: 'statusSuccess' },
+  error: { icon: AlertCircle, className: 'text-red-500', labelKey: 'statusFailed' },
 } as const
 
 /** 浏览器类工具名(命中则视为 URL 相关,可触发 WorkPanel) */
@@ -158,12 +159,13 @@ function extractUrl(
 
 /** image_generation 工具结果渲染:图片预览 + 提示词 + 新窗口打开链接 */
 function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: string }) {
+  const t = useTranslations('ai.toolCall')
   const [loaded, setLoaded] = React.useState(false)
   const [errored, setErrored] = React.useState(false)
 
   return (
     <div className="space-y-2">
-      {prompt && <p className="mb-1 font-medium text-muted-foreground">提示词</p>}
+      {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
       {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
       <div className="relative overflow-hidden rounded-md border border-border bg-muted/30">
         {!loaded && !errored && (
@@ -173,13 +175,13 @@ function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: str
         )}
         {errored && (
           <div className="flex h-48 items-center justify-center text-xs text-red-500">
-            图片加载失败
+            {t('imageLoadFailed')}
           </div>
         )}
         {/* eslint-disable-next-line @next/next/no-img-element -- next/image 不适用动态远程图片,降级用 img */}
         <img
           src={imageUrl}
-          alt={prompt || 'AI 生成图片'}
+          alt={prompt || t('imageAltDefault')}
           className={cn(
             'w-full object-contain transition-opacity',
             loaded ? 'opacity-100' : 'opacity-0',
@@ -196,7 +198,7 @@ function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: str
         className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
       >
         <ExternalLink className="h-3.5 w-3.5" />
-        <span>在新窗口打开</span>
+        <span>{t('openInNewWindow')}</span>
       </a>
     </div>
   )
@@ -204,11 +206,14 @@ function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: str
 
 /** summarize_artifacts 工具结果渲染:计划/引用/工具调用统计聚合视图 */
 function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['summaryData']> }) {
+  const t = useTranslations('ai.toolCall')
   return (
     <div className="space-y-3">
       {data.plans && data.plans.length > 0 && (
         <div>
-          <p className="mb-1 font-medium text-muted-foreground">计划 ({data.plans.length})</p>
+          <p className="mb-1 font-medium text-muted-foreground">
+            {t('plan', { count: data.plans.length })}
+          </p>
           <ul className="space-y-1 text-xs">
             {data.plans.map((p, i) => (
               <li key={p.id || i} className="flex items-center gap-2">
@@ -232,7 +237,9 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
       )}
       {data.sources && data.sources.length > 0 && (
         <div>
-          <p className="mb-1 font-medium text-muted-foreground">引用 ({data.sources.length})</p>
+          <p className="mb-1 font-medium text-muted-foreground">
+            {t('reference', { count: data.sources.length })}
+          </p>
           <ul className="space-y-0.5 text-xs">
             {data.sources.slice(0, 5).map((s, i) => (
               <li key={i} className="truncate font-mono text-muted-foreground">
@@ -242,7 +249,7 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
             ))}
             {data.sources.length > 5 && (
               <li className="text-[10px] text-muted-foreground">
-                ... 还有 {data.sources.length - 5} 个
+                {t('moreItems', { count: data.sources.length - 5 })}
               </li>
             )}
           </ul>
@@ -251,7 +258,7 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
       {data.tool_calls_summary && data.tool_calls_summary.total > 0 && (
         <div>
           <p className="mb-1 font-medium text-muted-foreground">
-            工具调用 ({data.tool_calls_summary.total} 次)
+            {t('toolCallStats', { count: data.tool_calls_summary.total })}
           </p>
           <div className="flex flex-wrap gap-1">
             {Object.entries(data.tool_calls_summary.by_tool).map(([tool, count]) => (
@@ -269,7 +276,7 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
   )
 }
 
-export function ToolCallCard({
+export const ToolCallCard = React.memo(function ToolCallCard({
   toolName,
   args,
   result,
@@ -290,6 +297,7 @@ export function ToolCallCard({
   onReject,
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
+  const t = useTranslations('ai.toolCall')
   const config = STATUS_CONFIG[status]
   const StatusIcon = config.icon
 
@@ -381,7 +389,7 @@ export function ToolCallCard({
               {duration}ms
             </span>
           )}
-          <span className={cn('shrink-0 text-xs', config.className)}>{config.label}</span>
+          <span className={cn('shrink-0 text-xs', config.className)}>{t(config.labelKey)}</span>
         </button>
       </CardHeader>
       {expanded && (
@@ -447,6 +455,6 @@ export function ToolCallCard({
       )}
     </Card>
   )
-}
+})
 
 export default ToolCallCard
