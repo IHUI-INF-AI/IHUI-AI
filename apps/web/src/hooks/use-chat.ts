@@ -8,7 +8,9 @@ import { toast } from '@/components/common'
 import {
   streamChat,
   formatSSEError,
+  postToolResult,
   type FallbackEvent,
+  type ToolDelegateEvent,
   type ToolSummaryEvent,
 } from '@ihui/api-client'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
@@ -32,6 +34,7 @@ import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { isTauri } from '@/lib/tauri-bridge'
 import { loadWorkspaceContext, getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import {
   mapSpawnToTimelineEvent,
   mapProgressToTimelineUpdate,
@@ -749,35 +752,16 @@ const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
  *
  * 调用时机:sendMessage / sendAnswer 构造 streamChat 参数前。
  * 去重保证工具名唯一,ai-service 收到后从 mcp_server 加载完整 schema。
+ *
+ * 阶段 2(2026-08-02 立):恢复 fs 类工具(read_file/search_codebase/file_edit 等)。
+ * 阶段 1 在 web 非 Tauri 环境下移除这些工具(因 ai-service 在远程服务器无法访问本地文件);
+ * 阶段 2 实现"前端工具执行代理"后,LLM 调用 fs 工具时 ai-service 通过 SSE tool-delegate
+ * 事件委托前端用 FileSystemDirectoryHandle 执行,通过 POST API 回传结果,恢复 tool loop。
  */
-/** 依赖本地文件系统的工具集合(web 非 Tauri 环境下移除,2026-08-02 立) */
-const FS_DEPENDENT_TOOLS = new Set([
-  'read_file',
-  'write_file',
-  'file_edit',
-  'file_search',
-  'search_codebase',
-  'list_files',
-  'apply_patch',
-  'create_file',
-  'delete_file',
-  'move_file',
-  'analyze_code',
-  'generate_test',
-])
-
 function mergeAgentTools(): string[] {
   const selected = useChatStore.getState().selectedTools
   const extra = selected.flatMap((id) => PLUGIN_ID_TO_TOOLS[id] ?? [])
-  const tools = [...new Set([...AGENT_TOOLS, ...extra])]
-  // web 非 Tauri 环境:移除依赖本地文件系统的工具
-  // 浏览器端 ai-service 在远程服务器上,无法访问用户本地文件,这些工具调用必然失败。
-  // 阶段 1 通过 workspaceContext 预加载文件内容到 system prompt,LLM 直接看无需调工具;
-  // 阶段 2 实现"前端工具执行代理"后可恢复这些工具。
-  if (!isTauri()) {
-    return tools.filter((t) => !FS_DEPENDENT_TOOLS.has(t))
-  }
-  return tools
+  return [...new Set([...AGENT_TOOLS, ...extra])]
 }
 
 /**
@@ -1415,6 +1399,38 @@ export function useChat(): UseChatReturn {
               durationMs: evt.durationMs,
             })
           },
+          // 阶段 2:浏览器端工具执行代理(2026-08-02 立)
+          // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
+          // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+          onToolDelegate: async (event: ToolDelegateEvent) => {
+            const ws = useAiPanelStore.getState().activeWorkspace
+            if (!ws?.name) {
+              await postToolResult(
+                event.session_id,
+                event.tool_call_id,
+                null,
+                'No active workspace',
+              )
+              return
+            }
+            const handle = getBrowserWorkspaceHandle(ws.name)
+            if (!handle) {
+              await postToolResult(
+                event.session_id,
+                event.tool_call_id,
+                null,
+                'No browser workspace handle',
+              )
+              return
+            }
+            const execResult = await executeWorkspaceTool(event.tool_name, event.args, handle)
+            await postToolResult(
+              event.session_id,
+              event.tool_call_id,
+              execResult.result,
+              execResult.error,
+            )
+          },
           agentTools: mergeAgentTools(),
           onError: (errMsg, info) => {
             // #9 错误前先 flush 累积 token,避免最后一批内容丢失
@@ -1706,6 +1722,33 @@ export function useChat(): UseChatReturn {
             endedAt: evt.endedAt,
             durationMs: evt.durationMs,
           })
+        },
+        // 阶段 2:浏览器端工具执行代理(2026-08-02 立,与 sendMessage 对称)
+        // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
+        // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+        onToolDelegate: async (event: ToolDelegateEvent) => {
+          const ws = useAiPanelStore.getState().activeWorkspace
+          if (!ws?.name) {
+            await postToolResult(event.session_id, event.tool_call_id, null, 'No active workspace')
+            return
+          }
+          const handle = getBrowserWorkspaceHandle(ws.name)
+          if (!handle) {
+            await postToolResult(
+              event.session_id,
+              event.tool_call_id,
+              null,
+              'No browser workspace handle',
+            )
+            return
+          }
+          const execResult = await executeWorkspaceTool(event.tool_name, event.args, handle)
+          await postToolResult(
+            event.session_id,
+            event.tool_call_id,
+            execResult.result,
+            execResult.error,
+          )
         },
         agentTools: mergeAgentTools(),
         onError: (errMsg, info) => {
