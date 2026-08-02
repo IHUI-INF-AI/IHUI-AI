@@ -1,7 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { useForm, type UseFormProps, type UseFormReturn, type FieldValues, type DefaultValues } from 'react-hook-form'
+import {
+  useForm,
+  type UseFormProps,
+  type UseFormReturn,
+  type FieldValues,
+  type DefaultValues,
+} from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ZodType, ZodTypeDef } from 'zod'
 import { useTranslations } from 'next-intl'
@@ -80,13 +86,20 @@ export function useZodForm<T extends FieldValues>({
   const t = useTranslations()
   const tValidation = React.useCallback(
     (key: ValidationKey, vars?: Record<string, string | number>) => {
-      return t(VALIDATION_I18N_KEY[key] ?? `${VALIDATION_NS}.unknown`, vars as Record<string, string | number> | undefined)
+      return t(
+        VALIDATION_I18N_KEY[key] ?? `${VALIDATION_NS}.unknown`,
+        vars as Record<string, string | number> | undefined,
+      )
     },
     [t],
   )
 
   const form = useForm<T, unknown, T>({
-    resolver: zodResolver(schema) as unknown as UseFormProps<T>['resolver'],
+    // @hookform/resolvers 5.7.1 zodResolver 同时支持 Zod 3/4,泛型推断与 ZodDefault schema 不兼容
+    // schema input 为 unknown(因 ZodDefault/ZodOptional),zodResolver 期望 FieldValues,需断言
+    resolver: zodResolver(
+      schema as unknown as Parameters<typeof zodResolver>[0],
+    ) as unknown as UseFormProps<T>['resolver'],
     defaultValues: defaultValues as DefaultValues<T>,
     mode,
     reValidateMode,
