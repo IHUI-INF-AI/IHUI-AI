@@ -11,30 +11,30 @@ name = "ihui_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.0", features = [] }
+tauri-build = { version = "2.6", features = [] }
 
 [dependencies]
-tauri = { version = "2.1", features = ["tray-icon", "devtools"] }
-tauri-plugin-deep-link = "2.0"
-tauri-plugin-dialog = "2.0"
-tauri-plugin-fs = "2.0"
-tauri-plugin-http = { version = "2.0", features = ["unsafe-headers"] }
-tauri-plugin-notification = "2.0"
-tauri-plugin-os = "2.0"
-tauri-plugin-shell = "2.0"
-tauri-plugin-store = "2.0"
-tauri-plugin-updater = "2.0"
-tauri-plugin-autostart = "2.0"
-tauri-plugin-global-shortcut = "2.0"
-tauri-plugin-single-instance = "2.0"
-tauri-plugin-log = "2.0"
+tauri = { version = "2.11", features = ["tray-icon", "devtools"] }
+tauri-plugin-deep-link = "2.4"
+tauri-plugin-dialog = "2.7"
+tauri-plugin-fs = "2.5"
+tauri-plugin-http = { version = "2.5", features = ["unsafe-headers"] }
+tauri-plugin-notification = "2.3"
+tauri-plugin-os = "2.3"
+tauri-plugin-shell = "2.3"
+tauri-plugin-store = "2.4"
+tauri-plugin-updater = "2.10"
+tauri-plugin-autostart = "2.5"
+tauri-plugin-global-shortcut = "2.3"
+tauri-plugin-single-instance = "2.4"
+tauri-plugin-log = "2.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 log = "0.4"
 screenshots = "0.8"
-enigo = "0.2"
-arboard = "3.4"
-base64 = "0.22"
+enigo = "0.6"
+arboard = "3.6"
+base64 = "0.23"
 image = { version = "0.24", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
