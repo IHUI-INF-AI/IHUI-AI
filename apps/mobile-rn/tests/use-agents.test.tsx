@@ -26,7 +26,7 @@
  * - 用受控 Promise(deferred)验证 loading 中间态
  * - mock agent 类型用 TestAgent extends Agent { uses?: number; isVipExclusive?: boolean }
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAgents, type Agent, type AgentListResponse } from '@ihui/shared/hooks'
 
@@ -60,12 +60,12 @@ function makeListResponse(agents: TestAgent[]): AgentListResponse<TestAgent> {
 }
 
 describe('useAgents 跨端共享 hook — 集成测试', () => {
-  let fetchList: ReturnType<typeof vi.fn>
-  let fetchDetail: ReturnType<typeof vi.fn>
+  let fetchList: Mock<() => Promise<AgentListResponse<TestAgent>>>
+  let fetchDetail: Mock<(id: string) => Promise<TestAgent>>
 
   beforeEach(() => {
-    fetchList = vi.fn()
-    fetchDetail = vi.fn()
+    fetchList = vi.fn<() => Promise<AgentListResponse<TestAgent>>>()
+    fetchDetail = vi.fn<(id: string) => Promise<TestAgent>>()
   })
 
   // 场景 1:挂载后 autoLoad=true 自动拉取,agents 填充,loading 从 true→false
