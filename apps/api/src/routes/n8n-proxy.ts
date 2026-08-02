@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
 
 const PREFIX = '/cozeZhsApi/n8n'
 
@@ -80,6 +81,14 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
       if (domain && key) {
         try {
           const url = `https://${domain.replace(/^https?:\/\//, '')}/api/v1/workflows?active=true`
+          // 2026-08-02 SSRF 防护:fetch 前校验 URL,拒绝内网/保留地址(n8n_domain 用户可控)
+          try {
+            await ensureSafeFetchUrl(url)
+          } catch (ssrfErr) {
+            return reply
+              .status(400)
+              .send(error(400, `n8n domain blocked: ${(ssrfErr as Error).message}`))
+          }
           const resp = await fetch(url, {
             method: 'GET',
             headers: {
