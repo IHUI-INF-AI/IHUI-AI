@@ -109,9 +109,12 @@ import {
   Brave,
   AlibabaCloud,
   HuaweiCloud,
+  // 2026-08-02 补全:ModelsNav PROVIDER_GROUPS 缺失映射的 provider
+  OpenCode, // opencode_zen(OpenCode Zen 开源推理框架)
+  Qoder, // qoder/if(Qoder AI 代码平台)
 } from '@lobehub/icons'
 
-import { Chrome, Video, type LucideIcon } from 'lucide-react'
+import { Chrome, Video, Server, Cpu, Globe, Boxes, type LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -275,6 +278,21 @@ const VENDOR_COMPONENTS: Record<
   brave: Brave,
   'alibaba-cloud': AlibabaCloud,
   'huawei-cloud': HuaweiCloud,
+  // 2026-08-02 补全:ModelsNav PROVIDER_GROUPS 缺失映射的 provider
+  opencode_zen: OpenCode, // OpenCode Zen(lobehub 真实矢量)
+  opencode: OpenCode, // alias
+  qoder: Qoder, // Qoder AI(lobehub 真实矢量)
+  if: Qoder, // alias:后端 provider_code 用 if(qoder 内部代号)
+  // 无 lobehub 真实矢量的 provider:lucide 语义化兜底(非 logo.png)
+  // 语义:Server=云服务 / Cpu=本地算力 / Globe=网络服务 / Boxes=聚合平台
+  modal: Server, // Modal(云函数推理平台)
+  inferencenet: Server, // InferenceNet(推理网络)
+  nlpcloud: Globe, // NLP Cloud(NLP API 服务)
+  scaleway: Server, // Scaleway(欧洲云服务商)
+  local: Cpu, // 本地 LLM 泛指(非特定厂商)
+  ornith: Boxes, // Ornith(国内新势力,无公开 logo,用 Boxes 兜底)
+  codebrain: Boxes, // CodeBrain(国内新势力,无公开 logo)
+  mai: Boxes, // Mai(国内新势力,无公开 logo)
 }
 
 /** 根据 model 字符串前缀推断厂商代码 */

@@ -47,7 +47,9 @@ function parseArgs(argv) {
     if (a === '--') continue // 标准 Unix 分隔符,跳过(Node 内置 flag 隔离用)
     if (a === '--help' || a === '-h') args.help = true
     else if (a === '--strict') args.strict = true
-    else if (a === '--json') args.json = true
+    else if (a === '--staged') {
+      // 忽略:guardian-runner 全局追加 --staged(pre-commit 模式),本脚本检查 .env 与 staged 无关
+    } else if (a === '--json') args.json = true
     else if (a === '--env-file') {
       const next = argv[i + 1]
       if (!next || next.startsWith('--')) {
