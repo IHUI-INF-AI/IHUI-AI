@@ -222,6 +222,8 @@ export function Leaderboard({ entries }: Props) {
   // 列显隐:被隐藏的字段集合 + dropdown 开关
   const [colHidden, setColHidden] = React.useState<Set<string>>(() => new Set(readColHidden()))
   const [showColMenu, setShowColMenu] = React.useState(false)
+  // URL ?model= 参数定位:从模型市场跳转过来时,自动切换分类 + 滚动到对应行 + 临时高亮
+  const [highlightedModelId, setHighlightedModelId] = React.useState<string | null>(null)
 
   // 按当前 Tab 过滤 + 搜索 + 厂商筛选
   const filtered = React.useMemo(() => {
@@ -369,6 +371,40 @@ export function Leaderboard({ entries }: Props) {
       const restored = entries.filter((e) => ids.includes(e.id))
       if (restored.length > 0) setCompareList(restored)
     }
+  }, [entries])
+
+  // URL ?model= 参数定位:从模型市场「查看排名」按钮跳转过来时,
+  // 自动切换到该模型所在的分类 + 子分类,滚动到对应行并临时高亮 3 秒
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const modelId = params.get('model')
+    if (!modelId || entries.length === 0) return
+    // 同时匹配 modelId 和 id(模型市场侧传的是 Model.id,可能与 LeaderboardEntry.modelId 或 .id 一致)
+    const targetEntry = entries.find((e) => e.modelId === modelId || e.id === modelId)
+    if (!targetEntry) return
+    // 切换到该模型所在的分类 + 子分类
+    if (targetEntry.category !== activeCategory) {
+      setActiveCategory(targetEntry.category)
+    }
+    if (targetEntry.category === 'llm' && targetEntry.subcategory) {
+      setActiveSubcat(targetEntry.subcategory)
+    }
+    // 等待分类切换 + DOM 渲染完成后,滚动到对应行 + 高亮 3 秒
+    const scrollTimer = setTimeout(() => {
+      const row = document.getElementById(`leaderboard-row-${targetEntry.modelId}`)
+      if (!row) return
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlightedModelId(targetEntry.modelId)
+    }, 600)
+    // 3.6 秒后清除高亮(scrollTimer 600ms + 高亮持续 3000ms)
+    const clearTimer = setTimeout(() => setHighlightedModelId(null), 3600)
+    return () => {
+      clearTimeout(scrollTimer)
+      clearTimeout(clearTimer)
+    }
+    // 仅 mount 时执行一次(entries 已由服务端 fetch 传入)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries])
 
   /** 渲染排序图标 */
@@ -651,8 +687,13 @@ export function Leaderboard({ entries }: Props) {
                 return (
                   <tr
                     key={entry.id}
+                    id={`leaderboard-row-${entry.modelId}`}
                     onClick={() => setSelectedEntry(entry)}
-                    className="cursor-pointer border-b border-muted/30 transition-colors hover:bg-accent/30"
+                    className={`cursor-pointer border-b border-muted/30 transition-colors hover:bg-accent/30 ${
+                      highlightedModelId === entry.modelId
+                        ? 'bg-amber-100 dark:bg-amber-950/40'
+                        : ''
+                    }`}
                   >
                     {/* 对比勾选 */}
                     <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
