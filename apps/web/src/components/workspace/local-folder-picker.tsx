@@ -34,6 +34,7 @@ import {
 } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
 import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge'
+import { saveBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
 
 interface LocalFolderPickerProps {
@@ -64,26 +65,33 @@ function detectPickerCapability(): {
 }
 
 /**
- * 弹系统原生选择器,返回完整绝对路径。
+ * 弹系统原生选择器,返回完整绝对路径 + 浏览器场景下的 FileSystemDirectoryHandle。
  *
  * 优先级:
- *   1. Tauri 桌面端 — openDialog({directory:true}) 返回真实绝对路径(如 G:\IHUI-AI)
- *   2. 浏览器降级 — showDirectoryPicker 受安全模型限制只返回 handle.name(文件夹名)
+ *   1. Tauri 桌面端 — openDialog({directory:true}) 返回真实绝对路径(如 G:\IHUI-AI),无 handle
+ *   2. 浏览器降级 — showDirectoryPicker 受安全模型限制只返回 handle.name(文件夹名),
+ *      同时返回 handle 供前端 loadWorkspaceContext 读取文件内容
  *
  * 桌面端用户能拿到完整路径直接打开工作区;
  * 浏览器用户拿到文件夹名后,通过 pathDraft 预填到输入框,补全完整路径后回车跳转。
  */
-async function pickDirectoryNative(): Promise<string | null> {
+interface NativePickResult {
+  path: string
+  /** 浏览器场景下的 handle(Tauri 桌面端无) */
+  handle?: FileSystemDirectoryHandle
+}
+
+async function pickDirectoryNative(): Promise<NativePickResult | null> {
   // 1. Tauri 桌面端:返回真实绝对路径
   if (isTauri()) {
     try {
       const tauriPath = await pickTauriDirectory()
-      if (tauriPath) return tauriPath
+      if (tauriPath) return { path: tauriPath }
     } catch {
       // Tauri 调用失败,降级到 showDirectoryPicker
     }
   }
-  // 2. 浏览器降级:只返回 handle.name(文件夹名)
+  // 2. 浏览器降级:只返回 handle.name(文件夹名) + handle
   const w = window as unknown as {
     showDirectoryPicker?: (opts?: {
       mode?: 'read' | 'readwrite'
@@ -92,7 +100,7 @@ async function pickDirectoryNative(): Promise<string | null> {
   if (typeof w.showDirectoryPicker !== 'function') return null
   try {
     const handle = await w.showDirectoryPicker({ mode: 'read' })
-    return handle.name
+    return { path: handle.name, handle }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') return null
     throw err
@@ -347,7 +355,9 @@ function PathNav({
       )}
 
       {isAtRoot && (
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/80">{t('rootHint')}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/80">
+          {t('rootHint')}
+        </span>
       )}
 
       {/* 切换到路径输入 */}
@@ -646,23 +656,28 @@ export function LocalFolderPicker({
   //
   // Tauri 环境:拿到完整路径(如 G:\IHUI-AI)→ 直接 navigateTo 跳转,列表加载该目录
   // 浏览器环境:只拿到文件夹名(如 IHUI-AI)→ setPathDraft 触发 PathNav 切到 input 模式预填,
-  //           用户补全完整路径后回车跳转
+  //           用户补全完整路径后回车跳转;同时保存 handle 供 loadWorkspaceContext 读取文件内容
   const handleNativePick = async () => {
     setNativeHint(null)
     try {
       const result = await pickDirectoryNative()
       if (!result) return
+      const { path, handle } = result
       // 判断是完整路径(Tauri)还是仅文件夹名(浏览器)
       // 完整路径判定:Windows 含盘符(如 G:\) 或 Unix 以 / 开头
-      const isFullPath = /^[A-Za-z]:[\\/]/.test(result) || result.startsWith('/')
+      const isFullPath = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('/')
       if (isFullPath) {
         // Tauri 桌面端:直接跳转到完整路径
-        navigateTo(normalizeSep(result))
-        setNativeHint(t('nativePickResolved', { path: result }))
+        navigateTo(normalizeSep(path))
+        setNativeHint(t('nativePickResolved', { path }))
       } else {
         // 浏览器降级:预填文件夹名,引导用户补全完整路径
-        setPathDraft(result)
-        setNativeHint(t('nativePickHint', { name: result }))
+        setPathDraft(path)
+        setNativeHint(t('nativePickHint', { name: path }))
+        // 保存 handle 到 module-level Map,后续 use-chat.ts 用它加载工作区文件内容
+        if (handle) {
+          saveBrowserWorkspaceHandle(path, handle)
+        }
       }
     } catch (err) {
       setNativeHint((err as Error).message)
