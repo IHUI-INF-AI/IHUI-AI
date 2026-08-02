@@ -201,11 +201,28 @@ async def go_forward(session_id: str) -> dict[str, Any]:
 
 @router.post("/sessions/{session_id}/reload")
 async def reload(session_id: str) -> dict[str, Any]:
+    """刷新页面;命中反爬/风控墙时自动重建会话(返回新 session_id)。
+
+    2026-08-02 fix:抖音/微信等站点在 CDP 会话被风控后,reload 仍停在验证墙,
+    此时重建全新 context(新指纹)通常可恢复正常页面。
+    """
     session = hub.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
-    await session.reload()
-    return {"code": 0, "data": {"url": await session.get_current_url()}}
+    recreated = False
+    if await session.reload_with_recovery():
+        new_session = await hub.recreate_session(session_id)
+        if new_session:
+            session = new_session
+            recreated = True
+    return {
+        "code": 0,
+        "data": {
+            "url": await session.get_current_url(),
+            "session_id": session.session_id,
+            "recreated": recreated,
+        },
+    }
 
 
 # =============================================================================
