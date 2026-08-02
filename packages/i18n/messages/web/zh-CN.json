@@ -1207,7 +1207,11 @@
       "timeout60s": "AI 思考超时(60 秒内未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型"
     },
     "clearInputAriaLabel": "清除输入",
-    "clearInputTitle": "清除输入内容"
+    "clearInputTitle": "清除输入内容",
+    "errorTimeout15s": "AI 响应超时(15 秒内未收到任何内容),请稍后重试",
+    "errorTimeout60s": "AI 思考超时(60 秒未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型",
+    "reconnecting": "重连中",
+    "reconnectAttempt": "第 {n} 次尝试,{ms}ms 后重试"
   },
   "learn": {
     "title": "学习中心",
@@ -10490,7 +10494,15 @@
   },
   "slashPalette": {
     "backAriaLabel": "返回命令列表",
-    "clearAriaLabel": "清除搜索"
+    "clearAriaLabel": "清除搜索",
+    "searchArgsPlaceholder": "搜索候选...",
+    "searchPlaceholder": "搜索命令...",
+    "hintSelect": "选择",
+    "hintConfirm": "确认",
+    "hintBack": "返回",
+    "hintClose": "关闭",
+    "hintArgsCount": "{n} 个候选",
+    "hintCommandsCount": "{n} 个命令"
   },
   "floatingChat": {
     "openclaw": {
@@ -11256,7 +11268,8 @@
         "copyOutput": "复制终端输出",
         "running": "{n} 运行中",
         "failed": "{n} 失败",
-        "moreItems": "…还有 {n} 项"
+        "moreItems": "…还有 {n} 项",
+        "truncated": "…(已截断,共 {total} 字符)"
       },
       "tools": {
         "title": "工具调用",
@@ -11334,6 +11347,31 @@
       "copyThinking": "复制思考内容",
       "thinkingElapsedTitle": "已思考 {time}",
       "thinkingCharCountTitle": "{n} 个字符"
+    },
+    "toolCall": {
+      "statusRunning": "执行中",
+      "statusSuccess": "成功",
+      "statusFailed": "失败",
+      "prompt": "提示词",
+      "imageLoadFailed": "图片加载失败",
+      "imageAltDefault": "AI 生成图片",
+      "openInNewWindow": "在新窗口打开",
+      "plan": "计划 ({count})",
+      "reference": "引用 ({count})",
+      "toolCallStats": "工具调用 ({count} 次)",
+      "moreItems": "... 还有 {count} 个"
+    },
+    "agentManager": {
+      "title": "Agent 管理",
+      "create": "新建",
+      "active": "活跃",
+      "total": "总计",
+      "empty": "暂无 Agent"
+    },
+    "checkpointHistory": {
+      "title": "检查点历史",
+      "empty": "暂无检查点",
+      "restore": "恢复"
     }
   },
   "docs": {
@@ -14359,14 +14397,53 @@
     "compareMain": "与主分支对比",
     "abandonBranch": "放弃分支",
     "requirementFormat": "需求格式",
-    "stopListening": "停止监听"
+    "stopListening": "停止监听",
+    "stageStatus": {
+      "pending": "待执行",
+      "running": "执行中",
+      "success": "成功",
+      "failed": "失败",
+      "skipped": "跳过"
+    },
+    "stage": {
+      "apply_spec": "生成 patch",
+      "apply_patch": "应用 patch",
+      "typecheck": "类型检查",
+      "test": "测试",
+      "commit": "提交"
+    },
+    "submitReviewFailed": "提交评审失败",
+    "reviewSubmitted": "已提交评审",
+    "unknownError": "未知错误",
+    "pipelineRunning": "执行中",
+    "startPipeline": "启动全流程",
+    "autoCommit": "自动 commit"
   },
   "dispatchDialog": {
     "taskGoalPlaceholder": "描述任务目标…",
     "taskDescPlaceholder": "描述任务详情…",
     "conditionPlaceholder": "描述完成条件…",
     "examplePlaceholder": "示例…",
-    "roleDescPlaceholder": "描述角色职责…"
+    "roleDescPlaceholder": "描述角色职责…",
+    "evolutionSelectRole": "选择 Agent 角色",
+    "evolutionLoading": "加载中…",
+    "evolutionCurrentPrompt": "当前 Prompt(版本 {version})",
+    "evolutionInitialVersion": "初始",
+    "evolutionVersions": "演化版本({n})",
+    "evolutionRecentRecords": "最近任务({n})",
+    "evolutionRetry": "重试 {n}",
+    "evolutionAnalyzing": "LLM 复盘中…",
+    "evolutionTrigger": "触发 LLM 演化分析",
+    "evolutionSuggestEvolve": "建议演化({n} 个补丁)",
+    "evolutionNoEvolve": "无需演化",
+    "evolutionReason": "原因:",
+    "evolutionApplying": "应用中…",
+    "evolutionApply": "确认应用补丁",
+    "evolutionEmpty": "暂无演化数据",
+    "evolutionAnalyzeSuccess": "演化分析完成",
+    "evolutionAnalyzeFailed": "演化分析失败",
+    "evolutionApplySuccess": "已应用补丁",
+    "evolutionApplyFailed": "应用失败"
   },
   "inlineEdit": {
     "editDescPlaceholder": "描述编辑内容…",
@@ -15042,5 +15119,53 @@
     "invalidMoney": "金额格式不正确",
     "invalidTimezone": "时区格式不正确",
     "unknown": "发生未知错误,请稍后重试"
+  },
+  "agentWorkbench": {
+    "runtimeLog": {
+      "selectAgentPrompt": "选择一个 Agent 查看运行日志",
+      "realtimeConnection": "实时连接",
+      "connectionFailed": "连接失败",
+      "retry": "重试",
+      "connecting": "连接中...",
+      "notRunning": "未运行",
+      "logCount": "{count} 条",
+      "pauseAutoScroll": "暂停滚动",
+      "resumeAutoScroll": "恢复滚动",
+      "sseConnectionFailed": "SSE 连接失败",
+      "sseConnectionError": "SSE 连接失败({status})",
+      "noLogs": "暂无日志"
+    },
+    "tokenStream": {
+      "realtimeStream": "实时流",
+      "connecting": "连接中...",
+      "notRunning": "未运行",
+      "empty": "暂无 token 流"
+    },
+    "toolCallChain": {
+      "title": "工具调用链",
+      "waiting": "等待工具调用...",
+      "empty": "暂无工具调用",
+      "statusPending": "进行中",
+      "statusSuccess": "成功",
+      "statusError": "失败"
+    }
+  },
+  "swarmTopology": {
+    "dispatchStatus": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "preempted": "已抢占",
+      "quota_exceeded": "配额超限"
+    },
+    "nodeStatus": {
+      "idle": "空闲",
+      "running": "运行中",
+      "waiting": "等待中",
+      "completed": "已完成",
+      "failed": "失败"
+    }
   }
 }

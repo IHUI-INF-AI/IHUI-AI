@@ -660,6 +660,39 @@ iframe::-webkit-scrollbar {
   }
 }
 
+/* ============================================================
+ * 小尺寸侧边栏纯 CSS 折叠(2026-08-02 立,用户规则"小尺寸应显示最小化只显示图标的侧边栏")
+ * ============================================================
+ * 根因:旧方案用 useIsMobile + setCollapsed effect,SSR/CSR 不一致导致 hydration mismatch
+ * + 闪烁(首帧展开 → effect 跑 setCollapsed(true) → 重渲染折叠)。
+ * 新方案:纯 CSS 媒体查询,不改 JS state,无 hydration 问题,无闪烁。
+ * - aside[data-viewport-collapsed] 在 <1024px 强制 60px 宽(覆盖 collapsed prop + inline width)
+ * - 导航项文字 span 在 <1024px 隐藏,只显示图标(折叠视觉态)
+ * - 导航项本身用 NAV_ITEM_COLLAPSED_CLASS 的 w-9 36×36 正方形布局(已由 collapsed prop 控制
+ *   或 CSS 强制居中),此处只补文字隐藏
+ * - 桌面端(≥1024px)此规则不生效,完全由 collapsed prop + localStorage 偏好控制
+ * ============================================================ */
+@media (max-width: 1023px) {
+  aside[data-viewport-collapsed='true'] {
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+  }
+  /* 隐藏导航项文字 span(只显示图标),覆盖 collapsed=false 时的展开态文字 */
+  aside[data-viewport-collapsed='true'] nav a > span:not([class*='sr-only']),
+  aside[data-viewport-collapsed='true'] nav button > span:not([class*='sr-only']) {
+    display: none;
+  }
+  /* 折叠态导航项强制居中 + 正方形(覆盖展开态的 w-full + flex-row) */
+  aside[data-viewport-collapsed='true'] nav a,
+  aside[data-viewport-collapsed='true'] nav button {
+    justify-content: center !important;
+    width: 2.25rem !important; /* 36px = w-9,与 NAV_ITEM_COLLAPSED_CLASS 一致 */
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
 /* AI 面板打开态手柄的 hover 竖向提示:tooltip 显示在面板内(手柄线左侧),
    避免遮挡 work-area。writing-mode/样式与关闭态 tooltip 一致,通过 :hover/:focus-within 同步触发。 */
 .ai-panel-resize-tooltip {

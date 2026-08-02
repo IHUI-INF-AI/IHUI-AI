@@ -193,7 +193,7 @@ const TABS: Array<{
 export const TimelineTab = React.memo(function TimelineTab({
   showTabs = true,
   className,
-  emptyText = '暂无事件',
+  emptyText = '',
   'data-testid': testId,
 }: TimelineTabProps) {
   const t = useTranslations('ai.pane')
@@ -251,7 +251,9 @@ export const TimelineTab = React.memo(function TimelineTab({
             <div className="rounded-md bg-muted/30 p-3">
               <Inbox className="h-6 w-6 text-muted-foreground/40" aria-hidden />
             </div>
-            <p className="text-xs text-muted-foreground">{emptyText}</p>
+            <p className="text-xs text-muted-foreground">
+              {emptyText || safeT(t, 'timelineEmptyTitle', '暂无事件')}
+            </p>
             <p className="text-[10px] text-muted-foreground/60">
               {safeT(t, 'timelineEmptyHint', '发送消息后,Timeline 将显示 AI 执行事件')}
             </p>
@@ -460,7 +462,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                 <Inbox className="h-6 w-6 text-muted-foreground/40" aria-hidden />
               </div>
               <p className="text-xs text-muted-foreground">
-                {safeT(t, 'timelineEmptyTitle', emptyText)}
+                {emptyText || safeT(t, 'timelineEmptyTitle', '暂无事件')}
               </p>
               <p className="text-[10px] text-muted-foreground/60">
                 {safeT(t, 'timelineEmptyHint', '发送消息后,Timeline 将显示 AI 执行事件')}

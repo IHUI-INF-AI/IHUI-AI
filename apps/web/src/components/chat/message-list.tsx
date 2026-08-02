@@ -2,7 +2,20 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Loader2, Copy, Check, RefreshCw, ArrowDown, Search } from 'lucide-react'
+import {
+  Loader2,
+  Copy,
+  Check,
+  RefreshCw,
+  ArrowDown,
+  Search,
+  Star,
+  Share2,
+  Pencil,
+  Trash2,
+  MessageCircle,
+  BarChart3,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 
@@ -66,6 +79,12 @@ function formatMessageTimestamp(createdAt: number): string {
   const dd = String(d.getDate()).padStart(2, '0')
   return `${mo}-${dd} ${hh}:${mm}`
 }
+
+// 2026-08-02:消息交互按钮基础样式(完全复用原项目 AIChat.vue 统一按钮系统)
+// --fcd-btn-size:28px → h-7 w-7 | --fcd-btn-radius:6px → rounded-md | --fcd-btn-icon-size:16px → h-4 w-4
+// _message-list.scss .message-actions: display:flex; gap:8px; opacity:1(始终显示)
+const ACTION_BTN_CLASS =
+  'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary'
 
 /** P0 流式性能优化(2026-07-23):抽取消息项组件 + React.memo,
  * 流式 token 只更新目标消息引用,其他消息引用不变 → 不触发重渲染
@@ -169,6 +188,59 @@ const MessageItem = React.memo(function MessageItem({
     },
     [isUser, m.content, t],
   )
+
+  // 2026-08-02:AI 消息交互按钮回调(完全复用原项目 AIChat.vue 按钮清单)
+  // 优先用全局 CustomEvent 派发(与右键菜单一致),由 message-input / 父组件监听
+  // 回调缺失的用 toast 兜底(与右键菜单 feedback 一致)
+
+  // 重新生成(对应原项目 regenerateMessage)
+  const handleRegenerate = React.useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent('ihui:regenerate-message', { detail: { messageId: m.id } }),
+    )
+    toast.info(t('regenerating') === 'regenerating' ? 'Regenerating...' : t('regenerating'))
+  }, [m.id, t])
+
+  // 删除消息(对应原项目 deleteMessage,逻辑从右键菜单提取)
+  const handleDelete = React.useCallback(() => {
+    const store = useChatStore.getState()
+    const next = store.messages.filter((msg) => msg.id !== m.id)
+    if (next.length !== store.messages.length) {
+      useChatStore.setState({ messages: next })
+      toast.success(t('messageDeleted') === 'messageDeleted' ? 'Deleted' : t('messageDeleted'))
+    }
+  }, [m.id, t])
+
+  // 点赞(对应原项目 toggleLike)— 预留事件,toast 兜底
+  const handleLike = React.useCallback(() => {
+    window.dispatchEvent(new CustomEvent('ihui:like-message', { detail: { messageId: m.id } }))
+    toast.success(t('feedbackRecorded') === 'feedbackRecorded' ? 'Liked' : t('feedbackRecorded'))
+  }, [m.id, t])
+
+  // 分享(对应原项目 shareAssistantMessage)— navigator.share 优先,剪贴板兜底
+  const handleShare = React.useCallback(async () => {
+    const text = plainTextForClipboard(m.content)
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        toast.success(t('copied') === 'copied' ? 'Copied to share' : t('copied'))
+      }
+    } catch {
+      // 用户取消分享时不报错
+    }
+  }, [m.content, t])
+
+  // 回复(对应原项目 replyToMessage)— 预留事件
+  const handleReply = React.useCallback(() => {
+    window.dispatchEvent(new CustomEvent('ihui:reply-message', { detail: { messageId: m.id } }))
+  }, [m.id])
+
+  // 编辑(对应原项目 editMessage)— toast 兜底
+  const handleEdit = React.useCallback(() => {
+    toast.info(t('editComingSoon') === 'editComingSoon' ? 'Edit coming soon' : t('editComingSoon'))
+  }, [t])
 
   // 卸载清理 timer
   React.useEffect(() => {
@@ -367,31 +439,124 @@ const MessageItem = React.memo(function MessageItem({
             )}
           </div>
         )}
-        {/* 2026-08-02:AI 消息交互按钮区(完全复用原项目 ChatMessageList.vue 样式)
-            - 仅 assistant + 非流式 + 有内容时渲染
-            - opacity 0 → group-hover/msg:opacity-100 过渡(原项目 .message-actions CSS)
-            - 无边框小图标按钮(原项目 el-button link size="small")
-            - gap-1(4px) + mt-1.5(6px)(原项目 CSS: gap:4px; margin-top:6px)
-            - 当前仅 Copy 按钮(Reply 无回调、Token 无数据源,不渲染死按钮) */}
-        {!isUser && !streamingThis && m.content.length > 0 && (
+        {/* 2026-08-02:消息交互按钮区(完全复用原项目 AIChat.vue + _message-list.scss 样式)
+            - opacity:1 始终显示(原项目 _message-list.scss line 199-205)
+            - gap:8px(原项目 .message-actions gap:8px)
+            - 按钮 28x28px / 6px 圆角 / 16px 图标(原项目 --fcd-btn-size/--fcd-btn-radius/--fcd-btn-icon-size)
+            - AI 消息: Like / Copy / Share / Regenerate / Reply + Token(条件)
+            - 用户消息: Copy / Edit / Reply / Delete */}
+        {!streamingThis && m.content.length > 0 && (
           <div
-            className="flex items-center gap-1 mt-1.5 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200"
+            className="flex items-center gap-2 opacity-100 mt-1"
             data-testid={`message-actions-${m.id}`}
           >
+            {/* AI 消息:Like(点赞)— 原项目 toggleLike,hover 琥珀色 */}
+            {!isUser && (
+              <button
+                type="button"
+                onClick={handleLike}
+                data-testid={`message-like-${m.id}`}
+                aria-label="Like"
+                title="Like"
+                className={cn(ACTION_BTN_CLASS, 'hover:text-amber-500')}
+              >
+                <Star className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {/* Copy(复制)— AI + 用户,原项目 copyMessage */}
             <button
               type="button"
               onClick={handleCopy}
               data-testid={`message-copy-${m.id}`}
               aria-label={copyLabel}
               title={copyLabel}
-              className="inline-flex items-center justify-center rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              className={ACTION_BTN_CLASS}
             >
               {copied ? (
-                <Check className="h-3.5 w-3.5" aria-hidden />
+                <Check className="h-4 w-4" aria-hidden />
               ) : (
-                <Copy className="h-3.5 w-3.5" aria-hidden />
+                <Copy className="h-4 w-4" aria-hidden />
               )}
             </button>
+            {/* AI 消息:Share(分享)— 原项目 shareAssistantMessage */}
+            {!isUser && (
+              <button
+                type="button"
+                onClick={handleShare}
+                data-testid={`message-share-${m.id}`}
+                aria-label="Share"
+                title="Share"
+                className={ACTION_BTN_CLASS}
+              >
+                <Share2 className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {/* AI 消息:Regenerate(重新生成)— 原项目 regenerateMessage,streaming 时禁用 */}
+            {!isUser && (
+              <button
+                type="button"
+                onClick={handleRegenerate}
+                disabled={streamingThis}
+                data-testid={`message-regenerate-${m.id}`}
+                aria-label="Regenerate"
+                title="Regenerate"
+                className={cn(ACTION_BTN_CLASS, 'disabled:opacity-40 disabled:cursor-not-allowed')}
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
+            {isUser && (
+              <button
+                type="button"
+                onClick={handleEdit}
+                data-testid={`message-edit-${m.id}`}
+                aria-label="Edit"
+                title="Edit"
+                className={ACTION_BTN_CLASS}
+              >
+                <Pencil className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {/* Reply(回复)— AI + 用户,原项目 replyToMessage */}
+            <button
+              type="button"
+              onClick={handleReply}
+              data-testid={`message-reply-${m.id}`}
+              aria-label="Reply"
+              title="Reply"
+              className={ACTION_BTN_CLASS}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+            </button>
+            {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
+            {isUser && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                data-testid={`message-delete-${m.id}`}
+                aria-label="Delete"
+                title="Delete"
+                className={cn(ACTION_BTN_CLASS, 'hover:text-destructive hover:bg-destructive/10')}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {/* AI 消息:Token 计数(条件显示)— 原项目 .token-usage,有 metadata.usage 时渲染 */}
+            {!isUser &&
+              Boolean(m.meta?.usage) &&
+              typeof m.meta?.usage === 'object' &&
+              'totalTokens' in (m.meta?.usage as object) && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground ml-2"
+                  data-testid={`message-token-${m.id}`}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+                  <span className="font-medium">
+                    {(m.meta?.usage as { totalTokens: number }).totalTokens} tokens
+                  </span>
+                </span>
+              )}
           </div>
         )}
       </div>
