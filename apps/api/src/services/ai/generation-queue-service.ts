@@ -54,9 +54,15 @@ function getQueue(): Queue<GenerationJobData> {
   return queue
 }
 
-/** 去重指纹哈希：用 sha256 取前 16 字符，碰撞率远低于原 32 位乘法哈希。 */
+/**
+ * 去重指纹哈希：用 sha256 取前 32 字符(128 位)。
+ *
+ * P2 修复:原实现用简单乘法哈希(h*31+charCodeAt)32 位碰撞率高,
+ * 作 BullMQ jobId 去重会导致不同任务撞 hash → 任务丢失。
+ * sha256 前 32 hex = 128 位,碰撞率 2^-128,可视为零碰撞。
+ */
 function hash(s: string): string {
-  return createHash('sha256').update(s).digest('hex').slice(0, 16)
+  return createHash('sha256').update(s).digest('hex').slice(0, 32)
 }
 
 /** 入队一个生成任务。 */
