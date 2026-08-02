@@ -158,7 +158,7 @@ function PricingSection({ pageIndex }: SectionProps) {
           <HomePage4Pricing />
         </div>
         <div className="mx-auto w-full max-w-5xl px-4">
-          <div className="grid grid-cols-2 gap-2 min-[768px]:gap-3 min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[768px]:gap-3 min-[1024px]:grid-cols-4">
             {[
               { value: 8, suffix: '', label: t('stats.platforms') },
               { value: 100, suffix: '+', label: t('stats.models') },

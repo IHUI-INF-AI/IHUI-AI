@@ -248,7 +248,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         </div>
         <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
           <LogIn className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{t('loginRequired')}</span>
+          <span className="min-w-0 flex-1 truncate">{t('loginRequired')}</span>
         </div>
       </div>
     )
