@@ -222,7 +222,8 @@ async def lifespan(app: FastAPI) -> Any:
     # 首次截图请求时懒加载,退出时 shutdown() 清理
 
     yield
-    shutdown_telemetry()
+    # P0 修复(2026-08-02):移除 yield 后的 shutdown_telemetry() 重复调用,
+    # 保留末尾(所有 cleanup 之后)的 shutdown_telemetry() 作为最后清理,避免重复 shutdown。
 
     # 关闭模型可用性服务(取消定时刷新任务,2026-07-31 立)
     from app.services.model_availability import model_availability

@@ -12,9 +12,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { db } from '../db/index.js'
-import { eduPointRecords } from '@ihui/database'
-import { findUserPointsBalance } from '../db/point-queries.js'
+import { awardAdPoints } from '../db/point-queries.js'
 import { success, error } from '../utils/response.js'
 
 const notifySchema = z.object({
@@ -25,8 +23,9 @@ const notifySchema = z.object({
   signature: z.string().optional(),
 })
 
-// 已发放的回调事务去重(防止广告平台重复回调)
-const processedTx = new Set<string>()
+/** 广告回调事务去重 Redis key 前缀 + TTL(24h,覆盖广告平台最长重试周期) */
+const AD_TX_PREFIX = 'ad:tx:'
+const AD_TX_TTL_SEC = 86_400
 
 export const rewardedVideoAdRoutes: FastifyPluginAsync = async (server) => {
   // POST /notify — 广告回调(广告平台服务端调用,无需用户 token)
@@ -43,30 +42,32 @@ export const rewardedVideoAdRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '签名校验失败'))
       }
     }
-    // 事务去重
+    // 事务去重:Redis SET NX(跨实例共享 + 重启不丢失,替代进程内 Set)
     if (body.transactionId) {
-      if (processedTx.has(body.transactionId)) {
+      const ok = await server.redis.set(
+        `${AD_TX_PREFIX}${body.transactionId}`,
+        '1',
+        'EX',
+        AD_TX_TTL_SEC,
+        'NX',
+      )
+      if (!ok) {
+        // 已处理过(广告平台重复回调),幂等返回
         return reply.send(success({ duplicated: true, awarded: false }))
-      }
-      processedTx.add(body.transactionId)
-      // 防止内存无限增长(保留最近 10000 条)
-      if (processedTx.size > 10_000) {
-        const first = processedTx.values().next().value
-        if (first) processedTx.delete(first)
       }
     }
     const rewardAmount = body.rewardAmount ?? Number(process.env.REWARDED_AD_POINTS ?? 10)
-    const currentBalance = await findUserPointsBalance(body.userId)
-    const newBalance = currentBalance + rewardAmount
+    // P0 修复(Lost Update):复用 awardAdPoints 事务(FOR UPDATE + INSERT),
+    // 替代手动 findUserPointsBalance + INSERT 非原子序列
+    let newBalance: number
     try {
-      await db.insert(eduPointRecords).values({
-        memberId: body.userId,
-        point: rewardAmount,
-        balance: newBalance,
-        type: 'rewarded_ad',
-        description: `激励视频广告奖励(${body.adType ?? 'unknown'})`,
-        refId: body.transactionId ?? null,
-      })
+      const result = await awardAdPoints(
+        body.userId,
+        rewardAmount,
+        `激励视频广告奖励(${body.adType ?? 'unknown'})`,
+        body.transactionId ?? null,
+      )
+      newBalance = result.afterBalance
     } catch (e) {
       return reply.status(500).send(error(500, `积分发放失败: ${(e as Error).message}`))
     }
