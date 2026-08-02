@@ -545,6 +545,9 @@ export interface StreamChatOptions {
    * 把内容通过此字段传给后端,后端直接注入 system prompt(跳过从文件系统读取)。
    * Tauri 桌面端为 undefined,走 workspacePath 逻辑。 */
   workspaceContext?: string
+  /** 阶段 2:工具委托执行回调(浏览器端收到 tool-delegate SSE 事件时触发)
+   * 前端用 FileSystemDirectoryHandle 执行 fs 类工具,通过 postToolResult 回传结果 */
+  onToolDelegate?: (event: ToolDelegateEvent) => void | Promise<void>
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
    * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
   contextLimit?: number
@@ -797,6 +800,27 @@ export interface FallbackEvent {
   backupModel: string
   /** 切换原因(timeout/rate_limit/api_error/unknown) */
   reason: string
+}
+
+/**
+ * 阶段 2:工具委托执行事件(2026-08-02 立,浏览器端工具执行代理)。
+ *
+ * ai-service 在远程服务器无法访问用户本地文件,当 LLM 调用 fs 类工具
+ * (read_file/search_codebase/file_edit 等)时,ai-service 通过 SSE
+ * `tool-delegate` 事件委托前端执行,前端用 FileSystemDirectoryHandle 读取/写入文件,
+ * 通过 postToolResult POST API 回传结果,唤醒 tool loop 中等待的 asyncio.Event。
+ *
+ * SSE 事件格式:
+ *   event: tool-delegate
+ *   data: {"session_id":"<uuid>","tool_call_id":"<tc_id>","tool_name":"read_file","args":{"path":"src/index.ts"},"iteration":1,"type":"tool-delegate"}
+ */
+export interface ToolDelegateEvent {
+  session_id: string
+  tool_call_id: string
+  tool_name: string
+  args: Record<string, unknown>
+  iteration: number
+  type: string
 }
 
 /**
@@ -1333,6 +1357,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         typeof opts.onSubagentProgress === 'function'
       // 工具调用汇总(2026-07-31 立,AI 对话可视化):SSE 流末尾发出 type='tool-summary' 事件
       const hasToolSummary = typeof opts.onToolSummary === 'function'
+      // 阶段 2:工具委托执行(浏览器端 fs 工具执行代理,2026-08-02 立)
+      const hasToolDelegate = typeof opts.onToolDelegate === 'function'
 
       // ===== Dedupe 机制(isRetry 时启用) =====
       // 重连后若服务端不支持 Last-Event-ID 续传会从头重发,前端用 receivedContent 前缀匹配
@@ -1690,6 +1716,48 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** 阶段 2:解析工具委托执行事件(2026-08-02 立,浏览器端 fs 工具执行代理):
+       *  - ai-service 在远程服务器无法访问用户本地文件,LLM 调用 fs 类工具时
+       *    通过 SSE `tool-delegate` 事件委托前端执行
+       *  - 前端收到事件后用 FileSystemDirectoryHandle 执行工具,通过 postToolResult
+       *    POST API 回传结果,唤醒 ai-service tool loop 中等待的 asyncio.Event
+       *  - onToolDelegate 是 async 回调,await 等待执行完成后再继续读 SSE 流
+       *    (ai-service 在等待结果期间不会发新事件,阻塞读流是符合期望的)
+       *  - 工具执行失败不中断流,错误通过 postToolResult 回传给 ai-service */
+      const tryParseToolDelegate = async (line: string): Promise<void> => {
+        if (!hasToolDelegate) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'tool-delegate') return
+          if (typeof json.session_id !== 'string' || typeof json.tool_call_id !== 'string') return
+          await opts.onToolDelegate!({
+            session_id: json.session_id,
+            tool_call_id: json.tool_call_id,
+            tool_name: typeof json.tool_name === 'string' ? json.tool_name : '',
+            args:
+              json.args && typeof json.args === 'object'
+                ? (json.args as Record<string, unknown>)
+                : {},
+            iteration: typeof json.iteration === 'number' ? json.iteration : 0,
+            type: 'tool-delegate',
+          })
+        } catch {
+          /* 非 JSON 或非 tool-delegate 事件忽略;工具执行错误已通过 postToolResult 回传 */
+        }
+      }
+
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -1705,6 +1773,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseToolCall(line)
           tryParseSubagent(line)
           tryParseToolSummary(line)
+          // 阶段 2:工具委托执行(async,await 等待前端工具执行完成再继续读 SSE)
+          await tryParseToolDelegate(line)
           // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
           if (hasFallback) {
             const fbEvt = parseFallbackEvent(line)
@@ -1732,6 +1802,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseToolCall(buffer)
         tryParseSubagent(buffer)
         tryParseToolSummary(buffer)
+        // 阶段 2:工具委托执行(尾部 buffer 残留,与主循环对称)
+        await tryParseToolDelegate(buffer)
         // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
           const fbEvt = parseFallbackEvent(buffer)
@@ -1779,4 +1851,36 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       await sleepWithAbort(delay, opts.signal)
     }
   }
+}
+
+/**
+ * 阶段 2:前端工具执行代理结果回传(2026-08-02 立)
+ * 前端收到 SSE tool-delegate 事件后,用 FileSystemDirectoryHandle 执行工具,
+ * 通过此方法回传结果给 ai-service,唤醒 tool loop 中等待的 asyncio.Event。
+ *
+ * POST /llm/complete/stream/{session_id}/tool-result
+ * Body: { tool_call_id, result, error }
+ *
+ * ai-service base URL 通过 import.meta.env.NEXT_PUBLIC_AI_SERVICE_URL 获取,
+ * 默认 http://localhost:8803。非 Vite 环境(无 import.meta.env)走默认值。
+ */
+export async function postToolResult(
+  sessionId: string,
+  toolCallId: string,
+  result: string | null,
+  error: string | null,
+): Promise<void> {
+  // import.meta.env 是 Vite/Next.js 注入的环境变量,非 Vite 环境(如 RN/Node)无此对象。
+  // 用 unknown 中间断言规避 ImportMeta 类型与 Record 不兼容(TS2352)。
+  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env
+  const baseUrl =
+    env && typeof env.NEXT_PUBLIC_AI_SERVICE_URL === 'string'
+      ? env.NEXT_PUBLIC_AI_SERVICE_URL
+      : undefined
+  const aiServiceUrl = baseUrl || 'http://localhost:8803'
+  await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/tool-result`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool_call_id: toolCallId, result, error }),
+  })
 }
