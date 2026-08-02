@@ -20,6 +20,42 @@ const modelTestRunSchema = z
     temperature: z.number().min(0).max(2).optional(),
   })
   .passthrough()
+// P1 安全修复(2026-08-02):model-info POST/PUT body Zod schema,strip 非白名单字段
+// 字段类型对齐 zhs_ai_model_info 表(packages/database/src/schema/zhs-full.ts:122)
+const modelInfoBodySchema = z
+  .object({
+    source: z.string().max(100).optional(),
+    name: z.string().min(1).max(100).optional(),
+    description: z.string().optional(),
+    icon: z.string().max(500).optional(),
+    status: z.coerce.number().int().min(0).max(1).optional(),
+    sort: z.coerce.number().int().optional(),
+  })
+  .strip()
+
+// P1 安全修复(2026-08-02):config update body schema(JSON 存储,允许任意字段但必须是对象)
+const configUpdateBodySchema = z.record(z.unknown())
+
+// P1 安全修复(2026-08-02):外呼回调 body schema
+const outboundCallbackBodySchema = z
+  .object({
+    phone: z.string().max(50).optional(),
+    callId: z.string().max(100).optional(),
+    duration: z.coerce.number().optional(),
+    recordingUrl: z.string().max(500).optional(),
+    transcript: z.string().optional(),
+  })
+  .strip()
+
+// P1 安全修复(2026-08-02):视频任务创建 body schema
+const videoTaskCreateBodySchema = z
+  .object({
+    taskId: z.string().max(100).optional(),
+    userUuid: z.string().max(100).optional(),
+    chatId: z.string().max(100).nullable().optional(),
+    message: z.string().nullable().optional(),
+  })
+  .strip()
 
 // =============================================================================
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
@@ -265,8 +301,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.post('/model-info', async (req, reply) => {
     const cols = ['source', 'name', 'description', 'icon', 'status', 'sort']
+    // P1 安全修复(2026-08-02):Zod schema safeParse 替代 `req.body as Record<string, unknown>`,strip 非白名单字段
+    const bodyParse = modelInfoBodySchema.safeParse(req.body)
+    if (!bodyParse.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
+    const body: Record<string, unknown> = { ...bodyParse.data }
     try {
-      const body = req.body as Record<string, unknown>
       if (body.status === undefined) body.status = 1
       const present = cols.filter((c) => body[c] !== undefined)
       if (present.length === 0) return reply.status(400).send(error(400, '缺少可写入字段'))
@@ -291,8 +332,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     const cols = ['source', 'name', 'description', 'icon', 'status', 'sort']
+    // P1 安全修复(2026-08-02):Zod schema safeParse 替代 `req.body as Record<string, unknown>`,strip 非白名单字段
+    const bodyParse = modelInfoBodySchema.safeParse(req.body)
+    if (!bodyParse.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
+    const body: Record<string, unknown> = { ...bodyParse.data }
     try {
-      const body = req.body as Record<string, unknown>
       const sets: SQL[] = cols
         .filter((c) => body[c] !== undefined)
         .map((c) => sql`${sql.raw(`"${c}"`)} = ${body[c]}`)
@@ -362,9 +408,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/outbound-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const body = (req.body as Record<string, unknown>) ?? {}
+    const bodyParsed = configUpdateBodySchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const row = await configUpdate(parsed.data.id, body)
+      const row = await configUpdate(parsed.data.id, bodyParsed.data)
       if (!row) return reply.status(404).send(error(404, '外呼路由不存在'))
       return reply.send(success(row))
     } catch (e) {
@@ -391,14 +440,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 仅有录音 URL 时返回 202 待转录;无 AI_SERVICE_URL 时返回 503。
   // -------------------------------------------------------------------------
   server.post('/outbound-routes/callback', async (req, reply) => {
-    const body = req.body as {
-      phone?: string
-      callId?: string
-      duration?: number
-      recordingUrl?: string
-      transcript?: string
+    const bodyParsed = outboundCallbackBodySchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
     }
-    const duration = typeof body?.duration === 'number' ? body.duration : 0
+    const body = bodyParsed.data
+    const duration = typeof body.duration === 'number' ? body.duration : 0
     const aiServiceUrl = process.env.AI_SERVICE_URL
     if (!aiServiceUrl) {
       return reply.status(503).send(error(503, 'AI 服务未配置(AI_SERVICE_URL)'))
@@ -535,9 +582,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/video-routes/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const body = (req.body as Record<string, unknown>) ?? {}
+    const bodyParsed = configUpdateBodySchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const row = await configUpdate(parsed.data.id, body)
+      const row = await configUpdate(parsed.data.id, bodyParsed.data)
       if (!row) return reply.status(404).send(error(404, '视频路由不存在'))
       return reply.send(success(row))
     } catch (e) {
@@ -560,16 +610,20 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // POST /video-routes/tasks/create — 创建视频生成任务
   server.post('/video-routes/tasks/create', async (req, reply) => {
     try {
-      const body = req.body as Record<string, unknown>
-      const taskId = typeof body.taskId === 'string' ? body.taskId : crypto.randomUUID()
+      const bodyParsed = videoTaskCreateBodySchema.safeParse(req.body ?? {})
+      if (!bodyParsed.success) {
+        return reply.status(400).send(error(400, '参数校验失败'))
+      }
+      const body = bodyParsed.data
+      const taskId = body.taskId ?? crypto.randomUUID()
       const rows = await db
         .insert(videoGenerationTasks)
         .values({
           taskId,
-          userUuid: typeof body.userUuid === 'string' ? body.userUuid : 'system',
-          chatId: typeof body.chatId === 'string' ? body.chatId : null,
+          userUuid: body.userUuid ?? 'system',
+          chatId: body.chatId ?? null,
           status: 'accepted',
-          message: typeof body.message === 'string' ? body.message : null,
+          message: body.message ?? null,
         })
         .returning()
       return reply.status(201).send(success({ taskId, status: rows[0]?.status ?? 'accepted' }))
@@ -646,9 +700,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/developer/model-test/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const body = (req.body as Record<string, unknown>) ?? {}
+    const bodyParsed = configUpdateBodySchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const row = await configUpdate(parsed.data.id, body)
+      const row = await configUpdate(parsed.data.id, bodyParsed.data)
       if (!row) return reply.status(404).send(error(404, '模型测试任务不存在'))
       return reply.send(success(row))
     } catch (e) {
