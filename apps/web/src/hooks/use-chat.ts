@@ -455,7 +455,9 @@ const AGENT_TOOLS = [
   'search_web',
   'vision_analyze',
   'knowledge_lookup',
-  'dispatch_subagent',
+  // 2026-08-02 移除:dispatch_subagent 不应在默认 AGENT_TOOLS 中
+  // LLM 对简单问题也会调用 subagent,导致 subagent 执行失败(空输出/超时)→ 前端显示"执行失败"
+  // 改为按需启用:仅在用户明确选择"Agent 模式"时通过 mergeAgentTools 动态添加
   'summarize_artifacts',
   'proactive_suggestion',
   // 12 browser tools
