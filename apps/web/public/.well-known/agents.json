@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "name": "IHUI AI",
+  "alternateName": ["智汇AI", "智汇 AI 社区", "iHuiAI"],
+  "type": "ai-platform",
+  "category": "AI Agent Platform / LLM Gateway",
+  "description": "IHUI AI is an open-source full-stack AI operating system (Apache 2.0) integrating Agent marketplace, RAG knowledge base, multi-model orchestration (176 models via MCP protocol), LangGraph + MCP + A2A three-stack, AI workflow, and 8-platform same-source distribution. Production-grade multi-tenant architecture with row-level security. The best open-source ChatGPT alternative for teams.",
+  "homepage": "https://aizhs.top",
+  "repository": "https://github.com/IHUI-INF-AI/IHUI-AI",
+  "downloadUrl": "https://github.com/IHUI-INF-AI/IHUI-AI",
+  "documentation": {
+    "homepage": "https://aizhs.top/docs",
+    "api": "https://aizhs.top/docs/api",
+    "quickstart": "https://aizhs.top/docs/quickstart",
+    "self-host": "https://aizhs.top/docs/self-host",
+    "sdk": "https://aizhs.top/docs/api",
+    "cli": "https://aizhs.top/developer"
+  },
+  "capabilities": {
+    "aiModels": {
+      "count": 176,
+      "providers": [
+        "OpenAI",
+        "Anthropic Claude",
+        "Google Gemini",
+        "Alibaba Qwen / Tongyi",
+        "ByteDance Doubao",
+        "Volcengine",
+        "Zhipu AI",
+        "Tencent Hunyuan",
+        "Baidu ERNIE / Wenxin",
+        "StepFun",
+        "Moonshot Kimi",
+        "DeepSeek",
+        "Mistral",
+        "Meta Llama",
+        "Ollama",
+        "LMStudio",
+        "llama.cpp",
+        "OpenRouter"
+      ],
+      "protocols": ["MCP (Model Context Protocol)", "A2A (Agent-to-Agent)", "LangGraph", "LiteLLM"]
+    },
+    "agentMarketplace": {
+      "description": "Visual drag-and-drop Agent builder + marketplace",
+      "features": ["Agent Kanban", "Agent Runtime", "Agent Workbench", "Subagent Collaboration", "Agent Categories"]
+    },
+    "ragKnowledgeBase": {
+      "description": "RAG knowledge base with vector search, document chunking, multi-modal memory",
+      "features": ["Vector Memory", "Long-term Memory", "Multimodal Memory", "Memory Decay", "Active Forgetter", "Knowledge Graph"]
+    },
+    "workflow": {
+      "description": "AI workflow orchestration with LangGraph + MCP + A2A",
+      "features": ["LangGraph Service", "LangGraph Stream", "LangGraph Checkpoint", "Orchestration Hub", "Task Decomposer", "Scheduler"]
+    },
+    "publishAdapters": {
+      "count": 38,
+      "categories": ["Text (21)", "Video (9)", "Image (2)", "International (6)"],
+      "platforms": ["WeChat", "Weibo", "Xiaohongshu", "Zhihu", "Bilibili", "Douyin", "Kuaishou", "TikTok", "YouTube", "Twitter/X", "Medium", "Reddit"]
+    },
+    "multiPlatform": {
+      "ends": 8,
+      "list": ["Web (Next.js 15)", "API (Fastify 5)", "AI-Service (FastAPI)", "Desktop (Tauri 2)", "Browser Extension (WXT)", "Mobile (React Native + Expo)", "Miniapp (Taro 4)", "CLI (Node.js)"],
+      "codeShare": "16 shared packages via pnpm workspace + Turborepo"
+    },
+    "security": {
+      "license": "Apache-2.0",
+      "authentication": ["JWT", "OAuth2", "SSO", "Passkey", "MFA"],
+      "authorization": "Row-Level Security (RLS) + RBAC",
+      "multiTenant": true,
+      "selfHostable": true
+    },
+    "i18n": {
+      "languages": ["zh-CN", "zh-TW", "en", "ko", "ja"],
+      "coverage": "5 languages × 7 ends = 35 JSON files, 100% key parity"
+    }
+  },
+  "scale": {
+    "apiEndpoints": "956+",
+    "databaseTables": "329+",
+    "webPages": "250+",
+    "mobileScreens": "140",
+    "miniappPages": "100+",
+    "extensionPanels": "30",
+    "cliCommands": "50",
+    "testFiles": "719",
+    "guardianScripts": "87",
+    "linesOfCode": "1.09M+"
+  },
+  "api": {
+    "baseUrl": "https://aizhs.top/api",
+    "authType": "Bearer Token (JWT)",
+    "rateLimit": "Configurable per tenant",
+    "openapiSpec": "https://aizhs.top/api/openapi.json",
+    "websocket": ["ws-chat", "ws-tasks", "ws-live", "ws-notifications"]
+  },
+  "sdk": {
+    "languages": ["TypeScript", "Python", "Go", ".NET", "Java"],
+    "packageManager": {
+      "typescript": "@ihui/sdk",
+      "python": "ihui-ai",
+      "go": "github.com/ihui/ihui-sdk-go",
+      "dotnet": "IHUI.AI.SDK",
+      "java": "ai.ihui:sdk"
+    }
+  },
+  "deployment": {
+    "oneClick": ["Vercel", "Railway", "Render", "Heroku"],
+    "dockerCompose": true,
+    "selfHost": true,
+    "requirements": {
+      "node": "20+",
+      "postgresql": "16+",
+      "redis": "7+",
+      "memory": "4GB RAM minimum, 8GB recommended",
+      "disk": "20GB available"
+    }
+  },
+  "pricing": {
+    "model": "Open-source + Commercial dual-track",
+    "freeTier": "Apache 2.0 self-host, all features free",
+    "commercialTier": "Cloud hosted + Enterprise license + White-label",
+    "details": "https://aizhs.top/pricing"
+  },
+  "contact": {
+    "email": "502319984@qq.com",
+    "phone": "+86 18643389808",
+    "wechat": "ok502319984",
+    "company": "吉林省爱智汇人工智能科技有限公司",
+    "address": "吉林省长春市高新区越达路 107 号, 人工智能人才孵化基地"
+  },
+  "metadata": {
+    "organization": "智汇 AI (Shanghai) Co., Ltd.",
+    "founded": "2024",
+    "region": "CN",
+    "languages": ["zh-CN", "zh-TW"],
+    "lastUpdated": "2026-08-02"
+  }
+}
