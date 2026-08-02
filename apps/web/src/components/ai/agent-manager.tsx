@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Bot, Plus, CheckCircle2, Loader2, AlertCircle, Circle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -23,15 +24,16 @@ interface AgentManagerProps {
 
 const STATUS_META: Record<
   AgentItem['status'],
-  { label: string; icon: React.ComponentType<{ className?: string }>; cls: string }
+  { icon: React.ComponentType<{ className?: string }>; cls: string }
 > = {
-  idle: { label: '空闲', icon: Circle, cls: 'text-muted-foreground' },
-  running: { label: '运行中', icon: Loader2, cls: 'text-primary' },
-  done: { label: '已完成', icon: CheckCircle2, cls: 'text-emerald-500' },
-  error: { label: '错误', icon: AlertCircle, cls: 'text-destructive' },
+  idle: { icon: Circle, cls: 'text-muted-foreground' },
+  running: { icon: Loader2, cls: 'text-primary' },
+  done: { icon: CheckCircle2, cls: 'text-emerald-500' },
+  error: { icon: AlertCircle, cls: 'text-destructive' },
 }
 
 export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentManagerProps) {
+  const t = useTranslations('ai.agentManager')
   const active = agents.filter((a) => a.status === 'running').length
 
   return (
@@ -39,24 +41,24 @@ export function AgentManager({ agents, onSelect, onCreate, selectedId }: AgentMa
       <div className="flex items-center justify-between border-b p-4">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-primary" />
-          <h3 className="text-sm font-semibold">Agent 管理</h3>
+          <h3 className="text-sm font-semibold">{t('title')}</h3>
         </div>
         <Button variant="outline" size="sm" onClick={onCreate}>
           <Plus className="h-4 w-4" />
-          新建
+          {t('create')}
         </Button>
       </div>
       <div className="flex items-center gap-4 border-b bg-muted/30 px-4 py-2.5 text-xs">
         <span className="text-muted-foreground">
-          活跃 <span className="font-semibold text-primary">{active}</span>
+          {t('active')} <span className="font-semibold text-primary">{active}</span>
         </span>
         <span className="text-muted-foreground">
-          总计 <span className="font-semibold text-foreground">{agents.length}</span>
+          {t('total')} <span className="font-semibold text-foreground">{agents.length}</span>
         </span>
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         {agents.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无 Agent</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
         ) : (
           <ul className="space-y-1">
             {agents.map((agent) => {
