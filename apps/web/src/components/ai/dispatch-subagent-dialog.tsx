@@ -1161,6 +1161,7 @@ function CustomRoleForm({
 // ===========================================================================
 
 function EvolutionPanel() {
+  const t = useTranslations('dispatchDialog')
   const [selectedRole, setSelectedRole] = React.useState<string>('coder')
   const [history, setHistory] = React.useState<EvolutionHistory | null>(null)
   const [loading, setLoading] = React.useState(false)
@@ -1199,10 +1200,12 @@ function EvolutionPanel() {
       })
       if (r.success && r.data) {
         setAnalysis(r.data)
-        toast.success('演化分析完成')
-      } else toast.error('演化分析失败', { description: r.error })
+        toast.success(t('evolutionAnalyzeSuccess'))
+      } else toast.error(t('evolutionAnalyzeFailed'), { description: r.error })
     } catch (e) {
-      toast.error('演化分析失败', { description: e instanceof Error ? e.message : String(e) })
+      toast.error(t('evolutionAnalyzeFailed'), {
+        description: e instanceof Error ? e.message : String(e),
+      })
     } finally {
       setAnalyzing(false)
     }
@@ -1221,12 +1224,14 @@ function EvolutionPanel() {
         },
       )
       if (r.success) {
-        toast.success('已应用补丁', { description: r.data?.version.version })
+        toast.success(t('evolutionApplySuccess'), { description: r.data?.version.version })
         setAnalysis(null)
         void loadHistory(selectedRole)
-      } else toast.error('应用失败', { description: r.error })
+      } else toast.error(t('evolutionApplyFailed'), { description: r.error })
     } catch (e) {
-      toast.error('应用失败', { description: e instanceof Error ? e.message : String(e) })
+      toast.error(t('evolutionApplyFailed'), {
+        description: e instanceof Error ? e.message : String(e),
+      })
     } finally {
       setApplying(false)
     }
@@ -1234,7 +1239,7 @@ function EvolutionPanel() {
 
   return (
     <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
-      <Field label="选择 Agent 角色">
+      <Field label={t('evolutionSelectRole')}>
         <Select
           value={selectedRole}
           onValueChange={(v) => {
@@ -1256,17 +1261,20 @@ function EvolutionPanel() {
       </Field>
 
       {loading ? (
-        <div className="py-4 text-center text-[11px] text-muted-foreground">加载中…</div>
+        <div className="py-4 text-center text-[11px] text-muted-foreground">
+          {t('evolutionLoading')}
+        </div>
       ) : history ? (
         <>
           {/* 当前 prompt */}
           <div className="rounded-md border border-border bg-card px-2.5 py-2">
             <div className="text-[11px] font-medium text-foreground">
-              当前 Prompt(版本{' '}
-              {history.versions.length > 0
-                ? history.versions[history.versions.length - 1]!.version
-                : '初始'}
-              )
+              {t('evolutionCurrentPrompt', {
+                version:
+                  history.versions.length > 0
+                    ? history.versions[history.versions.length - 1]!.version
+                    : t('evolutionInitialVersion'),
+              })}
             </div>
             <div className="mt-1 line-clamp-3 text-[11px] text-muted-foreground">
               {history.currentPrompt}
@@ -1277,7 +1285,7 @@ function EvolutionPanel() {
           {history.versions.length > 0 && (
             <div className="space-y-1">
               <div className="text-[11px] font-medium text-foreground">
-                演化版本({history.versions.length})
+                {t('evolutionVersions', { n: history.versions.length })}
               </div>
               {history.versions.map((v) => (
                 <div
@@ -1317,7 +1325,7 @@ function EvolutionPanel() {
           {history.recentRecords.length > 0 && (
             <div className="space-y-1">
               <div className="text-[11px] font-medium text-foreground">
-                最近任务({history.recentRecords.length})
+                {t('evolutionRecentRecords', { n: history.recentRecords.length })}
               </div>
               {history.recentRecords.slice(0, 5).map((r, i) => (
                 <div
@@ -1328,7 +1336,11 @@ function EvolutionPanel() {
                     {r.success ? '✓' : '✗'}
                   </span>
                   <span className="flex-1 truncate text-muted-foreground">{r.taskDescription}</span>
-                  {r.retryCount > 0 && <span className="text-orange-500">重试 {r.retryCount}</span>}
+                  {r.retryCount > 0 && (
+                    <span className="text-orange-500">
+                      {t('evolutionRetry', { n: r.retryCount })}
+                    </span>
+                  )}
                   <span className="text-muted-foreground/60">
                     {Math.round(r.durationMs / 1000)}s
                   </span>
@@ -1344,22 +1356,24 @@ function EvolutionPanel() {
             disabled={analyzing}
             className="w-full bg-amber-600 text-white hover:bg-amber-700"
           >
-            {analyzing ? 'LLM 复盘中…' : '触发 LLM 演化分析'}
+            {analyzing ? t('evolutionAnalyzing') : t('evolutionTrigger')}
           </Button>
 
           {analysis && (
             <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-2">
               <div className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
                 {analysis.needsEvolution
-                  ? `建议演化(${analysis.patches.length} 个补丁)`
-                  : '无需演化'}
+                  ? t('evolutionSuggestEvolve', { n: analysis.patches.length })
+                  : t('evolutionNoEvolve')}
               </div>
               <div className="text-[11px] text-muted-foreground">{analysis.summary}</div>
               {analysis.patches.map((p, i) => (
                 <div key={i} className="rounded-sm border border-border bg-card px-2 py-1">
                   <div className="text-[10px] text-red-500">- {p.originalText}</div>
                   <div className="text-[10px] text-green-600">+ {p.suggestedReplacement}</div>
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">原因:{p.reason}</div>
+                  <div className="mt-0.5 text-[10px] text-muted-foreground">
+                    {t('evolutionReason')} {p.reason}
+                  </div>
                 </div>
               ))}
               {analysis.needsEvolution && (
@@ -1369,14 +1383,16 @@ function EvolutionPanel() {
                   disabled={applying}
                   className="w-full bg-amber-600 text-white hover:bg-amber-700"
                 >
-                  {applying ? '应用中…' : '确认应用补丁'}
+                  {applying ? t('evolutionApplying') : t('evolutionApply')}
                 </Button>
               )}
             </div>
           )}
         </>
       ) : (
-        <div className="py-4 text-center text-[11px] text-muted-foreground">暂无演化数据</div>
+        <div className="py-4 text-center text-[11px] text-muted-foreground">
+          {t('evolutionEmpty')}
+        </div>
       )}
     </div>
   )
