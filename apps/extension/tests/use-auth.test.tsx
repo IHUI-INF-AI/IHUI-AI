@@ -33,7 +33,7 @@
  * - 场景 1-15 用 createInMemoryTokenStore 作为 mock store(与 mobile-rn 一致)。
  * - 场景 16 用 extension 端真实 tokenStore(从 lib/token 导入)。
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
 import { createElement, act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { useAuth } from '@ihui/shared/hooks'
@@ -419,15 +419,15 @@ const mockUser: TestUser = { id: 'u-1', nickname: 'tester' }
 
 describe('useAuth 跨端共享 hook — extension 端集成测试', () => {
   let store: TokenStore
-  let bindTransport: ReturnType<typeof vi.fn>
-  let fetchProfile: ReturnType<typeof vi.fn>
-  let logoutApi: ReturnType<typeof vi.fn>
+  let bindTransport: Mock<(store: TokenStore) => void>
+  let fetchProfile: Mock<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>
+  let logoutApi: Mock<(refreshToken: string) => Promise<void>>
 
   beforeEach(() => {
     store = createInMemoryTokenStore()
-    bindTransport = vi.fn()
-    fetchProfile = vi.fn()
-    logoutApi = vi.fn()
+    bindTransport = vi.fn<(store: TokenStore) => void>()
+    fetchProfile = vi.fn<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>()
+    logoutApi = vi.fn<(refreshToken: string) => Promise<void>>()
   })
 
   afterEach(async () => {
