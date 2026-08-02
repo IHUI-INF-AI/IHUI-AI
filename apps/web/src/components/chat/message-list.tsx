@@ -3,12 +3,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import {
-  Sparkles,
-  AlertCircle,
   Loader2,
-  ShieldCheck,
-  ShieldAlert,
-  Hand,
   Copy,
   Check,
   RefreshCw,
@@ -47,50 +42,6 @@ import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu
 import { searchMessages } from '@/lib/message-search'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
-
-/** 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
- * - AI 消息气泡的标签后追加一个轻量模式徽章
- * - 仅当 permissionMode !== 'default' 时显示(默认模式太多,无意义)
- * - accept-edits → 绿底 + ShieldCheck
- * - bypass-permissions → 琥珀底 + ShieldAlert(高风险)
- * - default → Hand(理论不会走到,兜底渲染) */
-function PermissionModeBadge({ mode }: { mode: NonNullable<ChatMessage['permissionMode']> }) {
-  const t = useTranslations('chat.permission')
-  const config = {
-    default: {
-      icon: Hand,
-      label: t('mode.ask'),
-      cls: 'bg-muted text-muted-foreground',
-      tip: t('mode.askDesc'),
-    },
-    'accept-edits': {
-      icon: ShieldCheck,
-      label: t('mode.auto'),
-      cls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-      tip: t('mode.autoDesc'),
-    },
-    'bypass-permissions': {
-      icon: ShieldAlert,
-      label: t('mode.full'),
-      cls: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-      tip: t('mode.fullDesc'),
-    },
-  }[mode]
-  const Icon = config.icon
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-0.5 rounded-sm px-1 py-px text-[9px] font-medium',
-        config.cls,
-      )}
-      title={config.tip}
-      aria-label={config.tip}
-    >
-      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
-      {config.label}
-    </span>
-  )
-}
 
 function TypingIndicator() {
   return (
@@ -147,7 +98,6 @@ const MessageItem = React.memo(function MessageItem({
   message: m,
   isLast,
   isStreaming,
-  assistantLabel,
   onApplyDiff,
   onRejectDiff,
   isHighlighted = false,
@@ -290,8 +240,8 @@ const MessageItem = React.memo(function MessageItem({
   return (
     <div
       className={cn(
-        'group/msg relative flex w-full gap-3 rounded-md transition-colors duration-300',
-        isUser ? 'flex-row-reverse' : 'flex-row',
+        'group/msg relative flex w-full flex-col gap-1 rounded-md px-1 transition-colors duration-300',
+        isUser ? 'items-end' : 'items-start',
         isHighlighted && 'bg-primary/5 ring-1 ring-primary/30 animate-message-highlight-pulse',
         isHovered && !isHighlighted && 'bg-accent/20',
         isFocused && 'ring-1 ring-primary/40',
@@ -307,46 +257,14 @@ const MessageItem = React.memo(function MessageItem({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
+      {/* 2026-08-02:用户要求极简 — 无头像 / 无模型名 / 无气泡,内容直接平铺 */}
       <div
         className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : m.error
-              ? 'bg-destructive/15 text-destructive'
-              : 'bg-muted text-muted-foreground',
+          'relative max-w-[85%]',
+          isUser ? 'text-right' : 'text-left',
+          m.error && 'text-destructive',
         )}
       >
-        {isUser ? (
-          t('me')
-        ) : m.error ? (
-          <AlertCircle className="h-4 w-4" />
-        ) : (
-          <Sparkles className="h-4 w-4" />
-        )}
-      </div>
-      <div className={cn('flex max-w-[85%] flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
-        {!isUser && (
-          <span className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
-            <span>{assistantLabel}</span>
-            {/* 权限模式徽章(2026-07-25 深化,深度对标 Codex 透明性)
-              - 记录 AI 响应生成时所使用的权限模式,便于用户事后回溯
-              - 仅非 default 模式显示(默认模式太多,无信息量) */}
-            {m.permissionMode && m.permissionMode !== 'default' && (
-              <PermissionModeBadge mode={m.permissionMode} />
-            )}
-          </span>
-        )}
-        <div
-          className={cn(
-            'relative rounded-2xl px-4 py-2.5',
-            isUser
-              ? 'rounded-br-sm bg-primary text-primary-foreground'
-              : m.error
-                ? 'rounded-bl-sm border border-destructive/30 bg-destructive/5 text-destructive'
-                : 'rounded-bl-sm bg-muted text-foreground/90',
-          )}
-        >
           {/* Copy 按钮(2026-07-28 立):hover/focused 时显示在气泡右上角
             - 用 absolute 定位贴在气泡边缘,opacity 过渡避免布局抖动
             - 用 stopPropagation 防止触发容器 onContextMenu / onMouseEnter 等 */}
@@ -493,20 +411,19 @@ const MessageItem = React.memo(function MessageItem({
           )}
           {/* 时间戳 footer(2026-07-28 立):hover/focused 时显示在气泡底部,
             增强时间感知的可读性。user 消息显示在右上(因为 flex-row-reverse) */}
-          {showTimestamp && (
-            <div
-              className={cn(
-                'mt-1 flex items-center gap-1.5 whitespace-nowrap text-[10px] tabular-nums',
-                isUser
-                  ? 'justify-end text-primary-foreground/60'
-                  : 'justify-end text-muted-foreground/50',
-              )}
-              data-testid={`message-timestamp-${m.id}`}
-            >
-              <span>{timestampLabel}</span>
-            </div>
-          )}
+          {/* 2026-08-02:时间戳移到气泡外,弱化显示在内容下方(用户要求) */}
         </div>
+        {showTimestamp && (
+          <div
+            className={cn(
+              'flex items-center gap-1.5 whitespace-nowrap px-1 text-[10px] tabular-nums text-muted-foreground/50',
+              isUser ? 'justify-end' : 'justify-start',
+            )}
+            data-testid={`message-timestamp-${m.id}`}
+          >
+            <span>{timestampLabel}</span>
+          </div>
+        )}
         {/* 错误重试按钮(2026-07-28 立,深度对标 Trae Work):m.error 时在气泡下方显示,
             用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
         {m.error && (
@@ -524,7 +441,6 @@ const MessageItem = React.memo(function MessageItem({
             <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
           </button>
         )}
-      </div>
     </div>
   )
 })
