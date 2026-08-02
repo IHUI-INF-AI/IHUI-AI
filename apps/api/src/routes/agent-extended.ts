@@ -159,6 +159,32 @@ function buildInsertSchema(columns: readonly string[]): z.ZodType<Record<string,
   return z.object(shape).strip() as z.ZodType<Record<string, unknown>>
 }
 
+// P1 安全修复(2026-08-02):agent rule create/update body schema,strip 非白名单字段
+const createRuleSchema = z
+  .object({
+    agentId: z.string().min(1),
+    ruleName: z.string().min(1),
+    ruleCode: z.string().min(1),
+    ruleType: z.string().max(32).optional(),
+    priority: z.coerce.number().int().optional(),
+    description: z.string().optional(),
+  })
+  .strip()
+const updateRuleSchema = z
+  .object({
+    agentId: z.string().min(1).optional(),
+    ruleName: z.string().min(1).optional(),
+    ruleCode: z.string().min(1).optional(),
+    ruleType: z.string().max(32).optional(),
+    priority: z.coerce.number().int().optional(),
+    status: z.coerce.number().int().optional(),
+    description: z.string().optional(),
+  })
+  .strip()
+
+// P1 安全修复(2026-08-02):personality update body schema
+const personalityUpdateSchema = z.object({ personality: z.string() }).strip()
+
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // P0 安全修复:所有路由默认要求登录;admin-only 端点在路由级用 requireAdmin 覆盖
   // P2 安全修复(2026-08-02):requireAuth 后追加 requireActiveUser,拦截已注销账号(status=3)
@@ -290,6 +316,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/need-task/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const bodyParsed = needTaskCreateSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
       // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
       const existing = await rawById('zhs_agent_need_task', parsed.data.id)
@@ -302,7 +332,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         'zhs_agent_need_task',
         needTaskCols,
         parsed.data.id,
-        req.body as Record<string, unknown>,
+        bodyParsed.data,
       )
       return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
     } catch (e) {
@@ -405,6 +435,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/upload/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const bodyParsed = uploadCreateSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
       // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
       const existing = await rawById('agent_uploads', parsed.data.id)
@@ -413,12 +447,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       if (!isAdmin && existing['user_id'] !== req.userId) {
         return reply.status(403).send(error(403, '无权操作他人记录'))
       }
-      const row = await rawUpdate(
-        'agent_uploads',
-        uploadCols,
-        parsed.data.id,
-        req.body as Record<string, unknown>,
-      )
+      const row = await rawUpdate('agent_uploads', uploadCols, parsed.data.id, bodyParsed.data)
       return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
     } catch (e) {
       req.log.error(e)
@@ -532,6 +561,10 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/usedetail/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const bodyParsed = usedetailCreateSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
       // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
       const existing = await rawById('zhs_agent_usedetail', parsed.data.id)
@@ -544,7 +577,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         'zhs_agent_usedetail',
         usedetailCols,
         parsed.data.id,
-        req.body as Record<string, unknown>,
+        bodyParsed.data,
       )
       return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
     } catch (e) {
@@ -965,6 +998,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     'payment_method',
     'payment_id',
   ]
+  const buyUpdateSchema = buildInsertSchema(buyCols)
 
   /**
    * 购买统计摘要(支持不传 userId 查所有,属管理员能力,由 requireAdmin 守门)。
@@ -1048,13 +1082,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/buy/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const bodyParsed = buyUpdateSchema.safeParse(request.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const row = await rawUpdate(
-        'zhs_agent_buy',
-        buyCols,
-        parsed.data.id,
-        request.body as Record<string, unknown>,
-      )
+      const row = await rawUpdate('zhs_agent_buy', buyCols, parsed.data.id, bodyParsed.data)
       if (!row) return reply.status(404).send(error(404, '购买记录不存在或无可更新字段'))
       return reply.send(success(row))
     } catch (e) {
@@ -1180,18 +1213,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 创建规则 — 仅管理员
   server.post('/rules', { preHandler: requireAdmin }, async (req, reply) => {
+    const bodyParsed = createRuleSchema.safeParse(req.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const body = req.body as {
-        agentId: string
-        ruleName: string
-        ruleCode: string
-        ruleType?: string
-        priority?: number
-        description?: string
-      }
-      if (!body.agentId || !body.ruleName || !body.ruleCode) {
-        return reply.status(400).send(error(400, '缺少必要字段: agentId, ruleName, ruleCode'))
-      }
+      const body = bodyParsed.data
       const [row] = await db
         .insert(agentRule)
         .values({
@@ -1215,8 +1242,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/rules/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const bodyParsed = updateRuleSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const body = req.body as Record<string, unknown>
+      const body = bodyParsed.data
       const sets: Record<string, unknown> = { updatedAt: new Date() }
       if (body.agentId !== undefined) sets.agentId = body.agentId
       if (body.ruleName !== undefined) sets.ruleName = body.ruleName
@@ -1263,6 +1294,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     'description',
     'status',
   ]
+  const ruleParamCreateSchema = buildInsertSchema(ruleParamCols)
   server.get('/rule-params/list', async (req, reply) => {
     const q = req.query as {
       page?: string
@@ -1295,8 +1327,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
   server.post('/rule-params', async (req, reply) => {
+    const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const body = req.body as Record<string, unknown>
+      const body = bodyParsed.data
       if (body.status === undefined) body.status = 1
       const row = await rawInsert('agent_rule_param', ruleParamCols, body, reply)
       if (!row) return
@@ -1309,12 +1345,16 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/rule-params/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
       const row = await rawUpdate(
         'agent_rule_param',
         ruleParamCols,
         parsed.data.id,
-        req.body as Record<string, unknown>,
+        bodyParsed.data,
       )
       return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
     } catch (e) {
@@ -1437,6 +1477,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     'expires_at',
     'status',
   ]
+  const developerLinkCreateSchema = buildInsertSchema(developerLinkCols)
   server.get('/developer/list', async (req, reply) => {
     const q = req.query as {
       page?: string
@@ -1471,12 +1512,16 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.put('/developer/:id', async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const bodyParsed = developerLinkCreateSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
       const row = await rawUpdate(
         'zhs_developer_link',
         developerLinkCols,
         parsed.data.id,
-        req.body as Record<string, unknown>,
+        bodyParsed.data,
       )
       if (!row) return reply.status(404).send(error(404, '开发者链接不存在或无可更新字段'))
       return reply.send(success(row))
@@ -1513,8 +1558,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
   server.post('/developer', async (req, reply) => {
+    const bodyParsed = developerLinkCreateSchema.safeParse(req.body ?? {})
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
+    }
     try {
-      const body = req.body as Record<string, unknown>
+      const body = bodyParsed.data
       const type = Number(body.type ?? 0)
       const count = Math.max(1, Number(body.count ?? 1))
       const now = new Date()
@@ -1564,10 +1613,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.put('/personality/:agentId', async (req, reply) => {
     const { agentId } = req.params as { agentId: string }
-    const { personality } = req.body as { personality: string }
-    if (personality === undefined) {
-      return reply.status(400).send(error(400, '缺少 personality 字段'))
+    const bodyParsed = personalityUpdateSchema.safeParse(req.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, '参数校验失败'))
     }
+    const { personality } = bodyParsed.data
     try {
       const rows = await db.execute(
         sql`UPDATE ${sql.raw('"agents"')} SET "agent_prompt" = ${personality}, "updated_at" = NOW() WHERE "agent_id"::text = ${agentId} RETURNING "agent_id", "agent_prompt"`,

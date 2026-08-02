@@ -2,6 +2,7 @@
  * /api/admin/carousel 路由(从 admin-missing-routes.ts 拆分)。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
 import { carousels } from '@ihui/database'
@@ -9,9 +10,30 @@ import { eq, ilike, asc, sql } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
+
+const createCarouselSchema = z.object({
+  position: z.string().max(50).default('home'),
+  imageUrl: z.string().max(512).default(''),
+  title: z.string().max(200).nullable().optional(),
+  linkUrl: z.string().max(512).nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
+  sort: z.coerce.number().int().min(0).default(0),
+  status: z.coerce.number().int().min(0).max(1).default(1),
+})
+
+const updateCarouselSchema = z.object({
+  position: z.string().max(50).optional(),
+  imageUrl: z.string().max(512).optional(),
+  title: z.string().max(200).nullable().optional(),
+  linkUrl: z.string().max(512).nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
+  sort: z.coerce.number().int().min(0).optional(),
+  status: z.coerce.number().int().min(0).max(1).optional(),
+})
+
 const carouselRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-server.get('/carousel', async (request, reply) => {
+  server.get('/carousel', async (request, reply) => {
     const q = paginationSchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, search } = q.data
@@ -33,17 +55,20 @@ server.get('/carousel', async (request, reply) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
   server.post('/carousel', async (request, reply) => {
-    const body = request.body as Record<string, unknown>
+    const parsed = createCarouselSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数校验失败'))
+    }
     const [row] = await db
       .insert(carousels)
       .values({
-        position: String(body.position ?? 'home'),
-        imageUrl: String(body.imageUrl ?? ''),
-        title: body.title ? String(body.title) : null,
-        linkUrl: body.linkUrl ? String(body.linkUrl) : null,
-        description: body.description ? String(body.description) : null,
-        sort: Number(body.sort ?? 0),
-        status: Number(body.status ?? 1),
+        position: parsed.data.position,
+        imageUrl: parsed.data.imageUrl,
+        title: parsed.data.title ?? null,
+        linkUrl: parsed.data.linkUrl ?? null,
+        description: parsed.data.description ?? null,
+        sort: parsed.data.sort,
+        status: parsed.data.status,
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -51,19 +76,22 @@ server.get('/carousel', async (request, reply) => {
   server.put('/carousel/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
+    const parsed = updateCarouselSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数校验失败'))
+    }
     const [row] = await db
       .update(carousels)
       .set({
-        ...(body.position !== undefined && { position: String(body.position) }),
-        ...(body.imageUrl !== undefined && { imageUrl: String(body.imageUrl) }),
-        ...(body.title !== undefined && { title: body.title ? String(body.title) : null }),
-        ...(body.linkUrl !== undefined && { linkUrl: body.linkUrl ? String(body.linkUrl) : null }),
-        ...(body.description !== undefined && {
-          description: body.description ? String(body.description) : null,
+        ...(parsed.data.position !== undefined && { position: parsed.data.position }),
+        ...(parsed.data.imageUrl !== undefined && { imageUrl: parsed.data.imageUrl }),
+        ...(parsed.data.title !== undefined && { title: parsed.data.title ?? null }),
+        ...(parsed.data.linkUrl !== undefined && { linkUrl: parsed.data.linkUrl ?? null }),
+        ...(parsed.data.description !== undefined && {
+          description: parsed.data.description ?? null,
         }),
-        ...(body.sort !== undefined && { sort: Number(body.sort) }),
-        ...(body.status !== undefined && { status: Number(body.status) }),
+        ...(parsed.data.sort !== undefined && { sort: parsed.data.sort }),
+        ...(parsed.data.status !== undefined && { status: parsed.data.status }),
         updatedAt: new Date(),
       })
       .where(eq(carousels.id, p.data.id))
