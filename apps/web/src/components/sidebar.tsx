@@ -1895,13 +1895,16 @@ export function Sidebar({
 
   return (
     <>
-      {/* 桌面端固定侧边栏(2026-08-02 改:小尺寸也挂载,显示 collapsed 60px 图标条)
-          - 旧逻辑:hidden min-[1024px]:flex → <1024px 完全不挂载,只能靠移动端抽屉
-          - 新逻辑:始终 flex 挂载;小尺寸下由 GlobalShell effect 自动 setCollapsed(true)
-            收成 60px 只图标宽度(用户规则"小尺寸也应显示最小化只显示图标的侧边栏")
-          - 移动端抽屉 + PanelLeftOpen 按钮保留,点汉堡菜单仍可打开完整抽屉作为备用 */}
+      {/* 桌面端固定侧边栏(2026-08-02 改:小尺寸也挂载,纯 CSS 控制显示 60px 图标条)
+          - 始终 flex 挂载(不再 hidden min-[1024px]:flex)
+          - 小尺寸(<1024px)由 CSS 媒体查询强制 60px 宽 + 隐藏文字 span,只显示图标
+            (纯 CSS 无 hydration mismatch,无 JS effect 时序闪烁)
+          - collapsed prop 控制用户手动折叠态(持久化 localStorage),与 CSS 互不干扰
+          - data-viewport-collapsed 属性供 globals.css 选择器在小尺寸下隐藏文字 span
+          - 移动端抽屉 + 汉堡菜单保留作为完整菜单备用入口 */}
       <aside
         aria-label={t('mainNav')}
+        data-viewport-collapsed="true"
         className={cn(
           'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex',
           collapsed && 'w-[60px]',

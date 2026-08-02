@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { History, ChevronDown, RotateCcw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,7 @@ interface CheckpointHistoryPanelProps {
 }
 
 export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHistoryPanelProps) {
+  const t = useTranslations('ai.checkpointHistory')
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
 
   const toggle = (id: string) => {
@@ -34,11 +36,11 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
     <div className="rounded-xl border bg-card">
       <div className="flex items-center gap-2 px-4 py-2.5">
         <History className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">检查点历史</h3>
+        <h3 className="text-sm font-semibold">{t('title')}</h3>
       </div>
       <div className="p-3">
         {checkpoints.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无检查点</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
         ) : (
           <ol className="relative space-y-2">
             {checkpoints.map((cp, idx) => {
@@ -86,7 +88,7 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
                         onClick={() => onRestore(cp.id)}
                       >
                         <RotateCcw className="h-3 w-3" />
-                        恢复
+                        {t('restore')}
                       </Button>
                     )}
                   </div>

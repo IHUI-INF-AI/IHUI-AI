@@ -12,7 +12,10 @@ interface TerminalSectionProps {
   terminals: TerminalTask[]
 }
 
-const TERMINAL_STATUS_ICON: Record<TerminalTask['status'], React.ComponentType<{ className?: string }>> = {
+const TERMINAL_STATUS_ICON: Record<
+  TerminalTask['status'],
+  React.ComponentType<{ className?: string }>
+> = {
   running: Loader2,
   completed: Check,
   failed: X,
@@ -23,10 +26,11 @@ const TERMINAL_STATUS_CLS: Record<TerminalTask['status'], string> = {
   failed: 'text-red-500',
 }
 
-/** 截断超长输出(最大 500 字符) */
-function truncateOutput(s: string, max = 500): string {
+/** 截断超长输出(最大 500 字符)
+ *  truncatedSuffix:由调用方通过 i18n 提供的截断提示文案(含 total 信息) */
+function truncateOutput(s: string, truncatedSuffix: string, max = 500): string {
   if (s.length <= max) return s
-  return s.slice(0, max) + `\n…(已截断,共 ${s.length} 字符)`
+  return s.slice(0, max) + '\n' + truncatedSuffix
 }
 
 /** v11: 单个终端任务项(可点击展开 output) */
@@ -42,10 +46,7 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
   return (
     <div className="rounded-sm transition-colors hover:bg-accent/40">
       <div
-        className={cn(
-          'flex items-center gap-1.5 px-1 py-0.5',
-          hasOutput && 'cursor-pointer',
-        )}
+        className={cn('flex items-center gap-1.5 px-1 py-0.5', hasOutput && 'cursor-pointer')}
         onClick={toggleExpand}
         role={hasOutput ? 'button' : undefined}
         aria-expanded={hasOutput ? expanded : undefined}
@@ -111,7 +112,10 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
                     : 'bg-muted/60 text-muted-foreground/90',
                 )}
               >
-                {truncateOutput(term.output ?? '')}
+                {truncateOutput(
+                  term.output ?? '',
+                  t('terminal.truncated', { total: (term.output ?? '').length }),
+                )}
               </pre>
             </div>
           </div>
@@ -144,11 +148,14 @@ export const TerminalSection = React.memo(function TerminalSection({
   const recentTerminals = terminals.slice(-10)
 
   return (
-    <FoldableSection title={t('terminal.title')} count={terminals.length} icon={TerminalSquare} data-testid="terminal-section">
+    <FoldableSection
+      title={t('terminal.title')}
+      count={terminals.length}
+      icon={TerminalSquare}
+      data-testid="terminal-section"
+    >
       <div className="space-y-0.5 text-[11px] leading-relaxed">
-        {summary && (
-          <div className="text-[10px] text-muted-foreground/60">{summary}</div>
-        )}
+        {summary && <div className="text-[10px] text-muted-foreground/60">{summary}</div>}
         {recentTerminals.map((term) => (
           <TerminalItem key={term.id} term={term} />
         ))}
