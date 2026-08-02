@@ -16,6 +16,7 @@ import { HotNews } from '@/components/operation/HotNews'
 import { NewsInteraction } from '@/components/news/NewsInteraction'
 import { NewsComments } from '@/components/news/NewsComments'
 import { formatDateOnly } from '@/lib/date-utils'
+import { generateArticleSchema } from '@/lib/seo/schema-article'
 
 interface NewsArticle {
   id: string
@@ -90,8 +91,26 @@ export default function NewsDetailPage() {
   const favoriteCount = article.favoriteCount ?? (Math.floor(article.viewCount * 0.02) || 12)
   const commentNum = article.commentNum ?? 4
 
+  // 2026-08-02 P0-5 GEO 强化:Article JSON-LD 注入(客户端渲染,Googlebot 2024+ 可解析)
+  const articleJsonLd = generateArticleSchema({
+    headline: article.title,
+    description: article.summary || article.title,
+    url: `https://aizhs.top/news/${article.id}`,
+    datePublished: article.publishedAt || new Date().toISOString(),
+    authorName: article.authorName || '智汇 AI',
+    keywords: tags.length > 0 ? tags : ['IHUI AI', 'AI 资讯'],
+    articleBody: article.content.replace(/<[^>]*>/g, '').slice(0, 5000),
+    articleSection: 'AI 资讯',
+    imageUrl: article.coverImage || undefined,
+    inLanguage: 'zh-CN',
+  })
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <BackButton />
       <Breadcrumb
         items={[{ label: t('title'), href: '/news' }, { label: t('detail') }]}
