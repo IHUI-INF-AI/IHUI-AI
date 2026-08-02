@@ -182,9 +182,9 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **已合并分支立即删除**:任务合并后**本会话内**完成 `git branch -d <已合并>`(本地) + `git push origin --delete <已合并>`(远程),不留"历史快照"分支污染 main 分支列表。
 - **删除未合并分支前必须 tag 备份**(AGENTS.md §22 配套):`git tag backup/cleanup-<date>-<branch> <branch>` → `git push origin --atomic refs/tags/backup/cleanup-*` → 再 `git branch -D`。tag 必须本地+远端双备份,防 git gc 清理。
 - **fetch + prune 是日常**:`git fetch origin --prune` 在每个 push 周期跑一次,清理已删远程分支的本地 stale 引用。
-- **守门**(本任务新增,2026-07-30 立):
-  - `scripts/check-single-branch.mjs`(待补):检测 `git branch -a` 列表中除 main / upstream 外的分支,发现任意 1 个 → exit 1 阻塞 commit。
-  - 集成位置:`.husky/pre-commit` 新增第 X 项(blocking),守门不通过则禁止 commit + push。
+- **守门**(2026-07-30 立,2026-08-02 落地):
+  - `scripts/check-single-branch.mjs`:检测 `git branch -a` 列表中除 main / upstream 外的分支,发现任意 1 个 → exit 1 阻塞 commit。
+  - 集成位置:`scripts/guardian-runner.mjs` id 41(blocking),守门不通过则禁止 commit + push。
   - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.trae-cn/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。
 - **历史教训**(2026-07-30 立):仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),其中 `add-ihui-ai` / `goal/*` / `rescue/*` 等 13 个无价值分支全部已合并或已被 main 覆盖;3 个未合并分支的内容(LLM 三提供商/i18n 五端/console.log→logger/awesome-prs)均已在 main 后续 commit 中包含或演进,merge 会回退 main 功能。教训:**分支不是"工作单元",是"协作单元"**——单 agent 单任务无需分支,直接 main 提交即可。
 
@@ -207,8 +207,8 @@ pnpm dev                                       # 启动所有服务(web + api + 
 <一句话>
 
 ## 受影响文件(绝对路径,只允许以下文件)
-- d:\桌面\项目\IHUI-AI\path\to\file1
-- d:\桌面\项目\IHUI-AI\path\to\file2
+- <repo-root>\path\to\file1
+- <repo-root>\path\to\file2
 
 ## 禁止修改
 - 任何不在上述清单的文件
@@ -263,7 +263,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 **禁止项**:① 在 `G:\` 根目录创建任何文件;② 项目数据(扩展打包/Chrome profile/构建副本/临时 DB/临时配置)写到项目外路径;③ 硬编码 `C:\temp\ihui-*`/`$env:TEMP\ihui-*` 等项目外路径;④ agent 用 RunCommand/PowerShell/Out-File/Set-Content/New-Item 在项目外直接创建文件;⑤ 在 `G:\` 根目录运行 Qt 类外部工具或执行 pnpm 命令(会创建 `.pnpm-store` v11 冲突);⑥ 硬编码中文绝对路径(GBK 乱码)。路径推导用 `$PSScriptRoot`/`__dirname`/`import.meta.url`。唯一例外:纯系统日志(`debug.log`/`next-server.log`)可写 `$env:TEMP`。
 
-**必须用项目内路径**(根 `d:\桌面\项目\IHUI-AI`):扩展打包→`apps/extension/.output/chrome-mv3/`;Chrome profile→`.trae-cn/tmp/chrome-profile/`;临时副本→`.trae-cn/tmp/<任务名>/`;临时脚本→`.trae-cn/tmp/<脚本名>.ps1`;临时文件统一放 `.trae-cn/tmp/`(已 gitignore),任务完成后清理。
+**必须用项目内路径**(根 `g:\IHUI-AI`):扩展打包→`apps/extension/.output/chrome-mv3/`;Chrome profile→`.trae-cn/tmp/chrome-profile/`;临时副本→`.trae-cn/tmp/<任务名>/`;临时脚本→`.trae-cn/tmp/<脚本名>.ps1`;临时文件统一放 `.trae-cn/tmp/`(已 gitignore),任务完成后清理。
 
 **守门脚本**:
 
@@ -693,9 +693,10 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 ## 关键参考文档
 
-| 文档                      | 说明                               |
-| ------------------------- | ---------------------------------- |
-| `PROJECT_PLAN.md`         | 唯一任务计划文档(必读)             |
-| `.trae-cn/archive/`       | 历史归档(audit/交接/迁移报告,只读) |
-| `docs/architecture.md`    | 系统架构文档                       |
-| `docs/port-management.md` | 端口注册表(88xx 段)                |
+| 文档                      | 说明                                                          |
+| ------------------------- | ------------------------------------------------------------- |
+| `PROJECT_PLAN.md`         | 唯一任务计划文档(必读)                                        |
+| `.trae-cn/archive/`       | 历史归档(audit/交接/迁移报告,只读)                            |
+| `docs/architecture.md`    | 系统架构文档                                                  |
+| `docs/port-management.md` | 端口注册表(88xx 段)                                           |
+| `docs/learning-assets.md` | 学习资产登记(34 个工作流反馈来源,新增/删除工作流必须同步更新) |
