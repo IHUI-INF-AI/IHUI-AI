@@ -120,7 +120,7 @@ export function CategoryShell({
           )}
         >
           {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
-          <span className="whitespace-nowrap">{item.label}</span>
+          <span className="min-w-0 truncate whitespace-nowrap">{item.label}</span>
         </Link>
       )
     })

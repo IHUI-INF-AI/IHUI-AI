@@ -151,7 +151,7 @@ export default function ClawdbotAnalyticsPage() {
               {summary.callsByBot.map((item) => (
                 <div key={item.botId} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="truncate">{item.botId}</span>
+                    <span className="min-w-0 flex-1 truncate">{item.botId}</span>
                     <span className="text-muted-foreground">{item.count}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded bg-muted">

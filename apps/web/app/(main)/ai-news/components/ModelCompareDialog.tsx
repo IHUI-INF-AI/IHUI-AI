@@ -169,7 +169,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
                 {capsModels.map((e, i) => (
                   <div key={e.id} className="flex items-center gap-1.5 text-xs">
                     <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: RADAR_COLORS[i % RADAR_COLORS.length] }} />
-                    <span className="max-w-[140px] truncate">{e.modelName}</span>
+                    <span className="min-w-0 max-w-[140px] truncate">{e.modelName}</span>
                   </div>
                 ))}
               </div>

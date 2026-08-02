@@ -347,7 +347,7 @@ function PathNav({
       )}
 
       {isAtRoot && (
-        <span className="flex-1 truncate text-xs text-muted-foreground/80">{t('rootHint')}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/80">{t('rootHint')}</span>
       )}
 
       {/* 切换到路径输入 */}
