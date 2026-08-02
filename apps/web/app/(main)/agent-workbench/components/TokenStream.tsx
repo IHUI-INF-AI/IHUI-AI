@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Loader2, Radio } from 'lucide-react'
 import { cn } from '@ihui/ui-react'
+import { useDebounce } from '@/hooks/use-debounce'
 import type { TokenEvent } from '@/hooks/use-agent-runtime'
 
 interface Props {
@@ -23,6 +24,10 @@ export function TokenStream({ tokens, connected, running }: Props) {
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const visible =
     tokens.length > MAX_TOKENS ? tokens.slice(tokens.length - MAX_TOKENS) : tokens
+
+  // 2026-08-02 修复 Bug #11:对 token 计数做 200ms debounce,
+  // 避免高频 token 到达时数字快速跳变干扰阅读
+  const debouncedLength = useDebounce(tokens.length, 200)
 
   React.useEffect(() => {
     const el = scrollRef.current
@@ -45,7 +50,7 @@ export function TokenStream({ tokens, connected, running }: Props) {
             <span className="h-1.5 w-1.5 rounded-sm bg-muted-foreground/50" /> 未运行
           </span>
         )}
-        <span className="text-xs text-muted-foreground">{tokens.length} tokens</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{debouncedLength} tokens</span>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-auto px-3 py-2">
         {visible.length === 0 ? (
