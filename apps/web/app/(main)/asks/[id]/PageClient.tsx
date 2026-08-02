@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, MessageSquare, Eye, CheckCircle2, Send } from 'luci
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { generateArticleSchema } from '@/lib/seo/schema-article'
 
 interface AskDetail {
   id: string
@@ -129,8 +130,29 @@ export default function AskDetailPage() {
     answerMut.mutate({ content: content.trim() })
   }
 
+  // 2026-08-02 P0-5 GEO 强化:Article JSON-LD 注入(问答页,客户端渲染,Googlebot 2024+ 可解析)
+  const askJsonLd = ask
+    ? generateArticleSchema({
+        headline: ask.title,
+        description: ask.content?.slice(0, 160) || ask.title,
+        url: `https://aizhs.top/asks/${ask.id}`,
+        datePublished: ask.createdAt,
+        authorName: ask.authorName || '智汇 AI 社区',
+        keywords: ask.tags && ask.tags.length > 0 ? ask.tags : ['IHUI AI', '问答'],
+        articleBody: ask.content?.slice(0, 5000) || '',
+        articleSection: '社区问答',
+        inLanguage: locale === 'zh-TW' ? 'zh-TW' : 'zh-CN',
+      })
+    : null
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
+      {askJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(askJsonLd) }}
+        />
+      ) : null}
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
         {tc('back')}
