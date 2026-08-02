@@ -35,10 +35,6 @@ import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card
 // 2026-07-31 立,AI 对话可视化深度接入:把 popover 内的富 UI 组件 inline 到消息气泡主流
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
-// 2026-08-02 隐藏:TimelineTab + SubAgentTaskTree 不再 inline 到对话流(冗余可视化)
-// 功能保留在右侧 AI 面板的独立入口,日后恢复时重新 import
-// import { TimelineTab } from '@/components/ai/progress-sections/timeline-tab'
-// import { SubAgentTaskTree } from '@/components/ai/progress-sections/sub-agent-task-tree'
 // 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan 组件 inline 到消息气泡
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'

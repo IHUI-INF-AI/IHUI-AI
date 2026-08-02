@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 3, "column": 0}, "map": {"version":3,"sources":["file:///D:/%E9%A1%B9%E7%9B%AE/IHUI-AI/node_modules/.pnpm/next%4015.5.20_%40babel%2Bcore%407.29.7_%40opentelemetry%2Bapi%401.9.1_%40playwright%2Btest%401.61.1_react-dom%4019_4n2gmm2d6xxijodamm5db6i3ae/node_modules/next/navigation.js"],"sourcesContent":["module.exports = require('./dist/client/components/navigation')\n"],"names":[],"mappings":"AAAA,OAAO,OAAO","ignoreList":[0],"debugId":null}},
-    {"offset": {"line": 7, "column": 0}, "map": {"version":3,"sources":["file:///D:/%E9%A1%B9%E7%9B%AE/IHUI-AI/node_modules/.pnpm/next%4015.5.20_%40babel%2Bcore%407.29.7_%40opentelemetry%2Bapi%401.9.1_%40playwright%2Btest%401.61.1_react-dom%4019_4n2gmm2d6xxijodamm5db6i3ae/node_modules/next/image.js"],"sourcesContent":["module.exports = require('./dist/shared/lib/image-external')\n"],"names":[],"mappings":"AAAA,OAAO,OAAO","ignoreList":[0],"debugId":null}}]
-}
