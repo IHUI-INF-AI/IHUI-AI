@@ -47,6 +47,77 @@ _T = TypeVar("_T")
 
 
 # ---------------------------------------------------------------------------
+# 反自动化 / 风控墙检测(2026-08-02)
+# ---------------------------------------------------------------------------
+# headless Playwright 常见指纹泄漏(webdriver=true / plugins 空 / languages 缺失)
+# → 抖音/微信等反爬站点风控拦截,表现为"页面显示但点不动"(验证墙)。
+_ANTI_DETECT_SCRIPT = """
+// 隐藏 webdriver + 补齐常见指纹,规避自动化检测
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh', 'en'] });
+Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+Object.defineProperty(navigator, 'mimeTypes', { get: () => [1, 2, 3, 4, 5] });
+window.chrome = window.chrome || { runtime: {} };
+"""
+
+# 反爬/风控墙文案(命中任意一个 → 判定为验证墙,需重建会话)
+_ANTI_BOT_MARKERS = (
+    "环境异常",
+    "安全验证",
+    "访问过于频繁",
+    "请完成验证",
+    "身份验证",
+    "人机验证",
+    "滑块验证",
+    "verify you are human",
+    "unusual traffic",
+    "access denied",
+)
+
+# 近空白检测适用域名(风控墙高发站点,避免误伤正常轻量页面)
+_CHALLENGE_SENSITIVE_HOSTS = (
+    "weixin.qq.com",
+    "douyin.com",
+    "weibo.com",
+    "zhihu.com",
+    "bilibili.com",
+    "xiaohongshu.com",
+    "toutiao.com",
+    "x.com",
+    "youtube.com",
+)
+
+
+def _looks_like_challenge(page: Page) -> bool:
+    """检测页面是否处于反爬/风控墙(验证墙或近乎空白的加载失败页)。
+
+    仅在 executor 线程调用(sync Playwright)。
+    """
+    try:
+        text = (page.inner_text("body") or "").strip()
+    except Exception:
+        return False
+    lowered = text.lower()
+    if any(m in lowered for m in _ANTI_BOT_MARKERS):
+        return True
+    # 敏感站点:已渲染但 body 几乎空白(有 JS 逻辑却无内容 → 大概率被墙)
+    if len(text) < 40:
+        try:
+            host = (page.url or "").split("//")[-1].split("/")[0].lower()
+        except Exception:
+            return False
+        if not any(h in host for h in _CHALLENGE_SENSITIVE_HOSTS):
+            return False
+        try:
+            scripts = page.evaluate("document.scripts.length") or 0
+            imgs = page.evaluate("document.images.length") or 0
+        except Exception:
+            return False
+        return bool(scripts) and imgs <= 2
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Chromium 可执行文件查找(复用 scan_login.py 逻辑)
 # ---------------------------------------------------------------------------
 def _find_chromium_executable() -> str | None:
@@ -136,12 +207,14 @@ class BrowserSession:
         page: Page,
         executor: ThreadPoolExecutor,
         main_loop: asyncio.AbstractEventLoop,
+        user_agent: str | None = None,
     ) -> None:
         self.session_id = session_id
         self._context = context
         self._page = page
         self._executor = executor
         self._main_loop = main_loop
+        self._user_agent = user_agent or ""
         self._cdp: Any | None = None  # sync CDPSession
         self._screencast_running = False
         self._screenshot_task: asyncio.Task[None] | None = None  # 截图轮询后台 task
@@ -202,8 +275,28 @@ class BrowserSession:
 
     async def reload(self) -> None:
         def _sync() -> None:
-            self._page.reload()
+            try:
+                self._page.reload(wait_until="domcontentloaded", timeout=30000)
+            except Exception as e:
+                logger.warning(f"[browser_hub] session {self.session_id} reload 异常: {e}")
         await self._run_sync(_sync)
+
+    async def is_challenged(self) -> bool:
+        """页面是否处于反爬/风控墙(在 executor 线程检测)。"""
+        return await self._run_sync(lambda: _looks_like_challenge(self._page))
+
+    async def reload_with_recovery(self) -> bool:
+        """刷新页面;命中反爬/风控墙返回 True(由 hub 重建会话)。"""
+        await self.reload()
+        return await self.is_challenged()
+
+    @property
+    def viewport(self) -> dict[str, int]:
+        """会话视口(用于风控墙重建时保持同尺寸)。"""
+        size = self._context.viewport_size
+        if size:
+            return {"width": int(size["width"]), "height": int(size["height"])}
+        return {"width": 1280, "height": 720}
 
     # ---- Cookies / 截图 / JS ----
     async def get_cookies(self, urls: list[str] | None = None) -> list[dict[str, Any]]:
@@ -518,29 +611,7 @@ class BrowserHub:
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
 
-        browser = self._browser
-        assert browser is not None
-
-        def _sync_create() -> tuple[BrowserContext, Page]:
-            context = browser.new_context(
-                viewport=cast(ViewportSize, vp),
-                locale="zh-CN",
-                timezone_id="Asia/Shanghai",
-                user_agent=ua,
-            )
-            # 2026-08-02 fix:隐藏 navigator.webdriver 标志(抖音/微信等对自动化检测严格,
-            # headless Playwright 默认 webdriver=true 会被风控拦截)
-            context.add_init_script(
-                "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
-            )
-            page = context.new_page()
-            return context, page
-        context, page = await asyncio.get_running_loop().run_in_executor(self._executor, _sync_create)
-
-        session = BrowserSession(session_id, context, page, self._executor, self._main_loop)
-
-        if url:
-            await session.navigate(url)
+        session = await self._build_session(url=url, session_id=session_id, viewport=vp, user_agent=ua)
 
         self._sessions[session_id] = session
         # 注册到幂等去重表(同 URL 在 _DEDUP_WINDOW_SECONDS 内复用此会话)
@@ -549,6 +620,80 @@ class BrowserHub:
             self._recent_creations[url] = (session_id, _time.monotonic())
         logger.info(f"[browser_hub] 创建 session {session_id} (url={url})")
         return session
+
+    async def _build_session(
+        self,
+        url: str | None,
+        session_id: str,
+        viewport: dict[str, int],
+        user_agent: str,
+    ) -> BrowserSession:
+        """创建独立 BrowserContext 会话;初始导航命中反爬/风控墙时自动重建。
+
+        2026-08-02 fix:抖音/微信等对全新浏览器指纹的首访可能下发验证墙
+        (表现为"页面显示但点不动"),重建 context(新指纹)通常可绕过,最多重试 2 次。
+        """
+        browser = self._browser
+        assert browser is not None
+
+        def _sync_create() -> tuple[BrowserContext, Page]:
+            context = browser.new_context(
+                viewport=cast(ViewportSize, viewport),
+                locale="zh-CN",
+                timezone_id="Asia/Shanghai",
+                user_agent=user_agent,
+            )
+            # 2026-08-02 fix:隐藏 webdriver + 补齐指纹(抖音/微信等对自动化检测严格,
+            # headless Playwright 默认 webdriver=true 会被风控拦截)
+            context.add_init_script(_ANTI_DETECT_SCRIPT)
+            page = context.new_page()
+            return context, page
+
+        session: BrowserSession | None = None
+        for attempt in range(1, 3):
+            context, page = await asyncio.get_running_loop().run_in_executor(
+                self._executor, _sync_create
+            )
+            session = BrowserSession(session_id, context, page, self._executor, self._main_loop, user_agent)
+            if url:
+                await session.navigate(url)
+            if url and await session.is_challenged():
+                logger.warning(
+                    f"[browser_hub] session {session_id} 命中风控墙(attempt {attempt}/2, url={url}),重建 context..."
+                )
+                await session.close()
+                session = None
+                continue
+            return session
+        # 连续命中风控墙 → 保留最后一个现场,用户可手动刷新(reload 端点会自动重建)
+        assert session is not None
+        return session
+
+    async def recreate_session(self, session_id: str) -> BrowserSession | None:
+        """风控墙重建:以旧会话 URL/视口创建全新 context,关闭旧会话。
+
+        返回新会话;旧会话不存在返回 None。
+        """
+        async with self._lock:
+            old = self._sessions.get(session_id)
+            if not old:
+                return None
+            url = await old.get_current_url()
+            vp = old.viewport
+            await self._close_session_internal(session_id)
+            new_id = str(uuid.uuid4())
+            session = await self._build_session(
+                url=url or None,
+                session_id=new_id,
+                viewport=vp,
+                user_agent=old._user_agent,
+            )
+            self._sessions[new_id] = session
+            if url:
+                import time as _time
+                self._recent_creations[url] = (new_id, _time.monotonic())
+            logger.info(f"[browser_hub] 风控墙重建 session {session_id} -> {new_id} (url={url})")
+            return session
 
     def get_session(self, session_id: str) -> BrowserSession | None:
         return self._sessions.get(session_id)
