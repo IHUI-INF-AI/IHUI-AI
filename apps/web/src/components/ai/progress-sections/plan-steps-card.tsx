@@ -39,14 +39,18 @@ const STATUS_CLS: Record<PlanStepStatus, string> = {
 
 /** 状态 → 步骤点背景(时间线圆点) */
 const STATUS_DOT_CLS: Record<PlanStepStatus, string> = {
-  pending: 'bg-muted-foreground/20',
+  // 修复 #8:加 ring 让 pending 圆点在 bg-muted/40 容器上可见
+  pending: 'bg-muted-foreground/25 ring-2 ring-muted-foreground/30',
   in_progress: 'bg-primary/15 ring-2 ring-primary/20',
   completed: 'bg-emerald-500/15',
 }
 
 /** 状态 → 分段进度条颜色(对标 Trae Thinking Process 状态色) */
 const STATUS_BAR_CLS: Record<PlanStepStatus, string> = {
-  pending: 'bg-muted-foreground/20',
+  // 修复 #8:容器是 bg-muted/40,pending 段原来用 bg-muted-foreground/20 对比度不足,
+  // 浅色模式下几乎不可见。改用 bg-muted-foreground/25 + dashed border 提高对比度,
+  // 同时 dashed 暗示"待执行"状态(完整描边,非单边分割线,符合 AGENTS.md §4)
+  pending: 'bg-muted-foreground/25 border border-dashed border-muted-foreground/40',
   in_progress: 'bg-primary/70',
   completed: 'bg-emerald-500/70',
 }
