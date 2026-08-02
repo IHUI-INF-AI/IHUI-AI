@@ -1,105 +1,24 @@
-'use client'
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import PageClient from './PageClient'
 
-import * as React from 'react'
-import { useRouter } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { Workflow } from 'lucide-react'
-import { BackButton } from '@/components/common'
-import { WorkflowCreateDialog } from './WorkflowCreateDialog'
-import { WorkflowCardList } from './WorkflowCardList'
-import { api, EMPTY_FORM } from './helpers'
-import type { WorkflowItem } from './types'
+export const metadata: Metadata = {
+  title: 'AI 工作流编排 — n8n 风格节点画布 | 智汇 AI',
+  description:
+    '智汇 AI 工作流编排:n8n 风格可视化节点画布,拖拽式编排 AI 自动化流程。支持触发器、条件分支、循环、并行执行,集成 100+ 模型与 MCP 工具。',
+  alternates: { canonical: '/workflows' },
+  openGraph: {
+    title: 'AI 工作流编排 — n8n 风格节点画布',
+    description: '可视化拖拽编排 + 触发器 + 条件分支 + MCP 工具集成',
+    url: 'https://aizhs.top/workflows',
+    type: 'website',
+  },
+}
 
-export default function WorkflowsPage() {
-  const t = useTranslations('workflows')
-  const router = useRouter()
-  const qc = useQueryClient()
-
-  const wfsQ = useQuery({
-    queryKey: ['workflows'],
-    queryFn: () => api<{ list: WorkflowItem[] }>('/api/workflows').then((d) => d.list ?? []),
-  })
-
-  const [createOpen, setCreateOpen] = React.useState(false)
-  const [form, setForm] = React.useState(EMPTY_FORM)
-  const [formErr, setFormErr] = React.useState<string | null>(null)
-
-  const createMut = useMutation({
-    mutationFn: () => {
-      let steps: unknown
-      try {
-        steps = JSON.parse(form.steps)
-      } catch {
-        throw new Error(t('create.invalidSteps'))
-      }
-      return api('/api/workflows', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description,
-          triggerType: form.triggerType,
-          steps,
-        }),
-      })
-    },
-    onSuccess: (d) => {
-      qc.invalidateQueries({ queryKey: ['workflows'] })
-      setCreateOpen(false)
-      setForm(EMPTY_FORM)
-      setFormErr(null)
-      const created = d as { id?: string }
-      if (created?.id) router.push(`/workflows/${created.id}`)
-    },
-    onError: (e: Error) => setFormErr(e.message),
-  })
-
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormErr(null)
-    if (!form.name.trim()) {
-      setFormErr(t('create.nameRequired'))
-      return
-    }
-    createMut.mutate()
-  }
-
-  const handleOpenChange = (o: boolean) => {
-    if (!o && createMut.isPending) return
-    setCreateOpen(o)
-    if (!o) {
-      setForm(EMPTY_FORM)
-      setFormErr(null)
-    }
-  }
-
+export default function Page() {
   return (
-    <div className="space-y-4">
-      <BackButton />
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Workflow className="h-6 w-6 text-primary" />
-            {t('title')}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
-        </div>
-        <WorkflowCreateDialog
-          open={createOpen}
-          onOpenChange={handleOpenChange}
-          form={form}
-          setForm={setForm}
-          formErr={formErr}
-          createPending={createMut.isPending}
-          onSubmit={handleCreate}
-          onCancel={() => setCreateOpen(false)}
-        />
-      </div>
-      <WorkflowCardList
-        wfs={wfsQ.data ?? []}
-        isLoading={wfsQ.isLoading}
-        onItemClick={(id) => router.push(`/workflows/${id}`)}
-      />
-    </div>
+    <Suspense fallback={null}>
+      <PageClient />
+    </Suspense>
   )
 }

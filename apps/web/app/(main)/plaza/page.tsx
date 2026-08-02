@@ -1,54 +1,24 @@
-'use client'
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import PageClient from './PageClient'
 
-import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+export const metadata: Metadata = {
+  title: '社区广场 — 圈子 / 问答 / 讨论 | 智汇 AI',
+  description:
+    '智汇 AI 社区广场:加入 AI 圈子、提问答疑、分享经验。与 10000+ AI 开发者、产品经理、企业决策者交流 AI 落地实践。',
+  alternates: { canonical: '/plaza' },
+  openGraph: {
+    title: '社区广场 — 圈子 / 问答 / 讨论',
+    description: '与 10000+ AI 从业者交流落地实践',
+    url: 'https://aizhs.top/plaza',
+    type: 'website',
+  },
+}
 
-import { PlazaHeader } from './PlazaHeader'
-import { CirclesPanel } from './CirclesPanel'
-import { AsksPanel } from './AsksPanel'
-import { BackButton } from '@/components/common'
-import { PREVIEW_SIZE, api } from './helpers'
-import type { CirclesData, AsksData, Tab } from './types'
-
-export default function PlazaPage() {
-  const [tab, setTab] = React.useState<Tab>('circles')
-
-  const circlesQuery = useQuery({
-    queryKey: ['plaza-circles'],
-    queryFn: () => api<CirclesData>(`/api/circles?page=1&pageSize=${PREVIEW_SIZE}`),
-  })
-
-  const asksQuery = useQuery({
-    queryKey: ['plaza-asks'],
-    queryFn: () => api<AsksData>(`/api/asks?page=1&pageSize=${PREVIEW_SIZE}`),
-  })
-
-  const circles = circlesQuery.data?.list ?? []
-  const asks = asksQuery.data?.list ?? []
-
+export default function Page() {
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
-      <BackButton />
-      <PlazaHeader
-        tab={tab}
-        setTab={setTab}
-        circlesTotal={circlesQuery.data?.total}
-        asksTotal={asksQuery.data?.total}
-      />
-
-      <div key={tab} className="animate-in fade-in-0 duration-200">
-        {tab === 'circles' && (
-          <CirclesPanel
-            isLoading={circlesQuery.isLoading}
-            error={circlesQuery.error}
-            circles={circles}
-          />
-        )}
-
-        {tab === 'asks' && (
-          <AsksPanel isLoading={asksQuery.isLoading} error={asksQuery.error} asks={asks} />
-        )}
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <PageClient />
+    </Suspense>
   )
 }
