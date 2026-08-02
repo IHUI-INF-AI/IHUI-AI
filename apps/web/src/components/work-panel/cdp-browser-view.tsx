@@ -19,14 +19,7 @@
 
 import * as React from 'react'
 import { createPortal } from 'react-dom'
-import {
-  Loader2,
-  ArrowLeft,
-  ArrowRight,
-  RotateCw,
-  Copy,
-  ExternalLink,
-} from 'lucide-react'
+import { Loader2, ArrowLeft, ArrowRight, RotateCw, Copy, ExternalLink } from 'lucide-react'
 
 import { buildBrowserWsUrl } from '@ihui/api-client'
 
@@ -120,6 +113,9 @@ export function CdpBrowserView({
   })
 
   // 建立 WebSocket 连接 + 接收画面帧
+  // disposed flag:防止 React StrictMode 双渲染(dev 模式 mount→unmount→mount)
+  // 导致第一个 WebSocket 被 cleanup 关闭后,onerror/onclose 仍触发 store.onFailed
+  // → onFailed 又创建新 CDP 会话 → 竞态条件 → 显示"浏览器连接失败"
   React.useEffect(() => {
     setLoading(true)
     setError(null)
@@ -137,7 +133,11 @@ export function CdpBrowserView({
     }
     wsRef.current = ws
 
+    // disposed=true 后所有 ws 回调静默 return,不触发 setState / onFailed
+    let disposed = false
+
     ws.onmessage = (event) => {
+      if (disposed) return
       try {
         const msg = JSON.parse(event.data as string) as {
           type: string
@@ -151,6 +151,7 @@ export function CdpBrowserView({
           // 复用 Image 对象(设置新 src 会取消旧加载,自动节流到最新帧)
           const img = imgRef.current ?? new Image()
           img.onload = () => {
+            if (disposed) return
             const canvas = canvasRef.current
             if (!canvas) return
             const ctx = canvas.getContext('2d')
@@ -169,6 +170,7 @@ export function CdpBrowserView({
           img.src = `data:image/jpeg;base64,${msg.data}`
           imgRef.current = img
         } else if (msg.type === 'navigation' && msg.url) {
+          if (disposed) return
           cbRefs.current.onNavigation?.(msg.url, msg.title ?? '')
         }
       } catch {
@@ -177,12 +179,15 @@ export function CdpBrowserView({
     }
 
     ws.onerror = () => {
-      const msg = '浏览器连接失败'
+      if (disposed) return
+      // 检查 ai-service 是否在线(给用户更有用的错误提示)
+      const msg = '浏览器连接失败,请确认 AI 服务(8803)正在运行'
       setError(msg)
       cbRefs.current.onFailed?.(msg)
     }
 
     ws.onclose = (e) => {
+      if (disposed) return
       if (e.code !== 1000 && !hasFirstFrame.current) {
         const msg = e.reason || '浏览器连接已关闭'
         setError(msg)
@@ -191,6 +196,7 @@ export function CdpBrowserView({
     }
 
     return () => {
+      disposed = true
       ws.close()
       wsRef.current = null
     }
@@ -217,8 +223,7 @@ export function CdpBrowserView({
     ) => {
       e.preventDefault()
       const { x, y } = toDeviceCoords(e.clientX, e.clientY)
-      const button =
-        e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left'
+      const button = e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left'
       wsRef.current?.send(
         JSON.stringify({
           type: 'mouse',
@@ -282,47 +287,38 @@ export function CdpBrowserView({
     [toDeviceCoords],
   )
 
-  const handleKeyDown = React.useCallback(
-    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
-      // 阻止浏览器快捷键(Ctrl+R/F5 等)干扰 CDP 浏览器
-      const key = e.key.toLowerCase()
-      if (
-        e.ctrlKey &&
-        ['r', 'w', 'n', 't', 'f'].includes(key)
-      ) {
-        e.preventDefault()
-      } else if (['F5', 'F11', 'F12'].includes(e.key)) {
-        e.preventDefault()
-      } else {
-        e.preventDefault()
-      }
-      wsRef.current?.send(
-        JSON.stringify({
-          type: 'key',
-          key: mapKey(e.key),
-          event_type: 'keyDown',
-          modifiers: getModifiers(e),
-          text: e.key.length === 1 ? e.key : undefined,
-        }),
-      )
-    },
-    [],
-  )
-
-  const handleKeyUp = React.useCallback(
-    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+  const handleKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    // 阻止浏览器快捷键(Ctrl+R/F5 等)干扰 CDP 浏览器
+    const key = e.key.toLowerCase()
+    if (e.ctrlKey && ['r', 'w', 'n', 't', 'f'].includes(key)) {
       e.preventDefault()
-      wsRef.current?.send(
-        JSON.stringify({
-          type: 'key',
-          key: mapKey(e.key),
-          event_type: 'keyUp',
-          modifiers: getModifiers(e),
-        }),
-      )
-    },
-    [],
-  )
+    } else if (['F5', 'F11', 'F12'].includes(e.key)) {
+      e.preventDefault()
+    } else {
+      e.preventDefault()
+    }
+    wsRef.current?.send(
+      JSON.stringify({
+        type: 'key',
+        key: mapKey(e.key),
+        event_type: 'keyDown',
+        modifiers: getModifiers(e),
+        text: e.key.length === 1 ? e.key : undefined,
+      }),
+    )
+  }, [])
+
+  const handleKeyUp = React.useCallback((e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    wsRef.current?.send(
+      JSON.stringify({
+        type: 'key',
+        key: mapKey(e.key),
+        event_type: 'keyUp',
+        modifiers: getModifiers(e),
+      }),
+    )
+  }, [])
 
   // 右键菜单:阻止默认 + 弹出自定义菜单
   const handleContextMenu = React.useCallback(
@@ -453,7 +449,9 @@ export function CdpBrowserView({
         </div>
       )}
       {/* 右键菜单(portal 到 body,避免 overflow 裁剪) */}
-      {ctxMenu && menuItems.length > 0 && typeof document !== 'undefined' &&
+      {ctxMenu &&
+        menuItems.length > 0 &&
+        typeof document !== 'undefined' &&
         createPortal(
           <div
             role="menu"
