@@ -73,7 +73,7 @@ export default async function KeysPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('keys.table.name')}</th>
                   <th className="px-4 py-2 font-medium">{t('keys.table.key')}</th>
                   <th className="px-4 py-2 font-medium">{t('keys.table.usage')}</th>
@@ -87,10 +87,7 @@ export default async function KeysPage() {
                   const pct = Math.min(100, (k.used / k.total) * 100)
                   const isExpired = k.status === 'expired'
                   return (
-                    <tr
-                      key={k.id}
-                      className="border-b border-border/40 last:border-0 hover:bg-muted/30"
-                    >
+                    <tr key={k.id} className="hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{k.name}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">

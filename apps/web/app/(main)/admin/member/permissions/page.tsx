@@ -5,7 +5,15 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, Key, Lock, Search, Copy, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Input,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 
 interface MemberPermission {
@@ -112,7 +120,7 @@ export default function AdminMemberPermissionsPage() {
                       <TableHead className="px-4 py-2 font-medium">描述</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody className="divide-y">
+                  <TableBody>
                     {items.map((p) => (
                       <TableRow key={p.id} className="transition-colors hover:bg-muted/20">
                         <TableCell className="px-4 py-2 font-medium">{p.displayName}</TableCell>

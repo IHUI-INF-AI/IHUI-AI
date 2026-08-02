@@ -149,7 +149,7 @@ export default function MemberDashboardPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="flex items-center justify-between border-b px-4 py-2.5">
+          <div className="flex items-center justify-between px-4 py-2.5">
             <h2 className="text-sm font-semibold">{t('recentOrders')}</h2>
             <Link
               href="/orders"
@@ -167,7 +167,7 @@ export default function MemberDashboardPage() {
           ) : orders.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
-            <ul className="divide-y">
+            <ul className="space-y-2">
               {orders.map((o) => (
                 <li key={o.id} className="flex items-center gap-3 px-4 py-2.5">
                   <div className="min-w-0 flex-1">

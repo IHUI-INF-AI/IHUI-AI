@@ -2,7 +2,15 @@
 
 import { Loader2, Edit, Trash2, FolderTree, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { TYPE_MAP } from './helpers'
@@ -40,7 +48,7 @@ export function MaterialsTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">

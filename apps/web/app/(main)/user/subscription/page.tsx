@@ -149,7 +149,7 @@ export default function SubscriptionPage() {
           {/* 状态卡片 */}
           {isVip ? (
             <Card className="border-emerald-500/40 bg-emerald-50/40 dark:bg-emerald-950/20">
-              <CardContent className="flex items-center gap-4 p-4 min-[768px]:p-6">
+              <CardContent className="flex items-center gap-4 p-4 min-[640px]:p-6">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
                   <Crown className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
                 </div>
@@ -183,7 +183,7 @@ export default function SubscriptionPage() {
             </Card>
           ) : (
             <Card className="border-muted">
-              <CardContent className="flex items-center gap-4 p-4 min-[768px]:p-6">
+              <CardContent className="flex items-center gap-4 p-4 min-[640px]:p-6">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted">
                   <Crown className="h-6 w-6 text-muted-foreground" />
                 </div>

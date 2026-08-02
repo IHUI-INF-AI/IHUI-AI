@@ -200,7 +200,7 @@ export default function DemandSquareDetailPage() {
           </CardContent>
 
           {isPending && (
-            <CardFooter className="justify-end gap-2 border-t pt-3">
+            <CardFooter className="justify-end gap-2 mt-3 pt-3">
               <HasPermi code="demandsquare:approve">
                 <Button
                   size="sm"

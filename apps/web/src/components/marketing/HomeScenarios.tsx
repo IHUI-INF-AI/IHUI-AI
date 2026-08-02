@@ -66,11 +66,6 @@ export function HomeScenarios() {
               {String(i + 1).padStart(2, '0')}
             </span>
 
-            {/* 光泽扫过 */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
-              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-            </div>
-
             {/* 图标 + 标题 */}
             <div className="relative flex items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary transition-all duration-300 group-hover:scale-110 group-hover:bg-primary/18 min-[640px]:h-14 min-[640px]:w-14">
@@ -82,7 +77,10 @@ export function HomeScenarios() {
             {/* 痛点 → 收益 */}
             <div className="relative flex items-center gap-2 text-sm min-[640px]:ml-auto min-[640px]:text-base">
               <span className="text-destructive/60">{painPoint}</span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/40" aria-hidden="true" />
+              <ArrowRight
+                className="h-4 w-4 shrink-0 text-muted-foreground/40"
+                aria-hidden="true"
+              />
               <span className="font-bold text-primary">{benefit}</span>
             </div>
           </RevealOnView>

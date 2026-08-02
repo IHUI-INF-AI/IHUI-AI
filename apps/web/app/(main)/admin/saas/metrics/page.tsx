@@ -152,12 +152,15 @@ function TenantsRankingTable({
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{t('totalTenants', { total })}</span>
       </div>
-      <ul className="divide-y divide-border">
+      <ul className="space-y-2">
         {tenants.map((tn, idx) => {
           const cpuPct = (tn.cpu / maxCpu) * 100
           const memPct = (tn.memoryBytes / maxMem) * 100
           return (
-            <li key={tn.slug} className="grid grid-cols-1 gap-3 py-3 min-[640px]:grid-cols-12 min-[640px]:items-center">
+            <li
+              key={tn.slug}
+              className="grid grid-cols-1 gap-3 py-3 min-[640px]:grid-cols-12 min-[640px]:items-center"
+            >
               <div className="min-[640px]:col-span-2">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">

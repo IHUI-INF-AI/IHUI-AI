@@ -163,7 +163,7 @@ export default function HelpArticlePage() {
         )}
       </div>
 
-      <nav className="flex items-center justify-between border-t pt-4">
+      <nav className="flex items-center justify-between mt-4 pt-4">
         {data.prev ? (
           <Link
             href={`/help/${data.prev.slug}`}

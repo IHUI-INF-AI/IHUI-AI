@@ -4,7 +4,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, Radio } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { type Channel, api } from './types'
@@ -51,7 +59,7 @@ export function ChannelsTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
@@ -122,11 +130,7 @@ export function ChannelsTable({
                   <TableCell className="px-4 py-2.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Tooltip content={t('edit')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(ch)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(ch)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

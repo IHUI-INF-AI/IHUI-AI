@@ -203,13 +203,16 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
 
   return (
     <div
-      className={cn('relative', depth > 0 && 'ml-3 border-l border-border/40 pl-3')}
+      className={cn('relative', depth > 0 && 'ml-3 pl-3')}
       data-testid={testId ?? 'timeline-event-row'}
       data-event-id={event.id}
       data-event-type={event.type}
       data-event-status={event.status}
       data-i18n-key={renderedI18nKey}
     >
+      {depth > 0 && (
+        <div className="absolute left-0 top-1 bottom-1 w-px bg-border/40" aria-hidden />
+      )}
       {depth === 0 && (
         <div
           className={cn('absolute left-0 top-0 h-full w-0.5 rounded-l-sm', typeCls.bar)}

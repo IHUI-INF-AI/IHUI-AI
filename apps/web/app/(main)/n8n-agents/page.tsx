@@ -15,7 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-type AgentId = 'customer-service' | 'content-moderation' | 'data-sync' | 'report-generation' | 'alert-notify'
+type AgentId =
+  'customer-service' | 'content-moderation' | 'data-sync' | 'report-generation' | 'alert-notify'
 
 interface N8nAgent {
   id: AgentId
@@ -125,7 +126,9 @@ export default async function N8nAgentsPage() {
                     <agent.icon className="h-5 w-5" />
                   </div>
                   <div className="space-y-0.5">
-                    <CardTitle className="text-base">{t(AGENT_NAME_KEY[agent.id] ?? 'agents.unknown.name')}</CardTitle>
+                    <CardTitle className="text-base">
+                      {t(AGENT_NAME_KEY[agent.id] ?? 'agents.unknown.name')}
+                    </CardTitle>
                     <p className="text-xs text-muted-foreground">ID: {agent.id}</p>
                   </div>
                 </div>
@@ -138,7 +141,7 @@ export default async function N8nAgentsPage() {
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {t(AGENT_DESCRIPTION_KEY[agent.id] ?? 'agents.unknown.description')}
               </p>
-              <div className="flex items-center justify-between border-t pt-3 text-xs">
+              <div className="flex items-center justify-between mt-3 pt-3 text-xs">
                 <div className="space-y-0.5">
                   <div className="text-muted-foreground">{t('lastRunLabel')}</div>
                   <div className="font-medium text-foreground">{agent.lastRunAt}</div>

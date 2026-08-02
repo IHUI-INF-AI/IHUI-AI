@@ -2,7 +2,15 @@
 
 import { Check, X, Loader2, LayoutGrid } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -50,7 +58,7 @@ export function DemandSquareTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
@@ -74,10 +82,16 @@ export function DemandSquareTable({
           ) : (
             list.map((r) => (
               <TableRow key={r.id} className="transition-colors hover:bg-muted/30">
-                <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs" title={r.agentId ?? ''}>
+                <TableCell
+                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs"
+                  title={r.agentId ?? ''}
+                >
                   {r.agentId ? r.agentId.slice(0, 8) : '-'}
                 </TableCell>
-                <TableCell className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground" title={r.userId ?? ''}>
+                <TableCell
+                  className="max-w-[160px] truncate px-4 py-2.5 font-mono text-xs text-muted-foreground"
+                  title={r.userId ?? ''}
+                >
                   {r.userId ? r.userId.slice(0, 8) : '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">

@@ -115,7 +115,7 @@ export default function FavoritesPage() {
           <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="space-y-2 rounded-lg border p-2">
           {items.map((item) => {
             const Icon = TYPE_ICON[item.resourceType] ?? FileText
             return (

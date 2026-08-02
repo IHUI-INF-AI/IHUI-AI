@@ -141,30 +141,30 @@ export default function AdminAiWorldSitesPage() {
               ) : (
                 <div className="overflow-hidden rounded-lg border">
                   <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">{t('table.name')}</th>
-                        <th className="px-3 py-2 font-medium">{t('table.id')}</th>
-                        <th className="px-3 py-2 text-right font-medium">{t('table.action')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {hotApps.map((app) => (
-                        <tr key={app.id} className="transition-colors hover:bg-accent/50">
-                          <td className="px-3 py-2 font-medium">{app.name}</td>
-                          <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                            {app.id}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <Button size="sm" variant="ghost" asChild>
-                              <Link href="/admin/agents">{t('edit')}</Link>
-                            </Button>
-                          </td>
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">{t('table.name')}</th>
+                          <th className="px-3 py-2 font-medium">{t('table.id')}</th>
+                          <th className="px-3 py-2 text-right font-medium">{t('table.action')}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {hotApps.map((app) => (
+                          <tr key={app.id} className="transition-colors hover:bg-accent/50">
+                            <td className="px-3 py-2 font-medium">{app.name}</td>
+                            <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                              {app.id}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <Button size="sm" variant="ghost" asChild>
+                                <Link href="/admin/agents">{t('edit')}</Link>
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}

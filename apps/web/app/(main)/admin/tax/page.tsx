@@ -38,40 +38,86 @@ export default function AdminTaxPage() {
           <Receipt className="h-6 w-6 shrink-0 text-primary" />
           <span className="truncate">税务规则</span>
         </h1>
-        <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="搜索规则名称" className="h-9 w-full shrink-0 sm:w-64" />
+        <Input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="搜索规则名称"
+          className="h-9 w-full shrink-0 sm:w-64"
+        />
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-border text-left text-muted-foreground">
-            {head.map((h) => <th key={h} className={`${c} font-medium`}>{h}</th>)}
-          </tr></thead>
-          <tbody>
-            {!list.length
-              ? <tr><td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>{isLoading ? '…' : '暂无规则'}</td></tr>
-              : list.map((tx: TaxRule) => (
-                <tr key={tx.id} className="border-b border-border last:border-0">
-                  <td className={c}>
-                    <div className="font-medium">{tx.name}</div>
-                    <div className="text-xs text-muted-foreground">{tx.description ?? '—'}</div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                {head.map((h) => (
+                  <th key={h} className={`${c} font-medium`}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!list.length ? (
+                <tr>
+                  <td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>
+                    {isLoading ? '…' : '暂无规则'}
                   </td>
-                  <td className={c}>{tx.category}</td>
-                  <td className={`${c} tabular-nums font-medium`}>{tx.rate}%</td>
-                  <td className={`${c} tabular-nums text-muted-foreground`}>¥{tx.threshold.toFixed(2)}</td>
-                  <td className={`${c} text-xs text-muted-foreground`}>{tx.effectiveAt?.slice(0, 10) ?? '—'}</td>
-                  <td className={c}><span className={`rounded px-2 py-0.5 text-xs ${BADGE[tx.status]}`}>{tx.status === 'active' ? '启用' : '停用'}</span></td>
                 </tr>
-              ))}
-          </tbody>
-        </table>
+              ) : (
+                list.map((tx: TaxRule) => (
+                  <tr key={tx.id}>
+                    <td className={c}>
+                      <div className="font-medium">{tx.name}</div>
+                      <div className="text-xs text-muted-foreground">{tx.description ?? '—'}</div>
+                    </td>
+                    <td className={c}>{tx.category}</td>
+                    <td className={`${c} tabular-nums font-medium`}>{tx.rate}%</td>
+                    <td className={`${c} tabular-nums text-muted-foreground`}>
+                      ¥{tx.threshold.toFixed(2)}
+                    </td>
+                    <td className={`${c} text-xs text-muted-foreground`}>
+                      {tx.effectiveAt?.slice(0, 10) ?? '—'}
+                    </td>
+                    <td className={c}>
+                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[tx.status]}`}>
+                        {tx.status === 'active' ? '启用' : '停用'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" />上一页</Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>下一页<ChevronRight className="h-4 w-4" /></Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            上一页
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            下一页
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

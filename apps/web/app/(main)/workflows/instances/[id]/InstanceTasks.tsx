@@ -68,7 +68,7 @@ function TaskRow({ task }: { task: Task }) {
         </span>
       </button>
       {open && (
-        <div className="grid grid-cols-1 gap-2 border-t px-4 py-2 text-xs min-[640px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 px-4 py-2 text-xs min-[640px]:grid-cols-2">
           <div>
             <div className="mb-1 font-medium text-muted-foreground">
               {t('instanceDetail.input')}

@@ -32,7 +32,9 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
             <Bot className="h-5 w-5 text-muted-foreground" />
           </div>
         )}
-        <span className="text-base font-semibold text-foreground">{modelName || t('defaultModelName')}</span>
+        <span className="text-base font-semibold text-foreground">
+          {modelName || t('defaultModelName')}
+        </span>
       </header>
 
       {/* 对话内容 */}
@@ -40,9 +42,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
         {/* 用户提问 */}
         <div className="flex justify-end">
           <div className="w-full rounded-2xl border border-primary/40 bg-primary p-5 text-white">
-            <p className="whitespace-pre-wrap break-words text-sm leading-7">
-              {question || ''}
-            </p>
+            <p className="whitespace-pre-wrap break-words text-sm leading-7">{question || ''}</p>
           </div>
         </div>
 
@@ -51,7 +51,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
           <AnswerArea answer={answer} />
 
           {/* 底部信息 */}
-          <div className="mt-4 flex items-center gap-4 border-t border-border pt-3 text-xs text-muted-foreground/70">
+          <div className="mt-4 flex items-center gap-4 mt-3 pt-3 text-xs text-muted-foreground/70">
             <span>{t('aiGenerated')}</span>
             {typeof tokenCost === 'number' && tokenCost > 0 && (
               <span>{t('tokenCostLabel', { cost: formatTokens(tokenCost) })}</span>

@@ -331,7 +331,7 @@ export default function AiCostPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b text-left text-xs text-muted-foreground">
+                      <tr className="text-left text-xs text-muted-foreground">
                         <th className="py-2 pr-4 font-medium">{t('budgetScope')}</th>
                         <th className="py-2 pr-4 font-medium">{t('budgetKey')}</th>
                         <th className="py-2 pr-4 text-right font-medium">
@@ -344,7 +344,7 @@ export default function AiCostPage() {
                     </thead>
                     <tbody>
                       {budgets.map((b) => (
-                        <tr key={b.id} className="border-b last:border-0">
+                        <tr key={b.id}>
                           <td className="py-2 pr-4">
                             <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
                               {b.scope}

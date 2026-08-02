@@ -119,7 +119,7 @@ export default function VersionsPage() {
                   )}
 
                   {(v.deprecateDate || v.sunsetDate) && (
-                    <div className="mt-3 flex flex-wrap gap-4 border-t pt-2 text-xs">
+                    <div className="mt-3 flex flex-wrap gap-4 pt-2 text-xs">
                       {v.deprecateDate && (
                         <div>
                           <span className="text-muted-foreground">{t('deprecateTime')}</span>{' '}

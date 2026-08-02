@@ -115,74 +115,74 @@ export function DictTable({
             )}
             {isOpen && (
               <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className={th}>{t('dict.colLabel')}</th>
-                    <th className={th}>{t('dict.colValue')}</th>
-                    <th className={th}>{t('dict.colSort')}</th>
-                    <th className={th}>{t('dict.colStatus')}</th>
-                    <th className={cn(th, 'text-right')}>{t('dict.colActions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {d.items.length === 0 ? (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
-                        {t('dict.noItems')}
-                      </td>
+                      <th className={th}>{t('dict.colLabel')}</th>
+                      <th className={th}>{t('dict.colValue')}</th>
+                      <th className={th}>{t('dict.colSort')}</th>
+                      <th className={th}>{t('dict.colStatus')}</th>
+                      <th className={cn(th, 'text-right')}>{t('dict.colActions')}</th>
                     </tr>
-                  ) : (
-                    d.items.map((it) => (
-                      <tr key={it.id} className="transition-colors hover:bg-muted/30">
-                        <td className="px-4 py-2.5 font-medium">{it.label}</td>
-                        <td className="px-4 py-2.5">
-                          <DictTag value={it.value} listClass={it.listClass} />
-                        </td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{it.sort}</td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 text-xs',
-                              it.status === 1
-                                ? 'text-emerald-600 dark:text-emerald-500'
-                                : 'text-muted-foreground',
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                'h-1.5 w-1.5 rounded-full',
-                                it.status === 1 ? 'bg-emerald-500' : 'bg-muted-foreground',
-                              )}
-                            />
-                            {it.status === 1 ? t('dict.statusEnabled') : t('dict.statusDisabled')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <HasPermi code="ai:dictionary:edit">
-                            <Button size="sm" variant="ghost" onClick={() => onEditItem(d, it)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </HasPermi>
-                          <HasPermi code="ai:dictionary:remove">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              disabled={delItemPending}
-                              onClick={() => {
-                                if (confirm(t('dict.deleteConfirm'))) onDeleteItem(it.id)
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </HasPermi>
+                  </thead>
+                  <tbody>
+                    {d.items.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                          {t('dict.noItems')}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      d.items.map((it) => (
+                        <tr key={it.id} className="transition-colors hover:bg-muted/30">
+                          <td className="px-4 py-2.5 font-medium">{it.label}</td>
+                          <td className="px-4 py-2.5">
+                            <DictTag value={it.value} listClass={it.listClass} />
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{it.sort}</td>
+                          <td className="px-4 py-2.5">
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 text-xs',
+                                it.status === 1
+                                  ? 'text-emerald-600 dark:text-emerald-500'
+                                  : 'text-muted-foreground',
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'h-1.5 w-1.5 rounded-full',
+                                  it.status === 1 ? 'bg-emerald-500' : 'bg-muted-foreground',
+                                )}
+                              />
+                              {it.status === 1 ? t('dict.statusEnabled') : t('dict.statusDisabled')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <HasPermi code="ai:dictionary:edit">
+                              <Button size="sm" variant="ghost" onClick={() => onEditItem(d, it)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </HasPermi>
+                            <HasPermi code="ai:dictionary:remove">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                disabled={delItemPending}
+                                onClick={() => {
+                                  if (confirm(t('dict.deleteConfirm'))) onDeleteItem(it.id)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </HasPermi>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

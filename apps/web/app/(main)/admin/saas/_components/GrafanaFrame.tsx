@@ -115,7 +115,7 @@ export function GrafanaFrame({
         sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
       />
       {!grafanaConfigured ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-amber-500/10 px-3 py-1.5 text-[10px] text-amber-700 dark:text-amber-400">
+        <div className="pointer-events-none absolute left-2 right-2 bottom-2 bg-amber-500/10 px-3 py-1.5 text-[10px] text-amber-700 dark:text-amber-400">
           {t('envHint')}
         </div>
       ) : null}
