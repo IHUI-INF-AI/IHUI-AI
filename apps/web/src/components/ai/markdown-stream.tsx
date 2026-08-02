@@ -120,8 +120,9 @@ const CodeBlockImpl = function CodeBlock({
   )
 
   // 流式中的代码块用 opacity-60 标记(临时闭合位置)
+  // 2026-08-02:对话文字整体放大,代码块 14px → 15px(text-[15px])
   const preClassName = cn(
-    'relative my-2 overflow-x-auto rounded-lg p-3 text-sm',
+    'relative my-2 overflow-x-auto rounded-lg p-3 text-[15px]',
     'bg-zinc-100 text-zinc-900',
     'dark:bg-zinc-950 dark:text-zinc-100',
     isStreaming && 'opacity-60',
@@ -156,7 +157,7 @@ const CodeBlockImpl = function CodeBlock({
             margin: 0,
             padding: 0,
             background: 'transparent',
-            fontSize: '0.875rem',
+            fontSize: '15px',
           }}
         >
           {code}
@@ -400,10 +401,11 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
         return <MarkdownLink href={href}>{children}</MarkdownLink>
       },
       // 表格:外层包 overflow-x-auto 容器,移动端可横向滚动
+      // 2026-08-02:表格字号同步放大 14px → 15px
       table({ children }) {
         return (
           <div className="my-2 overflow-x-auto">
-            <table className="w-full border-collapse text-sm">{children}</table>
+            <table className="w-full border-collapse text-[15px]">{children}</table>
           </div>
         )
       },
@@ -480,8 +482,9 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
       h4({ children }) {
         return <h4 className="my-2 text-base font-semibold">{children}</h4>
       },
+      // 2026-08-02:正文升到 text-base 后,h5/h6 同步上调保持层级
       h5({ children }) {
-        return <h5 className="my-2 text-sm font-semibold">{children}</h5>
+        return <h5 className="my-2 text-base font-semibold">{children}</h5>
       },
       h6({ children }) {
         return <h6 className="my-2 text-sm font-medium">{children}</h6>
@@ -506,7 +509,8 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
   )
 
   return (
-    <div className="text-sm">
+    // 2026-08-02:AI 对话正文整体放大 14px → 16px(text-base),用户反馈"文字内容太小"
+    <div className="text-base">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {parseContent}
       </ReactMarkdown>
