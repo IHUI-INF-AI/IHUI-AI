@@ -82,7 +82,7 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /withdraw — 提现申请（冻结对应数量，记录流水）
-  server.post('/withdraw', async (request, reply) => {
+  server.post('/withdraw', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const userId = request.userId!
     const parsed = withdrawSchema.safeParse(request.body)
     if (!parsed.success) {

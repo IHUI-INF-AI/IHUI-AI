@@ -32,7 +32,8 @@ const checkSchema = z.object({
 const authCodeRoutes: FastifyPluginAsync = async (server) => {
   // GET / — 获取验证码(Java: GET /public-api/auth-code, query: ?mobile=)
   // 公开端点(Java 无鉴权),发送短信验证码到指定手机号
-  server.get('/', async (request, reply) => {
+  // P0 安全修复(2026-08-02):公开短信端点无限流可被刷短信轰炸,限制 1 次/分钟/IP。
+  server.get('/', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = mobileQuery.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
