@@ -310,21 +310,7 @@ const STAGE_STATUS_BADGE: Record<string, string> = {
   skipped: 'bg-muted/60 text-muted-foreground',
 }
 
-const STAGE_STATUS_LABEL: Record<string, string> = {
-  pending: '待执行',
-  running: '执行中',
-  success: '成功',
-  failed: '失败',
-  skipped: '跳过',
-}
-
-const STAGE_LABEL: Record<string, string> = {
-  apply_spec: '生成 patch',
-  apply_patch: '应用 patch',
-  typecheck: '类型检查',
-  test: '测试',
-  commit: '提交',
-}
+// 流水线阶段状态/阶段名 label 走 i18n(组件内 useMemo 构建,见 SpecPanel 内 stageStatusLabel/stageLabel)
 
 const BRANCH_STATUS_BADGE: Record<string, string> = {
   active: 'bg-green-500/10 text-green-700 dark:text-green-400',
@@ -345,6 +331,28 @@ const BRANCH_STATUS_LABEL: Record<string, string> = {
 export function SpecPanel({ className }: { className?: string }) {
   const t = useTranslations('specPanel')
   const [scopeType, setScopeType] = React.useState<SpecScopeType>('workspace')
+
+  // 流水线阶段状态/阶段名 label(i18n,替代原模块级硬编码常量)
+  const stageStatusLabel = React.useMemo<Record<string, string>>(
+    () => ({
+      pending: t('stageStatus.pending'),
+      running: t('stageStatus.running'),
+      success: t('stageStatus.success'),
+      failed: t('stageStatus.failed'),
+      skipped: t('stageStatus.skipped'),
+    }),
+    [t],
+  )
+  const stageLabel = React.useMemo<Record<string, string>>(
+    () => ({
+      apply_spec: t('stage.apply_spec'),
+      apply_patch: t('stage.apply_patch'),
+      typecheck: t('stage.typecheck'),
+      test: t('stage.test'),
+      commit: t('stage.commit'),
+    }),
+    [t],
+  )
   const [scopePath, setScopePath] = React.useState('')
   const [loading, setLoading] = React.useState(false)
   const [result, setResult] = React.useState<SpecGenerateOutput | null>(null)
@@ -602,21 +610,23 @@ export function SpecPanel({ className }: { className?: string }) {
         body: JSON.stringify({ scope: currentScope, workspacePath }),
       })
       if (!r.success || !r.data) {
-        toast.error('提交评审失败', { description: r.error || '未知错误' })
+        toast.error(t('submitReviewFailed'), { description: r.error || t('unknownError') })
         return
       }
       if (r.data.spec) {
         setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
       }
-      toast.success('已提交评审', {
+      toast.success(t('reviewSubmitted'), {
         description: `状态: ${STATUS_LABEL[r.data.status] || r.data.status}`,
       })
     } catch (e) {
-      toast.error('提交评审失败', { description: e instanceof Error ? e.message : String(e) })
+      toast.error(t('submitReviewFailed'), {
+        description: e instanceof Error ? e.message : String(e),
+      })
     } finally {
       setReviewLoading(false)
     }
-  }, [activeWorkspacePath, currentScope])
+  }, [activeWorkspacePath, currentScope, t])
 
   // 评审:通过
   const handleApprove = React.useCallback(async () => {
@@ -1615,7 +1625,7 @@ export function SpecPanel({ className }: { className?: string }) {
                       onChange={(e) => setAutoCommit(e.target.checked)}
                       className="h-3 w-3"
                     />
-                    <span>自动 commit</span>
+                    <span>{t('autoCommit')}</span>
                   </label>
                   <input
                     type="text"
@@ -1661,7 +1671,7 @@ export function SpecPanel({ className }: { className?: string }) {
                         <div key={idx} className="rounded-md bg-muted/40 p-2">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-foreground">
-                              {idx + 1}. {STAGE_LABEL[stage.name] || stage.name}
+                              {idx + 1}. {stageLabel[stage.name] || stage.name}
                             </span>
                             <span
                               className={cn(
@@ -1669,7 +1679,7 @@ export function SpecPanel({ className }: { className?: string }) {
                                 STAGE_STATUS_BADGE[stage.status] || STAGE_STATUS_BADGE.pending,
                               )}
                             >
-                              {STAGE_STATUS_LABEL[stage.status] || stage.status}
+                              {stageStatusLabel[stage.status] || stage.status}
                             </span>
                             {stage.finishedAt && stage.startedAt && (
                               <span className="text-[10px] text-muted-foreground">
@@ -1698,7 +1708,7 @@ export function SpecPanel({ className }: { className?: string }) {
                             ] || STAGE_STATUS_BADGE.pending,
                           )}
                         >
-                          {STAGE_STATUS_LABEL[
+                          {stageStatusLabel[
                             (pipelineStatus?.overallStatus ||
                               pipelineResult?.overallStatus ||
                               'pending') as string

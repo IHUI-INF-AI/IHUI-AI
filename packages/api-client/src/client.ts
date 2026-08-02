@@ -1561,7 +1561,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 : typeof json.server_name === 'string'
                   ? json.server_name
                   : undefined
-            if (json?.type === 'tool_result' && json?.toolCallId) {
+            // 优化(问题 4-5):合并 tool_result / tool-result 重复分支,
+            // 后端 snake_case(tool_result)与 kebab-case(tool-result)走同一逻辑
+            if (
+              (json?.type === 'tool_result' || json?.type === 'tool-result') &&
+              json?.toolCallId
+            ) {
               opts.onToolCall!({
                 type: 'tool-result',
                 toolCallId: String(json.toolCallId),
@@ -1579,18 +1584,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 toolCallId: String(json.toolCallId),
                 toolName: typeof json.toolName === 'string' ? json.toolName : '',
                 args: json.args as Record<string, unknown> | undefined,
-                serverSource: validServerSource,
-                serverId,
-                serverName,
-              })
-            } else if (json?.type === 'tool-result' && json?.toolCallId) {
-              opts.onToolCall!({
-                type: 'tool-result',
-                toolCallId: String(json.toolCallId),
-                toolName: typeof json.toolName === 'string' ? json.toolName : '',
-                args: json.args as Record<string, unknown> | undefined,
-                result: json.result,
-                isError: json.isError === true,
                 serverSource: validServerSource,
                 serverId,
                 serverName,
@@ -1758,6 +1751,96 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /**
+       * 优化(问题 4-4):基于 SSE 行的 type 字段快速路由到对应 tryParse,
+       * 避免每行最多 6 次 tryParse 全量 JSON.parse 尝试。
+       *
+       * 已知 type → 路由到单一 tryParse(从 6 次 JSON.parse 降至 1 次);
+       * 未知/无 type / 注释行 / event:/id:/retry: 行 / 非 JSON token 行 → 返回 null,
+       * 由主循环走 fallback 全量调用(保留原有行为,因每个 tryParse 内部有快速 return 守护,
+       * 对非 JSON 行几乎零成本;注释/event/id/retry 行也立即 return)。
+       *
+       * 覆盖 type 清单(与各 tryParse 内部判断逐一对齐):
+       *  - compaction:tryParseCompaction 不基于 type,基于 json.compaction 字段
+       *  - question:tryParseQuestion
+       *  - tool_result / tool-result / tool-call-start:tryParseToolCall(JSON 形式)
+       *  - Vercel AI SDK 数字协议(^\d+:):仅 tryParseToolCall 内部 proto 分支能处理
+       *  - subagent_spawn / subagent_progress / subagent_end:tryParseSubagent
+       *  - tool-summary:tryParseToolSummary
+       *  - tool-delegate:tryParseToolDelegate
+       */
+      const routeLineByType = (line: string): string | null => {
+        if (!line || line.startsWith(':')) return null
+        if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+          return null
+        }
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        }
+        if (!data || data === '[DONE]') return null
+        // Vercel AI SDK 协议(数字前缀,如 "2:{...}" / "7:{...}"),
+        // 仅 tryParseToolCall 内部 proto 分支能处理
+        if (/^\d+:/.test(data)) return 'tool_call'
+        if (!data.startsWith('{')) return null
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          // compaction 事件不基于 type 字段,基于 json.compaction.triggered
+          if (json.compaction && typeof json.compaction === 'object') return 'compaction'
+          const t = json.type
+          if (typeof t !== 'string') return null
+          switch (t) {
+            case 'question':
+              return 'question'
+            case 'tool_result':
+            case 'tool-result':
+            case 'tool-call-start':
+              return 'tool_call'
+            case 'subagent_spawn':
+            case 'subagent_progress':
+            case 'subagent_end':
+              return 'subagent'
+            case 'tool-summary':
+              return 'tool_summary'
+            case 'tool-delegate':
+              return 'tool_delegate'
+            default:
+              return null
+          }
+        } catch {
+          return null
+        }
+      }
+
+      // 优化(问题 4-4):基于 type 路由调用单一 tryParse;未知 type 走 fallback 全量调用,
+      // 保留原有行为(parseStreamLine 等后续逻辑不变)
+      const dispatchTryParse = async (line: string): Promise<void> => {
+        const route = routeLineByType(line)
+        if (route === 'compaction') {
+          tryParseCompaction(line)
+        } else if (route === 'question') {
+          tryParseQuestion(line)
+        } else if (route === 'tool_call') {
+          tryParseToolCall(line)
+        } else if (route === 'subagent') {
+          tryParseSubagent(line)
+        } else if (route === 'tool_summary') {
+          tryParseToolSummary(line)
+        } else if (route === 'tool_delegate') {
+          await tryParseToolDelegate(line)
+        } else {
+          // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
+          // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
+          // 对 token 行(非 JSON)无 JSON.parse 开销,保持原有行为
+          tryParseCompaction(line)
+          tryParseQuestion(line)
+          tryParseToolCall(line)
+          tryParseSubagent(line)
+          tryParseToolSummary(line)
+          await tryParseToolDelegate(line)
+        }
+      }
+
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -1768,13 +1851,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           buffer = buffer.slice(nl + 1)
           // 捕获 SSE id: 行(用于 Last-Event-ID 断点续传)
           if (line.startsWith('id:')) lastEventIdRef.current = line.slice(3).trim()
-          tryParseCompaction(line)
-          tryParseQuestion(line)
-          tryParseToolCall(line)
-          tryParseSubagent(line)
-          tryParseToolSummary(line)
-          // 阶段 2:工具委托执行(async,await 等待前端工具执行完成再继续读 SSE)
-          await tryParseToolDelegate(line)
+          await dispatchTryParse(line)
           // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
           if (hasFallback) {
             const fbEvt = parseFallbackEvent(line)
@@ -1797,13 +1874,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
       if (buffer.trim()) {
         if (buffer.startsWith('id:')) lastEventIdRef.current = buffer.slice(3).trim()
-        tryParseCompaction(buffer)
-        tryParseQuestion(buffer)
-        tryParseToolCall(buffer)
-        tryParseSubagent(buffer)
-        tryParseToolSummary(buffer)
-        // 阶段 2:工具委托执行(尾部 buffer 残留,与主循环对称)
-        await tryParseToolDelegate(buffer)
+        // 阶段 2:尾部 buffer 残留,与主循环对称
+        await dispatchTryParse(buffer)
         // P4-2: 优先检查 fallback 事件(尾部 buffer 残留);parseStreamLine 对 fallback 事件返回 null,无需跳过
         if (hasFallback) {
           const fbEvt = parseFallbackEvent(buffer)

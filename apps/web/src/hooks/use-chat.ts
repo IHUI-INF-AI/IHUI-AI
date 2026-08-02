@@ -1157,7 +1157,7 @@ export function useChat(): UseChatReturn {
             toast.error('创建会话失败', {
               description: errMsg,
               action: {
-                label: '重试',
+                label: t('retry'),
                 onClick: () => sendMessage(lastSentContentRef.current),
               },
             })
@@ -1297,6 +1297,17 @@ export function useChat(): UseChatReturn {
           },
           // P4-2: 后端 fallback 触发时设置通知状态,UI 展示"已切换到备用模型"横幅
           onFallback: (event) => setFallbackNotice(event),
+          // P1 重连提示(2026-08-02 立):streamChat 自动重连时 toast 通知用户,避免无感知等待
+          onReconnect: (attempt: number, delay: number) => {
+            const reconnectingMsg =
+              t('reconnecting') === 'reconnecting' ? 'Reconnecting...' : t('reconnecting')
+            const attemptMsg =
+              t('reconnectAttempt', { n: String(attempt), ms: String(delay) }) ===
+              'reconnectAttempt'
+                ? `Attempt ${attempt}, retrying in ${delay}ms`
+                : t('reconnectAttempt', { n: String(attempt), ms: String(delay) })
+            toast.info(reconnectingMsg, { description: attemptMsg })
+          },
           // 2026-07-27 修复:response 已到达即清除"完全冷启动"超时(timeout15s),
           // 避免"response 到达但首 token 未到达"时误 abort 导致 net::ERR_ABORTED。
           // 保留 timeout60s(防止 reasoning 模型长时间只产 reasoning 不产 content)。
@@ -1463,7 +1474,10 @@ export function useChat(): UseChatReturn {
               // P1 错误重试(2026-07-23):toast 加 retry 按钮,一键重发
               toast.error(formatted.title, {
                 description: toastDesc,
-                action: { label: '重试', onClick: () => sendMessage(lastSentContentRef.current) },
+                action: {
+                  label: t('retry'),
+                  onClick: () => sendMessage(lastSentContentRef.current),
+                },
               })
             }
           },
@@ -1477,14 +1491,11 @@ export function useChat(): UseChatReturn {
           // #13 区分两种超时:15s 完全冷启动 vs 60s reasoning 已收到但 content 未到
           // 用户主动 stop 触发的 abort(abortedByTimeout* 均为 false)静默不报错
           if (abortedByTimeout15s) {
-            const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
+            const formatted = formatSSEError(err, t('errorTimeout15s'))
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
           } else if (abortedByTimeout60s) {
-            const formatted = formatSSEError(
-              err,
-              'AI 思考超时(60 秒内未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型',
-            )
+            const formatted = formatSSEError(err, t('errorTimeout60s'))
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
           }
@@ -1504,12 +1515,12 @@ export function useChat(): UseChatReturn {
             // P1 错误重试(2026-07-23):网络错误 toast 加 retry 按钮
             toast.error(formatted.title, {
               description: `${prefix}${formatted.message}`,
-              action: { label: '重试', onClick: () => sendMessage(lastSentContentRef.current) },
+              action: { label: t('retry'), onClick: () => sendMessage(lastSentContentRef.current) },
             })
           } else {
             toast.error(formatted.title, {
               description: `${prefix}${formatted.rawMessage}`,
-              action: { label: '重试', onClick: () => sendMessage(lastSentContentRef.current) },
+              action: { label: t('retry'), onClick: () => sendMessage(lastSentContentRef.current) },
             })
           }
         }
@@ -1542,247 +1553,320 @@ export function useChat(): UseChatReturn {
 
   // 用户回答 AI 主动提问:调 /chat/answer 续流,不中断对话
   // 后端会把 answer 作为新 user 消息 append 到 messages 末尾,继续生成
-  const sendAnswer = React.useCallback(async (answer: string) => {
-    const trimmed = answer.trim()
-    if (!trimmed) return
-    const store = useChatStore.getState()
-    const pending = store.pendingQuestion
-    if (!pending || store.isStreaming) return
+  const sendAnswer = React.useCallback(
+    async (answer: string) => {
+      const trimmed = answer.trim()
+      if (!trimmed) return
+      const store = useChatStore.getState()
+      const pending = store.pendingQuestion
+      if (!pending || store.isStreaming) return
 
-    // #10 入口存储 lastSentAnswerRef(2026-07-25 立):catch 块 retry 按钮用
-    lastSentAnswerRef.current = { answer: trimmed, questionId: pending.questionId }
+      // #10 入口存储 lastSentAnswerRef(2026-07-25 立):catch 块 retry 按钮用
+      lastSentAnswerRef.current = { answer: trimmed, questionId: pending.questionId }
 
-    // 立即关闭弹窗,避免重复提交
-    store.clearPendingQuestion()
+      // 立即关闭弹窗,避免重复提交
+      store.clearPendingQuestion()
 
-    const model = store.currentModel
+      const model = store.currentModel
 
-    // 历史消息(不含 answer,后端 /chat/answer 自动 append answer 到末尾)
-    const history = store.messages
-      .filter((m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content)
-      .map((m) => ({ role: m.role, content: m.content }))
+      // 历史消息(不含 answer,后端 /chat/answer 自动 append answer 到末尾)
+      const history = store.messages
+        .filter((m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content)
+        .map((m) => ({ role: m.role, content: m.content }))
 
-    // UI 上把 answer 显示为 user 消息(让用户看到自己回答了什么)
-    store.addMessage({ role: 'user', content: trimmed, model })
-    // 记录续流时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
-    const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
-    const assistantId = store.addMessage({
-      role: 'assistant',
-      content: '',
-      model,
-      permissionMode: currentMode,
-    })
+      // UI 上把 answer 显示为 user 消息(让用户看到自己回答了什么)
+      store.addMessage({ role: 'user', content: trimmed, model })
+      // 记录续流时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
+      const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+      const assistantId = store.addMessage({
+        role: 'assistant',
+        content: '',
+        model,
+        permissionMode: currentMode,
+      })
 
-    store.setStreaming(true)
-    store.setError(null)
-    store.resetSubAgentActivities()
-    // P4-2: 清除上一轮 fallback 通知(与 sendMessage 对称)
-    setFallbackNotice(null)
+      store.setStreaming(true)
+      store.setError(null)
+      store.resetSubAgentActivities()
+      // P4-2: 清除上一轮 fallback 通知(与 sendMessage 对称)
+      setFallbackNotice(null)
 
-    const controller = new AbortController()
-    abortRef.current = controller
+      const controller = new AbortController()
+      abortRef.current = controller
 
-    // #13 首 token 超时区分 reasoning(2026-07-25 立,与 sendMessage 对称)
-    // 2026-07-27 修复:15s → 30s(与 sendMessage 同步,防冷启动误 abort)
-    let firstContentTokenReceived = false
-    let firstReasoningTokenReceived = false
-    let abortedByTimeout15s = false
-    let abortedByTimeout60s = false
-    const timeout15sId = setTimeout(() => {
-      if (!firstContentTokenReceived && !firstReasoningTokenReceived) {
-        abortedByTimeout15s = true
-        controller.abort()
-      }
-    }, 30000)
-    const timeout60sId = setTimeout(() => {
-      if (!firstContentTokenReceived && firstReasoningTokenReceived) {
-        abortedByTimeout60s = true
-        controller.abort()
-      }
-    }, 60000)
+      // #13 首 token 超时区分 reasoning(2026-07-25 立,与 sendMessage 对称)
+      // 2026-07-27 修复:15s → 30s(与 sendMessage 同步,防冷启动误 abort)
+      let firstContentTokenReceived = false
+      let firstReasoningTokenReceived = false
+      let abortedByTimeout15s = false
+      let abortedByTimeout60s = false
+      const timeout15sId = setTimeout(() => {
+        if (!firstContentTokenReceived && !firstReasoningTokenReceived) {
+          abortedByTimeout15s = true
+          controller.abort()
+        }
+      }, 30000)
+      const timeout60sId = setTimeout(() => {
+        if (!firstContentTokenReceived && firstReasoningTokenReceived) {
+          abortedByTimeout60s = true
+          controller.abort()
+        }
+      }, 60000)
 
-    // #9 流式 token 节流(2026-07-25 立,与 sendMessage 对称)
-    const contentBatcher = createDeltaBatcher((d) =>
-      useChatStore.getState().appendToMessage(assistantId, d),
-    )
-    const reasoningBatcher = createDeltaBatcher((d) =>
-      useChatStore.getState().appendReasoningToMessage(assistantId, d),
-    )
-    const agentBatcher = createAgentDeltaBatcher()
+      // #9 流式 token 节流(2026-07-25 立,与 sendMessage 对称)
+      const contentBatcher = createDeltaBatcher((d) =>
+        useChatStore.getState().appendToMessage(assistantId, d),
+      )
+      const reasoningBatcher = createDeltaBatcher((d) =>
+        useChatStore.getState().appendReasoningToMessage(assistantId, d),
+      )
+      const agentBatcher = createAgentDeltaBatcher()
 
-    const userId = useAuthStore.getState().user?.id ?? ''
-    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
-    // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(与 sendMessage 对称)
-    const workspaceContext = await loadBrowserWorkspaceContext()
+      const userId = useAuthStore.getState().user?.id ?? ''
+      const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+      // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(与 sendMessage 对称)
+      const workspaceContext = await loadBrowserWorkspaceContext()
 
-    // 2026-07-31 防御性降级:与 sendMessage 对称,'auto' → stepfun/step-router-v1
-    const effectiveModel = model === 'auto' ? 'stepfun/step-router-v1' : model
-    try {
-      await streamChat({
-        model: effectiveModel,
-        messages: history,
-        path: '/ai/chat/answer',
-        extraBody: {
-          questionId: pending.questionId,
-          answer: trimmed,
-          // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
-          // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
-          mode: useModeStore.getState().currentMode,
-        },
-        signal: controller.signal,
-        metadata: {
-          conversationId: store.conversationId ?? undefined,
-          userId,
-          messageId: assistantId,
-        },
-        workspacePath,
-        workspaceContext,
-        contextLimit: getModelContextCapacity(effectiveModel),
-        // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
-        onFallback: (event) => setFallbackNotice(event),
-        // 2026-07-27 修复:与 sendMessage 同步,response 到达即清除 timeout15s
-        onResponse: () => {
-          clearTimeout(timeout15sId)
-        },
-        onDelta: (delta) => {
-          if (!firstContentTokenReceived) {
-            firstContentTokenReceived = true
+      // 2026-07-31 防御性降级:与 sendMessage 对称,'auto' → stepfun/step-router-v1
+      const effectiveModel = model === 'auto' ? 'stepfun/step-router-v1' : model
+      try {
+        await streamChat({
+          model: effectiveModel,
+          messages: history,
+          path: '/ai/chat/answer',
+          extraBody: {
+            questionId: pending.questionId,
+            answer: trimmed,
+            // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
+            // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
+            mode: useModeStore.getState().currentMode,
+          },
+          signal: controller.signal,
+          metadata: {
+            conversationId: store.conversationId ?? undefined,
+            userId,
+            messageId: assistantId,
+          },
+          workspacePath,
+          workspaceContext,
+          contextLimit: getModelContextCapacity(effectiveModel),
+          // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
+          onFallback: (event) => setFallbackNotice(event),
+          // P1 重连提示(2026-08-02 立,与 sendMessage 对称):streamChat 自动重连时 toast 通知用户
+          onReconnect: (attempt: number, delay: number) => {
+            const reconnectingMsg =
+              t('reconnecting') === 'reconnecting' ? 'Reconnecting...' : t('reconnecting')
+            const attemptMsg =
+              t('reconnectAttempt', { n: String(attempt), ms: String(delay) }) ===
+              'reconnectAttempt'
+                ? `Attempt ${attempt}, retrying in ${delay}ms`
+                : t('reconnectAttempt', { n: String(attempt), ms: String(delay) })
+            toast.info(reconnectingMsg, { description: attemptMsg })
+          },
+          // 2026-07-27 修复:与 sendMessage 同步,response 到达即清除 timeout15s
+          onResponse: () => {
             clearTimeout(timeout15sId)
-            clearTimeout(timeout60sId)
-          }
-          contentBatcher.batch(delta)
-        },
-        onAgentDelta: (agentId, delta) => {
-          if (!firstContentTokenReceived) {
-            firstContentTokenReceived = true
-            clearTimeout(timeout15sId)
-            clearTimeout(timeout60sId)
-          }
-          agentBatcher.batch(agentId, delta)
-        },
-        onReasoning: (delta) => {
-          if (!firstReasoningTokenReceived) {
-            firstReasoningTokenReceived = true
-            // 2026-07-27 修复:与 sendMessage 同步,收到 reasoning 即清除 timeout15s
-            clearTimeout(timeout15sId)
-          }
-          reasoningBatcher.batch(delta)
-        },
-        onToolCall: createToolCallHandler(assistantId),
-        // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
-        // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
-        // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
-        onSubagentSpawn: (evt) => {
-          useChatStore.getState().addSubagentSpawn(evt)
-          useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
-        },
-        onSubagentProgress: (evt) => {
-          useChatStore.getState().updateSubagentProgress(evt)
-          const update = mapProgressToTimelineUpdate(evt)
-          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
-        },
-        onSubagentEnd: (evt) => {
-          useChatStore.getState().markSubagentEnd(evt)
-          const update = mapEndToTimelineUpdate(evt)
-          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
-        },
-        // 2026-07-31 立,与 sendMessage 对称:sendAnswer 续流同样发出 tool-summary 事件
-        onToolSummary: createToolSummaryHandler(assistantId),
-        // 2026-08-01 Phase 4a:与 sendMessage 对称,消息级 plan/terminal 事件落地
-        onPlanUpdate: (evt) => {
-          if (!evt.messageId) return
-          const steps: PlanStep[] = evt.plan.map((item, i) => ({
-            id: `plan-${i}-${item.step.slice(0, 16)}`,
-            step: item.step,
-            status: item.status,
-            explanation: evt.explanation,
-            startedAt: item.startedAt,
-            endedAt: item.endedAt,
-            durationMs: item.durationMs,
-            tokenUsage: item.tokenUsage,
-            messageId: evt.messageId,
-          }))
-          useChatStore.getState().setMessagePlanSteps(evt.messageId, steps)
-        },
-        onTerminalStart: (evt) => {
-          if (!evt.messageId) return
-          const task: TerminalTask = {
-            id: evt.terminalId,
-            command: evt.command,
-            status: 'running',
-            startedAt: evt.startedAt ?? new Date().toISOString(),
-            messageId: evt.messageId,
-          }
-          useChatStore.getState().appendMessageTerminalTask(evt.messageId, task)
-        },
-        onTerminalEnd: (evt) => {
-          if (!evt.messageId) return
-          useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
-            status: evt.status,
-            output: evt.output,
-            exitCode: evt.exitCode,
-            endedAt: evt.endedAt,
-            durationMs: evt.durationMs,
-          })
-        },
-        // 阶段 2:浏览器端工具执行代理(2026-08-02 立,与 sendMessage 对称)
-        // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
-        // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
-        onToolDelegate: async (event: ToolDelegateEvent) => {
-          const ws = useAiPanelStore.getState().activeWorkspace
-          if (!ws?.name) {
-            await postToolResult(event.session_id, event.tool_call_id, null, 'No active workspace')
-            return
-          }
-          const handle = getBrowserWorkspaceHandle(ws.name)
-          if (!handle) {
+          },
+          onDelta: (delta) => {
+            if (!firstContentTokenReceived) {
+              firstContentTokenReceived = true
+              clearTimeout(timeout15sId)
+              clearTimeout(timeout60sId)
+            }
+            contentBatcher.batch(delta)
+          },
+          onAgentDelta: (agentId, delta) => {
+            if (!firstContentTokenReceived) {
+              firstContentTokenReceived = true
+              clearTimeout(timeout15sId)
+              clearTimeout(timeout60sId)
+            }
+            agentBatcher.batch(agentId, delta)
+          },
+          onReasoning: (delta) => {
+            if (!firstReasoningTokenReceived) {
+              firstReasoningTokenReceived = true
+              // 2026-07-27 修复:与 sendMessage 同步,收到 reasoning 即清除 timeout15s
+              clearTimeout(timeout15sId)
+            }
+            reasoningBatcher.batch(delta)
+          },
+          onToolCall: createToolCallHandler(assistantId),
+          // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
+          // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
+          // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
+          onSubagentSpawn: (evt) => {
+            useChatStore.getState().addSubagentSpawn(evt)
+            useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+          },
+          onSubagentProgress: (evt) => {
+            useChatStore.getState().updateSubagentProgress(evt)
+            const update = mapProgressToTimelineUpdate(evt)
+            if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          },
+          onSubagentEnd: (evt) => {
+            useChatStore.getState().markSubagentEnd(evt)
+            const update = mapEndToTimelineUpdate(evt)
+            if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          },
+          // 2026-07-31 立,与 sendMessage 对称:sendAnswer 续流同样发出 tool-summary 事件
+          onToolSummary: createToolSummaryHandler(assistantId),
+          // 2026-08-01 Phase 4a:与 sendMessage 对称,消息级 plan/terminal 事件落地
+          onPlanUpdate: (evt) => {
+            if (!evt.messageId) return
+            const steps: PlanStep[] = evt.plan.map((item, i) => ({
+              id: `plan-${i}-${item.step.slice(0, 16)}`,
+              step: item.step,
+              status: item.status,
+              explanation: evt.explanation,
+              startedAt: item.startedAt,
+              endedAt: item.endedAt,
+              durationMs: item.durationMs,
+              tokenUsage: item.tokenUsage,
+              messageId: evt.messageId,
+            }))
+            useChatStore.getState().setMessagePlanSteps(evt.messageId, steps)
+          },
+          onTerminalStart: (evt) => {
+            if (!evt.messageId) return
+            const task: TerminalTask = {
+              id: evt.terminalId,
+              command: evt.command,
+              status: 'running',
+              startedAt: evt.startedAt ?? new Date().toISOString(),
+              messageId: evt.messageId,
+            }
+            useChatStore.getState().appendMessageTerminalTask(evt.messageId, task)
+          },
+          onTerminalEnd: (evt) => {
+            if (!evt.messageId) return
+            useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
+              status: evt.status,
+              output: evt.output,
+              exitCode: evt.exitCode,
+              endedAt: evt.endedAt,
+              durationMs: evt.durationMs,
+            })
+          },
+          // 阶段 2:浏览器端工具执行代理(2026-08-02 立,与 sendMessage 对称)
+          // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
+          // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
+          onToolDelegate: async (event: ToolDelegateEvent) => {
+            const ws = useAiPanelStore.getState().activeWorkspace
+            if (!ws?.name) {
+              await postToolResult(
+                event.session_id,
+                event.tool_call_id,
+                null,
+                'No active workspace',
+              )
+              return
+            }
+            const handle = getBrowserWorkspaceHandle(ws.name)
+            if (!handle) {
+              await postToolResult(
+                event.session_id,
+                event.tool_call_id,
+                null,
+                'No browser workspace handle',
+              )
+              return
+            }
+            const execResult = await executeWorkspaceTool(event.tool_name, event.args, handle)
             await postToolResult(
               event.session_id,
               event.tool_call_id,
-              null,
-              'No browser workspace handle',
+              execResult.result,
+              execResult.error,
             )
-            return
+          },
+          agentTools: mergeAgentTools(),
+          onError: (errMsg, info) => {
+            // #9 错误前先 flush 累积 token,避免最后一批内容丢失
+            contentBatcher.flush()
+            reasoningBatcher.flush()
+            agentBatcher.flushAll()
+            const formatted = formatSSEError(errMsg, info)
+            useChatStore.getState().setMessageError(assistantId, formatted.message)
+            useChatStore.getState().setError(formatted.message)
+            if (formatted.severity === 'auth') {
+              useLoginDialogStore.getState().open('login')
+            }
+            // 前端错误码透出(P1):sendAnswer 路径同 sendMessage,toast description 加 [errorCode] 前缀
+            const ec = info?.errorCode
+            const toastDesc =
+              formatted.severity === 'auth'
+                ? formatted.message
+                : ec
+                  ? `[${ec}] ${formatted.rawMessage}`
+                  : formatted.rawMessage
+            if (formatted.severity === 'ratelimit') {
+              // ratelimit/safety 错误保持 warning 无 retry(与 sendMessage 一致)
+              toast.warning(formatted.title, { description: toastDesc })
+            } else if (formatted.severity === 'safety') {
+              toast.warning(formatted.title, { description: formatted.message })
+            } else {
+              // #10 sendAnswer 错误加 retry 按钮(2026-07-25 立,与 sendMessage 路径对齐)
+              toast.error(formatted.title, {
+                description: toastDesc,
+                action: {
+                  label: t('retry'),
+                  onClick: () => {
+                    const last = lastSentAnswerRef.current
+                    if (last) sendAnswer(last.answer)
+                  },
+                },
+              })
+            }
+          },
+        })
+      } catch (err) {
+        // #9 catch 前先 flush 累积 token
+        contentBatcher.flush()
+        reasoningBatcher.flush()
+        agentBatcher.flushAll()
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          // #13 区分两种超时,用户主动 stop 静默不报错
+          if (abortedByTimeout15s) {
+            const formatted = formatSSEError(err, t('errorTimeout15s'))
+            useChatStore.getState().setMessageError(assistantId, formatted.message)
+            useChatStore.getState().setError(formatted.message)
+          } else if (abortedByTimeout60s) {
+            const formatted = formatSSEError(err, t('errorTimeout60s'))
+            useChatStore.getState().setMessageError(assistantId, formatted.message)
+            useChatStore.getState().setError(formatted.message)
           }
-          const execResult = await executeWorkspaceTool(event.tool_name, event.args, handle)
-          await postToolResult(
-            event.session_id,
-            event.tool_call_id,
-            execResult.result,
-            execResult.error,
-          )
-        },
-        agentTools: mergeAgentTools(),
-        onError: (errMsg, info) => {
-          // #9 错误前先 flush 累积 token,避免最后一批内容丢失
-          contentBatcher.flush()
-          reasoningBatcher.flush()
-          agentBatcher.flushAll()
-          const formatted = formatSSEError(errMsg, info)
+        } else {
+          const formatted = formatSSEError(err)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
-          // 前端错误码透出(P1):sendAnswer 路径同 sendMessage,toast description 加 [errorCode] 前缀
-          const ec = info?.errorCode
-          const toastDesc =
-            formatted.severity === 'auth'
-              ? formatted.message
-              : ec
-                ? `[${ec}] ${formatted.rawMessage}`
-                : formatted.rawMessage
-          if (formatted.severity === 'ratelimit') {
-            // ratelimit/safety 错误保持 warning 无 retry(与 sendMessage 一致)
-            toast.warning(formatted.title, { description: toastDesc })
-          } else if (formatted.severity === 'safety') {
-            toast.warning(formatted.title, { description: formatted.message })
-          } else {
-            // #10 sendAnswer 错误加 retry 按钮(2026-07-25 立,与 sendMessage 路径对齐)
+          // 前端错误码透出(P1):catch 路径(HTTP 4xx throw)的 errorCode 从 formatted 直接取
+          const ec = formatted.errorCode
+          const prefix = ec ? `[${ec}] ` : ''
+          if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
+            // ratelimit/safety 错误保持 warning 无 retry
+            toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
+          } else if (formatted.severity === 'network') {
+            // #10 网络错误 toast 加 retry 按钮(2026-07-25 立,与 sendMessage 对称)
             toast.error(formatted.title, {
-              description: toastDesc,
+              description: `${prefix}${formatted.message}`,
               action: {
-                label: '重试',
+                label: t('retry'),
+                onClick: () => {
+                  const last = lastSentAnswerRef.current
+                  if (last) sendAnswer(last.answer)
+                },
+              },
+            })
+          } else {
+            // #10 通用错误 toast 加 retry 按钮
+            toast.error(formatted.title, {
+              description: `${prefix}${formatted.rawMessage}`,
+              action: {
+                label: t('retry'),
                 onClick: () => {
                   const last = lastSentAnswerRef.current
                   if (last) sendAnswer(last.answer)
@@ -1790,82 +1874,25 @@ export function useChat(): UseChatReturn {
               },
             })
           }
-        },
-      })
-    } catch (err) {
-      // #9 catch 前先 flush 累积 token
-      contentBatcher.flush()
-      reasoningBatcher.flush()
-      agentBatcher.flushAll()
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        // #13 区分两种超时,用户主动 stop 静默不报错
-        if (abortedByTimeout15s) {
-          const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
-        } else if (abortedByTimeout60s) {
-          const formatted = formatSSEError(
-            err,
-            'AI 思考超时(60 秒内未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型',
-          )
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
         }
-      } else {
-        const formatted = formatSSEError(err)
-        useChatStore.getState().setMessageError(assistantId, formatted.message)
-        useChatStore.getState().setError(formatted.message)
-        if (formatted.severity === 'auth') {
-          useLoginDialogStore.getState().open('login')
-        }
-        // 前端错误码透出(P1):catch 路径(HTTP 4xx throw)的 errorCode 从 formatted 直接取
-        const ec = formatted.errorCode
-        const prefix = ec ? `[${ec}] ` : ''
-        if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
-          // ratelimit/safety 错误保持 warning 无 retry
-          toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
-        } else if (formatted.severity === 'network') {
-          // #10 网络错误 toast 加 retry 按钮(2026-07-25 立,与 sendMessage 对称)
-          toast.error(formatted.title, {
-            description: `${prefix}${formatted.message}`,
-            action: {
-              label: '重试',
-              onClick: () => {
-                const last = lastSentAnswerRef.current
-                if (last) sendAnswer(last.answer)
-              },
-            },
-          })
-        } else {
-          // #10 通用错误 toast 加 retry 按钮
-          toast.error(formatted.title, {
-            description: `${prefix}${formatted.rawMessage}`,
-            action: {
-              label: '重试',
-              onClick: () => {
-                const last = lastSentAnswerRef.current
-                if (last) sendAnswer(last.answer)
-              },
-            },
-          })
-        }
+      } finally {
+        clearTimeout(timeout15sId)
+        clearTimeout(timeout60sId)
+        // 2026-07-27 修复"AI 响应不显示"(与 sendMessage 对称):先 flush 再 cancel
+        contentBatcher.flush()
+        reasoningBatcher.flush()
+        agentBatcher.flushAll()
+        contentBatcher.cancel()
+        reasoningBatcher.cancel()
+        agentBatcher.cancelAll()
+        abortRef.current = null
+        useChatStore.getState().setStreaming(false)
+        useChatStore.getState().markAllAgentStreamsDone()
       }
-    } finally {
-      clearTimeout(timeout15sId)
-      clearTimeout(timeout60sId)
-      // 2026-07-27 修复"AI 响应不显示"(与 sendMessage 对称):先 flush 再 cancel
-      contentBatcher.flush()
-      reasoningBatcher.flush()
-      agentBatcher.flushAll()
-      contentBatcher.cancel()
-      reasoningBatcher.cancel()
-      agentBatcher.cancelAll()
-      abortRef.current = null
-      useChatStore.getState().setStreaming(false)
-      useChatStore.getState().markAllAgentStreamsDone()
-    }
-    return
-  }, [])
+      return
+    },
+    [t],
+  )
 
   // 跳过当前挂起的提问:不续流 LLM,允许用户继续发新消息
   const skipQuestion = React.useCallback(() => {
