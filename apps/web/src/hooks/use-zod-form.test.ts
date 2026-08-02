@@ -22,7 +22,7 @@ interface FormData {
 
 const schema = z.object({
   name: z.string().min(1, 'required').max(20, 'maxLength'),
-  email: z.string().email('email'),
+  email: z.string().email({ message: 'email' }),
   age: z.number().int().min(0, 'min'),
 })
 

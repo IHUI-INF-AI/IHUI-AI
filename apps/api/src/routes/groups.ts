@@ -10,11 +10,11 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const memberParamSchema = z.object({
-  id: z.string().uuid('无效的组 ID'),
-  userId: z.string().uuid('无效的用户 ID'),
+  id: z.string().uuid({ message: '无效的组 ID' }),
+  userId: z.string().uuid({ message: '无效的用户 ID' }),
 })
 
 const listQuerySchema = z.object({
@@ -35,7 +35,7 @@ const updateGroupSchema = z.object({
 })
 
 const addMemberSchema = z.object({
-  userId: z.string().uuid('无效的用户 ID'),
+  userId: z.string().uuid({ message: '无效的用户 ID' }),
   role: z.string().max(32).optional(),
 })
 

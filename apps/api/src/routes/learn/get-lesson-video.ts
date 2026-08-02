@@ -23,7 +23,7 @@ import { success, error, parseOrThrow } from '../../utils/response.js'
  * - 小节(section):需所属课程 isSignedUp,直接返回该小节视频
  */
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 export const learnVideoRoutes: FastifyPluginAsync = async (server) => {
   server.get<{ Params: { id: string } }>(

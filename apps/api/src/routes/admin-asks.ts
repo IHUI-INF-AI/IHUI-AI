@@ -6,7 +6,7 @@ import { asks, users } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
-const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),

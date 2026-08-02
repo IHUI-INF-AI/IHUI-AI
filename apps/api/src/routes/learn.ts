@@ -112,15 +112,15 @@ import { eq, and, sql as dsql } from 'drizzle-orm'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const limitQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 })
 
 const chapterParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
-  chapterId: z.string().uuid('无效的章节 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
+  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
 })
 
 const lessonsQuerySchema = z.object({
@@ -129,7 +129,7 @@ const lessonsQuerySchema = z.object({
   categoryId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid('无效的分类 ID'),
+      z.string().uuid({ message: '无效的分类 ID' }),
     )
     .optional(),
   search: z.string().max(200).optional(),
@@ -145,8 +145,8 @@ const updateProgressSchema = z.object({
 })
 
 const heartbeatSchema = z.object({
-  sectionId: z.string().uuid('无效的小节 ID').nullable().optional(),
-  chapterId: z.string().uuid('无效的章节 ID').nullable().optional(),
+  sectionId: z.string().uuid({ message: '无效的小节 ID' }).nullable().optional(),
+  chapterId: z.string().uuid({ message: '无效的章节 ID' }).nullable().optional(),
   position: z.number().int().min(0),
   duration: z.number().int().min(0),
 })
@@ -244,9 +244,9 @@ const updateChapterSchema = z.object({
 })
 
 const sectionParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
-  chapterId: z.string().uuid('无效的章节 ID'),
-  sectionId: z.string().uuid('无效的小节 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
+  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
+  sectionId: z.string().uuid({ message: '无效的小节 ID' }),
 })
 
 const createSectionSchema = z.object({
@@ -295,8 +295,8 @@ const reportQuerySchema = z.object({
 // 扩展模块 Zod schemas
 
 const homeworkParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
-  hwId: z.string().uuid('无效的作业 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
+  hwId: z.string().uuid({ message: '无效的作业 ID' }),
 })
 
 const createHomeworkSchema = z.object({
@@ -331,7 +331,7 @@ const homeworkListQuerySchema = z.object({
   status: z.string().max(20).optional(),
 })
 
-const homeworkIdParamSchema = z.object({ hid: z.string().uuid('无效的作业记录 ID') })
+const homeworkIdParamSchema = z.object({ hid: z.string().uuid({ message: '无效的作业记录 ID' }) })
 
 const examPaperSchema = z.object({
   examPaperId: z.string().uuid().nullable(),
@@ -348,7 +348,7 @@ const invoiceListQuerySchema = z.object({
   search: z.string().max(200).optional(),
 })
 
-const invoiceTitleParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const invoiceTitleParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const createInvoiceTitleSchema = z.object({
   title: z.string().min(1).max(200),
@@ -390,11 +390,11 @@ const lessonSortOrderSchema = z.object({
     .max(500),
 })
 
-const lessonIdParamSchema = z.object({ lessonId: z.string().uuid('无效的课程 ID') })
+const lessonIdParamSchema = z.object({ lessonId: z.string().uuid({ message: '无效的课程 ID' }) })
 
 const lessonTaskIdParamSchema = z.object({
-  lessonId: z.string().uuid('无效的课程 ID'),
-  taskId: z.string().uuid('无效的任务 ID'),
+  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
+  taskId: z.string().uuid({ message: '无效的任务 ID' }),
 })
 
 const createTaskSchema = z.object({

@@ -47,7 +47,7 @@ const slugParamSchema = z.object({
 })
 
 const idParamSchema = z.object({
-  id: z.string().uuid('无效的 ID'),
+  id: z.string().uuid({ message: '无效的 ID' }),
 })
 
 const listParticipantsQuerySchema = z.object({
