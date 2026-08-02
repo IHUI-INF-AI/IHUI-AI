@@ -94,6 +94,7 @@ import {
   Database,
   Activity,
   Zap,
+  ExternalLink,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -641,6 +642,18 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
                 <span>{lang.name}</span>
               </button>
             ))}
+            {/* 2026-08-02 海外 SEO 入口:独立 /en 路由(英文 landing page),区别于 locale 切换 */}
+            <div className="my-1 h-px bg-border" aria-hidden="true" />
+            <Link
+              href="/en"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <span className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground">
+                EN
+              </span>
+              <span>English Site</span>
+              <ExternalLink className="ml-auto h-3 w-3 opacity-60" />
+            </Link>
           </div>
         }
       >
