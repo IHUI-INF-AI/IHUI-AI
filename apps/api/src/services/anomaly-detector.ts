@@ -211,9 +211,13 @@ export class AnomalyDetector {
       const arr = AnomalyDetector.memFreq.get(key) ?? []
       const cutoff = now - windowMs
       const kept = arr.filter((t) => t > cutoff)
+      // 与 Redis 分支对齐:zcard 在 zadd 之前执行,返回不含本次的窗口内计数;
+      // 过滤后必须把本次时间戳追加进窗口,否则内存降级模式频率维度永远为 0
+      const count = kept.length
+      kept.push(now)
       AnomalyDetector.memFreq.set(key, kept)
       evictOldest(AnomalyDetector.memFreq, MAX_MEM_ENTRIES)
-      return kept.length
+      return count
     }
     try {
       const pipe = this.redis.multi()
