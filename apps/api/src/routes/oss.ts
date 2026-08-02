@@ -32,7 +32,7 @@ import { getOssStsProvider } from '../services/oss-sts-service.js'
 
 const ossDriverTypeSchema = z.enum(['local', 'aliyun-oss', 'tencent-cos', 'qiniu', 's3', 'minio'])
 
-const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const listDriversQuerySchema = z.object({
   driver: z.preprocess(emptyToUndefined, ossDriverTypeSchema.optional()),

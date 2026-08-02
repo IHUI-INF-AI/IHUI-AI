@@ -169,14 +169,16 @@ const schedulerPlugin: FastifyPluginAsync = async (server) => {
   // 多次启动 / 多实例注册同一 pattern 不会重复触发。
   for (const job of SCHEDULED_JOBS) {
     // every（毫秒）与 pattern（cron）二选一；秒级任务用 every
-    const repeat = job.every ? { every: job.every } : { pattern: job.pattern ?? '' }
-    await schedulerQueue.add(
+    await schedulerQueue.upsertJobScheduler(
       job.name,
-      { description: job.description },
+      job.every ? { every: job.every } : { pattern: job.pattern ?? '' },
       {
-        repeat,
-        removeOnComplete: { count: 200 },
-        removeOnFail: { count: 500 },
+        name: job.name,
+        data: { description: job.description },
+        opts: {
+          removeOnComplete: { count: 200 },
+          removeOnFail: { count: 500 },
+        },
       },
     )
   }

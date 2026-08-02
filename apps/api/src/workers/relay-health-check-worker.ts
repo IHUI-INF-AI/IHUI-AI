@@ -27,14 +27,16 @@ export function startRelayHealthCheckWorker(server: FastifyInstance): Worker {
   const queue = new Queue(RELAY_HEALTH_CHECK_QUEUE_NAME, { connection })
   server.addHook('onReady', async () => {
     try {
-      await queue.add(
-        'check-all',
-        {},
+      await queue.upsertJobScheduler(
+        'relay-health-check-cron',
+        { pattern: CRON_PATTERN },
         {
-          repeat: { pattern: CRON_PATTERN },
-          jobId: 'relay-health-check-cron',
-          removeOnComplete: 100,
-          removeOnFail: 500,
+          name: 'check-all',
+          data: {},
+          opts: {
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
         },
       )
       server.log.info({ pattern: CRON_PATTERN }, 'relay-health-check scheduled')

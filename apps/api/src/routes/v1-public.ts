@@ -42,7 +42,7 @@ import {
   requireApiKeyPermission,
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
-import { error } from '../utils/response.js'
+import { error, success } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
 import {
   checkQuota,
@@ -1651,11 +1651,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           createdAt: r.createdAt.toISOString(),
           updatedAt: r.updatedAt.toISOString(),
         }))
-        return reply.send({
-          code: 0,
-          message: 'success',
-          data: { list, total, page, pageSize },
-        })
+        return reply.send(success({ list, total, page, pageSize }))
       } catch (e) {
         return reply
           .status(500)

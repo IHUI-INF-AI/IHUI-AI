@@ -15,7 +15,7 @@ import {
 // 历史 DB 数据若含旧值(porn/abuse),需运行迁移:UPDATE sensitive_words SET category='explicit' WHERE category='porn'; SET category='harassment' WHERE category='abuse';
 const CATEGORIES = ['default', 'politics', 'explicit', 'ads', 'harassment'] as const
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   page: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).default(1)),
