@@ -64,7 +64,7 @@ export const NAV_CHILD_CLASS =
  *  - [&>span]:translate-y-[var(--text-vcenter-offset)] 对齐(默认 0.3px)
  */
 export const BTN_NEW_CONVERSATION_CLASS =
-  'flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
+  'flex h-9 min-w-0 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium leading-none whitespace-nowrap transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]'
 
 /** 通用 chip / 可关闭标签
  *  - h-7 = 28px(比主导航项略矮)
