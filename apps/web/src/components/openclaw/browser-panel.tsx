@@ -180,8 +180,8 @@ export function BrowserPanel() {
               ))}
             </ul>
           )}
-          <p className="flex items-start gap-2 rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p className="flex items-center gap-2 rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <MessageSquare className="h-3.5 w-3.5 shrink-0" />
             <span>{t('browserPanelEmptyHint')}</span>
           </p>
         </CardContent>

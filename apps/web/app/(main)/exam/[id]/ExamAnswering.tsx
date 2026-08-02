@@ -36,7 +36,7 @@ export function ExamAnswering({
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
-      <div className="sticky top-0 z-10 flex items-center justify-between rounded-md border bg-background/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-0 z-20 flex items-center justify-between rounded-md border bg-background/95 px-4 py-2 backdrop-blur">
         <span className="text-sm font-medium">{paper.title}</span>
         <span
           className={cn(
@@ -56,7 +56,9 @@ export function ExamAnswering({
               <span className="min-w-0 break-words">
                 <span className="text-muted-foreground">{i + 1}.</span> {q.title}
               </span>
-              <span className="ml-2 shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">({q.score})</span>
+              <span className="ml-2 shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
+                ({q.score})
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 p-4 pt-0 text-sm">

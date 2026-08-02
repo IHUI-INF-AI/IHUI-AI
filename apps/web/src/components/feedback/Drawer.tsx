@@ -91,7 +91,7 @@ export function Drawer({
       <button
         type="button"
         aria-label={t('close')}
-        className="absolute inset-0 h-full w-full cursor-default bg-black/80 animate-in fade-in-0"
+        className="absolute inset-0 cursor-default bg-black/80 animate-in fade-in-0"
         onClick={onClose}
       />
       <div

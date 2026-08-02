@@ -109,7 +109,7 @@ export default function EduExamRankingPage() {
               <TableHead className="px-4 py-2.5">{t('colSubmittedAt')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {!paperId ? (
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">

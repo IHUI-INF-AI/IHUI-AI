@@ -1,7 +1,15 @@
 'use client'
 
 import { Loader2, Users, Pencil, Trash2, UserPlus } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { formatTime } from './helpers'
@@ -32,7 +40,7 @@ export function MemberGroupsTable({ list, isLoading, onEdit, onDelete, onMembers
             <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
@@ -76,11 +84,7 @@ export function MemberGroupsTable({ list, isLoading, onEdit, onDelete, onMembers
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Tooltip content="成员管理">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onMembers(item)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => onMembers(item)}>
                         <UserPlus className="h-4 w-4" />
                       </Button>
                     </Tooltip>

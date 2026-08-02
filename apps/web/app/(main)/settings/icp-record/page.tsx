@@ -31,48 +31,48 @@ export default function IcpRecordPage() {
 
   return (
     <div className="space-y-4">
-        <BackButton />
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Globe className="h-4 w-4" />
-              {t('icpRecordCardTitle')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="divide-y">
-              {records.map((item) => (
-                <div
-                  key={item.labelKey}
-                  className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
-                >
-                  <dt className="shrink-0 text-sm text-muted-foreground">{t(item.labelKey)}</dt>
-                  <dd className="text-right text-sm font-medium">
-                    {item.link ? (
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline-offset-4 transition-colors hover:underline"
-                      >
-                        {item.value}
-                      </a>
-                    ) : (
-                      item.value
-                    )}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
+      <BackButton />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Globe className="h-4 w-4" />
+            {t('icpRecordCardTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="space-y-2">
+            {records.map((item) => (
+              <div
+                key={item.labelKey}
+                className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
+              >
+                <dt className="shrink-0 text-sm text-muted-foreground">{t(item.labelKey)}</dt>
+                <dd className="text-right text-sm font-medium">
+                  {item.link ? (
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline-offset-4 transition-colors hover:underline"
+                    >
+                      {item.value}
+                    </a>
+                  ) : (
+                    item.value
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardContent className="flex items-start gap-3 p-4">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <p className="text-xs leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardContent className="flex items-start gap-3 p-4">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

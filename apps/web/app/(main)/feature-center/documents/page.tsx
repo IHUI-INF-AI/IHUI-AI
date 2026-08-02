@@ -686,7 +686,7 @@ export default function DocumentsPage() {
                 </div>
                 {/* 移动端 TOC 抽屉:fixed 覆盖在内容区上方 */}
                 {showTocDrawer && tocItems.length > 0 && (
-                  <div className="fixed inset-y-0 right-0 z-10 w-64 overflow-y-auto bg-card p-3 shadow-lg min-[768px]:hidden">
+                  <div className="fixed inset-y-0 right-0 z-modal w-64 overflow-y-auto bg-card p-3 shadow-lg min-[768px]:hidden">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         目录

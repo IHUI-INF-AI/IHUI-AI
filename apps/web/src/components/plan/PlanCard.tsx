@@ -34,7 +34,7 @@ export function PlanCard({ plan }: PlanCardProps) {
 
   return (
     <Card className="flex h-full flex-col transition-colors hover:bg-accent/40 hover:shadow-md">
-      <CardHeader className="space-y-2 p-4">
+      <CardHeader className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="line-clamp-1 text-base">{plan.title}</CardTitle>
           <span
@@ -50,7 +50,7 @@ export function PlanCard({ plan }: PlanCardProps) {
           {plan.goal || '暂无目标描述'}
         </p>
       </CardHeader>
-      <CardContent className="flex-1 min-w-0 space-y-3 p-4 pt-0">
+      <CardContent className="flex-1 min-w-0 space-y-3 pt-0">
         <ProgressStats stats={stats} />
         {plan.tags && plan.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -65,7 +65,7 @@ export function PlanCard({ plan }: PlanCardProps) {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex items-center justify-between p-4 pt-0">
+      <CardFooter className="flex items-center justify-between pt-0">
         <span className="text-xs text-muted-foreground">{formatDate(plan.createdAt)}</span>
         <Button asChild size="sm" variant="ghost">
           <Link href={`/plan/${plan.id}`}>

@@ -141,7 +141,7 @@ export function InvoicesTab({
               <th className="px-4 py-2.5 text-right font-medium">{t('actions')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -220,7 +220,8 @@ export function InvoicesTab({
               <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
                 <div className="font-medium">{currencyFmt.format(Number(target.amount))}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  {t(INVOICE_TYPE_KEY[target.invoiceType] ?? 'invoiceType_unknown')} · {t(INVOICE_STATUS_KEY[target.status] ?? 'invoiceStatus_unknown')}
+                  {t(INVOICE_TYPE_KEY[target.invoiceType] ?? 'invoiceType_unknown')} ·{' '}
+                  {t(INVOICE_STATUS_KEY[target.status] ?? 'invoiceStatus_unknown')}
                 </div>
               </div>
             )}

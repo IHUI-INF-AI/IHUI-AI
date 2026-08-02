@@ -382,7 +382,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
           <span className="relative mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <span className="min-w-0 truncate">{item.model}</span>
             {item.lastMessageAt && (
-              <span className="shrink-0 whitespace-nowrap tabular-nums">{dateFmt.format(new Date(item.lastMessageAt))}</span>
+              <span className="shrink-0 whitespace-nowrap tabular-nums">
+                {dateFmt.format(new Date(item.lastMessageAt))}
+              </span>
             )}
           </span>
         </button>
@@ -529,7 +531,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
         ) : (
           <div className="flex flex-col">
             <div
-              className="thin-scroll max-h-[220px] overflow-y-auto pr-0.5"
+              className="thin-scroll max-h-[220px] overflow-y-auto pr-0.5 pb-2"
               onScroll={(e) => {
                 const el = e.currentTarget
                 if (

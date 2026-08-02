@@ -69,7 +69,7 @@ export function CourseTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
@@ -103,10 +103,16 @@ export function CourseTable({
                 <TableCell className="px-4 py-2.5 font-medium">{r.title}</TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.subtitle ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <TruncatedText value={r.content ?? '-'} className="max-w-[120px] text-xs text-muted-foreground" />
+                  <TruncatedText
+                    value={r.content ?? '-'}
+                    className="max-w-[120px] text-xs text-muted-foreground"
+                  />
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <TruncatedText value={r.remark ?? '-'} className="max-w-[120px] text-xs text-muted-foreground" />
+                  <TruncatedText
+                    value={r.remark ?? '-'}
+                    className="max-w-[120px] text-xs text-muted-foreground"
+                  />
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.remarkFile ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
@@ -123,7 +129,9 @@ export function CourseTable({
                   )}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className={badgeCls(r.stage === 2)}>{t(STAGE_KEY[r.stage ?? 0] ?? 'stage.unknown')}</span>
+                  <span className={badgeCls(r.stage === 2)}>
+                    {t(STAGE_KEY[r.stage ?? 0] ?? 'stage.unknown')}
+                  </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs">{r.label ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5">
@@ -138,11 +146,7 @@ export function CourseTable({
                   <div className="flex items-center justify-end gap-1">
                     <HasPermi code={`${PERM}edit`}>
                       <Tooltip content={t('editTitle')}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(r)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Tooltip>

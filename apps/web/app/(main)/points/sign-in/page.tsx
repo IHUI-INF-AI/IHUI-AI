@@ -139,7 +139,11 @@ export default function SignInPage() {
                     : 'bg-muted text-muted-foreground',
                 )}
               >
-                {signedIn ? <Check className="h-6 w-6 shrink-0" /> : <Calendar className="h-6 w-6 shrink-0" />}
+                {signedIn ? (
+                  <Check className="h-6 w-6 shrink-0" />
+                ) : (
+                  <Calendar className="h-6 w-6 shrink-0" />
+                )}
               </div>
               <div className="min-w-0 space-y-1">
                 <p className="truncate text-base font-semibold">
@@ -155,9 +159,15 @@ export default function SignInPage() {
               <div className="flex items-center gap-1 whitespace-nowrap text-sm text-muted-foreground">
                 <Gift className="h-4 w-4 shrink-0 text-primary" />
                 {t('todayReward')}:{' '}
-                <span className="font-semibold tabular-nums text-foreground">+{today?.todayReward ?? 0}</span>
+                <span className="font-semibold tabular-nums text-foreground">
+                  +{today?.todayReward ?? 0}
+                </span>
               </div>
-              <Button className="whitespace-nowrap" onClick={() => signMut.mutate()} disabled={signedIn || signMut.isPending}>
+              <Button
+                className="whitespace-nowrap"
+                onClick={() => signMut.mutate()}
+                disabled={signedIn || signMut.isPending}
+              >
                 {signMut.isPending ? (
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
                 ) : signedIn ? (
@@ -211,9 +221,17 @@ export default function SignInPage() {
                       : 'bg-muted text-muted-foreground',
                   )}
                 >
-                  {isSigned ? <Check className="h-4 w-4 shrink-0" /> : item ? fmtShort(item.date) : '-'}
+                  {isSigned ? (
+                    <Check className="h-4 w-4 shrink-0" />
+                  ) : item ? (
+                    fmtShort(item.date)
+                  ) : (
+                    '-'
+                  )}
                 </span>
-                <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">+{item?.reward ?? 0}</span>
+                <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                  +{item?.reward ?? 0}
+                </span>
               </div>
             )
           })}
@@ -237,30 +255,32 @@ export default function SignInPage() {
         ) : historyQ.data && historyQ.data.length > 0 ? (
           <div className="overflow-hidden rounded-lg border">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium">{t('dateLabel')}</th>
-                  <th className="px-4 py-2 text-right font-medium">{t('rewardLabel')}</th>
-                  <th className="hidden px-4 py-2 text-right font-medium min-[640px]:table-cell">
-                    {t('consecutiveLabel')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {historyQ.data.map((h) => (
-                  <tr key={h.signInDate} className="transition-colors hover:bg-accent/50">
-                    <td className="whitespace-nowrap px-4 py-2 tabular-nums text-muted-foreground">{fmtFull(h.signInDate)}</td>
-                    <td className="px-4 py-2 text-right font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
-                      +{h.rewardPoints}
-                    </td>
-                    <td className="hidden px-4 py-2 text-right tabular-nums text-muted-foreground min-[640px]:table-cell">
-                      {h.consecutiveDays}
-                    </td>
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium">{t('dateLabel')}</th>
+                    <th className="px-4 py-2 text-right font-medium">{t('rewardLabel')}</th>
+                    <th className="hidden px-4 py-2 text-right font-medium min-[640px]:table-cell">
+                      {t('consecutiveLabel')}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {historyQ.data.map((h) => (
+                    <tr key={h.signInDate} className="transition-colors hover:bg-accent/50">
+                      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-muted-foreground">
+                        {fmtFull(h.signInDate)}
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
+                        +{h.rewardPoints}
+                      </td>
+                      <td className="hidden px-4 py-2 text-right tabular-nums text-muted-foreground min-[640px]:table-cell">
+                        {h.consecutiveDays}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : (

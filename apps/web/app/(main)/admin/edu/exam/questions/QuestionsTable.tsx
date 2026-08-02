@@ -2,7 +2,15 @@
 import { Edit, Trash2, Loader2, ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { TYPE_BADGE, TYPE_KEY } from './helpers'
 import { Tooltip } from '@/components/feedback'
 import type { Question } from './types'
@@ -41,7 +49,7 @@ export function QuestionsTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {!hasPaperId ? (
             <TableRow>
               <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">

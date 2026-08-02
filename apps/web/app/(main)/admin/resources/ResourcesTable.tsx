@@ -4,7 +4,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, FileText, Upload, EyeOff } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { type Resource, api } from './types'
 
@@ -66,7 +74,7 @@ export function ResourcesTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="px-4 py-10 text-center text-muted-foreground">

@@ -162,7 +162,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
               )}
               <div ref={chatEndRef} />
             </div>
-            <div className="flex gap-2 border-t p-2">
+            <div className="flex gap-2 mt-2 p-2">
               <Input
                 value={chatInput}
                 onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>

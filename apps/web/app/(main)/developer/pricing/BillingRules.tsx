@@ -22,51 +22,41 @@ export function BillingRules(): React.JSX.Element {
 
         {/* 公式卡片 */}
         <div className="rounded-md border bg-muted/30 p-3">
-          <p className="text-xs font-medium text-muted-foreground">
-            {t('formula')}
-          </p>
-          <p className="mt-1.5 font-mono text-sm font-semibold">
-            {t('formulaBody')}
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">{t('formula')}</p>
+          <p className="mt-1.5 font-mono text-sm font-semibold">{t('formulaBody')}</p>
         </div>
 
         {/* 公式参数说明 */}
         <div className="overflow-hidden rounded-md border">
           <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/40">
-              <tr className="text-left">
-                <th className="px-3 py-1.5 font-medium">{t('paramCol')}</th>
-                <th className="px-3 py-1.5 font-medium">{t('paramDesc')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-t">
-                <td className="px-3 py-1.5 font-mono">{t('paramInputPrice')}</td>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {t('paramInputPriceDesc')}
-                </td>
-              </tr>
-              <tr className="border-t">
-                <td className="px-3 py-1.5 font-mono">{t('paramOutputPrice')}</td>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {t('paramOutputPriceDesc')}
-                </td>
-              </tr>
-              <tr className="border-t">
-                <td className="px-3 py-1.5 font-mono">{t('paramInputTokens')}</td>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {t('paramInputTokensDesc')}
-                </td>
-              </tr>
-              <tr className="border-t">
-                <td className="px-3 py-1.5 font-mono">{t('paramOutputTokens')}</td>
-                <td className="px-3 py-1.5 text-muted-foreground">
-                  {t('paramOutputTokensDesc')}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40">
+                <tr className="text-left">
+                  <th className="px-3 py-1.5 font-medium">{t('paramCol')}</th>
+                  <th className="px-3 py-1.5 font-medium">{t('paramDesc')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-3 py-1.5 font-mono">{t('paramInputPrice')}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">{t('paramInputPriceDesc')}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 font-mono">{t('paramOutputPrice')}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">{t('paramOutputPriceDesc')}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 font-mono">{t('paramInputTokens')}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">{t('paramInputTokensDesc')}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 font-mono">{t('paramOutputTokens')}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">
+                    {t('paramOutputTokensDesc')}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -76,9 +66,7 @@ export function BillingRules(): React.JSX.Element {
             <FileText className="h-3.5 w-3.5" />
             {t('exampleTitle')}
           </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {t('exampleIntro')}
-          </p>
+          <p className="mt-1.5 text-xs text-muted-foreground">{t('exampleIntro')}</p>
           <p className="mt-2 font-mono text-xs leading-relaxed">
             {t('exampleStep1')}
             <br />

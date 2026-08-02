@@ -54,7 +54,7 @@ export default function GroupComparisonTable({
     <div className={cn('overflow-x-auto rounded-xl border bg-card', className)}>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b bg-muted/30">
+          <tr className="bg-muted/30">
             <th className="px-4 py-3 text-left font-medium text-muted-foreground">功能</th>
             {columns.map((c) => (
               <th
@@ -71,7 +71,7 @@ export default function GroupComparisonTable({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {rows.map((r) => (
             <tr key={r.feature} className="hover:bg-muted/30">
               <td className="px-4 py-3 text-left">{r.feature}</td>

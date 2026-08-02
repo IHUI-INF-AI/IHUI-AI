@@ -127,7 +127,7 @@ export function NewsComments({ articleId, className }: NewsCommentsProps) {
           <span className="text-sm font-normal text-muted-foreground">({comments.length})</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 p-4">
+      <CardContent className="space-y-4 p-4 pt-0 min-[640px]:p-6 min-[640px]:pt-0">
         <div className="flex gap-3">
           <Textarea
             value={content}

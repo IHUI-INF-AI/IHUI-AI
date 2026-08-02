@@ -251,7 +251,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
               {/* 平台信息条 */}
               {tpl && (
                 <div className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-                  <div className="flex items-center gap-1 [&>span]:translate-y-[0.5px]">
+                  <div className="flex items-center gap-1 [&>span]:translate-y-[var(--text-vcenter-offset)]">
                     <Sparkles className="h-3 w-3 text-primary" />
                     <span className="font-medium text-foreground">{tpl.name}</span>
                     <span className="text-muted-foreground/60">·</span>

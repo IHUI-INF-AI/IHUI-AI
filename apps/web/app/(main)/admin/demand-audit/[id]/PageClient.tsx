@@ -166,7 +166,7 @@ export default function DemandAuditDetailPage() {
               <Timeline items={timelineItems} />
 
               {canAct ? (
-                <div className="space-y-2 border-t pt-4">
+                <div className="space-y-2 mt-4 pt-4">
                   <Label className="text-xs">{t('opinionLabel')}</Label>
                   <textarea
                     className={textareaClass}
@@ -198,7 +198,7 @@ export default function DemandAuditDetailPage() {
                   </div>
                 </div>
               ) : existOpinion ? (
-                <div className="flex flex-col gap-1 border-t pt-3">
+                <div className="flex flex-col gap-1 mt-3 pt-3">
                   <span className="text-xs text-muted-foreground">{t('opinionLabel')}</span>
                   <span className="whitespace-pre-wrap text-sm">{existOpinion}</span>
                 </div>

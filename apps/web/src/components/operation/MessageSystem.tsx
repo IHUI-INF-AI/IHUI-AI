@@ -146,7 +146,7 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
           {total > 0 ? t('unreadCount', { count: total }) : t('viewAll')}
         </Link>
       </CardHeader>
-      <CardContent className="p-2 pt-0">
+      <CardContent className="p-4 pt-0">
         <div className="grid grid-cols-2 gap-1.5">
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon

@@ -56,16 +56,13 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
   return (
     <>
       <div className="rounded-lg border">
-        <div className="flex items-center gap-2 border-b px-4 py-2.5 text-xs font-medium uppercase text-muted-foreground">
+        <div className="flex items-center gap-2 px-4 py-2.5 text-xs font-medium uppercase text-muted-foreground">
           <Hash className="h-3.5 w-3.5" />
           {t('cloudTitle')}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-5">
           {tags.map((tag, i) => (
-            <Tooltip
-              key={tag.id}
-              content={t('usageCount', { count: tag.usageCount })}
-            >
+            <Tooltip key={tag.id} content={t('usageCount', { count: tag.usageCount })}>
               <span
                 className={cn(
                   'inline-flex items-center gap-1 font-medium transition-colors hover:opacity-80',
@@ -93,7 +90,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
               <th className={cn(th, 'text-right')}>{t('actions')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {tags.map((tag) => (
               <tr key={tag.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-2.5">

@@ -122,66 +122,68 @@ export default function MemberExamSignUpPage() {
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">{t('columns.examName')}</th>
-                <th className="px-3 py-2 font-medium">{t('columns.signedAt')}</th>
-                <th className="px-3 py-2 font-medium">{t('columns.examTime')}</th>
-                <th className="px-3 py-2 font-medium">{t('columns.status')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('columns.action')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rows.map((r) => {
-                const sc = statusClsOf(r.status)
-                const canCancel = r.status === 'pending'
-                return (
-                  <tr key={r.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-3 py-2 font-medium">{r.examTitle ?? r.examId.slice(0, 8)}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {r.signedAt ? dateFmt.format(new Date(r.signedAt)) : '-'}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {r.examStartTime ? (
-                        <span className="inline-flex items-center gap-1">
-                          <CalendarClock className="h-3 w-3" />
-                          {dateFmt.format(new Date(r.examStartTime))}
-                        </span>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                          sc,
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">{t('columns.examName')}</th>
+                  <th className="px-3 py-2 font-medium">{t('columns.signedAt')}</th>
+                  <th className="px-3 py-2 font-medium">{t('columns.examTime')}</th>
+                  <th className="px-3 py-2 font-medium">{t('columns.status')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('columns.action')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const sc = statusClsOf(r.status)
+                  const canCancel = r.status === 'pending'
+                  return (
+                    <tr key={r.id} className="transition-colors hover:bg-muted/30">
+                      <td className="px-3 py-2 font-medium">
+                        {r.examTitle ?? r.examId.slice(0, 8)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {r.signedAt ? dateFmt.format(new Date(r.signedAt)) : '-'}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {r.examStartTime ? (
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarClock className="h-3 w-3" />
+                            {dateFmt.format(new Date(r.examStartTime))}
+                          </span>
+                        ) : (
+                          '-'
                         )}
-                      >
-                        {statusLabel(r.status)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {canCancel ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          disabled={cancelMut.isPending}
-                          onClick={() => handleCancel(r.examId)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                            sc,
+                          )}
                         >
-                          {t('cancelBtn')}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                          {statusLabel(r.status)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {canCancel ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            disabled={cancelMut.isPending}
+                            onClick={() => handleCancel(r.examId)}
+                          >
+                            {t('cancelBtn')}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

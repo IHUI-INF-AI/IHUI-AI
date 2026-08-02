@@ -637,7 +637,7 @@ function CustomSkillItem({
         disabled={!skill.enabled}
         className="flex flex-1 items-start gap-2 text-left disabled:cursor-not-allowed"
       >
-        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <Icon className="mt-px h-4 w-4 shrink-0 text-primary" />
         <div className="flex-1 min-w-0 space-y-0.5">
           <div className="flex items-center gap-1.5">
             <span className="min-w-0 truncate text-xs font-medium">{skill.name}</span>

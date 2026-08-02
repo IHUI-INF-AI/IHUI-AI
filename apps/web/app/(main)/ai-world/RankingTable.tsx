@@ -134,7 +134,7 @@ export function RankingTable() {
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-4 min-[640px]:p-6">
         <div className="flex items-start justify-between gap-2">
           <div>
             <h2 className="flex items-center gap-1.5 text-base font-semibold">
@@ -195,9 +195,13 @@ export function RankingTable() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-12">{t('columns.rank')}</TableHead>
                   <TableHead>{t('columns.model')}</TableHead>
-                  <TableHead className="hidden min-[768px]:table-cell">{t('columns.provider')}</TableHead>
+                  <TableHead className="hidden min-[768px]:table-cell">
+                    {t('columns.provider')}
+                  </TableHead>
                   <TableHead className="w-20">{t('columns.score')}</TableHead>
-                  <TableHead className="hidden min-[1024px]:table-cell">{t('columns.details')}</TableHead>
+                  <TableHead className="hidden min-[1024px]:table-cell">
+                    {t('columns.details')}
+                  </TableHead>
                   <TableHead className="hidden w-28 min-[768px]:table-cell">
                     {t('columns.fetchedAt')}
                   </TableHead>
@@ -215,7 +219,12 @@ export function RankingTable() {
                           {item.rank}
                         </span>
                       </TableCell>
-                      <TableCell className="max-w-[200px] truncate font-medium" title={item.modelName}>{item.modelName}</TableCell>
+                      <TableCell
+                        className="max-w-[200px] truncate font-medium"
+                        title={item.modelName}
+                      >
+                        {item.modelName}
+                      </TableCell>
                       <TableCell className="hidden text-muted-foreground min-[768px]:table-cell">
                         {item.provider ?? '-'}
                       </TableCell>
@@ -248,7 +257,7 @@ export function RankingTable() {
               </TableBody>
             </Table>
             {isFetching && (
-              <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
+              <div className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
                 <Loader2 className="h-3 w-3 animate-spin" />
               </div>
             )}

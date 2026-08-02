@@ -109,7 +109,7 @@ export default function DatabaseOptimizationPage() {
                   <th className="px-4 py-2.5 font-medium">{t('dbOpt.colIndexSize')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {tablesList.map((tb) => (
                   <tr key={tb.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-mono text-xs font-medium">{tb.name}</td>

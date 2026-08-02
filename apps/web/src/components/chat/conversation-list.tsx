@@ -332,7 +332,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
   return (
     <>
       {selectedIds.size > 0 && (
-        <div className="sticky top-0 z-10 mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-sm">
+        <div className="sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2 shadow-sm">
           <Checkbox
             checked={allSelected ? true : someSelected ? 'indeterminate' : false}
             onCheckedChange={(checked) => toggleAll(checked === true)}
@@ -439,7 +439,9 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                   <Clock className="h-3 w-3" />
                   {dateFmt.format(new Date(item.lastMessageAt))}
                 </span>
-                <span className="shrink-0 whitespace-nowrap tabular-nums">{t('messageCount', { count: item.messageCount })}</span>
+                <span className="shrink-0 whitespace-nowrap tabular-nums">
+                  {t('messageCount', { count: item.messageCount })}
+                </span>
               </p>
             </button>
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -451,9 +453,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                   onClick={() => favMutation.mutate(item.id)}
                   // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
                   // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
-                  disabled={
-                    favMutation.isPending && favMutation.variables === item.id
-                  }
+                  disabled={favMutation.isPending && favMutation.variables === item.id}
                   aria-label={item.favorite ? t('unfavorite') : t('favorite')}
                 >
                   <Star
