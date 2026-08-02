@@ -64,6 +64,15 @@ export const metadata: Metadata = {
     url: 'https://aizhs.top/en/docs',
     type: 'website',
     locale: 'en_US',
+    images: [
+      {
+        url: '/og-image-en.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Documentation — Guides & API Reference',
+        type: 'image/jpeg',
+      },
+    ],
   },
 }
 
