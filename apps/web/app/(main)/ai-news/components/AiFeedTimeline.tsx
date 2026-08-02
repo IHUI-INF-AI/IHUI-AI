@@ -438,7 +438,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                         ) : null}
 
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70">
-                          {it.author ? <span className="truncate">{it.author}</span> : null}
+                          {it.author ? <span className="min-w-0 max-w-[120px] truncate">{it.author}</span> : null}
                           {it.url ? (
                             <ExternalLink className="h-2.5 w-2.5 opacity-0 transition-opacity group-hover:opacity-100" />
                           ) : null}

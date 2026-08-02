@@ -72,7 +72,7 @@ export function CategorySidebar({ categories, activeCategory, onChange }: Props)
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            <span className="truncate">{cat.name}</span>
+            <span className="min-w-0 flex-1 truncate">{cat.name}</span>
           </button>
         )
       })}

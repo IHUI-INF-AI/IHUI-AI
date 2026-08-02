@@ -189,7 +189,7 @@ export function RankingTable() {
             {t('empty')}
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
