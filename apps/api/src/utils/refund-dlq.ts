@@ -155,7 +155,7 @@ export class RefundDlq {
    * 列出 DLQ 中的订单。
    */
   async listDlq(limit = 100): Promise<DlqEntry[]> {
-    const items = await this.redis.zrange(this.dlqKey, 0, limit - 1, 'WITHSCORES')
+    const items = await this.redis.zrange(this.dlqKey, 0, String(limit - 1), 'WITHSCORES')
     const out: DlqEntry[] = []
     for (let i = 0; i < items.length; i += 2) {
       const orderNo = items[i]!
