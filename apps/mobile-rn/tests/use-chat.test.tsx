@@ -28,7 +28,7 @@
  * - 用 renderHook + act + waitFor 模拟 React 组件生命周期
  * - 不依赖真实网络 / SSE 解析
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useChat, type ApiChatMessage, type StreamRunnerParams } from '@ihui/shared/hooks'
 
@@ -42,10 +42,10 @@ function createDeferred<T = void>() {
 }
 
 describe('useChat 跨端共享 hook — 集成测试', () => {
-  let streamRunner: ReturnType<typeof vi.fn>
+  let streamRunner: Mock<(params: StreamRunnerParams) => Promise<void>>
 
   beforeEach(() => {
-    streamRunner = vi.fn()
+    streamRunner = vi.fn<(params: StreamRunnerParams) => Promise<void>>()
   })
 
   // 场景 1:sendMessage 成功
