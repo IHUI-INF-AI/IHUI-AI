@@ -42,7 +42,7 @@
  *    (TokenStore 契约要求 string | null,string 是 string | null 的子类型,协变兼容)
  * 3. TokenStoreWithUserInfo:miniapp-taro 用扩展契约(含 getUserInfo/setUserInfo)
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
 import { createElement, act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { useAuth } from '@ihui/shared/hooks'
@@ -430,15 +430,15 @@ const USER_INFO_KEY = 'ihui_user_info'
 
 describe('useAuth 跨端共享 hook — miniapp-taro 端集成测试', () => {
   let store: TokenStore
-  let bindTransport: ReturnType<typeof vi.fn>
-  let fetchProfile: ReturnType<typeof vi.fn>
-  let logoutApi: ReturnType<typeof vi.fn>
+  let bindTransport: Mock<(store: TokenStore) => void>
+  let fetchProfile: Mock<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>
+  let logoutApi: Mock<(refreshToken: string) => Promise<void>>
 
   beforeEach(() => {
     store = createInMemoryTokenStore()
-    bindTransport = vi.fn()
-    fetchProfile = vi.fn()
-    logoutApi = vi.fn()
+    bindTransport = vi.fn<(store: TokenStore) => void>()
+    fetchProfile = vi.fn<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>()
+    logoutApi = vi.fn<(refreshToken: string) => Promise<void>>()
   })
 
   afterEach(async () => {

@@ -19,7 +19,7 @@
  * - 用 renderHook + act + waitFor 模拟 React 组件生命周期
  * - 不 mock 任何 RN / SecureStore API,纯 React hooks 行为验证
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAuth } from '@ihui/shared/hooks'
 import { createInMemoryTokenStore, type TokenStore } from '@ihui/shared/auth'
@@ -34,15 +34,15 @@ const mockUser: TestUser = { id: 'u-1', nickname: 'tester' }
 
 describe('useAuth 跨端共享 hook — 集成测试', () => {
   let store: TokenStore
-  let bindTransport: ReturnType<typeof vi.fn>
-  let fetchProfile: ReturnType<typeof vi.fn>
-  let logoutApi: ReturnType<typeof vi.fn>
+  let bindTransport: Mock<(store: TokenStore) => void>
+  let fetchProfile: Mock<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>
+  let logoutApi: Mock<(refreshToken: string) => Promise<void>>
 
   beforeEach(() => {
     store = createInMemoryTokenStore()
-    bindTransport = vi.fn()
-    fetchProfile = vi.fn()
-    logoutApi = vi.fn()
+    bindTransport = vi.fn<(store: TokenStore) => void>()
+    fetchProfile = vi.fn<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>()
+    logoutApi = vi.fn<(refreshToken: string) => Promise<void>>()
   })
 
   it('挂载后 ready=true,初始 token 为 null,isAuthenticated=false', async () => {
