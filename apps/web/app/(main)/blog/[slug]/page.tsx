@@ -8,6 +8,7 @@ import { ArrowLeft, Calendar, Clock, Tag, BookOpen } from 'lucide-react'
 import { Badge, Card, CardContent } from '@ihui/ui-react'
 import { getBlogPost, listBlogPosts } from '@/lib/blog'
 import { BlogPostContent } from './BlogPostContent'
+import { generateArticleSchema } from '@/lib/seo/schema-article'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -54,8 +55,25 @@ export default async function BlogPostPage({ params }: PageProps) {
     .filter((p) => p.category === post.category && p.slug !== post.slug)
     .slice(0, 4)
 
+  // 2026-08-02 P0-5 GEO 强化:Article JSON-LD 注入(供 GPTBot/ClaudeBot/PerplexityBot/Googlebot 结构化解析)
+  const articleJsonLd = generateArticleSchema({
+    headline: post.title,
+    description: post.description || post.title,
+    url: `https://aizhs.top/blog/${post.slug}`,
+    datePublished: post.date,
+    authorName: '智汇 AI 编辑部',
+    keywords: post.tags.length > 0 ? post.tags : [post.category],
+    articleBody: post.content.replace(/[#*`>\-]/g, '').slice(0, 5000),
+    articleSection: post.category,
+    inLanguage: locale === 'zh-TW' ? 'zh-TW' : 'zh-CN',
+  })
+
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-8 min-[768px]:py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <Link
         href="/blog"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -83,9 +101,7 @@ export default async function BlogPostPage({ params }: PageProps) {
           {post.title}
         </h1>
 
-        {post.description && (
-          <p className="text-lg text-muted-foreground">{post.description}</p>
-        )}
+        {post.description && <p className="text-lg text-muted-foreground">{post.description}</p>}
 
         {post.tags.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
