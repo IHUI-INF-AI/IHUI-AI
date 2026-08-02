@@ -195,7 +195,7 @@ export default function ErrorDashboardPage() {
                   <th className={th}>{t('errorDash.colTime')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {filtered.map((e) => {
                   const lv = LEVEL_STYLE[e.level]
                   const st = STATUS_STYLE[e.status]

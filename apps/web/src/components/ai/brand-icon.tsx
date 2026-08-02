@@ -29,6 +29,7 @@ import {
   Coze,
   Qingyan,
   ChatGLM,
+  AgnesAI, // 2026-08-02 新增:Agnes 安格(国内厂商)
   Alibaba,
   Tencent,
   Huawei,
@@ -232,6 +233,7 @@ const VENDOR_COMPONENTS: Record<
   zhipu: Zhipu,
   moonshot: Moonshot,
   doubao: Doubao,
+  agnes: AgnesAI, // Agnes 安格
   stepfun: Stepfun,
   minimax: Minimax,
   hunyuan: Hunyuan,
@@ -445,6 +447,7 @@ export function inferVendor(model: string | undefined | null): string | undefine
   if (bare.startsWith('glm') || bare.startsWith('chatglm')) return 'zhipu'
   if (bare.startsWith('moonshot') || bare.startsWith('kimi')) return 'moonshot'
   if (bare.startsWith('doubao')) return 'doubao'
+  if (bare.startsWith('agnes')) return 'agnes'
   if (bare.startsWith('step') || bare.startsWith('stepfun')) return 'stepfun'
   if (bare.startsWith('minimax') || bare.startsWith('abab') || bare.startsWith('hailuo'))
     return 'minimax'

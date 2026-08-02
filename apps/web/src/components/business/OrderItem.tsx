@@ -69,7 +69,7 @@ function OrderItemImpl({
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b pb-2 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between pb-2 text-sm text-muted-foreground">
         <span>
           {t('orderNoLabel')}: {orderNo}
         </span>
@@ -95,7 +95,7 @@ function OrderItemImpl({
           </p>
         </div>
       </div>
-      {actions && <div className="flex justify-end gap-2 border-t pt-2">{actions}</div>}
+      {actions && <div className="flex justify-end gap-2 mt-2 pt-2">{actions}</div>}
     </div>
   )
 }

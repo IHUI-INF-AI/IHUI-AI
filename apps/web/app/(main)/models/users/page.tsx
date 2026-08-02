@@ -75,7 +75,7 @@ export default async function UsersPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="px-4 py-2 font-medium">{t('users.table.email')}</th>
                   <th className="px-4 py-2 font-medium">{t('users.table.group')}</th>
                   <th className="px-4 py-2 font-medium">{t('users.table.role')}</th>
@@ -87,10 +87,7 @@ export default async function UsersPage() {
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                  >
+                  <tr key={u.id} className="text-xs hover:bg-muted/30">
                     <td className="px-4 py-2.5 font-medium">{u.email}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{u.group}</td>
                     <td className="px-4 py-2.5">
@@ -118,7 +115,10 @@ export default async function UsersPage() {
                             : 'inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground'
                         }
                       >
-                        {t(USER_STATUS_LABEL_KEY[u.status ?? 'unknown'] ?? 'users.statusLabels.unknown')}
+                        {t(
+                          USER_STATUS_LABEL_KEY[u.status ?? 'unknown'] ??
+                            'users.statusLabels.unknown',
+                        )}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 font-mono text-muted-foreground">{u.createdAt}</td>

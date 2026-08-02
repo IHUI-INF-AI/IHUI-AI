@@ -42,7 +42,7 @@ export function VariableTable({ list, isLoading, deletePending, onEdit, onDelete
             <th className={`${thCls} text-right`}>操作</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {list.map((v) => (
             <tr key={v.id} className="transition-colors hover:bg-accent/50">
               <td className="px-4 py-2.5 font-mono text-xs">{v.botId}</td>

@@ -185,7 +185,7 @@ export default function SandboxPage() {
       {resp && (
         <Card>
           <CardContent className="space-y-3 p-4">
-            <div className="flex items-center gap-3 border-b pb-2">
+            <div className="flex items-center gap-3 pb-2">
               <span
                 className={cn(
                   'rounded px-2 py-0.5 text-xs font-bold',

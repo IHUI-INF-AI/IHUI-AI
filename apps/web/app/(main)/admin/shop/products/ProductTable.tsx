@@ -3,7 +3,15 @@
 import Image from 'next/image'
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
@@ -33,21 +41,45 @@ export function ProductTable({
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.product')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.category')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.price')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.stock')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.sales')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.type')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.denomination')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.denominationVip')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.denominationOperate')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.images')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-xs uppercase">{t('products.table.status')}</TableHead>
-            <TableHead className="px-3 py-2.5 text-right text-xs uppercase">{t('products.table.action')}</TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.product')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.category')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.price')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.stock')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.sales')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.type')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.denomination')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.denominationVip')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.denominationOperate')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.images')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-xs uppercase">
+              {t('products.table.status')}
+            </TableHead>
+            <TableHead className="px-3 py-2.5 text-right text-xs uppercase">
+              {t('products.table.action')}
+            </TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={12} className="px-3 py-10 text-center text-muted-foreground">
@@ -118,7 +150,9 @@ export function ProductTable({
                           p.status === 'online' ? 'bg-emerald-500' : 'bg-muted-foreground',
                         )}
                       />
-                      {p.status === 'online' ? t('products.status.online') : t('products.status.offline')}
+                      {p.status === 'online'
+                        ? t('products.status.online')
+                        : t('products.status.offline')}
                     </span>
                   </TableCell>
                   <TableCell className="px-3 py-2.5 text-right">
@@ -130,11 +164,18 @@ export function ProductTable({
                         disabled={togglePending}
                         className="shrink-0 whitespace-nowrap"
                       >
-                        {p.status === 'online' ? t('products.toggleOffline') : t('products.toggleOnline')}
+                        {p.status === 'online'
+                          ? t('products.toggleOffline')
+                          : t('products.toggleOnline')}
                       </Button>
                       <HasPermi code="ai:zhs_product:edit">
                         <Tooltip content={t('products.editTooltip')}>
-                          <Button size="sm" variant="ghost" onClick={() => onEdit(p)} className="shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onEdit(p)}
+                            className="shrink-0"
+                          >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </Tooltip>

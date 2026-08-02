@@ -176,10 +176,12 @@ export function WithdrawalDetailTable(props: Props) {
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.detail.table.status')}</th>
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.detail.table.reviewer')}</th>
               <th className="px-4 py-2.5 font-medium">{t('withdrawals.detail.table.createdAt')}</th>
-              <th className="px-4 py-2.5 text-right font-medium">{t('withdrawals.detail.table.action')}</th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                {t('withdrawals.detail.table.action')}
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {dLoading ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">

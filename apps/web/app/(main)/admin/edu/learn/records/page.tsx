@@ -124,7 +124,7 @@ export default function EduLearnRecordsPage() {
               <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="divide-y">
+          <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="px-4 py-10 text-center text-muted-foreground">

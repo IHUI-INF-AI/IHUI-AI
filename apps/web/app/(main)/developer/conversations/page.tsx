@@ -64,16 +64,14 @@ export default function ConversationsPage() {
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
   const num = new Intl.NumberFormat(locale)
 
-  const {
-    data,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'conversations', page],
     queryFn: () =>
       api<Paginated<Conversation>>(
         `/api/developer/conversations?page=${page}&pageSize=${PAGE_SIZE}`,
-      ).catch(() => ({ items: [], total: 0, page, pageSize: PAGE_SIZE }) as Paginated<Conversation>),
+      ).catch(
+        () => ({ items: [], total: 0, page, pageSize: PAGE_SIZE }) as Paginated<Conversation>,
+      ),
   })
 
   const { data: messagesData, isLoading: messagesLoading } = useQuery({
@@ -159,14 +157,11 @@ export default function ConversationsPage() {
                 const isExpanded = expandedId === c.conversationId
                 const isEditing = editingId === c.conversationId
                 return (
-                  <div
-                    key={c.id}
-                    className="rounded-lg border border-border bg-card p-3"
-                  >
-                    <div className="flex items-start gap-3">
+                  <div key={c.id} className="rounded-lg border border-border bg-card p-3">
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={() => toggleExpand(c.conversationId)}
-                        className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
                         aria-label={isExpanded ? '收起' : '展开'}
                       >
                         {isExpanded ? (
@@ -182,35 +177,27 @@ export default function ConversationsPage() {
                               value={editTitle}
                               onChange={(e) => setEditTitle(e.target.value)}
                               className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm"
-                              autoFocus
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEdit()
                                 if (e.key === 'Escape') setEditingId(null)
                               }}
                             />
-                            <Button
-                              size="sm"
-                              onClick={saveEdit}
-                              disabled={titleMut.isPending}
-                            >
+                            <Button size="sm" onClick={saveEdit} disabled={titleMut.isPending}>
                               保存
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditingId(null)}
-                            >
+                            <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
                               取消
                             </Button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <p
-                              className="cursor-pointer truncate text-sm font-medium hover:text-primary"
+                            <button
+                              type="button"
+                              className="cursor-pointer truncate text-left text-sm font-medium hover:text-primary"
                               onClick={() => toggleExpand(c.conversationId)}
                             >
                               {c.title ?? '未命名会话'}
-                            </p>
+                            </button>
                             <button
                               onClick={() => startEdit(c)}
                               className="shrink-0 text-muted-foreground hover:text-foreground"
@@ -293,9 +280,7 @@ export default function ConversationsPage() {
                                   {dateFmt.format(new Date(m.createdAt))}
                                 </span>
                               </div>
-                              <p className="whitespace-pre-wrap break-words text-sm">
-                                {m.content}
-                              </p>
+                              <p className="whitespace-pre-wrap break-words text-sm">{m.content}</p>
                               {m.errorMessage && (
                                 <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
                                   {m.errorMessage}
@@ -304,9 +289,7 @@ export default function ConversationsPage() {
                               <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                                 <span>{num.format(m.totalTokens)} token</span>
                                 {m.latencyMs !== null && <span>{m.latencyMs} ms</span>}
-                                {m.costCents > 0 && (
-                                  <span>¥{(m.costCents / 100).toFixed(4)}</span>
-                                )}
+                                {m.costCents > 0 && <span>¥{(m.costCents / 100).toFixed(4)}</span>}
                               </div>
                             </div>
                           ))

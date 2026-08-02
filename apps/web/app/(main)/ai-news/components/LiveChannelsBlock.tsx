@@ -49,7 +49,9 @@ export function LiveChannelsBlock({ channels }: Props) {
         aria-label={t('live.label')}
         className="overflow-hidden rounded-xl border bg-card shadow-sm"
       >
-        <div className="p-5 text-center text-sm text-muted-foreground min-[768px]:p-8">{t('live.empty')}</div>
+        <div className="p-5 text-center text-sm text-muted-foreground min-[768px]:p-8">
+          {t('live.empty')}
+        </div>
       </section>
     )
   }
@@ -80,7 +82,11 @@ export function LiveChannelsBlock({ channels }: Props) {
             <Link href={`/live/${c.id}`} className="block">
               <div className="relative aspect-video overflow-hidden bg-muted">
                 {c.coverImage ? (
-                  <CoverImage src={c.coverImage} alt={c.title} sizes="(max-width: 768px) 100vw, 280px" />
+                  <CoverImage
+                    src={c.coverImage}
+                    alt={c.title}
+                    sizes="(max-width: 768px) 100vw, 280px"
+                  />
                 ) : null}
                 {c.isLive ? (
                   <div className="absolute left-2 top-2">
@@ -94,7 +100,7 @@ export function LiveChannelsBlock({ channels }: Props) {
                   <Badge variant="default">{c.categoryName}</Badge>
                 </div>
               </div>
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="space-y-2 p-4 min-[640px]:p-6">
                 <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{c.title}</h3>
                 <p className="line-clamp-2 text-xs text-muted-foreground">{c.intro}</p>
                 <div className="flex items-center justify-between gap-2 pt-1">

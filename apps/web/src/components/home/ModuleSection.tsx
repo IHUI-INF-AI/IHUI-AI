@@ -72,7 +72,7 @@ export function ModuleSection({
             {t('noData')}
           </div>
         ) : variant === 'list' ? (
-          <ul className="divide-y">
+          <ul className="space-y-2">
             {items.map((item) => (
               <li key={item.id}>
                 <Link

@@ -157,7 +157,7 @@ export default function I18nMissingPage() {
                     </span>
                   </button>
                   {isOpen && (
-                    <div className="divide-y border-t">
+                    <div className="space-y-2">
                       {keys.map((k) => (
                         <div
                           key={`${k.locale}-${k.key}`}

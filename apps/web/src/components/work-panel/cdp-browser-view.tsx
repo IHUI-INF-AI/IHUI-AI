@@ -463,7 +463,7 @@ export function CdpBrowserView({
           <div
             role="menu"
             tabIndex={-1}
-            className="fixed z-[10000] min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95 duration-100 focus:outline-none"
+            className="fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95 duration-100 focus:outline-none"
             style={{ left: ctxMenu.x, top: ctxMenu.y }}
             onMouseDown={(e) => e.stopPropagation()}
           >

@@ -1,7 +1,15 @@
 'use client'
 
 import { Loader2, Edit, Trash2, Bot } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import type { ZhsAgent } from './types'
@@ -29,7 +37,7 @@ export function ZhsAgentTable({ list, isLoading, onEdit, onDelete }: Props) {
             <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
@@ -62,7 +70,9 @@ export function ZhsAgentTable({ list, isLoading, onEdit, onDelete }: Props) {
                 <TableCell className="px-4 py-2.5 tabular-nums">{item.consume || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 tabular-nums">{item.seqencing ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 tabular-nums">{item.price || '-'}</TableCell>
-                <TableCell className="whitespace-nowrap px-4 py-2.5">{item.typeName || item.type || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap px-4 py-2.5">
+                  {item.typeName || item.type || '-'}
+                </TableCell>
                 <TableCell className="px-4 py-2.5 tabular-nums">{item.heat || '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1">

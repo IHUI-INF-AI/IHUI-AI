@@ -53,7 +53,7 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
       <div className="border-b px-4 py-2.5">
         <h3 className="text-sm font-semibold">上下文引用</h3>
       </div>
-      <ul className="divide-y">
+      <ul className="space-y-1">
         {references.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">暂无引用</p>
         ) : (

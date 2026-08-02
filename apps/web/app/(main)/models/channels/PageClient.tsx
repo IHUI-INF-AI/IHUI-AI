@@ -238,7 +238,7 @@ export default function PageClient() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-xs text-muted-foreground">
+                  <tr className="text-left text-xs text-muted-foreground">
                     <th className="px-4 py-2 font-medium">{t('channels.table.provider')}</th>
                     <th className="px-4 py-2 font-medium">{t('channels.table.name')}</th>
                     <th className="px-4 py-2 font-medium">Key 前缀</th>
@@ -253,10 +253,7 @@ export default function PageClient() {
                   {list.map((item) => {
                     const h = HEALTH_BADGE[item.healthStatus]
                     return (
-                      <tr
-                        key={item.id}
-                        className="border-b border-border/40 text-xs last:border-0 hover:bg-muted/30"
-                      >
+                      <tr key={item.id} className="text-xs hover:bg-muted/30">
                         <td className="px-4 py-2.5 font-mono text-muted-foreground">
                           {item.providerCode}
                         </td>

@@ -4,7 +4,15 @@ import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Button,
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { STATUS_CLASS, STATUS_KEY } from './helpers'
 import type { Agent, Category } from './types'
@@ -56,7 +64,7 @@ export function AgentsTable({
             <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="divide-y">
+        <TableBody>
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
@@ -108,12 +116,17 @@ export function AgentsTable({
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-muted-foreground">{a.sort}</TableCell>
                 <TableCell className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
-                {dateFmt.format(new Date(a.createdAt))}
-              </TableCell>
+                  {dateFmt.format(new Date(a.createdAt))}
+                </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex flex-nowrap justify-end gap-1">
                     <Tooltip content={tc('edit')}>
-                      <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onEdit(a)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0"
+                        onClick={() => onEdit(a)}
+                      >
                         <Pencil className="h-4 w-4 shrink-0" />
                       </Button>
                     </Tooltip>
