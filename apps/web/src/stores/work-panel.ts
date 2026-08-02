@@ -312,10 +312,17 @@ export const useWorkPanelStore = create<WorkPanelState>()(
                 const probe = await probeEmbed(url)
                 if (probe.success && probe.data) {
                   canEmbed = probe.data.canEmbed
+                } else {
+                  // 2026-08-02 fix:探测失败(未登录 403 / 网络异常)时跨源站点
+                  // 不能默认 iframe——抖音/微信等 XFO/CSP 拦截后 iframe 无内容且
+                  // 无失败回调,表现为"白屏点不动";直接走 CDP 完整浏览器模式
+                  // (createBrowserSession 走 ai-service,无需登录)。
+                  canEmbed = false
                 }
               }
             } catch {
-              // 探测失败 → 默认尝试 iframe(保留 onFailed 兜底)
+              // 探测异常 → 同源仍走 iframe,跨源走 CDP(iframe 无失败检测兜底)
+              canEmbed = isSameOriginUrl(url)
             }
 
             if (canEmbed) {
