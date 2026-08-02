@@ -120,8 +120,21 @@ const PREVIEW_TOOL_LIMIT = 4
  * + "selector 找到错位置(关闭态容器 / 多次渲染残留)"的 bug 链。
  */
 
-/** Skeleton 行数(v13:3 → 4,更符合常见 plan 步骤规模) */
-const PLAN_SKELETON_ROWS = 4
+/**
+ * v20 根除(2026-08-02,用户规则:"div 这里怎么在没有内容时显示空行呢?
+ * 空行给用户看吗?合理吗 应该随着 ai 计划规划的任务概要出来然后在里面
+ * 显示出来顺序跟当前任务进度啊"):
+ * - **删除** v13 的 `PLAN_SKELETON_ROWS = 4` skeleton 假行(50/62/74/86%
+ *   宽度的假数据条) — 这是"空内容时给用户看假数据"的反用户行为,
+ *   用户明确拒绝"假空行"。
+ * - 替代方案:planSteps.length === 0 时:
+ *   1) 有 threadId + isStreaming → 显示 1 行真实"等待 AI 规划..."(spinner + 文字),
+ *      表达"AI 正在思考,plan 还没下发"的真实状态;
+ *   2) 其他情况 → 不渲染任何内容,让 Pane 内部 sections-container
+ *      (thinking / currentTask / toolCalls / overview)直接显示实时数据。
+ * - 任务列表最终按 AI 下发的 planSteps 数组顺序渲染,
+ *   currentTask 摘要条在 sections-container 顶部显示当前进度,顺序自动跟随。
+ */
 
 /** 完成态庆祝横幅显示时长 */
 const CELEBRATION_DURATION_MS = 3000
@@ -559,7 +572,8 @@ export function AgentTaskProgressPane() {
   // - 不再需要 `if (!paneAnchor) return null` → 加载即渲染,0 状态机可漂移。
 
   const progress = useAgentProgress(open ? threadId : null)
-  const { planSteps, isStreaming, subagents, tools, changes, terminals, overview, currentTask } = progress
+  const { planSteps, isStreaming, subagents, tools, changes, terminals, overview, currentTask } =
+    progress
 
   // v15: 实时计时器 — 仅在 streaming 或 sessionStart 存在时每秒 tick,空闲时停止
   // elapsed 派生:基于 sessionStart + 累计 tick 秒数,避免依赖当前 Date.now()(避免重渲染后时间跳变)
@@ -1407,18 +1421,24 @@ export function AgentTaskProgressPane() {
           </div>
         )}
 
-        {threadId && planSteps.length === 0 && (
-          // v13: skeleton 行数 3 → 4,加 `animate-skeleton` shimmer 渐变动画
-          <div className="space-y-1 px-2 py-2" data-testid="plan-skeleton">
-            {Array.from({ length: PLAN_SKELETON_ROWS }, (_, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <div className="h-3 w-3 shrink-0 rounded-sm bg-muted/60 animate-pulse" />
-                <div
-                  className="h-2.5 rounded-sm bg-muted/60 animate-pulse"
-                  style={{ width: `${50 + i * 12}%` }}
-                />
-              </div>
-            ))}
+        {threadId && planSteps.length === 0 && isStreaming && (
+          // v20(2026-08-02):删除 v13 假 skeleton 4 行(50/62/74/86% 宽度假数据),
+          // 改为 1 行真实"等待 AI 规划"状态。语义:
+          // - threadId 存在 + AI 已连接(isStreaming) + plan 还没下发
+          //   → 用户看到的是"AI 在思考,plan 即将到来"真实信号
+          // - 非 streaming + planSteps.length === 0 → 啥都不渲染(让 sections-container 的
+          //   实时数据 / empty state 主导显示),杜绝"假空行"
+          <div
+            className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-muted-foreground/70"
+            data-testid="pane-waiting-for-plan"
+            aria-live="polite"
+          >
+            <Loader2
+              className="h-3 w-3 shrink-0 animate-spin text-primary"
+              aria-hidden
+              data-testid="pane-waiting-spinner"
+            />
+            <span>{t('waitingForPlan')}</span>
           </div>
         )}
 
