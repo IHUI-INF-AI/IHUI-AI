@@ -165,16 +165,6 @@ export function FoldableSection({
             {doneCount}/{count}
           </span>
         )}
-        {count !== undefined && count > 0 && (
-          <span
-            className={cn(
-              'shrink-0 rounded px-1 text-[10px] tabular-nums text-muted-foreground/60',
-              hasProgress && 'ml-0.5',
-            )}
-          >
-            {count}
-          </span>
-        )}
         {headerExtra && (
           <span
             onClick={(e) => e.stopPropagation()}
