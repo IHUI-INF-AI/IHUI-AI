@@ -32,8 +32,22 @@
       }
     },
     {
-      "id": "agnes/gpt-4o",
-      "name": "GPT-4o (Agnes Plan)",
+      "id": "agnes/agnes-2.5-flash",
+      "name": "Agnes 2.5 Flash (Agnes Plan,轻量快速)",
+      "provider": "agnes",
+      "context_length": 128000,
+      "input_price": 0,
+      "caps": {
+        "supports_stream_usage": false,
+        "supports_tools": true,
+        "supports_vision": false,
+        "max_context": 128000,
+        "protocol": "openai_chat"
+      }
+    },
+    {
+      "id": "agnes/agnes-2.5-pro",
+      "name": "Agnes 2.5 Pro (Agnes Plan,强力版)",
       "provider": "agnes",
       "context_length": 128000,
       "input_price": 0,
