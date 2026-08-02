@@ -11,6 +11,7 @@ import {
   getCanaryPercentage,
   type CanaryConfig,
 } from '../services/canary-service.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 const createSchema = z.object({
   name: z.string().min(1).max(100),
@@ -73,7 +74,7 @@ export const adminGrayReleaseRoutes: FastifyPluginAsync = async (server) => {
         ),
       )
     } catch (e) {
-      return reply.status(400).send(error(400, (e as Error).message || '创建失败'))
+      return reply.status(400).send(error(400, toUserFriendlyMessage(e) || '创建失败'))
     }
   })
 
@@ -102,7 +103,7 @@ export const adminGrayReleaseRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(400).send(error(400, (e as Error).message || '操作失败'))
+      return reply.status(400).send(error(400, toUserFriendlyMessage(e) || '操作失败'))
     }
   })
 }

@@ -259,6 +259,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         body: { type: 'object', additionalProperties: true },
         response: createdResponse,
       },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = createOrderSchema.safeParse(request.body)
@@ -359,7 +360,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
   // POST /orders/:id/cancel - 取消订单
   server.post(
     '/orders/:id/cancel',
-    { schema: { summary: '取消订单', tags: ['order'], response: okResponse } },
+    { schema: { summary: '取消订单', tags: ['order'], response: okResponse }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const parsed = idParamSchema.safeParse(request.params)
       if (!parsed.success) {
@@ -390,6 +391,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         body: { type: 'object', additionalProperties: true },
         response: okResponse,
       },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = idParamSchema.safeParse(request.params)
@@ -424,6 +426,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         body: { type: 'object', additionalProperties: true },
         response: okResponse,
       },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = idParamSchema.safeParse(request.params)
@@ -492,7 +495,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
   // POST /payments/:id/cancel - 取消支付
   server.post(
     '/payments/:id/cancel',
-    { schema: { summary: '取消支付', tags: ['order'], response: okResponse } },
+    { schema: { summary: '取消支付', tags: ['order'], response: okResponse }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const parsed = idParamSchema.safeParse(request.params)
       if (!parsed.success) {
@@ -571,6 +574,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         body: { type: 'object', additionalProperties: true },
         response: createdResponse,
       },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = invoiceTitleBodySchema.safeParse(request.body)
@@ -662,6 +666,7 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         body: { type: 'object', additionalProperties: true },
         response: createdResponse,
       },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = createInvoiceAppSchema.safeParse(request.body)
@@ -852,6 +857,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
         body: { type: 'object', additionalProperties: true },
         response: okResponse,
       },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const body = batchCancelSchema.safeParse(request.body)
@@ -904,6 +910,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
         body: { type: 'object', additionalProperties: true },
         response: okResponse,
       },
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       const parsed = completeOrderSagaSchema.safeParse(request.body)
