@@ -52,6 +52,13 @@ const BAD_EVENT_TTL = 30 * 24 * 3600
 /** 异常事件阈值:超过该值直接拉高信誉分。 */
 const BAD_EVENT_THRESHOLD = 5
 
+// 内存降级存储 LRU 上限(防止 Redis 不可用时攻击者构造大量不同 IP 导致 OOM)
+const MEM_CACHE_MAX = 10000
+const MEM_BLACKLIST_MAX = 10000
+const MEM_BAD_EVENTS_MAX = 10000
+const MEM_BLOCKED_MAX = 10000
+const MEM_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+
 /* -------------------------------------------------------------------------- */
 /* 内网 / CIDR 工具                                                            */
 /* -------------------------------------------------------------------------- */
@@ -109,6 +116,23 @@ function ipMatchesAnyCidr(ip: string, cidrs: readonly string[]): boolean {
     if (ipMatchesCidr(ip, cidr)) return true
   }
   return false
+}
+
+/* -------------------------------------------------------------------------- */
+/* 内存降级 LRU 工具                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Map 写入并保持 LRU 上限。
+ * Map 的 keys() 按插入顺序迭代,超限时删除最早插入的 key(简易 LRU)。
+ * 已存在 key 时直接覆盖(不触发淘汰),保持 LRU 语义。
+ */
+function setWithLRU<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
+  if (map.size >= max && !map.has(key)) {
+    const firstKey = map.keys().next().value
+    if (firstKey !== undefined) map.delete(firstKey)
+  }
+  map.set(key, value)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -228,10 +252,15 @@ export class IpReputationService {
 
   private async setCachedReputation(ip: string, rep: IpReputation): Promise<void> {
     if (!this.redis) {
-      IpReputationService.memCache.set(ip, {
-        value: rep,
-        expiresAt: Date.now() + REPUTATION_CACHE_TTL * 1000,
-      })
+      setWithLRU(
+        IpReputationService.memCache,
+        ip,
+        {
+          value: rep,
+          expiresAt: Date.now() + REPUTATION_CACHE_TTL * 1000,
+        },
+        MEM_CACHE_MAX,
+      )
       return
     }
     try {
@@ -256,13 +285,13 @@ export class IpReputationService {
 
   async addToBlacklist(ip: string): Promise<void> {
     if (!this.redis) {
-      IpReputationService.memBlacklist.add(ip)
+      setWithLRU(IpReputationService.memBlacklist, ip, true, MEM_BLACKLIST_MAX)
       return
     }
     try {
       await this.redis.sadd(K_BLACKLIST, ip)
     } catch (e) {
-      IpReputationService.memBlacklist.add(ip)
+      setWithLRU(IpReputationService.memBlacklist, ip, true, MEM_BLACKLIST_MAX)
       logger.warn('ip-reputation: blacklist write failed, used mem', { err: e })
     }
   }
@@ -289,7 +318,7 @@ export class IpReputationService {
       if (cur.expiresAt < Date.now()) cur.count = 0
       cur.count += 1
       cur.expiresAt = Date.now() + BAD_EVENT_TTL * 1000
-      IpReputationService.memBadEvents.set(ip, cur)
+      setWithLRU(IpReputationService.memBadEvents, ip, cur, MEM_BAD_EVENTS_MAX)
       logger.warn('ip-reputation: bad event recorded (mem)', { ip, reason })
       return
     }
@@ -326,7 +355,7 @@ export class IpReputationService {
     if (!ip) return
     const dur = Math.max(1, Math.floor(durationSec))
     if (!this.redis) {
-      IpReputationService.memBlocked.set(ip, Date.now() + dur * 1000)
+      setWithLRU(IpReputationService.memBlocked, ip, Date.now() + dur * 1000, MEM_BLOCKED_MAX)
       return
     }
     try {
@@ -334,7 +363,7 @@ export class IpReputationService {
       // 封禁同时记录一次异常事件
       await this.recordBadEvent(ip, 'blocked')
     } catch (e) {
-      IpReputationService.memBlocked.set(ip, Date.now() + dur * 1000)
+      setWithLRU(IpReputationService.memBlocked, ip, Date.now() + dur * 1000, MEM_BLOCKED_MAX)
       logger.warn('ip-reputation: block write failed, used mem', { err: e })
     }
   }
@@ -391,12 +420,36 @@ export class IpReputationService {
     string,
     { value: IpReputation; expiresAt: number }
   >()
-  private static readonly memBlacklist = new Set<string>()
+  // 黑名单:用 Map<string, true> 而非 Set,以便配合 setWithLRU 限制大小
+  // (Set 无 LRU 语义,攻击者构造大量不同 IP 会导致无限增长)
+  private static readonly memBlacklist = new Map<string, true>()
   private static readonly memBadEvents = new Map<
     string,
     { count: number; expiresAt: number }
   >()
   private static readonly memBlocked = new Map<string, number>()
+
+  /**
+   * 定期清理过期内存降级条目(long-running server 有效)。
+   * unref 避免定时器阻止进程退出;模块加载即启动,资源占用可忽略(每 5 分钟扫 4 个 Map)。
+   * 与各 get 处的懒清理互补,防止长期不访问的 IP 累积导致 OOM。
+   * memBlacklist 无 TTL(永久黑名单),不在此清理。
+   */
+  static {
+    const timer = setInterval(() => {
+      const now = Date.now()
+      for (const [k, v] of IpReputationService.memCache) {
+        if (v.expiresAt <= now) IpReputationService.memCache.delete(k)
+      }
+      for (const [k, v] of IpReputationService.memBadEvents) {
+        if (v.expiresAt < now) IpReputationService.memBadEvents.delete(k)
+      }
+      for (const [k, v] of IpReputationService.memBlocked) {
+        if (v < now) IpReputationService.memBlocked.delete(k)
+      }
+    }, MEM_CLEANUP_INTERVAL_MS)
+    timer.unref?.()
+  }
 }
 
 /** 单例工厂:便于在无 DI 框架时共享同一服务实例。 */

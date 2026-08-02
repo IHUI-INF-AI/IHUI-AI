@@ -19,7 +19,24 @@ import type { ImportPreview } from '@ihui/types'
 const KEY_PREFIX = 'cli-import:preview:'
 const TTL_SEC = 10 * 60
 
+// fallback 内存降级存储 LRU 上限(防止 Redis 不可用时 OOM,preview 单条较大,上限 1000)
+const FALLBACK_MAX = 1000
+const FALLBACK_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+
 const fallbackStore = new Map<string, { value: ImportPreview; expireAt: number }>()
+
+/**
+ * Map 写入并保持 LRU 上限。
+ * Map 的 keys() 按插入顺序迭代,超限时删除最早插入的 key(简易 LRU)。
+ * 已存在 key 时直接覆盖(不触发淘汰),保持 LRU 语义。
+ */
+function setWithLRU<K, V>(map: Map<K, V>, key: K, value: V, max: number): void {
+  if (map.size >= max && !map.has(key)) {
+    const firstKey = map.keys().next().value
+    if (firstKey !== undefined) map.delete(firstKey)
+  }
+  map.set(key, value)
+}
 
 let redisClient: Redis | null = null
 
@@ -69,7 +86,12 @@ export async function savePreview(preview: ImportPreview): Promise<void> {
       })
     }
   }
-  fallbackStore.set(key, { value: preview, expireAt: Date.now() + TTL_SEC * 1000 })
+  setWithLRU(
+    fallbackStore,
+    key,
+    { value: preview, expireAt: Date.now() + TTL_SEC * 1000 },
+    FALLBACK_MAX,
+  )
 }
 
 /**
@@ -115,3 +137,16 @@ export async function deletePreview(previewId: string): Promise<void> {
   }
   fallbackStore.delete(key)
 }
+
+/**
+ * 定期清理过期 fallback 条目(long-running server 有效)。
+ * unref 避免定时器阻止进程退出;模块加载即启动,资源占用可忽略(每 5 分钟扫一次 Map)。
+ * 与 loadPreview 处的懒清理互补,防止长期不访问的 preview 累积导致 OOM。
+ */
+const cleanupTimer = setInterval(() => {
+  const now = Date.now()
+  for (const [k, v] of fallbackStore) {
+    if (now > v.expireAt) fallbackStore.delete(k)
+  }
+}, FALLBACK_CLEANUP_INTERVAL_MS)
+cleanupTimer.unref?.()
