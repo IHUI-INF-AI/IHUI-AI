@@ -1650,7 +1650,7 @@ export function Sidebar({
                 aria-pressed={aiPanelOpen}
                 className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5" />
               </button>
             </Tooltip>
           ) : (
@@ -1663,7 +1663,7 @@ export function Sidebar({
                 'bg-foreground/10 text-foreground hover:bg-foreground/20',
               )}
             >
-              <Plus className="h-4 w-4 shrink-0" />
+              <Plus className="h-5 w-5 shrink-0" />
               <span className="min-w-0 flex-1 truncate">{tchat('newConversation')}</span>
             </button>
           )}
@@ -1688,7 +1688,7 @@ export function Sidebar({
                   pathname.startsWith('/plugins') ? 'bg-foreground/20' : 'hover:bg-foreground/20',
                 )}
               >
-                <Package className="h-4 w-4" />
+                <Package className="h-5 w-5" />
               </Link>
             </Tooltip>
           ) : (
@@ -1703,7 +1703,7 @@ export function Sidebar({
                   : 'text-foreground hover:bg-foreground/20',
               )}
             >
-              <Package className="h-4 w-4 shrink-0" />
+              <Package className="h-5 w-5 shrink-0" />
               <span className="min-w-0 flex-1 truncate">{t('pluginMarket')}</span>
             </Link>
           )}
@@ -1730,7 +1730,7 @@ export function Sidebar({
                     : 'hover:bg-foreground/20',
                 )}
               >
-                <Clock className="h-4 w-4" />
+                <Clock className="h-5 w-5" />
               </Link>
             </Tooltip>
           ) : (
@@ -1745,7 +1745,7 @@ export function Sidebar({
                   : 'text-foreground hover:bg-foreground/20',
               )}
             >
-              <Clock className="h-4 w-4 shrink-0" />
+              <Clock className="h-5 w-5 shrink-0" />
               <span className="min-w-0 flex-1 truncate">{t('selfMediaAutomation')}</span>
             </Link>
           )}
