@@ -146,21 +146,26 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 4. POST /payment/usdt/callback/:network — 区块链 webhook 回调 =====
-  // 2026-08-02 修复:临时加 webhook 密钥校验,防任意伪造充值
+  // 2026-08-02 P0 安全修复:强制验签(fail-closed),secret 未配置或不匹配 → 拒绝
   // TODO: 对接 TronGrid/Etherscan 官方签名方案后替换为标准验签
   const WEBHOOK_SECRET = process.env.USDT_WEBHOOK_SECRET
   if (!WEBHOOK_SECRET) {
-    server.log.warn(
-      'USDT_WEBHOOK_SECRET 未设置,webhook 回调验签未启用(仅开发环境允许,生产环境必须配置)',
+    server.log.error(
+      'USDT_WEBHOOK_SECRET 未设置,webhook 回调将拒绝所有请求(生产环境必须配置)',
     )
   }
   server.post('/payment/usdt/callback/:network', async (request, reply) => {
-    // 临时校验:要求 X-Webhook-Secret header 与环境变量匹配
-    if (WEBHOOK_SECRET) {
-      const providedSecret = request.headers['x-webhook-secret'] as string | undefined
-      if (providedSecret !== WEBHOOK_SECRET) {
-        return reply.status(401).send({ code: 401, message: 'Webhook 签名校验失败', data: null })
-      }
+    // 强制验签(fail-closed):secret 未配置或提供的 secret 不匹配 → 拒绝
+    const providedSecret = request.headers['x-webhook-secret'] as string | undefined
+    if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
+      request.log.warn(
+        {
+          hasConfig: !!WEBHOOK_SECRET,
+          hasProvided: !!providedSecret,
+        },
+        '[usdt-webhook] unauthorized callback attempt',
+      )
+      return reply.status(401).send({ code: 401, message: 'Webhook 签名校验失败', data: null })
     }
 
     const parsedParams = callbackParamSchema.safeParse(request.params)
