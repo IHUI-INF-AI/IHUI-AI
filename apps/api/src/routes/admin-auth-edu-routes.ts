@@ -5,7 +5,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, or, ilike, desc, sql, and } from 'drizzle-orm'
+import { eq, or, ilike, desc, sql, and, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -21,6 +21,7 @@ import {
   users,
   systemConfigs,
   tDepartment,
+  userDevices,
 } from '@ihui/database'
 
 const paginationSchema = z.object({
@@ -330,12 +331,14 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
 
     // 有余额或冻结资金时禁止硬删,需先处理资金
     if ((margin.tokenQuantity ?? 0) > 0 || (margin.frozenQuantity ?? 0) > 0) {
-      return reply.status(400).send(
-        error(
-          400,
-          `无法删除有资金的余额记录(token=${margin.tokenQuantity}, frozen=${margin.frozenQuantity}),请先处理资金`,
-        ),
-      )
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `无法删除有资金的余额记录(token=${margin.tokenQuantity}, frozen=${margin.frozenQuantity}),请先处理资金`,
+          ),
+        )
     }
 
     await db.delete(userMargins).where(eq(userMargins.userId, p.data.id))
@@ -438,6 +441,58 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
       }
     })
     if (type) list = list.filter((it) => it.type === type)
+
+    // device 类型分支:从 user_devices 表按 fingerprintHash 查设备详情(最后登录时间/UA/IP/关联用户)
+    // identifier 即设备指纹哈希;一个指纹可能被多个用户使用(换号登录),返回 userIds 列表
+    if (type === 'device' && list.length > 0) {
+      const fingerprints = list.map((it) => it.identifier).filter((v): v is string => Boolean(v))
+      const deviceMap = new Map<
+        string,
+        { lastSeenAt: Date | null; userAgent: string | null; ip: string | null; userIds: string[] }
+      >()
+      if (fingerprints.length > 0) {
+        const devRows = await db
+          .select({
+            fingerprintHash: userDevices.fingerprintHash,
+            lastSeenAt: userDevices.lastSeenAt,
+            userAgent: userDevices.userAgent,
+            ip: userDevices.ip,
+            userId: userDevices.userId,
+          })
+          .from(userDevices)
+          .where(inArray(userDevices.fingerprintHash, fingerprints))
+        for (const dr of devRows) {
+          const existing = deviceMap.get(dr.fingerprintHash)
+          if (existing) {
+            existing.userIds.push(dr.userId)
+            if (dr.lastSeenAt && (!existing.lastSeenAt || dr.lastSeenAt > existing.lastSeenAt)) {
+              existing.lastSeenAt = dr.lastSeenAt
+              existing.userAgent = dr.userAgent
+              existing.ip = dr.ip
+            }
+          } else {
+            deviceMap.set(dr.fingerprintHash, {
+              lastSeenAt: dr.lastSeenAt,
+              userAgent: dr.userAgent,
+              ip: dr.ip,
+              userIds: [dr.userId],
+            })
+          }
+        }
+      }
+      const enriched = list.map((it) => {
+        const info = deviceMap.get(it.identifier)
+        return {
+          ...it,
+          lastSeenAt: info?.lastSeenAt ?? null,
+          userAgent: info?.userAgent ?? null,
+          ip: info?.ip ?? null,
+          userIds: info?.userIds ?? [],
+        }
+      })
+      return reply.send(success({ list: enriched }))
+    }
+
     return reply.send(success({ list }))
   })
 
