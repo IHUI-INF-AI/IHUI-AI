@@ -193,7 +193,10 @@ const nextConfig: NextConfig = {
   async headers() {
     const securityHeaders = [
       { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
-      { key: 'X-Frame-Options', value: 'DENY' },
+      // 2026-08-02 fix:WorkPanel 内置浏览器需 iframe 嵌入同源页面(发布/设置等),
+      // DENY 会拦截同源嵌入(chrome-error refused to connect),改 SAMEORIGIN:
+      // 同源可嵌入,跨源仍拦截(clickjacking 防护不变)。与 apps/api xss-protection 一致。
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       {
@@ -222,7 +225,9 @@ const nextConfig: NextConfig = {
           // - login.dingtalk.com:钉钉 OAuth iframe
           // - passport.feishu.cn:飞书 QR iframe
           // - self:Next.js dev HMR / React DevTools 需要
-          "frame-src 'self' https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn",
+          // 2026-08-02 fix:WorkPanel 内置浏览器允许用户打开任意网址,
+          // frame-src 放开 https:/http: 使可嵌入的外部站点能正常 iframe 展示。
+          "frame-src 'self' https: http: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn",
           "base-uri 'self'",
           "form-action 'self'",
         ].join('; '),
