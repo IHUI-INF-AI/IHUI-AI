@@ -80,7 +80,8 @@
     "rimraf": "catalog:",
     "sharp": "^0.35.3",
     "turbo": "^2.10.8",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite": "^6.3.0"
   },
   "pnpm": {
     "overrides": {

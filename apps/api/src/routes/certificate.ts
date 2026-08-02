@@ -23,7 +23,7 @@ import { success, error } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const templatesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -67,7 +67,7 @@ const updateTemplateSchema = z.object({
 
 const createCertificateSchema = z.object({
   templateId: z.string().uuid().nullable().optional(),
-  userId: z.string().uuid('无效的用户 ID'),
+  userId: z.string().uuid({ message: '无效的用户 ID' }),
   title: z.string().min(1).max(200),
   recipientName: z.string().max(100).nullable().optional(),
   source: z.string().max(20).optional(),

@@ -14,7 +14,7 @@ const paginationQuery = {
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const channelTypes = ['email', 'sms', 'push', 'in_app', 'webhook'] as const
 

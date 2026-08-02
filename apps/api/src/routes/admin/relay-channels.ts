@@ -58,7 +58,7 @@ const updateGroupBodySchema = z.object({
 })
 
 const addMemberBodySchema = z.object({
-  keyPoolId: z.string().uuid('keyPoolId 必须是 UUID'),
+  keyPoolId: z.string().uuid({ message: 'keyPoolId 必须是 UUID' }),
   weight: z.number().int().min(1).optional(),
 })
 

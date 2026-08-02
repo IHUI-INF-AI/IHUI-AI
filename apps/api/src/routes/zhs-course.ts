@@ -17,7 +17,7 @@ import {
 } from '@ihui/database'
 import { eq, sql, and, desc } from 'drizzle-orm'
 import { requireAdmin } from '../plugins/require-permission.js'
-import { error } from '../utils/response.js'
+import { error, success } from '../utils/response.js'
 
 const courseSchema = z.object({
   title: z.string().min(1).max(255),
@@ -282,7 +282,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       })
       .parse(request.body)
     const created = await db.insert(zhsCourseVideo).values(body.videos).returning()
-    return reply.code(201).send({ created: created.length, list: created })
+    return reply.code(201).send(success({ created: created.length, list: created }))
   })
 
   // 更新视频

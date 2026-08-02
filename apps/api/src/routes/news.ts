@@ -37,7 +37,7 @@ import { success, error } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const articlesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -45,7 +45,7 @@ const articlesQuerySchema = z.object({
   categoryId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid('无效的分类 ID'),
+      z.string().uuid({ message: '无效的分类 ID' }),
     )
     .optional(),
   search: z.string().max(200).optional(),

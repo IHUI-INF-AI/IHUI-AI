@@ -10,7 +10,7 @@ import { success, error } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const applySchema = z.object({
   commissionRate: z.number().int().min(0).max(100).optional(),
