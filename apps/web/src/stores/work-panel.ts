@@ -69,6 +69,20 @@ function normalizeUrl(input: string): string {
   return `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`
 }
 
+/**
+ * 判断 URL 是否与当前页面同源。
+ * 2026-08-02 fix:同源页面(发布/设置等)在 X-Frame-Options: SAMEORIGIN 下允许 iframe 嵌入,
+ * 后端 probeEmbed 无法感知请求方 origin,会把 SAMEORIGIN 一律判为不可嵌入 → 误走 CDP/截图。
+ */
+function isSameOriginUrl(href: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return new URL(href, window.location.origin).origin === window.location.origin
+  } catch {
+    return false
+  }
+}
+
 /** 创建新 Tab */
 function createTab(url: string, title?: string): WorkPanelTab {
   const now = Date.now()
@@ -291,9 +305,14 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           try {
             let canEmbed = true
             try {
-              const probe = await probeEmbed(url)
-              if (probe.success && probe.data) {
-                canEmbed = probe.data.canEmbed
+              if (isSameOriginUrl(url)) {
+                // 2026-08-02 fix:同源 URL 直接走 iframe(SAMEORIGIN 允许同源嵌入)
+                canEmbed = true
+              } else {
+                const probe = await probeEmbed(url)
+                if (probe.success && probe.data) {
+                  canEmbed = probe.data.canEmbed
+                }
               }
             } catch {
               // 探测失败 → 默认尝试 iframe(保留 onFailed 兜底)
