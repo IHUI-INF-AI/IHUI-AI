@@ -730,8 +730,12 @@ class LLMGateway:
             cfg = settings.get_provider_config("groq")
             return cfg.api_key, cfg.api_base or None, model
         if m.startswith("gemini/"):
+            # 2026-08-02 接入 Google AI Studio:走 OpenAI 兼容接口
+            # api_base = https://generativelanguage.googleapis.com/v1beta/openai
+            # 模型名去 gemini/ 前缀(如 gemini/gemini-2.5-flash → gemini-2.5-flash)
+            real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("gemini")
-            return cfg.api_key, cfg.api_base or None, model
+            return cfg.api_key, cfg.api_base, f"openai/{real_model}"
         if m.startswith("openrouter/"):
             cfg = settings.get_provider_config("openrouter")
             return cfg.api_key, cfg.api_base or None, model

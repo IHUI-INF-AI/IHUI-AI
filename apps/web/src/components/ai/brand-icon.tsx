@@ -152,6 +152,7 @@ const VENDOR_COMPONENTS: Record<
   openai: OpenAI,
   anthropic: Anthropic,
   google: Google,
+  gemini: Google, // 2026-08-02 alias:Google AI Studio Gemini(provider_code=gemini)
   deepseek: DeepSeek,
   meta: Meta,
   mistral: Mistral,
