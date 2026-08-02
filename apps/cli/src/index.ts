@@ -18,7 +18,8 @@ import chalk from 'chalk';
 import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
-import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
+import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider } from '@ihui/api-client';
+import { cliDeviceFingerprintCollector } from './lib/device-fingerprint.js';
 import { startREPL } from './commands/repl.js';
 import { runAgent, stopReasonToExitCode, parseOutputFormat } from './commands/agent.js';
 import { loadSkills, findSkill } from './skills/index.js';
@@ -287,6 +288,7 @@ program.hook('preAction', async () => {
     cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
   });
   setBaseUrl(cfg.apiUrl);
+  setDeviceFingerprintProvider(cliDeviceFingerprintCollector);
   if (cfg.apiKey) {
     if (opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
       console.warn(chalk.yellow('⚠ --api-key 会暴露在进程列表中,推荐使用 IHUI_API_KEY 环境变量或 settings.json'));

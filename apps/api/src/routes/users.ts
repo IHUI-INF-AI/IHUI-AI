@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
-import { sql } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
+import { userDevices } from '@ihui/database'
 import { createWriteStream, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { pipeline } from 'node:stream/promises'
@@ -409,7 +410,7 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ user: publicUser(updated) }))
   })
 
-  // GET /api/users/:id/devices — 登录设备列表（从 api_logs 聚合最近登录设备）
+  // GET /api/users/:id/devices — 登录设备列表（从 user_devices 表查,按设备指纹识别真实设备）
   server.get('/:id/devices', async (request, reply) => {
     try {
       await authenticate(request)
@@ -428,21 +429,22 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     }
 
     try {
-      const rows = await db.execute(
-        sql`SELECT "ip", "user_agent", max("created_at") AS "last_login_at"
-            FROM "api_logs"
-            WHERE "user_id" = ${id} AND ("path" LIKE '%/auth/login%' OR "path" LIKE '%/auth/send-code%')
-            GROUP BY "ip", "user_agent"
-            ORDER BY max("created_at") DESC
-            LIMIT 20`,
-      )
-      const devices = (rows as Record<string, unknown>[]).map((r) => ({
-        id: `${r.ip ?? 'unknown'}-${r.user_agent ?? 'unknown'}`,
-        ip: r.ip ?? '',
-        userAgent: r.user_agent ?? '',
-        lastLoginAt: r.last_login_at,
-      }))
-      return reply.send(success({ devices }))
+      const rows = await db
+        .select({
+          id: userDevices.id,
+          fingerprintHash: userDevices.fingerprintHash,
+          userAgent: userDevices.userAgent,
+          ip: userDevices.ip,
+          firstSeenAt: userDevices.firstSeenAt,
+          lastSeenAt: userDevices.lastSeenAt,
+          trusted: userDevices.trusted,
+          lastLocation: userDevices.lastLocation,
+        })
+        .from(userDevices)
+        .where(eq(userDevices.userId, id))
+        .orderBy(desc(userDevices.lastSeenAt))
+        .limit(50)
+      return reply.send(success({ devices: rows }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询登录设备失败'))
