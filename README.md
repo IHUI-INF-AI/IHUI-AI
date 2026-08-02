@@ -2319,13 +2319,34 @@ PostgreSQL 2 张表(`packages/database/src/schema/im-adapters.ts`):
 
 E1-E5 五层防御体系,从密码学到运行时全链路防护:
 
-| 层级            | 模块                         | 关键能力                                     | API 端点                   |
-| --------------- | ---------------------------- | -------------------------------------------- | -------------------------- |
-| **E1 密码学**   | argon2id + bcrypt 透明迁移   | OWASP 2023 推荐,抗 GPU/ASIC 爆破             | 内置(login/register/reset) |
-| **E2 MFA/设备** | TOTP + 设备指纹 + 风险评分   | RFC 6238 ±1 窗口 + 6 请求头指纹 + 5 维度评分 | `/api/mfa/*`               |
-| **E3 审计链**   | HMAC-SHA256 链 + CEF/LEEF    | 防篡改链式哈希 + SIEM 三格式导出             | `/api/admin/audit-logs/*`  |
-| **E4 零信任**   | mTLS + 网络分段 + 服务间认证 | 双向证书 + 5 维度策略评估 + CIDR 黑名单      | 插件级 + 路由级配置        |
-| **E5 反自动化** | 异常检测 + CAPTCHA + IP 信誉 | 6 维度行为分析 + 扫描器即时封禁              | `/api/security/*`          |
+| 层级            | 模块                         | 关键能力                                                                        | API 端点                                |
+| --------------- | ---------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- |
+| **E1 密码学**   | argon2id + bcrypt 透明迁移   | OWASP 2023 推荐,抗 GPU/ASIC 爆破                                                | 内置(login/register/reset)              |
+| **E2 MFA/设备** | TOTP + 设备指纹 + 风险评分   | RFC 6238 ±1 窗口 + Canvas/WebGL/UA/时区 hash + user_devices 表 + 登录 upsert    | `/api/mfa/*` + `/api/users/:id/devices` |
+| **E3 审计链**   | HMAC-SHA256 链 + CEF/LEEF    | 防篡改链式哈希 + SIEM 三格式导出                                                | `/api/admin/audit-logs/*`               |
+| **E4 零信任**   | mTLS + 网络分段 + 服务间认证 | 双向证书 + 5 维度策略评估 + CIDR 黑名单                                         | 插件级 + 路由级配置                     |
+| **E5 反自动化** | 异常检测 + CAPTCHA + IP 信誉 | 6 维度行为评分(AnomalyDetector 中间件已激活)+ GeoIP 跨城市判断 + 扫描器即时封禁 | `/api/security/*`                       |
+
+### 设备维度风控全链路(2026-08-02 立)
+
+8 端同步设备指纹采集 + 后端设备维度封控闭环,激活 audit-logger / anomaly-detector / threat-detector 三模块的设备维度能力:
+
+- **采集层**(8 端 adapter,零依赖自实现,仿 use-clipboard 工厂模式):
+  - 契约层 `@ihui/types/device.ts`:`createDeviceFingerprintCollector` 工厂 + `DeviceFingerprintCollector` 接口 + FNV-1a 32 位 hash(4 段拼接 32 字符指纹,碰撞率 2^-32)
+  - web/desktop/extension:Canvas + WebGL + UA + 时区 + 屏幕 + CPU 核心 + 设备内存
+  - mobile-rn:`Platform.OS` + 设备信息
+  - miniapp-taro:`Taro.getSystemInfoSync()`(brand/model/screen/language)
+  - cli:`process.platform` + `os.cpus().length` + 自构造 UA
+- **注入层**(`@ihui/api-client`):`setDeviceFingerprintProvider` + `injectDeviceFingerprintHeader` helper,5 处 fetchApi 变体(fetchApi/fetchText/fetchRaw/postApi/streamChat)自动注入 `x-device-fingerprint` header,fail-open(采集失败静默降级)
+- **接收层**(`apps/api`):
+  - audit-logger 读取 `x-device-fingerprint` header 记录到审计链
+  - AnomalyDetector 插件(onRequest 钩子)调 `detectAnomaly`,block→403 / challenge→CAPTCHA / monitor→放行+日志
+  - GeoIP 服务(MaxMind GeoLite2 + Haversine 距离 + IP 前两段降级)替换"IP 前两段变化"判断
+- **存储层**(`packages/database`):`user_devices` 表(userId uuid + fingerprintHash + userAgent + ip + firstSeenAt + lastSeenAt + trusted + lastLocation),(userId, fingerprintHash) 唯一约束 + onConflictDoUpdate 幂等 upsert
+- **路由层**(`apps/api`):
+  - `GET /api/users/:id/devices` 改查 user_devices 表(替代 api_logs 聚合)
+  - 登录成功 upsert 设备(从 x-device-fingerprint header 取指纹)
+  - 黑名单 device 分支(`GET /api/admin/member/blacklist?type=device`)按 fingerprintHash 查 user_devices 富化返回
 
 **Admin 安全仪表盘**(2026-07-24):3 个管理后台页面可视化安全态势:
 
