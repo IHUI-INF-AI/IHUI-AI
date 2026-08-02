@@ -1,1 +1,0 @@
-a vector database visualization, 3D point cloud of documents clustered by topic, semantic connections between data points, blue and teal color scheme, dark background, no text
