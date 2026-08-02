@@ -242,9 +242,11 @@ _REGISTRY: list[FreeProvider] = [
         rate_limit="无限制(plan 套餐)",
         default_base_url="https://apihub.agnes-ai.com/v1",
         key_env_vars=["AGNES_API_KEY"],
-        default_models=["agnes/step-3.7-flash"],
+        # 2026-08-02 修复:agnes 是自有模型平台(非 OpenAI 中转),
+        # /v1/models 实测支持 agnes-2.5-flash / agnes-2.5-pro 等(不支持 gpt-4o / step-3.7-flash)
+        default_models=["agnes/agnes-2.5-flash", "agnes/agnes-2.5-pro"],
         docs_url="https://agnes-ai.com/docs",
-        notes="项目已配置 plan 套餐 key,本地连通性待验证",
+        notes="项目已配置 plan 套餐 key,自有模型平台,支持 agnes-2.5-flash / agnes-2.5-pro",
     ),
     FreeProvider(
         provider_code="siliconcloud",
@@ -365,9 +367,11 @@ _REGISTRY: list[FreeProvider] = [
         rate_limit="50 RPM(免费层)",
         default_base_url="https://api.cloudflare.com/client/v4/accounts",
         key_env_vars=["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
-        default_models=["@cf/zai-org/glm-5.2", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/qwen/qwq-32b"],
+        # 2026-08-02 修复:glm-5.2 需 Workers Paid plan(403 forbidden),改 glm-4.7-flash 官方免费推荐
+        # memory: GLM-5.2 自 2026-07-28 起从 Workers Free plan 移除
+        default_models=["@cf/zai-org/glm-4.7-flash", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/qwen/qwq-32b"],
         docs_url="https://developers.cloudflare.com/workers-ai",
-        notes="边缘推理,需 account_id,模型名 @cf/ 前缀",
+        notes="边缘推理,需 account_id,模型名 @cf/ 前缀,免费层用 glm-4.7-flash(非 glm-5.2)",
     ),
     FreeProvider(
         provider_code="nvidia_nim",
