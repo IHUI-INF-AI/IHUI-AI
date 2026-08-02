@@ -427,6 +427,27 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 41 (2026-08-02 新增,单分支开发守门,AGENTS.md §9b 落地) ---
+  // blocking:仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),教训:分支不是"工作单元",
+  //   是"协作单元"——单 agent 单任务无需分支,直接 main 提交即可。
+  // 本守门检测 git branch -a 中除 main / origin/main / upstream/main 外的分支;
+  // goal/ 前缀 + .trae-cn/goal-runtime/STATE.md 标注 active 的 goal 模式临时分支豁免。
+  // 失败含义:检测到非法分支,需删除或标注豁免后重新 commit。
+  {
+    id: '41',
+    label: '🌿 单分支开发守门(blocking,AGENTS.md §9b)',
+    script: 'check-single-branch.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 AGENTS.md §9b:除 main 外禁止创建任何分支,所有改动统一往 main 合并。',
+      '     修复:git branch -d <已合并分支> / git branch -D <未合并分支>(先 tag 备份)',
+      '     或 git push origin --delete <远程分支>',
+      '     goal/ 临时分支需在 .trae-cn/goal-runtime/STATE.md 标注 active 才豁免',
+      '',
+    ].join('\n'),
+  },
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',

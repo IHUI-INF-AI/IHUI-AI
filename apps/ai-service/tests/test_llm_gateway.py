@@ -682,14 +682,14 @@ def test_resolve_provider_groq(monkeypatch):
 
 
 def test_resolve_provider_gemini(monkeypatch):
-    """gemini/* → (gemini_api_key, None, model)。"""
+    """gemini/* → (gemini_api_key, None, openai/<real_model>) — Google AI Studio OpenAI 兼容接口。"""
     from app.core.config import settings
     monkeypatch.setattr(settings, "llm_providers", json.dumps({"gemini": {"api_key": "sk-gemini-test"}}))
     gw = LLMGateway()
     api_key, api_base, litellm_model = gw._resolve_provider("gemini/gemini-1.5-flash")
     assert api_key == "sk-gemini-test"
     assert api_base is None
-    assert litellm_model == "gemini/gemini-1.5-flash"
+    assert litellm_model == "openai/gemini-1.5-flash"
 
 
 def test_resolve_provider_openrouter(monkeypatch):
