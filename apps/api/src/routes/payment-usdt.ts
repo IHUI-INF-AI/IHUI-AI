@@ -81,7 +81,7 @@ const configPatchSchema = z
 
 const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. POST /payment/usdt/create — 用户创建充值订单 =====
-  server.post('/payment/usdt/create', { preHandler: requireAuth }, async (request, reply) => {
+  server.post('/payment/usdt/create', { preHandler: requireAuth, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -100,7 +100,7 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 2. GET /payment/usdt/orders — 用户查询自己的订单 =====
-  server.get('/payment/usdt/orders', { preHandler: requireAuth }, async (request, reply) => {
+  server.get('/payment/usdt/orders', { preHandler: requireAuth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -126,7 +126,7 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 3. GET /payment/usdt/order/:id — 查询订单详情 =====
-  server.get('/payment/usdt/order/:id', { preHandler: requireAuth }, async (request, reply) => {
+  server.get('/payment/usdt/order/:id', { preHandler: requireAuth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
 
@@ -154,7 +154,7 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
       'USDT_WEBHOOK_SECRET 未设置,webhook 回调将拒绝所有请求(生产环境必须配置)',
     )
   }
-  server.post('/payment/usdt/callback/:network', async (request, reply) => {
+  server.post('/payment/usdt/callback/:network', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
     // 强制验签(fail-closed):secret 未配置或提供的 secret 不匹配 → 拒绝
     const providedSecret = request.headers['x-webhook-secret'] as string | undefined
     if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
@@ -197,7 +197,7 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 5. GET /admin/payment/usdt/orders — 管理员查询所有订单 =====
-  server.get('/admin/payment/usdt/orders', { preHandler: requireAdmin }, async (request, reply) => {
+  server.get('/admin/payment/usdt/orders', { preHandler: requireAdmin, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = adminOrdersQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -228,7 +228,7 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   // ===== 6. GET /admin/payment/usdt/config — 管理员查看配置 =====
   server.get(
     '/admin/payment/usdt/config',
-    { preHandler: requireAdmin },
+    { preHandler: requireAdmin, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
     async (_request, reply) => {
       try {
         const config = await getUsdtPaymentConfig()
@@ -243,7 +243,7 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   // ===== 7. PATCH /admin/payment/usdt/config — 管理员修改配置 =====
   server.patch(
     '/admin/payment/usdt/config',
-    { preHandler: requireAdmin },
+    { preHandler: requireAdmin, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const parsed = configPatchSchema.safeParse(request.body ?? {})
       if (!parsed.success) {

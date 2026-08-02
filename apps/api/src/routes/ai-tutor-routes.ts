@@ -16,6 +16,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { error } from '../utils/response.js'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 async function proxyToAiService(
   request: FastifyRequest,
@@ -60,7 +61,7 @@ export const aiTutorRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      reply.status(statusCode).send(error(statusCode, (e as Error).message || '需要登录'))
+      reply.status(statusCode).send(error(statusCode, toUserFriendlyMessage(e) || '需要登录'))
     }
   })
 

@@ -24,6 +24,7 @@ import {
   streamAgentExecution,
 } from '../services/langgraph-proxy.js'
 import type { SSEEvent } from '@ihui/types'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 const interruptSchema = z.object({
   nodeId: z.string().min(1),
@@ -63,7 +64,7 @@ export const agentLanggraphRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(result))
     } catch (e) {
       request.log.error({ err: e, threadId }, 'langgraph interrupt failed')
-      return reply.status(502).send(error(502, (e as Error).message))
+      return reply.status(502).send(error(502, toUserFriendlyMessage(e)))
     }
   })
 
@@ -86,7 +87,7 @@ export const agentLanggraphRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(result))
     } catch (e) {
       request.log.error({ err: e, threadId }, 'langgraph resume failed')
-      return reply.status(502).send(error(502, (e as Error).message))
+      return reply.status(502).send(error(502, toUserFriendlyMessage(e)))
     }
   })
 
@@ -100,7 +101,7 @@ export const agentLanggraphRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(result))
     } catch (e) {
       request.log.error({ err: e, threadId }, 'langgraph get state failed')
-      return reply.status(502).send(error(502, (e as Error).message))
+      return reply.status(502).send(error(502, toUserFriendlyMessage(e)))
     }
   })
 
@@ -119,7 +120,7 @@ export const agentLanggraphRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(result))
     } catch (e) {
       request.log.error({ err: e, threadId }, 'langgraph get history failed')
-      return reply.status(502).send(error(502, (e as Error).message))
+      return reply.status(502).send(error(502, toUserFriendlyMessage(e)))
     }
   })
 
@@ -176,7 +177,7 @@ export const agentLanggraphRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       if (!raw.writableEnded) {
         const msg =
-          (e as Error).name === 'AbortError' ? '客户端断开' : (e as Error).message
+          (e as Error).name === 'AbortError' ? '客户端断开' : toUserFriendlyMessage(e)
         writeEvent({
           type: 'error',
           threadId,

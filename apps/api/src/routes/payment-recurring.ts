@@ -115,6 +115,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Payment'],
         body: signBodySchema,
       }),
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {
@@ -222,6 +223,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         description: '鉴权后返回当前用户 active/pending 状态的签约记录',
         tags: ['Payment'],
       }),
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {
@@ -260,6 +262,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         params: idParamSchema,
         querystring: z.object({ refresh: z.coerce.boolean().optional() }),
       }),
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {
@@ -337,6 +340,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         params: idParamSchema,
         body: cancelBodySchema,
       }),
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {
@@ -429,6 +433,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         auth: false,
         response: swaggerSchemas.callback,
       }),
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {
@@ -688,6 +693,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Payment'],
         body: scanAndChargeBodySchema,
       }),
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {
@@ -740,6 +746,7 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Payment'],
         params: idParamSchema,
       }),
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
       try {

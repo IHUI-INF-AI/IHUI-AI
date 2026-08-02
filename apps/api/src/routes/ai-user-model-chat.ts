@@ -6,6 +6,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
 import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
+import { toUserFriendlyMessage } from '@ihui/shared'
 
 const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
 
@@ -374,7 +375,7 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
       usage = llmResult.usage
     } catch (e) {
       request.log.error({ err: e, vendor: config.vendor, model: config.modelId }, 'LLM 调用失败')
-      return reply.status(502).send(error(502, `模型调用失败: ${(e as Error).message}`))
+      return reply.status(502).send(error(502, `模型调用失败: ${toUserFriendlyMessage(e)}`))
     }
 
     const now = new Date()
