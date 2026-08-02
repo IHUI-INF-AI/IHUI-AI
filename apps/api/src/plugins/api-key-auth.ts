@@ -303,7 +303,7 @@ export async function checkPerModelRateLimit(
       if (currentCount + 1 > (rpmLimit as number)) {
         // 超限:不写入本次请求,返回 429
         // retryAfter = 窗口剩余时间(估算:最早条目到期时间,无条目时取完整窗口)
-        const oldest = await redis.zrange(rpmKey, 0, 0, 'WITHSCORES')
+        const oldest = await redis.zrange(rpmKey, 0, '0', 'WITHSCORES')
         const oldestScore = oldest[1] ? Number(oldest[1]) : now - RATE_LIMIT_WINDOW_MS
         const retryAfter = Math.ceil((oldestScore + RATE_LIMIT_WINDOW_MS - now) / 1000)
         return { allowed: false, retryAfter: Math.max(1, retryAfter), reason: 'rpm' }
@@ -328,7 +328,7 @@ export async function checkPerModelRateLimit(
       const currentSum = vals.reduce((acc, v) => acc + Number(v), 0)
       if (currentSum + estimatedTokens > (tpmLimit as number)) {
         // 超限:不写入本次请求,返回 429
-        const oldest = await redis.zrange(tpmZsetKey, 0, 0, 'WITHSCORES')
+        const oldest = await redis.zrange(tpmZsetKey, 0, '0', 'WITHSCORES')
         const oldestScore = oldest[1] ? Number(oldest[1]) : now - RATE_LIMIT_WINDOW_MS
         const retryAfter = Math.ceil((oldestScore + RATE_LIMIT_WINDOW_MS - now) / 1000)
         return { allowed: false, retryAfter: Math.max(1, retryAfter), reason: 'tpm' }
