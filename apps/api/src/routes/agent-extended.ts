@@ -12,6 +12,7 @@ import {
   agentHeatStats,
 } from '@ihui/database'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
+import { requireActiveUser } from '../plugins/auth.js'
 import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
 import { getConversationHistory } from '../services/context-manager-service.js'
@@ -148,9 +149,30 @@ async function rawDelete(table: string, id: string) {
   await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
 }
 
+// P1 安全修复(2026-08-02):基于列白名单构建插入 Zod schema,strip 非白名单字段
+// rawInsert 已有列白名单,此处为双重保险 + 统一校验入口,防止客户端注入非白名单字段
+function buildInsertSchema(columns: readonly string[]): z.ZodType<Record<string, unknown>> {
+  const shape: Record<string, z.ZodTypeAny> = {}
+  for (const col of columns) {
+    shape[col] = z.unknown().optional()
+  }
+  return z.object(shape).strip() as z.ZodType<Record<string, unknown>>
+}
+
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // P0 安全修复:所有路由默认要求登录;admin-only 端点在路由级用 requireAdmin 覆盖
-  server.addHook('preHandler', requireAuth)
+  // P2 安全修复(2026-08-02):requireAuth 后追加 requireActiveUser,拦截已注销账号(status=3)
+  server.addHook('preHandler', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (reply.sent) return
+    try {
+      await requireActiveUser(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '账号已注销'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+  })
 
   const buyListQuery = z.object({
     userId: z.string().optional(),
@@ -203,6 +225,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     'deliverable',
     'remark',
   ]
+  const needTaskCreateSchema = buildInsertSchema(needTaskCols)
   server.get('/need-task/list', async (req, reply) => {
     const q = req.query as {
       page?: string
@@ -252,8 +275,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.post('/need-task', async (req, reply) => {
     try {
-      const body = req.body as Record<string, unknown>
-      // P1 安全修复(2026-08-02):强制 user_id = 当前登录用户,防止 user_id 欺骗
+      // P1 安全修复(2026-08-02):Zod schema strip 非白名单字段 + 强制 user_id 防欺骗
+      const body = needTaskCreateSchema.parse(req.body)
       body.user_id = req.userId
       if (body.status === undefined) body.status = 0
       const row = await rawInsert('zhs_agent_need_task', needTaskCols, body, reply)
@@ -324,6 +347,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     'biz_type',
     'status',
   ]
+  const uploadCreateSchema = buildInsertSchema(uploadCols)
   server.get('/upload/list', async (req, reply) => {
     const q = req.query as {
       page?: string
@@ -366,8 +390,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.post('/upload', async (req, reply) => {
     try {
-      const body = req.body as Record<string, unknown>
-      // P1 安全修复(2026-08-02):强制 user_id = 当前登录用户,防止 user_id 欺骗
+      // P1 安全修复(2026-08-02):Zod schema strip 非白名单字段 + 强制 user_id 防欺骗
+      const body = uploadCreateSchema.parse(req.body)
       body.user_id = req.userId
       if (body.status === undefined) body.status = 1
       const row = await rawInsert('agent_uploads', uploadCols, body, reply)
@@ -441,6 +465,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     'status',
     'remark',
   ]
+  const usedetailCreateSchema = buildInsertSchema(usedetailCols)
   server.get('/usedetail/list', async (req, reply) => {
     const q = req.query as {
       page?: string
@@ -492,8 +517,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   server.post('/usedetail', async (req, reply) => {
     try {
-      const body = req.body as Record<string, unknown>
-      // P1 安全修复(2026-08-02):强制 user_id = 当前登录用户,防止 user_id 欺骗
+      // P1 安全修复(2026-08-02):Zod schema strip 非白名单字段 + 强制 user_id 防欺骗
+      const body = usedetailCreateSchema.parse(req.body)
       body.user_id = req.userId
       if (body.status === undefined) body.status = 1
       const row = await rawInsert('zhs_agent_usedetail', usedetailCols, body, reply)

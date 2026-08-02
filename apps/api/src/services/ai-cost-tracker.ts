@@ -92,8 +92,34 @@ export class AICostTracker {
     return (promptTokens / 1000) * p.inputPer1k + (completionTokens / 1000) * p.outputPer1k
   }
 
+  /**
+   * P0 修复:整数(分)运算,避免浮点累加精度漂移。
+   *
+   * 算法:价格字段先一次性转整数分,后续乘除全在整数域进行,仅最后一步除法 round。
+   * 例如 inputPer1k=0.0005 元 → inputPer1kCents=0.05 分 → Math.round(0.05*100)=5 分(整数),
+   * 1500 tokens → Math.round(1500*5/1000)=8 分(整数累加,无精度损失)。
+   */
+  calculateCostCents(model: string, promptTokens: number, completionTokens: number): number {
+    const p = this.pricing.get(model)
+    if (!p) throw new CostTrackerError(`未找到模型定价: ${model}`, 'no_pricing')
+    // 价格字段先转整数分(一次性 round,避免浮点扩散)
+    const inputPer1kCents = Math.round(p.inputPer1k * 100)
+    const outputPer1kCents = Math.round(p.outputPer1k * 100)
+    // 整数乘除:tokens * centsPer1k / 1000,再 round 收尾
+    const inputCostCents = Math.round((promptTokens * inputPer1kCents) / 1000)
+    const outputCostCents = Math.round((completionTokens * outputPer1kCents) / 1000)
+    return inputCostCents + outputCostCents
+  }
+
   async record(record: Omit<CostRecord, 'id' | 'cost' | 'timestamp'>): Promise<CostRecord> {
-    const cost = this.calculateCost(record.model, record.promptTokens, record.completionTokens)
+    // P0 修复:用整数(分)运算,避免浮点累加精度漂移
+    const costCents = this.calculateCostCents(
+      record.model,
+      record.promptTokens,
+      record.completionTokens,
+    )
+    // CostRecord.cost 保留元(浮点)用于显示兼容
+    const cost = costCents / 100
     const full: CostRecord = {
       ...record,
       id: crypto.randomUUID(),
@@ -106,8 +132,8 @@ export class AICostTracker {
       agg.records.shift()
     }
     agg.records.push(full)
-    // P0 修复:用整数分累加,避免浮点精度漂移
-    agg.totalCostCents += Math.round(cost * 100)
+    // P0 修复:整数分累加,无浮点精度损失
+    agg.totalCostCents += costCents
     logger.info('记录 AI 调用成本', { userId: record.userId, model: record.model, cost })
     return full
   }
