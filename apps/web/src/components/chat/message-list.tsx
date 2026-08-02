@@ -377,8 +377,8 @@ const MessageItem = React.memo(function MessageItem({
           {showTyping ? (
             <TypingIndicator />
           ) : isUser ? (
-            // 2026-08-02:用户消息字号同步放大 14px → 16px(text-base),与 AI 消息对齐
-            <p className="whitespace-pre-wrap break-words text-base leading-relaxed">{m.content}</p>
+            // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
+            <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
           ) : (
             <div className="space-y-2">
               {m.reasoning && (

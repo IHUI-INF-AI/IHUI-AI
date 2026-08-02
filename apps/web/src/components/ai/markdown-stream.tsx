@@ -482,9 +482,8 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
       h4({ children }) {
         return <h4 className="my-2 text-base font-semibold">{children}</h4>
       },
-      // 2026-08-02:正文升到 text-base 后,h5/h6 同步上调保持层级
       h5({ children }) {
-        return <h5 className="my-2 text-base font-semibold">{children}</h5>
+        return <h5 className="my-2 text-sm font-semibold">{children}</h5>
       },
       h6({ children }) {
         return <h6 className="my-2 text-sm font-medium">{children}</h6>
@@ -509,8 +508,8 @@ export function MarkdownStream({ content, isStreaming }: MarkdownStreamProps) {
   )
 
   return (
-    // 2026-08-02:AI 对话正文整体放大 14px → 16px(text-base),用户反馈"文字内容太小"
-    <div className="text-base">
+    // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
+    <div className="text-[15px]">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {parseContent}
       </ReactMarkdown>
