@@ -2,14 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import {
-  Loader2,
-  Copy,
-  Check,
-  RefreshCw,
-  ArrowDown,
-  Search,
-} from 'lucide-react'
+import { Loader2, Copy, Check, RefreshCw, ArrowDown, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 
@@ -85,7 +78,6 @@ interface MessageItemProps {
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
   isHighlighted?: boolean
-  isHovered?: boolean
   isFocused?: boolean
   onContextMenu?: (e: React.MouseEvent) => void
   linkedPlanStepId?: string | null
@@ -103,7 +95,6 @@ const MessageItem = React.memo(function MessageItem({
   onApplyDiff,
   onRejectDiff,
   isHighlighted = false,
-  isHovered = false,
   isFocused = false,
   onContextMenu,
   linkedPlanStepId = null,
@@ -115,13 +106,9 @@ const MessageItem = React.memo(function MessageItem({
   const isUser = m.role === 'user'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
-  // Copy 按钮短暂"已复制"状态(2026-07-28 立),2s 后自动隐藏
+  // Copy 按钮短暂"已复制"状态(2026-07-28 立),1.5s 后自动隐藏
   const [copied, setCopied] = React.useState(false)
   const copyTimerRef = React.useRef<number | null>(null)
-  // 本地 hover 状态(2026-07-28 增补):用于驱动 Copy 按钮显隐,
-  // 与 ProgressJumpStore 的 isHovered(跨组件 plan step 联动)解耦,
-  // 保证仅本地鼠标移入气泡也能看到 Copy 按钮(无需 linkPlanStepToMessage)
-  const [localHover, setLocalHover] = React.useState(false)
   // 2026-07-28 立:Reasoning 折叠状态(2026-07-28 抽出为独立 state,供外部事件如键盘 Enter 切换)
   // 默认 false(折叠),点击展开按钮 / 收到 'ihui:toggle-reasoning' 事件时切换
   const [reasoningExpanded, setReasoningExpanded] = React.useState(false)
@@ -212,22 +199,13 @@ const MessageItem = React.memo(function MessageItem({
 
   // Phase 19(2026-07-28 立):反向联动 — hover 消息时同步高亮 plan step,
   // 通过 onMessageHover 回调通知父组件 → ProgressJumpStore.setHoveredPlanStep
-  // 2026-07-28 增补:同时维护本地 localHover state,用于驱动 Copy 按钮 + 时间戳 footer
-  // 不与跨组件 plan step 联动(ProgressJumpStore.hoveredMessageId)耦合
   const handleMouseEnter = React.useCallback(() => {
-    setLocalHover(true)
     onMessageHover?.(m.id, linkedPlanStepId)
   }, [onMessageHover, m.id, linkedPlanStepId])
   const handleMouseLeave = React.useCallback(() => {
-    setLocalHover(false)
     onMessageHover?.(m.id, null)
   }, [onMessageHover, m.id])
 
-  // Copy 按钮显示策略(2026-07-28 立):hover 或 focused 时显示,提升发现性同时不污染默认视觉
-  // - 默认 opacity-0,hover/focused 提升至 opacity-100
-  // - 已复制态(1.5s 内)持续显示
-  // - 2026-07-28 增补:包含 localHover(本地鼠标移入)与 isHovered(跨组件 plan step 联动)两种来源
-  const showCopyButton = (localHover || isHovered || isFocused || copied) && m.content.length > 0
   const timestampLabel = formatMessageTimestamp(m.createdAt)
   // 2026-07-31 立(深度对标 Codex/Trae Work):时间戳常驻显示在气泡底部,
   // 让对话流自带时间感知,无需 hover 才可见。用户需求"对话流里显示时间"。
@@ -269,187 +247,182 @@ const MessageItem = React.memo(function MessageItem({
               : 'text-left',
         )}
       >
-          {/* Copy 按钮(2026-07-28 立):hover/focused 时显示在气泡右上角
-            - 用 absolute 定位贴在气泡边缘,opacity 过渡避免布局抖动
-            - 用 stopPropagation 防止触发容器 onContextMenu / onMouseEnter 等 */}
-          {showCopyButton && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              onMouseDown={(e) => e.stopPropagation()}
-              data-testid={`message-copy-${m.id}`}
-              aria-label={copyLabel}
-              title={copyLabel}
-              className={cn(
-                'absolute -top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md',
-                'border border-border/60 bg-background text-muted-foreground shadow-sm',
-                'transition-opacity duration-150 hover:bg-accent hover:text-foreground',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
-                isUser ? '-left-2' : '-right-2',
-                copied ? 'opacity-100' : 'opacity-0 group-hover/msg:opacity-100',
-              )}
-            >
-              {copied ? (
-                <Check className="h-3 w-3 text-emerald-500" aria-hidden />
-              ) : (
-                <Copy className="h-3 w-3" aria-hidden />
-              )}
-            </button>
-          )}
-          {showTyping ? (
-            // P0 修复(2026-08-02):TypingIndicator 加 fade-in,流式开始时平滑出现;
-            // 内容区(下方 div)也加 fade-in,第一个 token 到达时平滑替换 TypingIndicator,
-            // 避免硬切换造成的短暂空白闪烁(TypingIndicator 硬切 → 内容区 fade-in 0→1 过渡)
-            <div className="animate-in fade-in-0 duration-150 fill-mode-both">
-              <TypingIndicator />
-            </div>
-          ) : isUser ? (
-            // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
-            <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
-          ) : (
-            <div className="space-y-2 animate-in fade-in-0 duration-150 fill-mode-both">
-              {m.reasoning && (
-                <ThinkingSection
-                  content={m.reasoning}
-                  currentNode={null}
-                  isStreaming={streamingThis}
-                  expanded={reasoningExpanded}
-                />
-              )}
-              {m.toolCalls?.map((tc) => {
-                // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
-                // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
-                const effectiveDiffInfo =
-                  tc.diffInfo ?? deriveDiffInfo(tc.toolName, tc.args) ?? undefined
-                const hasDiff = !!effectiveDiffInfo
+        {showTyping ? (
+          // P0 修复(2026-08-02):TypingIndicator 加 fade-in,流式开始时平滑出现;
+          // 内容区(下方 div)也加 fade-in,第一个 token 到达时平滑替换 TypingIndicator,
+          // 避免硬切换造成的短暂空白闪烁(TypingIndicator 硬切 → 内容区 fade-in 0→1 过渡)
+          <div className="animate-in fade-in-0 duration-150 fill-mode-both">
+            <TypingIndicator />
+          </div>
+        ) : isUser ? (
+          // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
+          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
+        ) : (
+          <div className="space-y-2 animate-in fade-in-0 duration-150 fill-mode-both">
+            {m.reasoning && (
+              <ThinkingSection
+                content={m.reasoning}
+                currentNode={null}
+                isStreaming={streamingThis}
+                expanded={reasoningExpanded}
+              />
+            )}
+            {m.toolCalls?.map((tc) => {
+              // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
+              // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
+              const effectiveDiffInfo =
+                tc.diffInfo ?? deriveDiffInfo(tc.toolName, tc.args) ?? undefined
+              const hasDiff = !!effectiveDiffInfo
 
-                // image_generation/summarize_artifacts:从 tc 显式字段或 result 推导 imageUrl/summaryData
-                // 优先用 tc.image_url / tc.summary_data(SSE 推送已填充时),
-                // 否则从 tc.result 兜底推导(适配旧后端不显式推 image_url 字段的场景)
-                const tcResult =
-                  tc.result && typeof tc.result === 'object'
-                    ? (tc.result as Record<string, unknown>)
-                    : null
-                const effectiveImageUrl: string | undefined =
-                  tc.image_url ||
-                  (typeof tcResult?.image_url === 'string' ? tcResult.image_url : undefined) ||
-                  (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
-                const effectiveSummaryData =
-                  tc.summary_data ??
-                  (tcResult &&
-                  (tcResult.plans ||
-                    tcResult.sources ||
-                    tcResult.artifacts ||
-                    tcResult.tool_calls_summary)
-                    ? ({
-                        plans: Array.isArray(tcResult.plans) ? tcResult.plans : undefined,
-                        sources: Array.isArray(tcResult.sources) ? tcResult.sources : undefined,
-                        artifacts: Array.isArray(tcResult.artifacts)
-                          ? tcResult.artifacts
+              // image_generation/summarize_artifacts:从 tc 显式字段或 result 推导 imageUrl/summaryData
+              // 优先用 tc.image_url / tc.summary_data(SSE 推送已填充时),
+              // 否则从 tc.result 兜底推导(适配旧后端不显式推 image_url 字段的场景)
+              const tcResult =
+                tc.result && typeof tc.result === 'object'
+                  ? (tc.result as Record<string, unknown>)
+                  : null
+              const effectiveImageUrl: string | undefined =
+                tc.image_url ||
+                (typeof tcResult?.image_url === 'string' ? tcResult.image_url : undefined) ||
+                (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
+              const effectiveSummaryData =
+                tc.summary_data ??
+                (tcResult &&
+                (tcResult.plans ||
+                  tcResult.sources ||
+                  tcResult.artifacts ||
+                  tcResult.tool_calls_summary)
+                  ? ({
+                      plans: Array.isArray(tcResult.plans) ? tcResult.plans : undefined,
+                      sources: Array.isArray(tcResult.sources) ? tcResult.sources : undefined,
+                      artifacts: Array.isArray(tcResult.artifacts) ? tcResult.artifacts : undefined,
+                      tool_calls_summary:
+                        tcResult.tool_calls_summary &&
+                        typeof tcResult.tool_calls_summary === 'object'
+                          ? tcResult.tool_calls_summary
                           : undefined,
-                        tool_calls_summary:
-                          tcResult.tool_calls_summary &&
-                          typeof tcResult.tool_calls_summary === 'object'
-                            ? tcResult.tool_calls_summary
-                            : undefined,
-                      } as unknown as React.ComponentProps<typeof ToolCallCard>['summaryData'])
-                    : undefined)
+                    } as unknown as React.ComponentProps<typeof ToolCallCard>['summaryData'])
+                  : undefined)
 
-                return (
-                  <ToolCallCard
-                    key={tc.id}
-                    toolName={tc.toolName}
-                    args={tc.args}
-                    result={tc.result}
-                    status={tc.status}
-                    duration={tc.duration}
-                    error={tc.error}
-                    iteration={tc.iteration}
-                    diffInfo={tc.diffInfo}
-                    applyStatus={tc.applyStatus}
-                    applyError={tc.applyError}
-                    repeated={tc.repeated}
-                    imageUrl={effectiveImageUrl}
-                    summaryData={effectiveSummaryData}
-                    serverSource={tc.serverSource}
-                    serverId={tc.serverId}
-                    serverName={tc.serverName}
-                    onApply={
-                      hasDiff && onApplyDiff
-                        ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
-                        : undefined
-                    }
-                    onReject={hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined}
-                  />
-                )
-              })}
-              <MarkdownStream content={m.content} isStreaming={streamingThis} />
-              {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾
+              return (
+                <ToolCallCard
+                  key={tc.id}
+                  toolName={tc.toolName}
+                  args={tc.args}
+                  result={tc.result}
+                  status={tc.status}
+                  duration={tc.duration}
+                  error={tc.error}
+                  iteration={tc.iteration}
+                  diffInfo={tc.diffInfo}
+                  applyStatus={tc.applyStatus}
+                  applyError={tc.applyError}
+                  repeated={tc.repeated}
+                  imageUrl={effectiveImageUrl}
+                  summaryData={effectiveSummaryData}
+                  serverSource={tc.serverSource}
+                  serverId={tc.serverId}
+                  serverName={tc.serverName}
+                  onApply={
+                    hasDiff && onApplyDiff
+                      ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
+                      : undefined
+                  }
+                  onReject={hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined}
+                />
+              )
+            })}
+            <MarkdownStream content={m.content} isStreaming={streamingThis} />
+            {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾
                 - 优先用 SSE tool-summary 事件聚合结果(m.toolCallSummary)
                 - 缺失时降级从 m.toolCalls 本地聚合
                 - 显示:文件搜索 N 个 / 网页搜索 N 个 / 修改 N 个文件 / +N -N 行 / 耗时 */}
-              <ToolCallSummaryCard
-                summary={m.toolCallSummary}
-                toolCalls={m.toolCalls}
-                isStreaming={streamingThis}
-                data-testid={`message-tool-call-summary-${m.id}`}
-              />
-              {/* 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan inline 到消息气泡
+            <ToolCallSummaryCard
+              summary={m.toolCallSummary}
+              toolCalls={m.toolCalls}
+              isStreaming={streamingThis}
+              data-testid={`message-tool-call-summary-${m.id}`}
+            />
+            {/* 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan inline 到消息气泡
                 - subagentActivities:SubAgentActivityFeed 实时刷新 subagent 生命周期
                 - terminalTasks:TerminalSection 展示命令执行 + 输出
                 - planSteps:PlanStepsCard 展示计划步骤
                 - 仅当消息级数据存在时渲染(后端 SSE 事件携带 messageId 时填充) */}
-              {m.subagentActivities && m.subagentActivities.length > 0 && (
-                <SubAgentActivityFeed
-                  swarmId={m.id}
-                  activities={m.subagentActivities}
-                  completed={!streamingThis}
-                />
-              )}
-              {m.terminalTasks && m.terminalTasks.length > 0 && (
-                <TerminalSection terminals={m.terminalTasks} />
-              )}
-              {m.planSteps && m.planSteps.length > 0 && (
-                <PlanStepsCard
-                  steps={m.planSteps}
-                  isStreaming={streamingThis}
-                  data-testid={`message-plan-steps-${m.id}`}
-                />
-              )}
-            </div>
-          )}
-          {/* 时间戳 footer(2026-07-28 立):hover/focused 时显示在气泡底部,
-            增强时间感知的可读性。user 消息显示在右上(因为 flex-row-reverse) */}
-          {/* 2026-08-02:时间戳移到气泡外,弱化显示在内容下方(用户要求) */}
-        </div>
-        {showTimestamp && (
-          <div
-            className={cn(
-              'flex items-center gap-1.5 whitespace-nowrap px-1 text-[10px] tabular-nums text-muted-foreground/50',
-              isUser ? 'justify-end' : 'justify-start',
+            {m.subagentActivities && m.subagentActivities.length > 0 && (
+              <SubAgentActivityFeed
+                swarmId={m.id}
+                activities={m.subagentActivities}
+                completed={!streamingThis}
+              />
             )}
-            data-testid={`message-timestamp-${m.id}`}
-          >
-            <span>{timestampLabel}</span>
+            {m.terminalTasks && m.terminalTasks.length > 0 && (
+              <TerminalSection terminals={m.terminalTasks} />
+            )}
+            {m.planSteps && m.planSteps.length > 0 && (
+              <PlanStepsCard
+                steps={m.planSteps}
+                isStreaming={streamingThis}
+                data-testid={`message-plan-steps-${m.id}`}
+              />
+            )}
           </div>
         )}
-        {/* 错误重试按钮(2026-07-28 立,深度对标 Trae Work):m.error 时在气泡下方显示,
-            用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
-        {m.error && (
-          <button
-            type="button"
-            onClick={handleRetry}
-            data-testid={`message-retry-${m.id}`}
-            className={cn(
-              'mt-0.5 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5',
-              'text-[11px] text-muted-foreground transition-colors',
-              'hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
-            )}
+        {/* 2026-08-02:AI 消息交互按钮区(完全复用原项目 ChatMessageList.vue 样式)
+            - 仅 assistant + 非流式 + 有内容时渲染
+            - opacity 0 → group-hover/msg:opacity-100 过渡(原项目 .message-actions CSS)
+            - 无边框小图标按钮(原项目 el-button link size="small")
+            - gap-1(4px) + mt-1.5(6px)(原项目 CSS: gap:4px; margin-top:6px)
+            - 当前仅 Copy 按钮(Reply 无回调、Token 无数据源,不渲染死按钮) */}
+        {!isUser && !streamingThis && m.content.length > 0 && (
+          <div
+            className="flex items-center gap-1 mt-1.5 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200"
+            data-testid={`message-actions-${m.id}`}
           >
-            <RefreshCw className="h-3 w-3" aria-hidden />
-            <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleCopy}
+              data-testid={`message-copy-${m.id}`}
+              aria-label={copyLabel}
+              title={copyLabel}
+              className="inline-flex items-center justify-center rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5" aria-hidden />
+              ) : (
+                <Copy className="h-3.5 w-3.5" aria-hidden />
+              )}
+            </button>
+          </div>
         )}
+      </div>
+      {showTimestamp && (
+        <div
+          className={cn(
+            'flex items-center gap-1.5 whitespace-nowrap px-1 text-[10px] tabular-nums text-muted-foreground/50',
+            isUser ? 'justify-end' : 'justify-start',
+          )}
+          data-testid={`message-timestamp-${m.id}`}
+        >
+          <span>{timestampLabel}</span>
+        </div>
+      )}
+      {/* 错误重试按钮(2026-07-28 立,深度对标 Trae Work):m.error 时在气泡下方显示,
+            用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
+      {m.error && (
+        <button
+          type="button"
+          onClick={handleRetry}
+          data-testid={`message-retry-${m.id}`}
+          className={cn(
+            'mt-0.5 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5',
+            'text-[11px] text-muted-foreground transition-colors',
+            'hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+          )}
+        >
+          <RefreshCw className="h-3 w-3" aria-hidden />
+          <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
+        </button>
+      )}
     </div>
   )
 })
@@ -824,7 +797,6 @@ export function MessageList({
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
   const pendingJump = useProgressJumpStore((s) => s.pendingJumpToMessage)
   const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
-  const hoveredMessageId = useProgressJumpStore((s) => s.hoveredMessageId)
   const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
   const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
   const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
@@ -1496,7 +1468,6 @@ export function MessageList({
                   onApplyDiff={onApplyDiff}
                   onRejectDiff={onRejectDiff}
                   isHighlighted={highlightedMessageId === m.id}
-                  isHovered={hoveredMessageId === m.id}
                   isFocused={focusedIndex === realIdx}
                   linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
                   onMessageHover={handleMessageHover}
