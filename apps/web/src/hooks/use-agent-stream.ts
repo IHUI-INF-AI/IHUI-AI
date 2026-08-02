@@ -394,13 +394,18 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   // 保持 startRef 最新,供重连递归调用
   startRef.current = start
 
-  // 卸载时清理重连定时器
+  // 卸载时清理重连定时器 + 中止进行中的 SSE 流
+  // 2026-08-02 修复 P1(问题 4-1):原 cleanup 仅 clearTimeout,未中止活跃流。
+  // 组件卸载后 SSE 连接在后台持续运行,setState 被 React 静默忽略但 reader/decoder/网络
+  // 连接仍占用资源,构成内存泄漏。此处补 abort + cancel,与 stop() 函数对称。
   useEffect(() => {
     return () => {
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
         reconnectTimerRef.current = null
       }
+      abortRef.current?.abort()
+      streamRef.current?.cancel().catch(() => {})
     }
   }, [])
 
