@@ -554,15 +554,10 @@ iframe::-webkit-scrollbar {
   --color-background: hsl(0 0% 0%);
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: 'EDIX', 'HarmonyOS Sans SC', sans-serif;
-}
-
+/* EDIX 字体仅用于显式 .font-edix 工具类(2026-08-02 修复)
+ * 原规则 h1-h6 强制 EDIX 导致模型卡片内的 h3 标题(Claude 3.7 Sonnet 等)走 EDIX 字体,
+ * 用户规则:EDIX 只允许用到大标题/主标题上,内部文字不允许用。
+ * 现改为:只有显式加 .font-edix 类的元素才用 EDIX,h1-h6 默认走系统字体。 */
 .font-edix {
   font-family: 'EDIX', 'HarmonyOS Sans SC', sans-serif;
 }
