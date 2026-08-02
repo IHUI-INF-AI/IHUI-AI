@@ -7797,6 +7797,18 @@
         "removeFavorite": "Remove from Favorites"
       }
     },
+    "quickFilters": {
+      "favorite": "Favorite",
+      "configured": "Configured",
+      "notConfigured": "Not Configured",
+      "free": "Free",
+      "longContext": "Long Context",
+      "reasoning": "Reasoning",
+      "vision": "Vision",
+      "coding": "Coding",
+      "chinese": "Chinese",
+      "openSource": "Open Source"
+    },
     "aiNews": {
       "title": "2026-07 AI News",
       "subtitle": "Latest releases from seed data flow",
