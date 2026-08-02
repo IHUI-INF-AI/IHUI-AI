@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Loader2,
   MessageSquare,
@@ -31,7 +32,7 @@ interface Props {
 
 const TYPE_CONFIG: Record<
   LogType,
-  { icon: React.ComponentType<{ className?: string }>; color: string }
+  { icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; color: string }
 > = {
   token: { icon: MessageSquare, color: 'text-foreground' },
   tool_call: { icon: Wrench, color: 'text-sky-600 dark:text-sky-400' },
@@ -49,6 +50,7 @@ const timeFmt = new Intl.DateTimeFormat('zh-CN', {
 })
 
 export function AgentRuntimeLog({ agentId, running }: Props) {
+  const t = useTranslations('agentWorkbench.runtimeLog')
   const [logs, setLogs] = React.useState<LogEntry[]>([])
   const [autoScroll, setAutoScroll] = React.useState(true)
   const [connected, setConnected] = React.useState(false)
@@ -89,7 +91,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
           },
           signal: controller.signal,
         })
-        if (!res.ok || !res.body) throw new Error(`SSE 连接失败(${res.status})`)
+        if (!res.ok || !res.body) throw new Error(t('sseConnectionError', { status: res.status }))
         setConnected(true)
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
@@ -162,15 +164,12 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
       el.scrollTop = el.scrollHeight
     } else if (st.timer === null) {
       // trailing:200ms 窗口内首次触发,安排 trailing 滚动兜底
-      st.timer = window.setTimeout(
-        () => {
-          st.last = Date.now()
-          st.timer = null
-          const trailingEl = scrollRef.current
-          if (trailingEl) trailingEl.scrollTop = trailingEl.scrollHeight
-        },
-        remaining,
-      )
+      st.timer = window.setTimeout(() => {
+        st.last = Date.now()
+        st.timer = null
+        const trailingEl = scrollRef.current
+        if (trailingEl) trailingEl.scrollTop = trailingEl.scrollHeight
+      }, remaining)
     }
   }, [logs, autoScroll])
 
@@ -188,7 +187,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
   if (!agentId) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg border bg-card p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">
-        选择一个 Agent 查看运行日志
+        {t('selectAgentPrompt')}
       </div>
     )
   }
@@ -200,18 +199,15 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
           {connected ? (
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-500">
               <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-emerald-500" />
-              实时连接
+              {t('realtimeConnection')}
             </span>
           ) : usingFallback ? (
             // 2026-08-02 修复 Bug #9:失败时显示错误状态 + 重试按钮,不再伪装"静态日志"
             <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              连接失败
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+              {t('connectionFailed')}
               {connectionError && (
-                <span
-                  className="ml-1 text-[10px] text-muted-foreground/60"
-                  title={connectionError}
-                >
+                <span className="ml-1 text-[10px] text-muted-foreground/60" title={connectionError}>
                   ({connectionError.slice(0, 30)})
                 </span>
               )}
@@ -224,25 +220,31 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
                 }}
                 className="ml-2 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-primary hover:bg-accent/40"
               >
-                <RotateCw className="h-2.5 w-2.5" /> 重试
+                <RotateCw className="h-2.5 w-2.5" aria-hidden /> {t('retry')}
               </button>
             </span>
           ) : running ? (
             <span className="flex items-center gap-1 text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              连接中...
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              {t('connecting')}
             </span>
           ) : (
             <span className="flex items-center gap-1 text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-sm bg-muted-foreground/50" />
-              未运行
+              {t('notRunning')}
             </span>
           )}
-          <span className="text-xs text-muted-foreground">{logs.length} 条</span>
+          <span className="text-xs text-muted-foreground">
+            {t('logCount', { count: logs.length })}
+          </span>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={() => setAutoScroll((v) => !v)}>
-          {autoScroll ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-          {autoScroll ? '暂停滚动' : '恢复滚动'}
+          {autoScroll ? (
+            <Pause className="h-3.5 w-3.5" aria-hidden />
+          ) : (
+            <Play className="h-3.5 w-3.5" aria-hidden />
+          )}
+          {autoScroll ? t('pauseAutoScroll') : t('resumeAutoScroll')}
         </Button>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-auto px-3 py-2">
@@ -250,8 +252,8 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
           usingFallback ? (
             // 2026-08-02 修复 Bug #9:SSE 失败时显示明确错误占位 + 重试按钮
             <div className="py-8 text-center text-xs text-red-500/70">
-              <AlertTriangle className="mx-auto mb-2 h-5 w-5" />
-              <p>SSE 连接失败</p>
+              <AlertTriangle className="mx-auto mb-2 h-5 w-5" aria-hidden />
+              <p>{t('sseConnectionFailed')}</p>
               {connectionError && (
                 <p className="mt-1 text-[10px] text-muted-foreground/60">{connectionError}</p>
               )}
@@ -260,11 +262,11 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
                 onClick={() => setRetryKey((k) => k + 1)}
                 className="mt-3 inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[11px] hover:bg-accent/40"
               >
-                <RotateCw className="h-3 w-3" /> 重试
+                <RotateCw className="h-3 w-3" aria-hidden /> {t('retry')}
               </button>
             </div>
           ) : (
-            <div className="py-8 text-center text-xs text-muted-foreground">暂无日志</div>
+            <div className="py-8 text-center text-xs text-muted-foreground">{t('noLogs')}</div>
           )
         ) : (
           <div className="space-y-1.5">
@@ -278,7 +280,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
                   <span className="shrink-0 tabular-nums text-muted-foreground">
                     {timeFmt.format(new Date(entry.ts))}
                   </span>
-                  <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', color)} />
+                  <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', color)} aria-hidden />
                   <span className={cn('min-w-0 flex-1 whitespace-pre-wrap break-words', color)}>
                     {entry.content}
                   </span>

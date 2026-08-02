@@ -241,10 +241,19 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       const dispatch = (evt: SSEEvent) => {
         receivedAnyEventRef.current = true
         setState((prev) => {
-          const events = [...prev.events, evt]
-          // 截断保留最近 MAX_EVENTS 条
-          if (events.length > MAX_EVENTS) {
-            events.splice(0, events.length - MAX_EVENTS)
+          // 优化(问题 4-3):token 事件高频(每 LLM token 一条),且 events 数组在下游
+          // (use-agent-progress.ts)只消费 plan/subagent/tool_call/tool_result/terminal 等结构化
+          // 事件;token 已通过下方 switch 'token' 分支累积到 next.content,无需重复入 events,
+          // 避免 MAX_EVENTS=200 时每帧创建新数组造成 GC 压力
+          let events: SSEEvent[]
+          if (evt.type === 'token') {
+            events = prev.events
+          } else {
+            events = [...prev.events, evt]
+            // 截断保留最近 MAX_EVENTS 条
+            if (events.length > MAX_EVENTS) {
+              events.splice(0, events.length - MAX_EVENTS)
+            }
           }
 
           const next: StreamState = {
