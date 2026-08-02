@@ -164,7 +164,7 @@ export default function ClawdbotBotsPage() {
               <div key={b.id} className="flex items-center justify-between px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium">{b.name}</p>
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</p>
                     <span
                       className={cn(
                         'rounded px-1.5 py-0.5 text-xs',

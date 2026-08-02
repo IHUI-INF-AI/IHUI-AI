@@ -384,7 +384,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
               <span className="whitespace-nowrap">{tCommon('cancel')}</span>
             </Button>
             <Button onClick={submitAddAccounts} disabled={selectedAccountIds.size === 0} className="shrink-0 min-w-0">
-              <span className="truncate">{t('groups.addSelected', { count: selectedAccountIds.size })}</span>
+              <span className="min-w-0 flex-1 truncate">{t('groups.addSelected', { count: selectedAccountIds.size })}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

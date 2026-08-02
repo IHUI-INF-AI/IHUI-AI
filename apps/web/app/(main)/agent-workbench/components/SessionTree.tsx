@@ -64,7 +64,7 @@ function TreeNode({ node, depth }: { node: AgentSession; depth: number }) {
         ) : (
           <span className="w-3 shrink-0" />
         )}
-        <span className="truncate font-mono text-xs">{truncate(node.id)}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-xs">{truncate(node.id)}</span>
         <Badge variant="outline" className={cn('ml-auto px-1.5 py-0 text-[10px]', style.className)}>
           {style.label}
         </Badge>

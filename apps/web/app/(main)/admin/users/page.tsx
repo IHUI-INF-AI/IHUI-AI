@@ -255,8 +255,8 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      <div className="grid grid-cols-[220px_1fr] gap-4">
-        <aside className="sticky top-4 z-10 h-[calc(100vh-8rem)] self-start">
+      <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-[220px_1fr]">
+        <aside className="min-[768px]:sticky min-[768px]:top-4 min-[768px]:z-10 min-[768px]:h-[calc(100vh-8rem)] min-[768px]:self-start">
           <DeptTree
             selectedId={selectedDeptId}
             onSelect={(id) => {

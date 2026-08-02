@@ -1664,7 +1664,7 @@ export function Sidebar({
               )}
             >
               <Plus className="h-4 w-4 shrink-0" />
-              <span className="truncate">{tchat('newConversation')}</span>
+              <span className="min-w-0 flex-1 truncate">{tchat('newConversation')}</span>
             </button>
           )}
         </div>
@@ -1704,7 +1704,7 @@ export function Sidebar({
               )}
             >
               <Package className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('pluginMarket')}</span>
+              <span className="min-w-0 flex-1 truncate">{t('pluginMarket')}</span>
             </Link>
           )}
         </div>
@@ -1746,7 +1746,7 @@ export function Sidebar({
               )}
             >
               <Clock className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t('selfMediaAutomation')}</span>
+              <span className="min-w-0 flex-1 truncate">{t('selfMediaAutomation')}</span>
             </Link>
           )}
         </div>

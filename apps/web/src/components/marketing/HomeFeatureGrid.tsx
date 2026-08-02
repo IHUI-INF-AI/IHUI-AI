@@ -60,7 +60,7 @@ export function HomeFeatureGrid() {
       </RevealOnView>
 
       {/* Bento 3×2 网格 — 大数字 + 极简标签 */}
-      <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 min-[640px]:gap-4 min-[768px]:grid-cols-3">
+      <div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
         {items.map(({ icon: Icon, title, benefit }, i) => (
           <RevealOnView
             key={title}
