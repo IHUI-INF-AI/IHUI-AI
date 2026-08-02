@@ -98,13 +98,13 @@ publicHoistPattern:
 # 引用方式:package.json 中 "typescript": "catalog:" 即引用此处的版本。
 # 与 pnpm.overrides 协同:overrides 优先级 > catalog,二者可并存。
 catalog:
-  typescript: ^5.7.2              # L1:保持 5.x(TS 7.0 是 major,留 L2 评估)
-  rimraf: ^6.1.3                  # L1:6.0.1 → 6.1.3 minor
-  vitest: ^2.1.8                  # L1:保持 2.x(v4 是 major,留 L3)
-  eslint: ^9.16.0                 # L1:保持 9.x(v10 是 major,留 L2)
-  zustand: ^5.0.14                # L1:5.0.2 → 5.0.14 patch
+  typescript: ^5.7.2 # L1:保持 5.x(TS 7.0 是 major,留 L2 评估)
+  rimraf: ^6.1.3 # L1:6.0.1 → 6.1.3 minor
+  vitest: ^3.2.7 # L3:2.x→3.x major(vite 4/5/6 全兼容,miniapp-taro vite 4.5.5 可用)
+  eslint: ^9.16.0 # L1:保持 9.x(v10 是 major,留 L2)
+  zustand: ^5.0.14 # L1:5.0.2 → 5.0.14 patch
   # P3-1.2 新增(2026-08-01)— 类名合并 + 样式变体 + 图标库,design-tokens/ui-react/web 共用
-  clsx: ^2.1.1                    # design-tokens + web + ui-react(间接)
-  tailwind-merge: ^2.5.5          # design-tokens + web(保持 2.x,v3 留 L5)
-  class-variance-authority: ^0.7.1  # design-tokens + ui-react + ui-native
-  lucide-react: ^0.460.0          # ui-react(web 仍用 ^0.562.0 硬编码,待后续迁移 catalog:)
+  clsx: ^2.1.1 # design-tokens + web + ui-react(间接)
+  tailwind-merge: ^3.6.0 # L5:2.x→3.x major(API 兼容)
+  class-variance-authority: ^0.7.1 # design-tokens + ui-react + ui-native
+  lucide-react: ^0.460.0 # ui-react(web 仍用 ^0.562.0 硬编码,待后续迁移 catalog:)
