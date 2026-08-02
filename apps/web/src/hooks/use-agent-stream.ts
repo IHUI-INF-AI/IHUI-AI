@@ -222,6 +222,8 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
 
       // 2026-08-02 修复 Bug #13:重连时保留累积的 content/lastState/lastPlan,
       // 避免服务端只发增量 token 时重连后 content 从空开始累积导致内容不连续
+      // 2026-08-02 修复 Bug #10:同时保留 currentNode,避免重连瞬间"当前节点"badge 闪空,
+      // 直到下一个 node_start 事件到达才恢复
       if (reconnectAttemptRef.current === 0) {
         setState(initialState)
       } else {
@@ -231,6 +233,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           content: s.content,
           lastState: s.lastState,
           lastPlan: s.lastPlan,
+          currentNode: s.currentNode,
         }))
       }
       setIsStreaming(true)
