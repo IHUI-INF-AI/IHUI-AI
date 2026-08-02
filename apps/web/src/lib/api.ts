@@ -2,12 +2,14 @@ import {
   setTokenProvider,
   setBaseUrl,
   setStreamBaseUrl,
+  setDeviceFingerprintProvider,
   fetchApi as fetchApiShared,
 } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { getAuthCookie } from '@/lib/cookie-utils'
+import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
 
 // 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
 // 原因:登录后只把 accessToken 写到 cookie(2026-07-21 安全加固后未持久化到 localStorage),
@@ -61,6 +63,8 @@ function detectStreamBaseUrl(): string {
 if (typeof window !== 'undefined') {
   setBaseUrl(detectApiBaseUrl())
   setStreamBaseUrl(detectStreamBaseUrl())
+  // 设备维度风控:注入 web 采集器,api-client 自动把指纹塞进 x-device-fingerprint header
+  setDeviceFingerprintProvider(webDeviceFingerprintCollector)
 }
 
 /**
