@@ -9,7 +9,7 @@ import { success, error, parseOrThrow } from '../../utils/response.js'
 import { createComment, findTicketById } from '../../db/customer-service-queries.js'
 
 const adminSendCommentSchema = z.object({
-  ticketId: z.string().uuid(),
+  ticketId: z.uuid(),
   content: z.string().min(1).max(5000),
   attachments: z.array(z.unknown()).max(20).optional(),
 })

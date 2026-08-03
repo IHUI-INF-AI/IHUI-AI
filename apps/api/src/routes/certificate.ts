@@ -23,7 +23,7 @@ import { success, error } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const templatesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -35,8 +35,8 @@ const templatesQuerySchema = z.object({
 const certificatesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.string().uuid().optional(),
-  templateId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
+  templateId: z.uuid().optional(),
   search: z.string().max(200).optional(),
   status: z.coerce.number().int().min(0).max(1).optional(),
 })
@@ -66,12 +66,12 @@ const updateTemplateSchema = z.object({
 })
 
 const createCertificateSchema = z.object({
-  templateId: z.string().uuid().nullable().optional(),
-  userId: z.string().uuid({ message: '无效的用户 ID' }),
+  templateId: z.uuid().nullable().optional(),
+  userId: z.uuid({ error: '无效的用户 ID' }),
   title: z.string().min(1).max(200),
   recipientName: z.string().max(100).nullable().optional(),
   source: z.string().max(20).optional(),
-  sourceId: z.string().uuid().nullable().optional(),
+  sourceId: z.uuid().nullable().optional(),
 })
 
 const updateCertificateStatusSchema = z.object({

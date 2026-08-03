@@ -11,14 +11,12 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 
-const updateOrderSchema = z
-  .object({
-    status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
-    payType: z.string().max(50).optional(),
-    remark: z.string().max(500).optional(),
-    targetTitle: z.string().max(200).optional(),
-  })
-  .strict()
+const updateOrderSchema = z.strictObject({
+  status: z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
+  payType: z.string().max(50).optional(),
+  remark: z.string().max(500).optional(),
+  targetTitle: z.string().max(200).optional(),
+})
 
 export const orderRoutes: FastifyPluginAsync = async (server) => {
   server.put('/admin/orders/:id', { preHandler: requireAdmin }, async (request, reply) => {

@@ -19,7 +19,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listTasksQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -31,7 +31,7 @@ const listTasksQuery = z.object({
 const listLogsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  taskId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  taskId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.string().min(1).max(20).optional()),
 })
 

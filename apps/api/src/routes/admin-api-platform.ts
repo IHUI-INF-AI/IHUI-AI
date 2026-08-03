@@ -18,7 +18,7 @@ const permissionsSchema = z
 
 const createAppSchema = z.object({
   name: z.string().min(1).max(100),
-  userId: z.string().uuid(),
+  userId: z.uuid(),
   permissions: permissionsSchema.default([]),
   rateLimit: z.number().int().min(1).max(10000).default(60),
 })

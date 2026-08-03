@@ -111,7 +111,7 @@ const loginPreferencesSchema = z.object({
 })
 
 const emailLoginQuerySchema = z.object({
-  email: z.string().email({ message: '邮箱格式不正确' }),
+  email: z.email({ error: '邮箱格式不正确' }),
 })
 
 // 注:emailLoginSchema 已迁移至 auth-extended.ts:190(loginByEmailSchema)

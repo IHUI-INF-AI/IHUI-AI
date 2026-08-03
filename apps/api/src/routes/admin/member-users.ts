@@ -142,7 +142,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
       .object({
         nickname: z.string().min(1),
         phone: z.string().optional(),
-        email: z.string().email().optional(),
+        email: z.email().optional(),
         password: z.string().min(6, '密码至少 6 位'),
         roleId: z.number().int().optional(),
         status: z.number().int().optional(),

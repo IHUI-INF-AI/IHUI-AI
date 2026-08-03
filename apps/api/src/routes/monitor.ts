@@ -131,7 +131,7 @@ const monitorRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /suppression-rules/:id — 更新抑制规则
   server.put('/suppression-rules/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const body = z
       .object({
         name: z.string().min(1).max(200).optional(),
@@ -155,7 +155,7 @@ const monitorRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /suppression-rules/:id — 删除抑制规则
   server.delete('/suppression-rules/:id', async (request, reply) => {
-    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const { id } = z.object({ id: z.uuid() }).parse(request.params)
     const [deleted] = await db
       .delete(suppressionRules)
       .where(eq(suppressionRules.id, id))

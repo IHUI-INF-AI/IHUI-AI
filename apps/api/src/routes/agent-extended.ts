@@ -156,34 +156,30 @@ function buildInsertSchema(columns: readonly string[]): z.ZodType<Record<string,
   for (const col of columns) {
     shape[col] = z.unknown().optional()
   }
-  return z.object(shape).strip() as z.ZodType<Record<string, unknown>>
+  return z.object(shape) as z.ZodType<Record<string, unknown>>
 }
 
 // P1 安全修复(2026-08-02):agent rule create/update body schema,strip 非白名单字段
-const createRuleSchema = z
-  .object({
-    agentId: z.string().min(1),
-    ruleName: z.string().min(1),
-    ruleCode: z.string().min(1),
-    ruleType: z.string().max(32).optional(),
-    priority: z.coerce.number().int().optional(),
-    description: z.string().optional(),
-  })
-  .strip()
-const updateRuleSchema = z
-  .object({
-    agentId: z.string().min(1).optional(),
-    ruleName: z.string().min(1).optional(),
-    ruleCode: z.string().min(1).optional(),
-    ruleType: z.string().max(32).optional(),
-    priority: z.coerce.number().int().optional(),
-    status: z.coerce.number().int().optional(),
-    description: z.string().optional(),
-  })
-  .strip()
+const createRuleSchema = z.object({
+  agentId: z.string().min(1),
+  ruleName: z.string().min(1),
+  ruleCode: z.string().min(1),
+  ruleType: z.string().max(32).optional(),
+  priority: z.coerce.number().int().optional(),
+  description: z.string().optional(),
+})
+const updateRuleSchema = z.object({
+  agentId: z.string().min(1).optional(),
+  ruleName: z.string().min(1).optional(),
+  ruleCode: z.string().min(1).optional(),
+  ruleType: z.string().max(32).optional(),
+  priority: z.coerce.number().int().optional(),
+  status: z.coerce.number().int().optional(),
+  description: z.string().optional(),
+})
 
 // P1 安全修复(2026-08-02):personality update body schema
-const personalityUpdateSchema = z.object({ personality: z.string() }).strip()
+const personalityUpdateSchema = z.object({ personality: z.string() })
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // P0 安全修复:所有路由默认要求登录;admin-only 端点在路由级用 requireAdmin 覆盖
@@ -608,8 +604,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // -------------------------------------------------------------------------
 
   const agentBuySchema = z.object({
-    agentId: z.string().uuid(),
-    userId: z.string().uuid(),
+    agentId: z.uuid(),
+    userId: z.uuid(),
     price: z.number().min(0),
     duration: z.number().int().min(1), // 购买时长（天）
     paymentMethod: z.string().max(32).optional(),
@@ -659,7 +655,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 查询用户对指定智能体的访问权限（VIP 专享/免费/付费/已购买）
   server.get('/permission/:agentId', async (request) => {
     const params = z.object({ agentId: z.string().min(1) }).parse(request.params)
-    const query = z.object({ userId: z.string().uuid().optional() }).parse(request.query)
+    const query = z.object({ userId: z.uuid().optional() }).parse(request.query)
     const permission = await calculateAgentPermission(params.agentId, query.userId)
     return { code: 0, message: 'ok', data: permission }
   })
@@ -761,8 +757,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 创建提现申请
   const withdrawalCreateSchema = z.object({
-    userId: z.string().uuid(),
-    agentId: z.string().uuid().optional(),
+    userId: z.uuid(),
+    agentId: z.uuid().optional(),
     amount: z.number().min(0.01).max(100000),
     type: z.number().int().min(1).max(3),
     outBillNo: z.string().max(255).optional(),
@@ -869,7 +865,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 审核提现申请(status: approved/rejected) — 仅管理员
   const withdrawalReviewSchema = z.object({
     status: z.enum(['approved', 'rejected']),
-    reviewer: z.string().uuid(),
+    reviewer: z.uuid(),
     rejectReason: z.string().optional(),
   })
   server.post('/withdrawal/:id/review', { preHandler: requireAdmin }, async (request, reply) => {
@@ -930,7 +926,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 批量删除提现明细(仅 pending 可删)
   const withdrawalBatchDeleteSchema = z.object({
-    ids: z.array(z.string().uuid()).min(1).max(100),
+    ids: z.array(z.uuid()).min(1).max(100),
   })
   server.post('/withdrawal/batch-delete', async (request) => {
     const { ids } = withdrawalBatchDeleteSchema.parse(request.body)
@@ -1668,12 +1664,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // schema 字段: agent_rule_link { id, rule_id, target_type, target_id, created_at }
   //             target_type='agent' 时 target_id 即 agentId(uuid)
   // -------------------------------------------------------------------------
-  const ruleLinkAgentIdParam = z.object({ agentId: z.string().uuid() })
-  const ruleIdParam = z.object({ ruleId: z.string().uuid() })
+  const ruleLinkAgentIdParam = z.object({ agentId: z.uuid() })
+  const ruleIdParam = z.object({ ruleId: z.uuid() })
   const createRuleLinkBody = z.object({
-    ruleId: z.string().uuid(),
+    ruleId: z.uuid(),
     targetType: z.string().max(32).optional().default('agent'),
-    targetId: z.string().uuid().optional(),
+    targetId: z.uuid().optional(),
   })
 
   /**

@@ -20,7 +20,7 @@ const menuSchema = z.object({
   icon: z.string().max(128).optional(),
   path: z.string().max(256).optional(),
   sort: z.number().int().default(0),
-  parentId: z.string().uuid().optional().nullable(),
+  parentId: z.uuid().optional().nullable(),
   visible: z.boolean().default(true),
 })
 

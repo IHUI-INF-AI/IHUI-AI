@@ -91,7 +91,7 @@ const createProviderSchema = z.object({
   providerCode: z.string().min(1).max(64),
   name: z.string().min(1).max(100),
   apiKey: z.string().min(1).max(500),
-  baseUrlOverride: z.string().url().max(500).optional(),
+  baseUrlOverride: z.url().max(500).optional(),
   apiFormat: z
     .enum(['openai_chat', 'anthropic_messages', 'openai_responses'])
     .default('openai_chat'),
@@ -104,7 +104,7 @@ const createProviderSchema = z.object({
 const updateProviderSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   apiKey: z.string().min(1).max(500).optional(),
-  baseUrlOverride: z.string().url().max(500).optional(),
+  baseUrlOverride: z.url().max(500).optional(),
   apiFormat: z.enum(['openai_chat', 'anthropic_messages', 'openai_responses']).optional(),
   providerGroup: z.string().min(1).max(64).optional(),
   groupLabel: z.string().min(1).max(64).optional(),

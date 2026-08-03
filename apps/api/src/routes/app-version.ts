@@ -46,7 +46,7 @@ const updateVersionSchema = z.object({
   status: z.enum(['latest', 'history', 'disabled']).optional(),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 // =============================================================================
 // 路由
