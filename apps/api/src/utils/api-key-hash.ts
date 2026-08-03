@@ -8,6 +8,7 @@
  * - verifySecret 同时支持明文与哈希,避免一次性迁移卡死
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { constantTimeCompare } from './crypto-extra.js'
 
 const HASH_PREFIX = 'sha256:'
 
@@ -31,12 +32,15 @@ export function isHashed(value: string): boolean {
  * 校验 secret 明文与存储值是否匹配。
  * - 存储值已哈希:对明文做 hashSecret 后比对
  * - 存储值为老明文:直接比对(兼容过渡)
+ *
+ * 2026-08-02 安全审计加固:常量时间比较防 timing attack。
+ * 原实现用 === 直接比对,攻击者可通过响应耗时差异逐字节猜测 secret。
  */
 export function verifySecret(plain: string, stored: string): boolean {
   if (isHashed(stored)) {
-    return hashSecret(plain) === stored
+    return constantTimeCompare(hashSecret(plain), stored)
   }
-  return plain === stored
+  return constantTimeCompare(plain, stored)
 }
 
 /**
