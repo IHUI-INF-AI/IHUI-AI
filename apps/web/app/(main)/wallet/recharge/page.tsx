@@ -3,14 +3,27 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
+import {
+  Button,
+  Input,
+  Label,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui-react'
 
 const rechargeSchema = z.object({
   amount: z.coerce.number().int().min(1, 'wallet.rechargeAmount'),
@@ -37,7 +50,7 @@ export default function RechargePage() {
     watch,
     formState: { errors },
   } = useForm<RechargeValues>({
-    resolver: zodResolver(rechargeSchema),
+    resolver: zodResolver(rechargeSchema) as unknown as Resolver<RechargeValues>,
     defaultValues: { amount: 0, method: 'wechat' },
   })
 
@@ -100,9 +113,7 @@ export default function RechargePage() {
                 placeholder={t('rechargeAmount')}
                 {...register('amount')}
               />
-              {errors.amount && (
-                <p className="text-xs text-destructive">{t('rechargeAmount')}</p>
-              )}
+              {errors.amount && <p className="text-xs text-destructive">{t('rechargeAmount')}</p>}
             </div>
 
             <div className="space-y-2">

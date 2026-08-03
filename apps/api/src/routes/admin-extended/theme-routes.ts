@@ -7,13 +7,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, count } from 'drizzle-orm'
 import { db } from '../../db/index.js'
-import {
-  themes,
-  themeColors,
-  themeFonts,
-  themeAssets,
-  themePresets,
-} from '@ihui/database'
+import { themes, themeColors, themeFonts, themeAssets, themePresets } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
@@ -40,7 +34,7 @@ const createThemeSchema = z.object({
   isActive: z.boolean().optional(),
   isCurrent: z.boolean().optional(),
   preset: z.string().max(50).optional(),
-  settings: z.record(z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
 })
 const updateThemeSchema = createThemeSchema.partial()
 
@@ -80,7 +74,7 @@ const importThemeSchema = z.object({
   description: z.string().optional(),
   isDark: z.boolean().optional(),
   preset: z.string().max(50).optional(),
-  settings: z.record(z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
   colors: z
     .array(
       z.object({
