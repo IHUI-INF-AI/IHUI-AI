@@ -87,7 +87,7 @@ const executeSchema = z.object({
   requestId: z.string().min(1).max(100),
   category: z.enum(['browser', 'computer']),
   action: z.string().min(1).max(100),
-  params: z.record(z.unknown()).default({}),
+  params: z.record(z.string(), z.unknown()).default({}),
   toolCallId: z.string().optional(),
   userId: z.string().optional(),
   sessionId: z.string().optional(),
@@ -99,7 +99,7 @@ const resultSchema = z.object({
   success: z.boolean(),
   error: z.string().optional(),
   errorCode: z.string().optional(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   durationMs: z.number(),
   executedBy: z.enum(['extension', 'desktop', 'unknown']),
 })

@@ -58,7 +58,7 @@ const updateBodySchema = z.object({
 })
 
 const dryRunBodySchema = z.object({
-  sampleBody: z.record(z.unknown()),
+  sampleBody: z.record(z.string(), z.unknown()),
   context: z
     .object({
       model: z.string().optional(),

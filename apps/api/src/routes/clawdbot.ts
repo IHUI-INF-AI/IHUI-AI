@@ -29,78 +29,62 @@ import {
 
 // =============================================================================
 // Zod schemas —— 18 个 POST 端点 body 校验
-// passthrough() 允许额外字段透传,避免破坏现有调用方
+// looseObject() 允许额外字段透传,避免破坏现有调用方
 // =============================================================================
 
-const initializeSchema = z
-  .object({
-    userId: z.string().optional(),
-    context: z.record(z.unknown()).optional(),
-  })
-  .passthrough()
+const initializeSchema = z.looseObject({
+  userId: z.string().optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
+})
 
 const chatSchema = z.object({
   userId: z.string().min(1, 'userId 不能为空'),
   content: z.string().min(1, 'content 不能为空'),
-  context: z.record(z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
 })
 
-const toolExecuteSchema = z
-  .object({
-    params: z.record(z.unknown()).optional(),
-    context: z.unknown().optional(),
-  })
-  .passthrough()
+const toolExecuteSchema = z.looseObject({
+  params: z.record(z.string(), z.unknown()).optional(),
+  context: z.unknown().optional(),
+})
 
-const taskCreateSchema = z
-  .object({
-    name: z.string().min(1, 'name 不能为空'),
-    description: z.string().min(1, 'description 不能为空'),
-    steps: z.array(z.unknown()),
-    context: z.record(z.unknown()).optional(),
-  })
-  .passthrough()
+const taskCreateSchema = z.looseObject({
+  name: z.string().min(1, 'name 不能为空'),
+  description: z.string().min(1, 'description 不能为空'),
+  steps: z.array(z.unknown()),
+  context: z.record(z.string(), z.unknown()).optional(),
+})
 
-const memoryStoreSchema = z
-  .object({
-    type: z.enum(['short_term', 'long_term', 'working', 'episodic']),
-    content: z.string().min(1, 'content 不能为空'),
-    importance: z.number().min(0).max(1),
-    metadata: z.record(z.unknown()).optional(),
-    expiresAt: z.number().optional(),
-    tags: z.array(z.string()).optional(),
-    embedding: z.array(z.number()).optional(),
-  })
-  .passthrough()
+const memoryStoreSchema = z.looseObject({
+  type: z.enum(['short_term', 'long_term', 'working', 'episodic']),
+  content: z.string().min(1, 'content 不能为空'),
+  importance: z.number().min(0).max(1),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  expiresAt: z.number().optional(),
+  tags: z.array(z.string()).optional(),
+  embedding: z.array(z.number()).optional(),
+})
 
-const modelCompleteSchema = z.record(z.unknown())
+const modelCompleteSchema = z.record(z.string(), z.unknown())
 
-const channelSendSchema = z
-  .object({
-    content: z.string().min(1, 'content 不能为空'),
-    userId: z.string().optional(),
-  })
-  .passthrough()
+const channelSendSchema = z.looseObject({
+  content: z.string().min(1, 'content 不能为空'),
+  userId: z.string().optional(),
+})
 
-const canvasExecuteSchema = z
-  .object({
-    inputs: z.record(z.unknown()).optional(),
-  })
-  .passthrough()
+const canvasExecuteSchema = z.looseObject({
+  inputs: z.record(z.string(), z.unknown()).optional(),
+})
 
-const mcpCallSchema = z
-  .object({
-    args: z.record(z.unknown()).optional(),
-  })
-  .passthrough()
+const mcpCallSchema = z.looseObject({
+  args: z.record(z.string(), z.unknown()).optional(),
+})
 
-const pairingRequestSchema = z
-  .object({
-    userId: z.string().optional(),
-    deviceId: z.string().optional(),
-    channelType: z.string().optional(),
-  })
-  .passthrough()
+const pairingRequestSchema = z.looseObject({
+  userId: z.string().optional(),
+  deviceId: z.string().optional(),
+  channelType: z.string().optional(),
+})
 
 const pairingConfirmSchema = z.object({
   code: z.string().min(1, 'code 不能为空'),
@@ -109,58 +93,46 @@ const pairingConfirmSchema = z.object({
   channelType: z.string().min(1, 'channelType 不能为空'),
 })
 
-const voiceAsrSchema = z
-  .object({
-    audio: z.union([z.string(), z.instanceof(Buffer)]),
-    format: z.enum(['wav', 'mp3', 'ogg', 'pcm']).optional(),
-    sampleRate: z.number().optional(),
-    language: z.string().optional(),
-  })
-  .passthrough()
+const voiceAsrSchema = z.looseObject({
+  audio: z.union([z.string(), z.instanceof(Buffer)]),
+  format: z.enum(['wav', 'mp3', 'ogg', 'pcm']).optional(),
+  sampleRate: z.number().optional(),
+  language: z.string().optional(),
+})
 
-const voiceTtsSchema = z
-  .object({
-    text: z.string().min(1, 'text 不能为空'),
-    voice: z.string().optional(),
-    speed: z.number().optional(),
-    pitch: z.number().optional(),
-    format: z.enum(['wav', 'mp3', 'ogg']).optional(),
-  })
-  .passthrough()
+const voiceTtsSchema = z.looseObject({
+  text: z.string().min(1, 'text 不能为空'),
+  voice: z.string().optional(),
+  speed: z.number().optional(),
+  pitch: z.number().optional(),
+  format: z.enum(['wav', 'mp3', 'ogg']).optional(),
+})
 
-const browserNavigateSchema = z
-  .object({
-    url: z.string().url({ message: 'url 必须为合法 URL' }),
-    headers: z.record(z.string()).optional(),
-    timeout: z.number().int().positive().optional(),
-  })
-  .passthrough()
+const browserNavigateSchema = z.looseObject({
+  url: z.string().url({ message: 'url 必须为合法 URL' }),
+  headers: z.record(z.string(), z.string()).optional(),
+  timeout: z.number().int().positive().optional(),
+})
 
-const browserScrapeSchema = z
-  .object({
-    url: z.string().url({ message: 'url 必须为合法 URL' }),
-    selector: z.string().optional(),
-    extract: z.array(z.record(z.unknown())).optional(),
-    headers: z.record(z.string()).optional(),
-  })
-  .passthrough()
+const browserScrapeSchema = z.looseObject({
+  url: z.string().url({ message: 'url 必须为合法 URL' }),
+  selector: z.string().optional(),
+  extract: z.array(z.record(z.string(), z.unknown())).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+})
 
-const integrationCallSchema = z
-  .object({
-    integrationId: z.string().min(1, 'integrationId 不能为空'),
-    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
-    path: z.string().min(1, 'path 不能为空'),
-    body: z.unknown().optional(),
-    query: z.record(z.string()).optional(),
-    headers: z.record(z.string()).optional(),
-  })
-  .passthrough()
+const integrationCallSchema = z.looseObject({
+  integrationId: z.string().min(1, 'integrationId 不能为空'),
+  method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
+  path: z.string().min(1, 'path 不能为空'),
+  body: z.unknown().optional(),
+  query: z.record(z.string(), z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+})
 
-const evolutionEvolveSchema = z
-  .object({
-    gapId: z.string().optional(),
-  })
-  .passthrough()
+const evolutionEvolveSchema = z.looseObject({
+  gapId: z.string().optional(),
+})
 
 /** 统一 safeParse 失败响应:ok=false 表示已回复 400,调用方应 return */
 function validateBody<T>(
