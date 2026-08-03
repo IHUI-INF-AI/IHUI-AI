@@ -356,7 +356,7 @@ async function uploadFromFileContent(
 
     const contentType = guessContentType(filename)
     const formData = new FormData()
-    const blob = new Blob([fileContent], { type: contentType })
+    const blob = new Blob([new Uint8Array(fileContent)], { type: contentType })
     formData.append('file', blob, filename)
 
     const controller = new AbortController()
