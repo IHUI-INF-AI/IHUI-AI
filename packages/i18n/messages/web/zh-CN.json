@@ -7439,10 +7439,10 @@
     "billingLoading": "加载中…",
     "billingNext": "下一页",
     "billingOrderNo": "订单号",
-    "billingPageInfo": "第 {{page}}/{{totalPages}} 页",
+    "billingPageInfo": "第 {page}/{totalPages} 页",
     "billingPrev": "上一页",
     "billingStatus": "状态",
-    "billingTotal": "共 {{count}} 条",
+    "billingTotal": "共 {count} 条",
     "cliImportDesc": "导入 CLI 配置与凭证",
     "cliImportTitle": "CLI 导入",
     "icpRecordEntity": "备案主体",
@@ -14222,7 +14222,13 @@
     "responsive": {
       "customWidth": "自定义宽度",
       "apply": "应用",
-      "deviceFrame": "设备外框"
+      "deviceFrame": "设备外框",
+      "deviceMobilePortrait": "手机竖屏",
+      "deviceMobileLandscape": "手机横屏",
+      "deviceTabletPortrait": "平板竖屏",
+      "deviceTabletLandscape": "平板横屏",
+      "deviceDesktop": "桌面端",
+      "deviceCustom": "自定义"
     },
     "templates": {
       "title": "模板"
