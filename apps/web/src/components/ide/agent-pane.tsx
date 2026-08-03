@@ -33,6 +33,7 @@ import {
   Circle,
   Check,
 } from 'lucide-react'
+import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
 
 /**
  * AgentPane — IDE Agent 面板(对标 Claude Code 的 AI 自主编码)
@@ -48,12 +49,10 @@ import {
  * - 复用 use-agent-progress 的类型定义(AgentToolCall/AgentChange/TerminalTask/PlanStep)。
  */
 
-// ---- 模型选项(硬编码常见模型,后续可接入 FALLBACK_MODELS) ----
+// ---- 模型选项(接入共享 FALLBACK_MODELS,与 web 其他端保持一致) ----
 const MODEL_OPTIONS: ReadonlyArray<{ value: string; labelKey?: string; label?: string }> = [
   { value: '', labelKey: 'agentPane.modelDefault' },
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet' },
-  { value: 'deepseek-chat', label: 'DeepSeek Chat' },
+  ...FALLBACK_MODELS.map((m) => ({ value: m.value, label: m.label })),
 ]
 
 const CHANGE_TOOL_NAMES = new Set(['edit_file', 'write_file'])

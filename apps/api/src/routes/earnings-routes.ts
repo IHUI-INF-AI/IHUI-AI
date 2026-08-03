@@ -165,6 +165,12 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
       yesterdayStart.setDate(yesterdayStart.getDate() - 1)
       const yesterdayEnd = todayStart // 昨天结束 = 今天开始
 
+      // 2026-08-04 修复:postgres-js 不接受 Date 对象作为 raw SQL 参数(ERR_INVALID_ARG_TYPE),
+      // 必须转为 ISO 字符串,PostgreSQL 会自动解析为 timestamp。
+      const todayStartIso = todayStart.toISOString()
+      const yesterdayStartIso = yesterdayStart.toISOString()
+      const yesterdayEndIso = yesterdayEnd.toISOString()
+
       // 并行查 4 个指标(今日 + 昨天各一次,共 8 个查询,但用 UNION ALL 合并成 2 个查询)
       // Q1: 今日 + 昨日 BYOK 抽成 + 中转站收入(分)
       // Q2: 今日 + 昨日 引流数 + 付费用户数 + 总用户数
@@ -177,30 +183,30 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
         SELECT
           COALESCE(SUM(CASE
             WHEN metadata->>'byokMode' = 'true'
-              AND created_at >= ${todayStart}
+              AND created_at >= ${todayStartIso}
             THEN (metadata->>'platformFeeCents')::numeric
             ELSE 0
           END), 0) AS today_byok,
           COALESCE(SUM(CASE
             WHEN (metadata->>'byokMode' IS NULL OR metadata->>'byokMode' != 'true')
-              AND created_at >= ${todayStart}
+              AND created_at >= ${todayStartIso}
             THEN (metadata->>'costCents')::numeric
             ELSE 0
           END), 0) AS today_relay,
           COALESCE(SUM(CASE
             WHEN metadata->>'byokMode' = 'true'
-              AND created_at >= ${yesterdayStart} AND created_at < ${yesterdayEnd}
+              AND created_at >= ${yesterdayStartIso} AND created_at < ${yesterdayEndIso}
             THEN (metadata->>'platformFeeCents')::numeric
             ELSE 0
           END), 0) AS yesterday_byok,
           COALESCE(SUM(CASE
             WHEN (metadata->>'byokMode' IS NULL OR metadata->>'byokMode' != 'true')
-              AND created_at >= ${yesterdayStart} AND created_at < ${yesterdayEnd}
+              AND created_at >= ${yesterdayStartIso} AND created_at < ${yesterdayEndIso}
             THEN (metadata->>'costCents')::numeric
             ELSE 0
           END), 0) AS yesterday_relay
         FROM llm_call_logs
-        WHERE created_at >= ${yesterdayStart}
+        WHERE created_at >= ${yesterdayStartIso}
       `)
 
       const todayByokCents = Number(incomeRow?.today_byok ?? 0)
@@ -221,8 +227,8 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
         total_count: string | null
       }>(sql`
         SELECT
-          (SELECT COUNT(*) FROM users WHERE created_at >= ${todayStart}) AS today_referral,
-          (SELECT COUNT(*) FROM users WHERE created_at >= ${yesterdayStart} AND created_at < ${yesterdayEnd}) AS yesterday_referral,
+          (SELECT COUNT(*) FROM users WHERE created_at >= ${todayStartIso}) AS today_referral,
+          (SELECT COUNT(*) FROM users WHERE created_at >= ${yesterdayStartIso} AND created_at < ${yesterdayEndIso}) AS yesterday_referral,
           (SELECT COUNT(*) FROM users WHERE is_vip > 0) AS paid_count,
           (SELECT COUNT(*) FROM users) AS total_count
       `)
