@@ -67,10 +67,13 @@ export function buildSchema(opts: BuildSchemaOptions): FastifySchema {
     tags: opts.tags,
     response: opts.response ?? (opts.auth === false ? publicResponses : standardResponses),
   }
-  if (opts.body) schema.body = zodToJsonSchema(opts.body, { target: 'openApi3' }) as object
+  if (opts.body) schema.body = zodToJsonSchema(opts.body as never, { target: 'openApi3' }) as object
   if (opts.querystring)
-    schema.querystring = zodToJsonSchema(opts.querystring, { target: 'openApi3' }) as object
-  if (opts.params) schema.params = zodToJsonSchema(opts.params, { target: 'openApi3' }) as object
+    schema.querystring = zodToJsonSchema(opts.querystring as never, {
+      target: 'openApi3',
+    }) as object
+  if (opts.params)
+    schema.params = zodToJsonSchema(opts.params as never, { target: 'openApi3' }) as object
   return schema
 }
 

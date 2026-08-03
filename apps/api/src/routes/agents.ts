@@ -1341,7 +1341,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     space_id: z.string().optional(),
     status: z.string().optional(),
     reason: z.string().optional(),
-    data: z.record(z.unknown()).optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
   })
 
   server.post('/callback/coze', async (request, reply) => {
@@ -1351,9 +1351,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const sigHeader = request.headers['x-signature']
     const tsHeader = request.headers['x-timestamp']
     if (typeof sigHeader !== 'string' || typeof tsHeader !== 'string') {
-      return reply
-        .status(401)
-        .send(error(401, 'webhook 缺少 X-Signature 或 X-Timestamp 头'))
+      return reply.status(401).send(error(401, 'webhook 缺少 X-Signature 或 X-Timestamp 头'))
     }
     // 时间戳防重放:5 分钟窗口外拒绝
     const tsNum = Number(tsHeader)
@@ -1569,7 +1567,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `测试获取智能体详情失败: ${toUserFriendlyMessage(e)}`))
+      return reply
+        .status(500)
+        .send(error(500, `测试获取智能体详情失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -1732,7 +1732,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(500).send(error(500, `设置 Webhook 密钥失败: ${toUserFriendlyMessage(e)}`))
+      return reply
+        .status(500)
+        .send(error(500, `设置 Webhook 密钥失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 

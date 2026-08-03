@@ -21,7 +21,7 @@ const channelTypes = ['email', 'sms', 'push', 'in_app', 'webhook'] as const
 const createChannelSchema = z.object({
   name: z.string().min(1, '渠道名称不能为空').max(100),
   type: z.enum(channelTypes),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   isActive: z.boolean().optional(),
   remark: z.string().max(255).optional(),
 })
@@ -29,7 +29,7 @@ const createChannelSchema = z.object({
 const updateChannelSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   type: z.enum(channelTypes).optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   isActive: z.boolean().optional(),
   remark: z.string().max(255).optional(),
 })

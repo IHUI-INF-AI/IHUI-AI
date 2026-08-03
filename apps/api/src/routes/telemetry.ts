@@ -22,7 +22,7 @@ import { success, error } from '../utils/response.js'
 
 const telemetryEventSchema = z.object({
   name: z.string().min(1).max(64),
-  props: z.record(z.unknown()).optional(),
+  props: z.record(z.string(), z.unknown()).optional(),
   timestamp: z.number().int().positive(),
 })
 
