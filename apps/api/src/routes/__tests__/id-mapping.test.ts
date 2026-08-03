@@ -61,7 +61,7 @@ import {
 import { db } from '../../db/index.js'
 
 const SAMPLE_MAPPING = {
-  id: '00000000-0000-0000-0000-000000000001',
+  id: '00000000-0000-4000-8000-000000000001',
   legacyTable: 'member',
   legacyId: 100,
   newId: 'new-uuid-100',
@@ -125,7 +125,7 @@ describe('ID 映射查询(id-mapping-queries)', () => {
 
   describe('hasBeenMigrated', () => {
     it('已迁移返回 true', async () => {
-      mockState.selectResult = [{ id: '00000000-0000-0000-0000-000000000001' }]
+      mockState.selectResult = [{ id: '00000000-0000-4000-8000-000000000001' }]
       const res = await hasBeenMigrated('member', 100)
       expect(res).toBe(true)
     })

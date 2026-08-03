@@ -372,7 +372,7 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/admin/checkin/rules/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/checkin/rules/00000000-0000-4000-8000-000000000000',
       body: { name: '新规则' },
     })
     expect(res.statusCode).toBe(404)
@@ -394,7 +394,7 @@ describe('checkin-routes — 签到需鉴权真实 DB 集成测试', () => {
   it('DELETE /api/admin/checkin/rules/:id — 不存在返回 404', async () => {
     const admin = await createUser('admin', '管理员')
     setMockAdmin(admin.id)
-    const res = await server.inject({ method: 'DELETE', url: '/api/admin/checkin/rules/00000000-0000-0000-0000-000000000000' })
+    const res = await server.inject({ method: 'DELETE', url: '/api/admin/checkin/rules/00000000-0000-4000-8000-000000000000' })
     expect(res.statusCode).toBe(404)
   })
 

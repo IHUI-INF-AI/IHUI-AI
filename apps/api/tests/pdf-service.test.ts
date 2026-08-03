@@ -11,7 +11,7 @@ vi.mock('../src/plugins/auth.js', () => ({
 
 import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/index.js'
 
-const USER_ID = '00000000-0000-0000-0000-000000000001'
+const USER_ID = '00000000-0000-4000-8000-000000000001'
 const PREFIX = '/api'
 
 function mockAuthed(userId: string = USER_ID) {
@@ -29,8 +29,8 @@ function mockUnauthed() {
   mockAuthenticate.mockRejectedValue(err)
 }
 
-const VALID_FILE_ID_A = '00000000-0000-0000-0000-000000000aaa'
-const VALID_FILE_ID_B = '00000000-0000-0000-0000-000000000bbb'
+const VALID_FILE_ID_A = '00000000-0000-4000-8000-000000000aaa'
+const VALID_FILE_ID_B = '00000000-0000-4000-8000-000000000bbb'
 
 describe('pdf-service routes — /api/pdf-service/*', () => {
   const server = Fastify({ logger: false })

@@ -42,7 +42,7 @@ describe('Notification Extended API', () => {
     it('PUT /api/notifications/channels/:id', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/notifications/channels/00000000-0000-0000-0000-000000000000',
+        url: '/api/notifications/channels/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -50,7 +50,7 @@ describe('Notification Extended API', () => {
     it('DELETE /api/notifications/channels/:id', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/notifications/channels/00000000-0000-0000-0000-000000000000',
+        url: '/api/notifications/channels/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(401)
     })

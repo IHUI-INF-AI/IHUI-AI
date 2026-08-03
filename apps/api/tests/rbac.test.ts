@@ -51,7 +51,7 @@ describe('rbac routes', () => {
   it('GET /api/users/:id/roles 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/users/00000000-0000-0000-0000-000000000000/roles',
+      url: '/api/users/00000000-0000-4000-8000-000000000000/roles',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -73,7 +73,7 @@ describe('rbac routes', () => {
   it('GET /api/permissions/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/permissions/00000000-0000-0000-0000-000000000000',
+      url: '/api/permissions/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -81,7 +81,7 @@ describe('rbac routes', () => {
   it('PATCH /api/permissions/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PATCH',
-      url: '/api/permissions/00000000-0000-0000-0000-000000000000',
+      url: '/api/permissions/00000000-0000-4000-8000-000000000000',
       body: { displayName: '更新权限' },
     })
     expect(res.statusCode).toBe(401)
@@ -90,7 +90,7 @@ describe('rbac routes', () => {
   it('DELETE /api/permissions/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/permissions/00000000-0000-0000-0000-000000000000',
+      url: '/api/permissions/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })

@@ -50,7 +50,7 @@ describe('SRS routes (M-85)', () => {
   it('PUT /api/srs/streams/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/srs/streams/00000000-0000-0000-0000-000000000000',
+      url: '/api/srs/streams/00000000-0000-4000-8000-000000000000',
       body: { title: '更新标题' },
     })
     expect(res.statusCode).toBe(401)
@@ -59,7 +59,7 @@ describe('SRS routes (M-85)', () => {
   it('DELETE /api/srs/streams/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/srs/streams/00000000-0000-0000-0000-000000000000',
+      url: '/api/srs/streams/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -91,7 +91,7 @@ describe('SRS routes (M-85)', () => {
   it('PUT /api/srs/servers/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/srs/servers/00000000-0000-0000-0000-000000000000',
+      url: '/api/srs/servers/00000000-0000-4000-8000-000000000000',
       body: { name: 'SRS-Updated' },
     })
     expect(res.statusCode).toBe(401)
@@ -100,7 +100,7 @@ describe('SRS routes (M-85)', () => {
   it('DELETE /api/srs/servers/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/srs/servers/00000000-0000-0000-0000-000000000000',
+      url: '/api/srs/servers/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -108,7 +108,7 @@ describe('SRS routes (M-85)', () => {
   it('GET /api/srs/servers/:id/health 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/srs/servers/00000000-0000-0000-0000-000000000000/health',
+      url: '/api/srs/servers/00000000-0000-4000-8000-000000000000/health',
     })
     expect(res.statusCode).toBe(401)
   })

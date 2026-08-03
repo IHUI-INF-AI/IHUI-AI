@@ -180,7 +180,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     setMockUnauthorized()
     const res = await server.inject({
       method: 'GET',
-      url: '/api/study/records/00000000-0000-0000-0000-000000000000',
+      url: '/api/study/records/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -190,7 +190,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/study/records',
-      body: { lessonId: '00000000-0000-0000-0000-000000000000' },
+      body: { lessonId: '00000000-0000-4000-8000-000000000000' },
     })
     expect(res.statusCode).toBe(401)
   })
@@ -199,7 +199,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     setMockUnauthorized()
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/study/records/00000000-0000-0000-0000-000000000000',
+      url: '/api/study/records/00000000-0000-4000-8000-000000000000',
       body: { progress: 50 },
     })
     expect(res.statusCode).toBe(401)
@@ -323,7 +323,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     setMockUser(user.id)
     const res = await server.inject({
       method: 'GET',
-      url: '/api/study/records/00000000-0000-0000-0000-000000000000',
+      url: '/api/study/records/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
     const body = res.json()
@@ -472,7 +472,7 @@ describe('study-routes — 学习记录需鉴权真实 DB 集成测试', () => {
     setMockUser(user.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/study/records/00000000-0000-0000-0000-000000000000',
+      url: '/api/study/records/00000000-0000-4000-8000-000000000000',
       body: { progress: 50 },
     })
     expect(res.statusCode).toBe(404)

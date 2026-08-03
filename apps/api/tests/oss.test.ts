@@ -31,7 +31,7 @@ vi.mock('../src/db/oss-queries.js', () => ({
 
 import { ossRoutes, adminOssRoutes } from '../src/routes/oss'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('oss routes', () => {
   const server = Fastify({ logger: false })

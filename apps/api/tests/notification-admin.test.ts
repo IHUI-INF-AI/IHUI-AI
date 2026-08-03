@@ -20,8 +20,8 @@ vi.mock('../src/db/index.js', () => ({
 
 import notificationAdminRoutes from '../src/routes/admin/notification-admin.js'
 
-const ADMIN_USER = '00000000-0000-0000-0000-000000000001'
-const REGULAR_USER = '00000000-0000-0000-0000-000000000002'
+const ADMIN_USER = '00000000-0000-4000-8000-000000000001'
+const REGULAR_USER = '00000000-0000-4000-8000-000000000002'
 const TARGET_UUID = '11111111-1111-4111-8111-111111111111'
 
 function mockAdmin() {

@@ -51,7 +51,7 @@ describe('workflow routes', () => {
   it('POST /api/workflows/instances/:id/cancel 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'POST',
-      url: '/api/workflows/instances/00000000-0000-0000-0000-000000000000/cancel',
+      url: '/api/workflows/instances/00000000-0000-4000-8000-000000000000/cancel',
     })
     expect(res.statusCode).toBe(401)
   })

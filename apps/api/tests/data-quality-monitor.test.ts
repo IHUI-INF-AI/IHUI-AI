@@ -303,7 +303,7 @@ describe('data-quality-monitor — 数据质量监控', () => {
           params: { validator: 'uuid' },
         }),
       )
-      m.feed('ds', { uuid: '12345678-1234-1234-1234-123456789012' })
+      m.feed('ds', { uuid: '12345678-1234-4234-8234-123456789012' })
       m.feed('ds', { uuid: 'not-a-uuid' })
       expect(m.getViolations()).toHaveLength(1)
     })

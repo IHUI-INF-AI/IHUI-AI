@@ -11,18 +11,18 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: vi.fn().mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 0,
   }),
   verifyRefreshToken: vi.fn().mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 0,
   }),
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 vi.mock('../src/db/index.js', () => {
@@ -52,7 +52,7 @@ vi.mock('../src/db/index.js', () => {
 import { notificationExtendedRoutes } from '../src/routes/notification-extended'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
-const MOCK_UUID = '00000000-0000-0000-0000-000000000001'
+const MOCK_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('notification-extended routes', () => {
   const server = Fastify({ logger: false })

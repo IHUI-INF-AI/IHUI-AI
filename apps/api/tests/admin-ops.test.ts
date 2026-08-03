@@ -34,7 +34,7 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 // Chainable db mock:任意 db.select().from().where()... 链最终 await 走 mockSelectResult
@@ -104,22 +104,22 @@ import { requireAdmin } from '../src/plugins/require-permission.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
 const USER_TOKEN = 'Bearer user-token'
-const UUID = '00000000-0000-0000-0000-000000000001'
+const UUID = '00000000-0000-4000-8000-000000000001'
 
 function mockAdmin() {
   mockVerifyAccessToken.mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 1,
   })
 }
 
 function mockRegularUser() {
   mockVerifyAccessToken.mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000002',
+    userId: '00000000-0000-4000-8000-000000000002',
     phone: '13800000002',
-    familyId: '00000000-0000-0000-0000-000000000003',
+    familyId: '00000000-0000-4000-8000-000000000003',
     roleId: 0,
   })
 }
