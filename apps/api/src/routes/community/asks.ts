@@ -496,7 +496,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         slug: z.string().min(1).max(120).optional(),
         description: z.string().max(2000).optional().nullable(),
         coverImage: z.string().max(512).optional().nullable(),
-        cidList: z.array(z.string().uuid()).max(50).optional(),
+        cidList: z.array(z.uuid()).max(50).optional(),
         isPublished: z.boolean().optional(),
       })
       .safeParse(request.body)
@@ -535,7 +535,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
         slug: z.string().min(1).max(120).optional(),
         description: z.string().max(2000).nullable().optional(),
         coverImage: z.string().max(512).nullable().optional(),
-        cidList: z.array(z.string().uuid()).max(50).nullable().optional(),
+        cidList: z.array(z.uuid()).max(50).nullable().optional(),
         isPublished: z.boolean().optional(),
       })
       .safeParse(request.body)
@@ -577,7 +577,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
           emptyToUndefined,
           z.enum(['published', 'deleted', 'pending', 'rejected']).optional(),
         ),
-        circleId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+        circleId: z.preprocess(emptyToUndefined, z.uuid().optional()),
       })
       .safeParse(request.query)
     if (!parsed.success) {
@@ -864,7 +864,9 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /asks/answer/adopt - 采纳回答(body: answerId)
   server.post('/asks/answer/adopt', async (request, reply) => {
-    const body = z.object({ answerId: z.string().uuid({ message: '无效的 answerId' }) }).safeParse(request.body)
+    const body = z
+      .object({ answerId: z.uuid({ error: '无效的 answerId' }) })
+      .safeParse(request.body)
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
@@ -878,7 +880,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
   // GET /asks/answer/related-questions - 相关问题列表(query: questionId)
   server.get('/asks/answer/related-questions', async (request, reply) => {
     const parsed = z
-      .object({ questionId: z.string().uuid({ message: '无效的 questionId' }) })
+      .object({ questionId: z.uuid({ error: '无效的 questionId' }) })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -959,7 +961,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
   // POST /circles/dynamic/like - 点赞动态(body: dynamicId,如已存在则取消)
   server.post('/circles/dynamic/like', async (request, reply) => {
     const body = z
-      .object({ dynamicId: z.string().uuid({ message: '无效的 dynamicId' }) })
+      .object({ dynamicId: z.uuid({ error: '无效的 dynamicId' }) })
       .safeParse(request.body)
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
@@ -999,7 +1001,7 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       (request.query as { commentId?: string } | undefined)?.commentId ??
       (request.body as { commentId?: string } | undefined)?.commentId
     const parsed = z
-      .object({ commentId: z.string().uuid({ message: '无效的 commentId' }) })
+      .object({ commentId: z.uuid({ error: '无效的 commentId' }) })
       .safeParse({ commentId: raw })
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

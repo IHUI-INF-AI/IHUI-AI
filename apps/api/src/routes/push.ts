@@ -20,7 +20,7 @@ const registerDeviceSchema = z.object({
 const sendPushBodySchema = z.object({
   title: z.string().min(1).max(100),
   body: z.string().min(1).max(500),
-  clickUrl: z.string().url().optional(),
+  clickUrl: z.url().optional(),
   data: z.record(z.string(), z.unknown()).optional(),
   /** 指定设备 token 列表；若不提供则按 memberId 推送 */
   tokens: z.array(z.string().min(1).max(500)).max(100).optional(),

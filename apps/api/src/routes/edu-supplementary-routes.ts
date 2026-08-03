@@ -16,7 +16,7 @@ const learnRecordSchema = z.object({
   duration: z.number().min(0).optional(),
 })
 
-const uuidSchema = z.string().uuid()
+const uuidSchema = z.uuid()
 
 function isUuid(s: string): boolean {
   return uuidSchema.safeParse(s).success

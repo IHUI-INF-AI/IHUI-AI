@@ -77,12 +77,12 @@ const paginationQuery = {
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const resourcesListQuery = z.object({
   ...paginationQuery,
   title: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  categoryId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  categoryId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
@@ -92,20 +92,20 @@ const byIdsQuery = z.object({
 })
 
 const categoryQuery = z.object({
-  pid: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  pid: z.preprocess(emptyToUndefined, z.uuid().optional()),
   fetchAll: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
 })
 
 const createCategorySchema = z.object({
   name: z.string().min(1).max(100),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
@@ -114,7 +114,7 @@ const createResourceSchema = z.object({
   title: z.string().min(1).max(200),
   coverImage: z.string().max(500).nullable().optional(),
   intro: z.string().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   fileUrl: z.string().max(500).nullable().optional(),
   fileType: z.string().max(50).nullable().optional(),
   fileSize: z.number().int().min(0).optional(),
@@ -122,29 +122,29 @@ const createResourceSchema = z.object({
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
   type: z.string().max(50).nullable().optional(),
-  productId: z.preprocess(emptyToUndefined, z.string().uuid().nullable()).optional(),
-  tagIdList: z.array(z.string().uuid()).max(100).nullable().optional(),
+  productId: z.preprocess(emptyToUndefined, z.uuid().nullable()).optional(),
+  tagIdList: z.array(z.uuid()).max(100).nullable().optional(),
   image: z.string().max(500).nullable().optional(),
   introduction: z.string().nullable().optional(),
-  cidList: z.array(z.string().uuid()).max(100).nullable().optional(),
+  cidList: z.array(z.uuid()).max(100).nullable().optional(),
 })
 
 const updateResourceSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   coverImage: z.string().max(500).nullable().optional(),
   intro: z.string().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   fileUrl: z.string().max(500).nullable().optional(),
   fileType: z.string().max(50).nullable().optional(),
   fileSize: z.number().int().min(0).optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
   type: z.string().max(50).nullable().optional(),
-  productId: z.preprocess(emptyToUndefined, z.string().uuid().nullable()).optional(),
-  tagIdList: z.array(z.string().uuid()).max(100).nullable().optional(),
+  productId: z.preprocess(emptyToUndefined, z.uuid().nullable()).optional(),
+  tagIdList: z.array(z.uuid()).max(100).nullable().optional(),
   image: z.string().max(500).nullable().optional(),
   introduction: z.string().nullable().optional(),
-  cidList: z.array(z.string().uuid()).max(100).nullable().optional(),
+  cidList: z.array(z.uuid()).max(100).nullable().optional(),
 })
 
 const publishResourceSchema = z.object({
@@ -153,14 +153,14 @@ const publishResourceSchema = z.object({
 
 const productsListQuery = z.object({
   ...paginationQuery,
-  resourceId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  resourceId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
   isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
 
 const createProductSchema = z.object({
-  resourceId: z.string().uuid({ message: '无效的资源 ID' }),
+  resourceId: z.uuid({ error: '无效的资源 ID' }),
   name: z.string().min(1).max(200),
   price: z
     .string()
@@ -178,7 +178,7 @@ const createProductSchema = z.object({
 })
 
 const updateProductSchema = z.object({
-  resourceId: z.string().uuid().optional(),
+  resourceId: z.uuid().optional(),
   name: z.string().min(1).max(200).optional(),
   price: z
     .string()
@@ -198,20 +198,20 @@ const updateProductSchema = z.object({
 const tagsListQuery = z.object({
   ...paginationQuery,
   name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
-  pid: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  pid: z.preprocess(emptyToUndefined, z.uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
 
 const createTagSchema = z.object({
   name: z.string().min(1).max(100),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateTagSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })

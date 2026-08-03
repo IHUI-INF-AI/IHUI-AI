@@ -109,13 +109,13 @@ const voiceTtsSchema = z.looseObject({
 })
 
 const browserNavigateSchema = z.looseObject({
-  url: z.string().url({ message: 'url 必须为合法 URL' }),
+  url: z.url({ error: 'url 必须为合法 URL' }),
   headers: z.record(z.string(), z.string()).optional(),
   timeout: z.number().int().positive().optional(),
 })
 
 const browserScrapeSchema = z.looseObject({
-  url: z.string().url({ message: 'url 必须为合法 URL' }),
+  url: z.url({ error: 'url 必须为合法 URL' }),
   selector: z.string().optional(),
   extract: z.array(z.record(z.string(), z.unknown())).optional(),
   headers: z.record(z.string(), z.string()).optional(),

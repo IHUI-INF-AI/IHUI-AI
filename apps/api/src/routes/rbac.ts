@@ -31,7 +31,7 @@ import { success, error } from '../utils/response.js'
 const scopeSchema = z.enum(['none', 'self', 'team', 'org', 'all'])
 
 const idParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
 })
 
 const createRoleBodySchema = z.object({
@@ -55,26 +55,26 @@ const updateRoleBodySchema = z
   )
 
 const addRolePermissionsBodySchema = z.object({
-  permissionIds: z.array(z.string().uuid()).min(1).max(100),
+  permissionIds: z.array(z.uuid()).min(1).max(100),
 })
 
 const roleIdParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的角色 ID' }),
-  roleId: z.string().uuid({ message: '无效的角色 ID' }),
+  id: z.uuid({ error: '无效的角色 ID' }),
+  roleId: z.uuid({ error: '无效的角色 ID' }),
 })
 
 const rolePermissionParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的角色 ID' }),
-  permissionId: z.string().uuid({ message: '无效的权限 ID' }),
+  id: z.uuid({ error: '无效的角色 ID' }),
+  permissionId: z.uuid({ error: '无效的权限 ID' }),
 })
 
 const assignUserRoleBodySchema = z.object({
-  roleId: z.string().uuid({ message: '无效的角色 ID' }),
+  roleId: z.uuid({ error: '无效的角色 ID' }),
   scopeResourceId: z.string().max(128).optional(),
 })
 
 const permissionCheckQuerySchema = z.object({
-  userId: z.string().uuid({ message: '无效的用户 ID' }),
+  userId: z.uuid({ error: '无效的用户 ID' }),
   permission: z.string().trim().min(1).max(128),
   resource: z.string().trim().min(1).max(64).optional(),
 })

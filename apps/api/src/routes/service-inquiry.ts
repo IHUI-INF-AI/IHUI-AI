@@ -72,7 +72,7 @@ const listQuerySchema = z.object({
   serviceType: z.enum(SERVICE_TYPES).optional(),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const updateStatusSchema = z.object({
   status: z.enum(STATUSES, { error: '无效的状态' }),

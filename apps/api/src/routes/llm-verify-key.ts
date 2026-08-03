@@ -23,16 +23,56 @@ interface ProviderConfig {
 
 /** 厂商配置(与前端 byok-wizard.tsx PROVIDERS 对齐) */
 const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
-  openai: { baseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o-mini', apiFormat: 'openai_chat' },
-  anthropic: { baseUrl: 'https://api.anthropic.com', defaultModel: 'claude-3-5-sonnet-20241022', apiFormat: 'anthropic_messages' },
-  deepseek: { baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat', apiFormat: 'openai_chat' },
-  zhipu: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash', apiFormat: 'openai_chat' },
-  stepfun: { baseUrl: 'https://api.stepfun.com/v1', defaultModel: 'step-1-flash', apiFormat: 'openai_chat' },
-  groq: { baseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.1-8b-instant', apiFormat: 'openai_chat' },
-  siliconflow: { baseUrl: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen2.5-7B-Instruct', apiFormat: 'openai_chat' },
-  agnes: { baseUrl: 'https://api.agnes.ai/v1', defaultModel: 'agnes-chat', apiFormat: 'openai_chat' },
-  cloudflare: { baseUrl: 'https://api.cloudflare.com/client/v4/accounts', defaultModel: '@cf/meta/llama-3.1-8b-instruct', apiFormat: 'openai_chat' },
-  github: { baseUrl: 'https://models.inference.ai.azure.com', defaultModel: 'gpt-4o-mini', apiFormat: 'openai_chat' },
+  openai: {
+    baseUrl: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4o-mini',
+    apiFormat: 'openai_chat',
+  },
+  anthropic: {
+    baseUrl: 'https://api.anthropic.com',
+    defaultModel: 'claude-3-5-sonnet-20241022',
+    apiFormat: 'anthropic_messages',
+  },
+  deepseek: {
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+    apiFormat: 'openai_chat',
+  },
+  zhipu: {
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModel: 'glm-4-flash',
+    apiFormat: 'openai_chat',
+  },
+  stepfun: {
+    baseUrl: 'https://api.stepfun.com/v1',
+    defaultModel: 'step-1-flash',
+    apiFormat: 'openai_chat',
+  },
+  groq: {
+    baseUrl: 'https://api.groq.com/openai/v1',
+    defaultModel: 'llama-3.1-8b-instant',
+    apiFormat: 'openai_chat',
+  },
+  siliconflow: {
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    defaultModel: 'Qwen/Qwen2.5-7B-Instruct',
+    apiFormat: 'openai_chat',
+  },
+  agnes: {
+    baseUrl: 'https://api.agnes.ai/v1',
+    defaultModel: 'agnes-chat',
+    apiFormat: 'openai_chat',
+  },
+  cloudflare: {
+    baseUrl: 'https://api.cloudflare.com/client/v4/accounts',
+    defaultModel: '@cf/meta/llama-3.1-8b-instruct',
+    apiFormat: 'openai_chat',
+  },
+  github: {
+    baseUrl: 'https://models.inference.ai.azure.com',
+    defaultModel: 'gpt-4o-mini',
+    apiFormat: 'openai_chat',
+  },
 }
 
 const UPSTREAM_TIMEOUT_MS = 10_000
@@ -40,7 +80,7 @@ const UPSTREAM_TIMEOUT_MS = 10_000
 const verifyKeySchema = z.object({
   providerCode: z.string().min(1, 'providerCode 不能为空'),
   apiKey: z.string().min(1, 'apiKey 不能为空'),
-  apiBase: z.string().url().optional(),
+  apiBase: z.url().optional(),
   model: z.string().optional(),
 })
 

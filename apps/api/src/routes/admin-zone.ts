@@ -6,12 +6,12 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { zhsZone } from '@ihui/database'
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  parentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  parentId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   level: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(5).optional()),
   enabled: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
 })
@@ -23,7 +23,7 @@ const createZoneSchema = z.object({
     .min(1)
     .max(32)
     .regex(/^[A-Z0-9_-]+$/, 'code 仅允许大写字母、数字、下划线与连字符'),
-  parentId: z.string().uuid().nullable().optional(),
+  parentId: z.uuid().nullable().optional(),
   level: z.number().int().min(0).max(5).default(0),
   sortOrder: z.number().int().optional(),
   enabled: z.boolean().optional(),
@@ -32,7 +32,7 @@ const createZoneSchema = z.object({
 
 const updateZoneSchema = z.object({
   name: z.string().min(1).max(64).optional(),
-  parentId: z.string().uuid().nullable().optional(),
+  parentId: z.uuid().nullable().optional(),
   level: z.number().int().min(0).max(5).optional(),
   sortOrder: z.number().int().optional(),
   enabled: z.boolean().optional(),
@@ -95,11 +95,7 @@ export const adminZoneRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const [row] = await db
-      .select()
-      .from(zhsZone)
-      .where(eq(zhsZone.id, parsed.data.id))
-      .limit(1)
+    const [row] = await db.select().from(zhsZone).where(eq(zhsZone.id, parsed.data.id)).limit(1)
     if (!row) return reply.status(404).send(error(404, '区域不存在'))
     return reply.send(success(row))
   })

@@ -33,7 +33,7 @@ const itemsQuerySchema = z.object({
 })
 
 const trendsQuerySchema = z.object({
-  itemId: z.string().uuid({ message: '无效的条目 ID' }),
+  itemId: z.uuid({ error: '无效的条目 ID' }),
   window: z.coerce.number().int().min(1).max(30).default(14),
 })
 
@@ -60,8 +60,7 @@ const notificationsQuerySchema = z.object({
 
 const imageProxyQuerySchema = z.object({
   url: z
-    .string()
-    .url({ message: '无效的图片 URL' })
+    .url({ error: '无效的图片 URL' })
     .refine((v) => /^https?:\/\//i.test(v), '仅支持 http/https 协议'),
 })
 

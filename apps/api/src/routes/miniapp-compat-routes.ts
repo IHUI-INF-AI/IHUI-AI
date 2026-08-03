@@ -53,20 +53,20 @@ const pageQuerySchema = z.object({
 // Zod schemas(仅 /learn/* + /study/* 真实化端点使用)
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const createGroupSchema = z.object({
   title: z.string().min(1).max(200),
   intro: z.string().nullable().optional(),
   coverImage: z.string().max(512).nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
 })
 
 const updateCourseSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   intro: z.string().nullable().optional(),
   coverImage: z.string().max(512).nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   lecturerName: z.string().max(100).nullable().optional(),
   price: z
     .string()
@@ -77,7 +77,7 @@ const updateCourseSchema = z.object({
 })
 
 const createVideoSchema = z.object({
-  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
+  chapterId: z.uuid({ error: '无效的章节 ID' }),
   title: z.string().min(1).max(200),
   content: z.string().nullable().optional(),
   videoUrl: z.string().max(512).nullable().optional(),
@@ -96,20 +96,20 @@ const updateVideoSchema = z.object({
 })
 
 const videoCommentsQuerySchema = z.object({
-  videoId: z.string().uuid({ message: '无效的视频 ID' }),
+  videoId: z.uuid({ error: '无效的视频 ID' }),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 const createVideoCommentSchema = z.object({
-  videoId: z.string().uuid({ message: '无效的视频 ID' }),
+  videoId: z.uuid({ error: '无效的视频 ID' }),
   content: z.string().min(1).max(5000),
-  parentId: z.string().uuid().nullable().optional(),
+  parentId: z.uuid().nullable().optional(),
 })
 
 const videoLogSchema = z.object({
-  videoId: z.string().uuid().nullable().optional(),
-  lessonId: z.string().uuid().nullable().optional(),
+  videoId: z.uuid().nullable().optional(),
+  lessonId: z.uuid().nullable().optional(),
   position: z.number().int().min(0).optional(),
   duration: z.number().int().min(0).optional(),
   action: z.string().max(20).optional(),
@@ -127,25 +127,25 @@ const rankingQuerySchema = z.object({
 
 // /study/* 鉴权版端点(2026-07-26 真实化)
 const studySigninSchema = z.object({
-  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
+  lessonId: z.uuid({ error: '无效的课程 ID' }),
 })
 
 const studyClockinSchema = z.object({
-  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
+  lessonId: z.uuid({ error: '无效的课程 ID' }),
   duration: z.number().int().min(0),
   content: z.string().max(5000).optional(),
 })
 
 const studyProgressSchema = z.object({
-  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
-  chapterId: z.string().uuid().optional(),
-  sectionId: z.string().uuid().optional(),
+  lessonId: z.uuid({ error: '无效的课程 ID' }),
+  chapterId: z.uuid().optional(),
+  sectionId: z.uuid().optional(),
   position: z.number().int().min(0),
   duration: z.number().int().min(0),
 })
 
 const studyShareSchema = z.object({
-  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
+  lessonId: z.uuid({ error: '无效的课程 ID' }),
   platform: z.enum(['wechat', 'moments', 'link']).default('link'),
 })
 
@@ -655,10 +655,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       .select({ d: sql<string>`${lessonSignUps.createdAt}::date::text` })
       .from(lessonSignUps)
       .where(
-        and(
-          eq(lessonSignUps.userId, userId),
-          sql`${lessonSignUps.createdAt}::date = current_date`,
-        ),
+        and(eq(lessonSignUps.userId, userId), sql`${lessonSignUps.createdAt}::date = current_date`),
       )
       .limit(1)
 
@@ -762,10 +759,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       })
       .from(lessonRecords)
       .where(
-        and(
-          eq(lessonRecords.userId, userId),
-          sql`${lessonRecords.createdAt}::date = current_date`,
-        ),
+        and(eq(lessonRecords.userId, userId), sql`${lessonRecords.createdAt}::date = current_date`),
       )
 
     const streak = await calcContinuousDays(userId)
@@ -807,9 +801,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const conds = [
       eq(lessonRecords.userId, userId),
       eq(lessonRecords.lessonId, lessonId),
-      sectionId
-        ? eq(lessonRecords.sectionId, sectionId)
-        : sql`${lessonRecords.sectionId} IS NULL`,
+      sectionId ? eq(lessonRecords.sectionId, sectionId) : sql`${lessonRecords.sectionId} IS NULL`,
     ]
     if (chapterId) conds.push(eq(lessonRecords.chapterId, chapterId))
 
@@ -833,9 +825,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
           status: completed ? 2 : sql`GREATEST(${lessonRecords.status}, 1)`,
           lastPosition: position,
           watchDuration: sql`${lessonRecords.watchDuration} + ${duration}`,
-          ...(totalDuration > 0 && existing.totalDuration === 0
-            ? { totalDuration }
-            : {}),
+          ...(totalDuration > 0 && existing.totalDuration === 0 ? { totalDuration } : {}),
           ...(completed ? { completedAt: new Date() } : {}),
           updatedAt: new Date(),
         })

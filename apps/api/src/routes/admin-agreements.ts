@@ -13,7 +13,7 @@ import {
 
 const AGREEMENT_TYPES = ['user-agreement', 'privacy-policy', 'terms-of-service'] as const
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   page: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).default(1)),

@@ -86,7 +86,7 @@ async function resolveOrderAmount(
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const orderNoParamSchema = z.object({ orderNo: z.string().min(1, '订单号不能为空') })
 
 const paginationQuery = {
@@ -104,13 +104,13 @@ const listOrdersQuery = z.object({
 const listPaymentsQuery = z.object({
   ...paginationQuery,
   status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  orderId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  orderId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const listRefundsQuery = z.object({
   ...paginationQuery,
   status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  orderId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  orderId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const listInvoiceAppsQuery = z.object({
@@ -170,9 +170,9 @@ const invoiceTitleBodySchema = z.object({
 const updateInvoiceTitleSchema = invoiceTitleBodySchema.partial()
 
 const createInvoiceAppSchema = z.object({
-  orderId: z.string().uuid().nullable().optional(),
+  orderId: z.uuid().nullable().optional(),
   invoiceType: z.string().max(16).optional(),
-  titleId: z.string().uuid().nullable().optional(),
+  titleId: z.uuid().nullable().optional(),
   amount: priceSchema,
   email: z.string().max(100).nullable().optional(),
   remark: z.string().max(500).nullable().optional(),
@@ -180,7 +180,7 @@ const createInvoiceAppSchema = z.object({
 
 const updateInvoiceAppSchema = z.object({
   invoiceType: z.string().max(16).optional(),
-  titleId: z.string().uuid().nullable().optional(),
+  titleId: z.uuid().nullable().optional(),
   amount: priceSchema,
   email: z.string().max(100).nullable().optional(),
   remark: z.string().max(500).nullable().optional(),
@@ -198,7 +198,7 @@ const completeOrderSagaSchema = z.object({
 })
 
 const batchCancelSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
+  ids: z.array(z.uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
 })
 
 // =============================================================================
@@ -360,7 +360,10 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
   // POST /orders/:id/cancel - 取消订单
   server.post(
     '/orders/:id/cancel',
-    { schema: { summary: '取消订单', tags: ['order'], response: okResponse }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    {
+      schema: { summary: '取消订单', tags: ['order'], response: okResponse },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
       const parsed = idParamSchema.safeParse(request.params)
       if (!parsed.success) {
@@ -495,7 +498,10 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
   // POST /payments/:id/cancel - 取消支付
   server.post(
     '/payments/:id/cancel',
-    { schema: { summary: '取消支付', tags: ['order'], response: okResponse }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    {
+      schema: { summary: '取消支付', tags: ['order'], response: okResponse },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
       const parsed = idParamSchema.safeParse(request.params)
       if (!parsed.success) {
@@ -757,7 +763,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listOrdersQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()) })
+        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -947,7 +953,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listPaymentsQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()) })
+        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -979,7 +985,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listRefundsQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()) })
+        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1083,7 +1089,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listInvoiceAppsQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()) })
+        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

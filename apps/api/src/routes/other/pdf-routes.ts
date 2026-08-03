@@ -20,17 +20,17 @@ import { success, error } from '../../utils/response.js'
 import { parseIdParam } from './_shared.js'
 
 const pdfFileIdQuerySchema = z.object({
-  fileId: z.string().uuid().optional(),
+  fileId: z.uuid().optional(),
 })
 
 const PDF_UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
 
 const mergeSchema = z.object({
-  fileIds: z.array(z.string().uuid()).min(2, '至少需要 2 个文件'),
+  fileIds: z.array(z.uuid()).min(2, '至少需要 2 个文件'),
 })
 
 const splitSchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.uuid(),
   ranges: z
     .string()
     .min(1, 'ranges 不能为空')
@@ -38,7 +38,7 @@ const splitSchema = z.object({
 })
 
 const watermarkSchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.uuid(),
   text: z.string().max(200).optional(),
   fontSize: z.number().int().min(8).max(200).optional(),
   opacity: z.number().min(0).max(1).optional(),
@@ -46,12 +46,12 @@ const watermarkSchema = z.object({
 })
 
 const printSchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.uuid(),
   operation: z.literal('print').optional(),
 })
 
 const signSchema = z.object({
-  fileId: z.string().uuid(),
+  fileId: z.uuid(),
   operation: z.literal('sign').optional(),
 })
 
