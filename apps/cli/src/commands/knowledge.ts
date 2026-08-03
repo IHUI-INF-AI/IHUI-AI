@@ -561,7 +561,7 @@ async function ragIndex(
 
   const form = new FormData();
   // Node 20+ 全局 File 构造器,携带 filename 与 mime 类型
-  const filePart = new File([buffer], filename, { type: mimeType });
+  const filePart = new File([new Uint8Array(buffer)], filename, { type: mimeType });
   form.append('file', filePart);
   form.append('title', title);
   form.append('collectionName', collectionName);
