@@ -38,8 +38,17 @@
   "dependencies": {
     "@ihui/types": "workspace:*"
   },
+  "peerDependencies": {
+    "@tarojs/taro": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@tarojs/taro": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
+    "@tarojs/taro": "4.2.1",
     "typescript": "catalog:",
     "rimraf": "catalog:",
     "vitest": "catalog:"
