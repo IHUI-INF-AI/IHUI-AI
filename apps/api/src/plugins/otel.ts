@@ -11,9 +11,9 @@ import { generateTraceparent } from '../utils/trace-context.js'
 /**
  * OpenTelemetry 分布式追踪插件（R74 P2 增强）。
  *
- * - 自动 instrument：Fastify / HTTP / ioredis(Redis) / pg(PostgreSQL) 等，
+ * - 自动 instrument：HTTP / ioredis(Redis) / pg(PostgreSQL) / dns / net / fs 等，
  *   由 @opentelemetry/auto-instrumentations-node 提供（getNodeAutoInstrumentations，
- *   内部已包含 @opentelemetry/instrumentation-fastify / -pg / -redis）。
+ *   内部已包含 @opentelemetry/instrumentation-pg / -redis / -http / -ioredis 等）。
  * - 通过 OTLP/HTTP 导出到 otel-collector / Jaeger（默认 http://localhost:8813/v1/traces）。
  * - 用 @opentelemetry/api 的全局 tracer 装饰 server.otel.tracer，供业务代码创建子 span。
  * - onRequest 将 userId 注入当前活跃 span 属性，实现用户级追踪串联。
