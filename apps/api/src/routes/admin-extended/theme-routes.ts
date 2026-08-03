@@ -15,7 +15,7 @@ import { idParamSchema } from './_shared.js'
 const themesPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  themeId: z.string().uuid().optional(),
+  themeId: z.uuid().optional(),
 })
 
 function parseThemesPagination(request: FastifyRequest, reply: FastifyReply) {
@@ -39,7 +39,7 @@ const createThemeSchema = z.object({
 const updateThemeSchema = createThemeSchema.partial()
 
 const createThemeColorSchema = z.object({
-  themeId: z.string().uuid(),
+  themeId: z.uuid(),
   key: z.string().min(1).max(100),
   value: z.string().min(1).max(100),
   label: z.string().max(100).optional(),
@@ -48,11 +48,11 @@ const createThemeColorSchema = z.object({
 const updateThemeColorSchema = createThemeColorSchema.partial()
 
 const bulkUpdateThemeColorsSchema = z.object({
-  colors: z.array(updateThemeColorSchema.extend({ id: z.string().uuid() })).max(500),
+  colors: z.array(updateThemeColorSchema.extend({ id: z.uuid() })).max(500),
 })
 
 const createThemeFontSchema = z.object({
-  themeId: z.string().uuid(),
+  themeId: z.uuid(),
   name: z.string().min(1).max(100),
   family: z.string().min(1).max(200),
   url: z.string().max(500).optional(),
@@ -62,7 +62,7 @@ const createThemeFontSchema = z.object({
 const updateThemeFontSchema = createThemeFontSchema.partial()
 
 const createThemeAssetSchema = z.object({
-  themeId: z.string().uuid(),
+  themeId: z.uuid(),
   type: z.string().min(1).max(50),
   url: z.string().min(1).max(500),
   label: z.string().max(100).optional(),
@@ -109,7 +109,7 @@ const importThemeSchema = z.object({
 })
 
 const applyPresetSchema = z.object({
-  presetId: z.string().uuid().optional(),
+  presetId: z.uuid().optional(),
   preset: z.string().max(50).optional(),
   name: z.string().max(100).optional(),
 })

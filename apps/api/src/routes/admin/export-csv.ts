@@ -86,17 +86,23 @@ function generateCsv(rows: Record<string, unknown>[], columns: CsvColumn[]): str
     columns
       .map((col) => {
         const raw = row[col.key]
-        const formatted = col.formatter ? col.formatter(raw) : raw == null ? '' : String(raw)
+        const formatted = col.formatter
+          ? col.formatter(raw)
+          : raw === null || raw === undefined
+            ? ''
+            : String(raw)
         return escapeCsvField(formatted)
       })
       .join(','),
   )
-  return CSV_BOM + headerLine + '\r\n' + bodyLines.join('\r\n') + (bodyLines.length > 0 ? '\r\n' : '')
+  return (
+    CSV_BOM + headerLine + '\r\n' + bodyLines.join('\r\n') + (bodyLines.length > 0 ? '\r\n' : '')
+  )
 }
 
 /** Date/时间字段 → ISO 8601 字符串(null/undefined → 空字符串) */
 function formatIsoDate(value: unknown): string {
-  if (value == null) return ''
+  if (value === null || value === undefined) return ''
   if (value instanceof Date) return value.toISOString()
   return String(value)
 }
@@ -114,9 +120,9 @@ function formatOrderType(value: unknown): string {
   if (typeof value === 'number') return map[value] ?? String(value)
   if (typeof value === 'string') {
     const n = Number(value)
-    return Number.isNaN(n) ? value : map[n] ?? value
+    return Number.isNaN(n) ? value : (map[n] ?? value)
   }
-  return value == null ? '' : String(value)
+  return value === null || value === undefined ? '' : String(value)
 }
 
 // =============================================================================
@@ -193,7 +199,7 @@ const dateStrSchema = z.preprocess(
 const ordersExportQuerySchema = z.object({
   startDate: dateStrSchema,
   endDate: dateStrSchema,
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   status: z.preprocess(
     emptyToUndefined,
     z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
@@ -206,10 +212,10 @@ const ordersExportQuerySchema = z.object({
 
 /** 复用 relay-logs.ts 的 13 个筛选维度 */
 const relayLogsExportQuerySchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
-  apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   clientIp: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   minLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
@@ -234,12 +240,7 @@ function buildFilename(prefix: string): string {
 }
 
 /** 统一发送 CSV 响应(UTF-8 with BOM + 大数据量警告头) */
-function sendCsv(
-  reply: FastifyReply,
-  csv: string,
-  filename: string,
-  rowCount: number,
-): void {
+function sendCsv(reply: FastifyReply, csv: string, filename: string, rowCount: number): void {
   const csvBuffer = Buffer.from(csv, 'utf-8')
   reply.header('Content-Type', 'text/csv; charset=utf-8')
   reply.header('Content-Disposition', `attachment; filename="${filename}"`)
@@ -290,10 +291,7 @@ const exportCsvRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(400)
           .send(
-            error(
-              400,
-              `筛选结果 ${total} 行超过最大导出行数 ${MAX_EXPORT_ROWS},请缩小时间范围`,
-            ),
+            error(400, `筛选结果 ${total} 行超过最大导出行数 ${MAX_EXPORT_ROWS},请缩小时间范围`),
           )
       }
 
@@ -378,10 +376,7 @@ const exportCsvRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(400)
           .send(
-            error(
-              400,
-              `筛选结果 ${total} 行超过最大导出行数 ${MAX_EXPORT_ROWS},请缩小时间范围`,
-            ),
+            error(400, `筛选结果 ${total} 行超过最大导出行数 ${MAX_EXPORT_ROWS},请缩小时间范围`),
           )
       }
 

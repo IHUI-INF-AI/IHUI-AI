@@ -50,14 +50,14 @@ const listMessagesQuery = z.object(paginationQuery)
 const adminListNotificationsQuery = z.object({
   ...paginationQuery,
   type: z.preprocess(emptyToUndefined, z.enum(NOTIFICATION_TYPES).optional()),
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
-const userIdParamSchema = z.object({ userId: z.string().uuid({ message: '无效的用户 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+const userIdParamSchema = z.object({ userId: z.uuid({ error: '无效的用户 ID' }) })
 
 const sendMessageSchema = z.object({
-  receiverId: z.string().uuid({ message: '无效的接收者 ID' }),
+  receiverId: z.uuid({ error: '无效的接收者 ID' }),
   content: z.string().min(1, '内容不能为空').max(5000, '内容过长'),
 })
 
@@ -71,9 +71,12 @@ const sendTargetedSchema = z
   .object({
     title: z.string().min(1).max(255),
     content: z.string().min(1).max(5000),
-    userIds: z.array(z.string().uuid()).max(500).nullable(),
+    userIds: z.array(z.uuid()).max(500).nullable(),
     roleFilter: z.array(z.string().min(1)).max(100).nullable(),
-    channels: z.array(z.enum(['in_app', 'email', 'sms'])).min(1).max(20),
+    channels: z
+      .array(z.enum(['in_app', 'email', 'sms']))
+      .min(1)
+      .max(20),
     msgType: z.enum(NOTIFICATION_TYPES),
   })
   .refine(

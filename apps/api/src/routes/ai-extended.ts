@@ -9,53 +9,46 @@ import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
-const routeBodySchema = z.object({ name: z.string().min(1) }).passthrough()
-const modelTestBodySchema = z
-  .object({ name: z.string().min(1), modelId: z.string().optional() })
-  .passthrough()
-const modelTestRunSchema = z
-  .object({
-    modelId: z.string().min(1),
-    prompt: z.string().default('你好'),
-    temperature: z.number().min(0).max(2).optional(),
-  })
-  .passthrough()
+const routeBodySchema = z.looseObject({ name: z.string().min(1) })
+const modelTestBodySchema = z.looseObject({
+  name: z.string().min(1),
+  modelId: z.string().optional(),
+})
+const modelTestRunSchema = z.looseObject({
+  modelId: z.string().min(1),
+  prompt: z.string().default('你好'),
+  temperature: z.number().min(0).max(2).optional(),
+})
 // P1 安全修复(2026-08-02):model-info POST/PUT body Zod schema,strip 非白名单字段
 // 字段类型对齐 zhs_ai_model_info 表(packages/database/src/schema/zhs-full.ts:122)
-const modelInfoBodySchema = z
-  .object({
-    source: z.string().max(100).optional(),
-    name: z.string().min(1).max(100).optional(),
-    description: z.string().optional(),
-    icon: z.string().max(500).optional(),
-    status: z.coerce.number().int().min(0).max(1).optional(),
-    sort: z.coerce.number().int().optional(),
-  })
-  .strip()
+const modelInfoBodySchema = z.object({
+  source: z.string().max(100).optional(),
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().optional(),
+  icon: z.string().max(500).optional(),
+  status: z.coerce.number().int().min(0).max(1).optional(),
+  sort: z.coerce.number().int().optional(),
+})
 
 // P1 安全修复(2026-08-02):config update body schema(JSON 存储,允许任意字段但必须是对象)
 const configUpdateBodySchema = z.record(z.string(), z.unknown())
 
 // P1 安全修复(2026-08-02):外呼回调 body schema
-const outboundCallbackBodySchema = z
-  .object({
-    phone: z.string().max(50).optional(),
-    callId: z.string().max(100).optional(),
-    duration: z.coerce.number().optional(),
-    recordingUrl: z.string().max(500).optional(),
-    transcript: z.string().optional(),
-  })
-  .strip()
+const outboundCallbackBodySchema = z.object({
+  phone: z.string().max(50).optional(),
+  callId: z.string().max(100).optional(),
+  duration: z.coerce.number().optional(),
+  recordingUrl: z.string().max(500).optional(),
+  transcript: z.string().optional(),
+})
 
 // P1 安全修复(2026-08-02):视频任务创建 body schema
-const videoTaskCreateBodySchema = z
-  .object({
-    taskId: z.string().max(100).optional(),
-    userUuid: z.string().max(100).optional(),
-    chatId: z.string().max(100).nullable().optional(),
-    message: z.string().nullable().optional(),
-  })
-  .strip()
+const videoTaskCreateBodySchema = z.object({
+  taskId: z.string().max(100).optional(),
+  userUuid: z.string().max(100).optional(),
+  chatId: z.string().max(100).nullable().optional(),
+  message: z.string().nullable().optional(),
+})
 
 // =============================================================================
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）

@@ -24,7 +24,7 @@ const updateTenantSchema = z.object({
 })
 
 const addMemberSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
   role: z.enum(['admin', 'member']).default('member'),
 })
 

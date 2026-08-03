@@ -58,27 +58,27 @@ const updateGroupBodySchema = z.object({
 })
 
 const addMemberBodySchema = z.object({
-  keyPoolId: z.string().uuid({ message: 'keyPoolId 必须是 UUID' }),
+  keyPoolId: z.uuid({ error: 'keyPoolId 必须是 UUID' }),
   weight: z.number().int().min(1).optional(),
 })
 
 const idMemberParamSchema = z.object({
-  id: z.string().uuid(),
-  memberId: z.string().uuid(),
+  id: z.uuid(),
+  memberId: z.uuid(),
 })
 
 const keyPoolParamSchema = z.object({
-  keyPoolId: z.string().uuid(),
+  keyPoolId: z.uuid(),
 })
 
 // 9-10. 批量启停 + 连通性测试 schema(2026-07-31 新增)
 const batchToggleBodySchema = z.object({
-  ids: z.array(z.string().uuid()).min(1, 'ids 不能为空').max(100, '单次最多 100 条'),
+  ids: z.array(z.uuid()).min(1, 'ids 不能为空').max(100, '单次最多 100 条'),
   enabled: z.boolean(),
 })
 
 const testChannelParamSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 })
 
 const testChannelBodySchema = z.object({

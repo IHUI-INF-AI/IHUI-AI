@@ -48,11 +48,12 @@ const hunyuan3dSubmitBody = z.object({
 
 const hunyuan3dQueryBody = z.object({ JobId: z.string().optional() })
 
-const volcVisualBody = z
-  .object({ prompt: z.string().optional(), images: z.array(z.string()).max(20).optional() })
-  .passthrough()
+const volcVisualBody = z.looseObject({
+  prompt: z.string().optional(),
+  images: z.array(z.string()).max(20).optional(),
+})
 
-const jimeng4ProcessBody = z.object({ req_key: z.string().optional() }).passthrough()
+const jimeng4ProcessBody = z.looseObject({ req_key: z.string().optional() })
 
 const proxyBody = z.object({
   vendor: z.string().optional(),

@@ -1258,12 +1258,11 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/bot/create', async (request, reply) => {
     const b = z
-      .object({
+      .looseObject({
         space_id: z.string().min(1),
         name: z.string().min(1),
         description: z.string().optional(),
       })
-      .passthrough()
       .safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
@@ -1275,10 +1274,7 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/bot/update', async (request, reply) => {
-    const b = z
-      .object({ bot_id: z.string().min(1) })
-      .passthrough()
-      .safeParse(request.body)
+    const b = z.looseObject({ bot_id: z.string().min(1) }).safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
     const data = await cozeRequest('POST', '/v1/bot/update', reply, {
