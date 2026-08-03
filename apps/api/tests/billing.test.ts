@@ -64,7 +64,7 @@ describe('billing routes', () => {
   it('GET /api/plans/:id 不存在返回 404', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/plans/00000000-0000-0000-0000-000000000000',
+      url: '/api/plans/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
     const body = res.json()

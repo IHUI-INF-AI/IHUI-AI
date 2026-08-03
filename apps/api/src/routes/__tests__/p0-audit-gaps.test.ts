@@ -132,9 +132,9 @@ const AUTH_HEADERS = { authorization: 'Bearer mock-token' }
 
 function mockAuth(roleId = 1): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000000',
+    userId: '00000000-0000-4000-8000-000000000000',
     phone: '13800000000',
-    familyId: '00000000-0000-0000-0000-000000000000',
+    familyId: '00000000-0000-4000-8000-000000000000',
     roleId,
   })
 }
@@ -167,7 +167,7 @@ describe('P0 Audit Gaps — Member batch import', () => {
   it('POST /api/admin/members/batch-import CSV succeeds and returns imported counts', async () => {
     mockAuth(1)
     vi.mocked(createMember).mockResolvedValue({
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '00000000-0000-4000-8000-000000000001',
     } as never)
 
     const boundary = '----WebKitFormBoundaryTest'

@@ -135,7 +135,7 @@ describe('topic-routes — 路由层真实 DB 集成测试', () => {
   it('GET /api/topics/:id — 不存在返回 404', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/topics/00000000-0000-0000-0000-000000000000',
+      url: '/api/topics/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
     const body = res.json()
@@ -219,7 +219,7 @@ describe('topic-routes — 路由层真实 DB 集成测试', () => {
       title: '含无效引用',
       isPublished: true,
       status: 1,
-      lessonIds: [lesson.id, '00000000-0000-0000-0000-000000000000'],
+      lessonIds: [lesson.id, '00000000-0000-4000-8000-000000000000'],
     })
     const res = await server.inject({ method: 'GET', url: `/api/topics/${topic.id}` })
     const body = res.json()

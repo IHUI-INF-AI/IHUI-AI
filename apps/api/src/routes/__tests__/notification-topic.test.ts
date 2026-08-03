@@ -50,7 +50,7 @@ function makeNotification(
   overrides: Partial<Notification> & { id: string; type: string },
 ): Notification {
   return {
-    userId: '00000000-0000-0000-0000-000000000000',
+    userId: '00000000-0000-4000-8000-000000000000',
     title: 'mock-title',
     content: null,
     data: null,
