@@ -11,24 +11,24 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 
 const emailSchema = z.object({
   to: z.string().min(1, '收件人不能为空').max(2000, '收件人列表过长'),
-  cc: z.preprocess(emptyToUndefined, z.string().max(2000).optional()),
-  bcc: z.preprocess(emptyToUndefined, z.string().max(2000).optional()),
+  cc: z.transform(emptyToUndefined).pipe(z.string().max(2000).optional()),
+  bcc: z.transform(emptyToUndefined).pipe(z.string().max(2000).optional()),
   subject: z.string().min(1, '主题不能为空').max(500, '主题过长'),
   text: z.string().min(1, '邮件内容不能为空').max(100_000, '邮件内容过长'),
-  from: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  fromName: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  replyTo: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  from: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  fromName: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  replyTo: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const emailHtmlSchema = z.object({
   to: z.string().min(1, '收件人不能为空').max(2000, '收件人列表过长'),
-  cc: z.preprocess(emptyToUndefined, z.string().max(2000).optional()),
-  bcc: z.preprocess(emptyToUndefined, z.string().max(2000).optional()),
+  cc: z.transform(emptyToUndefined).pipe(z.string().max(2000).optional()),
+  bcc: z.transform(emptyToUndefined).pipe(z.string().max(2000).optional()),
   subject: z.string().min(1, '主题不能为空').max(500, '主题过长'),
   html: z.string().min(1, 'HTML 内容不能为空').max(500_000, 'HTML 内容过长'),
-  from: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  fromName: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  replyTo: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  from: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  fromName: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  replyTo: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const mailRoutes: FastifyPluginAsync = async (server) => {

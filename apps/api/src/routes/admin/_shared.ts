@@ -17,15 +17,14 @@ type CrudTable = PgTable & {
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 // R14: 多字段搜索 schema（comment-logs / video-logs 用）
 export const commentLogQuerySchema = paginationSchema.extend({
-  userUuid: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  commentId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-  createdAt: z.preprocess(
-    emptyToUndefined,
+  userUuid: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  commentId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+  createdAt: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -34,10 +33,9 @@ export const commentLogQuerySchema = paginationSchema.extend({
 })
 
 export const videoLogQuerySchema = paginationSchema.extend({
-  userUuid: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  videoId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-  createdAt: z.preprocess(
-    emptyToUndefined,
+  userUuid: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  videoId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+  createdAt: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)

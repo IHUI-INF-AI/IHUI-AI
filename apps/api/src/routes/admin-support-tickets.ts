@@ -35,16 +35,15 @@ const replyBodySchema = z.object({
 })
 
 const listQuerySchema = z.object({
-  page: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().int().min(1).default(1)),
-  pageSize: z.preprocess(
-    (v) => emptyToUndefined(v),
+  page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().int().min(1).default(1)),
+  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(
     z.coerce.number().int().min(1).max(100).default(20),
   ),
 })
 
 const ticketListQuerySchema = listQuerySchema.extend({
-  status: z.preprocess(emptyToUndefined, z.enum(['open', 'processing', 'closed', 'resolved']).optional()),
-  search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['open', 'processing', 'closed', 'resolved']).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const adminSupportTicketsRoutes: FastifyPluginAsync = async (server) => {

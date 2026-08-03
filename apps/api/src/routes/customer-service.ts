@@ -39,14 +39,14 @@ const paginationQuery = {
 
 const listTicketsQuery = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  categoryId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  priority: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
+  categoryId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  priority: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
 })
 
 const adminListTicketsQuery = listTicketsQuery.extend({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  assigneeId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  assigneeId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const createTicketSchema = z.object({

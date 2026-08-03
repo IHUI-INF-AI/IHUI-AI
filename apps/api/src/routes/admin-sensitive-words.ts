@@ -18,11 +18,10 @@ const CATEGORIES = ['default', 'politics', 'explicit', 'ads', 'harassment'] as c
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
-  page: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).default(1)),
-  pageSize: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).max(100).default(20)),
-  category: z.preprocess((v) => emptyToUndefined(v), z.enum(CATEGORIES).optional()),
-  status: z.preprocess(
-    (v) => emptyToUndefined(v),
+  page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).default(1)),
+  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).max(100).default(20)),
+  category: z.transform((v) => emptyToUndefined(v)).pipe(z.enum(CATEGORIES).optional()),
+  status: z.transform((v) => emptyToUndefined(v)).pipe(
     z.coerce.number().int().min(0).max(1).optional(),
   ),
 })

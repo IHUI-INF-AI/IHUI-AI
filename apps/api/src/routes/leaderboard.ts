@@ -9,14 +9,14 @@ import { listLeaderboard, getLeaderboardEntry } from '../services/leaderboard-se
 
 const querySchema = z.object({
   category: z
-    .preprocess(
-      emptyToUndefined,
+    .transform(emptyToUndefined)
+    .pipe(
       z
         .enum(['overall', 'llm', 'image', 'video', 'multimodal', 'audio', 'embedding', 'agent'])
         .optional()
         .default('overall'),
     ),
-  subcategory: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
+  subcategory: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 

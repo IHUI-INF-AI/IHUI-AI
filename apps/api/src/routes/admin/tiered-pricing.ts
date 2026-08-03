@@ -20,9 +20,9 @@ import { idParamSchema } from './_shared.js'
 
 const listQuerySchema = z.object({
   /** 按模型筛选(精确匹配 model_id) */
-  model: z.preprocess(emptyToUndefined, z.string().max(128).optional()),
+  model: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
   /** 只返回启用的规则 */
-  enabled: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).optional()),
+  enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
 })
 
 const createBodySchema = z.object({

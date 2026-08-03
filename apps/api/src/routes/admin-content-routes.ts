@@ -16,16 +16,16 @@ import { carousels, feedbacks, docs, systemConfigs } from '@ihui/database'
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const idParamSchema = z.object({ id: z.string() })
 
 const aboutUsQuerySchema = paginationSchema.extend({
-  network: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  phone: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  socialMedia: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  experience: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  network: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  phone: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  socialMedia: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  experience: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const aboutUsBodySchema = z.object({
@@ -39,7 +39,7 @@ const aboutUsBodySchema = z.object({
 const advertiseQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  title: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  title: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const advertiseBodySchema = z.object({
@@ -52,8 +52,8 @@ const advertiseBodySchema = z.object({
 })
 
 const contactQuerySchema = paginationSchema.extend({
-  introduction: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  corporateCulture: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  introduction: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  corporateCulture: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const contactBodySchema = z.object({

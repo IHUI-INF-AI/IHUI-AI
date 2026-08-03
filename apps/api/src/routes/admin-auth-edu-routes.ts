@@ -27,13 +27,13 @@ import {
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const idParamSchema = z.object({ id: z.string() })
 
 const blacklistQuerySchema = paginationSchema.extend({
-  type: z.preprocess(emptyToUndefined, z.enum(['user', 'ip', 'device']).optional()),
+  type: z.transform(emptyToUndefined).pipe(z.enum(['user', 'ip', 'device']).optional()),
 })
 
 type BlacklistPayload = {
