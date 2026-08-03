@@ -28,7 +28,7 @@ export function OperationLogsDetailDialog({ detail, onClose }: OperationLogsDeta
             </div>
             <div>
               <span className="text-muted-foreground">{t('operationLogs.detail.type')}</span>
-              {BIZ_TYPE[detail.businessType] ? t(BIZ_TYPE[detail.businessType]) : '-'}
+              {BIZ_TYPE[detail.businessType] ? t(BIZ_TYPE[detail.businessType]!) : '-'}
             </div>
             <div>
               <span className="text-muted-foreground">{t('operationLogs.detail.operName')}</span>
