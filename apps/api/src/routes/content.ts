@@ -47,7 +47,7 @@ const DOC_STATUS = ['draft', 'published'] as const
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const slugParamSchema = z.object({ slug: z.string().min(1).max(128) })
 
 const helpArticlesQuerySchema = z.object({

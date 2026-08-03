@@ -29,7 +29,7 @@ export const legacyOssRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   fastify.get('/oss/to-base64', { preHandler: authenticate }, async (request, reply) => {
-    const { url } = z.object({ url: z.string().url() }).parse(request.query)
+    const { url } = z.object({ url: z.url() }).parse(request.query)
     try {
       const response = await fetch(url)
       const buffer = Buffer.from(await response.arrayBuffer())

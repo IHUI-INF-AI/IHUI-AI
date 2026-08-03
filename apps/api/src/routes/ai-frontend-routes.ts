@@ -137,14 +137,12 @@ const mcpServerBody = z.object({
   status: z.number().int().optional(),
 })
 const idParam = z.object({ id: z.string().min(1) })
-const llmChatBody = z
-  .object({
-    messages: z.array(z.unknown()).max(100),
-    model: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  })
-  .passthrough()
-const mcpToolCallBody = z.object({ name: z.string().min(1) }).passthrough()
+const llmChatBody = z.looseObject({
+  messages: z.array(z.unknown()).max(100),
+  model: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+const mcpToolCallBody = z.looseObject({ name: z.string().min(1) })
 
 export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权:所有 ai 模块路由均需登录

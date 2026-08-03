@@ -38,7 +38,7 @@ import {
 // Zod schema
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid() })
+const idParamSchema = z.object({ id: z.uuid() })
 
 const createGroupBodySchema = z.object({
   name: z.string().min(1, '名称不能为空').max(64),
@@ -51,7 +51,7 @@ const createGroupBodySchema = z.object({
   allowedModels: z.array(z.string()).nullable().optional(),
   allowedIps: z.array(z.string()).nullable().optional(),
   /** 建组时作为 owner 加入组的 API Key id(可选,未传则用用户最新 active Key) */
-  apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const updateGroupBodySchema = z.object({
@@ -71,14 +71,16 @@ const rechargeBodySchema = z
     costCents: z.number().int().optional(),
   })
   .refine(
-    (d) => (d.tokenAmount !== undefined && d.tokenAmount !== 0) || (d.costCents !== undefined && d.costCents !== 0),
+    (d) =>
+      (d.tokenAmount !== undefined && d.tokenAmount !== 0) ||
+      (d.costCents !== undefined && d.costCents !== 0),
     { message: 'tokenAmount 或 costCents 至少填一个且非 0' },
   )
 
 const joinBodySchema = z.object({
   inviteCode: z.string().min(1, '邀请码不能为空').max(16),
   /** 要加入组的 API Key id(必须属于当前用户) */
-  apiKeyId: z.string().uuid({ message: 'API Key id 格式错误' }),
+  apiKeyId: z.uuid({ error: 'API Key id 格式错误' }),
 })
 
 // =============================================================================
@@ -252,8 +254,12 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
         .set({
           ...(d.name !== undefined ? { name: d.name } : {}),
           ...(d.description !== undefined ? { description: d.description } : {}),
-          ...(d.sharedTokenBalance !== undefined ? { sharedTokenBalance: d.sharedTokenBalance } : {}),
-          ...(d.sharedCostBalanceCents !== undefined ? { sharedCostBalanceCents: d.sharedCostBalanceCents } : {}),
+          ...(d.sharedTokenBalance !== undefined
+            ? { sharedTokenBalance: d.sharedTokenBalance }
+            : {}),
+          ...(d.sharedCostBalanceCents !== undefined
+            ? { sharedCostBalanceCents: d.sharedCostBalanceCents }
+            : {}),
           ...(d.rateLimitQpm !== undefined ? { rateLimitQpm: d.rateLimitQpm } : {}),
           ...(d.allowedModels !== undefined ? { allowedModels: d.allowedModels } : {}),
           ...(d.allowedIps !== undefined ? { allowedIps: d.allowedIps } : {}),
@@ -378,11 +384,7 @@ const developerApiKeyGroupsRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const d = parsed.data
-      const result = await rechargeGroupBalance(
-        p.data.id,
-        d.tokenAmount ?? 0,
-        d.costCents ?? 0,
-      )
+      const result = await rechargeGroupBalance(p.data.id, d.tokenAmount ?? 0, d.costCents ?? 0)
       if (!result) return reply.status(404).send(error(404, '分组不存在'))
       return reply.send(success({ balance: result }))
     } catch (e) {

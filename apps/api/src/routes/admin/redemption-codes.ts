@@ -45,7 +45,7 @@ const listQuerySchema = paginationSchema.extend({
     z.enum(['unused', 'used', 'expired', 'disabled']).optional(),
   ),
   /** 批次 ID 筛选 */
-  batchId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  batchId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const adminRedemptionCodesRoutes: FastifyPluginAsync = async (server) => {
@@ -55,9 +55,7 @@ const adminRedemptionCodesRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/redemption-codes/batch', async (request, reply) => {
     const parsed = batchBodySchema.safeParse(request.body ?? {})
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
     const userId = request.userId
@@ -89,9 +87,7 @@ const adminRedemptionCodesRoutes: FastifyPluginAsync = async (server) => {
   server.get('/admin/redemption-codes', async (request, reply) => {
     const q = listQuerySchema.safeParse(request.query)
     if (!q.success) {
-      return reply
-        .status(400)
-        .send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     }
 
     try {

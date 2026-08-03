@@ -35,9 +35,9 @@ import { sendStudentReport } from './edu-public.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
-const optionalUuid = z.preprocess(emptyToUndefined, z.string().uuid({ message: '无效的 ID' })).optional()
+const optionalUuid = z.preprocess(emptyToUndefined, z.uuid({ error: '无效的 ID' })).optional()
 
 const notesListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -75,14 +75,18 @@ const attachmentItemSchema = z.object({
   url: z.string().min(1).max(2048),
   name: z.string().min(1).max(255),
   type: z.string().min(1).max(100),
-  size: z.number().int().min(0).max(100 * 1024 * 1024),
+  size: z
+    .number()
+    .int()
+    .min(0)
+    .max(100 * 1024 * 1024),
 })
 
 const attachmentsSchema = z.array(attachmentItemSchema).max(20).default([])
 
 const createNoteBodySchema = z.object({
-  lessonId: z.string().uuid().nullable().optional(),
-  userId: z.string().uuid({ message: '无效的用户 ID' }),
+  lessonId: z.uuid().nullable().optional(),
+  userId: z.uuid({ error: '无效的用户 ID' }),
   title: z.string().min(1).max(200).optional(),
   content: z.string().min(1),
   isPublic: z.boolean().optional(),
@@ -90,7 +94,7 @@ const createNoteBodySchema = z.object({
 })
 
 const updateNoteBodySchema = z.object({
-  lessonId: z.string().uuid().nullable().optional(),
+  lessonId: z.uuid().nullable().optional(),
   title: z.string().min(1).max(200).optional(),
   content: z.string().min(1).optional(),
   isPublic: z.boolean().optional(),
@@ -98,7 +102,7 @@ const updateNoteBodySchema = z.object({
 })
 
 const createOfflineRecordBodySchema = z.object({
-  userId: z.string().uuid({ message: '无效的用户 ID' }),
+  userId: z.uuid({ error: '无效的用户 ID' }),
   type: z.string().min(1).max(50),
   title: z.string().min(1).max(200),
   description: z.string().nullable().optional(),
@@ -117,7 +121,7 @@ const updateOfflineRecordBodySchema = z.object({
 })
 
 const createUploadedCertBodySchema = z.object({
-  userId: z.string().uuid({ message: '无效的用户 ID' }),
+  userId: z.uuid({ error: '无效的用户 ID' }),
   certName: z.string().min(1).max(100),
   certUrl: z.string().max(500).nullable().optional(),
   issuer: z.string().max(100).nullable().optional(),
@@ -132,7 +136,7 @@ const updateUploadedCertBodySchema = z.object({
 })
 
 const createUploadedPaperBodySchema = z.object({
-  userId: z.string().uuid({ message: '无效的用户 ID' }),
+  userId: z.uuid({ error: '无效的用户 ID' }),
   paperTitle: z.string().min(1).max(200),
   paperUrl: z.string().max(500).nullable().optional(),
   courseId: z.string().max(100).nullable().optional(),
@@ -161,7 +165,7 @@ const arrangementsListQuerySchema = z.object({
 })
 
 const createArrangementBodySchema = z.object({
-  paperId: z.string().uuid({ message: '无效的试卷 ID' }),
+  paperId: z.uuid({ error: '无效的试卷 ID' }),
   title: z.string().min(1).max(200),
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
@@ -199,15 +203,15 @@ const updateTemplateBodySchema = z.object({
   config: z.unknown().optional(),
 })
 
-const paperIdParamSchema = z.object({ id: z.string().uuid({ message: '无效的试卷 ID' }) })
+const paperIdParamSchema = z.object({ id: z.uuid({ error: '无效的试卷 ID' }) })
 
 const assembleBodySchema = z.object({
-  questionIds: z.array(z.string().uuid()).min(1).max(500),
+  questionIds: z.array(z.uuid()).min(1).max(500),
 })
 
 const randomAssembleBodySchema = z.object({
-  paperId: z.string().uuid({ message: '无效的试卷 ID' }),
-  categoryId: z.string().uuid().nullable().optional(),
+  paperId: z.uuid({ error: '无效的试卷 ID' }),
+  categoryId: z.uuid().nullable().optional(),
   counts: z.record(z.string(), z.number().int().min(0)).optional(),
   total: z.number().int().min(1).max(200).optional(),
 })
@@ -793,7 +797,7 @@ export const adminEduExtendedRoutes: FastifyPluginAsync = async (server) => {
   // GET /admin/edu/students/:userId/report/export — admin 端导出单个学员学习报告
   // 复用学员端的 sendStudentReport 共享逻辑(8 维聚合 + PDF/Excel/JSON 三格式)
   server.get('/admin/edu/students/:userId/report/export', async (request, reply) => {
-    const paramsSchema = z.object({ userId: z.string().uuid({ message: '无效的用户 ID' }) })
+    const paramsSchema = z.object({ userId: z.uuid({ error: '无效的用户 ID' }) })
     const paramsParsed = paramsSchema.safeParse(request.params)
     if (!paramsParsed.success) {
       return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'))

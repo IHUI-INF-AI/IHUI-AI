@@ -27,9 +27,13 @@ const topicListQuery = z.object({
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
-const lessonIdsSchema = z.array(z.string().uuid({ message: '无效的课程 ID' })).max(200).optional().nullable()
+const lessonIdsSchema = z
+  .array(z.uuid({ error: '无效的课程 ID' }))
+  .max(200)
+  .optional()
+  .nullable()
 
 const createTopicSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长'),

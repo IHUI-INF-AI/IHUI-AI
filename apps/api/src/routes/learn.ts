@@ -112,15 +112,15 @@ import { eq, and, sql as dsql } from 'drizzle-orm'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const limitQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 })
 
 const chapterParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
-  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
+  chapterId: z.uuid({ error: '无效的章节 ID' }),
 })
 
 const lessonsQuerySchema = z.object({
@@ -129,7 +129,7 @@ const lessonsQuerySchema = z.object({
   categoryId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid({ message: '无效的分类 ID' }),
+      z.uuid({ error: '无效的分类 ID' }),
     )
     .optional(),
   search: z.string().max(200).optional(),
@@ -145,8 +145,8 @@ const updateProgressSchema = z.object({
 })
 
 const heartbeatSchema = z.object({
-  sectionId: z.string().uuid({ message: '无效的小节 ID' }).nullable().optional(),
-  chapterId: z.string().uuid({ message: '无效的章节 ID' }).nullable().optional(),
+  sectionId: z.uuid({ error: '无效的小节 ID' }).nullable().optional(),
+  chapterId: z.uuid({ error: '无效的章节 ID' }).nullable().optional(),
   position: z.number().int().min(0),
   duration: z.number().int().min(0),
 })
@@ -157,14 +157,14 @@ const rankingQuerySchema = z.object({
 
 const createLearnCategorySchema = z.object({
   name: z.string().min(1).max(100),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateLearnCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
@@ -193,8 +193,8 @@ const createLessonSchema = z.object({
   title: z.string().min(1).max(200),
   coverImage: z.string().max(512).nullable().optional(),
   intro: z.string().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
-  lecturerId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  lecturerId: z.uuid().nullable().optional(),
   lecturerName: z.string().max(100).nullable().optional(),
   price: z
     .string()
@@ -215,8 +215,8 @@ const updateLessonSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   coverImage: z.string().max(512).nullable().optional(),
   intro: z.string().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
-  lecturerId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  lecturerId: z.uuid().nullable().optional(),
   lecturerName: z.string().max(100).nullable().optional(),
   price: z
     .string()
@@ -244,9 +244,9 @@ const updateChapterSchema = z.object({
 })
 
 const sectionParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
-  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
-  sectionId: z.string().uuid({ message: '无效的小节 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
+  chapterId: z.uuid({ error: '无效的章节 ID' }),
+  sectionId: z.uuid({ error: '无效的小节 ID' }),
 })
 
 const createSectionSchema = z.object({
@@ -270,7 +270,7 @@ const updateSectionSchema = z.object({
 const adminSignupsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  lessonId: z.string().uuid().optional(),
+  lessonId: z.uuid().optional(),
   status: z.coerce.number().int().min(0).max(3).optional(),
   search: z.string().max(200).optional(),
 })
@@ -280,13 +280,13 @@ const updateSignupStatusSchema = z.object({
 })
 
 const batchSignUpSchema = z.object({
-  userIds: z.array(z.string().uuid()).min(1).max(500),
+  userIds: z.array(z.uuid()).min(1).max(500),
 })
 
 const reportQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  categoryId: z.string().uuid().optional(),
+  categoryId: z.uuid().optional(),
   search: z.string().max(200).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -295,12 +295,12 @@ const reportQuerySchema = z.object({
 // 扩展模块 Zod schemas
 
 const homeworkParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
-  hwId: z.string().uuid({ message: '无效的作业 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
+  hwId: z.uuid({ error: '无效的作业 ID' }),
 })
 
 const createHomeworkSchema = z.object({
-  chapterId: z.string().uuid().nullable().optional(),
+  chapterId: z.uuid().nullable().optional(),
   title: z.string().min(1).max(200),
   description: z.string().nullable().optional(),
   content: z.unknown().optional(),
@@ -310,7 +310,7 @@ const createHomeworkSchema = z.object({
 })
 
 const updateHomeworkSchema = z.object({
-  chapterId: z.string().uuid().nullable().optional(),
+  chapterId: z.uuid().nullable().optional(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
   content: z.unknown().optional(),
@@ -331,14 +331,14 @@ const homeworkListQuerySchema = z.object({
   status: z.string().max(20).optional(),
 })
 
-const homeworkIdParamSchema = z.object({ hid: z.string().uuid({ message: '无效的作业记录 ID' }) })
+const homeworkIdParamSchema = z.object({ hid: z.uuid({ error: '无效的作业记录 ID' }) })
 
 const examPaperSchema = z.object({
-  examPaperId: z.string().uuid().nullable(),
+  examPaperId: z.uuid().nullable(),
 })
 
 const certificateSchema = z.object({
-  certificateTemplateId: z.string().uuid().nullable(),
+  certificateTemplateId: z.uuid().nullable(),
 })
 
 const invoiceListQuerySchema = z.object({
@@ -348,7 +348,7 @@ const invoiceListQuerySchema = z.object({
   search: z.string().max(200).optional(),
 })
 
-const invoiceTitleParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const invoiceTitleParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const createInvoiceTitleSchema = z.object({
   title: z.string().min(1).max(200),
@@ -382,7 +382,7 @@ const lessonSortOrderSchema = z.object({
   items: z
     .array(
       z.object({
-        id: z.string().uuid(),
+        id: z.uuid(),
         sort: z.number().int().min(0),
       }),
     )
@@ -390,17 +390,17 @@ const lessonSortOrderSchema = z.object({
     .max(500),
 })
 
-const lessonIdParamSchema = z.object({ lessonId: z.string().uuid({ message: '无效的课程 ID' }) })
+const lessonIdParamSchema = z.object({ lessonId: z.uuid({ error: '无效的课程 ID' }) })
 
 const lessonTaskIdParamSchema = z.object({
-  lessonId: z.string().uuid({ message: '无效的课程 ID' }),
-  taskId: z.string().uuid({ message: '无效的任务 ID' }),
+  lessonId: z.uuid({ error: '无效的课程 ID' }),
+  taskId: z.uuid({ error: '无效的任务 ID' }),
 })
 
 const createTaskSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200),
-  lessonChapterId: z.string().uuid().nullable().optional(),
-  lessonChapterSectionId: z.string().uuid().nullable().optional(),
+  lessonChapterId: z.uuid().nullable().optional(),
+  lessonChapterSectionId: z.uuid().nullable().optional(),
   contentType: z.string().max(50).nullable().optional(),
   conditions: z.string().nullable().optional(),
   status: z.enum(['enable', 'disable']).optional(),
@@ -408,8 +408,8 @@ const createTaskSchema = z.object({
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  lessonChapterId: z.string().uuid().nullable().optional(),
-  lessonChapterSectionId: z.string().uuid().nullable().optional(),
+  lessonChapterId: z.uuid().nullable().optional(),
+  lessonChapterSectionId: z.uuid().nullable().optional(),
   contentType: z.string().max(50).nullable().optional(),
   conditions: z.string().nullable().optional(),
   status: z.enum(['enable', 'disable']).optional(),
@@ -421,7 +421,7 @@ const createRateSchema = z.object({
   teacherScore: z.number().int().min(1).max(5).optional(),
   serviceScore: z.number().int().min(1).max(5).optional(),
   isAnonymous: z.boolean().optional(),
-  signId: z.string().uuid().nullable().optional(),
+  signId: z.uuid().nullable().optional(),
 })
 
 const rateListQuerySchema = z.object({
@@ -440,7 +440,7 @@ const createMapSchema = z.object({
   cover: z.string().max(500).nullable().optional(),
   content: z.any().optional(),
   isPublished: z.boolean().optional(),
-  topicIds: z.array(z.string().uuid()).max(100).default([]),
+  topicIds: z.array(z.uuid()).max(100).default([]),
 })
 
 const updateMapSchema = z.object({
@@ -450,7 +450,7 @@ const updateMapSchema = z.object({
   content: z.any().optional(),
   sort: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
-  topicIds: z.array(z.string().uuid()).max(100).optional(),
+  topicIds: z.array(z.uuid()).max(100).optional(),
 })
 
 const mapListQuerySchema = z.object({
@@ -1624,7 +1624,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
   const createCommunitySchema = z.object({
     title: z.string().min(1).max(200),
     content: z.string().nullable().optional(),
-    lessonId: z.string().uuid().nullable().optional(),
+    lessonId: z.uuid().nullable().optional(),
     status: z.string().max(20).optional(),
     isPinned: z.boolean().optional(),
   })
@@ -2084,7 +2084,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
   const homeworkListQuerySchema2 = z.object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
-    lessonId: z.string().uuid().optional(),
+    lessonId: z.uuid().optional(),
     search: z.string().optional(),
   })
 
@@ -2109,7 +2109,7 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /learn/homework - 创建作业(lessonId 在 body 中)
   server.post('/learn/homework', async (request, reply) => {
-    const bodySchema = createHomeworkSchema.extend({ lessonId: z.string().uuid() })
+    const bodySchema = createHomeworkSchema.extend({ lessonId: z.uuid() })
     const parsed = bodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

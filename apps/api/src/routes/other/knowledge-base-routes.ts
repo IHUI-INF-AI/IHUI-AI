@@ -33,7 +33,7 @@ export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
         summary: z.string().optional(),
         content: z.string().optional(),
         coverImage: z.string().max(500).optional(),
-        categoryId: z.string().uuid().optional(),
+        categoryId: z.uuid().optional(),
         isPublished: z.boolean().default(false),
         status: z.number().int().default(1),
       })
@@ -84,7 +84,7 @@ export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
         summary: z.string().optional(),
         content: z.string().optional(),
         coverImage: z.string().max(500).optional(),
-        categoryId: z.string().uuid().optional(),
+        categoryId: z.uuid().optional(),
         isPublished: z.boolean().optional(),
         status: z.number().int().optional(),
       })

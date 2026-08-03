@@ -102,21 +102,19 @@ interface ResponsesApiResponse {
 
 const inputItemSchema = z.union([
   z.string(),
-  z
-    .object({
-      type: z.string().optional(),
-      role: z.enum(['user', 'assistant', 'system', 'developer']).optional(),
-      content: z
-        .union([
-          z.string(),
-          z.array(z.object({ type: z.string(), text: z.string().optional() }).passthrough()).min(1),
-        ])
-        .optional(),
-    })
-    .passthrough(),
+  z.looseObject({
+    type: z.string().optional(),
+    role: z.enum(['user', 'assistant', 'system', 'developer']).optional(),
+    content: z
+      .union([
+        z.string(),
+        z.array(z.looseObject({ type: z.string(), text: z.string().optional() })).min(1),
+      ])
+      .optional(),
+  }),
 ])
 
-const toolSchema = z.object({ type: z.string() }).passthrough()
+const toolSchema = z.looseObject({ type: z.string() })
 
 const responsesSchema = z.object({
   model: z.string().min(1),

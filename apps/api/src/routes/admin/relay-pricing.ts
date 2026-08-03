@@ -44,7 +44,7 @@ const recordHistoryBodySchema = z.object({
   outputTokenPriceCents: z.number().int().min(0, '输出单价不能为负'),
   relayMultiplier: z.number().min(0.01, '倍率必须 > 0').max(99.99, '倍率不能超过 99.99'),
   reason: z.string().max(256).optional(),
-  changedBy: z.string().uuid().optional(),
+  changedBy: z.uuid().optional(),
 })
 
 const listDiscountsQuerySchema = z.object({
@@ -61,7 +61,7 @@ const createDiscountBodySchema = z.object({
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   enabled: z.boolean().optional(),
-  createdBy: z.string().uuid().optional(),
+  createdBy: z.uuid().optional(),
 })
 
 const updateDiscountBodySchema = z.object({

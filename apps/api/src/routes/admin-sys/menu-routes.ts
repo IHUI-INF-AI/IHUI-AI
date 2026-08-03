@@ -15,9 +15,9 @@ import {
 // 注:前缀已迁移至 /sys-menu,避免与 admin-extended.ts 的 /menu CRUD 路径冲突
 
 const menuBodySchema = z.object({
-  menuId: z.string().uuid().optional(),
+  menuId: z.uuid().optional(),
   menuName: z.string().min(1).optional(),
-  parentId: z.string().uuid().optional(),
+  parentId: z.uuid().optional(),
   orderNum: z.number().int().optional(),
   path: z.string().optional(),
   component: z.string().optional(),
@@ -40,7 +40,7 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
 
   // GET /sys-menu/:menuId - 菜单详情
   s.get('/:menuId', async (request, reply) => {
-    const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
+    const { menuId } = z.object({ menuId: z.uuid() }).parse(request.params)
     const data = await findMenuById(menuId)
     if (!data) {
       return reply.status(404).send(error(404, '菜单不存在'))
@@ -70,9 +70,7 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
     if (Number.isNaN(rid) || rid < 1) {
       return reply.status(400).send(error(400, 'roleId 无效'))
     }
-    const parsed = z
-      .object({ menuIds: z.array(z.string().uuid()).max(500) })
-      .safeParse(request.body)
+    const parsed = z.object({ menuIds: z.array(z.uuid()).max(500) }).safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
@@ -113,7 +111,7 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
 
   // DELETE /sys-menu/:menuId - 删除菜单(级联清理 sys_role_menu)
   s.delete('/:menuId', async (request, reply) => {
-    const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
+    const { menuId } = z.object({ menuId: z.uuid() }).parse(request.params)
     const menu = await deleteMenuWithCascade(menuId)
     if (!menu) {
       return reply.status(404).send(error(404, '菜单不存在'))
@@ -127,7 +125,7 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
     reason: z.string().optional(),
   })
   s.put('/:menuId/audit', async (request, reply) => {
-    const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
+    const { menuId } = z.object({ menuId: z.uuid() }).parse(request.params)
     const parsed = menuAuditSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

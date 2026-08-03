@@ -65,12 +65,12 @@ function nowIso(): string {
 // =============================================================================
 
 const pullBodySchema = z.object({
-  remoteUrl: z.string().url().optional(),
+  remoteUrl: z.url().optional(),
   filter: z.string().max(200).optional(),
 })
 
 const pushBodySchema = z.object({
-  remoteUrl: z.string().url().optional(),
+  remoteUrl: z.url().optional(),
   keys: z.array(z.string().min(1).max(128)).max(100).optional(),
 })
 
