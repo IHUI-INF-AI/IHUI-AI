@@ -123,18 +123,17 @@ describe('admin-stats routes', () => {
       expect(res.statusCode).toBe(401)
     })
 
-    it('普通用户(roleId=0)返回 200(tokenBalanceService preHandler 仅 authenticate,未加 requireAdmin)', async () => {
-      // 注:源码 token-balance-service.ts:295 只有 authenticate,无 requireAdmin
-      // 普通用户也能访问 metrics(只读端点,无写操作风险)
+    it('普通用户(roleId=0)返回 403', async () => {
       mockRegularUser()
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/token-balance/metrics',
         headers: { authorization: USER_TOKEN },
       })
-      expect(res.statusCode).toBe(200)
+      expect(res.statusCode).toBe(403)
       const body = res.json()
-      expect(body.code).toBe(0)
+      expect(body.code).toBe(403)
+      expect(body.message).toContain('管理员')
     })
 
     it('admin 返回 200 + VipMetrics 结构', async () => {
