@@ -23,11 +23,11 @@ import { generateApiKey, hashSecret } from '../../utils/api-key-hash.js'
 
 const listQuerySchema = paginationSchema.extend({
   /** 按用户 ID 筛选 */
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** 按状态筛选:active / revoked */
-  status: z.preprocess(emptyToUndefined, z.enum(['active', 'revoked']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['active', 'revoked']).optional()),
   /** 按租户 ID 筛选(多租户,2026-07-31 立) */
-  tenantId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  tenantId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 /** 管理员更新 body(所有字段可选,可强制设过期/限制/状态) */

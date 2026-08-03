@@ -16,9 +16,9 @@ const idParamSchema = z.object({ id: z.string().min(1) })
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  titleType: z.preprocess(emptyToUndefined, z.enum(['personal', 'company']).optional()),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  titleType: z.transform(emptyToUndefined).pipe(z.enum(['personal', 'company']).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const createBodySchema = z.object({

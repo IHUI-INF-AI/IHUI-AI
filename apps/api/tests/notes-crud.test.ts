@@ -53,7 +53,7 @@ import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/inde
 
 const USER_ID = '00000000-0000-0000-0000-000000000001'
 const OTHER_USER = '00000000-0000-0000-0000-000000000002'
-const NOTE_ID = '11111111-1111-1111-1111-111111111111'
+const NOTE_ID = '11111111-1111-4111-8111-111111111111'
 const PREFIX = '/api'
 
 function mockAuthed(userId: string = USER_ID) {

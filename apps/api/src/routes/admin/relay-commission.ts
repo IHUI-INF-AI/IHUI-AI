@@ -25,11 +25,11 @@ import {
 
 const recordsQuerySchema = paginationSchema.extend({
   /** 被邀请人(消费方)筛选 */
-  sourceUserId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  sourceUserId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** 邀请人(收益方)筛选 */
-  beneficiaryUserId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  beneficiaryUserId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** 状态筛选:frozen/released/expired */
-  status: z.preprocess(emptyToUndefined, z.enum(['frozen', 'released', 'expired']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['frozen', 'released', 'expired']).optional()),
 })
 
 const settingsBodySchema = z

@@ -40,7 +40,7 @@ const jobIdParamSchema = z.object({ jobId: z.string().min(1, 'jobId 不能为空
 const userIdParamSchema = z.object({ userId: z.string().min(1, 'userId 不能为空') })
 
 const listByUserQuerySchema = z.object({
-  status: z.preprocess(emptyToUndefined, z.enum(JOB_STATES).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(JOB_STATES).optional()),
   limit: z.coerce.number().int().min(1).max(200).optional(),
 })
 

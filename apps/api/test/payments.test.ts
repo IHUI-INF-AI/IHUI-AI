@@ -155,7 +155,7 @@ vi.mock('../src/db/commission-queries.js', () => ({
 
 import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from '../src/routes/payment-gateway.js'
 
-const UUID = '11111111-1111-1111-1111-111111111111'
+const UUID = '11111111-1111-4111-8111-111111111111'
 
 function makeOrder(overrides: Record<string, unknown> = {}) {
   return {

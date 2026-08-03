@@ -99,7 +99,7 @@ import { adminWalletRoutes } from '../src/routes/wallet.js'
 
 const PREFIX = '/api/admin/wallet'
 const ADMIN_USER = '00000000-0000-0000-0000-000000000001'
-const TARGET_USER = '11111111-1111-1111-1111-111111111111'
+const TARGET_USER = '11111111-1111-4111-8111-111111111111'
 
 describe('adminWalletRoutes — /api/admin/wallet/*', () => {
   const server = Fastify({ logger: false })

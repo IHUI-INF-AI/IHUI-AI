@@ -76,10 +76,10 @@ function serializeTag(t: {
 // =============================================================================
 
 const searchQuerySchema = z.object({
-  q: z.preprocess(emptyToUndefined, z.string().max(255).optional()),
-  projectId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  mimeType: z.preprocess(emptyToUndefined, z.string().max(128).optional()),
-  tag: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  q: z.transform(emptyToUndefined).pipe(z.string().max(255).optional()),
+  projectId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  mimeType: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
+  tag: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const recentQuerySchema = z.object({
@@ -98,14 +98,15 @@ const addTagsSchema = z.object({
   tagIds: z.array(z.uuid()).min(1, '至少选择一个标签').max(50, '一次最多 50 个标签'),
 })
 
-const createShareSchema = z.object({
+// 用于 OpenAPI 文档（无 transform，z.toJSONSchema 可处理）
+const createShareSchemaDoc = z.object({
   sharedWith: z.uuid().optional(),
   permissions: z.enum(['view', 'edit']).default('view'),
-  expiresAt: z
-    .string()
-    .datetime()
-    .transform((v) => new Date(v))
-    .optional(),
+  expiresAt: z.iso.datetime().optional(),
+})
+// 用于运行时校验（含 transform，Date 对象流入业务逻辑）
+const createShareSchema = createShareSchemaDoc.extend({
+  expiresAt: z.iso.datetime().optional().transform((v) => (v ? new Date(v) : undefined)),
 })
 
 const uploadBase64Schema = z.object({
@@ -487,7 +488,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         description: '为指定文件创建分享链接(可指定接收人与权限)',
         tags: ['File'],
         params: idParamSchema,
-        body: createShareSchema,
+        body: createShareSchemaDoc,
       }),
     },
     async (request, reply) => {
