@@ -17,11 +17,9 @@ describe('deadlock-retry — 死锁重试', () => {
     it('maxDelayMs=500', () => {
       expect(DEFAULT_DEADLOCK_RETRY_CONFIG.maxDelayMs).toBe(500)
     })
-    it('errorCodes 包含 PG/MySQL 死锁码', () => {
+    it('errorCodes 包含 PostgreSQL 死锁 SQLSTATE', () => {
       expect(DEFAULT_DEADLOCK_RETRY_CONFIG.errorCodes).toContain('40P01')
       expect(DEFAULT_DEADLOCK_RETRY_CONFIG.errorCodes).toContain('40001')
-      expect(DEFAULT_DEADLOCK_RETRY_CONFIG.errorCodes).toContain(1213)
-      expect(DEFAULT_DEADLOCK_RETRY_CONFIG.errorCodes).toContain(1205)
     })
   })
 
@@ -35,26 +33,11 @@ describe('deadlock-retry — 死锁重试', () => {
     it('PostgreSQL code=40P01 识别', () => {
       expect(isDeadlockError({ code: '40P01' })).toBe(true)
     })
-    it('MySQL errno=1213 识别', () => {
-      expect(isDeadlockError({ errno: 1213 })).toBe(true)
+    it('非死锁 SQLSTATE 不识别', () => {
+      expect(isDeadlockError({ code: 'XX123' })).toBe(false)
     })
-    it('MySQL errno=1205 识别', () => {
-      expect(isDeadlockError({ errno: 1205 })).toBe(true)
-    })
-    it('MySQL errno=1210 不识别', () => {
-      expect(isDeadlockError({ errno: 1210 })).toBe(false)
-    })
-    it('MySQL number=1213 识别', () => {
-      expect(isDeadlockError({ number: 1213 })).toBe(true)
-    })
-    it('MySQL errno=1213 字符串型 SQLSTATE 识别', () => {
-      expect(isDeadlockError({ errno: '40001' })).toBe(true)
-    })
-    it('args 元组含 40P01 识别', () => {
-      expect(isDeadlockError({ args: ['40P01', 'other'] })).toBe(true)
-    })
-    it('args 元组含 1213 识别', () => {
-      expect(isDeadlockError({ args: [1213] })).toBe(true)
+    it('errno 字段不被读取', () => {
+      expect(isDeadlockError({ errno: 1213 })).toBe(false)
     })
     it('消息含 deadlock 识别', () => {
       expect(isDeadlockError(new Error('deadlock detected'))).toBe(true)
@@ -147,7 +130,7 @@ describe('deadlock-retry — 死锁重试', () => {
       const r = await withDeadlockRetry(
         async () => {
           count++
-          if (count < 2) throw Object.assign(new Error('deadlock'), { errno: 1213 })
+          if (count < 2) throw Object.assign(new Error('deadlock'), { pgcode: '40P01' })
           return 'success'
         },
         { ...DEFAULT_DEADLOCK_RETRY_CONFIG, maxAttempts: 3, baseDelayMs: 1 },
