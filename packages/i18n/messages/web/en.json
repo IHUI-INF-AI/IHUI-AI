@@ -47,7 +47,7 @@
     }
   },
   "hooks": {
-    "deleteConfirm": "Are you sure you want to delete Hook \"{{name}}\"?"
+    "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?"
   },
   "common": {
     "refundTime": "Refund Time",
@@ -775,7 +775,7 @@
     },
     "hideReasoning": "Hide Reasoning",
     "showReasoning": "Show Reasoning",
-    "fallbackNotice": "Switched to backup model {{backup}} (primary model {{primary}} temporarily unavailable)",
+    "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
     "copy": "Copy",
     "copied": "Copied",
     "copyFailed": "Copy failed",
@@ -790,7 +790,7 @@
     "communityPublishTitleLabel": "Title",
     "communityPublishTitlePlaceholder": "Please enter a title",
     "communityPublishTitleRequired": "Please enter a title",
-    "communityPublishImagesCount": "{{count}} images",
+    "communityPublishImagesCount": "{count} images",
     "communityPublishDefaultTitle": "AI Reply",
     "communityPublishCancel": "Cancel",
     "communityPublish": "Publish",
@@ -867,7 +867,7 @@
       "timelineUserMessage": "User message",
       "timelineAiReply": "AI reply",
       "search": "Search",
-      "fallbackNotice": "Primary model {{primary}} unavailable, switched to {{fallback}} automatically",
+      "fallbackNotice": "Primary model {primary} unavailable, switched to {fallback} automatically",
       "loading": "Loading…",
       "jumpToLatest": "Jump to latest",
       "latest": "Latest",
@@ -939,10 +939,10 @@
       "switchedToModeAuto": "Switched to auto-approve mode",
       "switchedToModeFull": "Switched to full-access mode",
       "dangerousCommandTitle": "Dangerous command detected",
-      "dangerousCommandDesc": "Your message contains {{pattern}} ({{reason}}). In full access mode, the AI will execute it directly and it cannot be undone.",
+      "dangerousCommandDesc": "Your message contains {pattern} ({reason}). In full access mode, the AI will execute it directly and it cannot be undone.",
       "dangerousCommandProceed": "Send anyway",
       "dangerousCommandCancel": "Cancel",
-      "dangerousCommandWarningOnly": "Warning: {{pattern}}. Please verify the command is safe.",
+      "dangerousCommandWarningOnly": "Warning: {pattern}. Please verify the command is safe.",
       "historyTitle": "Permission mode history",
       "historyEmpty": "No history yet",
       "historyClearConfirmTitle": "Clear history",

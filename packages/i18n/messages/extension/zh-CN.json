@@ -143,7 +143,7 @@
   },
   "wordbook": {
     "title": "生词本",
-    "countLabel": "共 {{count}} 词",
+    "countLabel": "共 {count} 词",
     "searchPlaceholder": "搜索单词...",
     "noMatchHint": "未找到匹配单词",
     "emptyHint": "生词本为空,查词后点击保存"
@@ -155,7 +155,7 @@
     "selectModel": "选择模型",
     "emptyHint": "输入消息开始对话",
     "inputPlaceholder": "说点什么...",
-    "compactionNotice": "上下文已自动压缩:{{before}} → {{after}}(移除 {{removed}} 条历史)",
+    "compactionNotice": "上下文已自动压缩:{before} → {after}(移除 {removed} 条历史)",
     "voiceStop": "停止录音",
     "voiceStart": "开始录音"
   },

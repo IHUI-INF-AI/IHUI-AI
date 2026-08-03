@@ -143,7 +143,7 @@
   },
   "wordbook": {
     "title": "単語帳",
-    "countLabel": "全 {{count}} 語",
+    "countLabel": "全 {count} 語",
     "searchPlaceholder": "単語を検索...",
     "noMatchHint": "一致する単語が見つかりません",
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
@@ -155,7 +155,7 @@
     "selectModel": "モデルを選択",
     "emptyHint": "メッセージを入力して開始",
     "inputPlaceholder": "何か入力してください...",
-    "compactionNotice": "コンテキストを自動圧縮しました:{{before}} → {{after}}({{removed}} 件の履歴を削除)",
+    "compactionNotice": "コンテキストを自動圧縮しました:{before} → {after}({removed} 件の履歴を削除)",
     "voiceStop": "録音を停止",
     "voiceStart": "録音を開始"
   },

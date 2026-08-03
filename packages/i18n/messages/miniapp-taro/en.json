@@ -63,10 +63,10 @@
     "hotCourses": "Hot courses",
     "tapLogin": "Tap to log in",
     "slogan": "IHUI AI — learn smarter",
-    "todayMinutes": "{{n}} min today",
-    "continuousDays": "{{n}} day streak",
-    "totalMinutes": "{{n}} min total",
-    "coursesCount": "{{n}} courses",
+    "todayMinutes": "{n} min today",
+    "continuousDays": "{n} day streak",
+    "totalMinutes": "{n} min total",
+    "coursesCount": "{n} courses",
     "learningProgress": "Learning progress",
     "more": "More",
     "livePreview": "Upcoming live",
@@ -87,17 +87,17 @@
     "objectives": "Learning Objectives",
     "suitableFor": "Suitable For",
     "highlights": "Course Highlights",
-    "nextLesson": "Next: {{title}}",
+    "nextLesson": "Next: {title}",
     "startLearning": "Start learning",
     "buyNow": "Buy now",
     "buyDeveloping": "Purchase is under development",
     "buyFirst": "Please purchase the course first",
     "signSuccess": "Checked in",
-    "rated": "Rated {{n}} stars",
+    "rated": "Rated {n} stars",
     "noteSaved": "Note saved",
     "lessonComplete": "Lesson completed",
     "viewTeacher": "View instructor",
-    "noteTitle": "{{title}} — Notes",
+    "noteTitle": "{title} — Notes",
     "scanCourse": "Scan to view course",
     "loadFailed": "Course load failed",
     "list": {
@@ -105,7 +105,7 @@
       "search": "Search",
       "empty": "No courses",
       "title": "Featured Courses",
-      "subtitle": "{{n}} courses"
+      "subtitle": "{n} courses"
     },
     "ratingTitle": "Rate Course",
     "ratingLabels": [
@@ -124,7 +124,7 @@
     "audience": "Target Audience"
   },
   "live": {
-    "viewers": "{{n}} viewers",
+    "viewers": "{n} viewers",
     "preview": "Preview",
     "detail": {
       "loadFailed": "Live load failed",
@@ -133,7 +133,7 @@
       "ended": "Live ended",
       "connecting": "Connecting to live room…",
       "enter": "Enter live room",
-      "anchor": "Host: {{name}}"
+      "anchor": "Host: {name}"
     },
     "subscribe": {
       "subscribe": "Subscribe",
@@ -226,7 +226,7 @@
       "contactPlaceholder": "Please enter phone number or email"
     },
     "refundList": {
-      "orderNo": "Order No.: {{no}}",
+      "orderNo": "Order No.: {no}",
       "empty": "No refund records",
       "tabRefunding": "Refunding",
       "tabRefunded": "Refunded",
@@ -277,7 +277,7 @@
         "contactService": "Contact customer service",
         "faqQ": "Will I be charged if recharge fails?"
       },
-      "tokenRate": "1 CNY = {{n}} IHUI points",
+      "tokenRate": "1 CNY = {n} IHUI points",
       "activityTitle": "Limited-time event",
       "activityPlaceholder": "Please enter the event recharge amount",
       "activitySubmit": "Limited-time discount recharge"
@@ -395,7 +395,7 @@
     "agentLoadFailed": "Agent load failed",
     "generating": "Generating rapidly",
     "thinkingTip": "Tips: You can click the three dots in the top right to float the mini program, and come back later~",
-    "fileSelected": "{{count}} file(s) selected",
+    "fileSelected": "{count} file(s) selected",
     "common": {
       "loading": "Loading…"
     },
@@ -411,7 +411,7 @@
       "thinkingProcess": "Thinking process",
       "noContent": "Nothing to copy",
       "aiGenerated": "AI generated",
-      "tokenCost": "Tokens: {{n}}",
+      "tokenCost": "Tokens: {n}",
       "reuse": "Reuse",
       "copy": "Copy",
       "favorited": "Favorited",
@@ -451,7 +451,7 @@
     "skillsPopup": {
       "title": "Select skill",
       "searchPlaceholder": "Search skills",
-      "uses": "{{n}} uses",
+      "uses": "{n} uses",
       "notFound": "No skills found",
       "empty": "No skills available"
     },
@@ -521,7 +521,7 @@
     },
     "agent": {
       "searchPlaceholder": "Search agents",
-      "count": "{{n}}",
+      "count": "{n}",
       "empty": "No agents",
       "inputPlaceholder": "Ask a question…"
     },
@@ -550,12 +550,12 @@
       "favoriteAgent": "Favorite",
       "favorited": "Favorited",
       "unfavorite": "Unfavorite",
-      "useCount": "{{n}} uses",
+      "useCount": "{n} uses",
       "relatedAgents": "Related agents",
       "prologue": "Prologue",
       "exampleDialog": "Example dialog",
       "reviews": "Reviews",
-      "reviewCount": "{{n}} reviews",
+      "reviewCount": "{n} reviews",
       "ratingDistribution": "Rating distribution"
     },
     "agentList": {
@@ -567,7 +567,7 @@
         "education": "Education",
         "life": "Lifestyle"
       },
-      "useCount": "{{n}} uses",
+      "useCount": "{n} uses",
       "noResult": "No agents found",
       "sortBy": "Sort by",
       "sortHot": "Hot",
@@ -590,7 +590,7 @@
       "cleared": "Cleared",
       "refreshSuccess": "Refreshed successfully",
       "startNew": "Start new conversation",
-      "msgCount": "{{n}} messages"
+      "msgCount": "{n} messages"
     },
     "special": {
       "pageError": "Operation failed",
@@ -618,7 +618,7 @@
       "agentTipHistory": "History",
       "agentTipHistoryDesc": "View conversation history"
     },
-    "uploadMaterialTab": "Upload {{tab}} material",
+    "uploadMaterialTab": "Upload {tab} material",
     "messageAction": {
       "reuse": "Reuse"
     },
@@ -645,8 +645,8 @@
   "share": {
     "appTitle": "IHUI AI — Learn smarter",
     "timelineTitle": "IHUI AI, your smart learning assistant",
-    "courseTitle": "Recommended course: {{title}}",
-    "liveTitle": "Recommended live: {{title}}",
+    "courseTitle": "Recommended course: {title}",
+    "liveTitle": "Recommended live: {title}",
     "index": {
       "title": "AI News",
       "removeConfirm": "Delete this conversation?",
@@ -670,7 +670,7 @@
       "loading": "Loading…",
       "clickShare": "Tap top-right to share with friends",
       "contentNotExist": "Share content does not exist",
-      "tokenCost": "Cost {{n}} tokens",
+      "tokenCost": "Cost {n} tokens",
       "thinkingProcess": "Thinking process",
       "aiAnswer": "AI answer",
       "regenerate": "Regenerate",
@@ -750,7 +750,7 @@
     "codeSent": "Code sent",
     "codeInvalid": "Invalid verification code",
     "confirmTextMismatch": "Confirmation text does not match",
-    "countdown": "Submit available in {{s}}s",
+    "countdown": "Submit available in {s}s",
     "submitting": "Deleting…",
     "submit": "Confirm deletion",
     "consequenceTitle": "Consequences",
@@ -768,13 +768,13 @@
       "hot": "Hot",
       "unanswered": "Unanswered"
     },
-    "answers": "{{n}} answers",
+    "answers": "{n} answers",
     "empty": "No questions",
     "detail": {
       "me": "Me",
       "justNow": "Just now",
       "answered": "Answered",
-      "answerCount": "{{n}} answers",
+      "answerCount": "{n} answers",
       "placeholder": "Type your answer…",
       "answer": "Answer"
     },
@@ -878,20 +878,20 @@
     "saveQrcode": "Save QR code"
   },
   "exam": {
-    "questions": "{{n}} questions",
-    "minutes": "{{n}} min",
-    "passScore": "Pass {{n}}",
-    "totalScore": "Total {{n}}",
+    "questions": "{n} questions",
+    "minutes": "{n} min",
+    "passScore": "Pass {n}",
+    "totalScore": "Total {n}",
     "removedPaper": "Paper removed",
     "passed": "Passed",
     "notPassed": "Not passed",
-    "score": "Score {{n}}",
+    "score": "Score {n}",
     "result": {
       "loadFailed": "Result load failed",
       "pass": "Congratulations, passed",
       "notPass": "Not passed",
-      "scoreValue": "{{n}} points",
-      "rankValue": "#{{n}} of {{total}}",
+      "scoreValue": "{n} points",
+      "rankValue": "#{n} of {total}",
       "goList": "View exam list",
       "pageTitle": "Exam result",
       "reviewTitle": "Question review",
@@ -905,11 +905,11 @@
     "detail": {
       "loadFailed": "Exam load failed",
       "questionCount": "Questions",
-      "questionCountValue": "{{n}} questions",
+      "questionCountValue": "{n} questions",
       "duration": "Duration",
-      "durationValue": "{{n}} min",
+      "durationValue": "{n} min",
       "passScore": "Pass score",
-      "passScoreValue": "{{n}} points",
+      "passScoreValue": "{n} points",
       "notice1": "Please read questions carefully and complete within the time limit",
       "notice2": "Answers can be modified before submission",
       "start": "Start exam",
@@ -1028,13 +1028,13 @@
     },
     "company": {
       "title": "My company",
-      "level": "Level {{n}}",
+      "level": "Level {n}",
       "totalEarnings": "Total earnings",
       "available": "Available",
       "teamMembers": "Team members",
-      "memberCount": "{{n}} members",
+      "memberCount": "{n} members",
       "empty": "No members",
-      "joinTime": "Joined: {{time}}",
+      "joinTime": "Joined: {time}",
       "menuTeam": "Team",
       "menuCommission": "Commission",
       "menuWithdraw": "Withdraw"
@@ -1086,7 +1086,7 @@
     "myTeam": "My Team"
   },
   "about": {
-    "version": "Version {{version}}",
+    "version": "Version {version}",
     "protocol": {
       "s2": {
         "t1": "2.1 User Qualifications and Usage Restrictions",
@@ -1326,13 +1326,13 @@
     "total": "Total"
   },
   "categoryDetail": {
-    "categoryId": "Category {{id}}",
+    "categoryId": "Category {id}",
     "allCategories": "All categories",
     "hot": "Hot",
     "new": "New",
     "empty": "No content",
     "noDesc": "No description",
-    "useCount": "{{n}} uses"
+    "useCount": "{n} uses"
   },
   "circle": {
     "empty": "No content",
@@ -1551,8 +1551,8 @@
     "tabImage": "Image",
     "tabAv": "Audio/Video",
     "payMode": "Pay per use",
-    "modelCount": "{{n}} models",
-    "synced": "{{n}} synced",
+    "modelCount": "{n} models",
+    "synced": "{n} synced",
     "perKTokens": "per 1K tokens",
     "noMore": "— No more —",
     "contextLength": "Context",
@@ -1560,9 +1560,9 @@
   },
   "news": {
     "search": "Search news",
-    "views": "{{n}} views",
+    "views": "{n} views",
     "empty": "No news",
-    "readCount": "{{n}} reads",
+    "readCount": "{n} reads",
     "detail": {
       "like": "Like",
       "comment": "Comment",
@@ -1732,7 +1732,7 @@
       "private": "Direct messages from other users",
       "marketing": "Promotions and new releases"
     },
-    "hello": "Hi, I am {{name}}",
+    "hello": "Hi, I am {name}",
     "justNow": "Just now",
     "search": "Search chats",
     "unnamedRoom": "Unnamed conversation",
@@ -1858,13 +1858,13 @@
     "noCoupon": "No coupons available",
     "couponNone": "No coupon",
     "orderExpired": "Order expired, please place a new order",
-    "countdownTip": "Remaining payment time {{time}}",
-    "couponSaved": "Saved ¥{{n}}",
+    "countdownTip": "Remaining payment time {time}",
+    "couponSaved": "Saved ¥{n}",
     "goodsName": "Product name",
     "vipSubscription": "VIP subscription",
-    "balanceAmount": "Balance ¥{{n}}",
+    "balanceAmount": "Balance ¥{n}",
     "recharge": "Recharge",
-    "couponAvailable": "{{n}} available",
+    "couponAvailable": "{n} available",
     "limitedFree": "Limited Free",
     "memberFree": "VIP Free",
     "buyNow": "Buy Now",
@@ -1876,16 +1876,16 @@
     "balance": "Balance"
   },
   "study": {
-    "todayMinutes": "{{n}} min today",
-    "totalMinutes": "{{n}} min total",
-    "continuousDays": "{{n}} day streak",
-    "courses": "{{n}} courses",
+    "todayMinutes": "{n} min today",
+    "totalMinutes": "{n} min total",
+    "continuousDays": "{n} day streak",
+    "courses": "{n} courses",
     "continueLearning": "Continue learning",
     "emptyCourse": "No courses",
     "planPage": {
       "addFailed": "Add failed",
-      "target": "Target {{n}} min",
-      "completed": "Completed {{n}} min",
+      "target": "Target {n} min",
+      "completed": "Completed {n} min",
       "statusDone": "Done",
       "statusInProgress": "In progress",
       "empty": "No study plans",
@@ -1894,11 +1894,11 @@
     "rankPage": {
       "title": "Study leaderboard",
       "subtitle": "See who studies hardest",
-      "minutes": "{{n}} min",
+      "minutes": "{n} min",
       "empty": "No ranking data"
     },
     "recordPage": {
-      "progress": "Progress {{n}}%",
+      "progress": "Progress {n}%",
       "empty": "No study records",
       "statusLearning": "Learning",
       "statusAbandon": "Abandoned",
@@ -1977,8 +1977,8 @@
   "teacher": {
     "list": {
       "searchPlaceholder": "Search instructors",
-      "courseCount": "{{n}} courses",
-      "studentCount": "{{n}} students",
+      "courseCount": "{n} courses",
+      "studentCount": "{n} students",
       "empty": "No instructors"
     },
     "detail": {
@@ -2181,7 +2181,7 @@
   "vip": {
     "selectPlanFirst": "Please select a plan",
     "notOpened": "Not subscribed",
-    "expireTime": "Expires: {{time}}",
+    "expireTime": "Expires: {time}",
     "openHint": "Subscribe now for exclusive benefits",
     "privileges": "Member benefits",
     "viewAllBenefits": "View all benefits",
@@ -2224,7 +2224,7 @@
       ],
       "loadFailed": "Load failed",
       "operationFailed": "Operation failed",
-      "originalPrice": "Original ¥{{n}}",
+      "originalPrice": "Original ¥{n}",
       "upgrade": "Upgrade now",
       "configNotReady": "Payment config not ready. Contact admin."
     },
@@ -2417,7 +2417,7 @@
   "streak": {
     "title": "Study Streak",
     "totalDays": "{n} days total",
-    "continuousDays": "Continuous {{n}} days"
+    "continuousDays": "Continuous {n} days"
   },
   "withdrawal": {
     "records": "Withdrawal Records"
