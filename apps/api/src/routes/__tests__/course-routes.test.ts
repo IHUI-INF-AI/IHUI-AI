@@ -34,12 +34,12 @@ describe('Course Routes API (course 模块 4 端点真实化)', () => {
       url: string
       payload?: Record<string, unknown>
     }> = [
-      { method: 'POST', url: '/api/course/00000000-0000-0000-0000-000000000000/enroll' },
-      { method: 'GET', url: '/api/course/00000000-0000-0000-0000-000000000000/progress' },
+      { method: 'POST', url: '/api/course/00000000-0000-4000-8000-000000000000/enroll' },
+      { method: 'GET', url: '/api/course/00000000-0000-4000-8000-000000000000/progress' },
       {
         method: 'POST',
         url: '/api/course/lesson-complete',
-        payload: { lessonId: '00000000-0000-0000-0000-000000000000' },
+        payload: { lessonId: '00000000-0000-4000-8000-000000000000' },
       },
       { method: 'GET', url: '/api/course/my' },
     ]
@@ -61,7 +61,7 @@ describe('Course Routes API (course 模块 4 端点真实化)', () => {
     it('401 响应包含认证错误信息', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/course/00000000-0000-0000-0000-000000000000/enroll',
+        url: '/api/course/00000000-0000-4000-8000-000000000000/enroll',
       })
       const body = JSON.parse(res.body)
       expect(body.message).toBeTruthy()

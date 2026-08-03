@@ -67,9 +67,9 @@ import { verifyAccessToken } from '@ihui/auth'
 const AUTH_HEADERS = { authorization: 'Bearer mock-token' }
 
 const PAPER_ID = '11111111-1111-4111-8111-111111111111'
-const Q1_ID = '22222222-2222-2222-2222-222222222221'
+const Q1_ID = '22222222-2222-4222-8222-222222222221'
 const Q2_ID = '22222222-2222-4222-8222-222222222222'
-const Q3_ID = '22222222-2222-2222-2222-222222222223'
+const Q3_ID = '22222222-2222-4222-8222-222222222223'
 const USER_ID = 'mock-user-id'
 
 function mockAuth(): void {

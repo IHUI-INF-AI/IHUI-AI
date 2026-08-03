@@ -25,7 +25,7 @@ function buildSseResponse(events: Array<Record<string, unknown>>): Response {
 
 import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/index.js'
 
-const USER_ID = '00000000-0000-0000-0000-000000000001'
+const USER_ID = '00000000-0000-4000-8000-000000000001'
 const PREFIX = '/api'
 
 function mockAuthed(userId: string = USER_ID) {

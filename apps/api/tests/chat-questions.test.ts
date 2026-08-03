@@ -43,7 +43,7 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 // 3. Mock @ihui/types message-repair(避免依赖真实实现)
@@ -82,14 +82,14 @@ vi.mock('../src/db/chat-queries.js', () => ({
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 
-const USER_ID = '00000000-0000-0000-0000-000000000001'
+const USER_ID = '00000000-0000-4000-8000-000000000001'
 const USER_TOKEN = 'Bearer user-token'
 
 function mockUser() {
   mockVerifyAccessToken.mockResolvedValue({
     userId: USER_ID,
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 0,
   })
 }

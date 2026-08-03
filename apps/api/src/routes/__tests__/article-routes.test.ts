@@ -35,7 +35,7 @@ describe('Article Routes API (文章模块真实化端点)', () => {
       payload?: Record<string, unknown>
     }> = [
       { method: 'GET', url: '/api/article/list' },
-      { method: 'GET', url: '/api/article/detail/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/article/detail/00000000-0000-4000-8000-000000000000' },
       { method: 'GET', url: '/api/article/hot' },
       { method: 'GET', url: '/api/article/essence' },
       { method: 'GET', url: '/api/article/categories' },
@@ -44,12 +44,12 @@ describe('Article Routes API (文章模块真实化端点)', () => {
       {
         method: 'POST',
         url: '/api/article/like',
-        payload: { id: '00000000-0000-0000-0000-000000000000' },
+        payload: { id: '00000000-0000-4000-8000-000000000000' },
       },
       {
         method: 'POST',
         url: '/api/article/favorite',
-        payload: { id: '00000000-0000-0000-0000-000000000000' },
+        payload: { id: '00000000-0000-4000-8000-000000000000' },
       },
     ]
 

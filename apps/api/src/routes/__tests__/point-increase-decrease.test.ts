@@ -26,7 +26,7 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-token'),
   verifyAccessToken: mockVerifyAccessToken,
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 // 修复(2026-07-24):authenticate 内部调用 jose.decodeJwt(token) 检查 challenge token,
@@ -75,15 +75,15 @@ vi.mock('../../db/index.js', () => {
 import { adminPointRoutes } from '../point.js'
 import { MAX_POINT_OPERATION } from '../../db/point-queries.js'
 
-const MEMBER_ID = '00000000-0000-0000-0000-000000000010'
-const CHANNEL_ID = '00000000-0000-0000-0000-000000000020'
-const POINT_ID = '00000000-0000-0000-0000-000000000030'
-const RECORD_ID = '00000000-0000-0000-0000-000000000040'
+const MEMBER_ID = '00000000-0000-4000-8000-000000000010'
+const CHANNEL_ID = '00000000-0000-4000-8000-000000000020'
+const POINT_ID = '00000000-0000-4000-8000-000000000030'
+const RECORD_ID = '00000000-0000-4000-8000-000000000040'
 const AUTH_HEADERS = { authorization: 'Bearer mock-admin-token' }
 
 function mockAdmin() {
   mockVerifyAccessToken.mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     roleId: 1,
     type: 'access',
   })

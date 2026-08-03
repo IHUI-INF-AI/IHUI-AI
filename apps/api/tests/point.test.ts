@@ -35,7 +35,7 @@ vi.mock('../src/db/point-queries.js', () => ({
 
 import { pointRoutes, adminPointRoutes } from '../src/routes/point'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('point routes', () => {
   const server = Fastify({ logger: false })
