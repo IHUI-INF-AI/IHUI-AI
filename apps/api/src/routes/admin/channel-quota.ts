@@ -100,7 +100,7 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
     '/relay/channels/:id',
     {
       preHandler: requireAdmin,
-      schema: { body: zodToJsonSchema(updateQuotaBodySchema, { target: 'openApi3' }) },
+      schema: { body: zodToJsonSchema(updateQuotaBodySchema as never, { target: 'openApi3' }) },
     },
     async (req, reply) => {
       const { id } = req.params as { id: string }
