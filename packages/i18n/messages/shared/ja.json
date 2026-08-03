@@ -1222,12 +1222,12 @@
   "modelPlaza": {
     "title": "モデル広場",
     "compareBtn": "比較",
-    "providerTotal": "全 {{count}} モデル",
+    "providerTotal": "全 {count} モデル",
     "loadFailed": "読み込み失敗、プルして更新",
     "emptyType": "このタイプのモデルはありません",
     "input": "入力",
     "output": "出力",
-    "priceUnit": "¥{{price}}/M",
+    "priceUnit": "¥{price}/M",
     "perCall": "(回数課金)",
     "typeAll": "すべて",
     "typeText": "テキスト",
@@ -1239,7 +1239,7 @@
     },
     "detail": {
       "title": "モデル詳細",
-      "message": "「{{name}}」の完全な仕様と価格を見る"
+      "message": "「{name}」の完全な仕様と価格を見る"
     }
   },
   "n8nModel": {
@@ -1253,16 +1253,16 @@
     "empty": "n8n ワークフローはありません",
     "running": "実行中",
     "stopped": "停止済み",
-    "calls": "呼び出し {{count}}",
-    "params": "入力 {{in}} · 出力 {{out}}",
+    "calls": "呼び出し {count}",
+    "params": "入力 {in} · 出力 {out}",
     "actionStart": "開始",
     "actionStop": "停止",
     "actionEdit": "編集",
     "toggle": {
       "stopTitle": "ワークフローを停止",
       "startTitle": "ワークフローを開始",
-      "stopMessage": "「{{name}}」を停止しますか?",
-      "startMessage": "「{{name}}」を開始しますか?",
+      "stopMessage": "「{name}」を停止しますか?",
+      "startMessage": "「{name}」を開始しますか?",
       "success": "操作成功"
     }
   },
@@ -1272,7 +1272,7 @@
     "labelDept": "部門",
     "labelSaleType": "販売方式",
     "labelCycle": "課金サイクル",
-    "labelPrice": "価格(元 / {{cycle}})",
+    "labelPrice": "価格(元 / {cycle})",
     "labelFreeDur": "期間限定無料",
     "labelDiscount": "割引",
     "labelAudience": "対象",
@@ -1557,11 +1557,11 @@
     "actionReedit": "再編集",
     "edit": {
       "title": "操作",
-      "message": "「{{name}}」の販売設定をしてください"
+      "message": "「{name}」の販売設定をしてください"
     },
     "offline": {
       "title": "非公開確認",
-      "message": "「{{name}}」を非公開にしますか?",
+      "message": "「{name}」を非公開にしますか?",
       "confirmBtn": "非公開にする",
       "done": "非公開にしました"
     }
@@ -1574,26 +1574,26 @@
     "empty": "グループがありません",
     "loadFailed": "読み込み失敗",
     "back": "戻る",
-    "detailMembers": "メンバー ({{count}})",
+    "detailMembers": "メンバー ({count})",
     "detailRecent": "最近の対話",
     "detailEnter": "グループに入る",
-    "metaActive": "活発 {{time}}",
-    "metaMessages": "メッセージ {{count}}",
-    "cardMembers": "{{count}} メンバー · {{messages}} メッセージ",
+    "metaActive": "活発 {time}",
+    "metaMessages": "メッセージ {count}",
+    "cardMembers": "{count} メンバー · {messages} メッセージ",
     "enterMine": "入る",
     "enterDiscover": "参加",
     "previewHello": "皆さん、今回のコラボを始めましょう。まず目標と役割分担を確認します。",
     "previewMine": "了解しました。こちらは調査を始めます。",
-    "memberRole": "役割: {{role}}",
+    "memberRole": "役割: {role}",
     "join": {
       "title": "グループに参加",
-      "message": "「{{name}}」への参加を申請しました"
+      "message": "「{name}」への参加を申請しました"
     }
   },
   "aigcCover": {
     "loading": "読み込み中...",
     "title": "カバーを選択",
-    "subtitle": "作品: {{title}}",
+    "subtitle": "作品: {title}",
     "workTitleDefault": "無題の作品",
     "back": "戻る",
     "filterAll": "すべて",
@@ -1606,7 +1606,7 @@
     "loadFailed": "読み込み失敗",
     "applied": {
       "title": "カバーを適用しました",
-      "message": "「{{title}}」にカバーを適用しました: {{label}}"
+      "message": "「{title}」にカバーを適用しました: {label}"
     },
     "aiGen": {
       "title": "AI カバー生成",
@@ -1619,7 +1619,7 @@
     "subtitle": "タイプ選択 → アップロード → 情報入力 → 公開",
     "labelType": "作品タイプ",
     "labelTextContent": "テキスト内容",
-    "labelUpload": "素材をアップロード ({{count}}/5)",
+    "labelUpload": "素材をアップロード ({count}/5)",
     "labelTitle": "作品タイトル",
     "labelDescription": "作品紹介",
     "labelPrompt": "プロンプト",

@@ -8,15 +8,15 @@
   },
   "course": {
     "title": "Courses",
-    "studentCount": "{{count}} learners",
-    "pay": "Pay ¥{{amount}}",
+    "studentCount": "{count} learners",
+    "pay": "Pay ¥{amount}",
     "enroll": "Enroll now",
     "enrolled": "Enrolled",
     "progress": "Progress"
   },
   "live": {
     "title": "Live",
-    "viewerCount": "{{count}} viewers",
+    "viewerCount": "{count} viewers",
     "upcoming": "Upcoming",
     "ended": "Ended",
     "chat": "Chat"
@@ -39,10 +39,10 @@
     "paidAt": "Paid at",
     "untitledOrder": "Untitled order",
     "syncStatus": "Sync status",
-    "syncSuccess": "Order {{orderNo}} status synced",
+    "syncSuccess": "Order {orderNo} status synced",
     "syncFailed": "Sync status failed",
     "cancelOrder": "Cancel order",
-    "cancelSuccess": "Order {{orderNo}} cancelled",
+    "cancelSuccess": "Order {orderNo} cancelled",
     "cancelFailed": "Cancel order failed",
     "status": {
       "pending": "Pending",
@@ -154,7 +154,7 @@
     },
     "file": {
       "attach": "Attach",
-      "attached": "Attached: {{filename}} ({{size}})",
+      "attached": "Attached: {filename} ({size})",
       "tooLarge": "File too large (limit 1MB)",
       "invalidBase64": "Invalid base64 content",
       "missingFilename": "Please provide filename",
@@ -170,19 +170,19 @@
   "aiAssistant": {
     "chat": {
       "title": "Start Chat",
-      "message": "Starting a chat with \"{{name}}\""
+      "message": "Starting a chat with \"{name}\""
     }
   },
   "aiCareer": {
     "plan": {
       "title": "Generate Plan",
-      "message": "Generating a 90-day growth plan for \"{{name}}\""
+      "message": "Generating a 90-day growth plan for \"{name}\""
     }
   },
   "aigcCover": {
     "applied": {
       "title": "Cover Applied",
-      "message": "Cover applied for \"{{title}}\": {{label}}"
+      "message": "Cover applied for \"{title}\": {label}"
     },
     "aiGen": {
       "title": "AI Cover Generation",
@@ -198,17 +198,17 @@
   "aiGroup": {
     "join": {
       "title": "Join Group",
-      "message": "Requested to join \"{{name}}\""
+      "message": "Requested to join \"{name}\""
     }
   },
   "assistant": {
     "edit": {
       "title": "Actions",
-      "message": "Configure sales settings for \"{{name}}\""
+      "message": "Configure sales settings for \"{name}\""
     },
     "offline": {
       "title": "Confirm Offline",
-      "message": "Are you sure you want to take \"{{name}}\" offline?",
+      "message": "Are you sure you want to take \"{name}\" offline?",
       "confirmBtn": "Take Offline",
       "done": "Taken Offline"
     }
@@ -216,7 +216,7 @@
   "chatAlert": {
     "compaction": {
       "title": "Context Auto-Compacted",
-      "message": "{{before}} → {{after}} (removed {{removed}} messages)"
+      "message": "{before} → {after} (removed {removed} messages)"
     },
     "loginBtn": "Log in",
     "longPress": {
@@ -255,7 +255,7 @@
     },
     "ended": {
       "title": "Live Stream Ended",
-      "message": "Stream duration: {{duration}}"
+      "message": "Stream duration: {duration}"
     },
     "productAdd": {
       "message": "Product adding feature coming soon"
@@ -275,8 +275,8 @@
     "toggle": {
       "stopTitle": "Stop Workflow",
       "startTitle": "Start Workflow",
-      "stopMessage": "Are you sure you want to stop \"{{name}}\"?",
-      "startMessage": "Are you sure you want to start \"{{name}}\"?",
+      "stopMessage": "Are you sure you want to stop \"{name}\"?",
+      "startMessage": "Are you sure you want to start \"{name}\"?",
       "success": "Operation successful"
     }
   },
@@ -287,17 +287,17 @@
     },
     "detail": {
       "title": "Model Details",
-      "message": "View full specs and pricing for \"{{name}}\""
+      "message": "View full specs and pricing for \"{name}\""
     }
   },
   "tokenValue": {
     "recharge": {
       "title": "Confirm Recharge",
-      "message": "Package: {{tokens}} Token · ¥{{price}}",
+      "message": "Package: {tokens} Token · ¥{price}",
       "payBtn": "Pay Now",
       "success": {
         "title": "Payment Successful",
-        "message": "{{tokens}} Token credited"
+        "message": "{tokens} Token credited"
       }
     }
   },

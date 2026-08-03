@@ -47,7 +47,7 @@
     }
   },
   "hooks": {
-    "deleteConfirm": "Hook \"{{name}}\"을(를) 삭제하시겠습니까?"
+    "deleteConfirm": "Hook \"{name}\"을(를) 삭제하시겠습니까?"
   },
   "common": {
     "refundTime": "환불 시간",
@@ -774,7 +774,7 @@
     },
     "hideReasoning": "추론 숨기기",
     "showReasoning": "추론 표시",
-    "fallbackNotice": "백업 모델 {{backup}}(으)로 전환됨(원본 모델 {{primary}} 일시 사용 불가)",
+    "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "copy": "복사",
     "copied": "복사됨",
     "copyFailed": "복사 실패",
@@ -789,7 +789,7 @@
     "communityPublishTitleLabel": "제목",
     "communityPublishTitlePlaceholder": "제목을 입력해 주세요",
     "communityPublishTitleRequired": "제목을 입력해 주세요",
-    "communityPublishImagesCount": "{{count}}장의 이미지",
+    "communityPublishImagesCount": "{count}장의 이미지",
     "communityPublishDefaultTitle": "AI 답변",
     "communityPublishCancel": "취소",
     "communityPublish": "게시",
@@ -866,7 +866,7 @@
       "timelineUserMessage": "사용자 메시지",
       "timelineAiReply": "AI 응답",
       "search": "검색",
-      "fallbackNotice": "주 모델 {{primary}}을(를) 사용할 수 없어 {{fallback}}(으)로 자동 전환되었습니다",
+      "fallbackNotice": "주 모델 {primary}을(를) 사용할 수 없어 {fallback}(으)로 자동 전환되었습니다",
       "loading": "불러오는 중…",
       "jumpToLatest": "최신으로 이동",
       "latest": "최신",
@@ -938,10 +938,10 @@
       "switchedToModeAuto": "자동 승인 모드로 전환됨",
       "switchedToModeFull": "전체 액세스 모드로 전환됨",
       "dangerousCommandTitle": "위험한 명령 감지",
-      "dangerousCommandDesc": "전송하려는 메시지에 {{pattern}}({{reason}})이(가) 포함되어 있습니다. 전체 액세스 모드에서 AI가 직접 실행하며 실행 취소할 수 없습니다.",
+      "dangerousCommandDesc": "전송하려는 메시지에 {pattern}({reason})이(가) 포함되어 있습니다. 전체 액세스 모드에서 AI가 직접 실행하며 실행 취소할 수 없습니다.",
       "dangerousCommandProceed": "그래도 전송",
       "dangerousCommandCancel": "취소",
-      "dangerousCommandWarningOnly": "경고: {{pattern}}. 명령의 안전성을 먼저 확인하세요.",
+      "dangerousCommandWarningOnly": "경고: {pattern}. 명령의 안전성을 먼저 확인하세요.",
       "historyTitle": "권한 모드 기록",
       "historyEmpty": "기록 없음",
       "historyClearConfirmTitle": "기록 지우기",
