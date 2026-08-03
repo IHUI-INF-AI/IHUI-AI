@@ -64,7 +64,7 @@ const AUTH_COOKIE = 'auth_token'
 const LOGIN_PATH = '/sso/login'
 const UNAUTHORIZED_PATH = '/admin/unauthorized'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
   // 不阻塞 /admin/unauthorized(让用户看到无权限页)
