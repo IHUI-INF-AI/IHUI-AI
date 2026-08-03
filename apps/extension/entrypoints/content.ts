@@ -11,6 +11,7 @@
  * 5. 右键即时翻译:监听 background 派发的 `vocab.result`,在选区旁弹 popup
  * 6. 通过 background 中转 API(避免 content script 直连受 CORS 限制)
  */
+import type { ContentScriptContext } from 'wxt/utils/content-script-context'
 import {
   extractSelectionText,
   isValidSelection,
@@ -339,7 +340,7 @@ export default defineContentScript({
     '*://*.chinatax.gov.cn/*',  // 税务
   ],
   runAt: 'document_idle',
-  main(ctx) {
+  main(ctx: ContentScriptContext) {
     document.addEventListener('mouseup', () => {
       setTimeout(onSelectionChange, 10)
     })
