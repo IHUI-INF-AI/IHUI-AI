@@ -14,14 +14,7 @@
  * - onAgreeChange?:协议勾选状态变化回调
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from 'react-native'
+import { Modal, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 
 export interface LoginPopUpProps {
   visible: boolean
@@ -87,11 +80,7 @@ export function LoginPopUp({
       statusBarTranslucent
     >
       <View style={styles.root}>
-        <Pressable
-          style={styles.overlay}
-          onPress={onClose}
-          accessibilityLabel="关闭登录弹窗"
-        />
+        <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="关闭登录弹窗" />
         <View style={styles.card}>
           <View style={styles.dragBar} />
           <Pressable
@@ -105,10 +94,7 @@ export function LoginPopUp({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
           <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-            ]}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
             onPress={onPrimary}
           >
             <Text style={styles.primaryButtonLabel}>{primaryLabel}</Text>
@@ -124,12 +110,7 @@ export function LoginPopUp({
           </Pressable>
           {showAgreementRow ? (
             <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
-              <View
-                style={[
-                  styles.checkbox,
-                  agreeChecked ? styles.checkboxChecked : null,
-                ]}
-              >
+              <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
                 {agreeChecked ? <Text style={styles.checkboxMark}>✓</Text> : null}
               </View>
               <Text style={styles.agreementText}>
@@ -151,7 +132,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.5)',
   } as ViewStyle,
   card: {

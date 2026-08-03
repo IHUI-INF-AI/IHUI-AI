@@ -79,10 +79,7 @@ export function PurchaseNoticePopUp({
               {hasBullets ? (
                 <View style={styles.bulletList}>
                   {bullets.map((line, index) => (
-                    <View
-                      key={`bullet-${index.toString()}`}
-                      style={styles.bulletRow}
-                    >
+                    <View key={`bullet-${index.toString()}`} style={styles.bulletRow}>
                       <Text style={styles.bulletMark} allowFontScaling={false}>
                         {CHECK_MARK}
                       </Text>
@@ -131,7 +128,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: tokens.overlay.modal,
   } as ViewStyle,
   center: {
