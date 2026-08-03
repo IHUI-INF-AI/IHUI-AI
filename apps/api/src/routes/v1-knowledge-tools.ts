@@ -222,16 +222,19 @@ const knowledgeGraphExtractSchema = z.object({
 
 const toolCallSchema = z.object({
   name: z.string().min(1),
-  arguments: z.record(z.unknown()).default({}),
+  arguments: z.record(z.string(), z.unknown()).default({}),
 })
 
 const promptInvokeSchema = z.object({
   name: z.string().min(1),
-  arguments: z.record(z.string()).optional(),
+  arguments: z.record(z.string(), z.string()).optional(),
 })
 
 const samplingSchema = z.object({
-  messages: z.array(z.object({ role: z.string(), content: z.string() })).min(1).max(100),
+  messages: z
+    .array(z.object({ role: z.string(), content: z.string() }))
+    .min(1)
+    .max(100),
   modelPreferences: z
     .object({
       hints: z.array(z.string()).max(20).optional(),
@@ -268,7 +271,7 @@ const screenshotSchema = z.object({
 const saveMemorySchema = z.object({
   content: z.string().min(1),
   type: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 const memorySearchSchema = z.object({
@@ -289,7 +292,7 @@ const publishMessageSchema = z.object({
   channel: z.string().min(1),
   content: z.string().min(1),
   recipients: z.array(z.string()).max(100).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 const subscribeMessageSchema = z.object({
@@ -316,17 +319,17 @@ const uploadCompleteSchema = z.object({
 
 const runWorkflowSchema = z.object({
   workflowId: z.string().min(1),
-  inputs: z.record(z.unknown()).optional(),
+  inputs: z.record(z.string(), z.unknown()).optional(),
 })
 
 const runCozeWorkflowSchema = z.object({
   workflowId: z.string().min(1),
-  parameters: z.record(z.unknown()),
+  parameters: z.record(z.string(), z.unknown()),
 })
 
 const runN8nWorkflowSchema = z.object({
   workflowId: z.string().min(1),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 })
 
 // =============================================================================
@@ -358,10 +361,7 @@ function mintInternalJwt(userId: string): Promise<string> {
 }
 
 /** 构造 JSON 请求 init。 */
-function jsonInit(
-  body: unknown,
-  method: 'POST' | 'PUT' | 'DELETE' = 'POST',
-): RequestInit {
+function jsonInit(body: unknown, method: 'POST' | 'PUT' | 'DELETE' = 'POST'): RequestInit {
   return {
     method,
     headers: { 'Content-Type': 'application/json' },
@@ -507,12 +507,7 @@ async function forwardAiService(
         .send(error(503, `AI service unavailable (${resp.status}): ${txt.slice(0, 200)}`))
     }
     const data = (await resp.json().catch(() => null)) as unknown
-    if (
-      data &&
-      typeof data === 'object' &&
-      'error' in data &&
-      (data as { error: unknown }).error
-    ) {
+    if (data && typeof data === 'object' && 'error' in data && (data as { error: unknown }).error) {
       const msg =
         (data as { error_message?: string }).error_message ??
         (data as { message?: string }).message ??
@@ -603,8 +598,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
               id: String(o.id ?? ''),
               title: String(o.title ?? ''),
               source: String(o.source ?? ''),
-              chunkCount: typeof o.chunkCount === 'number' ? o.chunkCount : typeof o.chunk_count === 'number' ? o.chunk_count : 0,
-              sizeBytes: typeof o.sizeBytes === 'number' ? o.sizeBytes : typeof o.size_bytes === 'number' ? o.size_bytes : 0,
+              chunkCount:
+                typeof o.chunkCount === 'number'
+                  ? o.chunkCount
+                  : typeof o.chunk_count === 'number'
+                    ? o.chunk_count
+                    : 0,
+              sizeBytes:
+                typeof o.sizeBytes === 'number'
+                  ? o.sizeBytes
+                  : typeof o.size_bytes === 'number'
+                    ? o.size_bytes
+                    : 0,
               createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
             }
           }),
@@ -670,7 +675,12 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         const d = asObj(data)
         const result: V1IngestDocumentResponse = {
           documentId: String(d.documentId ?? d.document_id ?? d.id ?? ''),
-          chunkCount: typeof d.chunkCount === 'number' ? d.chunkCount : typeof d.chunk_count === 'number' ? d.chunk_count : 0,
+          chunkCount:
+            typeof d.chunkCount === 'number'
+              ? d.chunkCount
+              : typeof d.chunk_count === 'number'
+                ? d.chunk_count
+                : 0,
           status: 'ingested',
         }
         return result
@@ -1022,7 +1032,13 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (threshold !== undefined) body.threshold = threshold
       return forwardInternal(reply, '/api/knowledge/search', jsonInit(body), userId, (data) => {
         const d = asObj(data)
-        const results = Array.isArray(d.data) ? d.data : Array.isArray(d.results) ? d.results : Array.isArray(d) ? d : []
+        const results = Array.isArray(d.data)
+          ? d.data
+          : Array.isArray(d.results)
+            ? d.results
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1KnowledgeSearchResponse = {
           object: 'list',
           data: results.map((r) => {
@@ -1086,23 +1102,29 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       const body: Record<string, unknown> = { query }
       if (topK !== undefined) body.topK = topK
       if (injectSystemPrompt !== undefined) body.injectSystemPrompt = injectSystemPrompt
-      return forwardInternal(reply, '/api/knowledge/rag-context', jsonInit(body), userId, (data) => {
-        const d = asObj(data)
-        const result: V1RagContextResponse = {
-          context: String(d.context ?? ''),
-          sources: Array.isArray(d.sources)
-            ? d.sources.map((s) => {
-                const o = asObj(s)
-                return {
-                  documentId: String(o.documentId ?? o.document_id ?? ''),
-                  chunkId: String(o.chunkId ?? o.chunk_id ?? ''),
-                  score: typeof o.score === 'number' ? o.score : 0,
-                }
-              })
-            : [],
-        }
-        return result
-      })
+      return forwardInternal(
+        reply,
+        '/api/knowledge/rag-context',
+        jsonInit(body),
+        userId,
+        (data) => {
+          const d = asObj(data)
+          const result: V1RagContextResponse = {
+            context: String(d.context ?? ''),
+            sources: Array.isArray(d.sources)
+              ? d.sources.map((s) => {
+                  const o = asObj(s)
+                  return {
+                    documentId: String(o.documentId ?? o.document_id ?? ''),
+                    chunkId: String(o.chunkId ?? o.chunk_id ?? ''),
+                    score: typeof o.score === 'number' ? o.score : 0,
+                  }
+                })
+              : [],
+          }
+          return result
+        },
+      )
     },
   )
 
@@ -1297,16 +1319,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/tools', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const tools = Array.isArray(d.tools) ? d.tools : Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : []
+        const tools = Array.isArray(d.tools)
+          ? d.tools
+          : Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1ToolsResponse = {
           object: 'list',
           data: tools.map((t) => {
@@ -1352,11 +1376,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = toolCallSchema.safeParse(request.body)
@@ -1399,16 +1419,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/resources', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const resources = Array.isArray(d.resources) ? d.resources : Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : []
+        const resources = Array.isArray(d.resources)
+          ? d.resources
+          : Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1ResourcesResponse = {
           object: 'list',
           data: resources.map((r) => {
@@ -1443,19 +1465,13 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { uri } = request.params as { uri: string }
-      return forwardAiService(
-        reply,
-        `/api/mcp/resources/${encodeURIComponent(uri)}`,
-        { method: 'GET' },
-      )
+      return forwardAiService(reply, `/api/mcp/resources/${encodeURIComponent(uri)}`, {
+        method: 'GET',
+      })
     },
   )
 
@@ -1477,16 +1493,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/prompts', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const prompts = Array.isArray(d.prompts) ? d.prompts : Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : []
+        const prompts = Array.isArray(d.prompts)
+          ? d.prompts
+          : Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1PromptsResponse = {
           object: 'list',
           data: prompts.map((p) => {
@@ -1540,11 +1558,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = promptInvokeSchema.safeParse(request.body)
@@ -1594,16 +1608,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/skills', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const skills = Array.isArray(d.skills) ? d.skills : Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : []
+        const skills = Array.isArray(d.skills)
+          ? d.skills
+          : Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1SkillsResponse = {
           object: 'list',
           data: skills.map((s) => {
@@ -1639,16 +1655,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/slash-commands', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const cmds = Array.isArray(d.commands) ? d.commands : Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : []
+        const cmds = Array.isArray(d.commands)
+          ? d.commands
+          : Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1SlashCommandsResponse = {
           object: 'list',
           data: cmds.map((c) => {
@@ -1677,18 +1695,10 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
-      return forwardAiService(
-        reply,
-        '/api/mcp/slash-commands',
-        jsonInit(request.body ?? {}),
-      )
+      return forwardAiService(reply, '/api/mcp/slash-commands', jsonInit(request.body ?? {}))
     },
   )
 
@@ -1722,32 +1732,23 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = samplingSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(
-        reply,
-        '/api/mcp/sampling',
-        jsonInit(parsed.data),
-        (data) => {
-          const d = asObj(data)
-          const result: V1SamplingResponse = {
-            model: String(d.model ?? ''),
-            role: String(d.role ?? 'assistant'),
-            content: String(d.content ?? ''),
-            stopReason: String(d.stopReason ?? d.stop_reason ?? 'stop'),
-          }
-          return result
-        },
-      )
+      return forwardAiService(reply, '/api/mcp/sampling', jsonInit(parsed.data), (data) => {
+        const d = asObj(data)
+        const result: V1SamplingResponse = {
+          model: String(d.model ?? ''),
+          role: String(d.role ?? 'assistant'),
+          content: String(d.content ?? ''),
+          stopReason: String(d.stopReason ?? d.stop_reason ?? 'stop'),
+        }
+        return result
+      })
     },
   )
 
@@ -1769,16 +1770,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/personas', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const personas = Array.isArray(d.personas) ? d.personas : Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : []
+        const personas = Array.isArray(d.personas)
+          ? d.personas
+          : Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1PersonasResponse = {
           object: 'list',
           data: personas.map((p) => {
@@ -1813,19 +1816,11 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { name } = request.params as { name: string }
-      return forwardAiService(
-        reply,
-        `/api/personas/${encodeURIComponent(name)}`,
-        { method: 'GET' },
-      )
+      return forwardAiService(reply, `/api/personas/${encodeURIComponent(name)}`, { method: 'GET' })
     },
   )
 
@@ -1850,22 +1845,14 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = searchCodebaseSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(
-        reply,
-        '/api/tools/search-codebase',
-        jsonInit(parsed.data),
-      )
+      return forwardAiService(reply, '/api/tools/search-codebase', jsonInit(parsed.data))
     },
   )
 
@@ -1890,11 +1877,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = searchWebSchema.safeParse(request.body)
@@ -1926,11 +1909,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = analyzeCodeSchema.safeParse(request.body)
@@ -1972,32 +1951,23 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('tools:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = screenshotSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(
-        reply,
-        '/api/screenshot/take',
-        jsonInit(parsed.data),
-        (data) => {
-          const d = asObj(data)
-          const result: V1ScreenshotResponse = {
-            image: String(d.image ?? d.data ?? ''),
-            format: String(d.format ?? 'png'),
-            width: typeof d.width === 'number' ? d.width : 0,
-            height: typeof d.height === 'number' ? d.height : 0,
-          }
-          return result
-        },
-      )
+      return forwardAiService(reply, '/api/screenshot/take', jsonInit(parsed.data), (data) => {
+        const d = asObj(data)
+        const result: V1ScreenshotResponse = {
+          image: String(d.image ?? d.data ?? ''),
+          format: String(d.format ?? 'png'),
+          width: typeof d.width === 'number' ? d.width : 0,
+          height: typeof d.height === 'number' ? d.height : 0,
+        }
+        return result
+      })
     },
   )
 
@@ -2075,18 +2045,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const qs = new URLSearchParams(request.query as Record<string, string>)
       const path = qs.toString() ? `/api/memory/recall?${qs}` : '/api/memory/recall'
       return forwardAiService(reply, path, { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const items = Array.isArray(d.data) ? d.data : Array.isArray(d.memories) ? d.memories : Array.isArray(d) ? d : []
+        const items = Array.isArray(d.data)
+          ? d.data
+          : Array.isArray(d.memories)
+            ? d.memories
+            : Array.isArray(d)
+              ? d
+              : []
         const result: V1RecallMemoryResponse = {
           object: 'list',
           data: items.map((m) => {
@@ -2128,11 +2100,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = memorySearchSchema.safeParse(request.body)
@@ -2184,20 +2152,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(
-        reply,
-        '/api/memory/dream',
-        jsonInit(parsed.data),
-        (data) => {
-          const d = asObj(data)
-          const result: V1MemoryDreamResponse = {
-            dreamId: String(d.dreamId ?? d.dream_id ?? ''),
-            insights: Array.isArray(d.insights) ? (d.insights as string[]) : [],
-            newMemories: typeof d.newMemories === 'number' ? d.newMemories : typeof d.new_memories === 'number' ? d.new_memories : 0,
-          }
-          return result
-        },
-      )
+      return forwardAiService(reply, '/api/memory/dream', jsonInit(parsed.data), (data) => {
+        const d = asObj(data)
+        const result: V1MemoryDreamResponse = {
+          dreamId: String(d.dreamId ?? d.dream_id ?? ''),
+          insights: Array.isArray(d.insights) ? (d.insights as string[]) : [],
+          newMemories:
+            typeof d.newMemories === 'number'
+              ? d.newMemories
+              : typeof d.new_memories === 'number'
+                ? d.new_memories
+                : 0,
+        }
+        return result
+      })
     },
   )
 
@@ -2265,11 +2233,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/memory/working', { method: 'GET' }, (data) => {
@@ -2307,16 +2271,16 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/memory/episodic', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const episodes = Array.isArray(d.episodes) ? d.episodes : Array.isArray(d.data) ? d.data : []
+        const episodes = Array.isArray(d.episodes)
+          ? d.episodes
+          : Array.isArray(d.data)
+            ? d.data
+            : []
         const result: V1EpisodicMemoryResponse = {
           episodes: episodes.map((e) => {
             const o = asObj(e)
@@ -2350,16 +2314,16 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/memory/procedural', { method: 'GET' }, (data) => {
         const d = asObj(data)
-        const procedures = Array.isArray(d.procedures) ? d.procedures : Array.isArray(d.data) ? d.data : []
+        const procedures = Array.isArray(d.procedures)
+          ? d.procedures
+          : Array.isArray(d.data)
+            ? d.data
+            : []
         const result: V1ProceduralMemoryResponse = {
           procedures: procedures.map((p) => {
             const o = asObj(p)
@@ -2367,7 +2331,12 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
               id: String(o.id ?? ''),
               name: String(o.name ?? ''),
               steps: Array.isArray(o.steps) ? (o.steps as string[]) : [],
-              successRate: typeof o.successRate === 'number' ? o.successRate : typeof o.success_rate === 'number' ? o.success_rate : 0,
+              successRate:
+                typeof o.successRate === 'number'
+                  ? o.successRate
+                  : typeof o.success_rate === 'number'
+                    ? o.success_rate
+                    : 0,
             }
           }),
         }
@@ -2417,20 +2386,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(
-        reply,
-        '/api/message-bus/publish',
-        jsonInit(parsed.data),
-        (data) => {
-          const d = asObj(data)
-          const result: V1PublishMessageResponse = {
-            messageId: String(d.messageId ?? d.message_id ?? d.id ?? ''),
-            status: 'published' as const,
-            subscriberCount: typeof d.subscriberCount === 'number' ? d.subscriberCount : typeof d.subscriber_count === 'number' ? d.subscriber_count : 0,
-          }
-          return result
-        },
-      )
+      return forwardAiService(reply, '/api/message-bus/publish', jsonInit(parsed.data), (data) => {
+        const d = asObj(data)
+        const result: V1PublishMessageResponse = {
+          messageId: String(d.messageId ?? d.message_id ?? d.id ?? ''),
+          status: 'published' as const,
+          subscriberCount:
+            typeof d.subscriberCount === 'number'
+              ? d.subscriberCount
+              : typeof d.subscriber_count === 'number'
+                ? d.subscriber_count
+                : 0,
+        }
+        return result
+      })
     },
   )
 
@@ -2577,8 +2546,18 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           const result: V1MessageStatusResponse = {
             messageId: String(d.messageId ?? d.message_id ?? id),
             status: (d.status as 'pending' | 'delivered' | 'failed') ?? 'pending',
-            deliveredCount: typeof d.deliveredCount === 'number' ? d.deliveredCount : typeof d.delivered_count === 'number' ? d.delivered_count : 0,
-            failedCount: typeof d.failedCount === 'number' ? d.failedCount : typeof d.failed_count === 'number' ? d.failed_count : 0,
+            deliveredCount:
+              typeof d.deliveredCount === 'number'
+                ? d.deliveredCount
+                : typeof d.delivered_count === 'number'
+                  ? d.delivered_count
+                  : 0,
+            failedCount:
+              typeof d.failedCount === 'number'
+                ? d.failedCount
+                : typeof d.failed_count === 'number'
+                  ? d.failed_count
+                  : 0,
           }
           return result
         },
@@ -2614,11 +2593,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2638,7 +2613,9 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
             bytes: typeof d.bytes === 'number' ? d.bytes : typeof d.size === 'number' ? d.size : 0,
             mimeType: String(d.mimeType ?? d.mime_type ?? 'application/octet-stream'),
             createdAt: String(d.createdAt ?? d.created_at ?? new Date().toISOString()),
-            updatedAt: String(d.updatedAt ?? d.updated_at ?? d.created_at ?? new Date().toISOString()),
+            updatedAt: String(
+              d.updatedAt ?? d.updated_at ?? d.created_at ?? new Date().toISOString(),
+            ),
           }
           return result
         },
@@ -2663,11 +2640,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2699,11 +2672,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2741,11 +2710,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2758,14 +2723,21 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         userId,
         (data) => {
           const d = asObj(data)
-          const versions = Array.isArray(d.data) ? d.data : Array.isArray(d.versions) ? d.versions : Array.isArray(d) ? d : []
+          const versions = Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d.versions)
+              ? d.versions
+              : Array.isArray(d)
+                ? d
+                : []
           const result: V1FileVersionsResponse = {
             object: 'list',
             data: versions.map((v) => {
               const o = asObj(v)
               return {
                 version: typeof o.version === 'number' ? o.version : 0,
-                size: typeof o.size === 'number' ? o.size : typeof o.bytes === 'number' ? o.bytes : 0,
+                size:
+                  typeof o.size === 'number' ? o.size : typeof o.bytes === 'number' ? o.bytes : 0,
                 createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
                 checksum: String(o.checksum ?? o.hash ?? ''),
               }
@@ -2806,11 +2778,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2828,7 +2796,12 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           const d = asObj(data)
           const result: V1UploadInitResponse = {
             uploadId: String(d.uploadId ?? d.upload_id ?? d.id ?? ''),
-            chunkCount: typeof d.chunkCount === 'number' ? d.chunkCount : typeof d.chunk_count === 'number' ? d.chunk_count : 0,
+            chunkCount:
+              typeof d.chunkCount === 'number'
+                ? d.chunkCount
+                : typeof d.chunk_count === 'number'
+                  ? d.chunk_count
+                  : 0,
           }
           return result
         },
@@ -2858,11 +2831,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2871,12 +2840,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardInternal(
-        reply,
-        '/api/chunked-upload/upload',
-        jsonInit(parsed.data),
-        userId,
-      )
+      return forwardInternal(reply, '/api/chunked-upload/upload', jsonInit(parsed.data), userId)
     },
   )
 
@@ -2906,11 +2870,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('files:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2958,11 +2918,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('user:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('user:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -3046,7 +3002,13 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         userId,
         (data) => {
           const d = asObj(data)
-          const projects = Array.isArray(d.data) ? d.data : Array.isArray(d.projects) ? d.projects : Array.isArray(d) ? d : []
+          const projects = Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d.projects)
+              ? d.projects
+              : Array.isArray(d)
+                ? d
+                : []
           const result: V1ProjectsResponse = {
             object: 'list',
             data: projects.map((p) => {
@@ -3055,7 +3017,12 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
                 id: String(o.id ?? ''),
                 name: String(o.name ?? ''),
                 ...(o.description ? { description: String(o.description) } : {}),
-                fileCount: typeof o.fileCount === 'number' ? o.fileCount : typeof o.file_count === 'number' ? o.file_count : 0,
+                fileCount:
+                  typeof o.fileCount === 'number'
+                    ? o.fileCount
+                    : typeof o.file_count === 'number'
+                      ? o.file_count
+                      : 0,
                 createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
                 updatedAt: String(o.updatedAt ?? o.updated_at ?? new Date().toISOString()),
               }
@@ -3107,7 +3074,13 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         userId,
         (data) => {
           const d = asObj(data)
-          const files = Array.isArray(d.data) ? d.data : Array.isArray(d.files) ? d.files : Array.isArray(d) ? d : []
+          const files = Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d.files)
+              ? d.files
+              : Array.isArray(d)
+                ? d
+                : []
           const result: V1ProjectFilesResponse = {
             object: 'list',
             data: files.map((f) => {
@@ -3116,10 +3089,13 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
                 id: String(o.id ?? ''),
                 object: 'file' as const,
                 filename: String(o.filename ?? o.name ?? ''),
-                bytes: typeof o.bytes === 'number' ? o.bytes : typeof o.size === 'number' ? o.size : 0,
+                bytes:
+                  typeof o.bytes === 'number' ? o.bytes : typeof o.size === 'number' ? o.size : 0,
                 mimeType: String(o.mimeType ?? o.mime_type ?? 'application/octet-stream'),
                 createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
-                updatedAt: String(o.updatedAt ?? o.updated_at ?? o.created_at ?? new Date().toISOString()),
+                updatedAt: String(
+                  o.updatedAt ?? o.updated_at ?? o.created_at ?? new Date().toISOString(),
+                ),
               }
             }),
           }
@@ -3287,12 +3263,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardInternal(
-        reply,
-        '/api/ai/coze/workflow/run',
-        jsonInit(parsed.data),
-        userId,
-      )
+      return forwardInternal(reply, '/api/ai/coze/workflow/run', jsonInit(parsed.data), userId)
     },
   )
 
@@ -3330,12 +3301,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardInternal(
-        reply,
-        '/api/ai/n8n/workflow/run',
-        jsonInit(parsed.data),
-        userId,
-      )
+      return forwardInternal(reply, '/api/ai/n8n/workflow/run', jsonInit(parsed.data), userId)
     },
   )
 
@@ -3362,11 +3328,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('stats:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('stats:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -3457,11 +3419,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('stats:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('stats:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -3473,7 +3431,12 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         const prefixes = VENDOR_PREFIXES[vendor.toLowerCase()] ?? []
         if (prefixes.length === 0) {
           // 未知厂商:只支持已知厂商,避免 LIKE 通配符注入
-          return reply.send({ vendor, requests: 0, tokens: 0, cost: 0 } satisfies V1VendorUsageResponse)
+          return reply.send({
+            vendor,
+            requests: 0,
+            tokens: 0,
+            cost: 0,
+          } satisfies V1VendorUsageResponse)
         }
 
         // requests + tokens: llm_call_logs 按 model 前缀过滤
@@ -3499,7 +3462,9 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         const result: V1VendorUsageResponse = { vendor, requests, tokens, cost }
         return reply.send(result)
       } catch (e) {
-        return reply.status(500).send(error(500, (e as Error).message || 'Failed to fetch vendor usage'))
+        return reply
+          .status(500)
+          .send(error(500, (e as Error).message || 'Failed to fetch vendor usage'))
       }
     },
   )

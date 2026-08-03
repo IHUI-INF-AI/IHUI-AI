@@ -42,7 +42,7 @@ const createArtifactSchema = z.object({
   name: z.string().min(1).max(200),
   type: z.string().default('text'),
   content: z.string().min(1),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 function requireAuthUser(req: { user?: { userId?: string } | null }): string | undefined {
@@ -164,9 +164,7 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
       if (!result.success) {
         return reply.status(400).send(error(400, result.error ?? '执行失败'))
       }
-      return reply.send(
-        success({ runId: id, result: result.result, usage: result.usage }),
-      )
+      return reply.send(success({ runId: id, result: result.result, usage: result.usage }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '执行失败'))

@@ -93,8 +93,7 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
   const dependencies = Array.isArray(deps)
     ? deps.filter((d): d is string => typeof d === 'string')
     : []
-  const workerId =
-    typeof payload.workerId === 'string' ? payload.workerId : undefined
+  const workerId = typeof payload.workerId === 'string' ? payload.workerId : undefined
   return {
     id: row.id,
     agentId: row.agentId,
@@ -145,9 +144,7 @@ function broadcastSSEEvent(event: AgentSSEEvent): void {
 const idParamSchema = z.object({ id: z.string().uuid() })
 
 const statusFilterSchema = z.object({
-  status: z
-    .enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done'])
-    .optional(),
+  status: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done']).optional(),
 })
 
 const createTaskSchema = z.object({
@@ -156,7 +153,7 @@ const createTaskSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().optional(),
   priority: z.number().int().optional(),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
   scheduledAt: z.coerce.date().optional(),
   dependencies: z.array(z.string()).max(100).optional(),
   workerId: z.string().optional(),
@@ -164,14 +161,7 @@ const createTaskSchema = z.object({
 
 const transitionSchema = z.object({
   taskId: z.string().uuid(),
-  toStatus: z.enum([
-    'triage',
-    'todo',
-    'ready',
-    'in_progress',
-    'blocked',
-    'done',
-  ]),
+  toStatus: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done']),
   operatedBy: z.string().optional(),
   reason: z.string().optional(),
 })
