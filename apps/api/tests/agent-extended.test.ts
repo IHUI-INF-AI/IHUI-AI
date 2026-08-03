@@ -37,6 +37,7 @@ const {
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
+  requireActiveUser: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
@@ -118,6 +119,7 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
     mockUpdateReturning.mockResolvedValue([{ id: 'mock-id' }])
     mockDeleteWhere.mockResolvedValue(undefined)
     mockAuthenticate.mockReset()
+    mockAdmin()
     mockCheckPermission.mockResolvedValue(false)
   })
 
@@ -171,6 +173,7 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
     })
 
     it('DELETE /need-task/:id 删除返回 200 + deleted:true', async () => {
+      mockDbExecute.mockResolvedValueOnce([{ id: '1', user_id: ADMIN_USER }])
       const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/need-task/1` })
       expect(res.statusCode).toBe(200)
       const body = res.json()
@@ -186,13 +189,14 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
   describe('upload 软删除', () => {
     it('DELETE /upload/:id 软删除调用 db.execute(UPDATE status=0)而非 db.delete', async () => {
       mockDbExecute.mockClear()
+      mockDbExecute.mockResolvedValueOnce([{ id: '1', user_id: ADMIN_USER }])
       const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/upload/1` })
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
       expect(body.data.deleted).toBe(true)
-      // 软删除路径:使用 db.execute(UPDATE ... SET status=0),不使用 db.delete
-      expect(mockDbExecute).toHaveBeenCalledTimes(1)
+      // 软删除路径:rawById 查询 + db.execute(UPDATE ... SET status=0),不使用 db.delete
+      expect(mockDbExecute).toHaveBeenCalledTimes(2)
     })
 
     it('GET /upload/list 仅返回 status=1 的记录(软删过滤)', async () => {
@@ -324,7 +328,7 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
       expect(res.statusCode).toBe(400)
       const body = res.json()
       expect(body.code).toBe(400)
-      expect(body.message).toContain('agentId')
+      expect(body.message).toContain('参数校验失败')
     })
 
     it('POST /rules 完整字段返回 201', async () => {
