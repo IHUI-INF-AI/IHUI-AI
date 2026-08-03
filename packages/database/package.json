@@ -31,9 +31,9 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "drizzle-kit": "^0.31.10",
-    "rimraf": "catalog:",
     "eslint": "catalog:",
-    "tsx": "^4.23.4",
+    "rimraf": "catalog:",
+    "tsx": "^4.23.5",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
