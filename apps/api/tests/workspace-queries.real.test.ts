@@ -63,7 +63,7 @@ describe('workspace-queries — 真实 DB 集成测试', () => {
       await new Promise((r) => setTimeout(r, 50))
       const _p2 = await createProject({ name: 'P2', userId: u.id })
       expect((await findProjectById(p1.id))?.name).toBe('P1')
-      expect(await findProjectById('00000000-0000-0000-0000-000000000000')).toBeUndefined()
+      expect(await findProjectById('00000000-0000-4000-8000-000000000000')).toBeUndefined()
       const list = await listProjectsByUser(u.id)
       expect(list).toHaveLength(2)
       expect(list[0].name).toBe('P2') // 最近更新在前

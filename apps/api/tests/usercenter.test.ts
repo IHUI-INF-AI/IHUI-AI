@@ -48,7 +48,7 @@ vi.mock('../src/db/queries.js', () => ({
 
 import { usercenterRoutes } from '../src/routes/usercenter'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('usercenter routes', () => {
   const server = Fastify({ logger: false })

@@ -21,7 +21,7 @@ vi.mock('../src/config/index.js', () => ({
 import { communityRoutes } from '../src/routes/community'
 
 // community 路由通过 preHandler 钩子统一鉴权，未登录时所有端点返回 401。
-const SAMPLE_UUID = '00000000-0000-0000-0000-000000000001'
+const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('community routes', () => {
   const server = Fastify({ logger: false })

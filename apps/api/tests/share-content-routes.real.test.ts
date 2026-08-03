@@ -58,7 +58,7 @@ describe('share-content-routes — 路由层真实 DB 集成测试', () => {
   it('GET /api/share/content/:code — 不存在的合法 UUID 返回 404', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/share/content/00000000-0000-0000-0000-000000000000',
+      url: '/api/share/content/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
     const body = res.json()
