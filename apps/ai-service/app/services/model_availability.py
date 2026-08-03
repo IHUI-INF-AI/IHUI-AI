@@ -6,9 +6,10 @@
 3. 提供 is_model_available() + get_available_models() 过滤不可用模型
 
 判定模型可显示的规则(任一满足即显示):
-- provider 是 zero_cost(pollinations/llm7/aihorde/opencode_zen):无需 key
 - provider 是 LOCAL(ollama/lmstudio/llamacpp/vllm):本地 LLM
-- provider 已配置 key(.env / LLM_PROVIDERS JSON)+ 健康检查非 DOWN
+- provider 已配置 key(.env / LLM_PROVIDERS JSON)+ 健康检查通过
+- provider 是 zero_cost(pollinations/llm7/aihorde/opencode_zen):无需 key,同样要过健康检查
+  (2026-08-02 起:zero_cost 也 ping 验证,aihorde 404 / opencode_zen 429 等调不通的不显示)
 - DB 来源模型(ai_model_config_models 表):用户主动配置,直接显示(由调用方决定)
 
 过滤掉的模型:
@@ -50,7 +51,9 @@ LATENCY_DEGRADED_MS = 10_000  # 10s 以上标记 DEGRADED(仍显示)
 LATENCY_DOWN_MS = 30_000      # 30s 以上标记 DOWN(不显示)
 
 # ping 超时(秒)
-PING_TIMEOUT_S = 8.0
+# 2026-08-02 修复:8s 对慢 provider(nvidia_nim 实测 9-16s)过严 → 误判 DOWN,
+# 调不通的判定应交给 LATENCY_DOWN_MS(30s):超时 20s + 30s DOWN 阈值逻辑自洽
+PING_TIMEOUT_S = 20.0
 
 # 缓存刷新间隔(秒)— 5 分钟刷新一次全量 provider 健康状态
 REFRESH_INTERVAL_S = 300
@@ -189,7 +192,9 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     ("codestral-", "mistral"),
     ("pixtral-", "mistral"),
     ("command-", "cohere"),
-    ("nemotron-", "nvidia"),
+    # 2026-08-02 修复:与 nvidia/ 前缀统一为 nvidia_nim(健康表 key 一致,
+    # 否则 nemotron-* 模型走 "nvidia" key 查不到健康状态 → 429 时漏过滤)
+    ("nemotron-", "nvidia_nim"),
     ("phi-", "microsoft"),
     ("phi3", "microsoft"),
     ("sonar-", "perplexity"),
@@ -379,13 +384,10 @@ class ModelAvailabilityService:
                         last_check=time.time(),
                     )
                 continue
-            # zero_cost provider 不 ping,直接标记 ZERO_COST
+            # zero_cost provider(无需 key):也纳入 ping 验证真实可用性
+            # (aihorde 404 / opencode_zen 429 等调不通的自动过滤;pollinations/llm7 通过则正常显示)
             if p.provider_code in _ZERO_COST_CODES:
-                async with self._lock:
-                    self._health[p.provider_code] = ProviderHealth(
-                        status=ProviderHealthStatus.ZERO_COST,
-                        last_check=time.time(),
-                    )
+                providers_to_ping.append((p.provider_code, "", p.default_base_url))
                 continue
             # 已配置 key 的 provider:加入 ping 列表
             # has_key 判断必须与 is_model_available() 保持一致:
@@ -609,66 +611,109 @@ class ModelAvailabilityService:
             url = f"{url}/v1/chat/completions"
 
         provider = free_provider_registry.get_by_code(code)
-        model_id = ""
+        # 2026-08-02 修复:默认模型可能不可用(如 llm7 的 qwen3-235b 已下线 → 400),
+        # 逐个尝试 default_models,任一成功即 HEALTHY,全部失败才 DOWN(避免误杀整个 provider)
+        model_ids: list[str] = []
         if provider and provider.default_models:
-            model_id = provider.default_models[0]
-            # 2026-08-02 修复:加 gemini/ 前缀(原只去 stepfun/agnes,导致 gemini ping 时
-            # model_id="gemini/gemini-2.5-flash" 带 / 被 Google API 拒绝 → health=DOWN → 模型被过滤)
+            model_ids = list(provider.default_models)
+        if not model_ids:
+            model_ids = ["gpt-3.5-turbo"]
+        # 剥离已知前缀(stepfun/agnes/gemini),模型名带 / 会被 API 拒绝
+        cleaned: list[str] = []
+        for mid in model_ids:
             for prefix in ("stepfun/", "agnes/", "gemini/"):
-                if model_id.startswith(prefix):
-                    model_id = model_id[len(prefix):]
+                if mid.startswith(prefix):
+                    mid = mid[len(prefix):]
                     break
-        if not model_id:
-            model_id = "gpt-3.5-turbo"
+            cleaned.append(mid)
+        model_ids = cleaned
 
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        last_err: tuple[int, str] | None = None
         try:
-            resp = await client.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model_id,
-                    "messages": [{"role": "user", "content": "ping"}],
-                    "max_tokens": 1,
-                    "stream": False,
-                },
-            )
-            latency = int((time.monotonic() - start) * 1000)
+            for model_id in model_ids:
+                try:
+                    resp = await client.post(
+                        url,
+                        headers=headers,
+                        json={
+                            "model": model_id,
+                            "messages": [{"role": "user", "content": "ping"}],
+                            "max_tokens": 1,
+                            "stream": False,
+                        },
+                    )
+                except httpx.TimeoutException:
+                    # 2026-08-02 修复:单模型超时继续尝试下一个(如 nvidia_nim 网络慢,
+                    # 首个模型超时不代表整个 provider 不可用)
+                    last_err = (0, f"timeout after {PING_TIMEOUT_S}s")
+                    continue
+                latency = int((time.monotonic() - start) * 1000)
 
-            if resp.status_code == 200:
-                if latency > LATENCY_DOWN_MS:
+                if resp.status_code == 200:
+                    if latency > LATENCY_DOWN_MS:
+                        return ProviderHealth(
+                            status=ProviderHealthStatus.DOWN,
+                            latency_ms=latency,
+                            last_check=time.time(),
+                            error=f"latency {latency}ms > {LATENCY_DOWN_MS}ms threshold",
+                            error_type=ProviderErrorType.TIMEOUT,
+                            recharge_url=recharge_url,
+                        )
+                    if latency > LATENCY_DEGRADED_MS:
+                        return ProviderHealth(
+                            status=ProviderHealthStatus.DEGRADED,
+                            latency_ms=latency,
+                            last_check=time.time(),
+                            recharge_url=recharge_url,
+                        )
                     return ProviderHealth(
-                        status=ProviderHealthStatus.DOWN,
+                        status=ProviderHealthStatus.HEALTHY,
                         latency_ms=latency,
                         last_check=time.time(),
-                        error=f"latency {latency}ms > {LATENCY_DOWN_MS}ms threshold",
-                        error_type=ProviderErrorType.TIMEOUT,
                         recharge_url=recharge_url,
                     )
-                if latency > LATENCY_DEGRADED_MS:
+
+                err_type = self._http_status_to_error_type(resp.status_code)
+                # 429 限流/402 余额不足:当前调不通,立即判定(换模型也无意义,同一账户)
+                if err_type in (ProviderErrorType.RATE_LIMITED, ProviderErrorType.PAYMENT_REQUIRED):
+                    status = ProviderHealthStatus.DEGRADED if err_type == ProviderErrorType.RATE_LIMITED else ProviderHealthStatus.DOWN
                     return ProviderHealth(
-                        status=ProviderHealthStatus.DEGRADED,
+                        status=status,
                         latency_ms=latency,
                         last_check=time.time(),
+                        error=f"HTTP {resp.status_code}: {resp.text[:150]}",
+                        error_type=err_type,
                         recharge_url=recharge_url,
                     )
+                # 其他错误(400/404/500):记下后尝试下一个模型
+                last_err = (resp.status_code, resp.text[:150])
+
+            # 所有默认模型都失败 → DOWN
+            if last_err is not None:
+                status_code, text = last_err
+                # 全部是超时(HTTP 0)→ TIMEOUT 错误类型;有真实 HTTP 错误用其状态映射
+                err_type = (
+                    ProviderErrorType.TIMEOUT
+                    if status_code == 0
+                    else self._http_status_to_error_type(status_code)
+                )
                 return ProviderHealth(
-                    status=ProviderHealthStatus.HEALTHY,
-                    latency_ms=latency,
+                    status=ProviderHealthStatus.DOWN,
+                    latency_ms=int((time.monotonic() - start) * 1000),
                     last_check=time.time(),
+                    error=f"HTTP {status_code}: {text}",
+                    error_type=err_type,
                     recharge_url=recharge_url,
                 )
-
-            err_type = self._http_status_to_error_type(resp.status_code)
-            status = ProviderHealthStatus.DEGRADED if err_type == ProviderErrorType.RATE_LIMITED else ProviderHealthStatus.DOWN
             return ProviderHealth(
-                status=status,
-                latency_ms=latency,
+                status=ProviderHealthStatus.DOWN,
                 last_check=time.time(),
-                error=f"HTTP {resp.status_code}: {resp.text[:150]}",
-                error_type=err_type,
+                error="no default models to ping",
+                error_type=ProviderErrorType.UNKNOWN,
                 recharge_url=recharge_url,
             )
         except httpx.TimeoutException:
@@ -716,14 +761,15 @@ class ModelAvailabilityService:
 
         判定规则(按顺序):
         1. 推断 provider_code,未知 → 不显示
-        2. zero_cost provider(pollinations/llm7/aihorde/opencode_zen)→ 显示
-        3. LOCAL provider(ollama/lmstudio/llamacpp/vllm)→ 显示
-        4. 已配置 key + 健康检查非 DOWN → 显示
-        5. 其他情况(未配置 key / DOWN)→ 不显示
+        2. LOCAL provider(ollama/lmstudio/llamacpp/vllm)→ 显示
+        3. 已配置 key / zero_cost(无需 key)→ 继续健康检查
+        4. 其他情况(未配置 key)→ 不显示
 
         特殊处理:
         - PENDING(尚未检测):视为可用(给 provider 一个宽松期,等首次 ping 完成)
-        - DEGRADED(延迟高/限流):仍显示(用户可选用,只是慢)
+        - DEGRADED 无错误(仅延迟高):仍显示(实测可调通,只是慢,如 agnes/nvidia)
+        - DEGRADED + 明确错误(429 限流/配额耗尽、402 余额不足、401 key 失效):不显示
+          (2026-08-02 修复:调不通的免费模型不进列表;恢复后 ping 成功自动重新显示)
         - DOWN(401/403/超时):不显示(确实接不通)
         - NOT_CONFIGURED:不显示(没配 key 用不了)
 
@@ -737,29 +783,42 @@ class ModelAvailabilityService:
         if not code:
             return False  # 未知 provider,不显示
 
-        # zero_cost provider(无需 key)
-        if code in _ZERO_COST_CODES:
-            return True
-
-        # LOCAL provider(本地 LLM,无需 key)
+        # LOCAL provider(本地 LLM,无需 key,直接显示)
         provider = free_provider_registry.get_by_code(code)
         if provider and provider.category == ProviderCategory.LOCAL:
             return True
 
-        # 已配置 key 检查:优先 LLM_PROVIDERS JSON,降级 free_provider_registry(查 os.environ)
-        cfg_name = _to_llm_providers_name(code)
-        cfg = settings.get_provider_config(cfg_name)
-        has_key = bool(cfg.api_key) or free_provider_registry.is_key_configured(code) == ProviderStatus.CONFIGURED
-        if not has_key:
-            return False  # 未配置 key,不显示
+        # 已配置 key 检查(zero_cost 无需 key,跳过):优先 LLM_PROVIDERS JSON,降级 free_provider_registry(查 os.environ)
+        is_zero_cost = code in _ZERO_COST_CODES
+        if not is_zero_cost:
+            cfg_name = _to_llm_providers_name(code)
+            cfg = settings.get_provider_config(cfg_name)
+            has_key = bool(cfg.api_key) or free_provider_registry.is_key_configured(code) == ProviderStatus.CONFIGURED
+            if not has_key:
+                return False  # 未配置 key,不显示
 
-        # 健康检查:DOWN / NOT_CONFIGURED 不显示,其他(HEALTHY/DEGRADED/PENDING/None)显示
-        # - DOWN:ping 失败(401/403/超时/网络错误),确实接不通
-        # - NOT_CONFIGURED:has_key=True 但 key 实际为空(env 配了但 JSON 无),用不了
+        # 健康检查(统一规则,zero_cost 也参与):
+        # - DOWN / NOT_CONFIGURED:不显示(接不通 / 没配 key)
+        # - DEGRADED + 明确错误(429 限流/配额耗尽、402 余额不足、401 key 失效):不显示
+        #   (2026-08-02 修复:调不通的免费模型不进列表,如 gemini 429 配额耗尽 / openrouter 余额不足 / aihorde 404;
+        #    恢复后 ping 成功自动重新显示)
+        # - DEGRADED 无错误(仅延迟高):显示(实测可调通,只是慢,如 agnes/nvidia)
         # - PENDING / None:尚未检测(启动初期),宽松显示(等首次 ping 完成)
-        # - DEGRADED:延迟高/限流,仍可用(用户可选用,只是慢)
         health = self._health.get(code)
-        if health and health.status in (ProviderHealthStatus.DOWN, ProviderHealthStatus.NOT_CONFIGURED):
+        if not health:
+            return True
+        if health.status in (ProviderHealthStatus.DOWN, ProviderHealthStatus.NOT_CONFIGURED):
+            return False
+        if (
+            health.status == ProviderHealthStatus.DEGRADED
+            and health.error_type
+            in (
+                ProviderErrorType.RATE_LIMITED,
+                ProviderErrorType.PAYMENT_REQUIRED,
+                ProviderErrorType.INVALID_KEY,
+                ProviderErrorType.FORBIDDEN,
+            )
+        ):
             return False
         return True
 
