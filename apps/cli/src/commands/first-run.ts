@@ -60,7 +60,7 @@ export async function runFirstRunSetup(): Promise<boolean> {
       default: 'default',
     },
     {
-      type: 'list',
+      type: 'select',
       name: 'locale',
       message: '界面语言:',
       choices: ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'],
