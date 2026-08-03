@@ -8,15 +8,15 @@
   },
   "course": {
     "title": "課程",
-    "studentCount": "{{count}} 人學過",
-    "pay": "支付 ¥{{amount}}",
+    "studentCount": "{count} 人學過",
+    "pay": "支付 ¥{amount}",
     "enroll": "立即報名",
     "enrolled": "已報名",
     "progress": "學習進度"
   },
   "live": {
     "title": "直播",
-    "viewerCount": "{{count}} 人觀看",
+    "viewerCount": "{count} 人觀看",
     "upcoming": "即將開播",
     "ended": "已結束",
     "chat": "互動"
@@ -39,10 +39,10 @@
     "paidAt": "支付時間",
     "untitledOrder": "未命名訂單",
     "syncStatus": "同步狀態",
-    "syncSuccess": "訂單 {{orderNo}} 狀態已同步",
+    "syncSuccess": "訂單 {orderNo} 狀態已同步",
     "syncFailed": "同步狀態失敗",
     "cancelOrder": "取消訂單",
-    "cancelSuccess": "訂單 {{orderNo}} 已取消",
+    "cancelSuccess": "訂單 {orderNo} 已取消",
     "cancelFailed": "取消訂單失敗",
     "status": {
       "pending": "待支付",
@@ -154,7 +154,7 @@
     },
     "file": {
       "attach": "新增附件",
-      "attached": "已附加: {{filename}} ({{size}})",
+      "attached": "已附加: {filename} ({size})",
       "tooLarge": "檔案過大(限制 1MB)",
       "invalidBase64": "Base64 內容非法",
       "missingFilename": "請填寫檔名",
@@ -170,19 +170,19 @@
   "aiAssistant": {
     "chat": {
       "title": "進入對話",
-      "message": "即將與「{{name}}」開始對話"
+      "message": "即將與「{name}」開始對話"
     }
   },
   "aiCareer": {
     "plan": {
       "title": "生成規劃",
-      "message": "正在為「{{name}}」生成 90 天成長計畫"
+      "message": "正在為「{name}」生成 90 天成長計畫"
     }
   },
   "aigcCover": {
     "applied": {
       "title": "封面已套用",
-      "message": "已為「{{title}}」套用封面:{{label}}"
+      "message": "已為「{title}」套用封面:{label}"
     },
     "aiGen": {
       "title": "AI 生成封面",
@@ -198,17 +198,17 @@
   "aiGroup": {
     "join": {
       "title": "加入群組",
-      "message": "已申請加入「{{name}}」"
+      "message": "已申請加入「{name}」"
     }
   },
   "assistant": {
     "edit": {
       "title": "操作",
-      "message": "設定「{{name}}」的售賣配置"
+      "message": "設定「{name}」的售賣配置"
     },
     "offline": {
       "title": "下架確認",
-      "message": "是否確定下架「{{name}}」?",
+      "message": "是否確定下架「{name}」?",
       "confirmBtn": "確定下架",
       "done": "已下架"
     }
@@ -216,7 +216,7 @@
   "chatAlert": {
     "compaction": {
       "title": "上下文已自動壓縮",
-      "message": "{{before}} → {{after}}(移除 {{removed}} 條歷史)"
+      "message": "{before} → {after}(移除 {removed} 條歷史)"
     },
     "loginBtn": "去登入",
     "longPress": {
@@ -255,7 +255,7 @@
     },
     "ended": {
       "title": "直播已結束",
-      "message": "本次直播時長:{{duration}}"
+      "message": "本次直播時長:{duration}"
     },
     "productAdd": {
       "message": "商品添加功能待接入"
@@ -275,8 +275,8 @@
     "toggle": {
       "stopTitle": "停止工作流",
       "startTitle": "啟動工作流",
-      "stopMessage": "確定停止「{{name}}」嗎?",
-      "startMessage": "確定啟動「{{name}}」嗎?",
+      "stopMessage": "確定停止「{name}」嗎?",
+      "startMessage": "確定啟動「{name}」嗎?",
       "success": "操作成功"
     }
   },
@@ -287,17 +287,17 @@
     },
     "detail": {
       "title": "模型詳情",
-      "message": "檢視「{{name}}」完整參數與定價"
+      "message": "檢視「{name}」完整參數與定價"
     }
   },
   "tokenValue": {
     "recharge": {
       "title": "確認充值",
-      "message": "套餐:{{tokens}} Token · ¥{{price}}",
+      "message": "套餐:{tokens} Token · ¥{price}",
       "payBtn": "立即支付",
       "success": {
         "title": "支付成功",
-        "message": "已到賬 {{tokens}} Token"
+        "message": "已到賬 {tokens} Token"
       }
     }
   },

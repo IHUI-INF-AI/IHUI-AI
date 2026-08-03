@@ -1222,12 +1222,12 @@
   "modelPlaza": {
     "title": "模型广场",
     "compareBtn": "对比",
-    "providerTotal": "共 {{count}} 个模型",
+    "providerTotal": "共 {count} 个模型",
     "loadFailed": "加载失败,下拉刷新重试",
     "emptyType": "暂无该类型模型",
     "input": "Input",
     "output": "Output",
-    "priceUnit": "¥{{price}}/M",
+    "priceUnit": "¥{price}/M",
     "perCall": "(按次计费)",
     "typeAll": "全部",
     "typeText": "文本",
@@ -1239,7 +1239,7 @@
     },
     "detail": {
       "title": "模型详情",
-      "message": "查看「{{name}}」完整参数与定价"
+      "message": "查看「{name}」完整参数与定价"
     }
   },
   "n8nModel": {
@@ -1253,16 +1253,16 @@
     "empty": "暂无 n8n 工作流",
     "running": "运行中",
     "stopped": "已停止",
-    "calls": "调用 {{count}}",
-    "params": "入参 {{in}} · 出参 {{out}}",
+    "calls": "调用 {count}",
+    "params": "入参 {in} · 出参 {out}",
     "actionStart": "启动",
     "actionStop": "停止",
     "actionEdit": "编辑",
     "toggle": {
       "stopTitle": "停止工作流",
       "startTitle": "启动工作流",
-      "stopMessage": "确定停止「{{name}}」吗?",
-      "startMessage": "确定启动「{{name}}」吗?",
+      "stopMessage": "确定停止「{name}」吗?",
+      "startMessage": "确定启动「{name}」吗?",
       "success": "操作成功"
     }
   },
@@ -1272,7 +1272,7 @@
     "labelDept": "部门",
     "labelSaleType": "售卖方式",
     "labelCycle": "收费周期",
-    "labelPrice": "价格(元 / {{cycle}})",
+    "labelPrice": "价格(元 / {cycle})",
     "labelFreeDur": "限时免费时限",
     "labelDiscount": "是否参与折扣",
     "labelAudience": "面向群体",
@@ -1557,11 +1557,11 @@
     "actionReedit": "重新编辑",
     "edit": {
       "title": "操作",
-      "message": "设置「{{name}}」的售卖配置"
+      "message": "设置「{name}」的售卖配置"
     },
     "offline": {
       "title": "下架确认",
-      "message": "是否确定下架「{{name}}」?",
+      "message": "是否确定下架「{name}」?",
       "confirmBtn": "确定下架",
       "done": "已下架"
     }
@@ -1574,26 +1574,26 @@
     "empty": "暂无群组",
     "loadFailed": "加载失败",
     "back": "返回",
-    "detailMembers": "协作成员({{count}})",
+    "detailMembers": "协作成员({count})",
     "detailRecent": "最近对话",
     "detailEnter": "进入群聊",
-    "metaActive": "活跃 {{time}}",
-    "metaMessages": "消息 {{count}}",
-    "cardMembers": "{{count}} 成员 · {{messages}} 消息",
+    "metaActive": "活跃 {time}",
+    "metaMessages": "消息 {count}",
+    "cardMembers": "{count} 成员 · {messages} 消息",
     "enterMine": "进入",
     "enterDiscover": "加入",
     "previewHello": "大家好,我们开始本次协作,先确认目标与分工。",
     "previewMine": "收到,我这边准备开始调研。",
-    "memberRole": "角色: {{role}}",
+    "memberRole": "角色: {role}",
     "join": {
       "title": "加入群组",
-      "message": "已申请加入「{{name}}」"
+      "message": "已申请加入「{name}」"
     }
   },
   "aigcCover": {
     "loading": "加载中...",
     "title": "选择封面",
-    "subtitle": "作品:{{title}}",
+    "subtitle": "作品:{title}",
     "workTitleDefault": "未命名作品",
     "back": "返回",
     "filterAll": "全部",
@@ -1606,7 +1606,7 @@
     "loadFailed": "加载失败",
     "applied": {
       "title": "封面已应用",
-      "message": "已为「{{title}}」应用封面:{{label}}"
+      "message": "已为「{title}」应用封面:{label}"
     },
     "aiGen": {
       "title": "AI 生成封面",
@@ -1619,7 +1619,7 @@
     "subtitle": "选择类型 → 上传素材 → 填写信息 → 发布",
     "labelType": "作品类型",
     "labelTextContent": "文本内容",
-    "labelUpload": "上传素材 ({{count}}/5)",
+    "labelUpload": "上传素材 ({count}/5)",
     "labelTitle": "作品标题",
     "labelDescription": "作品简介",
     "labelPrompt": "提示词",

@@ -1222,12 +1222,12 @@
   "modelPlaza": {
     "title": "모델 광장",
     "compareBtn": "비교",
-    "providerTotal": "총 {{count}}개 모델",
+    "providerTotal": "총 {count}개 모델",
     "loadFailed": "로드 실패, 새로고침",
     "emptyType": "해당 유형의 모델 없음",
     "input": "입력",
     "output": "출력",
-    "priceUnit": "¥{{price}}/M",
+    "priceUnit": "¥{price}/M",
     "perCall": "(건당 과금)",
     "typeAll": "전체",
     "typeText": "텍스트",
@@ -1239,7 +1239,7 @@
     },
     "detail": {
       "title": "모델 상세",
-      "message": "「{{name}}」의 전체 사양과 가격 보기"
+      "message": "「{name}」의 전체 사양과 가격 보기"
     }
   },
   "n8nModel": {
@@ -1253,16 +1253,16 @@
     "empty": "n8n 워크플로우 없음",
     "running": "실행 중",
     "stopped": "중지됨",
-    "calls": "호출 {{count}}",
-    "params": "입력 {{in}} · 출력 {{out}}",
+    "calls": "호출 {count}",
+    "params": "입력 {in} · 출력 {out}",
     "actionStart": "시작",
     "actionStop": "중지",
     "actionEdit": "편집",
     "toggle": {
       "stopTitle": "워크플로우 중지",
       "startTitle": "워크플로우 시작",
-      "stopMessage": "「{{name}}」을(를) 중지하시겠습니까?",
-      "startMessage": "「{{name}}」을(를) 시작하시겠습니까?",
+      "stopMessage": "「{name}」을(를) 중지하시겠습니까?",
+      "startMessage": "「{name}」을(를) 시작하시겠습니까?",
       "success": "작업 성공"
     }
   },
@@ -1272,7 +1272,7 @@
     "labelDept": "부서",
     "labelSaleType": "판매 방식",
     "labelCycle": "청구 주기",
-    "labelPrice": "가격(위안 / {{cycle}})",
+    "labelPrice": "가격(위안 / {cycle})",
     "labelFreeDur": "기간 한정 무료",
     "labelDiscount": "할인",
     "labelAudience": "대상",
@@ -1557,11 +1557,11 @@
     "actionReedit": "다시 편집",
     "edit": {
       "title": "작업",
-      "message": "「{{name}}」의 판매 설정"
+      "message": "「{name}」의 판매 설정"
     },
     "offline": {
       "title": "비공개 확인",
-      "message": "「{{name}}」을(를) 비공개로 전환하시겠습니까?",
+      "message": "「{name}」을(를) 비공개로 전환하시겠습니까?",
       "confirmBtn": "비공개 전환",
       "done": "비공개로 전환됨"
     }
@@ -1574,26 +1574,26 @@
     "empty": "그룹이 없습니다",
     "loadFailed": "불러오기 실패",
     "back": "뒤로",
-    "detailMembers": "멤버 ({{count}})",
+    "detailMembers": "멤버 ({count})",
     "detailRecent": "최근 대화",
     "detailEnter": "그룹 채팅 입장",
-    "metaActive": "활동 {{time}}",
-    "metaMessages": "메시지 {{count}}",
-    "cardMembers": "{{count}} 멤버 · {{messages}} 메시지",
+    "metaActive": "활동 {time}",
+    "metaMessages": "메시지 {count}",
+    "cardMembers": "{count} 멤버 · {messages} 메시지",
     "enterMine": "입장",
     "enterDiscover": "참여",
     "previewHello": "안녕하세요, 이번 협업을 시작하겠습니다. 먼저 목표와 역할 분담을 확인해요.",
     "previewMine": "알겠습니다. 저는 조사를 시작하겠습니다.",
-    "memberRole": "역할: {{role}}",
+    "memberRole": "역할: {role}",
     "join": {
       "title": "그룹 참여",
-      "message": "「{{name}}」 참여를 신청했습니다"
+      "message": "「{name}」 참여를 신청했습니다"
     }
   },
   "aigcCover": {
     "loading": "불러오는 중...",
     "title": "표지 선택",
-    "subtitle": "작품: {{title}}",
+    "subtitle": "작품: {title}",
     "workTitleDefault": "제목 없는 작품",
     "back": "뒤로",
     "filterAll": "전체",
@@ -1606,7 +1606,7 @@
     "loadFailed": "불러오기 실패",
     "applied": {
       "title": "표지 적용됨",
-      "message": "「{{title}}」에 표지를 적용했습니다: {{label}}"
+      "message": "「{title}」에 표지를 적용했습니다: {label}"
     },
     "aiGen": {
       "title": "AI 표지 생성",
@@ -1619,7 +1619,7 @@
     "subtitle": "유형 선택 → 업로드 → 정보 입력 → 게시",
     "labelType": "작품 유형",
     "labelTextContent": "텍스트 내용",
-    "labelUpload": "소재 업로드 ({{count}}/5)",
+    "labelUpload": "소재 업로드 ({count}/5)",
     "labelTitle": "작품 제목",
     "labelDescription": "작품 소개",
     "labelPrompt": "프롬프트",
