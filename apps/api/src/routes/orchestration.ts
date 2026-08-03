@@ -105,7 +105,7 @@ const PILLAR_EVENT_TYPE_VALUES = [
 const emitEventSchema = z.object({
   event_type: z.enum(PILLAR_EVENT_TYPE_VALUES),
   source_pillar: z.enum(PILLAR_VALUES),
-  payload: z.record(z.unknown()).default({}),
+  payload: z.record(z.string(), z.unknown()).default({}),
   severity: z.enum(SEVERITY_VALUES).default('info'),
 })
 
@@ -148,15 +148,11 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data))
   })
 
-  server.get(
-    '/orchestration/dashboard',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const data = await getHubDashboard(req)
-      if (!data) return reply.status(503).send(error(503, '编排仪表盘不可用'))
-      return reply.send(success(data))
-    },
-  )
+  server.get('/orchestration/dashboard', { preHandler: authenticate }, async (req, reply) => {
+    const data = await getHubDashboard(req)
+    if (!data) return reply.status(503).send(error(503, '编排仪表盘不可用'))
+    return reply.send(success(data))
+  })
 
   server.get('/orchestration/events', { preHandler: authenticate }, async (req, reply) => {
     const { limit, pillar, event_type } = req.query as {
@@ -173,41 +169,29 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(data ?? []))
   })
 
-  server.post(
-    '/orchestration/events/emit',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const parsed = emitEventSchema.safeParse(req.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const data = await emitEvent(req, parsed.data)
-      if (!data) return reply.status(503).send(error(503, '事件发射失败'))
-      return reply.send(success(data))
-    },
-  )
+  server.post('/orchestration/events/emit', { preHandler: authenticate }, async (req, reply) => {
+    const parsed = emitEventSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const data = await emitEvent(req, parsed.data)
+    if (!data) return reply.status(503).send(error(503, '事件发射失败'))
+    return reply.send(success(data))
+  })
 
-  server.get(
-    '/orchestration/events/stats',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const { window_hours } = req.query as { window_hours?: string }
-      const data = await getEventStats(
-        req,
-        window_hours ? Math.min(parseInt(window_hours, 10) || 24, 168) : 24,
-      )
-      return reply.send(success(data ?? {}))
-    },
-  )
+  server.get('/orchestration/events/stats', { preHandler: authenticate }, async (req, reply) => {
+    const { window_hours } = req.query as { window_hours?: string }
+    const data = await getEventStats(
+      req,
+      window_hours ? Math.min(parseInt(window_hours, 10) || 24, 168) : 24,
+    )
+    return reply.send(success(data ?? {}))
+  })
 
-  server.get(
-    '/orchestration/playbooks',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const data = await getPlaybooks(req)
-      return reply.send(success(data ?? []))
-    },
-  )
+  server.get('/orchestration/playbooks', { preHandler: authenticate }, async (req, reply) => {
+    const data = await getPlaybooks(req)
+    return reply.send(success(data ?? []))
+  })
 
   server.post(
     '/orchestration/playbooks/:id/toggle',
@@ -224,71 +208,48 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  server.get(
-    '/orchestration/decisions',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const { limit } = req.query as { limit?: string }
-      const data = await getDecisions(
-        req,
-        limit ? Math.min(parseInt(limit, 10) || 50, 500) : 50,
-      )
-      return reply.send(success(data ?? []))
-    },
-  )
+  server.get('/orchestration/decisions', { preHandler: authenticate }, async (req, reply) => {
+    const { limit } = req.query as { limit?: string }
+    const data = await getDecisions(req, limit ? Math.min(parseInt(limit, 10) || 50, 500) : 50)
+    return reply.send(success(data ?? []))
+  })
 
   // -----------------------------------------------------------------------
   // LLM 预算治理
   // -----------------------------------------------------------------------
 
-  server.post(
-    '/orchestration/budget/record',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const parsed = recordUsageSchema.safeParse(req.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const data = await recordBudgetUsage(req, parsed.data)
-      if (!data) return reply.status(503).send(error(503, '用量记录失败'))
-      return reply.send(success(data))
-    },
-  )
+  server.post('/orchestration/budget/record', { preHandler: authenticate }, async (req, reply) => {
+    const parsed = recordUsageSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const data = await recordBudgetUsage(req, parsed.data)
+    if (!data) return reply.status(503).send(error(503, '用量记录失败'))
+    return reply.send(success(data))
+  })
 
-  server.post(
-    '/orchestration/budget/check',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const parsed = checkBudgetSchema.safeParse(req.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const data = await checkBudget(req, parsed.data.pillar, parsed.data.estimated_tokens)
-      if (!data) return reply.status(503).send(error(503, '预算检查失败'))
-      return reply.send(success(data))
-    },
-  )
+  server.post('/orchestration/budget/check', { preHandler: authenticate }, async (req, reply) => {
+    const parsed = checkBudgetSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const data = await checkBudget(req, parsed.data.pillar, parsed.data.estimated_tokens)
+    if (!data) return reply.status(503).send(error(503, '预算检查失败'))
+    return reply.send(success(data))
+  })
 
-  server.get(
-    '/orchestration/budget/summary',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const { period } = req.query as { period?: string }
-      const data = await getBudgetSummary(req, period ?? 'today')
-      if (!data) return reply.status(503).send(error(503, '用量汇总不可用'))
-      return reply.send(success(data))
-    },
-  )
+  server.get('/orchestration/budget/summary', { preHandler: authenticate }, async (req, reply) => {
+    const { period } = req.query as { period?: string }
+    const data = await getBudgetSummary(req, period ?? 'today')
+    if (!data) return reply.status(503).send(error(503, '用量汇总不可用'))
+    return reply.send(success(data))
+  })
 
-  server.get(
-    '/orchestration/budget/trend',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const { days } = req.query as { days?: string }
-      const data = await getBudgetTrend(req, days ? parseInt(days, 10) || 7 : 7)
-      return reply.send(success(data ?? []))
-    },
-  )
+  server.get('/orchestration/budget/trend', { preHandler: authenticate }, async (req, reply) => {
+    const { days } = req.query as { days?: string }
+    const data = await getBudgetTrend(req, days ? parseInt(days, 10) || 7 : 7)
+    return reply.send(success(data ?? []))
+  })
 
   server.get(
     '/orchestration/budget/pillar/:pillar',
@@ -312,19 +273,15 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  server.patch(
-    '/orchestration/budget/config',
-    { preHandler: authenticate },
-    async (req, reply) => {
-      const parsed = budgetConfigSchema.safeParse(req.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const data = await updateBudgetConfig(req, parsed.data)
-      if (!data) return reply.status(503).send(error(503, '配置更新失败'))
-      return reply.send(success(data))
-    },
-  )
+  server.patch('/orchestration/budget/config', { preHandler: authenticate }, async (req, reply) => {
+    const parsed = budgetConfigSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const data = await updateBudgetConfig(req, parsed.data)
+    if (!data) return reply.status(503).send(error(503, '配置更新失败'))
+    return reply.send(success(data))
+  })
 
   server.get(
     '/orchestration/budget/cost-breakdown',
@@ -376,10 +333,7 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: authenticate },
     async (req, reply) => {
       const { limit } = req.query as { limit?: string }
-      const data = await getRecentTraces(
-        req,
-        limit ? Math.min(parseInt(limit, 10) || 20, 100) : 20,
-      )
+      const data = await getRecentTraces(req, limit ? Math.min(parseInt(limit, 10) || 20, 100) : 20)
       return reply.send(success(data ?? []))
     },
   )

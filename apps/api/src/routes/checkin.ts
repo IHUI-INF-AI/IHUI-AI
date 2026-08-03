@@ -166,7 +166,7 @@ const ruleSchema = z.object({
   name: z.string().min(1).max(128),
   consecutiveDays: z.number().int().min(1),
   rewardPoints: z.number().int().min(0),
-  extraReward: z.record(z.unknown()).optional(),
+  extraReward: z.record(z.string(), z.unknown()).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 

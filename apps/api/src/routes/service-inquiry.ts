@@ -57,10 +57,10 @@ const createInquirySchema = z.object({
   company: z.string().max(100).optional().nullable(),
   email: z.string().min(1, '请输入邮箱').email({ message: '邮箱格式不正确' }),
   phone: z.string().max(30).optional().nullable(),
-  serviceType: z.enum(SERVICE_TYPES, { errorMap: () => ({ message: '请选择服务类型' }) }),
-  budget: z.enum(BUDGETS, { errorMap: () => ({ message: '请选择预算范围' }) }),
+  serviceType: z.enum(SERVICE_TYPES, { error: '请选择服务类型' }),
+  budget: z.enum(BUDGETS, { error: '请选择预算范围' }),
   description: z.string().min(50, '需求描述至少 50 字').max(2000),
-  timeline: z.enum(TIMELINES, { errorMap: () => ({ message: '请选择期望交付时间' }) }),
+  timeline: z.enum(TIMELINES, { error: '请选择期望交付时间' }),
   // honeypot:正常用户不会填此字段,机器人会填;schema 接受任意值,handler 中静默拒绝
   website: z.string().optional(),
 })
@@ -75,7 +75,7 @@ const listQuerySchema = z.object({
 const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
 
 const updateStatusSchema = z.object({
-  status: z.enum(STATUSES, { errorMap: () => ({ message: '无效的状态' }) }),
+  status: z.enum(STATUSES, { error: '无效的状态' }),
 })
 
 // =============================================================================
@@ -114,7 +114,12 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
 
     // 邮件通知占位(后续接入 mail 服务:business@aizhs.top)
     request.log.info(
-      { id: inquiry.id, name: inquiry.name, email: inquiry.email, serviceType: inquiry.serviceType },
+      {
+        id: inquiry.id,
+        name: inquiry.name,
+        email: inquiry.email,
+        serviceType: inquiry.serviceType,
+      },
       '[service-inquiry] 新询价提交,待发送邮件通知到 business@aizhs.top',
     )
 
@@ -131,9 +136,7 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
     adminServer.get('/admin/list', async (request, reply) => {
       const parsed = listQuerySchema.safeParse(request.query)
       if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { page, pageSize, status, serviceType } = parsed.data
       let items = Array.from(inquiryStore.values())

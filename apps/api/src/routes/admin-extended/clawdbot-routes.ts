@@ -20,7 +20,7 @@ const createClawdbotBotSchema = z.object({
   temperature: z.string().max(10).optional(),
   maxTokens: z.number().int().optional(),
   isActive: z.boolean().optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 const updateClawdbotBotSchema = createClawdbotBotSchema.partial()
 

@@ -86,9 +86,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     // 2026-07-28 加固:z.parse 抛 ZodError 时 errorHandler 可能误判为 500,
     // 把整个 handler 用 try/catch 包裹,任何错误统一返回 400 + 中文消息
     try {
-      const body = z
-        .object({ path: z.string().optional() })
-        .parse(request.body ?? {})
+      const body = z.object({ path: z.string().optional() }).parse(request.body ?? {})
       const entries = fsBridge.browse(body.path)
       return reply.send(success({ entries }))
     } catch (e) {
@@ -107,9 +105,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const techStack = fsBridge.detectTechStack(body.path)
       fsBridge.addRecent({ path: body.path, name, techStack })
       // 同步查询当前用户的权限配置,前端据此决定是否弹窗
-      const { getPermission, touchLastAccessed } = await import(
-        '../db/workspace-permission-queries.js'
-      )
+      const { getPermission, touchLastAccessed } =
+        await import('../db/workspace-permission-queries.js')
       const perm = await getPermission(request.userId, body.path)
       if (perm) await touchLastAccessed(request.userId, body.path)
       return reply.send(
@@ -769,7 +766,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     workspacePath: z.string().min(1),
     mode: z.enum(['default', 'acceptEdits', 'plan', 'bypassPermissions']),
     tool: z.string().min(1),
-    args: z.record(z.unknown()).default({}),
+    args: z.record(z.string(), z.unknown()).default({}),
   })
 
   server.post('/permissions/check', async (request, reply) => {
