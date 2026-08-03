@@ -50,9 +50,9 @@ describe('Missing User Routes API (支付/提现真实化端点)', () => {
       {
         method: 'POST',
         url: '/api/refunds/apply',
-        payload: { orderId: '00000000-0000-0000-0000-000000000000' },
+        payload: { orderId: '00000000-0000-4000-8000-000000000000' },
       },
-      { method: 'GET', url: '/api/top_up/status/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/top_up/status/00000000-0000-4000-8000-000000000000' },
     ]
 
     for (const { method, url, payload } of paymentEndpoints) {
@@ -77,14 +77,14 @@ describe('Missing User Routes API (支付/提现真实化端点)', () => {
       { method: 'GET', url: '/api/finance/withdrawal/getWithdrawal' },
       { method: 'GET', url: '/api/finance/withdrawal/my-records' },
       { method: 'GET', url: '/api/finance/withdrawal/flows/list' },
-      { method: 'GET', url: '/api/finance/withdrawal/flows/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/finance/withdrawal/flows/00000000-0000-4000-8000-000000000000' },
       {
         method: 'POST',
-        url: '/api/finance/withdrawal/flows/00000000-0000-0000-0000-000000000000/approve',
+        url: '/api/finance/withdrawal/flows/00000000-0000-4000-8000-000000000000/approve',
       },
       {
         method: 'POST',
-        url: '/api/finance/withdrawal/flows/00000000-0000-0000-0000-000000000000/reject',
+        url: '/api/finance/withdrawal/flows/00000000-0000-4000-8000-000000000000/reject',
         payload: { reason: 'test' },
       },
     ]
@@ -102,7 +102,7 @@ describe('Missing User Routes API (支付/提现真实化端点)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/refunds/apply',
-        payload: { orderId: '00000000-0000-0000-0000-000000000000' },
+        payload: { orderId: '00000000-0000-4000-8000-000000000000' },
       })
       expect(res.statusCode).toBe(401)
       const body = res.json()

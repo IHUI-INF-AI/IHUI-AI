@@ -39,14 +39,14 @@ describe('AI Modules Routes API (ai/ai-ext 真实化端点)', () => {
     }> = [
       { method: 'GET', url: '/api/ai/index' },
       { method: 'GET', url: '/api/ai/team' },
-      { method: 'GET', url: '/api/ai/team/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/ai/team/00000000-0000-4000-8000-000000000000' },
       {
         method: 'POST',
         url: '/api/ai/chat/conversations',
         payload: { title: 'test', modelId: 'gpt-4' },
       },
       { method: 'GET', url: '/api/ai/chat/conversations' },
-      { method: 'DELETE', url: '/api/ai/chat/conversations/00000000-0000-0000-0000-000000000000' },
+      { method: 'DELETE', url: '/api/ai/chat/conversations/00000000-0000-4000-8000-000000000000' },
       { method: 'POST', url: '/api/ai/aigc/tasks/task-1/cancel' },
       { method: 'GET', url: '/api/ai-ext/reports' },
       {

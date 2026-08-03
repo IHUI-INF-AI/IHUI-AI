@@ -72,7 +72,7 @@ describe('agents extended routes (M-63)', () => {
   it('GET /api/settlement/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/settlement/00000000-0000-0000-0000-000000000000',
+      url: '/api/settlement/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -80,7 +80,7 @@ describe('agents extended routes (M-63)', () => {
   it('PUT /api/settlement/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/settlement/00000000-0000-0000-0000-000000000000',
+      url: '/api/settlement/00000000-0000-4000-8000-000000000000',
       body: { status: 'settled' },
     })
     expect(res.statusCode).toBe(401)
@@ -94,7 +94,7 @@ describe('agents extended routes (M-63)', () => {
   it('GET /api/agents/need-tasks/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/agents/need-tasks/00000000-0000-0000-0000-000000000000',
+      url: '/api/agents/need-tasks/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -103,7 +103,7 @@ describe('agents extended routes (M-63)', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/agents/need-tasks',
-      body: { title: '测试需求', agentId: '00000000-0000-0000-0000-000000000000' },
+      body: { title: '测试需求', agentId: '00000000-0000-4000-8000-000000000000' },
     })
     expect(res.statusCode).toBe(401)
   })
@@ -111,7 +111,7 @@ describe('agents extended routes (M-63)', () => {
   it('PUT /api/agents/need-tasks/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/agents/need-tasks/00000000-0000-0000-0000-000000000000',
+      url: '/api/agents/need-tasks/00000000-0000-4000-8000-000000000000',
       body: { title: '更新需求' },
     })
     expect(res.statusCode).toBe(401)
@@ -120,7 +120,7 @@ describe('agents extended routes (M-63)', () => {
   it('DELETE /api/agents/need-tasks/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/agents/need-tasks/00000000-0000-0000-0000-000000000000',
+      url: '/api/agents/need-tasks/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })

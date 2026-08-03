@@ -52,7 +52,7 @@ describe('Learn Extended API', () => {
     it('GET /api/learn/maps/:id — map detail (valid uuid not found)', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/learn/maps/00000000-0000-0000-0000-000000000000',
+        url: '/api/learn/maps/00000000-0000-4000-8000-000000000000',
       })
       expect([404, 500]).toContain(res.statusCode)
     })
@@ -70,7 +70,7 @@ describe('Learn Extended API', () => {
     it('GET /api/learn/lessons/:lessonId/rates — rate list (valid uuid)', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/learn/lessons/00000000-0000-0000-0000-000000000000/rates',
+        url: '/api/learn/lessons/00000000-0000-4000-8000-000000000000/rates',
       })
       expect([200, 500]).toContain(res.statusCode)
     })
@@ -85,7 +85,7 @@ describe('Learn Extended API', () => {
     it('POST /api/learn/lessons/:lessonId/rates — requires auth', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/learn/lessons/00000000-0000-0000-0000-000000000000/rates',
+        url: '/api/learn/lessons/00000000-0000-4000-8000-000000000000/rates',
         payload: { content: 'test', contentUtilityScore: 5 },
       })
       expect(res.statusCode).toBe(401)
@@ -94,7 +94,7 @@ describe('Learn Extended API', () => {
     it('GET /api/learn/lessons/:lessonId/rates/my — requires auth', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/learn/lessons/00000000-0000-0000-0000-000000000000/rates/my',
+        url: '/api/learn/lessons/00000000-0000-4000-8000-000000000000/rates/my',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -113,7 +113,7 @@ describe('Learn Extended API', () => {
     it('PUT /api/admin/learn/maps/:id — requires auth', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/admin/learn/maps/00000000-0000-0000-0000-000000000000',
+        url: '/api/admin/learn/maps/00000000-0000-4000-8000-000000000000',
         payload: { title: 'Updated' },
       })
       expect(res.statusCode).toBe(401)
@@ -127,7 +127,7 @@ describe('Learn Extended API', () => {
     it('GET /api/admin/learn/maps/:id/detail — requires auth', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/learn/maps/00000000-0000-0000-0000-000000000000/detail',
+        url: '/api/admin/learn/maps/00000000-0000-4000-8000-000000000000/detail',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -137,7 +137,7 @@ describe('Learn Extended API', () => {
     it('GET /api/admin/learn/lessons/:lessonId/tasks — requires auth', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/tasks',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/tasks',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -145,7 +145,7 @@ describe('Learn Extended API', () => {
     it('POST /api/admin/learn/lessons/:lessonId/tasks — requires auth', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/tasks',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/tasks',
         payload: { title: 'Task 1' },
       })
       expect(res.statusCode).toBe(401)
@@ -154,7 +154,7 @@ describe('Learn Extended API', () => {
     it('GET /api/admin/learn/lessons/:lessonId/tasks/:taskId — requires auth', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/tasks/00000000-0000-0000-0000-000000000000',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/tasks/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -162,7 +162,7 @@ describe('Learn Extended API', () => {
     it('PUT /api/admin/learn/lessons/:lessonId/tasks/:taskId — requires auth', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/tasks/00000000-0000-0000-0000-000000000000',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/tasks/00000000-0000-4000-8000-000000000000',
         payload: { title: 'Updated Task' },
       })
       expect(res.statusCode).toBe(401)
@@ -171,7 +171,7 @@ describe('Learn Extended API', () => {
     it('DELETE /api/admin/learn/lessons/:lessonId/tasks/:taskId — requires auth', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/tasks/00000000-0000-0000-0000-000000000000',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/tasks/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -179,7 +179,7 @@ describe('Learn Extended API', () => {
     it('PUT /api/admin/learn/lessons/:lessonId/tasks/:taskId/status — requires auth', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/tasks/00000000-0000-0000-0000-000000000000/status',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/tasks/00000000-0000-4000-8000-000000000000/status',
         payload: { status: 'disable' },
       })
       expect(res.statusCode).toBe(401)
@@ -190,7 +190,7 @@ describe('Learn Extended API', () => {
     it('DELETE /api/admin/learn/rates/:id — requires auth', async () => {
       const res = await app.inject({
         method: 'DELETE',
-        url: '/api/admin/learn/rates/00000000-0000-0000-0000-000000000000',
+        url: '/api/admin/learn/rates/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -198,7 +198,7 @@ describe('Learn Extended API', () => {
     it('GET /api/admin/learn/lessons/:lessonId/access — requires auth', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/access',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/access',
       })
       expect(res.statusCode).toBe(401)
     })
@@ -206,7 +206,7 @@ describe('Learn Extended API', () => {
     it('PUT /api/admin/learn/lessons/:lessonId/access — requires auth', async () => {
       const res = await app.inject({
         method: 'PUT',
-        url: '/api/admin/learn/lessons/00000000-0000-0000-0000-000000000000/access',
+        url: '/api/admin/learn/lessons/00000000-0000-4000-8000-000000000000/access',
         payload: { accessType: 'all', accessValues: [] },
       })
       expect(res.statusCode).toBe(401)
@@ -217,7 +217,7 @@ describe('Learn Extended API', () => {
     it('POST /api/learn/lessons/:lessonId/rates — invalid score (>5)', async () => {
       const res = await app.inject({
         method: 'POST',
-        url: '/api/learn/lessons/00000000-0000-0000-0000-000000000000/rates',
+        url: '/api/learn/lessons/00000000-0000-4000-8000-000000000000/rates',
         payload: { contentUtilityScore: 10 },
       })
       expect(res.statusCode).toBe(401)
@@ -226,7 +226,7 @@ describe('Learn Extended API', () => {
     it('GET /api/learn/lessons/:lessonId/rates — invalid pagination', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/learn/lessons/00000000-0000-0000-0000-000000000000/rates?page=0',
+        url: '/api/learn/lessons/00000000-0000-4000-8000-000000000000/rates?page=0',
       })
       expect(res.statusCode).toBe(400)
     })
