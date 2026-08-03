@@ -53,11 +53,29 @@ import {
  * 顺序与 CliConfigSource 定义保持一致,新增源时同步更新。
  */
 const sourceSchema = z.enum([
-  'cc-switch', 'codex++', 'claude-cli', 'codex-cli', 'gemini-cli', 'hermes',
-  'cursor', 'windsurf', 'cline', 'aider', 'env-file',
-  'trae', 'trae-work', 'qoder', 'qoder-work',
-  'codex-desktop', 'claude-code-desktop',
-  'github-copilot', 'amazon-q', 'continue', 'tabnine', 'cody', 'zed',
+  'cc-switch',
+  'codex++',
+  'claude-cli',
+  'codex-cli',
+  'gemini-cli',
+  'hermes',
+  'cursor',
+  'windsurf',
+  'cline',
+  'aider',
+  'env-file',
+  'trae',
+  'trae-work',
+  'qoder',
+  'qoder-work',
+  'codex-desktop',
+  'claude-code-desktop',
+  'github-copilot',
+  'amazon-q',
+  'continue',
+  'tabnine',
+  'cody',
+  'zed',
   'antigravity',
 ])
 
@@ -66,22 +84,29 @@ const parsePayloadSchema = z.object({
   sourcePath: z.string().min(1).max(500),
   sourceVersion: z.string().max(64).optional(),
   /** 已解析的 provider 列表(CLI/Desktop 端解析后直接上报) */
-  providers: z.array(
-    z.object({
-      sourceId: z.string().min(1).max(128),
-      sourceAppType: z.string().max(32).optional(),
-      name: z.string().min(1).max(100),
-      providerCode: z.string().min(1).max(64),
-      baseUrl: z.string().max(500).default(''),
-      apiKey: z.string().max(500).optional(),
-      apiFormat: z.enum(['openai_chat', 'anthropic_messages', 'openai_responses', 'gemini_native']),
-      modelIdForTest: z.string().max(128).optional(),
-      extraConfig: z.record(z.unknown()).optional(),
-      meta: z.record(z.unknown()).optional(),
-      isCurrent: z.boolean().default(false),
-      warnings: z.array(z.string()).max(100).default([]),
-    }),
-  ).max(1000),
+  providers: z
+    .array(
+      z.object({
+        sourceId: z.string().min(1).max(128),
+        sourceAppType: z.string().max(32).optional(),
+        name: z.string().min(1).max(100),
+        providerCode: z.string().min(1).max(64),
+        baseUrl: z.string().max(500).default(''),
+        apiKey: z.string().max(500).optional(),
+        apiFormat: z.enum([
+          'openai_chat',
+          'anthropic_messages',
+          'openai_responses',
+          'gemini_native',
+        ]),
+        modelIdForTest: z.string().max(128).optional(),
+        extraConfig: z.record(z.string(), z.unknown()).optional(),
+        meta: z.record(z.string(), z.unknown()).optional(),
+        isCurrent: z.boolean().default(false),
+        warnings: z.array(z.string()).max(100).default([]),
+      }),
+    )
+    .max(1000),
   mcpServers: z.array(z.any()).max(1000).optional(),
   globalWarnings: z.array(z.string()).max(1000).default([]),
 })
@@ -282,7 +307,9 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
           }
           const ext = (fileName ?? '').toLowerCase().slice((fileName ?? '').lastIndexOf('.'))
           if (ext && !CONFIG_ALLOWED_EXTS.includes(ext)) {
-            return reply.status(400).send(error(400, `仅支持配置文件格式: ${CONFIG_ALLOWED_EXTS.join(', ')}`))
+            return reply
+              .status(400)
+              .send(error(400, `仅支持配置文件格式: ${CONFIG_ALLOWED_EXTS.join(', ')}`))
           }
         }
       }

@@ -141,7 +141,7 @@ const llmChatBody = z
   .object({
     messages: z.array(z.unknown()).max(100),
     model: z.string().optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough()
 const mcpToolCallBody = z.object({ name: z.string().min(1) }).passthrough()

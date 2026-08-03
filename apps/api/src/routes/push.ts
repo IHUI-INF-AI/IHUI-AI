@@ -21,7 +21,7 @@ const sendPushBodySchema = z.object({
   title: z.string().min(1).max(100),
   body: z.string().min(1).max(500),
   clickUrl: z.string().url().optional(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   /** 指定设备 token 列表；若不提供则按 memberId 推送 */
   tokens: z.array(z.string().min(1).max(500)).max(100).optional(),
   /** 按 memberId 推送（需配合 admin 鉴权） */

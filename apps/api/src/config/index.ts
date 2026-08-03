@@ -135,12 +135,7 @@ const envSchema = z.object({
 
   // ===== 国安级安全(2026-07-24 立,E1-E5 五层防御)=====
   // E3 审计日志 HMAC 链(未配置降级为空字符串,配置时必须 ≥32 字符)
-  AUDIT_LOG_HMAC_SECRET: z
-    .string()
-    .min(32)
-    .or(z.literal(''))
-    .optional()
-    .default(''),
+  AUDIT_LOG_HMAC_SECRET: z.string().min(32).or(z.literal('')).optional().default(''),
   // E4 mTLS 双向证书
   MTLS_CA_CERT_PATH: z.string().optional().default(''),
   MTLS_SERVER_CERT_PATH: z.string().optional().default(''),
@@ -152,12 +147,7 @@ const envSchema = z.object({
   // E5 网络分段(国安级默认 strict:unknown IP 拒绝;开发环境设 NETWORK_SEGMENT_POLICY=permissive 放行)
   NETWORK_SEGMENT_POLICY: z.string().optional().default('strict'),
   // E4 服务间认证(未配置降级为空字符串,配置时必须 ≥32 字符)
-  SERVICE_MESH_JWT_SECRET: z
-    .string()
-    .min(32)
-    .or(z.literal(''))
-    .optional()
-    .default(''),
+  SERVICE_MESH_JWT_SECRET: z.string().min(32).or(z.literal('')).optional().default(''),
   ALLOWED_SERVICES: z.string().optional().default('ihui-web,ihui-ai-service'),
   // E5 CAPTCHA
   RECAPTCHA_SECRET: z.string().optional().default(''),
@@ -171,7 +161,9 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env)
 
 if (!parsed.success) {
-  logger.error('❌ Invalid environment variables', { errors: parsed.error.flatten().fieldErrors })
+  logger.error('❌ Invalid environment variables', {
+    errors: z.flattenError(parsed.error).fieldErrors,
+  })
   process.exit(1)
 }
 

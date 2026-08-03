@@ -169,7 +169,7 @@ const toolSchema = z.object({
     .object({
       name: z.string().min(1),
       description: z.string().optional(),
-      parameters: z.record(z.unknown()).optional(),
+      parameters: z.record(z.string(), z.unknown()).optional(),
     })
     .optional(),
 })

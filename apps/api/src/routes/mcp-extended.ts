@@ -38,7 +38,7 @@ const projectBody = z.object({
 const integrationBody = z.object({
   name: z.string().min(1).max(200),
   type: z.string().max(64).optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   enabled: z.boolean().optional(),
 })
 
@@ -242,7 +242,8 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(
         success({
           projectId: parsed.data.projectId,
-          toolCalls: (stats.toolCalls as number | undefined) ?? (stats.calls as number | undefined) ?? 0,
+          toolCalls:
+            (stats.toolCalls as number | undefined) ?? (stats.calls as number | undefined) ?? 0,
           resourceReads: (stats.resourceReads as number | undefined) ?? 0,
           promptsUsed: (stats.promptsUsed as number | undefined) ?? 0,
         }),
