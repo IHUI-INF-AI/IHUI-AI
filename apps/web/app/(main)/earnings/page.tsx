@@ -4,7 +4,7 @@
  * 挣钱中心 — 小白用户一眼看到钱从哪来
  *
  * 4 概览卡片 + BYOK 抽成趋势 + 引流统计 + 转化漏斗 + 配置 BYOK CTA
- * emerald 色系(挣钱主题),数据来自 useEarnings hook(API 未就绪 fallback mock)
+ * emerald 色系(挣钱主题),数据来自 useEarnings hook(/api/earnings/* 真实聚合)
  */
 import * as React from 'react'
 import Link from 'next/link'
@@ -23,7 +23,7 @@ import { BackButton } from '@/components/common'
 
 export default function EarningsPage() {
   const t = useTranslations('earnings')
-  const { overview, byokTrend, referral, funnel, loading } = useEarnings()
+  const { overview, byokTrend, referral, funnel, loading, error } = useEarnings()
 
   return (
     <Container maxWidth="xl" padding={false} className="space-y-4 py-6">
@@ -73,9 +73,9 @@ export default function EarningsPage() {
         </CardContent>
       </Card>
 
-      {/* mock 数据提示(数据未就绪时) */}
-      {overview === null && !loading && (
-        <Alert variant="info" title={t('mockDataNote')} description={t('mockDataNoteDesc')} />
+      {/* 加载失败提示(真实数据加载失败时,刷新页面重试) */}
+      {error && !loading && (
+        <Alert variant="danger" title="加载失败" description={error.message} />
       )}
 
       {loading && (
