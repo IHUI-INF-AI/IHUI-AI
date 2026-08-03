@@ -22,9 +22,9 @@ const paginationQuery = {
 
 const topicListQuery = z.object({
   ...paginationQuery,
-  title: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })

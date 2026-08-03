@@ -24,7 +24,7 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   /** 按 API Key 筛选 */
-  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const messagesQuerySchema = z.object({

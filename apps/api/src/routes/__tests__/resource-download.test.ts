@@ -57,7 +57,7 @@ import {
 } from '../../db/resource-queries.js'
 import { resourceRoutes } from '../resource.js'
 
-const UUID_RES = '11111111-1111-1111-1111-111111111111'
+const UUID_RES = '11111111-1111-4111-8111-111111111111'
 
 function makeResource(overrides: Record<string, unknown> = {}) {
   return {

@@ -66,9 +66,11 @@ export function buildSchema(opts: BuildSchemaOptions): FastifySchema {
     tags: opts.tags,
     response: opts.response ?? (opts.auth === false ? publicResponses : standardResponses),
   }
+  // zod 4 的 z.toJSONSchema() 不支持含 .transform()/.preprocess() 的 schema（JSON Schema 无 transform 语义）。
+  // 调用方应传入无 transform 的 doc schema（运行时 transform schema 用于 safeParse）。
+  // 此处直接调用 z.toJSONSchema：若误传 transform schema 会抛错暴露问题，而非静默降级丢失文档精度。
   if (opts.body) schema.body = z.toJSONSchema(opts.body, { target: 'openApi3' })
-  if (opts.querystring)
-    schema.querystring = z.toJSONSchema(opts.querystring, { target: 'openApi3' })
+  if (opts.querystring) schema.querystring = z.toJSONSchema(opts.querystring, { target: 'openApi3' })
   if (opts.params) schema.params = z.toJSONSchema(opts.params, { target: 'openApi3' })
   return schema
 }

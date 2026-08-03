@@ -66,8 +66,8 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const channelsListQuery = z.object({
   ...paginationQuery,
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const createChannelSchema = z.object({
@@ -108,8 +108,8 @@ const updatePointSchema = z.object({
 
 const relationsListQuery = z.object({
   ...paginationQuery,
-  pointId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  channelId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  pointId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  channelId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const updateRelationsSchema = z.object({
@@ -119,8 +119,8 @@ const updateRelationsSchema = z.object({
 
 const recordsListQuery = z.object({
   ...paginationQuery,
-  memberId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  type: z.preprocess(emptyToUndefined, z.string().min(1).max(32).optional()),
+  memberId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  type: z.transform(emptyToUndefined).pipe(z.string().min(1).max(32).optional()),
 })
 
 const pointOperationSchema = z.object({
@@ -138,9 +138,9 @@ const fallbackSchema = z.object({
 
 const rulesListQuery = z.object({
   ...paginationQuery,
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
-  channelId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
+  channelId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 // =============================================================================

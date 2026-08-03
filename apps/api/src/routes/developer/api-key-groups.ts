@@ -42,7 +42,7 @@ const idParamSchema = z.object({ id: z.uuid() })
 
 const createGroupBodySchema = z.object({
   name: z.string().min(1, '名称不能为空').max(64),
-  description: z.preprocess(emptyToUndefined, z.string().max(500).optional()),
+  description: z.transform(emptyToUndefined).pipe(z.string().max(500).optional()),
   /** 共享 token 余额(-1 = 无限,默认 0) */
   sharedTokenBalance: z.number().int().default(0),
   /** 共享成本余额(分,-1 = 无限,默认 0) */
@@ -51,12 +51,12 @@ const createGroupBodySchema = z.object({
   allowedModels: z.array(z.string()).nullable().optional(),
   allowedIps: z.array(z.string()).nullable().optional(),
   /** 建组时作为 owner 加入组的 API Key id(可选,未传则用用户最新 active Key) */
-  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const updateGroupBodySchema = z.object({
   name: z.string().min(1).max(64).optional(),
-  description: z.preprocess(emptyToUndefined, z.string().max(500).nullable().optional()),
+  description: z.transform(emptyToUndefined).pipe(z.string().max(500).nullable().optional()),
   sharedTokenBalance: z.number().int().optional(),
   sharedCostBalanceCents: z.number().int().optional(),
   rateLimitQpm: z.number().int().min(1).max(10000).optional(),

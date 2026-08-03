@@ -25,9 +25,9 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const policyListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-  policyLevel: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  policyLevel: z.transform(emptyToUndefined).pipe(z.string().max(50).optional()),
 })
 
 const createPolicySchema = z.object({
@@ -56,8 +56,8 @@ const updatePolicySchema = createPolicySchema.partial()
 const certListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  level: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  level: z.transform(emptyToUndefined).pipe(z.string().max(50).optional()),
 })
 
 const createCertSchema = z.object({
@@ -82,8 +82,8 @@ const updateCertSchema = createCertSchema.partial()
 const toolListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  category: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  category: z.transform(emptyToUndefined).pipe(z.string().max(50).optional()),
 })
 
 const createToolSchema = z.object({
@@ -122,8 +122,8 @@ const updateToolSchema = createToolSchema.partial()
 const k12ListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  stage: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  stage: z.transform(emptyToUndefined).pipe(z.string().max(50).optional()),
 })
 
 const createK12Schema = z.object({
@@ -151,9 +151,9 @@ const updateK12Schema = createK12Schema.partial()
 const uniListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  university: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-  courseType: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  university: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+  courseType: z.transform(emptyToUndefined).pipe(z.string().max(50).optional()),
 })
 
 const createUniSchema = z.object({

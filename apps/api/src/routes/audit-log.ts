@@ -31,36 +31,36 @@ const ADMIN_ROLE_ID = 1
 const auditLogQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  action: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  resourceType: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  action: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
 
 const auditLogExportSchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  action: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  resourceType: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  action: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   format: z.enum(['json', 'cef', 'leef']).optional().default('json'),
   limit: z.coerce.number().int().min(1).max(50000).optional().default(10000),
 })
 
 const auditLogVerifySchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   limit: z.coerce.number().int().min(1).max(50000).optional().default(10000),
 })
 
 const auditLogStatsSchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  action: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  resourceType: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  action: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
 
 // =============================================================================
