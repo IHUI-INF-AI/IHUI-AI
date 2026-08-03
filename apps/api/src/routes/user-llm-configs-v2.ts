@@ -48,7 +48,11 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import { AppError } from '../errors/AppError.js'
-import { PLATFORM_TEMPLATES, TEMPLATE_MAP, type PlatformTemplate } from '../utils/platform-templates.js'
+import {
+  PLATFORM_TEMPLATES,
+  TEMPLATE_MAP,
+  type PlatformTemplate,
+} from '../utils/platform-templates.js'
 import { fetchProviderModels, SUPPORTED_PROVIDERS } from '../services/provider-models.js'
 
 // =============================================================================
@@ -88,7 +92,9 @@ const createProviderSchema = z.object({
   name: z.string().min(1).max(100),
   apiKey: z.string().min(1).max(500),
   baseUrlOverride: z.string().url().max(500).optional(),
-  apiFormat: z.enum(['openai_chat', 'anthropic_messages', 'openai_responses']).default('openai_chat'),
+  apiFormat: z
+    .enum(['openai_chat', 'anthropic_messages', 'openai_responses'])
+    .default('openai_chat'),
   providerGroup: z.string().min(1).max(64).default('default'),
   groupLabel: z.string().min(1).max(64).optional(),
   description: z.string().max(500).optional(),
@@ -113,11 +119,11 @@ const createModelSchema = z.object({
   contextLength: z.number().int().min(512).max(2000000).default(32000),
   inputPricePer1k: priceString.default('0'),
   outputPricePer1k: priceString.default('0'),
-  defaultParams: z.record(z.unknown()).default({}),
+  defaultParams: z.record(z.string(), z.unknown()).default({}),
   enabled: z.boolean().default(true),
   isDefault: z.boolean().default(false),
   sortOrder: z.number().int().min(-10000).max(10000).default(0),
-  extraMetadata: z.record(z.unknown()).default({}),
+  extraMetadata: z.record(z.string(), z.unknown()).default({}),
 })
 
 const updateModelSchema = z.object({
@@ -125,11 +131,11 @@ const updateModelSchema = z.object({
   contextLength: z.number().int().min(512).max(2000000).optional(),
   inputPricePer1k: priceString.optional(),
   outputPricePer1k: priceString.optional(),
-  defaultParams: z.record(z.unknown()).optional(),
+  defaultParams: z.record(z.string(), z.unknown()).optional(),
   enabled: z.boolean().optional(),
   isDefault: z.boolean().optional(),
   sortOrder: z.number().int().min(-10000).max(10000).optional(),
-  extraMetadata: z.record(z.unknown()).optional(),
+  extraMetadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 const createGroupSchema = z.object({
@@ -205,7 +211,9 @@ async function testConnectivity(row: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Hello, this is a connectivity test. Reply with "OK".' }],
+        messages: [
+          { role: 'user', content: 'Hello, this is a connectivity test. Reply with "OK".' },
+        ],
         model:
           row.modelIdForTest && row.providerCode
             ? `${row.providerCode}/${row.modelIdForTest}`
@@ -226,7 +234,12 @@ async function testConnectivity(row: {
       modelEcho: String(json.model ?? ''),
     }
   } catch (e) {
-    return { ok: false, status: 'failed', responseMs: Date.now() - start, error: (e as Error).message }
+    return {
+      ok: false,
+      status: 'failed',
+      responseMs: Date.now() - start,
+      error: (e as Error).message,
+    }
   }
 }
 
@@ -426,10 +439,15 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
       try {
         const res = await db.execute(sql`
           SELECT * FROM ai_model_config_models
-          WHERE config_id IN (${sql.join(providerIds.map((id) => sql`${id}`), sql`, `)})
+          WHERE config_id IN (${sql.join(
+            providerIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})
           ORDER BY config_id, sort_order ASC, id ASC
         `)
-        modelRows = Array.isArray(res) ? (res as unknown as ModelRow[]) : ((res as { rows?: ModelRow[] }).rows ?? [])
+        modelRows = Array.isArray(res)
+          ? (res as unknown as ModelRow[])
+          : ((res as { rows?: ModelRow[] }).rows ?? [])
       } catch (e) {
         if (!isSchemaMissingError(e)) throw e
         // schema 未就绪 → 静默降级,modelRows 留空
@@ -491,7 +509,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         WHERE config_id = ${p.data.id}
         ORDER BY sort_order ASC, id ASC
       `)
-      const rows = Array.isArray(res) ? (res as unknown as ModelRow[]) : ((res as { rows?: ModelRow[] }).rows ?? [])
+      const rows = Array.isArray(res)
+        ? (res as unknown as ModelRow[])
+        : ((res as { rows?: ModelRow[] }).rows ?? [])
       models = rows.map(parseModelRow)
     } catch (e) {
       if (!isSchemaMissingError(e)) throw e
@@ -626,12 +646,14 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
       .where(eq(aiModelConfig.id, p.data.id))
 
     if (!result.ok) {
-      return reply.status(502).send(
-        error(
-          502,
-          `连通失败: ${result.error ?? '未知错误'}${result.responseMs ? ` (${result.responseMs}ms)` : ''}`,
-        ),
-      )
+      return reply
+        .status(502)
+        .send(
+          error(
+            502,
+            `连通失败: ${result.error ?? '未知错误'}${result.responseMs ? ` (${result.responseMs}ms)` : ''}`,
+          ),
+        )
     }
     return reply.send(
       success({
@@ -646,29 +668,32 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
   // ---------------------------------------------------------------------------
   // A. 拉取上游模型
   // ---------------------------------------------------------------------------
-  server.post<{ Params: { id: number } }>('/llm-providers/:id/fetch-models', async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const userId = request.userId!
-    const [row] = await db
-      .select()
-      .from(aiModelConfig)
-      .where(and(eq(aiModelConfig.id, p.data.id), eq(aiModelConfig.ownerUuid, userId)))
-      .limit(1)
-    if (!row) return reply.status(404).send(error(404, 'provider 不存在或无权限'))
+  server.post<{ Params: { id: number } }>(
+    '/llm-providers/:id/fetch-models',
+    async (request, reply) => {
+      const p = idParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
+      const userId = request.userId!
+      const [row] = await db
+        .select()
+        .from(aiModelConfig)
+        .where(and(eq(aiModelConfig.id, p.data.id), eq(aiModelConfig.ownerUuid, userId)))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, 'provider 不存在或无权限'))
 
-    const result = await fetchUpstreamModels(row)
-    if (!result.ok) {
-      return reply.status(502).send(error(502, `拉取模型失败: ${result.error ?? '未知错误'}`))
-    }
-    return reply.send(
-      success({
-        total: result.models.length,
-        models: result.models,
-        message: `已拉取 ${result.models.length} 个模型`,
-      }),
-    )
-  })
+      const result = await fetchUpstreamModels(row)
+      if (!result.ok) {
+        return reply.status(502).send(error(502, `拉取模型失败: ${result.error ?? '未知错误'}`))
+      }
+      return reply.send(
+        success({
+          total: result.models.length,
+          models: result.models,
+          message: `已拉取 ${result.models.length} 个模型`,
+        }),
+      )
+    },
+  )
 
   // ---------------------------------------------------------------------------
   // A. 按 provider 名称拉取上游模型(7 个预置 provider,Redis 缓存 24h,失败降级 FALLBACK)
@@ -731,7 +756,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         WHERE config_id = ${p.data.id}
         ORDER BY sort_order ASC, id ASC
       `)
-      const rows = Array.isArray(res) ? (res as unknown as ModelRow[]) : ((res as { rows?: ModelRow[] }).rows ?? [])
+      const rows = Array.isArray(res)
+        ? (res as unknown as ModelRow[])
+        : ((res as { rows?: ModelRow[] }).rows ?? [])
       return reply.send(success({ list: rows.map(parseModelRow), total: rows.length }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
@@ -788,7 +815,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
           )
           RETURNING id
         `)
-        const rows = Array.isArray(res) ? (res as unknown as Array<{ id: number }>) : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
+        const rows = Array.isArray(res)
+          ? (res as unknown as Array<{ id: number }>)
+          : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
         return rows[0]?.id
       })
       if (!result) return reply.status(500).send(error(500, '创建失败'))
@@ -831,7 +860,8 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
             `)
           }
           const sets: ReturnType<typeof sql>[] = []
-          if (body.data.displayName !== undefined) sets.push(sql`display_name = ${body.data.displayName}`)
+          if (body.data.displayName !== undefined)
+            sets.push(sql`display_name = ${body.data.displayName}`)
           if (body.data.contextLength !== undefined)
             sets.push(sql`context_length = ${body.data.contextLength}`)
           if (body.data.inputPricePer1k !== undefined)
@@ -885,7 +915,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
           WHERE id = ${p.data.mid} AND config_id = ${p.data.pid}
           RETURNING id
         `)
-        const rows = Array.isArray(res) ? (res as unknown as Array<{ id: number }>) : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
+        const rows = Array.isArray(res)
+          ? (res as unknown as Array<{ id: number }>)
+          : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
         if (rows.length === 0) return reply.status(404).send(error(404, 'model 不存在'))
         return reply.send(success({ id: p.data.mid, deleted: true }))
       } catch (e) {
@@ -931,12 +963,14 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
 
       const result = await testConnectivity({ ...row, modelIdForTest })
       if (!result.ok) {
-        return reply.status(502).send(
-          error(
-            502,
-            `连通失败: ${result.error ?? '未知错误'}${result.responseMs ? ` (${result.responseMs}ms)` : ''}`,
-          ),
-        )
+        return reply
+          .status(502)
+          .send(
+            error(
+              502,
+              `连通失败: ${result.error ?? '未知错误'}${result.responseMs ? ` (${result.responseMs}ms)` : ''}`,
+            ),
+          )
       }
       return reply.send(
         success({
@@ -961,7 +995,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         WHERE owner_uuid = ${userId}
         ORDER BY sort_order ASC, id ASC
       `)
-      const rows = Array.isArray(res) ? (res as unknown as Array<Record<string, unknown>>) : ((res as { rows?: Array<Record<string, unknown>> }).rows ?? [])
+      const rows = Array.isArray(res)
+        ? (res as unknown as Array<Record<string, unknown>>)
+        : ((res as { rows?: Array<Record<string, unknown>> }).rows ?? [])
       return reply.send(success({ list: rows, total: rows.length }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
@@ -986,9 +1022,13 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         VALUES (${userId}, ${parsed.data.label}, ${parsed.data.sortOrder}, NOW(), NOW())
         RETURNING id
       `)
-      const rows = Array.isArray(res) ? (res as unknown as Array<{ id: number }>) : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
+      const rows = Array.isArray(res)
+        ? (res as unknown as Array<{ id: number }>)
+        : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
       if (!rows[0]) return reply.status(500).send(error(500, '创建失败'))
-      return reply.status(201).send(success({ id: rows[0].id, created: true, label: parsed.data.label }))
+      return reply
+        .status(201)
+        .send(success({ id: rows[0].id, created: true, label: parsed.data.label }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
         return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))
@@ -1020,7 +1060,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         WHERE id = ${p.data.id} AND owner_uuid = ${userId}
         RETURNING id
       `)
-      const rows = Array.isArray(res) ? (res as unknown as Array<{ id: number }>) : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
+      const rows = Array.isArray(res)
+        ? (res as unknown as Array<{ id: number }>)
+        : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
       if (rows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
       return reply.send(success({ id: p.data.id, updated: true }))
     } catch (e) {

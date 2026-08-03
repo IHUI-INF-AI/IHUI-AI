@@ -48,7 +48,7 @@ const listSnapshotsQuery = z.object({
 
 const createSnapshotSchema = z.object({
   type: z.enum(['overview', 'learn', 'exam', 'content']),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 })
 
 const visitLogsQuery = z.object({
@@ -451,21 +451,22 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
     '/statistics/content-aggregated',
     { preHandler: requireAdmin, schema: { response: aggregatedResponseSchema } },
     async (_request, reply) => {
-      const [articleRows, newsRows, resourceRows, newsViewRows, resourceViewRows] = await Promise.all([
-        db.select({ count: sql<number>`count(*)::int` }).from(helpArticles),
-        db.select({ count: sql<number>`count(*)::int` }).from(newsArticles),
-        db.select({ count: sql<number>`count(*)::int` }).from(resources),
-        db
-          .select({
-            sum: sql<number>`coalesce(sum(${newsArticles.viewCount}), 0)::int`,
-          })
-          .from(newsArticles),
-        db
-          .select({
-            sum: sql<number>`coalesce(sum(${resources.viewCount}), 0)::int`,
-          })
-          .from(resources),
-      ])
+      const [articleRows, newsRows, resourceRows, newsViewRows, resourceViewRows] =
+        await Promise.all([
+          db.select({ count: sql<number>`count(*)::int` }).from(helpArticles),
+          db.select({ count: sql<number>`count(*)::int` }).from(newsArticles),
+          db.select({ count: sql<number>`count(*)::int` }).from(resources),
+          db
+            .select({
+              sum: sql<number>`coalesce(sum(${newsArticles.viewCount}), 0)::int`,
+            })
+            .from(newsArticles),
+          db
+            .select({
+              sum: sql<number>`coalesce(sum(${resources.viewCount}), 0)::int`,
+            })
+            .from(resources),
+        ])
       const statistics = {
         articleTotal: articleRows[0]?.count ?? 0,
         newsTotal: newsRows[0]?.count ?? 0,

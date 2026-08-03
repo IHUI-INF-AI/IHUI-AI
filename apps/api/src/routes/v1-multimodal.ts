@@ -188,7 +188,7 @@ const threeDGenerationsSchema = z.object({
 
 const generationEnqueueSchema = z.object({
   type: z.string().min(1),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   priority: z.union([z.string(), z.number()]).optional(),
 })
 
@@ -425,11 +425,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -442,7 +438,10 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           data: voices.map((v) => {
             const o = asObj(v)
             return {
-              id: (typeof o.voice_id === 'string' && o.voice_id) || (typeof o.id === 'string' && o.id) || '',
+              id:
+                (typeof o.voice_id === 'string' && o.voice_id) ||
+                (typeof o.id === 'string' && o.id) ||
+                '',
               name: (typeof o.name === 'string' && o.name) || '',
               gender: (typeof o.gender === 'string' && o.gender) || '',
               language: (typeof o.language === 'string' && o.language) || '',
@@ -479,11 +478,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -538,11 +533,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -554,21 +545,18 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       const { model, audio, language } = parsed.data
       const body: Record<string, unknown> = { model, audio_base64: audio }
       if (language) body.language = language
-      return forwardInternal(
-        reply,
-        '/api/ai/audio/recognize',
-        jsonInit(body),
-        userId,
-        (data) => {
-          const d = asObj(data)
-          const result: V1AudioTranscriptionsResponse = {
-            text: (typeof d.transcription === 'string' && d.transcription) || (typeof d.text === 'string' && d.text) || '',
-            language: (typeof d.language === 'string' && d.language) || language || '',
-            duration: typeof d.duration === 'number' ? d.duration : 0,
-          }
-          return result
-        },
-      )
+      return forwardInternal(reply, '/api/ai/audio/recognize', jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        const result: V1AudioTranscriptionsResponse = {
+          text:
+            (typeof d.transcription === 'string' && d.transcription) ||
+            (typeof d.text === 'string' && d.text) ||
+            '',
+          language: (typeof d.language === 'string' && d.language) || language || '',
+          duration: typeof d.duration === 'number' ? d.duration : 0,
+        }
+        return result
+      })
     },
   )
 
@@ -601,11 +589,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -620,9 +604,20 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       return forwardInternal(reply, '/api/ai/audio/chat', jsonInit(body), userId, (data) => {
         const d = asObj(data)
         const result: V1AudioChatResponse = {
-          text: (typeof d.text === 'string' && d.text) || (typeof d.transcription === 'string' && d.transcription) || (typeof d.reply === 'string' && d.reply) || '',
-          audio: (typeof d.audio === 'string' && d.audio) || (typeof d.audio_base64 === 'string' && d.audio_base64) || '',
-          sessionId: (typeof d.session_id === 'string' && d.session_id) || (typeof d.sessionId === 'string' && d.sessionId) || sessionId || '',
+          text:
+            (typeof d.text === 'string' && d.text) ||
+            (typeof d.transcription === 'string' && d.transcription) ||
+            (typeof d.reply === 'string' && d.reply) ||
+            '',
+          audio:
+            (typeof d.audio === 'string' && d.audio) ||
+            (typeof d.audio_base64 === 'string' && d.audio_base64) ||
+            '',
+          sessionId:
+            (typeof d.session_id === 'string' && d.session_id) ||
+            (typeof d.sessionId === 'string' && d.sessionId) ||
+            sessionId ||
+            '',
         }
         return result
       })
@@ -658,11 +653,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -675,8 +666,14 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           data: voices.map((v) => {
             const o = asObj(v)
             return {
-              id: (typeof o.voice_id === 'string' && o.voice_id) || (typeof o.id === 'string' && o.id) || '',
-              name: (typeof o.name === 'string' && o.name) || (typeof o.voice_id === 'string' && o.voice_id) || '',
+              id:
+                (typeof o.voice_id === 'string' && o.voice_id) ||
+                (typeof o.id === 'string' && o.id) ||
+                '',
+              name:
+                (typeof o.name === 'string' && o.name) ||
+                (typeof o.voice_id === 'string' && o.voice_id) ||
+                '',
               gender: (typeof o.gender === 'string' && o.gender) || '',
               language: (typeof o.language === 'string' && o.language) || '',
             }
@@ -714,11 +711,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -768,11 +761,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -783,20 +772,19 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       }
       const { speakerId, audio } = parsed.data
       const body = { voice_id: speakerId, audio_base64: audio }
-      return forwardInternal(
-        reply,
-        '/api/ai/speaker/compare',
-        jsonInit(body),
-        userId,
-        (data) => {
-          const d = asObj(data)
-          const result: V1CompareSpeakersResponse = {
-            score: typeof d.confidence === 'number' ? d.confidence : typeof d.score === 'number' ? d.score : 0,
-            matched: Boolean(d.matched ?? false),
-          }
-          return result
-        },
-      )
+      return forwardInternal(reply, '/api/ai/speaker/compare', jsonInit(body), userId, (data) => {
+        const d = asObj(data)
+        const result: V1CompareSpeakersResponse = {
+          score:
+            typeof d.confidence === 'number'
+              ? d.confidence
+              : typeof d.score === 'number'
+                ? d.score
+                : 0,
+          matched: Boolean(d.matched ?? false),
+        }
+        return result
+      })
     },
   )
 
@@ -828,11 +816,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('audio:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -848,7 +832,10 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       return forwardInternal(reply, '/api/ai/suno/generate', jsonInit(body), userId, (data) => {
         const d = asObj(data)
         const result: V1MusicGenerationsResponse = {
-          taskId: (typeof d.taskId === 'string' && d.taskId) || (typeof d.task_id === 'string' && d.task_id) || '',
+          taskId:
+            (typeof d.taskId === 'string' && d.taskId) ||
+            (typeof d.task_id === 'string' && d.task_id) ||
+            '',
           status: (mapJobStatus(d.status) as 'pending' | 'processing' | 'completed') || 'pending',
         }
         return result
@@ -954,7 +941,10 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 3. 异步路径:有 taskId → 30s 内轮询任务状态,完成则返回 OpenAI 同步格式
-      const taskId = (typeof d.taskId === 'string' && d.taskId) || (typeof d.task_id === 'string' && d.task_id) || ''
+      const taskId =
+        (typeof d.taskId === 'string' && d.taskId) ||
+        (typeof d.task_id === 'string' && d.task_id) ||
+        ''
       if (!taskId) {
         // 既无 images 也无 taskId → 返回空数据(避免误导客户端)
         return reply.send({ created: Math.floor(Date.now() / 1000), data: [] })
@@ -975,7 +965,9 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           created: Math.floor(Date.now() / 1000),
           data: urls.map((img) => {
             const o = asObj(img)
-            return { url: typeof o.url === 'string' ? o.url : typeof o === 'string' ? o : undefined }
+            return {
+              url: typeof o.url === 'string' ? o.url : typeof o === 'string' ? o : undefined,
+            }
           }),
         })
       }
@@ -1306,8 +1298,13 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       return forwardInternal(reply, path, jsonInit(body), userId, (data) => {
         const d = asObj(data)
         const result: V1VideoGenerationsResponse = {
-          taskId: (typeof d.taskId === 'string' && d.taskId) || (typeof d.task_id === 'string' && d.task_id) || '',
-          status: (mapJobStatus(d.status) as 'pending' | 'processing' | 'completed' | 'failed') || 'pending',
+          taskId:
+            (typeof d.taskId === 'string' && d.taskId) ||
+            (typeof d.task_id === 'string' && d.task_id) ||
+            '',
+          status:
+            (mapJobStatus(d.status) as 'pending' | 'processing' | 'completed' | 'failed') ||
+            'pending',
         }
         return result
       })
@@ -1348,11 +1345,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('videos:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('videos:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1362,18 +1355,30 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         const d = asObj(data)
         const result = asObj(d.result ?? d)
         return {
-          taskId: (typeof d.taskId === 'string' && d.taskId) || (typeof d.task_id === 'string' && d.task_id) || id,
-          status: (mapJobStatus(d.status ?? result.status) as 'pending' | 'processing' | 'completed' | 'failed') || 'pending',
+          taskId:
+            (typeof d.taskId === 'string' && d.taskId) ||
+            (typeof d.task_id === 'string' && d.task_id) ||
+            id,
+          status:
+            (mapJobStatus(d.status ?? result.status) as
+              'pending' | 'processing' | 'completed' | 'failed') || 'pending',
           ...(typeof result.video_url === 'string' || typeof result.videoUrl === 'string'
             ? { videoUrl: (result.video_url as string) || (result.videoUrl as string) }
             : {}),
           ...(typeof d.progress === 'number' ? { progress: d.progress } : {}),
           ...(typeof result.error === 'string' ? { error: result.error } : {}),
-          createdAt: (typeof d.createdAt === 'string' && d.createdAt) || (typeof d.created_at === 'string' && d.created_at) || new Date().toISOString(),
+          createdAt:
+            (typeof d.createdAt === 'string' && d.createdAt) ||
+            (typeof d.created_at === 'string' && d.created_at) ||
+            new Date().toISOString(),
         }
       }
       try {
-        const sora2 = await callInternal(`/api/ai/sora2/tasks/${encodeURIComponent(id)}`, { method: 'GET' }, userId)
+        const sora2 = await callInternal(
+          `/api/ai/sora2/tasks/${encodeURIComponent(id)}`,
+          { method: 'GET' },
+          userId,
+        )
         if (sora2.ok) return reply.send(tryMap(sora2.data))
         // sora2 404 → 回退 jimeng4
         if (sora2.status !== 404) {
@@ -1468,8 +1473,14 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         (data) => {
           const d = asObj(data)
           const result: V1VideoComposeResponse = {
-            composeId: (typeof d.id === 'string' && d.id) || (typeof d.composeId === 'string' && d.composeId) || '',
-            status: d.status === 'succeeded' ? 'completed' : (mapJobStatus(d.status) as 'processing' | 'completed' | 'failed') || 'processing',
+            composeId:
+              (typeof d.id === 'string' && d.id) ||
+              (typeof d.composeId === 'string' && d.composeId) ||
+              '',
+            status:
+              d.status === 'succeeded'
+                ? 'completed'
+                : (mapJobStatus(d.status) as 'processing' | 'completed' | 'failed') || 'processing',
           }
           return result
         },
@@ -1536,8 +1547,13 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           const d = asObj(data)
           const inner = asObj(d.data ?? data)
           const result: V1ThreeDGenerationsResponse = {
-            taskId: (typeof inner.JobId === 'string' && inner.JobId) || (typeof d.taskId === 'string' && d.taskId) || '',
-            status: (mapJobStatus(inner.Status ?? d.status) as 'pending' | 'processing' | 'completed') || 'pending',
+            taskId:
+              (typeof inner.JobId === 'string' && inner.JobId) ||
+              (typeof d.taskId === 'string' && d.taskId) ||
+              '',
+            status:
+              (mapJobStatus(inner.Status ?? d.status) as 'pending' | 'processing' | 'completed') ||
+              'pending',
           }
           return result
         },
@@ -1601,7 +1617,10 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         (data) => {
           const d = asObj(data)
           const result: V1GenerationEnqueueResponse = {
-            jobId: (typeof d.jobId === 'string' && d.jobId) || (typeof d.job_id === 'string' && d.job_id) || '',
+            jobId:
+              (typeof d.jobId === 'string' && d.jobId) ||
+              (typeof d.job_id === 'string' && d.job_id) ||
+              '',
             status: 'queued',
             position: typeof d.position === 'number' ? d.position : 0,
           }
@@ -1658,7 +1677,8 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         (data) => {
           const d = asObj(data)
           const result: V1GenerationStatusResponse = {
-            jobId: (typeof d.jobId === 'string' && d.jobId) || (typeof d.id === 'string' && d.id) || id,
+            jobId:
+              (typeof d.jobId === 'string' && d.jobId) || (typeof d.id === 'string' && d.id) || id,
             status: mapJobStatus(d.status),
             ...(d.returnvalue !== undefined || d.result !== undefined
               ? { result: d.returnvalue ?? d.result }

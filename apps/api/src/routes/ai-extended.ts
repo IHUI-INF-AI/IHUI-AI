@@ -34,7 +34,7 @@ const modelInfoBodySchema = z
   .strip()
 
 // P1 安全修复(2026-08-02):config update body schema(JSON 存储,允许任意字段但必须是对象)
-const configUpdateBodySchema = z.record(z.unknown())
+const configUpdateBodySchema = z.record(z.string(), z.unknown())
 
 // P1 安全修复(2026-08-02):外呼回调 body schema
 const outboundCallbackBodySchema = z
