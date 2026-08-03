@@ -72,13 +72,10 @@ const updateProjectSchema = z.object({
 })
 
 const batchFileIdsSchema = z.object({
-  fileIds: z
-    .array(z.string().uuid())
-    .min(1, '至少选择一个文件')
-    .max(100, '单次最多操作 100 个文件'),
+  fileIds: z.array(z.uuid()).min(1, '至少选择一个文件').max(100, '单次最多操作 100 个文件'),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 // =============================================================================
 // 序列化辅助
@@ -524,7 +521,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
 
     const params = z
-      .object({ id: z.string().uuid(), version: z.coerce.number().int().min(1) })
+      .object({ id: z.uuid(), version: z.coerce.number().int().min(1) })
       .safeParse(request.params)
     if (!params.success) {
       return reply.status(400).send(error(400, params.error.issues[0]?.message ?? '参数错误'))

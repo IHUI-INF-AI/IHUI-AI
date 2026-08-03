@@ -22,9 +22,9 @@ import { error, success } from '../utils/response.js'
 const courseSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().optional(),
-  coverUrl: z.string().url().optional(),
-  categoryId: z.string().uuid().optional(),
-  lecturerId: z.string().uuid().optional(),
+  coverUrl: z.url().optional(),
+  categoryId: z.uuid().optional(),
+  lecturerId: z.uuid().optional(),
   lecturerName: z.string().max(128).optional(),
   price: z.number().min(0).default(0),
   originalPrice: z.number().min(0).optional(),
@@ -32,7 +32,7 @@ const courseSchema = z.object({
   status: z.number().int().default(1),
 })
 
-const updateSchema = courseSchema.partial().extend({ id: z.string().uuid() })
+const updateSchema = courseSchema.partial().extend({ id: z.uuid() })
 
 const pageQuery = {
   page: z.coerce.number().optional().default(1),

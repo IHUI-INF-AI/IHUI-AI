@@ -30,7 +30,7 @@ const ADMIN_ROLE_ID = 1
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -40,19 +40,19 @@ const paginationQuery = {
 const listTicketsQuery = z.object({
   ...paginationQuery,
   status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  categoryId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  categoryId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   priority: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
 })
 
 const adminListTicketsQuery = listTicketsQuery.extend({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
-  assigneeId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  assigneeId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const createTicketSchema = z.object({
   title: z.string().min(2, '标题至少 2 个字符').max(200),
   description: z.string().min(10, '描述至少 10 个字符').max(5000),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   source: z.string().max(16).optional(),
   attachments: z.array(z.unknown()).max(20).optional(),
@@ -61,7 +61,7 @@ const createTicketSchema = z.object({
 const updateTicketSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   description: z.string().min(10).max(5000).optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
 })
 
@@ -70,7 +70,7 @@ const transitionSchema = z.object({
 })
 
 const assignSchema = z.object({
-  agentId: z.string().uuid({ message: 'assigneeId 不能为空' }),
+  agentId: z.uuid({ error: 'assigneeId 不能为空' }),
 })
 
 const createCommentSchema = z.object({
@@ -90,7 +90,7 @@ const createCategorySchema = z.object({
 })
 
 const createAgentSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
   nickname: z.string().min(1).max(64),
   avatar: z.string().max(500).nullable().optional(),
   maxConcurrent: z.number().int().min(1).max(100).optional(),

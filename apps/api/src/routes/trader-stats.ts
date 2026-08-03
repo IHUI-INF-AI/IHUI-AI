@@ -22,7 +22,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const dateRangeQuery = z.object({
     begin: z.string().min(1).optional(),
     end: z.string().min(1).optional(),
-    traderId: z.string().uuid().optional(), // 可选:筛选指定交易员(traders.id)
+    traderId: z.uuid().optional(), // 可选:筛选指定交易员(traders.id)
   })
 
   /**

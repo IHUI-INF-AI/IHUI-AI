@@ -34,7 +34,7 @@ import { ensureSafeFetchUrl } from '../../utils/ssrf-guard.js'
 const ALLOWED_EVENTS = ['relay.call.completed', 'relay.call.failed', 'relay.balance.low'] as const
 type AllowedEvent = (typeof ALLOWED_EVENTS)[number]
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -331,8 +331,8 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
   server.post('/webhooks/subscriptions/:id/redeliver/:logId', async (request, reply) => {
     const userId = request.userId!
     const paramsSchema = z.object({
-      id: z.string().uuid({ message: '无效的订阅 ID' }),
-      logId: z.string().uuid({ message: '无效的日志 ID' }),
+      id: z.uuid({ error: '无效的订阅 ID' }),
+      logId: z.uuid({ error: '无效的日志 ID' }),
     })
     const parsed = paramsSchema.safeParse(request.params)
     if (!parsed.success) {

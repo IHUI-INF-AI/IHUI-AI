@@ -91,7 +91,7 @@ const adapterConfigSchema = z.object({
   botToken: z.string().optional(),
   appId: z.string().optional(),
   appSecret: z.string().optional(),
-  callbackUrl: z.string().url().optional(),
+  callbackUrl: z.url().optional(),
   useLarkCli: z.boolean().optional(),
 })
 
@@ -100,7 +100,7 @@ const sendBodySchema = z.object({
   chatId: z.string().min(1),
   messageType: z.enum(['text', 'image', 'file', 'audio', 'video', 'card']).default('text'),
   text: z.string().optional(),
-  mediaUrl: z.string().url().optional(),
+  mediaUrl: z.url().optional(),
   card: z.unknown().optional(),
   replyToMessageId: z.string().optional(),
 })

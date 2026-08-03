@@ -49,11 +49,11 @@ const listProjectsQuerySchema = z.object({
 })
 
 const projectIdParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的项目 ID' }),
+  id: z.uuid({ error: '无效的项目 ID' }),
 })
 
 const createProjectBodySchema = z.object({
-  userId: z.string().uuid({ message: '请指定项目所有者' }),
+  userId: z.uuid({ error: '请指定项目所有者' }),
   name: z.string().min(1, '项目名不能为空').max(128, '项目名最多 128 字符'),
   description: z.string().max(2000).nullable().optional(),
   status: z.number().int().min(0).optional(),
@@ -66,7 +66,7 @@ const updateProjectBodySchema = z.object({
 })
 
 const idParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的用户 ID' }),
+  id: z.uuid({ error: '无效的用户 ID' }),
 })
 
 const updateUserBodySchema = z
@@ -81,7 +81,7 @@ const updateUserBodySchema = z
 
 const createUserBodySchema = z.object({
   phone: z.preprocess(emptyToUndefined, z.string().trim().optional()),
-  email: z.preprocess(emptyToUndefined, z.string().trim().email().optional()),
+  email: z.preprocess(emptyToUndefined, z.email().optional()),
   password: z.string().min(6, '密码至少 6 位'),
   nickname: z.string().trim().min(1, '昵称不能为空'),
   roleId: z.number().int().min(0).optional(),
@@ -765,7 +765,9 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       ])
       return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
     } catch (e) {
-      return reply.status(500).send(error(500, `智能体规则列表查询失败: ${toUserFriendlyMessage(e)}`))
+      return reply
+        .status(500)
+        .send(error(500, `智能体规则列表查询失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
@@ -802,7 +804,9 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       ])
       return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
     } catch (e) {
-      return reply.status(500).send(error(500, `智能体任务列表查询失败: ${toUserFriendlyMessage(e)}`))
+      return reply
+        .status(500)
+        .send(error(500, `智能体任务列表查询失败: ${toUserFriendlyMessage(e)}`))
     }
   })
 
