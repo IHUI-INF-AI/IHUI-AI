@@ -13,7 +13,7 @@ export const userRoutes: FastifyPluginAsync = async (s) => {
   s.put('/resetPwd', async (request, reply) => {
     const parsed = z
       .object({
-        userId: z.string().uuid(),
+        userId: z.uuid(),
         password: z.string().min(6, '密码至少 6 位'),
       })
       .safeParse(request.body)

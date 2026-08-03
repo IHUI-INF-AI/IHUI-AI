@@ -647,7 +647,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         name: z.string().min(1).max(100),
         description: z.string().max(2000).optional().nullable(),
         coverImage: z.string().max(512).optional().nullable(),
-        categoryId: z.string().uuid().optional().nullable(),
+        categoryId: z.uuid().optional().nullable(),
         isPublished: z.boolean().optional(),
       })
       .safeParse(request.body)
@@ -684,7 +684,7 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         name: z.string().min(1).max(100).optional(),
         description: z.string().max(2000).nullable().optional(),
         coverImage: z.string().max(512).nullable().optional(),
-        categoryId: z.string().uuid().nullable().optional(),
+        categoryId: z.uuid().nullable().optional(),
         isPublished: z.boolean().optional(),
       })
       .safeParse(request.body)
@@ -779,8 +779,8 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
     const body = z
       .object({
         content: z.string().min(1).max(20000),
-        pid: z.string().uuid().optional().nullable(),
-        replyUserId: z.string().uuid().optional().nullable(),
+        pid: z.uuid().optional().nullable(),
+        replyUserId: z.uuid().optional().nullable(),
       })
       .safeParse(request.body)
     if (!body.success) {

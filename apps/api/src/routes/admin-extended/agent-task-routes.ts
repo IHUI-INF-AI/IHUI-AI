@@ -14,8 +14,8 @@ import { buildKanbanColumns } from '../agents-kanban.js'
 import { idParamSchema } from './_shared.js'
 
 const createAgentTaskSchema = z.object({
-  agentId: z.string().uuid(),
-  ruleId: z.string().uuid().optional(),
+  agentId: z.uuid(),
+  ruleId: z.uuid().optional(),
   name: z.string().min(1).max(200),
   description: z.string().optional(),
   status: z.string().max(20).optional(),

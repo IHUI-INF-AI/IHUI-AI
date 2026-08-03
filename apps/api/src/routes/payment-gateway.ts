@@ -248,8 +248,8 @@ const stripeCreateCheckoutQuery = z.object({
   productId: z.string().optional(),
   currency: z.string().optional().default('usd'),
   productName: z.string().optional().default('IHUI-AI Purchase'),
-  successUrl: z.string().url().optional(),
-  cancelUrl: z.string().url().optional(),
+  successUrl: z.url().optional(),
+  cancelUrl: z.url().optional(),
 })
 
 const stripeRefundQuery = z.object({
@@ -270,8 +270,8 @@ const paypalCreateOrderQuery = z.object({
   productId: z.string().optional(),
   currency: z.string().optional().default('USD'),
   description: z.string().optional().default('IHUI-AI Purchase'),
-  returnUrl: z.string().url().optional(),
-  cancelUrl: z.string().url().optional(),
+  returnUrl: z.url().optional(),
+  cancelUrl: z.url().optional(),
 })
 
 const paypalCaptureQuery = z.object({

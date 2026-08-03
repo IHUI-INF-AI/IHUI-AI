@@ -68,7 +68,7 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
   server.post('/developer/subscription', async (request, reply) => {
     const body = z
       .object({
-        pricingId: z.string().uuid({ message: '无效的套餐 ID' }),
+        pricingId: z.uuid({ error: '无效的套餐 ID' }),
         period: z.enum(['monthly', 'yearly']).optional(),
       })
       .safeParse(request.body)
@@ -129,7 +129,7 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /developer/subscription/upgrade — 升级套餐
   server.post('/developer/subscription/upgrade', async (request, reply) => {
-    const body = z.object({ pricingId: z.string().uuid({ message: '无效的套餐 ID' }) }).safeParse(request.body)
+    const body = z.object({ pricingId: z.uuid({ error: '无效的套餐 ID' }) }).safeParse(request.body)
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     const [pricing] = await dbRead
@@ -162,9 +162,9 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
   server.post('/developer/team/invite', async (request, reply) => {
     const body = z
       .object({
-        teamId: z.string().uuid(),
-        inviteeId: z.string().uuid().optional(),
-        email: z.string().email().optional(),
+        teamId: z.uuid(),
+        inviteeId: z.uuid().optional(),
+        email: z.email().optional(),
       })
       .safeParse(request.body)
     if (!body.success)
@@ -199,7 +199,7 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
     const body = z
       .object({
         role: z.enum(['owner', 'admin', 'member']),
-        teamId: z.string().uuid(),
+        teamId: z.uuid(),
       })
       .safeParse(request.body)
     if (!body.success)
@@ -276,7 +276,7 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /teams/:id/invitations/:id — 删除团队邀请
   server.delete('/teams/:id/invitations/:id', async (request, reply) => {
     // 注:Fastify 路径参数同名时只取最后一个,这里用 params 解析两个 id
-    const params = z.object({ id: z.string().uuid() }).parse(request.params)
+    const params = z.object({ id: z.uuid() }).parse(request.params)
     // 由于路径中两个 :id 同名,Fastify 只保留最后一个(邀请 id)
     // 这里用邀请 id 删除
     const [deleted] = await db

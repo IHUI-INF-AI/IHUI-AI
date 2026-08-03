@@ -77,29 +77,29 @@ function serializeTag(t: {
 
 const searchQuerySchema = z.object({
   q: z.preprocess(emptyToUndefined, z.string().max(255).optional()),
-  projectId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  projectId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   mimeType: z.preprocess(emptyToUndefined, z.string().max(128).optional()),
-  tag: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  tag: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const recentQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的文件 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的文件 ID' }) })
 const tagIdParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的文件 ID' }),
-  tagId: z.string().uuid({ message: '无效的标签 ID' }),
+  id: z.uuid({ error: '无效的文件 ID' }),
+  tagId: z.uuid({ error: '无效的标签 ID' }),
 })
 const tokenParamSchema = z.object({ token: z.string().min(1, 'token 不能为空') })
-const shareIdParamSchema = z.object({ id: z.string().uuid({ message: '无效的分享 ID' }) })
+const shareIdParamSchema = z.object({ id: z.uuid({ error: '无效的分享 ID' }) })
 
 const addTagsSchema = z.object({
-  tagIds: z.array(z.string().uuid()).min(1, '至少选择一个标签').max(50, '一次最多 50 个标签'),
+  tagIds: z.array(z.uuid()).min(1, '至少选择一个标签').max(50, '一次最多 50 个标签'),
 })
 
 const createShareSchema = z.object({
-  sharedWith: z.string().uuid().optional(),
+  sharedWith: z.uuid().optional(),
   permissions: z.enum(['view', 'edit']).default('view'),
   expiresAt: z
     .string()

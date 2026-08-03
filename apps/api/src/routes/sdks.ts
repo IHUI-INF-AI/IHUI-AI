@@ -10,7 +10,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   language: z.preprocess(emptyToUndefined, z.string().max(32).optional()),

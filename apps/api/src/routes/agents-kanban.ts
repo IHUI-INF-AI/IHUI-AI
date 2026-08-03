@@ -141,15 +141,15 @@ function broadcastSSEEvent(event: AgentSSEEvent): void {
 // ---------------------------------------------------------------------------
 // Zod schemas
 // ---------------------------------------------------------------------------
-const idParamSchema = z.object({ id: z.string().uuid() })
+const idParamSchema = z.object({ id: z.uuid() })
 
 const statusFilterSchema = z.object({
   status: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done']).optional(),
 })
 
 const createTaskSchema = z.object({
-  agentId: z.string().uuid(),
-  ruleId: z.string().uuid().optional(),
+  agentId: z.uuid(),
+  ruleId: z.uuid().optional(),
   name: z.string().min(1).max(200),
   description: z.string().optional(),
   priority: z.number().int().optional(),
@@ -160,7 +160,7 @@ const createTaskSchema = z.object({
 })
 
 const transitionSchema = z.object({
-  taskId: z.string().uuid(),
+  taskId: z.uuid(),
   toStatus: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done']),
   operatedBy: z.string().optional(),
   reason: z.string().optional(),

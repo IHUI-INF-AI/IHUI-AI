@@ -74,18 +74,16 @@ const anthropicMessageSchema = z.object({
 
 const anthropicBatchRequestSchema = z.object({
   custom_id: z.string().min(1).max(500),
-  params: z
-    .object({
-      model: z.string().min(1),
-      max_tokens: z.number().int().positive(),
-      messages: z.array(anthropicMessageSchema).min(1),
-      system: z.union([z.string(), z.array(z.record(z.string(), z.unknown()))]).optional(),
-      temperature: z.number().min(0).max(1).optional(),
-      top_p: z.number().min(0).max(1).optional(),
-      top_k: z.number().int().positive().optional(),
-      stop_sequences: z.array(z.string()).optional(),
-    })
-    .passthrough(),
+  params: z.looseObject({
+    model: z.string().min(1),
+    max_tokens: z.number().int().positive(),
+    messages: z.array(anthropicMessageSchema).min(1),
+    system: z.union([z.string(), z.array(z.record(z.string(), z.unknown()))]).optional(),
+    temperature: z.number().min(0).max(1).optional(),
+    top_p: z.number().min(0).max(1).optional(),
+    top_k: z.number().int().positive().optional(),
+    stop_sequences: z.array(z.string()).optional(),
+  }),
 })
 
 const anthropicCreateBatchSchema = z.object({

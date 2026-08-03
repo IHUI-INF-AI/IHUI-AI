@@ -126,8 +126,8 @@ const paginationSchema = z.object({
 const messageListSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
-  before: z.string().uuid().optional(),
-  after: z.string().uuid().optional(),
+  before: z.uuid().optional(),
+  after: z.uuid().optional(),
 })
 
 const COMPRESS_TARGETS = (() => {
@@ -153,7 +153,7 @@ const compressSchema = z.object({
 // 批量操作 schema(2026-07-31 立,对话历史批量删除/收藏/归档)
 const batchActionSchema = z.object({
   action: z.enum(['delete', 'favorite', 'unfavorite', 'archive', 'unarchive']),
-  ids: z.array(z.string().uuid()).min(1, '至少选择一个对话').max(100, '单次最多 100 个对话'),
+  ids: z.array(z.uuid()).min(1, '至少选择一个对话').max(100, '单次最多 100 个对话'),
 })
 
 // =============================================================================
