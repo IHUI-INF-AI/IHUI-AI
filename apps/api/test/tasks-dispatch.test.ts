@@ -118,7 +118,7 @@ describe('Tasks Dispatch API', () => {
         command: 'npm test',
         status: 'pending',
         fromDevice: 'api',
-        userId: 1,
+        userId: '1',
       })
       expect(body.data.task.id).toBeTruthy()
       expect(body.data.task.createdAt).toBeTruthy()

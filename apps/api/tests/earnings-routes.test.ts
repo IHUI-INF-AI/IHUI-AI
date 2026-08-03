@@ -298,10 +298,21 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
       const { server, handlers } = buildMockServer()
       await earningsRoutes(server)
 
-      // 假设 SQL 返回 2 天的数据(分)
+      // 假设 SQL 返回 2 天的数据(分)— 日期需与路由 formatShanghaiDate 生成的日期对齐
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      const now = new Date()
+      const yesterday = new Date(now)
+      yesterday.setDate(now.getDate() - 1)
+      const todayStr = fmt.format(now)
+      const yesterdayStr = fmt.format(yesterday)
       mockDbReadExecute.mockResolvedValueOnce([
-        { date: '2026-07-30', amount: '500' }, // 5 元
-        { date: '2026-07-31', amount: '1200' }, // 12 元
+        { date: yesterdayStr, amount: '500' }, // 5 元
+        { date: todayStr, amount: '1200' }, // 12 元
       ])
 
       const handler = handlers.get('GET /byok-trend')!

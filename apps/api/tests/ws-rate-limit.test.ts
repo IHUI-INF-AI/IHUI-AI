@@ -7,7 +7,9 @@ const mockRedis = vi.hoisted(() => ({
 }))
 
 vi.mock('ioredis', () => ({
-  default: vi.fn(() => mockRedis),
+  default: vi.fn(function () {
+    return mockRedis
+  }),
 }))
 
 vi.mock('../src/config/index.js', () => ({
