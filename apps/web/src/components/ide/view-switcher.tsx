@@ -3,10 +3,28 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { IDETabType } from '@ihui/types'
-import { ChevronDown, FileText, Terminal, Globe, GitCompare, Figma, Bot, Settings, Plug, Plus, Search } from 'lucide-react'
+import {
+  ChevronDown,
+  FileText,
+  Terminal,
+  Globe,
+  GitCompare,
+  Palette,
+  Bot,
+  Settings,
+  Plug,
+  Plus,
+  Search,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type OptionItem = { id: IDETabType; icon: typeof FileText; labelKey?: string; label?: string; shortcut: string }
+type OptionItem = {
+  id: IDETabType
+  icon: typeof FileText
+  labelKey?: string
+  label?: string
+  shortcut: string
+}
 type OptionGroup = { titleKey: string; items: OptionItem[] }
 
 const TAB_GROUPS: OptionGroup[] = [
@@ -15,7 +33,7 @@ const TAB_GROUPS: OptionGroup[] = [
     items: [
       { id: 'document', icon: FileText, labelKey: 'topBar.document', shortcut: 'Ctrl+1' },
       { id: 'browser', icon: Globe, labelKey: 'topBar.browser', shortcut: 'Ctrl+2' },
-      { id: 'figma', icon: Figma, label: 'Figma', shortcut: 'Ctrl+3' },
+      { id: 'figma', icon: Palette, label: 'Figma', shortcut: 'Ctrl+3' },
     ],
   },
   {
@@ -29,9 +47,7 @@ const TAB_GROUPS: OptionGroup[] = [
   },
   {
     titleKey: 'viewSwitcher.groupSettings',
-    items: [
-      { id: 'settings', icon: Settings, labelKey: 'topBar.settings', shortcut: 'Ctrl+,' },
-    ],
+    items: [{ id: 'settings', icon: Settings, labelKey: 'topBar.settings', shortcut: 'Ctrl+,' }],
   },
 ]
 
@@ -43,7 +59,7 @@ export function ViewSwitcher() {
   const ref = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
-  const itemLabel = (item: OptionItem) => (item.labelKey ? t(item.labelKey) : item.label ?? '')
+  const itemLabel = (item: OptionItem) => (item.labelKey ? t(item.labelKey) : (item.label ?? ''))
 
   React.useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -63,14 +79,12 @@ export function ViewSwitcher() {
   const filteredGroups = React.useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return TAB_GROUPS
-    return TAB_GROUPS
-      .map((g) => ({
-        ...g,
-        items: g.items.filter(
-          (i) => itemLabel(i).toLowerCase().includes(q) || i.id.toLowerCase().includes(q),
-        ),
-      }))
-      .filter((g) => g.items.length > 0)
+    return TAB_GROUPS.map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (i) => itemLabel(i).toLowerCase().includes(q) || i.id.toLowerCase().includes(q),
+      ),
+    })).filter((g) => g.items.length > 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅依赖 query 变化时重新过滤,其他依赖通过闭包捕获
   }, [query])
 
@@ -98,7 +112,9 @@ export function ViewSwitcher() {
             </div>
           </div>
           {filteredGroups.length === 0 ? (
-            <div className="px-3 py-3 text-center text-xs text-muted-foreground">{t('viewSwitcher.noMatch')}</div>
+            <div className="px-3 py-3 text-center text-xs text-muted-foreground">
+              {t('viewSwitcher.noMatch')}
+            </div>
           ) : (
             filteredGroups.map((group) => (
               <div key={group.titleKey} className="px-1 pb-1 pt-1">
@@ -108,7 +124,10 @@ export function ViewSwitcher() {
                 {group.items.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => { setActiveTopTab(opt.id); setOpen(false) }}
+                    onClick={() => {
+                      setActiveTopTab(opt.id)
+                      setOpen(false)
+                    }}
                     className={cn(
                       'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors',
                       activeTopTab === opt.id
