@@ -55,7 +55,7 @@ type ForwardResult =
 
 const toolCallBodySchema = z.object({
   name: z.string().min(1).max(200),
-  arguments: z.record(z.unknown()).default({}),
+  arguments: z.record(z.string(), z.unknown()).default({}),
 })
 
 const resourceReadBodySchema = z.object({

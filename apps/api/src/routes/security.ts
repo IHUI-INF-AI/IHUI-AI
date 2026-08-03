@@ -60,7 +60,7 @@ const reportSchema = z.object({
   type: z.string().min(1).max(100),
   description: z.string().min(1).max(2000),
   ip: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 /* -------------------------------------------------------------------------- */
