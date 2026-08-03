@@ -67,7 +67,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
-    "@esbuild/win32-x64": "0.21.5",
+    "@esbuild/win32-x64": "0.28.1",
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^16.0.0",
     "@types/node": "^22.10.0",

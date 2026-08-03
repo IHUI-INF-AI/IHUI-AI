@@ -62,7 +62,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "babel-preset-taro": "4.2.1",
     "eslint": "catalog:",
-    "react-refresh": "^0.14.0",
+    "react-refresh": "^0.18.0",
     "rimraf": "catalog:",
     "tailwindcss": "^3.4.17",
     "typescript": "catalog:",

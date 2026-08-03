@@ -42,7 +42,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.79.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
     "@opentelemetry/resources": "^2.10.0",
-    "@opentelemetry/sdk-node": "^0.220.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@types/qrcode": "^1.5.6",
     "bcryptjs": "^3.0.3",
