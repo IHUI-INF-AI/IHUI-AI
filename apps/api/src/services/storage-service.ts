@@ -8,7 +8,7 @@
  * - 上传文件以 file_id 为名存储，支持元数据(sidecar .meta)与缩略图
  */
 
-import { createHash, createHmac, createPublicKey, createVerify, randomUUID } from 'node:crypto'
+import { createHash, createHmac, createPublicKey, createVerify, randomUUID, timingSafeEqual } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
@@ -200,29 +200,58 @@ export function getStorageStats(): StorageStats {
 }
 
 /**
+ * 获取签名 URL 所用密钥(复用 JWT_SECRET,无独立配置)。
+ *
+ * 2026-08-02 安全审计加固:
+ * - 移除硬编码 'storage-secret' fallback(可预测 → 签名可伪造)
+ * - JWT_SECRET 缺失时 fail-closed 抛错,禁止用弱默认值继续签发
+ */
+function getSigningSecret(): string {
+  const secret = env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET 未配置,无法签发/校验签名 URL(fail-closed)')
+  }
+  return secret
+}
+
+/**
  * 生成签名下载 URL。
- * 本地存储模式下生成带 HMAC 签名的临时 URL（由路由层解析校验）。
- * OSS 模式下应调用对应驱动的 presigned URL 接口（预留扩展）。
+ * 本地存储模式下生成带 HMAC-SHA256 签名的临时 URL（由路由层解析校验）。
+ * OSS 模式下应调用对应驱动的 presigned URL 接口（预留）。
+ *
+ * 2026-08-02 安全审计加固:
+ * - 用 HMAC-SHA256 替代 SHA256(payload+secret)(防长度扩展攻击)
+ * - 密钥从环境变量读取,移除硬编码 fallback
  *
  * @param key 文件 ID 或对象 key
  * @param expiresIn 有效期（秒），默认 3600
  */
 export function getSignedUrl(key: string, expiresIn = 3600): string {
-  const secret = env.JWT_SECRET ?? 'storage-secret'
+  const secret = getSigningSecret()
   const expires = Math.floor(Date.now() / 1000) + expiresIn
   const payload = `${key}:${expires}`
-  const signature = createHash('sha256').update(`${payload}:${secret}`).digest('hex').slice(0, 32)
+  const signature = createHmac('sha256', secret).update(payload).digest('hex').slice(0, 32)
   const params = new URLSearchParams({ key, expires: String(expires), sig: signature })
   return `/api/files/signed?${params.toString()}`
 }
 
-/** 校验签名 URL（路由层调用）。 */
+/**
+ * 校验签名 URL（路由层调用）。
+ *
+ * 2026-08-02 安全审计加固:
+ * - 用 timingSafeEqual 替代 ===(防 timing attack 逐字节猜测签名)
+ * - 用 HMAC-SHA256 重算期望签名(与 getSignedUrl 对齐)
+ */
 export function verifySignedUrl(key: string, expires: number, sig: string): boolean {
   if (expires * 1000 < Date.now()) return false
-  const secret = env.JWT_SECRET ?? 'storage-secret'
+  const secret = getSigningSecret()
   const payload = `${key}:${expires}`
-  const expected = createHash('sha256').update(`${payload}:${secret}`).digest('hex').slice(0, 32)
-  return expected === sig
+  const expected = createHmac('sha256', secret).update(payload).digest('hex').slice(0, 32)
+  // 长度不一致直接返回 false(timingSafeEqual 要求同长度)
+  const expectedBuf = Buffer.from(expected, 'utf8')
+  const providedBuf = Buffer.from(sig, 'utf8')
+  if (expectedBuf.length !== providedBuf.length) return false
+  return timingSafeEqual(expectedBuf, providedBuf)
 }
 
 // =============================================================================

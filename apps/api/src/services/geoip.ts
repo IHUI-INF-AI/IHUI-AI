@@ -1,15 +1,19 @@
 /**
- * GeoIP 服务(MaxMind GeoLite2 集成 + 本地降级)。
+ * GeoIP 服务(MaxMind GeoLite2 集成 + ip-api.com 远程降级)。
  *
- * 用 MaxMind GeoLite2 本地数据库(.mmdb)查询 IP 地理位置(country / city / 坐标)。
- * 数据库不存在或查询失败时降级为"IP 前两段变化"判断(向后兼容 anomaly-detector 旧逻辑)。
+ * 降级链(精度从高到低):
+ *   1. MaxMind GeoLite2 本地 .mmdb(最快,需注册下载,零网络开销)
+ *   2. ip-api.com 免费 API(远程,45 req/min,精准,无需账号,带 60s 内存缓存)
+ *   3. null(fail-open,不阻塞业务;isSameLocation 在此情况下兜底为 IP 前两段比较)
  *
  * MaxMind GeoLite2 免费但需注册下载:
  *   注册:https://www.maxmind.com/en/geolite2/signup
+ *   下载命令(node scripts/download-geolite2.mjs,需配置 MAXMIND_LICENSE_KEY)
  *   下载后放到项目 data/ 目录,或在 .env 配置 GEOLITE2_CITY_DB_PATH。
  *
- * 零运行时依赖:maxmind npm 包为可选依赖,用动态 import 加载,
- * 未安装或数据库缺失时自动降级,不影响服务启动(fail-open)。
+ * 零运行时依赖:maxmind npm 包为可选依赖,用动态 import 加载;
+ * ip-api.com 调用用 Node 18+ 内置 fetch。未安装或数据库缺失时自动降级,
+ * 不影响服务启动(fail-open)。
  */
 
 // 可选依赖:maxmind npm 包可能未安装。用变量名动态 import 避免 TypeScript 要求模块存在,
@@ -87,7 +91,7 @@ class GeoIpServiceImpl implements GeoIpService {
       logger.info('geoip: MaxMind database loaded', { path: dbPath })
       return reader
     } catch (e) {
-      logger.warn('geoip: MaxMind database load failed, using IP prefix fallback', {
+      logger.warn('geoip: MaxMind database load failed, using ip-api.com fallback', {
         path: dbPath,
         err: e,
       })
@@ -100,22 +104,27 @@ class GeoIpServiceImpl implements GeoIpService {
   async lookup(ip: string): Promise<GeoLocation | null> {
     if (!ip) return null
     const reader = await this.loadReader()
-    if (!reader) return null
-    try {
-      const record = reader.get(ip)
-      if (!record) return null
-      return {
-        country: record.country?.names?.en ?? record.country?.iso_code,
-        city: record.city?.names?.en,
-        region: record.subdivisions?.[0]?.names?.en,
-        latitude: record.location?.latitude,
-        longitude: record.location?.longitude,
-        timezone: record.location?.time_zone,
+    // 降级链 1:mmdb 存在 → 用 mmdb(本地,最快,零网络开销)
+    if (reader) {
+      try {
+        const record = reader.get(ip)
+        if (record) {
+          return {
+            country: record.country?.names?.en ?? record.country?.iso_code,
+            city: record.city?.names?.en,
+            region: record.subdivisions?.[0]?.names?.en,
+            latitude: record.location?.latitude,
+            longitude: record.location?.longitude,
+            timezone: record.location?.time_zone,
+          }
+        }
+        // mmdb 查询返回 null(如私有 IP / 数据库未覆盖)→ 继续走 ip-api 兜底
+      } catch (e) {
+        logger.warn('geoip: mmdb lookup failed, falling back to ip-api.com', { ip, err: e })
       }
-    } catch (e) {
-      logger.warn('geoip: lookup failed', { ip, err: e })
-      return null
     }
+    // 降级链 2:mmdb 不存在 / 查询失败 → ip-api.com(远程,免费,精准,带缓存)
+    return lookupViaIpApi(ip)
   }
 
   async isSameLocation(ip1: string, ip2: string): Promise<boolean> {
@@ -123,8 +132,10 @@ class GeoIpServiceImpl implements GeoIpService {
 
     const reader = await this.loadReader()
     if (!reader) {
-      // 降级:IP 前两段比较
-      return ipFirstTwoOctetsEqual(ip1, ip2)
+      // mmdb 不存在:lookup 会走 ip-api.com;ip-api 失败时再兜底 IP 前两段
+      const [loc1, loc2] = await Promise.all([this.lookup(ip1), this.lookup(ip2)])
+      if (!loc1 || !loc2) return ipFirstTwoOctetsEqual(ip1, ip2)
+      return loc1.country === loc2.country && loc1.city === loc2.city
     }
 
     try {
@@ -142,7 +153,14 @@ class GeoIpServiceImpl implements GeoIpService {
   async getDistanceKm(ip1: string, ip2: string): Promise<number | null> {
     if (ip1 === ip2) return 0
     const reader = await this.loadReader()
-    if (!reader) return null
+    if (!reader) {
+      // mmdb 不存在:lookup 会走 ip-api.com;失败返回 null
+      const [loc1, loc2] = await Promise.all([this.lookup(ip1), this.lookup(ip2)])
+      if (!loc1 || !loc2) return null
+      if (loc1.latitude === undefined || loc1.longitude === undefined) return null
+      if (loc2.latitude === undefined || loc2.longitude === undefined) return null
+      return haversineKm(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude)
+    }
     try {
       const [loc1, loc2] = await Promise.all([this.lookup(ip1), this.lookup(ip2)])
       if (!loc1 || !loc2) return null
@@ -159,6 +177,83 @@ class GeoIpServiceImpl implements GeoIpService {
 /* -------------------------------------------------------------------------- */
 /* 辅助函数                                                                    */
 /* -------------------------------------------------------------------------- */
+
+/** ip-api.com 响应的最小形状(仅取本服务使用的字段)。 */
+interface IpApiResponse {
+  status: string
+  country?: string
+  countryCode?: string
+  regionName?: string
+  city?: string
+  lat?: number
+  lon?: number
+  timezone?: string
+}
+
+/**
+ * ip-api.com 免费 API 调用的内存缓存,避免重复查询同一 IP 触发 45 req/min 限速。
+ * TTL 60 秒:null 也缓存(避免对查询失败的 IP 反复打远程)。
+ */
+const ipApiCache = new Map<string, { location: GeoLocation | null; expiry: number }>()
+const IP_API_CACHE_TTL_MS = 60_000
+
+/**
+ * 通过 ip-api.com 免费 API 查询 IP 地理位置(mmdb 不可用时的精准降级)。
+ * - 免费版:45 req/min,HTTP(非 HTTPS),无需账号,返回 zh-CN 字段。
+ * - 3 秒超时 + fail-open:失败返回 null,不阻塞业务。
+ * - 60 秒内存缓存:同 IP 反复查询直接命中缓存,绕过限速。
+ * 文档:https://ip-api.com/docs/api/json
+ */
+async function lookupViaIpApi(ip: string): Promise<GeoLocation | null> {
+  // 私有 / 内网 IP 直接返回 null,不打远程(ip-api 也查不到)
+  const cleanIp = ip.replace(/^::ffff:/, '')
+  if (cleanIp.startsWith('127.') || cleanIp.startsWith('10.') || cleanIp.startsWith('192.168.')) {
+    return null
+  }
+  if (cleanIp.startsWith('172.')) {
+    const second = parseInt(cleanIp.split('.')[1] ?? '0', 10)
+    if (second >= 16 && second <= 31) return null
+  }
+  if (cleanIp === '::1' || cleanIp.startsWith('fc') || cleanIp.startsWith('fd')) return null
+
+  // 命中缓存(含 null 缓存)
+  const cached = ipApiCache.get(cleanIp)
+  if (cached && cached.expiry > Date.now()) return cached.location
+
+  let location: GeoLocation | null = null
+  try {
+    const url = `http://ip-api.com/json/${cleanIp}?fields=status,country,countryCode,regionName,city,lat,lon,timezone&lang=zh-CN`
+    const response = await fetch(url, { signal: AbortSignal.timeout(3000) })
+    if (response.ok) {
+      const data = (await response.json()) as IpApiResponse
+      if (data.status === 'success') {
+        location = {
+          country: data.country,
+          city: data.city,
+          region: data.regionName,
+          latitude: data.lat,
+          longitude: data.lon,
+          timezone: data.timezone,
+        }
+      }
+    }
+  } catch {
+    // 超时 / 网络错误 / JSON 解析失败 → fail-open 返回 null
+  }
+
+  // 写缓存(含 null 缓存,防止限速期间反复打远程)
+  ipApiCache.set(cleanIp, { location, expiry: Date.now() + IP_API_CACHE_TTL_MS })
+
+  // 简单的缓存淘汰:超过 1000 条时清理过期项(防内存无限增长)
+  if (ipApiCache.size > 1000) {
+    const now = Date.now()
+    for (const [key, val] of ipApiCache) {
+      if (val.expiry <= now) ipApiCache.delete(key)
+    }
+  }
+
+  return location
+}
 
 /** 判断两个 IPv4 前两段是否相同(无 GeoIP 时的降级判断)。 */
 function ipFirstTwoOctetsEqual(a: string, b: string): boolean {
