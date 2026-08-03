@@ -14,8 +14,7 @@ import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpe
 const historyQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  yearMonth: z.preprocess(
-    emptyToUndefined,
+  yearMonth: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}$/, 'yearMonth 格式应为 YYYY-MM')
@@ -159,7 +158,7 @@ const checkinRoutes: FastifyPluginAsync = async (server) => {
 const adminListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const ruleSchema = z.object({

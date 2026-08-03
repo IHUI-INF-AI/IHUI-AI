@@ -26,10 +26,10 @@ import { toUserFriendlyMessage } from '@ihui/shared'
 const itemsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  source: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  category: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  trend: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  source: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  category: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  trend: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(16).optional()),
+  keyword: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const trendsQuerySchema = z.object({
@@ -39,7 +39,10 @@ const trendsQuerySchema = z.object({
 
 const sourcesQuerySchema = z.object({
   enabledOnly: z
-    .preprocess(emptyToUndefined, z.enum(['true', 'false']))
+    .string()
+    .optional()
+    .transform(emptyToUndefined)
+    .pipe(z.enum(['true', 'false']))
     .default('true')
     .transform((v) => v === 'true'),
 })

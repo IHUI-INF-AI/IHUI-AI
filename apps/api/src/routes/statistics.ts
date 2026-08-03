@@ -43,7 +43,7 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listSnapshotsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  type: z.preprocess(emptyToUndefined, z.string().min(1).max(50).optional()),
+  type: z.transform(emptyToUndefined).pipe(z.string().min(1).max(50).optional()),
 })
 
 const createSnapshotSchema = z.object({
@@ -54,14 +54,14 @@ const createSnapshotSchema = z.object({
 const visitLogsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  startTime: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endTime: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
 
 // Agent 热度统计查询参数
 const agentHeatQuery = z.object({
-  startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  startDate: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
@@ -345,8 +345,8 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   const dateRangeQuery = z.object({
-    startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-    endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    startDate: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+    endDate: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   })
 
   const aggregatedResponseSchema = {

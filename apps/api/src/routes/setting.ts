@@ -28,8 +28,8 @@ const paginationSchema = z.object({
 })
 
 const listSettingsQuerySchema = paginationSchema.extend({
-  group: z.preprocess(emptyToUndefined, z.string().min(1).max(64).optional()),
-  key: z.preprocess(emptyToUndefined, z.string().min(1).max(128).optional()),
+  group: z.transform(emptyToUndefined).pipe(z.string().min(1).max(64).optional()),
+  key: z.transform(emptyToUndefined).pipe(z.string().min(1).max(128).optional()),
 })
 
 const groupParamSchema = z.object({

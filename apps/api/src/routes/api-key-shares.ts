@@ -33,7 +33,7 @@ const createShareBodySchema = z.object({
   maxTotalTokens: z.number().int().min(0).nullable().optional(),
   /** 过期时间(必填,ISO 8601 字符串或时间戳,必须晚于当前时间) */
   expiresAt: z
-    .union([z.string().datetime(), z.number(), z.date()])
+    .union([z.iso.datetime(), z.number(), z.date()])
     .refine((v) => {
       const d = v instanceof Date ? v : new Date(v)
       return d.getTime() > Date.now()

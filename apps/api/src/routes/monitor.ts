@@ -14,9 +14,9 @@ import { getAuditLog } from '../services/canary-service.js'
 const alertsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-  severity: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-  source: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  severity: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  source: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
 })
 
 // =============================================================================

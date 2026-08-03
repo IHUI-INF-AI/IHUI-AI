@@ -96,26 +96,26 @@ const paginationQuery = {
 
 const listOrdersQuery = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  orderType: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
-  orderNo: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
+  orderType: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  orderNo: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
 
 const listPaymentsQuery = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  orderId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
+  orderId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const listRefundsQuery = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  orderId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
+  orderId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const listInvoiceAppsQuery = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
 })
 
 const priceSchema = z
@@ -763,7 +763,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listOrdersQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
+        .extend({ userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -953,7 +953,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listPaymentsQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
+        .extend({ userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -985,7 +985,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listRefundsQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
+        .extend({ userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1089,7 +1089,7 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const parsed = listInvoiceAppsQuery
-        .extend({ userId: z.preprocess(emptyToUndefined, z.uuid().optional()) })
+        .extend({ userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()) })
         .safeParse(request.query)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

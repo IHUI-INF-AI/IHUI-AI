@@ -45,11 +45,11 @@ async function getPerf() {
 }
 
 const apiLogQuerySchema = z.object({
-  page: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).default(1)),
-  pageSize: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(100).default(20)),
-  status: z.preprocess(emptyToUndefined, z.enum(['2xx', '4xx', '5xx', 'all']).optional()),
-  endpoint: z.preprocess(emptyToUndefined, z.string().max(512).optional()),
-  method: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
+  page: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(1).default(1)),
+  pageSize: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(1).max(100).default(20)),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['2xx', '4xx', '5xx', 'all']).optional()),
+  endpoint: z.transform(emptyToUndefined).pipe(z.string().max(512).optional()),
+  method: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
 })
 
 export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {

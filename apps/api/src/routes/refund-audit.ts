@@ -21,10 +21,10 @@ const paginationQuery = {
 
 const listRefundsQuery = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  orderId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  orderNo: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(16).optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  orderId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  orderNo: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
 
 const auditBodySchema = z.object({

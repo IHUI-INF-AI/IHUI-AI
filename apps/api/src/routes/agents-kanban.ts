@@ -154,7 +154,7 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   priority: z.number().int().optional(),
   payload: z.record(z.string(), z.unknown()).optional(),
-  scheduledAt: z.coerce.date().optional(),
+  scheduledAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
   dependencies: z.array(z.string()).max(100).optional(),
   workerId: z.string().optional(),
 })

@@ -35,7 +35,7 @@ const ossDriverTypeSchema = z.enum(['local', 'aliyun-oss', 'tencent-cos', 'qiniu
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listDriversQuerySchema = z.object({
-  driver: z.preprocess(emptyToUndefined, ossDriverTypeSchema.optional()),
+  driver: z.transform(emptyToUndefined).pipe(ossDriverTypeSchema.optional()),
 })
 
 const createDriverBodySchema = z.object({
