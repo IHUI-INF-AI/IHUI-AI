@@ -74,12 +74,12 @@ const subscriptionTargetParam = z.object({
 
 const favoritesListQuery = z.object({
   ...paginationQuery,
-  resourceType: z.preprocess(emptyToUndefined, z.enum(FAVORITE_RESOURCE_TYPES).optional()),
+  resourceType: z.transform(emptyToUndefined).pipe(z.enum(FAVORITE_RESOURCE_TYPES).optional()),
 })
 
 const subscriptionsListQuery = z.object({
   ...paginationQuery,
-  targetType: z.preprocess(emptyToUndefined, z.enum(TARGET_TYPES).optional()),
+  targetType: z.transform(emptyToUndefined).pipe(z.enum(TARGET_TYPES).optional()),
 })
 
 const createTagBody = z.object({

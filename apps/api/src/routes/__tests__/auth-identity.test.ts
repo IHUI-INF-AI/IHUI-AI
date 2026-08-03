@@ -12,7 +12,7 @@ vi.mock('@ihui/auth', () => ({
     .mockResolvedValue({
       userId: 'mock-user-id',
       phone: '13800000000',
-      familyId: '11111111-1111-1111-1111-111111111111',
+      familyId: '11111111-1111-4111-8111-111111111111',
       roleId: 1,
     }),
 }))
@@ -124,7 +124,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-user-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
       })
     })
@@ -155,7 +155,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-admin-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,
       })
       const res = await app.inject({
@@ -171,7 +171,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-admin-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,
       })
       const res = await app.inject({
@@ -189,7 +189,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-user-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
       })
     })
@@ -226,7 +226,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-user-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
       })
       const res = await app.inject({
@@ -241,7 +241,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-admin-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,
       })
       const res = await app.inject({
@@ -257,7 +257,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-user-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 0,
       })
       const res = await app.inject({
@@ -273,7 +273,7 @@ describe('Auth Identity API', () => {
       vi.mocked(verifyAccessToken).mockResolvedValue({
         userId: 'mock-admin-id',
         phone: '13800000000',
-        familyId: '11111111-1111-1111-1111-111111111111',
+        familyId: '11111111-1111-4111-8111-111111111111',
         roleId: 1,
       })
       const res = await app.inject({

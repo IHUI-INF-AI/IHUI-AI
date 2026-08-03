@@ -81,10 +81,10 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const resourcesListQuery = z.object({
   ...paginationQuery,
-  title: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  categoryId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  categoryId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const byIdsQuery = z.object({
@@ -92,8 +92,8 @@ const byIdsQuery = z.object({
 })
 
 const categoryQuery = z.object({
-  pid: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  fetchAll: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  pid: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  fetchAll: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
 })
 
 const createCategorySchema = z.object({
@@ -122,7 +122,7 @@ const createResourceSchema = z.object({
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
   type: z.string().max(50).nullable().optional(),
-  productId: z.preprocess(emptyToUndefined, z.uuid().nullable()).optional(),
+  productId: z.transform(emptyToUndefined).pipe(z.uuid().nullable()).optional(),
   tagIdList: z.array(z.uuid()).max(100).nullable().optional(),
   image: z.string().max(500).nullable().optional(),
   introduction: z.string().nullable().optional(),
@@ -140,7 +140,7 @@ const updateResourceSchema = z.object({
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
   type: z.string().max(50).nullable().optional(),
-  productId: z.preprocess(emptyToUndefined, z.uuid().nullable()).optional(),
+  productId: z.transform(emptyToUndefined).pipe(z.uuid().nullable()).optional(),
   tagIdList: z.array(z.uuid()).max(100).nullable().optional(),
   image: z.string().max(500).nullable().optional(),
   introduction: z.string().nullable().optional(),
@@ -153,10 +153,10 @@ const publishResourceSchema = z.object({
 
 const productsListQuery = z.object({
   ...paginationQuery,
-  resourceId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  resourceId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const createProductSchema = z.object({
@@ -197,9 +197,9 @@ const updateProductSchema = z.object({
 
 const tagsListQuery = z.object({
   ...paginationQuery,
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
-  pid: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
+  pid: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const createTagSchema = z.object({

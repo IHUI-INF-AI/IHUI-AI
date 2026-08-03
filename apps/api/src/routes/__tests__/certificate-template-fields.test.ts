@@ -16,10 +16,10 @@ vi.mock('jose', () => ({
   decodeJwt: vi.fn(() => ({ type: 'access' })),
 }))
 
-const TEMPLATE_ID = '11111111-1111-1111-1111-111111111111'
+const TEMPLATE_ID = '11111111-1111-4111-8111-111111111111'
 
 vi.mock('../../db/certificate-queries.js', () => {
-  const id = '11111111-1111-1111-1111-111111111111'
+  const id = '11111111-1111-4111-8111-111111111111'
   return {
     findTemplates: vi.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 20 }),
     findTemplateById: vi.fn().mockImplementation((tid: string) =>
