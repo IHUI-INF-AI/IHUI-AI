@@ -11,15 +11,15 @@ import { gradeExam, getExamRecordStatus } from '../db/exam-extended-queries.js'
 // =============================================================================
 
 const markPaperSchema = z.object({
-  recordId: z.string().uuid({ message: 'recordId 必须为 UUID' }),
+  recordId: z.uuid({ error: 'recordId 必须为 UUID' }),
   score: z
     .number()
     .min(0, '分数不能为负')
     .max(1000, '分数过高')
     .refine((v) => !Number.isNaN(v), '分数必须为数字'),
   // 兼容 Java RecordResponse 扩展字段(当前 gradeExam 仅使用 recordId + score)
-  paperId: z.string().uuid().optional(),
-  memberId: z.string().uuid().optional(),
+  paperId: z.uuid().optional(),
+  memberId: z.uuid().optional(),
   answer: z.string().optional(),
   referenceAnswer: z.string().optional(),
 })

@@ -63,7 +63,7 @@ const R = {
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -73,8 +73,8 @@ const paginationQuery = {
 const listChannelsQuery = z.object({
   ...paginationQuery,
   search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  categoryId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
-  lecturerId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  categoryId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  lecturerId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   isLive: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
 })
@@ -91,14 +91,14 @@ const byIdsQuery = z.object({
 
 const createLiveCategorySchema = z.object({
   name: z.string().min(1, '名称不能为空').max(100),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateLiveCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
@@ -107,8 +107,8 @@ const createChannelSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200),
   coverImage: z.string().max(500).nullable().optional(),
   intro: z.string().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
-  lecturerId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  lecturerId: z.uuid().nullable().optional(),
   lecturerName: z.string().max(100).nullable().optional(),
   pushUrl: z.string().max(500).nullable().optional(),
   playUrl: z.string().max(500).nullable().optional(),
@@ -124,8 +124,8 @@ const updateChannelSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   coverImage: z.string().max(500).nullable().optional(),
   intro: z.string().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
-  lecturerId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  lecturerId: z.uuid().nullable().optional(),
   lecturerName: z.string().max(100).nullable().optional(),
   pushUrl: z.string().max(500).nullable().optional(),
   playUrl: z.string().max(500).nullable().optional(),
@@ -294,30 +294,24 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
   // POST /live/tencent/callback - 腾讯云直播回调端点(验签 + 事件处理)
   // 独立子作用域:捕获 raw body 用于 HMAC-SHA256 验签,不影响其他 live 路由的 JSON 解析。
   server.register(async (scope) => {
-    scope.addContentTypeParser(
-      'application/json',
-      { parseAs: 'string' },
-      (req, body, done) => {
-        const raw = body as string
-        ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
-        if (!raw) {
-          done(null, undefined)
-          return
-        }
-        try {
-          done(null, JSON.parse(raw))
-        } catch (e) {
-          done(e as Error, undefined)
-        }
-      },
-    )
+    scope.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+      const raw = body as string
+      ;(req as FastifyRequest & { rawBody?: string }).rawBody = raw
+      if (!raw) {
+        done(null, undefined)
+        return
+      }
+      try {
+        done(null, JSON.parse(raw))
+      } catch (e) {
+        done(e as Error, undefined)
+      }
+    })
 
     scope.post('/live/tencent/callback', async (request, reply) => {
       const callbackKey = config.TENCENT_LIVE_CALLBACK_KEY
       if (!callbackKey) {
-        return reply
-          .status(503)
-          .send(error(503, '腾讯云直播回调未配置'))
+        return reply.status(503).send(error(503, '腾讯云直播回调未配置'))
       }
 
       const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody ?? ''

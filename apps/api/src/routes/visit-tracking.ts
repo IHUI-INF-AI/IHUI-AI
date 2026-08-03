@@ -22,7 +22,7 @@ const saveVisitLogSchema = z
   .object({
     data: z
       .object({
-        userId: z.string().uuid().optional(),
+        userId: z.uuid().optional(),
         ip: z.string().max(64).optional(),
         city: z.string().max(100).optional(),
         url: z.string().max(512).optional(),
@@ -32,7 +32,7 @@ const saveVisitLogSchema = z
         visitDate: z.string().max(10).optional(),
       })
       .optional(),
-    userId: z.string().uuid().optional(),
+    userId: z.uuid().optional(),
     ip: z.string().max(64).optional(),
     city: z.string().max(100).optional(),
     url: z.string().max(512).optional(),
@@ -58,7 +58,7 @@ const ipCityQuery = z.object({
 const logListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   url: z.preprocess(emptyToUndefined, z.string().min(1).max(512).optional()),
   startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
@@ -74,14 +74,14 @@ const pageStatsQuery = z.object({
 const sourceRecordSchema = z.object({
   referer: z.string().min(1).max(512),
   sessionId: z.string().max(128).optional(),
-  userId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
   ip: z.string().max(64).optional(),
 })
 
 const pageRecordSchema = z.object({
   url: z.string().min(1).max(512),
   sessionId: z.string().max(128).optional(),
-  userId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
   ip: z.string().max(64).optional(),
 })
 

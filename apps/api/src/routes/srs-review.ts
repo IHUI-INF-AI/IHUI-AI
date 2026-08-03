@@ -13,14 +13,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-import {
-  getDueReviews,
-  submitReview,
-  getReviewStats,
-} from '../services/srs-review-service.js'
+import { getDueReviews, submitReview, getReviewStats } from '../services/srs-review-service.js'
 
 const reviewSchema = z.object({
-  questionId: z.string().uuid({ message: '无效的题目 ID' }),
+  questionId: z.uuid({ error: '无效的题目 ID' }),
   quality: z.number().int().min(0).max(5),
 })
 

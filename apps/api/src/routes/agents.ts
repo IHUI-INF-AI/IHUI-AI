@@ -86,7 +86,7 @@ function toInt(v: string | undefined): number | undefined {
 const createOAuthAppSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().max(2000).optional(),
-  redirectUris: z.array(z.string().url()).min(1).max(20),
+  redirectUris: z.array(z.url()).min(1).max(20),
   scopes: z.array(z.string().max(64)).optional(),
   icon: z.string().max(512).optional(),
 })
@@ -94,7 +94,7 @@ const createOAuthAppSchema = z.object({
 const updateOAuthAppSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   description: z.string().max(2000).optional(),
-  redirectUris: z.array(z.string().url()).min(1).max(20).optional(),
+  redirectUris: z.array(z.url()).min(1).max(20).optional(),
   scopes: z.array(z.string().max(64)).optional(),
   icon: z.string().max(512).optional(),
   isActive: z.number().int().min(0).max(1).optional(),

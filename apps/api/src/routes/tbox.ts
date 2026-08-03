@@ -11,7 +11,7 @@ const registerSchema = z.object({
   deviceNo: z.string().min(1).max(100),
   deviceName: z.string().max(200).optional(),
   deviceType: z.string().max(50).optional(),
-  userId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
 })
 
 const commandSchema = z.object({

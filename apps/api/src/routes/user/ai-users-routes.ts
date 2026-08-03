@@ -18,7 +18,7 @@ const aiUserItemSchema = z.object({
   uuid: z.string().min(1).max(64).optional(),
   nickname: z.string().min(1).max(64).optional(),
   username: z.string().min(1).max(64).optional(),
-  email: z.string().email().optional().nullable(),
+  email: z.email().optional().nullable(),
   phone: z.string().max(32).optional().nullable(),
   avatar: z.string().max(500).optional().nullable(),
   platform: z.string().max(64).optional(),
@@ -52,9 +52,7 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
       .orderBy(asc(users.createdAt))
       .limit(q.pageSize)
       .offset((q.page - 1) * q.pageSize)
-    const totalRows = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(users)
+    const totalRows = await db.select({ total: sql<number>`count(*)::int` }).from(users)
     const total = totalRows[0]?.total ?? 0
     return reply.send(
       success({
@@ -109,8 +107,7 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
   server.put('/ai/users', async (request, reply) => {
     const body = aiUserItemSchema.safeParse(request.body ?? {})
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
-    if (!body.data.id && !body.data.uuid)
-      return reply.status(400).send(error(400, '缺少 id'))
+    if (!body.data.id && !body.data.uuid) return reply.status(400).send(error(400, '缺少 id'))
     const id = body.data.id ?? body.data.uuid!
     const patch: Record<string, unknown> = { updatedAt: new Date() }
     if (body.data.nickname !== undefined) patch.nickname = body.data.nickname
@@ -118,7 +115,10 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
     if (body.data.phone !== undefined) patch.phone = body.data.phone
     if (body.data.avatar !== undefined) patch.avatar = body.data.avatar
     if (body.data.status !== undefined) patch.status = body.data.status
-    await db.update(users).set(patch as never).where(eq(users.id, id))
+    await db
+      .update(users)
+      .set(patch as never)
+      .where(eq(users.id, id))
     return reply.send(success({ id, success: true }))
   })
 

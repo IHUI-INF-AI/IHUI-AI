@@ -37,7 +37,7 @@ const registerDeviceSchema = z.object({
   location: z.string().max(255).optional(),
   longitude: z.string().max(20).optional(),
   latitude: z.string().max(20).optional(),
-  userId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
 

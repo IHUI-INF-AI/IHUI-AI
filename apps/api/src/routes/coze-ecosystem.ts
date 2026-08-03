@@ -204,14 +204,13 @@ export const cozeEcosystemRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const b = z
-      .object({
+      .looseObject({
         user_id: z.string().min(1),
         conversation_id: z.string().optional(),
         additional_messages: z.array(z.record(z.string(), z.unknown())).max(100).optional(),
         stream: z.boolean().optional(),
         auto_save_history: z.boolean().optional(),
       })
-      .passthrough()
       .safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))

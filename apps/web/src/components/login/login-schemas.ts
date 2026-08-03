@@ -6,10 +6,7 @@ export const phoneSchema = z
   .regex(/^1[3-9]\d{9}$/, 'auth.invalidPhone')
 
 /** 通用账号:手机号 / 邮箱 / 用户名 */
-export const accountSchema = z
-  .string()
-  .min(3, 'auth.invalidAccount')
-  .max(72, 'auth.invalidAccount')
+export const accountSchema = z.string().min(3, 'auth.invalidAccount').max(72, 'auth.invalidAccount')
 
 export const loginSchema = z.object({
   account: accountSchema,
@@ -18,7 +15,7 @@ export const loginSchema = z.object({
 
 export type LoginValues = z.infer<typeof loginSchema>
 
-export const emailSchema = z.string().email({ message: 'auth.invalidEmail' })
+export const emailSchema = z.email({ error: 'auth.invalidEmail' })
 export const usernameSchema = z.string().min(3, 'auth.invalidUsername')
 
 export type TokenResult = {

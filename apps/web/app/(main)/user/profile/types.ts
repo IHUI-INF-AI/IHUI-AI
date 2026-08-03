@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const profileSchema = z.object({
   nickname: z.string().min(2).max(20),
-  email: z.string().email(),
+  email: z.email(),
   phone: z
     .string()
     .regex(/^1[3-9]\d{9}$/, '手机号格式不正确')
