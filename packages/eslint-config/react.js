@@ -21,7 +21,10 @@ export default tseslint.config(
       },
     },
     settings: {
-      react: { version: 'detect' },
+      // ESLint 10 移除了 context.getFilename() 等 deprecated API,
+      // eslint-plugin-react@7.37.5 的版本自动检测('detect')会调用 getFilename() 导致崩溃。
+      // 设成具体版本避免触发自动检测。miniapp-taro (React 18) 可在端内 config override。
+      react: { version: '19.0' },
     },
     rules: {
       ...react.configs.recommended.rules,
