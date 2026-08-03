@@ -127,10 +127,9 @@ const lessonsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   categoryId: z
-    .preprocess(
-      (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.uuid({ error: '无效的分类 ID' }),
-    )
+    .unknown()
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.uuid({ error: '无效的分类 ID' }).optional())
     .optional(),
   search: z.string().max(200).optional(),
 })
@@ -304,7 +303,7 @@ const createHomeworkSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().nullable().optional(),
   content: z.unknown().optional(),
-  dueDate: z.string().datetime().nullable().optional(),
+  dueDate: z.iso.datetime().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.string().max(20).optional(),
 })
@@ -314,7 +313,7 @@ const updateHomeworkSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
   content: z.unknown().optional(),
-  dueDate: z.string().datetime().nullable().optional(),
+  dueDate: z.iso.datetime().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.string().max(20).optional(),
 })
@@ -457,10 +456,9 @@ const mapListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().max(200).optional(),
-  isPublished: z.preprocess(
+  isPublished: z.transform(
     (v) => (v === '' || v === null || v === undefined ? undefined : v === 'true'),
-    z.boolean().optional(),
-  ),
+  ).pipe(z.boolean().optional()),
 })
 
 const topicListQuerySchema = z.object({

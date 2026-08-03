@@ -36,15 +36,15 @@ const paginationQuery = {
 
 const announcementListQuery = z.object({
   ...paginationQuery,
-  title: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const messageListQuery = z.object({
   ...paginationQuery,
-  msgType: z.preprocess(emptyToUndefined, z.string().min(1).max(32).optional()),
-  isRead: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  msgType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(32).optional()),
+  isRead: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
 })
 
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
@@ -54,7 +54,7 @@ const createAnnouncementSchema = z.object({
   content: z.string().max(20000).nullable().optional(),
   isPublished: z.boolean().optional(),
   isTop: z.boolean().optional(),
-  publishTime: z.string().datetime().nullable().optional(),
+  publishTime: z.iso.datetime().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
 })
@@ -64,7 +64,7 @@ const updateAnnouncementSchema = z.object({
   content: z.string().max(20000).nullable().optional(),
   isPublished: z.boolean().optional(),
   isTop: z.boolean().optional(),
-  publishTime: z.string().datetime().nullable().optional(),
+  publishTime: z.iso.datetime().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
 })
@@ -442,7 +442,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       const { id } = z.object({ id: z.uuid() }).parse(request.params)
       const { cursor, limit } = z
         .object({
-          cursor: z.string().datetime().optional(),
+          cursor: z.iso.datetime().optional(),
           limit: z.coerce.number().int().min(1).max(100).default(20),
         })
         .parse(request.query)
@@ -1089,9 +1089,9 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
       const parsed = z
         .object({
           ...paginationQuery,
-          memberId: z.preprocess(emptyToUndefined, z.uuid({ error: '无效的用户 ID' }).optional()),
-          msgType: z.preprocess(emptyToUndefined, z.string().min(1).max(32).optional()),
-          isRead: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+          memberId: z.transform(emptyToUndefined).pipe(z.uuid({ error: '无效的用户 ID' }).optional()),
+          msgType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(32).optional()),
+          isRead: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
         })
         .safeParse(request.query)
       if (!parsed.success) {

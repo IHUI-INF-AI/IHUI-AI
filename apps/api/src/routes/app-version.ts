@@ -13,13 +13,13 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 const platformSchema = z.enum(['ios', 'android', 'web', 'harmony'])
 
 const listQuerySchema = z.object({
-  platform: z.preprocess(emptyToUndefined, platformSchema.optional()),
+  platform: z.string().optional().transform(emptyToUndefined).pipe(platformSchema.optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 const latestQuerySchema = z.object({
-  platform: z.preprocess(emptyToUndefined, platformSchema.optional()),
+  platform: z.string().optional().transform(emptyToUndefined).pipe(platformSchema.optional()),
 })
 
 const checkUpdateSchema = z.object({

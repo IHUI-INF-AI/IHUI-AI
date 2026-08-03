@@ -28,8 +28,8 @@ const TX_TYPE = ['earn', 'spend'] as const
 const listTransactionsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  type: z.preprocess(emptyToUndefined, z.enum(TX_TYPE).optional()),
-  source: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
+  type: z.transform(emptyToUndefined).pipe(z.enum(TX_TYPE).optional()),
+  source: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
 })
 
 const adjustPointsSchema = z.object({
@@ -44,8 +44,7 @@ const adjustPointsSchema = z.object({
 const signInHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  yearMonth: z.preprocess(
-    emptyToUndefined,
+  yearMonth: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}$/, 'yearMonth 格式应为 YYYY-MM')

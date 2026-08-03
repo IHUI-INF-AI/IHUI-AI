@@ -35,14 +35,14 @@ const watchCountQuery = z.object({
 })
 
 const myWatchListQuery = z.object({
-  topicType: z.preprocess(emptyToUndefined, z.string().min(1).max(50).optional()),
+  topicType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(50).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 const deleteWatchQuery = z.object({
   id: z.uuid({ error: '无效的 ID' }),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const clearWatchQuery = z.object({
@@ -55,7 +55,7 @@ const likeCountsSchema = z.object({
 })
 
 const adminWatchListQuery = z.object({
-  topicType: z.preprocess(emptyToUndefined, z.string().min(1).max(50).optional()),
+  topicType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(50).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
@@ -71,7 +71,7 @@ const likeQuerySchema = z.object({
 })
 
 const likeListQuerySchema = z.object({
-  topicType: z.preprocess(emptyToUndefined, z.string().min(1).max(50).optional()),
+  topicType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(50).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
@@ -88,7 +88,7 @@ const favoriteQuerySchema = z.object({
 })
 
 const favoriteListQuerySchema = z.object({
-  topicType: z.preprocess(emptyToUndefined, z.string().min(1).max(50).optional()),
+  topicType: z.transform(emptyToUndefined).pipe(z.string().min(1).max(50).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })

@@ -51,7 +51,7 @@ vi.mock('../src/db/index.js', () => {
 import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/index.js'
 
 const USER_ID = '00000000-0000-0000-0000-000000000001'
-const CARD_ID = '11111111-1111-1111-1111-111111111111'
+const CARD_ID = '11111111-1111-4111-8111-111111111111'
 const PREFIX = '/api'
 
 function mockAuthed(userId: string = USER_ID) {
@@ -216,7 +216,7 @@ describe('business-card routes — /api/business-card/*', () => {
   it('DELETE /business-card/:id 非所有者 → 403', async () => {
     mockAuthed()
     enqueue([
-      { id: CARD_ID, userId: '22222222-2222-2222-2222-222222222222', name: '他人的', isPublic: true },
+      { id: CARD_ID, userId: '22222222-2222-4222-8222-222222222222', name: '他人的', isPublic: true },
     ])
     const res = await server.inject({
       method: 'DELETE',

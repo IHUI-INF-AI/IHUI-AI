@@ -27,11 +27,11 @@ import { getSearchEsService, type SearchTable } from '../services/search-es-serv
 // Zod schemas
 // =============================================================================
 
-const boolQuery = z.preprocess((v) => v === 'true' || v === '1', z.boolean())
+const boolQuery = z.transform((v) => v === 'true' || v === '1').pipe(z.boolean())
 
 const searchQuerySchema = z.object({
   q: z.string().trim().min(1, '关键词不能为空').max(255),
-  type: z.preprocess(emptyToUndefined, z.enum(['user', 'project', 'file', 'all']).default('all')),
+  type: z.transform(emptyToUndefined).pipe(z.enum(['user', 'project', 'file', 'all']).default('all')),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   highlight: boolQuery.default(false),
   facets: boolQuery.default(false),

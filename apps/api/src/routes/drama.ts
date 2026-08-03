@@ -10,12 +10,12 @@ import {
 } from '../services/ai/plot-advisor-service.js'
 
 const enhanceBodySchema = z.object({
-  title: z.preprocess(emptyToUndefined, z.string().optional()),
+  title: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
 const enhanceLineBodySchema = z.object({
   content: z.string().min(1).max(5000),
-  instruction: z.preprocess(emptyToUndefined, z.string().optional()),
+  instruction: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
 export const dramaRoutes: FastifyPluginAsync = async (server) => {

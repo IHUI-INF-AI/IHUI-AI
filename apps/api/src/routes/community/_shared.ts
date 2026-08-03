@@ -24,15 +24,15 @@ const paginationQuery = {
 
 export const listCirclesQuery = z.object({
   ...paginationQuery,
-  search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
 })
 
 export const listCirclePostsQuery = z.object(paginationQuery)
 
 export const listAsksQuery = z.object({
   ...paginationQuery,
-  search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  resolved: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  resolved: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
 })
 
 export const listAskAnswersQuery = z.object(paginationQuery)

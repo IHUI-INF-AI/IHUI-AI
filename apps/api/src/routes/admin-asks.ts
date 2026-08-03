@@ -11,10 +11,10 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  status: z.preprocess(emptyToUndefined, z.string().optional()),
-  resolved: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  resolved: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
 })
 
 const createSchema = z.object({

@@ -28,9 +28,8 @@ const scanBodySchema = z.object({
 })
 
 const listQuerySchema = paginationSchema.extend({
-  provider: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  status: z.preprocess(
-    emptyToUndefined,
+  provider: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  status: z.transform(emptyToUndefined).pipe(
     z.enum(['discovered', 'pending', 'approved', 'rejected']).optional(),
   ),
 })

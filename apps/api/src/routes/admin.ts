@@ -33,12 +33,11 @@ const ADMIN_ROLE_ID = 1
 const listUsersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
-  role: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-  includeDeleted: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  deptId: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+  search: z.transform(emptyToUndefined).pipe(z.string().trim().optional()),
+  role: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+  includeDeleted: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  deptId: z.transform(emptyToUndefined).pipe(
     z.coerce.number().int().optional(),
   ),
 })
@@ -80,8 +79,8 @@ const updateUserBodySchema = z
   })
 
 const createUserBodySchema = z.object({
-  phone: z.preprocess(emptyToUndefined, z.string().trim().optional()),
-  email: z.preprocess(emptyToUndefined, z.email().optional()),
+  phone: z.transform(emptyToUndefined).pipe(z.string().trim().optional()),
+  email: z.transform(emptyToUndefined).pipe(z.email().optional()),
   password: z.string().min(6, '密码至少 6 位'),
   nickname: z.string().trim().min(1, '昵称不能为空'),
   roleId: z.number().int().min(0).optional(),

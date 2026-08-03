@@ -21,19 +21,19 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { contextEngineService } from '../services/context-engine-service.js'
 
 const mentionQuerySchema = z.object({
-  q: z.preprocess(emptyToUndefined, z.string().max(255).optional()),
+  q: z.transform(emptyToUndefined).pipe(z.string().max(255).optional()),
   type: z.enum(['file', 'database', 'symbol', 'folder', 'web']).default('file'),
-  workspacePath: z.preprocess(emptyToUndefined, z.string().max(512).optional()),
+  workspacePath: z.transform(emptyToUndefined).pipe(z.string().max(512).optional()),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
 
 const tableQuerySchema = z.object({
-  q: z.preprocess(emptyToUndefined, z.string().max(255).optional()),
+  q: z.transform(emptyToUndefined).pipe(z.string().max(255).optional()),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
 const symbolQuerySchema = z.object({
-  q: z.preprocess(emptyToUndefined, z.string().min(1).max(255)),
+  q: z.transform(emptyToUndefined).pipe(z.string().min(1).max(255)),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
 
@@ -67,21 +67,21 @@ const enrichBodySchema = z.object({
 
 /** GET /visualization + GET /memory + GET /compression-stats 查询参数 schema(2026-07-22 深化立) */
 const visualizationQuerySchema = z.object({
-  conversationId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
-  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  conversationId: z.transform(emptyToUndefined).pipe(z.string().max(255)).default(''),
+  userId: z.transform(emptyToUndefined).pipe(z.string().max(255)).default(''),
 })
 
 const memoryQuerySchema = z.object({
-  conversationId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
-  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  conversationId: z.transform(emptyToUndefined).pipe(z.string().max(255)).default(''),
+  userId: z.transform(emptyToUndefined).pipe(z.string().max(255)).default(''),
 })
 
 const compressionStatsQuerySchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  userId: z.transform(emptyToUndefined).pipe(z.string().max(255)).default(''),
 })
 
 const clearMemoryQuerySchema = z.object({
-  conversationId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  conversationId: z.transform(emptyToUndefined).pipe(z.string().max(255)).default(''),
 })
 
 /** POST /visualization/track 请求体 schema(2026-07-22 深化立) */

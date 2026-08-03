@@ -9,7 +9,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 const pidParamSchema = z.object({ pid: z.coerce.number().int().min(1) })
 
 const listQuerySchema = z.object({
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(1).optional()),
 })
 
 const createSchema = z.object({
@@ -41,7 +41,7 @@ const syncSchema = z.object({
 const syncLogQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  platformCode: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+  platformCode: z.transform(emptyToUndefined).pipe(z.string().max(50).optional()),
 })
 
 export const educationPlatformRoutes: FastifyPluginAsync = async (server) => {

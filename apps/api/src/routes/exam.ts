@@ -143,21 +143,21 @@ const papersQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().max(200).optional(),
   categoryId: z
-    .preprocess(
-      (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.uuid({ error: '无效的分类 ID' }),
-    )
+    .unknown()
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.uuid({ error: '无效的分类 ID' }).optional())
     .optional(),
   cidList: z
-    .preprocess(
-      (v) => {
-        if (v === '' || v === null || v === undefined) return undefined
-        if (Array.isArray(v)) return v
-        return String(v)
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      },
+    .unknown()
+    .transform((v) => {
+      if (v === '' || v === null || v === undefined) return undefined
+      if (Array.isArray(v)) return v
+      return String(v)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    })
+    .pipe(
       z
         .array(z.uuid({ error: '无效的分类 ID' }))
         .max(100)
@@ -328,16 +328,17 @@ const wrongQuestionsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   examId: z
-    .preprocess(
-      (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.uuid({ error: '无效的试卷 ID' }),
-    )
+    .unknown()
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.uuid({ error: '无效的试卷 ID' }).optional())
     .optional(),
   isResolved: z
-    .preprocess((v) => {
+    .unknown()
+    .transform((v) => {
       if (v === '' || v === null || v === undefined) return undefined
       return v === 'true'
-    }, z.boolean().optional())
+    })
+    .pipe(z.boolean().optional())
     .optional(),
 })
 
@@ -1343,7 +1344,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const body = z
       .object({
         status: z.string().max(50).optional(),
-        completedTime: z.string().datetime().optional(),
+        completedTime: z.iso.datetime().optional(),
       })
       .parse(request.body)
     const [updated] = await db
@@ -2168,8 +2169,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         .object({
           name: z.string().min(1).max(100),
           code: z.string().min(1).max(100),
-          startTime: z.string().datetime(),
-          endTime: z.string().datetime(),
+          startTime: z.iso.datetime(),
+          endTime: z.iso.datetime(),
           image: z.string().min(1).max(1000),
           status: z.string().max(50).default('draft'),
           phrase: z.string().max(255).default(''),
@@ -2199,8 +2200,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         .object({
           name: z.string().min(1).max(100).optional(),
           code: z.string().min(1).max(100).optional(),
-          startTime: z.string().datetime().optional(),
-          endTime: z.string().datetime().optional(),
+          startTime: z.iso.datetime().optional(),
+          endTime: z.iso.datetime().optional(),
           image: z.string().max(1000).optional(),
           status: z.string().max(50).optional(),
           phrase: z.string().max(255).optional(),

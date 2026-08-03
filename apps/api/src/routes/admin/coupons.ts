@@ -33,25 +33,25 @@ const couponBodyBase = {
   name: z.string().min(1, '名称不能为空').max(128),
   type: z.enum(['discount', 'deduction', 'referral']),
   /** 折扣率(0-1)或减额(分) */
-  value: z.preprocess(emptyToUndefined, z.coerce.number().min(0).optional()),
+  value: z.transform(emptyToUndefined).pipe(z.coerce.number().min(0).optional()),
   /** 满减门槛(分) */
-  minSpend: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  minSpend: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 裂变券:分享人得什么 */
-  referrerGets: z.preprocess(emptyToUndefined, z.enum(['duplicate', 'credit']).optional()),
+  referrerGets: z.transform(emptyToUndefined).pipe(z.enum(['duplicate', 'credit']).optional()),
   /** 裂变券:分享人得多少(分) */
-  referralValue: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  referralValue: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 适用模型列表,null=全部 */
   applicableModels: z.array(z.string()).nullable().optional(),
   /** 适用范围 */
   applicableScope: z.enum(['relay', 'subscription', 'all']).default('relay'),
   /** 总发行量,null=无限(不传 = 无限) */
-  totalQuota: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  totalQuota: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 每人限领 */
   perUserLimit: z.coerce.number().int().min(0).default(1),
   /** 生效时间(ISO 8601) */
-  startsAt: z.string().datetime(),
+  startsAt: z.iso.datetime(),
   /** 过期时间(ISO 8601) */
-  expiresAt: z.string().datetime(),
+  expiresAt: z.iso.datetime(),
   /** 是否启用 */
   enabled: z.boolean().default(true),
 }
@@ -60,22 +60,22 @@ const createBodySchema = z.object(couponBodyBase)
 
 const updateBodySchema = z.object({
   name: z.string().min(1).max(128).optional(),
-  value: z.preprocess(emptyToUndefined, z.coerce.number().min(0).optional()),
-  minSpend: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
-  referrerGets: z.preprocess(emptyToUndefined, z.enum(['duplicate', 'credit']).optional()),
-  referralValue: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  value: z.transform(emptyToUndefined).pipe(z.coerce.number().min(0).optional()),
+  minSpend: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
+  referrerGets: z.transform(emptyToUndefined).pipe(z.enum(['duplicate', 'credit']).optional()),
+  referralValue: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   applicableModels: z.array(z.string()).nullable().optional(),
   applicableScope: z.enum(['relay', 'subscription', 'all']).optional(),
-  totalQuota: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  totalQuota: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   perUserLimit: z.coerce.number().int().min(0).optional(),
-  startsAt: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
-  expiresAt: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
+  startsAt: z.transform(emptyToUndefined).pipe(z.iso.datetime().optional()),
+  expiresAt: z.transform(emptyToUndefined).pipe(z.iso.datetime().optional()),
   enabled: z.boolean().optional(),
 })
 
 const listQuerySchema = paginationSchema.extend({
-  type: z.preprocess(emptyToUndefined, z.enum(['discount', 'deduction', 'referral']).optional()),
-  enabled: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  type: z.transform(emptyToUndefined).pipe(z.enum(['discount', 'deduction', 'referral']).optional()),
+  enabled: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
 })
 
 const batchBodySchema = z.object({
@@ -129,7 +129,7 @@ const adminCouponsRoutes: FastifyPluginAsync = async (server) => {
           code: generateCouponCode(),
           name: d.name,
           type: d.type,
-          value: d.value != null ? String(d.value) : null,
+          value: d.value !== null && d.value !== undefined ? String(d.value) : null,
           minSpend: d.minSpend ?? null,
           referrerGets: d.referrerGets ?? null,
           referralValue: d.referralValue ?? null,
@@ -267,7 +267,7 @@ const adminCouponsRoutes: FastifyPluginAsync = async (server) => {
         template: {
           name: t.name,
           type: t.type,
-          value: t.value != null ? String(t.value) : null,
+          value: t.value !== null && t.value !== undefined ? String(t.value) : null,
           minSpend: t.minSpend ?? null,
           referrerGets: t.referrerGets ?? null,
           referralValue: t.referralValue ?? null,

@@ -27,11 +27,11 @@ import { paginationSchema, idParamSchema } from './_shared.js'
 
 const listQuerySchema = paginationSchema.extend({
   /** 上架状态:all / public / private */
-  status: z.preprocess(emptyToUndefined, z.enum(['all', 'public', 'private']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['all', 'public', 'private']).optional()),
   /** 厂商筛选(providerCode) */
-  provider: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  provider: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
   /** configId 筛选(关联到指定 ai_model_config) */
-  configId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  configId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
 
 const createBodySchema = z.object({
