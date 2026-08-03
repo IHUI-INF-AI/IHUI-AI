@@ -135,7 +135,7 @@ describe('edu-extended-routes — 线下记录/证书/论文 CRUD 需鉴权真�
     setMockUser(user.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/edu/offline-records/00000000-0000-0000-0000-000000000000',
+      url: '/api/edu/offline-records/00000000-0000-4000-8000-000000000000',
       body: { title: '新标题' },
     })
     expect(res.statusCode).toBe(404)

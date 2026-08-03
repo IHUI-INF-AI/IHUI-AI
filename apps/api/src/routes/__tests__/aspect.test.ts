@@ -21,7 +21,7 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-token'),
   verifyAccessToken: vi.fn(),
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 const { mockSelectResult, mockInsertValues, mockUpdateSet, mockUpdateWhere } = vi.hoisted(() => {
@@ -106,11 +106,11 @@ const mockRedisPlugin = fp(async (server: FastifyInstance) => {
   server.decorate('redisForQueue', {} as never)
 }, { name: 'mock-redis', fastify: '5.x' })
 
-const USER_ID = '00000000-0000-0000-0000-000000000001'
-const RESOURCE_ID = '00000000-0000-0000-0000-000000000010'
-const TARGET_USER_ID = '00000000-0000-0000-0000-000000000099'
-const CHANNEL_ID = '00000000-0000-0000-0000-000000000020'
-const POINT_ID = '00000000-0000-0000-0000-000000000030'
+const USER_ID = '00000000-0000-4000-8000-000000000001'
+const RESOURCE_ID = '00000000-0000-4000-8000-000000000010'
+const TARGET_USER_ID = '00000000-0000-4000-8000-000000000099'
+const CHANNEL_ID = '00000000-0000-4000-8000-000000000020'
+const POINT_ID = '00000000-0000-4000-8000-000000000030'
 
 const testRoutes: FastifyPluginAsync = async (server) => {
   server.get('/api/search', async (_request, reply) => {

@@ -58,9 +58,9 @@ import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/inde
 import { db } from '../src/db/index.js'
 
 const PREFIX = '/api'
-const USER_ID = '00000000-0000-0000-0000-000000000010'
+const USER_ID = '00000000-0000-4000-8000-000000000010'
 const ADDRESS_ID = '11111111-1111-4111-8111-111111111111'
-const OTHER_USER = '00000000-0000-0000-0000-000000000099'
+const OTHER_USER = '00000000-0000-4000-8000-000000000099'
 
 function mockAuthed() {
   mockAuthenticate.mockImplementation(async (request: { userId?: string; jwtPayload?: unknown }) => {

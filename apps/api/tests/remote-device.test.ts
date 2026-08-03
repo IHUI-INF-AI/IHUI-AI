@@ -36,7 +36,7 @@ describe('Remote device routes (M-87)', () => {
   it('GET /api/remote-devices/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/remote-devices/00000000-0000-0000-0000-000000000000',
+      url: '/api/remote-devices/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -53,7 +53,7 @@ describe('Remote device routes (M-87)', () => {
   it('PUT /api/remote-devices/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/remote-devices/00000000-0000-0000-0000-000000000000',
+      url: '/api/remote-devices/00000000-0000-4000-8000-000000000000',
       body: { deviceName: '更新设备' },
     })
     expect(res.statusCode).toBe(401)
@@ -62,7 +62,7 @@ describe('Remote device routes (M-87)', () => {
   it('DELETE /api/remote-devices/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/remote-devices/00000000-0000-0000-0000-000000000000',
+      url: '/api/remote-devices/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -70,7 +70,7 @@ describe('Remote device routes (M-87)', () => {
   it('POST /api/remote-devices/:id/heartbeat 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'POST',
-      url: '/api/remote-devices/00000000-0000-0000-0000-000000000000/heartbeat',
+      url: '/api/remote-devices/00000000-0000-4000-8000-000000000000/heartbeat',
       body: { batteryLevel: 80, signalStrength: -50 },
     })
     expect(res.statusCode).toBe(401)
@@ -79,7 +79,7 @@ describe('Remote device routes (M-87)', () => {
   it('GET /api/remote-devices/:id/tasks 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/remote-devices/00000000-0000-0000-0000-000000000000/tasks',
+      url: '/api/remote-devices/00000000-0000-4000-8000-000000000000/tasks',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -87,7 +87,7 @@ describe('Remote device routes (M-87)', () => {
   it('POST /api/remote-devices/:id/tasks 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'POST',
-      url: '/api/remote-devices/00000000-0000-0000-0000-000000000000/tasks',
+      url: '/api/remote-devices/00000000-0000-4000-8000-000000000000/tasks',
       body: { taskType: 'reboot', title: '远程重启' },
     })
     expect(res.statusCode).toBe(401)
@@ -96,7 +96,7 @@ describe('Remote device routes (M-87)', () => {
   it('GET /api/remote-device-tasks/:taskId 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/remote-device-tasks/00000000-0000-0000-0000-000000000000',
+      url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -104,7 +104,7 @@ describe('Remote device routes (M-87)', () => {
   it('PUT /api/remote-device-tasks/:taskId/status 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/remote-device-tasks/00000000-0000-0000-0000-000000000000/status',
+      url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000/status',
       body: { status: 'completed' },
     })
     expect(res.statusCode).toBe(401)
@@ -113,7 +113,7 @@ describe('Remote device routes (M-87)', () => {
   it('DELETE /api/remote-device-tasks/:taskId 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/remote-device-tasks/00000000-0000-0000-0000-000000000000',
+      url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -121,7 +121,7 @@ describe('Remote device routes (M-87)', () => {
   it('POST /api/remote-device-tasks/:taskId/retry 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'POST',
-      url: '/api/remote-device-tasks/00000000-0000-0000-0000-000000000000/retry',
+      url: '/api/remote-device-tasks/00000000-0000-4000-8000-000000000000/retry',
     })
     expect(res.statusCode).toBe(401)
   })

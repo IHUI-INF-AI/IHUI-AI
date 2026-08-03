@@ -46,7 +46,7 @@ vi.mock('../src/db/resource-queries.js', () => ({
 
 import { resourceRoutes, adminResourceRoutes } from '../src/routes/resource'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('resource routes', () => {
   const server = Fastify({ logger: false })

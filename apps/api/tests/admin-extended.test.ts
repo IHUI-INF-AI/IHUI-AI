@@ -45,7 +45,7 @@ describe('admin-extended routes', () => {
   it('PUT /api/admin/menu/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/admin/menu/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/menu/00000000-0000-4000-8000-000000000000',
       body: { name: '更新菜单' },
     })
     expect(res.statusCode).toBe(401)
@@ -54,7 +54,7 @@ describe('admin-extended routes', () => {
   it('DELETE /api/admin/menu/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/admin/menu/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/menu/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -67,7 +67,7 @@ describe('admin-extended routes', () => {
   it('GET /api/admin/demand-audit/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/admin/demand-audit/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/demand-audit/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -75,7 +75,7 @@ describe('admin-extended routes', () => {
   it('PUT /api/admin/demand-audit/:id/audit 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/admin/demand-audit/00000000-0000-0000-0000-000000000000/audit',
+      url: '/api/admin/demand-audit/00000000-0000-4000-8000-000000000000/audit',
       body: { status: 'approved', auditComment: '通过' },
     })
     expect(res.statusCode).toBe(401)
@@ -89,7 +89,7 @@ describe('admin-extended routes', () => {
   it('POST /api/admin/online-users/:id/force-logout 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'POST',
-      url: '/api/admin/online-users/00000000-0000-0000-0000-000000000000/force-logout',
+      url: '/api/admin/online-users/00000000-0000-4000-8000-000000000000/force-logout',
     })
     expect(res.statusCode).toBe(401)
   })

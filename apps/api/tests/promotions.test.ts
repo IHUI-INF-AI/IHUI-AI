@@ -39,7 +39,7 @@ vi.mock('../src/db/promotion-queries.js', () => ({
 
 import { promotionRoutes, adminPromotionRoutes } from '../src/routes/promotions'
 
-const SAMPLE_UUID = '00000000-0000-0000-0000-000000000001'
+const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('promotion routes', () => {
   const server = Fastify({ logger: false })

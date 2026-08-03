@@ -91,9 +91,9 @@ const AUTH_HEADERS = { authorization: 'Bearer mock-token' }
 
 function mockAuth(roleId = 1): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000000',
+    userId: '00000000-0000-4000-8000-000000000000',
     phone: '13800000000',
-    familyId: '00000000-0000-0000-0000-000000000000',
+    familyId: '00000000-0000-4000-8000-000000000000',
     roleId,
   })
 }

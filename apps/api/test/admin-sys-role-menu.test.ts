@@ -84,7 +84,7 @@ describe('admin-sys role-menu queries', () => {
 
   it('assignRoleMenus 分配菜单后, findMenuIdsByRole 返回正确 menuIds', async () => {
     const roleId = 1
-    const menuIds = ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002']
+    const menuIds = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002']
     await assignRoleMenus(roleId, menuIds)
     const result = await findMenuIdsByRole(roleId)
     expect(result.sort()).toEqual(menuIds.sort())
@@ -92,21 +92,21 @@ describe('admin-sys role-menu queries', () => {
 
   it('assignRoleMenus 再次分配(覆盖), 旧关联被清除, 仅保留新关联', async () => {
     const roleId = 2
-    await assignRoleMenus(roleId, ['00000000-0000-0000-0000-000000000001'])
+    await assignRoleMenus(roleId, ['00000000-0000-4000-8000-000000000001'])
     await assignRoleMenus(roleId, [
-      '00000000-0000-0000-0000-000000000002',
-      '00000000-0000-0000-0000-000000000003',
+      '00000000-0000-4000-8000-000000000002',
+      '00000000-0000-4000-8000-000000000003',
     ])
     const result = await findMenuIdsByRole(roleId)
     expect(result.sort()).toEqual([
-      '00000000-0000-0000-0000-000000000002',
-      '00000000-0000-0000-0000-000000000003',
+      '00000000-0000-4000-8000-000000000002',
+      '00000000-0000-4000-8000-000000000003',
     ])
   })
 
   it('assignRoleMenus 传空数组, 清除所有关联', async () => {
     const roleId = 3
-    await assignRoleMenus(roleId, ['00000000-0000-0000-0000-000000000001'])
+    await assignRoleMenus(roleId, ['00000000-0000-4000-8000-000000000001'])
     await assignRoleMenus(roleId, [])
     const result = await findMenuIdsByRole(roleId)
     expect(result).toEqual([])
