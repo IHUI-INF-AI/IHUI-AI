@@ -24,15 +24,14 @@ const RETRY_DELAY_MS = 0
 /**
  * 判断错误是否为死锁错误
  * - PostgreSQL: "deadlock detected"
- * - MySQL: "Deadlock found when trying to get lock"
- * - 通用: error.code 为 40P01(PostgreSQL deadlock)或 1213(MySQL lock)
+ * - 通用: error.code 为 40P01/40001(PostgreSQL 死锁/序列化失败)
  */
 function isDeadlockError(err: unknown): boolean {
   if (!err) return false
   const e = err as { message?: string; code?: string }
   const msg = (e.message || '').toLowerCase()
   if (msg.includes('deadlock')) return true
-  if (e.code === '40P01' || e.code === '1213') return true
+  if (e.code === '40P01' || e.code === '40001') return true
   return false
 }
 
@@ -122,13 +121,13 @@ describe('BUG-R16-DEADLOCK-RETRY:死锁自动重试', () => {
     expect(callCount).toBe(2)
   })
 
-  it('MySQL 错误码 1213 也被识别为 deadlock', async () => {
+  it('PostgreSQL 错误码 40001(serialization_failure)也被识别为 deadlock', async () => {
     let callCount = 0
     const fn = async () => {
       callCount++
       if (callCount < 2) {
-        const err = new Error('Lock wait timeout') as Error & { code: string }
-        err.code = '1213'
+        const err = new Error('transaction conflict') as Error & { code: string }
+        err.code = '40001'
         throw err
       }
       return 'ok'
