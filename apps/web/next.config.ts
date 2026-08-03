@@ -21,7 +21,8 @@ const nextConfig: NextConfig = {
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: true }, // CI 构建跳过 TS 错误(多 agent 并行开发可能有临时错误)
-  eslint: { ignoreDuringBuilds: true }, // CI 构建跳过 ESLint
+  // Next 16 移除了 NextConfig.eslint 配置项(ESLint 不再在 next build 期间运行,
+  // 由独立 `next lint` 或外部 ESLint 流程负责),原 eslint.ignoreDuringBuilds 不再需要。
   productionBrowserSourceMaps: false,
   // 关闭 Next.js 15 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   devIndicators: false,
