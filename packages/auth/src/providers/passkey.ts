@@ -12,10 +12,12 @@
  * - PASSKEY_RP_NAME:  RP 显示名(默认 IHUI-AI)
  * - PASSKEY_ORIGINS:  允许的 Origin 列表(逗号分隔,默认 http://localhost:3000)
  *
- * ⚠️ TODO(@main-agent): @simplewebauthn/server 当前未安装,本 provider 用
- *   createRequire 动态加载绕过 TS 静态解析。请执行:
- *   pnpm --filter @ihui/auth add @simplewebauthn/server
+ * ⚠️ @simplewebauthn/server ^13.3.2 已在 package.json 声明(待主 agent 执行 pnpm install)。
+ *   本 provider 用 createRequire 动态加载,使包未安装时 typecheck 仍可通过。
  *   安装后可改为静态 import,并收紧 SimpleWebAuthnServer 类型签名(用真实类型替换 unknown)。
+ *   v13 breaking changes(相对 v10):registrationInfo.credential 嵌套化、
+ *   AuthenticatorDevice→WebAuthnCredential(credentialID→id, credentialPublicKey→publicKey)、
+ *   verifyAuthenticationResponse 的 authenticator 参数→credential、@simplewebauthn/types 弃用。
  */
 
 import { createRequire } from 'node:module'
@@ -223,8 +225,11 @@ export async function verifyRegistrationResponse(
     return { verified: true }
   }
 
-  const credentialPublicKey = toBuffer(info.credentialPublicKey)
-  const credentialIdRaw = info.credentialID
+  // v11+: credential(id/publicKey/counter/transports) 嵌套在 registrationInfo.credential 中
+  //   v10 扁平字段 credentialID/credentialPublicKey/counter 已迁入 credential 对象
+  const credential = isObject(info.credential) ? info.credential : undefined
+  const credentialPublicKey = credential ? toBuffer(credential.publicKey) : undefined
+  const credentialIdRaw = credential?.id
   const credentialId = credentialPublicKey
     ? credentialIdRaw instanceof Uint8Array
       ? Buffer.from(credentialIdRaw).toString('base64url')
@@ -237,7 +242,7 @@ export async function verifyRegistrationResponse(
     verified: true,
     credentialId,
     credentialPublicKey,
-    counter: isNumber(info.counter) ? info.counter : undefined,
+    counter: credential && isNumber(credential.counter) ? credential.counter : undefined,
     deviceType: isString(info.credentialDeviceType) ? info.credentialDeviceType : undefined,
     backedUp: isBoolean(info.credentialBackedUp) ? info.credentialBackedUp : undefined,
     aaguid: toString(info.aaguid),

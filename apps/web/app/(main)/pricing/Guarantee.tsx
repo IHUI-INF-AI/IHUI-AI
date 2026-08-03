@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Shield, Lock, Github } from 'lucide-react'
+import { Shield, Lock, Code } from 'lucide-react'
 import { Card, CardContent } from '@ihui/ui-react'
 
 interface GuaranteeItem {
@@ -14,7 +14,7 @@ interface GuaranteeItem {
 const ITEMS: GuaranteeItem[] = [
   { icon: Shield, titleKey: 'guarantee.refundTitle', descKey: 'guarantee.refundDesc' },
   { icon: Lock, titleKey: 'guarantee.dataTitle', descKey: 'guarantee.dataDesc' },
-  { icon: Github, titleKey: 'guarantee.openSourceTitle', descKey: 'guarantee.openSourceDesc' },
+  { icon: Code, titleKey: 'guarantee.openSourceTitle', descKey: 'guarantee.openSourceDesc' },
 ]
 
 export function Guarantee(): React.JSX.Element {

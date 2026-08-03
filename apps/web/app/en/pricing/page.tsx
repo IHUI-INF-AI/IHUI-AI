@@ -10,7 +10,7 @@ import {
   Users,
   Building2,
   Sparkles,
-  Github,
+  Code,
   ArrowRight,
 } from 'lucide-react'
 
@@ -209,7 +209,7 @@ export default function PricingLandingPage() {
               <Cpu className="h-4 w-4 text-primary" /> 176+ models
             </span>
             <span className="flex items-center gap-1.5">
-              <Github className="h-4 w-4 text-primary" /> Apache 2.0 open source
+              <Code className="h-4 w-4 text-primary" /> Apache 2.0 open source
             </span>
             <span className="flex items-center gap-1.5">
               <Shield className="h-4 w-4 text-primary" /> Self-hosted ready
@@ -332,7 +332,7 @@ export default function PricingLandingPage() {
         <section className="mb-16 md:mb-24">
           <Card className="p-8 md:p-12">
             <div className="flex flex-col items-center text-center">
-              <Github className="h-10 w-10 text-primary" />
+              <Code className="h-10 w-10 text-primary" />
               <h2 className="mt-4 text-xl font-bold tracking-tight text-foreground md:text-2xl">
                 Open Source. Self-Host. Free Forever.
               </h2>
@@ -347,7 +347,7 @@ export default function PricingLandingPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <Github className="h-4 w-4" />
+                    <Code className="h-4 w-4" />
                     View on GitHub
                     <ArrowRight className="h-4 w-4" />
                   </a>

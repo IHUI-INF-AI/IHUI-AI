@@ -11,7 +11,7 @@ import {
   Boxes,
   Activity,
   MousePointerClick,
-  Github,
+  Code,
   ExternalLink,
   Wrench,
 } from 'lucide-react'
@@ -30,7 +30,7 @@ const AFFILIATES = [
   { id: 7, icon: Boxes, url: 'https://pinecone.io/?ref=ihui-ai' },
   { id: 8, icon: Activity, url: 'https://smith.langchain.com/?ref=ihui-ai' },
   { id: 9, icon: MousePointerClick, url: 'https://cursor.com/?ref=ihui-ai' },
-  { id: 10, icon: Github, url: 'https://github.com/features/copilot/?ref=ihui-ai' },
+  { id: 10, icon: Code, url: 'https://github.com/features/copilot/?ref=ihui-ai' },
 ] as const
 
 export function AffiliatesContent(): React.JSX.Element {
@@ -45,7 +45,9 @@ export function AffiliatesContent(): React.JSX.Element {
           <Wrench className="h-3.5 w-3.5 text-primary" />
           {t('heroBadge')}
         </div>
-        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">{t('heroTitle')}</h1>
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-5xl font-bold tracking-tight">
+          {t('heroTitle')}
+        </h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground min-[768px]:text-lg">
           {t('heroSubtitle')}
         </p>
