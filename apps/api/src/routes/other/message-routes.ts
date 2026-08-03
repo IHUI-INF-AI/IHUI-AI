@@ -10,7 +10,7 @@ import { success, error } from '../../utils/response.js'
 import { createMessage } from '../../db/notification-queries.js'
 
 const sendMessageSchema = z.object({
-  receiverId: z.string().uuid(),
+  receiverId: z.uuid(),
   content: z.string().min(1).max(5000),
 })
 

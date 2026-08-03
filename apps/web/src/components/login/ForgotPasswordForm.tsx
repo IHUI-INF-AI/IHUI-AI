@@ -12,7 +12,7 @@ import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 const phoneRegex = /^1[3-9]\d{9}$/
-const emailSchema = z.string().email()
+const emailSchema = z.email()
 
 /**
  * 找回密码：支持「手机验证码」与「邮箱验证码」两种重置方式。

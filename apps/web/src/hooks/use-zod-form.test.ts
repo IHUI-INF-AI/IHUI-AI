@@ -6,7 +6,9 @@ import { renderHook, act } from '@testing-library/react'
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, vars?: Record<string, string | number>) => {
     if (!vars) return `[${key}]`
-    const parts = Object.entries(vars).map(([k, v]) => `${k}=${v}`).join(',')
+    const parts = Object.entries(vars)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(',')
     return `[${key}|${parts}]`
   },
 }))
@@ -22,7 +24,7 @@ interface FormData {
 
 const schema = z.object({
   name: z.string().min(1, 'required').max(20, 'maxLength'),
-  email: z.string().email({ message: 'email' }),
+  email: z.email({ error: 'email' }),
   age: z.number().int().min(0, 'min'),
 })
 

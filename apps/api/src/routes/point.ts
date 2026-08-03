@@ -62,7 +62,7 @@ const paginationQuery = {
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 }
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const channelsListQuery = z.object({
   ...paginationQuery,
@@ -89,7 +89,7 @@ const updateChannelSchema = z.object({
 const createPointSchema = z.object({
   name: z.string().min(1).max(100),
   code: z.string().max(50).nullable().optional(),
-  channelId: z.string().uuid().nullable().optional(),
+  channelId: z.uuid().nullable().optional(),
   point: z.number().int().optional(),
   description: z.string().nullable().optional(),
   sort: z.number().int().min(0).optional(),
@@ -99,7 +99,7 @@ const createPointSchema = z.object({
 const updatePointSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   code: z.string().max(50).nullable().optional(),
-  channelId: z.string().uuid().nullable().optional(),
+  channelId: z.uuid().nullable().optional(),
   point: z.number().int().optional(),
   description: z.string().nullable().optional(),
   sort: z.number().int().min(0).optional(),
@@ -108,38 +108,38 @@ const updatePointSchema = z.object({
 
 const relationsListQuery = z.object({
   ...paginationQuery,
-  pointId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
-  channelId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  pointId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  channelId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const updateRelationsSchema = z.object({
-  pointId: z.string().uuid({ message: '无效的积分规则 ID' }),
-  channelIds: z.array(z.string().uuid()).max(100).default([]),
+  pointId: z.uuid({ error: '无效的积分规则 ID' }),
+  channelIds: z.array(z.uuid()).max(100).default([]),
 })
 
 const recordsListQuery = z.object({
   ...paginationQuery,
-  memberId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  memberId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   type: z.preprocess(emptyToUndefined, z.string().min(1).max(32).optional()),
 })
 
 const pointOperationSchema = z.object({
-  memberId: z.string().uuid({ message: '无效的会员 ID' }),
-  channelId: z.string().uuid({ message: '无效的渠道 ID' }),
-  pointId: z.string().uuid({ message: '无效的积分规则 ID' }),
+  memberId: z.uuid({ error: '无效的会员 ID' }),
+  channelId: z.uuid({ error: '无效的渠道 ID' }),
+  pointId: z.uuid({ error: '无效的积分规则 ID' }),
   amount: z.number().int().positive('积分数量必须为正整数'),
   remark: z.string().max(255).optional(),
 })
 
 const fallbackSchema = z.object({
-  recordId: z.string().uuid({ message: '无效的记录 ID' }),
+  recordId: z.uuid({ error: '无效的记录 ID' }),
   remark: z.string().max(255).optional(),
 })
 
 const rulesListQuery = z.object({
   ...paginationQuery,
   name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
-  channelId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  channelId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 })
 

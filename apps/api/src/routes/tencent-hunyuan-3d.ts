@@ -32,7 +32,7 @@ const PREFIX = '/tencent/hunyuan3d'
 const viewImageSchema = z.object({
   View: z.enum(['left', 'right', 'back']),
   ImageBase64: z.string().optional(),
-  ImageUrl: z.string().url().optional(),
+  ImageUrl: z.url().optional(),
 })
 
 const submitSchema = z
@@ -42,7 +42,7 @@ const submitSchema = z
       .string()
       .max(8 * 1024 * 1024)
       .optional(),
-    ImageUrl: z.string().url().max(2048).optional(),
+    ImageUrl: z.url().max(2048).optional(),
     MultiViewImages: z.array(viewImageSchema).max(20).optional(),
     ResultFormat: z.enum(['OBJ', 'GLB', 'STL', 'USDZ', 'FBX', 'MP4']).default('OBJ'),
     EnablePBR: z.boolean().default(false),

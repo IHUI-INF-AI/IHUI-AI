@@ -32,7 +32,7 @@ import { getOssStsProvider } from '../services/oss-sts-service.js'
 
 const ossDriverTypeSchema = z.enum(['local', 'aliyun-oss', 'tencent-cos', 'qiniu', 's3', 'minio'])
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listDriversQuerySchema = z.object({
   driver: z.preprocess(emptyToUndefined, ossDriverTypeSchema.optional()),
@@ -75,7 +75,7 @@ const updateDriverBodySchema = z
 
 // 上传代理 schema(简化:校验驱动是否存在,实际上传走 files.ts)
 const uploadProxyBodySchema = z.object({
-  driverId: z.string().uuid().optional(),
+  driverId: z.uuid().optional(),
   filename: z.string().min(1),
   size: z.number().int().min(0),
 })

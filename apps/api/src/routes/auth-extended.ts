@@ -273,7 +273,7 @@ function decryptTwoFactorSecret(stored: Buffer | null): Buffer | null {
 // challenge token 只能用于 /auth/2fa/login-verify,其他端点由 plugins/auth.ts 拒绝。
 
 const loginByEmailSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   code: z.string().length(6),
 })
 
@@ -283,7 +283,7 @@ const loginByUsernameSchema = z.object({
 })
 
 const emailCodeSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   scene: z.enum(['register', 'login', 'reset']).default('login'),
 })
 
@@ -311,7 +311,7 @@ const captchaVerifySchema = z.object({
 const oauthAppCreateSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
-  redirectUris: z.array(z.string().url()).min(1).max(20),
+  redirectUris: z.array(z.url()).min(1).max(20),
   scopes: z.array(z.string()).max(100).optional(),
   icon: z.string().optional(),
 })
@@ -464,7 +464,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const bodySchema = z.object({
-        email: z.string().email(),
+        email: z.email(),
         code: z.string().length(6),
         password: z.string().min(6).max(64),
         nickname: z.string().min(1).max(50).optional(),
@@ -550,113 +550,128 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 更新资料 (Phase 5 P0 修复:接受前端 api-client 全部字段)
-  server.put('/auth/profile', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = z
-      .object({
-        // 兼容两种风格:后端原 snake_case (nickname/email/gender) + 前端 camelCase (avatar/bio/birthday)
-        nickname: z.string().min(1).max(64).optional(),
-        email: z.string().email().optional(),
-        gender: z.number().int().min(0).max(2).optional(),
-        avatar: z
-          .string()
-          .max(500)
-          .refine((s) => s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://'), {
-            message: 'avatar 必须是 URL 或以 / 开头的相对路径',
-          })
-          .optional(),
-        bio: z.string().max(500).optional(),
-        birthday: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}/, 'birthday 格式应为 YYYY-MM-DD')
-          .optional()
-          .nullable(),
+  server.put(
+    '/auth/profile',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = z
+        .object({
+          // 兼容两种风格:后端原 snake_case (nickname/email/gender) + 前端 camelCase (avatar/bio/birthday)
+          nickname: z.string().min(1).max(64).optional(),
+          email: z.email().optional(),
+          gender: z.number().int().min(0).max(2).optional(),
+          avatar: z
+            .string()
+            .max(500)
+            .refine(
+              (s) => s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://'),
+              {
+                message: 'avatar 必须是 URL 或以 / 开头的相对路径',
+              },
+            )
+            .optional(),
+          bio: z.string().max(500).optional(),
+          birthday: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}/, 'birthday 格式应为 YYYY-MM-DD')
+            .optional()
+            .nullable(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const d = parsed.data
+      const { nickname, email, gender, avatar, bio, birthday } = d
+      if (
+        nickname === undefined &&
+        email === undefined &&
+        gender === undefined &&
+        avatar === undefined &&
+        bio === undefined &&
+        birthday === undefined
+      ) {
+        return reply.status(400).send(error(400, '至少提供一个要更新的字段'))
+      }
+      // 基础字段走 users 表
+      await updateUser(request.userId!, {
+        ...(nickname !== undefined ? { nickname } : {}),
+        ...(email !== undefined ? { email } : {}),
       })
-      .safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const d = parsed.data
-    const { nickname, email, gender, avatar, bio, birthday } = d
-    if (
-      nickname === undefined &&
-      email === undefined &&
-      gender === undefined &&
-      avatar === undefined &&
-      bio === undefined &&
-      birthday === undefined
-    ) {
-      return reply.status(400).send(error(400, '至少提供一个要更新的字段'))
-    }
-    // 基础字段走 users 表
-    await updateUser(request.userId!, {
-      ...(nickname !== undefined ? { nickname } : {}),
-      ...(email !== undefined ? { email } : {}),
-    })
-    // 扩展字段直写 users (avatar/bio/birthday/gender)
-    const { db } = await import('../db/index.js')
-    const { users } = await import('@ihui/database')
-    const { eq } = await import('drizzle-orm')
-    const updates: Record<string, unknown> = { updatedAt: new Date() }
-    if (avatar !== undefined) updates.avatar = avatar
-    if (bio !== undefined) updates.bio = bio
-    if (birthday !== undefined) updates.birthday = birthday ? new Date(birthday) : null
-    if (gender !== undefined) updates.gender = gender
-    if (Object.keys(updates).length > 0) {
-      await db.update(users).set(updates).where(eq(users.id, request.userId!))
-    }
-    // 拉取最新用户信息
-    const fresh = await findUserById(request.userId!)
-    return reply.send(
-      success({
-        id: fresh?.id,
-        nickname: fresh?.nickname ?? nickname ?? null,
-        avatar: fresh?.avatar ?? avatar ?? null,
-        email: fresh?.email ?? email ?? null,
-        bio: fresh?.bio ?? bio ?? null,
-        gender: fresh?.gender ?? gender ?? null,
-        birthday: fresh?.birthday ?? (birthday ? new Date(birthday).toISOString() : null),
-        updated: true,
-      }),
-    )
-  })
+      // 扩展字段直写 users (avatar/bio/birthday/gender)
+      const { db } = await import('../db/index.js')
+      const { users } = await import('@ihui/database')
+      const { eq } = await import('drizzle-orm')
+      const updates: Record<string, unknown> = { updatedAt: new Date() }
+      if (avatar !== undefined) updates.avatar = avatar
+      if (bio !== undefined) updates.bio = bio
+      if (birthday !== undefined) updates.birthday = birthday ? new Date(birthday) : null
+      if (gender !== undefined) updates.gender = gender
+      if (Object.keys(updates).length > 0) {
+        await db.update(users).set(updates).where(eq(users.id, request.userId!))
+      }
+      // 拉取最新用户信息
+      const fresh = await findUserById(request.userId!)
+      return reply.send(
+        success({
+          id: fresh?.id,
+          nickname: fresh?.nickname ?? nickname ?? null,
+          avatar: fresh?.avatar ?? avatar ?? null,
+          email: fresh?.email ?? email ?? null,
+          bio: fresh?.bio ?? bio ?? null,
+          gender: fresh?.gender ?? gender ?? null,
+          birthday: fresh?.birthday ?? (birthday ? new Date(birthday).toISOString() : null),
+          updated: true,
+        }),
+      )
+    },
+  )
 
   // 修改密码 (Phase 5 P0 修复:同时接受 camelCase 与 snake_case 字段)
-  server.put('/auth/profile/password', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = z
-      .object({
-        // 前端 api-client 使用 camelCase
-        oldPassword: z.string().min(1).max(128).optional(),
-        newPassword: z.string().min(6).max(128).optional(),
-        // 兼容旧接口 snake_case
-        old_password: z.string().min(1).max(128).optional(),
-        new_password: z.string().min(6).max(128).optional(),
-      })
-      .safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const oldPwd = parsed.data.oldPassword ?? parsed.data.old_password
-    const newPwd = parsed.data.newPassword ?? parsed.data.new_password
-    if (!oldPwd || !newPwd) {
-      return reply.status(400).send(error(400, '缺少 oldPassword/newPassword'))
-    }
-    if (newPwd.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
-    const user = await findUserById(request.userId!)
-    if (!user?.passwordHash || !(await verifyPassword(oldPwd, user.passwordHash))) {
-      return reply.status(400).send(error(400, '旧密码错误'))
-    }
-    await updateUser(request.userId!, { passwordHash: await hashPassword(newPwd) })
-    return reply.send(success({ success: true, updated: true }))
-  })
+  server.put(
+    '/auth/profile/password',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = z
+        .object({
+          // 前端 api-client 使用 camelCase
+          oldPassword: z.string().min(1).max(128).optional(),
+          newPassword: z.string().min(6).max(128).optional(),
+          // 兼容旧接口 snake_case
+          old_password: z.string().min(1).max(128).optional(),
+          new_password: z.string().min(6).max(128).optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const oldPwd = parsed.data.oldPassword ?? parsed.data.old_password
+      const newPwd = parsed.data.newPassword ?? parsed.data.new_password
+      if (!oldPwd || !newPwd) {
+        return reply.status(400).send(error(400, '缺少 oldPassword/newPassword'))
+      }
+      if (newPwd.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
+      const user = await findUserById(request.userId!)
+      if (!user?.passwordHash || !(await verifyPassword(oldPwd, user.passwordHash))) {
+        return reply.status(400).send(error(400, '旧密码错误'))
+      }
+      await updateUser(request.userId!, { passwordHash: await hashPassword(newPwd) })
+      return reply.send(success({ success: true, updated: true }))
+    },
+  )
 
   // 注销
-  server.delete('/auth/cancel', { config: { rateLimit: { max: 3, timeWindow: '1 hour' } } }, async (request, reply) => {
-    await authenticate(request)
-    await cancelUserAccount(request.userId!)
-    return reply.send(success({ cancelled: true }))
-  })
+  server.delete(
+    '/auth/cancel',
+    { config: { rateLimit: { max: 3, timeWindow: '1 hour' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      await cancelUserAccount(request.userId!)
+      return reply.send(success({ cancelled: true }))
+    },
+  )
 
   // Google OAuth
   server.get('/auth/google/pc/wxCode', async (request, reply) => {
@@ -724,41 +739,49 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ userId: user.id, accessToken, refreshToken }))
   })
 
-  server.post('/auth/wechat/mini/phone', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const { code } = codeQuery.parse(request.query)
-    if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
-    const phone = await getPhoneNumber(code)
-    let user = await findUserByPhone(phone)
-    if (!user) {
-      user = await createUser({
-        phone,
-        nickname: `用户${phone.slice(-4)}`,
-        roleId: 0,
-        status: 1,
-      })
-    }
-    return reply.send(success({ userId: user.id, phone }))
-  })
+  server.post(
+    '/auth/wechat/mini/phone',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const { code } = codeQuery.parse(request.query)
+      if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
+      const phone = await getPhoneNumber(code)
+      let user = await findUserByPhone(phone)
+      if (!user) {
+        user = await createUser({
+          phone,
+          nickname: `用户${phone.slice(-4)}`,
+          roleId: 0,
+          status: 1,
+        })
+      }
+      return reply.send(success({ userId: user.id, phone }))
+    },
+  )
 
-  server.post('/auth/wechat/mini/rebind', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const { code } = codeQuery.parse(request.query)
-    if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
-    const session = await jscode2session(code)
-    const existing = await findThirdPartyAccount('wechat', session.openId)
-    if (existing && existing.userId !== request.userId) {
-      return reply.status(409).send(error(409, '该微信已绑定其他账号'))
-    }
-    await removeBindingByPlatform(request.userId!, 'wechat')
-    await createThirdPartyBinding({
-      userId: request.userId!,
-      openId: session.openId,
-      unionId: session.unionId,
-      platform: 'wechat',
-    })
-    return reply.send(success({ rebound: true }))
-  })
+  server.post(
+    '/auth/wechat/mini/rebind',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const { code } = codeQuery.parse(request.query)
+      if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
+      const session = await jscode2session(code)
+      const existing = await findThirdPartyAccount('wechat', session.openId)
+      if (existing && existing.userId !== request.userId) {
+        return reply.status(409).send(error(409, '该微信已绑定其他账号'))
+      }
+      await removeBindingByPlatform(request.userId!, 'wechat')
+      await createThirdPartyBinding({
+        userId: request.userId!,
+        openId: session.openId,
+        unionId: session.unionId,
+        platform: 'wechat',
+      })
+      return reply.send(success({ rebound: true }))
+    },
+  )
 
   // 企业微信扫码登录 — code 换 session → 查 binding → 查/建用户 → 颁发 JWT
   server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
@@ -925,29 +948,37 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // SMS Proxy — 独立短信代理端点（解决旧前端 CORS 直连问题）
   // P0 安全修复(2026-08-02):公开短信端点无限流可被刷短信轰炸,1 次/分钟/IP。
-  server.post('/sms-proxy/send', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = smsCodeSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const result = await sendSmsCode(parsed.data.phone)
-    if (!result.success) return reply.status(429).send(error(429, result.msg))
-    return reply.send(success({ sent: true }))
-  })
+  server.post(
+    '/sms-proxy/send',
+    { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = smsCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const result = await sendSmsCode(parsed.data.phone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
 
   /**
    * 校验短信验证码。
    * @body { phone: string, code: string }
    * @returns { valid: boolean } 验证通过返回 true，否则 false（验证码一次性使用）
    */
-  server.post('/sms-proxy/verify', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = smsVerifySchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { verifyCode } = await import('../utils/code-store.js')
-    const valid = await verifyCode(parsed.data.phone, parsed.data.code)
-    if (!valid) return reply.status(400).send(error(400, '验证码错误或已过期'))
-    return reply.send(success({ valid: true }))
-  })
+  server.post(
+    '/sms-proxy/verify',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = smsVerifySchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { verifyCode } = await import('../utils/code-store.js')
+      const valid = await verifyCode(parsed.data.phone, parsed.data.code)
+      if (!valid) return reply.status(400).send(error(400, '验证码错误或已过期'))
+      return reply.send(success({ valid: true }))
+    },
+  )
 
   /**
    * 短信验证码注册新用户。
@@ -1326,7 +1357,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   const oauthWebAuthorizeSchema = z.object({
     client_id: z.string().min(1),
-    redirect_uri: z.string().url(),
+    redirect_uri: z.url(),
     state: z.string().min(1),
     scope: z.string().optional(),
   })
@@ -1429,7 +1460,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   const oauthPkceAuthorizeSchema = z.object({
     client_id: z.string().min(1),
-    redirect_uri: z.string().url(),
+    redirect_uri: z.url(),
     state: z.string().min(1),
     scope: z.string().optional(),
     code_challenge: z.string().min(1),
@@ -1792,7 +1823,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 新架构不依赖 coze-py SDK，直接 HTTP 调用 Coze /v1/users/me。
   const patRequestSchema = z.object({
     token: z.string().min(1),
-    baseUrl: z.string().url().optional(),
+    baseUrl: z.url().optional(),
   })
 
   const COZE_DEFAULT_BASE_URL = 'https://api.coze.cn'
@@ -1802,83 +1833,98 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
    * @body { token: string, baseUrl?: string }
    * @returns { success: true, user: { name, ... } }
    */
-  server.post('/auth/pat', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = patRequestSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { token, baseUrl } = parsed.data
-    const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
-    try {
-      const res = await fetch(apiUrl, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      })
-      if (!res.ok) {
-        return reply.status(401).send(error(401, `Coze 认证失败: HTTP ${res.status}`))
+  server.post(
+    '/auth/pat',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = patRequestSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const data = (await res.json()) as {
-        code?: number
-        msg?: string
-        data?: { user_name?: string; nickname?: string; user_id?: string }
+      const { token, baseUrl } = parsed.data
+      const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) {
+          return reply.status(401).send(error(401, `Coze 认证失败: HTTP ${res.status}`))
+        }
+        const data = (await res.json()) as {
+          code?: number
+          msg?: string
+          data?: { user_name?: string; nickname?: string; user_id?: string }
+        }
+        if (data.code !== 0) {
+          return reply.status(401).send(error(401, data.msg ?? 'Coze 认证失败'))
+        }
+        const user = data.data ?? {}
+        return reply.send(
+          success({
+            authenticated: true,
+            user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
+          }),
+        )
+      } catch (e) {
+        return reply
+          .status(401)
+          .send(
+            error(401, `认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`),
+          )
       }
-      if (data.code !== 0) {
-        return reply.status(401).send(error(401, data.msg ?? 'Coze 认证失败'))
-      }
-      const user = data.data ?? {}
-      return reply.send(
-        success({
-          authenticated: true,
-          user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
-        }),
-      )
-    } catch (e) {
-      return reply
-        .status(401)
-        .send(error(401, `认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
-    }
-  })
+    },
+  )
 
   /**
    * POST /auth/pat/async — 使用 Coze PAT 验证身份（异步,语义与 /pat 一致,保留端点兼容）。
    * @body { token: string, baseUrl?: string }
    */
-  server.post('/auth/pat/async', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = patRequestSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { token, baseUrl } = parsed.data
-    const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
-    try {
-      const res = await fetch(apiUrl, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      })
-      if (!res.ok) {
-        return reply.status(401).send(error(401, `Coze 异步认证失败: HTTP ${res.status}`))
+  server.post(
+    '/auth/pat/async',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = patRequestSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const data = (await res.json()) as {
-        code?: number
-        msg?: string
-        data?: { user_name?: string; nickname?: string; user_id?: string }
+      const { token, baseUrl } = parsed.data
+      const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) {
+          return reply.status(401).send(error(401, `Coze 异步认证失败: HTTP ${res.status}`))
+        }
+        const data = (await res.json()) as {
+          code?: number
+          msg?: string
+          data?: { user_name?: string; nickname?: string; user_id?: string }
+        }
+        if (data.code !== 0) {
+          return reply.status(401).send(error(401, data.msg ?? 'Coze 异步认证失败'))
+        }
+        const user = data.data ?? {}
+        return reply.send(
+          success({
+            authenticated: true,
+            user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
+          }),
+        )
+      } catch (e) {
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              `异步认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+            ),
+          )
       }
-      if (data.code !== 0) {
-        return reply.status(401).send(error(401, data.msg ?? 'Coze 异步认证失败'))
-      }
-      const user = data.data ?? {}
-      return reply.send(
-        success({
-          authenticated: true,
-          user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
-        }),
-      )
-    } catch (e) {
-      return reply
-        .status(401)
-        .send(error(401, `异步认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
-    }
-  })
+    },
+  )
 
   // ============================================================================
   // 换手机号四步流程（前端 auth-api.ts 调用 /api/auth/change-phone/*）
@@ -1886,30 +1932,38 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /auth/change-phone/send-old-code — 向当前手机号发送验证码
   // P0 安全修复(2026-08-02):换号短信验证码端点限流 1 次/分钟,防刷短信。
-  server.post('/auth/change-phone/send-old-code', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const user = await findUserById(request.userId!)
-    if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
-    const result = await sendSmsCode(user.phone)
-    if (!result.success) return reply.status(429).send(error(429, result.msg))
-    return reply.send(success({ sent: true }))
-  })
+  server.post(
+    '/auth/change-phone/send-old-code',
+    { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const user = await findUserById(request.userId!)
+      if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
+      const result = await sendSmsCode(user.phone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
 
   // POST /auth/change-phone/verify-old-code — 校验当前手机号验证码
   const oldCodeSchema = z.object({ code: z.string().length(6) })
-  server.post('/auth/change-phone/verify-old-code', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const user = await findUserById(request.userId!)
-    if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
-    const parsed = oldCodeSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { verifyCode } = await import('../utils/code-store.js')
-    if (!(await verifyCode(user.phone, parsed.data.code))) {
-      return reply.status(400).send(error(400, '验证码错误或已过期'))
-    }
-    return reply.send(success({ verified: true }))
-  })
+  server.post(
+    '/auth/change-phone/verify-old-code',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const user = await findUserById(request.userId!)
+      if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
+      const parsed = oldCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(user.phone, parsed.data.code))) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      return reply.send(success({ verified: true }))
+    },
+  )
 
   // POST /auth/change-phone/send-new-code — 向新手机号发送验证码
   const newPhoneSchema = z.object({
@@ -1918,20 +1972,24 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .length(11, '手机号必须为 11 位')
       .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
   })
-  server.post('/auth/change-phone/send-new-code', { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = newPhoneSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { newPhone } = parsed.data
-    const existing = await findUserByPhone(newPhone)
-    if (existing && existing.id !== request.userId) {
-      return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
-    }
-    const result = await sendSmsCode(newPhone)
-    if (!result.success) return reply.status(429).send(error(429, result.msg))
-    return reply.send(success({ sent: true }))
-  })
+  server.post(
+    '/auth/change-phone/send-new-code',
+    { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = newPhoneSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { newPhone } = parsed.data
+      const existing = await findUserByPhone(newPhone)
+      if (existing && existing.id !== request.userId) {
+        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+      }
+      const result = await sendSmsCode(newPhone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
 
   // POST /auth/change-phone/confirm — 确认换号（校验新手机号验证码并更新）
   const confirmSchema = z.object({
@@ -1941,23 +1999,27 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
     code: z.string().length(6, '验证码必须为 6 位'),
   })
-  server.post('/auth/change-phone/confirm', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    await authenticate(request)
-    const parsed = confirmSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { newPhone, code } = parsed.data
-    const { verifyCode } = await import('../utils/code-store.js')
-    if (!(await verifyCode(newPhone, code))) {
-      return reply.status(400).send(error(400, '验证码错误或已过期'))
-    }
-    const existing = await findUserByPhone(newPhone)
-    if (existing && existing.id !== request.userId) {
-      return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
-    }
-    const updated = await updateUser(request.userId!, { phone: newPhone })
-    return reply.send(success({ user: { id: updated.id, phone: updated.phone ?? '' } }))
-  })
+  server.post(
+    '/auth/change-phone/confirm',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = confirmSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { newPhone, code } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(newPhone, code))) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      const existing = await findUserByPhone(newPhone)
+      if (existing && existing.id !== request.userId) {
+        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+      }
+      const updated = await updateUser(request.userId!, { phone: newPhone })
+      return reply.send(success({ user: { id: updated.id, phone: updated.phone ?? '' } }))
+    },
+  )
 
   // ============================================================================
   // 第三方登录统一回调 POST /auth/:platform/callback
@@ -2197,7 +2259,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply
         .status(500)
-        .send(error(500, `${platform} 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
+        .send(
+          error(
+            500,
+            `${platform} 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+          ),
+        )
     }
 
     const binding = await findThirdPartyAccount(platform, openId)
@@ -2267,29 +2334,33 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 手机短信验证码登录
-  server.post('/auth/login/phone-code', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = z
-      .object({ phone: z.string().min(1), code: z.string().length(6) })
-      .safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { phone, code } = parsed.data
-    const { verifyCode } = await import('../utils/code-store.js')
-    if (!(await verifyCode(phone, code)))
-      return reply.status(400).send(error(400, '验证码错误或已过期'))
-    let user = await findUserByPhone(phone)
-    if (!user) {
-      user = await createUser({
-        phone,
-        nickname: `用户${phone.slice(-4)}`,
-        roleId: 0,
-        status: 1,
-      })
-    }
-    if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
-    const tokens = await buildTokenPair(user)
-    return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
-  })
+  server.post(
+    '/auth/login/phone-code',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = z
+        .object({ phone: z.string().min(1), code: z.string().length(6) })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { phone, code } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(phone, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      let user = await findUserByPhone(phone)
+      if (!user) {
+        user = await createUser({
+          phone,
+          nickname: `用户${phone.slice(-4)}`,
+          roleId: 0,
+          status: 1,
+        })
+      }
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      const tokens = await buildTokenPair(user)
+      return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
+    },
+  )
 
   // ============================================================
   // 双因素认证 (2FA/MFA) - TOTP (RFC 6238)
@@ -2844,7 +2915,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `OIDC 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
+        .send(
+          error(500, `OIDC 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`),
+        )
     }
   })
 
@@ -2877,7 +2950,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `Discord 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
+        .send(
+          error(
+            500,
+            `Discord 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+          ),
+        )
     }
   })
 
@@ -2910,7 +2988,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `LinuxDO 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
+        .send(
+          error(
+            500,
+            `LinuxDO 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+          ),
+        )
     }
   })
 
@@ -2930,7 +3013,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const bodySchema = z
         .object({
           phone: z.string().optional(),
-          email: z.string().email().optional(),
+          email: z.email().optional(),
         })
         .optional()
       const bodyResult = bodySchema.safeParse(request.body ?? {})
@@ -3003,7 +3086,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         request.log.error(e)
         return reply
           .status(500)
-          .send(error(500, `Telegram 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`))
+          .send(
+            error(
+              500,
+              `Telegram 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+            ),
+          )
       }
     },
   )

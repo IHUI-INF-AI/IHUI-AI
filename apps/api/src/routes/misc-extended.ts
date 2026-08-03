@@ -67,7 +67,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // -------------------------------------------------------------------------
   const remoteCreateSchema = z.object({
     name: z.string().min(1).max(128),
-    url: z.string().url().optional(),
+    url: z.url().optional(),
     method: z.string().max(16).optional(),
     headers: z.record(z.string(), z.string()).optional(),
     body: z.unknown().optional(),
@@ -75,7 +75,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
   const remoteUpdateSchema = remoteCreateSchema.partial()
   const proxySchema = z.object({
-    url: z.string().url(),
+    url: z.url(),
     method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']).default('GET'),
     headers: z.record(z.string(), z.string()).optional(),
     body: z.unknown().optional(),

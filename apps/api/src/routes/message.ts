@@ -47,7 +47,7 @@ const messageListQuery = z.object({
   isRead: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
 })
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const createAnnouncementSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200, '标题过长'),
@@ -332,7 +332,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const body = z.object({ ids: z.array(z.string().uuid()).min(1).max(100) }).parse(request.body)
+      const body = z.object({ ids: z.array(z.uuid()).min(1).max(100) }).parse(request.body)
       const userId = request.userId!
       await db
         .delete(eduMessages)
@@ -439,7 +439,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const userId = request.userId!
-      const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+      const { id } = z.object({ id: z.uuid() }).parse(request.params)
       const { cursor, limit } = z
         .object({
           cursor: z.string().datetime().optional(),
@@ -503,7 +503,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const userId = request.userId!
       const { conversationId, content } = z
-        .object({ conversationId: z.string().uuid(), content: z.string().min(1).max(5000) })
+        .object({ conversationId: z.uuid(), content: z.string().min(1).max(5000) })
         .parse(request.body)
       const conv = await db
         .select()
@@ -553,7 +553,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const userId = request.userId!
-      const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+      const { id } = z.object({ id: z.uuid() }).parse(request.params)
       const conv = await db
         .select({ id: chatConversations.id })
         .from(chatConversations)
@@ -1089,7 +1089,7 @@ export const adminMessageRoutes: FastifyPluginAsync = async (server) => {
       const parsed = z
         .object({
           ...paginationQuery,
-          memberId: z.preprocess(emptyToUndefined, z.string().uuid({ message: '无效的用户 ID' }).optional()),
+          memberId: z.preprocess(emptyToUndefined, z.uuid({ error: '无效的用户 ID' }).optional()),
           msgType: z.preprocess(emptyToUndefined, z.string().min(1).max(32).optional()),
           isRead: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
         })

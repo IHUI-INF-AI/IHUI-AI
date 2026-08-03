@@ -46,7 +46,7 @@ const suggestionsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(10),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const createHotWordSchema = z.object({
   word: z.string().min(1, '热搜词不能为空').max(100),
@@ -433,12 +433,12 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const body = z
       .object({
-        topicId: z.string().uuid(),
+        topicId: z.uuid(),
         topicType: z.enum(['article', 'news', 'question', 'resource', 'lesson']),
         topicTitle: z.string().min(1).max(300),
         topicSummary: z.string().optional(),
         searchText: z.string().min(1),
-        authorId: z.string().uuid().optional(),
+        authorId: z.uuid().optional(),
       })
       .safeParse(request.body)
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
@@ -451,7 +451,7 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const body = z
       .object({
-        id: z.string().uuid(),
+        id: z.uuid(),
         topicTitle: z.string().min(1).max(300).optional(),
         topicSummary: z.string().optional(),
         searchText: z.string().min(1).optional(),
@@ -476,8 +476,8 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const body = z
       .object({
-        id: z.string().uuid().optional(),
-        topicId: z.string().uuid().optional(),
+        id: z.uuid().optional(),
+        topicId: z.uuid().optional(),
         topicType: z.string().optional(),
       })
       .safeParse(request.body ?? request.query)

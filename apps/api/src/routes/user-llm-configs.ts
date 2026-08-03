@@ -6,7 +6,11 @@ import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
-import { PLATFORM_TEMPLATES, TEMPLATE_MAP, type PlatformTemplate } from '../utils/platform-templates.js'
+import {
+  PLATFORM_TEMPLATES,
+  TEMPLATE_MAP,
+  type PlatformTemplate,
+} from '../utils/platform-templates.js'
 
 // =============================================================================
 // Schemas
@@ -28,7 +32,7 @@ const createConfigSchema = z.object({
   /** 备注(可选) */
   description: z.string().max(500).optional(),
   /** 自定义平台时,允许覆盖 baseUrl */
-  baseUrlOverride: z.string().url().optional(),
+  baseUrlOverride: z.url().optional(),
 })
 
 const updateConfigSchema = z.object({
@@ -37,7 +41,7 @@ const updateConfigSchema = z.object({
   modelId: z.string().min(1).max(128).optional(),
   contextLength: z.number().int().min(512).max(2000000).optional(),
   description: z.string().max(500).optional(),
-  baseUrlOverride: z.string().url().optional(),
+  baseUrlOverride: z.url().optional(),
   enabled: z.boolean().optional(),
 })
 
@@ -466,7 +470,7 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
     templateCode: z.string().min(1).max(64),
     apiKey: z.string().min(1).max(500),
     modelId: z.string().min(1).max(128),
-    baseUrlOverride: z.string().url().optional(),
+    baseUrlOverride: z.url().optional(),
   })
 
   server.post('/llm-configs/preview-test', async (request, reply) => {
