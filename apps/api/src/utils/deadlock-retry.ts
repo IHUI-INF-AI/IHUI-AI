@@ -6,7 +6,6 @@
  *
  * 识别的错误码：
  * - PostgreSQL SQLSTATE: 40P01 (deadlock_detected), 40001 (serialization_failure)
- * - MySQL errno: 1213 (deadlock), 1205 (lock_wait_timeout)
  * - 异常消息关键字兜底匹配
  *
  * 迁移自旧架构 bug199_deadlock_retry.py。
@@ -21,10 +20,9 @@ export interface DeadlockRetryConfig {
   /** 最大退避延迟（毫秒），默认 500 */
   maxDelayMs: number
   /**
-   * 需要识别的错误码集合。
-   * PostgreSQL SQLSTATE 为字符串（如 "40P01"）；MySQL errno 为数字（如 1213）。
+   * 需要识别的错误码集合（PostgreSQL SQLSTATE 字符串，如 "40P01"）。
    */
-  errorCodes: ReadonlyArray<string | number>
+  errorCodes: ReadonlyArray<string>
 }
 
 /** 默认配置。 */
@@ -32,7 +30,7 @@ export const DEFAULT_DEADLOCK_RETRY_CONFIG: DeadlockRetryConfig = {
   maxAttempts: 5,
   baseDelayMs: 20,
   maxDelayMs: 500,
-  errorCodes: ['40P01', '40001', 1213, 1205],
+  errorCodes: ['40P01', '40001'],
 }
 
 /** 重试统计。 */
@@ -49,16 +47,14 @@ export interface DeadlockRetryStats {
  * 判断异常是否为死锁/序列化失败。
  *
  * 检查顺序：
- * 1. PostgreSQL 的 pgcode / sqlstate / code 属性
- * 2. MySQL 的 errno / number 属性及 args 元组
- * 3. 异常消息关键字兜底（deadlock / serialization failure）
+ * 1. PostgreSQL 的 pgcode / sqlstate / code 属性（字符串型 SQLSTATE）
+ * 2. 异常消息关键字兜底（deadlock / serialization failure）
  */
 export function isDeadlockError(
   err: unknown,
-  codes: ReadonlyArray<string | number> = DEFAULT_DEADLOCK_RETRY_CONFIG.errorCodes,
+  codes: ReadonlyArray<string> = DEFAULT_DEADLOCK_RETRY_CONFIG.errorCodes,
 ): boolean {
-  const strCodes = new Set(codes.filter((c): c is string => typeof c === 'string'))
-  const intCodes = new Set(codes.filter((c): c is number => typeof c === 'number'))
+  const strCodes = new Set(codes)
 
   if (err !== null && typeof err === 'object') {
     const e = err as Record<string, unknown>
@@ -67,22 +63,6 @@ export function isDeadlockError(
     for (const attr of ['pgcode', 'sqlstate', 'code']) {
       const v = e[attr]
       if (typeof v === 'string' && strCodes.has(v)) return true
-    }
-
-    // MySQL: errno / number（整数型 errno 或字符串型 SQLSTATE）
-    for (const attr of ['errno', 'number']) {
-      const v = e[attr]
-      if (typeof v === 'number' && intCodes.has(v)) return true
-      if (typeof v === 'string' && strCodes.has(v)) return true
-    }
-
-    // args 元组（部分驱动把错误码放在 args 中）
-    const args = e['args']
-    if (Array.isArray(args)) {
-      for (const a of args) {
-        if (typeof a === 'number' && intCodes.has(a)) return true
-        if (typeof a === 'string' && strCodes.has(a)) return true
-      }
     }
   }
 

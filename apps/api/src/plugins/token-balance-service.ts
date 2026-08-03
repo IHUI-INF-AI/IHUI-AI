@@ -15,6 +15,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userMargins, users } from '@ihui/database'
 import { authenticate } from './auth.js'
+import { requireAdmin } from './require-permission.js'
 import { success } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
 
@@ -292,9 +293,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // GET /api/admin/token-balance/metrics — VIP 折扣实时计数器(admin 调试用, P3-1)
   // 与 business-metrics.ts 的 /business-metrics 互补,本端点提供 admin 看板查询的细分计数器,
   // 不直接进 Prometheus(避免改 business-metrics.ts)。
-  server.get('/api/admin/token-balance/metrics', { preHandler: authenticate }, async () => {
-    return success({ ...vipDiscountMetrics, byLevel: { ...vipDiscountMetrics.byLevel } })
-  })
+  server.get(
+    '/api/admin/token-balance/metrics',
+    { preHandler: [authenticate, requireAdmin] },
+    async () => {
+      return success({ ...vipDiscountMetrics, byLevel: { ...vipDiscountMetrics.byLevel } })
+    },
+  )
 }
 
 export const tokenBalanceService = fp(plugin, {
