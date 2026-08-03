@@ -84,6 +84,29 @@ vi.mock('@ihui/database', () => ({
     enabled: 'enabled',
     byokCommissionRate: 'byok_commission_rate',
   },
+  apiKeyGroups: { id: 'id' },
+}))
+
+// Mock 外部 service(避免真实调用消耗 dbRead.select mock 队列 / .innerJoin 不支持)
+vi.mock('../src/services/api-key-group-service.js', () => ({
+  getKeyGroup: vi.fn().mockResolvedValue(null),
+}))
+vi.mock('../src/services/user-billing-group-service.js', () => ({
+  getUserModelMultiplier: vi.fn().mockResolvedValue(1),
+}))
+vi.mock('../src/services/tiered-pricing-service.js', () => ({
+  getCurrentTierMultiplier: vi.fn().mockResolvedValue({
+    multiplier: 1,
+    currentTokens: 0,
+    nextTierThreshold: null,
+    nextTierMultiplier: null,
+  }),
+}))
+vi.mock('../src/services/relay-commission-service.js', () => ({
+  recordRelayCommission: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('../src/services/webhook-relay-notifier.js', () => ({
+  notifyRelayEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
 import { calculateCost, recordCall } from '../src/services/relay-billing-service.js'
@@ -358,22 +381,24 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
   // ===========================================================================
   describe("recordCall mode='relay' 写入 cache 字段", () => {
     it('recordCall 调用时 cache 字段透传到 llm_call_logs insert', async () => {
-      // calculateCost 内部两次 select
+      // calculateCost 内部两次 select(getUserModelMultiplier / getCurrentTierMultiplier 已 mock)
       mockDbReadSelect
         .mockReturnValueOnce(
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '1.0' }]),
         )
         .mockReturnValueOnce(chain([{ inputTokenPrice: 10, outputTokenPrice: 30 }]))
-      // recordCall 读 apiKeyRow 余额(第 3 次 select)
-      mockDbReadSelect.mockReturnValueOnce(chain([{ tokenBalance: 1000, costBalanceCents: 500 }]))
       // llm_call_logs insert
       const returningFn = vi.fn().mockResolvedValue([{ id: 'log-cache-1' }])
       const valuesFn = vi.fn().mockReturnValue({ returning: returningFn })
       mockDbInsert.mockReturnValue({ values: valuesFn })
-      // developerApiKeys update
+      // developerApiKeys update(支持 .returning() 链式)
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              { tokenBalance: 1000, costBalanceCents: 500 },
+            ]),
+          }),
         }),
       })
 
@@ -408,14 +433,17 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '1.0' }]),
         )
         .mockReturnValueOnce(chain([{ inputTokenPrice: 10, outputTokenPrice: 30 }]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ tokenBalance: 1000, costBalanceCents: 500 }]))
       const valuesFnNoCache = vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([{ id: 'log-cache-2' }]),
       })
       mockDbInsert.mockReturnValue({ values: valuesFnNoCache })
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              { tokenBalance: 1000, costBalanceCents: 500 },
+            ]),
+          }),
         }),
       })
 
@@ -457,14 +485,17 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '2.0' }]),
         )
         .mockReturnValueOnce(chain([{ inputTokenPrice: 10, outputTokenPrice: 30 }]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ tokenBalance: 1000, costBalanceCents: 500 }]))
       const valuesFnTotal = vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([{ id: 'log-cache-3' }]),
       })
       mockDbInsert.mockReturnValue({ values: valuesFnTotal })
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              { tokenBalance: 1000, costBalanceCents: 500 },
+            ]),
+          }),
         }),
       })
 

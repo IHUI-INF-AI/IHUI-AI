@@ -82,8 +82,49 @@ vi.mock('../src/utils/code-store.js', () => ({
   cleanupExpiredCodes: vi.fn(),
 }))
 
-const { mockDbExecute } = vi.hoisted(() => ({ mockDbExecute: vi.fn() }))
-vi.mock('../src/db/index.js', () => ({ db: { execute: mockDbExecute } }))
+const { mockDbExecute, dbQueue } = vi.hoisted(() => ({
+  mockDbExecute: vi.fn(),
+  dbQueue: { items: [] as unknown[][] },
+}))
+
+vi.mock('../src/db/index.js', () => {
+  function createChain() {
+    const chain: {
+      then: (resolve: (value: unknown[]) => unknown) => Promise<unknown>
+      [m: string]: unknown
+    } = {
+      then: (resolve) => {
+        const result = dbQueue.items.length > 0 ? dbQueue.items.shift()! : []
+        return Promise.resolve(result).then(resolve)
+      },
+    }
+    for (const m of ['from', 'where', 'orderBy', 'limit', 'offset']) {
+      chain[m] = () => chain
+    }
+    return chain
+  }
+  const factory = () => createChain()
+  return {
+    db: {
+      execute: mockDbExecute,
+      select: vi.fn(factory),
+    },
+  }
+})
+
+vi.mock('@ihui/database', () => ({
+  userDevices: {
+    id: 'ud.id',
+    userId: 'ud.userId',
+    fingerprintHash: 'ud.fingerprintHash',
+    userAgent: 'ud.userAgent',
+    ip: 'ud.ip',
+    firstSeenAt: 'ud.firstSeenAt',
+    lastSeenAt: 'ud.lastSeenAt',
+    trusted: 'ud.trusted',
+    lastLocation: 'ud.lastLocation',
+  },
+}))
 
 import { usersRoutes } from '../src/routes/users.js'
 
@@ -122,6 +163,7 @@ describe('users routes', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    dbQueue.items.length = 0
     // 默认鉴权失败(401)
     mockAuthenticate.mockImplementation(() => {
       const err = new Error('Authentication required')
@@ -145,6 +187,10 @@ describe('users routes', () => {
         return Promise.resolve(request.jwtPayload)
       },
     )
+  }
+
+  function enqueue(...results: unknown[][]) {
+    dbQueue.items.push(...results)
   }
 
   describe('GET /api/users/me', () => {
@@ -499,9 +545,7 @@ describe('users routes', () => {
 
     it('本人查询返回设备列表', async () => {
       authAs('user-001')
-      mockDbExecute.mockResolvedValueOnce([
-        { ip: '1.2.3.4', user_agent: 'Mozilla', last_login_at: NOW },
-      ])
+      enqueue([{ ip: '1.2.3.4', userAgent: 'Mozilla' }])
       const res = await app.inject({ method: 'GET', url: '/api/users/user-001/devices' })
       expect(res.statusCode).toBe(200)
       const body = res.json()

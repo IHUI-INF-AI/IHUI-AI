@@ -6,7 +6,41 @@
  * 3. clearLoginFailures 清除失败计数
  * 4. Redis 不可用时降级到内存存储
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+
+// mock ioredis:让所有 redis 命令调用抛错,触发 account-lockout.ts 的 catch
+// 分支走 fallback 内存存储。原测试未 mock ioredis,getRedis() 创建真实
+// IORedis 实例连接不存在的 Redis(localhost:6379),每次 incr/ttl/del 等待
+// ECONNREFUSED 超时(~9s),maxFailures=5 次累计 45s 超过 vitest 默认 15s
+// 测试超时 → 4 个用例 timeout 失败。
+vi.mock('ioredis', () => {
+  const err = new Error('redis unavailable (mock)')
+  class FakeRedis {
+    on(): void {
+      // no-op:吞掉 'error' 事件监听,避免 unhandled
+    }
+    incr(): Promise<number> {
+      return Promise.reject(err)
+    }
+    expire(): Promise<number> {
+      return Promise.reject(err)
+    }
+    set(): Promise<string> {
+      return Promise.reject(err)
+    }
+    ttl(): Promise<number> {
+      return Promise.reject(err)
+    }
+    del(): Promise<number> {
+      return Promise.reject(err)
+    }
+    quit(): Promise<string> {
+      return Promise.resolve('OK')
+    }
+  }
+  return { default: FakeRedis }
+})
+
 import {
   recordLoginFailure,
   getLockRemainingMs,

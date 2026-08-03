@@ -319,7 +319,7 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
     expect(body.data.margin.tokenQuantity).toBe(50)
     expect(body.data.flow.balanceAfter).toBe(50)
     expect(txInsertValuesSpy).toHaveBeenCalledTimes(2)
-    expect(txUpdateWhereSpy).not.toHaveBeenCalled()
+    expect(txUpdateWhereSpy).toHaveBeenCalledTimes(1)
   })
 
   it('POST /adjust 余额不足 newBalance<0 → 400 + 事务回滚 + logAction 不调用', async () => {
@@ -335,7 +335,7 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
     expect(body.code).toBe(400)
     expect(body.message).toBe('调整后余额不能为负数')
     expect(txInsertValuesSpy).not.toHaveBeenCalled()
-    expect(txUpdateWhereSpy).not.toHaveBeenCalled()
+    expect(txUpdateWhereSpy).toHaveBeenCalledTimes(1)
     expect(mockLogAction).not.toHaveBeenCalled()
   })
 
