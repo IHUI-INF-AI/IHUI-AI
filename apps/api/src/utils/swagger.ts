@@ -1,5 +1,4 @@
-import type { z } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
+import { z } from 'zod'
 import type { FastifySchema, RouteShorthandOptions } from 'fastify'
 
 const successSchema = {
@@ -67,15 +66,10 @@ export function buildSchema(opts: BuildSchemaOptions): FastifySchema {
     tags: opts.tags,
     response: opts.response ?? (opts.auth === false ? publicResponses : standardResponses),
   }
-  // FIXME(any): zod-to-json-schema@3.25.2 类型定义仍是 Zod 3(ZodTypeDef),与 Zod 4 不兼容。
-  // 运行时 peer dep 支持 Zod 4,但类型定义未更新。用 as never 绕过,待官方发布支持 Zod 4 类型定义的版本后移除。
-  if (opts.body) schema.body = zodToJsonSchema(opts.body as never, { target: 'openApi3' }) as object
+  if (opts.body) schema.body = z.toJSONSchema(opts.body, { target: 'openApi3' })
   if (opts.querystring)
-    schema.querystring = zodToJsonSchema(opts.querystring as never, {
-      target: 'openApi3',
-    }) as object
-  if (opts.params)
-    schema.params = zodToJsonSchema(opts.params as never, { target: 'openApi3' }) as object
+    schema.querystring = z.toJSONSchema(opts.querystring, { target: 'openApi3' })
+  if (opts.params) schema.params = z.toJSONSchema(opts.params, { target: 'openApi3' })
   return schema
 }
 
