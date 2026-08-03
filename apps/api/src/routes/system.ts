@@ -36,8 +36,7 @@ const paginationSchema = z.object({
 })
 
 const listConfigsQuerySchema = paginationSchema.extend({
-  category: z.preprocess(
-    emptyToUndefined,
+  category: z.transform(emptyToUndefined).pipe(
     z
       .enum([
         'general',
@@ -134,17 +133,16 @@ const updateIntegrationBodySchema = z
   )
 
 const listLogsQuerySchema = paginationSchema.extend({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  statusCode: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-  path: z.preprocess(emptyToUndefined, z.string().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  statusCode: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+  path: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
 const listEventsQuerySchema = paginationSchema.extend({
-  type: z.preprocess(
-    emptyToUndefined,
+  type: z.transform(emptyToUndefined).pipe(
     z.enum(['startup', 'shutdown', 'error', 'warning', 'maintenance', 'deploy']).optional(),
   ),
-  level: z.preprocess(emptyToUndefined, z.enum(['info', 'warn', 'error']).optional()),
+  level: z.transform(emptyToUndefined).pipe(z.enum(['info', 'warn', 'error']).optional()),
 })
 
 const createEventBodySchema = z.object({

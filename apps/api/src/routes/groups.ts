@@ -18,7 +18,7 @@ const memberParamSchema = z.object({
 })
 
 const listQuerySchema = z.object({
-  type: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
+  type: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
 })
 
 const createGroupSchema = z.object({

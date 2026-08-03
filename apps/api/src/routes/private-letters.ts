@@ -31,7 +31,7 @@ const getByIdQuery = z.object({
 
 const memberListQuery = z.object({
   ...paginationQuery,
-  memberNameKeyword: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+  memberNameKeyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
 })
 
 const memberQuery = z.object({
@@ -46,7 +46,7 @@ const letterListQuery = z.object({
 
 const newLetterListQuery = z.object({
   ...paginationQuery,
-  senderId: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  senderId: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   id: z.coerce.number().int().min(0).default(0),
 })
 

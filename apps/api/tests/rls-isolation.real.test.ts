@@ -35,8 +35,8 @@ async function closeRlsDb(): Promise<void> {
 
 describe('rls-isolation — RLS 行级安全真实 DB 集成测试', () => {
   // 两个非默认租户 UUID,用于验证跨租户隔离
-  const TENANT_A = '11111111-1111-1111-1111-111111111111'
-  const TENANT_B = '22222222-2222-2222-2222-222222222222'
+  const TENANT_A = '11111111-1111-4111-8111-111111111111'
+  const TENANT_B = '22222222-2222-4222-8222-222222222222'
 
   beforeEach(async () => {
     // RLS 已启用,必须用 withBypassRls 才能跨租户清理

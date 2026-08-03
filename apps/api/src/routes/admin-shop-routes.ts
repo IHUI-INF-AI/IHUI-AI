@@ -23,7 +23,7 @@ import {
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 const idParamSchema = z.object({ id: z.string() })
@@ -169,10 +169,10 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
 
   // 3. /shop/products — zhsProduct CRUD + PATCH status
   const productQuerySchema = paginationSchema.extend({
-    name: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
-    category: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-    status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-    type: z.preprocess(emptyToUndefined, z.string().max(50).optional()),
+    name: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+    category: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+    status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+    type: z.transform(emptyToUndefined).pipe(z.string().max(50).optional()),
   })
   const productBodySchema = z.object({
     name: z.string().min(1).max(200),
@@ -289,13 +289,13 @@ export const adminShopRoutes: FastifyPluginAsync = async (server) => {
 
   // 4. /shop/withdrawals — withdrawalFlows CRUD + approve/reject
   const withdrawalQuerySchema = paginationSchema.extend({
-    status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-    user: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-    outBillNo: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-    reviewer: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-    userName: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-    minAmount: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-    maxAmount: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+    status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+    user: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+    outBillNo: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+    reviewer: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+    userName: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+    minAmount: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+    maxAmount: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
   })
   const withdrawalBodySchema = z.object({
     user: z.string().min(1),

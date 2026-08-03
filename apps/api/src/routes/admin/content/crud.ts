@@ -60,7 +60,7 @@ const idParamSchema = z.object({ type: z.enum(TYPE_KEYS), id: z.string().min(1) 
 const pageSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })
 
 function pick(obj: Record<string, unknown>, keys: string[]): Record<string, unknown> {

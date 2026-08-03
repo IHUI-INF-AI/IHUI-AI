@@ -40,7 +40,7 @@ const listCommentsQuery = z.object({
   ...paginationQuery,
   resourceType: z.enum(RESOURCE_TYPES),
   resourceId: z.string().min(1).max(128),
-  parentId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  parentId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const createCommentSchema = z.object({
@@ -68,8 +68,8 @@ const createFeedbackSchema = z.object({
 
 const adminListFeedbacksQuery = z.object({
   ...paginationQuery,
-  type: z.preprocess(emptyToUndefined, z.enum(FEEDBACK_TYPES).optional()),
-  status: z.preprocess(emptyToUndefined, z.enum(FEEDBACK_STATUSES).optional()),
+  type: z.transform(emptyToUndefined).pipe(z.enum(FEEDBACK_TYPES).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(FEEDBACK_STATUSES).optional()),
 })
 
 const adminUpdateFeedbackSchema = z.object({

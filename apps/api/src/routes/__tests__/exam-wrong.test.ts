@@ -66,9 +66,9 @@ import { verifyAccessToken } from '@ihui/auth'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-token' }
 
-const PAPER_ID = '11111111-1111-1111-1111-111111111111'
+const PAPER_ID = '11111111-1111-4111-8111-111111111111'
 const Q1_ID = '22222222-2222-2222-2222-222222222221'
-const Q2_ID = '22222222-2222-2222-2222-222222222222'
+const Q2_ID = '22222222-2222-4222-8222-222222222222'
 const Q3_ID = '22222222-2222-2222-2222-222222222223'
 const USER_ID = 'mock-user-id'
 
@@ -76,7 +76,7 @@ function mockAuth(): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
     userId: USER_ID,
     phone: '13800000000',
-    familyId: '11111111-1111-1111-1111-111111111111',
+    familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 0,
   })
 }
@@ -350,7 +350,7 @@ describe('PUT /api/exam/wrong-questions/:questionId/resolve — 标记错题已�
 
     const res = await app.inject({
       method: 'PUT',
-      url: '/api/exam/wrong-questions/99999999-9999-9999-9999-999999999999/resolve',
+      url: '/api/exam/wrong-questions/99999999-9999-4999-8999-999999999999/resolve',
       headers: AUTH_HEADERS,
     })
     expect(res.statusCode).toBe(404)

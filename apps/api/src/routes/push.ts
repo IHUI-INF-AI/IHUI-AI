@@ -168,8 +168,8 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        memberId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-        isActive: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).optional()),
+        memberId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+        isActive: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
       })
       .parse(request.query)
 

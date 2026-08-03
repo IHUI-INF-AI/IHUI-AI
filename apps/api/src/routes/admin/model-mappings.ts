@@ -21,13 +21,13 @@ import { createMapping, listMappings } from '../../services/model-mapping-servic
 
 const listQuerySchema = z.object({
   /** undefined=不筛选,null=全局,string=具体用户。scope=global 等价于 userId=null */
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** undefined=不筛选,null=全局,string=具体 Key。scope=global 等价于 apiKeyId=null */
-  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** scope=global 快捷筛选全局映射(userId+apiKeyId 均 null) */
-  scope: z.preprocess(emptyToUndefined, z.enum(['global']).optional()),
+  scope: z.transform(emptyToUndefined).pipe(z.enum(['global']).optional()),
   /** 只返回启用的映射 */
-  enabled: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).optional()),
+  enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
 })
 
 const createBodySchema = z.object({

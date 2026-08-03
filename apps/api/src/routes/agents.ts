@@ -111,7 +111,7 @@ const createNeedTaskSchema = z.object({
   taskName: z.string().trim().min(1).max(128),
   taskDesc: z.string().max(5000).optional(),
   rewardTokens: z.number().int().min(0).default(0),
-  deadline: z.string().datetime().optional(),
+  deadline: z.iso.datetime().optional(),
 })
 
 const updateNeedTaskSchema = z.object({
@@ -119,7 +119,7 @@ const updateNeedTaskSchema = z.object({
   taskDesc: z.string().max(5000).optional(),
   rewardTokens: z.number().int().min(0).optional(),
   status: z.number().int().min(0).optional(),
-  deadline: z.string().datetime().optional(),
+  deadline: z.iso.datetime().optional(),
   acceptUserId: z.string().max(64).optional(),
 })
 
@@ -1580,7 +1580,6 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       success({
         redirect: adminUrl,
         message: '智能体管理已迁移至 G 盘 admin 系统, 请访问对应页面',
-        legacyDUrl: 'D:\\历史项目存档\\ljd-交接文件\\coze_zhs_py\\templates\\admin\\agents.html',
         timestamp: new Date().toISOString(),
       }),
     )

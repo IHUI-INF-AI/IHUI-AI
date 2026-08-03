@@ -151,12 +151,12 @@ async function rawDelete(table: string, id: string) {
 
 // P1 安全修复(2026-08-02):基于列白名单构建插入 Zod schema,strip 非白名单字段
 // rawInsert 已有列白名单,此处为双重保险 + 统一校验入口,防止客户端注入非白名单字段
-function buildInsertSchema(columns: readonly string[]): z.ZodType<Record<string, unknown>> {
+function buildInsertSchema(columns: readonly string[]): z.ZodType<Record<string, unknown>, Record<string, unknown>> {
   const shape: Record<string, z.ZodTypeAny> = {}
   for (const col of columns) {
     shape[col] = z.unknown().optional()
   }
-  return z.object(shape) as z.ZodType<Record<string, unknown>>
+  return z.object(shape) as z.ZodType<Record<string, unknown>, Record<string, unknown>>
 }
 
 // P1 安全修复(2026-08-02):agent rule create/update body schema,strip 非白名单字段
