@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
-import Fastify from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
 
 // Mock config: csrf 依赖 config.JWT_SECRET 签名
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
@@ -13,27 +13,99 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-// Mock @fastify/cookie:真实包在 CJS 环境下 require cookie@2.0.1 (ESM) 失败,
-// 导致整个测试文件 import 阶段崩溃(即使 describe.skip 也无法阻止)。
-vi.mock('@fastify/cookie', () => ({
-  default: vi.fn().mockImplementation(async (instance) => {
-    instance.decorate('setCookie', vi.fn())
-    instance.decorate('clearCookie', vi.fn())
+// Mock @fastify/cookie:真实包加载时 require cookie@2.0.1 (ESM) 失败,导致整个测试文件
+// import 阶段崩溃。mock 实现最小可用集(必须用 fastify-plugin 包装,否则 fastify 创建
+// 新 encapsulation 作用域,decorateReply 不作用到父 instance,路由 handler 拿不到 setCookie):
+//  - onRequest hook 解析 Cookie header 到 request.cookies(双提交 Cookie 校验依赖)
+//  - reply.setCookie 同步把 cookie 字符串写入 set-cookie 响应 header(测试断言依赖)
+//  - reply.clearCookie 写入过期 set-cookie
+vi.mock('@fastify/cookie', async () => {
+  const { default: fp } = await import('fastify-plugin')
+
+  type CookieOpts = {
+    path?: string
+    domain?: string
+    httpOnly?: boolean
+    secure?: boolean
+    sameSite?: string | boolean
+    maxAge?: number
+  }
+
+  function parseCookieHeader(cookieHeader: string): Record<string, string> {
+    const cookies: Record<string, string> = {}
+    for (const pair of cookieHeader.split(';')) {
+      const trimmed = pair.trim()
+      if (!trimmed) continue
+      const eq = trimmed.indexOf('=')
+      if (eq === -1) continue
+      const k = trimmed.slice(0, eq)
+      const v = trimmed.slice(eq + 1)
+      try {
+        cookies[k] = decodeURIComponent(v)
+      } catch {
+        cookies[k] = v
+      }
+    }
+    return cookies
+  }
+
+  function buildCookieString(name: string, value: string, opts?: CookieOpts): string {
+    const parts = [`${name}=${value}`]
+    if (opts?.path) parts.push(`Path=${opts.path}`)
+    if (opts?.domain) parts.push(`Domain=${opts.domain}`)
+    if (opts?.httpOnly) parts.push('HttpOnly')
+    if (opts?.secure) parts.push('Secure')
+    if (opts?.sameSite) parts.push(`SameSite=${opts.sameSite}`)
+    if (opts?.maxAge != null) parts.push(`Max-Age=${opts.maxAge}`)
+    return parts.join('; ')
+  }
+
+  const plugin = async (instance: FastifyInstance): Promise<void> => {
+    instance.decorateRequest('cookies', null)
+    instance.addHook(
+      'onRequest',
+      (request: FastifyRequest, _reply: FastifyReply, done: () => void) => {
+        const cookieHeader = request.headers.cookie
+        ;(request as unknown as { cookies: Record<string, string> }).cookies =
+          typeof cookieHeader === 'string' ? parseCookieHeader(cookieHeader) : {}
+        done()
+      },
+    )
+    instance.decorateReply(
+      'setCookie',
+      function (this: FastifyReply, name: string, value: string, opts?: CookieOpts) {
+        const cookieStr = buildCookieString(name, value, opts)
+        const existing = this.getHeader('set-cookie')
+        if (existing === undefined) {
+          this.header('set-cookie', cookieStr)
+        } else if (Array.isArray(existing)) {
+          this.header('set-cookie', [...existing, cookieStr])
+        } else {
+          this.header('set-cookie', [existing as string, cookieStr])
+        }
+        return this
+      },
+    )
+    instance.decorateReply(
+      'clearCookie',
+      function (this: FastifyReply, name: string, opts?: CookieOpts) {
+        const cookieStr = `${name}=; Path=${opts?.path ?? '/'}; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
+        this.header('set-cookie', cookieStr)
+        return this
+      },
+    )
     instance.decorate('signCookie', vi.fn())
     instance.decorate('unsignCookie', vi.fn())
     instance.decorate('unsign', vi.fn())
-    instance.decorateRequest('cookies', null)
-    instance.decorateReply('setCookie', vi.fn())
-    instance.decorateReply('clearCookie', vi.fn())
-  }),
-}))
+  }
+
+  return { default: fp(plugin, { name: '@fastify/cookie', fastify: '5.x' }) }
+})
 
 import csrfPlugin from '../src/plugins/csrf.js'
 
 // @vitest-environment node
-// 跳过原因：@fastify/cookie@11.1.1 (CJS) require cookie@2.0.1 (ESM) 在 vitest 默认环境下失败,
-// 属于 node_modules 依赖兼容性问题,无法在测试层修复,需 @fastify/cookie 升级或转 ESM import。
-describe.skip('csrf — 双提交 Cookie 模式', () => {
+describe('csrf — 双提交 Cookie 模式', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
