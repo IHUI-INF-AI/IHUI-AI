@@ -41,6 +41,26 @@ vi.mock('../../plugins/auth.js', () => ({
 
 vi.mock('../../plugins/ws-helpers.js', () => ({
   wsAuth: vi.fn(async () => 'user-test-id'),
+  WS_CLOSE: {
+    MISSING_TOKEN: 4001,
+    RATE_LIMITED: 4002,
+    INVALID_TOKEN: 4003,
+    ACCOUNT_CANCELLED: 4004,
+    TOO_MANY_CONNECTIONS: 4005,
+  },
+  WsUserConnectionLimiter: vi.fn().mockImplementation(function () {
+    return {
+      acquire: vi.fn(() => true),
+      release: vi.fn(),
+      currentCount: vi.fn(() => 0),
+    }
+  }),
+  WsRateLimiter: vi.fn().mockImplementation(function () {
+    return {
+      allow: vi.fn(() => true),
+      reset: vi.fn(),
+    }
+  }),
 }))
 
 vi.mock('../../plugins/ws-auto-recovery.js', () => ({
