@@ -16,11 +16,10 @@ const AGREEMENT_TYPES = ['user-agreement', 'privacy-policy', 'terms-of-service']
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
-  page: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).default(1)),
-  pageSize: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).max(100).default(20)),
-  type: z.preprocess((v) => emptyToUndefined(v), z.enum(AGREEMENT_TYPES).optional()),
-  status: z.preprocess(
-    (v) => emptyToUndefined(v),
+  page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).default(1)),
+  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).max(100).default(20)),
+  type: z.transform((v) => emptyToUndefined(v)).pipe(z.enum(AGREEMENT_TYPES).optional()),
+  status: z.transform((v) => emptyToUndefined(v)).pipe(
     z.coerce.number().int().min(0).max(1).optional(),
   ),
 })
@@ -30,7 +29,7 @@ const createSchema = z.object({
   title: z.string().min(1).max(255),
   content: z.string().min(1),
   version: z.string().min(1).max(32),
-  effectiveDate: z.string().datetime(),
+  effectiveDate: z.iso.datetime(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
@@ -39,7 +38,7 @@ const updateSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   content: z.string().min(1).optional(),
   version: z.string().min(1).max(32).optional(),
-  effectiveDate: z.string().datetime().optional(),
+  effectiveDate: z.iso.datetime().optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
@@ -49,7 +48,7 @@ export const agreementPublicRoutes: FastifyPluginAsync = async (server) => {
   server.get('/agreements/current', async (request, reply) => {
     const parsed = z
       .object({
-        type: z.preprocess((v) => emptyToUndefined(v), z.enum(AGREEMENT_TYPES)),
+        type: z.transform((v) => emptyToUndefined(v)).pipe(z.enum(AGREEMENT_TYPES)),
       })
       .safeParse(request.query)
     if (!parsed.success) {

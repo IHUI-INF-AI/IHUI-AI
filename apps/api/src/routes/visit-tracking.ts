@@ -44,13 +44,13 @@ const saveVisitLogSchema = z
   .transform((v) => (v.data ? v.data : v))
 
 const dateRangeQuery = z.object({
-  startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
 
 const ipCityQuery = z.object({
-  startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
@@ -58,15 +58,15 @@ const ipCityQuery = z.object({
 const logListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  url: z.preprocess(emptyToUndefined, z.string().min(1).max(512).optional()),
-  startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  url: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).max(512).optional()),
+  startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
 
 const pageStatsQuery = z.object({
-  startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
@@ -86,14 +86,14 @@ const pageRecordSchema = z.object({
 })
 
 const activityQuery = z.object({
-  startTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endTime: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  startTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endTime: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   granularity: z.enum(['hour', 'day']).optional().default('day'),
 })
 
 const userJourneyQuery = z.object({
-  sessionId: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  ip: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  sessionId: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  ip: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 })
 

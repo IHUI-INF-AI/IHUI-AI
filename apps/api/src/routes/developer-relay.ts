@@ -37,8 +37,7 @@ import { placeOrder } from '../services/order-service.js'
 
 const usageQuerySchema = z.object({
   /** 起始日期 YYYY-MM-DD(默认近 30 天) */
-  startDate: z.preprocess(
-    emptyToUndefined,
+  startDate: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -51,24 +50,24 @@ const usageQuerySchema = z.object({
 })
 
 const logsQuerySchema = paginationSchema.extend({
-  model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-  status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
+  model: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error']).optional()),
   /** API Key 筛选(仅当前用户名下的 Key)*/
-  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** 渠道筛选,精确匹配 provider_code */
-  provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  provider: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   /** 客户端 IP 筛选,支持 LIKE 通配符(如 '192.168.%')*/
-  clientIp: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  clientIp: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   /** 最小耗时毫秒,筛选 latency_ms >= minLatency(慢调用分析)*/
-  minLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  minLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 最大耗时毫秒 */
-  maxLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  maxLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** HTTP 状态码筛选(如 429 限流/500 错误专项)*/
-  httpStatus: z.preprocess(emptyToUndefined, z.coerce.number().int().min(100).max(599).optional()),
+  httpStatus: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(100).max(599).optional()),
   /** 最小成本分 */
-  minCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  minCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 最大成本分 */
-  maxCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  maxCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
 })
 
 const rechargeBodySchema = z
@@ -90,7 +89,7 @@ const redeemBodySchema = z.object({
   /** 兑换码(IHUI-XXXX-XXXX-XXXX,自动 normalize 去空格/转大写) */
   code: z.string().min(1, '兑换码不能为空').max(64),
   /** 可选:指定充值到哪个 API Key;未传则用用户最新 active Key */
-  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 // --- P0-7 安全字段 schema 片段(创建/更新共用)---
@@ -124,7 +123,7 @@ const updateKeyBodySchema = z.object({
 
 /** 优惠券查询 query(2026-07-31 立) */
 const couponsQuerySchema = z.object({
-  status: z.preprocess(emptyToUndefined, z.enum(['unused', 'used', 'expired']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['unused', 'used', 'expired']).optional()),
 })
 
 /** 优惠券领取 body(2026-07-31 立,用户输入券码领取) */
@@ -132,7 +131,7 @@ const couponClaimBodySchema = z.object({
   /** 券码(IHUI-COUPON-XXXXXXXXXXXX,自动 normalize 去空格/转大写) */
   code: z.string().min(1, '券码不能为空').max(64),
   /** 裂变券专属:分享人的 user_coupon.id(通过分享链接领取时传入) */
-  referrerUserCouponId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  referrerUserCouponId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const developerRelayRoutes: FastifyPluginAsync = async (server) => {

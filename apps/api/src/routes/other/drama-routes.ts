@@ -82,7 +82,7 @@ const updateDramaSchema = z.object({
 })
 
 const listQuerySchema = paginationSchema.extend({
-  status: z.preprocess(emptyToUndefined, z.enum(['draft', 'published', 'archived']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['draft', 'published', 'archived']).optional()),
 })
 
 const batchIdsSchema = z.object({

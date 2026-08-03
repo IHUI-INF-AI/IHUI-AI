@@ -10,7 +10,7 @@
  * ```ts
  * const schema = z.object({
  *   name: z.string().min(1, msg('required', { field: '名称' })),
- *   email: z.string().email(msg('email')),
+ *   email: z.email(msg('email')),
  *   age: z.number().int().min(18, msg('min', { min: 18 })),
  * })
  * ```

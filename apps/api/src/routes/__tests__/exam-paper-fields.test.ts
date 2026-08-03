@@ -16,12 +16,12 @@ vi.mock('jose', () => ({
   decodeJwt: vi.fn(() => ({ type: 'access' })),
 }))
 
-const PAPER_ID = '11111111-1111-1111-1111-111111111111'
-const CATEGORY_ID = '22222222-2222-2222-2222-222222222222'
+const PAPER_ID = '11111111-1111-4111-8111-111111111111'
+const CATEGORY_ID = '22222222-2222-4222-8222-222222222222'
 
 vi.mock('../../db/exam-queries.js', () => {
-  const paperId = '11111111-1111-1111-1111-111111111111'
-  const categoryId = '22222222-2222-2222-2222-222222222222'
+  const paperId = '11111111-1111-4111-8111-111111111111'
+  const categoryId = '22222222-2222-4222-8222-222222222222'
   return {
     findCategories: vi.fn().mockResolvedValue([]),
     findCategoryById: vi.fn().mockResolvedValue({ id: categoryId, name: 'Cat' }),
