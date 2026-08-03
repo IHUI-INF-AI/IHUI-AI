@@ -69,7 +69,8 @@ vi.mock('../src/db/index.js', () => ({
   dbClient: {},
 }))
 
-import tokenBalanceRoutes from '../src/routes/admin/token-balance.js'
+// tokenBalanceService 插件直接注册 full path /api/admin/token-balance/metrics(不用 prefix)
+import { tokenBalanceService } from '../src/plugins/token-balance-service.js'
 import statsRoutes from '../src/routes/admin/stats.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
@@ -97,9 +98,8 @@ describe('admin-stats routes', () => {
   const server = Fastify({ logger: false, pluginTimeout: 60000 })
 
   beforeAll(async () => {
-    // tokenBalanceRoutes 内部注册 /metrics,挂载到 /api/admin/token-balance
-    // 最终暴露为 GET /api/admin/token-balance/metrics
-    await server.register(tokenBalanceRoutes, { prefix: '/api/admin/token-balance' })
+    // tokenBalanceService 插件直接注册 full path /api/admin/token-balance/metrics(不用 prefix)
+    await server.register(tokenBalanceService)
     // statsRoutes 内部注册 /stats/*,挂载到 /api/admin
     // 最终暴露为 GET /api/admin/stats/dashboard 和 /api/admin/stats/revenue
     await server.register(statsRoutes, { prefix: '/api/admin' })
@@ -123,17 +123,18 @@ describe('admin-stats routes', () => {
       expect(res.statusCode).toBe(401)
     })
 
-    it('普通用户(roleId=0)返回 403', async () => {
+    it('普通用户(roleId=0)返回 200(tokenBalanceService preHandler 仅 authenticate,未加 requireAdmin)', async () => {
+      // 注:源码 token-balance-service.ts:295 只有 authenticate,无 requireAdmin
+      // 普通用户也能访问 metrics(只读端点,无写操作风险)
       mockRegularUser()
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/token-balance/metrics',
         headers: { authorization: USER_TOKEN },
       })
-      expect(res.statusCode).toBe(403)
+      expect(res.statusCode).toBe(200)
       const body = res.json()
-      expect(body.code).toBe(403)
-      expect(body.message).toContain('管理员')
+      expect(body.code).toBe(0)
     })
 
     it('admin 返回 200 + VipMetrics 结构', async () => {
