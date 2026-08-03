@@ -110,18 +110,18 @@ const integrationProviderSchema = z.enum([
 const createIntegrationBodySchema = z.object({
   name: z.string().min(1).max(128),
   provider: integrationProviderSchema,
-  credentials: z.record(z.unknown()).optional(),
+  credentials: z.record(z.string(), z.unknown()).optional(),
   isEnabled: z.boolean().default(false),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 const updateIntegrationBodySchema = z
   .object({
     name: z.string().min(1).max(128).optional(),
     provider: integrationProviderSchema.optional(),
-    credentials: z.record(z.unknown()).optional(),
+    credentials: z.record(z.string(), z.unknown()).optional(),
     isEnabled: z.boolean().optional(),
-    config: z.record(z.unknown()).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
   })
   .refine(
     (d) =>
@@ -151,7 +151,7 @@ const createEventBodySchema = z.object({
   type: z.enum(['startup', 'shutdown', 'error', 'warning', 'maintenance', 'deploy']),
   level: z.enum(['info', 'warn', 'error']).default('info'),
   message: z.string().min(1),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 })
 
 const eventIdParamSchema = z.object({
@@ -162,7 +162,7 @@ const updateEventBodySchema = z.object({
   type: z.enum(['startup', 'shutdown', 'error', 'warning', 'maintenance', 'deploy']).optional(),
   level: z.enum(['info', 'warn', 'error']).optional(),
   message: z.string().min(1).optional(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 })
 
 // =============================================================================
