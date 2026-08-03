@@ -43,9 +43,7 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
 
   // 创建报名
   fastify.post('/exam/signups', { preHandler: authenticate }, async (request, reply) => {
-    const body = z
-      .object({ examId: z.string().uuid(), userId: z.string().uuid() })
-      .parse(request.body)
+    const body = z.object({ examId: z.uuid(), userId: z.uuid() }).parse(request.body)
     const [created] = await db
       .insert(examSignups)
       .values({

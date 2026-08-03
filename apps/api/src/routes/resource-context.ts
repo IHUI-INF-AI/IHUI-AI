@@ -55,7 +55,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     type: z.enum(['file', 'knowledge', 'url', 'text']).default('file'),
     url: z.string().max(2000).optional(),
     content: z.string().optional(),
-    fileId: z.string().uuid().optional(),
+    fileId: z.uuid().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
 
@@ -96,7 +96,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     type: z.enum(['file', 'knowledge', 'url', 'text']).optional(),
     url: z.string().max(2000).optional(),
     content: z.string().optional(),
-    fileId: z.string().uuid().optional(),
+    fileId: z.uuid().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
 

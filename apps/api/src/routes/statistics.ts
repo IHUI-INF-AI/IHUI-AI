@@ -38,7 +38,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listSnapshotsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),

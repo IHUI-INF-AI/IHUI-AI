@@ -99,7 +99,7 @@ const R = {
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -111,7 +111,7 @@ const listMembersQuery = z.object({
   username: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
   mobile: z.preprocess(emptyToUndefined, z.string().min(1).max(30).optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-  levelId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  levelId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const authListQuery = z.object({
@@ -126,7 +126,7 @@ const companyListQuery = z.object({
 
 const byIdsQuery = z.object({ ids: z.string().min(1, 'ids 不能为空') })
 
-const byIdQuery = z.object({ id: z.string().uuid({ message: '无效的会员 ID' }) })
+const byIdQuery = z.object({ id: z.uuid({ error: '无效的会员 ID' }) })
 
 const registerSchema = z.object({
   username: z.string().min(1, '用户名不能为空').max(100),
@@ -151,29 +151,29 @@ const createMemberSchema = z.object({
   nickname: z.string().max(100).nullable().optional(),
   avatar: z.string().max(500).nullable().optional(),
   gender: z.number().int().min(0).max(2).optional(),
-  levelId: z.string().uuid().nullable().optional(),
-  companyId: z.string().uuid().nullable().optional(),
-  departmentId: z.string().uuid().nullable().optional(),
+  levelId: z.uuid().nullable().optional(),
+  companyId: z.uuid().nullable().optional(),
+  departmentId: z.uuid().nullable().optional(),
   status: z.number().int().min(0).max(2).optional(),
 })
 
 const updateMemberSchema = z.object({
-  id: z.string().uuid({ message: '无效的会员 ID' }),
+  id: z.uuid({ error: '无效的会员 ID' }),
   mobile: z.string().max(30).nullable().optional(),
   email: z.string().max(200).nullable().optional(),
   nickname: z.string().max(100).nullable().optional(),
   avatar: z.string().max(500).nullable().optional(),
   gender: z.number().int().min(0).max(2).optional(),
-  levelId: z.string().uuid().nullable().optional(),
-  companyId: z.string().uuid().nullable().optional(),
-  departmentId: z.string().uuid().nullable().optional(),
+  levelId: z.uuid().nullable().optional(),
+  companyId: z.uuid().nullable().optional(),
+  departmentId: z.uuid().nullable().optional(),
   growthValue: z.number().int().min(0).optional(),
 })
 
-const memberIdBodySchema = z.object({ id: z.string().uuid({ message: '无效的会员 ID' }) })
+const memberIdBodySchema = z.object({ id: z.uuid({ error: '无效的会员 ID' }) })
 
 const resetPwdSchema = z.object({
-  id: z.string().uuid({ message: '无效的会员 ID' }),
+  id: z.uuid({ error: '无效的会员 ID' }),
   password: z.string().min(1, '密码不能为空'),
 })
 
@@ -188,7 +188,7 @@ const createLevelSchema = z.object({
 })
 
 const updateLevelSchema = z.object({
-  id: z.string().uuid({ message: '无效的等级 ID' }),
+  id: z.uuid({ error: '无效的等级 ID' }),
   name: z.string().min(1).max(100).optional(),
   growthValue: z.number().int().min(0).optional(),
   discount: z
@@ -228,23 +228,23 @@ const updateCompanySchema = z.object({
 
 const departmentsListQuery = z.object({
   ...paginationQuery,
-  companyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  companyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
   status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1).optional()),
 })
 
 const createDepartmentSchema = z.object({
-  companyId: z.string().uuid({ message: '无效的企业 ID' }),
+  companyId: z.uuid({ error: '无效的企业 ID' }),
   name: z.string().min(1, '名称不能为空').max(200),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateDepartmentSchema = z.object({
-  companyId: z.string().uuid().optional(),
+  companyId: z.uuid().optional(),
   name: z.string().min(1).max(200).optional(),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })

@@ -48,8 +48,8 @@ const updateTeamSchema = z.object({
 })
 
 const createInvitationSchema = z.object({
-  inviteeId: z.string().uuid().optional(),
-  email: z.string().email().max(255).optional(),
+  inviteeId: z.uuid().optional(),
+  email: z.email().max(255).optional(),
   expiresAt: z.string().datetime().optional(),
 })
 

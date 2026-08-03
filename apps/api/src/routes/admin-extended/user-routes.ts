@@ -18,28 +18,26 @@ import { success, error, parseOrThrow } from '../../utils/response.js'
 import { idParamSchema } from './_shared.js'
 import { logAction } from '../../services/audit-service.js'
 
-const updateUserSchema = z
-  .object({
-    nickname: z.string().min(1).max(64).optional(),
-    avatar: z.string().max(500).optional(),
-    bio: z.string().max(500).optional(),
-    gender: z.number().int().min(0).max(2).optional(),
-    birthday: z.string().optional(),
-    roleId: z.number().int().min(0).max(10).optional(),
-    deptId: z.number().int().optional(),
-    status: z.number().int().min(0).max(3).optional(),
-    isVip: z.number().int().min(-1).max(2).optional(),
-    level: z.number().int().min(0).max(3).optional(),
-  })
-  .strict()
+const updateUserSchema = z.strictObject({
+  nickname: z.string().min(1).max(64).optional(),
+  avatar: z.string().max(500).optional(),
+  bio: z.string().max(500).optional(),
+  gender: z.number().int().min(0).max(2).optional(),
+  birthday: z.string().optional(),
+  roleId: z.number().int().min(0).max(10).optional(),
+  deptId: z.number().int().optional(),
+  status: z.number().int().min(0).max(3).optional(),
+  isVip: z.number().int().min(-1).max(2).optional(),
+  level: z.number().int().min(0).max(3).optional(),
+})
 
 const batchStatusSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
+  ids: z.array(z.uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
   status: z.number().int().min(0, 'status 0-3').max(3, 'status 0-3'),
 })
 
 const batchReviewSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
+  ids: z.array(z.uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
 })
 
 function startOfToday(): Date {
@@ -176,12 +174,30 @@ export const userRoutes: FastifyPluginAsync = async (server) => {
       activeRows,
     ] = await Promise.all([
       dbRead.select({ count: sql<number>`count(*)::int` }).from(users),
-      dbRead.select({ count: sql<number>`count(*)::int` }).from(users).where(gte(users.createdAt, todayStart)),
-      dbRead.select({ count: sql<number>`count(*)::int` }).from(users).where(gte(users.createdAt, weekStart)),
-      dbRead.select({ count: sql<number>`count(*)::int` }).from(users).where(gte(users.createdAt, monthStart)),
-      dbRead.select({ status: users.status, count: sql<number>`count(*)::int` }).from(users).groupBy(users.status),
-      dbRead.select({ level: users.level, count: sql<number>`count(*)::int` }).from(users).groupBy(users.level),
-      dbRead.select({ count: sql<number>`count(*)::int` }).from(users).where(gt(users.isVip, 0)),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(users)
+        .where(gte(users.createdAt, todayStart)),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(users)
+        .where(gte(users.createdAt, weekStart)),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(users)
+        .where(gte(users.createdAt, monthStart)),
+      dbRead
+        .select({ status: users.status, count: sql<number>`count(*)::int` })
+        .from(users)
+        .groupBy(users.status),
+      dbRead
+        .select({ level: users.level, count: sql<number>`count(*)::int` })
+        .from(users)
+        .groupBy(users.level),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(users)
+        .where(gt(users.isVip, 0)),
       dbRead
         .select({ date: dayExpr, count: sql<number>`count(*)::int` })
         .from(users)

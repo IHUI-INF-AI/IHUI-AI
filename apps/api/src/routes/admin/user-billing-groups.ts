@@ -53,7 +53,7 @@ const updateGroupSchema = z.object({
 })
 
 const addMemberSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
   assignedReason: z.string().max(128).optional(),
   expiresAt: z.string().optional(),
 })
@@ -65,13 +65,13 @@ const setMultiplierSchema = z.object({
 
 /** :id + :userId 复合路径参数 */
 const groupIdUserIdParamSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
+  id: z.uuid(),
+  userId: z.uuid(),
 })
 
 /** :id + :modelId 复合路径参数 */
 const groupIdModelIdParamSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   modelId: z.string().min(1).max(128),
 })
 
@@ -84,10 +84,7 @@ const userBillingGroupsRoutes: FastifyPluginAsync = async (server) => {
 
   // ===== 1. GET /admin/user-billing-groups — 分组列表 =====
   server.get('/admin/user-billing-groups', async (_request, reply) => {
-    const list = await db
-      .select()
-      .from(userBillingGroups)
-      .orderBy(userBillingGroups.sortOrder)
+    const list = await db.select().from(userBillingGroups).orderBy(userBillingGroups.sortOrder)
     return reply.send(success({ list, total: list.length }))
   })
 
@@ -154,7 +151,9 @@ const userBillingGroupsRoutes: FastifyPluginAsync = async (server) => {
       await db
         .update(userBillingGroups)
         .set({ isDefault: false, updatedAt: new Date() })
-        .where(sql`${userBillingGroups.id} != ${p.data.id} AND ${userBillingGroups.isDefault} = true`)
+        .where(
+          sql`${userBillingGroups.id} != ${p.data.id} AND ${userBillingGroups.isDefault} = true`,
+        )
     }
 
     const [row] = await db
@@ -178,8 +177,7 @@ const userBillingGroupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userBillingGroups.id, p.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '分组不存在'))
-    if (existing.isDefault)
-      return reply.status(400).send(error(400, '禁止删除系统默认组'))
+    if (existing.isDefault) return reply.status(400).send(error(400, '禁止删除系统默认组'))
 
     const [row] = await db
       .delete(userBillingGroups)

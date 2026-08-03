@@ -125,7 +125,7 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
         cover: z.string().max(512).optional(),
         category: z.string().max(64).optional(),
         visibility: z.enum(['public', 'private', 'followers']).optional(),
-        circleId: z.string().uuid().optional(),
+        circleId: z.uuid().optional(),
         status: z.string().max(32).optional(),
       })
       .safeParse(request.body)
@@ -192,7 +192,7 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
         cover: z.string().max(512).optional(),
         category: z.string().max(64).optional(),
         visibility: z.enum(['public', 'private', 'followers']).optional(),
-        circleId: z.string().uuid().optional(),
+        circleId: z.uuid().optional(),
       })
       .safeParse(request.body)
     if (!body.success) {
@@ -254,6 +254,5 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(500).send(error(500, '保存草稿失败'))
     }
   })
-
 }
 export default postsRoutes

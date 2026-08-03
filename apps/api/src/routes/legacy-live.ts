@@ -13,9 +13,7 @@ import { subscriptions } from '@ihui/database'
 export const legacyLiveRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // ========== D6: 直播频道订阅 (2端点) ==========
   fastify.post('/live/subscribe', { preHandler: authenticate }, async (request, reply) => {
-    const body = z
-      .object({ channelId: z.string().uuid(), userId: z.string().uuid() })
-      .parse(request.body)
+    const body = z.object({ channelId: z.uuid(), userId: z.uuid() }).parse(request.body)
     const [created] = await db
       .insert(subscriptions)
       .values({

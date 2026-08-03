@@ -14,12 +14,7 @@ import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { commentLikes } from '@ihui/database'
-import {
-  findComments,
-  createComment,
-  likeComment,
-  unlikeComment,
-} from '../db/comment-queries.js'
+import { findComments, createComment, likeComment, unlikeComment } from '../db/comment-queries.js'
 import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
 
 // ============================================================================
@@ -27,19 +22,19 @@ import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
 // ============================================================================
 
 const likeSchema = z.object({
-  commentId: z.string().uuid({ message: 'commentId 必须为 UUID' }),
+  commentId: z.uuid({ error: 'commentId 必须为 UUID' }),
 })
 
 const followSchema = z.object({
-  userId: z.string().uuid({ message: 'userId 必须为 UUID' }),
+  userId: z.uuid({ error: 'userId 必须为 UUID' }),
 })
 
 const commentCreateSchema = z.object({
   resourceType: z.enum(['project', 'file', 'doc', 'post', 'comment']),
   resourceId: z.string().min(1).max(128),
   content: z.string().min(1).max(2000),
-  parentId: z.string().uuid().optional(),
-  mentions: z.array(z.string().uuid()).max(50).optional(),
+  parentId: z.uuid().optional(),
+  mentions: z.array(z.uuid()).max(50).optional(),
 })
 
 const commentListQuerySchema = z.object({
@@ -77,34 +72,28 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /interactions/like/:commentId — 取消点赞
-  server.delete<{ Params: { commentId: string } }>(
-    '/like/:commentId',
-    async (request, reply) => {
-      const { commentId } = request.params
-      if (!UUID_RE.test(commentId)) {
-        return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
-      }
-      await unlikeComment(commentId, request.userId!)
-      return reply.send(success({ commentId, liked: false }))
-    },
-  )
+  server.delete<{ Params: { commentId: string } }>('/like/:commentId', async (request, reply) => {
+    const { commentId } = request.params
+    if (!UUID_RE.test(commentId)) {
+      return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
+    }
+    await unlikeComment(commentId, request.userId!)
+    return reply.send(success({ commentId, liked: false }))
+  })
 
   // GET /interactions/like/check?commentId=xxx — 查询是否已点赞
-  server.get<{ Querystring: { commentId?: string } }>(
-    '/like/check',
-    async (request, reply) => {
-      const cid = request.query.commentId
-      if (!cid || !UUID_RE.test(cid)) {
-        return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
-      }
-      const [row] = await db
-        .select()
-        .from(commentLikes)
-        .where(and(eq(commentLikes.commentId, cid), eq(commentLikes.userId, request.userId!)))
-        .limit(1)
-      return reply.send(success({ commentId: cid, liked: Boolean(row) }))
-    },
-  )
+  server.get<{ Querystring: { commentId?: string } }>('/like/check', async (request, reply) => {
+    const cid = request.query.commentId
+    if (!cid || !UUID_RE.test(cid)) {
+      return reply.status(400).send(error(400, 'commentId 必须为 UUID'))
+    }
+    const [row] = await db
+      .select()
+      .from(commentLikes)
+      .where(and(eq(commentLikes.commentId, cid), eq(commentLikes.userId, request.userId!)))
+      .limit(1)
+    return reply.send(success({ commentId: cid, liked: Boolean(row) }))
+  })
 
   // POST /interactions/follow — 关注用户(userFollows 表,幂等)
   server.post('/follow', async (request, reply) => {
@@ -123,31 +112,25 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /interactions/follow/:userId — 取消关注
-  server.delete<{ Params: { userId: string } }>(
-    '/follow/:userId',
-    async (request, reply) => {
-      const { userId: targetId } = request.params
-      if (!UUID_RE.test(targetId)) {
-        return reply.status(400).send(error(400, 'userId 必须为 UUID'))
-      }
-      await unfollowUser(request.userId!, targetId)
-      return reply.send(success({ following: false }))
-    },
-  )
+  server.delete<{ Params: { userId: string } }>('/follow/:userId', async (request, reply) => {
+    const { userId: targetId } = request.params
+    if (!UUID_RE.test(targetId)) {
+      return reply.status(400).send(error(400, 'userId 必须为 UUID'))
+    }
+    await unfollowUser(request.userId!, targetId)
+    return reply.send(success({ following: false }))
+  })
 
   // GET /interactions/follow/status?userId=xxx — 关注状态
-  server.get<{ Querystring: { userId?: string } }>(
-    '/follow/status',
-    async (request, reply) => {
-      const tid = request.query.userId
-      if (!tid || !UUID_RE.test(tid)) {
-        return reply.status(400).send(error(400, 'userId 必须为 UUID'))
-      }
-      const following = await isFollowing(request.userId!, tid)
-      const isMutual = following ? await isFollowing(tid, request.userId!) : false
-      return reply.send(success({ following, isMutual }))
-    },
-  )
+  server.get<{ Querystring: { userId?: string } }>('/follow/status', async (request, reply) => {
+    const tid = request.query.userId
+    if (!tid || !UUID_RE.test(tid)) {
+      return reply.status(400).send(error(400, 'userId 必须为 UUID'))
+    }
+    const following = await isFollowing(request.userId!, tid)
+    const isMutual = following ? await isFollowing(tid, request.userId!) : false
+    return reply.send(success({ following, isMutual }))
+  })
 
   // POST /interactions/comment — 创建评论
   server.post('/comment', async (request, reply) => {
