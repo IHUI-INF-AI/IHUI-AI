@@ -63,10 +63,10 @@
     "hotCourses": "熱門課程",
     "tapLogin": "點擊登入",
     "slogan": "智匯 AI,讓學習更高效",
-    "todayMinutes": "今日 {{n}} 分鐘",
-    "continuousDays": "連續 {{n}} 天",
-    "totalMinutes": "累計 {{n}} 分鐘",
-    "coursesCount": "已學 {{n}} 門",
+    "todayMinutes": "今日 {n} 分鐘",
+    "continuousDays": "連續 {n} 天",
+    "totalMinutes": "累計 {n} 分鐘",
+    "coursesCount": "已學 {n} 門",
     "learningProgress": "學習進度",
     "more": "更多",
     "livePreview": "直播預告",
@@ -87,17 +87,17 @@
     "objectives": "學習目標",
     "suitableFor": "適合人群",
     "highlights": "課程亮點",
-    "nextLesson": "下一課:{{title}}",
+    "nextLesson": "下一課:{title}",
     "startLearning": "開始學習",
     "buyNow": "立即購買",
     "buyDeveloping": "購買功能開發中",
     "buyFirst": "請先購買課程",
     "signSuccess": "簽到成功",
-    "rated": "已評分 {{n}} 星",
+    "rated": "已評分 {n} 星",
     "noteSaved": "筆記已儲存",
     "lessonComplete": "本節學習完成",
     "viewTeacher": "查看講師",
-    "noteTitle": "{{title}} - 筆記",
+    "noteTitle": "{title} - 筆記",
     "scanCourse": "掃碼看課程",
     "loadFailed": "課程載入失敗",
     "list": {
@@ -105,7 +105,7 @@
       "search": "搜尋",
       "empty": "暫無課程",
       "title": "精品課程",
-      "subtitle": "{{n}} 個課程"
+      "subtitle": "{n} 個課程"
     },
     "ratingTitle": "評價課程",
     "ratingLabels": [
@@ -124,7 +124,7 @@
     "audience": "適合人群"
   },
   "live": {
-    "viewers": "{{n}} 人觀看",
+    "viewers": "{n} 人觀看",
     "preview": "預告",
     "detail": {
       "loadFailed": "直播載入失敗",
@@ -133,7 +133,7 @@
       "ended": "直播已結束",
       "connecting": "正在連線直播間…",
       "enter": "進入直播間",
-      "anchor": "主播:{{name}}"
+      "anchor": "主播:{name}"
     },
     "subscribe": {
       "subscribe": "訂閱提醒",
@@ -226,7 +226,7 @@
       "contactPlaceholder": "請輸入手機號或郵箱"
     },
     "refundList": {
-      "orderNo": "訂單編號:{{no}}",
+      "orderNo": "訂單編號:{no}",
       "empty": "暫無退款記錄",
       "tabRefunding": "退款中",
       "tabRefunded": "已退款",
@@ -277,7 +277,7 @@
         "contactService": "聯絡客服",
         "faqQ": "充值失敗會扣款嗎?"
       },
-      "tokenRate": "1元 = {{n}} 智匯值",
+      "tokenRate": "1元 = {n} 智匯值",
       "activityTitle": "限時活動",
       "activityPlaceholder": "請輸入活動充值金額",
       "activitySubmit": "限時 優惠充值"
@@ -395,7 +395,7 @@
     "agentLoadFailed": "智慧體載入失敗",
     "generating": "正在極速生成中",
     "thinkingTip": "Tips:您可以先點擊右上角三個點浮窗小程式,過一會兒再回來喲~",
-    "fileSelected": "已選 {{count}} 個檔案",
+    "fileSelected": "已選 {count} 個檔案",
     "common": {
       "loading": "載入中…"
     },
@@ -411,7 +411,7 @@
       "thinkingProcess": "思考過程",
       "noContent": "沒有可複製的內容",
       "aiGenerated": "智匯AI生成",
-      "tokenCost": "消耗智匯值:{{n}}",
+      "tokenCost": "消耗智匯值:{n}",
       "reuse": "復用",
       "copy": "複製",
       "favorited": "已收藏",
@@ -451,7 +451,7 @@
     "skillsPopup": {
       "title": "選擇技能",
       "searchPlaceholder": "搜尋技能",
-      "uses": "{{n}} 次使用",
+      "uses": "{n} 次使用",
       "notFound": "未找到相關技能",
       "empty": "暫無可用技能"
     },
@@ -521,7 +521,7 @@
     },
     "agent": {
       "searchPlaceholder": "搜尋智慧體",
-      "count": "{{n}} 個",
+      "count": "{n} 個",
       "empty": "暫無智慧體",
       "inputPlaceholder": "輸入你的問題…"
     },
@@ -550,12 +550,12 @@
       "favoriteAgent": "收藏智慧體",
       "favorited": "已收藏",
       "unfavorite": "取消收藏",
-      "useCount": "{{n}}人使用",
+      "useCount": "{n}人使用",
       "relatedAgents": "相關推薦",
       "prologue": "開場白",
       "exampleDialog": "示例對話",
       "reviews": "評價",
-      "reviewCount": "{{n}}條評價",
+      "reviewCount": "{n}條評價",
       "ratingDistribution": "評分分佈"
     },
     "agentList": {
@@ -567,7 +567,7 @@
         "education": "教育",
         "life": "生活"
       },
-      "useCount": "{{n}}人使用",
+      "useCount": "{n}人使用",
       "noResult": "未找到相關智慧體",
       "sortBy": "排序",
       "sortHot": "熱門",
@@ -590,7 +590,7 @@
       "cleared": "已清空",
       "refreshSuccess": "重新整理成功",
       "startNew": "開始新對話",
-      "msgCount": "{{n}} 條訊息"
+      "msgCount": "{n} 條訊息"
     },
     "special": {
       "pageError": "操作失敗",
@@ -618,7 +618,7 @@
       "agentTipHistory": "歷史記錄",
       "agentTipHistoryDesc": "可查看歷史對話"
     },
-    "uploadMaterialTab": "上傳{{tab}}素材",
+    "uploadMaterialTab": "上傳{tab}素材",
     "messageAction": {
       "reuse": "復用"
     },
@@ -645,8 +645,8 @@
   "share": {
     "appTitle": "智匯 AI - 讓學習更高效",
     "timelineTitle": "智匯 AI,你的智慧學習助手",
-    "courseTitle": "推薦課程:{{title}}",
-    "liveTitle": "推薦直播:{{title}}",
+    "courseTitle": "推薦課程:{title}",
+    "liveTitle": "推薦直播:{title}",
     "index": {
       "title": "AI資訊",
       "removeConfirm": "確認刪除此對話?",
@@ -670,7 +670,7 @@
       "loading": "載入中…",
       "clickShare": "點擊右上角分享給好友",
       "contentNotExist": "分享內容不存在",
-      "tokenCost": "消耗 {{n}} 智匯值",
+      "tokenCost": "消耗 {n} 智匯值",
       "thinkingProcess": "思考過程",
       "aiAnswer": "AI 回答",
       "regenerate": "再生成一個",
@@ -750,7 +750,7 @@
     "codeSent": "驗證碼已發送",
     "codeInvalid": "驗證碼不正確",
     "confirmTextMismatch": "輸入的確認文字不匹配",
-    "countdown": "{{s}}s 後可提交",
+    "countdown": "{s}s 後可提交",
     "submitting": "註銷中…",
     "submit": "確認註銷",
     "consequenceTitle": "註銷後果",
@@ -768,13 +768,13 @@
       "hot": "熱門",
       "unanswered": "待回答"
     },
-    "answers": "{{n}} 回答",
+    "answers": "{n} 回答",
     "empty": "暫無問題",
     "detail": {
       "me": "我",
       "justNow": "剛剛",
       "answered": "回答成功",
-      "answerCount": "{{n}} 個回答",
+      "answerCount": "{n} 個回答",
       "placeholder": "輸入你的回答…",
       "answer": "回答"
     },
@@ -878,20 +878,20 @@
     "saveQrcode": "儲存 QR code"
   },
   "exam": {
-    "questions": "{{n}} 題",
-    "minutes": "{{n}} 分鐘",
-    "passScore": "及格分 {{n}}",
-    "totalScore": "總分 {{n}}",
+    "questions": "{n} 題",
+    "minutes": "{n} 分鐘",
+    "passScore": "及格分 {n}",
+    "totalScore": "總分 {n}",
     "removedPaper": "試卷已下架",
     "passed": "已通過",
     "notPassed": "未通過",
-    "score": "成績 {{n}}",
+    "score": "成績 {n}",
     "result": {
       "loadFailed": "成績載入失敗",
       "pass": "恭喜通過",
       "notPass": "未通過",
-      "scoreValue": "{{n}} 分",
-      "rankValue": "第 {{n}} 名 / 共 {{total}} 人",
+      "scoreValue": "{n} 分",
+      "rankValue": "第 {n} 名 / 共 {total} 人",
       "goList": "查看考試列表",
       "pageTitle": "考試結果",
       "reviewTitle": "題目回顧",
@@ -905,11 +905,11 @@
     "detail": {
       "loadFailed": "考試載入失敗",
       "questionCount": "題目數量",
-      "questionCountValue": "{{n}} 題",
+      "questionCountValue": "{n} 題",
       "duration": "考試時長",
-      "durationValue": "{{n}} 分鐘",
+      "durationValue": "{n} 分鐘",
       "passScore": "及格分數",
-      "passScoreValue": "{{n}} 分",
+      "passScoreValue": "{n} 分",
       "notice1": "請仔細閱讀題目,在規定時間內完成作答",
       "notice2": "每道題作答後可修改,提交後不可更改",
       "start": "開始考試",
@@ -1028,13 +1028,13 @@
     },
     "company": {
       "title": "我的公司",
-      "level": "等級 {{n}}",
+      "level": "等級 {n}",
       "totalEarnings": "累計收益",
       "available": "可提現",
       "teamMembers": "團隊成員",
-      "memberCount": "共 {{n}} 人",
+      "memberCount": "共 {n} 人",
       "empty": "暫無成員",
-      "joinTime": "加入:{{time}}",
+      "joinTime": "加入:{time}",
       "menuTeam": "團隊管理",
       "menuCommission": "佣金記錄",
       "menuWithdraw": "申請提現"
@@ -1086,7 +1086,7 @@
     "myTeam": "我的團隊"
   },
   "about": {
-    "version": "版本 {{version}}",
+    "version": "版本 {version}",
     "protocol": {
       "s2": {
         "t1": "2.1使用者資格與使用限制",
@@ -1326,13 +1326,13 @@
     "total": "合計"
   },
   "categoryDetail": {
-    "categoryId": "分類 {{id}}",
+    "categoryId": "分類 {id}",
     "allCategories": "全部分類",
     "hot": "熱門",
     "new": "最新",
     "empty": "暫無內容",
     "noDesc": "暫無描述",
-    "useCount": "{{n}} 次使用"
+    "useCount": "{n} 次使用"
   },
   "circle": {
     "empty": "暫無內容",
@@ -1551,8 +1551,8 @@
     "tabImage": "圖像",
     "tabAv": "音視頻",
     "payMode": "按量計費",
-    "modelCount": "共 {{n}} 個模型",
-    "synced": "已同步 {{n}} 條",
+    "modelCount": "共 {n} 個模型",
+    "synced": "已同步 {n} 條",
     "perKTokens": "千token",
     "noMore": "— 沒有更多了 —",
     "contextLength": "上下文",
@@ -1560,9 +1560,9 @@
   },
   "news": {
     "search": "搜尋資訊",
-    "views": "{{n}} 次瀏覽",
+    "views": "{n} 次瀏覽",
     "empty": "暫無資訊",
-    "readCount": "{{n}}閱讀",
+    "readCount": "{n}閱讀",
     "detail": {
       "like": "點讚",
       "comment": "評論",
@@ -1732,7 +1732,7 @@
       "private": "其他使用者發給你的私信",
       "marketing": "優惠活動、新品推薦等"
     },
-    "hello": "你好,我是 {{name}}",
+    "hello": "你好,我是 {name}",
     "justNow": "剛剛",
     "search": "搜尋聊天",
     "unnamedRoom": "未命名會話",
@@ -1858,13 +1858,13 @@
     "noCoupon": "暫無可用優惠券",
     "couponNone": "不使用優惠券",
     "orderExpired": "訂單已超時,請重新下單",
-    "countdownTip": "支付剩餘時間 {{time}}",
-    "couponSaved": "已優惠 ¥{{n}}",
+    "countdownTip": "支付剩餘時間 {time}",
+    "couponSaved": "已優惠 ¥{n}",
     "goodsName": "商品名稱",
     "vipSubscription": "會員訂閱",
-    "balanceAmount": "餘額 ¥{{n}}",
+    "balanceAmount": "餘額 ¥{n}",
     "recharge": "充值",
-    "couponAvailable": "{{n}} 張可用",
+    "couponAvailable": "{n} 張可用",
     "limitedFree": "限時免費",
     "memberFree": "會員免費",
     "buyNow": "立即購買",
@@ -1876,16 +1876,16 @@
     "balance": "餘額"
   },
   "study": {
-    "todayMinutes": "今日 {{n}} 分鐘",
-    "totalMinutes": "累計 {{n}} 分鐘",
-    "continuousDays": "連續 {{n}} 天",
-    "courses": "已學 {{n}} 門",
+    "todayMinutes": "今日 {n} 分鐘",
+    "totalMinutes": "累計 {n} 分鐘",
+    "continuousDays": "連續 {n} 天",
+    "courses": "已學 {n} 門",
     "continueLearning": "繼續學習",
     "emptyCourse": "暫無學習課程",
     "planPage": {
       "addFailed": "新增失敗",
-      "target": "目標 {{n}} 分鐘",
-      "completed": "已完成 {{n}} 分鐘",
+      "target": "目標 {n} 分鐘",
+      "completed": "已完成 {n} 分鐘",
       "statusDone": "已完成",
       "statusInProgress": "進行中",
       "empty": "暫無學習計畫",
@@ -1894,11 +1894,11 @@
     "rankPage": {
       "title": "學習排行榜",
       "subtitle": "看看誰最努力",
-      "minutes": "{{n}} 分鐘",
+      "minutes": "{n} 分鐘",
       "empty": "暫無排名資料"
     },
     "recordPage": {
-      "progress": "進度 {{n}}%",
+      "progress": "進度 {n}%",
       "empty": "暫無學習記錄",
       "statusLearning": "學習中",
       "statusAbandon": "已放棄",
@@ -1977,8 +1977,8 @@
   "teacher": {
     "list": {
       "searchPlaceholder": "搜尋講師",
-      "courseCount": "{{n}} 門課程",
-      "studentCount": "{{n}} 位學員",
+      "courseCount": "{n} 門課程",
+      "studentCount": "{n} 位學員",
       "empty": "暫無講師"
     },
     "detail": {
@@ -2181,7 +2181,7 @@
   "vip": {
     "selectPlanFirst": "請先選擇方案",
     "notOpened": "未開通",
-    "expireTime": "到期時間:{{time}}",
+    "expireTime": "到期時間:{time}",
     "openHint": "立即開通享受專屬權益",
     "privileges": "會員權益",
     "viewAllBenefits": "查看全部權益",
@@ -2224,7 +2224,7 @@
       ],
       "loadFailed": "載入失敗",
       "operationFailed": "操作失敗",
-      "originalPrice": "原價¥{{n}}",
+      "originalPrice": "原價¥{n}",
       "upgrade": "立即升級",
       "configNotReady": "支付設定未就緒,請聯繫管理員"
     },
@@ -2417,7 +2417,7 @@
   "streak": {
     "title": "學習連簽",
     "totalDays": "累計 {n} 天",
-    "continuousDays": "連續 {{n}} 天"
+    "continuousDays": "連續 {n} 天"
   },
   "withdrawal": {
     "records": "提現記錄"

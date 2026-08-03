@@ -1222,12 +1222,12 @@
   "modelPlaza": {
     "title": "模型廣場",
     "compareBtn": "對比",
-    "providerTotal": "共 {{count}} 個模型",
+    "providerTotal": "共 {count} 個模型",
     "loadFailed": "載入失敗,下拉重整重試",
     "emptyType": "暫無該類型模型",
     "input": "Input",
     "output": "Output",
-    "priceUnit": "¥{{price}}/M",
+    "priceUnit": "¥{price}/M",
     "perCall": "(按次計費)",
     "typeAll": "全部",
     "typeText": "文字",
@@ -1239,7 +1239,7 @@
     },
     "detail": {
       "title": "模型詳情",
-      "message": "檢視「{{name}}」完整參數與定價"
+      "message": "檢視「{name}」完整參數與定價"
     }
   },
   "n8nModel": {
@@ -1253,16 +1253,16 @@
     "empty": "暫無 n8n 工作流程",
     "running": "執行中",
     "stopped": "已停止",
-    "calls": "呼叫 {{count}}",
-    "params": "入參 {{in}} · 出參 {{out}}",
+    "calls": "呼叫 {count}",
+    "params": "入參 {in} · 出參 {out}",
     "actionStart": "啟動",
     "actionStop": "停止",
     "actionEdit": "編輯",
     "toggle": {
       "stopTitle": "停止工作流程",
       "startTitle": "啟動工作流程",
-      "stopMessage": "確定停止「{{name}}」嗎?",
-      "startMessage": "確定啟動「{{name}}」嗎?",
+      "stopMessage": "確定停止「{name}」嗎?",
+      "startMessage": "確定啟動「{name}」嗎?",
       "success": "操作成功"
     }
   },
@@ -1272,7 +1272,7 @@
     "labelDept": "部門",
     "labelSaleType": "售賣方式",
     "labelCycle": "收費週期",
-    "labelPrice": "價格(元 / {{cycle}})",
+    "labelPrice": "價格(元 / {cycle})",
     "labelFreeDur": "限時免費時限",
     "labelDiscount": "是否參與折扣",
     "labelAudience": "面向群體",
@@ -1557,11 +1557,11 @@
     "actionReedit": "重新編輯",
     "edit": {
       "title": "操作",
-      "message": "設定「{{name}}」的售賣配置"
+      "message": "設定「{name}」的售賣配置"
     },
     "offline": {
       "title": "下架確認",
-      "message": "是否確定下架「{{name}}」?",
+      "message": "是否確定下架「{name}」?",
       "confirmBtn": "確定下架",
       "done": "已下架"
     }
@@ -1574,26 +1574,26 @@
     "empty": "暫無群組",
     "loadFailed": "載入失敗",
     "back": "返回",
-    "detailMembers": "協作成員({{count}})",
+    "detailMembers": "協作成員({count})",
     "detailRecent": "最近對話",
     "detailEnter": "進入群聊",
-    "metaActive": "活躍 {{time}}",
-    "metaMessages": "消息 {{count}}",
-    "cardMembers": "{{count}} 成員 · {{messages}} 消息",
+    "metaActive": "活躍 {time}",
+    "metaMessages": "消息 {count}",
+    "cardMembers": "{count} 成員 · {messages} 消息",
     "enterMine": "進入",
     "enterDiscover": "加入",
     "previewHello": "大家好,我們開始本次協作,先確認目標與分工。",
     "previewMine": "收到,我這邊準備開始調研。",
-    "memberRole": "角色: {{role}}",
+    "memberRole": "角色: {role}",
     "join": {
       "title": "加入群組",
-      "message": "已申請加入「{{name}}」"
+      "message": "已申請加入「{name}」"
     }
   },
   "aigcCover": {
     "loading": "載入中...",
     "title": "選擇封面",
-    "subtitle": "作品:{{title}}",
+    "subtitle": "作品:{title}",
     "workTitleDefault": "未命名作品",
     "back": "返回",
     "filterAll": "全部",
@@ -1606,7 +1606,7 @@
     "loadFailed": "載入失敗",
     "applied": {
       "title": "封面已套用",
-      "message": "已為「{{title}}」套用封面:{{label}}"
+      "message": "已為「{title}」套用封面:{label}"
     },
     "aiGen": {
       "title": "AI 生成封面",
@@ -1619,7 +1619,7 @@
     "subtitle": "選擇類型 → 上傳素材 → 填寫資訊 → 發布",
     "labelType": "作品類型",
     "labelTextContent": "文本內容",
-    "labelUpload": "上傳素材 ({{count}}/5)",
+    "labelUpload": "上傳素材 ({count}/5)",
     "labelTitle": "作品標題",
     "labelDescription": "作品簡介",
     "labelPrompt": "提示詞",

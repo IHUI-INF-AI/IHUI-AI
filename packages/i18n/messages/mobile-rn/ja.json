@@ -8,15 +8,15 @@
   },
   "course": {
     "title": "コース",
-    "studentCount": "{{count}} 人が学習",
-    "pay": "¥{{amount}} を支払う",
+    "studentCount": "{count} 人が学習",
+    "pay": "¥{amount} を支払う",
     "enroll": "今すぐ登録",
     "enrolled": "登録済み",
     "progress": "進捗"
   },
   "live": {
     "title": "ライブ",
-    "viewerCount": "{{count}} 人が視聴中",
+    "viewerCount": "{count} 人が視聴中",
     "upcoming": "予定",
     "ended": "終了",
     "chat": "チャット"
@@ -39,10 +39,10 @@
     "paidAt": "支払い時間",
     "untitledOrder": "無題の注文",
     "syncStatus": "ステータス同期",
-    "syncSuccess": "注文 {{orderNo}} ステータス同期済み",
+    "syncSuccess": "注文 {orderNo} ステータス同期済み",
     "syncFailed": "ステータス同期失敗",
     "cancelOrder": "注文キャンセル",
-    "cancelSuccess": "注文 {{orderNo}} キャンセル済み",
+    "cancelSuccess": "注文 {orderNo} キャンセル済み",
     "cancelFailed": "注文キャンセル失敗",
     "status": {
       "pending": "支払い待ち",
@@ -154,7 +154,7 @@
     },
     "file": {
       "attach": "添付",
-      "attached": "添付済み: {{filename}} ({{size}})",
+      "attached": "添付済み: {filename} ({size})",
       "tooLarge": "ファイルが大きすぎます(上限 1MB)",
       "invalidBase64": "Base64 内容が不正です",
       "missingFilename": "ファイル名を入力してください",
@@ -170,19 +170,19 @@
   "aiAssistant": {
     "chat": {
       "title": "チャットを開始",
-      "message": "「{{name}}」とのチャットを開始します"
+      "message": "「{name}」とのチャットを開始します"
     }
   },
   "aiCareer": {
     "plan": {
       "title": "プラン生成",
-      "message": "「{{name}}」の 90 日間成長プランを生成中"
+      "message": "「{name}」の 90 日間成長プランを生成中"
     }
   },
   "aigcCover": {
     "applied": {
       "title": "カバーを適用しました",
-      "message": "「{{title}}」にカバーを適用しました:{{label}}"
+      "message": "「{title}」にカバーを適用しました:{label}"
     },
     "aiGen": {
       "title": "AI カバー生成",
@@ -198,17 +198,17 @@
   "aiGroup": {
     "join": {
       "title": "グループに参加",
-      "message": "「{{name}}」への参加を申請しました"
+      "message": "「{name}」への参加を申請しました"
     }
   },
   "assistant": {
     "edit": {
       "title": "操作",
-      "message": "「{{name}}」の販売設定"
+      "message": "「{name}」の販売設定"
     },
     "offline": {
       "title": "公開停止の確認",
-      "message": "「{{name}}」を公開停止しますか?",
+      "message": "「{name}」を公開停止しますか?",
       "confirmBtn": "公開停止",
       "done": "公開停止しました"
     }
@@ -216,7 +216,7 @@
   "chatAlert": {
     "compaction": {
       "title": "コンテキストを自動圧縮しました",
-      "message": "{{before}} → {{after}}({{removed}} 件の履歴を削除)"
+      "message": "{before} → {after}({removed} 件の履歴を削除)"
     },
     "loginBtn": "ログインへ",
     "longPress": {
@@ -255,7 +255,7 @@
     },
     "ended": {
       "title": "配信を終了しました",
-      "message": "配信時間:{{duration}}"
+      "message": "配信時間:{duration}"
     },
     "productAdd": {
       "message": "商品追加機能は未実装です"
@@ -275,8 +275,8 @@
     "toggle": {
       "stopTitle": "ワークフローを停止",
       "startTitle": "ワークフローを開始",
-      "stopMessage": "「{{name}}」を停止しますか?",
-      "startMessage": "「{{name}}」を開始しますか?",
+      "stopMessage": "「{name}」を停止しますか?",
+      "startMessage": "「{name}」を開始しますか?",
       "success": "操作成功"
     }
   },
@@ -287,17 +287,17 @@
     },
     "detail": {
       "title": "モデル詳細",
-      "message": "「{{name}}」の完全な仕様と価格を見る"
+      "message": "「{name}」の完全な仕様と価格を見る"
     }
   },
   "tokenValue": {
     "recharge": {
       "title": "チャージ確認",
-      "message": "パッケージ:{{tokens}} Token · ¥{{price}}",
+      "message": "パッケージ:{tokens} Token · ¥{price}",
       "payBtn": "今すぐ支払う",
       "success": {
         "title": "支払い成功",
-        "message": "{{tokens}} Token がチャージされました"
+        "message": "{tokens} Token がチャージされました"
       }
     }
   },
