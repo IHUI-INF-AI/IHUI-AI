@@ -4,6 +4,13 @@ vi.mock('../src/services/clawdbot/logger.js', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
+// Mock SSRF 防护:测试环境无 DNS,跳过 URL 安全校验
+vi.mock('../src/utils/ssrf-guard.js', () => ({
+  ensureSafeFetchUrl: vi.fn().mockResolvedValue(undefined),
+  assertSafeFetchUrl: vi.fn().mockResolvedValue({ safe: true }),
+  isPrivateOrReservedIp: vi.fn().mockReturnValue(false),
+}))
+
 import { BrowserAutomation, getBrowserAutomation } from '../src/services/clawdbot/browser.js'
 
 const mockResponse = (text: string, status = 200) => ({

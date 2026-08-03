@@ -366,6 +366,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('admin 更新状态为 processing 成功', async () => {
       mockAdmin()
+      mockUpdateReturning.mockResolvedValueOnce([{ id: 't-1', status: 'open' }])
       const res = await server.inject({
         method: 'PUT',
         url: '/api/admin/support/tickets/t-1/status',
@@ -380,6 +381,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('admin 更新状态为 resolved 成功', async () => {
       mockAdmin()
+      mockUpdateReturning.mockResolvedValueOnce([{ id: 't-1', status: 'resolved' }])
       const res = await server.inject({
         method: 'PUT',
         url: '/api/admin/support/tickets/t-1/status',
@@ -453,6 +455,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('admin 回复成功返回 201', async () => {
       mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
       const res = await server.inject({
         method: 'POST',
         url: '/api/admin/support/tickets/t-1/reply',
@@ -462,11 +465,12 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       expect(res.statusCode).toBe(201)
       const body = res.json()
       expect(body.code).toBe(0)
-      expect(body.data).toEqual({ ticketId: 't-1', replied: true, isAdmin: true })
+      expect(body.data).toEqual({ ticketId: 't-1', replied: true, isAdmin: true, commentId: 'mock-id' })
     })
 
     it('isAdmin 默认为 true(body 未传)', async () => {
       mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
       const res = await server.inject({
         method: 'POST',
         url: '/api/admin/support/tickets/t-1/reply',
@@ -537,6 +541,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('admin 获取回复列表成功(空桩返回空列表)', async () => {
       mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/support/tickets/t-1/replies',
@@ -551,6 +556,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('支持分页参数 page/pageSize', async () => {
       mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/support/tickets/t-1/replies?page=2&pageSize=5',
@@ -630,6 +636,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('ticket reply 成功响应含三字段', async () => {
       mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
       const res = await server.inject({
         method: 'POST',
         url: '/api/admin/support/tickets/t-1/reply',
@@ -644,6 +651,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
     it('ticket replies 成功响应含三字段', async () => {
       mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([{ id: 't-1' }])
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/support/tickets/t-1/replies',

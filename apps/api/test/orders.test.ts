@@ -892,7 +892,7 @@ describe('order routes', () => {
 
     it('处理完成返回 200', async () => {
       authAsAdmin()
-      mockFindRefundById.mockResolvedValueOnce(makeRefund())
+      mockFindRefundById.mockResolvedValueOnce(makeRefund({ status: 'approved' }))
       mockHandleRefund.mockResolvedValueOnce(makeRefund({ status: 'completed' }))
       const res = await app.inject({
         method: 'PUT',
@@ -931,7 +931,7 @@ describe('order routes', () => {
 
     it('状态变更成功返回 200', async () => {
       authAsAdmin()
-      mockFindInvoiceApplicationById.mockResolvedValueOnce({ id: UUID, status: 'approved' })
+      mockFindInvoiceApplicationById.mockResolvedValueOnce({ id: UUID, status: 'invoicing' })
       mockUpdateInvoiceApplication.mockResolvedValueOnce({ id: UUID, status: 'invoiced' })
       const res = await app.inject({
         method: 'PUT',

@@ -108,7 +108,7 @@ describe('clawdbot SelfEvolutionEngine 自我进化引擎', () => {
   describe('detectGap 缺口检测', () => {
     it('创建新 gap', () => {
       const g = engine.detectGap('desc1', 'medium')
-      expect(g.id).toMatch(/^gap_\d+_/)
+      expect(g.id).toMatch(/^gap_[a-z0-9]+$/)
       expect(g.description).toBe('desc1')
       expect(g.severity).toBe('medium')
       expect(g.resolved).toBe(false)

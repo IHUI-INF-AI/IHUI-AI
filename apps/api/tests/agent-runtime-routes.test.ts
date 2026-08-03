@@ -152,7 +152,7 @@ describe('agent-runtime routes — /api/agent-runtime/*', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(res.body).toContain('event: error')
-    expect(res.body).toContain('upstream error: 500')
+    expect(res.body).toContain('上游服务异常')
   })
 
   it('POST /execute/stream 上游连接失败(fetch reject) → 转发为 error 事件 + message upstream connection failed', async () => {
@@ -165,7 +165,7 @@ describe('agent-runtime routes — /api/agent-runtime/*', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(res.body).toContain('event: error')
-    expect(res.body).toContain('upstream connection failed')
+    expect(res.body).toContain('上游连接失败')
   })
 
   it('POST /execute/stream permission 事件 toolName=Write + dangerLevel=write + mode=plan → decision=deny', async () => {

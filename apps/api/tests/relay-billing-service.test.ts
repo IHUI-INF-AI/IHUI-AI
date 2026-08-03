@@ -85,6 +85,18 @@ vi.mock('@ihui/database', () => ({
     enabled: 'enabled',
     byokCommissionRate: 'byok_commission_rate',
   },
+  apiKeyGroups: { id: 'id' },
+}))
+
+// Mock 外部 service(避免真实调用消耗 dbRead.select mock 队列 / .innerJoin 不支持)
+vi.mock('../src/services/api-key-group-service.js', () => ({
+  getKeyGroup: vi.fn().mockResolvedValue(null),
+}))
+vi.mock('../src/services/relay-commission-service.js', () => ({
+  recordRelayCommission: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('../src/services/webhook-relay-notifier.js', () => ({
+  notifyRelayEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
 import {
@@ -246,16 +258,18 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       mockDbReadSelect
         .mockReturnValueOnce(chain([{ inputPricePer1k: 10, outputPricePer1k: 10 }]))
         .mockReturnValueOnce(chain([]))
-      // recordCall 读 apiKeyRow 余额(第 3 次 select),select alias: tokenBalance / costBalanceCents
-      mockDbReadSelect.mockReturnValueOnce(chain([{ tokenBalance: 1000, costBalanceCents: 500 }]))
       // llm_call_logs insert
       const returningFn = vi.fn().mockResolvedValue([{ id: 'log-1' }])
       const valuesFn = vi.fn().mockReturnValue({ returning: returningFn })
       mockDbInsert.mockReturnValue({ values: valuesFn })
-      // developerApiKeys update
+      // developerApiKeys update(支持 .returning() 链式,返回扣减后余额)
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              { tokenBalance: 800, costBalanceCents: 500 },
+            ]),
+          }),
         }),
       })
 
@@ -296,7 +310,6 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       mockDbReadSelect
         .mockReturnValueOnce(chain([{ inputPricePer1k: 5, outputPricePer1k: 5 }]))
         .mockReturnValueOnce(chain([]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ tokenBalance: 1000, costBalanceCents: 500 }]))
       mockDbInsert.mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 'log-2' }]),
@@ -304,7 +317,11 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       })
       mockDbUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              { tokenBalance: 1000, costBalanceCents: 500 },
+            ]),
+          }),
         }),
       })
 
@@ -334,14 +351,17 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       mockDbReadSelect
         .mockReturnValueOnce(chain([{ inputPricePer1k: 10, outputPricePer1k: 10 }]))
         .mockReturnValueOnce(chain([]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ tokenBalance: -1, costBalanceCents: -1 }]))
       mockDbInsert.mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 'log-3' }]),
         }),
       })
       const setMock = vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            { tokenBalance: -1, costBalanceCents: -1 },
+          ]),
+        }),
       })
       mockDbUpdate.mockReturnValue({ set: setMock })
 
@@ -362,11 +382,11 @@ describe('relay-billing-service — BYOK 计费链路', () => {
 
       expect(result.newTokenBalance).toBe(-1)
       expect(result.newCostBalanceCents).toBe(-1)
-      // set clause 不含 tokenBalance/costBalanceCents(因为 -1 不修改),但含 tokenUsedTotal/costUsedTotalCents 累加
+      // set clause 含全部字段(原子 CASE WHEN 在 SQL 层处理 -1 不变,应用层始终传递)
       const setArg = setMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined
       expect(setArg).toBeDefined()
-      expect(setArg!.tokenBalance).toBeUndefined()
-      expect(setArg!.costBalanceCents).toBeUndefined()
+      expect(setArg!.tokenBalance).toBeDefined()
+      expect(setArg!.costBalanceCents).toBeDefined()
       expect(setArg!.tokenUsedTotal).toBeDefined()
       expect(setArg!.costUsedTotalCents).toBeDefined()
     })
