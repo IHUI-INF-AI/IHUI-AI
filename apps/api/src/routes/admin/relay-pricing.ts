@@ -34,8 +34,8 @@ import {
 // =============================================================================
 
 const historyQuerySchema = z.object({
-  modelId: z.preprocess(emptyToUndefined, z.string().min(1).max(128)),
-  days: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(365).optional()),
+  modelId: z.transform(emptyToUndefined).pipe(z.string().min(1).max(128)),
+  days: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(365).optional()),
 })
 
 const recordHistoryBodySchema = z.object({
@@ -48,8 +48,8 @@ const recordHistoryBodySchema = z.object({
 })
 
 const listDiscountsQuerySchema = z.object({
-  enabled: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  modelId: z.preprocess(emptyToUndefined, z.string().max(128).optional()),
+  enabled: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  modelId: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
 })
 
 const createDiscountBodySchema = z.object({
@@ -58,8 +58,8 @@ const createDiscountBodySchema = z.object({
   modelId: z.string().max(128).nullable().optional(),
   /** 0.80 = 8 折 */
   discountMultiplier: z.number().min(0.01, '折扣倍率必须 > 0').max(99.99),
-  startsAt: z.string().datetime(),
-  endsAt: z.string().datetime(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
   enabled: z.boolean().optional(),
   createdBy: z.uuid().optional(),
 })
@@ -68,8 +68,8 @@ const updateDiscountBodySchema = z.object({
   name: z.string().min(1).max(128).optional(),
   modelId: z.string().max(128).nullable().optional(),
   discountMultiplier: z.number().min(0.01).max(99.99).optional(),
-  startsAt: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
-  endsAt: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
+  startsAt: z.transform(emptyToUndefined).pipe(z.iso.datetime().optional()),
+  endsAt: z.transform(emptyToUndefined).pipe(z.iso.datetime().optional()),
   enabled: z.boolean().optional(),
 })
 

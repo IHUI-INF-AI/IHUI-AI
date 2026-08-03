@@ -38,19 +38,18 @@ const paginationQuery = {
 
 const listNotificationsQuery = z.object({
   ...paginationQuery,
-  type: z.preprocess(emptyToUndefined, z.enum(NOTIFICATION_TYPES).optional()),
-  unread: z.preprocess(
+  type: z.transform(emptyToUndefined).pipe(z.enum(NOTIFICATION_TYPES).optional()),
+  unread: z.transform(
     (v) => (v === null || v === undefined || v === '' ? undefined : v === 'true'),
-    z.boolean().optional(),
-  ),
+  ).pipe(z.boolean().optional()),
 })
 
 const listMessagesQuery = z.object(paginationQuery)
 
 const adminListNotificationsQuery = z.object({
   ...paginationQuery,
-  type: z.preprocess(emptyToUndefined, z.enum(NOTIFICATION_TYPES).optional()),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  type: z.transform(emptyToUndefined).pipe(z.enum(NOTIFICATION_TYPES).optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })

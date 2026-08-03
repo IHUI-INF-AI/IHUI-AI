@@ -18,6 +18,7 @@ import { dbRead } from '../../db/index.js'
 import { aiRelayKeyPool } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
+import { buildSchema } from '../../utils/swagger.js'
 import { getDailyUsage, getMonthlyUsage } from '../../services/channel-quota-service.js'
 
 // ============================================================================
@@ -99,7 +100,11 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
     '/relay/channels/:id',
     {
       preHandler: requireAdmin,
-      schema: { body: z.toJSONSchema(updateQuotaBodySchema, { target: 'openApi3' }) },
+      schema: buildSchema({
+        summary: '更新渠道配额',
+        tags: ['ChannelQuota'],
+        body: updateQuotaBodySchema,
+      }),
     },
     async (req, reply) => {
       const { id } = req.params as { id: string }

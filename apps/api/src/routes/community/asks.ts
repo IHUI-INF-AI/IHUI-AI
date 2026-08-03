@@ -457,8 +457,8 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-        isPublished: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+        search: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+        isPublished: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
       })
       .safeParse(request.query)
     if (!parsed.success) {
@@ -572,12 +572,11 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-        status: z.preprocess(
-          emptyToUndefined,
+        keyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+        status: z.transform(emptyToUndefined).pipe(
           z.enum(['published', 'deleted', 'pending', 'rejected']).optional(),
         ),
-        circleId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+        circleId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
       })
       .safeParse(request.query)
     if (!parsed.success) {

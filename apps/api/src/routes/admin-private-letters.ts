@@ -5,8 +5,8 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { findPrivateLettersForAdmin } from '../db/private-letters-admin-queries.js'
 
 const listQuerySchema = z.object({
-  page: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).default(1)),
-  pageSize: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).max(100).default(20)),
+  page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).default(1)),
+  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).max(100).default(20)),
 })
 
 /** 管理路由：私信列表查询 */

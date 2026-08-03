@@ -8,10 +8,9 @@ const articlesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   categoryId: z
-    .preprocess(
-      (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.uuid({ error: '无效的分类 ID' }),
-    )
+    .unknown()
+    .transform((v) => (v === '' || v === null || v === undefined ? undefined : v))
+    .pipe(z.uuid({ error: '无效的分类 ID' }).optional())
     .optional(),
   search: z.string().max(200).optional(),
 })

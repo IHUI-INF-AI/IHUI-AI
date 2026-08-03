@@ -15,7 +15,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 const transactionsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  opType: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  opType: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
 
 const withdrawSchema = z.object({

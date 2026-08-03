@@ -66,9 +66,9 @@ vi.mock('../src/utils/crypto-random.js', () => ({
 
 import agentExtendedRoutes from '../src/routes/agent-extended.js'
 
-const USER_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-const USER_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
-const REC_ID = '11111111-1111-1111-1111-111111111111'
+const USER_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const USER_B = 'bbbbbbbb-bbbb-4bbb-abbb-bbbbbbbbbbbb'
+const REC_ID = '11111111-1111-4111-8111-111111111111'
 
 function makePayload(userId: string, roleId: number): JWTPayload {
   return { userId, phone: '', familyId: '', roleId }

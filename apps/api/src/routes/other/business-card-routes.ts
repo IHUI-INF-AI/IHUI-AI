@@ -33,7 +33,7 @@ const phoneRegex = /^\+?[0-9]{7,20}$/
 
 // 空字符串/null 归一为 undefined,使 optional 校验生效(避免 '' 触发 email/phone 格式错误)
 const optionalNonEmpty = (schema: z.ZodString) =>
-  z.preprocess((v) => (v === '' || v === null ? undefined : v), schema.optional())
+  z.transform((v) => (v === '' || v === null ? undefined : v)).pipe(schema.optional())
 
 const businessCardCreateSchema = z.object({
   name: z.string().min(1, '名称不能为空').max(100, '名称不超过 100 字符'),

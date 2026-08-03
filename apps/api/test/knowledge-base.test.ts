@@ -92,7 +92,7 @@ vi.mock('@ihui/database', () => ({
 import { knowledgeBaseRoutes } from '../src/routes/other/knowledge-base-routes.js'
 import { authenticate } from '../src/plugins/auth.js'
 
-const UUID = '11111111-1111-1111-1111-111111111111'
+const UUID = '11111111-1111-4111-8111-111111111111'
 const NOW = new Date('2026-07-23T00:00:00Z')
 
 function makeItem(overrides: Record<string, unknown> = {}) {

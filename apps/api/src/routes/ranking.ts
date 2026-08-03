@@ -13,8 +13,8 @@ const periodSchema = z.enum(['day', 'week', 'month', 'total']).default('total')
 const limitSchema = z.coerce.number().int().min(1).max(100).default(20)
 
 const usersRankingQuerySchema = z.object({
-  period: z.preprocess(emptyToUndefined, periodSchema),
-  limit: z.preprocess(emptyToUndefined, limitSchema),
+  period: z.transform(emptyToUndefined).pipe(periodSchema),
+  limit: z.transform(emptyToUndefined).pipe(limitSchema),
 })
 
 // =============================================================================
@@ -62,7 +62,7 @@ const rankingRoutes: FastifyPluginAsync = async (server) => {
   // GET /agents — 智能体热度榜（按 usage_count 降序）
   server.get('/agents', async (request, reply) => {
     const parsed = z
-      .object({ limit: z.preprocess(emptyToUndefined, limitSchema) })
+      .object({ limit: z.transform(emptyToUndefined).pipe(limitSchema) })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -87,7 +87,7 @@ const rankingRoutes: FastifyPluginAsync = async (server) => {
   // GET /courses — 课程人气榜（按 signup_count 降序）
   server.get('/courses', async (request, reply) => {
     const parsed = z
-      .object({ limit: z.preprocess(emptyToUndefined, limitSchema) })
+      .object({ limit: z.transform(emptyToUndefined).pipe(limitSchema) })
       .safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

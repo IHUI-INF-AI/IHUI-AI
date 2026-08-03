@@ -65,8 +65,8 @@ const createActivitySchema = z
       .regex(/^[a-z0-9-]+$/i, 'slug 只能包含字母、数字和连字符'),
     description: z.string().optional(),
     banner: z.url().max(512).optional(),
-    startAt: z.coerce.date(),
-    endAt: z.coerce.date(),
+    startAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期'),
+    endAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期'),
     status: z.enum(ACTIVITY_STATUS).optional(),
     rules: z.unknown().optional(),
   })
@@ -77,8 +77,8 @@ const updateActivitySchema = z
     title: z.string().min(1).max(128).optional(),
     description: z.string().optional(),
     banner: z.url().max(512).optional(),
-    startAt: z.coerce.date().optional(),
-    endAt: z.coerce.date().optional(),
+    startAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
+    endAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').optional(),
     status: z.enum(ACTIVITY_STATUS).optional(),
     rules: z.unknown().optional(),
   })
@@ -100,8 +100,8 @@ const createCouponSchema = z
     value: z.number().int().min(0),
     minAmount: z.number().int().min(0).optional(),
     maxUses: z.number().int().min(0).nullable().optional(),
-    startsAt: z.coerce.date(),
-    endsAt: z.coerce.date(),
+    startsAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期'),
+    endsAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期'),
     isActive: z.boolean().optional(),
   })
   .refine((d) => d.endsAt > d.startsAt, { message: 'endsAt 必须晚于 startsAt', path: ['endsAt'] })

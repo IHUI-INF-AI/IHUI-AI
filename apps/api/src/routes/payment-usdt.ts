@@ -59,9 +59,9 @@ const callbackBodySchema = z.object({
 const adminOrdersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  status: z.preprocess(emptyToUndefined, z.string().optional()),
-  network: z.preprocess(emptyToUndefined, z.string().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  network: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
 const configPatchSchema = z

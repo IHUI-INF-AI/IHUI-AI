@@ -61,11 +61,11 @@ const updatePreferencesSchema = z.object({
 
 const listLogsQuery = z.object({
   ...paginationQuery,
-  type: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
-  channel: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().optional()),
+  type: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  channel: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
 function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
