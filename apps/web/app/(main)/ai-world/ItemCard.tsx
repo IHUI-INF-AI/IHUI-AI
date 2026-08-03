@@ -8,7 +8,7 @@ import {
   Sparkles,
   Star,
   Eye,
-  Github,
+  Code,
   FileText,
   Newspaper,
   Wrench,
@@ -24,7 +24,7 @@ import { TrendingBadge } from './TrendingBadge'
 const KIND_ICON: Record<ItemKind, React.ComponentType<{ className?: string }>> = {
   news: Newspaper,
   paper: FileText,
-  project: Github,
+  project: Code,
   tool: Wrench,
   app: AppWindow,
 }
