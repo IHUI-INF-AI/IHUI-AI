@@ -63,10 +63,10 @@
     "hotCourses": "人気コース",
     "tapLogin": "タップしてログイン",
     "slogan": "IHUI AI、学習をより効率的に",
-    "todayMinutes": "今日 {{n}} 分",
-    "continuousDays": "連続 {{n}} 日",
-    "totalMinutes": "累計 {{n}} 分",
-    "coursesCount": "{{n}} コース完了",
+    "todayMinutes": "今日 {n} 分",
+    "continuousDays": "連続 {n} 日",
+    "totalMinutes": "累計 {n} 分",
+    "coursesCount": "{n} コース完了",
     "learningProgress": "学習進捗",
     "more": "もっと見る",
     "livePreview": "ライブ予定",
@@ -87,17 +87,17 @@
     "objectives": "学習目標",
     "suitableFor": "対象者",
     "highlights": "コースハイライト",
-    "nextLesson": "次: {{title}}",
+    "nextLesson": "次: {title}",
     "startLearning": "学習開始",
     "buyNow": "今すぐ購入",
     "buyDeveloping": "購入機能は開発中",
     "buyFirst": "コースを先に購入してください",
     "signSuccess": "チェックイン成功",
-    "rated": "{{n}} 星評価済み",
+    "rated": "{n} 星評価済み",
     "noteSaved": "ノートを保存しました",
     "lessonComplete": "レッスン完了",
     "viewTeacher": "講師を見る",
-    "noteTitle": "{{title}} - ノート",
+    "noteTitle": "{title} - ノート",
     "scanCourse": "スキャンしてコースを見る",
     "loadFailed": "コースの読み込みに失敗",
     "list": {
@@ -105,7 +105,7 @@
       "search": "検索",
       "empty": "コースなし",
       "title": "おすすめコース",
-      "subtitle": "{{n}} コース"
+      "subtitle": "{n} コース"
     },
     "ratingTitle": "コースを評価",
     "ratingLabels": [
@@ -124,7 +124,7 @@
     "audience": "対象者"
   },
   "live": {
-    "viewers": "{{n}} 人視聴",
+    "viewers": "{n} 人視聴",
     "preview": "予告",
     "detail": {
       "loadFailed": "ライブの読み込みに失敗",
@@ -133,7 +133,7 @@
       "ended": "ライブ終了",
       "connecting": "ライブルームに接続中…",
       "enter": "ライブルームに入る",
-      "anchor": "配信者: {{name}}"
+      "anchor": "配信者: {name}"
     },
     "subscribe": {
       "subscribe": "通知を購読",
@@ -226,7 +226,7 @@
       "contactPlaceholder": "電話番号またはメールアドレスを入力してください"
     },
     "refundList": {
-      "orderNo": "注文番号: {{no}}",
+      "orderNo": "注文番号: {no}",
       "empty": "返金記録なし",
       "tabRefunding": "返金処理中",
       "tabRefunded": "返金済み",
@@ -277,7 +277,7 @@
         "contactService": "カスタマーサービスに連絡",
         "faqQ": "チャージ失敗時に引き落としされますか?"
       },
-      "tokenRate": "1元 = {{n}} IHUIポイント",
+      "tokenRate": "1元 = {n} IHUIポイント",
       "activityTitle": "期間限定キャンペーン",
       "activityPlaceholder": "キャンペーンチャージ金額を入力してください",
       "activitySubmit": "期間限定お得なチャージ"
@@ -395,7 +395,7 @@
     "agentLoadFailed": "エージェントの読み込み失敗",
     "generating": "急速生成中",
     "thinkingTip": "Tips:まず右上の3点をクリックしてミニプログラムを浮窓し、しばらくしてから戻ってください~",
-    "fileSelected": "{{count}}個のファイルを選択しました",
+    "fileSelected": "{count}個のファイルを選択しました",
     "common": {
       "loading": "読み込み中…"
     },
@@ -411,7 +411,7 @@
       "thinkingProcess": "思考プロセス",
       "noContent": "コピーする内容がありません",
       "aiGenerated": "AI生成",
-      "tokenCost": "トークン: {{n}}",
+      "tokenCost": "トークン: {n}",
       "reuse": "再利用",
       "copy": "コピー",
       "favorited": "お気に入り済み",
@@ -451,7 +451,7 @@
     "skillsPopup": {
       "title": "スキルを選択",
       "searchPlaceholder": "スキルを検索",
-      "uses": "{{n}} 回使用",
+      "uses": "{n} 回使用",
       "notFound": "スキルが見つかりません",
       "empty": "利用可能なスキルなし"
     },
@@ -521,7 +521,7 @@
     },
     "agent": {
       "searchPlaceholder": "エージェントを検索",
-      "count": "{{n}} 個",
+      "count": "{n} 個",
       "empty": "エージェントなし",
       "inputPlaceholder": "質問を入力…"
     },
@@ -550,12 +550,12 @@
       "favoriteAgent": "お気に入り",
       "favorited": "お気に入り済み",
       "unfavorite": "お気に入り解除",
-      "useCount": "{{n}}人が使用",
+      "useCount": "{n}人が使用",
       "relatedAgents": "関連エージェント",
       "prologue": "プロローグ",
       "exampleDialog": "サンプル対話",
       "reviews": "レビュー",
-      "reviewCount": "{{n}}件のレビュー",
+      "reviewCount": "{n}件のレビュー",
       "ratingDistribution": "評価分布"
     },
     "agentList": {
@@ -567,7 +567,7 @@
         "education": "教育",
         "life": "生活"
       },
-      "useCount": "{{n}}人が使用",
+      "useCount": "{n}人が使用",
       "noResult": "エージェントが見つかりません",
       "sortBy": "並び替え",
       "sortHot": "人気",
@@ -590,7 +590,7 @@
       "cleared": "削除済み",
       "refreshSuccess": "更新成功",
       "startNew": "新しい会話を開始",
-      "msgCount": "{{n}}件のメッセージ"
+      "msgCount": "{n}件のメッセージ"
     },
     "special": {
       "pageError": "操作失敗",
@@ -618,7 +618,7 @@
       "agentTipHistory": "履歴",
       "agentTipHistoryDesc": "対話履歴を表示"
     },
-    "uploadMaterialTab": "{{tab}}素材をアップロード",
+    "uploadMaterialTab": "{tab}素材をアップロード",
     "messageAction": {
       "reuse": "再利用"
     },
@@ -645,8 +645,8 @@
   "share": {
     "appTitle": "IHUI AI — 学習をより効率的に",
     "timelineTitle": "IHUI AI、スマート学習アシスタント",
-    "courseTitle": "おすすめコース: {{title}}",
-    "liveTitle": "おすすめライブ: {{title}}",
+    "courseTitle": "おすすめコース: {title}",
+    "liveTitle": "おすすめライブ: {title}",
     "index": {
       "title": "AIニュース",
       "removeConfirm": "この会話を削除しますか?",
@@ -670,7 +670,7 @@
       "loading": "読み込み中…",
       "clickShare": "右上をタップして友達に共有",
       "contentNotExist": "共有コンテンツが存在しません",
-      "tokenCost": "{{n}} トークン消費",
+      "tokenCost": "{n} トークン消費",
       "thinkingProcess": "思考プロセス",
       "aiAnswer": "AI回答",
       "regenerate": "再生成",
@@ -750,7 +750,7 @@
     "codeSent": "認証コードが送信されました",
     "codeInvalid": "認証コードが正しくありません",
     "confirmTextMismatch": "確認テキストが一致しません",
-    "countdown": "{{s}}秒後に送信可能",
+    "countdown": "{s}秒後に送信可能",
     "submitting": "削除中…",
     "submit": "削除確認",
     "consequenceTitle": "削除による影響",
@@ -768,13 +768,13 @@
       "hot": "人気",
       "unanswered": "未回答"
     },
-    "answers": "{{n}} 件の回答",
+    "answers": "{n} 件の回答",
     "empty": "質問なし",
     "detail": {
       "me": "自分",
       "justNow": "たった今",
       "answered": "回答しました",
-      "answerCount": "{{n}} 件の回答",
+      "answerCount": "{n} 件の回答",
       "placeholder": "回答を入力…",
       "answer": "回答"
     },
@@ -878,20 +878,20 @@
     "saveQrcode": "QRコードを保存"
   },
   "exam": {
-    "questions": "{{n}} 問",
-    "minutes": "{{n}} 分",
-    "passScore": "合格 {{n}}",
-    "totalScore": "合計 {{n}}",
+    "questions": "{n} 問",
+    "minutes": "{n} 分",
+    "passScore": "合格 {n}",
+    "totalScore": "合計 {n}",
     "removedPaper": "試験は削除されました",
     "passed": "合格",
     "notPassed": "不合格",
-    "score": "得点 {{n}}",
+    "score": "得点 {n}",
     "result": {
       "loadFailed": "結果の読み込み失敗",
       "pass": "おめでとう、合格",
       "notPass": "不合格",
-      "scoreValue": "{{n}} 点",
-      "rankValue": "{{total}} 人中 {{n}} 位",
+      "scoreValue": "{n} 点",
+      "rankValue": "{total} 人中 {n} 位",
       "goList": "試験一覧を見る",
       "pageTitle": "試験結果",
       "reviewTitle": "問題の振り返り",
@@ -905,11 +905,11 @@
     "detail": {
       "loadFailed": "試験の読み込み失敗",
       "questionCount": "問題数",
-      "questionCountValue": "{{n}} 問",
+      "questionCountValue": "{n} 問",
       "duration": "試験時間",
-      "durationValue": "{{n}} 分",
+      "durationValue": "{n} 分",
       "passScore": "合格点",
-      "passScoreValue": "{{n}} 点",
+      "passScoreValue": "{n} 点",
       "notice1": "問題をよく読んで制限時間内に回答してください",
       "notice2": "提出前であれば回答を修正できます",
       "start": "試験開始",
@@ -1028,13 +1028,13 @@
     },
     "company": {
       "title": "マイカンパニー",
-      "level": "レベル {{n}}",
+      "level": "レベル {n}",
       "totalEarnings": "累計収益",
       "available": "出金可能",
       "teamMembers": "チームメンバー",
-      "memberCount": "{{n}} 人",
+      "memberCount": "{n} 人",
       "empty": "メンバーなし",
-      "joinTime": "参加: {{time}}",
+      "joinTime": "参加: {time}",
       "menuTeam": "チーム管理",
       "menuCommission": "コミッション",
       "menuWithdraw": "出金申請"
@@ -1086,7 +1086,7 @@
     "myTeam": "マイチーム"
   },
   "about": {
-    "version": "バージョン {{version}}",
+    "version": "バージョン {version}",
     "protocol": {
       "s2": {
         "t1": "2.1 ユーザー資格と利用制限",
@@ -1326,13 +1326,13 @@
     "total": "合計"
   },
   "categoryDetail": {
-    "categoryId": "カテゴリ {{id}}",
+    "categoryId": "カテゴリ {id}",
     "allCategories": "全カテゴリ",
     "hot": "人気",
     "new": "新着",
     "empty": "コンテンツなし",
     "noDesc": "説明なし",
-    "useCount": "{{n}} 回使用"
+    "useCount": "{n} 回使用"
   },
   "circle": {
     "empty": "コンテンツなし",
@@ -1551,8 +1551,8 @@
     "tabImage": "画像",
     "tabAv": "音声/動画",
     "payMode": "従量課金",
-    "modelCount": "{{n}}個のモデル",
-    "synced": "{{n}}件同期済み",
+    "modelCount": "{n}個のモデル",
+    "synced": "{n}件同期済み",
     "perKTokens": "千トークン",
     "noMore": "— これ以上ありません —",
     "contextLength": "コンテキスト",
@@ -1560,9 +1560,9 @@
   },
   "news": {
     "search": "ニュース検索",
-    "views": "{{n}} 回閲覧",
+    "views": "{n} 回閲覧",
     "empty": "ニュースなし",
-    "readCount": "{{n}} 閲覧",
+    "readCount": "{n} 閲覧",
     "detail": {
       "like": "いいね",
       "comment": "コメント",
@@ -1732,7 +1732,7 @@
       "private": "他ユーザーからのDM",
       "marketing": "プロモ・新商品"
     },
-    "hello": "こんにちは、{{name}}です",
+    "hello": "こんにちは、{name}です",
     "justNow": "たった今",
     "search": "チャットを検索",
     "unnamedRoom": "名無し会話",
@@ -1858,13 +1858,13 @@
     "noCoupon": "利用可能なクーポンはありません",
     "couponNone": "クーポンを使用しない",
     "orderExpired": "注文がタイムアウトしました。再度注文してください",
-    "countdownTip": "支払い残り時間 {{time}}",
-    "couponSaved": "¥{{n}} 割引済み",
+    "countdownTip": "支払い残り時間 {time}",
+    "couponSaved": "¥{n} 割引済み",
     "goodsName": "商品名",
     "vipSubscription": "会員サブスクリプション",
-    "balanceAmount": "残高 ¥{{n}}",
+    "balanceAmount": "残高 ¥{n}",
     "recharge": "チャージ",
-    "couponAvailable": "{{n}}枚利用可能",
+    "couponAvailable": "{n}枚利用可能",
     "limitedFree": "期間限定無料",
     "memberFree": "会員無料",
     "buyNow": "今すぐ購入",
@@ -1876,16 +1876,16 @@
     "balance": "残高"
   },
   "study": {
-    "todayMinutes": "今日 {{n}} 分",
-    "totalMinutes": "累計 {{n}} 分",
-    "continuousDays": "連続 {{n}} 日",
-    "courses": "{{n}} コース",
+    "todayMinutes": "今日 {n} 分",
+    "totalMinutes": "累計 {n} 分",
+    "continuousDays": "連続 {n} 日",
+    "courses": "{n} コース",
     "continueLearning": "学習を続ける",
     "emptyCourse": "コースなし",
     "planPage": {
       "addFailed": "追加失敗",
-      "target": "目標 {{n}} 分",
-      "completed": "完了 {{n}} 分",
+      "target": "目標 {n} 分",
+      "completed": "完了 {n} 分",
       "statusDone": "完了",
       "statusInProgress": "進行中",
       "empty": "計画なし",
@@ -1894,11 +1894,11 @@
     "rankPage": {
       "title": "学習ランキング",
       "subtitle": "誰が一番頑張っているか",
-      "minutes": "{{n}} 分",
+      "minutes": "{n} 分",
       "empty": "データなし"
     },
     "recordPage": {
-      "progress": "進捗 {{n}}%",
+      "progress": "進捗 {n}%",
       "empty": "記録なし",
       "statusLearning": "学習中",
       "statusAbandon": "リタイア済み",
@@ -1977,8 +1977,8 @@
   "teacher": {
     "list": {
       "searchPlaceholder": "講師を検索",
-      "courseCount": "{{n}} コース",
-      "studentCount": "{{n}} 人",
+      "courseCount": "{n} コース",
+      "studentCount": "{n} 人",
       "empty": "講師なし"
     },
     "detail": {
@@ -2181,7 +2181,7 @@
   "vip": {
     "selectPlanFirst": "プラン選択",
     "notOpened": "未契約",
-    "expireTime": "期限: {{time}}",
+    "expireTime": "期限: {time}",
     "openHint": "今すぐ契約で特典",
     "privileges": "会員特典",
     "viewAllBenefits": "全特典を見る",
@@ -2224,7 +2224,7 @@
       ],
       "loadFailed": "読み込み失敗",
       "operationFailed": "操作失敗",
-      "originalPrice": "通常¥{{n}}",
+      "originalPrice": "通常¥{n}",
       "upgrade": "今すぐアップグレード",
       "configNotReady": "支払い設定未準備、管理者にお問い合わせください"
     },
@@ -2417,7 +2417,7 @@
   "streak": {
     "title": "連続学習",
     "totalDays": "累計 {n}日",
-    "continuousDays": "連続 {{n}} 日"
+    "continuousDays": "連続 {n} 日"
   },
   "withdrawal": {
     "records": "引出記録"
