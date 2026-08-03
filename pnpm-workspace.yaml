@@ -102,7 +102,7 @@ catalog:
   rimraf: ^6.1.3 # L1:6.0.1 → 6.1.3 minor
   vitest: ^4.0.0 # L3:3.x→4.x major(内部 vite 自动升 6,miniapp-taro vite 4.5.5 隔离不受影响)
   zod: ^4.0.0 # L4:3.x→4.x major(已迁移:z.string().ip()→z.union([z.ipv4(),z.ipv6()])、errorMap→error、.flatten()→z.treeifyError、.passthrough()→z.looseObject()、z.record(z.x)→z.record(z.string(),z.x)、z.string().email()→z.email())
-  eslint: ^9.16.0 # L1:保持 9.x(v10 是 major,留 L2)
+  eslint: ^10.0.0 # L2:9.x→10.x major(已评估:flat config 已就位 + typescript-eslint v8.56+ 支持 + Node 24 满足要求)
   zustand: ^5.0.14 # L1:5.0.2 → 5.0.14 patch
   # P3-1.2 新增(2026-08-01)— 类名合并 + 样式变体 + 图标库,design-tokens/ui-react/web 共用
   clsx: ^2.1.1 # design-tokens + web + ui-react(间接)
