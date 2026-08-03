@@ -11,9 +11,9 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  parentId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  level: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(5).optional()),
-  enabled: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  parentId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  level: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(5).optional()),
+  enabled: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
 })
 
 const createZoneSchema = z.object({

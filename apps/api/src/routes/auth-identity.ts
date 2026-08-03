@@ -24,8 +24,8 @@ const paginationQuery = {
 
 const listQuerySchema = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
-  keyword: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  status: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  keyword: z.string().optional().transform(emptyToUndefined).pipe(z.string().max(100).optional()),
 })
 
 const userUuidParamSchema = z.object({

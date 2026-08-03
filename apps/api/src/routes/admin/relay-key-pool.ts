@@ -25,8 +25,8 @@ import { encryptJSON } from '../../utils/crypto.js'
 import { checkSingleKey } from '../../services/relay-health-check-service.js'
 
 const listQuerySchema = paginationSchema.extend({
-  provider: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  enabled: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).optional()),
+  provider: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
 })
 
 const createBodySchema = z.object({

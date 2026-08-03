@@ -58,8 +58,8 @@ import { db } from '../src/db/index.js'
 const PREFIX = '/api'
 const ADMIN_USER = '00000000-0000-0000-0000-000000000001'
 const REGULAR_USER = '00000000-0000-0000-0000-000000000002'
-const TASK_ID = '33333333-3333-3333-3333-333333333333'
-const AGENT_ID = '44444444-4444-4444-4444-444444444444'
+const TASK_ID = '33333333-3333-4333-9333-333333333333'
+const AGENT_ID = '44444444-4444-4444-8444-444444444444'
 
 function mockAdmin() {
   mockAuthenticate.mockImplementation(async (request: any) => {

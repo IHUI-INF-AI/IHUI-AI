@@ -19,55 +19,51 @@ import { paginationSchema } from './_shared.js'
 import { sanitizeLogEntry } from '../../services/log-sanitizer.js'
 
 const listQuerySchema = paginationSchema.extend({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-  status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
-  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  model: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error']).optional()),
+  apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   /** 渠道筛选,精确匹配 provider_code */
-  provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  provider: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   /** 客户端 IP 筛选,支持 LIKE 通配符(如 '192.168.%')*/
-  clientIp: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  clientIp: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   /** 最小耗时毫秒,筛选 latency_ms >= minLatency(慢调用分析)*/
-  minLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  minLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 最大耗时毫秒 */
-  maxLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  maxLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** HTTP 状态码筛选(如 429 限流/500 错误专项)*/
-  httpStatus: z.preprocess(emptyToUndefined, z.coerce.number().int().min(100).max(599).optional()),
+  httpStatus: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(100).max(599).optional()),
   /** 最小成本分 */
-  minCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  minCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 最大成本分 */
-  maxCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  maxCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   /** 起始日期 YYYY-MM-DD */
-  startDate: z.preprocess(
-    emptyToUndefined,
+  startDate: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
   ),
   /** 结束日期 YYYY-MM-DD */
-  endDate: z.preprocess(
-    emptyToUndefined,
+  endDate: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
   ),
   /** 返回原始日志(不脱敏),仅 admin(roleId>=1)可用 */
-  raw: z.preprocess(emptyToUndefined, z.string().optional()),
+  raw: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
 /** 错误聚类查询 schema(仅支持时间范围筛选)*/
 const errorClustersQuerySchema = z.object({
-  startDate: z.preprocess(
-    emptyToUndefined,
+  startDate: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
   ),
-  endDate: z.preprocess(
-    emptyToUndefined,
+  endDate: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -76,15 +72,13 @@ const errorClustersQuerySchema = z.object({
 })
 
 const statsQuerySchema = z.object({
-  startDate: z.preprocess(
-    emptyToUndefined,
+  startDate: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
   ),
-  endDate: z.preprocess(
-    emptyToUndefined,
+  endDate: z.transform(emptyToUndefined).pipe(
     z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)

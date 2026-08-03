@@ -188,8 +188,7 @@ function checkRateLimit(userId: string): boolean {
 // Zod 校验 schema
 // =============================================================================
 
-const dateStrSchema = z.preprocess(
-  emptyToUndefined,
+const dateStrSchema = z.transform(emptyToUndefined).pipe(
   z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -199,30 +198,28 @@ const dateStrSchema = z.preprocess(
 const ordersExportQuerySchema = z.object({
   startDate: dateStrSchema,
   endDate: dateStrSchema,
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  status: z.preprocess(
-    emptyToUndefined,
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(
     z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional(),
   ),
-  paymentMethod: z.preprocess(
-    emptyToUndefined,
+  paymentMethod: z.transform(emptyToUndefined).pipe(
     z.enum(['wechat', 'alipay', 'stripe', 'paypal', 'usdc']).optional(),
   ),
 })
 
 /** 复用 relay-logs.ts 的 13 个筛选维度 */
 const relayLogsExportQuerySchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-  status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
-  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-  clientIp: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
-  minLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
-  maxLatency: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
-  httpStatus: z.preprocess(emptyToUndefined, z.coerce.number().int().min(100).max(599).optional()),
-  minCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
-  maxCost: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  model: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error']).optional()),
+  apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  provider: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+  clientIp: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+  minLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
+  maxLatency: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
+  httpStatus: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(100).max(599).optional()),
+  minCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
+  maxCost: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
   startDate: dateStrSchema,
   endDate: dateStrSchema,
 })

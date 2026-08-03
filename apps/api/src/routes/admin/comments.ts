@@ -36,9 +36,9 @@ const TOPIC_TYPES = [
 const listCommentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  topicType: z.preprocess(emptyToUndefined, z.enum(TOPIC_TYPES).optional()),
-  keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(255).optional()),
-  status: z.preprocess(emptyToUndefined, z.enum(['normal', 'deleted', 'all']).optional()),
+  topicType: z.transform(emptyToUndefined).pipe(z.enum(TOPIC_TYPES).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(255).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['normal', 'deleted', 'all']).optional()),
 })
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })

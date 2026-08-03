@@ -13,19 +13,19 @@ const ADMIN_ROLE_ID = 1
 const auditLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  action: z.preprocess(emptyToUndefined, z.string().optional()),
-  resourceType: z.preprocess(emptyToUndefined, z.string().optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  action: z.string().optional().transform(emptyToUndefined).pipe(z.string().optional()),
+  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().optional()),
+  startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
 })
 
 const auditLogsExportQuerySchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  action: z.preprocess(emptyToUndefined, z.string().optional()),
-  resourceType: z.preprocess(emptyToUndefined, z.string().optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  userId: z.string().optional().transform(emptyToUndefined).pipe(z.uuid().optional()),
+  action: z.string().optional().transform(emptyToUndefined).pipe(z.string().optional()),
+  resourceType: z.string().optional().transform(emptyToUndefined).pipe(z.string().optional()),
+  startDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  endDate: z.string().optional().transform(emptyToUndefined).pipe(z.string().min(1).optional()),
   format: z.enum(['csv', 'json']).optional().default('csv'),
   limit: z.coerce.number().int().min(1).max(10000).optional().default(10000),
 })
