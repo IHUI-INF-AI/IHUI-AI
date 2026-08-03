@@ -39,7 +39,7 @@ describe('Developer Routes API (developer 真实化端点)', () => {
       { method: 'POST', url: '/api/developer/apply', payload: { name: 'test', description: 'd' } },
       {
         method: 'POST',
-        url: '/api/developer/00000000-0000-0000-0000-000000000000/audit',
+        url: '/api/developer/00000000-0000-4000-8000-000000000000/audit',
         payload: { status: 'approved' },
       },
     ]

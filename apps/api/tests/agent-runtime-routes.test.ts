@@ -49,7 +49,7 @@ vi.mock('../src/db/index.js', () => ({
 import { agentRuntimeRoutes } from '../src/routes/agent-runtime.js'
 
 const PREFIX = '/api/agent-runtime'
-const USER_ID = '00000000-0000-0000-0000-000000000001'
+const USER_ID = '00000000-0000-4000-8000-000000000001'
 
 function mockAuthed(userId: string = USER_ID) {
   mockAuthenticate.mockImplementation(

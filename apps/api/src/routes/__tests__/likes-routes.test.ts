@@ -9,7 +9,7 @@ vi.hoisted(() => {
 
 import { missingUserRoutes } from '../missing-user-routes.js'
 
-const UUID_ZERO = '00000000-0000-0000-0000-000000000000'
+const UUID_ZERO = '00000000-0000-4000-8000-000000000000'
 
 describe('Likes & Notification Routes API (真实化端点)', () => {
   let app: FastifyInstance

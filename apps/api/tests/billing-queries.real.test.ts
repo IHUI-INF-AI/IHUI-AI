@@ -52,7 +52,7 @@ describe('billing-queries — 真实 DB 集成测试', () => {
     expect(found?.name).toBe('Solo')
     expect(found?.price).toBe(500)
     expect(found?.features).toEqual([])
-    expect(await findPlanById('00000000-0000-0000-0000-000000000000')).toBeUndefined()
+    expect(await findPlanById('00000000-0000-4000-8000-000000000000')).toBeUndefined()
   })
 
   it('findPlans — features jsonb 保留结构', async () => {

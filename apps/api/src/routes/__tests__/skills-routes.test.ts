@@ -38,14 +38,14 @@ describe('Skills Routes API (技能模块真实化端点)', () => {
       payload?: Record<string, unknown>
     }> = [
       { method: 'GET', url: '/api/skills' },
-      { method: 'GET', url: '/api/skills/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/skills/00000000-0000-4000-8000-000000000000' },
       { method: 'POST', url: '/api/skills', payload: { name: 'test' } },
       {
         method: 'PUT',
-        url: '/api/skills/00000000-0000-0000-0000-000000000000',
+        url: '/api/skills/00000000-0000-4000-8000-000000000000',
         payload: { name: 'test' },
       },
-      { method: 'DELETE', url: '/api/skills/00000000-0000-0000-0000-000000000000' },
+      { method: 'DELETE', url: '/api/skills/00000000-0000-4000-8000-000000000000' },
     ]
 
     for (const { method, url, payload } of skillsEndpoints) {

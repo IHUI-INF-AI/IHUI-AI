@@ -47,15 +47,15 @@ describe('Knowledge Routes API (知识库模块真实化端点)', () => {
     }> = [
       {
         method: 'POST',
-        url: '/api/knowledge/00000000-0000-0000-0000-000000000000/like',
+        url: '/api/knowledge/00000000-0000-4000-8000-000000000000/like',
       },
       { method: 'POST', url: '/api/knowledge', payload: { title: 'test', content: 'test' } },
       {
         method: 'PUT',
-        url: '/api/knowledge/00000000-0000-0000-0000-000000000000',
+        url: '/api/knowledge/00000000-0000-4000-8000-000000000000',
         payload: { title: 'test' },
       },
-      { method: 'DELETE', url: '/api/knowledge/00000000-0000-0000-0000-000000000000' },
+      { method: 'DELETE', url: '/api/knowledge/00000000-0000-4000-8000-000000000000' },
     ]
 
     for (const { method, url, payload } of knowledgeEndpoints) {
@@ -75,7 +75,7 @@ describe('Knowledge Routes API (知识库模块真实化端点)', () => {
     it('GET /api/knowledge/:id 无 auth 返回 404 (公开详情,资源不存在)', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/knowledge/00000000-0000-0000-0000-000000000000',
+        url: '/api/knowledge/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(404)
     })
