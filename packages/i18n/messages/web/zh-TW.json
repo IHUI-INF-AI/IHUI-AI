@@ -47,7 +47,7 @@
     }
   },
   "hooks": {
-    "deleteConfirm": "確定刪除 Hook \"{{name}}\" 嗎？"
+    "deleteConfirm": "確定刪除 Hook \"{name}\" 嗎？"
   },
   "common": {
     "refundTime": "退款時間",
@@ -777,7 +777,7 @@
     },
     "hideReasoning": "隱藏推理過程",
     "showReasoning": "顯示推理過程",
-    "fallbackNotice": "已切換到備用模型 {{backup}}(原模型 {{primary}} 暫時不可用)",
+    "fallbackNotice": "已切換到備用模型 {backup}(原模型 {primary} 暫時不可用)",
     "copy": "複製",
     "copied": "已複製",
     "copyFailed": "複製失敗",
@@ -792,7 +792,7 @@
     "communityPublishTitleLabel": "標題",
     "communityPublishTitlePlaceholder": "請輸入標題",
     "communityPublishTitleRequired": "請輸入標題",
-    "communityPublishImagesCount": "{{count}} 張圖片",
+    "communityPublishImagesCount": "{count} 張圖片",
     "communityPublishDefaultTitle": "AI 回覆",
     "communityPublishCancel": "取消",
     "communityPublish": "發佈",
@@ -869,7 +869,7 @@
       "timelineUserMessage": "使用者訊息",
       "timelineAiReply": "AI 回覆",
       "search": "搜尋",
-      "fallbackNotice": "主體模型 {{primary}} 不可用，已自動切換到 {{fallback}}",
+      "fallbackNotice": "主體模型 {primary} 不可用，已自動切換到 {fallback}",
       "loading": "載入中…",
       "jumpToLatest": "跳到最新",
       "latest": "最新",
@@ -941,10 +941,10 @@
       "switchedToModeAuto": "已切換至自動核准模式",
       "switchedToModeFull": "已切換至完全存取模式",
       "dangerousCommandTitle": "偵測到危險命令",
-      "dangerousCommandDesc": "你即將傳送的訊息包含 {{pattern}}({{reason}})。完全存取模式下 AI 會直接執行,無法復原。",
+      "dangerousCommandDesc": "你即將傳送的訊息包含 {pattern}({reason})。完全存取模式下 AI 會直接執行,無法復原。",
       "dangerousCommandProceed": "仍要傳送",
       "dangerousCommandCancel": "取消",
-      "dangerousCommandWarningOnly": "警告:{{pattern}}。建議先確認命令安全性。",
+      "dangerousCommandWarningOnly": "警告:{pattern}。建議先確認命令安全性。",
       "historyTitle": "許可權模式記錄",
       "historyEmpty": "暫無記錄",
       "historyClearConfirmTitle": "清空記錄",

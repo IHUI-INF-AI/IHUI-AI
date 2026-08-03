@@ -1222,12 +1222,12 @@
   "modelPlaza": {
     "title": "Model Plaza",
     "compareBtn": "Compare",
-    "providerTotal": "{{count}} models",
+    "providerTotal": "{count} models",
     "loadFailed": "Load failed, pull to refresh",
     "emptyType": "No models of this type",
     "input": "Input",
     "output": "Output",
-    "priceUnit": "¥{{price}}/M",
+    "priceUnit": "¥{price}/M",
     "perCall": "(per call)",
     "typeAll": "All",
     "typeText": "Text",
@@ -1239,7 +1239,7 @@
     },
     "detail": {
       "title": "Model Details",
-      "message": "View full specs and pricing for \"{{name}}\""
+      "message": "View full specs and pricing for \"{name}\""
     }
   },
   "n8nModel": {
@@ -1253,16 +1253,16 @@
     "empty": "No n8n workflows",
     "running": "Running",
     "stopped": "Stopped",
-    "calls": "Calls {{count}}",
-    "params": "In {{in}} · Out {{out}}",
+    "calls": "Calls {count}",
+    "params": "In {in} · Out {out}",
     "actionStart": "Start",
     "actionStop": "Stop",
     "actionEdit": "Edit",
     "toggle": {
       "stopTitle": "Stop Workflow",
       "startTitle": "Start Workflow",
-      "stopMessage": "Are you sure you want to stop \"{{name}}\"?",
-      "startMessage": "Are you sure you want to start \"{{name}}\"?",
+      "stopMessage": "Are you sure you want to stop \"{name}\"?",
+      "startMessage": "Are you sure you want to start \"{name}\"?",
       "success": "Operation successful"
     }
   },
@@ -1272,7 +1272,7 @@
     "labelDept": "Department",
     "labelSaleType": "Sale type",
     "labelCycle": "Billing cycle",
-    "labelPrice": "Price (CNY / {{cycle}})",
+    "labelPrice": "Price (CNY / {cycle})",
     "labelFreeDur": "Limited free duration",
     "labelDiscount": "Discount",
     "labelAudience": "Audience",
@@ -1557,11 +1557,11 @@
     "actionReedit": "Re-edit",
     "edit": {
       "title": "Action",
-      "message": "Configure sales settings for \"{{name}}\""
+      "message": "Configure sales settings for \"{name}\""
     },
     "offline": {
       "title": "Confirm Offline",
-      "message": "Are you sure to take \"{{name}}\" offline?",
+      "message": "Are you sure to take \"{name}\" offline?",
       "confirmBtn": "Confirm Offline",
       "done": "Taken offline"
     }
@@ -1574,26 +1574,26 @@
     "empty": "No groups",
     "loadFailed": "Load failed",
     "back": "Back",
-    "detailMembers": "Members ({{count}})",
+    "detailMembers": "Members ({count})",
     "detailRecent": "Recent",
     "detailEnter": "Enter Group",
-    "metaActive": "Active {{time}}",
-    "metaMessages": "Messages {{count}}",
-    "cardMembers": "{{count}} members · {{messages}} messages",
+    "metaActive": "Active {time}",
+    "metaMessages": "Messages {count}",
+    "cardMembers": "{count} members · {messages} messages",
     "enterMine": "Enter",
     "enterDiscover": "Join",
     "previewHello": "Hello everyone, let's start this collaboration. First, confirm the goal and division of labor.",
     "previewMine": "Got it, I'll start the research on my end.",
-    "memberRole": "Role: {{role}}",
+    "memberRole": "Role: {role}",
     "join": {
       "title": "Join Group",
-      "message": "Applied to join \"{{name}}\""
+      "message": "Applied to join \"{name}\""
     }
   },
   "aigcCover": {
     "loading": "Loading...",
     "title": "Select Cover",
-    "subtitle": "Work: {{title}}",
+    "subtitle": "Work: {title}",
     "workTitleDefault": "Untitled Work",
     "back": "Back",
     "filterAll": "All",
@@ -1606,7 +1606,7 @@
     "loadFailed": "Load failed",
     "applied": {
       "title": "Cover Applied",
-      "message": "Applied cover for \"{{title}}\": {{label}}"
+      "message": "Applied cover for \"{title}\": {label}"
     },
     "aiGen": {
       "title": "AI Generate Cover",
@@ -1619,7 +1619,7 @@
     "subtitle": "Select type → Upload → Fill info → Publish",
     "labelType": "Work Type",
     "labelTextContent": "Text Content",
-    "labelUpload": "Upload Materials ({{count}}/5)",
+    "labelUpload": "Upload Materials ({count}/5)",
     "labelTitle": "Work Title",
     "labelDescription": "Description",
     "labelPrompt": "Prompt",

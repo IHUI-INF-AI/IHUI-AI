@@ -47,7 +47,7 @@
     }
   },
   "hooks": {
-    "deleteConfirm": "确定删除 Hook \"{{name}}\" 吗？"
+    "deleteConfirm": "确定删除 Hook \"{name}\" 吗？"
   },
   "common": {
     "refundTime": "退款时间",
@@ -759,7 +759,7 @@
     },
     "hideReasoning": "隐藏推理过程",
     "showReasoning": "显示推理过程",
-    "fallbackNotice": "已切换到备用模型 {{backup}}(原模型 {{primary}} 暂时不可用)",
+    "fallbackNotice": "已切换到备用模型 {backup}(原模型 {primary} 暂时不可用)",
     "copy": "复制",
     "copied": "已复制",
     "copyFailed": "复制失败",
@@ -774,7 +774,7 @@
     "communityPublishTitleLabel": "标题",
     "communityPublishTitlePlaceholder": "请输入标题",
     "communityPublishTitleRequired": "请输入标题",
-    "communityPublishImagesCount": "{{count}} 张图片",
+    "communityPublishImagesCount": "{count} 张图片",
     "communityPublishDefaultTitle": "AI 回复",
     "communityPublishCancel": "取消",
     "communityPublish": "发布",
@@ -851,7 +851,7 @@
       "timelineUserMessage": "用户消息",
       "timelineAiReply": "AI 回复",
       "search": "搜索",
-      "fallbackNotice": "主体模型 {{primary}} 不可用,已自动切换到 {{fallback}}",
+      "fallbackNotice": "主体模型 {primary} 不可用,已自动切换到 {fallback}",
       "loading": "加载中…",
       "jumpToLatest": "跳转到最新",
       "latest": "最新",
@@ -923,10 +923,10 @@
       "switchedToModeAuto": "已切换到替我审批模式",
       "switchedToModeFull": "已切换到完全访问模式",
       "dangerousCommandTitle": "检测到危险命令",
-      "dangerousCommandDesc": "你即将发送的命令包含 {{pattern}}({{reason}})。完全访问模式下 AI 会直接执行,无法撤回。",
+      "dangerousCommandDesc": "你即将发送的命令包含 {pattern}({reason})。完全访问模式下 AI 会直接执行,无法撤回。",
       "dangerousCommandProceed": "仍要发送",
       "dangerousCommandCancel": "取消",
-      "dangerousCommandWarningOnly": "警告:{{pattern}}。建议先确认命令安全性。",
+      "dangerousCommandWarningOnly": "警告:{pattern}。建议先确认命令安全性。",
       "historyTitle": "权限模式历史",
       "historyEmpty": "暂无历史",
       "historyClearConfirmTitle": "清空历史",

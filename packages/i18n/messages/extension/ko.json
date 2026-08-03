@@ -143,7 +143,7 @@
   },
   "wordbook": {
     "title": "단어장",
-    "countLabel": "총 {{count}} 단어",
+    "countLabel": "총 {count} 단어",
     "searchPlaceholder": "단어 검색...",
     "noMatchHint": "일치하는 단어가 없습니다",
     "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
@@ -155,7 +155,7 @@
     "selectModel": "모델 선택",
     "emptyHint": "메시지를 입력하여 시작",
     "inputPlaceholder": "무언가 입력하세요...",
-    "compactionNotice": "컨텍스트 자동 압축:{{before}} → {{after}}({{removed}}개 기록 제거)",
+    "compactionNotice": "컨텍스트 자동 압축:{before} → {after}({removed}개 기록 제거)",
     "voiceStop": "녹음 중지",
     "voiceStart": "녹음 시작"
   },

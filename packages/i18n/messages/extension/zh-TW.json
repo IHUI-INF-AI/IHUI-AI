@@ -143,7 +143,7 @@
   },
   "wordbook": {
     "title": "生詞本",
-    "countLabel": "共 {{count}} 詞",
+    "countLabel": "共 {count} 詞",
     "searchPlaceholder": "搜尋單字...",
     "noMatchHint": "未找到符合的單字",
     "emptyHint": "生詞本為空,查詢後點擊儲存"
@@ -155,7 +155,7 @@
     "selectModel": "選擇模型",
     "emptyHint": "輸入訊息開始對話",
     "inputPlaceholder": "說點什麼...",
-    "compactionNotice": "上下文已自動壓縮:{{before}} → {{after}}(移除 {{removed}} 條歷史)",
+    "compactionNotice": "上下文已自動壓縮:{before} → {after}(移除 {removed} 條歷史)",
     "voiceStop": "停止錄音",
     "voiceStart": "開始錄音"
   },
