@@ -1427,7 +1427,7 @@ async function interactiveModelSelect(state: ReplState): Promise<void> {
     }));
     const answers = await inquirer.prompt([
       {
-        type: 'list',
+        type: 'select',
         name: 'model',
         message: '选择模型:',
         choices,
