@@ -57,6 +57,9 @@ function buildMockServer(): {
     put: vi.fn((path: string, handler: unknown) => {
       handlers.set(`PUT ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
     }),
+    patch: vi.fn((path: string, handler: unknown) => {
+      handlers.set(`PATCH ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
+    }),
     delete: vi.fn((path: string, handler: unknown) => {
       handlers.set(`DELETE ${path}`, handler as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
     }),

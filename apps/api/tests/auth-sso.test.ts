@@ -82,6 +82,11 @@ const mockRedis = {
     }
     return null
   }),
+  // auth-sso.ts exchange 端点调 server.redis.del(key) 原子删除一次性 code
+  del: vi.fn(async (k: string) => {
+    redisStore.delete(k)
+    return 1
+  }),
   set: vi.fn(async (k: string, v: string) => {
     redisStore.set(k, v)
     return 'OK'

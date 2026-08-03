@@ -18,6 +18,7 @@ vi.mock('../../db/index.js', () => ({
 
 vi.mock('../../db/point-queries.js', () => ({
   findUserPointsBalance: vi.fn().mockResolvedValue(100),
+  awardAdPoints: vi.fn().mockResolvedValue({ beforeBalance: 100, afterBalance: 120 }),
 }))
 
 vi.mock('@ihui/database', () => ({
@@ -123,6 +124,16 @@ describe('P30 补写路由集成测试', () => {
 
     beforeAll(async () => {
       app = Fastify({ logger: false })
+      // mock redis:SET key value EX ttl NX 行为(首次返回 'OK',重复 key 返回 null)
+      const seenTxKeys = new Set<string>()
+      app.decorate('redis', {
+        // mock ioredis set: NX 语义(首次 'OK',重复 null);类型断言避开 ioredis 完整 Redis 类型签名
+        set: vi.fn(async (key: string): Promise<'OK' | null> => {
+          if (seenTxKeys.has(key)) return null
+          seenTxKeys.add(key)
+          return 'OK'
+        }),
+      } as never)
       app.decorate('pushNotification', vi.fn<(userId: string, payload: unknown) => void>())
       await app.register(rewardedVideoAdRoutes, { prefix: '/api/rewarded-video-ad' })
       await app.ready()

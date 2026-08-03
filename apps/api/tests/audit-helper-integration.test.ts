@@ -39,8 +39,21 @@ vi.mock('../src/db/index.js', () => {
       },
     }),
   })
+  // 事务 tx:insert 复用 makeInsert(捕获审计字段),update 返回非空行(applyWithdrawal 冻结余额需要)
+  const makeUpdate = () => ({
+    set: () => ({
+      where: () => ({
+        returning: async () => [{ id: 'mock-update-id', tokenQuantity: 100, frozenQuantity: 100 }],
+      }),
+    }),
+  })
+  const tx = { insert: makeInsert, update: makeUpdate }
   return {
-    db: { insert: makeInsert },
+    db: {
+      insert: makeInsert,
+      // 事务:同步调用 cb(tx) 返回其 Promise(模拟提交/回滚语义)
+      transaction: <T>(cb: (tx: typeof tx) => Promise<T>) => cb(tx),
+    },
     dbRead: { insert: makeInsert },
   }
 })
