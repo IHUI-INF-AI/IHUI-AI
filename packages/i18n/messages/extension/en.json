@@ -143,7 +143,7 @@
   },
   "wordbook": {
     "title": "Wordbook",
-    "countLabel": "{{count}} words",
+    "countLabel": "{count} words",
     "searchPlaceholder": "Search words...",
     "noMatchHint": "No matching words found",
     "emptyHint": "Wordbook is empty, look up a word and save it"
@@ -155,7 +155,7 @@
     "selectModel": "Select model",
     "emptyHint": "Type a message to start",
     "inputPlaceholder": "Say something...",
-    "compactionNotice": "Context auto-compacted: {{before}} → {{after}} (removed {{removed}} messages)",
+    "compactionNotice": "Context auto-compacted: {before} → {after} (removed {removed} messages)",
     "voiceStop": "Stop Recording",
     "voiceStart": "Start Recording"
   },

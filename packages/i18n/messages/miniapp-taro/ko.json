@@ -63,10 +63,10 @@
     "hotCourses": "인기 강의",
     "tapLogin": "탭하여 로그인",
     "slogan": "IHUI AI, 더 스마트한 학습",
-    "todayMinutes": "오늘 {{n}}분",
-    "continuousDays": "연속 {{n}}일",
-    "totalMinutes": "누적 {{n}}분",
-    "coursesCount": "{{n}}개 강의",
+    "todayMinutes": "오늘 {n}분",
+    "continuousDays": "연속 {n}일",
+    "totalMinutes": "누적 {n}분",
+    "coursesCount": "{n}개 강의",
     "learningProgress": "학습 진행도",
     "more": "더 보기",
     "livePreview": "라이브 예정",
@@ -87,17 +87,17 @@
     "objectives": "학습 목표",
     "suitableFor": "적합 대상",
     "highlights": "강의 하이라이트",
-    "nextLesson": "다음: {{title}}",
+    "nextLesson": "다음: {title}",
     "startLearning": "학습 시작",
     "buyNow": "지금 구매",
     "buyDeveloping": "구매 기능 개발 중",
     "buyFirst": "먼저 강의를 구매하세요",
     "signSuccess": "출석 완료",
-    "rated": "{{n}}점 평점",
+    "rated": "{n}점 평점",
     "noteSaved": "노트 저장됨",
     "lessonComplete": "레슨 완료",
     "viewTeacher": "강사 보기",
-    "noteTitle": "{{title}} - 노트",
+    "noteTitle": "{title} - 노트",
     "scanCourse": "스캔하여 강의 보기",
     "loadFailed": "강의 로딩 실패",
     "list": {
@@ -105,7 +105,7 @@
       "search": "검색",
       "empty": "강의 없음",
       "title": "추천 강의",
-      "subtitle": "{{n}}개 강의"
+      "subtitle": "{n}개 강의"
     },
     "ratingTitle": "코스 평가",
     "ratingLabels": [
@@ -124,7 +124,7 @@
     "audience": "수강 대상"
   },
   "live": {
-    "viewers": "{{n}}명 시청",
+    "viewers": "{n}명 시청",
     "preview": "예고",
     "detail": {
       "loadFailed": "라이브 로딩 실패",
@@ -133,7 +133,7 @@
       "ended": "라이브 종료",
       "connecting": "라이브룸 연결 중…",
       "enter": "라이브룸 입장",
-      "anchor": "호스트: {{name}}"
+      "anchor": "호스트: {name}"
     },
     "subscribe": {
       "subscribe": "알림 구독",
@@ -226,7 +226,7 @@
       "contactPlaceholder": "휴대폰 번호 또는 이메일을 입력하세요"
     },
     "refundList": {
-      "orderNo": "주문 번호: {{no}}",
+      "orderNo": "주문 번호: {no}",
       "empty": "환불 기록 없음",
       "tabRefunding": "환불 중",
       "tabRefunded": "환불 완료",
@@ -277,7 +277,7 @@
         "contactService": "고객센터 문의",
         "faqQ": "충전 실패 시 결제가 되나요?"
       },
-      "tokenRate": "1위안 = {{n}} IHUI 포인트",
+      "tokenRate": "1위안 = {n} IHUI 포인트",
       "activityTitle": "한정 이벤트",
       "activityPlaceholder": "이벤트 충전 금액을 입력하세요",
       "activitySubmit": "한정 할인 충전"
@@ -395,7 +395,7 @@
     "agentLoadFailed": "에이전트 로딩 실패",
     "generating": "빠른 생성 중",
     "thinkingTip": "Tips:먼저 오른쪽 상단의 점 3개를 눌러 미니프로그램을 띄워놓고 잠시 후 돌아오세요~",
-    "fileSelected": "{{count}}개 파일 선택됨",
+    "fileSelected": "{count}개 파일 선택됨",
     "common": {
       "loading": "로딩 중…"
     },
@@ -411,7 +411,7 @@
       "thinkingProcess": "사고 과정",
       "noContent": "복사할 내용 없음",
       "aiGenerated": "AI 생성",
-      "tokenCost": "토큰: {{n}}",
+      "tokenCost": "토큰: {n}",
       "reuse": "재사용",
       "copy": "복사",
       "favorited": "즐겨찾기됨",
@@ -451,7 +451,7 @@
     "skillsPopup": {
       "title": "스킬 선택",
       "searchPlaceholder": "스킬 검색",
-      "uses": "{{n}}회 사용",
+      "uses": "{n}회 사용",
       "notFound": "스킬을 찾을 수 없음",
       "empty": "사용 가능한 스킬 없음"
     },
@@ -521,7 +521,7 @@
     },
     "agent": {
       "searchPlaceholder": "에이전트 검색",
-      "count": "{{n}}개",
+      "count": "{n}개",
       "empty": "에이전트 없음",
       "inputPlaceholder": "질문 입력…"
     },
@@ -550,12 +550,12 @@
       "favoriteAgent": "즐겨찾기",
       "favorited": "즐겨찾기됨",
       "unfavorite": "즐겨찾기 해제",
-      "useCount": "{{n}}명 사용",
+      "useCount": "{n}명 사용",
       "relatedAgents": "관련 에이전트",
       "prologue": "프롤로그",
       "exampleDialog": "예시 대화",
       "reviews": "리뷰",
-      "reviewCount": "{{n}}개 리뷰",
+      "reviewCount": "{n}개 리뷰",
       "ratingDistribution": "평점 분포"
     },
     "agentList": {
@@ -567,7 +567,7 @@
         "education": "교육",
         "life": "생활"
       },
-      "useCount": "{{n}}명 사용",
+      "useCount": "{n}명 사용",
       "noResult": "에이전트를 찾을 수 없음",
       "sortBy": "정렬",
       "sortHot": "인기",
@@ -590,7 +590,7 @@
       "cleared": "삭제됨",
       "refreshSuccess": "새로고침 성공",
       "startNew": "새 대화 시작",
-      "msgCount": "메시지 {{n}}개"
+      "msgCount": "메시지 {n}개"
     },
     "special": {
       "pageError": "작업 실패",
@@ -618,7 +618,7 @@
       "agentTipHistory": "기록",
       "agentTipHistoryDesc": "대화 기록을 조회할 수 있습니다"
     },
-    "uploadMaterialTab": "{{tab}} 자료 업로드",
+    "uploadMaterialTab": "{tab} 자료 업로드",
     "messageAction": {
       "reuse": "재사용"
     },
@@ -645,8 +645,8 @@
   "share": {
     "appTitle": "IHUI AI — 더 스마트한 학습",
     "timelineTitle": "IHUI AI, 스마트 학습 어시스턴트",
-    "courseTitle": "추천 강의: {{title}}",
-    "liveTitle": "추천 라이브: {{title}}",
+    "courseTitle": "추천 강의: {title}",
+    "liveTitle": "추천 라이브: {title}",
     "index": {
       "title": "AI 뉴스",
       "removeConfirm": "이 대화를 삭제하시겠습니까?",
@@ -670,7 +670,7 @@
       "loading": "로딩 중…",
       "clickShare": "우상단을 탭하여 친구에게 공유",
       "contentNotExist": "공유 콘텐츠가 없습니다",
-      "tokenCost": "{{n}} 토큰 소모",
+      "tokenCost": "{n} 토큰 소모",
       "thinkingProcess": "생각 과정",
       "aiAnswer": "AI 답변",
       "regenerate": "다시 생성",
@@ -750,7 +750,7 @@
     "codeSent": "인증번호가 발송되었습니다",
     "codeInvalid": "인증번호가 올바르지 않습니다",
     "confirmTextMismatch": "확인 문구가 일치하지 않습니다",
-    "countdown": "{{s}}초 후 제출 가능",
+    "countdown": "{s}초 후 제출 가능",
     "submitting": "삭제 중…",
     "submit": "삭제 확인",
     "consequenceTitle": "삭제 결과",
@@ -768,13 +768,13 @@
       "hot": "인기",
       "unanswered": "미답변"
     },
-    "answers": "{{n}}개 답변",
+    "answers": "{n}개 답변",
     "empty": "질문 없음",
     "detail": {
       "me": "나",
       "justNow": "방금",
       "answered": "답변 완료",
-      "answerCount": "{{n}}개 답변",
+      "answerCount": "{n}개 답변",
       "placeholder": "답변 입력…",
       "answer": "답변"
     },
@@ -878,20 +878,20 @@
     "saveQrcode": "QR 코드 저장"
   },
   "exam": {
-    "questions": "{{n}}문제",
-    "minutes": "{{n}}분",
-    "passScore": "합격 {{n}}",
-    "totalScore": "총점 {{n}}",
+    "questions": "{n}문제",
+    "minutes": "{n}분",
+    "passScore": "합격 {n}",
+    "totalScore": "총점 {n}",
     "removedPaper": "시험지 삭제됨",
     "passed": "합격",
     "notPassed": "불합격",
-    "score": "점수 {{n}}",
+    "score": "점수 {n}",
     "result": {
       "loadFailed": "결과 로딩 실패",
       "pass": "축하합니다, 합격",
       "notPass": "불합격",
-      "scoreValue": "{{n}}점",
-      "rankValue": "{{total}}명 중 {{n}}위",
+      "scoreValue": "{n}점",
+      "rankValue": "{total}명 중 {n}위",
       "goList": "시험 목록 보기",
       "pageTitle": "시험 결과",
       "reviewTitle": "문제 복습",
@@ -905,11 +905,11 @@
     "detail": {
       "loadFailed": "시험 로딩 실패",
       "questionCount": "문제 수",
-      "questionCountValue": "{{n}}문제",
+      "questionCountValue": "{n}문제",
       "duration": "시험 시간",
-      "durationValue": "{{n}}분",
+      "durationValue": "{n}분",
       "passScore": "합격 점수",
-      "passScoreValue": "{{n}}점",
+      "passScoreValue": "{n}점",
       "notice1": "문제를 주의 깊게 읽고 제한 시간 내에 완료하세요",
       "notice2": "제출 전에는 답안을 수정할 수 있습니다",
       "start": "시험 시작",
@@ -1028,13 +1028,13 @@
     },
     "company": {
       "title": "내 회사",
-      "level": "등급 {{n}}",
+      "level": "등급 {n}",
       "totalEarnings": "누적 수익",
       "available": "출금 가능",
       "teamMembers": "팀원",
-      "memberCount": "{{n}}명",
+      "memberCount": "{n}명",
       "empty": "멤버 없음",
-      "joinTime": "가입: {{time}}",
+      "joinTime": "가입: {time}",
       "menuTeam": "팀 관리",
       "menuCommission": "수수료",
       "menuWithdraw": "출금 신청"
@@ -1086,7 +1086,7 @@
     "myTeam": "내 팀"
   },
   "about": {
-    "version": "버전 {{version}}",
+    "version": "버전 {version}",
     "protocol": {
       "s2": {
         "t1": "2.1 사용자 자격 및 이용 제한",
@@ -1326,13 +1326,13 @@
     "total": "합계"
   },
   "categoryDetail": {
-    "categoryId": "카테고리 {{id}}",
+    "categoryId": "카테고리 {id}",
     "allCategories": "전체 카테고리",
     "hot": "인기",
     "new": "신규",
     "empty": "콘텐츠 없음",
     "noDesc": "설명 없음",
-    "useCount": "{{n}}회 사용"
+    "useCount": "{n}회 사용"
   },
   "circle": {
     "empty": "콘텐츠 없음",
@@ -1551,8 +1551,8 @@
     "tabImage": "이미지",
     "tabAv": "오디오/비디오",
     "payMode": "사용량 기준",
-    "modelCount": "{{n}}개 모델",
-    "synced": "{{n}}개 동기화",
+    "modelCount": "{n}개 모델",
+    "synced": "{n}개 동기화",
     "perKTokens": "천 토큰",
     "noMore": "— 더 이상 없음 —",
     "contextLength": "컨텍스트",
@@ -1560,9 +1560,9 @@
   },
   "news": {
     "search": "뉴스 검색",
-    "views": "{{n}}회 조회",
+    "views": "{n}회 조회",
     "empty": "뉴스 없음",
-    "readCount": "{{n}} 읽음",
+    "readCount": "{n} 읽음",
     "detail": {
       "like": "좋아요",
       "comment": "댓글",
@@ -1732,7 +1732,7 @@
       "private": "다른 사용자의 DM",
       "marketing": "프로모션, 신상품"
     },
-    "hello": "안녕하세요, {{name}}입니다",
+    "hello": "안녕하세요, {name}입니다",
     "justNow": "방금",
     "search": "채팅 검색",
     "unnamedRoom": "이름 없는 대화",
@@ -1858,13 +1858,13 @@
     "noCoupon": "사용 가능한 쿠폰이 없습니다",
     "couponNone": "쿠폰 사용 안 함",
     "orderExpired": "주문이 만료되었습니다. 다시 주문해 주세요",
-    "countdownTip": "결제 남은 시간 {{time}}",
-    "couponSaved": "할인된 금액 ¥{{n}}",
+    "countdownTip": "결제 남은 시간 {time}",
+    "couponSaved": "할인된 금액 ¥{n}",
     "goodsName": "상품명",
     "vipSubscription": "회원 구독",
-    "balanceAmount": "잔액 ¥{{n}}",
+    "balanceAmount": "잔액 ¥{n}",
     "recharge": "충전",
-    "couponAvailable": "{{n}}장 사용 가능",
+    "couponAvailable": "{n}장 사용 가능",
     "limitedFree": "한정 무료",
     "memberFree": "멤버 무료",
     "buyNow": "지금 구매",
@@ -1876,16 +1876,16 @@
     "balance": "잔액"
   },
   "study": {
-    "todayMinutes": "오늘 {{n}}분",
-    "totalMinutes": "누적 {{n}}분",
-    "continuousDays": "연속 {{n}}일",
-    "courses": "{{n}}개 강의",
+    "todayMinutes": "오늘 {n}분",
+    "totalMinutes": "누적 {n}분",
+    "continuousDays": "연속 {n}일",
+    "courses": "{n}개 강의",
     "continueLearning": "학습 계속",
     "emptyCourse": "강의 없음",
     "planPage": {
       "addFailed": "추가 실패",
-      "target": "목표 {{n}}분",
-      "completed": "완료 {{n}}분",
+      "target": "목표 {n}분",
+      "completed": "완료 {n}분",
       "statusDone": "완료",
       "statusInProgress": "진행 중",
       "empty": "계획 없음",
@@ -1894,11 +1894,11 @@
     "rankPage": {
       "title": "학습 랭킹",
       "subtitle": "누가 가장 열심히 하는지",
-      "minutes": "{{n}}분",
+      "minutes": "{n}분",
       "empty": "데이터 없음"
     },
     "recordPage": {
-      "progress": "진행 {{n}}%",
+      "progress": "진행 {n}%",
       "empty": "기록 없음",
       "statusLearning": "학습 중",
       "statusAbandon": "중단됨",
@@ -1977,8 +1977,8 @@
   "teacher": {
     "list": {
       "searchPlaceholder": "강사 검색",
-      "courseCount": "{{n}}개 강의",
-      "studentCount": "{{n}}명",
+      "courseCount": "{n}개 강의",
+      "studentCount": "{n}명",
       "empty": "강사 없음"
     },
     "detail": {
@@ -2181,7 +2181,7 @@
   "vip": {
     "selectPlanFirst": "플랜 선택",
     "notOpened": "미가입",
-    "expireTime": "만료: {{time}}",
+    "expireTime": "만료: {time}",
     "openHint": "지금 가입하고 혜택",
     "privileges": "회원 혜택",
     "viewAllBenefits": "전체 혜택 보기",
@@ -2224,7 +2224,7 @@
       ],
       "loadFailed": "로딩 실패",
       "operationFailed": "작업 실패",
-      "originalPrice": "원가 ¥{{n}}",
+      "originalPrice": "원가 ¥{n}",
       "upgrade": "지금 업그레이드",
       "configNotReady": "결제 설정이 준비되지 않았습니다. 관리자에게 문의하세요."
     },
@@ -2417,7 +2417,7 @@
   "streak": {
     "title": "연속 학습",
     "totalDays": "누적 {n}일",
-    "continuousDays": "연속 {{n}}일"
+    "continuousDays": "연속 {n}일"
   },
   "withdrawal": {
     "records": "출금 기록"
