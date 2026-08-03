@@ -10,7 +10,6 @@ import {
   Code,
   ExternalLink,
   FileText,
-  Github,
   Loader2,
   Sparkles,
   Wand2,
@@ -260,7 +259,7 @@ export default function AiSkillDetailPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent"
           >
-            <Github className="h-3.5 w-3.5" />
+            <Code className="h-3.5 w-3.5" />
             {t('openGitHub')}
             <ExternalLink className="h-3 w-3" />
           </a>
