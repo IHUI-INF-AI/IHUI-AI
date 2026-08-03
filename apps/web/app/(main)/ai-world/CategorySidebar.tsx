@@ -13,7 +13,6 @@ import {
   Layers,
   Newspaper,
   FileText,
-  Github,
   Sparkles,
   LayoutGrid,
 } from 'lucide-react'
@@ -32,7 +31,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Layers,
   Newspaper,
   FileText,
-  Github,
+  Github: Code,
   Sparkles,
 }
 

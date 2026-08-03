@@ -114,7 +114,7 @@ import {
   Qoder, // qoder/if(Qoder AI 代码平台)
 } from '@lobehub/icons'
 
-import { Chrome, Video, Server, Cpu, Globe, Boxes, type LucideIcon } from 'lucide-react'
+import { AppWindow, Video, Server, Cpu, Globe, Boxes, type LucideIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -264,7 +264,7 @@ const VENDOR_COMPONENTS: Record<
   tencent: Tencent,
   huawei: Huawei,
   // 2026-07-31 Codex 10 插件补全:Chrome / Figma(已收录) / Remotion / Hyperframes
-  chrome: Chrome, // lucide 兜底(@lobehub 无 Chrome 真实矢量)
+  chrome: AppWindow, // lucide 兜底(@lobehub 无 Chrome 真实矢量;v1 品牌图标移除,Chrome→AppWindow 语义化替代)
   figma: Figma, // @lobehub/icons 真实 Figma 矢量
   remotion: Video, // lucide 兜底(@lobehub 无 Remotion 真实矢量,与 video 共享)
   hyperframes: Video, // lucide 兜底(@lobehub 无 Hyperframes 真实矢量,与 video 共享)
