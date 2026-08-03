@@ -25,6 +25,15 @@ vi.mock('../src/db/index.js', () => ({
   dbRead: { select: vi.fn() },
 }))
 
+// mock 参数覆盖系统(避免连真实库查 systemConfigs 表):透传原 body,不应用任何规则
+vi.mock('../src/services/relay-param-ops-config.js', () => ({
+  applyParamOpsToBody: vi.fn(async (body: Record<string, unknown>) => ({
+    body,
+    appliedRules: [],
+    modified: false,
+  })),
+}))
+
 // mock 鉴权插件:注入 apiKey 上下文,preHandler 直接放行
 const MOCK_API_KEY = {
   id: 'ak_test_001',
@@ -41,7 +50,7 @@ vi.mock('../src/plugins/api-key-auth.js', () => ({
   requireApiKeyQuota: vi.fn(() => async () => {}),
 }))
 
-// mock 计费服务:checkQuota 放行 + recordCall 直接返回成功
+// mock 计费服务:checkQuota 放行 + recordCall 直接返回成功 + modelToProviderCode 占位
 vi.mock('../src/services/relay-billing-service.js', () => ({
   checkQuota: vi.fn().mockResolvedValue({
     allowed: true,
@@ -57,6 +66,7 @@ vi.mock('../src/services/relay-billing-service.js', () => ({
     newCostBalanceCents: 9999,
   }),
   isByokCall: vi.fn().mockResolvedValue(false),
+  modelToProviderCode: vi.fn().mockReturnValue('openai'),
 }))
 
 import {
