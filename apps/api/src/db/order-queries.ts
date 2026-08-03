@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { eq, and, desc, sql, ilike } from 'drizzle-orm'
+import { eq, and, desc, sql, ilike, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   eduOrders,
@@ -202,14 +202,16 @@ export async function findPaymentById(id: string): Promise<EduPayment | undefine
   return rows[0]
 }
 
-/** 取消支付（paid/cancelled 不可取消）。 */
+/** 取消支付（paid/cancelled 不可取消）。P0 状态机修复(2026-08-02):原 UPDATE 无状态条件,
+ * 调用方上层校验存在 TOCTOU 竞态(并发请求都通过 status 检查后 UPDATE 仍会执行),
+ * 可能把 paid 支付改成 cancelled 导致已支付订单丢失支付记录。改为条件 UPDATE
+ * WHERE status IN ('created', 'pending'),DB 级拦截非法状态流转。 */
 export async function cancelPayment(id: string): Promise<EduPayment | undefined> {
   const rows = await db
     .update(eduPayments)
     .set({ status: 'cancelled', updatedAt: new Date() })
-    .where(and(eq(eduPayments.id, id)))
+    .where(and(eq(eduPayments.id, id), inArray(eduPayments.status, ['created', 'pending'])))
     .returning()
-  // 调用方需先校验状态，这里仅做更新
   return rows[0]
 }
 
@@ -299,7 +301,13 @@ export async function findRefundById(id: string): Promise<EduRefund | undefined>
   return rows[0]
 }
 
-/** 管理员审核退款（approved/rejected）。 */
+/** 管理员审核退款(approved/rejected)。P0 状态机修复(2026-08-02):原 UPDATE 无状态条件,
+ * 已 approved/rejected/completed 的退款可被重复审核,导致:
+ * (1) 重复 approved 触发后续 handleRefund 重复退款给用户(资金超发);
+ * (2) 已 completed 的退款被改回 approved,状态机混乱。
+ * 改为条件 UPDATE WHERE status IN ('pending', 'approved', 'rejected'),
+ * 兼容 refund-audit.ts 中 admin 反复改主意(pending→approved→rejected→approved)的合法流转,
+ * 但禁止从 completed 状态回退(资金已退还,不可逆)。0 行影响 = 状态不允许,返回 undefined。 */
 export async function processRefund(
   id: string,
   status: 'approved' | 'rejected',
@@ -308,12 +316,16 @@ export async function processRefund(
   const rows = await db
     .update(eduRefunds)
     .set({ status, processMessage, processTime: new Date(), updatedAt: new Date() })
-    .where(eq(eduRefunds.id, id))
+    .where(and(eq(eduRefunds.id, id), inArray(eduRefunds.status, ['pending', 'approved', 'rejected'])))
     .returning()
   return rows[0]
 }
 
-/** 管理员处理退款（processing/completed/failed）。completed 时同步订单为 refunded。事务保证退款+订单状态原子更新。 */
+/** 管理员处理退款(processing/completed/failed)。completed 时同步订单为 refunded。事务保证退款+订单状态原子更新。
+ * P0 状态机修复(2026-08-02):原 UPDATE 无状态条件,已 completed 的退款可被再次 completed,
+ * 导致:(1) 重复同步订单 status='refunded'(覆盖 cancelled 等状态);(2) 重复触发上游资金退还逻辑。
+ * 改为条件 UPDATE WHERE status IN ('approved', 'processing', 'failed'),
+ * 禁止从 pending(未审核)/rejected(已拒绝)/completed(已完成)流转,防资金超发与状态混乱。 */
 export async function handleRefund(
   id: string,
   status: 'processing' | 'completed' | 'failed',
@@ -328,7 +340,12 @@ export async function handleRefund(
         ...(status === 'completed' ? { completeTime: new Date() } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(eduRefunds.id, id))
+      .where(
+        and(
+          eq(eduRefunds.id, id),
+          inArray(eduRefunds.status, ['approved', 'processing', 'failed']),
+        ),
+      )
       .returning()
     const refund = rows[0]
     // 完成退款时同步订单状态(同一事务内)

@@ -79,6 +79,7 @@ __pycache__/
 .vscode/
 .trae/
 .trae-cn/
+.qoder/
 *.swp
 *.swo
 .DS_Store
