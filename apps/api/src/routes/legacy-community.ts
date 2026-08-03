@@ -35,7 +35,7 @@ export const legacyCommunityRoutes: FastifyPluginAsync = async (fastify: Fastify
 
   // ========== D18: 圈子成员计数 (历史 /public-api/member/count) ==========
   fastify.get('/circles/member-count', { preHandler: authenticate }, async (request) => {
-    const { circleId } = z.object({ circleId: z.string().uuid() }).parse(request.query)
+    const { circleId } = z.object({ circleId: z.uuid() }).parse(request.query)
     const [row] = await db
       .select({ count: circles.memberCount })
       .from(circles)

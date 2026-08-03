@@ -35,7 +35,7 @@ const addAgentSchema = z.object({
   connector_user_id: z.string().min(1),
   agent_variables: z.record(z.string(), z.unknown()),
   agent_model: z.string().min(1).max(128),
-  agent_avatar: z.string().url().max(512).optional(),
+  agent_avatar: z.url().max(512).optional(),
 })
 
 // ==================== Helpers ====================

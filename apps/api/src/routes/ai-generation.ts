@@ -31,7 +31,7 @@ const enqueueSchema = z.object({
   prompt: z.string().min(1, 'prompt 不能为空'),
   modelId: z.string().min(1, 'modelId 不能为空'),
   params: z.record(z.string(), z.unknown()).default({}),
-  callbackUrl: z.string().url().optional(),
+  callbackUrl: z.url().optional(),
   priority: z.enum(['high', 'normal', 'low']).optional(),
   dedupeWindowMs: z.number().int().positive().optional(),
 })

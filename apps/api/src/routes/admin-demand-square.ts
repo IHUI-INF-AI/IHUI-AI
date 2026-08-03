@@ -6,7 +6,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { zhsDemandSquare } from '@ihui/database'
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -26,7 +26,7 @@ const updateStatusSchema = z.object({
 })
 
 const batchReviewSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(100),
+  ids: z.array(z.uuid()).min(1).max(100),
   action: z.enum(['approve', 'reject']),
   reason: z.string().max(500).optional(),
 })

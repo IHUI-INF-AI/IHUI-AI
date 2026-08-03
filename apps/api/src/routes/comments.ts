@@ -40,22 +40,22 @@ const listCommentsQuery = z.object({
   ...paginationQuery,
   resourceType: z.enum(RESOURCE_TYPES),
   resourceId: z.string().min(1).max(128),
-  parentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  parentId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const createCommentSchema = z.object({
   resourceType: z.enum(RESOURCE_TYPES),
   resourceId: z.string().min(1).max(128),
-  parentId: z.string().uuid().optional().nullable(),
+  parentId: z.uuid().optional().nullable(),
   content: z.string().min(1, '内容不能为空').max(5000, '内容过长'),
-  mentions: z.array(z.string().uuid()).max(50).optional(),
+  mentions: z.array(z.uuid()).max(50).optional(),
 })
 
 const updateCommentSchema = z.object({
   content: z.string().min(1, '内容不能为空').max(5000, '内容过长'),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const paginationOnlyQuery = z.object(paginationQuery)
 

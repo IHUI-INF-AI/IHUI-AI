@@ -103,9 +103,11 @@ const QUESTION_TYPE_FROM_API: Record<
 }
 
 function toApiQuestionType(t: string): 'single' | 'multiple' | 'judge' | 'fill' | 'essay' {
-  return (QUESTION_TYPE_TO_API as Record<string, 'single' | 'multiple' | 'judge' | 'fill' | 'essay'>)[
-    t
-  ] ?? 'single'
+  return (
+    (QUESTION_TYPE_TO_API as Record<string, 'single' | 'multiple' | 'judge' | 'fill' | 'essay'>)[
+      t
+    ] ?? 'single'
+  )
 }
 
 function fromApiQuestionType(
@@ -134,7 +136,7 @@ const paperTypeSchema = z.enum(['normal', 'random', 'mock', 'exam'])
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const papersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -143,7 +145,7 @@ const papersQuerySchema = z.object({
   categoryId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid({ message: '无效的分类 ID' }),
+      z.uuid({ error: '无效的分类 ID' }),
     )
     .optional(),
   cidList: z
@@ -156,7 +158,10 @@ const papersQuerySchema = z.object({
           .map((s) => s.trim())
           .filter(Boolean)
       },
-      z.array(z.string().uuid({ message: '无效的分类 ID' })).max(100).optional(),
+      z
+        .array(z.uuid({ error: '无效的分类 ID' }))
+        .max(100)
+        .optional(),
     )
     .optional(),
   paperType: paperTypeSchema.optional(),
@@ -164,14 +169,14 @@ const papersQuerySchema = z.object({
 
 const createExamCategorySchema = z.object({
   name: z.string().min(1).max(100),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateExamCategorySchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   sort: z.number().int().min(0).optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
@@ -180,7 +185,7 @@ const adminRecordsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().max(200).optional(),
-  paperId: z.string().uuid().optional(),
+  paperId: z.uuid().optional(),
   status: z.string().max(20).optional(),
 })
 
@@ -188,7 +193,7 @@ const gradeSubjectiveSchema = z.object({
   grades: z
     .array(
       z.object({
-        questionId: z.string().uuid(),
+        questionId: z.uuid(),
         score: z.number().min(0),
         isCorrect: z.boolean().optional(),
       }),
@@ -199,8 +204,11 @@ const gradeSubjectiveSchema = z.object({
 const createPaperSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  categoryId: z.string().uuid().optional(),
-  cidList: z.array(z.string().uuid({ message: '无效的分类 ID' })).max(100).optional(),
+  categoryId: z.uuid().optional(),
+  cidList: z
+    .array(z.uuid({ error: '无效的分类 ID' }))
+    .max(100)
+    .optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -216,8 +224,12 @@ const createPaperSchema = z.object({
 const updatePaperSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
-  cidList: z.array(z.string().uuid({ message: '无效的分类 ID' })).max(100).nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  cidList: z
+    .array(z.uuid({ error: '无效的分类 ID' }))
+    .max(100)
+    .nullable()
+    .optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -234,7 +246,11 @@ const createQuestionSchema = z.object({
   // 兼容:前端 api-client 用 'single' | 'multiple' | 'judge' | 'fill' | 'essay'
   type: z
     .union([z.enum(QUESTION_TYPES), z.enum(['single', 'multiple', 'judge', 'fill', 'essay'])])
-    .transform((t) => (QUESTION_TYPES as readonly string[]).includes(t) ? (t as (typeof QUESTION_TYPES)[number]) : fromApiQuestionType(t as 'single' | 'multiple' | 'judge' | 'fill' | 'essay')),
+    .transform((t) =>
+      (QUESTION_TYPES as readonly string[]).includes(t)
+        ? (t as (typeof QUESTION_TYPES)[number])
+        : fromApiQuestionType(t as 'single' | 'multiple' | 'judge' | 'fill' | 'essay'),
+    ),
   title: z.string().min(1),
   options: z.unknown().optional(),
   answer: z.unknown().optional(),
@@ -246,7 +262,11 @@ const createQuestionSchema = z.object({
 const updateQuestionSchema = z.object({
   type: z
     .union([z.enum(QUESTION_TYPES), z.enum(['single', 'multiple', 'judge', 'fill', 'essay'])])
-    .transform((t) => (QUESTION_TYPES as readonly string[]).includes(t) ? (t as (typeof QUESTION_TYPES)[number]) : fromApiQuestionType(t as 'single' | 'multiple' | 'judge' | 'fill' | 'essay'))
+    .transform((t) =>
+      (QUESTION_TYPES as readonly string[]).includes(t)
+        ? (t as (typeof QUESTION_TYPES)[number])
+        : fromApiQuestionType(t as 'single' | 'multiple' | 'judge' | 'fill' | 'essay'),
+    )
     .optional(),
   title: z.string().min(1).optional(),
   options: z.unknown().nullable().optional(),
@@ -261,7 +281,7 @@ const submitExamSchema = z.object({
     .array(
       z
         .object({
-          questionId: z.string().uuid(),
+          questionId: z.uuid(),
           // 兼容:前端 api-client submitAnswer 用 answer,原 userAnswer 保留
           userAnswer: z.unknown().optional(),
           answer: z.unknown().optional(),
@@ -275,23 +295,23 @@ const submitExamSchema = z.object({
 })
 
 const randomQuestionsSchema = z.object({
-  examId: z.string().uuid().optional(),
+  examId: z.uuid().optional(),
   questionTypes: z.array(z.enum(QUESTION_TYPES)).min(1, '至少选择一种题型').max(20),
   difficulties: z.array(z.number().int().min(1).max(5)).max(10).optional(),
-  knowledgePointIds: z.array(z.string().uuid()).max(100).optional(),
+  knowledgePointIds: z.array(z.uuid()).max(100).optional(),
   count: z.number().int().min(1).max(500),
   seed: z.string().max(200).optional(),
 })
 
 const submitAnswersSchema = z.object({
-  examId: z.string().uuid({ message: '无效的试卷 ID' }),
-  examRecordId: z.string().uuid().optional(),
+  examId: z.uuid({ error: '无效的试卷 ID' }),
+  examRecordId: z.uuid().optional(),
   // 兼容:前端 api-client submitAnswer 用 answer,原 userAnswer 保留
   answers: z
     .array(
       z
         .object({
-          questionId: z.string().uuid(),
+          questionId: z.uuid(),
           userAnswer: z.unknown().optional(),
           answer: z.unknown().optional(),
         })
@@ -310,7 +330,7 @@ const wrongQuestionsQuerySchema = z.object({
   examId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid({ message: '无效的试卷 ID' }),
+      z.uuid({ error: '无效的试卷 ID' }),
     )
     .optional(),
   isResolved: z
@@ -322,30 +342,30 @@ const wrongQuestionsQuerySchema = z.object({
 })
 
 const resolveQuestionParamSchema = z.object({
-  questionId: z.string().uuid({ message: '无效的题目 ID' }),
+  questionId: z.uuid({ error: '无效的题目 ID' }),
 })
 
 // ----- 试卷分类/题库分类/阅卷 schemas -----
 
 const updateCategoryWithIdSchema = updateExamCategorySchema.extend({
-  id: z.string().uuid({ message: '无效的 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
 })
 
 const deleteCategorySchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
 })
 
 const autoMarkPaperSchema = z.object({
-  recordId: z.string().uuid({ message: '无效的记录 ID' }),
-  paperId: z.string().uuid({ message: '无效的试卷 ID' }),
+  recordId: z.uuid({ error: '无效的记录 ID' }),
+  paperId: z.uuid({ error: '无效的试卷 ID' }),
 })
 
 const manualMarkPaperSchema = z.object({
-  recordId: z.string().uuid({ message: '无效的记录 ID' }),
+  recordId: z.uuid({ error: '无效的记录 ID' }),
   scores: z
     .array(
       z.object({
-        questionId: z.string().uuid(),
+        questionId: z.uuid(),
         score: z.number().min(0),
         isCorrect: z.boolean().optional(),
       }),
@@ -354,21 +374,21 @@ const manualMarkPaperSchema = z.object({
 })
 
 const checkSubmittedSchema = z.object({
-  recordId: z.string().uuid({ message: '无效的记录 ID' }),
-  paperId: z.string().uuid({ message: '无效的试卷 ID' }),
+  recordId: z.uuid({ error: '无效的记录 ID' }),
+  paperId: z.uuid({ error: '无效的试卷 ID' }),
 })
 
 // ----- 章节/小节/排序/报名/待评分 schemas -----
 
 const chapterIdParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
-  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
+  chapterId: z.uuid({ error: '无效的章节 ID' }),
 })
 
 const sectionParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
-  chapterId: z.string().uuid({ message: '无效的章节 ID' }),
-  sectionId: z.string().uuid({ message: '无效的小节 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
+  chapterId: z.uuid({ error: '无效的章节 ID' }),
+  sectionId: z.uuid({ error: '无效的小节 ID' }),
 })
 
 const createChapterSchema = z.object({
@@ -386,14 +406,14 @@ const updateChapterSchema = z.object({
 const createSectionSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  questionIds: z.array(z.string().uuid()).max(100).optional(),
+  questionIds: z.array(z.uuid()).max(100).optional(),
   sort: z.number().int().min(0).optional(),
 })
 
 const updateSectionSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
-  questionIds: z.array(z.string().uuid()).max(100).nullable().optional(),
+  questionIds: z.array(z.uuid()).max(100).nullable().optional(),
   sort: z.number().int().min(0).optional(),
 })
 
@@ -402,7 +422,7 @@ const sortOrderSchema = z.object({
   items: z
     .array(
       z.object({
-        id: z.string().uuid(),
+        id: z.uuid(),
         sort: z.number().int().min(0),
       }),
     )
@@ -411,21 +431,21 @@ const sortOrderSchema = z.object({
 })
 
 const signupsQuerySchema = z.object({
-  paperId: z.string().uuid().optional(),
-  userId: z.string().uuid().optional(),
+  paperId: z.uuid().optional(),
+  userId: z.uuid().optional(),
 })
 
 const pendingMarksQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  paperId: z.string().uuid().optional(),
+  paperId: z.uuid().optional(),
   search: z.string().max(200).optional(),
 })
 
 // ----- 状态机 schemas -----
 
 const recordIdParamSchema = z.object({
-  recordId: z.string().uuid({ message: '无效的记录 ID' }),
+  recordId: z.uuid({ error: '无效的记录 ID' }),
 })
 
 const gradeStatusSchema = z.object({
@@ -602,7 +622,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        examId: z.string().uuid().optional(),
+        examId: z.uuid().optional(),
       })
       .safeParse(request.query)
     if (!parsed.success) {
@@ -629,7 +649,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = z
       .object({
-        examId: z.string().uuid({ message: '无效的试卷 ID' }),
+        examId: z.uuid({ error: '无效的试卷 ID' }),
       })
       .safeParse(request.query)
     if (!parsed.success) {
@@ -640,12 +660,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const rows = await db
       .select()
       .from(examRecords)
-      .where(
-        and(
-          eq(examRecords.userId, userId),
-          eq(examRecords.paperId, parsed.data.examId),
-        ),
-      )
+      .where(and(eq(examRecords.userId, userId), eq(examRecords.paperId, parsed.data.examId)))
       .orderBy(desc(examRecords.submittedAt))
       .limit(1)
     const submitted = rows[0]
@@ -673,7 +688,12 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const qMap = new Map(questions.map((q) => [q.id, q]))
     const paper = await findPaperById(record.paperId)
     const storedAnswers =
-      (record.answers as Array<{ questionId: string; answer: unknown; isCorrect?: boolean; score?: number }> | null) ?? []
+      (record.answers as Array<{
+        questionId: string
+        answer: unknown
+        isCorrect?: boolean
+        score?: number
+      }> | null) ?? []
     const totalScore = Number(record.score ?? 0)
     const correctCount = storedAnswers.filter((a) => a.isCorrect).length
     const wrongCount = storedAnswers.filter((a) => a.isCorrect === false).length
@@ -688,7 +708,9 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       wrongCount,
       unansweredCount,
       duration: record.duration ?? 0,
-      submittedAt: record.submittedAt ? new Date(record.submittedAt).toISOString() : new Date(record.createdAt).toISOString(),
+      submittedAt: record.submittedAt
+        ? new Date(record.submittedAt).toISOString()
+        : new Date(record.createdAt).toISOString(),
       details: storedAnswers.map((a) => {
         const q = qMap.get(a.questionId)
         return {
@@ -732,7 +754,9 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // 响应: ExamResult 形状(扁平),匹配前端 api-client ExamResult
   server.post('/exam/papers/:examId/submit-answers', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const examParam = z.object({ examId: z.string().uuid({ message: '无效的试卷 ID' }) }).safeParse(request.params)
+    const examParam = z
+      .object({ examId: z.uuid({ error: '无效的试卷 ID' }) })
+      .safeParse(request.params)
     if (!examParam.success) {
       return reply.status(400).send(error(400, examParam.error.issues[0]?.message ?? '参数错误'))
     }
@@ -742,7 +766,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
           .array(
             z
               .object({
-                questionId: z.string().uuid(),
+                questionId: z.uuid(),
                 answer: z.unknown().optional(),
                 userAnswer: z.unknown().optional(),
               })
@@ -1143,7 +1167,9 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // 响应: ExamChapter[]  直接数组,匹配前端 api-client getExamChapters
   server.get('/exam/papers/:examId/chapters', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const parsed = z.object({ examId: z.string().uuid({ message: '无效的试卷 ID' }) }).safeParse(request.params)
+    const parsed = z
+      .object({ examId: z.uuid({ error: '无效的试卷 ID' }) })
+      .safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
@@ -1152,9 +1178,9 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const chapterIds = rows.map((r) => r.id)
     const sectionCountByChapter = new Map<string, number>()
     if (chapterIds.length > 0) {
-      const sections = await Promise.all(
-        chapterIds.map((cid) => findSectionList(cid)),
-      ).then((arr) => arr.flat())
+      const sections = await Promise.all(chapterIds.map((cid) => findSectionList(cid))).then(
+        (arr) => arr.flat(),
+      )
       for (const s of sections) {
         const ids = Array.isArray(s.questionIds) ? (s.questionIds as string[]) : []
         sectionCountByChapter.set(
@@ -1206,7 +1232,11 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // 响应: PageData<ExamSignUp>(list, total, page, pageSize),匹配前端 api-client getMySignUps
   server.get('/exam/composition/signup/my', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const { memberId, page = 1, pageSize = 20 } = z
+    const {
+      memberId,
+      page = 1,
+      pageSize = 20,
+    } = z
       .object({
         memberId: z.coerce.number().optional(),
         page: z.coerce.number().optional().default(1),
@@ -1215,9 +1245,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.query)
     // 从已认证用户推断 memberId
     const effectiveMemberId = memberId || Number(request.userId) || 0
-    const where = effectiveMemberId
-      ? eq(examSignUp.memberId, effectiveMemberId)
-      : sql`TRUE`
+    const where = effectiveMemberId ? eq(examSignUp.memberId, effectiveMemberId) : sql`TRUE`
     const list = await db
       .select()
       .from(examSignUp)

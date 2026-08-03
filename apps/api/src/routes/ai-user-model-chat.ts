@@ -8,7 +8,7 @@ import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -18,14 +18,25 @@ const paginationQuery = z.object({
 const createModelConfigSchema = z.object({
   name: z.string().min(1, '名称不能为空').max(64),
   vendor: z.enum([
-    'openai', 'anthropic', 'google', 'azure', 'custom',
+    'openai',
+    'anthropic',
+    'google',
+    'azure',
+    'custom',
     // 2026-07-22 新增免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
-    'cloudflare_workers_ai', 'nvidia_nim', 'github_models',
-    'vercel_ai_gateway', 'opencode_zen', 'modal', 'inferencenet',
-    'nlpcloud', 'scaleway', 'alibaba_intl',
+    'cloudflare_workers_ai',
+    'nvidia_nim',
+    'github_models',
+    'vercel_ai_gateway',
+    'opencode_zen',
+    'modal',
+    'inferencenet',
+    'nlpcloud',
+    'scaleway',
+    'alibaba_intl',
   ]),
   modelId: z.string().min(1, '模型 ID 不能为空').max(128),
-  baseUrl: z.string().url({ message: 'baseUrl 必须为合法 URL' }).optional(),
+  baseUrl: z.url({ error: 'baseUrl 必须为合法 URL' }).optional(),
   apiKey: z.string().min(1, 'apiKey 不能为空').max(256),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().min(1).max(128000).optional(),
@@ -34,7 +45,7 @@ const createModelConfigSchema = z.object({
 const updateModelConfigSchema = z.object({
   name: z.string().min(1).max(64).optional(),
   modelId: z.string().min(1).max(128).optional(),
-  baseUrl: z.string().url().optional(),
+  baseUrl: z.url().optional(),
   apiKey: z.string().min(1).max(256).optional(),
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().min(1).max(128000).optional(),
@@ -42,7 +53,7 @@ const updateModelConfigSchema = z.object({
 })
 
 const chatSchema = z.object({
-  configId: z.string().uuid({ message: '请指定模型配置 ID' }),
+  configId: z.uuid({ error: '请指定模型配置 ID' }),
   messages: z
     .array(
       z.object({
@@ -68,7 +79,7 @@ const chatSchemaFrontend = z.union([
       conversationId: z.string().optional(),
       temperature: z.number().min(0).max(2).optional(),
       maxTokens: z.number().int().min(1).max(128000).optional(),
-      configId: z.string().uuid({ message: '请指定模型配置 ID' }),
+      configId: z.uuid({ error: '请指定模型配置 ID' }),
     })
     .transform((v) => ({
       configId: v.configId,

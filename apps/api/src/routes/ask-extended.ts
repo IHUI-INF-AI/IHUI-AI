@@ -13,12 +13,12 @@ import {
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
-const uuidParamSchema = z.object({ id: z.string().uuid() })
-const answerParamSchema = z.object({ id: z.string().uuid() })
+const uuidParamSchema = z.object({ id: z.uuid() })
+const answerParamSchema = z.object({ id: z.uuid() })
 
 const categoryCreateSchema = z.object({
   name: z.string().min(1).max(100),
-  pid: z.string().uuid().optional(),
+  pid: z.uuid().optional(),
   sortOrder: z.number().int().default(0),
   isShow: z.boolean().default(true),
   isShowIndex: z.boolean().default(false),
@@ -30,7 +30,7 @@ const categoryUpdateSchema = categoryCreateSchema.partial()
 
 const commentCreateSchema = z.object({
   content: z.string().min(1).max(10000),
-  pid: z.string().uuid().optional(),
+  pid: z.uuid().optional(),
 })
 
 /**

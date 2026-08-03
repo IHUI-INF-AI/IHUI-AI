@@ -25,12 +25,12 @@ const createClawdbotBotSchema = z.object({
 const updateClawdbotBotSchema = createClawdbotBotSchema.partial()
 
 const bulkUpdateClawdbotBotsSchema = z.object({
-  bots: z.array(updateClawdbotBotSchema.extend({ id: z.string().uuid() })).max(500),
+  bots: z.array(updateClawdbotBotSchema.extend({ id: z.uuid() })).max(500),
 })
 
 const createClawdbotPermissionSchema = z.object({
-  botId: z.string().uuid(),
-  userId: z.string().uuid().optional(),
+  botId: z.uuid(),
+  userId: z.uuid().optional(),
   role: z.string().max(50).optional(),
   permissions: z.array(z.string()).max(100).optional(),
 })
@@ -38,8 +38,8 @@ const createClawdbotPermissionSchema = z.object({
 const clawdbotPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  botId: z.string().uuid().optional(),
-  userId: z.string().uuid().optional(),
+  botId: z.uuid().optional(),
+  userId: z.uuid().optional(),
   status: z.string().max(20).optional(),
 })
 

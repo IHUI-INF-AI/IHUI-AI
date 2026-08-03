@@ -10,7 +10,7 @@ const articlesQuerySchema = z.object({
   categoryId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid({ message: '无效的分类 ID' }),
+      z.uuid({ error: '无效的分类 ID' }),
     )
     .optional(),
   search: z.string().max(200).optional(),

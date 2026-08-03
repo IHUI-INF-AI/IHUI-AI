@@ -54,7 +54,7 @@ const logsQuerySchema = paginationSchema.extend({
   model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
   /** API Key 筛选(仅当前用户名下的 Key)*/
-  apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** 渠道筛选,精确匹配 provider_code */
   provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   /** 客户端 IP 筛选,支持 LIKE 通配符(如 '192.168.%')*/
@@ -90,7 +90,7 @@ const redeemBodySchema = z.object({
   /** 兑换码(IHUI-XXXX-XXXX-XXXX,自动 normalize 去空格/转大写) */
   code: z.string().min(1, '兑换码不能为空').max(64),
   /** 可选:指定充值到哪个 API Key;未传则用用户最新 active Key */
-  apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 // --- P0-7 安全字段 schema 片段(创建/更新共用)---
@@ -132,7 +132,7 @@ const couponClaimBodySchema = z.object({
   /** 券码(IHUI-COUPON-XXXXXXXXXXXX,自动 normalize 去空格/转大写) */
   code: z.string().min(1, '券码不能为空').max(64),
   /** 裂变券专属:分享人的 user_coupon.id(通过分享链接领取时传入) */
-  referrerUserCouponId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  referrerUserCouponId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 const developerRelayRoutes: FastifyPluginAsync = async (server) => {
@@ -480,7 +480,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
 
   const createMappingBodySchema = z.object({
     /** 指定则创建 Key 级映射,不指定则创建用户级映射(userId 自动取当前用户) */
-    apiKeyId: z.string().uuid().nullable().optional(),
+    apiKeyId: z.uuid().nullable().optional(),
     sourceModel: z.string().min(1, 'source_model 不能为空').max(128),
     targetModel: z.string().min(1, 'target_model 不能为空').max(128),
     priority: z.number().int().optional(),

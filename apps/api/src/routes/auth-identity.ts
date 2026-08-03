@@ -29,7 +29,7 @@ const listQuerySchema = z.object({
 })
 
 const userUuidParamSchema = z.object({
-  userUuid: z.string().uuid({ message: '无效的用户 ID' }),
+  userUuid: z.uuid({ error: '无效的用户 ID' }),
 })
 
 const auditBodySchema = z.object({

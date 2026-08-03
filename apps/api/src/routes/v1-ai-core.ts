@@ -102,7 +102,7 @@ const createUserModelSchema = z.object({
   provider: z.string().min(1).max(64),
   model: z.string().min(1).max(128),
   apiKey: z.string().min(1).max(256),
-  baseUrl: z.string().url().optional(),
+  baseUrl: z.url().optional(),
 })
 
 const updateUserModelSchema = z.object({
@@ -110,7 +110,7 @@ const updateUserModelSchema = z.object({
   provider: z.string().min(1).max(64).optional(),
   model: z.string().min(1).max(128).optional(),
   apiKey: z.string().min(1).max(256).optional(),
-  baseUrl: z.string().url().optional(),
+  baseUrl: z.url().optional(),
 })
 
 const agentExecuteSchema = z.object({
@@ -268,7 +268,12 @@ function deriveModelCapabilities(modelName: string): string[] {
   if (/^claude-3/.test(name) || /^claude-4/.test(name)) {
     caps.push('vision', 'tools')
   }
-  if (/^o[134]-/.test(name) || name.startsWith('o1') || name.startsWith('o3') || name.startsWith('o4')) {
+  if (
+    /^o[134]-/.test(name) ||
+    name.startsWith('o1') ||
+    name.startsWith('o3') ||
+    name.startsWith('o4')
+  ) {
     caps.push('reasoning', 'tools')
   }
   if (name.startsWith('gemini-')) {
@@ -294,10 +299,10 @@ const CONTEXT_WINDOW_MAP: Record<string, number> = {
   'claude-3-sonnet': 200000,
   'claude-3-haiku': 200000,
   'claude-4-opus': 200000,
-  'o1': 200000,
+  o1: 200000,
   'o1-mini': 128000,
   'o1-preview': 128000,
-  'o3': 200000,
+  o3: 200000,
   'o3-mini': 200000,
   'o4-mini': 200000,
   'gemini-1.5-pro': 2000000,
@@ -464,11 +469,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('chat:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = chatVisionSchema.safeParse(request.body)
@@ -547,11 +548,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('chat:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = chatMoaSchema.safeParse(request.body)
@@ -564,12 +561,14 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         // ai-service /api/llm/moa-complete 暂不支持 stream(2026-07-22):
         // 显式拒绝并返回 400 + stream_supported=false,避免默默降级为非流式误导客户端。
         // 建议客户端改用 POST /v1/chat/completions(stream=true)获取流式响应。
-        return reply.status(400).send(
-          error(
-            400,
-            'stream=true is not supported by /v1/chat/moa (stream_supported=false). Use stream=false, or fall back to POST /v1/chat/completions with stream=true.',
-          ),
-        )
+        return reply
+          .status(400)
+          .send(
+            error(
+              400,
+              'stream=true is not supported by /v1/chat/moa (stream_supported=false). Use stream=false, or fall back to POST /v1/chat/completions with stream=true.',
+            ),
+          )
       }
 
       // 转发到 ai-service /api/llm/moa-complete(snake_case preset_name)
@@ -639,11 +638,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       try {
@@ -667,7 +662,10 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         const mapped = presets.map((p) => {
           const po = (p ?? {}) as Record<string, unknown>
           return {
-            id: (typeof po.id === 'string' && po.id) || (typeof po.name === 'string' && po.name) || '',
+            id:
+              (typeof po.id === 'string' && po.id) ||
+              (typeof po.name === 'string' && po.name) ||
+              '',
             name: (typeof po.name === 'string' && po.name) || '',
             models: Array.isArray(po.models) ? (po.models as string[]) : [],
             strategy: (typeof po.strategy === 'string' && po.strategy) || 'moa',
@@ -716,11 +714,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       }
       const { name, models, strategy } = parsed.data as V1CreateMoaPresetRequest
       // 转发到 ai-service /api/llm/moa-presets
-      return forwardAiService(
-        reply,
-        '/api/llm/moa-presets',
-        jsonInit({ name, models, strategy }),
-      )
+      return forwardAiService(reply, '/api/llm/moa-presets', jsonInit({ name, models, strategy }))
     },
   )
 
@@ -754,11 +748,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -811,11 +801,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { vendor } = request.params as { vendor: string }
@@ -873,11 +859,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1116,9 +1098,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       if (!existing) return reply.status(404).send(error(404, 'Model config not found'))
       if (existing.userId !== userId) return reply.status(403).send(error(403, 'Forbidden'))
 
-      await db
-        .delete(zhsAiUserModelChatConfig)
-        .where(eq(zhsAiUserModelChatConfig.id, id))
+      await db.delete(zhsAiUserModelChatConfig).where(eq(zhsAiUserModelChatConfig.id, id))
       return reply.status(204).send()
     },
   )
@@ -1159,11 +1139,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentExecuteSchema.safeParse(request.body)
@@ -1183,10 +1159,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       if (maxIterations) body.max_iterations = maxIterations
 
       try {
-        const resp = await fetch(
-          `${config.AI_SERVICE_URL}/api/agents/execute`,
-          jsonInit(body),
-        )
+        const resp = await fetch(`${config.AI_SERVICE_URL}/api/agents/execute`, jsonInit(body))
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -1246,11 +1219,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentExecuteSchema.safeParse(request.body)
@@ -1366,11 +1335,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -1427,19 +1392,11 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
-      return forwardAiService(
-        reply,
-        `/api/agents/${encodeURIComponent(id)}/cancel`,
-        jsonInit({}),
-      )
+      return forwardAiService(reply, `/api/agents/${encodeURIComponent(id)}/cancel`, jsonInit({}))
     },
   )
 
@@ -1475,11 +1432,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       try {
@@ -1502,12 +1455,27 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         const mapped = sessions.map((s) => {
           const so = (s ?? {}) as Record<string, unknown>
           return {
-            id: (typeof so.id === 'string' && so.id) || (typeof so.session_id === 'string' && so.session_id) || '',
-            agentId: (typeof so.agent_id === 'string' && so.agent_id) || (typeof so.agentId === 'string' && so.agentId) || '',
+            id:
+              (typeof so.id === 'string' && so.id) ||
+              (typeof so.session_id === 'string' && so.session_id) ||
+              '',
+            agentId:
+              (typeof so.agent_id === 'string' && so.agent_id) ||
+              (typeof so.agentId === 'string' && so.agentId) ||
+              '',
             title: (typeof so.title === 'string' && so.title) || '',
-            messageCount: (typeof so.message_count === 'number' && so.message_count) || (typeof so.messageCount === 'number' && so.messageCount) || 0,
-            lastMessageAt: (typeof so.last_message_at === 'string' && so.last_message_at) || (typeof so.lastMessageAt === 'string' && so.lastMessageAt) || new Date().toISOString(),
-            createdAt: (typeof so.created_at === 'string' && so.created_at) || (typeof so.createdAt === 'string' && so.createdAt) || new Date().toISOString(),
+            messageCount:
+              (typeof so.message_count === 'number' && so.message_count) ||
+              (typeof so.messageCount === 'number' && so.messageCount) ||
+              0,
+            lastMessageAt:
+              (typeof so.last_message_at === 'string' && so.last_message_at) ||
+              (typeof so.lastMessageAt === 'string' && so.lastMessageAt) ||
+              new Date().toISOString(),
+            createdAt:
+              (typeof so.created_at === 'string' && so.created_at) ||
+              (typeof so.createdAt === 'string' && so.createdAt) ||
+              new Date().toISOString(),
           }
         })
         const result: V1AgentSessionsResponse = { object: 'list', data: mapped }
@@ -1537,11 +1505,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -1605,11 +1569,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentPipelineSchema.safeParse(request.body)
@@ -1639,7 +1599,12 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         }
         const data = (await resp.json()) as {
           pipeline_id?: string
-          results?: Array<{ step_index?: number; stepIndex?: number; status?: string; output?: string }>
+          results?: Array<{
+            step_index?: number
+            stepIndex?: number
+            status?: string
+            output?: string
+          }>
           error?: boolean
           error_message?: string
         }
@@ -1699,11 +1664,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentParallelSchema.safeParse(request.body)
@@ -1764,19 +1725,11 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('agents:call'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       // 转发到 ai-service /api/v1/ai/agent/decompose(透传 body)
-      return forwardAiService(
-        reply,
-        '/api/v1/ai/agent/decompose',
-        jsonInit(request.body ?? {}),
-      )
+      return forwardAiService(reply, '/api/v1/ai/agent/decompose', jsonInit(request.body ?? {}))
     },
   )
 }

@@ -93,7 +93,7 @@ const updateConfigBodySchema = z
   )
 
 const uuidParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
 })
 
 const integrationProviderSchema = z.enum([
@@ -134,7 +134,7 @@ const updateIntegrationBodySchema = z
   )
 
 const listLogsQuerySchema = paginationSchema.extend({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   statusCode: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
   path: z.preprocess(emptyToUndefined, z.string().optional()),
 })
@@ -155,7 +155,7 @@ const createEventBodySchema = z.object({
 })
 
 const eventIdParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的事件 ID' }),
+  id: z.uuid({ error: '无效的事件 ID' }),
 })
 
 const updateEventBodySchema = z.object({

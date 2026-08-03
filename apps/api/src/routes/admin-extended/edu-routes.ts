@@ -19,31 +19,27 @@ import { idParamSchema } from './_shared.js'
 
 /** P0-3 修复:edu_announcements 批量更新 schema。 */
 const updateAnnouncementsSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(500),
-  patch: z
-    .object({
-      isPublished: z.boolean().optional(),
-      isTop: z.boolean().optional(),
-      sort: z.number().int().optional(),
-      status: z.number().int().min(0).max(1).optional(),
-    })
-    .strict(),
+  ids: z.array(z.uuid()).min(1).max(500),
+  patch: z.strictObject({
+    isPublished: z.boolean().optional(),
+    isTop: z.boolean().optional(),
+    sort: z.number().int().optional(),
+    status: z.number().int().min(0).max(1).optional(),
+  }),
 })
 
 /** P0-3 修复:certificate_templates 批量更新 schema。 */
 const updateCertificateTemplatesSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(500),
-  patch: z
-    .object({
-      status: z.number().int().min(0).max(1).optional(),
-      awardingOrganization: z.string().max(500).optional(),
-    })
-    .strict(),
+  ids: z.array(z.uuid()).min(1).max(500),
+  patch: z.strictObject({
+    status: z.number().int().min(0).max(1).optional(),
+    awardingOrganization: z.string().max(500).optional(),
+  }),
 })
 
 /** P0-3 修复:edu_classes_members 添加成员 schema。 */
 const addClassMemberSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
   role: z.enum(['student', 'assistant', 'teacher']).default('student'),
 })
 
@@ -101,7 +97,7 @@ export const eduRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       // Fastify 路径中两个同名 :id,request.params.id 指向最后一个(memberId uuid)
-      const memberId = parseOrThrow(z.object({ id: z.string().uuid() }), request.params).id
+      const memberId = parseOrThrow(z.object({ id: z.uuid() }), request.params).id
       const [row] = await db
         .delete(eduClassesMembers)
         .where(eq(eduClassesMembers.id, memberId))

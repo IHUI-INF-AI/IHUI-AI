@@ -257,7 +257,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
   const specWatchStartSchema = z.object({
     scope: specScopeSchema.default({ type: 'workspace' }),
     workspacePath: z.string().min(1),
-    webhookUrl: z.string().url().optional(),
+    webhookUrl: z.url().optional(),
   })
 
   server.post('/spec/watch/start', async (request, reply) => {
@@ -462,25 +462,19 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
   server.post('/spec/full-pipeline', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply
-      .code(501)
-      .send(error(501, '未实装:spec /full-pipeline 尚未实装'))
+    return reply.code(501).send(error(501, '未实装:spec /full-pipeline 尚未实装'))
   })
 
   server.post('/spec/pipeline-rollback', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply
-      .code(501)
-      .send(error(501, '未实装:spec /pipeline-rollback 尚未实装'))
+    return reply.code(501).send(error(501, '未实装:spec /pipeline-rollback 尚未实装'))
   })
 
   server.post('/spec/impact-analysis', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply
-      .code(501)
-      .send(error(501, '未实装:spec /impact-analysis 尚未实装'))
+    return reply.code(501).send(error(501, '未实装:spec /impact-analysis 尚未实装'))
   })
 
   server.post('/spec/branch', async (request, reply) => {
@@ -492,25 +486,19 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
   server.post('/spec/branch/merge', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply
-      .code(501)
-      .send(error(501, '未实装:spec /branch/merge 尚未实装'))
+    return reply.code(501).send(error(501, '未实装:spec /branch/merge 尚未实装'))
   })
 
   server.post('/spec/branch/abandon', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply
-      .code(501)
-      .send(error(501, '未实装:spec /branch/abandon 尚未实装'))
+    return reply.code(501).send(error(501, '未实装:spec /branch/abandon 尚未实装'))
   })
 
   server.post('/spec/generate-from-requirement', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply
-      .code(501)
-      .send(error(501, '未实装:spec /generate-from-requirement 尚未实装'))
+    return reply.code(501).send(error(501, '未实装:spec /generate-from-requirement 尚未实装'))
   })
 }
 

@@ -25,7 +25,7 @@ import { retryPendingWebhooks } from '../../services/webhook-relay-notifier.js'
 
 const subscriptionsQuerySchema = paginationSchema.extend({
   /** 按用户筛选 */
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** 按启用状态筛选 */
   enabled: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).optional()),
 })
@@ -37,7 +37,7 @@ const logsQuerySchema = paginationSchema.extend({
     z.enum(['pending', 'success', 'failed', 'retrying']).optional(),
   ),
   /** 按订阅筛选 */
-  subscriptionId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  subscriptionId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 /** select 字段列表(排除 secret) */

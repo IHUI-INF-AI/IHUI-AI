@@ -93,49 +93,57 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /recharge - P0-1 修复:不直接加余额,只创建订单号返回
   // 余额增加只能通过 payment-gateway.ts 支付回调调 rechargeToken(带幂等保护)
-  server.post('/recharge', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = rechargeSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    // P0-21 集成:校验最低充值额(按支付方式,阶梯折扣配置)
-    const validation = await validateTopupAmount(parsed.data.amount, parsed.data.payMethod)
-    if (!validation.valid) {
-      return reply.status(400).send(error(400, validation.reason ?? '充值金额校验失败'))
-    }
-    const orderNo = generateOrderNumber('RC')
-    // 不 update userMargins,不 insert tokenFlows!余额增加只能走支付回调
-    return reply.status(201).send(success({ orderNo, payUrl: undefined }))
-  })
+  server.post(
+    '/recharge',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = rechargeSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      // P0-21 集成:校验最低充值额(按支付方式,阶梯折扣配置)
+      const validation = await validateTopupAmount(parsed.data.amount, parsed.data.payMethod)
+      if (!validation.valid) {
+        return reply.status(400).send(error(400, validation.reason ?? '充值金额校验失败'))
+      }
+      const orderNo = generateOrderNumber('RC')
+      // 不 update userMargins,不 insert tokenFlows!余额增加只能走支付回调
+      return reply.status(201).send(success({ orderNo, payUrl: undefined }))
+    },
+  )
 
   // POST /withdraw - P0 死锁修复(2026-08-02 Bug A4):原实现只 frozen += amount,
   // 不扣 token,不写 withdrawalFlows,资金永久冻结(用户无法提现也无法消费)。
   // 改为代理调用 applyWithdrawal,它在事务内原子执行:
   //   token -= actualAmount, frozen += actualAmount, INSERT withdrawalFlows
   // 这样资金链路完整,后续审批/驳回/回调能正确流转。
-  server.post('/withdraw', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const userId = request.userId!
-    const parsed = withdrawSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { amount, account, accountType } = parsed.data
-    try {
-      const flow = await applyWithdrawal(
-        {
+  server.post(
+    '/withdraw',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const userId = request.userId!
+      const parsed = withdrawSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { amount, account, accountType } = parsed.data
+      try {
+        const flow = await applyWithdrawal(
+          {
+            userId,
+            amount,
+            method: accountType,
+            accountInfo: { accountType, account },
+          },
           userId,
-          amount,
-          method: accountType,
-          accountInfo: { accountType, account },
-        },
-        userId,
-      )
-      return reply.status(201).send(success(flow))
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-      return reply.status(statusCode).send(error(statusCode, (e as Error).message))
-    }
-  })
+        )
+        return reply.status(201).send(success(flow))
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+      }
+    },
+  )
 
   // GET /withdraw/records
   server.get('/withdraw/records', async (request, reply) => {
@@ -229,7 +237,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
 const adminFlowsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.string().uuid().optional(),
+  userId: z.uuid().optional(),
   opType: z.coerce.number().int().min(0).max(5).optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
@@ -237,7 +245,7 @@ const adminFlowsQuerySchema = z.object({
 })
 
 const adjustSchema = z.object({
-  userId: z.string().uuid({ message: '用户 ID 格式错误' }),
+  userId: z.uuid({ error: '用户 ID 格式错误' }),
   amount: z
     .number()
     .int()
@@ -396,94 +404,98 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /adjust — 管理员调整余额(事务:查余额 → 更新 → 记流水 → 审计)
-  server.post('/adjust', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = adjustSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { userId, amount, opType, remark } = parsed.data
-    const operatorId = request.userId!
+  server.post(
+    '/adjust',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = adjustSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { userId, amount, opType, remark } = parsed.data
+      const operatorId = request.userId!
 
-    try {
-      const result = await db.transaction(async (tx) => {
-        // P0 并发竞态修复(2026-08-01):原 read-then-write(SELECT balance → 计算 → UPDATE)
-        // 两个管理员并发调整同一用户会丢失更新。改为原子 UPDATE + WHERE 校验,
-        // 对正数调整无约束,对负数调整校验调整后余额 >=0;UPDATE 不命中时按"无 margin 记录"分支处理。
-        let marginRow: { tokenQuantity: number; frozenQuantity: number } | undefined
-        if (amount >= 0) {
-          // 正数调整:UPDATE 命中即成功;不命中则需创建 margin 行
-          const [updated] = await tx
-            .update(userMargins)
-            .set({ tokenQuantity: sql`token_quantity + ${amount}`, updatedAt: new Date() })
-            .where(eq(userMargins.userId, userId))
-            .returning()
-          marginRow = updated ?? undefined
-        } else {
-          // 负数调整:WHERE 子句内联 `token_quantity + amount >= 0`,余额不足时不命中
-          const [updated] = await tx
-            .update(userMargins)
-            .set({ tokenQuantity: sql`token_quantity + ${amount}`, updatedAt: new Date() })
-            .where(and(eq(userMargins.userId, userId), sql`token_quantity + ${amount} >= 0`))
-            .returning()
-          if (!updated) {
-            // 不命中:要么无 margin 行,要么余额不足
-            const [existing] = await tx
-              .select()
-              .from(userMargins)
+      try {
+        const result = await db.transaction(async (tx) => {
+          // P0 并发竞态修复(2026-08-01):原 read-then-write(SELECT balance → 计算 → UPDATE)
+          // 两个管理员并发调整同一用户会丢失更新。改为原子 UPDATE + WHERE 校验,
+          // 对正数调整无约束,对负数调整校验调整后余额 >=0;UPDATE 不命中时按"无 margin 记录"分支处理。
+          let marginRow: { tokenQuantity: number; frozenQuantity: number } | undefined
+          if (amount >= 0) {
+            // 正数调整:UPDATE 命中即成功;不命中则需创建 margin 行
+            const [updated] = await tx
+              .update(userMargins)
+              .set({ tokenQuantity: sql`token_quantity + ${amount}`, updatedAt: new Date() })
               .where(eq(userMargins.userId, userId))
-              .limit(1)
-            if (existing) {
+              .returning()
+            marginRow = updated ?? undefined
+          } else {
+            // 负数调整:WHERE 子句内联 `token_quantity + amount >= 0`,余额不足时不命中
+            const [updated] = await tx
+              .update(userMargins)
+              .set({ tokenQuantity: sql`token_quantity + ${amount}`, updatedAt: new Date() })
+              .where(and(eq(userMargins.userId, userId), sql`token_quantity + ${amount} >= 0`))
+              .returning()
+            if (!updated) {
+              // 不命中:要么无 margin 行,要么余额不足
+              const [existing] = await tx
+                .select()
+                .from(userMargins)
+                .where(eq(userMargins.userId, userId))
+                .limit(1)
+              if (existing) {
+                throw Object.assign(new Error('调整后余额不能为负数'), { statusCode: 400 })
+              }
+              // 无 margin 行 + 负数调整:余额为 0,新余额 = amount < 0,拒绝
               throw Object.assign(new Error('调整后余额不能为负数'), { statusCode: 400 })
             }
-            // 无 margin 行 + 负数调整:余额为 0,新余额 = amount < 0,拒绝
-            throw Object.assign(new Error('调整后余额不能为负数'), { statusCode: 400 })
+            marginRow = updated
           }
-          marginRow = updated
-        }
-        // balanceAfter:marginRow 存在时是其更新后的 tokenQuantity;
-        // marginRow 不存在(amount>=0 且首次调整)时新余额 = amount
-        const newBalance = marginRow?.tokenQuantity ?? amount
-        const flowValues = {
-          userId,
-          opType,
-          quantity: amount,
-          balanceAfter: newBalance,
-          remark: remark ?? `管理员调整 ${amount > 0 ? '+' : ''}${amount}`,
-          operatorId,
-        }
-        if (marginRow) {
+          // balanceAfter:marginRow 存在时是其更新后的 tokenQuantity;
+          // marginRow 不存在(amount>=0 且首次调整)时新余额 = amount
+          const newBalance = marginRow?.tokenQuantity ?? amount
+          const flowValues = {
+            userId,
+            opType,
+            quantity: amount,
+            balanceAfter: newBalance,
+            remark: remark ?? `管理员调整 ${amount > 0 ? '+' : ''}${amount}`,
+            operatorId,
+          }
+          if (marginRow) {
+            const [flow] = await tx.insert(tokenFlows).values(flowValues).returning()
+            return { margin: marginRow, flow: flow! }
+          }
+          // amount >= 0 且 margin 不存在:创建 margin 行
+          const [created] = await tx
+            .insert(userMargins)
+            .values({ userId, tokenQuantity: amount, frozenQuantity: 0 })
+            .returning()
           const [flow] = await tx.insert(tokenFlows).values(flowValues).returning()
-          return { margin: marginRow, flow: flow! }
-        }
-        // amount >= 0 且 margin 不存在:创建 margin 行
-        const [created] = await tx
-          .insert(userMargins)
-          .values({ userId, tokenQuantity: amount, frozenQuantity: 0 })
-          .returning()
-        const [flow] = await tx.insert(tokenFlows).values(flowValues).returning()
-        return { margin: created!, flow: flow! }
-      })
+          return { margin: created!, flow: flow! }
+        })
 
-      await logAction({
-        userId: operatorId,
-        action: 'wallet.admin_adjust',
-        resourceType: 'wallet',
-        resourceId: userId,
-        details: {
-          targetUserId: userId,
-          amount,
-          opType,
-          remark,
-          balanceAfter: result.flow.balanceAfter,
-        },
-      })
+        await logAction({
+          userId: operatorId,
+          action: 'wallet.admin_adjust',
+          resourceType: 'wallet',
+          resourceId: userId,
+          details: {
+            targetUserId: userId,
+            amount,
+            opType,
+            remark,
+            balanceAfter: result.flow.balanceAfter,
+          },
+        })
 
-      return reply.status(201).send(success(result))
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-      return reply.status(statusCode).send(error(statusCode, (e as Error).message))
-    }
-  })
+        return reply.status(201).send(success(result))
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+      }
+    },
+  )
 }
 
 export default walletRoutes

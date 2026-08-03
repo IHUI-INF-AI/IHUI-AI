@@ -25,14 +25,11 @@ import {
 
 const recordsQuerySchema = paginationSchema.extend({
   /** 被邀请人(消费方)筛选 */
-  sourceUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  sourceUserId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** 邀请人(收益方)筛选 */
-  beneficiaryUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  beneficiaryUserId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** 状态筛选:frozen/released/expired */
-  status: z.preprocess(
-    emptyToUndefined,
-    z.enum(['frozen', 'released', 'expired']).optional(),
-  ),
+  status: z.preprocess(emptyToUndefined, z.enum(['frozen', 'released', 'expired']).optional()),
 })
 
 const settingsBodySchema = z
@@ -122,9 +119,7 @@ const adminRelayCommissionRoutes: FastifyPluginAsync = async (server) => {
   server.patch('/relay-commission/settings', async (request, reply) => {
     const parsed = settingsBodySchema.safeParse(request.body ?? {})
     if (!parsed.success) {
-      return reply
-        .status(400)
-        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))

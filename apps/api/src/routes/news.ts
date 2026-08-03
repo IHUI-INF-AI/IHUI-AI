@@ -37,7 +37,7 @@ import { success, error } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const articlesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -45,7 +45,7 @@ const articlesQuerySchema = z.object({
   categoryId: z
     .preprocess(
       (v) => (v === '' || v === null || v === undefined ? undefined : v),
-      z.string().uuid({ message: '无效的分类 ID' }),
+      z.uuid({ error: '无效的分类 ID' }),
     )
     .optional(),
   search: z.string().max(200).optional(),
@@ -66,7 +66,7 @@ const updateCategorySchema = z.object({
 
 const createArticleSchema = z.object({
   title: z.string().min(1).max(200),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   summary: z.string().max(500).nullable().optional(),
   content: z.string().min(1),
   coverImage: z.string().max(512).nullable().optional(),
@@ -79,7 +79,7 @@ const createArticleSchema = z.object({
 
 const updateArticleSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   summary: z.string().max(500).nullable().optional(),
   content: z.string().min(1).optional(),
   coverImage: z.string().max(512).nullable().optional(),
@@ -176,9 +176,21 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     // 排序:置顶优先 → 推荐次之 → 最新发布
     const ordered: string[] = []
     const seen = new Set<string>()
-    for (const t of tops) if (!seen.has(t.newsId)) { ordered.push(t.newsId); seen.add(t.newsId) }
-    for (const r of recs) if (!seen.has(r.newsId)) { ordered.push(r.newsId); seen.add(r.newsId) }
-    for (const a of latest.list) if (!seen.has(a.id)) { ordered.push(a.id); seen.add(a.id) }
+    for (const t of tops)
+      if (!seen.has(t.newsId)) {
+        ordered.push(t.newsId)
+        seen.add(t.newsId)
+      }
+    for (const r of recs)
+      if (!seen.has(r.newsId)) {
+        ordered.push(r.newsId)
+        seen.add(r.newsId)
+      }
+    for (const a of latest.list)
+      if (!seen.has(a.id)) {
+        ordered.push(a.id)
+        seen.add(a.id)
+      }
 
     const items = ordered
       .slice(0, limit)
@@ -238,7 +250,10 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
 
     // 2. fallback:同分类无结果 → 推荐位文章(排除当前 id)
     const recs = await findNewsRecommendList()
-    const recIds = recs.map((r) => r.newsId).filter((rid) => rid !== id).slice(0, 5)
+    const recIds = recs
+      .map((r) => r.newsId)
+      .filter((rid) => rid !== id)
+      .slice(0, 5)
     if (recIds.length > 0) {
       const list = await findArticlesByIds(recIds)
       return reply.send(success({ list }))

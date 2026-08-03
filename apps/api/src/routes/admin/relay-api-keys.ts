@@ -23,11 +23,11 @@ import { generateApiKey, hashSecret } from '../../utils/api-key-hash.js'
 
 const listQuerySchema = paginationSchema.extend({
   /** 按用户 ID 筛选 */
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** 按状态筛选:active / revoked */
   status: z.preprocess(emptyToUndefined, z.enum(['active', 'revoked']).optional()),
   /** 按租户 ID 筛选(多租户,2026-07-31 立) */
-  tenantId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  tenantId: z.preprocess(emptyToUndefined, z.uuid().optional()),
 })
 
 /** 管理员更新 body(所有字段可选,可强制设过期/限制/状态) */
@@ -48,10 +48,10 @@ const adminUpdateBodySchema = z.object({
 
 /** 管理员创建 API Key body(支持关联 tenant_id,2026-07-31 立) */
 const createBodySchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
   name: z.string().min(1).max(100),
   /** 关联租户 ID(可选,不传则为个人 Key) */
-  tenantId: z.string().uuid().nullable().optional(),
+  tenantId: z.uuid().nullable().optional(),
   permissions: z.array(z.string()).optional(),
   rateLimit: z.number().int().min(1).max(10000).optional(),
   // --- P0-7 安全粒度字段 ---

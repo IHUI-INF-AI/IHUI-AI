@@ -103,7 +103,7 @@ export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) =>
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        categoryId: z.string().uuid().optional(),
+        categoryId: z.uuid().optional(),
       })
       .parse(request.query ?? {})
     const conditions = [eq(lessons.isPublished, true), eq(lessons.status, 1)]
