@@ -90,7 +90,7 @@ export function OperationLogsTable({
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.id}</td>
                   <td className="px-4 py-2.5 font-medium">{l.title}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {BIZ_TYPE[l.businessType] ? t(BIZ_TYPE[l.businessType]) : '-'}
+                    {BIZ_TYPE[l.businessType] ? t(BIZ_TYPE[l.businessType]!) : '-'}
                   </td>
                   <td className="px-4 py-2.5">{l.operName}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{l.requestMethod}</td>
