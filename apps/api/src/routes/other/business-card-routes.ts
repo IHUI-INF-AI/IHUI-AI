@@ -48,7 +48,7 @@ const businessCardCreateSchema = z.object({
 })
 
 const batchDeleteSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1, '至少选择一条').max(100, '单次最多 100 条'),
+  ids: z.array(z.uuid()).min(1, '至少选择一条').max(100, '单次最多 100 条'),
 })
 
 // ===== 防滥用配置 =====
@@ -91,9 +91,7 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
       dbRead
         .select({ count: sql<number>`count(*)::int` })
         .from(businessCards)
-        .where(
-          and(eq(businessCards.isPublic, true), gte(businessCards.createdAt, todayStart)),
-        ),
+        .where(and(eq(businessCards.isPublic, true), gte(businessCards.createdAt, todayStart))),
       dbRead
         .select({
           id: businessCards.id,
@@ -130,9 +128,7 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
     const conds = [eq(businessCards.isPublic, true)]
     if (q.search) {
       const like = `%${q.search}%`
-      conds.push(
-        or(ilike(businessCards.name, like), ilike(businessCards.company, like))!,
-      )
+      conds.push(or(ilike(businessCards.name, like), ilike(businessCards.company, like))!)
     }
     const where = and(...conds)
     const [list, totalRows] = await Promise.all([
@@ -355,9 +351,7 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
         resourceType: 'business_card',
         details: { todayCount, limit: DAILY_CREATE_LIMIT },
       })
-      return reply
-        .status(429)
-        .send(error(429, `每日创建上限 ${DAILY_CREATE_LIMIT} 张,请明日再试`))
+      return reply.status(429).send(error(429, `每日创建上限 ${DAILY_CREATE_LIMIT} 张,请明日再试`))
     }
     const [created] = await db
       .insert(businessCards)

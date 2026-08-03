@@ -76,7 +76,7 @@ const updateSettingBodySchema = z
     { message: '至少需提供一个可更新字段' },
   )
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const renameGroupBodySchema = z.object({
   newGroup: z.string().min(1).max(64),

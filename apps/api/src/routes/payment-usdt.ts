@@ -59,7 +59,7 @@ const callbackBodySchema = z.object({
 const adminOrdersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.string().optional()),
   network: z.preprocess(emptyToUndefined, z.string().optional()),
 })
@@ -81,149 +81,167 @@ const configPatchSchema = z
 
 const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. POST /payment/usdt/create — 用户创建充值订单 =====
-  server.post('/payment/usdt/create', { preHandler: requireAuth, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+  server.post(
+    '/payment/usdt/create',
+    { preHandler: requireAuth, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
 
-    const parsed = createBodySchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
+      const parsed = createBodySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    try {
-      const result = await createUsdtPayment(userId, parsed.data.amountCents, parsed.data.network)
-      return reply.status(201).send(success(result))
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-      return reply.status(statusCode).send(error(statusCode, (e as Error).message))
-    }
-  })
+      try {
+        const result = await createUsdtPayment(userId, parsed.data.amountCents, parsed.data.network)
+        return reply.status(201).send(success(result))
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+      }
+    },
+  )
 
   // ===== 2. GET /payment/usdt/orders — 用户查询自己的订单 =====
-  server.get('/payment/usdt/orders', { preHandler: requireAuth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+  server.get(
+    '/payment/usdt/orders',
+    { preHandler: requireAuth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
 
-    const parsed = ordersQuerySchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
+      const parsed = ordersQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    try {
-      const result = await listUserUsdtPayments(userId, parsed.data.page, parsed.data.pageSize)
-      return reply.send(
-        success({
-          records: result.records,
-          total: result.total,
-          page: parsed.data.page,
-          pageSize: parsed.data.pageSize,
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '查询订单失败'))
-    }
-  })
+      try {
+        const result = await listUserUsdtPayments(userId, parsed.data.page, parsed.data.pageSize)
+        return reply.send(
+          success({
+            records: result.records,
+            total: result.total,
+            page: parsed.data.page,
+            pageSize: parsed.data.pageSize,
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '查询订单失败'))
+      }
+    },
+  )
 
   // ===== 3. GET /payment/usdt/order/:id — 查询订单详情 =====
-  server.get('/payment/usdt/order/:id', { preHandler: requireAuth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+  server.get(
+    '/payment/usdt/order/:id',
+    { preHandler: requireAuth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '未登录'))
 
-    const parsed = orderIdParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
+      const parsed = orderIdParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    try {
-      const record = await getUsdtPaymentDetail(parsed.data.id, userId)
-      if (!record) return reply.status(404).send(error(404, '订单不存在'))
-      return reply.send(success(record))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '查询订单详情失败'))
-    }
-  })
+      try {
+        const record = await getUsdtPaymentDetail(parsed.data.id, userId)
+        if (!record) return reply.status(404).send(error(404, '订单不存在'))
+        return reply.send(success(record))
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '查询订单详情失败'))
+      }
+    },
+  )
 
   // ===== 4. POST /payment/usdt/callback/:network — 区块链 webhook 回调 =====
   // 2026-08-02 P0 安全修复:强制验签(fail-closed),secret 未配置或不匹配 → 拒绝
   // TODO: 对接 TronGrid/Etherscan 官方签名方案后替换为标准验签
   const WEBHOOK_SECRET = process.env.USDT_WEBHOOK_SECRET
   if (!WEBHOOK_SECRET) {
-    server.log.error(
-      'USDT_WEBHOOK_SECRET 未设置,webhook 回调将拒绝所有请求(生产环境必须配置)',
-    )
+    server.log.error('USDT_WEBHOOK_SECRET 未设置,webhook 回调将拒绝所有请求(生产环境必须配置)')
   }
-  server.post('/payment/usdt/callback/:network', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (request, reply) => {
-    // 强制验签(fail-closed):secret 未配置或提供的 secret 不匹配 → 拒绝
-    const providedSecret = request.headers['x-webhook-secret'] as string | undefined
-    if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
-      request.log.warn(
-        {
-          hasConfig: !!WEBHOOK_SECRET,
-          hasProvided: !!providedSecret,
-        },
-        '[usdt-webhook] unauthorized callback attempt',
-      )
-      return reply.status(401).send(error(401, 'Webhook 签名校验失败'))
-    }
+  server.post(
+    '/payment/usdt/callback/:network',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      // 强制验签(fail-closed):secret 未配置或提供的 secret 不匹配 → 拒绝
+      const providedSecret = request.headers['x-webhook-secret'] as string | undefined
+      if (!WEBHOOK_SECRET || providedSecret !== WEBHOOK_SECRET) {
+        request.log.warn(
+          {
+            hasConfig: !!WEBHOOK_SECRET,
+            hasProvided: !!providedSecret,
+          },
+          '[usdt-webhook] unauthorized callback attempt',
+        )
+        return reply.status(401).send(error(401, 'Webhook 签名校验失败'))
+      }
 
-    const parsedParams = callbackParamSchema.safeParse(request.params)
-    if (!parsedParams.success) {
-      return reply.status(400).send(error(400, '不支持的网络'))
-    }
+      const parsedParams = callbackParamSchema.safeParse(request.params)
+      if (!parsedParams.success) {
+        return reply.status(400).send(error(400, '不支持的网络'))
+      }
 
-    const parsedBody = callbackBodySchema.safeParse(request.body)
-    if (!parsedBody.success) {
-      return reply.status(400).send(error(400, parsedBody.error.issues[0]?.message ?? '参数错误'))
-    }
+      const parsedBody = callbackBodySchema.safeParse(request.body)
+      if (!parsedBody.success) {
+        return reply.status(400).send(error(400, parsedBody.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    try {
-      const result = await confirmUsdtPayment(
-        parsedBody.data.orderId,
-        parsedBody.data.txHash,
-        parsedBody.data.amountPaid,
-      )
-      request.log.info(
-        { network: parsedParams.data.network, orderId: parsedBody.data.orderId, result },
-        'USDT 支付回调确认',
-      )
-      return reply.send(success(result))
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-      request.log.error(e)
-      return reply.status(statusCode).send(error(statusCode, (e as Error).message))
-    }
-  })
+      try {
+        const result = await confirmUsdtPayment(
+          parsedBody.data.orderId,
+          parsedBody.data.txHash,
+          parsedBody.data.amountPaid,
+        )
+        request.log.info(
+          { network: parsedParams.data.network, orderId: parsedBody.data.orderId, result },
+          'USDT 支付回调确认',
+        )
+        return reply.send(success(result))
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+        request.log.error(e)
+        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+      }
+    },
+  )
 
   // ===== 5. GET /admin/payment/usdt/orders — 管理员查询所有订单 =====
-  server.get('/admin/payment/usdt/orders', { preHandler: requireAdmin, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = adminOrdersQuerySchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
+  server.get(
+    '/admin/payment/usdt/orders',
+    { preHandler: requireAdmin, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = adminOrdersQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    try {
-      const result = await listAllUsdtPayments({
-        userId: parsed.data.userId,
-        status: parsed.data.status,
-        network: parsed.data.network,
-        page: parsed.data.page,
-        pageSize: parsed.data.pageSize,
-      })
-      return reply.send(
-        success({
-          records: result.records,
-          total: result.total,
+      try {
+        const result = await listAllUsdtPayments({
+          userId: parsed.data.userId,
+          status: parsed.data.status,
+          network: parsed.data.network,
           page: parsed.data.page,
           pageSize: parsed.data.pageSize,
-        }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '查询订单失败'))
-    }
-  })
+        })
+        return reply.send(
+          success({
+            records: result.records,
+            total: result.total,
+            page: parsed.data.page,
+            pageSize: parsed.data.pageSize,
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '查询订单失败'))
+      }
+    },
+  )
 
   // ===== 6. GET /admin/payment/usdt/config — 管理员查看配置 =====
   server.get(

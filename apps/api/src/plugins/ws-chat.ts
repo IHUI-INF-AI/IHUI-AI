@@ -32,17 +32,17 @@ const ALLOWED_MSG_TYPES = new Set(['text', 'image', 'file', 'system'])
 // 风险:客户端可发任意类型字段(text 为对象/数组/url 长度无上限)→ 注入/越权/资源耗尽
 // 防护:每条业务消息必须通过 schema,safeParse 失败直接丢弃
 const ROOM_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/
-const wsChatMessageSchema = z.object({
-  type: z.string().max(32),
-  text: z.string().max(8000).optional(),
-  url: z.string().max(2048).optional(),
-  filename: z.string().max(255).optional(),
-  // 中途切换房间(room action)字段
-  action: z.enum(['join', 'leave']).optional(),
-  room: z.string().max(128).optional(),
-  // 兼容 typing 等扩展字段(无强约束,但限制 key 数量防滥用)
-})
-  .passthrough()
+const wsChatMessageSchema = z
+  .looseObject({
+    type: z.string().max(32),
+    text: z.string().max(8000).optional(),
+    url: z.string().max(2048).optional(),
+    filename: z.string().max(255).optional(),
+    // 中途切换房间(room action)字段
+    action: z.enum(['join', 'leave']).optional(),
+    room: z.string().max(128).optional(),
+    // 兼容 typing 等扩展字段(无强约束,但限制 key 数量防滥用)
+  })
   .refine((v) => Object.keys(v).length <= 20, { message: '字段过多' })
 
 const send = (socket: WebSocket, obj: unknown): void => {

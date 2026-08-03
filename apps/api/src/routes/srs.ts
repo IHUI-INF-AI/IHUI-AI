@@ -33,13 +33,13 @@ import {
 
 const createStreamSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(200),
-  channelId: z.string().uuid().optional(),
+  channelId: z.uuid().optional(),
 })
 
 const updateStreamSchema = z.object({
   title: z.string().max(200).optional(),
   status: z.enum(['active', 'inactive', 'banned']).optional(),
-  channelId: z.string().uuid().optional(),
+  channelId: z.uuid().optional(),
 })
 
 const createServerSchema = z.object({

@@ -14,7 +14,7 @@ const aiModelCreateSchema = z.object({
   name: z.string().min(1).max(100),
   provider: z.string().min(1).max(64),
   description: z.string().optional(),
-  baseUrl: z.string().url().optional(),
+  baseUrl: z.url().optional(),
   type: z.string().max(32).optional(),
   status: z.number().int().min(0).max(1).optional(),
   sort: z.number().int().optional(),

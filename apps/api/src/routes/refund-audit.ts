@@ -12,7 +12,7 @@ import { logAction } from '../services/audit-service.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
@@ -22,8 +22,8 @@ const paginationQuery = {
 const listRefundsQuery = z.object({
   ...paginationQuery,
   status: z.preprocess(emptyToUndefined, z.string().max(16).optional()),
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
-  orderId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  orderId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   orderNo: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
 })
 
@@ -37,7 +37,7 @@ const rejectBodySchema = z.object({
 })
 
 const batchAuditSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
+  ids: z.array(z.uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
   action: z.enum(['approve', 'reject']),
   reason: z.string().max(500).nullable().optional(),
 })

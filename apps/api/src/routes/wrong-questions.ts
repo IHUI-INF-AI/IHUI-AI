@@ -22,20 +22,20 @@ const paginationQuery = {
 }
 
 const createSchema = z.object({
-  questionId: z.string().uuid({ message: 'questionId 必须为 UUID' }),
-  paperId: z.string().uuid({ message: 'paperId 必须为 UUID' }),
+  questionId: z.uuid({ error: 'questionId 必须为 UUID' }),
+  paperId: z.uuid({ error: 'paperId 必须为 UUID' }),
   paperTitle: z.string().max(200).optional(),
   userAnswer: z.string().min(1, '用户答案不能为空'),
   rightAnswer: z.string().min(1, '正确答案不能为空'),
 })
 
 const deleteSchema = z.object({
-  id: z.string().uuid({ message: 'id 必须为 UUID' }),
+  id: z.uuid({ error: 'id 必须为 UUID' }),
 })
 
 const listQuery = z.object({
   ...paginationQuery,
-  paperId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  paperId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   isMastered: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
 })
 
@@ -78,9 +78,7 @@ const wrongQuestionRoutes: FastifyPluginAsync = async (server) => {
     }
     const [deleted] = await db
       .delete(examWrongQuestion)
-      .where(
-        and(eq(examWrongQuestion.id, parsed.data.id), eq(examWrongQuestion.userId, userId)),
-      )
+      .where(and(eq(examWrongQuestion.id, parsed.data.id), eq(examWrongQuestion.userId, userId)))
       .returning()
     if (!deleted) return reply.status(404).send(error(404, '错题不存在或无权删除'))
     return reply.send(success({ id: deleted.id, deleted: true }))

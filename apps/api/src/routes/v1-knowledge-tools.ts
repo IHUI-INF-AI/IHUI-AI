@@ -262,7 +262,7 @@ const analyzeCodeSchema = z.object({
 })
 
 const screenshotSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   fullPage: z.boolean().optional(),
@@ -297,7 +297,7 @@ const publishMessageSchema = z.object({
 
 const subscribeMessageSchema = z.object({
   channel: z.string().min(1),
-  callbackUrl: z.string().url(),
+  callbackUrl: z.url(),
 })
 
 const uploadInitSchema = z.object({

@@ -47,7 +47,7 @@ const slugParamSchema = z.object({
 })
 
 const idParamSchema = z.object({
-  id: z.string().uuid({ message: '无效的 ID' }),
+  id: z.uuid({ error: '无效的 ID' }),
 })
 
 const listParticipantsQuerySchema = z.object({
@@ -64,7 +64,7 @@ const createActivitySchema = z
       .max(128)
       .regex(/^[a-z0-9-]+$/i, 'slug 只能包含字母、数字和连字符'),
     description: z.string().optional(),
-    banner: z.string().url().max(512).optional(),
+    banner: z.url().max(512).optional(),
     startAt: z.coerce.date(),
     endAt: z.coerce.date(),
     status: z.enum(ACTIVITY_STATUS).optional(),
@@ -76,7 +76,7 @@ const updateActivitySchema = z
   .object({
     title: z.string().min(1).max(128).optional(),
     description: z.string().optional(),
-    banner: z.string().url().max(512).optional(),
+    banner: z.url().max(512).optional(),
     startAt: z.coerce.date().optional(),
     endAt: z.coerce.date().optional(),
     status: z.enum(ACTIVITY_STATUS).optional(),
@@ -202,35 +202,39 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /invitations/:code/verify - 公开：验证邀请码
-  server.post('/invitations/:code/verify', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = codeParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const invitation = await findInvitationByCode(parsed.data.code)
-    if (!invitation) {
-      return reply.status(404).send(error(404, '邀请码不存在'))
-    }
+  server.post(
+    '/invitations/:code/verify',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = codeParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const invitation = await findInvitationByCode(parsed.data.code)
+      if (!invitation) {
+        return reply.status(404).send(error(404, '邀请码不存在'))
+      }
 
-    let valid = true
-    let reason: string | null = null
-    if (invitation.status !== 'unused') {
-      valid = false
-      reason = `邀请码状态为 ${invitation.status}`
-    } else if (invitation.expiresAt && invitation.expiresAt < new Date()) {
-      valid = false
-      reason = '邀请码已过期'
-    }
+      let valid = true
+      let reason: string | null = null
+      if (invitation.status !== 'unused') {
+        valid = false
+        reason = `邀请码状态为 ${invitation.status}`
+      } else if (invitation.expiresAt && invitation.expiresAt < new Date()) {
+        valid = false
+        reason = '邀请码已过期'
+      }
 
-    return reply.send(
-      success({
-        valid,
-        reason,
-        rewardInviter: invitation.rewardInviter,
-        rewardInvitee: invitation.rewardInvitee,
-      }),
-    )
-  })
+      return reply.send(
+        success({
+          valid,
+          reason,
+          rewardInviter: invitation.rewardInviter,
+          rewardInvitee: invitation.rewardInvitee,
+        }),
+      )
+    },
+  )
 
   // GET /activities - 公开：活动列表（只返回 published 且在有效期内）
   server.get(
@@ -284,30 +288,34 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /activities/:id/join - 需登录：参与活动
-  server.post('/activities/:id/join', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const userId = request.userId!
+  server.post(
+    '/activities/:id/join',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
 
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    const activity = await findActivityById(parsed.data.id)
-    if (!activity) {
-      return reply.status(404).send(error(404, '活动不存在'))
-    }
-    const now = new Date()
-    if (activity.status !== 'published' || now < activity.startAt || now > activity.endAt) {
-      return reply.status(400).send(error(400, '活动不在可参与状态'))
-    }
+      const activity = await findActivityById(parsed.data.id)
+      if (!activity) {
+        return reply.status(404).send(error(404, '活动不存在'))
+      }
+      const now = new Date()
+      if (activity.status !== 'published' || now < activity.startAt || now > activity.endAt) {
+        return reply.status(400).send(error(400, '活动不在可参与状态'))
+      }
 
-    const participant = await joinActivity(activity.id, userId)
-    if (!participant) {
-      return reply.status(409).send(error(409, '已参与该活动'))
-    }
-    return reply.status(201).send(success({ participant }))
-  })
+      const participant = await joinActivity(activity.id, userId)
+      if (!participant) {
+        return reply.status(409).send(error(409, '已参与该活动'))
+      }
+      return reply.status(201).send(success({ participant }))
+    },
+  )
 
   // DELETE /activities/:id/join - 需登录：取消参与
   server.delete('/activities/:id/join', async (request, reply) => {
@@ -438,32 +446,36 @@ export const adminPromotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /activities - 创建活动
-  server.post('/activities', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = createActivitySchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-
-    try {
-      const activity = await createActivity({
-        title: parsed.data.title,
-        slug: parsed.data.slug,
-        description: parsed.data.description,
-        banner: parsed.data.banner,
-        startAt: parsed.data.startAt,
-        endAt: parsed.data.endAt,
-        status: parsed.data.status,
-        rules: parsed.data.rules,
-      })
-      return reply.status(201).send(success({ activity }))
-    } catch (e) {
-      const msg = (e as Error).message
-      if (msg.includes('unique') || msg.includes('duplicate')) {
-        return reply.status(409).send(error(409, 'slug 已存在'))
+  server.post(
+    '/activities',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = createActivitySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      throw e
-    }
-  })
+
+      try {
+        const activity = await createActivity({
+          title: parsed.data.title,
+          slug: parsed.data.slug,
+          description: parsed.data.description,
+          banner: parsed.data.banner,
+          startAt: parsed.data.startAt,
+          endAt: parsed.data.endAt,
+          status: parsed.data.status,
+          rules: parsed.data.rules,
+        })
+        return reply.status(201).send(success({ activity }))
+      } catch (e) {
+        const msg = (e as Error).message
+        if (msg.includes('unique') || msg.includes('duplicate')) {
+          return reply.status(409).send(error(409, 'slug 已存在'))
+        }
+        throw e
+      }
+    },
+  )
 
   // PATCH /activities/:id - 更新活动
   server.patch('/activities/:id', async (request, reply) => {
@@ -509,33 +521,37 @@ export const adminPromotionRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /coupons - 创建优惠券
-  server.post('/coupons', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = createCouponSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-
-    try {
-      const coupon = await createCoupon({
-        code: parsed.data.code,
-        name: parsed.data.name,
-        type: parsed.data.type,
-        value: parsed.data.value,
-        minAmount: parsed.data.minAmount,
-        maxUses: parsed.data.maxUses ?? null,
-        startsAt: parsed.data.startsAt,
-        endsAt: parsed.data.endsAt,
-        isActive: parsed.data.isActive,
-      })
-      return reply.status(201).send(success({ coupon }))
-    } catch (e) {
-      const msg = (e as Error).message
-      if (msg.includes('unique') || msg.includes('duplicate')) {
-        return reply.status(409).send(error(409, '优惠券码已存在'))
+  server.post(
+    '/coupons',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = createCouponSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      throw e
-    }
-  })
+
+      try {
+        const coupon = await createCoupon({
+          code: parsed.data.code,
+          name: parsed.data.name,
+          type: parsed.data.type,
+          value: parsed.data.value,
+          minAmount: parsed.data.minAmount,
+          maxUses: parsed.data.maxUses ?? null,
+          startsAt: parsed.data.startsAt,
+          endsAt: parsed.data.endsAt,
+          isActive: parsed.data.isActive,
+        })
+        return reply.status(201).send(success({ coupon }))
+      } catch (e) {
+        const msg = (e as Error).message
+        if (msg.includes('unique') || msg.includes('duplicate')) {
+          return reply.status(409).send(error(409, '优惠券码已存在'))
+        }
+        throw e
+      }
+    },
+  )
 
   // GET /coupons - 优惠券列表
   server.get(

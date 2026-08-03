@@ -41,7 +41,7 @@ const ADMIN_ROLE_ID = 1
 // =============================================================================
 
 const signBodySchema = z.object({
-  planId: z.string().uuid({ message: '无效的方案 ID' }),
+  planId: z.uuid({ error: '无效的方案 ID' }),
   productId: z.coerce.number().optional(),
   openid: z.string().optional(),
 })

@@ -19,7 +19,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
         title: z.string().min(1).max(200),
         content: z.string().optional(),
         coverImage: z.string().max(500).optional(),
-        categoryId: z.string().uuid().optional(),
+        categoryId: z.uuid().optional(),
         status: z.number().int().default(1),
       })
       .safeParse(request.body)
@@ -51,7 +51,7 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
         title: z.string().min(1).max(200).optional(),
         content: z.string().optional(),
         coverImage: z.string().max(500).optional(),
-        categoryId: z.string().uuid().optional(),
+        categoryId: z.uuid().optional(),
         status: z.number().int().optional(),
       })
       .safeParse(request.body)

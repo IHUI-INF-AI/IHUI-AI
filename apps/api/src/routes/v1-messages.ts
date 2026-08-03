@@ -86,7 +86,7 @@ const contentBlockSchema = z.union([
     ]),
   }),
   // 允许透传 image 等其他 block(api 层不解析,留给上游;转 OpenAI 时会被忽略)
-  z.object({ type: z.string() }).passthrough(),
+  z.looseObject({ type: z.string() }),
 ])
 
 const messageSchema = z.object({

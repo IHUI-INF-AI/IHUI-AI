@@ -9,7 +9,7 @@ import { success, parseOrThrow } from '../../utils/response.js'
 import { addUserRole, removeUserRole } from '../../db/rbac-queries.js'
 import { idParamSchema } from './_shared.js'
 
-const addRoleUserSchema = z.object({ userId: z.string().uuid() })
+const addRoleUserSchema = z.object({ userId: z.uuid() })
 
 export const roleRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
@@ -17,7 +17,7 @@ export const roleRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { roleId, userId } = parseOrThrow(
-        z.object({ roleId: z.string().min(1), userId: z.string().uuid() }),
+        z.object({ roleId: z.string().min(1), userId: z.uuid() }),
         request.params,
       )
       await removeUserRole(userId, roleId)

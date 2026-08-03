@@ -19,10 +19,10 @@ import { paginationSchema } from './_shared.js'
 import { sanitizeLogEntry } from '../../services/log-sanitizer.js'
 
 const listQuerySchema = paginationSchema.extend({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   model: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   status: z.preprocess(emptyToUndefined, z.enum(['success', 'error']).optional()),
-  apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** 渠道筛选,精确匹配 provider_code */
   provider: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
   /** 客户端 IP 筛选,支持 LIKE 通配符(如 '192.168.%')*/

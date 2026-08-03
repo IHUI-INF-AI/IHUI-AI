@@ -30,7 +30,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // Zod schemas
 // =============================================================================
 
-const uuidParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listUsersQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -44,13 +44,13 @@ const createUserSchema = z.object({
   phone: z.string().min(1, '手机号不能为空').max(11),
   nickname: z.string().max(64).nullable().optional(),
   password: z.string().min(6, '密码至少 6 位').max(128),
-  email: z.string().email().nullable().optional(),
+  email: z.email().nullable().optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 
 const updateUserSchema = z.object({
   nickname: z.string().max(64).nullable().optional(),
-  email: z.string().email().nullable().optional(),
+  email: z.email().nullable().optional(),
   phone: z.string().min(1).max(11).nullable().optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
@@ -69,20 +69,20 @@ const byPhoneQuery = z.object({
 })
 
 const listDeptQuery = z.object({
-  pid: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  pid: z.preprocess(emptyToUndefined, z.uuid().optional()),
   companyId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
 })
 
 const createDeptSchema = z.object({
   name: z.string().min(1, '部门名称不能为空').max(100),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   companyId: z.number().int().optional(),
   sort: z.number().int().min(0).optional(),
 })
 
 const updateDeptSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  pid: z.string().uuid().nullable().optional(),
+  pid: z.uuid().nullable().optional(),
   companyId: z.number().int().optional(),
   sort: z.number().int().min(0).optional(),
 })
