@@ -31,7 +31,7 @@ const ADMIN_ROLE_ID = 1
 const auditLogQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   action: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
   resourceType: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
   startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
@@ -39,7 +39,7 @@ const auditLogQuerySchema = z.object({
 })
 
 const auditLogExportSchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   action: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
   resourceType: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
   startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
@@ -49,14 +49,14 @@ const auditLogExportSchema = z.object({
 })
 
 const auditLogVerifySchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   endDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   limit: z.coerce.number().int().min(1).max(50000).optional().default(10000),
 })
 
 const auditLogStatsSchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   action: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
   resourceType: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
   startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
@@ -111,18 +111,25 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
               data: { type: 'object', additionalProperties: true },
             },
           },
-          400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-          401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-          403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
     async (request, reply) => {
       const parsed = auditLogQuerySchema.safeParse(request.query)
       if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { page, pageSize, userId, action, resourceType, startDate, endDate } = parsed.data
       const { list, total } = await queryAuditLogs(
@@ -158,9 +165,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const parsed = auditLogExportSchema.safeParse(request.query)
       if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { userId, action, resourceType, startDate, endDate, format, limit } = parsed.data
 
@@ -237,18 +242,25 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
               data: { type: 'object', additionalProperties: true },
             },
           },
-          400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-          401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-          403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
     async (request, reply) => {
       const parsed = auditLogVerifySchema.safeParse(request.body ?? {})
       if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { userId, startDate, endDate, limit } = parsed.data
 
@@ -287,18 +299,25 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
               data: { type: 'object', additionalProperties: true },
             },
           },
-          400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-          401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
-          403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
     async (request, reply) => {
       const parsed = auditLogStatsSchema.safeParse(request.query)
       if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { userId, action, resourceType, startDate, endDate } = parsed.data
       const stats = await getAuditLogStats({

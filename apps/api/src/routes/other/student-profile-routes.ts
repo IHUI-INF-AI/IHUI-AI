@@ -11,7 +11,7 @@ import { userProfiles } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
 
 const studentProfileBodySchema = z.object({
-  departmentId: z.string().uuid().optional(),
+  departmentId: z.uuid().optional(),
   companyId: z.number().int().optional(),
   employeeNo: z.string().max(64).optional(),
   position: z.string().max(100).optional(),

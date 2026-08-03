@@ -41,7 +41,7 @@ const listCommentsQuerySchema = z.object({
   status: z.preprocess(emptyToUndefined, z.enum(['normal', 'deleted', 'all']).optional()),
 })
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const commentsRoutes: FastifyPluginAsync = async (server) => {
   // GET /comments - 管理员评论列表(支持 topicType + keyword + status 过滤)

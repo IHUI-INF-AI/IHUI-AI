@@ -21,9 +21,9 @@ import { createMapping, listMappings } from '../../services/model-mapping-servic
 
 const listQuerySchema = z.object({
   /** undefined=不筛选,null=全局,string=具体用户。scope=global 等价于 userId=null */
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** undefined=不筛选,null=全局,string=具体 Key。scope=global 等价于 apiKeyId=null */
-  apiKeyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  apiKeyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   /** scope=global 快捷筛选全局映射(userId+apiKeyId 均 null) */
   scope: z.preprocess(emptyToUndefined, z.enum(['global']).optional()),
   /** 只返回启用的映射 */
@@ -32,9 +32,9 @@ const listQuerySchema = z.object({
 
 const createBodySchema = z.object({
   /** null 或不传 = 全局/Key 级映射(非 Key 级时为全局) */
-  userId: z.string().uuid().nullable().optional(),
+  userId: z.uuid().nullable().optional(),
   /** null 或不传 = 用户级或全局 */
-  apiKeyId: z.string().uuid().nullable().optional(),
+  apiKeyId: z.uuid().nullable().optional(),
   sourceModel: z.string().min(1, 'source_model 不能为空').max(128),
   targetModel: z.string().min(1, 'target_model 不能为空').max(128),
   priority: z.number().int().optional(),
@@ -53,7 +53,8 @@ const modelMappingsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. GET /admin/model-mappings — 映射列表 =====
   server.get('/admin/model-mappings', async (request, reply) => {
     const q = listQuerySchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { userId, apiKeyId, scope, enabled } = q.data
 
     // scope=global 快捷筛选全局映射

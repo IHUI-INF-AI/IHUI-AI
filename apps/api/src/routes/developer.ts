@@ -18,7 +18,7 @@ import * as apiKeysService from '../services/developer-api-keys-service.js'
 // Zod schemas
 // =============================================================================
 
-const idParamSchema = z.object({ id: z.string().uuid({ message: '无效的 ID' }) })
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const permissionsSchema = z
   .array(z.string())
@@ -38,7 +38,7 @@ const updateKeySchema = z.object({
 })
 
 const subscribeBody = z.object({
-  pricingId: z.string().uuid({ message: '无效的套餐 ID' }),
+  pricingId: z.uuid({ error: '无效的套餐 ID' }),
   period: z.enum(['monthly', 'yearly']).optional(),
   paymentMethod: z.string().optional().default('wechat'),
 })
@@ -145,13 +145,16 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     }
     const period = parsed.data.period ?? pricing.period ?? 'monthly'
     const amount = Math.round(Number(pricing.price) * 100)
-    const order = await createOrder({
-      userId,
-      amount,
-      orderType: 5,
-      productId: pricing.id,
-      payType: paymentMethod,
-    }, request.userId ?? null)
+    const order = await createOrder(
+      {
+        userId,
+        amount,
+        orderType: 5,
+        productId: pricing.id,
+        payType: paymentMethod,
+      },
+      request.userId ?? null,
+    )
     if (process.env.NODE_ENV === 'development') {
       await activateDeveloperSubscription({
         userId,
@@ -289,9 +292,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
         .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
         .where(eq(userMargins.userId, userId))
     } else {
-      await db
-        .insert(userMargins)
-        .values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+      await db.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: amount })
     }
 
     const [flow] = await db

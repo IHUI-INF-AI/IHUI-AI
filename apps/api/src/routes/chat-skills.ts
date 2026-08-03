@@ -16,7 +16,7 @@ import { success, error } from '../utils/response.js'
  * 鉴权:所有端点均需登录
  */
 export const chatSkillsRoutes: FastifyPluginAsync = async (server) => {
-  const idParam = z.object({ id: z.string().uuid() })
+  const idParam = z.object({ id: z.uuid() })
 
   // 创建/更新校验:name(必填,1-128)、prompt(必填,1-10000)、category/scenario(枚举)
   const baseFields = {

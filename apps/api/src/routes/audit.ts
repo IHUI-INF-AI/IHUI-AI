@@ -13,7 +13,7 @@ const ADMIN_ROLE_ID = 1
 const auditLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   action: z.preprocess(emptyToUndefined, z.string().optional()),
   resourceType: z.preprocess(emptyToUndefined, z.string().optional()),
   startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
@@ -21,7 +21,7 @@ const auditLogsQuerySchema = z.object({
 })
 
 const auditLogsExportQuerySchema = z.object({
-  userId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
   action: z.preprocess(emptyToUndefined, z.string().optional()),
   resourceType: z.preprocess(emptyToUndefined, z.string().optional()),
   startDate: z.preprocess(emptyToUndefined, z.string().min(1).optional()),

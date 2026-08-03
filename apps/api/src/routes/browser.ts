@@ -20,7 +20,7 @@ import { success, error, parseOrThrow } from '../utils/response.js'
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL ?? 'http://localhost:8803'
 
 const screenshotSchema = z.object({
-  url: z.string().url({ message: 'Invalid URL' }),
+  url: z.url({ error: 'Invalid URL' }),
   width: z.number().int().min(320).max(3840).optional().default(1280),
   height: z.number().int().min(240).max(2160).optional().default(720),
   fullPage: z.boolean().optional().default(false),
@@ -29,7 +29,7 @@ const screenshotSchema = z.object({
 })
 
 const probeSchema = z.object({
-  url: z.string().url({ message: 'Invalid URL' }),
+  url: z.url({ error: 'Invalid URL' }),
 })
 
 export const browserRoutes: FastifyPluginAsync = async (server) => {
@@ -56,7 +56,9 @@ export const browserRoutes: FastifyPluginAsync = async (server) => {
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '')
-        return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status} ${text.slice(0, 200)}`))
+        return reply
+          .status(502)
+          .send(error(502, `ai-service 调用失败: ${resp.status} ${text.slice(0, 200)}`))
       }
 
       const json = (await resp.json()) as {
@@ -106,7 +108,9 @@ export const browserRoutes: FastifyPluginAsync = async (server) => {
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '')
-        return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status} ${text.slice(0, 200)}`))
+        return reply
+          .status(502)
+          .send(error(502, `ai-service 调用失败: ${resp.status} ${text.slice(0, 200)}`))
       }
 
       const json = (await resp.json()) as {
