@@ -124,6 +124,16 @@ vi.mock('../src/services/totp-service.js', () => ({
   CHALLENGE_TOKEN_TTL_SECONDS: 300,
 }))
 
+// 风控引擎:auth.ts 调用 evaluateLoginRisk(从 risk-engine-service.js 导入),
+// 不读 app.riskEngine。mock 该模块以控制风控动作。
+const { mockEvaluateLoginRisk } = vi.hoisted(() => ({
+  mockEvaluateLoginRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [] }),
+}))
+vi.mock('../src/services/risk-engine-service.js', () => ({
+  evaluateLoginRisk: mockEvaluateLoginRisk,
+  evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [] }),
+}))
+
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -202,6 +212,8 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
     mockCreateFamilyId.mockReturnValue('fam-mock')
     mockIssueTokenPair.mockResolvedValue(tokenPair())
     mockSignChallengeToken.mockResolvedValue('challenge-token')
+    // 默认风控放行(风控拦截测试用 mockReturnValueOnce 覆盖)
+    mockEvaluateLoginRisk.mockReturnValue({ totalScore: 0, action: 'ALLOW', hits: [] })
   })
 
   // ===================== 权限解析(管理员通配符 vs RBAC)=====================
@@ -307,9 +319,19 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
 
   describe('POST /api/auth/login 风控拦截', () => {
     it('风控 DENY 返回 403', async () => {
-      ;(app.riskEngine.evaluateRisk as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      mockEvaluateLoginRisk.mockReturnValueOnce({
+        totalScore: 100,
         action: 'DENY',
-        hits: 3,
+        hits: [
+          {
+            ruleId: 'R003_ABNORMAL_IP',
+            name: '异常 IP',
+            action: 'DENY',
+            score: 100,
+            reason: 'ip blacklisted',
+            matchedAt: Date.now(),
+          },
+        ],
       })
       mockFindUserByAccount.mockResolvedValueOnce(
         makeUser({ passwordHash: await hashPassword('pass1234') }),
@@ -324,9 +346,19 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
     })
 
     it('风控 CHALLENGE 仍允许登录(记录日志)', async () => {
-      ;(app.riskEngine.evaluateRisk as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      mockEvaluateLoginRisk.mockReturnValueOnce({
+        totalScore: 30,
         action: 'CHALLENGE',
-        hits: 1,
+        hits: [
+          {
+            ruleId: 'R001_REMOTE_LOGIN',
+            name: '异地登录检测',
+            action: 'CHALLENGE',
+            score: 30,
+            reason: 'region changed',
+            matchedAt: Date.now(),
+          },
+        ],
       })
       mockFindUserByAccount.mockResolvedValueOnce(
         makeUser({ passwordHash: await hashPassword('pass1234') }),
@@ -393,7 +425,8 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
         headers: { authorization: 'Bearer expired-token' },
       })
       expect(res.statusCode).toBe(401)
-      expect(res.json().message).toContain('Authentication required')
+      // 路由层中文化:authenticate 抛错统一返回 '请先登录'
+      expect(res.json().message).toContain('请先登录')
     })
 
     it('无 Authorization header 返回 401', async () => {
