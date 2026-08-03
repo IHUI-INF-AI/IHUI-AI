@@ -28,8 +28,20 @@ import type { Redis } from 'ioredis'
 import { getAnomalyDetector, type AnomalyResult } from '../services/anomaly-detector.js'
 import { isPrivateIp } from '../services/ip-reputation.js'
 
-/** 健康检查 / 监控路径白名单(避免监控系统高频探活被误判) */
-const SKIP_PATHS = new Set(['/api/health', '/api/healthz', '/health'])
+/**
+ * 健康检查 / 监控 / 高频无害轮询路径白名单(避免高频请求被 dimFrequency 误判)。
+ * 精确匹配 + 前缀匹配(子路径视为同类无害请求,如 /api/llm/models/123 模型详情)。
+ * 仅含 GET 高频轮询路径,不含写操作(POST/PUT/DELETE)。
+ */
+const HARMLESS_PATHS = [
+  '/api/health',
+  '/api/healthz',
+  '/health',
+  '/api/llm/models', // 模型列表前端轮询(model-selector useQuery)
+  '/api/system/info', // 系统信息心跳
+  '/api/notifications', // 通知列表轮询(use-notification)
+  '/api/users/me', // 当前用户信息刷新
+] as const
 
 /** 静态资源前缀(不检测异常行为) */
 const SKIP_PREFIXES = ['/uploads/', '/static/']
@@ -59,7 +71,7 @@ const anomalyDetectorPluginRaw: FastifyPluginAsync = async (server: FastifyInsta
 
   server.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
-    if (SKIP_PATHS.has(path)) return
+    if (HARMLESS_PATHS.some((p) => path === p || path.startsWith(p + '/'))) return
     if (SKIP_PREFIXES.some((p) => path.startsWith(p))) return
 
     const ip = request.ip

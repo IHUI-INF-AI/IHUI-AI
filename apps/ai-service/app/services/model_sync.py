@@ -1097,12 +1097,20 @@ class ModelSyncService:
             headers["anthropic-version"] = "2023-06-01"
         elif is_gemini:
             # F4.4 Google Gemini: /v1beta/models?key={api_key}
+            # 2026-08-02 立:api_base 为 OpenAI 兼容端点(以 /openai 结尾,如
+            # https://generativelanguage.googleapis.com/v1beta/openai)时,
+            # 直接拼 /models 且 key 走 Bearer header(原生 Gemini API 才用 query param)
             if url.endswith("/v1beta"):
                 url = f"{url}/models"
+                # key 通过 query param 传递
+                url = f"{url}?key={api_key}"
+            elif url.endswith("/openai") or url.endswith("/v1"):
+                url = f"{url}/models"
+                headers["Authorization"] = f"Bearer {api_key}"
             else:
                 url = f"{url}/v1beta/models"
-            # key 通过 query param 传递
-            url = f"{url}?key={api_key}"
+                # key 通过 query param 传递
+                url = f"{url}?key={api_key}"
         else:
             # 默认 OpenAI 兼容: /v1/models
             headers["Authorization"] = f"Bearer {api_key}"
@@ -1142,16 +1150,43 @@ class ModelSyncService:
         # Anthropic 用 data 字段(同 OpenAI),Gemini 用 models 字段
         models: list[Any]
         if is_cloudflare:
-            models = data.get("result", []) if isinstance(data, dict) else []
-        elif is_gemini:
-            # F4.4 Gemini 响应:{"models": [{"name": "models/gemini-1.5-flash", ...}]}
-            raw_models = data.get("models", []) if isinstance(data, dict) else []
+            # 2026-08-02 修复:Cloudflare /models/search 的 result[].id 是 UUID(内部 id),
+            # 调用时用的模型名在 result[].name(如 "@cf/meta/llama-3.3-70b-instruct-fp8-fast")。
+            # 必须用 name 作为模型 id,否则同步进来的 UUID 无法匹配调用前缀被过滤。
+            raw_models = data.get("result", []) if isinstance(data, dict) else []
             models = []
             for m in raw_models:
                 if not isinstance(m, dict):
                     continue
-                # Gemini 的 name 字段格式 "models/gemini-1.5-flash",去掉 "models/" 前缀
-                raw_name = m.get("name", "")
+                # name 字段是真正可调用的模型名(@cf/ 或 @hf/ 前缀);
+                # 兼容旧响应:无 name 时回退 id(且 id 已是 @cf/ 格式则直接用)
+                raw_name = m.get("name") or m.get("id", "")
+                if not raw_name:
+                    continue
+                normalized: dict[str, Any] = {"id": raw_name}
+                # description → 显示名候选
+                if m.get("description"):
+                    normalized["description"] = m["description"]
+                # task.name 补充显示信息(Text Generation 等)
+                task = m.get("task") or {}
+                if isinstance(task, dict) and task.get("name"):
+                    normalized["vendor"] = task["name"]
+                models.append(normalized)
+        elif is_gemini:
+            # F4.4 Gemini 响应:{"models": [{"name": "models/gemini-1.5-flash", ...}]}
+            # 2026-08-02 立:api_base 为 OpenAI 兼容端点时返回
+            # {"data": [{"id": "gemini-2.5-flash", ...}]} 格式,两种格式都要兼容
+            if isinstance(data, dict) and "data" in data:
+                raw_models = data["data"]
+            else:
+                raw_models = data.get("models", []) if isinstance(data, dict) else []
+            models = []
+            for m in raw_models:
+                if not isinstance(m, dict):
+                    continue
+                # Gemini 原生格式 name 字段为 "models/gemini-1.5-flash",
+                # OpenAI 兼容格式 id 无 "models/" 前缀,统一去掉 "models/" 前缀
+                raw_name = m.get("id", "") or m.get("name", "")
                 model_id = raw_name.split("models/", 1)[-1] if raw_name.startswith("models/") else raw_name
                 if not model_id:
                     continue

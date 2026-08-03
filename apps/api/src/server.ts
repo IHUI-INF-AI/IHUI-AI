@@ -278,7 +278,9 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(otelPlugin)
   await server.register(helmet, { contentSecurityPolicy: false })
   await server.register(cors, {
-    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:8801').split(','),
+    // 2026-08-02 安全加固:CORS origin 从 zod 校验过的 config 读取(而非裸 process.env),
+    // 并过滤 split 后的空字符串条目(防 "a,b," 尾逗号产生空 origin 匹配项)
+    origin: config.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
@@ -367,8 +369,7 @@ async function registerPlugins(server: FastifyInstance) {
   // 防护:Origin 必须在 CORS_ORIGIN 白名单内;缺失 Origin(非浏览器客户端)允许通过,
   // 因为 ws-chat/ws-tasks 等已有 JWT wsAuth 认证,无 cookie 自动携带风险。
   const wsAllowedOrigins = new Set(
-    (process.env.CORS_ORIGIN ?? 'http://localhost:8801')
-      .split(',')
+    config.CORS_ORIGIN.split(',')
       .map((o) => o.trim().toLowerCase())
       .filter(Boolean),
   )
