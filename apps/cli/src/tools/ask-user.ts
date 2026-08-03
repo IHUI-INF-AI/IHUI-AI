@@ -113,7 +113,7 @@ export const ask_user_question: Tool = {
     const otherChoice = { name: chalk.dim('Other(自定义输入)'), value: '__OTHER__', short: 'Other' };
     const answers = await inquirer.prompt([
       {
-        type: 'list',
+        type: 'select',
         name: 'selected',
         message: `${headerPrefix}${opts.question}`,
         choices: [...choices, otherChoice],
