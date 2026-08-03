@@ -19,7 +19,7 @@
  *
  * 用 js-yaml 解析(已加入 @ihui/api 依赖)。
  */
-import yaml from 'js-yaml'
+import { load } from 'js-yaml'
 
 import type { CliApiFormat, ImportedProvider } from '@ihui/types'
 
@@ -69,7 +69,7 @@ export function parseHermes(input: ParserInput): ParserResult {
   }
   let cfg: HermesConfig
   try {
-    cfg = yaml.load(text) as unknown as HermesConfig
+    cfg = load(text) as unknown as HermesConfig
   } catch (err) {
     throw new Error(`hermes config.yaml 解析失败: ${(err as Error).message}`)
   }
