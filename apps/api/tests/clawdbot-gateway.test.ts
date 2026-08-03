@@ -18,6 +18,21 @@ vi.mock('../src/services/clawdbot/models.js', () => ({
   }),
 }))
 
+// Mock ws 模块:MockWebSocket 构造后异步触发 'open' 事件,模拟连接成功
+vi.mock('ws', async () => {
+  const { EventEmitter } = await import('node:events')
+  return {
+    default: class MockWebSocket extends EventEmitter {
+      constructor(_url: string) {
+        super()
+        setImmediate(() => this.emit('open'))
+      }
+      send() {}
+      close() {}
+    },
+  }
+})
+
 import { ClawdbotGateway, getClawdbotGateway } from '../src/services/clawdbot/gateway.js'
 
 const mockModel = (
@@ -56,6 +71,7 @@ describe('clawdbot ClawdbotGateway AI 网关', () => {
   describe('connect / disconnect', () => {
     it('connect 切换状态为 connected', async () => {
       await gw.connect()
+      await new Promise((r) => setImmediate(r))
       expect(gw.isConnected).toBe(true)
     })
 
@@ -68,6 +84,7 @@ describe('clawdbot ClawdbotGateway AI 网关', () => {
       const handler = vi.fn()
       gw.on('connected', handler)
       await gw.connect()
+      await new Promise((r) => setImmediate(r))
       expect(handler).toHaveBeenCalledTimes(1)
     })
 
@@ -209,6 +226,7 @@ describe('clawdbot ClawdbotGateway AI 网关', () => {
   describe('getStats', () => {
     it('返回 connected/state/activeChannels/latencyStats', async () => {
       await gw.connect()
+      await new Promise((r) => setImmediate(r))
       const s = gw.getStats()
       expect(s.connected).toBe(true)
       expect(s.state).toBe('connected')

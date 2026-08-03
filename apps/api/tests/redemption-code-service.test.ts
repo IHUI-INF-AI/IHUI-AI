@@ -68,23 +68,33 @@ function insertEchoChain(): { values: ReturnType<typeof vi.fn> } {
 // Mock 声明
 // =============================================================================
 
-const { mockDbReadSelect, mockDbInsert, mockDbUpdate, mockRechargeByKey } = vi.hoisted(() => ({
+const { mockDbReadSelect, mockDbInsert, mockDbUpdate } = vi.hoisted(() => ({
   mockDbReadSelect: vi.fn(),
   mockDbInsert: vi.fn(),
   mockDbUpdate: vi.fn(),
-  mockRechargeByKey: vi.fn(),
 }))
 
-vi.mock('../src/db/index.js', () => ({
-  db: {
-    insert: mockDbInsert,
+vi.mock('../src/db/index.js', () => {
+  // 事务回调 tx 复用 mockDbUpdate/mockDbReadSelect 的 mockReturnValueOnce 队列
+  // (源码 redeemCode 在事务内调 tx.update / tx.select,与 db.update / dbRead.select 共享 mock)
+  const tx = {
     update: mockDbUpdate,
-  },
-  dbRead: {
     select: mockDbReadSelect,
-  },
-  dbClient: {},
-}))
+  }
+  return {
+    db: {
+      insert: mockDbInsert,
+      update: mockDbUpdate,
+      // 事务:同步调用 cb(tx) 并返回其 Promise(模拟事务提交/回滚语义)
+      // cb 内 throw → Promise reject → 外层 await 抛错 → catch 转换为 RedeemResult
+      transaction: <T>(cb: (tx: typeof tx) => Promise<T>) => cb(tx),
+    },
+    dbRead: {
+      select: mockDbReadSelect,
+    },
+    dbClient: {},
+  }
+})
 
 vi.mock('@ihui/database', () => ({
   redemptionCodes: {
@@ -105,11 +115,9 @@ vi.mock('@ihui/database', () => ({
     userId: 'user_id',
     status: 'status',
     createdAt: 'created_at',
+    tokenBalance: 'token_balance',
+    updatedAt: 'updated_at',
   },
-}))
-
-vi.mock('../src/services/relay-billing-service.js', () => ({
-  rechargeByKey: mockRechargeByKey,
 }))
 
 // Mock crypto.randomUUID 用于确定性测试
@@ -252,16 +260,16 @@ describe('redemption-code-service — 兑换码核心 service', () => {
         usedBy: 'user-1',
         usedAt: new Date(),
       }
+      // tx.update(redemptionCodes) 抢占码
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
-      mockRechargeByKey.mockResolvedValueOnce({ newTokenBalance: 600 })
+      // tx.update(developerApiKeys) 内联充值(tokenBalance 累加 CASE WHEN)
+      mockDbUpdate.mockReturnValueOnce(updateChain([{ tokenBalance: 600 }]))
 
       const result = await redeemCode('ihui-aaaa-bbbb-cccc', 'user-1', 'key-1')
 
       expect(result.success).toBe(true)
       expect(result.tokenAmount).toBe(500)
       expect(result.newTokenBalance).toBe(600)
-      // 验证 rechargeByKey 用正确的 key 和 tokenAmount 调用
-      expect(mockRechargeByKey).toHaveBeenCalledWith('key-1', 500)
     })
 
     it('未传 apiKeyId 时查用户最新 active Key', async () => {
@@ -271,23 +279,25 @@ describe('redemption-code-service — 兑换码核心 service', () => {
         tokenAmount: 300,
         status: 'used',
       }
+      // tx.update(redemptionCodes) 抢占码
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
-      // dbRead.select 被调用来查 active key
+      // tx.select(developerApiKeys) 查 active key(事务内,用 tx.select = mockDbReadSelect)
       mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'active-key-1' }]))
-      mockRechargeByKey.mockResolvedValueOnce({ newTokenBalance: 400 })
+      // tx.update(developerApiKeys) 内联充值
+      mockDbUpdate.mockReturnValueOnce(updateChain([{ tokenBalance: 400 }]))
 
       const result = await redeemCode('IHUI-AAAA-BBBB-CCCC', 'user-1')
 
       expect(result.success).toBe(true)
       expect(result.newTokenBalance).toBe(400)
-      expect(mockRechargeByKey).toHaveBeenCalledWith('active-key-1', 300)
     })
 
     it('重复兑换幂等:第二次返回 already_used', async () => {
       // 第一次 update 抢占成功
       const claimedRow = { id: 'code-1', code: 'IHUI-AAAA-BBBB-CCCC', tokenAmount: 500, status: 'used' }
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
-      mockRechargeByKey.mockResolvedValueOnce({ newTokenBalance: 600 })
+      // tx.update(developerApiKeys) 内联充值
+      mockDbUpdate.mockReturnValueOnce(updateChain([{ tokenBalance: 600 }]))
 
       const result1 = await redeemCode('IHUI-AAAA-BBBB-CCCC', 'user-1', 'key-1')
       expect(result1.success).toBe(true)
@@ -351,8 +361,10 @@ describe('redemption-code-service — 兑换码核心 service', () => {
 
     it('rechargeByKey 返回 null(Key 不存在):返回 key_not_found', async () => {
       const claimedRow = { id: 'code-1', code: 'IHUI-AAAA-BBBB-CCCC', tokenAmount: 500, status: 'used' }
+      // tx.update(redemptionCodes) 抢占码
       mockDbUpdate.mockReturnValueOnce(updateChain([claimedRow]))
-      mockRechargeByKey.mockResolvedValueOnce(null)
+      // tx.update(developerApiKeys) 返回空(Key 不存在)→ throw ERR_KEY_RECHARGE_FAILED → 事务回滚
+      mockDbUpdate.mockReturnValueOnce(updateChain([]))
 
       const result = await redeemCode('IHUI-AAAA-BBBB-CCCC', 'user-1', 'bad-key')
       expect(result.success).toBe(false)

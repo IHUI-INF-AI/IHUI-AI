@@ -11,6 +11,25 @@ vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-admin-id', roleId: 1 }),
 }))
 
+const { mockDicts } = vi.hoisted(() => ({
+  mockDicts: {
+    'zh-CN': { greeting: '你好', farewell: '再见', welcome: '欢迎' },
+    en: { greeting: 'Hello', farewell: 'Goodbye' },
+    ja: { greeting: 'こんにちは', farewell: 'さようなら' },
+    ko: { greeting: '안녕하세요', farewell: '안녕히 가세요' },
+    'zh-TW': { greeting: '你好', farewell: '再見' },
+  } as Record<string, Record<string, unknown>>,
+}))
+
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn(async (filePath: string) => {
+    const locale = String(filePath).match(/([a-zA-Z-]+)\.json$/)?.[1] ?? ''
+    const dict = mockDicts[locale] ?? {}
+    return Buffer.from(JSON.stringify(dict), 'utf8')
+  }),
+  stat: vi.fn(async () => ({ mtimeMs: 0, size: 0 })),
+}))
+
 vi.mock('../src/db/index.js', () => ({
   db: { execute: vi.fn(), select: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn() },
   dbRead: { select: vi.fn() },
