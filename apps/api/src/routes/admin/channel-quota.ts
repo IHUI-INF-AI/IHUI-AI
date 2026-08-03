@@ -12,7 +12,6 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
 import { sql, desc } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { dbRead } from '../../db/index.js'
@@ -100,8 +99,7 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
     '/relay/channels/:id',
     {
       preHandler: requireAdmin,
-      // FIXME(any): zod-to-json-schema@3.25.2 类型定义仍是 Zod 3,与 Zod 4 不兼容,用 as never 绕过。
-      schema: { body: zodToJsonSchema(updateQuotaBodySchema as never, { target: 'openApi3' }) },
+      schema: { body: z.toJSONSchema(updateQuotaBodySchema, { target: 'openApi3' }) },
     },
     async (req, reply) => {
       const { id } = req.params as { id: string }
