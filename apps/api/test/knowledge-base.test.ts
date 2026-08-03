@@ -380,10 +380,10 @@ describe('knowledge-base routes', () => {
   })
 
   describe('参数校验 - parseIdParam', () => {
-    it('id 为空时路由不匹配返回 404(Fastify 路由匹配)', async () => {
+    it('id 为空时参数校验返回 400(schema 校验拒绝空 id)', async () => {
       authAs()
       const res = await app.inject({ method: 'GET', url: '/api/knowledge-base/' })
-      expect(res.statusCode).toBe(404)
+      expect(res.statusCode).toBe(400)
     })
 
     it('任意非空 id 字符串通过参数校验', async () => {

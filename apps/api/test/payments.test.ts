@@ -132,6 +132,7 @@ vi.mock('../src/services/order-service.js', () => ({
   placeOrder: mockPlaceOrder,
   getOrder: mockGetOrder,
   completeOrder: mockCompleteOrder,
+  completeOrderWithSaga: mockCompleteOrder,
   cancelOrder: mockCancelOrder,
   refundOrder: mockRefundOrder,
   activateOrderSubscription: mockActivateOrderSubscription,
