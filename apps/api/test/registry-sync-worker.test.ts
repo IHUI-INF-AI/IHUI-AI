@@ -38,7 +38,11 @@ const {
   let failedHandler: ((job: any, err: Error) => void) | null = null
   let completedHandler: (() => void) | null = null
 
-  const Worker = vi.fn().mockImplementation((_queueName: string, handler: any, _opts: any) => {
+  const Worker = vi.fn().mockImplementation(function (
+    _queueName: string,
+    handler: any,
+    _opts: any,
+  ) {
     jobHandler = handler
     return {
       on: vi.fn((event: string, cb: any) => {
