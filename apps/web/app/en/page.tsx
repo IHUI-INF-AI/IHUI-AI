@@ -7,7 +7,7 @@ import {
   Cpu,
   Wrench,
   Workflow,
-  Github,
+  Code,
   ArrowRight,
   Globe,
   Layers,
@@ -21,14 +21,7 @@ import {
   Boxes,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-  Button,
-} from '@ihui/ui-react'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, Button } from '@ihui/ui-react'
 
 export const metadata: Metadata = {
   title: 'IHUI AI — All-in-One AI Operating System | Agent Marketplace & RAG',
@@ -147,8 +140,7 @@ export default function EnglishHomePage() {
             </span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            Build, deploy, and scale AI agents across 8 platforms. Open-source.
-            Apache 2.0.
+            Build, deploy, and scale AI agents across 8 platforms. Open-source. Apache 2.0.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild variant="default" size="lg">
@@ -175,18 +167,13 @@ export default function EnglishHomePage() {
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((feature) => (
-              <Card
-                key={feature.title}
-                className="transition-colors hover:bg-accent/50"
-              >
+              <Card key={feature.title} className="transition-colors hover:bg-accent/50">
                 <CardHeader>
                   <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <feature.icon className="h-5 w-5" />
                   </div>
                   <CardTitle className="text-lg">{feature.title}</CardTitle>
-                  <CardDescription className="mt-2 leading-relaxed">
-                    {feature.desc}
-                  </CardDescription>
+                  <CardDescription className="mt-2 leading-relaxed">{feature.desc}</CardDescription>
                 </CardHeader>
               </Card>
             ))}
@@ -205,20 +192,13 @@ export default function EnglishHomePage() {
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             {MODEL_PROVIDERS.map((provider) => (
-              <Card
-                key={provider.name}
-                className="transition-colors hover:bg-accent/50"
-              >
+              <Card key={provider.name} className="transition-colors hover:bg-accent/50">
                 <CardContent className="flex flex-col items-center gap-1 p-4 text-center">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
                     <Cpu className="h-5 w-5" />
                   </div>
-                  <span className="mt-2 text-sm font-medium text-foreground">
-                    {provider.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {provider.count}
-                  </span>
+                  <span className="mt-2 text-sm font-medium text-foreground">{provider.name}</span>
+                  <span className="text-xs text-muted-foreground">{provider.count}</span>
                 </CardContent>
               </Card>
             ))}
@@ -237,20 +217,13 @@ export default function EnglishHomePage() {
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {PLATFORMS.map((platform) => (
-              <Card
-                key={platform.name}
-                className="transition-colors hover:bg-accent/50"
-              >
+              <Card key={platform.name} className="transition-colors hover:bg-accent/50">
                 <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <platform.icon className="h-5 w-5" />
                   </div>
-                  <span className="text-sm font-medium text-foreground">
-                    {platform.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {platform.desc}
-                  </span>
+                  <span className="text-sm font-medium text-foreground">{platform.name}</span>
+                  <span className="text-xs text-muted-foreground">{platform.desc}</span>
                 </CardContent>
               </Card>
             ))}
@@ -262,15 +235,15 @@ export default function EnglishHomePage() {
           <Card className="overflow-hidden">
             <CardContent className="flex flex-col items-center gap-6 p-8 text-center md:p-12">
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Github className="h-7 w-7" />
+                <Code className="h-7 w-7" />
               </div>
               <div className="max-w-2xl">
                 <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
                   Open Source. Apache 2.0.
                 </h2>
                 <p className="mt-4 text-muted-foreground">
-                  Self-hosted deployment with Docker Compose one-click setup.
-                  Full source code, no vendor lock-in, community-driven.
+                  Self-hosted deployment with Docker Compose one-click setup. Full source code, no
+                  vendor lock-in, community-driven.
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
@@ -293,7 +266,7 @@ export default function EnglishHomePage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Github className="h-4 w-4" />
+                  <Code className="h-4 w-4" />
                   View on GitHub
                 </a>
               </Button>
@@ -306,9 +279,7 @@ export default function EnglishHomePage() {
           <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
             Ready to build your AI agent?
           </h2>
-          <p className="mt-3 text-muted-foreground">
-            Start free. No credit card required.
-          </p>
+          <p className="mt-3 text-muted-foreground">Start free. No credit card required.</p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Button asChild variant="default" size="lg">
               <Link href="/agents">

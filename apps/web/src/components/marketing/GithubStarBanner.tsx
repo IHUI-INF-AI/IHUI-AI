@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Github, MessageCircle, Star } from 'lucide-react'
+import { Code, MessageCircle, Star } from 'lucide-react'
 
 /**
  * GitHub Star 引导 banner
@@ -17,7 +17,7 @@ export function GithubStarBanner(): React.JSX.Element {
         rel="noopener noreferrer"
         className="group inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary/40 hover:bg-primary/5"
       >
-        <Github className="h-3.5 w-3.5" />
+        <Code className="h-3.5 w-3.5" />
         <span>Star on GitHub</span>
         <Star className="h-3 w-3 text-amber-500" />
       </Link>
