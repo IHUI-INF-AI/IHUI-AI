@@ -140,7 +140,7 @@ export function RegisterScreen() {
         onConfirmPasswordChange={form.setConfirmPassword}
         onRegister={form.register}
         onBack={() => navigation.goBack()}
-        colorScheme={colorScheme ?? 'light'}
+        colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
         enableAgreement
         agreed={form.agreed}
         onAgreedChange={form.setAgreed}
@@ -164,12 +164,7 @@ export function RegisterScreen() {
           setVerifyVisible(false)
         }}
       />
-      <FloatBox
-        visible={toastVisible}
-        type={toastType}
-        message={toastMessage}
-        onHide={hideToast}
-      />
+      <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </>
   )
 }
