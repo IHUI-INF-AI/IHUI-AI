@@ -636,6 +636,23 @@ export async function getByokCommissionRate(providerCode: string): Promise<numbe
  * 失败容错:写流水失败不抛错(只 log),扣减失败也不抛错(避免影响已返回给用户的响应)。
  */
 export async function recordCall(input: RecordCallInput): Promise<RecordCallResult> {
+  // P0 修复(2026-08-02):顶层 try/catch 统一捕获所有错误。
+  // 大量调用方使用 `void recordCall({...})` 模式(fire-and-forget),若内部 db 操作抛错
+  // 会导致 unhandledRejection(Node 15+ 默认退出进程)。billing 埋点失败不应影响主链路。
+  try {
+    return await recordCallInternal(input)
+  } catch (err) {
+    logger.error('[billing] recordCall failed', {
+      apiKeyId: input.apiKeyId,
+      userId: input.userId,
+      model: input.model,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return { logId: '', costCents: 0, newTokenBalance: -1, newCostBalanceCents: -1 }
+  }
+}
+
+async function recordCallInternal(input: RecordCallInput): Promise<RecordCallResult> {
   // 1. 计算成本(区分 mode:'relay' 中转站 / 'byok' BYOK 平台模式)
   const mode = input.mode ?? 'relay'
 
