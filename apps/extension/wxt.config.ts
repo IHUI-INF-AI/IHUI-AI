@@ -8,10 +8,11 @@ export default defineConfig({
   }),
   // 2026-07-26 P0 修复:Node 17+ + Windows 把 localhost 解析为 ::1,Chrome 扩展页面
   // 用 127.0.0.1 解析 localhost 时连接被拒绝 → 显式绑 IPv4 127.0.0.1。
-  // 注意:WXT dev 必须用顶层的 dev.server.hostname,vite.server.host 会被覆盖。
+  // 注意:WXT dev 必须用顶层的 dev.server.host,vite.server.host 会被覆盖。
+  // 2026-08-03 wxt 0.21 升级:dev.server.hostname 已移除(原 v0.20 deprecated),改用 host。
   dev: {
     server: {
-      hostname: '127.0.0.1',
+      host: '127.0.0.1',
     },
   },
   manifest: {
