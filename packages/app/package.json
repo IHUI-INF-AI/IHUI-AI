@@ -22,16 +22,16 @@
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
-    "react-native": "^0.74.0 || ^0.76.0 || ^0.79.0"
+    "react-native": "^0.74.0 || ^0.76.0 || ^0.79.0 || ^0.86.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
-    "jsdom": "^25.0.1",
+    "jsdom": "^30.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-native": "^0.79.0",
+    "react-native": "^0.86.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
