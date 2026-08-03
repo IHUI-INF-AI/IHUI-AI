@@ -297,7 +297,7 @@ async function proxyMultipartToAiService(
 
   // 用 FormData 转发(保留原始 filename + content-type)
   const formData = new FormData()
-  const blob = new Blob([buffer], { type: data.mimetype || 'application/octet-stream' })
+  const blob = new Blob([new Uint8Array(buffer)], { type: data.mimetype || 'application/octet-stream' })
   formData.append('file', blob, data.filename || `upload-${Date.now()}`)
 
   const headers: Record<string, string> = {}
