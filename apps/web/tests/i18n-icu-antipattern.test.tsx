@@ -269,14 +269,13 @@ describe('web · next-intl ICU 反模式回归', () => {
       })
     })
 
-    it('t(key, params) 接受所有原始值类型(string/number/boolean)', () => {
+    it('t(key, params) 接受 string/number 类型(v4 起禁止 boolean/null/undefined 作为 ICU 参数)', () => {
       const t = useTranslations()
       // 关键:params 必须接受 number 类型(ratio / percent / count 等)
       const r1 = t('test.count', { n: 42 })
       expect(r1).toContain('n=42')
-      // boolean 类型也应被接受
-      const r2 = t('test.flag', { on: true })
-      expect(r2).toContain('on=true')
+      // next-intl v4 breaking change:boolean 不再被接受为 ICU 参数(类型层面禁止)
+      // 历史 antipattern 测试断言 `t('test.flag', { on: true })` 已失效,删除
     })
   })
 
