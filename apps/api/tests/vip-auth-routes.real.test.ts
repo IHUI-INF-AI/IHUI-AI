@@ -210,7 +210,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/vip/purchase',
-      body: { vipLevelId: '00000000-0000-0000-0000-000000000000' },
+      body: { vipLevelId: '00000000-0000-4000-8000-000000000000' },
     })
     expect(res.statusCode).toBe(401)
   })
@@ -221,7 +221,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/vip/purchase',
-      body: { vipLevelId: '00000000-0000-0000-0000-000000000000' },
+      body: { vipLevelId: '00000000-0000-4000-8000-000000000000' },
     })
     expect(res.statusCode).toBe(404)
     const body = res.json()
@@ -328,7 +328,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/vip/purchase',
-      body: { vipLevelId: '00000000-0000-0000-0000-000000000000' },
+      body: { vipLevelId: '00000000-0000-4000-8000-000000000000' },
     })
     expect(res.statusCode).toBe(404)
     const body = res.json()
@@ -509,7 +509,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/vip/order',
-      body: { vipLevelId: '00000000-0000-0000-0000-000000000000' },
+      body: { vipLevelId: '00000000-0000-4000-8000-000000000000' },
     })
     expect(res.statusCode).toBe(401)
   })
@@ -533,7 +533,7 @@ describe('vip-auth-routes — 需鉴权路由真实 DB 集成测试', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/vip/order',
-      body: { vipLevelId: '00000000-0000-0000-0000-000000000000' },
+      body: { vipLevelId: '00000000-0000-4000-8000-000000000000' },
     })
     expect(res.statusCode).toBe(404)
     const body = res.json()

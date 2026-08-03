@@ -32,7 +32,7 @@ describe('social routes', () => {
 
     const res = await server.inject({
       method: 'GET',
-      url: '/api/follows/00000000-0000-0000-0000-000000000000/stats',
+      url: '/api/follows/00000000-0000-4000-8000-000000000000/stats',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -50,7 +50,7 @@ describe('social routes', () => {
   it('GET /api/follows/:userId/status 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/follows/00000000-0000-0000-0000-000000000000/status',
+      url: '/api/follows/00000000-0000-4000-8000-000000000000/status',
     })
     expect(res.statusCode).toBe(401)
   })

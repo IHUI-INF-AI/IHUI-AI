@@ -142,7 +142,7 @@ describe('Legacy Completion API (D17/D18/D19 新增端点)', () => {
     it('有效 circleId 返回 200 与 memberCount', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: `/api/circles/member-count?circleId=${'00000000-0000-0000-0000-000000000001'}`,
+        url: `/api/circles/member-count?circleId=${'00000000-0000-4000-8000-000000000001'}`,
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()

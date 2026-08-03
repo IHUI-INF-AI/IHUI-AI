@@ -68,7 +68,7 @@ import { authIdentityRoutes } from '../auth-identity.js'
 import { verifyAccessToken } from '@ihui/auth'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
-const MOCK_USER_UUID = '00000000-0000-0000-0000-000000000001'
+const MOCK_USER_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('Auth Identity API', () => {
   let app: FastifyInstance

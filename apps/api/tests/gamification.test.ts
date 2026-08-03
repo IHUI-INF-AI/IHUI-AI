@@ -43,7 +43,7 @@ describe('gamification routes', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/points/admin/adjust',
-      body: { userId: '00000000-0000-0000-0000-000000000001', amount: 10 },
+      body: { userId: '00000000-0000-4000-8000-000000000001', amount: 10 },
     })
     expect(res.statusCode).toBe(401)
   })

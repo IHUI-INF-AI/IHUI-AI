@@ -35,9 +35,9 @@ describe('AI Feed/World Routes API (资讯/世界模块真实化端点)', () => 
       payload?: Record<string, unknown>
     }> = [
       { method: 'GET', url: '/api/ai-feed' },
-      { method: 'GET', url: '/api/ai-feed/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/ai-feed/00000000-0000-4000-8000-000000000000' },
       { method: 'GET', url: '/api/ai-world/categories' },
-      { method: 'GET', url: '/api/ai-world/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/ai-world/00000000-0000-4000-8000-000000000000' },
     ]
 
     for (const { method, url, payload } of aiFeedWorldEndpoints) {
@@ -60,7 +60,7 @@ describe('AI Feed/World Routes API (资讯/世界模块真实化端点)', () => 
     it('GET /api/ai-feed/:id 返回标准 { code, message } 格式', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/ai-feed/00000000-0000-0000-0000-000000000000',
+        url: '/api/ai-feed/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(401)
       const body = res.json()
@@ -79,7 +79,7 @@ describe('AI Feed/World Routes API (资讯/世界模块真实化端点)', () => 
     it('GET /api/ai-world/:id 返回标准 { code, message } 格式', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/ai-world/00000000-0000-0000-0000-000000000000',
+        url: '/api/ai-world/00000000-0000-4000-8000-000000000000',
       })
       expect(res.statusCode).toBe(401)
       const body = res.json()
