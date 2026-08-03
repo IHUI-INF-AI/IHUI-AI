@@ -8,15 +8,15 @@
   },
   "course": {
     "title": "강의",
-    "studentCount": "{{count}}명 학습",
-    "pay": "¥{{amount}} 결제",
+    "studentCount": "{count}명 학습",
+    "pay": "¥{amount} 결제",
     "enroll": "지금 등록",
     "enrolled": "등록됨",
     "progress": "진도"
   },
   "live": {
     "title": "라이브",
-    "viewerCount": "{{count}}명 시청 중",
+    "viewerCount": "{count}명 시청 중",
     "upcoming": "예정",
     "ended": "종료",
     "chat": "채팅"
@@ -39,10 +39,10 @@
     "paidAt": "결제 시간",
     "untitledOrder": "제목 없는 주문",
     "syncStatus": "상태 동기화",
-    "syncSuccess": "주문 {{orderNo}} 상태 동기화됨",
+    "syncSuccess": "주문 {orderNo} 상태 동기화됨",
     "syncFailed": "상태 동기화 실패",
     "cancelOrder": "주문 취소",
-    "cancelSuccess": "주문 {{orderNo}} 취소됨",
+    "cancelSuccess": "주문 {orderNo} 취소됨",
     "cancelFailed": "주문 취소 실패",
     "status": {
       "pending": "결제 대기",
@@ -154,7 +154,7 @@
     },
     "file": {
       "attach": "첨부",
-      "attached": "첨부됨: {{filename}} ({{size}})",
+      "attached": "첨부됨: {filename} ({size})",
       "tooLarge": "파일이 너무 큽니다(1MB 제한)",
       "invalidBase64": "Base64 내용이 잘못되었습니다",
       "missingFilename": "파일명을 입력하세요",
@@ -170,19 +170,19 @@
   "aiAssistant": {
     "chat": {
       "title": "대화 시작",
-      "message": "「{{name}}」와(과) 대화를 시작합니다"
+      "message": "「{name}」와(과) 대화를 시작합니다"
     }
   },
   "aiCareer": {
     "plan": {
       "title": "계획 생성",
-      "message": "「{{name}}」의 90일 성장 계획을 생성 중"
+      "message": "「{name}」의 90일 성장 계획을 생성 중"
     }
   },
   "aigcCover": {
     "applied": {
       "title": "표지 적용 완료",
-      "message": "「{{title}}」에 표지를 적용했습니다:{{label}}"
+      "message": "「{title}」에 표지를 적용했습니다:{label}"
     },
     "aiGen": {
       "title": "AI 표지 생성",
@@ -198,17 +198,17 @@
   "aiGroup": {
     "join": {
       "title": "그룹 가입",
-      "message": "「{{name}}」 가입을 신청했습니다"
+      "message": "「{name}」 가입을 신청했습니다"
     }
   },
   "assistant": {
     "edit": {
       "title": "작업",
-      "message": "「{{name}}」의 판매 설정"
+      "message": "「{name}」의 판매 설정"
     },
     "offline": {
       "title": "게시 중단 확인",
-      "message": "「{{name}}」을(를) 게시 중단하시겠습니까?",
+      "message": "「{name}」을(를) 게시 중단하시겠습니까?",
       "confirmBtn": "게시 중단",
       "done": "게시 중단됨"
     }
@@ -216,7 +216,7 @@
   "chatAlert": {
     "compaction": {
       "title": "컨텍스트가 자동 압축되었습니다",
-      "message": "{{before}} → {{after}}({{removed}}개 기록 제거)"
+      "message": "{before} → {after}({removed}개 기록 제거)"
     },
     "loginBtn": "로그인",
     "longPress": {
@@ -255,7 +255,7 @@
     },
     "ended": {
       "title": "라이브가 종료되었습니다",
-      "message": "라이브 시간:{{duration}}"
+      "message": "라이브 시간:{duration}"
     },
     "productAdd": {
       "message": "상품 추가 기능은 추후 제공됩니다"
@@ -275,8 +275,8 @@
     "toggle": {
       "stopTitle": "워크플로우 중지",
       "startTitle": "워크플로우 시작",
-      "stopMessage": "「{{name}}」을(를) 중지하시겠습니까?",
-      "startMessage": "「{{name}}」을(를) 시작하시겠습니까?",
+      "stopMessage": "「{name}」을(를) 중지하시겠습니까?",
+      "startMessage": "「{name}」을(를) 시작하시겠습니까?",
       "success": "작업 성공"
     }
   },
@@ -287,17 +287,17 @@
     },
     "detail": {
       "title": "모델 상세",
-      "message": "「{{name}}」의 전체 사양과 가격 보기"
+      "message": "「{name}」의 전체 사양과 가격 보기"
     }
   },
   "tokenValue": {
     "recharge": {
       "title": "충전 확인",
-      "message": "패키지:{{tokens}} Token · ¥{{price}}",
+      "message": "패키지:{tokens} Token · ¥{price}",
       "payBtn": "지금 결제",
       "success": {
         "title": "결제 성공",
-        "message": "{{tokens}} Token이 충전되었습니다"
+        "message": "{tokens} Token이 충전되었습니다"
       }
     }
   },

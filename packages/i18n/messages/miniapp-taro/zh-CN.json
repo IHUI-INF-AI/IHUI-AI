@@ -63,10 +63,10 @@
     "hotCourses": "热门课程",
     "tapLogin": "点击登录",
     "slogan": "智汇 AI,让学习更高效",
-    "todayMinutes": "今日 {{n}} 分钟",
-    "continuousDays": "连续 {{n}} 天",
-    "totalMinutes": "累计 {{n}} 分钟",
-    "coursesCount": "已学 {{n}} 门",
+    "todayMinutes": "今日 {n} 分钟",
+    "continuousDays": "连续 {n} 天",
+    "totalMinutes": "累计 {n} 分钟",
+    "coursesCount": "已学 {n} 门",
     "learningProgress": "学习进度",
     "more": "更多",
     "livePreview": "直播预告",
@@ -87,17 +87,17 @@
     "objectives": "学习目标",
     "suitableFor": "适合人群",
     "highlights": "课程亮点",
-    "nextLesson": "下一课:{{title}}",
+    "nextLesson": "下一课:{title}",
     "startLearning": "开始学习",
     "buyNow": "立即购买",
     "buyDeveloping": "购买功能开发中",
     "buyFirst": "请先购买课程",
     "signSuccess": "签到成功",
-    "rated": "已评分 {{n}} 星",
+    "rated": "已评分 {n} 星",
     "noteSaved": "笔记已保存",
     "lessonComplete": "本节学习完成",
     "viewTeacher": "查看讲师",
-    "noteTitle": "{{title}} - 笔记",
+    "noteTitle": "{title} - 笔记",
     "scanCourse": "扫码看课程",
     "loadFailed": "课程加载失败",
     "list": {
@@ -105,7 +105,7 @@
       "search": "搜索",
       "empty": "暂无课程",
       "title": "精品课程",
-      "subtitle": "{{n}} 个课程"
+      "subtitle": "{n} 个课程"
     },
     "ratingTitle": "评价课程",
     "ratingLabels": [
@@ -124,7 +124,7 @@
     "audience": "适合人群"
   },
   "live": {
-    "viewers": "{{n}} 人观看",
+    "viewers": "{n} 人观看",
     "preview": "预告",
     "detail": {
       "loadFailed": "直播加载失败",
@@ -133,7 +133,7 @@
       "ended": "直播已结束",
       "connecting": "正在连接直播间…",
       "enter": "进入直播间",
-      "anchor": "主播:{{name}}"
+      "anchor": "主播:{name}"
     },
     "subscribe": {
       "subscribe": "订阅提醒",
@@ -226,7 +226,7 @@
       "contactPlaceholder": "请输入手机号或邮箱"
     },
     "refundList": {
-      "orderNo": "订单号:{{no}}",
+      "orderNo": "订单号:{no}",
       "empty": "暂无退款记录",
       "tabRefunding": "退款中",
       "tabRefunded": "已退款",
@@ -277,7 +277,7 @@
         "contactService": "联系客服",
         "faqQ": "充值失败会扣款吗?"
       },
-      "tokenRate": "1元 = {{n}} 智汇值",
+      "tokenRate": "1元 = {n} 智汇值",
       "activityTitle": "限时活动",
       "activityPlaceholder": "请输入活动充值金额",
       "activitySubmit": "限时 优惠充值"
@@ -395,7 +395,7 @@
     "agentLoadFailed": "智能体加载失败",
     "generating": "正在极速生成中",
     "thinkingTip": "Tips:您可以先点击右上角三个点浮窗小程序,过一会儿再回来哟~",
-    "fileSelected": "已选 {{count}} 个文件",
+    "fileSelected": "已选 {count} 个文件",
     "common": {
       "loading": "加载中…"
     },
@@ -411,7 +411,7 @@
       "thinkingProcess": "思考过程",
       "noContent": "没有可复制的内容",
       "aiGenerated": "智汇AI生成",
-      "tokenCost": "消耗智汇值:{{n}}",
+      "tokenCost": "消耗智汇值:{n}",
       "reuse": "复用",
       "copy": "复制",
       "favorited": "已收藏",
@@ -451,7 +451,7 @@
     "skillsPopup": {
       "title": "选择技能",
       "searchPlaceholder": "搜索技能",
-      "uses": "{{n}} 次使用",
+      "uses": "{n} 次使用",
       "notFound": "未找到相关技能",
       "empty": "暂无可用技能"
     },
@@ -521,7 +521,7 @@
     },
     "agent": {
       "searchPlaceholder": "搜索智能体",
-      "count": "{{n}} 个",
+      "count": "{n} 个",
       "empty": "暂无智能体",
       "inputPlaceholder": "输入你的问题…"
     },
@@ -550,12 +550,12 @@
       "favoriteAgent": "收藏智能体",
       "favorited": "已收藏",
       "unfavorite": "取消收藏",
-      "useCount": "{{n}}人使用",
+      "useCount": "{n}人使用",
       "relatedAgents": "相关推荐",
       "prologue": "开场白",
       "exampleDialog": "示例对话",
       "reviews": "评价",
-      "reviewCount": "{{n}}条评价",
+      "reviewCount": "{n}条评价",
       "ratingDistribution": "评分分布"
     },
     "agentList": {
@@ -567,7 +567,7 @@
         "education": "教育",
         "life": "生活"
       },
-      "useCount": "{{n}}人使用",
+      "useCount": "{n}人使用",
       "noResult": "未找到相关智能体",
       "sortBy": "排序",
       "sortHot": "热门",
@@ -590,7 +590,7 @@
       "cleared": "已清空",
       "refreshSuccess": "刷新成功",
       "startNew": "开始新对话",
-      "msgCount": "{{n}} 条消息"
+      "msgCount": "{n} 条消息"
     },
     "special": {
       "pageError": "操作失败",
@@ -618,7 +618,7 @@
       "agentTipHistory": "历史记录",
       "agentTipHistoryDesc": "可查看历史对话"
     },
-    "uploadMaterialTab": "上传{{tab}}素材",
+    "uploadMaterialTab": "上传{tab}素材",
     "messageAction": {
       "reuse": "复用"
     },
@@ -645,8 +645,8 @@
   "share": {
     "appTitle": "智汇 AI - 让学习更高效",
     "timelineTitle": "智汇 AI,你的智能学习助手",
-    "courseTitle": "推荐课程:{{title}}",
-    "liveTitle": "推荐直播:{{title}}",
+    "courseTitle": "推荐课程:{title}",
+    "liveTitle": "推荐直播:{title}",
     "index": {
       "title": "AI资讯",
       "removeConfirm": "确认删除此对话?",
@@ -670,7 +670,7 @@
       "loading": "加载中…",
       "clickShare": "点击右上角分享给好友",
       "contentNotExist": "分享内容不存在",
-      "tokenCost": "消耗 {{n}} 智汇值",
+      "tokenCost": "消耗 {n} 智汇值",
       "thinkingProcess": "思考过程",
       "aiAnswer": "AI 回答",
       "regenerate": "再生成一个",
@@ -750,7 +750,7 @@
     "codeSent": "验证码已发送",
     "codeInvalid": "验证码不正确",
     "confirmTextMismatch": "输入的确认文字不匹配",
-    "countdown": "{{s}}s 后可提交",
+    "countdown": "{s}s 后可提交",
     "submitting": "注销中…",
     "submit": "确认注销",
     "consequenceTitle": "注销后果",
@@ -768,13 +768,13 @@
       "hot": "热门",
       "unanswered": "待回答"
     },
-    "answers": "{{n}} 回答",
+    "answers": "{n} 回答",
     "empty": "暂无问题",
     "detail": {
       "me": "我",
       "justNow": "刚刚",
       "answered": "回答成功",
-      "answerCount": "{{n}} 个回答",
+      "answerCount": "{n} 个回答",
       "placeholder": "输入你的回答…",
       "answer": "回答"
     },
@@ -878,20 +878,20 @@
     "saveQrcode": "保存二维码"
   },
   "exam": {
-    "questions": "{{n}} 题",
-    "minutes": "{{n}} 分钟",
-    "passScore": "及格分 {{n}}",
-    "totalScore": "总分 {{n}}",
+    "questions": "{n} 题",
+    "minutes": "{n} 分钟",
+    "passScore": "及格分 {n}",
+    "totalScore": "总分 {n}",
     "removedPaper": "试卷已下架",
     "passed": "已通过",
     "notPassed": "未通过",
-    "score": "成绩 {{n}}",
+    "score": "成绩 {n}",
     "result": {
       "loadFailed": "成绩加载失败",
       "pass": "恭喜通过",
       "notPass": "未通过",
-      "scoreValue": "{{n}} 分",
-      "rankValue": "第 {{n}} 名 / 共 {{total}} 人",
+      "scoreValue": "{n} 分",
+      "rankValue": "第 {n} 名 / 共 {total} 人",
       "goList": "查看考试列表",
       "pageTitle": "考试结果",
       "reviewTitle": "题目回顾",
@@ -905,11 +905,11 @@
     "detail": {
       "loadFailed": "考试加载失败",
       "questionCount": "题目数量",
-      "questionCountValue": "{{n}} 题",
+      "questionCountValue": "{n} 题",
       "duration": "考试时长",
-      "durationValue": "{{n}} 分钟",
+      "durationValue": "{n} 分钟",
       "passScore": "及格分数",
-      "passScoreValue": "{{n}} 分",
+      "passScoreValue": "{n} 分",
       "notice1": "请仔细阅读题目,在规定时间内完成作答",
       "notice2": "每道题作答后可修改,提交后不可更改",
       "start": "开始考试",
@@ -1028,13 +1028,13 @@
     },
     "company": {
       "title": "我的公司",
-      "level": "等级 {{n}}",
+      "level": "等级 {n}",
       "totalEarnings": "累计收益",
       "available": "可提现",
       "teamMembers": "团队成员",
-      "memberCount": "共 {{n}} 人",
+      "memberCount": "共 {n} 人",
       "empty": "暂无成员",
-      "joinTime": "加入:{{time}}",
+      "joinTime": "加入:{time}",
       "menuTeam": "团队管理",
       "menuCommission": "佣金记录",
       "menuWithdraw": "申请提现"
@@ -1086,7 +1086,7 @@
     "myTeam": "我的团队"
   },
   "about": {
-    "version": "版本 {{version}}",
+    "version": "版本 {version}",
     "protocol": {
       "s2": {
         "t1": "2.1用户资格与使用限制",
@@ -1326,13 +1326,13 @@
     "total": "合计"
   },
   "categoryDetail": {
-    "categoryId": "分类 {{id}}",
+    "categoryId": "分类 {id}",
     "allCategories": "全部分类",
     "hot": "热门",
     "new": "最新",
     "empty": "暂无内容",
     "noDesc": "暂无描述",
-    "useCount": "{{n}} 次使用"
+    "useCount": "{n} 次使用"
   },
   "circle": {
     "empty": "暂无内容",
@@ -1551,8 +1551,8 @@
     "tabImage": "图像",
     "tabAv": "音视频",
     "payMode": "按量计费",
-    "modelCount": "共 {{n}} 个模型",
-    "synced": "已同步 {{n}} 条",
+    "modelCount": "共 {n} 个模型",
+    "synced": "已同步 {n} 条",
     "perKTokens": "千token",
     "noMore": "— 没有更多了 —",
     "contextLength": "上下文",
@@ -1560,9 +1560,9 @@
   },
   "news": {
     "search": "搜索资讯",
-    "views": "{{n}} 次浏览",
+    "views": "{n} 次浏览",
     "empty": "暂无资讯",
-    "readCount": "{{n}}阅读",
+    "readCount": "{n}阅读",
     "detail": {
       "like": "点赞",
       "comment": "评论",
@@ -1732,7 +1732,7 @@
       "private": "其他用户发给你的私信",
       "marketing": "优惠活动、新品推荐等"
     },
-    "hello": "你好,我是 {{name}}",
+    "hello": "你好,我是 {name}",
     "justNow": "刚刚",
     "search": "搜索聊天",
     "unnamedRoom": "未命名会话",
@@ -1858,13 +1858,13 @@
     "noCoupon": "暂无可用优惠券",
     "couponNone": "不使用优惠券",
     "orderExpired": "订单已超时,请重新下单",
-    "countdownTip": "支付剩余时间 {{time}}",
-    "couponSaved": "已优惠 ¥{{n}}",
+    "countdownTip": "支付剩余时间 {time}",
+    "couponSaved": "已优惠 ¥{n}",
     "goodsName": "商品名称",
     "vipSubscription": "会员订阅",
-    "balanceAmount": "余额 ¥{{n}}",
+    "balanceAmount": "余额 ¥{n}",
     "recharge": "充值",
-    "couponAvailable": "{{n}} 张可用",
+    "couponAvailable": "{n} 张可用",
     "limitedFree": "限时免费",
     "memberFree": "会员免费",
     "buyNow": "立即购买",
@@ -1876,16 +1876,16 @@
     "balance": "余额"
   },
   "study": {
-    "todayMinutes": "今日 {{n}} 分钟",
-    "totalMinutes": "累计 {{n}} 分钟",
-    "continuousDays": "连续 {{n}} 天",
-    "courses": "已学 {{n}} 门",
+    "todayMinutes": "今日 {n} 分钟",
+    "totalMinutes": "累计 {n} 分钟",
+    "continuousDays": "连续 {n} 天",
+    "courses": "已学 {n} 门",
     "continueLearning": "继续学习",
     "emptyCourse": "暂无学习课程",
     "planPage": {
       "addFailed": "添加失败",
-      "target": "目标 {{n}} 分钟",
-      "completed": "已完成 {{n}} 分钟",
+      "target": "目标 {n} 分钟",
+      "completed": "已完成 {n} 分钟",
       "statusDone": "已完成",
       "statusInProgress": "进行中",
       "empty": "暂无学习计划",
@@ -1894,11 +1894,11 @@
     "rankPage": {
       "title": "学习排行榜",
       "subtitle": "看看谁最努力",
-      "minutes": "{{n}} 分钟",
+      "minutes": "{n} 分钟",
       "empty": "暂无排名数据"
     },
     "recordPage": {
-      "progress": "进度 {{n}}%",
+      "progress": "进度 {n}%",
       "empty": "暂无学习记录",
       "statusLearning": "学习中",
       "statusAbandon": "已放弃",
@@ -1977,8 +1977,8 @@
   "teacher": {
     "list": {
       "searchPlaceholder": "搜索讲师",
-      "courseCount": "{{n}} 门课程",
-      "studentCount": "{{n}} 位学员",
+      "courseCount": "{n} 门课程",
+      "studentCount": "{n} 位学员",
       "empty": "暂无讲师"
     },
     "detail": {
@@ -2181,7 +2181,7 @@
   "vip": {
     "selectPlanFirst": "请先选择套餐",
     "notOpened": "未开通",
-    "expireTime": "到期时间:{{time}}",
+    "expireTime": "到期时间:{time}",
     "openHint": "立即开通享受专属权益",
     "privileges": "会员权益",
     "viewAllBenefits": "查看全部权益",
@@ -2224,7 +2224,7 @@
       ],
       "loadFailed": "加载失败",
       "operationFailed": "操作失败",
-      "originalPrice": "原价¥{{n}}",
+      "originalPrice": "原价¥{n}",
       "upgrade": "立即升级",
       "configNotReady": "支付配置未就绪,请联系管理员"
     },
@@ -2417,7 +2417,7 @@
   "streak": {
     "title": "学习连签",
     "totalDays": "累计 {n} 天",
-    "continuousDays": "连续 {{n}} 天"
+    "continuousDays": "连续 {n} 天"
   },
   "withdrawal": {
     "records": "提现记录"
