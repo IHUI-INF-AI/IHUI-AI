@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react'
 import type { View } from 'react-native'
-import { captureRef, type default as ViewShot } from 'react-native-view-shot'
+import { captureRef } from 'react-native-view-shot'
 
 export function useScreenshot() {
   const [lastUri, setLastUri] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const capture = useCallback(async (ref: React.RefObject<View | ViewShot>) => {
+  const capture = useCallback(async (ref: React.RefObject<View>) => {
     if (!ref.current) return null
     setBusy(true)
     try {
