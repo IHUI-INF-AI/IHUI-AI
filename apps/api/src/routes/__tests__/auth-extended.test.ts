@@ -68,15 +68,15 @@ describe('Auth Extended API', () => {
   })
 
   describe('公开端点（不依赖 db 的配置查询）', () => {
-    // 注:auth-extended.ts 未注册 /auth/google/config 路由(仅有 /google/pc/wxCode
-    // 和 /google/android/wxCode)。返回 404 是路由未注册的事实,非 bug。跳过
-    // 直至路由补建或测试改为验证其他 google 配置端点。
-    it.skip('GET /api/auth/google/config 返回 200 与 configured 字段', async () => {
-      const res = await app.inject({ method: 'GET', url: '/api/auth/google/config' })
+    // /auth/google/config 路由未注册,替代路由为 /auth/oauth-status(第 514 行),
+    // 返回 8 平台配置状态。data.google 字段(boolean)等价于原期望的 data.configured。
+    it('GET /api/auth/oauth-status 返回 200 与 google 配置字段', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/auth/oauth-status' })
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
-      expect(body.data).toHaveProperty('configured')
+      expect(body.data).toHaveProperty('google')
+      expect(typeof body.data.google).toBe('boolean')
     })
 
     it('GET /api/sms-proxy/config 返回 200 与 provider 字段（dev 模式）', async () => {
