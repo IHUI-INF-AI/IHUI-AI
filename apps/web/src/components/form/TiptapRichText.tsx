@@ -8,7 +8,7 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
 import Underline from '@tiptap/extension-underline'
-import Table from '@tiptap/extension-table'
+import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
@@ -38,6 +38,8 @@ export const TiptapRichText = React.memo(
 
     const editor = useEditor({
       extensions: [
+        // v3: StarterKit 默认含 link/underline,后注册的同名扩展会覆盖默认配置
+        // v2: StarterKit 不含 link/underline,需单独注册
         StarterKit,
         Underline,
         Link.configure({ openOnClick: false }),
@@ -51,6 +53,11 @@ export const TiptapRichText = React.memo(
       ],
       content: value || '',
       editable,
+      // v3: shouldRerenderOnTransaction 默认 false 会导致 toolbar 不刷新;开启保证按钮 active 状态实时更新
+      // v2: 默认 true,显式设置无副作用
+      shouldRerenderOnTransaction: true,
+      // v3/v2: Next.js SSR 需关闭立即渲染,避免 hydration mismatch
+      immediatelyRender: false,
       onUpdate: ({ editor }) => {
         onChangeRef.current?.(editor.getHTML())
       },
@@ -67,7 +74,7 @@ export const TiptapRichText = React.memo(
 
     React.useEffect(() => {
       if (editor && value !== undefined && editor.getHTML() !== value) {
-        editor.commands.setContent(value, false)
+        editor.commands.setContent(value, { emitUpdate: false })
       }
     }, [value, editor])
 
