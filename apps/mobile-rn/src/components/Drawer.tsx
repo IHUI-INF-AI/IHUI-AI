@@ -58,7 +58,7 @@ function getDrawerWidth(screenWidth: number): number {
 }
 
 function getTopPadding(): number {
-  return Platform.OS === 'ios' ? 44 : StatusBar.currentHeight ?? 0
+  return Platform.OS === 'ios' ? 44 : (StatusBar.currentHeight ?? 0)
 }
 
 function getBottomPadding(): number {
@@ -104,7 +104,11 @@ export function Drawer({ visible, onClose, menuItems, onItemPress }: DrawerProps
       onPress={() => handleItemPress(item.key)}
       android_ripple={{ color: tokens.surface.muted }}
     >
-      {item.icon ? <Text style={styles.itemIcon}>{item.icon}</Text> : <View style={styles.itemIconPlaceholder} />}
+      {item.icon ? (
+        <Text style={styles.itemIcon}>{item.icon}</Text>
+      ) : (
+        <View style={styles.itemIconPlaceholder} />
+      )}
       <Text style={styles.itemLabel} numberOfLines={1}>
         {item.label}
       </Text>
@@ -128,13 +132,10 @@ export function Drawer({ visible, onClose, menuItems, onItemPress }: DrawerProps
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.drawer,
-            { width: drawerWidth, transform: [{ translateX }] },
-          ]}
-        >
-          <View style={[styles.drawerInner, { paddingTop: topPadding, paddingBottom: bottomPadding }]}>
+        <Animated.View style={[styles.drawer, { width: drawerWidth, transform: [{ translateX }] }]}>
+          <View
+            style={[styles.drawerInner, { paddingTop: topPadding, paddingBottom: bottomPadding }]}
+          >
             <View style={styles.header}>
               <View style={styles.headerSpacer} />
               <Pressable
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.5)',
   } as ViewStyle,
   drawer: {
