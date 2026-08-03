@@ -27,7 +27,7 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 function createChainableMock() {
@@ -73,15 +73,15 @@ const ADMIN_TOKEN = 'Bearer admin-token'
 const OWNER_TOKEN = 'Bearer owner-token'
 const OTHER_TOKEN = 'Bearer other-token'
 
-const OWNER_ID = '00000000-0000-0000-0000-000000000001'
-const OTHER_ID = '00000000-0000-0000-0000-000000000002'
+const OWNER_ID = '00000000-0000-4000-8000-000000000001'
+const OTHER_ID = '00000000-0000-4000-8000-000000000002'
 const FILE_URL = 'https://cdn.example.com/uploads/test.png'
 
 function mockUser(userId: string, roleId: number) {
   mockVerifyAccessToken.mockResolvedValue({
     userId,
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId,
   })
 }

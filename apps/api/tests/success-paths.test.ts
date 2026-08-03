@@ -28,18 +28,18 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: vi.fn().mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 0,
   }),
   verifyRefreshToken: vi.fn().mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 0,
   }),
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
   ACCESS_TOKEN_TTL_SECONDS: 15 * 60,
   REFRESH_TOKEN_TTL_SECONDS: 30 * 24 * 60 * 60,
 }))
@@ -195,7 +195,7 @@ import { codeStore } from '../src/utils/code-store'
 // =============================================================================
 // 常量与测试数据
 // =============================================================================
-const SAMPLE_UUID = '00000000-0000-0000-0000-000000000001'
+const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
 
 const mockUser = {
   id: SAMPLE_UUID,
@@ -204,7 +204,7 @@ const mockUser = {
   passwordHash: '$2a$10$mockedhashvalue',
   nickname: '用户0001',
   avatar: null,
-  familyId: '00000000-0000-0000-0000-000000000002',
+  familyId: '00000000-0000-4000-8000-000000000002',
   roleId: 0,
   status: 1,
   createdAt: new Date(),

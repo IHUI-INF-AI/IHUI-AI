@@ -32,7 +32,7 @@ describe('users routes', () => {
 
     const res = await server.inject({
       method: 'GET',
-      url: '/api/users/00000000-0000-0000-0000-000000000000',
+      url: '/api/users/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -40,7 +40,7 @@ describe('users routes', () => {
   it('PATCH /api/users/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'PATCH',
-      url: '/api/users/00000000-0000-0000-0000-000000000000',
+      url: '/api/users/00000000-0000-4000-8000-000000000000',
       payload: { nickname: 'test' },
     })
     expect(res.statusCode).toBe(401)

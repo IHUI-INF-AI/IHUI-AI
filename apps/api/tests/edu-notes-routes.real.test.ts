@@ -201,7 +201,7 @@ describe('edu-notes-routes — 学员笔记 CRUD 需鉴权真实 DB 集成测试
     setMockUser(user.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/edu/notes/00000000-0000-0000-0000-000000000000',
+      url: '/api/edu/notes/00000000-0000-4000-8000-000000000000',
       body: { title: '新标题' },
     })
     expect(res.statusCode).toBe(404)
@@ -253,7 +253,7 @@ describe('edu-notes-routes — 学员笔记 CRUD 需鉴权真实 DB 集成测试
     setMockUser(user.id)
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/edu/notes/00000000-0000-0000-0000-000000000000',
+      url: '/api/edu/notes/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })

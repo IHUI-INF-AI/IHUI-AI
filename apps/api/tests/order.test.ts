@@ -47,7 +47,7 @@ vi.mock('../src/db/order-queries.js', () => ({
 
 import { orderRoutes, adminOrderRoutes } from '../src/routes/order'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('order routes', () => {
   const server = Fastify({ logger: false })
