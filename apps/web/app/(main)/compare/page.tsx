@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Layers, ArrowRight, Check, X, Sparkles, Github } from 'lucide-react'
+import { Layers, ArrowRight, Check, X, Sparkles, Code } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 
@@ -468,7 +468,7 @@ export default function CompareIndexPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Github className="mr-2 h-4 w-4" />
+                <Code className="mr-2 h-4 w-4" />
                 查看 GitHub
               </a>
             </Button>

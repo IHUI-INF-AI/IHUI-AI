@@ -11,9 +11,9 @@
     "./cross-end": "./cross-end.js"
   },
   "dependencies": {
-    "@next/eslint-plugin-next": "^15.5.20",
+    "@next/eslint-plugin-next": "^16.0.0",
     "eslint-plugin-react": "^7.37.2",
-    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
     "typescript-eslint": "^8.65.0"
   },
   "peerDependencies": {
