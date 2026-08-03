@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Wrench, AppWindow, Newspaper, FileText, Github, Sparkles, Trophy } from 'lucide-react'
+import { Wrench, AppWindow, Newspaper, FileText, Code, Sparkles, Trophy } from 'lucide-react'
 
 import { fetchAiWorld } from './helpers'
 import { ItemList } from './ItemList'
@@ -41,7 +41,7 @@ const TABS: TabDef[] = [
   {
     key: 'projects',
     label: '项目',
-    icon: Github,
+    icon: Code,
     kind: 'project',
     layout: 'list',
     hasSidebar: false,
