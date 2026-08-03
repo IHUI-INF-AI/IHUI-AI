@@ -93,7 +93,7 @@ async function parseFile(
   }
   const fd = new FormData();
   fd.append('source', source);
-  const blob = new Blob([buffer]);
+  const blob = new Blob([new Uint8Array(buffer)]);
   fd.append('file', blob, path.basename(abs));
 
   // codex-cli 自动读 auth.json
