@@ -39,6 +39,6 @@
     "typescript": "catalog:",
     "vite": "^6.0.0",
     "vitest": "catalog:",
-    "wxt": "^0.19.0"
+    "wxt": "^0.21.3"
   }
 }
