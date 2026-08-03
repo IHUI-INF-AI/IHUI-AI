@@ -75,7 +75,7 @@ import agentExtendedRoutes from '../src/routes/agent-extended.js'
 
 const ADMIN_USER = '00000000-0000-0000-0000-000000000001'
 const REGULAR_USER = '00000000-0000-0000-0000-000000000002'
-const VALID_UUID = '11111111-1111-1111-1111-111111111111'
+const VALID_UUID = '11111111-1111-4111-8111-111111111111'
 
 function mockAdmin() {
   mockAuthenticate.mockImplementation(async (request: any) => {

@@ -72,17 +72,17 @@ const paginationQuery = {
 
 const listChannelsQuery = z.object({
   ...paginationQuery,
-  search: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  categoryId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  lecturerId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  isLive: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  categoryId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  lecturerId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  isLive: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
 
 const listLecturersQuery = z.object({
   ...paginationQuery,
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
 
 const byIdsQuery = z.object({
@@ -112,8 +112,8 @@ const createChannelSchema = z.object({
   lecturerName: z.string().max(100).nullable().optional(),
   pushUrl: z.string().max(500).nullable().optional(),
   playUrl: z.string().max(500).nullable().optional(),
-  startTime: z.string().datetime().nullable().optional(),
-  endTime: z.string().datetime().nullable().optional(),
+  startTime: z.iso.datetime().nullable().optional(),
+  endTime: z.iso.datetime().nullable().optional(),
   isLive: z.boolean().optional(),
   isPublished: z.boolean().optional(),
   sort: z.number().int().min(0).optional(),
@@ -129,8 +129,8 @@ const updateChannelSchema = z.object({
   lecturerName: z.string().max(100).nullable().optional(),
   pushUrl: z.string().max(500).nullable().optional(),
   playUrl: z.string().max(500).nullable().optional(),
-  startTime: z.string().datetime().nullable().optional(),
-  endTime: z.string().datetime().nullable().optional(),
+  startTime: z.iso.datetime().nullable().optional(),
+  endTime: z.iso.datetime().nullable().optional(),
   isLive: z.boolean().optional(),
   isPublished: z.boolean().optional(),
   sort: z.number().int().min(0).optional(),

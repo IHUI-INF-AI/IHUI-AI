@@ -77,8 +77,8 @@ import { db } from '../src/db/index.js'
 const PREFIX = '/api'
 const ADMIN_USER = '00000000-0000-0000-0000-000000000001'
 const REGULAR_USER = '00000000-0000-0000-0000-000000000002'
-const THEME_ID = '11111111-1111-1111-1111-111111111111'
-const COLOR_ID = '22222222-2222-2222-2222-222222222222'
+const THEME_ID = '11111111-1111-4111-8111-111111111111'
+const COLOR_ID = '22222222-2222-4222-8222-222222222222'
 
 function mockAdmin() {
   mockAuthenticate.mockImplementation(async (request: any) => {

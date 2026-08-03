@@ -9,8 +9,8 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 const errorsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  level: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
+  level: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
 })
 
 export const adminErrorDashboardRoutes: FastifyPluginAsync = async (server) => {

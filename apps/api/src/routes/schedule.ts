@@ -24,15 +24,15 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listTasksQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  enabled: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
+  enabled: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
 })
 
 const listLogsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  taskId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  status: z.preprocess(emptyToUndefined, z.string().min(1).max(20).optional()),
+  taskId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().min(1).max(20).optional()),
 })
 
 const createTaskSchema = z.object({

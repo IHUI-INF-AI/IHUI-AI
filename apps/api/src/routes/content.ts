@@ -51,15 +51,13 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const slugParamSchema = z.object({ slug: z.string().min(1).max(128) })
 
 const helpArticlesQuerySchema = z.object({
-  category: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+  category: z.transform((v) => (v === '' || v === null || v === undefined ? undefined : v)).pipe(
     z.enum(HELP_CATEGORIES).optional(),
   ),
 })
 
 const docsQuerySchema = z.object({
-  category: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+  category: z.transform((v) => (v === '' || v === null || v === undefined ? undefined : v)).pipe(
     z.enum(DOC_CATEGORIES).optional(),
   ),
 })
@@ -70,8 +68,8 @@ const createAnnouncementSchema = z.object({
   type: z.enum(ANNOUNCEMENT_TYPES).optional(),
   isPinned: z.boolean().optional(),
   isPublished: z.boolean().optional(),
-  publishedAt: z.coerce.date().nullable().optional(),
-  expiresAt: z.coerce.date().nullable().optional(),
+  publishedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
+  expiresAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
 })
 
 const updateAnnouncementSchema = z.object({
@@ -80,8 +78,8 @@ const updateAnnouncementSchema = z.object({
   type: z.enum(ANNOUNCEMENT_TYPES).optional(),
   isPinned: z.boolean().optional(),
   isPublished: z.boolean().optional(),
-  publishedAt: z.coerce.date().nullable().optional(),
-  expiresAt: z.coerce.date().nullable().optional(),
+  publishedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
+  expiresAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
 })
 
 const createHelpCategorySchema = z.object({

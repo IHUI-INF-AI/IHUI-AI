@@ -108,20 +108,20 @@ const paginationQuery = {
 
 const listMembersQuery = z.object({
   ...paginationQuery,
-  username: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
-  mobile: z.preprocess(emptyToUndefined, z.string().min(1).max(30).optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
-  levelId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+  username: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
+  mobile: z.transform(emptyToUndefined).pipe(z.string().min(1).max(30).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+  levelId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
 })
 
 const authListQuery = z.object({
   ...paginationQuery,
-  keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
 })
 
 const companyListQuery = z.object({
   ...paginationQuery,
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
 })
 
 const byIdsQuery = z.object({ ids: z.string().min(1, 'ids 不能为空') })
@@ -202,8 +202,8 @@ const updateLevelSchema = z.object({
 
 const companiesListQuery = z.object({
   ...paginationQuery,
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1).optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(1).optional()),
 })
 
 const createCompanySchema = z.object({
@@ -228,9 +228,9 @@ const updateCompanySchema = z.object({
 
 const departmentsListQuery = z.object({
   ...paginationQuery,
-  companyId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  name: z.preprocess(emptyToUndefined, z.string().min(1).max(200).optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1).optional()),
+  companyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(1).optional()),
 })
 
 const createDepartmentSchema = z.object({
@@ -289,13 +289,13 @@ const deptUsersQuery = z.object({
 
 const simpleListQuery = z.object({
   ...paginationQuery,
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-  keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
 })
 
 const tagListQuery = z.object({
   ...paginationQuery,
-  keyword: z.preprocess(emptyToUndefined, z.string().min(1).max(100).optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
 })
 
 const createGroupSchema = z.object({

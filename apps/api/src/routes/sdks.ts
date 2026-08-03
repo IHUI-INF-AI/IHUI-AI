@@ -13,8 +13,8 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const listQuerySchema = z.object({
-  language: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
+  language: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
 })
 
 const createSdkSchema = z.object({

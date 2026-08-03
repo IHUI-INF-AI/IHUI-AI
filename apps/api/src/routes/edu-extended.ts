@@ -37,7 +37,7 @@ import { sendStudentReport } from './edu-public.js'
 
 const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
-const optionalUuid = z.preprocess(emptyToUndefined, z.uuid({ error: '无效的 ID' })).optional()
+const optionalUuid = z.transform(emptyToUndefined).pipe(z.uuid({ error: '无效的 ID' })).optional()
 
 const notesListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -106,7 +106,7 @@ const createOfflineRecordBodySchema = z.object({
   type: z.string().min(1).max(50),
   title: z.string().min(1).max(200),
   description: z.string().nullable().optional(),
-  occurredAt: z.string().datetime().optional(),
+  occurredAt: z.iso.datetime().optional(),
   hours: z.number().int().min(0).optional(),
   attachments: attachmentsSchema.optional(),
 })
@@ -115,7 +115,7 @@ const updateOfflineRecordBodySchema = z.object({
   type: z.string().min(1).max(50).optional(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
-  occurredAt: z.string().datetime().optional(),
+  occurredAt: z.iso.datetime().optional(),
   hours: z.number().int().min(0).optional(),
   attachments: attachmentsSchema.optional(),
 })
@@ -125,14 +125,14 @@ const createUploadedCertBodySchema = z.object({
   certName: z.string().min(1).max(100),
   certUrl: z.string().max(500).nullable().optional(),
   issuer: z.string().max(100).nullable().optional(),
-  issuedAt: z.string().datetime().nullable().optional(),
+  issuedAt: z.iso.datetime().nullable().optional(),
 })
 
 const updateUploadedCertBodySchema = z.object({
   certName: z.string().min(1).max(100).optional(),
   certUrl: z.string().max(500).nullable().optional(),
   issuer: z.string().max(100).nullable().optional(),
-  issuedAt: z.string().datetime().nullable().optional(),
+  issuedAt: z.iso.datetime().nullable().optional(),
 })
 
 const createUploadedPaperBodySchema = z.object({
@@ -167,8 +167,8 @@ const arrangementsListQuerySchema = z.object({
 const createArrangementBodySchema = z.object({
   paperId: z.uuid({ error: '无效的试卷 ID' }),
   title: z.string().min(1).max(200),
-  startTime: z.string().datetime(),
-  endTime: z.string().datetime(),
+  startTime: z.iso.datetime(),
+  endTime: z.iso.datetime(),
   location: z.string().max(200).nullable().optional(),
   invigilator: z.string().max(100).nullable().optional(),
   duration: z.number().int().min(1).optional(),
@@ -177,8 +177,8 @@ const createArrangementBodySchema = z.object({
 
 const updateArrangementBodySchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  startTime: z.string().datetime().optional(),
-  endTime: z.string().datetime().optional(),
+  startTime: z.iso.datetime().optional(),
+  endTime: z.iso.datetime().optional(),
   location: z.string().max(200).nullable().optional(),
   invigilator: z.string().max(100).nullable().optional(),
   duration: z.number().int().min(1).optional(),

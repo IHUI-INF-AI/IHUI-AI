@@ -35,8 +35,8 @@ const deleteSchema = z.object({
 
 const listQuery = z.object({
   ...paginationQuery,
-  paperId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  isMastered: z.preprocess(emptyToUndefined, z.coerce.boolean().optional()),
+  paperId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  isMastered: z.transform(emptyToUndefined).pipe(z.coerce.boolean().optional()),
 })
 
 const wrongQuestionRoutes: FastifyPluginAsync = async (server) => {

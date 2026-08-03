@@ -21,8 +21,8 @@ import { success, error, emptyToUndefined, paginatedSuccess } from '../utils/res
 // =============================================================================
 
 const listQuerySchema = z.object({
-  search: z.preprocess(emptyToUndefined, z.string().max(128).optional()),
-  vendor: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
+  vendor: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
 })

@@ -35,9 +35,9 @@ const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listUsersQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  nickname: z.preprocess(emptyToUndefined, z.string().min(1).max(64).optional()),
-  phone: z.preprocess(emptyToUndefined, z.string().min(1).max(11).optional()),
-  status: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1).optional()),
+  nickname: z.transform(emptyToUndefined).pipe(z.string().min(1).max(64).optional()),
+  phone: z.transform(emptyToUndefined).pipe(z.string().min(1).max(11).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).max(1).optional()),
 })
 
 const createUserSchema = z.object({
@@ -69,8 +69,8 @@ const byPhoneQuery = z.object({
 })
 
 const listDeptQuery = z.object({
-  pid: z.preprocess(emptyToUndefined, z.uuid().optional()),
-  companyId: z.preprocess(emptyToUndefined, z.coerce.number().int().optional()),
+  pid: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  companyId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
 })
 
 const createDeptSchema = z.object({
@@ -90,8 +90,8 @@ const updateDeptSchema = z.object({
 const createCertificateSchema = z.object({
   title: z.string().min(1, '证书标题不能为空').max(200),
   certificateNo: z.string().max(100).nullable().optional(),
-  issuedAt: z.coerce.date().nullable().optional(),
-  expireAt: z.coerce.date().nullable().optional(),
+  issuedAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
+  expireAt: z.coerce.date().refine((d) => !isNaN(d.getTime()), '无效日期').nullable().optional(),
   status: z.number().int().min(0).max(1).optional(),
 })
 

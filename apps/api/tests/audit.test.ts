@@ -47,7 +47,7 @@ const NOW = new Date('2026-07-26T00:00:00Z')
 function makeLog(overrides: Record<string, unknown> = {}) {
   return {
     id: 'log-001',
-    userId: '11111111-1111-1111-1111-111111111111',
+    userId: '11111111-1111-4111-8111-111111111111',
     action: 'create',
     resourceType: 'order',
     resourceId: 'ORD001',
@@ -264,7 +264,7 @@ describe('audit routes — 审计日志高风险路由', () => {
 
     it('按 userId(UUID) 过滤透传', async () => {
       mockFindAuditLogs.mockResolvedValueOnce({ list: [], total: 0 })
-      const uuid = '11111111-1111-1111-1111-111111111111'
+      const uuid = '11111111-1111-4111-8111-111111111111'
       await server.inject({
         method: 'GET',
         url: `/api/admin/audit-logs?userId=${uuid}`,

@@ -18,9 +18,9 @@ export const auditRoutes: FastifyPluginAsync = async (server) => {
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        clientId: z.preprocess(emptyToUndefined, z.string().optional()),
-        event: z.preprocess(emptyToUndefined, z.string().optional()),
-        status: z.preprocess(emptyToUndefined, z.string().optional()),
+        clientId: z.transform(emptyToUndefined).pipe(z.string().optional()),
+        event: z.transform(emptyToUndefined).pipe(z.string().optional()),
+        status: z.transform(emptyToUndefined).pipe(z.string().optional()),
       })
       .parse(request.query)
     const { items, total } = await findAuditLogList({

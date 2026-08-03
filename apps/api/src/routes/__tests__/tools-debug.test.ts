@@ -69,7 +69,7 @@ function mockAdminAuth(): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
     userId: 'mock-admin-id',
     phone: '13800000000',
-    familyId: '11111111-1111-1111-1111-111111111111',
+    familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 1,
   })
 }
@@ -78,7 +78,7 @@ function mockNonAdminAuth(): void {
   vi.mocked(verifyAccessToken).mockResolvedValue({
     userId: 'mock-user-id',
     phone: '13900000000',
-    familyId: '11111111-1111-1111-1111-111111111111',
+    familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 0,
   })
 }

@@ -2,10 +2,11 @@ import { z } from 'zod'
 import { logger } from '../utils/logger.js'
 
 const optionalUrl = (def: string) =>
-  z.preprocess(
-    (v) => (v === undefined || v === '' ? def : v),
-    z.string().refine((v) => v === '' || /^https?:\/\/.+/.test(v), 'Invalid url'),
-  )
+  z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined || v === '' ? def : v))
+    .pipe(z.url().or(z.literal('')))
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -15,7 +16,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:8801'),
 
   DATABASE_URL: z.url(),
-  DATABASE_READ_REPLICA_URL: z.preprocess((v) => (v === '' ? undefined : v), z.url().optional()),
+  DATABASE_READ_REPLICA_URL: z.string().optional().transform((v) => (v === '' ? undefined : v)).pipe(z.url().optional()),
   REDIS_URL: z.url().default('redis://localhost:8811'),
   JWT_SECRET: z
     .string()
