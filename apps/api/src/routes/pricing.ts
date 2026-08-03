@@ -32,7 +32,7 @@ export const pricingRoutes: FastifyPluginAsync = async (server) => {
         modelId: z.string(),
         inputTokenPrice: z.number(),
         outputTokenPrice: z.number(),
-        regionPricing: z.record(z.number()).optional(),
+        regionPricing: z.record(z.string(), z.number()).optional(),
         discount: z.unknown().optional(),
         currency: z.string().optional(),
         effectiveAt: z.string().optional(),

@@ -9,7 +9,7 @@ import {
   type DefaultValues,
 } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import type { ZodType, ZodTypeDef } from 'zod'
+import type { ZodType } from 'zod'
 import { useTranslations } from 'next-intl'
 import { VALIDATION_NS, type ValidationKey } from '@/lib/form-schema'
 
@@ -64,7 +64,7 @@ const VALIDATION_I18N_KEY: Record<ValidationKey, string> = {
  * `too_small` → `admin.validation.min` / `invalid_email` → `admin.validation.email` 等。
  */
 export interface UseZodFormOptions<T extends FieldValues> {
-  schema: ZodType<T, ZodTypeDef, unknown>
+  schema: ZodType<T, unknown>
   defaultValues: T
   mode?: UseFormProps<T>['mode']
   reValidateMode?: UseFormProps<T>['reValidateMode']

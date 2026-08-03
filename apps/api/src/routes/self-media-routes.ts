@@ -36,7 +36,7 @@ const recordSchema = z.object({
   status: z.enum(['generated', 'published', 'failed']).default('generated'),
   draftId: z.string().max(128).optional(),
   topicKeyword: z.string().max(200).optional(),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 })
 
 const HISTORY_LIMIT = 100
@@ -156,7 +156,11 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
     const { taskId } = request.params as { taskId: string }
     const { enabled } = (request.body ?? {}) as { enabled?: boolean }
     const qs = `?enabled=${enabled ? 'true' : 'false'}`
-    await proxyToAiService(request, reply, `/automation/tasks/${encodeURIComponent(taskId)}/toggle${qs}`)
+    await proxyToAiService(
+      request,
+      reply,
+      `/automation/tasks/${encodeURIComponent(taskId)}/toggle${qs}`,
+    )
   })
 
   server.post('/self-media/automation/tasks/:taskId/config', async (request, reply) => {
@@ -166,7 +170,11 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/self-media/automation/tasks/:taskId/trigger', async (request, reply) => {
     const { taskId } = request.params as { taskId: string }
-    await proxyToAiService(request, reply, `/automation/tasks/${encodeURIComponent(taskId)}/trigger`)
+    await proxyToAiService(
+      request,
+      reply,
+      `/automation/tasks/${encodeURIComponent(taskId)}/trigger`,
+    )
   })
 
   server.get('/self-media/automation/history', async (request, reply) => {

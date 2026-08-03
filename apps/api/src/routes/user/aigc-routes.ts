@@ -15,7 +15,7 @@ const aigcTaskCreateSchema = z.object({
   type: z.string().min(1).max(50),
   prompt: z.string().min(1).max(10000),
   model: z.string().max(100).optional(),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 })
 
 const aigcTaskStatusToInt: Record<'pending' | 'running' | 'succeeded' | 'failed', number> = {

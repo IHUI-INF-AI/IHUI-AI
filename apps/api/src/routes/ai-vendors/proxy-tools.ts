@@ -52,7 +52,7 @@ const cozeChatBody = z.object({
 
 const cozeWorkflowRunBody = z.object({
   workflowId: z.string().optional(),
-  parameters: z.record(z.unknown()).optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
 })
 
 const bailianChatBody = z.object({
@@ -70,14 +70,14 @@ const n8nWorkflowsBody = z.object({
 const n8nWorkflowRunBody = z.object({
   workflowId: z.string().optional(),
   webhookPath: z.string().optional(),
-  inputData: z.record(z.unknown()).optional(),
+  inputData: z.record(z.string(), z.unknown()).optional(),
 })
 
 const n8nAddAgentBody = z.object({
   agentName: z.string().optional(),
   agentDescription: z.string().optional(),
   connectorUserId: z.string().optional(),
-  agentVariables: z.record(z.unknown()).optional(),
+  agentVariables: z.record(z.string(), z.unknown()).optional(),
   agentModel: z.string().optional(),
   agentAvatar: z.string().optional(),
 })
@@ -96,7 +96,7 @@ const klingIdentifyBody = z.object({
 
 const klingTaskCreateBody = z.object({
   sessionId: z.string().min(1),
-  faceChoose: z.array(z.record(z.unknown())).min(1).max(100),
+  faceChoose: z.array(z.record(z.string(), z.unknown())).min(1).max(100),
   externalTaskId: z.string().optional(),
   callbackUrl: z.string().optional(),
 })
@@ -105,7 +105,7 @@ const n8nAddAgentDbBody = z.object({
   agentName: z.string().min(1),
   agentDescription: z.string().min(1),
   connectorUserId: z.string().min(1),
-  agentVariables: z.record(z.unknown()).optional(),
+  agentVariables: z.record(z.string(), z.unknown()).optional(),
   agentModel: z.string().min(1),
   agentAvatar: z.string().optional(),
 })
