@@ -67,6 +67,8 @@ export function buildSchema(opts: BuildSchemaOptions): FastifySchema {
     tags: opts.tags,
     response: opts.response ?? (opts.auth === false ? publicResponses : standardResponses),
   }
+  // FIXME(any): zod-to-json-schema@3.25.2 类型定义仍是 Zod 3(ZodTypeDef),与 Zod 4 不兼容。
+  // 运行时 peer dep 支持 Zod 4,但类型定义未更新。用 as never 绕过,待官方发布支持 Zod 4 类型定义的版本后移除。
   if (opts.body) schema.body = zodToJsonSchema(opts.body as never, { target: 'openApi3' }) as object
   if (opts.querystring)
     schema.querystring = zodToJsonSchema(opts.querystring as never, {

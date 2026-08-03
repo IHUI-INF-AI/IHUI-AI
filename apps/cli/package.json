@@ -46,7 +46,7 @@
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
     "rimraf": "catalog:",
-    "tsx": "^4.23.4",
+    "tsx": "^4.23.5",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
