@@ -150,7 +150,12 @@ export async function createLegacyFetcherFromEnv(): Promise<LegacyFetcher> {
   if (!url) {
     throw new Error('LEGACY_DATABASE_URL 未配置,无法创建 legacy fetcher')
   }
-  const mysql = await import('mysql2/promise.js')
+  let mysql
+  try {
+    mysql = await import('mysql2/promise.js')
+  } catch {
+    throw new Error('mysql2 未安装,请运行 `pnpm --filter @ihui/api add mysql2` 后重试')
+  }
   const pool = mysql.createPool({ uri: url, connectionLimit: 5 })
   return async (sql: string) => {
     const [rows] = await pool.query<Record<string, unknown>[]>(sql)
