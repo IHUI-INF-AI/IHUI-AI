@@ -76,8 +76,7 @@
     "sql.js": "^1.14.1",
     "unpdf": "^1.8.0",
     "xlsx": "^0.18.5",
-    "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.2"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
