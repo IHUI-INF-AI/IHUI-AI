@@ -3,7 +3,18 @@ import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { ViewSwitcher } from './view-switcher'
-import { Code2, GitCompare, FileText, Terminal, Globe, Figma, Bot, Plug, Settings, X } from 'lucide-react'
+import {
+  Code2,
+  GitCompare,
+  FileText,
+  Terminal,
+  Globe,
+  Palette,
+  Bot,
+  Plug,
+  Settings,
+  X,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { IDETabType } from '@ihui/types'
 
@@ -13,7 +24,7 @@ const TAB_LABELS: Record<IDETabType, { icon: typeof Code2; labelKey?: string; la
   document: { icon: FileText, labelKey: 'topBar.document' },
   terminal: { icon: Terminal, labelKey: 'topBar.terminal' },
   browser: { icon: Globe, labelKey: 'topBar.browser' },
-  figma: { icon: Figma, label: 'Figma' },
+  figma: { icon: Palette, label: 'Figma' },
   agent: { icon: Bot, labelKey: 'topBar.agent' },
   mcp: { icon: Plug, label: 'MCP' },
   settings: { icon: Settings, labelKey: 'topBar.settings' },
@@ -23,7 +34,11 @@ function Clock() {
   const locale = useLocale()
   const [time, setTime] = React.useState('')
   React.useEffect(() => {
-    const fmt = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hour12: false })
+    const fmt = new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
     const update = () => setTime(fmt.format(new Date()))
     update()
     const id = setInterval(update, 30 * 1000)

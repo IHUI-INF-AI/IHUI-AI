@@ -15,7 +15,6 @@ import {
   Database,
   Wrench,
   Code,
-  Github,
   ArrowRight,
   Users,
   Mail,
@@ -157,7 +156,7 @@ const supportCards = [
     title: 'GitHub Issues',
     description: 'Bug reports, feature requests, and pull requests. Apache 2.0 open source.',
     href: 'https://github.com/IHUI-INF-AI/IHUI-AI/issues',
-    icon: Github,
+    icon: Code,
   },
   {
     title: 'Community Forum',
@@ -395,7 +394,7 @@ cd my-ai-app && ihui dev`}</code>
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Github className="h-4 w-4" />
+                <Code className="h-4 w-4" />
                 View on GitHub
               </a>
             </Button>
