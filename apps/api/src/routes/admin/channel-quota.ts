@@ -100,6 +100,7 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
     '/relay/channels/:id',
     {
       preHandler: requireAdmin,
+      // FIXME(any): zod-to-json-schema@3.25.2 类型定义仍是 Zod 3,与 Zod 4 不兼容,用 as never 绕过。
       schema: { body: zodToJsonSchema(updateQuotaBodySchema as never, { target: 'openApi3' }) },
     },
     async (req, reply) => {
