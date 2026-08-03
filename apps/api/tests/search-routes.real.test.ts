@@ -320,7 +320,7 @@ describe('search-routes — 需鉴权路由真实 DB 集成测试', () => {
     setMockUser(user.id)
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/search/history/00000000-0000-0000-0000-000000000000',
+      url: '/api/search/history/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })

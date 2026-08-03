@@ -21,7 +21,7 @@ vi.mock('../src/config/index.js', () => ({
 vi.mock('../src/db/behavior-queries.js', () => ({
   recordWatch: vi
     .fn()
-    .mockResolvedValue({ id: '00000000-0000-0000-0000-000000000001', updated: false }),
+    .mockResolvedValue({ id: '00000000-0000-4000-8000-000000000001', updated: false }),
   getWatchCount: vi.fn().mockResolvedValue(0),
   findWatchList: vi.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 20 }),
   deleteWatch: vi.fn().mockResolvedValue(false),
@@ -32,7 +32,7 @@ vi.mock('../src/db/behavior-queries.js', () => ({
 
 import { behaviorRoutes, adminBehaviorRoutes } from '../src/routes/behavior'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('behavior routes', () => {
   const server = Fastify({ logger: false })

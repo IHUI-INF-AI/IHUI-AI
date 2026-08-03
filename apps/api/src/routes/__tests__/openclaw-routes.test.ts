@@ -35,7 +35,7 @@ describe('OpenClaw Routes API (OpenClaw 条目真实化端点)', () => {
       payload?: Record<string, unknown>
     }> = [
       { method: 'GET', url: '/api/openclaw' },
-      { method: 'GET', url: '/api/openclaw/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/openclaw/00000000-0000-4000-8000-000000000000' },
     ]
 
     for (const { method, url, payload } of endpoints) {

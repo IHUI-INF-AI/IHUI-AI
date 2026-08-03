@@ -1313,7 +1313,9 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // POST /card/convert   卡片数据转换为简化客户端友好格式
   server.post('/card/convert', async (request, reply) => {
-    const b = z.object({ card: z.unknown() }).safeParse(request.body)
+    // zod 4: z.unknown() 不再隐式 optional, 显式 .optional() 保持 zod 3 行为
+    // (空 payload {} 通过 schema, 由 handler 走 else 分支返回 Invalid card data)
+    const b = z.object({ card: z.unknown().optional() }).safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
     const result = convertCardToSimpleFormat(b.data.card, request.log)

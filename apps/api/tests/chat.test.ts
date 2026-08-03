@@ -65,7 +65,7 @@ describe('chat routes', () => {
   it('DELETE /api/chat/messages/:id 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/chat/messages/00000000-0000-0000-0000-000000000000',
+      url: '/api/chat/messages/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(401)
   })

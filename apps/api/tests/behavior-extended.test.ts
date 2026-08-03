@@ -32,7 +32,7 @@ describe('behavior extended routes (M-63)', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/behavior/favorite',
-      body: { topicId: '00000000-0000-0000-0000-000000000000', topicType: 'article' },
+      body: { topicId: '00000000-0000-4000-8000-000000000000', topicType: 'article' },
     })
     expect(res.statusCode).toBe(401)
   })
@@ -41,7 +41,7 @@ describe('behavior extended routes (M-63)', () => {
     const res = await server.inject({
       method: 'DELETE',
       url: '/api/behavior/favorite',
-      body: { topicId: '00000000-0000-0000-0000-000000000000', topicType: 'article' },
+      body: { topicId: '00000000-0000-4000-8000-000000000000', topicType: 'article' },
     })
     expect(res.statusCode).toBe(401)
   })
@@ -49,7 +49,7 @@ describe('behavior extended routes (M-63)', () => {
   it('GET /api/behavior/favorite/check 未登录返回 401', async () => {
     const res = await server.inject({
       method: 'GET',
-      url: '/api/behavior/favorite/check?topicId=00000000-0000-0000-0000-000000000000&topicType=article',
+      url: '/api/behavior/favorite/check?topicId=00000000-0000-4000-8000-000000000000&topicType=article',
     })
     expect(res.statusCode).toBe(401)
   })

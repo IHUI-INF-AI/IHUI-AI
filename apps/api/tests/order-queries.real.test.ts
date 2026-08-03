@@ -176,7 +176,7 @@ describe('order-queries — 真实 DB 集成测试', () => {
     it('createPayment — 订单不存在返回 order_not_found', async () => {
       const user = await createTestUser('13900000007')
       const result = await createPayment({
-        orderId: '00000000-0000-0000-0000-000000000000',
+        orderId: '00000000-0000-4000-8000-000000000000',
         userId: user.id,
         payType: 'wechat',
       })
@@ -255,7 +255,7 @@ describe('order-queries — 真实 DB 集成测试', () => {
     it('applyRefund — 订单不存在返回 order_not_found', async () => {
       const user = await createTestUser('13900000012')
       const result = await applyRefund({
-        orderId: '00000000-0000-0000-0000-000000000000',
+        orderId: '00000000-0000-4000-8000-000000000000',
         userId: user.id,
       })
       expect(result.reason).toBe('order_not_found')

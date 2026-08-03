@@ -34,20 +34,20 @@ describe('Misc Routes API (消息/证书/资源真实化端点)', () => {
       url: string
       payload?: Record<string, unknown>
     }> = [
-      { method: 'GET', url: '/api/notifications/00000000-0000-0000-0000-000000000000' },
-      { method: 'GET', url: '/api/messages/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/notifications/00000000-0000-4000-8000-000000000000' },
+      { method: 'GET', url: '/api/messages/00000000-0000-4000-8000-000000000000' },
       // /api/resources/:id/download 已在 resource.ts 真实化（auth + 权限 + 记录）
-      { method: 'POST', url: '/api/resources/00000000-0000-0000-0000-000000000000/like' },
+      { method: 'POST', url: '/api/resources/00000000-0000-4000-8000-000000000000/like' },
       {
         method: 'POST',
         url: '/api/certificates/issue',
         payload: {
-          userId: '00000000-0000-0000-0000-000000000000',
-          templateId: '00000000-0000-0000-0000-000000000000',
+          userId: '00000000-0000-4000-8000-000000000000',
+          templateId: '00000000-0000-4000-8000-000000000000',
           title: 'test',
         },
       },
-      { method: 'POST', url: '/api/certificates/00000000-0000-0000-0000-000000000000/revoke' },
+      { method: 'POST', url: '/api/certificates/00000000-0000-4000-8000-000000000000/revoke' },
     ]
 
     for (const { method, url, payload } of endpoints) {

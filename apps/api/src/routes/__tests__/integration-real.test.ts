@@ -9,7 +9,7 @@ vi.hoisted(() => {
 
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000000',
     familyId: '11111111-1111-4111-8111-111111111111',
     roleId: 0,

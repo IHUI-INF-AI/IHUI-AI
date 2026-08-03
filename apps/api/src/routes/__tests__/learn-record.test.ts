@@ -8,7 +8,7 @@ vi.hoisted(() => {
 
 import { learnRoutes } from '../learn.js'
 
-const LESSON_ID = '00000000-0000-0000-0000-000000000000'
+const LESSON_ID = '00000000-0000-4000-8000-000000000000'
 
 describe('Learn Record API — 章节追踪与心跳上报', () => {
   let app: FastifyInstance
