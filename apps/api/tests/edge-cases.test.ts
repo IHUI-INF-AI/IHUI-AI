@@ -28,18 +28,18 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: vi.fn().mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 1,
   }),
   verifyRefreshToken: vi.fn().mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 1,
   }),
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 // =============================================================================
@@ -114,8 +114,8 @@ import {
 // =============================================================================
 // 常量与测试数据
 // =============================================================================
-const SAMPLE_UUID = '00000000-0000-0000-0000-000000000001'
-const NONEXIST_UUID = '00000000-0000-0000-0000-000000000000'
+const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
+const NONEXIST_UUID = '00000000-0000-4000-8000-000000000000'
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
 
 /** 生成 n 条模拟日志 */

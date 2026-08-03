@@ -27,11 +27,11 @@ describe('Admin Integration Tests (admin 路由鉴权集成)', () => {
       { method: 'GET', url: '/api/admin/stats' },
       { method: 'GET', url: '/api/admin/users' },
       { method: 'GET', url: '/api/admin/projects' },
-      { method: 'GET', url: '/api/admin/users/00000000-0000-0000-0000-000000000000' },
-      { method: 'GET', url: '/api/admin/projects/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/admin/users/00000000-0000-4000-8000-000000000000' },
+      { method: 'GET', url: '/api/admin/projects/00000000-0000-4000-8000-000000000000' },
       { method: 'POST', url: '/api/admin/projects' },
-      { method: 'PATCH', url: '/api/admin/projects/00000000-0000-0000-0000-000000000000' },
-      { method: 'DELETE', url: '/api/admin/projects/00000000-0000-0000-0000-000000000000' },
+      { method: 'PATCH', url: '/api/admin/projects/00000000-0000-4000-8000-000000000000' },
+      { method: 'DELETE', url: '/api/admin/projects/00000000-0000-4000-8000-000000000000' },
     ]
 
     for (const { method, url } of endpoints) {

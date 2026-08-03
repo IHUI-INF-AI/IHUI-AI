@@ -32,7 +32,7 @@ vi.mock('../src/db/schedule-queries.js', () => ({
 
 import { scheduleRoutes, adminScheduleRoutes } from '../src/routes/schedule'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('schedule routes', () => {
   const server = Fastify({ logger: false })

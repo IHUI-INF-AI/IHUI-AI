@@ -21,7 +21,7 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: vi.fn().mockResolvedValue({ sub: 'admin', roleId: 1 }),
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
   ACCESS_TOKEN_TTL_SECONDS: 15 * 60,
   REFRESH_TOKEN_TTL_SECONDS: 30 * 24 * 60 * 60,
 }))

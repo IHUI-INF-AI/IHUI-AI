@@ -125,7 +125,7 @@ describe('admin resource singular-alias routes', () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/admin/resources/products',
-      body: { resourceId: '00000000-0000-0000-0000-000000000001', name: '测试产品' },
+      body: { resourceId: '00000000-0000-4000-8000-000000000001', name: '测试产品' },
     })
     expect(res.statusCode).toBe(401)
   })

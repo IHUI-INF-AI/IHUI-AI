@@ -33,7 +33,7 @@ vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
   verifyAccessToken: mockVerifyAccessToken,
-  createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
 }))
 
 // Mock jose:decodeJwt — 默认返回非 challenge token
@@ -63,9 +63,9 @@ const ADMIN_TOKEN = 'Bearer admin-token'
 
 function mockRegularUser() {
   mockVerifyAccessToken.mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000002',
+    userId: '00000000-0000-4000-8000-000000000002',
     phone: '13800000002',
-    familyId: '00000000-0000-0000-0000-000000000003',
+    familyId: '00000000-0000-4000-8000-000000000003',
     roleId: 0,
     type: 'access',
   })
@@ -74,9 +74,9 @@ function mockRegularUser() {
 
 function mockAdmin() {
   mockVerifyAccessToken.mockResolvedValue({
-    userId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-4000-8000-000000000001',
     phone: '13800000001',
-    familyId: '00000000-0000-0000-0000-000000000002',
+    familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 1,
     type: 'access',
   })

@@ -225,7 +225,7 @@ describe('vip-queries — 真实 DB 集成测试', () => {
     it('不存在的 vipLevelId 抛错', async () => {
       const user = await createTestUser('13900000008')
       // 使用合法 UUID 格式但不存在的 ID
-      const nonexistentId = '00000000-0000-0000-0000-000000000000'
+      const nonexistentId = '00000000-0000-4000-8000-000000000000'
       await expect(purchaseVip({ userId: user.id, vipLevelId: nonexistentId })).rejects.toThrow(
         'VIP 等级不存在',
       )
