@@ -22,6 +22,20 @@ vi.mock('ioredis', () => {
 
 vi.mock('../../plugins/ws-helpers.js', () => ({
   wsAuth: vi.fn(async () => 'user-test-id'),
+  WS_CLOSE: {
+    MISSING_TOKEN: 4001,
+    RATE_LIMITED: 4002,
+    INVALID_TOKEN: 4003,
+    ACCOUNT_CANCELLED: 4004,
+    TOO_MANY_CONNECTIONS: 4005,
+  },
+  WsUserConnectionLimiter: vi.fn().mockImplementation(function () {
+    return {
+      acquire: vi.fn(() => true),
+      release: vi.fn(),
+      currentCount: vi.fn(() => 0),
+    }
+  }),
 }))
 
 // Mock db:避免真实 PostgreSQL 连接(ws-tasks IDOR 校验在 WebSocket handler 内,注册时不触发)
