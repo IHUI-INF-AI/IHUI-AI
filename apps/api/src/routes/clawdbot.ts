@@ -136,7 +136,7 @@ const evolutionEvolveSchema = z.looseObject({
 
 /** 统一 safeParse 失败响应:ok=false 表示已回复 400,调用方应 return */
 function validateBody<T>(
-  schema: z.ZodType<T>,
+  schema: z.ZodType<T, unknown>,
   body: unknown,
   reply: FastifyReply,
 ): { ok: true; data: T } | { ok: false } {

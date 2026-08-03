@@ -11,7 +11,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // =============================================================================
 
 const configQuerySchema = z.object({
-  appId: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  appId: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
 
 const updateConfigSchema = z.object({
@@ -21,8 +21,8 @@ const updateConfigSchema = z.object({
 })
 
 const versionsQuerySchema = z.object({
-  appId: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
+  appId: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
 })
 
 const previewSchema = z.object({

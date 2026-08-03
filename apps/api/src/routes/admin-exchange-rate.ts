@@ -16,10 +16,9 @@ import {
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() })
 
 const listQuerySchema = z.object({
-  page: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).default(1)),
-  pageSize: z.preprocess((v) => emptyToUndefined(v), z.coerce.number().min(1).max(100).default(20)),
-  status: z.preprocess(
-    (v) => emptyToUndefined(v),
+  page: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).default(1)),
+  pageSize: z.transform((v) => emptyToUndefined(v)).pipe(z.coerce.number().min(1).max(100).default(20)),
+  status: z.transform((v) => emptyToUndefined(v)).pipe(
     z.coerce.number().int().min(0).max(1).optional(),
   ),
 })

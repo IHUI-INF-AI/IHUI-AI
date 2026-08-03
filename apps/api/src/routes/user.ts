@@ -185,7 +185,7 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
         unionId: z.string().min(1).max(100).optional(),
         accessToken: z.string().optional(),
         refreshToken: z.string().optional(),
-        expiresAt: z.string().datetime().optional(),
+        expiresAt: z.iso.datetime().optional(),
       })
       .parse(request.body)
     const [existing] = await db

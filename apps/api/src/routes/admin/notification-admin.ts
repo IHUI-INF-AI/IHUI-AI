@@ -12,12 +12,12 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 const listLogsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  type: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
-  channel: z.preprocess(emptyToUndefined, z.string().max(32).optional()),
-  status: z.preprocess(emptyToUndefined, z.string().max(20).optional()),
-  startDate: z.preprocess(emptyToUndefined, z.string().optional()),
-  endDate: z.preprocess(emptyToUndefined, z.string().optional()),
-  userId: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
+  type: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  channel: z.transform(emptyToUndefined).pipe(z.string().max(32).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  userId: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
 
 const notificationAdminRoutes: FastifyPluginAsync = async (server) => {

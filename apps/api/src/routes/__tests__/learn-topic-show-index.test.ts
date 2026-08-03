@@ -16,10 +16,10 @@ vi.mock('jose', () => ({
   decodeJwt: vi.fn(() => ({ type: 'access' })),
 }))
 
-const TOPIC_ID = '11111111-1111-1111-1111-111111111111'
+const TOPIC_ID = '11111111-1111-4111-8111-111111111111'
 
 vi.mock('../../db/learn-extended-queries.js', () => {
-  const id = '11111111-1111-1111-1111-111111111111'
+  const id = '11111111-1111-4111-8111-111111111111'
   const topic = {
     id,
     title: 'Topic',

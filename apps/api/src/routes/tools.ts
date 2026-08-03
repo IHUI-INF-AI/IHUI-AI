@@ -17,8 +17,8 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  category: z.preprocess(emptyToUndefined, z.string().max(64).optional()),
-  search: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+  category: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   sort: z.enum(['rating', 'favoriteCount', 'sortOrder', 'createdAt']).default('sortOrder'),
   order: z.enum(['asc', 'desc']).default('asc'),
 })

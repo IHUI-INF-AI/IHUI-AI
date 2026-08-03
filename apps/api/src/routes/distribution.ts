@@ -260,8 +260,7 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        status: z.preprocess(
-          (v) => (v === undefined || v === '' ? undefined : Number(v)),
+        status: z.transform((v) => (v === undefined || v === '' ? undefined : Number(v))).pipe(
           z.number().int().min(0).max(3).optional(),
         ),
       })
