@@ -109,3 +109,59 @@ catalog:
   tailwind-merge: ^3.6.0 # L5:2.x→3.x major(API 兼容)
   class-variance-authority: ^0.7.1 # design-tokens + ui-react + ui-native
   lucide-react: ^0.460.0 # ui-react(web 仍用 ^0.562.0 硬编码,待后续迁移 catalog:)
+
+# ============== pnpm 11 配置迁移(2026-08-03)==============
+# pnpm 11 不再读取 package.json 的 pnpm 字段,overrides/peerDependencyRules
+# 必须迁移到 pnpm-workspace.yaml(https://pnpm.io/settings)
+
+# minimumReleaseAge:pnpm 11 默认启用供应链策略(拒绝发布<24h 的包)。
+# 项目 2026-08-03 从 pnpm 9 升级到 11,此策略会阻止 fastify 5.11.2 等新发布包。
+# 显式设 0 禁用,恢复 pnpm 9 安全级别(项目已有 onlyBuiltDependencies 白名单兜底)。
+minimumReleaseAge: 0
+
+# 原 package.json pnpm.overrides 迁移至此:
+overrides:
+  ioredis: 6.0.0
+  webpack: 5.91.0
+  "@types/react": 19.2.18
+  "@types/react-dom": 19.2.4
+  "@types/node": 26.1.2
+  drizzle-orm: 0.45.2
+  fast-jwt: 6.3.1
+  metro: 0.81.5
+  html-encoding-sniffer: 4.0.0
+  d3-array: ^3.2.0
+  d3-shape: ^3.2.0
+  jiti: 2.7.0
+
+# 原 package.json pnpm.peerDependencyRules 迁移至此:
+peerDependencyRules:
+  ignoreMissing:
+    - "@opentelemetry/api"
+
+# ============== pnpm 11 allowBuilds 迁移(2026-08-03)==============
+# pnpm 11 删除了 onlyBuiltDependencies / neverBuiltDependencies / ignoredBuiltDependencies,
+# 全部替换为 allowBuilds 映射(包名 → true/false)。
+# pnpm 11 默认 strictDepBuilds=true,未在 allowBuilds 中列 true 的包的 build scripts 全部忽略。
+# 原 .npmrc onlyBuiltDependencies[] 白名单:argon2/sharp/esbuild/playwright
+# 新增(2026-08-03):项目实际需要的 native/binding 依赖全部设 true,
+# 否则 ERR_PNPM_IGNORED_BUILDS 阻塞 install。
+allowBuilds:
+  # ----- 原 .npmrc 白名单 -----
+  argon2: true
+  sharp: true
+  esbuild: true
+  playwright: true
+  # ----- 新增:项目实际需要的 build scripts -----
+  '@parcel/watcher': true        # taro/next 文件监听 native binding
+  '@swc/core': true              # taro/next SWC 编译器 native binding
+  '@tarojs/binding': true        # taro 4 native binding
+  '@tarojs/cli': true            # taro CLI build script
+  core-js: true                  # polyfill build script
+  core-js-pure: true             # polyfill build script
+  msgpackr-extract: true         # msgpackr native binding
+  msw: true                      # mock service worker build script
+  node-pty: true                 # 终端伪线程 native binding(cli 端)
+  protobufjs: true               # protobuf codegen
+  unrs-resolver: true            # oxlint resolver native binding
+  '@alicloud/openapi-core': true # 阿里云 SDK build script
