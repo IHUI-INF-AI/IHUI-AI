@@ -21,7 +21,7 @@ vi.mock('../src/config/index.js', () => ({
 vi.mock('../src/db/visit-tracking-queries.js', () => ({
   saveVisitLog: vi
     .fn()
-    .mockResolvedValue({ id: '00000000-0000-0000-0000-000000000001', visitDate: '2026-07-08' }),
+    .mockResolvedValue({ id: '00000000-0000-4000-8000-000000000001', visitDate: '2026-07-08' }),
   getVisitSummary: vi.fn().mockResolvedValue({ pv: 0, uv: 0, ipCount: 0, memberCount: 0 }),
   getDayPvList: vi.fn().mockResolvedValue([]),
   getDayUvList: vi.fn().mockResolvedValue([]),

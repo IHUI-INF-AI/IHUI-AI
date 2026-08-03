@@ -79,7 +79,7 @@ describe('Payment Extended API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/subscription/renew',
-        payload: { planId: '00000000-0000-0000-0000-000000000000', paymentMethod: 'wechat' },
+        payload: { planId: '00000000-0000-4000-8000-000000000000', paymentMethod: 'wechat' },
       })
       expect(res.statusCode).toBe(401)
     })

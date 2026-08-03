@@ -151,7 +151,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
     setMockUser(user.id)
     const res = await server.inject({
       method: 'GET',
-      url: '/api/edu-points/channels/00000000-0000-0000-0000-000000000000',
+      url: '/api/edu-points/channels/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -183,7 +183,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
     setMockUser(user.id)
     const res = await server.inject({
       method: 'GET',
-      url: '/api/edu-points/rules/00000000-0000-0000-0000-000000000000',
+      url: '/api/edu-points/rules/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -343,7 +343,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/admin/edu-points/channels/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/edu-points/channels/00000000-0000-4000-8000-000000000000',
       payload: { name: 'x' },
     })
     expect(res.statusCode).toBe(404)
@@ -366,7 +366,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/admin/edu-points/channels/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/edu-points/channels/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -449,7 +449,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/admin/edu-points/rules/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/edu-points/rules/00000000-0000-4000-8000-000000000000',
       payload: { name: 'x' },
     })
     expect(res.statusCode).toBe(404)
@@ -472,7 +472,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/admin/edu-points/rules/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/edu-points/rules/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -513,7 +513,7 @@ describe('point-routes — 积分系统需鉴权真实 DB 集成测试', () => {
       method: 'PUT',
       url: '/api/admin/edu-points/relations',
       payload: {
-        pointId: '00000000-0000-0000-0000-000000000000',
+        pointId: '00000000-0000-4000-8000-000000000000',
         channelIds: [],
       },
     })

@@ -42,7 +42,7 @@ vi.mock('../src/db/live-queries.js', () => ({
 
 import { liveRoutes, adminLiveRoutes } from '../src/routes/live'
 
-const DUMMY_UUID = '00000000-0000-0000-0000-000000000001'
+const DUMMY_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('live routes', () => {
   const server = Fastify({ logger: false })

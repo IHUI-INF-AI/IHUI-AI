@@ -35,7 +35,7 @@ describe('MCP Routes API (MCP 服务真实化端点)', () => {
       payload?: Record<string, unknown>
     }> = [
       { method: 'GET', url: '/api/mcp' },
-      { method: 'GET', url: '/api/mcp/00000000-0000-0000-0000-000000000000' },
+      { method: 'GET', url: '/api/mcp/00000000-0000-4000-8000-000000000000' },
       { method: 'POST', url: '/api/mcp/invoke', payload: { serverId: 'test-server' } },
     ]
 

@@ -100,7 +100,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockUnauthorized()
     const res = await server.inject({
       method: 'POST',
-      url: '/api/certificates/00000000-0000-0000-0000-000000000000/download',
+      url: '/api/certificates/00000000-0000-4000-8000-000000000000/download',
     })
     expect(res.statusCode).toBe(401)
   })
@@ -200,7 +200,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockUser(user.id)
     const res = await server.inject({
       method: 'POST',
-      url: '/api/certificates/00000000-0000-0000-0000-000000000000/download',
+      url: '/api/certificates/00000000-0000-4000-8000-000000000000/download',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -313,7 +313,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'GET',
-      url: '/api/admin/certificates/templates/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/certificates/templates/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -351,7 +351,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/admin/certificates/templates/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/certificates/templates/00000000-0000-4000-8000-000000000000',
       payload: { name: 'x' },
     })
     expect(res.statusCode).toBe(404)
@@ -374,7 +374,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/admin/certificates/templates/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/certificates/templates/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -453,7 +453,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'GET',
-      url: '/api/admin/certificates/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/certificates/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })
@@ -489,7 +489,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'PUT',
-      url: '/api/admin/certificates/00000000-0000-0000-0000-000000000000/status',
+      url: '/api/admin/certificates/00000000-0000-4000-8000-000000000000/status',
       payload: { status: 0 },
     })
     expect(res.statusCode).toBe(404)
@@ -513,7 +513,7 @@ describe('certificate-routes — 证书需鉴权真实 DB 集成测试', () => {
     setMockAdmin(admin.id)
     const res = await server.inject({
       method: 'DELETE',
-      url: '/api/admin/certificates/00000000-0000-0000-0000-000000000000',
+      url: '/api/admin/certificates/00000000-0000-4000-8000-000000000000',
     })
     expect(res.statusCode).toBe(404)
   })

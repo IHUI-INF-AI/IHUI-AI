@@ -33,7 +33,7 @@ import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import { wsAi } from '../src/plugins/ws-ai.js'
 
-const USER_ID = '00000000-0000-0000-0000-000000000001'
+const USER_ID = '00000000-0000-4000-8000-000000000001'
 
 /** 构造 mock Response(基于 Node 24 内置 Response),模拟 AI service 的 SSE 响应 */
 function sseResponse(chunks: Array<{ event: string; data: unknown }>): Response {

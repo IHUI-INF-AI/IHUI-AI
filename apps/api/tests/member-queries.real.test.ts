@@ -295,7 +295,7 @@ describe('member-queries — 真实 DB 集成测试', () => {
       const r3 = await findDepartments({
         page: 1,
         pageSize: 10,
-        companyId: '00000000-0000-0000-0000-000000000000',
+        companyId: '00000000-0000-4000-8000-000000000000',
       })
       expect(r3.total).toBe(0)
     })

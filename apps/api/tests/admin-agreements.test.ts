@@ -52,7 +52,7 @@ import { agreementPublicRoutes, adminAgreementsRoutes } from '../src/routes/admi
 import { verifyAccessToken } from '@ihui/auth'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
-const MOCK_ID = '00000000-0000-0000-0000-000000000001'
+const MOCK_ID = '00000000-0000-4000-8000-000000000001'
 
 describe('agreements routes', () => {
   const server = Fastify({ logger: false })

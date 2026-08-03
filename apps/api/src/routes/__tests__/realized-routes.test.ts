@@ -38,12 +38,12 @@ describe('Realized Routes API (8 端点真实化 - 401 without auth)', () => {
       {
         method: 'POST',
         url: '/api/study/records',
-        payload: { lessonId: '00000000-0000-0000-0000-000000000000', progress: 50 },
+        payload: { lessonId: '00000000-0000-4000-8000-000000000000', progress: 50 },
       },
       // 2. PUT /study/records/:id
       {
         method: 'PUT',
-        url: '/api/study/records/00000000-0000-0000-0000-000000000000',
+        url: '/api/study/records/00000000-0000-4000-8000-000000000000',
         payload: { progress: 80 },
       },
       // 3. GET /members/me
