@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslations } from 'next-intl'
@@ -12,7 +12,20 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
+import {
+  Button,
+  Input,
+  Label,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@ihui/ui-react'
 
 interface AvailableData {
   available: number
@@ -50,7 +63,7 @@ export default function WithdrawPage() {
     watch,
     formState: { errors },
   } = useForm<WithdrawValues>({
-    resolver: zodResolver(withdrawSchema),
+    resolver: zodResolver(withdrawSchema) as unknown as Resolver<WithdrawValues>,
     defaultValues: { amount: 0, method: 'wechat', accountInfo: '' },
   })
 
@@ -104,7 +117,9 @@ export default function WithdrawPage() {
             {availableQ.isLoading ? (
               <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
             ) : availableQ.error ? (
-              <div className="mt-1 text-sm text-destructive">{(availableQ.error as Error).message}</div>
+              <div className="mt-1 text-sm text-destructive">
+                {(availableQ.error as Error).message}
+              </div>
             ) : (
               <div className="mt-1 text-2xl font-bold">{availableQ.data?.available ?? 0}</div>
             )}
@@ -127,9 +142,7 @@ export default function WithdrawPage() {
                 placeholder={t('withdrawAmount')}
                 {...register('amount')}
               />
-              {errors.amount && (
-                <p className="text-xs text-destructive">{t('withdrawAmount')}</p>
-              )}
+              {errors.amount && <p className="text-xs text-destructive">{t('withdrawAmount')}</p>}
             </div>
 
             <div className="space-y-2">

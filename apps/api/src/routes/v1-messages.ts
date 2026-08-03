@@ -28,7 +28,12 @@ import {
   requireApiKeyPermission,
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
-import { checkQuota, recordCall, isByokCall, modelToProviderCode } from '../services/relay-billing-service.js'
+import {
+  checkQuota,
+  recordCall,
+  isByokCall,
+  modelToProviderCode,
+} from '../services/relay-billing-service.js'
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
@@ -92,7 +97,7 @@ const messageSchema = z.object({
 const toolSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  input_schema: z.record(z.unknown()),
+  input_schema: z.record(z.string(), z.unknown()),
 })
 
 const toolChoiceSchema = z.object({
@@ -113,7 +118,7 @@ const anthropicMessagesSchema = z.object({
   temperature: z.number().optional(),
   top_p: z.number().optional(),
   stop_sequences: z.array(z.string()).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 // =============================================================================
@@ -257,8 +262,7 @@ async function streamAnthropicMessages(
       writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state))
     }
   } catch (e) {
-    const msg =
-      (e as Error).name === 'AbortError' ? 'client disconnected' : (e as Error).message
+    const msg = (e as Error).name === 'AbortError' ? 'client disconnected' : (e as Error).message
     streamError = msg
     if (state.messageStarted && state.contentBlockStarted) {
       // 已开始,补一个 stop 收尾
@@ -368,9 +372,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const parsed = anthropicMessagesSchema.safeParse(request.body)
       if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const body = parsed.data as AnthropicMessagesRequest
 
@@ -381,7 +383,13 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
         .map((m) => {
           if (typeof m.content === 'string') return `${m.role}: ${m.content}`
           return `${m.role}: ${m.content
-            .map((b) => (b.type === 'text' ? b.text : b.type === 'tool_use' ? `[tool_use:${b.name}]` : '[tool_result]'))
+            .map((b) =>
+              b.type === 'text'
+                ? b.text
+                : b.type === 'tool_use'
+                  ? `[tool_use:${b.name}]`
+                  : '[tool_result]',
+            )
             .join(' ')}`
         })
         .join('\n')
@@ -484,9 +492,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
               httpStatus: resp.status,
             }).catch(() => {})
           }
-          return reply
-            .status(503)
-            .send(error(503, `AI service unavailable (${resp.status})`))
+          return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
         }
 
         const data = (await resp.json()) as {
@@ -598,9 +604,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
             clientIp: request.ip,
           }).catch(() => {})
         }
-        return reply
-          .status(503)
-          .send(error(503, (e as Error).message || 'AI service unavailable'))
+        return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
       }
     },
   )

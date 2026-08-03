@@ -9,7 +9,7 @@ import { toast } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
 
-const ipSchema = z.string().ip()
+const ipSchema = z.union([z.ipv4(), z.ipv6()])
 
 /**
  * IP 白名单：列表 + 添加 + 删除，仅白名单内 IP 可登录。

@@ -41,8 +41,8 @@ const listDriversQuerySchema = z.object({
 const createDriverBodySchema = z.object({
   name: z.string().min(1).max(128),
   driver: ossDriverTypeSchema,
-  credentials: z.record(z.unknown()).optional(),
-  config: z.record(z.unknown()).optional(),
+  credentials: z.record(z.string(), z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   isEnabled: z.boolean().default(false),
   isDefault: z.boolean().default(false),
   sort: z.number().int().min(0).default(0),
@@ -53,8 +53,8 @@ const updateDriverBodySchema = z
   .object({
     name: z.string().min(1).max(128).optional(),
     driver: ossDriverTypeSchema.optional(),
-    credentials: z.record(z.unknown()).optional(),
-    config: z.record(z.unknown()).optional(),
+    credentials: z.record(z.string(), z.unknown()).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
     isEnabled: z.boolean().optional(),
     isDefault: z.boolean().optional(),
     sort: z.number().int().min(0).optional(),
