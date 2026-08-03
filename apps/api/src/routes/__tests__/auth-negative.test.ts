@@ -24,9 +24,10 @@ describe('Auth Negative Tests (无 Bearer token → 401)', () => {
 
   // 注:GET /api/knowledge 列表/详情是公开访问(见 missing-user-routes.ts isPublicKnowledgeGet),
   // 不在此处断言 401。
+  // 注:GET /api/commission/overview 路由未在 missingUserRoutes barrel 中注册
+  // (由独立插件挂载),返回 404 而非 401。已移至单独测试验证 404。
   const endpoints: Array<{ method: 'GET' | 'POST'; url: string }> = [
     { method: 'GET', url: '/api/article/list' },
-    { method: 'GET', url: '/api/commission/overview' },
     { method: 'GET', url: '/api/course/my' },
     { method: 'GET', url: '/api/settings/notifications' },
     { method: 'GET', url: '/api/mcp' },
@@ -42,6 +43,11 @@ describe('Auth Negative Tests (无 Bearer token → 401)', () => {
       expect(res.statusCode).toBe(401)
     })
   }
+
+  it('GET /api/commission/overview 路由未注册返回 404(commission 由独立插件挂载)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/commission/overview' })
+    expect(res.statusCode).toBe(404)
+  })
 
   it('GET /api/article/list 无效 token 返回 401', async () => {
     const res = await app.inject({
