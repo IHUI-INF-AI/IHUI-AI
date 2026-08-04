@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Eye, EyeOff } from 'lucide-react-native'
 import {
   loginByAccount,
   loginByEmailCode,
@@ -11,7 +12,7 @@ import {
   type AuthUser,
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
-import { LoginScreen as SharedLoginScreen } from '@ihui/rn-app'
+import { LoginScreen as SharedLoginScreen, getTokens } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -419,6 +420,10 @@ export function LoginScreen() {
   // 合并 loading 状态(任意 tab 登录中均禁用切换)
   const unifiedLoading = form.loading || emailLoading || phoneLoading
 
+  // 密码眼睛图标颜色(对齐 web text-muted-foreground,根据主题动态切换)
+  // 使用 lucide-react-native 的 Eye/EyeOff 组件,与 web 端 lucide-react 同源视觉 100% 一致
+  const eyeIconColor = getTokens(resolvedTheme).text.secondary
+
   return (
     <View style={styles.container}>
       <View style={styles.body}>
@@ -470,6 +475,9 @@ export function LoginScreen() {
           // 忘记密码 + 注册
           onForgotPassword={handleForgotPassword}
           onRegister={handleRegister}
+          // 密码显示/隐藏图标(对齐 web lucide Eye/EyeOff,解决 emoji 在 Windows 渲染损坏)
+          eyeIconShow={<Eye size={18} color={eyeIconColor} />}
+          eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
       </View>
     </View>
