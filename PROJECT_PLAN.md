@@ -2067,6 +2067,25 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - agent-creation.ts `type='plugin'` 分支:查询 plugins 表(isActive=true 过滤 + keyword ILIKE + 分页)
   - plugins 表无 userId 字段(插件是平台级全局共享)
 
+- [x] ✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口导致 500)
+  - 根因:`apps/api` 代码(agents.ts / miniapp-compat-routes.ts)直接 SQL 引用 `user_token_balance` 表,但 TS schema 与 migration 从未定义,运行时 500 "关系 user_token_balance 不存在"
+  - 新建 `packages/database/src/schema/user-token-balance.ts`(4 字段:userUuid 主键 / balance / frozenBalance / updatedAt,numeric(20,4) 支持积分小数)
+  - Drizzle migration `20260804140000_user_token_balance.sql`(IF NOT EXISTS 幂等)
+  - schema/index.ts 追加 export
+  - 修复后 `GET /api/token/balance` 返回 `{ balance: 0, frozenBalance: 0 }`(code=0)
+
+- [x] ✅(2026-08-04) **i18n 同步:5 个 auth.app* key 翻译到 4 语言**
+  - 5 key:auth.appLogin / appQrWaiting / appQrExpired / appQrRetry / appQrFailed
+  - 4 语言:en(英文)/ ja(日文)/ ko(韩文)/ zh-TW(繁体中文)
+  - i18n-apply.mjs 应用 + check-i18n-keys.mjs parity 校验通过 + scan-i18n-zh-residue.mjs ko/zh-TW 无残留 + check-i18n-broken-en.mjs 无破碎英文
+
+- [x] ✅(2026-08-04) **前端 AppQrPanel 组件开发 + 9 个 P0 空桩端点联调验证**
+  - AppQrPanel.tsx:QRCodeSVG 渲染 + 5 状态机(loading/pending/confirmed/expired/error)+ 2s 轮询 + setToken + closeDialog
+  - QrCodeLogin.tsx:添加 'app' 平台路由到 AppQrPanel
+  - LoginFormContent.tsx:QR_PLATFORMS 数组首位添加 'app' 平台(Smartphone 图标 + auth.appLogin i18n key)
+  - 后端 QR 全流程验证:generate → pending → confirm → confirmed+token ✅
+  - 9 个 P0 空桩端点联调验证:全部返回真实数据(非 501),token/balance 补建表后修复 ✅
+
 ---
 
 ## mobile-rn 登录页 4-tab 升级(2026-07-30,平台独占:仅 apps/mobile-rn + packages/app + packages/api-client)
