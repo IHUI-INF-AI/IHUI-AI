@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { Smartphone } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -15,7 +16,7 @@ import {
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { fetchApi } from '@/lib/api'
-import type { ThirdPartyPlatform } from '@/types/third-party'
+import type { ThirdPartyPlatform } from '@ihui/types'
 import { useThirdPartyConfig } from '@/hooks/use-third-party-config'
 import { QrCodeLogin } from './QrCodeLogin'
 import { useTurnstile } from './LoginWithTurnstile'
@@ -88,6 +89,13 @@ function useWebLoginApiClient(): LoginApiClient {
  * 与第三方登录按钮区的 SVG 风格不一致。
  */
 const QR_PLATFORMS: QrPlatformConfig[] = [
+  {
+    // 本站 App 扫码登录(非第三方 OAuth,走 /api/auth/qr/* 端点)
+    key: 'app',
+    labelKey: 'auth.appLogin',
+    icon: <Smartphone className="h-[14px] w-[14px] shrink-0" />,
+    webUrl: '/login?method=qr&platform=app',
+  },
   {
     key: 'wechat',
     labelKey: 'auth.wechatLogin',
