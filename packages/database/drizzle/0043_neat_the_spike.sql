@@ -3357,7 +3357,7 @@ CREATE TABLE IF NOT EXISTS "private_letter_sessions" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-DROP INDEX "idx_orders_order_type";--> statement-breakpoint
+DROP INDEX IF EXISTS "idx_orders_order_type";--> statement-breakpoint
 ALTER TABLE "orders" ALTER COLUMN "order_type" SET DEFAULT 0;--> statement-breakpoint
 DO $$
 BEGIN
