@@ -55,7 +55,8 @@ const LOGO_SOURCE = require('../../assets/images/logo.png')
 // React 组件(非 number),与共享组件 <Image source={...} /> 不兼容,且 iconSource
 // 类型契约为 number | { uri: string }(packages/types/src/app.ts),无法接受组件。
 /* eslint-disable @typescript-eslint/no-require-imports */
-const THIRD_PARTY_ICONS: Record<ThirdPartyPlatform, number> = {
+// Partial<'app'> 平台是本站 App 扫码登录,共享组件 fallback 到首字母,不需要图标资源
+const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {
   wechat: require('../../assets/images/common/wx.svg'),
   google: require('../../assets/images/common/google.svg'),
   github: require('../../assets/images/common/github.svg'),
