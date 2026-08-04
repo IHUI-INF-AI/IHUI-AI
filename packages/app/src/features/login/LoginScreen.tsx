@@ -17,6 +17,7 @@ import type {
   LoginTab,
   QrLoginConfig,
   QrLoginStatus,
+  QrPlatformOption,
   ThirdPartyLoginOption,
   ThirdPartyPlatform,
 } from '@ihui/types'
@@ -71,6 +72,27 @@ const imageStyles = StyleSheet.create({
   qrImage: {
     width: 200,
     height: 200,
+  },
+  // QR 平台切换 tab 中的平台图标:20×20(对齐第三方登录区图标风格)
+  qrPlatformIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+  },
+  // QR 平台切换 tab 中的 fallback:品牌色圆角背景 + 白色首字母
+  qrPlatformFallback: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#999999',
+  },
+  qrPlatformFallbackText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '600',
+    lineHeight: 10,
   },
   // logo 图片:44×44(2026-08-04 从 31×31 加大,提升移动端视觉层次)
   logoImage: {
@@ -176,6 +198,8 @@ interface QrTabContentProps {
   styles: StyleSet
   tk: AppThemeTokens
   qrConfig?: QrLoginConfig
+  /** 平台切换 tab 列表(传则渲染平台切换;不传则只显示单平台占位) */
+  qrPlatforms?: QrPlatformOption[]
 }
 
 interface AgreementRowProps {
@@ -605,13 +629,128 @@ function PasswordTabContent({
   )
 }
 
-/** 扫码登录(对齐 web QrTab fallback,简版占位) */
-function QrTabContent({ styles, tk, qrConfig }: QrTabContentProps) {
+/** 扫码登录(对齐 web QrTab,支持平台切换 tab + 二维码占位 + 打开网页按钮)
+ * 2026-08-04 升级:从简版占位升级为平台切换 tab 设计,对齐 web 端 qr-tab.tsx。
+ * - 传入 qrPlatforms:渲染 4 平台切换 tab(微信/企微/钉钉/飞书)
+ * - 每个平台显示二维码占位(图标 + "请使用XX扫码登录"文案)
+ * - "打开网页"按钮(跳到 web 端完成扫码,RN 端无法直接加载 SDK)
+ * - 未传 qrPlatforms:降级为单平台占位(旧行为) */
+function QrTabContent({ styles, tk, qrConfig, qrPlatforms }: QrTabContentProps) {
+  const [activePlatform, setActivePlatform] = useState<ThirdPartyPlatform | null>(
+    qrPlatforms?.[0]?.key ?? null,
+  )
+
+  const currentPlatform = qrPlatforms?.find((p) => p.key === activePlatform) ?? qrPlatforms?.[0]
   const status: QrLoginStatus = qrConfig?.status ?? 'idle'
-  const text = qrStatusText(status, qrConfig)
   const showRefresh = status === 'expired' || status === 'error'
   const isLoading = status === 'loading'
   const qrSource = qrConfig?.qrSource ?? null
+
+  // 有平台列表时用平台名,否则用默认文案
+  const statusText = currentPlatform
+    ? `请使用${currentPlatform.label}扫码登录`
+    : qrStatusText(status, qrConfig)
+
+  // RN 端打开 web 端扫码页面(Linking)
+  const handleOpenWeb = () => {
+    if (!currentPlatform?.webUrl) return
+    const { Linking } = require('react-native')
+    Linking.openURL(currentPlatform.webUrl).catch(() => {})
+  }
+
+  // 有平台列表:渲染平台切换 tab + 二维码占位 + 打开网页按钮
+  if (qrPlatforms && qrPlatforms.length > 0) {
+    return (
+      <View style={styles.qrContainer}>
+        {/* 平台切换 tab(对齐 web 端 qr-tab.tsx) */}
+        <View style={styles.qrPlatformTabBar}>
+          {qrPlatforms.map((p) => {
+            const active = p.key === activePlatform
+            return (
+              <TouchableOpacity
+                key={p.key}
+                style={[styles.qrPlatformTab, active && styles.qrPlatformTabActive]}
+                onPress={() => setActivePlatform(p.key)}
+                activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={p.label}
+              >
+                {p.iconSource ? (
+                  <Image
+                    source={p.iconSource}
+                    style={imageStyles.qrPlatformIcon}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      imageStyles.qrPlatformFallback,
+                      !!p.brandColor && { backgroundColor: p.brandColor },
+                    ]}
+                  >
+                    <Text style={imageStyles.qrPlatformFallbackText}>
+                      {p.label.charAt(0)}
+                    </Text>
+                  </View>
+                )}
+                <Text
+                  style={[styles.qrPlatformTabText, active && styles.qrPlatformTabTextActive]}
+                >
+                  {p.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+
+        {/* 二维码占位区域 */}
+        <View style={styles.qrBox}>
+          {isLoading ? (
+            <ActivityIndicator size="large" color={tk.brand.DEFAULT} />
+          ) : qrSource ? (
+            <Image source={qrSource} style={imageStyles.qrImage} resizeMode="contain" />
+          ) : (
+            // 占位:二维码图标(用文字模拟,避免新增依赖)
+            <View style={styles.qrPlaceholderIcon}>
+              <Text style={styles.qrPlaceholderIconText}>{'▦'}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* 状态文案 */}
+        <Text style={styles.qrStatusText}>{statusText}</Text>
+
+        {/* 操作行:刷新 + 打开网页 */}
+        <View style={styles.qrActionRow}>
+          {showRefresh && qrConfig?.onRefresh ? (
+            <TouchableOpacity
+              style={styles.qrRefreshBtn}
+              onPress={qrConfig.onRefresh}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="刷新二维码"
+            >
+              <Text style={styles.qrRefreshText}>{'刷新二维码'}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {currentPlatform?.webUrl ? (
+            <TouchableOpacity
+              style={styles.qrOpenWebBtn}
+              onPress={handleOpenWeb}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="打开网页扫码"
+            >
+              <Text style={styles.qrOpenWebText}>{'打开网页扫码'}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    )
+  }
+
+  // 无平台列表:降级为单平台占位(旧行为)
   return (
     <View style={styles.qrContainer}>
       <View style={styles.qrBox}>
@@ -623,7 +762,7 @@ function QrTabContent({ styles, tk, qrConfig }: QrTabContentProps) {
           <Text style={styles.qrPlaceholderText}>二维码加载中...</Text>
         )}
       </View>
-      <Text style={styles.qrStatusText}>{text}</Text>
+      <Text style={styles.qrStatusText}>{qrStatusText(status, qrConfig)}</Text>
       {showRefresh && qrConfig?.onRefresh ? (
         <TouchableOpacity
           style={styles.qrRefreshBtn}
@@ -677,6 +816,7 @@ export function LoginScreen(props: LoginScreenProps) {
     onLoginByPhoneCode,
     // qr
     qrConfig,
+    qrPlatforms,
     // third party
     thirdPartyOptions,
     onThirdPartyLogin,
@@ -860,7 +1000,9 @@ export function LoginScreen(props: LoginScreenProps) {
           />
         ) : null}
 
-        {activeTab === 'qr' ? <QrTabContent styles={styles} tk={tk} qrConfig={qrConfig} /> : null}
+        {activeTab === 'qr' ? (
+          <QrTabContent styles={styles} tk={tk} qrConfig={qrConfig} qrPlatforms={qrPlatforms} />
+        ) : null}
 
         {/* 第三方登录区(qr tab 不重复显示) */}
         {!isQrTab && thirdPartyOptions && thirdPartyOptions.length > 0 ? (
@@ -1286,6 +1428,68 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       fontSize: 13,
       fontWeight: '500',
       color: tk.text.primary,
+    },
+    // ===== QR 平台切换 tab(2026-08-04 新增,对齐 web 端 qr-tab.tsx) =====
+    qrPlatformTabBar: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 4,
+    },
+    qrPlatformTab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: surface,
+    },
+    qrPlatformTabActive: {
+      backgroundColor: tk.brand.DEFAULT,
+      borderColor: tk.brand.DEFAULT,
+    },
+    qrPlatformTabText: {
+      fontSize: 11,
+      color: tk.text.secondary,
+    },
+    qrPlatformTabTextActive: {
+      color: onBrandText,
+      fontWeight: '600',
+    },
+    // QR 二维码占位图标(无真实二维码时显示)
+    qrPlaceholderIcon: {
+      width: 80,
+      height: 80,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    qrPlaceholderIconText: {
+      fontSize: 56,
+      color: tk.text.tertiary,
+    },
+    // QR 操作行:刷新 + 打开网页
+    qrActionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    qrOpenWebBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    qrOpenWebText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: onBrandText,
     },
   })
 }
