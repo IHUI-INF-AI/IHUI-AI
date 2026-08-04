@@ -1,5 +1,5 @@
 import './global.css'
-import { AppRegistry, View } from 'react-native'
+import { AppRegistry, Platform, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
@@ -60,3 +60,11 @@ export default function App() {
 // pnpm isolated monorepo 环境下未正确注入 registerRootComponent 调用，
 // 导致 RN 运行时报 "main" has not been registered。这里手动注册兜底。）
 AppRegistry.registerComponent('main', () => App)
+
+// Web 平台需要显式调用 runApplication 挂载到 DOM（原生平台由原生代码自动调用，
+// index.js 注释已说明；web 平台无原生代码，react-native-web 不会自动 runApplication）。
+if (Platform.OS === 'web') {
+  AppRegistry.runApplication('main', {
+    rootTag: document.getElementById('root'),
+  })
+}
