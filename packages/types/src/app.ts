@@ -1642,6 +1642,12 @@ export interface LoginScreenProps {
    * 4 个平台:微信/企业微信/钉钉/飞书 */
   qrPlatforms?: QrPlatformOption[]
 
+  /** QR 面板渲染函数(平台注入,接收 platform key + refreshKey,返回二维码面板 ReactNode)
+   * 2026-08-04 新增:mobile-rn 端可注入 WebView 加载 web 端二维码面板(显示真实二维码);
+   * web 端可注入 SDK 面板(WxLogin/DTFrameLogin 等)。
+   * 不传则共享层渲染 ▦ 占位图标(无真实二维码)。 */
+  renderQrPanel?: (platform: ThirdPartyPlatform, refreshKey: number) => ReactNode
+
   // ===== 第三方登录区 =====
 
   /** 第三方登录选项列表(传则渲染第三方登录区;不传则不显示) */

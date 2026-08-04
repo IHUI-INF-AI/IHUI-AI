@@ -200,6 +200,8 @@ interface QrTabContentProps {
   qrConfig?: QrLoginConfig
   /** 平台切换 tab 列表(传则渲染平台切换;不传则只显示单平台占位) */
   qrPlatforms?: QrPlatformOption[]
+  /** QR 面板渲染函数(平台注入:mobile-rn 传 WebView 加载 web 端真实二维码) */
+  renderQrPanel?: (platform: ThirdPartyPlatform, refreshKey: number) => ReactNode
 }
 
 interface AgreementRowProps {
@@ -635,14 +637,16 @@ function PasswordTabContent({
  * - 每个平台显示二维码占位(图标 + "请使用XX扫码登录"文案)
  * - "打开网页"按钮(跳到 web 端完成扫码,RN 端无法直接加载 SDK)
  * - 未传 qrPlatforms:降级为单平台占位(旧行为) */
-function QrTabContent({ styles, tk, qrConfig, qrPlatforms }: QrTabContentProps) {
+function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTabContentProps) {
   const [activePlatform, setActivePlatform] = useState<ThirdPartyPlatform | null>(
     qrPlatforms?.[0]?.key ?? null,
   )
+  // refreshKey:变化时重新渲染二维码面板(renderQrPanel 注入的 WebView 会重新加载)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const currentPlatform = qrPlatforms?.find((p) => p.key === activePlatform) ?? qrPlatforms?.[0]
   const status: QrLoginStatus = qrConfig?.status ?? 'idle'
-  const showRefresh = status === 'expired' || status === 'error'
+  const showRefresh = status === 'expired' || status === 'error' || !!renderQrPanel
   const isLoading = status === 'loading'
   const qrSource = qrConfig?.qrSource ?? null
 
@@ -650,6 +654,13 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms }: QrTabContentProps) 
   const statusText = currentPlatform
     ? `请使用${currentPlatform.label}扫码登录`
     : qrStatusText(status, qrConfig)
+
+  // 平台切换 tab 等宽:用 flex: 1 + flexBasis: 0 + minWidth: 0
+  // minWidth: 0 是关键 — RN-web/CSS flexbox 默认 min-width: auto,会被内容撑宽,
+  // 设置 minWidth: 0 后 flex 子元素严格等分剩余空间,不受内容(图标+文字)影响。
+  // tabCount 用于无障碍标签,不参与宽度计算。
+  const tabCount = qrPlatforms?.length ?? 1
+  void tabCount // 仅用于潜在的无障碍标签,不参与样式计算
 
   // RN 端打开 web 端扫码页面(Linking)
   const handleOpenWeb = () => {
@@ -669,7 +680,10 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms }: QrTabContentProps) 
             return (
               <TouchableOpacity
                 key={p.key}
-                style={[styles.qrPlatformTab, active && styles.qrPlatformTabActive]}
+                style={[
+                  styles.qrPlatformTab,
+                  active && styles.qrPlatformTabActive,
+                ]}
                 onPress={() => setActivePlatform(p.key)}
                 activeOpacity={0.7}
                 accessibilityRole="tab"
@@ -696,6 +710,9 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms }: QrTabContentProps) 
                 )}
                 <Text
                   style={[styles.qrPlatformTabText, active && styles.qrPlatformTabTextActive]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                 >
                   {p.label}
                 </Text>
@@ -704,9 +721,11 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms }: QrTabContentProps) 
           })}
         </View>
 
-        {/* 二维码占位区域 */}
-        <View style={styles.qrBox}>
-          {isLoading ? (
+        {/* 二维码区域:优先用 renderQrPanel 渲染真实二维码(WebView),否则占位 */}
+        <View style={[styles.qrBox, !renderQrPanel && !qrSource && styles.qrBoxPlaceholder]}>
+          {renderQrPanel && activePlatform ? (
+            renderQrPanel(activePlatform, refreshKey)
+          ) : isLoading ? (
             <ActivityIndicator size="large" color={tk.brand.DEFAULT} />
           ) : qrSource ? (
             <Image source={qrSource} style={imageStyles.qrImage} resizeMode="contain" />
@@ -723,10 +742,13 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms }: QrTabContentProps) 
 
         {/* 操作行:刷新 + 打开网页 */}
         <View style={styles.qrActionRow}>
-          {showRefresh && qrConfig?.onRefresh ? (
+          {showRefresh ? (
             <TouchableOpacity
               style={styles.qrRefreshBtn}
-              onPress={qrConfig.onRefresh}
+              onPress={() => {
+                setRefreshKey((k) => k + 1)
+                qrConfig?.onRefresh?.()
+              }}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="刷新二维码"
@@ -817,6 +839,7 @@ export function LoginScreen(props: LoginScreenProps) {
     // qr
     qrConfig,
     qrPlatforms,
+    renderQrPanel,
     // third party
     thirdPartyOptions,
     onThirdPartyLogin,
@@ -1001,7 +1024,13 @@ export function LoginScreen(props: LoginScreenProps) {
         ) : null}
 
         {activeTab === 'qr' ? (
-          <QrTabContent styles={styles} tk={tk} qrConfig={qrConfig} qrPlatforms={qrPlatforms} />
+          <QrTabContent
+            styles={styles}
+            tk={tk}
+            qrConfig={qrConfig}
+            qrPlatforms={qrPlatforms}
+            renderQrPanel={renderQrPanel}
+          />
         ) : null}
 
         {/* 第三方登录区(qr tab 不重复显示) */}
@@ -1397,15 +1426,20 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       gap: 12,
     },
     qrBox: {
-      width: 200,
-      height: 200,
+      width: 280,
+      height: 280,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 6,
+      // renderQrPanel 注入时由 iframe/WebView 自己渲染二维码面板(含边框/背景);
+      // 未注入时由 qrBoxPlaceholder 提供 dashed border + 浅灰背景(条件应用)。
+    },
+    // 占位状态专用样式(未注入 renderQrPanel 时应用):dashed border + 浅灰背景
+    qrBoxPlaceholder: {
       borderWidth: 1,
       borderStyle: 'dashed',
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 6,
     },
     qrPlaceholderText: {
       fontSize: 13,
@@ -1431,11 +1465,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // ===== QR 平台切换 tab(2026-08-04 新增,对齐 web 端 qr-tab.tsx) =====
     // web 端:grid grid-cols-4 gap-1.5 rounded-md border bg-muted/40 p-1
-    // RN 端:flexDirection row + 全宽 + 边框 + 浅灰背景 + padding 4 + gap 6
+    // RN 端:flexDirection row + 全宽 + 边框 + 浅灰背景 + padding 4
+    // 注意:不用 gap,改用 marginRight 在 tab 间留白(最后一个 tab 不加 marginRight),
+    // 避免 gap 占用宽度导致 width: 25% × 4 + gap × 3 超出 100%
     qrPlatformTabBar: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: 6,
       padding: 4,
       borderRadius: 6,
       borderWidth: 1,
@@ -1443,16 +1477,22 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.surface.muted,
     },
     // web 端默认态:rounded-[4px] px-2 py-1.5 text-xs text-muted-foreground(无边框无背景)
+    // 用 flex: 1 + flexBasis: 0 + minWidth: 0 强制等宽
+    // minWidth: 0 是关键 — RN-web/CSS flexbox 默认 min-width: auto,会被内容撑宽,
+    // 设置 minWidth: 0 后 flex 子元素严格等分剩余空间,不受内容(图标+文字)影响
     qrPlatformTab: {
       flex: 1,
+      flexBasis: 0,
+      minWidth: 0,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: 4,
       paddingVertical: 6,
-      paddingHorizontal: 8,
+      paddingHorizontal: 4,
       borderRadius: 4,
       backgroundColor: 'transparent',
+      overflow: 'hidden',
     },
     // web 端激活态:bg-card text-foreground shadow-sm(白色卡片背景 + 阴影,非品牌色)
     qrPlatformTabActive: {
@@ -1468,6 +1508,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrPlatformTabText: {
       fontSize: 12,
       color: tk.text.tertiary,
+      flexShrink: 1,
     },
     // web 端激活文字:text-foreground font-medium(主文字色,非白色)
     qrPlatformTabTextActive: {

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Platform, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
 import { SvgXml } from 'react-native-svg'
+import { WebView } from 'react-native-webview'
 import {
   loginByAccount,
   loginByEmailCode,
@@ -500,6 +501,61 @@ export function LoginScreen() {
   // 浅色主题用黑字,深色主题用白字;SvgXml 渲染,width 280 等比缩放(447×67 → 280×42)
   const welcomeXml = resolvedTheme === 'dark' ? WELCOME_SVG_DARK : WELCOME_SVG_LIGHT
 
+  // ===== 扫码登录:用 WebView/iframe 加载 web 端纯二维码面板,显示真实二维码 =====
+  // RN 端无法直接加载各厂商 SDK(WxLogin/WwLogin/DTFrameLogin/QRLogin 依赖 DOM),
+  // 用 WebView(native) / iframe(web) 加载 web 端 /login?method=qr&platform=xxx&embed=true 页面。
+  // web 端 PageClient 检测 embed=true 后只渲染纯 QrCodeLogin 组件(280x280),无外层容器、无平台切换 tab
+  // (mobile-rn 端已有自己的平台切换 tab,iframe 内不重复)。
+  // refreshKey 变化时 key 变化 → WebView/iframe 重新加载 → 二维码刷新。
+  // 尺寸 280x280 对齐 web 端 WechatQrPanel/WecomQrPanel/DingtalkQrPanel/FeishuQrPanel 等厂商面板尺寸。
+  const renderQrPanel = useCallback(
+    (platform: ThirdPartyPlatform, refreshKey: number) => {
+      const url = `${WEB_BASE_URL}/login?method=qr&platform=${platform}&embed=true&refreshKey=${refreshKey}`
+      // 简化 injectedJS:web 端 embed 模式已只渲染 280x280 二维码面板,只需设置背景透明
+      const injectedJS = [
+        '(function(){',
+        '  document.body.style.background="transparent";',
+        '  document.body.style.margin="0";',
+        '  document.body.style.padding="0";',
+        '  document.documentElement.style.background="transparent";',
+        '  document.documentElement.style.margin="0";',
+        '  document.documentElement.style.padding="0";',
+        '})();',
+        'true;',
+      ].join('\n')
+
+      // web 平台:react-native-webview v14 不支持 web 渲染,用 iframe 替代
+      // web 端 embed 模式只渲染纯二维码面板,iframe 无需 injectedJavaScript。
+      if (Platform.OS === 'web') {
+        // FIXME(any): RN 的 JSX.IntrinsicElements 不含 iframe,用 as any 绕过;
+        // 移除计划:升级 react-native-webview 到支持 web 的版本后统一用 WebView。
+        const iframeEl = (createElement as any)('iframe', {
+          key: `qr-${platform}-${refreshKey}`,
+          src: url,
+          style: { width: 280, height: 280, border: 'none', background: 'transparent' },
+          title: 'qr-panel',
+          scrolling: 'no',
+        })
+        return iframeEl
+      }
+
+      // native 平台:WebView 加载 web 端纯二维码面板
+      return (
+        <WebView
+          key={`qr-${platform}-${refreshKey}`}
+          source={{ uri: url }}
+          injectedJavaScript={injectedJS}
+          style={{ width: 280, height: 280, backgroundColor: 'transparent' }}
+          scrollEnabled={false}
+          bounces={false}
+          javaScriptEnabled
+          domStorageEnabled
+        />
+      )
+    },
+    [],
+  )
+
   return (
     <View style={styles.container}>
       <View style={styles.body}>
@@ -559,6 +615,8 @@ export function LoginScreen() {
           // 扫码登录平台切换(4 平台:微信/企微/钉钉/飞书)
           qrPlatforms={QR_PLATFORMS}
           qrConfig={{ status: 'idle' }}
+          // 注入 WebView 加载 web 端二维码面板,显示真实二维码
+          renderQrPanel={renderQrPanel}
         />
       </View>
     </View>
