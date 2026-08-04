@@ -283,3 +283,14 @@ apps/ai-service/.data/
 # 对应的 *-summary.json 是审计摘要,保留版本控制。
 reports/*.csv
 
+
+# ============================================================================
+# 生产部署包(2026-08-04):含真实 Cloudflare Tunnel Token,禁止入库
+# ============================================================================
+# 部署包目录被解压到工作区后,内部 TUNNEL_TOKEN.local.txt 含真实 token,任何情况不得 git add
+deploy/prod-bundle/
+deploy/*.zip
+# scripts/start-cloudflared-tunnel.ps1 从上述本地文件读取 token,不再硬编码
+
+# Java SDK 构建产物
+sdks/java/target/

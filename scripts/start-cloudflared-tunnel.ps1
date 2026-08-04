@@ -16,7 +16,15 @@
 
 $env:Path += ";C:\Program Files (x86)\cloudflared"
 
-$tunnelToken = "<PASTE-YOUR-TUNNEL-TOKEN-HERE>"
+# 安全:真实 token 从本地文件读取(不进 git)。部署包解压后此文件位于 deploy/prod-bundle/cloudflared/TUNNEL_TOKEN.local.txt
+# 若无该文件则回退占位符,运行前请先在 Cloudflare 后台 rotate 并填入
+$tokenFile = Join-Path $PSScriptRoot "..\deploy\prod-bundle\cloudflared\TUNNEL_TOKEN.local.txt"
+if (Test-Path $tokenFile) {
+    $tunnelToken = (Get-Content $tokenFile -Raw).Trim()
+} else {
+    $tunnelToken = "<PASTE-YOUR-TUNNEL-TOKEN-HERE>"
+    Write-Warning "未找到 TUNNEL_TOKEN.local.txt,请先从部署包拷贝或填写真实 token"
+}
 
 Write-Host "启动 Cloudflare Tunnel (aizhs.top + bsm.aizhs.top -> localhost:8801)..."
 Write-Host "分域 SSO 架构:主域 aizhs.top + 认证子域 bsm.aizhs.top(只承载登录)"
