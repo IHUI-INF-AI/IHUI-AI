@@ -1,12 +1,13 @@
 'use client'
 
-import type { ThirdPartyPlatform } from '@/types/third-party'
+import type { ThirdPartyPlatform } from '@ihui/types'
 import { WechatQrPanel } from './qr/WechatQrPanel'
 import { WecomQrPanel } from './qr/WecomQrPanel'
 import { DingtalkQrPanel } from './qr/DingtalkQrPanel'
 import { FeishuQrPanel } from './qr/FeishuQrPanel'
+import { AppQrPanel } from './qr/AppQrPanel'
 
-type QrPlatform = 'wechat' | 'enterpriseWechat' | 'dingtalk' | 'feishu'
+type QrPlatform = 'wechat' | 'enterpriseWechat' | 'dingtalk' | 'feishu' | 'app'
 
 export interface QrCodeLoginProps {
   /** 当前选中的扫码平台(由共享 QrTab 注入) */
@@ -16,7 +17,13 @@ export interface QrCodeLoginProps {
 }
 
 function isQrPlatform(p: ThirdPartyPlatform): p is QrPlatform {
-  return p === 'wechat' || p === 'enterpriseWechat' || p === 'dingtalk' || p === 'feishu'
+  return (
+    p === 'wechat' ||
+    p === 'enterpriseWechat' ||
+    p === 'dingtalk' ||
+    p === 'feishu' ||
+    p === 'app'
+  )
 }
 
 /**
@@ -26,7 +33,8 @@ function isQrPlatform(p: ThirdPartyPlatform): p is QrPlatform {
  * 平台切换 Tab / 扫码提示文字 / 操作行(刷新 + 切换登录方式)由共享 `QrTab`
  * (`@ihui/ui-react`)负责,本组件不再重复渲染这些 UI,否则会出现两套按钮 + 两套提示。
  *
- * 支持 4 个平台:
+ * 支持 5 个平台:
+ * - 本站 App(POST /qr/generate + GET /qr/status 轮询)→ 扫码后直接拿到 token
  * - 微信(WxLogin.js)→ 扫码后整页跳 /callback?platform=wechat
  * - 企业微信(wwLogin)→ 扫码后整页跳 /callback?platform=enterpriseWechat
  * - 钉钉(DTFrameLogin)→ 扫码后 postMessage 通知,前端 router.push 到 /callback
@@ -39,6 +47,7 @@ export function QrCodeLogin({ platform, refreshKey }: QrCodeLoginProps) {
   if (!isQrPlatform(platform)) return null
   return (
     <div className="w-full">
+      {platform === 'app' && <AppQrPanel refreshKey={refreshKey} />}
       {platform === 'wechat' && <WechatQrPanel refreshKey={refreshKey} />}
       {platform === 'enterpriseWechat' && <WecomQrPanel refreshKey={refreshKey} />}
       {platform === 'dingtalk' && <DingtalkQrPanel refreshKey={refreshKey} />}

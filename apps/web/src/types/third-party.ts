@@ -180,9 +180,9 @@ declare global {
 // 第三方平台通用类型
 // ---------------------------------------------------------------------------
 
-/** 支持的第三方登录平台 */
+/** 支持的第三方登录平台 + 本站 App 扫码 */
 export type ThirdPartyPlatform =
-  'google' | 'apple' | 'dingtalk' | 'enterpriseWechat' | 'wechat' | 'github' | 'feishu' | 'alipay'
+  'google' | 'apple' | 'dingtalk' | 'enterpriseWechat' | 'wechat' | 'github' | 'feishu' | 'alipay' | 'app'
 
 /** 第三方登录状态机 */
 export type ThirdPartyLoginStatus =

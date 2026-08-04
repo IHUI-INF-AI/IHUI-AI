@@ -1524,7 +1524,7 @@ export type LoginTab = 'email' | 'phone' | 'password' | 'qr'
 
 /** 第三方登录平台 key(对齐 web ui-react ThirdPartyPlatform) */
 export type ThirdPartyPlatform =
-  'wechat' | 'google' | 'github' | 'feishu' | 'dingtalk' | 'enterpriseWechat' | 'alipay' | 'apple'
+  'wechat' | 'google' | 'github' | 'feishu' | 'dingtalk' | 'enterpriseWechat' | 'alipay' | 'apple' | 'app'
 
 /** 第三方登录配置项(wrapper 注入:平台 key + 文案 + 图标 + 是否启用) */
 export interface ThirdPartyLoginOption {

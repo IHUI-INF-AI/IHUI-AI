@@ -222,6 +222,13 @@ export const ALIPAY_CONFIG: ThirdPartyPlatformConfig = {
   authUrl: 'https://openauth.alipay.com/oauth2/publicAppAuthorize.htm',
 }
 
+/** 本站 App 扫码登录配置(非 OAuth,走 /api/auth/qr/* 端点) */
+export const APP_CONFIG: ThirdPartyPlatformConfig = {
+  enabled: true,
+  redirectUri: '',
+  proxyPath: '/api/auth/qr/generate',
+}
+
 /** 平台 → 配置映射 */
 const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   google: GOOGLE_CONFIG,
@@ -232,6 +239,7 @@ const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   github: GITHUB_CONFIG,
   feishu: FEISHU_CONFIG,
   alipay: ALIPAY_CONFIG,
+  app: APP_CONFIG,
 }
 
 /**
