@@ -157,7 +157,7 @@ function main() {
       console.error(`    ${C.dim}类型:${C.reset} ${v.type}`)
       // 给出 PowerShell 修复命令
       const psCmd =
-        `powershell -Command "$b=[System.IO.File]::ReadAllBytes('${rel}');` +
+        `pwsh -Command "$b=[System.IO.File]::ReadAllBytes('${rel}');` +
         `if($b[0]-eq0xFF-and$b[1]-eq0xFE){$b=$b[2..($b.Length-1)]}` +
         `elseif($b[0]-eq0xFE-and$b[1]-eq0xFF){$b=$b[2..($b.Length-1)]}` +
         `elseif($b[0]-eq0xEF-and$b[1]-eq0xBB-and$b[2]-eq0xBF){$b=$b[3..($b.Length-1)]};` +

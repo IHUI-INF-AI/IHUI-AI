@@ -3,7 +3,7 @@
 //
 // 启动 @ihui/web dev server 并管理进程树生命周期,杜绝僵尸 next-server 进程。
 //
-// 关键问题:Start-Process powershell -Command "pnpm dev" 启动方式下,PowerShell 进程
+// 关键问题:Start-Process pwsh -Command "pnpm dev" 启动方式下,PowerShell 进程
 // 退出时不会把 next-server 的子进程(workers)带走,反复重启会积累 35+ 僵尸 node 进程。
 //
 // 本脚本:
@@ -36,13 +36,13 @@ console.log(`[dev-web] clean .next cache: ${CLEAN}`)
 function killPort(port) {
   try {
     const out = execSync(
-      `powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p=$_.OwningProcess; if ($p -gt 0) { taskkill /F /T /PID $p 2>&1 | Out-Null } }"`,
+      `pwsh -NoProfile -Command "Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p=$_.OwningProcess; if ($p -gt 0) { taskkill /F /T /PID $p 2>&1 | Out-Null } }"`,
       { stdio: 'pipe' }
     ).toString()
     if (out.trim()) console.log(`[dev-web] killed port ${port} tree:\n${out.trim()}`)
     else console.log(`[dev-web] port ${port} already free`)
   } catch (e) {
-    // powershell 偶尔返回非 0 退出码但实际杀成功,不阻断
+    // pwsh 偶尔返回非 0 退出码但实际杀成功,不阻断
     console.log(`[dev-web] port ${port} cleanup warning: ${e.message.split('\n')[0]}`)
   }
 }
