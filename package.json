@@ -55,9 +55,6 @@
     "tag:sync:check": "node scripts/sync-lost-commit-tags.mjs --check",
     "tag:sync:fetch": "node scripts/sync-lost-commit-tags.mjs --fetch",
     "tag:sync:push": "node scripts/sync-lost-commit-tags.mjs --auto-push",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "turbo run build && changeset publish",
     "nativewind:status": "node scripts/check-nativewind-status.mjs",
     "check:button-wrap": "node scripts/check-shrinkable-text-button.mjs",
     "footer:guard": "node scripts/check-site-footer.mjs",
@@ -66,22 +63,20 @@
     "guardian:docs": "node scripts/generate-guardian-docs.mjs"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
-    "@esbuild/win32-x64": "0.28.1",
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^16.0.0",
     "@types/node": "^26.0.0",
     "eslint": "catalog:",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.0.0",
+    "knip": "^6.31.0",
     "lint-staged": "^17.3.0",
     "opencc-js": "^1.4.1",
     "prettier": "^3.9.6",
     "rimraf": "catalog:",
     "sharp": "^0.35.3",
     "turbo": "^2.10.8",
-    "typescript": "catalog:",
-    "vite": "^6.3.0"
+    "typescript": "catalog:"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [

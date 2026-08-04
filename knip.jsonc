@@ -1,22 +1,18 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
-  "ignore": ["dist/**", "node_modules/**", "coverage/**", ".turbo/**", ".next/**", "client/**"],
-  "ignoreBinaries": ["turbo", "pnpm"],
   "workspaces": {
     "apps/api": {
-      "entry": ["src/index.ts", "src/server.ts"],
+      "entry": ["src/server.ts"],
       "project": ["src/**/*.ts"]
     },
     "apps/web": {
-      "entry": ["app/**/page.tsx", "app/**/layout.tsx", "app/layout.tsx"],
+      "entry": ["app/**/page.tsx", "app/**/layout.tsx"],
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/cli": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "apps/desktop": {
-      "entry": ["src/main.tsx", "src-tauri/src/lib.rs"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/extension": {
@@ -24,7 +20,6 @@
       "project": ["**/*.{ts,tsx}"]
     },
     "apps/mobile-rn": {
-      "entry": ["App.tsx"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "apps/miniapp-taro": {
@@ -32,39 +27,21 @@
       "project": ["**/*.{ts,tsx}"]
     },
     "packages/database": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "packages/ui": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
-    },
     "packages/api-client": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "packages/auth": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/config": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "packages/context-compaction": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "packages/types": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "packages/ui-native": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
-    },
-    "packages/ui-primitives": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     }
   }
