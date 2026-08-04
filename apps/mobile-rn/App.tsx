@@ -12,6 +12,13 @@ import { OfflineBanner } from './src/components/OfflineBanner'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { registerWechat } from './src/lib/wechat'
+import {
+  subscribeOAuthDeepLink,
+  getInitialOAuthDeepLink,
+  type OAuthRedirectResult,
+} from './src/lib/oauth-deeplink'
+import { rnAuthStore } from './src/stores/auth-store'
+import type { LoginResult } from '@ihui/api-client'
 
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
@@ -32,12 +39,40 @@ function AppInner() {
   )
 }
 
+/**
+ * 将 OAuth deep link 换取的 JWT 写入 rnAuthStore(与 AuthContext.applySsoCode 同语义)。
+ *
+ * App.tsx 位于 AuthProvider 之外,无法用 useAuth(),但 rnAuthStore 是 zustand 实例,
+ * 可直接 import 调用,跨组件树更新认证态(AuthContext 订阅同一 store,会自动重渲染)。
+ */
+async function applyOAuthResult(result: OAuthRedirectResult): Promise<void> {
+  if (!result.success || !result.data) return
+  const { accessToken, refreshToken, user }: LoginResult = result.data
+  await rnAuthStore.getState().setAuth({ token: accessToken, refreshToken, user })
+}
+
 function AppContent() {
   const { resolvedTheme } = useTheme()
 
-  // 初始化微信 SDK(native only,web 平台 registerWechat 返回 false 跳过)
+  // 初始化微信 SDK + OAuth deep link 监听(ihui://oauth/callback?platform=xxx&code=xxx&state=xxx)
+  // 与 SSO deep link(ihui://sso/callback)互不干扰,后者由 AuthContext 监听
   useEffect(() => {
+    let unsubOAuth: (() => void) | null = null
     void registerWechat()
+
+    // 冷启动时检查 OAuth deep link + 运行时监听
+    void (async () => {
+      const initial = await getInitialOAuthDeepLink()
+      if (initial) await applyOAuthResult(initial)
+
+      unsubOAuth = subscribeOAuthDeepLink(async (result) => {
+        await applyOAuthResult(result)
+      })
+    })()
+
+    return () => {
+      if (unsubOAuth) unsubOAuth()
+    }
   }, [])
 
   return (
