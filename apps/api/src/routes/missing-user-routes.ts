@@ -41,13 +41,10 @@
  *     /content/banner/list、/content/course/list、/study/info,公开 fallback
  *     兜底未登录首页骨架;真实数据走鉴权路由)
  *
- *   // TODO: progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
- *   - admin-support-tickets.ts(3 个空桩,/support/tickets/:id/{status,replies,
- *     reply};**注:`customerServiceTickets` 表已存在**(packages/database/src/
- *     schema/customer-service.ts L42),但 status 字段语义为
- *     'pending'|'open'|'resolved'|'closed'|'rejected',与前端 admin/ticket 页
- *     TicketStatus 'open'|'processing'|'closed'|'resolved' 不一致;原注释
- *     "待 support_tickets 表落地"不准确,真实阻塞为 status 枚举语义对齐)
+ *   - admin-support-tickets.ts — **已全部实装真实 CRUD**(2026-08-04 复核):
+ *     4 个端点 /support/tickets/* 均接 customerServiceTickets + customerServiceComments
+ *     真实表,原"3 个空桩"描述已过时;status 枚举语义通过 FRONTEND_TO_BACKEND /
+ *     BACKEND_TO_FRONTEND 双向映射解决。
  *
  * 故本 barrel 不再追加路由定义(保留 barrel 设计原则,避免破坏 user/ 子目录拆分)。
  *
