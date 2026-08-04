@@ -222,3 +222,5 @@ export * from './im-adapters.js'
 export * from './user-devices.js'
 // 插件元数据表(2026-08-04 立,§24 用户已确认 DB 化:原 plugins-data.ts 代码常量迁移到 DB,支持后台 CRUD)
 export * from './plugins.js'
+// 用户 Token 余额表(2026-08-04 补建:代码引用但 schema 缺失导致 500,预先存在的 schema 缺口)
+export * from './user-token-balance.js'
