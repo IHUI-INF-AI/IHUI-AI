@@ -1643,6 +1643,17 @@ export interface LoginScreenProps {
   onForgotPassword?: () => void
   /** 注册回调(传则卡片底部显示"还没有账号?立即注册") */
   onRegister?: () => void
+
+  // ===== 密码显示/隐藏 图标(可选,对齐 web lucide Eye/EyeOff 视觉) =====
+
+  /** 密码"显示"状态图标(眼睛睁开)。
+   * 推荐 lucide-react-native 的 `<Eye />` 组件,与 web 端 lucide-react 同源视觉 100% 一致。
+   * 不传则 fallback 到 emoji 👁(不推荐 — emoji 在 Windows 渲染为损坏图)。
+   * 类型为 ReactNode 而非 ImageSource,以支持 SVG 组件(lucide-react-native 基于 react-native-svg)。 */
+  eyeIconShow?: ReactNode
+  /** 密码"隐藏"状态图标(眼睛闭起)。
+   * 推荐 lucide-react-native 的 `<EyeOff />` 组件。 */
+  eyeIconHide?: ReactNode
 }
 
 /** RegisterScreen props(表单屏) */
