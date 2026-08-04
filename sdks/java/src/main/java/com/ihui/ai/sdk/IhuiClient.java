@@ -15,7 +15,7 @@ import java.time.Duration;
 import java.util.List;
 
 /** HTTP 4xx/5xx 异常,含 statusCode 与 body。 */
-public class IhuiException extends RuntimeException {
+class IhuiException extends RuntimeException {
     private final int statusCode;
     private final String body;
 
