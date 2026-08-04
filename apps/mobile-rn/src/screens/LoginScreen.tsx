@@ -24,7 +24,20 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
-import { isWechatInstalled, sendWechatAuth } from '../lib/wechat'
+import { isWechatAvailable, isWechatInstalled, sendWechatAuth } from '../lib/wechat'
+import {
+  loginByDingtalkRedirect,
+  loginByFeishuRedirect,
+  loginByWecomRedirect,
+  type OAuthRedirectResult,
+} from '../lib/oauth-redirect'
+import { isAppleLoginAvailable, loginWithAppleNative, loginWithAppleRedirect } from '../lib/apple'
+import {
+  exchangeGoogleCodeForJwt,
+  isGoogleLoginAvailable,
+  loginWithGoogleNative,
+  loginWithGoogleRedirect,
+} from '../lib/google'
 import { rnAuthStore } from '../stores/auth-store'
 
 // 顶层类型导入(用于 navigation 类型推断)
@@ -384,10 +397,32 @@ export function LoginScreen() {
     await form.login()
   }, [checkAgreement, form])
 
+  // ===== OAuth 登录结果统一处理(apple/google/飞书/钉钉/企微 共用) =====
+  // wechat 流程因 res 是 ApiResult<LoginResult>(非 OAuthRedirectResult),单独处理。
+  const applyOAuthResult = useCallback(
+    async (res: OAuthRedirectResult): Promise<void> => {
+      if (res.success && res.data) {
+        fullUserRef.current = res.data.user
+        await rnAuthStore.getState().setAuth({
+          token: res.data.accessToken,
+          refreshToken: res.data.refreshToken,
+          user: res.data.user,
+        })
+        return
+      }
+      // 用户取消(cancelled=true)不算错误,不弹错误提示
+      if (!res.cancelled) {
+        form.setError(res.error ?? 'auth.loginFailed')
+      }
+    },
+    [form],
+  )
+
   // ===== 第三方登录回调 =====
-  // 微信:native 平台用 react-native-wechat-lib 原生 SDK 拉起微信 App 授权
-  // 苹果/Google:iOS 未 prebuild / Google 凭据未配置,暂保留 Alert 提示
-  // 飞书/钉钉/企微:移动端无原生 RN SDK,引导走网页端 SSO
+  // 微信:native 平台用 react-native-wechat-lib 原生 SDK 拉起微信 App 授权(wechat.ts)
+  // 苹果:iOS 优先 expo-apple-authentication 原生 SDK,Android 走 web OAuth 跳转(apple.ts)
+  // Google:Android/iOS 优先 @react-native-google-signin/google-signin,fallback 到 web OAuth(google.ts)
+  // 飞书/钉钉/企微:无原生 RN SDK,走 OAuth 浏览器跳转兜底(oauth-redirect.ts)
   const handleThirdPartyLogin = useCallback(
     async (platform: ThirdPartyPlatform) => {
       const option = thirdPartyOptions.find((o) => o.platform === platform)
@@ -399,10 +434,9 @@ export function LoginScreen() {
         return
       }
 
-      // 微信:原生 SDK 授权(native only,web fallback 到 Alert 引导网页端)
+      // 微信:原生 SDK 授权(web 平台 / SDK 未就绪 → fallback 到 SSO 网页端)
       if (platform === 'wechat') {
-        if (Platform.OS === 'web') {
-          // web 平台 wechat-lib 原生模块不存在,引导走 SSO 网页端授权
+        if (Platform.OS === 'web' || !isWechatAvailable()) {
           Alert.alert(
             t('auth.thirdPartyLogin'),
             '微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用"使用其他方式登录"按钮跳转网页端授权。',
@@ -414,7 +448,6 @@ export function LoginScreen() {
           return
         }
 
-        // native:微信 SDK 授权流程(isWechatInstalled → sendWechatAuth → loginByWechat → JWT)
         setThirdPartyLoadingPlatform(platform)
         try {
           const installed = await isWechatInstalled()
@@ -447,25 +480,111 @@ export function LoginScreen() {
         return
       }
 
-      // 苹果:iOS 未 prebuild,expo-apple-authentication 未安装,暂不可用
+      // 苹果:iOS 优先原生 SDK,Android 走 web OAuth 跳转
       if (platform === 'apple') {
-        Alert.alert(
-          t('auth.thirdPartyLogin'),
-          '苹果登录即将上线,请使用其他方式登录。',
-        )
+        if (!isAppleLoginAvailable()) {
+          Alert.alert(
+            t('auth.thirdPartyLogin'),
+            'Apple 登录未配置,请在 .env 设置 EXPO_PUBLIC_APPLE_CLIENT_ID,或安装 expo-apple-authentication(iOS)。',
+          )
+          return
+        }
+        setThirdPartyLoadingPlatform(platform)
+        try {
+          if (Platform.OS === 'ios') {
+            // iOS:优先原生 SDK(拿 identityToken+authorizationCode),不可用时 fallback 到 web OAuth
+            const nativeRes = await loginWithAppleNative()
+            if (!nativeRes.success && !nativeRes.cancelled) {
+              // 原生 SDK 不可用 → fallback 到 web OAuth 跳转(后端 oauthCallback('apple', code, state))
+              const redirectRes = await loginWithAppleRedirect()
+              await applyOAuthResult(redirectRes)
+            }
+            // 注:Apple 原生 SDK 拿到 identityToken 后,后端暂无 verifyAppleToken 接口,
+            // 当前实际换 JWT 走 web OAuth 流程;待 api-client 补全 Apple token 验证接口后接入原生直登。
+            // nativeRes.cancelled = 用户取消,静默处理。
+          } else {
+            // Android / 其他平台:走 web OAuth 跳转
+            const redirectRes = await loginWithAppleRedirect()
+            await applyOAuthResult(redirectRes)
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
+          }
+        } finally {
+          setThirdPartyLoadingPlatform(null)
+        }
         return
       }
 
-      // Google:凭据未配置,@react-native-google-signin/google-signin 未安装,暂不可用
+      // Google:Android/iOS 优先原生 SDK,fallback 到 web OAuth 跳转
       if (platform === 'google') {
-        Alert.alert(
-          t('auth.thirdPartyLogin'),
-          'Google 登录即将上线,请使用其他方式登录。',
-        )
+        if (!isGoogleLoginAvailable()) {
+          Alert.alert(
+            t('auth.thirdPartyLogin'),
+            'Google 登录未配置,请在 .env 设置 EXPO_PUBLIC_GOOGLE_CLIENT_ID。',
+          )
+          return
+        }
+        setThirdPartyLoadingPlatform(platform)
+        try {
+          if (Platform.OS !== 'web') {
+            // native:优先原生 SDK(拿 serverAuthCode)→ 调后端 oauthCallback('google', code, state) 换 JWT
+            const nativeRes = await loginWithGoogleNative()
+            if (nativeRes.success && nativeRes.data?.serverAuthCode) {
+              const jwtRes = await exchangeGoogleCodeForJwt(nativeRes.data.serverAuthCode)
+              await applyOAuthResult(jwtRes)
+            } else if (!nativeRes.cancelled) {
+              // 原生 SDK 不可用 → fallback 到 web OAuth 跳转
+              const redirectRes = await loginWithGoogleRedirect()
+              await applyOAuthResult(redirectRes)
+            }
+          } else {
+            // web:走 OAuth 跳转
+            const redirectRes = await loginWithGoogleRedirect()
+            await applyOAuthResult(redirectRes)
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
+          }
+        } finally {
+          setThirdPartyLoadingPlatform(null)
+        }
         return
       }
 
-      // 飞书/钉钉/企微:移动端无原生 RN SDK,引导走网页端 SSO
+      // 飞书/钉钉/企微:无原生 RN SDK,走 OAuth 浏览器跳转兜底
+      if (
+        platform === 'feishu' ||
+        platform === 'dingtalk' ||
+        platform === 'enterpriseWechat'
+      ) {
+        setThirdPartyLoadingPlatform(platform)
+        try {
+          let res: OAuthRedirectResult
+          if (platform === 'feishu') {
+            res = await loginByFeishuRedirect()
+          } else if (platform === 'dingtalk') {
+            res = await loginByDingtalkRedirect()
+          } else {
+            res = await loginByWecomRedirect()
+          }
+          await applyOAuthResult(res)
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
+          }
+        } finally {
+          setThirdPartyLoadingPlatform(null)
+        }
+        return
+      }
+
+      // github / alipay / 其他平台:暂未集成,引导走网页端 SSO
       setThirdPartyLoadingPlatform(platform)
       Alert.alert(
         t('auth.thirdPartyLogin'),
@@ -482,7 +601,7 @@ export function LoginScreen() {
         ],
       )
     },
-    [t, form, thirdPartyOptions],
+    [t, form, thirdPartyOptions, applyOAuthResult],
   )
 
   // ===== 协议同意回调 =====
