@@ -13,6 +13,7 @@
  *
  * §9 跨端同步:web 端 token 持久化已有(IndexedDB / cookie),mobile-rn 此处独立维护。
  */
+import { Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 type SecureBackend = {
@@ -36,6 +37,11 @@ type SecureStoreNative = {
  * 运行时若原生模块未链接(iOS 未 pod install / Android 未 rebuild),也会抛错走 fallback。
  */
 async function probeSecureStore(): Promise<SecureStoreNative | null> {
+  // web 平台 expo-secure-store 无原生实现:模块可 import 但 getItemAsync 内部调用
+  // ExpoSecureStore.default.getValueWithKeyAsync 会抛 TypeError。直接走 AsyncStorage fallback。
+  if (Platform.OS === 'web') {
+    return null
+  }
   try {
     // 动态 import:测试环境无该依赖时直接走 fallback
     const mod = (await import('expo-secure-store')) as Partial<SecureStoreNative>
