@@ -146,7 +146,7 @@ function getRealDesktopPaths() {
   // 1. PowerShell 获取真实桌面路径(最可靠,处理重定向)
   try {
     const out = execSync(
-      'powershell -NoProfile -Command "[Environment]::GetFolderPath(\'Desktop\')"',
+      'pwsh -NoProfile -Command "[Environment]::GetFolderPath(\'Desktop\')"',
       { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] }
     ).trim();
     if (out) paths.add(resolve(out));
