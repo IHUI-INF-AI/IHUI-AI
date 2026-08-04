@@ -84,29 +84,6 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
         }
       }
 
-      // 🎭 Mock 模式: token 以 mock_ 开头时,跳过 /auth/me API 调用
-      if (storedToken.startsWith('mock_')) {
-        setToken(storedToken, null)
-        const mockUserCookie = document.cookie.match(/(?:^|;\s*)mock_user_info=([^;]+)/)
-        if (mockUserCookie && mockUserCookie[1]) {
-          try {
-            const decoded = decodeURIComponent(escape(atob(decodeURIComponent(mockUserCookie[1]))))
-            const mockUser = JSON.parse(decoded) as {
-              id: string
-              nickname: string
-              email?: string
-              avatar?: string | null
-              provider?: string
-            }
-            setUser(mockUser as never)
-          } catch {
-            /* base64 解析失败时,token 仍然标记已认证,user 留空 */
-          }
-        }
-        if (!cancelled) setReady(true)
-        return
-      }
-
       setToken(storedToken, null)
 
       try {

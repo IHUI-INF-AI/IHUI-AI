@@ -58,45 +58,6 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
       return
     }
 
-    // 🎭 Mock 授权识别:code 以 mock_ 开头时,本地直接构造登录态,跳过后端 API
-    // 配合 /oauth/mock/[platform] 本地授权页使用,完整模拟真实 OAuth 流程
-    if (code.startsWith('mock_')) {
-      const mockUserId = `mock_${platformParam ?? 'user'}_${Date.now()}`
-      const mockToken = `mock_token_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
-      const displayName = platformParam ? `${platformParam}演示用户` : '演示用户'
-      const mockUser = {
-        id: mockUserId,
-        nickname: displayName,
-        email: `${displayName.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`,
-        avatar: null,
-        provider: platformParam ?? 'mock',
-      } as never
-      setToken(mockToken, `mock_refresh_${Date.now()}`)
-      setUser(mockUser)
-      // 分域 SSO (2026-07-21): mock 模式下,user 信息无法靠 zustand persist 跨子域传递
-      // (localStorage per-domain),所以单独写一个跨域 cookie 让主域 bootstrap 能恢复
-      try {
-        const payload = btoa(unescape(encodeURIComponent(JSON.stringify(mockUser))))
-        const isSecure = location.protocol === 'https:'
-        const parts = ['path=/', 'max-age=604800', 'SameSite=Lax']
-        if (isSecure) parts.push('Secure')
-        parts.push('domain=.aizhs.top')
-        document.cookie = `mock_user_info=${payload}; ${parts.join('; ')}`
-      } catch {
-        /* base64 失败不影响主流程,主域 bootstrap 会回退到未登录态 */
-      }
-      setStatus('success')
-      // 复用现有的分域 SSO 跳转逻辑
-      if (isAuthSubdomainHost()) {
-        setTimeout(() => {
-          window.location.href = buildMainDomainUrl('/')
-        }, 800)
-      } else {
-        setTimeout(() => router.push('/'), 800)
-      }
-      return
-    }
-
     let cancelled = false
     const body = JSON.stringify({ code, state })
 
