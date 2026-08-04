@@ -10,6 +10,10 @@
 -- 幂等可重复执行
 -- ============================================================================
 
+-- 0) RLS 兼容:0066 对 users 启用了 FORCE ROW LEVEL SECURITY(owner 也受限),
+--    本迁移需读写 users 写入 system admin,先临时解除 FORCE,末尾恢复
+ALTER TABLE "users" NO FORCE ROW LEVEL SECURITY;
+
 -- 1) 加列(幂等)
 DO $$
 BEGIN
@@ -156,3 +160,6 @@ BEGIN
        );
   END IF;
 END$$;
+
+-- 7) 恢复 FORCE ROW LEVEL SECURITY(与 0066 保持一致)
+ALTER TABLE "users" FORCE ROW LEVEL SECURITY;
