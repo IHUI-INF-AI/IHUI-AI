@@ -2,6 +2,18 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# ============== nodeLinker: isolated(2026-08-05 恢复)==============
+# 2026-08-05 曾切到 hoisted 解决 react-native-worklets CMake 路径过长问题,
+# 但 hoisted 模式下 pnpm 不创建 @ihui/* workspace 包符号链接到顶层 node_modules,
+# 导致 web/api/mobile-rn 全部报 "Cannot find package '@ihui/database'" 等 ESM 解析失败。
+# 修复方案:回到 isolated(默认)+ publicHoistPattern 已包含 *react-native*,
+# react-native-worklets 会被 hoist 到顶层 node_modules/react-native-worklets(短路径),
+# CMake 编译时用此短路径,不会触发 250 字符限制。
+# Metro 错误(Cannot find metro/src/lib/isResolvedDependency.js)用 metro.config.js
+# 的 Module._resolveFilename monkey-patch 单独解决(重定向到 @expo/metro/metro/lib/)。
+# nodeLinker 默认值 isolated,此处显式声明便于后续维护者理解。
+nodeLinker: isolated
+
 # ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
 # 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
 # Metro 0.81 默认不 follow pnpm 的 .pnpm/<pkg>/node_modules junction 真实路径,
@@ -123,7 +135,12 @@ overrides:
   "@types/node": 26.1.2
   drizzle-orm: 0.45.2
   fast-jwt: 6.3.1
-  metro: 0.81.5
+  # metro override 删除(2026-08-05):
+  # 原 metro: 0.81.5 是为 react-native-css-interop 0.2.6 的 _fileSystem API 兼容,
+  # 但 metro.config.js 已用 forceWriteFileSystem: true 绕过 _fileSystem 调用,
+  # 且 @expo/metro 56.0.0 依赖 metro 0.84.4(新 API isResolvedDependency.js),
+  # 强制锁 0.81.5 会导致 "Cannot find module metro/src/lib/isResolvedDependency.js"。
+  # react-native 0.86.2 不依赖 metro(无 peer/dependencies 声明),删除 override 安全。
   html-encoding-sniffer: 4.0.0
   d3-array: ^3.2.0
   d3-shape: ^3.2.0
