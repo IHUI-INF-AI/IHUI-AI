@@ -55,7 +55,7 @@ function checkDevServer() {
     return true
   }
   log('  [ERR]  web 服务未在 http://localhost:8801 响应', RED)
-  log('         请先启动服务: powershell -ExecutionPolicy Bypass -File scripts/dev-all.ps1', GRAY)
+  log('         请先启动服务: pwsh -ExecutionPolicy Bypass -File scripts/dev-all.ps1', GRAY)
   return false
 }
 

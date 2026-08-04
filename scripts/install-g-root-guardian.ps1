@@ -6,7 +6,7 @@
 # interval). No admin privileges required (runs as current user).
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\install-g-root-guardian.ps1
+#   pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\install-g-root-guardian.ps1
 #
 # Idempotent: re-running unregisters the old task and registers a new one.
 # ============================================================================
@@ -108,5 +108,5 @@ Write-Host ("  LastRunTime: " + $taskInfo.LastRunTime)
 Write-Host ("  NextRunTime: " + $taskInfo.NextRunTime)
 Write-Host ""
 Write-Host "Manage:" -ForegroundColor Cyan
-Write-Host "  Status:    powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1"
-Write-Host "  Uninstall: powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1"
+Write-Host "  Status:    pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1"
+Write-Host "  Uninstall: pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1"
