@@ -14,6 +14,12 @@ export interface QrCodeLoginProps {
   platform: ThirdPartyPlatform
   /** 父组件传入,变化时重新生成二维码 */
   refreshKey: number
+  /**
+   * 嵌入模式(mobile-rn WebView/iframe 加载时使用):
+   * - 去掉各 QrPanel 根容器的 border(黑色线框),避免 iframe 内出现双重边框
+   * - 去掉 bg-card 背景,保持 iframe 透明
+   */
+  embed?: boolean
 }
 
 function isQrPlatform(p: ThirdPartyPlatform): p is QrPlatform {
@@ -43,10 +49,10 @@ function isQrPlatform(p: ThirdPartyPlatform): p is QrPlatform {
  * 各厂商未配置(appId / agentId / redirectUri 任一缺失)时显示"未配置"提示,
  * 不会渲染二维码。
  */
-export function QrCodeLogin({ platform, refreshKey }: QrCodeLoginProps) {
+export function QrCodeLogin({ platform, refreshKey, embed = false }: QrCodeLoginProps) {
   if (!isQrPlatform(platform)) return null
   return (
-    <div className="w-full">
+    <div className={embed ? 'w-full [&>div]:!border-0 [&>div]:!bg-transparent' : 'w-full'}>
       {platform === 'app' && <AppQrPanel refreshKey={refreshKey} />}
       {platform === 'wechat' && <WechatQrPanel refreshKey={refreshKey} />}
       {platform === 'enterpriseWechat' && <WecomQrPanel refreshKey={refreshKey} />}
