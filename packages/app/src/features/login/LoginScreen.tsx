@@ -849,10 +849,10 @@ export function LoginScreen(props: LoginScreenProps) {
           accessibilityRole="button"
         >
           <Text style={styles.ssoBtnText}>
-            {ssoLoading ? '打开网页登录...' : '使用网页账号登录'}
+            {ssoLoading ? '打开网页登录...' : '使用其他方式登录'}
           </Text>
         </TouchableOpacity>
-        <Text style={styles.tipText}>{'在 IHUI AI 网页端已登录的账号,可一键授权登录移动端'}</Text>
+        <Text style={styles.tipText}>{'在 IHUI AI 网页端已登录的账号,可一键授权登录'}</Text>
 
         {/* 注册链接(卡片底部水平排列) */}
         {onRegister ? (
