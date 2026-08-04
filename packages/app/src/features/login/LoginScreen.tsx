@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -161,6 +161,12 @@ interface PasswordTabContentProps extends TabContentBaseProps {
   showPassword: boolean
   onToggleShowPassword: () => void
   onForgotPassword?: () => void
+  // 密码显示/隐藏 图标(可选,对齐 web lucide Eye/EyeOff 视觉)
+  // 类型为 ReactNode 以支持 lucide-react-native 的 <Eye />/<EyeOff /> SVG 组件
+  // (RN <Image source={require('*.svg')} /> 在 Android/Web 不支持 SVG 渲染,会显示损坏)
+  // 不传则 fallback 到 emoji(旧行为,不推荐 — emoji 在 Windows 渲染为损坏图)
+  eyeIconShow?: ReactNode
+  eyeIconHide?: ReactNode
 }
 
 interface QrTabContentProps {
@@ -510,6 +516,8 @@ function PasswordTabContent({
   loading,
   showPassword,
   onToggleShowPassword,
+  eyeIconShow,
+  eyeIconHide,
   agreed,
   onAgreedChange,
   onOpenTerms,
@@ -565,7 +573,15 @@ function PasswordTabContent({
             accessibilityRole="button"
             accessibilityLabel={showPassword ? '隐藏密码' : '显示密码'}
           >
-            <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+            {eyeIconShow || eyeIconHide ? (
+              showPassword ? (
+                eyeIconHide
+              ) : (
+                eyeIconShow
+              )
+            ) : (
+              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -668,6 +684,9 @@ export function LoginScreen(props: LoginScreenProps) {
     // forgot + register
     onForgotPassword,
     onRegister,
+    // eye icons
+    eyeIconShow,
+    eyeIconHide,
   } = props
 
   const tk = getTokens(colorScheme)
@@ -823,6 +842,8 @@ export function LoginScreen(props: LoginScreenProps) {
             loading={loading}
             showPassword={showPassword}
             onToggleShowPassword={() => setShowPassword((s) => !s)}
+            eyeIconShow={eyeIconShow}
+            eyeIconHide={eyeIconHide}
             agreed={agreed}
             onAgreedChange={handleAgreedChange}
             onOpenTerms={onOpenTerms}
