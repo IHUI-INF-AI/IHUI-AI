@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, StyleSheet, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, Platform, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
@@ -75,69 +75,88 @@ const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
 
-// 第三方登录配置(对齐 web use-third-party-config.tsx PROVIDER_DEFS,8 平台)
-// apple forceDisabled = true(对齐 web "Apple 登录即将上线")
-// iconSource 未传时共享 LoginScreen 自动 fallback 到平台首字母(圆形按钮 + 居中字母)
-const THIRD_PARTY_OPTIONS: ThirdPartyLoginOption[] = [
-  {
-    platform: 'wechat',
-    label: '微信',
-    iconSource: THIRD_PARTY_ICONS.wechat,
-    enabled: true,
-    brandColor: '#07C160',
-  },
-  {
-    platform: 'google',
-    label: 'Google',
-    iconSource: THIRD_PARTY_ICONS.google,
-    enabled: true,
-    brandColor: '#4285F4',
-  },
-  {
-    platform: 'github',
-    label: 'GitHub',
-    iconSource: THIRD_PARTY_ICONS.github,
-    enabled: true,
-    brandColor: '#181717',
-  },
-  {
-    platform: 'feishu',
-    label: '飞书',
-    iconSource: THIRD_PARTY_ICONS.feishu,
-    enabled: true,
-    brandColor: '#3370FF',
-  },
-  {
-    platform: 'dingtalk',
-    label: '钉钉',
-    iconSource: THIRD_PARTY_ICONS.dingtalk,
-    enabled: true,
-    brandColor: '#0089FF',
-  },
-  {
-    platform: 'enterpriseWechat',
-    label: '企业微信',
-    iconSource: THIRD_PARTY_ICONS.enterpriseWechat,
-    enabled: true,
-    brandColor: '#2DC100',
-  },
-  {
-    platform: 'alipay',
-    label: '支付宝',
-    iconSource: THIRD_PARTY_ICONS.alipay,
-    enabled: true,
-    brandColor: '#1677FF',
-  },
-  {
-    platform: 'apple',
-    label: 'Apple',
-    iconSource: THIRD_PARTY_ICONS.apple,
-    enabled: false,
-    forceDisabled: true,
-    disabledHint: 'Apple 登录即将上线',
-    brandColor: '#000000',
-  },
-]
+// 第三方登录配置:按平台 + locale 动态生成(2026-08-04 用户需求)
+// - 国内版(zh-*):安卓 = 微信/飞书/钉钉/企微(4个);iOS = 微信/飞书/钉钉/企微/苹果(5个,苹果为主排首位)
+// - 国际版(en/ko/ja):Google/GitHub(2个)
+// - alipay 全平台不显示(移动端支付场景走原生 SDK,不在登录页展示)
+// 判定逻辑:locale 以 'zh' 开头 = 国内版,其余 = 国际版
+function isInternationalLocale(locale: string): boolean {
+  return !locale.toLowerCase().startsWith('zh')
+}
+
+function buildThirdPartyOptions(locale: string): ThirdPartyLoginOption[] {
+  const isIOS = Platform.OS === 'ios'
+  const isInternational = isInternationalLocale(locale)
+
+  if (isInternational) {
+    // 国际版:Google + GitHub
+    return [
+      {
+        platform: 'google',
+        label: 'Google',
+        iconSource: THIRD_PARTY_ICONS.google,
+        enabled: true,
+        brandColor: '#4285F4',
+      },
+      {
+        platform: 'github',
+        label: 'GitHub',
+        iconSource: THIRD_PARTY_ICONS.github,
+        enabled: true,
+        brandColor: '#181717',
+      },
+    ]
+  }
+
+  // 国内版:iOS 苹果为主排首位,其余平台按 微信/飞书/钉钉/企微 顺序
+  const domesticOptions: ThirdPartyLoginOption[] = [
+    {
+      platform: 'wechat',
+      label: '微信',
+      iconSource: THIRD_PARTY_ICONS.wechat,
+      enabled: true,
+      brandColor: '#07C160',
+    },
+    {
+      platform: 'feishu',
+      label: '飞书',
+      iconSource: THIRD_PARTY_ICONS.feishu,
+      enabled: true,
+      brandColor: '#3370FF',
+    },
+    {
+      platform: 'dingtalk',
+      label: '钉钉',
+      iconSource: THIRD_PARTY_ICONS.dingtalk,
+      enabled: true,
+      brandColor: '#0089FF',
+    },
+    {
+      platform: 'enterpriseWechat',
+      label: '企业微信',
+      iconSource: THIRD_PARTY_ICONS.enterpriseWechat,
+      enabled: true,
+      brandColor: '#2DC100',
+    },
+  ]
+
+  if (isIOS) {
+    // iOS 国内版:苹果为主排首位
+    return [
+      {
+        platform: 'apple',
+        label: 'Apple',
+        iconSource: THIRD_PARTY_ICONS.apple,
+        enabled: true,
+        brandColor: '#000000',
+      },
+      ...domesticOptions,
+    ]
+  }
+
+  // 安卓国内版:微信/飞书/钉钉/企微
+  return domesticOptions
+}
 
 // 启用的 tab 列表(移动端去掉 qr tab,扫码体验差)
 const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
@@ -148,10 +167,14 @@ const CODE_COUNTDOWN_SECONDS = 60
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
 export function LoginScreen() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<LoginNavigationProp>()
   const fullUserRef = useRef<AuthUser | null>(null)
+
+  // 第三方登录方式:按平台 + locale 动态生成
+  // 国内安卓:微信/飞书/钉钉/企微(4);国内 iOS:苹果为主 + 微信/飞书/钉钉/企微(5);国际版:Google/GitHub(2)
+  const thirdPartyOptions = useMemo(() => buildThirdPartyOptions(locale), [locale])
 
   // ===== 账号密码登录 + SSO(复用共享 hook) =====
   const form = useLoginForm({
@@ -360,7 +383,7 @@ export function LoginScreen() {
   // 后续可扩展:用 expo-web-browser.openAuthSessionAsync 跳 OAuth flow
   const handleThirdPartyLogin = useCallback(
     (platform: ThirdPartyPlatform) => {
-      const option = THIRD_PARTY_OPTIONS.find((o) => o.platform === platform)
+      const option = thirdPartyOptions.find((o) => o.platform === platform)
       if (!option || !option.enabled || option.forceDisabled) {
         Alert.alert(
           t('auth.thirdPartyLogin'),
@@ -385,7 +408,7 @@ export function LoginScreen() {
         ],
       )
     },
-    [t, form],
+    [t, form, thirdPartyOptions],
   )
 
   // ===== 协议同意回调 =====
@@ -475,8 +498,8 @@ export function LoginScreen() {
           onPhoneCodeChange={(v) => setPhoneCode(v.replace(/\D/g, '').slice(0, 6))}
           onSendPhoneCode={handleSendPhoneCode}
           onLoginByPhoneCode={handleLoginByPhoneCode}
-          // 第三方登录区
-          thirdPartyOptions={THIRD_PARTY_OPTIONS}
+          // 第三方登录区(按平台 + locale 动态生成)
+          thirdPartyOptions={thirdPartyOptions}
           onThirdPartyLogin={handleThirdPartyLogin}
           thirdPartyLoadingPlatform={thirdPartyLoadingPlatform}
           // 协议同意
