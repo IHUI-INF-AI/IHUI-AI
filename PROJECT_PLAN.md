@@ -2053,6 +2053,20 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - local HEAD == origin HEAD: `3d3fae1` ✅
 - `node scripts/git-push-guard.mjs` exit 0 ✅
 
+### 已完成（§24 用户已确认,2026-08-04）
+
+- [x] ✅(2026-08-04) **P1: auth.ts QR 扫码登录**(2 端点 501 → 真实实装 + 新增 /qr/confirm)
+  - `POST /qr/generate`:生成 ticket(`qr_<uuid>`)+ 存 Redis(TTL 300s)+ 返回 `{ ticket, qrContent, expiresAt }`
+  - `GET /qr/status`:轮询 ticket 状态(pending/confirmed/expired),confirmed 时一次性返回 token 对 + 删 Redis key
+  - `POST /qr/confirm`(新增):移动端鉴权确认,复用 `buildTokenPair` 签发 JWT,更新 Redis 为 confirmed
+  - Redis key:`qr:login:qr_<uuid>`,value:JSON 序列化 `QrLoginState` 判别联合
+- [x] ✅(2026-08-04) **P1: plugins 表 DB 化**(agent-creation.ts plugin 分支空桩 → 真实查询)
+  - 新建 `packages/database/src/schema/plugins.ts`(15 字段:id/name/displayName/description/version/author/category/icon/readme/isOfficial/isActive/downloadUrl/config/createdAt/updatedAt)
+  - Drizzle migration `20260804130000_plugins.sql`(IF NOT EXISTS 幂等 + 2 索引)
+  - schema/index.ts 追加 export
+  - agent-creation.ts `type='plugin'` 分支:查询 plugins 表(isActive=true 过滤 + keyword ILIKE + 分页)
+  - plugins 表无 userId 字段(插件是平台级全局共享)
+
 ---
 
 ## mobile-rn 登录页 4-tab 升级(2026-07-30,平台独占:仅 apps/mobile-rn + packages/app + packages/api-client)
