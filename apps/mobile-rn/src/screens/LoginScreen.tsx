@@ -1,14 +1,14 @@
-import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Platform, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
 import { SvgXml } from 'react-native-svg'
-import { WebView } from 'react-native-webview'
 import {
   loginByAccount,
   loginByEmailCode,
   loginBySms,
+  loginByWechat,
   sendEmailCode,
   sendSmsCode,
   type AuthUser,
@@ -17,26 +17,25 @@ import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens } from '@ihui/rn-app'
 import type {
   LoginTab,
-  QrPlatformOption,
   ThirdPartyLoginOption,
   ThirdPartyPlatform,
 } from '@ihui/types'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
-import { WEB_BASE_URL } from '../lib/config'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
+import { isWechatInstalled, sendWechatAuth } from '../lib/wechat'
 import { rnAuthStore } from '../stores/auth-store'
 
 // 顶层类型导入(用于 navigation 类型推断)
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 /**
- * mobile-rn 登录页(2026-07-30 重构:4-tab + 协议同意 + 第三方登录区 + 忘记密码 + 注册链接)
+ * mobile-rn 登录页(2026-07-30 重构:3-tab + 协议同意 + 第三方登录区 + 忘记密码 + 注册链接)
  *
  * 本次升级:
- * - 复用 @ihui/rn-app.SharedLoginScreen(完整 4-tab 共享组件)
- * - 注入 4 tab:email/phone/password(去掉 qr,移动端扫码体验差,统一走账号体系)
+ * - 复用 @ihui/rn-app.SharedLoginScreen(完整 3-tab 共享组件)
+ * - 注入 3 tab:email/phone/password(2026-08-04 移除 qr:App 端自己就是手机,无法扫自己)
  * - email/phone 验证码登录:本地 state 管理 + 调 @ihui/api-client 新增的 loginByEmailCode
  *   + 现有 loginBySms / sendEmailCode / sendSmsCode 方法
  * - 第三方登录区:8 平台配置(wechat/google/github/feishu/dingtalk/enterpriseWechat/alipay/apple),
@@ -45,9 +44,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
  * - 忘记密码:Alert 提示"请联系管理员或前往网页端自助重置"(无 ForgotPasswordScreen)
  * - 注册链接:navigate('Register')
  * - 保留现有 SSO 跳转链路(复用 useLoginForm.ssoLogin + lib/sso)
- *
- * 之前版本(2026-07-29)只传 account/password/ssoLogin/logoSource,渲染为单一 password tab,
- * 不符合"完美细致完整毫无遗漏对齐 web 端"要求。本次完整注入 4-tab + 第三方 + 协议 + 链接。
  */
 
 // ===== 资源注入 =====
@@ -81,41 +77,6 @@ const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {
   apple: require('../../assets/images/common/apple.svg'),
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
-
-// 扫码登录平台配置(4 平台:微信/企微/钉钉/飞书,对齐 web 端 qr-tab 平台切换)
-// 2026-08-04 新增:RN 端无法直接加载各厂商 SDK(WxLogin/WwLogin/DTFrameLogin/QRLogin 依赖 DOM),
-// 共享 QrTabContent 渲染平台切换 tab + 二维码占位 + "打开网页扫码"按钮(Linking.openURL 跳 web)。
-// webUrl 拼接 WEB_BASE_URL + web 端相对路径,RN Linking 需要完整 URL。
-const QR_PLATFORMS: QrPlatformOption[] = [
-  {
-    key: 'wechat',
-    label: '微信',
-    iconSource: THIRD_PARTY_ICONS.wechat,
-    brandColor: '#07C160',
-    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=wechat`,
-  },
-  {
-    key: 'enterpriseWechat',
-    label: '企业微信',
-    iconSource: THIRD_PARTY_ICONS.enterpriseWechat,
-    brandColor: '#2DC100',
-    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=enterpriseWechat`,
-  },
-  {
-    key: 'dingtalk',
-    label: '钉钉',
-    iconSource: THIRD_PARTY_ICONS.dingtalk,
-    brandColor: '#0089FF',
-    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=dingtalk`,
-  },
-  {
-    key: 'feishu',
-    label: '飞书',
-    iconSource: THIRD_PARTY_ICONS.feishu,
-    brandColor: '#3370FF',
-    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=feishu`,
-  },
-]
 
 // 第三方登录配置:按平台 + locale 动态生成(2026-08-04 用户需求)
 // - 国内版(zh-*):安卓 = 微信/飞书/钉钉/企微(4个);iOS = 微信/飞书/钉钉/企微/苹果(5个,苹果为主排首位)
@@ -200,9 +161,11 @@ function buildThirdPartyOptions(locale: string): ThirdPartyLoginOption[] {
   return domesticOptions
 }
 
-// 启用的 tab 列表(4 tab 完整版:邮箱/验证码/密码/扫码)
-// qr tab:显示二维码供其他设备扫码登录(平板/另一台手机扫当前设备)
-const TABS: readonly LoginTab[] = ['email', 'phone', 'password', 'qr']
+// 启用的 tab 列表(3 tab:邮箱/验证码/密码)
+// 2026-08-04 移除 qr 扫码登录 tab:App 端自己就是手机,无法扫自己,
+// 扫码登录只适用于 PC web 端(用手机扫电脑屏幕上的二维码)。
+// App 端第三方登录走原生 SDK 一键授权(微信/苹果/Google 等,见 handleThirdPartyLogin)。
+const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
 
 // 验证码倒计时秒数(对齐 web 60s)
 const CODE_COUNTDOWN_SECONDS = 60
@@ -422,10 +385,11 @@ export function LoginScreen() {
   }, [checkAgreement, form])
 
   // ===== 第三方登录回调 =====
-  // 移动端未集成各平台原生 SDK,统一提示用户使用网页端登录(对齐 sso.ts 跳转策略)
-  // 后续可扩展:用 expo-web-browser.openAuthSessionAsync 跳 OAuth flow
+  // 微信:native 平台用 react-native-wechat-lib 原生 SDK 拉起微信 App 授权
+  // 苹果/Google:iOS 未 prebuild / Google 凭据未配置,暂保留 Alert 提示
+  // 飞书/钉钉/企微:移动端无原生 RN SDK,引导走网页端 SSO
   const handleThirdPartyLogin = useCallback(
-    (platform: ThirdPartyPlatform) => {
+    async (platform: ThirdPartyPlatform) => {
       const option = thirdPartyOptions.find((o) => o.platform === platform)
       if (!option || !option.enabled || option.forceDisabled) {
         Alert.alert(
@@ -434,8 +398,75 @@ export function LoginScreen() {
         )
         return
       }
+
+      // 微信:原生 SDK 授权(native only,web fallback 到 Alert 引导网页端)
+      if (platform === 'wechat') {
+        if (Platform.OS === 'web') {
+          // web 平台 wechat-lib 原生模块不存在,引导走 SSO 网页端授权
+          Alert.alert(
+            t('auth.thirdPartyLogin'),
+            '微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用"使用其他方式登录"按钮跳转网页端授权。',
+            [
+              { text: '取消', style: 'cancel' },
+              { text: '前往网页端', onPress: () => void form.ssoLoginAction() },
+            ],
+          )
+          return
+        }
+
+        // native:微信 SDK 授权流程(isWechatInstalled → sendWechatAuth → loginByWechat → JWT)
+        setThirdPartyLoadingPlatform(platform)
+        try {
+          const installed = await isWechatInstalled()
+          if (!installed) {
+            Alert.alert(t('auth.thirdPartyLogin'), '未安装微信 App,请先安装微信')
+            return
+          }
+
+          const code = await sendWechatAuth('snsapi_userinfo')
+          const res = await loginByWechat(code)
+          if (res.success && res.data.accessToken) {
+            fullUserRef.current = res.data.user
+            await rnAuthStore.getState().setAuth({
+              token: res.data.accessToken,
+              refreshToken: res.data.refreshToken,
+              user: res.data.user,
+            })
+          } else {
+            form.setError(res.error ?? 'auth.loginFailed')
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          // 用户取消授权(errCode=-2)不算错误,不弹错误提示
+          if (!msg.includes('取消') && !msg.includes('cancel') && !msg.includes('Cancel')) {
+            form.setError(msg)
+          }
+        } finally {
+          setThirdPartyLoadingPlatform(null)
+        }
+        return
+      }
+
+      // 苹果:iOS 未 prebuild,expo-apple-authentication 未安装,暂不可用
+      if (platform === 'apple') {
+        Alert.alert(
+          t('auth.thirdPartyLogin'),
+          '苹果登录即将上线,请使用其他方式登录。',
+        )
+        return
+      }
+
+      // Google:凭据未配置,@react-native-google-signin/google-signin 未安装,暂不可用
+      if (platform === 'google') {
+        Alert.alert(
+          t('auth.thirdPartyLogin'),
+          'Google 登录即将上线,请使用其他方式登录。',
+        )
+        return
+      }
+
+      // 飞书/钉钉/企微:移动端无原生 RN SDK,引导走网页端 SSO
       setThirdPartyLoadingPlatform(platform)
-      // 当前 mobile-rn 暂未集成各平台原生 SDK,统一引导走 SSO 跳 web
       Alert.alert(
         t('auth.thirdPartyLogin'),
         `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"使用其他方式登录"按钮跳转网页端授权。`,
@@ -501,61 +532,6 @@ export function LoginScreen() {
   // 浅色主题用黑字,深色主题用白字;SvgXml 渲染,width 280 等比缩放(447×67 → 280×42)
   const welcomeXml = resolvedTheme === 'dark' ? WELCOME_SVG_DARK : WELCOME_SVG_LIGHT
 
-  // ===== 扫码登录:用 WebView/iframe 加载 web 端纯二维码面板,显示真实二维码 =====
-  // RN 端无法直接加载各厂商 SDK(WxLogin/WwLogin/DTFrameLogin/QRLogin 依赖 DOM),
-  // 用 WebView(native) / iframe(web) 加载 web 端 /login?method=qr&platform=xxx&embed=true 页面。
-  // web 端 PageClient 检测 embed=true 后只渲染纯 QrCodeLogin 组件(280x280),无外层容器、无平台切换 tab
-  // (mobile-rn 端已有自己的平台切换 tab,iframe 内不重复)。
-  // refreshKey 变化时 key 变化 → WebView/iframe 重新加载 → 二维码刷新。
-  // 尺寸 280x280 对齐 web 端 WechatQrPanel/WecomQrPanel/DingtalkQrPanel/FeishuQrPanel 等厂商面板尺寸。
-  const renderQrPanel = useCallback(
-    (platform: ThirdPartyPlatform, refreshKey: number) => {
-      const url = `${WEB_BASE_URL}/login?method=qr&platform=${platform}&embed=true&refreshKey=${refreshKey}`
-      // 简化 injectedJS:web 端 embed 模式已只渲染 280x280 二维码面板,只需设置背景透明
-      const injectedJS = [
-        '(function(){',
-        '  document.body.style.background="transparent";',
-        '  document.body.style.margin="0";',
-        '  document.body.style.padding="0";',
-        '  document.documentElement.style.background="transparent";',
-        '  document.documentElement.style.margin="0";',
-        '  document.documentElement.style.padding="0";',
-        '})();',
-        'true;',
-      ].join('\n')
-
-      // web 平台:react-native-webview v14 不支持 web 渲染,用 iframe 替代
-      // web 端 embed 模式只渲染纯二维码面板,iframe 无需 injectedJavaScript。
-      if (Platform.OS === 'web') {
-        // FIXME(any): RN 的 JSX.IntrinsicElements 不含 iframe,用 as any 绕过;
-        // 移除计划:升级 react-native-webview 到支持 web 的版本后统一用 WebView。
-        const iframeEl = (createElement as any)('iframe', {
-          key: `qr-${platform}-${refreshKey}`,
-          src: url,
-          style: { width: 280, height: 280, border: 'none', background: 'transparent' },
-          title: 'qr-panel',
-          scrolling: 'no',
-        })
-        return iframeEl
-      }
-
-      // native 平台:WebView 加载 web 端纯二维码面板
-      return (
-        <WebView
-          key={`qr-${platform}-${refreshKey}`}
-          source={{ uri: url }}
-          injectedJavaScript={injectedJS}
-          style={{ width: 280, height: 280, backgroundColor: 'transparent' }}
-          scrollEnabled={false}
-          bounces={false}
-          javaScriptEnabled
-          domStorageEnabled
-        />
-      )
-    },
-    [],
-  )
-
   return (
     <View style={styles.container}>
       <View style={styles.body}>
@@ -612,11 +588,6 @@ export function LoginScreen() {
           // 密码显示/隐藏图标(对齐 web lucide Eye/EyeOff,解决 emoji 在 Windows 渲染损坏)
           eyeIconShow={<Eye size={18} color={eyeIconColor} />}
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
-          // 扫码登录平台切换(4 平台:微信/企微/钉钉/飞书)
-          qrPlatforms={QR_PLATFORMS}
-          qrConfig={{ status: 'idle' }}
-          // 注入 WebView 加载 web 端二维码面板,显示真实二维码
-          renderQrPanel={renderQrPanel}
         />
       </View>
     </View>
