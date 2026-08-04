@@ -6,18 +6,17 @@ import { test, expect } from '@playwright/test'
  * 覆盖:
  * - OAuth 按钮存在(8 个平台)
  * - 按钮可点击(非 disabled)
- * - 点击后跳转到正确目标(真厂商授权页 或 本地 mock 授权页)
+ * - 点击后跳转到正确目标(真厂商授权页)
  * - 6 平台真凭据(Google/GitHub/微信/钉钉/企业微信/飞书)→ 跳真厂商域名
- * - 2 平台 mock 凭据(Apple/支付宝)→ 跳本地 mock 授权页(/oauth/mock/<platform>)
+ * - Apple/支付宝未配真凭据时走后端代理入口,不跳 mock 页面
  * - 回调路径不崩溃
  * - 账号绑定页可访问
  * - 页面无 500/无控制台异常
  *
- * 维护者注意(2026-07-21 校正):
- * - .env.local 里 NEXT_PUBLIC_DEMO_MODE=true 时,未配真凭据的平台跳 /oauth/mock/<platform>
- * - 已配真凭据的 6 平台:Google/GitHub/微信/钉钉/企业微信/飞书 → 跳真厂商域名
- * - 没配真凭据的 2 平台:Apple/支付宝 → 跳 /oauth/mock/<platform>
- * - use-third-party-auth.ts 的 hasRealCredentials() 判断 placeholder 命名约定:dev_*_placeholder_*
+ * 维护者注意(2026-08-04 清理 Mock):
+ * - 已删除 isDemoMode/hasRealCredentials/buildFallbackLoginData/oauth/mock/* 全部 mock 逻辑
+ * - 所有平台均走真实 OAuth 流程(真凭据→厂商授权页,无凭据→后端代理入口返回错误)
+ * - 不再有本地 mock 授权页和 mock_ code 识别
  */
 
 const LOGIN_PAGE = '/sso/login'
@@ -56,7 +55,7 @@ test.describe('第三方登录 - 基础', () => {
     await page.goto(LOGIN_PAGE)
     await page.waitForLoadState('networkidle')
 
-    // Google 按钮在 demo 模式下应可点(NEXT_PUBLIC_DEMO_MODE=true)
+    // Google 按钮应可点(所有平台均走真实 OAuth 流程)
     const googleBtn = page.getByRole('button', { name: /Google/i }).first()
     await expect(googleBtn).toBeVisible({ timeout: 5000 })
     await expect(googleBtn).not.toBeDisabled({ timeout: 5000 })
@@ -117,42 +116,6 @@ test.describe('第三方登录 - 基础', () => {
 })
 
 test.describe('第三方登录 - 跳转目标验证', () => {
-  // 2 个平台走本地 mock 授权页(Apple/支付宝 .env.local 是 placeholder)
-  // 严格匹配 /oauth/mock/<platform>,不允许 https?:// 兜底(防止假阳性)
-  const mockPlatforms = [
-    { key: 'apple', pattern: /Apple/i },
-    { key: 'alipay', pattern: /支付宝/i },
-  ] as const
-
-  for (const p of mockPlatforms) {
-    test(`${p.key} 按钮点击跳转到本地 mock 授权页(严格匹配)`, async ({ page }) => {
-      await page.goto(LOGIN_PAGE)
-      await page.waitForLoadState('networkidle')
-      await expect(page.getByText(/第三方登录|Third Party/i).first()).toBeVisible({
-        timeout: 10000,
-      })
-
-      const btn = page.getByRole('button', { name: p.pattern }).first()
-      await expect(btn).toBeVisible({ timeout: 5000 })
-
-      // 严格匹配 /oauth/mock/<platform>,不允许其他 URL
-      const navigationPromise = page.waitForURL(
-        (url) => {
-          return url.toString().includes(`/oauth/mock/${p.key}`)
-        },
-        { timeout: 10000 },
-      )
-
-      await btn.click()
-      await navigationPromise
-
-      const url = page.url()
-      expect(url).toContain(`/oauth/mock/${p.key}`)
-      // 不应该是真厂商域名
-      expect(url.startsWith('https://')).toBe(false)
-    })
-  }
-
   // 6 个平台已配真凭据(Google/GitHub/微信/钉钉/企业微信/飞书)→ 跳真厂商域名
   // 注:微信/钉钉/企业微信 redirect_uri 是 bsm.aizhs.top 生产域名,本地跳转可能被厂商拒收 redirect_uri
   //     但只要跳到厂商域名即算前端 PASS(redirect_uri_mismatch 是用户后台配置问题)
@@ -213,33 +176,6 @@ test.describe('第三方登录 - 跳转目标验证', () => {
       await navigationPromise
       // waitForURL 通过即说明曾经跳到过厂商域名(或 bsm 子域),前端跳转逻辑正确
       // 不再额外检查 page.url(),因为厂商可能已重定向到子页面
-    })
-  }
-})
-
-test.describe('第三方登录 - Mock 授权页', () => {
-  // 直接访问 mock 授权页验证页面渲染
-  for (const p of ['apple', 'alipay'] as const) {
-    test(`mock 授权页 /oauth/mock/${p} 可访问且无 500`, async ({ page }) => {
-      const serverErrors: string[] = []
-      page.on('response', (resp) => {
-        if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
-      })
-
-      await page.goto(
-        `/oauth/mock/${p}?state=test&redirect_uri=${encodeURIComponent(`/callback?platform=${p}`)}&app_name=Test`,
-      )
-      await page.waitForLoadState('networkidle')
-      // 过滤掉无关模块的 500(如 /api/llm/models,与 mock 授权页无关)
-      const relevantErrors = serverErrors.filter(
-        (e) =>
-          !e.includes('favicon') &&
-          !e.includes('/api/llm/') &&
-          !e.includes('/api/ai/') &&
-          !e.includes('/api/agents/') &&
-          !e.includes('/api/tools/'),
-      )
-      expect(relevantErrors).toHaveLength(0)
     })
   }
 })
