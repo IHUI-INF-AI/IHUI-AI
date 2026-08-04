@@ -1557,6 +1557,24 @@ export interface QrLoginConfig {
   onRefresh?: () => void
 }
 
+/** QR 扫码平台配置(平台注入,共享层渲染平台切换 tab + 二维码占位)
+ * 2026-08-04 新增:对齐 web 端 qr-tab.tsx 的平台切换设计。
+ * RN 端无法直接加载各厂商 SDK(WxLogin/WwLogin/DTFrameLogin/QRLogin 依赖 DOM),
+ * 故共享层只渲染占位图标 + "打开网页"按钮(跳到 web 端完成扫码)。
+ * web 平台后续可通过 renderQrPanel 注入真实 SDK 面板。 */
+export interface QrPlatformOption {
+  /** 平台 key(wechat/enterpriseWechat/dingtalk/feishu) */
+  key: ThirdPartyPlatform
+  /** 平台显示名称(如"微信"/"企业微信"/"钉钉"/"飞书") */
+  label: string
+  /** 平台图标(RN Image source;不传则 fallback 到首字母) */
+  iconSource?: number | { uri: string } | null
+  /** 品牌色(用于 fallback 圆角背景) */
+  brandColor?: string
+  /** web 端扫码页面 URL(用于"打开网页"按钮,原生平台点击后打开浏览器) */
+  webUrl?: string
+}
+
 /** LoginScreen props(表单屏,状态由 wrapper 管理)
  *
  * 2026-07-30 升级:支持 4-tab(email/phone/password/qr)+ 第三方登录 + 协议同意,
@@ -1618,6 +1636,11 @@ export interface LoginScreenProps {
 
   /** QR 登录配置(传则渲染 QR 占位 + 状态文案;不传则 qr tab 显示"暂未启用") */
   qrConfig?: QrLoginConfig
+
+  /** QR 扫码平台列表(传则渲染平台切换 tab;不传则 qr tab 只显示单平台占位)
+   * 2026-08-04 新增:对齐 web 端 qr-tab.tsx 的平台切换设计。
+   * 4 个平台:微信/企业微信/钉钉/飞书 */
+  qrPlatforms?: QrPlatformOption[]
 
   // ===== 第三方登录区 =====
 
