@@ -19,7 +19,7 @@
 #
 # Usage:
 #   Foreground (debug):
-#     powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian.ps1
+#     pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian.ps1
 #   Background (scheduled task, -WindowStyle Hidden):
 #     install via scripts/install-g-root-guardian.ps1
 #

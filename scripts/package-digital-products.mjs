@@ -187,7 +187,7 @@ async function createZip(version) {
   ].join(';');
 
   try {
-    const output = execFileSync('powershell.exe', [
+    const output = execFileSync('pwsh.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-Command', psCommand
     ], { encoding: 'utf-8', cwd: PROJECT_ROOT, timeout: 60000 });
@@ -232,7 +232,7 @@ async function verifyZip(zipPath, manifestPath) {
   ].join(';');
 
   try {
-    const output = execFileSync('powershell.exe', [
+    const output = execFileSync('pwsh.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-Command', psCommand
     ], { encoding: 'utf-8', timeout: 30000 });
