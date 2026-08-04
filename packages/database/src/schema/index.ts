@@ -220,3 +220,5 @@ export * from './ai-model-sync-log.js'
 export * from './im-adapters.js'
 // 用户设备表(2026-08-02 立,按设备指纹识别真实设备,替代 api_logs 聚合 IP+UA 旧方案)
 export * from './user-devices.js'
+// 插件元数据表(2026-08-04 立,§24 用户已确认 DB 化:原 plugins-data.ts 代码常量迁移到 DB,支持后台 CRUD)
+export * from './plugins.js'
