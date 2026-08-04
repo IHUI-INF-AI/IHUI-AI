@@ -158,8 +158,9 @@ function buildThirdPartyOptions(locale: string): ThirdPartyLoginOption[] {
   return domesticOptions
 }
 
-// 启用的 tab 列表(移动端去掉 qr tab,扫码体验差)
-const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
+// 启用的 tab 列表(4 tab 完整版:邮箱/验证码/密码/扫码)
+// qr tab:显示二维码供其他设备扫码登录(平板/另一台手机扫当前设备)
+const TABS: readonly LoginTab[] = ['email', 'phone', 'password', 'qr']
 
 // 验证码倒计时秒数(对齐 web 60s)
 const CODE_COUNTDOWN_SECONDS = 60
