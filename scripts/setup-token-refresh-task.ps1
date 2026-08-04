@@ -3,8 +3,8 @@
 # Token validity is 7 days; weekly refresh leaves enough buffer.
 #
 # Usage:
-#   PowerShell -ExecutionPolicy Bypass -File scripts/setup-token-refresh-task.ps1
-#   PowerShell -ExecutionPolicy Bypass -File scripts/setup-token-refresh-task.ps1 -TaskName "Custom" -Time 04:00
+#   pwsh -ExecutionPolicy Bypass -File scripts/setup-token-refresh-task.ps1
+#   pwsh -ExecutionPolicy Bypass -File scripts/setup-token-refresh-task.ps1 -TaskName "Custom" -Time 04:00
 #
 # Verify:
 #   Get-ScheduledTask -TaskName "IHUI-RefreshCliToken" | Select-Object TaskName, State

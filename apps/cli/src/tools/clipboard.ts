@@ -33,7 +33,7 @@ export function readClipboard(): string {
     if (platform === 'win32') {
       // PowerShell Get-Clipboard 返回纯文本(-Format Text 避免 RTF)
       // PowerShell 会附加尾部 \r\n,需 trimEnd 保持往返一致
-      const r = spawnSync('powershell.exe', ['-NoProfile', '-Command', 'Get-Clipboard -Format Text'], {
+      const r = spawnSync('pwsh.exe', ['-NoProfile', '-Command', 'Get-Clipboard -Format Text'], {
         encoding: 'utf-8',
         windowsHide: true,
         timeout: 5000,
@@ -83,7 +83,7 @@ export function writeClipboard(text: string): boolean {
     const input = text.slice(0, MAX_CLIPBOARD_CHARS);
     if (platform === 'win32') {
       // PowerShell Set-Clipboard 接受 stdin 管道输入
-      const r = spawnSync('powershell.exe', ['-NoProfile', '-Command', '$input | Set-Clipboard'], {
+      const r = spawnSync('pwsh.exe', ['-NoProfile', '-Command', '$input | Set-Clipboard'], {
         input,
         encoding: 'utf-8',
         windowsHide: true,

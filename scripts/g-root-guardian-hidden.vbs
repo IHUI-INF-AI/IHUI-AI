@@ -33,7 +33,7 @@ strScript = "g:\IHUI-AI\scripts\g-root-guardian.ps1"
 '   -NoLogo                 : suppress startup banner
 '   -File                   : run the script file
 intResult = objShell.Run( _
-    "powershell.exe -ExecutionPolicy Bypass -NoProfile -NoLogo -File """ & strScript & """", _
+    "pwsh.exe -ExecutionPolicy Bypass -NoProfile -NoLogo -File """ & strScript & """", _
     0, _
     False _
 )
