@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import type { Redis } from 'ioredis'
 // 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
 import { hashPassword, verifyPassword, upgradeHashIfNeeded } from '../utils/password-crypto.js'
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
@@ -220,6 +222,34 @@ function parseLoginPreferences(list: { key: string; value: string | null }[]): {
   const autoRenew = autoRenewRaw === undefined ? true : autoRenewRaw === '1'
   return { autoLogin, autoRenew }
 }
+
+// =============================================================================
+// QR 扫码登录
+// =============================================================================
+
+const QR_LOGIN_KEY_PREFIX = 'qr:login:'
+const QR_LOGIN_TTL_SECONDS = 300 // 5 分钟,足够用户扫码确认
+
+const qrTicketSchema = z.object({
+  ticket: z.string().min(1, 'ticket 不能为空'),
+})
+
+/** QR 登录 token 对(与 buildTokenPair 返回结构一致) */
+interface QrTokenPair {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+}
+
+/**
+ * QR 登录状态机(存储在 Redis value 中,JSON 序列化):
+ * - pending: PC 端已生成二维码,等待移动端扫码确认
+ * - confirmed: 移动端已确认,PC 端轮询可拿到 token 对 + userId
+ */
+type QrLoginState =
+  | { status: 'pending'; userId: null; createdAt: string }
+  | { status: 'confirmed'; userId: string; tokens: QrTokenPair; createdAt: string }
 
 // =============================================================================
 // 路由
@@ -1427,25 +1457,162 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /qr/status - 查询扫码登录状态
-  server.get(
-    '/qr/status',
-    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      z.object({ ticket: z.string().min(1) }).parse(request.query)
+  // ===== QR 扫码登录 =====
+  // 流程:PC 调 /qr/generate 生成 ticket → 展示二维码 → 移动端扫码后调 /qr/confirm 确认
+  //      → PC 轮询 /qr/status 拿到 token 对 + userId 完成登录
 
-      // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
-      return reply.code(501).send(error(501, '未实装:auth /qr/status 扫码状态查询尚未实装'))
-    },
-  )
+  // Redis 客户端获取(防御式:测试环境可能未注册 redis 插件)
+  const getRedis = (): Redis | null =>
+    (server as unknown as { redis?: Redis }).redis ?? null
 
-  // POST /qr/generate - 生成扫码登录二维码
+  // POST /qr/generate - PC 端生成扫码登录二维码(未鉴权)
   server.post(
     '/qr/generate',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (_request, reply) => {
-      // 501 Not Implemented - 桩端点,实装需用户确认(AGENTS.md §24)
-      return reply.code(501).send(error(501, '未实装:auth /qr/generate 二维码生成尚未实装'))
+      const redis = getRedis()
+      if (!redis) {
+        return reply.status(503).send(error(503, 'Redis 未配置,无法生成二维码'))
+      }
+      const ticket = `qr_${randomUUID()}`
+      const now = new Date().toISOString()
+      const state: QrLoginState = { status: 'pending', userId: null, createdAt: now }
+      try {
+        await redis.set(
+          QR_LOGIN_KEY_PREFIX + ticket,
+          JSON.stringify(state),
+          'EX',
+          QR_LOGIN_TTL_SECONDS,
+        )
+      } catch (e) {
+        _request.log.error({ err: e }, '[qr] generate: redis set failed')
+        return reply.status(500).send(error(500, '二维码生成失败,请稍后重试'))
+      }
+      const expiresAt = new Date(Date.now() + QR_LOGIN_TTL_SECONDS * 1000).toISOString()
+      return reply.send(success({ ticket, qrContent: ticket, expiresAt }))
+    },
+  )
+
+  // GET /qr/status - PC 端轮询扫码登录状态(未鉴权)
+  server.get(
+    '/qr/status',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = qrTicketSchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const redis = getRedis()
+      if (!redis) {
+        return reply.status(503).send(error(503, 'Redis 未配置'))
+      }
+      const { ticket } = parsed.data
+      let raw: string | null
+      try {
+        raw = await redis.get(QR_LOGIN_KEY_PREFIX + ticket)
+      } catch (e) {
+        request.log.error({ err: e }, '[qr] status: redis get failed')
+        return reply.status(500).send(error(500, '状态查询失败,请稍后重试'))
+      }
+      if (!raw) {
+        // ticket 不存在或已过期(含已确认后被删除的一次性 key)
+        return reply.send(success({ status: 'expired' as const }))
+      }
+      let state: QrLoginState
+      try {
+        state = JSON.parse(raw) as QrLoginState
+      } catch {
+        return reply.send(success({ status: 'expired' as const }))
+      }
+      if (state.status === 'pending') {
+        return reply.send(success({ status: 'pending' as const }))
+      }
+      // state.status === 'confirmed':一次性删除 key,防止 token 被重复领取
+      try {
+        await redis.del(QR_LOGIN_KEY_PREFIX + ticket)
+      } catch (e) {
+        request.log.warn({ err: e }, '[qr] status: redis del failed (non-fatal)')
+      }
+      // 跳过响应脱敏,否则 token 字段会被 response-sanitizer 遮蔽为 '***'
+      request.skipResponseSanitization = true
+      return reply.send(
+        success({ status: 'confirmed' as const, ...state.tokens, userId: state.userId }),
+      )
+    },
+  )
+
+  // POST /qr/confirm - 移动端扫码后确认登录(需鉴权)
+  server.post(
+    '/qr/confirm',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '扫码确认登录',
+        description: '移动端已登录用户扫描 PC 端二维码后,确认授权 PC 端登录',
+        tags: ['auth'],
+        body: {
+          type: 'object',
+          required: ['ticket'],
+          properties: {
+            ticket: { type: 'string', description: 'PC 端二维码 ticket' },
+          },
+        },
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = qrTicketSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { ticket } = parsed.data
+      const userId = request.userId!
+      const redis = getRedis()
+      if (!redis) {
+        return reply.status(503).send(error(503, 'Redis 未配置'))
+      }
+      const key = QR_LOGIN_KEY_PREFIX + ticket
+      let raw: string | null
+      try {
+        raw = await redis.get(key)
+      } catch (e) {
+        request.log.error({ err: e }, '[qr] confirm: redis get failed')
+        return reply.status(500).send(error(500, '确认失败,请稍后重试'))
+      }
+      if (!raw) {
+        return reply.status(404).send(error(404, '二维码已过期或不存在'))
+      }
+      // 加载用户信息,签发 token 对(复用 buildTokenPair,与正常登录一致)
+      const user = await findUserById(userId)
+      if (!user || user.status !== 1) {
+        return reply.status(401).send(error(401, '用户不存在或已被禁用'))
+      }
+      const tokens = await buildTokenPair({
+        id: user.id,
+        phone: user.phone,
+        roleId: user.roleId,
+        familyId: createFamilyId(),
+      })
+      const confirmedState: QrLoginState = {
+        status: 'confirmed',
+        userId,
+        tokens,
+        createdAt: new Date().toISOString(),
+      }
+      try {
+        // 保留剩余 TTL(用 ttl 续期,避免 confirm 时 key 已临近过期被写回 300s)
+        const ttl = await redis.ttl(key)
+        if (ttl > 0) {
+          await redis.set(key, JSON.stringify(confirmedState), 'EX', ttl)
+        } else {
+          // key 已在读取后过期(竞态),按不存在处理
+          return reply.status(404).send(error(404, '二维码已过期或不存在'))
+        }
+      } catch (e) {
+        request.log.error({ err: e }, '[qr] confirm: redis set failed')
+        return reply.status(500).send(error(500, '确认失败,请稍后重试'))
+      }
+      return reply.send(success({ confirmed: true, ticket }))
     },
   )
 }
