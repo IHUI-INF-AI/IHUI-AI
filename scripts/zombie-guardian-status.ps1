@@ -5,7 +5,7 @@
 # entries, and a live memory/process snapshot.
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File d:\桌面\项目\IHUI-AI\scripts\zombie-guardian-status.ps1
+#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\zombie-guardian-status.ps1
 # ============================================================================
 
 #Requires -Version 5.0
@@ -33,12 +33,12 @@ if ($task) {
     Write-Host ("  LastResult:     " + $taskInfo.LastTaskResult)
 } else {
     Write-Host "[Task] $TaskName - NOT INSTALLED" -ForegroundColor Yellow
-    Write-Host "  Install v2.0 daemon: powershell -ExecutionPolicy Bypass -File `"$ScriptsDir\install-zombie-guardian-daemon.ps1`""
+    Write-Host "  Install v2.0 daemon: pwsh -ExecutionPolicy Bypass -File `"$ScriptsDir\install-zombie-guardian-daemon.ps1`""
 }
 Write-Host ""
 
 # ---- 1b. Daemon process status (v2.0) ----
-$daemonProc = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+$daemonProc = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*zombie-guardian-daemon.ps1*' } | Select-Object -First 1
 if ($daemonProc) {
     $dp = Get-Process -Id $daemonProc.ProcessId -ErrorAction SilentlyContinue

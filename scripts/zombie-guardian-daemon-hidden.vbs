@@ -18,4 +18,4 @@ End If
 
 Set WshShell = CreateObject("WScript.Shell")
 ' 0 = hidden window, False = do not wait (daemon runs forever)
-WshShell.Run "powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File """ & ps1Path & """", 0, False
+WshShell.Run "pwsh.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File """ & ps1Path & """", 0, False
