@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
-import { agents, zhsAgentCategory, workflows } from '@ihui/database'
+import { agents, zhsAgentCategory, workflows, plugins } from '@ihui/database'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 
 /**
@@ -100,9 +100,29 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
             success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }),
           )
         }
-        // plugin:当前无 plugins 元数据表(仅有 plugin_events 事件流表,非插件本体存储)
-        // 插件元数据存储在代码常量(plugins-data.ts),非 DB 表;如需 DB 化需新建 schema
-        // 缺表记录:.trae-cn/tmp/p0-4-db-needed.txt
+        if (type === 'plugin') {
+          // plugin:全局插件列表,不需要 userId 过滤(插件是平台级的)
+          // 仅返回已上架(is_active=true)的插件,支持 keyword 搜索 name
+          const conditions: SQL[] = [eq(plugins.isActive, true)]
+          if (rest.keyword) {
+            conditions.push(sql`${plugins.name} ILIKE ${`%${rest.keyword}%`}`)
+          }
+          const where = sql.join(conditions, sql` AND `)
+          const list = await db
+            .select()
+            .from(plugins)
+            .where(where)
+            .orderBy(desc(plugins.createdAt))
+            .limit(pageSize)
+            .offset(offset)
+          const totalRows = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(plugins)
+            .where(where)
+          return reply.send(
+            success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }),
+          )
+        }
         return reply.send(success({ list: [], total: 0, page, pageSize }))
       } catch (e) {
         req.log.error(e)
