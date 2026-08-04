@@ -119,8 +119,9 @@ _DRIZZLE_COLUMN_TYPES = (
 _PGTABLE_RE = re.compile(r"""pgTable\(\s*['"]([^'"]+)['"]\s*,\s*\{""", re.DOTALL)
 
 # 正则:匹配 Drizzle 列定义 tsName: type('db_field', { ... }) — 仅匹配已知列类型
+# 第 4 组捕获可选的 .array()(Drizzle 数组列,如 text('tags').array() → text[])
 _COLUMN_RE = re.compile(
-    rf"""(\w+):\s*({_DRIZZLE_COLUMN_TYPES})\(\s*['"]([^'"]+)['"]""",
+    rf"""(\w+):\s*({_DRIZZLE_COLUMN_TYPES})\(\s*['"]([^'"]+)['"]\s*(?:,[^)]*)?\)(\s*\.array\(\))?""",
     re.DOTALL | re.IGNORECASE,
 )
 
@@ -135,6 +136,13 @@ _SQL_TABLE_RE = re.compile(
     r"""(?:FROM|INTO|UPDATE|JOIN)\s+(\w+)""",
     re.IGNORECASE,
 )
+
+# 常见非表词(注释/伪代码/日志中的占位符,非真实表引用)— 启发式扫描误报过滤
+_NON_TABLE_WORDS = frozenset({
+    "redis", "sql", "summary", "n", "content", "credentials",
+    "add_job",  # 日志文本 "update add_job 失败"
+    "created_at",  # EXTRACT(EPOCH FROM created_at) 语法误匹配
+})
 
 # SQL 关键字(过滤误匹配)
 _SQL_KEYWORDS = frozenset({
@@ -265,8 +273,10 @@ def parse_ts_table_fields(schema_dir: Path, table_name: str) -> Optional[dict[st
 
         fields: dict[str, str] = {}
         for col_match in _COLUMN_RE.finditer(block):
-            _ts_name, col_type, db_name = col_match.groups()
+            _ts_name, col_type, db_name = col_match.group(1), col_match.group(2), col_match.group(3)
             pg_type = TS_TYPE_TO_PG.get(col_type.lower(), col_type.lower())
+            if col_match.group(4):  # .array() → PG 数组类型
+                pg_type += "[]"
             fields[db_name] = pg_type
 
         return fields if fields else None
@@ -325,6 +335,16 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
                     continue
                 if table == "information_schema" or table.startswith("pg_"):
                     continue
+                # 过滤启发式扫描误报:
+                #  - 纯数字(如 `if result == "UPDATE 0":` 影响行数比较)
+                #  - 非 ASCII(注释伪代码中的中文占位符,如 `DELETE FROM 对应表`)
+                #  - 常见非表词(注释/伪代码中的 redis/sql/summary 等)
+                if table.isdigit():
+                    continue
+                if not table.isascii():
+                    continue
+                if table in _NON_TABLE_WORDS:
+                    continue
                 tables.add(table)
     return tables
 
@@ -337,10 +357,11 @@ async def fetch_actual_columns(
 
     Returns:
         字段名 → 数据类型(小写)的字典。空字典表示表不存在。
+        数组列用 udt_name 还原元素类型(如 text[] / integer[]),而非裸 "array"。
     """
     rows = await conn.fetch(
         """
-        SELECT column_name, data_type
+        SELECT column_name, data_type, udt_name
         FROM information_schema.columns
         WHERE table_schema = current_schema()
           AND table_name = $1
@@ -348,7 +369,15 @@ async def fetch_actual_columns(
         """,
         table_name,
     )
-    return {row["column_name"]: (row["data_type"] or "").lower() for row in rows}
+
+    def _pg_type(row) -> str:
+        dt = (row["data_type"] or "").lower()
+        if dt == "array":
+            # udt_name 形如 _text / _int4,去下划线前缀 + []
+            return (row["udt_name"] or "text").lstrip("_") + "[]"
+        return dt
+
+    return {row["column_name"]: _pg_type(row) for row in rows}
 
 
 def _normalize_type(t: str) -> str:
@@ -459,8 +488,9 @@ async def check_schema(
                         "critical_missing": [],
                         "warning": f"table {table} not defined in TS schema or fallback (no field-level check)",
                     }
-                    if table not in ts_table_names:
-                        any_error = True  # 数据孤岛
+                    # 表已存在:TS 无定义仅降级为 WARNING
+                    # (ai-service 独立托管表,如 agent_* 记忆系统,不在 drizzle 管理范围);
+                    # 表不存在的情况已在上面 `if not actual:` 分支按 ERROR 处理
                     continue
 
                 missing, extra, mismatched = diff_columns(expected, actual)
