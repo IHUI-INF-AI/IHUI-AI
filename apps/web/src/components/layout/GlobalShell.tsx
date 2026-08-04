@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { PanelLeftOpen } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
@@ -52,6 +53,7 @@ import { startAutoRefresh } from '@/lib/tokenUtils'
  *   (见 sidebar.tsx 第 1117 行 useEffect)
  */
 export function GlobalShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const t = useTranslations('a11y')
@@ -154,6 +156,15 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [mobileOpen])
+
+  // /login 路由:嵌入式二维码面板(mobile-rn WebView/iframe 加载)或 QR 完整模式,
+  // 不需要 Sidebar / AISidePanel / WebWorkPanel,只渲染 children(PageClient.tsx 内容)。
+  // 2026-08-04 修复:此前 /login?method=qr&embed=true 被 GlobalShell 包裹,
+  // 导致 iframe 加载的页面显示首页导航 + 任务列表,二维码面板被布局覆盖不可见。
+  // 放在所有 hooks 之后,避免违反 React hooks 规则(条件 return 不能在 hooks 调用之前)。
+  if (pathname === '/login') {
+    return <>{children}</>
+  }
 
   return (
     <>
