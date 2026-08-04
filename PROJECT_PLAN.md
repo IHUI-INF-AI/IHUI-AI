@@ -2000,6 +2000,61 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ---
 
+## P0 mock/空桩全面真实化(2026-08-04 立,3 subagent 并行,平台独占:apps/api + packages/database + packages/shared)
+
+> **触发**:用户要求"修复所有有用的预先存在的失败 + 将大量 mock 改为真实数据并连通使用 + 彻底弃用 MySQL + 最多 agent 并行开发最大化效率"
+> **范围**:FALLBACK_MODELS 共享层提取 + 9 个 P0 空桩实装 + 2 张缺失 DB 表补建 + 过时注释清理
+
+### 已完成清单
+
+- [x] ✅(2026-08-04) **Phase E: FALLBACK_MODELS 共享层提取**(commit `1fb6d96`)
+  - 新建 `packages/shared/src/constants/fallback-models.ts`(FallbackModel 接口 + 3 个兜底模型:stepfun/step-router-v1 + stepfun/step-3.7-flash + @cf/zai-org/glm-4.7-flash)
+  - 4 端收敛:web/extension/mobile-rn/cli 统一 import `@ihui/shared`,删除本地硬编码(共删 247 行重复代码)
+  - 仅后端 /llm/models 不可达时降级,主数据源是动态拉取
+
+- [x] ✅(2026-08-04) **9 个 P0 空桩实装为真实数据查询**(commit `c2abaff`)
+  - 小程序 5 个(miniapp-compat-routes.ts):
+    - `GET /token/balance` → 查 user_token_balance 表(参考 agents.ts 模式)
+    - `GET /token/records` → 查 tokenFlows 表 + 分页
+    - `GET /messages/rooms/:roomId/history` → 查 messages 表(or senderId/receiverId)
+    - `POST /messages/rooms/:roomId/read` → UPDATE messages SET isRead=true
+    - `POST /courses/buy` → 查 lessons 价格 + 扣 user_token_balance + 记 tokenFlows 流水
+  - LLM 4 个(subagents-extended-routes.ts):
+    - `POST /subagents/auto-plan` → 调 ai-service /api/llm/complete 生成 agent 编排
+    - `POST /subagents/roles/auto-generate` → 调 LLM 生成角色定义
+    - `POST /subagents/agents/:role/evolve` → 调 LLM 分析演化历史返回 prompt 补丁
+    - `GET /subagents/:id/collaboration` → 从 subagentDispatchService 拉协作消息
+  - 新增 helper:`callAiService`(15s 超时 + fallback null)+ `safeParseLlmJson`(LLM JSON 解析)
+  - LLM 失败时降级为原空桩格式,前端契约不破坏
+
+- [x] ✅(2026-08-04) **补建 publish 账号分组表 + workflow 空桩 + 注释清理**(commit `3d3fae1`)
+  - `publish_account_groups` + `publish_account_group_members` TS schema + Drizzle migration(`20260804120000_publish_account_groups.sql`,IF NOT EXISTS 幂等)
+  - 字段名严格对齐 ai-service account_groups.py CREATE TABLE 语句
+  - agent-creation.ts `type='workflow'` 分支:从空桩改为查询 workflows 表(createdBy 字段)
+  - missing-user-routes.ts 注释清理:admin-support-tickets.ts 原"3 个空桩"已过时(已全部实装真实 CRUD)
+
+### 研究结论(剩余空桩全量映射)
+
+经 3 路并行 subagent 扫描 apps/api/src/routes/ 全量路由文件,确认:
+- 历史"51 + 54 条空桩"已大幅清理(admin-missing-routes.ts / missing-user-routes.ts 自述)
+- **真正剩余的空桩仅 7 条**(P1×3 + P2×4):
+  - P1:auth.ts QR 登录 2 条端点(`/qr/status` + `/qr/generate`,返回 501,需 §24 用户确认是否开发)
+  - P1:agent-creation.ts plugin 分支(无对应 DB 表,元数据在代码常量中,需 §24 确认是否 DB 化)
+  - P2:openclaw-routes.ts 3 个会话端点(`/openclaw/sessions` 系列)
+  - P2:drama-routes.ts 2 个剧本增强端点(`/drama/scripts/:id/enhance` 系列)
+- ai-service 有 8 处内嵌 `CREATE TABLE IF NOT EXISTS`(技术债,应迁移到 packages/database 统一管理)
+- ai-service 无独立 alembic/migration 机制,完全依赖 packages/database Drizzle migration
+
+### Git 同步证据(§20 硬定义 5 条全绿,3 个 commit)
+
+- `1fb6d96` refactor(shared): 提取 FALLBACK_MODELS 到共享层,4 端收敛到 3 个模型
+- `c2abaff` feat(api): 实装 9 个 P0 空桩端点为真实数据查询
+- `3d3fae1` feat(database,api): 补建 publish 账号分组表 + 实装 workflow 空桩 + 清理过时注释
+- local HEAD == origin HEAD: `3d3fae1` ✅
+- `node scripts/git-push-guard.mjs` exit 0 ✅
+
+---
+
 ## mobile-rn 登录页 4-tab 升级(2026-07-30,平台独占:仅 apps/mobile-rn + packages/app + packages/api-client)
 
 > **触发**:用户反馈"页面当时也没跟 web 登录窗一样样式啊",要求"完美细致完整毫无遗漏对齐 web 端"。
