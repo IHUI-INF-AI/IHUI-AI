@@ -2082,13 +2082,13 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ### 硬性指标
 
-- [x] H1:移除 mobile-rn 端 TABS 中的 'qr' 扫码登录 tab + 相关代码(QR_PLATFORMS / renderQrPanel / WebView import)
-- [ ] H2:微信原生 SDK 授权(native 平台):registerApp + isWXAppInstalled + sendAuthRequest → code → loginByWechat(code) → JWT
-- [ ] H3:web 平台 fallback:wechat-lib 原生模块不存在,wechat 按钮点击提示"请在原生 App 中使用"或走 expo-web-browser OAuth
-- [ ] H4:苹果 SDK(iOS only):保留 Alert(iOS 未 prebuild,Windows 无法构建,后续扩展)
-- [ ] H5:Google SDK(国际版):保留 Alert(凭据未配置,后续扩展)
-- [ ] H6:飞书/钉钉/企微:评估是否有 RN SDK,无则 expo-web-browser OAuth 跳转兜底
-- [ ] H7:`pnpm --filter @ihui/mobile-rn typecheck` exit 0
+- [x] ✅(2026-08-04) H1:移除 mobile-rn 端 TABS 中的 'qr' 扫码登录 tab + 相关代码(QR_PLATFORMS / renderQrPanel / WebView import)
+- [x] ✅(2026-08-04) H2:微信原生 SDK 授权(native 平台):registerApp + isWXAppInstalled + sendAuthRequest → code → loginByWechat(code) → JWT(src/lib/wechat.ts + App.tsx 初始化 + LoginScreen handleThirdPartyLogin wechat 分支)
+- [x] ✅(2026-08-04) H3:web 平台 fallback:wechat-lib 原生模块不存在,wechat 按钮点击提示"请在原生 App 中使用"(LoginScreen wechat 分支 Platform.OS === 'web' 时 Alert 引导走 SSO 网页端)
+- [x] ✅(2026-08-04) H4:苹果 SDK(iOS only):src/lib/apple.ts 框架完成(isAppleLoginAvailable + loginWithAppleNative 动态 import expo-apple-authentication + loginWithAppleRedirect Android web OAuth);iOS 未 prebuild,Windows 无法构建,SDK 未安装时返回明确 error + 安装命令提示
+- [x] ✅(2026-08-04) H5:Google SDK(国际版):src/lib/google.ts 框架完成(isGoogleLoginAvailable + loginWithGoogleNative 动态 import @react-native-google-signin/google-signin + exchangeGoogleCodeForJwt 走 oauthCallback + loginWithGoogleRedirect fallback);凭据未配置时返回明确 error
+- [x] ✅(2026-08-04) H6:飞书/钉钉/企微:评估结论无原生 RN SDK,src/lib/oauth-redirect.ts 实现 expo-web-browser OAuth 跳转兜底(loginByFeishuRedirect + loginByDingtalkRedirect + loginByWecomRedirect);钉钉用 getDingtalkAuthUrl + dingtalkLogin,企微用 wecomLogin,飞书用通用 oauthCallback
+- [x] ✅(2026-08-04) H7:`pnpm --filter @ihui/mobile-rn typecheck` exit 0 + lint 0 errors(13 历史 warnings 非本任务引入)
 
 ### 约束边界
 
