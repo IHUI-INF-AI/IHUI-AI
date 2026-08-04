@@ -2,21 +2,22 @@
  * Subagent 扩展路由(2026-07-24 立,补建前端调用但后端缺失的端点)。
  *
  * 路径(server.ts 用 prefix:'/api' 注册 → 最终 /api/subagents/*):
- *  - POST   /subagents/auto-plan                       智能规划(LLM 桩,返回空 agents)
+ *  - POST   /subagents/auto-plan                       智能规划(LLM 集成,失败降级空桩)
  *  - GET    /subagents/roles/custom                    列出自定义角色
  *  - POST   /subagents/roles/custom                    创建自定义角色
  *  - GET    /subagents/roles/custom/:id                获取单个自定义角色
  *  - PUT    /subagents/roles/custom/:id                更新自定义角色
  *  - DELETE /subagents/roles/custom/:id                删除自定义角色
- *  - POST   /subagents/roles/auto-generate             LLM 自动生成角色(桩)
+ *  - POST   /subagents/roles/auto-generate             LLM 自动生成角色(失败降级模板桩)
  *  - GET    /subagents/agents/:role/evolution-history  Agent 演化历史
- *  - POST   /subagents/agents/:role/evolve             LLM 演化分析(桩)
+ *  - POST   /subagents/agents/:role/evolve             LLM 演化分析(失败降级空补丁)
  *  - POST   /subagents/agents/:role/apply-evolution    应用演化补丁
- *  - GET    /subagents/:id/collaboration               协作消息流(空桩)
+ *  - GET    /subagents/:id/collaboration               协作消息流(从 dispatch-service 拉取)
  *
  * 设计:
  *  - 进程内 Map 存储(零迁移,与 subagent-dispatch.ts 一致)
- *  - LLM 类端点(auto-plan/auto-generate/evolve)返回空数据桩,不阻塞前端
+ *  - LLM 类端点(auto-plan/auto-generate/evolve)调用 ai-service /api/llm/complete,
+ *    失败/stub/超时时降级为空数据桩,保证 200 返回不阻塞前端
  *  - 鉴权:复用 packages/auth 的 authenticate(同 subagent-dispatch.ts 模式)
  *  - 校验:Zod
  *  - 响应:{ code: 0, message: 'success', data: ... }
@@ -27,6 +28,8 @@ import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
 
 // ---------- 进程内存储(零迁移) ----------
 
@@ -107,6 +110,94 @@ function taskToRoleSlug(task: string): string {
   return slug || 'custom-agent'
 }
 
+// ---------- LLM 调用 helper(2026-08-04 立,实装 LLM 类空桩端点) ----------
+
+/** ai-service /api/llm/complete 响应(简化结构,只取业务关心的字段) */
+interface LlmCompleteResponse {
+  content?: string
+  error?: boolean
+  error_message?: string
+  stub?: boolean
+}
+
+/**
+ * 调用 ai-service /api/llm/complete 端点(15s 超时,失败返回 null)。
+ *
+ * 用于 LLM 类端点(auto-plan/auto-generate/evolve)获取真实 LLM 响应;
+ * 失败 / stub / 超时 / 网络异常时返回 null,调用方降级为空桩数据,
+ * 保证端点始终返回 200 不阻塞前端。
+ *
+ * 复用 utils/ai-service-fetch.ts 的 aiServiceFetch(自动注入 traceparent 头)。
+ * 不引入 axios 等新依赖,用原生 fetch + AbortController 控制超时。
+ *
+ * @param systemPrompt 系统提示(定义任务和返回格式)
+ * @param userMessage  用户消息(具体输入数据)
+ * @param timeoutMs    超时毫秒(默认 15s,ai-service 可能慢)
+ * @returns LLM 响应文本(trim 后)或 null
+ */
+async function callAiService(
+  systemPrompt: string,
+  userMessage: string,
+  timeoutMs = 15_000,
+): Promise<string | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const body: Record<string, unknown> = {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      // temperature=0 确定性输出(编排/角色生成/演化分析均不需要创造性)
+      temperature: 0,
+    }
+    const res = await aiServiceFetch(null, '/api/llm/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const json = (await res.json()) as LlmCompleteResponse
+    // ai-service 返回 error=true 表示 LLM 调用失败(无 API key / provider 异常)
+    if (json.error) return null
+    // stub 模式表示 ai-service 无真实 LLM(降级返回的占位内容),不作为有效响应
+    if (json.stub) return null
+    const text = json.content ?? ''
+    return text.trim() || null
+  } catch {
+    // AbortError(超时)/ fetch 网络异常 / JSON 解析异常 → 降级 null
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * 安全解析 LLM 返回的 JSON 内容。
+ *
+ * LLM 经常在 JSON 前后加 ```json 围栏或解释文字,需要:
+ *  1. 优先提取 ```json ... ``` 或 ``` ... ``` 围栏内容
+ *  2. 回退到首个 { 到末尾 } 的子串
+ *  3. JSON.parse 失败时返回 null(调用方降级为空桩)
+ *
+ * @returns 解析后的对象或 null
+ */
+function safeParseLlmJson<T>(text: string): T | null {
+  // 1. 提取 ```json ... ``` 或 ``` ... ``` 围栏内容
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const candidate = fenceMatch ? fenceMatch[1]! : text
+  // 2. 提取首个 { 到末尾 } 的子串(跳过 LLM 解释文字)
+  const start = candidate.indexOf('{')
+  const end = candidate.lastIndexOf('}')
+  if (start === -1 || end === -1 || end <= start) return null
+  try {
+    return JSON.parse(candidate.slice(start, end + 1)) as T
+  } catch {
+    return null
+  }
+}
+
 export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权 helper(复用 subagent-dispatch.ts 模式)
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -152,7 +243,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
       .min(1, '至少一个补丁'),
   })
 
-  // ---------- POST /subagents/auto-plan(LLM 桩,返回空 agents) ----------
+  // ---------- POST /subagents/auto-plan(调用 ai-service 生成编排计划) ----------
 
   server.post('/subagents/auto-plan', async (request, reply) => {
     await requireAuth(request, reply)
@@ -165,14 +256,56 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
         .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    // LLM 未集成,返回空 agents 桩,不阻塞前端
+    // 调用 ai-service /api/llm/complete,要求 LLM 返回 JSON 编排计划
+    const systemPrompt =
+      'Analyze the following task and suggest a multi-agent orchestration plan. ' +
+      'Return JSON: { orchestration: "parallel"|"sequential"|"pipeline", ' +
+      'agents: [{ role, goal, systemPrompt }], estimatedDuration, reasoning }'
+    const userMessage = JSON.stringify({
+      task: parsed.data.task,
+      constraints: parsed.data.constraints,
+    })
+
+    const llmText = await callAiService(systemPrompt, userMessage)
+    if (llmText) {
+      const plan = safeParseLlmJson<{
+        orchestration?: string
+        agents?: Array<{
+          role?: string
+          goal?: string
+          systemPrompt?: string
+        }>
+        estimatedDuration?: string
+        reasoning?: string
+      }>(llmText)
+      if (plan && Array.isArray(plan.agents)) {
+        // 过滤无效 agent(必须包含 role 字符串)
+        const agents = plan.agents.filter(
+          (a): a is { role: string; goal: string; systemPrompt: string } =>
+            !!a && typeof a.role === 'string' && typeof a.systemPrompt === 'string',
+        )
+        return reply.send(
+          success({
+            orchestration: plan.orchestration ?? 'parallel',
+            agents,
+            estimatedDuration: plan.estimatedDuration ?? '0s',
+            estimatedCost: '0',
+            reasoning: plan.reasoning ?? 'LLM 生成的编排计划',
+            topologyStats: [],
+            generatedAt: nowIso(),
+          }),
+        )
+      }
+    }
+
+    // fallback:LLM 不可达 / 返回无效 JSON / 解析失败 → 返回空桩(保留前端兼容格式)
     return reply.send(
       success({
         orchestration: 'parallel',
         agents: [],
         estimatedDuration: '0s',
         estimatedCost: '0',
-        reasoning: '智能规划功能待 LLM 集成,当前返回空规划。',
+        reasoning: 'LLM 不可达或返回无效,返回空规划。',
         topologyStats: [],
         generatedAt: nowIso(),
       }),
@@ -287,7 +420,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ deleted: true }))
   })
 
-  // ---------- POST /subagents/roles/auto-generate(LLM 桩) ----------
+  // ---------- POST /subagents/roles/auto-generate(调用 ai-service 生成角色定义) ----------
 
   server.post('/subagents/roles/auto-generate', async (request, reply) => {
     await requireAuth(request, reply)
@@ -301,7 +434,43 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     }
     const { task } = parsed.data
 
-    // LLM 未集成,返回基于 task 的简单模板桩
+    // 调用 ai-service /api/llm/complete,要求 LLM 返回 JSON 角色定义
+    const systemPrompt =
+      'Generate a specialized agent role definition for the task. ' +
+      'Return JSON: { role, displayName, systemPrompt, skills: [], recommendedTasks: [] }'
+    const llmText = await callAiService(systemPrompt, task)
+    if (llmText) {
+      const role = safeParseLlmJson<{
+        role?: string
+        displayName?: string
+        systemPrompt?: string
+        skills?: unknown
+        recommendedTasks?: unknown
+      }>(llmText)
+      // 必须包含 role + systemPrompt 才视为有效生成
+      if (role && typeof role.role === 'string' && typeof role.systemPrompt === 'string') {
+        // 安全转换 skills / recommendedTasks(必须是 string[],否则降级为空数组)
+        const skills = Array.isArray(role.skills)
+          ? role.skills.filter((s): s is string => typeof s === 'string')
+          : []
+        const recommendedTasks = Array.isArray(role.recommendedTasks)
+          ? role.recommendedTasks.filter((s): s is string => typeof s === 'string')
+          : []
+        return reply.send(
+          success({
+            role: role.role,
+            displayName:
+              typeof role.displayName === 'string' ? role.displayName : `${task.slice(0, 24)} 专家`,
+            systemPrompt: role.systemPrompt,
+            skills,
+            recommendedTasks,
+            reasoning: 'LLM 自动生成',
+          }),
+        )
+      }
+    }
+
+    // fallback:LLM 不可达 / 返回无效 / 解析失败 → 返回模板桩(保留前端兼容格式)
     return reply.send(
       success({
         role: taskToRoleSlug(task),
@@ -309,7 +478,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
         systemPrompt: `You are a specialized agent for: ${task}.`,
         skills: [],
         recommendedTasks: [],
-        reasoning: '自动生成功能待 LLM 集成,当前返回模板桩。',
+        reasoning: 'LLM 不可达或返回无效,返回模板桩。',
       }),
     )
   })
@@ -339,21 +508,95 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ---------- POST /subagents/agents/:role/evolve(LLM 桩) ----------
+  // ---------- POST /subagents/agents/:role/evolve(调用 ai-service 分析演化) ----------
 
   server.post('/subagents/agents/:role/evolve', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
     const { role } = request.params as { role: string }
-    // LLM 未集成,返回 needsEvolution: false 桩,不阻塞前端
+
+    // 读取演化历史记录;无记录 → 无需演化,直接返回空桩(避免无谓 LLM 调用)
+    const stored = evolutionHistories.get(role)
+    const recentRecords = stored?.recentRecords ?? []
+    if (recentRecords.length === 0) {
+      return reply.send(
+        success({
+          agentRole: role,
+          scannedRecords: 0,
+          needsEvolution: false,
+          patches: [],
+          summary: '无演化记录,跳过分析。',
+          analyzedAt: nowIso(),
+        }),
+      )
+    }
+
+    // 调用 ai-service /api/llm/complete,要求 LLM 分析记录并返回补丁
+    const systemPrompt =
+      "Analyze the agent's recent execution records and suggest prompt improvements. " +
+      'Return JSON: { needsEvolution: boolean, patches: [{ originalText, suggestedReplacement, reason }], summary }'
+    // 只取最近 10 条记录(避免上下文过长 + token 浪费)
+    const recordsSample = recentRecords.slice(-10)
+    const userMessage = JSON.stringify({
+      agentRole: role,
+      currentPrompt: stored?.currentPrompt ?? INITIAL_PROMPTS[role] ?? '',
+      recentRecords: recordsSample,
+    })
+
+    const llmText = await callAiService(systemPrompt, userMessage)
+    if (llmText) {
+      const result = safeParseLlmJson<{
+        needsEvolution?: boolean
+        patches?: Array<{
+          originalText?: unknown
+          suggestedReplacement?: unknown
+          reason?: unknown
+        }>
+        summary?: string
+      }>(llmText)
+      if (result) {
+        // 安全过滤有效 patch(必须 originalText + suggestedReplacement 都是字符串)
+        const patches: PromptPatch[] = []
+        if (Array.isArray(result.patches)) {
+          for (const p of result.patches) {
+            if (
+              p &&
+              typeof p.originalText === 'string' &&
+              typeof p.suggestedReplacement === 'string' &&
+              typeof p.reason === 'string'
+            ) {
+              patches.push({
+                originalText: p.originalText,
+                suggestedReplacement: p.suggestedReplacement,
+                reason: p.reason,
+              })
+            }
+          }
+        }
+        return reply.send(
+          success({
+            agentRole: role,
+            scannedRecords: recentRecords.length,
+            // needsEvolution 显式 false 时尊重 LLM 判断;否则按 patches 是否非空推断
+            needsEvolution:
+              typeof result.needsEvolution === 'boolean' ? result.needsEvolution : patches.length > 0,
+            patches,
+            summary: result.summary ?? `LLM 分析了 ${recentRecords.length} 条记录`,
+            analyzedAt: nowIso(),
+          }),
+        )
+      }
+    }
+
+    // fallback:LLM 不可达 / 返回无效 / 解析失败 → 返回空补丁桩
     return reply.send(
       success({
         agentRole: role,
-        scannedRecords: 0,
+        scannedRecords: recentRecords.length,
         needsEvolution: false,
         patches: [],
-        summary: '演化分析功能待 LLM 集成,当前无补丁。',
+        summary: 'LLM 不可达或返回无效,跳过演化分析。',
         analyzedAt: nowIso(),
       }),
     )
@@ -405,19 +648,41 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ---------- GET /subagents/:id/collaboration(空桩) ----------
+  // ---------- GET /subagents/:id/collaboration(从 subagent-dispatch-service 拉取) ----------
 
   server.get('/subagents/:id/collaboration', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
 
     const { id } = request.params as { id: string }
-    // 协作消息流由 subagent-dispatch-service 维护,这里返回空桩避免 404
+
+    // 从 subagent-dispatch-service 获取协作消息(with_communication 模式产生)
+    const messages = subagentDispatchService.getMessages(id)
+    // 派单资源统计(若派单不存在返回 null,前端可据此判断 dispatch 是否存在)
+    const dispatchStats = subagentDispatchService.getDispatchStats(id) ?? null
+
+    // 推导协作关系(from→to:type 边,聚合 count 便于前端渲染关系图)
+    // 用 Map 聚合避免相同 from→to:type 边重复出现
+    const relationMap = new Map<string, { from: string; to: string; type: string; count: number }>()
+    for (const msg of messages) {
+      const key = `${msg.from}->${msg.to}:${msg.type}`
+      const existing = relationMap.get(key)
+      if (existing) {
+        existing.count++
+      } else {
+        relationMap.set(key, { from: msg.from, to: msg.to, type: msg.type, count: 1 })
+      }
+    }
+    const relations = Array.from(relationMap.values())
+
     return reply.send(
       success({
         dispatchId: id,
-        messages: [],
-        relations: [],
+        // 派单不存在时 status='unknown',前端据此显示"派单未找到"
+        dispatchStatus: dispatchStats?.status ?? 'unknown',
+        messages,
+        relations,
+        totalMessages: messages.length,
       }),
     )
   })

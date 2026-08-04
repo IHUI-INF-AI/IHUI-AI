@@ -15,7 +15,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
-import { eq, and, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
+import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
@@ -30,6 +30,7 @@ import {
   users,
   userAuthInfo,
   feedbacks,
+  messages,
   userPreferences,
   agents,
   agentCategories,
@@ -1353,12 +1354,50 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.get('/token/balance', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ balance: 0, locked: 0 }))
+    const userId = request.userId!
+    const rows = await dbRead.execute(
+      sql`SELECT user_uuid, balance, frozen_balance, updated_at FROM user_token_balance WHERE user_uuid = ${userId} LIMIT 1`,
+    )
+    const row = rows[0] as
+      | {
+          user_uuid: string
+          balance: string | number
+          frozen_balance: string | number
+          updated_at: Date
+        }
+      | undefined
+    if (!row) {
+      return reply.send(success({ balance: 0, frozenBalance: 0 }))
+    }
+    return reply.send(
+      success({
+        balance: Number(row.balance),
+        frozenBalance: Number(row.frozen_balance),
+        updatedAt: row.updated_at,
+      }),
+    )
   })
 
   server.get('/token/records', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ list: [], total: 0 }))
+    const userId = request.userId!
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    const where = eq(tokenFlows.userId, userId)
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(tokenFlows)
+        .where(where)
+        .orderBy(desc(tokenFlows.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(tokenFlows)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 
   // ==========================================================================
@@ -1366,13 +1405,39 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.get('/messages/rooms/:roomId/history', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ list: [], total: 0 }))
+    const userId = request.userId!
+    const { roomId } = z.object({ roomId: z.string().min(1) }).parse(request.params)
+    const { page, pageSize } = pageQuerySchema.parse(request.query)
+    // 注:messages 表无 roomId 字段(仅 senderId/receiverId),用 userId 匹配发送方或接收方
+    const where = or(eq(messages.senderId, userId), eq(messages.receiverId, userId))
+    const offset = (page - 1) * pageSize
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select()
+        .from(messages)
+        .where(where)
+        .orderBy(asc(messages.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(messages)
+        .where(where),
+    ])
+    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize, roomId }))
   })
 
   server.post('/messages/rooms/:roomId/read', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    const { roomId } = request.params as { roomId: string }
-    return reply.send(success({ roomId, read: true }))
+    const userId = request.userId!
+    const { roomId } = z.object({ roomId: z.string().min(1) }).parse(request.params)
+    // 注:messages 表无 roomId 字段,标记该用户所有未读消息为已读
+    const updated = await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(and(eq(messages.receiverId, userId), eq(messages.isRead, false)))
+      .returning()
+    return reply.send(success({ roomId, updated: updated.length, read: true }))
   })
 
   // ==========================================================================
@@ -1880,7 +1945,59 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
   server.post('/courses/buy', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ orderId: '', orderNo: '', amount: 0 }))
+    const userId = request.userId!
+    const body = z
+      .object({
+        courseId: z.uuid({ error: '无效的课程 ID' }),
+        paymentMethod: z.string().max(32).optional(),
+      })
+      .parse(request.body ?? {})
+    const [course] = await dbRead
+      .select({ id: lessons.id, title: lessons.title, price: lessons.price, isFree: lessons.isFree })
+      .from(lessons)
+      .where(and(eq(lessons.id, body.courseId), eq(lessons.status, 1)))
+      .limit(1)
+    if (!course) {
+      return reply.status(404).send(error(404, '课程不存在'))
+    }
+    const coursePrice = Number(course.price)
+    if (course.isFree || coursePrice <= 0) {
+      return reply.send(
+        success({ orderId: '', orderNo: '', amount: 0, status: 'free', courseTitle: course.title }),
+      )
+    }
+    const orderNo = `ord_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`
+    // 查询 user_token_balance 余额
+    const rows = await dbRead.execute(
+      sql`SELECT balance FROM user_token_balance WHERE user_uuid = ${userId} LIMIT 1`,
+    )
+    const row = rows[0] as { balance: string | number } | undefined
+    const currentBalance = row ? Number(row.balance) : 0
+    if (currentBalance < coursePrice) {
+      return reply.status(402).send(error(402, '余额不足'))
+    }
+    // 扣减余额
+    await db.execute(
+      sql`UPDATE user_token_balance SET balance = balance - ${coursePrice}, updated_at = now() WHERE user_uuid = ${userId}`,
+    )
+    // 记录 tokenFlows 流水(opType=1 扣减,quantity 取整)
+    await db.insert(tokenFlows).values({
+      userId,
+      opType: 1,
+      quantity: Math.round(coursePrice),
+      balanceAfter: Math.max(0, Math.round(currentBalance - coursePrice)),
+      remark: `course buy: ${course.title}`,
+      relatedOrderNo: orderNo,
+    })
+    return reply.send(
+      success({
+        orderId: orderNo,
+        orderNo,
+        amount: coursePrice,
+        status: 'paid',
+        courseTitle: course.title,
+      }),
+    )
   })
 
   // ==========================================================================
