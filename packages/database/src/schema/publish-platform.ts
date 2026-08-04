@@ -1,5 +1,6 @@
 import {
   pgTable,
+  primaryKey,
   bigserial,
   varchar,
   text,
@@ -104,6 +105,29 @@ export const publishNotifications = pgTable('publish_notifications', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
+/** 账号分组表:用户可将 publish_accounts 按分组管理(2026-08-04 补建,与 ai-service account_groups.py 对齐) */
+export const publishAccountGroups = pgTable('publish_account_groups', {
+  /** 分组 ID(ai-service 用 VARCHAR(40) 字符串主键,非 UUID/bigserial) */
+  groupId: varchar('group_id', { length: 40 }).primaryKey(),
+  userId: varchar('user_id', { length: 64 }).notNull(),
+  name: varchar('name', { length: 128 }).notNull(),
+  description: text('description').default(''),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+/** 分组成员关联表:分组 ↔ publish_accounts 多对多 */
+export const publishAccountGroupMembers = pgTable('publish_account_group_members', {
+  groupId: varchar('group_id', { length: 40 }).notNull(),
+  /** 关联 publish_accounts.id (BIGSERIAL → bigint) */
+  accountId: bigserial('account_id', { mode: 'bigint' }).notNull(),
+  userId: varchar('user_id', { length: 64 }).notNull(),
+  addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  // 复合主键 (group_id, account_id)
+  primaryKey({ columns: [t.groupId, t.accountId] }),
+])
+
 export type PublishAccount = typeof publishAccounts.$inferSelect
 export type NewPublishAccount = typeof publishAccounts.$inferInsert
 export type PublishTask = typeof publishTasks.$inferSelect
@@ -112,3 +136,7 @@ export type PublishHistoryRecord = typeof publishHistory.$inferSelect
 export type NewPublishHistoryRecord = typeof publishHistory.$inferInsert
 export type PublishNotification = typeof publishNotifications.$inferSelect
 export type NewPublishNotification = typeof publishNotifications.$inferInsert
+export type PublishAccountGroup = typeof publishAccountGroups.$inferSelect
+export type NewPublishAccountGroup = typeof publishAccountGroups.$inferInsert
+export type PublishAccountGroupMember = typeof publishAccountGroupMembers.$inferSelect
+export type NewPublishAccountGroupMember = typeof publishAccountGroupMembers.$inferInsert

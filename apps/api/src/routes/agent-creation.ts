@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
-import { agents, zhsAgentCategory } from '@ihui/database'
+import { agents, zhsAgentCategory, workflows } from '@ihui/database'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 
 /**
@@ -78,7 +78,30 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
             success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }),
           )
         }
-        // workflow / plugin:当前无对应表,返回空列表
+        if (type === 'workflow') {
+          // workflows 表用 createdBy 关联用户(非 userId)
+          const conditions: SQL[] = [eq(workflows.createdBy, userId)]
+          if (rest.keyword) {
+            conditions.push(sql`${workflows.name} ILIKE ${`%${rest.keyword}%`}`)
+          }
+          const where = sql.join(conditions, sql` AND `)
+          const list = await db
+            .select()
+            .from(workflows)
+            .where(where)
+            .orderBy(desc(workflows.createdAt))
+            .limit(pageSize)
+            .offset(offset)
+          const totalRows = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(workflows)
+            .where(where)
+          return reply.send(
+            success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }),
+          )
+        }
+        // plugin:当前无 plugins 元数据表(仅有 plugin_events 事件流表,非插件本体存储)
+        // 插件元数据存储在代码常量(plugins-data.ts),非 DB 表;如需 DB 化需新建 schema
         // 缺表记录:.trae-cn/tmp/p0-4-db-needed.txt
         return reply.send(success({ list: [], total: 0, page, pageSize }))
       } catch (e) {
