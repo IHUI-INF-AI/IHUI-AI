@@ -194,10 +194,11 @@ const nextConfig: NextConfig = {
   async headers() {
     const securityHeaders = [
       { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
-      // 2026-08-02 fix:WorkPanel 内置浏览器需 iframe 嵌入同源页面(发布/设置等),
-      // DENY 会拦截同源嵌入(chrome-error refused to connect),改 SAMEORIGIN:
-      // 同源可嵌入,跨源仍拦截(clickjacking 防护不变)。与 apps/api xss-protection 一致。
-      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      // 2026-08-04 fix:移除 X-Frame-Options,改用 CSP frame-ancestors 控制 iframe 嵌入。
+      // 原因:Chrome 只识别 DENY/SAMEORIGIN,不识别 ALLOWALL,
+      // 导致 /login 路由无法被 mobile-rn iframe 嵌入(ERR_BLOCKED_BY_RESPONSE)。
+      // CSP frame-ancestors 是现代标准,优先级高于 X-Frame-Options。
+      // 默认 frame-ancestors 'self' 等效于 SAMEORIGIN,保护其他页面不被嵌入。
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       {
@@ -229,6 +230,9 @@ const nextConfig: NextConfig = {
           // 2026-08-02 fix:WorkPanel 内置浏览器允许用户打开任意网址,
           // frame-src 放开 https:/http: 使可嵌入的外部站点能正常 iframe 展示。
           "frame-src 'self' https: http: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn",
+          // 2026-08-04 默认 frame-ancestors 'self'(等效 X-Frame-Options: SAMEORIGIN),
+          // 防止其他站点 iframe 嵌入;/login 路由单独放宽允许 mobile-rn 嵌入
+          "frame-ancestors 'self'",
           "base-uri 'self'",
           "form-action 'self'",
         ].join('; '),
@@ -238,6 +242,33 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: securityHeaders,
+      },
+      {
+        // 2026-08-04 /login 路由允许 mobile-rn iframe 嵌入(localhost:8805)
+        // 用于扫码登录二维码面板:mobile-rn WebView/iframe 加载 /login?method=qr&platform=xxx&embed=true
+        // 覆盖 /(.*) 的 frame-ancestors 'self',放宽为允许 localhost:8805(mobile-rn dev server)
+        // 不设 X-Frame-Options(Chrome 不识别 ALLOWALL,会默认 DENY 阻止嵌入)
+        source: '/login',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com https://cdn.jsdelivr.net",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:*",
+              "media-src 'self' blob:",
+              "object-src 'none'",
+              "frame-src 'self' https: http: https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn",
+              // 允许 mobile-rn(localhost:8805)和同源嵌入 /login 的二维码面板
+              "frame-ancestors 'self' http://localhost:8805 http://127.0.0.1:8805 http://localhost:*",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+        ],
       },
     ]
   },
