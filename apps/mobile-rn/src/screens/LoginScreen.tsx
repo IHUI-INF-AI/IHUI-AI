@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -13,8 +13,7 @@ import {
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import { Toolbar } from '../components/Toolbar'
-import { useI18n, type Locale } from '../i18n'
+import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
@@ -141,8 +140,8 @@ const CODE_COUNTDOWN_SECONDS = 60
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
 export function LoginScreen() {
-  const { t, locale, setLocale } = useI18n()
-  const { resolvedTheme, setThemeMode } = useTheme()
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<LoginNavigationProp>()
   const fullUserRef = useRef<AuthUser | null>(null)
 
@@ -365,7 +364,7 @@ export function LoginScreen() {
       // 当前 mobile-rn 暂未集成各平台原生 SDK,统一引导走 SSO 跳 web
       Alert.alert(
         t('auth.thirdPartyLogin'),
-        `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"使用网页账号登录"按钮跳转网页端授权。`,
+        `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"使用其他方式登录"按钮跳转网页端授权。`,
         [
           { text: '取消', onPress: () => setThirdPartyLoadingPlatform(null), style: 'cancel' },
           {
@@ -420,53 +419,8 @@ export function LoginScreen() {
   // 合并 loading 状态(任意 tab 登录中均禁用切换)
   const unifiedLoading = form.loading || emailLoading || phoneLoading
 
-  // ===== Toolbar 工具条(主题切换 + 语言切换 + 帮助) =====
-  // theme:在 light/dark 间 toggle(忽略 system,登录页用显式切换更直观)
-  // lang:循环切换 5 个 locale(zh-CN → en → ja → ko → zh-TW → zh-CN),Alert 确认
-  const LOCALE_CYCLE: readonly Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
-  const LOCALE_ICON: Record<Locale, string> = {
-    'zh-CN': '中',
-    en: 'EN',
-    ja: '日',
-    ko: '한',
-    'zh-TW': '繁',
-  }
-  const toolbarItems = useMemo(
-    () => [
-      {
-        key: 'theme',
-        icon: resolvedTheme === 'dark' ? '☀' : '🌙',
-        active: resolvedTheme === 'dark',
-        onPress: () => {
-          setThemeMode(resolvedTheme === 'dark' ? 'light' : 'dark')
-        },
-      },
-      {
-        key: 'lang',
-        icon: LOCALE_ICON[locale],
-        onPress: () => {
-          const idx = LOCALE_CYCLE.indexOf(locale)
-          const safeIdx = idx < 0 ? 0 : idx
-          const next = LOCALE_CYCLE[(safeIdx + 1) % LOCALE_CYCLE.length]
-          if (next) void setLocale(next)
-        },
-      },
-      {
-        key: 'help',
-        icon: '?',
-        onPress: () => {
-          Alert.alert(t('auth.helpTitle'), t('auth.helpBody'))
-        },
-      },
-    ],
-    [resolvedTheme, setThemeMode, locale, setLocale, t],
-  )
-
   return (
     <View style={styles.container}>
-      <View style={styles.toolbarWrap}>
-        <Toolbar items={toolbarItems} separators={['lang']} style={styles.toolbar} />
-      </View>
       <View style={styles.body}>
         <SharedLoginScreen
           t={t}
@@ -525,13 +479,6 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  toolbarWrap: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-  },
-  toolbar: {
-    alignSelf: 'flex-end',
   },
   body: {
     flex: 1,
