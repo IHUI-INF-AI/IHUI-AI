@@ -20,15 +20,22 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const force = process.argv.includes('--force')
 
 // 源: monaco-editor 包的 min/vs 目录
-const sourceDir = resolve(__dirname, '..', 'node_modules', 'monaco-editor', 'min', 'vs')
-// 目标: apps/web/public/vs
-const targetDir = resolve(__dirname, '..', 'public', 'vs')
-
-if (!existsSync(sourceDir)) {
-  console.error(`[copy-monaco] 源目录不存在: ${sourceDir}`)
+// 兼容 isolated(apps/web/node_modules)与 hoisted(根 node_modules)两种模式
+const webRoot = resolve(__dirname, '..')
+const repoRoot = resolve(webRoot, '..', '..')
+const candidateSources = [
+  resolve(webRoot, 'node_modules', 'monaco-editor', 'min', 'vs'), // isolated 模式
+  resolve(repoRoot, 'node_modules', 'monaco-editor', 'min', 'vs'), // hoisted 模式
+]
+const sourceDir = candidateSources.find((p) => existsSync(p))
+if (!sourceDir) {
+  console.error(`[copy-monaco] 源目录不存在,已尝试:`)
+  candidateSources.forEach((p) => console.error(`  - ${p}`))
   console.error(`[copy-monaco] 请确认 monaco-editor 包已安装: pnpm --filter @ihui/web add monaco-editor`)
   process.exit(1)
 }
+// 目标: apps/web/public/vs
+const targetDir = resolve(webRoot, 'public', 'vs')
 
 const sourceLoader = resolve(sourceDir, 'loader.js')
 if (!existsSync(sourceLoader)) {
