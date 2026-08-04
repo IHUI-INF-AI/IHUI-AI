@@ -1,4 +1,5 @@
 import './global.css'
+import { useEffect } from 'react'
 import { AppRegistry, Platform, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
@@ -10,6 +11,7 @@ import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
+import { registerWechat } from './src/lib/wechat'
 
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
@@ -32,6 +34,12 @@ function AppInner() {
 
 function AppContent() {
   const { resolvedTheme } = useTheme()
+
+  // 初始化微信 SDK(native only,web 平台 registerWechat 返回 false 跳过)
+  useEffect(() => {
+    void registerWechat()
+  }, [])
+
   return (
     <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1 }}>
       <SafeAreaProvider>
