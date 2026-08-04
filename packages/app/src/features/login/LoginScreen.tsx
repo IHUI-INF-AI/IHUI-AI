@@ -1430,35 +1430,49 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     // ===== QR 平台切换 tab(2026-08-04 新增,对齐 web 端 qr-tab.tsx) =====
+    // web 端:grid grid-cols-4 gap-1.5 rounded-md border bg-muted/40 p-1
+    // RN 端:flexDirection row + 全宽 + 边框 + 浅灰背景 + padding 4 + gap 6
     qrPlatformTabBar: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      gap: 8,
-      paddingVertical: 4,
-    },
-    qrPlatformTab: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      justifyContent: 'space-between',
+      gap: 6,
+      padding: 4,
       borderRadius: 6,
       borderWidth: 1,
       borderColor: tk.border.light,
-      backgroundColor: surface,
+      backgroundColor: tk.surface.muted,
     },
+    // web 端默认态:rounded-[4px] px-2 py-1.5 text-xs text-muted-foreground(无边框无背景)
+    qrPlatformTab: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      borderRadius: 4,
+      backgroundColor: 'transparent',
+    },
+    // web 端激活态:bg-card text-foreground shadow-sm(白色卡片背景 + 阴影,非品牌色)
     qrPlatformTabActive: {
-      backgroundColor: tk.brand.DEFAULT,
-      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.surface.light,
+      // iOS shadow(对齐 web shadow-sm)
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      // Android elevation
+      elevation: 2,
     },
     qrPlatformTabText: {
-      fontSize: 11,
-      color: tk.text.secondary,
+      fontSize: 12,
+      color: tk.text.tertiary,
     },
+    // web 端激活文字:text-foreground font-medium(主文字色,非白色)
     qrPlatformTabTextActive: {
-      color: onBrandText,
-      fontWeight: '600',
+      color: tk.text.primary,
+      fontWeight: '500',
     },
     // QR 二维码占位图标(无真实二维码时显示)
     qrPlaceholderIcon: {
