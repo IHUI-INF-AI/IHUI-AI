@@ -72,9 +72,10 @@ const imageStyles = StyleSheet.create({
     width: 200,
     height: 200,
   },
+  // logo 图片:44×44(2026-08-04 从 31×31 加大,提升移动端视觉层次)
   logoImage: {
-    width: 31,
-    height: 31,
+    width: 44,
+    height: 44,
   },
 })
 
@@ -939,25 +940,26 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 12,
+      gap: 14,
       marginBottom: 24,
     },
+    // logoBox fallback:44×44(2026-08-04 从 31×31 加大,与 logoImage 同步)
     logoBox: {
-      width: 31,
-      height: 31,
-      borderRadius: 6,
+      width: 44,
+      height: 44,
+      borderRadius: 8,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
     logoImage: {
-      width: 31,
-      height: 31,
-      borderRadius: 6,
+      width: 44,
+      height: 44,
+      borderRadius: 8,
     },
     logoText: {
       color: onBrandText,
-      fontSize: 11,
+      fontSize: 14,
       fontWeight: '700',
       letterSpacing: 0.5,
     },
