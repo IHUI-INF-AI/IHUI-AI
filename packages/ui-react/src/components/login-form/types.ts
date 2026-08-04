@@ -40,9 +40,9 @@ export type LoginResult = {
 /** 4 个登录 tab(对应 web 端 4 段) */
 export type LoginTab = 'email' | 'phone' | 'password' | 'qr'
 
-/** 8 个第三方登录平台(固定枚举,与 web 端 ThirdPartyPlatform 对齐) */
+/** 第三方登录平台 + 本站 App 扫码(固定枚举,与 @ihui/types ThirdPartyPlatform 对齐) */
 export type ThirdPartyPlatform =
-  'wechat' | 'google' | 'github' | 'feishu' | 'dingtalk' | 'enterpriseWechat' | 'alipay' | 'apple'
+  'wechat' | 'google' | 'github' | 'feishu' | 'dingtalk' | 'enterpriseWechat' | 'alipay' | 'apple' | 'app'
 
 /** 8 平台静态列表,顺序与 web 端 ThirdPartyLoginButtons 一致(3 列网格按行铺) */
 export const ALL_THIRD_PARTY_PLATFORMS: readonly ThirdPartyPlatform[] = [
