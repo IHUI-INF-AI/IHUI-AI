@@ -93,7 +93,7 @@ export default function LoginPageClient() {
           background: 'transparent',
         }}
       >
-        <QrCodeLogin platform={defaultPlatform} refreshKey={refreshKey} />
+        <QrCodeLogin platform={defaultPlatform} refreshKey={refreshKey} embed />
       </div>
     )
   }
