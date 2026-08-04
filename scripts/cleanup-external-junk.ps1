@@ -15,8 +15,8 @@
 #   7. QoderCN JDK probe cache in G:\.appdata\jdk.md (32-bit hash)
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1
-#   powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force
+#   pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1
+#   pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force
 #
 # Safety:
 #   - Only deletes 16 dirs + 31 files explicitly listed below, no wildcards

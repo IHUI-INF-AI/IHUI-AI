@@ -81,10 +81,10 @@ function genId(): string {
   return `term_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
 }
 
-/** 获取默认 shell(Windows: powershell/cmd,Unix: /bin/bash) */
+/** 获取默认 shell(Windows: pwsh/cmd,Unix: /bin/bash) */
 function getDefaultShell(): string {
   if (process.platform === 'win32') {
-    return process.env.COMSPEC || 'powershell.exe';
+    return process.env.COMSPEC || 'pwsh.exe';
   }
   return process.env.SHELL || '/bin/bash';
 }

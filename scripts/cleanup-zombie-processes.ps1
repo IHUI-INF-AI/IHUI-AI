@@ -9,9 +9,9 @@
 #   5. Trae process count alert (Trae CN > 25 / TRAE SOLO CN > 30 -> warn only)
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File cleanup-zombie-processes.ps1            # dry-run (preview)
-#   powershell -ExecutionPolicy Bypass -File cleanup-zombie-processes.ps1 -AutoClean # execute cleanup
-#   powershell -ExecutionPolicy Bypass -File cleanup-zombie-processes.ps1 -AutoClean -Quiet  # scheduled task
+#   pwsh -ExecutionPolicy Bypass -File cleanup-zombie-processes.ps1            # dry-run (preview)
+#   pwsh -ExecutionPolicy Bypass -File cleanup-zombie-processes.ps1 -AutoClean # execute cleanup
+#   pwsh -ExecutionPolicy Bypass -File cleanup-zombie-processes.ps1 -AutoClean -Quiet  # scheduled task
 #
 # Exit codes: 0 = clean / nothing to do, 1 = cleanup performed, 2 = error
 #
