@@ -10,6 +10,7 @@ import {
   type LlmModel,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
+import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import {
   ChatScreen as SharedChatScreen,
@@ -23,108 +24,15 @@ import { useChatInput } from '../hooks/useChatInput'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-const FALLBACK_MODELS: LlmModel[] = [
-  {
-    // 默认模型与 web 端 chat store 对齐(2026-07-30):web 已从 step-3.7-flash 迁移到 step-router-v1
-    id: 'stepfun/step-router-v1',
-    name: 'Step Router v1',
-    provider: 'stepfun',
-    context_length: 8192,
-    input_price: 0,
-  },
-  {
-    id: 'stepfun/step-3.7-flash',
-    name: 'Step 3.7 Flash',
-    provider: 'stepfun',
-    context_length: 8192,
-    input_price: 0,
-  },
-  {
-    id: 'openai/gpt-4o-mini',
-    name: 'GPT-4o mini',
-    provider: 'openai',
-    context_length: 128000,
-    input_price: 0,
-  },
-  {
-    id: 'anthropic/claude-3.5-haiku',
-    name: 'Claude 3.5 Haiku',
-    provider: 'anthropic',
-    context_length: 200000,
-    input_price: 0,
-  },
-  // 2026-07-22 新增免费 / 试用 credits provider 兜底(参考 cheahjs/free-llm-api-resources)
-  {
-    id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-    name: 'Llama 3.3 70B Fast (Cloudflare 免费)',
-    provider: 'cloudflare_workers_ai',
-    context_length: 128000,
-    input_price: 0,
-  },
-  {
-    id: 'nvidia/llama-3.1-nemotron-70b-instruct',
-    name: 'Llama 3.1 Nemotron 70B (NVIDIA NIM 免费)',
-    provider: 'nvidia_nim',
-    context_length: 128000,
-    input_price: 0,
-  },
-  {
-    id: 'github/gpt-4o',
-    name: 'GPT-4o (GitHub Models 免费)',
-    provider: 'github_models',
-    context_length: 128000,
-    input_price: 0,
-  },
-  {
-    id: 'vercel/auto',
-    name: 'Vercel AI Gateway Auto',
-    provider: 'vercel_ai_gateway',
-    context_length: 128000,
-    input_price: 0,
-  },
-  {
-    id: 'opencode/big-pickle-stealth',
-    name: 'Big Pickle Stealth (OpenCode Zen 免费)',
-    provider: 'opencode_zen',
-    context_length: 256000,
-    input_price: 0,
-  },
-  {
-    id: 'modal/labcompute/qwen2.5-72b',
-    name: 'Qwen2.5 72B (Modal 试用 credits)',
-    provider: 'modal',
-    context_length: 32768,
-    input_price: 0,
-  },
-  {
-    id: 'inferencenet/meta-llama/Llama-3.3-70B-Instruct',
-    name: 'Llama 3.3 70B (Inference.net 试用 credits)',
-    provider: 'inferencenet',
-    context_length: 128000,
-    input_price: 0,
-  },
-  {
-    id: 'nlpcloud/finetuned-llama-3-70b',
-    name: 'Finetuned Llama 3 70B (NLP Cloud 试用 credits)',
-    provider: 'nlpcloud',
-    context_length: 32768,
-    input_price: 0,
-  },
-  {
-    id: 'scaleway/mistral-small-3.2-24b-instruct-2506',
-    name: 'Mistral Small 3.2 24B (Scaleway 免费)',
-    provider: 'scaleway',
-    context_length: 128000,
-    input_price: 0,
-  },
-  {
-    id: 'alibaba-intl/qwen-max',
-    name: 'Qwen Max (Alibaba Intl 免费)',
-    provider: 'alibaba_intl',
-    context_length: 131072,
-    input_price: 0,
-  },
-]
+// 共享层兜底模型(FallbackModel:value/label/vendor)→ LlmModel 形态
+// 2026-08-04 Phase E 收敛:13 个硬编码模型收敛到共享层 3 个(AGENTS.md §3)
+const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
+  id: m.value,
+  name: m.label,
+  provider: m.vendor,
+  context_length: 8192,
+  input_price: 0,
+}))
 
 function toChatScreenModel(m: LlmModel): ChatScreenModel {
   return {
