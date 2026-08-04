@@ -1577,6 +1577,10 @@ export interface LoginScreenProps {
   /** logo 图片源(RN Image source,如 require('../../assets/logo.png'))。
    * 不传则渲染深色方块+IHUI 文字作为 fallback,对齐 web AuthShell logo 占位。 */
   logoSource?: number | { uri: string }
+  /** welcome 图标节点(logo 右侧的品牌文字图,对齐 web AuthShell 的 welcome.svg)。
+   * 推荐用 react-native-svg 的 SvgXml 渲染 welcome.svg/baiwelcome.svg 内容。
+   * 不传则 fallback 到纯文字 "IHUI AI"(不推荐 — 与 web 端视觉不一致)。 */
+  welcomeNode?: ReactNode
 
   // ===== 4-tab 扩展(可选,未传则只渲染 password tab,保持向后兼容) =====
 
