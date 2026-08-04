@@ -42,6 +42,17 @@ export interface OAuthRedirectResult {
   cancelled?: boolean
 }
 
+/**
+ * App 系统拦截的 deep link 前缀(openAuthSessionAsync 第二参数)。
+ *
+ * 与 OAuth provider 的 redirect_uri 区分:
+ * - redirectUri(传给 provider)= `http://localhost:8801/callback?platform=xxx&redirect=mobile-rn`(web 端 callback 页)
+ * - appReturnUri(本常量,告诉系统哪个 URL 触发返回 App)= `ihui://oauth/callback`
+ *
+ * 流程:provider 回调 web callback 页 → web 检测 redirect=mobile-rn → 跳转 ihui://oauth/callback?xxx → 系统拦截,关闭浏览器,返回 App
+ */
+export const OAUTH_APP_RETURN_URI = 'ihui://oauth/callback'
+
 // 环境变量(各平台 OAuth 授权 URL 构造所需)
 const FEISHU_APP_ID = process.env.EXPO_PUBLIC_FEISHU_APP_ID
 const WECOM_CORP_ID = process.env.EXPO_PUBLIC_WECOM_CORP_ID
@@ -97,12 +108,14 @@ export async function callOAuthCallback(
  * 通用 OAuth 跳转流程:打开浏览器 → 拿 code + state → 校验 state → 调 loginApi 换 JWT。
  * 导出原因:apple.ts 需复用本函数走 Android web OAuth 跳转流程。
  * @param authUrl OAuth 授权页 URL(不含 state,本函数会自动附加 state 防 CSRF)
- * @param redirectUri 用于 Android 让系统知道哪个 URL 触发返回 App
+ * @param _redirectUri OAuth provider 的回调地址(web 端 callback 页,含 ?platform=xxx&redirect=mobile-rn)。
+ *        已编码进 authUrl,本函数内部不再直接使用(下划线前缀表示有意保留参数以维持调用契约,
+ *        apple.ts 等外部调用方仍传此参数)。openAuthSessionAsync 第二参数固定为 OAUTH_APP_RETURN_URI。
  * @param loginApi 拿到 code 后调后端换 JWT 的函数(各平台可能不同)
  */
 export async function openOAuthAndLogin(
   authUrl: string,
-  redirectUri: string,
+  _redirectUri: string,
   loginApi: (code: string, state: string) => Promise<OAuthRedirectResult>,
 ): Promise<OAuthRedirectResult> {
   const state = generateState()
@@ -113,7 +126,7 @@ export async function openOAuthAndLogin(
 
   let result: WebBrowser.WebBrowserAuthSessionResult
   try {
-    result = await WebBrowser.openAuthSessionAsync(urlWithState, redirectUri)
+    result = await WebBrowser.openAuthSessionAsync(urlWithState, OAUTH_APP_RETURN_URI)
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : '浏览器打开失败' }
   }
@@ -148,7 +161,7 @@ export async function loginByFeishuRedirect(): Promise<OAuthRedirectResult> {
   if (!FEISHU_APP_ID) {
     return { success: false, error: '未配置 EXPO_PUBLIC_FEISHU_APP_ID' }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=feishu`
+  const redirectUri = `${WEB_BASE_URL}/callback?platform=feishu&redirect=mobile-rn`
   const authUrl =
     `https://open.feishu.cn/open-apis/authen/v1/authorize` +
     `?app_id=${encodeURIComponent(FEISHU_APP_ID)}` +
@@ -176,7 +189,7 @@ export async function loginByDingtalkRedirect(): Promise<OAuthRedirectResult> {
   }
 
   // 2. 打开浏览器拿 code → dingtalkLogin(code) 换 JWT(保持与现有契约一致,不走通用 oauthCallback)
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=dingtalk`
+  const redirectUri = `${WEB_BASE_URL}/callback?platform=dingtalk&redirect=mobile-rn`
   return openOAuthAndLogin(authUrl, redirectUri, async (code) => {
     try {
       const res = await dingtalkLogin(code)
@@ -198,7 +211,7 @@ export async function loginByWecomRedirect(): Promise<OAuthRedirectResult> {
       error: '未配置 EXPO_PUBLIC_WECOM_CORP_ID / EXPO_PUBLIC_WECOM_AGENT_ID',
     }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=enterpriseWechat`
+  const redirectUri = `${WEB_BASE_URL}/callback?platform=enterpriseWechat&redirect=mobile-rn`
   const authUrl =
     `https://login.work.weixin.qq.com/wwlogin/sso/login` +
     `?login_type=CorpApp` +
@@ -224,7 +237,7 @@ export async function loginByGoogleRedirect(): Promise<OAuthRedirectResult> {
   if (!GOOGLE_CLIENT_ID) {
     return { success: false, error: '未配置 EXPO_PUBLIC_GOOGLE_CLIENT_ID' }
   }
-  const redirectUri = `${WEB_BASE_URL}/callback?platform=google`
+  const redirectUri = `${WEB_BASE_URL}/callback?platform=google&redirect=mobile-rn`
   const authUrl =
     `https://accounts.google.com/o/oauth2/v2/auth` +
     `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
