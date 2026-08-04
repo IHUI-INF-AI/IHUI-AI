@@ -687,6 +687,8 @@ export function LoginScreen(props: LoginScreenProps) {
     // eye icons
     eyeIconShow,
     eyeIconHide,
+    // welcome 图标节点(对齐 web AuthShell welcome.svg)
+    welcomeNode,
   } = props
 
   const tk = getTokens(colorScheme)
@@ -741,7 +743,7 @@ export function LoginScreen(props: LoginScreenProps) {
   return (
     <View style={styles.page}>
       <View style={styles.card}>
-        {/* 顶部 logo 区(对齐 web AuthShell 顶部区) */}
+        {/* 顶部 logo 区(对齐 web AuthShell:logo 31×31 + welcome 图 340×52) */}
         <View style={styles.header}>
           {logoSource ? (
             <Image source={logoSource} style={imageStyles.logoImage} resizeMode="contain" />
@@ -750,7 +752,7 @@ export function LoginScreen(props: LoginScreenProps) {
               <Text style={styles.logoText}>IHUI</Text>
             </View>
           )}
-          <Text style={styles.welcomeText}>IHUI AI</Text>
+          {welcomeNode ?? <Text style={styles.welcomeText}>IHUI AI</Text>}
         </View>
 
         {/* 错误提示(对齐 web ErrorAlert) */}
