@@ -9,7 +9,7 @@
 # Uses wscript.exe + VBS launcher for ZERO window popup.
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File d:\桌面\项目\IHUI-AI\scripts\install-zombie-guardian.ps1
+#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\install-zombie-guardian.ps1
 #
 # Idempotent: re-running unregisters the old task and registers a new one.
 # ============================================================================
@@ -111,6 +111,6 @@ Write-Host ("  LastRunTime: " + $taskInfo.LastRunTime)
 Write-Host ("  NextRunTime: " + $taskInfo.NextRunTime)
 Write-Host ""
 Write-Host "Manage:" -ForegroundColor Cyan
-Write-Host "  Status:    powershell -ExecutionPolicy Bypass -File `"$ScriptsDir\zombie-guardian-status.ps1`""
-Write-Host "  Uninstall: powershell -ExecutionPolicy Bypass -File `"$ScriptsDir\uninstall-zombie-guardian.ps1`""
-Write-Host "  Manual run: powershell -ExecutionPolicy Bypass -File `"$CleanupScript`" -AutoClean"
+Write-Host "  Status:    pwsh -ExecutionPolicy Bypass -File `"$ScriptsDir\zombie-guardian-status.ps1`""
+Write-Host "  Uninstall: pwsh -ExecutionPolicy Bypass -File `"$ScriptsDir\uninstall-zombie-guardian.ps1`""
+Write-Host "  Manual run: pwsh -ExecutionPolicy Bypass -File `"$CleanupScript`" -AutoClean"
