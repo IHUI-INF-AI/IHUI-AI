@@ -104,11 +104,6 @@ catalog:
   zod: ^4.0.0 # L4:3.x→4.x major(已迁移:z.string().ip()→z.union([z.ipv4(),z.ipv6()])、errorMap→error、.flatten()→z.treeifyError、.passthrough()→z.looseObject()、z.record(z.x)→z.record(z.string(),z.x)、z.string().email()→z.email())
   eslint: ^10.0.0 # L2:9.x→10.x major(已评估:flat config 已就位 + typescript-eslint v8.56+ 支持 + Node 24 满足要求)
   zustand: ^5.0.14 # L1:5.0.2 → 5.0.14 patch
-  # P3-1.2 新增(2026-08-01)— 类名合并 + 样式变体 + 图标库,design-tokens/ui-react/web 共用
-  clsx: ^2.1.1 # design-tokens + web + ui-react(间接)
-  tailwind-merge: ^3.6.0 # L5:2.x→3.x major(API 兼容)
-  class-variance-authority: ^0.7.1 # design-tokens + ui-react + ui-native
-  lucide-react: ^0.460.0 # ui-react(web 仍用 ^0.562.0 硬编码,待后续迁移 catalog:)
 
 # ============== pnpm 11 配置迁移(2026-08-03)==============
 # pnpm 11 不再读取 package.json 的 pnpm 字段,overrides/peerDependencyRules
