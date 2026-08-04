@@ -47,15 +47,15 @@ export type { LoginScreenProps }
  *  (RN Image 的 style prop 拒绝 view/text style 联合,须独立成表) */
 const imageStyles = StyleSheet.create({
   thirdPartyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   // 无图标 fallback:品牌色圆形背景 + 白色首字母(对齐 web ThirdPartyLoginButtons 视觉)
   thirdPartyFallback: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#999999',
@@ -267,7 +267,7 @@ function PrimaryLoginButton({ t, styles, loading, onPress }: PrimaryLoginButtonP
   )
 }
 
-/** 第三方登录区 — 3 列网格 + 40×40 圆形按钮(对齐 web ThirdPartyLoginButtons) */
+/** 第三方登录区 — 4 列网格 + 44×44 圆形按钮 + 分隔线(对齐 web ThirdPartyLoginButtons 视觉) */
 function ThirdPartyLoginArea({
   styles,
   tk,
@@ -277,6 +277,12 @@ function ThirdPartyLoginArea({
 }: ThirdPartyLoginAreaProps) {
   return (
     <View style={styles.thirdPartyArea}>
+      {/* 分隔线:"或"居中(对齐 web 端 or-divider) */}
+      <View style={styles.thirdPartyDivider}>
+        <View style={styles.thirdPartyDividerLine} />
+        <Text style={styles.thirdPartyDividerText}>{'或'}</Text>
+        <View style={styles.thirdPartyDividerLine} />
+      </View>
       <Text style={styles.thirdPartyTitle}>{'第三方登录'}</Text>
       <View style={styles.thirdPartyGrid}>
         {options.map((opt) => {
@@ -839,8 +845,7 @@ export function LoginScreen(props: LoginScreenProps) {
           />
         ) : null}
 
-        {/* 分隔 + SSO 按钮(对齐 web outline 按钮) */}
-        <Text style={styles.orDivider}>{'或'}</Text>
+        {/* SSO 按钮(对齐 web outline 按钮) */}
         <TouchableOpacity
           style={[styles.ssoBtn, disabled && styles.btnDisabled]}
           onPress={onSsoLogin}
@@ -1124,13 +1129,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     btnDisabled: {
       opacity: 0.6,
     },
-    // ===== SSO 按钮 + 分隔 =====
-    orDivider: {
-      fontSize: 12,
-      color: tk.text.tertiary,
-      textAlign: 'center',
-      marginVertical: 16,
-    },
+    // ===== SSO 按钮 =====
     ssoBtn: {
       height: 40,
       borderRadius: 6,
@@ -1170,22 +1169,38 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // ===== 第三方登录区 =====
     thirdPartyArea: {
-      marginTop: 16,
+      marginTop: 20,
+    },
+    // "或"分隔线:左右细线 + 中间文字(对齐 web or-divider)
+    thirdPartyDivider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+    },
+    thirdPartyDividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: tk.border.light,
+    },
+    thirdPartyDividerText: {
+      fontSize: 12,
+      color: tk.text.tertiary,
+      marginHorizontal: 12,
     },
     thirdPartyTitle: {
       fontSize: 12,
       color: tk.text.tertiary,
       textAlign: 'center',
-      marginBottom: 12,
+      marginBottom: 16,
     },
+    // 4 列网格:8 个按钮整齐排成 2 行(33% → 25%,避免末行 2 个按钮偏移)
     thirdPartyGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      justifyContent: 'space-around',
     },
     thirdPartyBtn: {
-      width: '33%',
-      padding: 4,
+      width: '25%',
+      paddingVertical: 6,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1193,16 +1208,16 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       opacity: 0.5,
     },
     thirdPartyIconText: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
       textAlign: 'center',
-      lineHeight: 38,
+      lineHeight: 42,
       overflow: 'hidden',
     },
     // ===== QR tab =====
