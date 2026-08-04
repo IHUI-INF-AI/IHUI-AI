@@ -14,9 +14,15 @@ import {
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens } from '@ihui/rn-app'
-import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
+import type {
+  LoginTab,
+  QrPlatformOption,
+  ThirdPartyLoginOption,
+  ThirdPartyPlatform,
+} from '@ihui/types'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { WEB_BASE_URL } from '../lib/config'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { rnAuthStore } from '../stores/auth-store'
@@ -74,6 +80,41 @@ const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {
   apple: require('../../assets/images/common/apple.svg'),
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
+
+// 扫码登录平台配置(4 平台:微信/企微/钉钉/飞书,对齐 web 端 qr-tab 平台切换)
+// 2026-08-04 新增:RN 端无法直接加载各厂商 SDK(WxLogin/WwLogin/DTFrameLogin/QRLogin 依赖 DOM),
+// 共享 QrTabContent 渲染平台切换 tab + 二维码占位 + "打开网页扫码"按钮(Linking.openURL 跳 web)。
+// webUrl 拼接 WEB_BASE_URL + web 端相对路径,RN Linking 需要完整 URL。
+const QR_PLATFORMS: QrPlatformOption[] = [
+  {
+    key: 'wechat',
+    label: '微信',
+    iconSource: THIRD_PARTY_ICONS.wechat,
+    brandColor: '#07C160',
+    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=wechat`,
+  },
+  {
+    key: 'enterpriseWechat',
+    label: '企业微信',
+    iconSource: THIRD_PARTY_ICONS.enterpriseWechat,
+    brandColor: '#2DC100',
+    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=enterpriseWechat`,
+  },
+  {
+    key: 'dingtalk',
+    label: '钉钉',
+    iconSource: THIRD_PARTY_ICONS.dingtalk,
+    brandColor: '#0089FF',
+    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=dingtalk`,
+  },
+  {
+    key: 'feishu',
+    label: '飞书',
+    iconSource: THIRD_PARTY_ICONS.feishu,
+    brandColor: '#3370FF',
+    webUrl: `${WEB_BASE_URL}/login?method=qr&platform=feishu`,
+  },
+]
 
 // 第三方登录配置:按平台 + locale 动态生成(2026-08-04 用户需求)
 // - 国内版(zh-*):安卓 = 微信/飞书/钉钉/企微(4个);iOS = 微信/飞书/钉钉/企微/苹果(5个,苹果为主排首位)
@@ -515,6 +556,9 @@ export function LoginScreen() {
           // 密码显示/隐藏图标(对齐 web lucide Eye/EyeOff,解决 emoji 在 Windows 渲染损坏)
           eyeIconShow={<Eye size={18} color={eyeIconColor} />}
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
+          // 扫码登录平台切换(4 平台:微信/企微/钉钉/飞书)
+          qrPlatforms={QR_PLATFORMS}
+          qrConfig={{ status: 'idle' }}
         />
       </View>
     </View>
