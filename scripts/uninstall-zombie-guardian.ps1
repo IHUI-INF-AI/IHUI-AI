@@ -7,7 +7,7 @@
 # scripts (they remain in scripts/ for manual use).
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File d:\桌面\项目\IHUI-AI\scripts\uninstall-zombie-guardian.ps1
+#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\uninstall-zombie-guardian.ps1
 # ============================================================================
 
 #Requires -Version 5.0
@@ -30,10 +30,10 @@ if ($task) {
 }
 
 # ---- 2. Kill any lingering daemon PowerShell process (v2.0) ----
-# The daemon survives task stop because it's a detached powershell.exe child.
+# The daemon survives task stop because it's a detached pwsh.exe child.
 # Find by command line match and force-kill.
 Write-Host "  Scanning for lingering daemon processes..."
-$daemonProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+$daemonProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*zombie-guardian-daemon.ps1*' }
 if ($daemonProcs) {
     foreach ($dp in $daemonProcs) {
@@ -49,7 +49,7 @@ if ($daemonProcs) {
 }
 
 # Also kill any stale v1.0 cleanup processes (just in case)
-$staleCleanup = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+$staleCleanup = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*cleanup-zombie-processes.ps1*' -and $_.CommandLine -like '*-Quiet*' }
 foreach ($sc in $staleCleanup) {
     try { Stop-Process -Id $sc.ProcessId -Force -ErrorAction Stop; Write-Host "  Killed stale cleanup PID $($sc.ProcessId)" } catch {}
@@ -57,7 +57,7 @@ foreach ($sc in $staleCleanup) {
 
 # ---- 3. Confirm ----
 $stillTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-$stillDaemon = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+$stillDaemon = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*zombie-guardian-daemon.ps1*' }
 
 Write-Host ""
@@ -74,4 +74,4 @@ if ($stillDaemon) {
 }
 Write-Host "  Scripts:  retained in scripts/ (manual use still available)"
 Write-Host ""
-Write-Host "To re-install v2.0 daemon: powershell -ExecutionPolicy Bypass -File `"$PSScriptRoot\install-zombie-guardian-daemon.ps1`""
+Write-Host "To re-install v2.0 daemon: pwsh -ExecutionPolicy Bypass -File `"$PSScriptRoot\install-zombie-guardian-daemon.ps1`""

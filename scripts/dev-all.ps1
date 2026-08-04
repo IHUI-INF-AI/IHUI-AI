@@ -6,9 +6,9 @@
   本脚本由用户在真实 PowerShell 中执行, 派生独立窗口运行每个服务, 互不干扰.
 
   用法:
-    powershell -ExecutionPolicy Bypass -File scripts\dev-all.ps1            # 启动全部
-    powershell -ExecutionPolicy Bypass -File scripts\dev-all.ps1 -CheckOnly # 仅健康检查
-    powershell -ExecutionPolicy Bypass -File scripts\dev-all.ps1 -Stop      # 停止所有 dev 服务
+    pwsh -ExecutionPolicy Bypass -File scripts\dev-all.ps1            # 启动全部
+    pwsh -ExecutionPolicy Bypass -File scripts\dev-all.ps1 -CheckOnly # 仅健康检查
+    pwsh -ExecutionPolicy Bypass -File scripts\dev-all.ps1 -Stop      # 停止所有 dev 服务
 
   依赖: pnpm, Node.js >=20.10, PostgreSQL (127.0.0.1:5432), Redis (127.0.0.1:6379)
 .AUTHOR
@@ -155,7 +155,7 @@ Write-Host ''
 $Command
 "@
   $encoded = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($innerScript))
-  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-EncodedCommand', $encoded) -WindowStyle Hidden | Out-Null
+  Start-Process -FilePath 'pwsh.exe' -ArgumentList @('-NoExit', '-EncodedCommand', $encoded) -WindowStyle Hidden | Out-Null
 
   if ($WaitSec -gt 0) {
     Write-Host "    等待 $WaitSec 秒让 $Name 初始化..." -ForegroundColor DarkGray
@@ -200,7 +200,7 @@ function Start-AllServices {
 
   Write-Section '完成'
   Write-Host "  浏览器访问: http://localhost:$WebPort" -ForegroundColor Cyan
-  Write-Host "  停止所有服务: powershell -File scripts\dev-all.ps1 -Stop" -ForegroundColor DarkGray
+  Write-Host "  停止所有服务: pwsh -File scripts\dev-all.ps1 -Stop" -ForegroundColor DarkGray
   Write-Host ''
 }
 

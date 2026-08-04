@@ -15,7 +15,7 @@
 # Robust: every loop is wrapped in try/catch, daemon never exits on error.
 #
 # Usage (normally via scheduled task, but can run manually):
-#   powershell -ExecutionPolicy Bypass -File zombie-guardian-daemon.ps1
+#   pwsh -ExecutionPolicy Bypass -File zombie-guardian-daemon.ps1
 # ============================================================================
 
 #Requires -Version 5.0

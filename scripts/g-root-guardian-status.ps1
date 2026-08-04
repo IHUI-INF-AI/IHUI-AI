@@ -5,7 +5,7 @@
 # entries, and BLOCKED/ALLOWED/ERROR counts.
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1
+#   pwsh -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1
 #
 # Read-only: does not modify any state.
 # ============================================================================

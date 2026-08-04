@@ -293,10 +293,10 @@ async function updateSessionMetaExit(
 
 // ==================== 工具函数 ====================
 
-/** 获取用户 shell(Windows: powershell, Unix: /bin/bash 或 $SHELL) */
+/** 获取用户 shell(Windows: pwsh, Unix: /bin/bash 或 $SHELL) */
 function getDefaultShell(): string {
   if (process.platform === 'win32') {
-    return process.env.COMSPEC || 'powershell.exe'
+    return process.env.COMSPEC || 'pwsh.exe'
   }
   return process.env.SHELL || '/bin/bash'
 }
@@ -306,7 +306,7 @@ function resolveShellByName(name: string): string {
   if (process.platform === 'win32') {
     switch (name) {
       case 'powershell':
-        return 'powershell.exe'
+        return 'pwsh.exe'
       case 'cmd':
         return process.env.COMSPEC || 'cmd.exe'
       case 'bash':
