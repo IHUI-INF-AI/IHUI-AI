@@ -43,6 +43,28 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
     const code = params.get('code')
     const state = params.get('state')
     const platformParam = params.get('platform')
+    const redirectTarget = params.get('redirect')
+
+    // mobile-rn OAuth 回调:不换 token,直接跳转 ihui:// deep link 回 App
+    // mobile-rn 端用 expo-web-browser.openAuthSessionAsync 发起 OAuth,
+    // 自己调 oauthCallback(platform, code, state) 换 JWT,web 端只做中转
+    if (redirectTarget === 'mobile-rn') {
+      if (!platformParam) {
+        setStatus('error')
+        setErrorMsg(t('error.missingPlatform'))
+        return
+      }
+      if (!code) {
+        setStatus('error')
+        setErrorMsg(t('error.missingCode'))
+        return
+      }
+      const deepLinkUrl = `ihui://oauth/callback?platform=${encodeURIComponent(platformParam)}&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state ?? '')}`
+      // window.location.href 触发系统 intent,iOS/Android 拦截 ihui:// scheme 返回 App
+      window.location.href = deepLinkUrl
+      setStatus('loading')
+      return
+    }
 
     const apiPath = buildApiPath(provider, platformParam)
 
