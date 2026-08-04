@@ -2067,6 +2067,36 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - agent-creation.ts `type='plugin'` 分支:查询 plugins 表(isActive=true 过滤 + keyword ILIKE + 分页)
   - plugins 表无 userId 字段(插件是平台级全局共享)
 
+## P1 mobile-rn 端第三方登录原生 SDK 授权(2026-08-04 立,平台独占:apps/mobile-rn,AGENTS.md §24 用户已确认)
+
+### 目标
+
+移除 App 端扫码登录 tab(App 端自己就是手机,无法扫自己),改为第三方登录原生 SDK 一键授权跳转。
+
+### 背景
+
+- App 端此前有"扫码登录"tab,产品逻辑错误(App 端自己就是手机,无法扫自己)
+- 第三方登录按钮点击只是 `Alert.alert` 占位提示"移动端暂未集成原生 SDK",既不调原生 SDK 也不跳 OAuth
+- `react-native-wechat-lib` 已装但未用,`app.config.js` 已配 config plugin,`android/` 已 prebuild
+- 后端已有 `POST /auth/:platform/callback` 统一回调(支持 8 平台)
+
+### 硬性指标
+
+- [x] H1:移除 mobile-rn 端 TABS 中的 'qr' 扫码登录 tab + 相关代码(QR_PLATFORMS / renderQrPanel / WebView import)
+- [ ] H2:微信原生 SDK 授权(native 平台):registerApp + isWXAppInstalled + sendAuthRequest → code → loginByWechat(code) → JWT
+- [ ] H3:web 平台 fallback:wechat-lib 原生模块不存在,wechat 按钮点击提示"请在原生 App 中使用"或走 expo-web-browser OAuth
+- [ ] H4:苹果 SDK(iOS only):保留 Alert(iOS 未 prebuild,Windows 无法构建,后续扩展)
+- [ ] H5:Google SDK(国际版):保留 Alert(凭据未配置,后续扩展)
+- [ ] H6:飞书/钉钉/企微:评估是否有 RN SDK,无则 expo-web-browser OAuth 跳转兜底
+- [ ] H7:`pnpm --filter @ihui/mobile-rn typecheck` exit 0
+
+### 约束边界
+
+- 平台独占:apps/mobile-rn(AGENTS.md §9 平台独占豁免)
+- react-native-wechat-lib 在 web 平台(Platform.OS === 'web')无法运行,需条件导入
+- 苹果 SDK 需要 ios/ prebuild + Xcode(当前环境 Windows 无法构建)
+- Google SDK 需要 GoogleService-Info.json 凭据(用户未提供)
+
 - [x] ✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口导致 500)
   - 根因:`apps/api` 代码(agents.ts / miniapp-compat-routes.ts)直接 SQL 引用 `user_token_balance` 表,但 TS schema 与 migration 从未定义,运行时 500 "关系 user_token_balance 不存在"
   - 新建 `packages/database/src/schema/user-token-balance.ts`(4 字段:userUuid 主键 / balance / frozenBalance / updatedAt,numeric(20,4) 支持积分小数)
