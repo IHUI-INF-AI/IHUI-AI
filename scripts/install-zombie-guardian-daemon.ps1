@@ -13,7 +13,7 @@
 # wscript.exe + VBS launcher for zero window popup.
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File d:\桌面\项目\IHUI-AI\scripts\install-zombie-guardian-daemon.ps1
+#   pwsh -ExecutionPolicy Bypass -File G:\IHUI-AI\scripts\install-zombie-guardian-daemon.ps1
 # ============================================================================
 
 #Requires -Version 5.0
@@ -51,7 +51,7 @@ if ($existing) {
 }
 
 # Also kill any lingering daemon PowerShell processes from prior install
-Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*zombie-guardian-daemon.ps1*' } |
     ForEach-Object {
         try { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop; Write-Host "  Killed stale daemon PID $($_.ProcessId)" } catch {}
@@ -96,7 +96,7 @@ Start-ScheduledTask -TaskName $TaskName
 Start-Sleep -Seconds 4
 
 # ---- 5. Verify daemon is running ----
-$daemonProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+$daemonProcs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*zombie-guardian-daemon.ps1*' }
 $task = Get-ScheduledTask -TaskName $TaskName
 $taskInfo = Get-ScheduledTaskInfo -TaskName $TaskName
@@ -116,6 +116,6 @@ Write-Host "  - > 92% : emergency kill zombies + trim all"
 Write-Host "  - Every ~30 min: full cleanup pass"
 Write-Host ""
 Write-Host "Manage:" -ForegroundColor Cyan
-Write-Host "  Status:    powershell -ExecutionPolicy Bypass -File `"$ScriptsDir\zombie-guardian-status.ps1`""
-Write-Host "  Uninstall: powershell -ExecutionPolicy Bypass -File `"$ScriptsDir\uninstall-zombie-guardian.ps1`""
+Write-Host "  Status:    pwsh -ExecutionPolicy Bypass -File `"$ScriptsDir\zombie-guardian-status.ps1`""
+Write-Host "  Uninstall: pwsh -ExecutionPolicy Bypass -File `"$ScriptsDir\uninstall-zombie-guardian.ps1`""
 Write-Host "  Log:       $ProjectRoot\.trae-cn\tmp\zombie-guardian.log"

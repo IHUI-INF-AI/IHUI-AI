@@ -324,8 +324,8 @@ test('BOM 违规时输出含 PowerShell 修复命令 + 根因说明(PowerShell W
     })
     const r = runScript(root)
     assert.equal(r.status, 1, `应 exit 1\nall: ${r.all}`)
-    // 修复命令包含 powershell 关键字和 WriteAllBytes
-    assert.match(r.all, /powershell -Command/)
+    // 修复命令包含 pwsh 关键字和 WriteAllBytes
+    assert.match(r.all, /pwsh -Command/)
     assert.match(r.all, /WriteAllBytes/)
     // 根因说明
     assert.match(r.all, /PowerShell WriteAllText 默认 UTF-16 LE BOM 编码/)

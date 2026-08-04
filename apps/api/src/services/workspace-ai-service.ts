@@ -789,7 +789,7 @@ class ComputerUseService {
     }
     const { stdout } = await execAsync(
       'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds',
-      { shell: 'powershell.exe', timeout: 5000 },
+      { shell: 'pwsh.exe', timeout: 5000 },
     )
     return { image: '', width: 1920, height: 1080, raw: stdout }
   }
@@ -805,7 +805,7 @@ class ComputerUseService {
     const btn = params.button ?? 'left'
     await execAsync(
       `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${params.x},${params.y})`,
-      { shell: 'powershell.exe', timeout: 5000 },
+      { shell: 'pwsh.exe', timeout: 5000 },
     )
     void btn
   }
@@ -822,7 +822,7 @@ class ComputerUseService {
     const encoded = Buffer.from(text, 'utf16le').toString('base64')
     await new Promise<void>((resolve, reject) => {
       execFile(
-        'powershell.exe',
+        'pwsh.exe',
         [
           '-NoProfile',
           '-NonInteractive',
@@ -847,7 +847,7 @@ class ComputerUseService {
     }
     await new Promise<void>((resolve, reject) => {
       execFile(
-        'powershell.exe',
+        'pwsh.exe',
         [
           '-NoProfile',
           '-NonInteractive',
