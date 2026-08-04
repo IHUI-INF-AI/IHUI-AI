@@ -276,7 +276,12 @@ async function registerPlugins(server: FastifyInstance) {
   )
   // OpenTelemetry 追踪（最先注册，最大化 instrument 覆盖；OTEL_ENABLED=false 时自动跳过）
   await server.register(otelPlugin)
-  await server.register(helmet, { contentSecurityPolicy: false })
+  await server.register(helmet, {
+    contentSecurityPolicy: false,
+    // 2026-08-04: 允许跨域资源共享(mobile-rn web 8805 / miniapp-taro 8804 需跨域调用 API 8802)
+    // helmet 默认 same-origin 会阻止浏览器读取跨域响应,即使 CORS 配置正确
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
   await server.register(cors, {
     // 2026-08-02 安全加固:CORS origin 从 zod 校验过的 config 读取(而非裸 process.env),
     // 并过滤 split 后的空字符串条目(防 "a,b," 尾逗号产生空 origin 匹配项)
