@@ -88,7 +88,7 @@ function useWebLoginApiClient(): LoginApiClient {
  * web 端只注入 SVG 图标 + labelKey,避免共享包默认 emoji 图标(💬 🏢 📌 ✈️)
  * 与第三方登录按钮区的 SVG 风格不一致。
  */
-const QR_PLATFORMS: QrPlatformConfig[] = [
+export const QR_PLATFORMS: QrPlatformConfig[] = [
   {
     // 本站 App 扫码登录(非第三方 OAuth,走 /api/auth/qr/* 端点)
     key: 'app',

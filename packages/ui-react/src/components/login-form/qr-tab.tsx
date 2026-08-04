@@ -21,6 +21,8 @@ export interface QrTabProps {
   }) => React.ReactNode
   /** 自定义平台列表(默认 4 个 wechat/wecom/dingtalk/feishu) */
   platforms?: QrPlatformConfig[]
+  /** 初始选中的平台(默认 list[0]?.key;用于 URL参数 ?platform=xxx 自动选中) */
+  defaultPlatform?: ThirdPartyPlatform
   /** 切换登录方式回调(默认跳到 email tab) */
   onSwitchMethod?: () => void
   className?: string
@@ -60,9 +62,13 @@ const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
  *   - 默认显示占位 + 打开网页按钮
  *   - web 端可注入 QrComponent 接管渲染逻辑,实现完全兼容旧行为
  */
-export function QrTab({ t, QrComponent, platforms, onSwitchMethod, className }: QrTabProps) {
+export function QrTab({ t, QrComponent, platforms, defaultPlatform, onSwitchMethod, className }: QrTabProps) {
   const list = platforms ?? DEFAULT_PLATFORMS
-  const [platform, setPlatform] = React.useState<ThirdPartyPlatform>(list[0]?.key ?? 'wechat')
+  const [platform, setPlatform] = React.useState<ThirdPartyPlatform>(
+    defaultPlatform && list.some((p) => p.key === defaultPlatform)
+      ? defaultPlatform
+      : list[0]?.key ?? 'wechat',
+  )
   const [refreshKey, setRefreshKey] = React.useState(0)
   const [loading, setLoading] = React.useState(false)
 
