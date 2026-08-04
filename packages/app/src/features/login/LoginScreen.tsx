@@ -46,25 +46,27 @@ export type { LoginScreenProps }
 /** image 专有 style sheet — module 顶层 const,所有子组件可直接引用
  *  (RN Image 的 style prop 拒绝 view/text style 联合,须独立成表) */
 const imageStyles = StyleSheet.create({
+  // 第三方登录图标:28×28 圆角(borderRadius 6 = rounded-md,符合圆角守门)
+  // 2026-08-04 从 44×44 圆形(borderRadius 22,违反圆角守门)缩小
   thirdPartyIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
   },
-  // 无图标 fallback:品牌色圆形背景 + 白色首字母(对齐 web ThirdPartyLoginButtons 视觉)
+  // 无图标 fallback:品牌色圆角背景 + 白色首字母(对齐 web ThirdPartyLoginButtons 视觉)
   thirdPartyFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#999999',
   },
   thirdPartyFallbackText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    lineHeight: 14,
+    lineHeight: 13,
   },
   qrImage: {
     width: 200,
@@ -273,7 +275,10 @@ function PrimaryLoginButton({ t, styles, loading, onPress }: PrimaryLoginButtonP
   )
 }
 
-/** 第三方登录区 — 4 列网格 + 44×44 圆形按钮 + 分隔线(对齐 web ThirdPartyLoginButtons 视觉) */
+/** 第三方登录区 — 自适应居中网格 + 28×28 圆角图标 + 分隔线(对齐 web ThirdPartyLoginButtons 视觉)
+ * 2026-08-04 优化:删除"第三方登录"标题(冗余,分隔线"或"已足够分隔);
+ * 图标从 44×44 圆形(borderRadius 22,违反圆角守门)改为 28×28 圆角(borderRadius 6,rounded-md);
+ * 网格从固定 4 列百分比改为居中 flexWrap,适配不同平台登录方式数量(2/4/5 个)。 */
 function ThirdPartyLoginArea({
   styles,
   tk,
@@ -289,7 +294,6 @@ function ThirdPartyLoginArea({
         <Text style={styles.thirdPartyDividerText}>{'或'}</Text>
         <View style={styles.thirdPartyDividerLine} />
       </View>
-      <Text style={styles.thirdPartyTitle}>{'第三方登录'}</Text>
       <View style={styles.thirdPartyGrid}>
         {options.map((opt) => {
           const disabled = !opt.enabled || opt.forceDisabled === true
@@ -1210,20 +1214,19 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.tertiary,
       marginHorizontal: 12,
     },
-    thirdPartyTitle: {
-      fontSize: 12,
-      color: tk.text.tertiary,
-      textAlign: 'center',
-      marginBottom: 16,
-    },
-    // 4 列网格:8 个按钮整齐排成 2 行(33% → 25%,避免末行 2 个按钮偏移)
+    // 2026-08-04:删除 thirdPartyTitle(冗余,分隔线"或"已足够分隔)
+    // 自适应居中网格:不同平台登录方式数量不同(国内安卓4/国内iOS5/国际版2),
+    // 用 justifyContent center + gap 让按钮居中排列,自动换行
     thirdPartyGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 16,
     },
+    // 按钮容器:固定宽度 44(适配 28×28 图标 + padding),不再用百分比
     thirdPartyBtn: {
-      width: '25%',
-      paddingVertical: 6,
+      width: 44,
+      height: 44,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1231,16 +1234,16 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       opacity: 0.5,
     },
     thirdPartyIconText: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 28,
+      height: 28,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: 11,
       fontWeight: '600',
       color: tk.text.primary,
       textAlign: 'center',
-      lineHeight: 42,
+      lineHeight: 26,
       overflow: 'hidden',
     },
     // ===== QR tab =====
