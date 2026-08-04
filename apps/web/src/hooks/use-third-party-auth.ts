@@ -55,69 +55,12 @@ function callbackPath(platform: ThirdPartyPlatform): string {
   return `/api/auth/${platform}/callback`
 }
 
-/**
- * 判断平台是否配置了真实凭据(非 placeholder)。
- * 用于 demo 模式下区分:有真凭据走真 OAuth,无真凭据走本地 mock。
- * placeholder 命名约定:dev_xxx_placeholder_xxx
- */
-function hasRealCredentials(platform: ThirdPartyPlatform): boolean {
-  const config = getPlatformConfig(platform)
-  const id = config.clientId || config.appId || ''
-  if (!id) return false
-  if (id.startsWith('dev_') && id.includes('placeholder')) return false
-  return true
-}
-
 /** 绑定账号后端入口 */
 const BIND_PATH = '/api/user/bind-third-party'
 /** 解绑账号后端入口 */
 const UNBIND_PATH = '/api/user/unbind-third-party'
 /** 已绑定账号列表后端入口 */
 const BOUND_ACCOUNTS_PATH = '/api/user/third-party-accounts'
-
-/**
- * 判断是否为演示模式。
- * 优先读 NEXT_PUBLIC_DEMO_MODE，其次检查 URL 是否含 ?demo=1。
- *
- * ⚠️ Next.js 只在编译时静态替换 `process.env.NEXT_PUBLIC_*` 的直接字面量引用,
- * 不能用 `process.env[key]` 动态访问。所以这里直接引用 `process.env.NEXT_PUBLIC_DEMO_MODE`。
- */
-export function isDemoMode(): boolean {
-  // 🛡️ 生产环境硬性约束:无论 env 怎么设,都强制关闭 demo 模式
-  // 防止开发者忘记关 demo 导致生产环境任何人点登录按钮都绕过真实授权直接登录
-  if (process.env.NODE_ENV === 'production') return false
-
-  // 直接字面量引用,让 Next.js 编译器静态替换
-  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE
-  if (demoMode === 'true') {
-    return true
-  }
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search)
-    return params.get('demo') === '1'
-  }
-  return false
-}
-
-/** 构造演示模式下的本地回退登录数据（仅开发环境） */
-function buildFallbackLoginData(platform: ThirdPartyPlatform): ThirdPartyLoginResponse {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('第三方登录在未配置时不可用')
-  }
-  return {
-    token: `dev_${platform}_${Date.now()}`,
-    user: {
-      id: `${platform}_local_user`,
-      username: `${platform}_local_user`,
-      email: 'local@example.com',
-      nickname: `${PLATFORM_DISPLAY_NAMES[platform]}本地登录`,
-      avatar: '/images/common/empty.svg',
-      isVip: false,
-      inviteCode: 'LOCALTP',
-      createTime: new Date().toISOString(),
-    },
-  }
-}
 
 /** 登录成功后将 token/user 写入 auth store */
 function applyLoginData(data: ThirdPartyLoginResponse): void {
@@ -184,7 +127,7 @@ export interface UseThirdPartyAuthReturn {
  *
  * 等价自旧架构 client/src/features/third-party-login/stores/thirdPartyAuth.ts（Pinia），
  * 适配新架构 React + Zustand + sonner toast。
- * 覆盖：登录状态管理、账号绑定/解绑、平台启用判断、One Tap 登录、演示模式/本地回退。
+ * 覆盖：登录状态管理、账号绑定/解绑、平台启用判断、One Tap 登录。
  */
 export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
   const toast = useToast()
@@ -264,7 +207,7 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
 
   /**
    * 构造授权 URL（含 state CSRF 防护）并重定向。
-   * 优先使用后端代理入口（proxyPath）；演示模式或配置完整时直接跳转厂商授权页。
+   * 优先使用后端代理入口（proxyPath）；配置完整时直接跳转厂商授权页。
    */
   const startLogin = React.useCallback(
     async (platform: ThirdPartyPlatform): Promise<boolean> => {
@@ -274,20 +217,6 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
 
         if (!isPlatformEnabled(platform)) {
           throw new Error(`${displayName}登录未启用`)
-        }
-
-        // 演示模式 + 无真实凭据:跳转到本地 Mock 授权页,完整模拟 OAuth 流程
-        // 用户在 mock 页点"授权" → 跳回 /callback?code=mock_xxx&state=xxx
-        // callback handler 识别 mock_ 前缀 → 直接本地登录
-        // 有真实凭据(Google/GitHub/微信/钉钉/企业微信等)时跳过 mock,走真 OAuth 流程
-        if (isDemoMode() && !hasRealCredentials(platform)) {
-          const state = generateState()
-          saveOAuthState(platform, state)
-          const redirectUri = `/callback?platform=${platform}`
-          const appName = encodeURIComponent('IHUI-AI')
-          const mockUrl = `/oauth/mock/${platform}?state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}&app_name=${appName}`
-          window.location.href = mockUrl
-          return true
         }
 
         // 分域 SSO (2026-07-21):仅在生产主域(aizhs.top)上启用,
@@ -402,7 +331,7 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
 
   /**
    * 处理 OAuth 回调：校验 state → 调用后端 → 写入 auth store。
-   * 演示模式或后端失败时回退为本地数据。
+   * 后端失败或异常时显示错误提示，不再静默回退。
    */
   const handleCallback = React.useCallback(
     async (platform: ThirdPartyPlatform, code: string, state: string): Promise<boolean> => {
@@ -421,12 +350,6 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
       }
       clearOAuthState(platform)
 
-      // 演示模式：直接返回本地数据
-      if (isDemoMode()) {
-        await new Promise((r) => setTimeout(r, 600))
-        return handleLoginSuccess(platform, buildFallbackLoginData(platform))
-      }
-
       setIsLoading(true)
       try {
         const res = await fetchApi<ThirdPartyLoginResponse>(callbackPath(platform), {
@@ -437,13 +360,14 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
         if (res.success) {
           return await handleLoginSuccess(platform, res.data)
         }
-        // 后端失败 → 本地回退
-        toast.warning(`${displayName}后端登录失败，已启用本地回退`, res.error)
-        return await handleLoginSuccess(platform, buildFallbackLoginData(platform))
+        toast.error(`${displayName}登录失败`, res.error)
+        updateLoginState(platform, { status: 'failed', error: res.error })
+        return false
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error)
-        toast.warning(`${displayName}登录异常，已启用本地回退`, msg)
-        return await handleLoginSuccess(platform, buildFallbackLoginData(platform))
+        toast.error(`${displayName}登录异常`, msg)
+        updateLoginState(platform, { status: 'failed', error: msg })
+        return false
       } finally {
         setIsLoading(false)
       }
