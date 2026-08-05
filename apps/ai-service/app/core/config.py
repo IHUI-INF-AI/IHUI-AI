@@ -6,6 +6,7 @@ Pydantic Settings 默认大小写不敏感匹配环境变量,因此小写字段�
 """
 
 import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,8 +32,10 @@ class Settings(BaseSettings):
     cors_origin: str = ""
 
     # 数据存储
-    database_url: str = "postgres://postgres:postgres@localhost:8810/ihui_ai"
-    redis_url: str = "redis://localhost:8811"
+    # P2-9 修复(2026-08-06):原默认值含明文弱密码 postgres:postgres,部署未覆盖 DATABASE_URL
+    # 时是严重隐患。改为空字符串,使用处(数据库/Redis 连接)在空值时明确报错而非连本地。
+    database_url: str = ""
+    redis_url: str = ""
 
     # 定时任务调度(schedule_task 工具,对标 Codex Automations,2026-07-24 立)
     # schedule_enabled=False 时 ai-service 启动不挂载 BackgroundScheduler
@@ -228,3 +231,29 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def _sync_env_file_to_os() -> None:
+    """P1 修复(2026-08-06): pydantic-settings 只把 .env 值加载进 Settings 对象,
+    不会同步到 os.environ。而 llm_gateway._is_stub_mode()/LiteLLM 内部直接读
+    os.getenv(如 OPENAI_API_KEY / HUNYUAN_API_KEY 等),导致 .env 已配置 key 却
+    误判为 stub 模式。此处把 .env 中 LLM provider 相关变量同步到 os.environ
+    (setdefault 不覆盖已存在的系统环境变量,与 main.py 既有策略一致)。"""
+    try:
+        from dotenv import dotenv_values
+    except ImportError:
+        return
+    try:
+        values = dotenv_values(".env")
+    except OSError:
+        return
+    for key, value in (values or {}).items():
+        if not key or not value:
+            continue
+        if key.endswith(
+            ("_API_KEY", "_API_BASE", "_API_TOKEN", "_ACCESS_KEY_ID", "_AUTH_TOKEN")
+        ):
+            os.environ.setdefault(key, value)
+
+
+_sync_env_file_to_os()
