@@ -27,6 +27,7 @@ import {
   aiFeedHotItem,
   aiFeedSnapshot,
   aiFeedTrendSignal,
+  aiWorldItems,
   type AiFeedSource,
   type AiFeedHotItem,
 } from '@ihui/database'
@@ -380,6 +381,70 @@ export async function listFeedItems(opts: FeedItemListOpts): Promise<FeedItemLis
       .from(aiFeedHotItem)
       .where(where),
   ])
+
+  // 2026-08-05 修复:ai_feed_hot_item 生产为 0 条(ai_feed_source 源配置未初始化)导致
+  // /ai-news 时间线/热度榜空白。无任何筛选条件且空结果时,fallback 到 AI World 每日
+  // 同步数据(kind='news',每日 0/12 点更新,278+ 条真实资讯),映射为 AiFeedHotItem 形状。
+  const hasFilter = Boolean(opts.source || opts.category || opts.trend || opts.keyword)
+  if (!hasFilter && (totalRows[0]?.count ?? 0) === 0) {
+    try {
+      const world = await db
+        .select({
+          id: aiWorldItems.id,
+          title: aiWorldItems.title,
+          summary: aiWorldItems.summary,
+          url: aiWorldItems.url,
+          coverUrl: aiWorldItems.coverImage,
+          source: aiWorldItems.source,
+          publishTime: aiWorldItems.publishedAt,
+          lastSeenAt: aiWorldItems.fetchedAt,
+          trendingScore: aiWorldItems.trendingScore,
+          kind: aiWorldItems.kind,
+        })
+        .from(aiWorldItems)
+        .where(and(eq(aiWorldItems.kind, 'news'), eq(aiWorldItems.status, 1)))
+        .orderBy(desc(aiWorldItems.publishedAt), desc(aiWorldItems.fetchedAt))
+        .limit(opts.pageSize)
+      if (world.length > 0) {
+        const fallback: AiFeedHotItem[] = world.map((w) => ({
+          id: w.id,
+          sourceCode: w.source,
+          platformItemId: `aiw-${w.id}`,
+          title: w.title,
+          summary: w.summary ?? null,
+          url: w.url ?? null,
+          coverUrl: w.coverUrl ?? null,
+          author: w.source ?? null,
+          currentRank: null,
+          currentHot: w.trendingScore ?? null,
+          publishTime: w.publishTime ?? null,
+          firstSeenAt: w.lastSeenAt ?? new Date(),
+          lastSeenAt: w.lastSeenAt ?? new Date(),
+          llmCategory: w.kind === 'paper' ? 'paper' : 'industry',
+          llmTags: null,
+          llmSummary: null,
+          llmProcessedAt: null,
+          trendTag: null,
+          trendGrowthPct: null,
+          titleEn: null,
+          titleJa: null,
+          titleKo: null,
+          createdAt: w.lastSeenAt ?? new Date(),
+          updatedAt: w.lastSeenAt ?? new Date(),
+        }))
+        return {
+          list: fallback,
+          total: fallback.length,
+          page: opts.page,
+          pageSize: opts.pageSize,
+        }
+      }
+    } catch (e) {
+      logger.warn('[ai-feed] ai_world fallback failed', {
+        error: e instanceof Error ? e.message : e,
+      })
+    }
+  }
 
   return {
     list,
