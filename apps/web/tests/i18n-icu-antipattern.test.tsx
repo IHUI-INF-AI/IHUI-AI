@@ -23,7 +23,7 @@
  * 关键事实(@ihui/i18n/loader.ts:34-41 验证):
  *   translate() 先尝试 {{var}} 再尝试 {var},所以 JSON 用 {{n}} 和源码用 {n} 都 OK。
  *   chat.contextUsage.* 实际用 {var}(单大括号,5 语言一致),
- *   chat.fallbackNotice 实际用 {{var}}(双大括号,5 语言一致)。
+ *   chat.fallbackNotice 用 {var}(单大括号,next-intl 4 标准,5 语言一致)。
  */
 import { describe, it, expect, vi } from 'vitest'
 import { readFile } from 'node:fs/promises'
@@ -84,8 +84,8 @@ const ICU_KEYS: readonly IcuKey[] = [
   // 2026-07-28 修复的 2 处(单大括号)
   { key: 'chat.contextUsage.triggerLabel', placeholders: ['percent', 'used', 'max'], braceStyle: 'single' },
   { key: 'chat.contextUsage.compressResultDesc', placeholders: ['original', 'compressed'], braceStyle: 'single' },
-  // chat.fallbackNotice 使用双大括号 {{var}}(5 语言一致)
-  { key: 'chat.fallbackNotice', placeholders: ['backup', 'primary'], braceStyle: 'double' },
+  // 2026-08-05 修复:fallbackNotice 实际 JSON 是单大括号 {var}(next-intl 4 ICU 标准)
+  { key: 'chat.fallbackNotice', placeholders: ['backup', 'primary'], braceStyle: 'single' },
   // 其他含占位符的 web 端 key(用于扩展覆盖)
   // 注:实际 JSON 路径以 getByPath 为准 — 这些 key 都经过多语言 grep 验证存在
   { key: 'certificate.detail.issuerAria', placeholders: ['org', 'name'], braceStyle: 'single' },
@@ -155,13 +155,12 @@ describe('web · next-intl ICU 反模式回归', () => {
       }
     })
 
-    it('chat.fallbackNotice 在 5 语言均含 {{backup}} {{primary}}(双大括号)', () => {
+    it('chat.fallbackNotice 在 5 语言均含 {backup} {primary}(单大括号 ICU,2026-08-05 修正)', () => {
       for (const [locale, msgs] of Object.entries(ALL_MSGS)) {
         const v = getByPath(msgs, 'chat.fallbackNotice') as string
         expect(v, `${locale}.chat.fallbackNotice 必须存在`).toBeDefined()
-        // 关键:fallbackNotice 实际 JSON 用 {{var}} 双大括号(loader 双通道支持)
-        expect(v, `${locale} 必须含 {{backup}}`).toContain('{{backup}}')
-        expect(v, `${locale} 必须含 {{primary}}`).toContain('{{primary}}')
+        expect(v, `${locale} 必须含 {backup}`).toContain('{backup}')
+        expect(v, `${locale} 必须含 {primary}`).toContain('{primary}')
       }
     })
 

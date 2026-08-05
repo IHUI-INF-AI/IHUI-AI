@@ -1,7 +1,21 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
 import { render, cleanup, screen, fireEvent } from '@testing-library/react'
+
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string, params?: { count?: number }) => {
+    const fmt = (label: string, count: number) => `${label} (${count})`
+    switch (key) {
+      case 'plan': return fmt('计划', params?.count ?? 0)
+      case 'reference': return fmt('引用', params?.count ?? 0)
+      case 'toolCallStats': return `工具调用 (${params?.count ?? 0} 次)`
+      case 'moreItems': return `还有 ${params?.count ?? 0} 个`
+      case 'parameters': return '参数'
+      default: return key
+    }
+  },
+}))
 
 import { ToolCallCard } from '../tool-call-card'
 
@@ -202,7 +216,7 @@ describe('ToolCallCard summary rendering', () => {
     // 前 5 个 ref 渲染 + "... 还有 2 个" 提示
     expect(screen.getByText('file0.ts')).toBeTruthy()
     expect(screen.getByText('file4.ts')).toBeTruthy()
-    expect(screen.getByText('... 还有 2 个')).toBeTruthy()
+    expect(screen.getByText('还有 2 个')).toBeTruthy()
   })
 
   it('summary plans 状态为 completed 渲染绿色徽章', () => {
