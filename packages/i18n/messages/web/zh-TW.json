@@ -7717,7 +7717,11 @@
       }
     },
     "sort": {
-      "recommended": "推薦排序"
+      "recommended": "推薦排序",
+      "priceAsc": "價格從低到高",
+      "priceDesc": "價格從高到低",
+      "contextDesc": "上下文長度",
+      "nameAsc": "名稱 A-Z"
     },
     "view": {
       "grid": "網格檢視",

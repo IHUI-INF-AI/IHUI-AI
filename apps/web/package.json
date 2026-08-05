@@ -24,7 +24,8 @@
     "e2e:install": "playwright install chromium",
     "clean": "rimraf .next .turbo node_modules",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "build:static": "node scripts/build-static.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
