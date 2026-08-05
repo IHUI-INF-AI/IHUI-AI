@@ -434,6 +434,9 @@ async def check_schema(
     """
     own_pool = False
     if pool is None:
+        # P2-9(2026-08-06):database_url 未配置 fail-closed
+        if not settings.database_url:
+            raise RuntimeError("DATABASE_URL 未配置:请在 .env 设置")
         pool = await asyncpg.create_pool(
             dsn=settings.database_url,
             min_size=1,
