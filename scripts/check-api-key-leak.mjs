@@ -27,6 +27,9 @@ const isStaged = process.argv.includes('--staged')
 const KNOWN_KEY_PREFIXES = [
   'sk-irJTb1', // Agnes AI key 前缀
   '5iFfF0dl', // StepFun key 前缀
+  // Cloudflared tunnel token 前缀(account ID 段固定,rotate 后 s-field 变但前缀不变)
+  // 2026-08-05 立:曾发生旧 token 硬编码进 scripts/start-cloudflared-tunnel.ps1 提交事件
+  'eyJhIjoiNDhkY2Q1MDcyNGI1ZmVkMjFlOGRkNmNj',
 ]
 
 // 通用 API key 正则(sk- 开头 + 32+ 字符,或 64 位十六进制)
