@@ -115,6 +115,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // - collapsed prop 仍由用户手动折叠按钮控制(持久化 localStorage),小尺寸 CSS 只覆盖宽度
   //   不改 collapsed state,避免 hydration 问题和 JS 时序闪烁
 
+  // 2026-08-05 性能优化:useCallback 稳定回调引用,配合 React.memo(Sidebar) 防止
+  // GlobalShell 重渲染时 Sidebar 因 props 引用变化而跟随重渲染。
+  const handleToggleCollapse = React.useCallback(() => setCollapsed((c) => !c), [])
+  const handleCloseMobile = React.useCallback(() => setMobileOpen(false), [])
+
   // 页面刷新后:从 cookie 恢复 refreshToken + 按偏好启动自动续期(实现"记住 30 天")
   React.useEffect(() => {
     if (!mounted) return
@@ -185,9 +190,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           <Sidebar
             id={sidebarId}
             collapsed={collapsed}
-            onToggleCollapse={() => setCollapsed((c) => !c)}
+            onToggleCollapse={handleToggleCollapse}
             mobileOpen={mobileOpen}
-            onCloseMobile={() => setMobileOpen(false)}
+            onCloseMobile={handleCloseMobile}
           />
         </React.Suspense>
 
@@ -275,7 +280,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
               */}
               <div
                 className={cn(
-                  'absolute inset-0 z-10 bg-background transition-opacity duration-150',
+                  'absolute inset-0 z-10 bg-background transition-opacity duration-75',
                   pending ? 'opacity-100' : 'pointer-events-none opacity-0',
                 )}
                 role="status"
