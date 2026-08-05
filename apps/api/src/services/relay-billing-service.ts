@@ -25,6 +25,8 @@ import {
   aiPricing,
   aiModelConfigModels,
   aiModelConfig,
+  userMargins,
+  tokenFlows,
 } from '@ihui/database'
 import { getCurrentTierMultiplier } from './tiered-pricing-service.js'
 // Relay 返佣(2026-07-31 立,扣费后异步触发,失败不影响主链路)
@@ -766,48 +768,35 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
 
   const groupInfoForDeduct = await getKeyGroup(input.apiKeyId)
   if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
-    // === 扣组池(2026-08-01 立)===
-    const [groupRow] = await dbRead
-      .select({
-        sharedTokenBalance: apiKeyGroups.sharedTokenBalance,
-        sharedCostBalanceCents: apiKeyGroups.sharedCostBalanceCents,
-      })
-      .from(apiKeyGroups)
-      .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
-      .limit(1)
-
-    newTokenBalance = groupRow?.sharedTokenBalance ?? -1
-    newCostBalanceCents = groupRow?.sharedCostBalanceCents ?? -1
-
-    if (groupRow) {
-      const groupSetClause: Record<string, unknown> = { updatedAt: new Date() }
-
-      if (groupRow.sharedTokenBalance === -1) {
-        newTokenBalance = -1
-      } else {
-        newTokenBalance = Math.max(0, groupRow.sharedTokenBalance - input.totalTokens)
-        groupSetClause.sharedTokenBalance = newTokenBalance
-      }
-
-      if (groupRow.sharedCostBalanceCents === -1) {
-        newCostBalanceCents = -1
-      } else {
-        newCostBalanceCents = Math.max(0, groupRow.sharedCostBalanceCents - costCentsToDeduct)
-        groupSetClause.sharedCostBalanceCents = newCostBalanceCents
-      }
-
-      await db
+    // === 扣组池(2026-08-01 立;P0-8 修复 2026-08-05)===
+    // P0-8 原实现:dbRead 读余额 → 应用层计算 → db UPDATE,并发 Lost Update 超用平台额度。
+    // 改为原子 CASE WHEN 条件更新(与个人余额同模式),-1(无限额度)保持 -1,余额不足不扣减。
+    let updatedGroup:
+      | { sharedTokenBalance: number; sharedCostBalanceCents: number }
+      | undefined
+    try {
+      const groupRows = await db
         .update(apiKeyGroups)
-        .set(groupSetClause)
-        .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
-        .catch((err: unknown) => {
-          // P1 修复:扣减失败记录错误日志(原静默吞掉导致平台财务损失无法排查)
-          logger.error('[billing] 组池余额扣减失败', {
-            groupId: groupInfoForDeduct.groupId,
-            error: err instanceof Error ? err.message : String(err),
-          })
+        .set({
+          sharedTokenBalance: sql`CASE WHEN ${apiKeyGroups.sharedTokenBalance} = -1 THEN -1 WHEN ${apiKeyGroups.sharedTokenBalance} >= ${input.totalTokens} THEN ${apiKeyGroups.sharedTokenBalance} - ${input.totalTokens} ELSE ${apiKeyGroups.sharedTokenBalance} END`,
+          sharedCostBalanceCents: sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 WHEN ${apiKeyGroups.sharedCostBalanceCents} >= ${costCentsToDeduct} THEN ${apiKeyGroups.sharedCostBalanceCents} - ${costCentsToDeduct} ELSE ${apiKeyGroups.sharedCostBalanceCents} END`,
+          updatedAt: new Date(),
         })
+        .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
+        .returning({
+          sharedTokenBalance: apiKeyGroups.sharedTokenBalance,
+          sharedCostBalanceCents: apiKeyGroups.sharedCostBalanceCents,
+        })
+      updatedGroup = groupRows[0]
+    } catch (err) {
+      // 扣减失败记录错误日志(原静默吞掉导致平台财务损失无法排查)
+      logger.error('[billing] 组池余额扣减失败', {
+        groupId: groupInfoForDeduct.groupId,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
+    newTokenBalance = updatedGroup?.sharedTokenBalance ?? -1
+    newCostBalanceCents = updatedGroup?.sharedCostBalanceCents ?? -1
 
     // 同时累加 Key 个人统计(tokenUsedTotal / costUsedTotalCents,用于组内用量排行)
     await db
@@ -972,6 +961,77 @@ export async function adjustBalance(
   return updated
     ? { tokenBalance: updated.tokenBalance, costBalanceCents: updated.costBalanceCents }
     : null
+}
+
+/**
+ * P0-7 修复(2026-08-05):用户自充 API Key 余额原为无成本直加(adjustBalance),
+ * 普通用户可自充任意余额 = 免费无限额度。改为钱包转账:
+ * 事务内行锁 user_margins → 扣 token(1 token = 1 cent,与充值汇率一致) →
+ * API Key 加余额 → 写 token_flows 流水(opType=4,可审计)。
+ *
+ * @param tokenDelta / costDeltaCents 必须为正整数(>0)
+ * @throws {Error & {statusCode}} 余额不足 400 / Key 不存在 404
+ */
+export async function rechargeApiKeyFromWallet(
+  userId: string,
+  apiKeyId: string,
+  tokenDelta: number,
+  costDeltaCents: number,
+): Promise<{ tokenBalance: number; costBalanceCents: number } | null> {
+  if (!Number.isInteger(tokenDelta) || tokenDelta <= 0 || !Number.isInteger(costDeltaCents) || costDeltaCents <= 0) {
+    throw Object.assign(new Error('充值数量必须为正整数'), { statusCode: 400 })
+  }
+  // 1 token = 1 cent:cost 额度(分)需等额 token 支付
+  const totalTokensNeeded = tokenDelta + costDeltaCents
+  return db.transaction(async (tx) => {
+    // ① 行锁用户钱包
+    const [margin] = await tx
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .for('update')
+      .limit(1)
+    if (!margin || margin.tokenQuantity < totalTokensNeeded) {
+      throw Object.assign(new Error('钱包余额不足'), { statusCode: 400 })
+    }
+    const newWalletBalance = margin.tokenQuantity - totalTokensNeeded
+    // ② 扣减钱包
+    await tx
+      .update(userMargins)
+      .set({ tokenQuantity: newWalletBalance, updatedAt: new Date() })
+      .where(eq(userMargins.userId, userId))
+    await tx.insert(tokenFlows).values({
+      userId,
+      opType: 4,
+      quantity: totalTokensNeeded,
+      balanceAfter: newWalletBalance,
+      remark: `Relay API Key 充值:${apiKeyId}(token+${tokenDelta}, cost+${costDeltaCents})`,
+    })
+    // ③ API Key 加余额(行锁;tokenBalance/costBalanceCents = -1 无限额度则不动)
+    const [keyRow] = await tx
+      .select({
+        tokenBalance: developerApiKeys.tokenBalance,
+        costBalanceCents: developerApiKeys.costBalanceCents,
+      })
+      .from(developerApiKeys)
+      .where(eq(developerApiKeys.id, apiKeyId))
+      .for('update')
+      .limit(1)
+    if (!keyRow) throw Object.assign(new Error('API Key 不存在'), { statusCode: 404 })
+    const setClause: Record<string, unknown> = { updatedAt: new Date() }
+    if (keyRow.tokenBalance !== -1) setClause.tokenBalance = keyRow.tokenBalance + tokenDelta
+    if (keyRow.costBalanceCents !== -1) setClause.costBalanceCents = keyRow.costBalanceCents + costDeltaCents
+    const [updated] = await tx
+      .update(developerApiKeys)
+      .set(setClause)
+      .where(eq(developerApiKeys.id, apiKeyId))
+      .returning({
+        tokenBalance: developerApiKeys.tokenBalance,
+        costBalanceCents: developerApiKeys.costBalanceCents,
+      })
+    if (!updated) throw Object.assign(new Error('API Key 不存在'), { statusCode: 404 })
+    return { tokenBalance: updated.tokenBalance, costBalanceCents: updated.costBalanceCents }
+  })
 }
 
 // =============================================================================

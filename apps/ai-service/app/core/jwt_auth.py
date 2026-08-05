@@ -116,3 +116,31 @@ async def get_current_user_id(request: Request) -> str:
     if not user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return cast(str, user_id)
+
+
+def verify_access_token(token: str) -> Optional[dict[str, Any]]:
+    """模块级 access token 校验(供 WebSocket 握手等非 HTTP 场景手动调用)。
+
+    - 与 JWTAuthMiddleware._verify_token 同规则:HS256 + issuer + type=access(拒绝 refresh/challenge)。
+    - 返回 payload;无效/过期返回 None。
+    """
+    if not settings.jwt_secret:
+        return None
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=["HS256"],
+            issuer=settings.jwt_issuer,
+            options={"verify_aud": False},
+        )
+        # P1-2(2026-08-05):type 必须是 access,拒绝 refresh 与 challenge(2FA 短期 token)
+        if payload.get("type") and payload["type"] != "access":
+            return None
+        return payload
+    except jwt.ExpiredSignatureError:
+        logger.debug("JWT expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.debug("JWT invalid: %s", e)
+        return None

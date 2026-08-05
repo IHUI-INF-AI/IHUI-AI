@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { lookup } from 'node:dns/promises'
 import { checkAuth } from '../plugins/auth.js'
 import { success, parseOrThrow } from '../utils/response.js'
 
@@ -118,6 +119,12 @@ async function verifyUpstream(params: {
     return { valid: false, message: `不支持的厂商: ${params.providerCode}` }
   }
   const baseUrl = params.apiBase ?? cfg.baseUrl
+  // P1-9 SSRF 防护:用户可控 apiBase 必须 https + 纯 origin + DNS 解析后全部公网 IP
+  try {
+    await assertSafeApiBase(baseUrl)
+  } catch (e) {
+    return { valid: false, message: (e as Error).message }
+  }
   const testModel = params.model ?? cfg.defaultModel
   const start = Date.now()
   const controller = new AbortController()
@@ -141,6 +148,8 @@ async function verifyUpstream(params: {
         messages: [{ role: 'user', content: 'ping' }],
       }),
       signal: controller.signal,
+      // P1-9 禁止跟随重定向(重定向目标未经过 SSRF 校验,可能指向内网)
+      redirect: 'error',
     })
     const latencyMs = Date.now() - start
     if (res.ok) return { valid: true, latencyMs }
@@ -153,6 +162,66 @@ async function verifyUpstream(params: {
     return { valid: false, latencyMs, message: `验证失败: ${(e as Error).message}` }
   } finally {
     clearTimeout(timer)
+  }
+}
+
+// =============================================================================
+// P1-9 SSRF 防护:apiBase 校验(DNS 解析后全部公网 IP 才允许)
+// =============================================================================
+
+/** 判断 IPv4 是否为私网/保留地址(10/8、172.16/12、192.168/16、127/8、0/8、169.254/16、组播等) */
+function isPrivateIpv4(ip: string): boolean {
+  const parts = ip.split('.').map(Number)
+  if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) return true
+  const a = parts[0]!
+  const b = parts[1]!
+  if (a === 0 || a === 10 || a === 127) return true
+  if (a === 169 && b === 254) return true // 含云元数据 169.254.169.254
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  if (a >= 224) return true // 组播 224/4 + 保留
+  return false
+}
+
+/**
+ * 校验 apiBase 安全性:
+ * 1. 必须是合法 URL;
+ * 2. 必须 https;
+ * 3. 必须纯 origin(无 path/query/hash/userinfo);
+ * 4. 域名 DNS 解析后所有 A 记录必须为公网 IP(任一私网即拒绝)。
+ *
+ * @throws {Error} 任一条件不满足
+ */
+async function assertSafeApiBase(apiBase: string): Promise<void> {
+  let u: URL
+  try {
+    u = new URL(apiBase)
+  } catch {
+    throw new Error('apiBase 不是合法 URL')
+  }
+  if (u.protocol !== 'https:') throw new Error('apiBase 必须使用 https 协议')
+  if (u.username || u.password) throw new Error('apiBase 不能包含认证信息')
+  if (u.pathname !== '' && u.pathname !== '/')
+    throw new Error('apiBase 仅允许纯 origin,不能包含路径')
+  if (u.search || u.hash) throw new Error('apiBase 不能包含 query 或 hash')
+  const host = u.hostname
+  if (host.includes(':')) throw new Error('apiBase 不支持 IPv6 目标')
+
+  // IP 字面量:直接校验
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    if (isPrivateIpv4(host)) throw new Error('apiBase 不允许指向内网/保留地址')
+    return
+  }
+  // 域名:DNS 解析全部 A 记录,任一为私网即拒绝(防 DNS rebinding / 内网探测)
+  let addresses: { address: string }[]
+  try {
+    addresses = await lookup(host, { all: true })
+  } catch {
+    throw new Error('apiBase 域名无法解析')
+  }
+  if (addresses.length === 0) throw new Error('apiBase 域名无解析记录')
+  for (const { address } of addresses) {
+    if (isPrivateIpv4(address)) throw new Error('apiBase 解析到内网/保留地址,已拒绝')
   }
 }
 

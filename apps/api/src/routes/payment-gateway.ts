@@ -301,13 +301,13 @@ const wechatPayQuery = z.object({
 })
 
 const transferQuery = z.object({
-  amount: z.coerce.number(),
+  amount: z.coerce.number().positive(),
   bankAccount: z.string(),
   bankName: z.string().optional().default(''),
 })
 
 const withdrawalQuery = z.object({
-  amount: z.coerce.number(),
+  amount: z.coerce.number().positive(),
 })
 
 const orderNoQuery = z.object({ orderNo: z.string().optional() })
