@@ -21,7 +21,8 @@ import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2, ArrowLeft, ArrowRight, RotateCw, Copy, ExternalLink } from 'lucide-react'
 
-import { buildBrowserWsUrl } from '@ihui/api-client'
+import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
+import { useAuthStore } from '@/stores/auth'
 
 export interface CdpBrowserViewProps {
   /** Browser Hub 会话 ID(后端 createBrowserSession 返回) */
@@ -121,6 +122,8 @@ export function CdpBrowserView({
     setError(null)
     hasFirstFrame.current = false
 
+    // P0-4(2026-08-05):ai-service WS 握手要求 access token,连接前注入当前 token
+    setBrowserWsToken(useAuthStore.getState().token ?? '')
     const wsUrl = buildBrowserWsUrl(sessionId)
     let ws: WebSocket
     try {

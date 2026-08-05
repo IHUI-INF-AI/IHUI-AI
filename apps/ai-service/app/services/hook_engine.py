@@ -39,6 +39,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 # ====================== 常量 ======================
@@ -54,6 +56,18 @@ HOOK_EVENTS: tuple[str, ...] = (
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")
+
+# P0-5 高危动作白名单(2026-08-05):script(任意命令 RCE)/webhook(任意外发 SSRF)默认禁用,
+# 必须显式出现在 settings.hook_allowed_actions(逗号分隔)中才允许创建。
+HIGH_RISK_ACTIONS: frozenset[str] = frozenset({"script", "webhook"})
+
+
+def _action_allowed(action_type: str) -> bool:
+    """P0-5:高危动作必须显式加入白名单(settings.hook_allowed_actions)。"""
+    if action_type not in HIGH_RISK_ACTIONS:
+        return True
+    allowed = {a.strip() for a in settings.hook_allowed_actions.split(",") if a.strip()}
+    return action_type in allowed
 
 MAX_LOGS = 1000
 WEBHOOK_TIMEOUT = 5.0
@@ -413,19 +427,29 @@ class HookEngine:
 
     # ---------- CRUD ----------
 
-    def list_hooks(self, event: str | None = None) -> list[dict[str, Any]]:
-        """列出全部 Hook(可选按 event 过滤)。"""
+    def list_hooks(self, event: str | None = None, owner_id: str | None = None) -> list[dict[str, Any]]:
+        """列出 Hook(可选按 event 过滤;P0-5 支持按 owner_id 过滤)。"""
         hooks = list(self._hooks.values())
         if event:
             hooks = [h for h in hooks if h["event"] == event]
+        if owner_id is not None:
+            # 归属过滤:无 owner_id 字段的历史 Hook 视为系统级,仅管理员可见
+            hooks = [h for h in hooks if h.get("owner_id") == owner_id]
         # 按创建时间倒序
         hooks.sort(key=lambda h: h["createdAt"], reverse=True)
         return hooks
 
-    def get_hook(self, hook_id: str) -> dict[str, Any] | None:
-        return self._hooks.get(hook_id)
+    def get_hook(self, hook_id: str, owner_id: str | None = None) -> dict[str, Any] | None:
+        hook = self._hooks.get(hook_id)
+        if hook is None:
+            return None
+        if owner_id is not None and hook.get("owner_id") != owner_id:
+            return None
+        return hook
 
-    def create_hook(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def create_hook(
+        self, payload: dict[str, Any], owner_id: str | None = None
+    ) -> dict[str, Any]:
         now = datetime.utcnow().isoformat() + "Z"
         hook: dict[str, Any] = {
             "id": f"hk-{uuid.uuid4().hex[:12]}",
@@ -435,6 +459,7 @@ class HookEngine:
             "condition": payload.get("condition"),
             "action": payload["action"],
             "enabled": payload.get("enabled", True),
+            "owner_id": owner_id,  # P0-5 归属:None = 系统级(仅管理员可见/可管)
             "createdAt": now,
             "updatedAt": now,
         }
@@ -443,9 +468,13 @@ class HookEngine:
         self._schedule_persist_hooks()
         return hook
 
-    def update_hook(self, hook_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
+    def update_hook(
+        self, hook_id: str, patch: dict[str, Any], owner_id: str | None = None
+    ) -> dict[str, Any] | None:
         hook = self._hooks.get(hook_id)
         if hook is None:
+            return None
+        if owner_id is not None and hook.get("owner_id") != owner_id:
             return None
         for k in ("name", "description", "event", "condition", "action", "enabled"):
             if k in patch:
@@ -454,15 +483,24 @@ class HookEngine:
         self._schedule_persist_hooks()
         return hook
 
-    def delete_hook(self, hook_id: str) -> bool:
+    def delete_hook(self, hook_id: str, owner_id: str | None = None) -> bool:
+        hook = self._hooks.get(hook_id)
+        if hook is None:
+            return False
+        if owner_id is not None and hook.get("owner_id") != owner_id:
+            return False
         ok = self._hooks.pop(hook_id, None) is not None
         if ok:
             self._schedule_persist_hooks()
         return ok
 
-    def toggle_hook(self, hook_id: str, enabled: bool) -> dict[str, Any] | None:
+    def toggle_hook(
+        self, hook_id: str, enabled: bool, owner_id: str | None = None
+    ) -> dict[str, Any] | None:
         hook = self._hooks.get(hook_id)
         if hook is None:
+            return None
+        if owner_id is not None and hook.get("owner_id") != owner_id:
             return None
         hook["enabled"] = enabled
         hook["updatedAt"] = datetime.utcnow().isoformat() + "Z"
