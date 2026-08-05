@@ -57,6 +57,8 @@ vi.mock('lucide-react', () => {
     Circle: Icon,
     Download: Icon,
     Check: Icon,
+    Inbox: Icon,
+    FilterX: Icon,
   }
 })
 
@@ -203,13 +205,13 @@ describe('TimelineTab — 类型过滤 chips', () => {
     useTimelineStore.getState().setActiveTab('timeline')
   })
 
-  it('渲染 5 个 chips:all / plan / subagent / tool / question', () => {
+  it('渲染 5 个 chips:all / plan / subagent / tool / thinking', () => {
     render(<TimelineTab />)
     expect(screen.getByTestId('timeline-filter-all')).toBeTruthy()
     expect(screen.getByTestId('timeline-filter-plan')).toBeTruthy()
     expect(screen.getByTestId('timeline-filter-subagent')).toBeTruthy()
     expect(screen.getByTestId('timeline-filter-tool')).toBeTruthy()
-    expect(screen.getByTestId('timeline-filter-question')).toBeTruthy()
+    expect(screen.getByTestId('timeline-filter-thinking')).toBeTruthy()
   })
 
   it('默认 all chip 为 active(aria-pressed=true)', () => {
@@ -218,13 +220,13 @@ describe('TimelineTab — 类型过滤 chips', () => {
     expect(screen.getByTestId('timeline-filter-plan').getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('chip count 反映该 type 的事件数(all=总数,plan=2,subagent=2,tool=2,question=1)', () => {
+  it('chip count 反映该 type 的事件数(all=总数,plan=2,subagent=2,tool=2,thinking=0)', () => {
     render(<TimelineTab />)
     const all = screen.getByTestId('timeline-filter-all')
     const plan = screen.getByTestId('timeline-filter-plan')
     const subagent = screen.getByTestId('timeline-filter-subagent')
     const tool = screen.getByTestId('timeline-filter-tool')
-    const question = screen.getByTestId('timeline-filter-question')
+    const thinking = screen.getByTestId('timeline-filter-thinking')
     // 7 = 2 plan + 2 subagent + 2 tool + 1 question
     expect(within(all).getByText('7')).toBeTruthy()
     expect(within(plan).getByText('2')).toBeTruthy()
@@ -244,11 +246,10 @@ describe('TimelineTab — 类型过滤 chips', () => {
     expect(document.querySelectorAll('[data-event-type="subagent"]').length).toBe(0)
   })
 
-  it('点击 question chip 后只显示 question 事件', () => {
+  it('点击 thinking chip 后显示空态', () => {
     render(<TimelineTab />)
-    fireEvent.click(screen.getByTestId('timeline-filter-question'))
-    const eventRows = document.querySelectorAll('[data-event-type="question"]')
-    expect(eventRows.length).toBe(1)
+    fireEvent.click(screen.getByTestId('timeline-filter-thinking'))
+    expect(screen.getByTestId('timeline-no-match')).toBeTruthy()
   })
 
   it('点击 tool chip 后只显示 tool 事件', () => {
@@ -263,7 +264,7 @@ describe('TimelineTab — 类型过滤 chips', () => {
       makeEvent({ id: 'p1', type: 'plan', status: 'done' }),
     ])
     render(<TimelineTab />)
-    expect(within(screen.getByTestId('timeline-filter-question')).getByText('0')).toBeTruthy()
+    expect(within(screen.getByTestId('timeline-filter-thinking')).getByText('0')).toBeTruthy()
   })
 })
 
@@ -421,13 +422,13 @@ describe('TimelineTab — 过滤后空态增强', () => {
   })
 
   it('有事件但 typeFilter 过滤后无匹配:显示 "no match" + clear filters', () => {
-    // 移除 question 事件,再点击 question chip
+    // 移除 thinking 事件,再点击 thinking chip
     useTimelineStore.getState().setEvents([
       makeEvent({ id: 'p1', type: 'plan', status: 'done' }),
       makeEvent({ id: 'p2', type: 'plan', status: 'pending' }),
     ])
     render(<TimelineTab />)
-    fireEvent.click(screen.getByTestId('timeline-filter-question'))
+    fireEvent.click(screen.getByTestId('timeline-filter-thinking'))
     expect(screen.getByTestId('timeline-no-match')).toBeTruthy()
     expect(screen.getByTestId('timeline-clear-filters')).toBeTruthy()
   })
@@ -691,9 +692,8 @@ describe('TimelineTab — thinking/reference 类型事件渲染与过滤', () =>
     expect(screen.getByTestId('timeline-filter-plan')).toBeTruthy()
     expect(screen.getByTestId('timeline-filter-subagent')).toBeTruthy()
     expect(screen.getByTestId('timeline-filter-tool')).toBeTruthy()
-    expect(screen.getByTestId('timeline-filter-question')).toBeTruthy()
-    // thinking / reference filter chip 不应存在
-    expect(screen.queryByTestId('timeline-filter-thinking')).toBeNull()
+    expect(screen.getByTestId('timeline-filter-thinking')).toBeTruthy()
+    // reference 不在 filter chips 中
     expect(screen.queryByTestId('timeline-filter-reference')).toBeNull()
   })
 })
