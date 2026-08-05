@@ -386,6 +386,11 @@ async function authenticateShareToken(
   // 源 Key 必须活跃
   if (share.sourceKey.status !== 'active') throw unauthorized('Source API key inactive')
 
+  // P1-4 修复(2026-08-05):原实现未校验源 Key 的 IP 白名单,
+  // 源 Key 的 IP 约束可被 share token 绕过。与主 Key 鉴权链路保持一致。
+  const ipCheck = checkAllowedIps(share.sourceKey.allowedIps as string[] | null, request.ip)
+  if (!ipCheck.ok) throw forbidden(ipCheck.reason!)
+
   const body = request.body as Record<string, unknown> | undefined
   const bodyModel = typeof body?.model === 'string' ? body.model : undefined
 
