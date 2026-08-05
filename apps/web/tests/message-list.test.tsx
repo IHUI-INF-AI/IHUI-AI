@@ -105,7 +105,6 @@ vi.mock('lucide-react', () => {
     Plus: Icon,
     Minus: Icon,
     Wrench: Icon,
-    Clock: Icon,
   }
 })
 
@@ -662,7 +661,7 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
     const planStep = (over: Partial<Record<string, unknown>> = {}) => ({
       id: 'ps1',
       step: '分析需求',
-      status: 'in_progress',
+      status: 'in_progress' as const,
       ...over,
     })
 
