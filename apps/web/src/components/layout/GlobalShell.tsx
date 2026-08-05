@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
-import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt, QuitUpdateOverlay } from '@/components/common'
+import { PWAInstallPrompt, PWAUpdatePrompt, UpdatePrompt, QuitUpdateOverlay, NavigationProgress } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
 import { Button } from '@ihui/ui-react'
@@ -16,6 +16,8 @@ import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
+import { useNavigationStore } from '@/stores/navigation'
+import { PageSkeleton } from '@/components/common/PageSkeleton'
 import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
 import { dispatchMenuAction } from '@/lib/menu-actions'
 import { startAutoRefresh } from '@/lib/tokenUtils'
@@ -74,6 +76,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   const aiFloatMode = useAiPanelStore((s) => s.floatMode)
   const aiFloatMinimized = useAiPanelStore((s) => s.floatMinimized)
   const currentUserId = useAuthStore((s) => s.user?.id)
+  const pending = useNavigationStore((s) => s.pending)
   // 2026-07-26 用户反馈:TagsView 从 GlobalShell 移到 MainShell(只覆盖 main 同宽容器)
   // 之前放右列顶部会横跨 work-area-portal-root + WebWorkPanel,违反"只覆盖 main 同宽"要求
   // 现在 TagsView 跟随 MainShell 一起渲染,所有 (main) 路由组都能看到,
@@ -215,6 +218,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             id="work-area-portal-root"
             className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
           >
+            {/* 全局导航进度条 + 内容区加载覆盖层(2026-08-05 立):
+                点击侧边栏链接时立即显示进度条 + 骨架屏覆盖内容区,
+                消除"点击后内容区无反应"的间隙。位于 work-area-portal-root 内部,
+                absolute 定位依赖父级 relative 容器。 */}
+            <NavigationProgress />
             {/* 移动端菜单按钮(2026-07-31 第十三次重写,改用 GlobalTopBar 注入方式):
                 - 原方案:absolute left-2 top-2 z-modal,在 work-area 内绝对定位
                   → 根因:与 TagsViewSearchButton (36x36 bg-card,同位置 left:0) 物理重叠,
@@ -256,6 +264,25 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 - open=false 时 WebWorkPanel return null,children 正常显示
                 - open=true 时 WebWorkPanel 替换展示工作区内容(非右列独立窗口) */}
             <div className="relative flex min-h-0 flex-1 flex-col">
+              {/*
+                内容区加载覆盖层(2026-08-05 立,根治方案):
+                始终在 DOM 中,通过 CSS transition 控制显示/隐藏。
+                根因:条件渲染(if (!pending) return null)依赖 React 渲染周期,点击 Link 后
+                客户端路由立即开始但 React 渲染可能滞后,导致覆盖层显示延迟甚至不显示。
+                用户点击后看不到任何视觉反馈,误以为"没有响应"。
+                根治:覆盖层始终在 DOM 中,opacity+pointer-events 过渡,不依赖 React 渲染周期,
+                保证点击后立即显示 skeleton 覆盖内容区,消除"无响应"空白间隙。
+              */}
+              <div
+                className={cn(
+                  'absolute inset-0 z-10 bg-background transition-opacity duration-150',
+                  pending ? 'opacity-100' : 'pointer-events-none opacity-0',
+                )}
+                role="status"
+                aria-label="页面加载中"
+              >
+                <PageSkeleton />
+              </div>
               {children}
               <WebWorkPanel />
             </div>

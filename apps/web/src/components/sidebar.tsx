@@ -125,6 +125,7 @@ import { ADMIN_NAV_GROUPS, type AdminNavGroup } from '@/components/layout/AdminN
 import { useAdminRouters } from '@/hooks/use-admin-routers'
 import { startWindowDrag } from '@/lib/tauri-bridge'
 import { useDesktop } from '@/hooks/use-desktop'
+import { useNavigationStore } from '@/stores/navigation'
 
 interface NavItem {
   href: string
@@ -512,6 +513,16 @@ export const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items))
 
 /** 扁平化主侧边栏导航项,供 TagsView 等复用 path -> labelKey 映射 */
 export const FLAT_NAV_ITEMS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items))
+
+/**
+ * 纯函数判断给定 href 是否与当前 pathname 匹配为活跃路由。
+ * 与 useCallback 相比:1) 不创建新函数引用,不破坏 React.memo;2) 纯函数,相同输入永远相同输出。
+ * 逻辑:pathname 以 href 开头,且没有其他 nav item 的 href 更精确地匹配当前 pathname。
+ */
+function isHrefActive(href: string, pathname: string): boolean {
+  if (!pathname.startsWith(href)) return false
+  return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
+}
 
 const LANGUAGES: { code: Language; name: string; badge: string }[] = [
   { code: 'zh-CN', name: '简体中文', badge: 'ZH' },
@@ -942,6 +953,8 @@ interface NavLinkProps {
   label: string
   onCloseMobile: () => void
   registerRef: (href: string, el: HTMLElement | null) => void
+  /** 点击导航时立即更新 active 状态不等导航完成 */
+  onBeforeNav?: (href: string) => void
 }
 
 const NavLink = React.memo(function NavLink({
@@ -951,6 +964,7 @@ const NavLink = React.memo(function NavLink({
   label,
   onCloseMobile,
   registerRef,
+  onBeforeNav,
 }: NavLinkProps) {
   const Icon = item.icon
   const className = cn(
@@ -962,13 +976,18 @@ const NavLink = React.memo(function NavLink({
   )
   const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
 
+  const handleClick = React.useCallback(() => {
+    onBeforeNav?.(item.href)
+    onCloseMobile()
+  }, [onBeforeNav, item.href, onCloseMobile])
+
   if (collapsed) {
     return (
       <Tooltip key={item.href} content={label} side="right">
         <Link
           href={item.href}
           ref={refCb}
-          onClick={onCloseMobile}
+          onClick={handleClick}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
           className={className}
@@ -984,7 +1003,7 @@ const NavLink = React.memo(function NavLink({
       key={item.href}
       href={item.href}
       ref={refCb}
-      onClick={onCloseMobile}
+      onClick={handleClick}
       aria-current={active ? 'page' : undefined}
       className={className}
     >
@@ -1009,7 +1028,7 @@ const NavLink = React.memo(function NavLink({
 interface ExpandableNavItemProps {
   item: NavItem
   collapsed: boolean
-  isActive: (href: string) => boolean
+  activeHref: string | undefined
   onCloseMobile: () => void
   registerRef: (href: string, el: HTMLElement | null) => void
   t: (key: string) => string
@@ -1018,20 +1037,24 @@ interface ExpandableNavItemProps {
    * 派生 listId 必须含 scope 才能保证 HTML5 id 唯一性 + SSR/CSR 完全一致(不依赖 useId)。
    */
   scope: 'desktop' | 'mobile'
+  /** 点击导航时立即更新 active 状态不等导航完成 */
+  onBeforeNav?: (href: string) => void
 }
 
 const ExpandableNavItem = React.memo(function ExpandableNavItem({
   item,
   collapsed,
-  isActive,
+  activeHref,
   onCloseMobile,
   registerRef,
   t,
   scope,
+  onBeforeNav,
 }: ExpandableNavItemProps) {
   const router = useRouter()
   const children = item.children ?? []
-  const parentActive = children.some((child) => isActive(child.href))
+  // 性能修复:使用预计算的 activeHref 替代 pathname，避免 isHrefActive 遍历 ALL_NAV_HREFS。
+  const parentActive = activeHref ? children.some((child) => child.href === activeHref) : false
   const storageKey = `sidebar-expand-${item.href}`
   // 2026-07-22 修复首屏父菜单子菜单展开闪烁:
   // 原方案 useState(false) → useEffect 读 localStorage → setOpen → 二次 render
@@ -1116,17 +1139,21 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
     <div id={listId} role="group" aria-label={label} className="flex flex-col gap-0.5">
       {children.map((child) => {
         const ChildIcon = child.icon
-        const active = isActive(child.href)
+        const active = activeHref === child.href
         const childLabel = child.dynamicLabel ?? t(child.labelKey)
         const badgeCount = getBadgeCount(child.badge)
         const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
+        const childHandleClick = () => {
+          onBeforeNav?.(child.href)
+          onCloseMobile()
+        }
         return (
           <Link
             key={child.href}
             data-testid={`nav-${child.labelKey}`}
             href={child.href}
             ref={refCb}
-            onClick={onCloseMobile}
+            onClick={childHandleClick}
             aria-current={active ? 'page' : undefined}
             className={childClassName(active)}
           >
@@ -1153,6 +1180,7 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
           label: child.dynamicLabel ?? t(child.labelKey),
           icon: child.icon,
           onSelect: () => {
+            onBeforeNav?.(child.href)
             router.push(child.href)
             onCloseMobile()
           },
@@ -1255,23 +1283,29 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
 interface NavGroupSectionProps {
   group: { label: string; items: NavItem[] }
   collapsed: boolean
-  isActive: (href: string) => boolean
+  /** 当前活跃路由 href，由父级 Sidebar 通过 useMemo 预计算。
+   *  替换 pathname 传递，避免每次路由变化时全部 NavGroupSection 重渲染。
+   *  NavGroupSection 只在其 activeHref 匹配本组某项时才重渲染。 */
+  activeHref: string | undefined
   onCloseMobile: () => void
   registerRef: (href: string, el: HTMLElement | null) => void
   t: (key: string) => string
   scope: 'desktop' | 'mobile'
   isFirst: boolean
+  /** 点击导航时立即更新 active 状态不等导航完成 */
+  onBeforeNav?: (href: string) => void
 }
 
 const NavGroupSection = React.memo(function NavGroupSection({
   group,
   collapsed,
-  isActive,
+  activeHref,
   onCloseMobile,
   registerRef,
   t,
   scope,
   isFirst,
+  onBeforeNav,
 }: NavGroupSectionProps) {
   // 分组是否参与折叠:展开态 + 有 label
   const isCollapsible = !collapsed && group.label !== ''
@@ -1292,11 +1326,10 @@ const NavGroupSection = React.memo(function NavGroupSection({
   const storageKey = `sidebar-group-v3-${group.label}`
 
   // 命中当前路由 → 强制展开(用户在用该分组的某个页面时,不应被折叠隐藏)
-  const groupActive = group.items.some((item) => {
-    if (isActive(item.href)) return true
-    if (item.children) return item.children.some((c) => isActive(c.href))
-    return false
-  })
+  // 性能修复:使用预计算的 activeHref 替代 pathname，避免每次路由变化遍历所有子项。
+  const groupActive = activeHref
+    ? group.items.some((item) => item.href === activeHref || item.children?.some((c) => c.href === activeHref))
+    : false
 
   // SSR-safe + no-flash(2026-07-22 修复首屏 sidebar 子菜单展开闪烁):
   // - SSR 阶段:无 window,fallback 到 defaultOpen(AI / admin 默认 true,其余 false),
@@ -1340,8 +1373,9 @@ const NavGroupSection = React.memo(function NavGroupSection({
 
   // 渲染单个 nav item(三种分支:可展开 / 搜索行 / 普通 Link)
   // label 优先级:dynamicLabel(admin 动态加载的路由名)> t(labelKey)(i18n 翻译)
+  // 性能修复:使用 activeHref 替代 pathname 计算 active 状态，减少 isHrefActive 重复遍历。
   const renderItem = (item: NavItem) => {
-    const active = isActive(item.href)
+    const active = activeHref === item.href
     const label = item.dynamicLabel ?? t(item.labelKey)
     if (item.children && item.children.length > 0) {
       return (
@@ -1349,11 +1383,12 @@ const NavGroupSection = React.memo(function NavGroupSection({
           key={item.href}
           item={item}
           collapsed={collapsed}
-          isActive={isActive}
+          activeHref={activeHref}
           onCloseMobile={onCloseMobile}
           registerRef={registerRef}
           t={t}
           scope={scope}
+          onBeforeNav={onBeforeNav}
         />
       )
     }
@@ -1366,6 +1401,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
         label={label}
         onCloseMobile={onCloseMobile}
         registerRef={registerRef}
+        onBeforeNav={onBeforeNav}
       />
     )
   }
@@ -1458,6 +1494,33 @@ export function Sidebar({
   // 原全对象订阅导致任何 setUser(登录/profile 刷新/auth bootstrap/persist hydration)
   // 都触发 Sidebar 根重渲染 → 80+ NavLink/ExpandableNavItem/NavGroupSection 连锁。
   const userRoleId = useAuthStore((s) => s.user?.roleId)
+
+  // 乐观路由状态(2026-08-05 立):
+  // 根因:usePathname() 在 Next.js 15 中不随点击立即更新,而是等导航完成(新页面 RSC 数据返回)后才变。
+  // 这导致用户点击侧边栏菜单后,active 状态不立即变化,用户感知不到"已响应点击"。
+  // 方案:点击链接时立即设置 pendingHref,activeHref 基于 pendingHref 计算,
+  //      导航完成后用 useEffect 检测 pathname 与 pendingHref 一致时清空。
+  // 效果:用户点击菜单 → 侧边栏 active 状态立即更新 → 页面加载中 → 新页面出现
+  const [pendingHref, setPendingHref] = React.useState<string | null>(null)
+
+  // 显示用 pathname:有 pendingHref 且与真实 pathname 不一致时用 pendingHref,
+  // 让 activeHref 在导航完成前就指向新路由。
+  const displayPathname = pendingHref ?? pathname
+
+  // 导航完成后清空 pendingHref
+  React.useEffect(() => {
+    if (pendingHref && pendingHref === pathname) {
+      setPendingHref(null)
+    }
+  }, [pathname, pendingHref])
+
+  const startNav = useNavigationStore((s) => s.start)
+
+  // 点击导航项时立即设置乐观路由 + 触发全局进度条
+  const handleBeforeNav = React.useCallback((href: string) => {
+    setPendingHref(href)
+    startNav()
+  }, [startNav])
   const tchat = useTranslations('aiChat')
   const aiPanelOpen = useAiPanelStore((s) => s.open)
   const toggleAiPanel = useAiPanelStore((s) => s.togglePanel)
@@ -1552,15 +1615,6 @@ export function Sidebar({
     [sidebarWidth, collapsed, onToggleCollapse],
   )
 
-  const isActive = React.useCallback(
-    (href: string) => {
-      if (!pathname.startsWith(href)) return false
-      // 更具体的同前缀项优先高亮，避免 /chat 与 /chat/history 同时高亮
-      return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
-    },
-    [pathname],
-  )
-
   // admin 动态路由合并:已加载 + 有数据 + admin 用户时,把不在 ADMIN_NAV_GROUPS 分组内的
   // 动态路由作为扁平 NavItem 合并到"管理"分组前部(放在静态 /admin 入口之后)。
   // 静态 /admin/statistics 等保留在前,动态项跟在后面,11 个分组展开项放最后。
@@ -1600,9 +1654,9 @@ export function Sidebar({
   )
 
   const activeHref = React.useMemo(() => {
-    const found = allVisibleItems.find((item) => isActive(item.href))
+    const found = allVisibleItems.find((item) => isHrefActive(item.href, displayPathname))
     return found?.href
-  }, [allVisibleItems, isActive])
+  }, [allVisibleItems, displayPathname])
 
   React.useEffect(() => {
     if (!activeHref) return
@@ -1764,12 +1818,13 @@ export function Sidebar({
               key={group.label || `group-${gi}`}
               group={group}
               collapsed={collapsed}
-              isActive={isActive}
+              activeHref={activeHref}
               onCloseMobile={onCloseMobile}
               registerRef={registerRef}
               t={t}
               scope={scope}
               isFirst={gi === 0}
+              onBeforeNav={handleBeforeNav}
             />
           )
         })}
