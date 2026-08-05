@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, numeric, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, numeric, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { users } from './users.js'
 
 /**
@@ -41,6 +42,10 @@ export const usdtPayments = pgTable(
     userIdx: index('usdt_payments_user_id_idx').on(t.userId),
     statusIdx: index('usdt_payments_status_idx').on(t.status),
     addressIdx: index('usdt_payments_address_idx').on(t.address),
+    // P0-6 同一链上交易哈希只能绑定一个已确认订单(防重复入账)
+    txHashConfirmedUniq: uniqueIndex('usdt_payments_tx_hash_confirmed_uniq')
+      .on(t.txHash)
+      .where(sql`${t.status} = 'confirmed'`),
   }),
 )
 

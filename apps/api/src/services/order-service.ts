@@ -20,7 +20,7 @@ import { executeSaga, type SagaResult } from './distributed-transaction.js'
 import { earnPoints, spendPoints } from './points-service.js'
 import { logger } from '../utils/logger.js'
 import { writeToOutbox } from '../utils/outbox.js'
-import { rechargeToken, deductToken } from '../db/commission-queries.js'
+import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-queries.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -324,8 +324,9 @@ export async function cancelOrder(orderNo: string): Promise<OrderOperationResult
  * 状态机：退款完成（由退款流程调用）。
  *
  * 2026-08-02 P0 修复(B2):退款时退还 token 余额(token 充值订单/活动订单)。
- * 用 `refund:${orderNo}` 作 related_order_no,避免与充值流水 (orderNo, op_type=0)
- * unique 索引冲突;rechargeToken 内部 unique 索引保证退款幂等(重复退款被拦截)。
+ * 2026-08-05 P0-2 修复:原实现用 rechargeToken 退款=再发一次 token(钱退+token 再入账)。
+ * 改为 refundTokenDeduct 尽力扣回 —— 事务内行锁 + (refund:orderNo, opType=3) 幂等键,
+ * 余额不足扣到 0,重复退款被 unique 索引拦截。
  */
 export async function refundOrder(orderNo: string): Promise<OrderOperationResult> {
   const order = await findOrderByNo(orderNo)
@@ -333,13 +334,13 @@ export async function refundOrder(orderNo: string): Promise<OrderOperationResult
   if (order.status !== 'paid')
     return { success: false, reason: `订单状态(${order.status})不可退款` }
   await updateOrderStatus(orderNo, 'refunded')
-  // B2: 退款时退还 token 余额(token 充值订单/活动订单)
+  // B2: 退款时扣回 token 余额(token 充值订单/活动订单)
   if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
     try {
-      await rechargeToken(order.userId, order.amount, `refund:${orderNo}`, '退款')
+      await refundTokenDeduct(order.userId, order.amount, orderNo, '退款')
     } catch (e) {
       // 退还 token 失败不阻塞订单状态变更,需运营监控告警人工处理
-      logger.error(`[refundOrder] refund token failed`, { err: e, orderNo })
+      logger.error(`[refundOrder] refund token deduct failed`, { err: e, orderNo })
     }
   }
   const updated = await findOrderByNo(orderNo)

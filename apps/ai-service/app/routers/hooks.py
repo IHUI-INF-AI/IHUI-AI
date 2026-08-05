@@ -17,12 +17,34 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..services.hook_engine import HOOK_ACTION_TYPES, HOOK_EVENTS, hook_engine
+from ..core.jwt_auth import get_current_user_id
+from ..services.hook_engine import (
+    HIGH_RISK_ACTIONS,
+    HOOK_ACTION_TYPES,
+    HOOK_EVENTS,
+    _action_allowed,
+    hook_engine,
+)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# 鉴权 helper(P0-5:全部端点要求登录;归属隔离:非管理员只能管自己的 hook)
+# ---------------------------------------------------------------------------
+def _is_admin(request: Request) -> bool:
+    role_id = getattr(request.state, "role_id", 0) or 0
+    return int(role_id) >= 1
+
+
+def _owner_filter(request: Request) -> str | None:
+    """非管理员 → 只能访问自己创建的 hook(owner_id == user_id)。"""
+    if _is_admin(request):
+        return None
+    return getattr(request.state, "user_id", None)
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +137,12 @@ def _validate_action_type(action_type: str) -> None:
 
 def _validate_action(action: HookActionModel) -> None:
     _validate_action_type(action.type)
+    # P0-5:script/webhook 高危动作默认禁用,必须 HOOK_ALLOWED_ACTIONS 白名单显式放行
+    if action.type in HIGH_RISK_ACTIONS and not _action_allowed(action.type):
+        raise HTTPException(
+            status_code=403,
+            detail=f"高危动作 {action.type} 未启用:请在服务端配置 HOOK_ALLOWED_ACTIONS 白名单",
+        )
     # 按动作类型校验必填字段
     if action.type == "webhook" and not action.config.url:
         raise HTTPException(status_code=400, detail="webhook 动作必须提供 url")
@@ -136,16 +164,24 @@ def _to_hook_dict(hook_action: HookActionModel) -> dict[str, Any]:
 
 
 @router.get("/hooks")
-async def list_hooks(event: str | None = Query(None, description="按事件过滤")) -> dict[str, Any]:
-    """列出全部 Hook(可选按 event 过滤)。"""
+async def list_hooks(
+    request: Request,
+    event: str | None = Query(None, description="按事件过滤"),
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """列出 Hook(非管理员只列自己的;可选按 event 过滤)。"""
     if event:
         _validate_event(event)
-    hooks = hook_engine.list_hooks(event=event)
+    hooks = hook_engine.list_hooks(event=event, owner_id=_owner_filter(request))
     return {"code": 0, "message": "ok", "data": {"hooks": hooks, "count": len(hooks)}}
 
 
 @router.post("/hooks")
-async def create_hook(req: CreateHookRequest) -> dict[str, Any]:
+async def create_hook(
+    request: Request,
+    req: CreateHookRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """创建 Hook。"""
     _validate_event(req.event)
     _validate_action(req.action)
@@ -157,12 +193,16 @@ async def create_hook(req: CreateHookRequest) -> dict[str, Any]:
         "action": _to_hook_dict(req.action),
         "enabled": req.enabled if req.enabled is not None else True,
     }
-    hook = hook_engine.create_hook(payload)
+    hook = hook_engine.create_hook(payload, owner_id=user_id)
     return {"code": 0, "message": "ok", "data": hook}
 
 
 @router.post("/hooks/auto-orchestrate")
-async def auto_orchestrate(body: AutoOrchestrateBody) -> dict[str, Any]:
+async def auto_orchestrate(
+    request: Request,
+    body: AutoOrchestrateBody,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """智能编排:用 LLM 分析自然语言需求,生成 Hook + DAG 依赖图。"""
     try:
         data = await hook_engine.auto_orchestrate(body.requirement, body.event)
@@ -172,7 +212,11 @@ async def auto_orchestrate(body: AutoOrchestrateBody) -> dict[str, Any]:
 
 
 @router.post("/hooks/ab-test")
-async def create_ab_test(body: CreateAbTestBody) -> dict[str, Any]:
+async def create_ab_test(
+    request: Request,
+    body: CreateAbTestBody,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """创建 A/B 测试。"""
     try:
         data = await hook_engine.create_ab_test(body.model_dump())
@@ -182,7 +226,10 @@ async def create_ab_test(body: CreateAbTestBody) -> dict[str, Any]:
 
 
 @router.get("/hooks/ab-tests")
-async def list_ab_tests() -> dict[str, Any]:
+async def list_ab_tests(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """列出所有 A/B 测试。"""
     try:
         data = await hook_engine.list_ab_tests()
@@ -192,7 +239,10 @@ async def list_ab_tests() -> dict[str, Any]:
 
 
 @router.get("/hooks/templates")
-async def list_hook_templates() -> dict[str, Any]:
+async def list_hook_templates(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """列出预置 Hook 模板。"""
     try:
         data = hook_engine.list_templates()
@@ -202,18 +252,27 @@ async def list_hook_templates() -> dict[str, Any]:
 
 
 @router.get("/hooks/{hook_id}")
-async def get_hook(hook_id: str) -> dict[str, Any]:
+async def get_hook(
+    request: Request,
+    hook_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """获取 Hook 详情。"""
-    hook = hook_engine.get_hook(hook_id)
+    hook = hook_engine.get_hook(hook_id, owner_id=_owner_filter(request))
     if hook is None:
         raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     return {"code": 0, "message": "ok", "data": hook}
 
 
 @router.patch("/hooks/{hook_id}")
-async def update_hook(hook_id: str, req: UpdateHookRequest) -> dict[str, Any]:
+async def update_hook(
+    request: Request,
+    hook_id: str,
+    req: UpdateHookRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """更新 Hook(部分字段)。"""
-    existing = hook_engine.get_hook(hook_id)
+    existing = hook_engine.get_hook(hook_id, owner_id=_owner_filter(request))
     if existing is None:
         raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     patch: dict[str, Any] = {}
@@ -231,43 +290,62 @@ async def update_hook(hook_id: str, req: UpdateHookRequest) -> dict[str, Any]:
         patch["action"] = _to_hook_dict(req.action)
     if req.enabled is not None:
         patch["enabled"] = req.enabled
-    updated = hook_engine.update_hook(hook_id, patch)
+    updated = hook_engine.update_hook(hook_id, patch, owner_id=_owner_filter(request))
     return {"code": 0, "message": "ok", "data": updated}
 
 
 @router.delete("/hooks/{hook_id}")
-async def delete_hook(hook_id: str) -> dict[str, Any]:
+async def delete_hook(
+    request: Request,
+    hook_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """删除 Hook。"""
-    ok = hook_engine.delete_hook(hook_id)
+    ok = hook_engine.delete_hook(hook_id, owner_id=_owner_filter(request))
     if not ok:
         raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     return {"code": 0, "message": "ok", "data": {"deleted": True, "id": hook_id}}
 
 
 @router.post("/hooks/{hook_id}/toggle")
-async def toggle_hook(hook_id: str, req: ToggleHookRequest) -> dict[str, Any]:
+async def toggle_hook(
+    request: Request,
+    hook_id: str,
+    req: ToggleHookRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """启用/禁用切换。"""
-    hook = hook_engine.toggle_hook(hook_id, req.enabled)
+    hook = hook_engine.toggle_hook(hook_id, req.enabled, owner_id=_owner_filter(request))
     if hook is None:
         raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     return {"code": 0, "message": "ok", "data": hook}
 
 
 @router.post("/hooks/{hook_id}/test")
-async def test_hook(hook_id: str, req: TestHookRequest) -> dict[str, Any]:
+async def test_hook(
+    request: Request,
+    hook_id: str,
+    req: TestHookRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """测试 Hook:模拟触发,返回日志(不写入持久日志)。"""
     _validate_event(req.event)
+    existing = hook_engine.get_hook(hook_id, owner_id=_owner_filter(request))
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     result = await hook_engine.test_hook(hook_id, req.event, req.context)
     return {"code": 0, "message": "ok", "data": result}
 
 
 @router.get("/hooks/{hook_id}/logs")
 async def list_hook_logs(
+    request: Request,
     hook_id: str,
     limit: int = Query(100, ge=1, le=1000, description="返回日志数"),
+    user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """查询指定 Hook 的日志。"""
-    existing = hook_engine.get_hook(hook_id)
+    existing = hook_engine.get_hook(hook_id, owner_id=_owner_filter(request))
     if existing is None:
         raise HTTPException(status_code=404, detail=f"Hook 不存在: {hook_id}")
     logs = hook_engine.list_logs(hook_id=hook_id, limit=limit)
@@ -276,7 +354,9 @@ async def list_hook_logs(
 
 @router.get("/hooks/logs")
 async def list_all_logs(
+    request: Request,
     limit: int = Query(100, ge=1, le=1000, description="返回日志数"),
+    user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """查询全部 Hook 日志(最新在前)。"""
     logs = hook_engine.list_logs(hook_id=None, limit=limit)
@@ -284,11 +364,18 @@ async def list_all_logs(
 
 
 @router.post("/hooks/emit")
-async def emit_event(req: EmitRequest) -> dict[str, Any]:
+async def emit_event(
+    request: Request,
+    req: EmitRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """内部事件触发入口(供 agent_loop / API gateway 调用)。
 
     body: {event: HookEvent, context: dict}
     返回: {triggered_count: int, logs: [HookLog]}
+
+    P0-5:要求登录(agent_loop 调用带用户 JWT);如需无用户内部调用,
+    服务端配置 AGENT_CONTROL_INTERNAL_SECRET 后携带 X-Internal-Secret 头。
     """
     _validate_event(req.event)
     logs = await hook_engine.emit(req.event, req.context)
@@ -300,7 +387,11 @@ async def emit_event(req: EmitRequest) -> dict[str, Any]:
 
 
 @router.get("/hooks/ab-test/{test_id}")
-async def get_ab_test(test_id: str) -> dict[str, Any]:
+async def get_ab_test(
+    request: Request,
+    test_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """A/B 测试详情(含 A/B 各自 stats 对比)。"""
     try:
         data = await hook_engine.get_ab_test(test_id)
@@ -310,7 +401,11 @@ async def get_ab_test(test_id: str) -> dict[str, Any]:
 
 
 @router.post("/hooks/ab-test/{test_id}/stop")
-async def stop_ab_test(test_id: str) -> dict[str, Any]:
+async def stop_ab_test(
+    request: Request,
+    test_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """停止 A/B 测试,设 status=stopped。"""
     try:
         data = await hook_engine.stop_ab_test(test_id)
@@ -321,7 +416,10 @@ async def stop_ab_test(test_id: str) -> dict[str, Any]:
 
 @router.post("/hooks/templates/{template_id}/instantiate")
 async def instantiate_template(
-    template_id: str, body: InstantiateTemplateBody
+    request: Request,
+    template_id: str,
+    body: InstantiateTemplateBody,
+    user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """用模板创建 Hook(overrides 覆盖 url/command 等)。"""
     try:
@@ -333,8 +431,10 @@ async def instantiate_template(
 
 @router.get("/hooks/{hook_id}/execution-timeline")
 async def execution_timeline(
+    request: Request,
     hook_id: str,
     since: str | None = Query(None, description="起始时间 ISO8601"),
+    user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """返回 Hook 执行时间线(Gantt 可视化数据)。"""
     try:
@@ -346,8 +446,10 @@ async def execution_timeline(
 
 @router.get("/hooks/{hook_id}/health-forecast")
 async def health_forecast(
+    request: Request,
     hook_id: str,
     days: int = Query(7, ge=1, le=90, description="预测天数"),
+    user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """Hook 健康预测:LLM 分析历史日志趋势,预测未来失败率/延迟。"""
     try:

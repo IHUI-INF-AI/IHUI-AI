@@ -32,10 +32,11 @@ import json
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import get_current_user_id, verify_access_token
 from ..services.browser_hub import hub
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,10 @@ class SessionInfo(BaseModel):
 # 会话管理
 # =============================================================================
 @router.post("/sessions")
-async def create_session(body: CreateSessionRequest) -> dict[str, Any]:
+async def create_session(
+    body: CreateSessionRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """创建新的浏览器会话。"""
     session = await hub.create_session(
         url=body.url,
@@ -94,7 +98,7 @@ async def create_session(body: CreateSessionRequest) -> dict[str, Any]:
 
 
 @router.get("/sessions")
-async def list_sessions() -> dict[str, Any]:
+async def list_sessions(user_id: str = Depends(get_current_user_id)) -> dict[str, Any]:
     """列出所有会话。"""
     return {
         "code": 0,
@@ -106,7 +110,10 @@ async def list_sessions() -> dict[str, Any]:
 
 
 @router.get("/sessions/{session_id}")
-async def get_session_info(session_id: str) -> dict[str, Any]:
+async def get_session_info(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """获取会话信息。"""
     session = hub.get_session(session_id)
     if not session:
@@ -126,7 +133,10 @@ async def get_session_info(session_id: str) -> dict[str, Any]:
 
 
 @router.delete("/sessions/{session_id}")
-async def close_session(session_id: str) -> dict[str, Any]:
+async def close_session(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """关闭会话。"""
     ok = await hub.close_session(session_id)
     if not ok:
@@ -138,7 +148,11 @@ async def close_session(session_id: str) -> dict[str, Any]:
 # 浏览器操作
 # =============================================================================
 @router.post("/sessions/{session_id}/navigate")
-async def navigate(session_id: str, body: NavigateRequest) -> dict[str, Any]:
+async def navigate(
+    session_id: str,
+    body: NavigateRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """导航到指定 URL。"""
     session = hub.get_session(session_id)
     if not session:
@@ -148,7 +162,11 @@ async def navigate(session_id: str, body: NavigateRequest) -> dict[str, Any]:
 
 
 @router.get("/sessions/{session_id}/cookies")
-async def get_cookies(session_id: str, urls: str | None = None) -> dict[str, Any]:
+async def get_cookies(
+    session_id: str,
+    urls: str | None = None,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """获取 cookies。
 
     可选 query 参数 ?urls=https://a.com,https://b.com 过滤特定域名的 cookies。
@@ -168,7 +186,11 @@ async def get_cookies(session_id: str, urls: str | None = None) -> dict[str, Any
 
 
 @router.get("/sessions/{session_id}/screenshot")
-async def screenshot(session_id: str, full_page: bool = False) -> Response:
+async def screenshot(
+    session_id: str,
+    full_page: bool = False,
+    user_id: str = Depends(get_current_user_id),
+) -> Response:
     """一次性截图(返回 PNG)。"""
     session = hub.get_session(session_id)
     if not session:
@@ -182,7 +204,10 @@ async def screenshot(session_id: str, full_page: bool = False) -> Response:
 
 
 @router.post("/sessions/{session_id}/back")
-async def go_back(session_id: str) -> dict[str, Any]:
+async def go_back(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     session = hub.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
@@ -191,7 +216,10 @@ async def go_back(session_id: str) -> dict[str, Any]:
 
 
 @router.post("/sessions/{session_id}/forward")
-async def go_forward(session_id: str) -> dict[str, Any]:
+async def go_forward(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     session = hub.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"会话不存在: {session_id}")
@@ -200,7 +228,10 @@ async def go_forward(session_id: str) -> dict[str, Any]:
 
 
 @router.post("/sessions/{session_id}/reload")
-async def reload(session_id: str) -> dict[str, Any]:
+async def reload(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """刷新页面;命中反爬/风控墙时自动重建会话(返回新 session_id)。
 
     2026-08-02 fix:抖音/微信等站点在 CDP 会话被风控后,reload 仍停在验证墙,
@@ -238,7 +269,18 @@ async def websocket_endpoint(ws: WebSocket, session_id: str) -> None:
     3. 客户端发送鼠标/键盘/导航事件 → 服务端转发到 Chromium
     4. 页面导航完成 → 服务端推送 {"type": "navigation", "url": "...", "title": "..."}
     5. 客户端断开 → 停止推流
+
+    P0-4 鉴权(2026-08-05):WS 握手不走 HTTP 中间件,手动校验
+    query 参数 token(access JWT),失败 close 4401;客户端拼 ?token=<access_token>。
     """
+    # P0-4:WS 手动鉴权(fail-closed,无 token / 无效 token 一律拒绝)
+    token = ws.query_params.get("token", "")
+    payload = verify_access_token(token) if token else None
+    if payload is None:
+        await ws.accept()
+        await ws.close(code=4401, reason="Not authenticated")
+        return
+
     session = hub.get_session(session_id)
     if not session:
         await ws.accept()

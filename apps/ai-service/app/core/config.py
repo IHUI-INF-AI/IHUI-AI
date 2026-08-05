@@ -68,12 +68,18 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_issuer: str = "ihui-ai"
     # 不验签的白名单路径(前缀匹配,path.startswith(p))
-    # /api/browser/ - Browser Hub CDP 端点(会话管理 + WebSocket,扫码登录前置)
+    # P0-4 修复(2026-08-05):移除 /api/browser/ — Browser Hub CDP 端点(Sessions/cookies/navigate
+    # 匿名可 SSRF + 窃取 Cookie),现全部要求 JWT。
     # /api/publish/scan-login/platforms - 平台列表(公开信息,前端弹窗加载时用户可能未登录)
     # 注意:scan-login 的 /start /detect-from-cdp /{task_id}/* 不在白名单,仍需认证
-    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics,/api/browser/,/api/publish/scan-login/platforms"
+    jwt_public_paths: str = "/api/health,/api/legacy,/health,/metrics,/api/publish/scan-login/platforms"
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
+
+    # P0-5 Hook 高危动作白名单(2026-08-05):逗号分隔,如 "log,notify,webhook,script"。
+    # script(任意 shell 命令 RCE)/webhook(任意外发请求 SSRF)默认禁用,
+    # 必须显式加入白名单才允许创建;留空 = 仅允许 log/notify 低危动作。
+    hook_allowed_actions: str = ""
 
     # CSDN 自动发布凭证(content_engine skill 使用,逆向自 editor.csdn.net 内部 API)
     # 空字符串=未配置,签名会失败并提示用户配置;非生产必填项,按需启用

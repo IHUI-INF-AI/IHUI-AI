@@ -21,7 +21,7 @@ import { developerApiKeys, llmCallLogs, aiModelMappings } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { requireAuth } from '../plugins/require-permission.js'
 import { paginationSchema } from './admin/_shared.js'
-import { adjustBalance } from '../services/relay-billing-service.js'
+import { rechargeApiKeyFromWallet } from '../services/relay-billing-service.js'
 import { createMapping, listMappings } from '../services/model-mapping-service.js'
 import { redeemCode } from '../services/redemption-code-service.js'
 import { idParamSchema } from './admin/_shared.js'
@@ -72,16 +72,14 @@ const logsQuerySchema = paginationSchema.extend({
 
 const rechargeBodySchema = z
   .object({
-    /** 充值 token 数(与 costCentsCents 二选一,或都填) */
-    tokenDelta: z.number().int().optional(),
-    /** 充值成本额度(分) */
-    costDeltaCents: z.number().int().optional(),
+    /** 充值 token 数(必须为正整数,P0-7 防负数/0 刷余额) */
+    tokenDelta: z.number().int().positive().optional(),
+    /** 充值成本额度(分,必须为正整数) */
+    costDeltaCents: z.number().int().positive().optional(),
   })
   .refine(
-    (d) =>
-      (d.tokenDelta !== undefined && d.tokenDelta !== 0) ||
-      (d.costDeltaCents !== undefined && d.costDeltaCents !== 0),
-    { message: 'tokenDelta 或 costDeltaCents 至少填一个且非 0' },
+    (d) => d.tokenDelta !== undefined || d.costDeltaCents !== undefined,
+    { message: 'tokenDelta 或 costDeltaCents 至少填一个' },
   )
 
 /** 兑换码兑换 body(P0-5 刮刮卡式裂变充值,2026-07-31 立) */
@@ -403,6 +401,8 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 4. POST /developer/relay/keys/:id/recharge — 充值 API Key 余额 =====
+  // P0-7 修复(2026-08-05):原实现 adjustBalance 无成本直加余额(免费无限额度),
+  // 改为钱包转账(扣 user_margins.tokenQuantity → Key 加余额 → token_flows 流水)。
   server.post('/developer/relay/keys/:id/recharge', async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))
@@ -422,7 +422,8 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, 'API Key 不存在或无权操作'))
 
     try {
-      const result = await adjustBalance(
+      const result = await rechargeApiKeyFromWallet(
+        userId,
         p.data.id,
         parsed.data.tokenDelta ?? 0,
         parsed.data.costDeltaCents ?? 0,
@@ -430,6 +431,11 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       if (!result) return reply.status(404).send(error(404, 'API Key 不存在'))
       return reply.send(success({ id: p.data.id, ...result }))
     } catch (e) {
+      if (e && typeof e === 'object' && 'statusCode' in e && (e as { statusCode: number }).statusCode) {
+        const status = (e as { statusCode: number }).statusCode
+        const msg = e instanceof Error ? e.message : '充值失败'
+        return reply.status(status).send(error(status, msg))
+      }
       request.log.error(e)
       return reply.status(500).send(error(500, '充值失败'))
     }
