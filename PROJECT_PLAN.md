@@ -2857,3 +2857,33 @@ pwsh -File G:\IHUI-AI\scripts\start-ihui-stack.ps1 -Status
 - **阶段 0(主 agent)**:跨端契约对齐 — PROJECT_PLAN 追加 + 共享层 factory + api-client 注入点 + 导出
 - **阶段 1(5 subagent 并行)**:S1 apps/web adapter / S2 apps/api AnomalyDetector 插件 / S3 packages/database + apps/api 设备路由+黑名单 / S4 apps/api GeoIP / S5 5 端 adapter
 - **阶段 2(主 agent)**:README 同步 + 跨端契约验证 + commit + push + git-push-guard
+
+---
+
+## 已修复:next build 生产构建内存崩溃 + 构建提速 15 倍(2026-08-05 完成 ✅,运维/构建系统)
+
+### 根因(历经 20+ 实验定位)
+
+- **表象**:`next build` 反复崩溃,`memory allocation of 7.5/15/30GB failed` + 退出码 `0xC0000409`(Rust abort),单进程 Private 膨胀到 137GB
+- **真凶**:Tailwind 4(@tailwindcss/postcss)默认扫描项目目录时,把构建脚本备份产物 `.next-bak-*`(4 个共 14.8GB,含 1.05GB webpack cache pack + 5.3 万文件)当内容源解析 → 内存爆炸 → SWC 30GB 分配失败;`.gitignore` 只忽略 `.next/` 不匹配 `.next-bak-*`
+- **恶性循环**:构建失败 → 脚本备份 .next → 又多一个污染目录
+
+### 修复(三层根治)
+
+1. **污染源**:全部 6 个构建脚本备份 .next 改到外部 `C:/tmp/next-backup-*`(不再生成 .next-bak-*)
+2. **防呆**:`.gitignore` 加 `.next-bak-*/` + `.next-failrec-*/`
+3. **加速**:next.config cpus 4→12(12 物理核最优,16 实测慢 11s)+ 恢复 webpack filesystem 缓存 → **构建 50.6min → 3.4min(15 倍)**
+
+### 其他修复
+
+- 排障期间误注释的 `globals.css @source`(Tailwind 扫描 ui-react)已恢复,重建验证样式完整
+- 公网大响应 502/慢:Cloudflared 协议 quic→http2(TTFB 3-7s→0.4s)+ 构建脚本自动重启隧道
+- 健康检查脚本新增 3 项(.next-bak 污染/提交量/隧道协议)+ 修复 ProjectRoot 路径
+- i18n models.sort 补齐(priceAsc/priceDesc/contextDesc/nameAsc,5 语言)编译进产物
+- 构建脚本入库 `scripts/build-next-prod.ps1`(原在 .trae-cn 被 git 忽略,有丢失风险)
+
+### 经验沉淀
+
+- 排障 skill:`nextjs-windows-build-oom`(双 pagefile 数组格式/Tailwind 扫描检查/sourcemap 关闭等完整流程)
+- `.git` 丢失恢复流程:备份 worktree 改动 → clone 远程 → 应用改动 push → Copy clone\.git 回原目录 → reset --hard 同步
+- 当前生产:BUILD_ID=SXt6jK6D5WpSyurkg7oYF,公网全绿(首页 TTFB 0.4s),git 已 push(HEAD=d36c240770)
