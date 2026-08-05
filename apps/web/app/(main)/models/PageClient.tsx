@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ModelsHeader } from './ModelsHeader'
 import { ModelsNav } from './ModelsNav'
 import { ModelsMarketplace } from './ModelsMarketplace'
+import { AiNewsStrip } from './AiNewsStrip'
 import { PROVIDERS, fetchModels } from './helpers'
 import type { Provider } from './types'
 import { BackButton } from '@/components/common'
@@ -47,6 +48,8 @@ export default function ModelsPageClient() {
         providerCount={providerCount}
         highlightCount={highlightCount}
       />
+      {/* 2026-08-05 接入:AI 资讯条带(数据源 /api/news/feed → ai_world_items 每日更新,news_articles 为空时自动兜底) */}
+      <AiNewsStrip initialNews={[]} />
       <ModelsNav active={active} />
       <ModelsMarketplace list={list} />
     </div>
