@@ -100,31 +100,25 @@ export class ApiKeyQuota {
   /**
    * 记录一次调用消耗。
    * @param cost 消耗的配额数（如批量接口可计多次），默认 1
+   *
+   * P2-2 修复(2026-08-06):原实现 read→update 分离,并发调用丢失计数。
+   * 改为原子 SQL UPDATE(CASE WHEN 内联重置判断),消除竞态。
    */
   async recordUsage(apiKeyId: string, cost: number = 1): Promise<void> {
-    const row = await this.getOrCreateQuota(apiKeyId)
     const now = new Date()
-
-    // 判断重置
-    let hourlyUsed = row.hourlyUsed
-    let dailyUsed = row.dailyUsed
-    let resetAt = row.resetAt
-    if (now >= resetAt) {
-      hourlyUsed = 0
-      resetAt = nextHourReset(now)
-      const dayReset = nextDayReset(now)
-      const prevDayReset = nextDayReset(new Date(now.getTime() - 3600_000))
-      if (resetAt.getTime() === dayReset.getTime() || now >= prevDayReset) {
-        dailyUsed = 0
-      }
-    }
+    const nextHour = nextHourReset(now)
+    // 今日零点:resetAt 早于它说明跨过自然日,daily 一并重置
+    const dayStart = new Date(now)
+    dayStart.setHours(0, 0, 0, 0)
 
     await db
       .update(apiKeyQuotas)
       .set({
-        hourlyUsed: hourlyUsed + cost,
-        dailyUsed: dailyUsed + cost,
-        resetAt,
+        // 跨小时(now >= resetAt)→ hourly 归零后加 cost;否则累加
+        hourlyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${cost} ELSE ${apiKeyQuotas.hourlyUsed} + ${cost} END`,
+        // 跨小时且跨自然日 → daily 归零后加 cost;否则累加
+        dailyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} AND ${apiKeyQuotas.resetAt} < ${dayStart} THEN ${cost} ELSE ${apiKeyQuotas.dailyUsed} + ${cost} END`,
+        resetAt: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${nextHour} ELSE ${apiKeyQuotas.resetAt} END`,
         updatedAt: now,
       })
       .where(eq(apiKeyQuotas.apiKeyId, apiKeyId))
@@ -133,57 +127,59 @@ export class ApiKeyQuota {
   /**
    * 原子地检查并扣除配额（check + record 合并，避免并发超用）。
    * 使用 SQL 条件更新保证原子性。
+   *
+   * P2-2 修复(2026-08-06):原实现 check→update 分离,并发冲突时回退 checkQuota
+   * ("放行但不计数",配额实际被绕过)。现在单条原子 UPDATE 完成检查+扣减:
+   * WHERE 内联 hourly/daily 上限条件,未超限才扣减;0 行影响 = 超限或记录不存在。
    */
   async checkAndConsume(apiKeyId: string, cost: number = 1): Promise<QuotaCheckResult> {
-    const row = await this.getOrCreateQuota(apiKeyId)
+    // 记录不存在时先初始化(不存在则此次无法原子扣减,初始化后重试一次)
+    const exists = await this.getOrCreateQuota(apiKeyId)
+    if (!exists) throw new Error('初始化 API Key 配额失败')
+
     const now = new Date()
+    const nextHour = nextHourReset(now)
+    const dayStart = new Date(now)
+    dayStart.setHours(0, 0, 0, 0)
 
-    let hourlyUsed = row.hourlyUsed
-    let dailyUsed = row.dailyUsed
-    let resetAt = row.resetAt
-    if (now >= resetAt) {
-      hourlyUsed = 0
-      resetAt = nextHourReset(now)
-      const dayReset = nextDayReset(now)
-      const prevDayReset = nextDayReset(new Date(now.getTime() - 3600_000))
-      if (resetAt.getTime() === dayReset.getTime() || now >= prevDayReset) {
-        dailyUsed = 0
-      }
-    }
-
-    if (hourlyUsed + cost > row.hourlyLimit) {
-      return { allowed: false, remaining: 0, resetAt, reason: 'hourly_exceeded' }
-    }
-    if (dailyUsed + cost > row.dailyLimit) {
-      return { allowed: false, remaining: 0, resetAt: nextDayReset(now), reason: 'daily_exceeded' }
-    }
-
-    // 原子条件更新：仅在当前值未变时扣减
     const updated = await db
       .update(apiKeyQuotas)
       .set({
-        hourlyUsed: sql`${apiKeyQuotas.hourlyUsed} + ${cost}`,
-        dailyUsed: sql`${apiKeyQuotas.dailyUsed} + ${cost}`,
-        resetAt,
+        hourlyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${cost} ELSE ${apiKeyQuotas.hourlyUsed} + ${cost} END`,
+        dailyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} AND ${apiKeyQuotas.resetAt} < ${dayStart} THEN ${cost} ELSE ${apiKeyQuotas.dailyUsed} + ${cost} END`,
+        resetAt: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${nextHour} ELSE ${apiKeyQuotas.resetAt} END`,
         updatedAt: now,
       })
       .where(
         sql`${apiKeyQuotas.apiKeyId} = ${apiKeyId}
-            AND ${apiKeyQuotas.hourlyUsed} = ${hourlyUsed}
-            AND ${apiKeyQuotas.dailyUsed} = ${dailyUsed}`,
+            AND ${apiKeyQuotas.hourlyUsed} + ${cost} <= ${apiKeyQuotas.hourlyLimit}
+            AND ${apiKeyQuotas.dailyUsed} + ${cost} <= ${apiKeyQuotas.dailyLimit}`,
       )
-      .returning({ id: apiKeyQuotas.id })
+      .returning({
+        hourlyUsed: apiKeyQuotas.hourlyUsed,
+        dailyUsed: apiKeyQuotas.dailyUsed,
+        hourlyLimit: apiKeyQuotas.hourlyLimit,
+        dailyLimit: apiKeyQuotas.dailyLimit,
+        resetAt: apiKeyQuotas.resetAt,
+      })
 
-    if (updated.length === 0) {
-      // 并发冲突：重新检查
-      return this.checkQuota(apiKeyId)
+    const row = updated[0]
+    if (!row) {
+      // 0 行影响 = 超限。读取最新状态返回拒绝原因。
+      const latest = await this.getOrCreateQuota(apiKeyId)
+      const hourlyRemaining = latest.hourlyLimit - latest.hourlyUsed
+      const dailyRemaining = latest.dailyLimit - latest.dailyUsed
+      if (hourlyRemaining < cost) {
+        return { allowed: false, remaining: Math.max(0, hourlyRemaining), resetAt: latest.resetAt, reason: 'hourly_exceeded' }
+      }
+      return { allowed: false, remaining: Math.max(0, dailyRemaining), resetAt: nextDayReset(now), reason: 'daily_exceeded' }
     }
 
     const remaining = Math.min(
-      row.hourlyLimit - hourlyUsed - cost,
-      row.dailyLimit - dailyUsed - cost,
+      row.hourlyLimit - row.hourlyUsed,
+      row.dailyLimit - row.dailyUsed,
     )
-    return { allowed: true, remaining: Math.max(0, remaining), resetAt }
+    return { allowed: true, remaining: Math.max(0, remaining), resetAt: row.resetAt }
   }
 
   /** 读取或初始化配额记录。 */
