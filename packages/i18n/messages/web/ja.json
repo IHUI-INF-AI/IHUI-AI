@@ -7765,7 +7765,11 @@
       }
     },
     "sort": {
-      "recommended": "おすすめ順"
+      "recommended": "おすすめ順",
+      "priceAsc": "価格の安い順",
+      "priceDesc": "価格の高い順",
+      "contextDesc": "コンテキスト長",
+      "nameAsc": "名前 A-Z"
     },
     "view": {
       "grid": "グリッド表示",
