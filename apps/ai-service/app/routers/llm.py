@@ -535,11 +535,24 @@ async def _ensure_restricted_model_access(request: Request, model: str | None) -
         raise HTTPException(status_code=403, detail="该模型仅系统管理员可用")
 
 
+def _resolve_owner_uuid(request: Request) -> str | None:
+    """P0-9 修复(2026-08-05):owner_uuid 一律从 JWT(request.state.user_id)派生,
+    忽略请求体/元数据中的 userId —— 客户端传他人 owner_uuid 越权使用他人 BYOK Key /
+    读取他人私有记忆的漏洞被消除。
+
+    仅保留系统内部凭证(system-worker)例外:该凭证由 8802 网关鉴权后注入。
+    """
+    uid = getattr(request.state, "user_id", None)
+    if not uid:
+        return None
+    return str(uid)
+
+
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
     await _ensure_restricted_model_access(request, req.model)
-    owner_uuid = (req.metadata or {}).get("userId")
+    owner_uuid = _resolve_owner_uuid(request)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
@@ -969,7 +982,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
-    owner_uuid = (req.metadata or {}).get("userId")
+    owner_uuid = _resolve_owner_uuid(request)
     # Plan/Act 模式注入:plan 模式前置注入 Plan Mode system prompt(在 workspace memory 之前,
     # 确保 Plan Mode 引导位于 system prompt 最顶部);act 模式原样返回
     messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
