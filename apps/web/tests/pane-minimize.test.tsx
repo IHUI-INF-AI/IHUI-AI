@@ -677,13 +677,11 @@ describe('AgentTaskProgressPane — Phase 23 最小化模式', () => {
     expect(bar?.getAttribute('aria-live')).toBe('polite')
   })
 
-  // ── 8. idle 状态(progress=0, toolCallCount=0)→ 摘要条保持可见,无自动展开 ──
-  // v17 终极根治后,minimize 状态完全由用户控制,不允许任何"自动展开"逻辑干扰用户操作
-  // (自动展开的副作用是"按钮好像坏了"——按了 minimize,Pane 没变化)
-  // 新语义:idle 状态(progress=0, toolCallCount=0)下,用户已点 minimize → 摘要条仍可见
-  // 用户必须主动点展开按钮才能恢复完整面板
+  // ── 8. idle 状态 → 2026-08-01 变更:摘要条不渲染 ──
+  // v17 删除"idle 自动展开"effect;2026-08-01 进一步:hasActiveExecution=false 时
+  // 摘要条不渲染(避免 idle 显示"AI 执行中"假数据)。minimize 状态不被 idle 自动重置。
 
-  it('8. idle 状态(progress=0, toolCallCount=0)→ 摘要条保持可见(v17 无自动展开)', async () => {
+  it('8. idle 状态(progress=0, toolCallCount=0)→ 摘要条不渲染,完整面板不自动展开', async () => {
     useAgentProgressPaneStore.getState().openPane()
     setTestThreadId('thread-min-8')
     // 初始有进度
@@ -709,14 +707,10 @@ describe('AgentTaskProgressPane — Phase 23 最小化模式', () => {
       await Promise.resolve()
     })
 
-    // v17 新行为:摘要条仍可见(minimize 状态由用户独占,无 effect reset)
-    expect(document.body.querySelector('[data-testid="pane-minimized-bar"]')).toBeTruthy()
-    // 完整面板仍未渲染
-    expect(document.body.querySelector('[data-testid="agent-progress-pane"]')).toBeNull()
-    // 只有用户点 expand 按钮才会展开(通过 fireEvent 模拟)
-    fireEvent.click(screen.getByTestId('pane-expand'))
+    // 2026-08-01 新行为:idle 时摘要条不渲染(无假数据)
     expect(document.body.querySelector('[data-testid="pane-minimized-bar"]')).toBeNull()
-    expect(document.body.querySelector('[data-testid="agent-progress-pane"]')).toBeTruthy()
+    // 完整面板仍未自动展开(minimize 状态未被 effect 重置)
+    expect(document.body.querySelector('[data-testid="agent-progress-pane"]')).toBeNull()
   })
 })
 
