@@ -33,6 +33,28 @@ _BUCKET_CAPACITY: float = 5.0
 # user_id -> (tokens, last_refill_ts)
 _buckets: dict[str, tuple[float, float]] = {}
 _buckets_lock = asyncio.Lock()
+# P2-23 修复(2026-08-06):桶数量上限 + 惰性过期清理。
+# 原 _buckets 无容量上限/无 TTL,任意 user_id 一旦出现过就永久驻留内存(长期运行内存增长)。
+# 现在:超过 _MAX_BUCKETS 时淘汰最久未更新的 1/4;每次 acquire 顺带清理 60s 未活跃桶。
+_MAX_BUCKETS = 100_000
+_BUCKET_TTL_SEC = 300.0  # 5 分钟未活跃即视为可淘汰
+
+
+async def _evict_stale_buckets(now: float) -> None:
+    """清理超过 TTL 未活跃的桶(不常触发,线性扫描;桶满时也按 LRU 近似淘汰)。"""
+    if len(_buckets) < _MAX_BUCKETS:
+        return
+    stale_keys = [
+        uid for uid, (_t, ts) in _buckets.items() if now - ts > _BUCKET_TTL_SEC
+    ]
+    for uid in stale_keys:
+        _buckets.pop(uid, None)
+    # 仍超限:按最后活跃时间排序,淘汰最旧的 1/4(防异常流量灌满内存)
+    if len(_buckets) >= _MAX_BUCKETS:
+        sorted_items = sorted(_buckets.items(), key=lambda kv: kv[1][1])
+        drop_count = max(1, len(sorted_items) // 4)
+        for uid, _v in sorted_items[:drop_count]:
+            _buckets.pop(uid, None)
 
 
 async def acquire(user_id: str) -> bool:
@@ -50,6 +72,7 @@ async def acquire(user_id: str) -> bool:
     try:
         async with _buckets_lock:
             now = time.monotonic()
+            await _evict_stale_buckets(now)
             tokens, last_refill = _buckets.get(
                 user_id, (_BUCKET_CAPACITY, now)
             )
