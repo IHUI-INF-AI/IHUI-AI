@@ -91,7 +91,24 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
           retries++
           continue
         }
-        const parsed = JSON.parse(raw) as IdemRecord
+        // P2-4 修复(2026-08-06):JSON.parse 加局部 try-catch —— 数据损坏(非 JSON)
+        // 时按未知状态恢复(与 B6 同路径),不再让解析异常逃逸到外层 catch 被当成
+        // "Redis 故障" 而 fail-closed 永久 409。
+        let parsed: IdemRecord
+        try {
+          parsed = JSON.parse(raw) as IdemRecord
+        } catch {
+          server.log.warn({ paymentId, idemKey, raw }, 'payment idempotency corrupted record, recovering')
+          const recoveredCorrupt = await server.redis.set(
+            key,
+            JSON.stringify({ status: 'processing', ts: now } satisfies IdemRecord),
+            'EX',
+            Math.min(ttlSec, PROCESSING_TTL_SEC),
+            'NX',
+          )
+          if (recoveredCorrupt === 'OK') return { status: 'new', retryAfterMs: 0 }
+          return { status: 'processing', retryAfterMs: 1000 }
+        }
         if (parsed.status === 'processing') {
           return { status: 'processing', retryAfterMs: 5000 }
         }
