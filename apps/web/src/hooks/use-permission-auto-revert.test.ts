@@ -31,9 +31,13 @@ vi.mock('@/components/ai/permission-mode-popover', () => ({
   switchPermissionMode: mocks.switchPermissionMode,
 }))
 
-vi.mock('sonner', () => ({
-  toast: Object.assign(mocks.toast, { success: mocks.toastSuccess }),
-}))
+vi.mock('@/components/common', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    toast: Object.assign(mocks.toast, { success: mocks.toastSuccess }),
+  }
+})
 
 vi.mock('next-intl', () => ({
   useTranslations: () => mocks.t,
