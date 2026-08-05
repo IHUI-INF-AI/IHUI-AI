@@ -71,6 +71,14 @@ __pycache__/
 **/.env.local
 **/.env.production
 
+# Cloudflared tunnel token 文件(2026-08-05 立:防 token 泄露,显式忽略)
+# 触发背景:旧 token 曾硬编码进 scripts/start-cloudflared-tunnel.ps1 commit cc73503d2d
+# 当前 scripts 已改为从文件读取,但 token 文件本身绝不能进 git
+**/TUNNEL_TOKEN*.txt
+**/tunnel-token*
+**/cloudflared*token*
+deploy/prod-bundle/cloudflared/*.local.txt
+
 # CLI 项目级配置(包含 apiKey 等敏感字段,禁止入库)
 # 但 .ihui/skills/*.md 是团队共享的 skill 定义,允许入库
 .ihui/*
