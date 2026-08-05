@@ -227,12 +227,12 @@ describe('TimelineTab — 类型过滤 chips', () => {
     const subagent = screen.getByTestId('timeline-filter-subagent')
     const tool = screen.getByTestId('timeline-filter-tool')
     const thinking = screen.getByTestId('timeline-filter-thinking')
-    // 7 = 2 plan + 2 subagent + 2 tool + 1 question
+    // 7 = 2 plan + 2 subagent + 2 tool + 1 question;SAMPLE_EVENTS 无 thinking → 0
     expect(within(all).getByText('7')).toBeTruthy()
     expect(within(plan).getByText('2')).toBeTruthy()
     expect(within(subagent).getByText('2')).toBeTruthy()
     expect(within(tool).getByText('2')).toBeTruthy()
-    expect(within(question).getByText('1')).toBeTruthy()
+    expect(within(thinking).getByText('0')).toBeTruthy()
   })
 
   it('点击 plan chip 后只显示 plan 事件,且 aria-pressed 切换', () => {
