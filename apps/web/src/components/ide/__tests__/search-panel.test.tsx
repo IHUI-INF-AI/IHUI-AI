@@ -58,10 +58,10 @@ describe('SearchPanel', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('无工作区时显示「请先打开工作区」', () => {
+  it('无工作区时显示 openWorkspaceHint 提示(2026-08-05 i18n 化)', () => {
     mockStore.state.workspacePath = ''
     const { getByText } = render(<SearchPanel />)
-    expect(getByText('请先打开工作区')).not.toBeNull()
+    expect(getByText('searchPanel.openWorkspaceHint')).not.toBeNull()
   })
 
   it('输入并回车触发 grepFiles', async () => {
