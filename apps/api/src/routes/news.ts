@@ -1,8 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { and, eq, desc } from 'drizzle-orm'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { authenticate } from '../plugins/auth.js'
 import { toggleLike, findLikeCounts } from '../db/resource-likes-queries.js'
+import { aiWorldItems } from '@ihui/database'
+import { db } from '../db/index.js'
+import { logger } from '../utils/logger.js'
 import {
   findPublishedNewsCategories,
   findAllNewsCategories,
@@ -191,7 +195,18 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
         seen.add(a.id)
       }
 
-    const items = ordered
+    type FeedItem = {
+      id: string
+      title: string
+      summary: string
+      cover: string | null
+      author: string
+      category: string | null
+      publishedAt: string | null
+      relatedModelIds: string[]
+      source: 'api' | 'ai-world'
+    }
+    const items: FeedItem[] = ordered
       .slice(0, limit)
       .map((id) => map.get(id))
       .filter((a): a is ArticleItem => !!a)
@@ -206,6 +221,43 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
         relatedModelIds: [] as string[],
         source: 'api' as const,
       }))
+
+    // 2026-08-05 修复:news_articles 生产为 0 条导致资讯条带空白,
+    // fallback 到 AI World 每日同步数据(kind='news',每日 0/12 点更新,真实资讯)。
+    if (items.length === 0) {
+      try {
+        const world = await db
+          .select({
+            id: aiWorldItems.id,
+            title: aiWorldItems.title,
+            summary: aiWorldItems.summary,
+            cover: aiWorldItems.coverImage,
+            author: aiWorldItems.source,
+            publishedAt: aiWorldItems.publishedAt,
+          })
+          .from(aiWorldItems)
+          .where(and(eq(aiWorldItems.kind, 'news'), eq(aiWorldItems.status, 1)))
+          .orderBy(desc(aiWorldItems.publishedAt), desc(aiWorldItems.fetchedAt))
+          .limit(limit)
+        if (world.length > 0) {
+          for (const w of world) {
+            items.push({
+              id: `aiw-${w.id}`,
+              title: w.title,
+              summary: w.summary ?? '',
+              cover: w.cover ?? null,
+              author: w.author ?? '',
+              category: null,
+              publishedAt: w.publishedAt ? w.publishedAt.toISOString() : null,
+              relatedModelIds: [],
+              source: 'ai-world',
+            })
+          }
+        }
+      } catch (err) {
+        logger.warn('[news/feed] ai_world fallback failed', { error: err instanceof Error ? err.message : err })
+      }
+    }
 
     return reply.send(success({ items }))
   })
