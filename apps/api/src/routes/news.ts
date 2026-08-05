@@ -1,10 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { and, eq, desc } from 'drizzle-orm'
+import { and, eq, desc, asc } from 'drizzle-orm'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { authenticate } from '../plugins/auth.js'
 import { toggleLike, findLikeCounts } from '../db/resource-likes-queries.js'
-import { aiWorldItems } from '@ihui/database'
+import { aiWorldItems, zhsAiModelInfo } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -260,6 +260,37 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     }
 
     return reply.send(success({ items }))
+  })
+
+  // GET /models/market - 模型市场公开列表(DB 驱动 zhsAiModelInfo status=1)
+  // 2026-08-05 补建:前端 models-api.ts getMarketModels 调用但路由此前不存在(404),
+  // 数据由 scripts/seed-zhs-model-info.mjs 从 default_models.json seed(102 个模型)。
+  server.get('/models/market', async (request, reply) => {
+    const limitQuery = z
+      .object({ limit: z.coerce.number().int().min(1).max(200).default(200) })
+      .safeParse(request.query)
+    const limit = limitQuery.success ? limitQuery.data.limit : 200
+    const models = await db
+      .select({
+        id: zhsAiModelInfo.id,
+        name: zhsAiModelInfo.name,
+        source: zhsAiModelInfo.source,
+        icon: zhsAiModelInfo.icon,
+        description: zhsAiModelInfo.description,
+        code: zhsAiModelInfo.code,
+        modelCode: zhsAiModelInfo.modelCode,
+        manufacturer: zhsAiModelInfo.manufacturer,
+        isGratis: zhsAiModelInfo.isGratis,
+        isNew: zhsAiModelInfo.isNew,
+        isTop: zhsAiModelInfo.isTop,
+        isHot: zhsAiModelInfo.isHot,
+        sort: zhsAiModelInfo.sort,
+      })
+      .from(zhsAiModelInfo)
+      .where(eq(zhsAiModelInfo.status, 1))
+      .orderBy(desc(zhsAiModelInfo.isTop), desc(zhsAiModelInfo.isHot), asc(zhsAiModelInfo.sort))
+      .limit(limit)
+    return reply.send(success({ models }))
   })
 
   // GET /news/articles/:id - 资讯详情（公开）
