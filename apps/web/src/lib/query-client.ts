@@ -12,10 +12,16 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
-        // P1-4 修复(2026-07-28):gcTime 从默认 5 分钟降到 2 分钟,加速未使用查询的 GC,
-        // 减少长会话中缓存查询的内存占用(默认 5 分钟太长,长会话累积大量 stale 查询)
-        gcTime: 2 * 60 * 1000,
+        // 2026-08-05 修复导航切换慢:从 60s 提升到 5 分钟,确保导航回已访问页面时,
+        // 数据仍 fresh,React Query 不触发 refetch,页面立即渲染缓存内容。
+        // 根因:用户的 80+ 导航项在 (main) 路由组内切换,每个页面都是 Client Component
+        // + useQuery 拉数据。旧 staleTime=60s 导致离开 1 分钟再回来就 refetch,
+        // 页面先显示 loading 态再渲染数据,用户感知"切换慢"。
+        // gcTime 同步提升到 10 分钟,防止缓存过早 GC 导致导航回旧页面时白屏加载。
+        staleTime: 5 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+        // 页面切换场景:切换 tab 回来不要触发 refetch(旧默认 true),避免不必要网络请求
+        refetchOnWindowFocus: false,
         retry: 1,
       },
       mutations: {
