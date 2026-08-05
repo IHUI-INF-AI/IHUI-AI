@@ -181,7 +181,8 @@ describe('useId() — SSR/CSR 稳定', () => {
     const { container, rerender } = render(<IdComponent />)
     const firstId = container.querySelector('[data-testid="id"]')?.textContent
     expect(firstId).toBeTruthy()
-    expect(firstId?.startsWith(':r')).toBe(true) // React 18+ useId 格式
+    // 2026-08-05 修复:React 19.2.8 useId 前缀从 ':r' 变为 '_r'
+    expect(firstId).toMatch(/[:_]r[:_0-9]/)
     // 重渲染
     rerender(<IdComponent />)
     const secondId = container.querySelector('[data-testid="id"]')?.textContent
