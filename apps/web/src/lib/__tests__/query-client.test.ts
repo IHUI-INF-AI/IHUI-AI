@@ -8,9 +8,15 @@ describe('getQueryClient', () => {
     expect(qc.getDefaultOptions()).toBeDefined()
   })
 
-  it('默认 staleTime 为 60 秒', () => {
+  // 2026-08-05 同步实现变更:staleTime 60s -> 5min(导航优化)
+  it('默认 staleTime 为 5 分钟', () => {
     const qc = getQueryClient()
-    expect(qc.getDefaultOptions().queries?.staleTime).toBe(60 * 1000)
+    expect(qc.getDefaultOptions().queries?.staleTime).toBe(5 * 60 * 1000)
+  })
+
+  it('默认 refetchOnWindowFocus 为 false', () => {
+    const qc = getQueryClient()
+    expect(qc.getDefaultOptions().queries?.refetchOnWindowFocus).toBe(false)
   })
 
   it('默认 retry 为 1', () => {

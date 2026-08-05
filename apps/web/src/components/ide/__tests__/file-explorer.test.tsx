@@ -33,6 +33,17 @@ vi.mock('@/stores/ide-workspace', () => ({
 
 import { FileExplorer } from '../file-explorer'
 
+// 2026-08-05 修复:Tooltip 需 TooltipProvider 上下文
+import { TooltipProvider } from '@/components/feedback'
+
+function renderFileExplorer() {
+  return render(
+    <TooltipProvider>
+      <FileExplorer />
+    </TooltipProvider>,
+  )
+}
+
 describe('FileExplorer', () => {
   beforeEach(() => {
     mockStore.state = {
@@ -52,7 +63,7 @@ describe('FileExplorer', () => {
   afterEach(() => cleanup())
 
   it('正常渲染:Tab 按钮 + 搜索框 + 空文件树提示', () => {
-    const { getByText, getByPlaceholderText } = render(<FileExplorer />)
+    const { getByText, getByPlaceholderText } = renderFileExplorer()
     // 三个子标签
     expect(getByText('fileExplorer.tabFiles')).not.toBeNull()
     expect(getByText('fileExplorer.tabOutline')).not.toBeNull()
@@ -65,27 +76,27 @@ describe('FileExplorer', () => {
 
   it('activeView 非 files 时不渲染', () => {
     mockStore.state.activeView = 'debug'
-    const { container } = render(<FileExplorer />)
+    const { container } = renderFileExplorer()
     expect(container.firstChild).toBeNull()
   })
 
   it('无工作区时显示空状态提示', () => {
     mockStore.state.workspacePath = ''
-    const { getByText } = render(<FileExplorer />)
+    const { getByText } = renderFileExplorer()
     expect(getByText('editorEmpty.subtitle')).not.toBeNull()
   })
 
   it('加载中显示 ... 占位', () => {
     mockStore.state.workspacePath = '/ws'
     mockStore.state.loading = true
-    const { getByText } = render(<FileExplorer />)
+    const { getByText } = renderFileExplorer()
     expect(getByText('...')).not.toBeNull()
   })
 
   it('错误状态显示 error 文本', () => {
     mockStore.state.workspacePath = '/ws'
     mockStore.state.error = '加载失败'
-    const { getByText } = render(<FileExplorer />)
+    const { getByText } = renderFileExplorer()
     expect(getByText('加载失败')).not.toBeNull()
   })
 
@@ -94,7 +105,7 @@ describe('FileExplorer', () => {
     mockStore.state.fileTree = [
       { id: 'f1', name: 'src', path: '/ws/src', type: 'folder', children: [] },
     ]
-    const { getByText } = render(<FileExplorer />)
+    const { getByText } = renderFileExplorer()
     fireEvent.click(getByText('src'))
     expect(mockStore.state.toggleFolder).toHaveBeenCalledWith('f1')
   })
@@ -109,7 +120,7 @@ describe('FileExplorer', () => {
       language: 'typescript',
     }
     mockStore.state.fileTree = [fileNode]
-    const { getByText } = render(<FileExplorer />)
+    const { getByText } = renderFileExplorer()
     fireEvent.click(getByText('app.ts'))
     expect(mockStore.state.selectFile).toHaveBeenCalledWith('file-1')
     expect(mockStore.state.openFile).toHaveBeenCalledWith(
@@ -123,7 +134,7 @@ describe('FileExplorer', () => {
       { id: 'f1', name: 'app.ts', path: '/ws/app.ts', type: 'file' },
       { id: 'f2', name: 'readme.md', path: '/ws/readme.md', type: 'file' },
     ]
-    const { getByPlaceholderText, getByText, queryByText } = render(<FileExplorer />)
+    const { getByPlaceholderText, getByText, queryByText } = renderFileExplorer()
     const input = getByPlaceholderText('fileExplorer.searchPlaceholder')
     fireEvent.change(input, { target: { value: 'app' } })
     // 命中 app.ts:highlightMatch 把 'app' 拆为高亮 span,后缀 '.ts' 为独立文本节点
@@ -138,7 +149,7 @@ describe('FileExplorer', () => {
     mockStore.state.fileTree = [
       { id: 'f1', name: 'app.ts', path: '/ws/app.ts', type: 'file' },
     ]
-    const { getByPlaceholderText, getByText } = render(<FileExplorer />)
+    const { getByPlaceholderText, getByText } = renderFileExplorer()
     fireEvent.change(getByPlaceholderText('fileExplorer.searchPlaceholder'), {
       target: { value: 'zzz' },
     })
@@ -147,7 +158,7 @@ describe('FileExplorer', () => {
 
   it('刷新按钮点击触发 fetchFileTree', () => {
     mockStore.state.workspacePath = '/ws'
-    const { getByTitle } = render(<FileExplorer />)
+    const { getByTitle } = renderFileExplorer()
     fireEvent.click(getByTitle('fileExplorer.refresh'))
     expect(mockStore.state.fetchFileTree).toHaveBeenCalled()
   })
