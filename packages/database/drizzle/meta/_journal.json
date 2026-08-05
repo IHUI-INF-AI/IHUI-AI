@@ -1072,6 +1072,13 @@
       "when": 1785702240000,
       "tag": "20260802040000_user_devices",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1785946732526,
+      "tag": "20260806001852_usdt_tx_hash_unique",
+      "breakpoints": true
     }
   ]
 }
