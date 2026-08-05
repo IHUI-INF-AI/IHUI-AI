@@ -144,14 +144,21 @@ export async function browserHubReload(sessionId: string): Promise<ApiResult<Bro
 // 运行时 typeof window === 'undefined' 判定仍正确(Node 下返回 'undefined')。
 declare const window: { location: { protocol: string; host: string } } | undefined
 
+/** 当前 access token(由应用层在登录后注入;取不到时 WS 连接将被服务端 4401 拒绝) */
+let currentAccessToken = ''
+export function setBrowserWsToken(token: string): void {
+  currentAccessToken = token
+}
+
 export function buildBrowserWsUrl(sessionId: string): string {
-  if (typeof window === 'undefined') {
-    // SSR 防护:返回占位 URL,实际不应在 SSR 调用
-    return `ws://localhost:8803/api/browser/ws/${sessionId}`
-  }
-  if (process.env.NODE_ENV !== 'production') {
-    return `ws://localhost:8803/api/browser/ws/${sessionId}`
-  }
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${proto}://${window.location.host}/api/browser/ws/${sessionId}`
+  const base =
+    typeof window === 'undefined'
+      ? `ws://localhost:8803/api/browser/ws/${sessionId}` // SSR 防护:占位,实际不应在 SSR 调用
+      : process.env.NODE_ENV !== 'production'
+        ? `ws://localhost:8803/api/browser/ws/${sessionId}`
+        : (window.location.protocol === 'https:' ? 'wss' : 'ws') +
+          `://${window.location.host}/api/browser/ws/${sessionId}`
+  // P0-4(2026-08-05):ai-service WS 握手要求 ?token=<access_token>,否则 close 4401
+  const sep = base.includes('?') ? '&' : '?'
+  return `${base}${sep}token=${encodeURIComponent(currentAccessToken)}`
 }
