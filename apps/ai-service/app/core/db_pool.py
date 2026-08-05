@@ -45,6 +45,12 @@ async def get_shared_pool() -> asyncpg.Pool:
     if _pool is None:
         async with _pool_lock:
             if _pool is None:  # double-check after acquiring lock
+                # P2-9(2026-08-06):database_url 未配置(fail-closed)直接抛错,
+                # 不再静默连本地默认库(原默认含弱密码 postgres:postgres,生产覆盖遗漏即隐患)。
+                if not settings.database_url:
+                    raise RuntimeError(
+                        "DATABASE_URL 未配置:ai-service 需要数据库连接,请在 .env 设置"
+                    )
                 _pool = await asyncpg.create_pool(
                     dsn=settings.database_url,
                     min_size=2,
