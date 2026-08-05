@@ -305,12 +305,12 @@ describe('TimelineEventRow — 嵌套 depth 渲染', () => {
     expect(row.className).not.toContain('ml-3')
   })
 
-  it('depth>0(嵌套):row 含 ml-3 + border-l', () => {
+  it('depth>0(嵌套):row 含 ml-3 + pl-3(2026-08-05 更新)', () => {
     const event = makeEvent({ id: 'nested-evt' })
     const { container } = render(<TimelineEventRow event={event} depth={2} />)
     const row = container.querySelector('[data-testid="timeline-event-row"]') as HTMLElement
     expect(row.className).toContain('ml-3')
-    expect(row.className).toContain('border-l')
+    expect(row.className).toContain('pl-3')
   })
 
   it('depth=0:左侧含 type 颜色 bar 装饰条', () => {
@@ -771,12 +771,12 @@ describe('TimelineEventRow — 深度嵌套(depth=3)', () => {
     cleanup()
   })
 
-  it('depth=3:row 仍含 ml-3 + border-l', () => {
+  it('depth=3:row 仍含 ml-3 + pl-3(2026-08-05 更新)', () => {
     const event = makeEvent({ id: 'deep-3' })
     const { container } = render(<TimelineEventRow event={event} depth={3} />)
     const row = container.querySelector('[data-testid="timeline-event-row"]') as HTMLElement
     expect(row.className).toContain('ml-3')
-    expect(row.className).toContain('border-l')
+    expect(row.className).toContain('pl-3')
   })
 
   it('depth=3 + 有 children:展开时渲染嵌套 row(depth=4)', () => {
@@ -810,7 +810,7 @@ describe('TimelineEventRow — 深度嵌套(depth=3)', () => {
     ).find((el) => el.getAttribute('data-event-id') === 'grandchild') as HTMLElement
     expect(grandRow).toBeTruthy()
     expect(grandRow.className).toContain('ml-3')
-    expect(grandRow.className).toContain('border-l')
+    expect(grandRow.className).toContain('pl-3')
   })
 
   it('depth=3 父 row + depth=4 子 row:无左侧 bar 装饰条', () => {
