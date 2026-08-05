@@ -128,6 +128,12 @@ const nextConfig: NextConfig = {
     // 2026-08-05 00:15 生产构建排障(P1 项):按内存而非 CPU 计算 worker 数,
     // 更保守,降低并发 worker 叠加的提交量峰值。
     memoryBasedWorkersCount: true,
+    // 2026-08-05 客户端路由缓存:staleTimes 让 Next.js 15 的客户端导航缓存 RSC 数据,
+    // 避免同一页面在导航中反复重新请求。dynamic=30s,static=5min 提供即时返回体验。
+    staleTimes: {
+      dynamic: 30,
+      static: 300,
+    },
     // 2026-08-05 00:15 生产构建排障(P0 项,官方 memory-usage 文档):
     // 显式关闭 server source map,降低构建内存峰值。
     serverSourceMaps: false,
