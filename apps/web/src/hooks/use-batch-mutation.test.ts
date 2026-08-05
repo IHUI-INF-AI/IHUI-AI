@@ -8,12 +8,16 @@ vi.mock('@/lib/api', () => ({
   fetchApi: vi.fn(),
 }))
 
-vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}))
+vi.mock('@/components/common', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+  }
+})
 
 import { fetchApi } from '@/lib/api'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import { useBatchMutation } from './use-batch-mutation'
 
 const mockedFetchApi = vi.mocked(fetchApi)

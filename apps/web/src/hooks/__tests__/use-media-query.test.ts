@@ -41,11 +41,12 @@ describe('useMediaQuery', () => {
     expect(listeners.length).toBe(0)
   })
 
-  it('useIsMobile查询max-width:768px', () => {
+  // 2026-08-05 同步实现变更:移动阈值 768px → 1023px
+  it('useIsMobile查询max-width:1023px', () => {
     mockMatchMedia(true)
     const { result } = renderHook(() => useIsMobile())
     expect(result.current).toBe(true)
-    expect(window.matchMedia).toHaveBeenCalledWith('(max-width: 768px)')
+    expect(window.matchMedia).toHaveBeenCalledWith('(max-width: 1023px)')
   })
 
   it('useIsTablet查询769px-1024px区间', () => {

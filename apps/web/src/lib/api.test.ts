@@ -15,10 +15,8 @@ import type * as Api from './api'
 // vi.mock 工厂会被提升到文件顶部,早于任何 const 声明,因此用 vi.hoisted 创建稳定 spy,
 // 供工厂与断言共享同一引用(即便 vi.resetModules 后工厂重跑,引用也不变)。
 const mocks = vi.hoisted(() => ({
-  // api.ts 内的 fetchApiShared(@ihui/api-client.fetchApi)
   fetchApiShared: vi.fn(),
-  // useLoginDialogStore.getState().open
-  open: vi.fn(),
+  openLoginDialogOnce: vi.fn(),
 }))
 
 vi.mock('@ihui/api-client', () => ({
@@ -26,12 +24,19 @@ vi.mock('@ihui/api-client', () => ({
   setTokenProvider: vi.fn(),
   setBaseUrl: vi.fn(),
   streamChat: vi.fn(),
+  setStreamBaseUrl: vi.fn(),
+  setDeviceFingerprintProvider: vi.fn(),
+}))
+
+vi.mock('@/lib/login-dialog-trigger', () => ({
+  openLoginDialogOnce: mocks.openLoginDialogOnce,
+  isPublicPath: (p: string) => !p || !p.startsWith('/dashboard'),
 }))
 
 vi.mock('@/stores/login-dialog', () => ({
   // zustand store hook: getState() 返回 state,subscribe 是 store 顶层方法(api.ts 第 35 行直接调用)
   useLoginDialogStore: {
-    getState: () => ({ open: mocks.open }),
+    getState: () => ({ open: mocks.openLoginDialogOnce }),
     // 返回 unsubscribe;不主动触发 listener,避免 api.ts 内 `const unsub = subscribe(cb)` 的 TDZ。
     // 防风暴 guard 由 vi.resetModules 逐测试重置,不影响单测试内断言。
     subscribe: vi.fn(() => () => {}),
@@ -49,22 +54,22 @@ describe('fetchApi 401 懒触发策略', () => {
   let fetchApi: typeof Api.fetchApi
 
   beforeEach(async () => {
-    // resetModules 重建 api.ts 模块,重置模块级 loginDialogOpenGuard 防风暴标志
-    vi.resetModules()
     vi.clearAllMocks()
     window.history.replaceState({}, '', TEST_PATH)
-    const mod = await import('./api')
-    fetchApi = mod.fetchApi
-    // 默认返回成功,单测内按需覆盖
+    if (!fetchApi) {
+      vi.resetModules()
+      const mod = await import('./api')
+      fetchApi = mod.fetchApi
+    }
     mocks.fetchApiShared.mockResolvedValue({ success: true, data: null, status: 200 })
-  })
+  }, 30000)
 
   it('GET 请求 401 → 不调用 open(懒触发:页面初始加载不打断)', async () => {
     mocks.fetchApiShared.mockResolvedValue({ success: false, status: 401, error: 'Unauthorized' })
 
     await fetchApi('/api/me', { method: 'GET' })
 
-    expect(mocks.open).not.toHaveBeenCalled()
+    expect(mocks.openLoginDialogOnce).not.toHaveBeenCalled()
   })
 
   it('POST 请求 401 → 调用 open("login", currentPath)', async () => {
@@ -72,8 +77,8 @@ describe('fetchApi 401 懒触发策略', () => {
 
     await fetchApi('/api/install', { method: 'POST' })
 
-    expect(mocks.open).toHaveBeenCalledTimes(1)
-    expect(mocks.open).toHaveBeenCalledWith('login', TEST_PATH)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledTimes(1)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledWith(TEST_PATH)
   })
 
   it('PUT 请求 401 → 调用 open', async () => {
@@ -81,8 +86,8 @@ describe('fetchApi 401 懒触发策略', () => {
 
     await fetchApi('/api/profile', { method: 'PUT' })
 
-    expect(mocks.open).toHaveBeenCalledTimes(1)
-    expect(mocks.open).toHaveBeenCalledWith('login', TEST_PATH)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledTimes(1)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledWith(TEST_PATH)
   })
 
   it('DELETE 请求 401 → 调用 open', async () => {
@@ -90,8 +95,8 @@ describe('fetchApi 401 懒触发策略', () => {
 
     await fetchApi('/api/item/1', { method: 'DELETE' })
 
-    expect(mocks.open).toHaveBeenCalledTimes(1)
-    expect(mocks.open).toHaveBeenCalledWith('login', TEST_PATH)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledTimes(1)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledWith(TEST_PATH)
   })
 
   it('PATCH 请求 401 → 调用 open', async () => {
@@ -99,8 +104,8 @@ describe('fetchApi 401 懒触发策略', () => {
 
     await fetchApi('/api/item/1', { method: 'PATCH' })
 
-    expect(mocks.open).toHaveBeenCalledTimes(1)
-    expect(mocks.open).toHaveBeenCalledWith('login', TEST_PATH)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledTimes(1)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledWith(TEST_PATH)
   })
 
   it('POST 请求 200 成功 → 不调用 open', async () => {
@@ -108,7 +113,7 @@ describe('fetchApi 401 懒触发策略', () => {
 
     const r = await fetchApi('/api/install', { method: 'POST' })
 
-    expect(mocks.open).not.toHaveBeenCalled()
+    expect(mocks.openLoginDialogOnce).not.toHaveBeenCalled()
     expect(r.success).toBe(true)
   })
 
@@ -117,7 +122,7 @@ describe('fetchApi 401 懒触发策略', () => {
 
     await fetchApi('/api/install', { method: 'POST' })
 
-    expect(mocks.open).not.toHaveBeenCalled()
+    expect(mocks.openLoginDialogOnce).not.toHaveBeenCalled()
   })
 
   it('未传 method(默认 GET)401 → 不调用 open', async () => {
@@ -125,7 +130,7 @@ describe('fetchApi 401 懒触发策略', () => {
 
     await fetchApi('/api/me')
 
-    expect(mocks.open).not.toHaveBeenCalled()
+    expect(mocks.openLoginDialogOnce).not.toHaveBeenCalled()
   })
 
   it('小写 method "post" 401 → 调用 open(api.ts 内 toUpperCase 归一化)', async () => {
@@ -133,7 +138,7 @@ describe('fetchApi 401 懒触发策略', () => {
 
     await fetchApi('/api/install', { method: 'post' })
 
-    expect(mocks.open).toHaveBeenCalledTimes(1)
-    expect(mocks.open).toHaveBeenCalledWith('login', TEST_PATH)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledTimes(1)
+    expect(mocks.openLoginDialogOnce).toHaveBeenCalledWith(TEST_PATH)
   })
 })
